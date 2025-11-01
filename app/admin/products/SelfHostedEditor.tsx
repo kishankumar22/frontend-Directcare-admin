@@ -1,0 +1,471 @@
+// components/SelfHostedTinyMCE.tsx - WORKING PLACEHOLDER + TYPING
+'use client';
+
+import React, { useEffect, useRef, useState } from 'react';
+
+interface SelfHostedTinyMCEProps {
+  value: string;
+  onChange: (content: string) => void;
+  placeholder?: string;
+  height?: number;
+  className?: string;
+}
+
+declare global {
+  interface Window {
+    tinymce: any;
+  }
+}
+
+export const SelfHostedTinyMCE: React.FC<SelfHostedTinyMCEProps> = ({
+  value,
+  onChange,
+  placeholder = "Start typing...",
+  height = 400,
+  className = ""
+}) => {
+  const editorRef = useRef<any>(null);
+  const [isLoaded, setIsLoaded] = useState(false);
+  const [isMounted, setIsMounted] = useState(false);
+  const [isReady, setIsReady] = useState(false);
+  const [editorId] = useState(() => `tinymce-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`);
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (!isMounted) return;
+
+    const loadTinyMCE = () => {
+      if (window.tinymce && editorRef.current) {
+        window.tinymce.remove(`#${editorId}`);
+      }
+
+      if (window.tinymce) {
+        initializeEditor();
+        return;
+      }
+
+      const script = document.createElement('script');
+      script.src = '/tinymce/tinymce.min.js';
+      script.onload = () => {
+        setIsLoaded(true);
+        setTimeout(() => {
+          initializeEditor();
+        }, 100);
+      };
+      script.onerror = () => {
+        console.error('❌ Failed to load TinyMCE');
+      };
+      document.head.appendChild(script);
+    };
+
+    const initializeEditor = () => {
+      if (!window.tinymce) return;
+
+      window.tinymce.init({
+        selector: `#${editorId}`,
+        height: height,
+        
+        // 🔑 License
+        license_key: 'gpl',
+        
+        // 📁 Base configuration
+        base_url: '/tinymce',
+        suffix: '.min',
+        
+        // 🧩 Core plugins
+        plugins: [
+          'advlist', 'autolink', 'lists', 'link', 'image', 'charmap',
+          'searchreplace', 'visualblocks', 'code', 'fullscreen',
+          'insertdatetime', 'media', 'table', 'wordcount', 'help'
+        ],
+        
+        // 🔧 Toolbar
+        toolbar: 'undo redo | formatselect | bold italic underline | ' +
+                'alignleft aligncenter alignright | ' +
+                'bullist numlist | link image | removeformat | code',
+        
+        // 🎨 DARK THEME
+        skin: 'oxide-dark',
+        content_css: 'dark',
+        
+        // 📋 Menu
+        menubar: 'edit view insert format tools',
+        
+        // ✅ FIXED: Content styling with working placeholder
+        content_style: `
+          body { 
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            font-size: 14px; 
+            line-height: 1.6;
+            color: #f1f5f9 !important;
+            background-color: #0f172a !important;
+            margin: 0;
+            padding: 16px;
+            min-height: ${height - 120}px;
+            box-sizing: border-box;
+            position: relative;
+          }
+          
+          /* ✅ WORKING PLACEHOLDER - Shows when body is empty */
+          body[data-mce-placeholder]:not([data-mce-placeholder=""]):empty::before {
+            content: attr(data-mce-placeholder);
+            color: #64748b;
+            font-style: italic;
+            position: absolute;
+            top: 16px;
+            left: 16px;
+            pointer-events: none;
+            z-index: 1;
+          }
+          
+          body:empty::before {
+            content: "${placeholder}";
+            color: #64748b;
+            font-style: italic;
+            position: absolute;
+            top: 16px;
+            left: 16px;
+            pointer-events: none;
+            z-index: 1;
+          }
+          
+          * {
+            color: #f1f5f9 !important;
+          }
+          
+          p {
+            margin: 0 0 1em 0;
+            line-height: 1.6;
+            color: #e2e8f0 !important;
+            min-height: 1.4em;
+          }
+          
+          p:first-child {
+            margin-top: 0;
+          }
+          
+          p:last-child {
+            margin-bottom: 0;
+          }
+          
+          /* Empty paragraph handling */
+          p:empty {
+            min-height: 1.4em;
+          }
+          
+          h1, h2, h3, h4, h5, h6 { 
+            color: #f8fafc !important; 
+            margin: 1.2em 0 0.6em 0; 
+            font-weight: 600;
+            line-height: 1.4;
+          }
+          
+          strong, b {
+            color: #f8fafc !important;
+            font-weight: 600;
+          }
+          
+          em, i {
+            color: #e2e8f0 !important;
+            font-style: italic;
+          }
+          
+          u {
+            color: #e2e8f0 !important;
+            text-decoration: underline;
+          }
+          
+          a { 
+            color: #a855f7 !important; 
+            text-decoration: underline;
+          }
+          
+          a:hover {
+            color: #c084fc !important;
+          }
+          
+          ul, ol {
+            color: #e2e8f0 !important;
+            padding-left: 1.5em;
+            margin: 0.8em 0;
+          }
+          
+          li {
+            color: #e2e8f0 !important;
+            margin: 0.4em 0;
+            line-height: 1.6;
+          }
+          
+          table { 
+            border-collapse: collapse; 
+            width: 100%; 
+            margin: 1em 0; 
+            background-color: #1e293b !important;
+            border: 1px solid #475569;
+          }
+          
+          th, td { 
+            border: 1px solid #475569; 
+            padding: 8px 12px; 
+            text-align: left; 
+            color: #e2e8f0 !important;
+          }
+          
+          th { 
+            background-color: #334155 !important; 
+            font-weight: 600;
+            color: #f1f5f9 !important;
+          }
+          
+          tr:nth-child(even) td {
+            background-color: #334155 !important;
+          }
+          
+          code { 
+            background-color: #374151 !important; 
+            color: #fbbf24 !important; 
+            padding: 2px 6px; 
+            border-radius: 4px;
+            font-family: 'SF Mono', Monaco, Consolas, monospace;
+          }
+          
+          pre {
+            background-color: #111827 !important;
+            color: #f3f4f6 !important;
+            padding: 16px;
+            border-radius: 8px;
+            overflow-x: auto;
+            border: 1px solid #374151;
+          }
+          
+          blockquote {
+            border-left: 4px solid #8b5cf6;
+            margin: 1em 0;
+            padding: 0.5em 1em;
+            color: #cbd5e1 !important;
+            background-color: #334155 !important;
+            border-radius: 0 8px 8px 0;
+          }
+          
+          hr {
+            border: none;
+            border-top: 2px solid #475569;
+            margin: 1.5em 0;
+          }
+          
+          img {
+            max-width: 100%;
+            height: auto;
+            border-radius: 8px;
+          }
+        `,
+        
+        // ⚙️ Editor settings
+        branding: false,
+        promotion: false,
+        resize: true,
+        
+        // 🔧 UI Settings
+        toolbar_mode: 'wrap',
+        statusbar: true,
+        elementpath: false,
+        
+        // 📸 Image upload handler
+        images_upload_handler: async (blobInfo: any, progress: any) => {
+          return new Promise(async (resolve, reject) => {
+            try {
+              const formData = new FormData();
+              formData.append('file', blobInfo.blob(), blobInfo.filename());
+              
+              const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:7196';
+              const response = await fetch(`${apiUrl}/api/Upload/image`, {
+                method: 'POST',
+                headers: {
+                  'Authorization': `Bearer ${localStorage.getItem('authToken')}`
+                },
+                body: formData
+              });
+              
+              const result = await response.json();
+              
+              if (result.success) {
+                resolve(`${apiUrl}${result.url}`);
+              } else {
+                reject('Upload failed: ' + result.error);
+              }
+            } catch (error) {
+              console.error('Upload error:', error);
+              reject('Upload failed: Network error');
+            }
+          });
+        },
+        
+        // 🔄 Setup callback
+        setup: (editor: any) => {
+          editorRef.current = editor;
+          
+          editor.on('change input undo redo', () => {
+            const content = editor.getContent();
+            onChange(content);
+            
+            // ✅ Update placeholder visibility
+            const body = editor.getBody();
+            if (body) {
+              const isEmpty = editor.getContent({ format: 'text' }).trim() === '';
+              if (isEmpty) {
+                body.setAttribute('data-mce-placeholder', placeholder);
+              } else {
+                body.removeAttribute('data-mce-placeholder');
+              }
+            }
+          });
+          
+          editor.on('init', () => {
+            setIsReady(true);
+            
+            // Set initial content
+            if (value) {
+              editor.setContent(value);
+            } else {
+              // ✅ Set placeholder attribute for empty editor
+              const body = editor.getBody();
+              if (body) {
+                body.setAttribute('data-mce-placeholder', placeholder);
+              }
+            }
+            
+            // Apply dark theme styling to editor container
+            const container = editor.getContainer();
+            if (container) {
+              container.style.backgroundColor = '#1e293b';
+              container.style.border = '1px solid #475569';
+              container.style.borderRadius = '12px';
+              container.style.overflow = 'hidden';
+            }
+          });
+          
+          // ✅ Handle focus events for placeholder
+          editor.on('focus', () => {
+            const body = editor.getBody();
+            const isEmpty = editor.getContent({ format: 'text' }).trim() === '';
+            if (isEmpty && body) {
+              body.removeAttribute('data-mce-placeholder');
+            }
+          });
+          
+          editor.on('blur', () => {
+            const body = editor.getBody();
+            const isEmpty = editor.getContent({ format: 'text' }).trim() === '';
+            if (isEmpty && body) {
+              body.setAttribute('data-mce-placeholder', placeholder);
+            }
+          });
+        }
+      });
+    };
+
+    loadTinyMCE();
+
+    return () => {
+      if (window.tinymce && editorRef.current) {
+        window.tinymce.remove(`#${editorId}`);
+      }
+    };
+  }, [isMounted, editorId, placeholder]);
+
+  useEffect(() => {
+    if (editorRef.current && isReady && value !== editorRef.current.getContent()) {
+      editorRef.current.setContent(value || '');
+    }
+  }, [value, isReady]);
+
+  if (!isMounted) {
+    return (
+      <div className={`border border-slate-700 rounded-xl bg-slate-800/50 p-4 ${className}`} style={{ height: height + 50 }}>
+        <div className="flex items-center justify-center h-full">
+          <div className="flex items-center gap-2 text-violet-400">
+            <div className="w-4 h-4 border-2 border-violet-400 border-t-transparent rounded-full animate-spin"></div>
+            <span>Initializing editor...</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className={className}>
+      {!isReady && (
+        <div 
+          className="border border-slate-700 rounded-xl bg-slate-800/50 p-4 flex items-center justify-center" 
+          style={{ height: height }}
+        >
+          <div className="flex items-center gap-2 text-violet-400">
+            <div className="w-4 h-4 border-2 border-violet-400 border-t-transparent rounded-full animate-spin"></div>
+            <span>Loading TinyMCE editor...</span>
+          </div>
+        </div>
+      )}
+      
+      {/* Dark themed editor container */}
+      <div
+        className="rounded-xl overflow-hidden border border-slate-700"
+        style={{
+          visibility: isReady ? 'visible' : 'hidden',
+          opacity: isReady ? 1 : 0,
+          transition: 'opacity 0.3s ease',
+          backgroundColor: '#1e293b'
+        }}
+      >
+        
+        <textarea 
+          id={editorId} 
+          className="w-full"
+          suppressHydrationWarning
+        />
+      </div>
+    </div>
+  );
+};
+
+export const ProductDescriptionEditor = ({ 
+  label, 
+  value, 
+  onChange, 
+  placeholder = "Start typing your description...",
+  required = false,
+  height = 350,
+  showHelpText,
+  className = ""
+}: {
+  label?: string;
+  value: string;
+  onChange: (value: string) => void;
+  placeholder?: string;
+  required?: boolean;
+  height?: number;
+  showHelpText?: string;
+  className?: string;
+}) => {
+  return (
+    <div className={className}>
+      <label className="block text-sm font-medium text-slate-300 mb-2">
+        {label} {required && <span className="text-red-400">*</span>}
+      </label>
+      <SelfHostedTinyMCE
+        value={value}
+        onChange={onChange}
+        placeholder={placeholder}
+        height={height}
+        className="w-full"
+      />
+      {showHelpText && (
+        <p className="text-xs text-slate-400 mt-1">
+          {showHelpText}
+        </p>
+      )}
+    </div>
+  );
+};
