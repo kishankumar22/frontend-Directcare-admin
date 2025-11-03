@@ -6,6 +6,7 @@ import { API_ENDPOINTS, API_BASE_URL } from "@/lib/api-config";
 import { ProductDescriptionEditor } from "../products/SelfHostedEditor";
 import { useToast } from "@/components/CustomToast";
 import ConfirmDialog from "@/components/ConfirmDialog";
+import { apiClient } from "@/lib/api";
 interface Manufacturer {
   id: string;
   name: string;
@@ -68,66 +69,63 @@ const [isDeleting, setIsDeleting] = useState(false);
     fetchManufacturers();
   }, []);
 
-  const fetchManufacturers = async () => {
+ const fetchManufacturers = async () => {
+    setLoading(true);
     try {
-      const token = localStorage.getItem('authToken');
-      const response = await fetch(`${API_ENDPOINTS.manufacturers}?includeUnpublished=true`, {
-        headers: {
-          ...(token && { 'Authorization': `Bearer ${token}` }),
-        },
-      });
-      if (response.ok) {
-        const result = await response.json();
-        setManufacturers(result.data || []);
+      const response = await apiClient.get<{data: Manufacturer[]}>('/api/manufacturers?includeUnpublished=true');
+      
+      if (response.error) {
+        toast.error(response.error);
+        return { success: false, error: response.error };
       }
+      
+      setManufacturers(response.data?.data || []);
+      return { success: true, data: response.data?.data };
+      
     } catch (error) {
-      console.error("Error fetching manufacturers:", error);
+      toast.error('Network error occurred');
+      return { success: false, error: 'Network error' };
     } finally {
       setLoading(false);
     }
   };
 
+
 const handleSubmit = async (e: React.FormEvent) => {
   e.preventDefault();
   
-  const token = localStorage.getItem('authToken');
-  if (!token) {
-    toast.error('Please login first');
-    return;
-  }
-
   try {
-    const url = editingManufacturer
-      ? `${API_ENDPOINTS.manufacturers}/${editingManufacturer.id}`
-      : API_ENDPOINTS.manufacturers;
+    const endpoint = editingManufacturer 
+      ? `/api/manufacturers/${editingManufacturer.id}`
+      : '/api/manufacturers';
+      
+    const requestData = {
+      ...formData,
+      ...(editingManufacturer && { id: editingManufacturer.id })
+    };
 
-    const response = await fetch(url, {
-      method: editingManufacturer ? 'PUT' : 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`,
-      },
-      body: JSON.stringify({
-        ...formData,
-        ...(editingManufacturer && { id: editingManufacturer.id })
-      }),
-    });
+    const response = editingManufacturer
+      ? await apiClient.put(endpoint, requestData)
+      : await apiClient.post(endpoint, requestData);
 
-    if (response.ok || response.status === 201) {
-      toast.success(editingManufacturer ? 'Updated successfully! ✅' : 'Created successfully! 🎉');
-      await fetchManufacturers();
-      setShowModal(false);
-      resetForm();
-    } else if (response.status === 401) {
-      toast.error('Please login again');
-    } else {
-      toast.error('Something went wrong');
+    if (response.error) {
+      console.error('API Error:', response.error);
+      toast.error(response.error);
+      return;
     }
+
+    // Success handling
+    toast.success(editingManufacturer ? 'Updated successfully! ✅' : 'Created successfully! 🎉');
+    await fetchManufacturers();
+    setShowModal(false);
+    resetForm();
+    
   } catch (error) {
+    // Network errors or unexpected errors
+    console.error('Unexpected error:', error);
     toast.error('Something went wrong');
   }
 };
-
 
   const handleEdit = (manufacturer: Manufacturer) => {
     setEditingManufacturer(manufacturer);

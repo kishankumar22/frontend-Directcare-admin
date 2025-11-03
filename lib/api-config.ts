@@ -22,6 +22,9 @@ export const API_ENDPOINTS = {
 
   // Customers
   customers: `${API_BASE_URL}/api/customers`,
+  banners: `${API_BASE_URL}/api/banners`,
+  uploadImage: `${API_BASE_URL}/api/upload-image`
+  
 };
 
 export default API_BASE_URL;

@@ -23,7 +23,7 @@ interface Banner {
   updatedBy: string | null;
 }
 
-// Fixed interfaces for proper API response handling
+// Fixed interfaces - removed nested ApiResponse issue
 interface BannerApiResponse {
   success?: boolean;
   data?: Banner[] | Banner;
@@ -39,14 +39,6 @@ interface ApiResponse<T = any> {
   error?: string;
 }
 
-// Image Upload Response Interface
-interface ImageUploadResponse {
-  success: boolean;
-  message: string;
-  data: string; // This will be the image URL like "/images/banners/dettol-shop-a4ec47af.png"
-  errors: null;
-}
-
 export default function ManageBanners() {
   const toast = useToast();
   const [banners, setBanners] = useState<Banner[]>([]);
@@ -54,7 +46,6 @@ export default function ManageBanners() {
   const [searchTerm, setSearchTerm] = useState("");
   const [showModal, setShowModal] = useState(false);
   const [editingBanner, setEditingBanner] = useState<Banner | null>(null);
-  const [editingBannerId, setEditingBannerId] = useState<string | null>(null); // Fixed: Separate ID tracking
   const [selectedImageUrl, setSelectedImageUrl] = useState<string | null>(null);
   const [viewingBanner, setViewingBanner] = useState<Banner | null>(null);
   const [statusFilter, setStatusFilter] = useState<string>("all");
@@ -95,15 +86,15 @@ export default function ManageBanners() {
   const fetchBanners = async () => {
     try {
       setLoading(true);
-      console.log('🔄 Fetching banners from:', `${API_BASE_URL}${API_ENDPOINTS.banners}?includeInactive=true`);
+      console.log('🔄 Fetching banners from:', `${API_ENDPOINTS.banners}?includeInactive=true`);
       
       const response = await apiClient.get<BannerApiResponse>(`${API_ENDPOINTS.banners}?includeInactive=true`);
       console.log('📦 Raw API Response:', response);
       
       let bannersData: Banner[] = [];
       
-      // Handle the actual API response structure
-      if (response && response.data) {
+      // Handle the actual API response structure based on your example
+      if (response.data) {
         if (response.data.success && Array.isArray(response.data.data)) {
           bannersData = response.data.data;
         } else if (Array.isArray(response.data)) {
@@ -118,74 +109,10 @@ export default function ManageBanners() {
       
     } catch (error: any) {
       console.error("❌ Error fetching banners:", error);
-      console.error("Full error:", error.response?.data || error.message);
       toast.error("Failed to fetch banners. Please check your connection.");
       setBanners([]);
     } finally {
       setLoading(false);
-    }
-  };
-
-  // Fixed: Image upload first, then banner save
-  const handleImageUploadAndSave = async (file: File): Promise<string | null> => {
-    if (!formData.title.trim()) {
-      toast.error("Please enter a banner title first before uploading image");
-      return null;
-    }
-
-    setUploadingImage(true);
-    try {
-      console.log('📤 Uploading image:', file.name, file.size, 'bytes');
-      console.log('📝 Using title for upload:', formData.title);
-      
-      // Step 1: Upload image with title
-      const formDataUpload = new FormData();
-      formDataUpload.append('title', formData.title);
-      formDataUpload.append('image', file, file.name);
-      
-      console.log('🔄 Uploading to:', `${API_BASE_URL}${API_ENDPOINTS.uploadImage}`);
-      
-      // Get auth token
-      const token = localStorage.getItem('authToken') || sessionStorage.getItem('authToken') || '';
-      
-      const response = await fetch(`${API_BASE_URL}${API_ENDPOINTS.uploadImage}`, {
-        method: 'POST',
-        headers: {
-          'Authorization': token ? `Bearer ${token}` : '',
-        },
-        body: formDataUpload,
-      });
-
-      console.log('📦 Upload Response status:', response.status);
-      
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('Upload failed:', errorText);
-        throw new Error(`Upload failed: ${response.status} ${response.statusText}`);
-      }
-      
-      const responseData: ImageUploadResponse = await response.json();
-      console.log('📦 Upload Response data:', responseData);
-      
-      // Step 2: Extract image URL from response
-      if (responseData && responseData.success && responseData.data) {
-        const imageUrl = responseData.data; // e.g., "/images/banners/dettol-shop-a4ec47af.png"
-        console.log('✅ Image uploaded successfully, URL:', imageUrl);
-        
-        // Step 3: Update form data with the new image URL
-        setFormData(prev => ({ ...prev, imageUrl }));
-        toast.success(`Image uploaded successfully! URL: ${imageUrl}`, { autoClose: 4000 });
-        return imageUrl;
-      } else {
-        throw new Error(responseData?.message || "No image URL returned from server");
-      }
-      
-    } catch (error: any) {
-      console.error("❌ Error uploading image:", error);
-      toast.error(`Failed to upload image: ${error.message || 'Unknown error'}`);
-      return null;
-    } finally {
-      setUploadingImage(false);
     }
   };
 
@@ -194,14 +121,12 @@ export default function ManageBanners() {
 
     try {
       console.log('🚀 Submitting banner data:', formData);
-      console.log('🔧 Edit mode:', editingBannerId ? 'true' : 'false');
-      console.log('🔧 Editing Banner ID:', editingBannerId);
       
       const payload = {
         title: formData.title,
-        imageUrl: formData.imageUrl, // This should contain the uploaded image URL
-        link: formData.link || "",
-        description: formData.description || "",
+        imageUrl: formData.imageUrl,
+        link: formData.link,
+        description: formData.description,
         isActive: formData.isActive,
         displayOrder: formData.displayOrder,
         startDate: formData.startDate || new Date().toISOString(),
@@ -212,45 +137,32 @@ export default function ManageBanners() {
 
       let response: any;
       
-      // Fixed: Use separate ID tracking to avoid mismatch
-      if (editingBannerId) {
-        console.log('✏️ Updating banner with ID:', editingBannerId);
-        const updateUrl = `${API_ENDPOINTS.banners}/${editingBannerId}`;
-        console.log('🔗 Update URL:', `${API_BASE_URL}${updateUrl}`);
-        response = await apiClient.put<BannerApiResponse>(updateUrl, payload);
+      if (editingBanner) {
+        console.log('✏️ Updating banner with ID:', editingBanner.id);
+        response = await apiClient.put<BannerApiResponse>(`${API_ENDPOINTS.banners}/${editingBanner.id}`, payload);
       } else {
         console.log('🆕 Creating new banner');
-        console.log('🔗 Create URL:', `${API_BASE_URL}${API_ENDPOINTS.banners}`);
         response = await apiClient.post<BannerApiResponse>(API_ENDPOINTS.banners, payload);
       }
 
       console.log('📦 Submit Response:', response);
 
-      // Enhanced response handling with detailed error checking
+      // Enhanced response handling for the actual API structure
       let success = false;
-      let errorMessage = "Unknown error occurred";
       
-      if (response && response.data) {
+      if (response.data) {
+        // Check for success in nested data structure
         if (response.data.success === true) {
           success = true;
-        } else if (response.data.data) {
-          success = true;
-        } else if (response.status >= 200 && response.status < 300) {
+        }
+        // Check for data presence (indicates success)
+        else if (response.data.data) {
           success = true;
         }
-        
-        // Extract error message if available
-        if (response.data.message) {
-          errorMessage = response.data.message;
-        } else if (response.data.errors && Array.isArray(response.data.errors)) {
-          errorMessage = response.data.errors.join(', ');
-        }
-      } else if (response && response.status >= 200 && response.status < 300) {
-        success = true;
       }
       
       if (success) {
-        const successMessage = editingBannerId 
+        const successMessage = editingBanner 
           ? "Banner updated successfully! ✅" 
           : "Banner created successfully! 🎉";
         
@@ -259,53 +171,35 @@ export default function ManageBanners() {
         setShowModal(false);
         resetForm();
       } else {
-        console.error("❌ Submit failed with error:", errorMessage);
-        throw new Error(errorMessage);
+        throw new Error(response.error || response.data?.message || "Failed to save banner");
       }
       
     } catch (error: any) {
       console.error("❌ Error saving banner:", error);
+      console.error("Error response:", error.response?.data);
       
-      // Enhanced error logging
-      if (error.response) {
-        console.error("Error response data:", error.response.data);
-        console.error("Error response status:", error.response.status);
-        console.error("Error response headers:", error.response.headers);
-      } else if (error.request) {
-        console.error("Error request:", error.request);
-      } else {
-        console.error("Error message:", error.message);
-      }
-      
-      const errorMessage = editingBannerId 
-        ? `Failed to update banner: ${error.response?.data?.message || error.message || 'Network or server error'}`
-        : `Failed to create banner: ${error.response?.data?.message || error.message || 'Network or server error'}`;
+      const errorMessage = editingBanner 
+        ? `Failed to update banner: ${error.response?.data?.message || error.message || 'Unknown error'}`
+        : `Failed to create banner: ${error.response?.data?.message || error.message || 'Unknown error'}`;
       
       toast.error(errorMessage);
     }
   };
 
-  // Fixed: Proper edit function with separate ID tracking
+  // Fixed edit function to properly handle banner ID
   const handleEdit = (banner: Banner) => {
     console.log('🔧 Setting edit banner:', banner);
-    console.log('🔧 Banner ID being set:', banner.id);
-    
-    // Fixed: Use separate ID state to avoid reference issues
-    setEditingBannerId(banner.id);
-    setEditingBanner(banner); // Keep this for reference only
-    
+    setEditingBanner(banner); // Fixed: Set the complete banner object
     setFormData({
       title: banner.title,
       imageUrl: banner.imageUrl,
-      link: banner.link || "",
-      description: banner.description || "",
+      link: banner.link,
+      description: banner.description,
       isActive: banner.isActive,
       displayOrder: banner.displayOrder,
       startDate: banner.startDate ? banner.startDate.slice(0, 16) : "",
       endDate: banner.endDate ? banner.endDate.slice(0, 16) : ""
     });
-    
-    console.log('✅ Edit banner set with ID:', banner.id);
     setShowModal(true);
   };
 
@@ -314,16 +208,15 @@ export default function ManageBanners() {
     
     try {
       console.log('🗑️ Deleting banner with ID:', id);
-      const deleteUrl = `${API_ENDPOINTS.banners}/${id}`;
-      console.log('🔗 Delete URL:', `${API_BASE_URL}${deleteUrl}`);
-      
-      const response = await apiClient.delete<ApiResponse>(deleteUrl);
+      const response = await apiClient.delete<ApiResponse>(`${API_ENDPOINTS.banners}/${id}`);
       console.log('📦 Delete Response:', response);
       
       // Enhanced success checking for delete
       let success = false;
       
-      if (response && (response.data?.success === true || response.status >= 200 && response.status < 300)) {
+      if (response.data?.success === true) {
+        success = true;
+      } else if (!response.error) {
         success = true;
       }
       
@@ -331,7 +224,7 @@ export default function ManageBanners() {
         toast.success("Banner deleted successfully! 🗑️");
         await fetchBanners();
       } else {
-        throw new Error(response?.error || "Failed to delete banner");
+        throw new Error(response.error || "Failed to delete banner");
       }
       
     } catch (error: any) {
@@ -343,12 +236,72 @@ export default function ManageBanners() {
     }
   };
 
-  // Fixed: Handle image upload with automatic form update
+  // Fixed image upload function to use current form title
   const handleImageUpload = async (file: File) => {
-    const uploadedImageUrl = await handleImageUploadAndSave(file);
-    if (uploadedImageUrl) {
-      console.log('✅ Image URL set in form:', uploadedImageUrl);
-      // Form data is already updated in handleImageUploadAndSave
+    if (!formData.title.trim()) {
+      toast.error("Please enter a title first before uploading image");
+      return;
+    }
+
+    setUploadingImage(true);
+    try {
+      console.log('📤 Uploading image:', file.name, file.size, 'bytes');
+      console.log('📝 Using current form title:', formData.title);
+      
+      // Create FormData with current form title (not the original banner title)
+      const formDataUpload = new FormData();
+      formDataUpload.append('title', formData.title); // Use current form title, not original banner title
+      formDataUpload.append('image', file);
+      
+      console.log('🔄 Uploading to:', API_ENDPOINTS.uploadImage);
+      
+      // Use direct fetch for multipart/form-data upload
+      const response = await fetch(`${API_BASE_URL}${API_ENDPOINTS.uploadImage}`, {
+        method: 'POST',
+        headers: {
+          'Authorization': localStorage.getItem('authToken') || '',
+        },
+        body: formDataUpload,
+      });
+
+      console.log('📦 Upload Response status:', response.status);
+      const responseData = await response.json();
+      console.log('📦 Upload Response data:', responseData);
+      
+      let imageUrl = '';
+      
+      // Handle different upload response structures
+      if (responseData && response.ok) {
+        if (responseData.success && responseData.data) {
+          if (typeof responseData.data === 'string') {
+            imageUrl = responseData.data;
+          } else if (responseData.data.imageUrl) {
+            imageUrl = responseData.data.imageUrl;
+          } else if (responseData.data.url) {
+            imageUrl = responseData.data.url;
+          }
+        } else if (responseData.imageUrl) {
+          imageUrl = responseData.imageUrl;
+        } else if (responseData.url) {
+          imageUrl = responseData.url;
+        } else if (typeof responseData === 'string') {
+          imageUrl = responseData;
+        }
+      }
+      
+      if (imageUrl) {
+        setFormData(prev => ({ ...prev, imageUrl }));
+        toast.success("Image uploaded successfully with current title! 📸");
+        console.log('✅ Image uploaded, URL:', imageUrl);
+      } else {
+        throw new Error(responseData?.message || "No image URL returned from server");
+      }
+      
+    } catch (error: any) {
+      console.error("❌ Error uploading image:", error);
+      toast.error(`Failed to upload image: ${error.message || 'Unknown error'}`);
+    } finally {
+      setUploadingImage(false);
     }
   };
 
@@ -364,7 +317,6 @@ export default function ManageBanners() {
       endDate: ""
     });
     setEditingBanner(null);
-    setEditingBannerId(null); // Reset ID tracking
   };
 
   const clearFilters = () => {
@@ -588,7 +540,7 @@ export default function ManageBanners() {
                               className="w-full h-full object-cover"
                               onError={(e) => {
                                 e.currentTarget.style.display = 'none';
-                                e.currentTarget.parentElement!.innerHTML = '<div class="w-full h-full bg-gradient-to-br from-violet-500 to-pink-500 flex items-center justify-center"><svg class="h-5 w-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 002 2v12a2 2 0 002 2z" /></svg></div>';
+                                e.currentTarget.parentElement!.innerHTML = '<div class="w-full h-full bg-gradient-to-br from-violet-500 to-pink-500 flex items-center justify-center"><svg class="h-5 w-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg></div>';
                               }}
                             />
                           </div>
@@ -678,6 +630,7 @@ export default function ManageBanners() {
             </div>
             
             <div className="flex items-center gap-2">
+              {/* First Page */}
               <button
                 onClick={goToFirstPage}
                 disabled={currentPage === 1}
@@ -687,6 +640,7 @@ export default function ManageBanners() {
                 <ChevronsLeft className="h-4 w-4" />
               </button>
 
+              {/* Previous Page */}
               <button
                 onClick={goToPreviousPage}
                 disabled={currentPage === 1}
@@ -696,6 +650,7 @@ export default function ManageBanners() {
                 <ChevronLeft className="h-4 w-4" />
               </button>
 
+              {/* Page Numbers */}
               <div className="flex items-center gap-1">
                 {getPageNumbers().map((page) => (
                   <button
@@ -712,6 +667,7 @@ export default function ManageBanners() {
                 ))}
               </div>
 
+              {/* Next Page */}
               <button
                 onClick={goToNextPage}
                 disabled={currentPage === totalPages}
@@ -721,6 +677,7 @@ export default function ManageBanners() {
                 <ChevronRight className="h-4 w-4" />
               </button>
 
+              {/* Last Page */}
               <button
                 onClick={goToLastPage}
                 disabled={currentPage === totalPages}
@@ -746,10 +703,10 @@ export default function ManageBanners() {
               <div className="flex items-center justify-between">
                 <div>
                   <h2 className="text-3xl font-bold bg-gradient-to-r from-violet-400 via-cyan-400 to-pink-400 bg-clip-text text-transparent">
-                    {editingBannerId ? `Edit Banner` : 'Create New Banner'}
+                    {editingBanner ? `Edit Banner (ID: ${editingBanner.id.slice(0, 8)}...)` : 'Create New Banner'}
                   </h2>
                   <p className="text-slate-400 text-sm mt-1">
-                    {editingBannerId ? `Editing Banner ID: ${editingBannerId}` : 'Add a new banner to your website'}
+                    {editingBanner ? 'Update banner information' : 'Add a new banner to your website'}
                   </p>
                 </div>
                 <button
@@ -784,6 +741,7 @@ export default function ManageBanners() {
                         placeholder="Enter banner title"
                         className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
                       />
+                      <p className="text-xs text-slate-500 mt-1">⚠️ This title will be used for image upload</p>
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-slate-300 mb-2">Display Order</label>
@@ -829,12 +787,12 @@ export default function ManageBanners() {
                   <span>Banner Image</span>
                 </h3>
                 
-                {/* Image Upload Info */}
+                {/* Title usage info */}
                 <div className="mb-4 p-3 bg-blue-500/10 border border-blue-500/30 rounded-lg">
                   <div className="flex items-center gap-2">
                     <AlertCircle className="h-4 w-4 text-blue-400" />
                     <p className="text-blue-400 text-sm">
-                      Upload will generate URL like: <code>/images/banners/{formData.title ? formData.title.toLowerCase().replace(/[^\w\s-]/g, '').replace(/\s+/g, '-') : 'banner'}-hash.ext</code>
+                      Image will be uploaded with title: <strong>"{formData.title || 'Enter title above'}"</strong>
                     </p>
                   </div>
                 </div>
@@ -856,10 +814,10 @@ export default function ManageBanners() {
                       <div className="flex-1">
                         <p className="text-white font-medium">Current Image</p>
                         <p className="text-xs text-slate-400">Click to view full size</p>
-                        <p className="text-xs text-slate-500 break-all">{formData.imageUrl}</p>
+                        <p className="text-xs text-slate-500">{formData.imageUrl}</p>
                       </div>
                       <label className="px-3 py-2 bg-violet-500/20 text-violet-400 rounded-lg hover:bg-violet-500/30 transition-all text-sm font-medium cursor-pointer">
-                        {uploadingImage ? 'Uploading...' : 'Replace Image'}
+                        {uploadingImage ? 'Uploading...' : 'Update Image'}
                         <input
                           type="file"
                           accept="image/*"
@@ -888,13 +846,12 @@ export default function ManageBanners() {
                           )}
                           <p className="mb-2 text-sm text-slate-500">
                             <span className="font-semibold">
-                              {uploadingImage ? 'Uploading with title-based naming...' : 
-                               !formData.title.trim() ? 'Enter title first to enable upload' : 'Click to upload (title-based naming)'}
+                              {uploadingImage ? 'Uploading...' : 
+                               !formData.title.trim() ? 'Enter title first' : 'Click to upload'}
                             </span> 
                             {!uploadingImage && formData.title.trim() && ' or drag and drop'}
                           </p>
                           <p className="text-xs text-slate-500">PNG, JPG, GIF up to 10MB</p>
-                          <p className="text-xs text-cyan-400 mt-1">Will auto-save to imageUrl field</p>
                         </div>
                         <input
                           type="file"
@@ -923,7 +880,7 @@ export default function ManageBanners() {
                     type="text"
                     value={formData.imageUrl}
                     onChange={(e) => setFormData({...formData, imageUrl: e.target.value})}
-                    placeholder="Paste image URL (will be auto-filled after upload)"
+                    placeholder="Paste image URL"
                     className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
                   />
                 </div>
@@ -992,10 +949,10 @@ export default function ManageBanners() {
                 </button>
                 <button
                   type="submit"
-                  disabled={!formData.title.trim() || uploadingImage}
+                  disabled={!formData.title.trim()}
                   className="px-6 py-3 bg-gradient-to-r from-violet-500 via-purple-500 to-cyan-500 text-white rounded-xl hover:shadow-xl hover:shadow-violet-500/50 transition-all font-semibold hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
                 >
-                  {uploadingImage ? 'Uploading Image...' : editingBannerId ? '✓ Update Banner' : '+ Create Banner'}
+                  {editingBanner ? '✓ Update Banner' : '+ Create Banner'}
                 </button>
               </div>
             </form>
@@ -1054,10 +1011,6 @@ export default function ManageBanners() {
                     <div className="bg-slate-900/50 p-3 rounded-lg">
                       <p className="text-xs text-slate-400 mb-1">Description</p>
                       <p className="text-white text-sm">{viewingBanner.description || 'No description'}</p>
-                    </div>
-                    <div className="bg-slate-900/50 p-3 rounded-lg">
-                      <p className="text-xs text-slate-400 mb-1">Image URL</p>
-                      <p className="text-white text-sm break-all">{viewingBanner.imageUrl || 'No image'}</p>
                     </div>
                     {viewingBanner.link && (
                       <div className="bg-slate-900/50 p-3 rounded-lg">
