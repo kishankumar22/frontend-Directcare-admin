@@ -711,7 +711,7 @@ const handleDelete = async (id: string) => {
                               formDataToUpload.append('logo', file);
                               try {
                                 const token = localStorage.getItem('authToken');
-                                const response = await fetch(`${API_ENDPOINTS.brands}/upload-logo`, {
+                                const response = await fetch(`https://testapi.knowledgemarkg.com/api/Brands/upload-logo`, {
                                   method: 'POST',
                                   headers: {
                                     ...(token && { 'Authorization': `Bearer ${token}` }),
@@ -757,7 +757,7 @@ const handleDelete = async (id: string) => {
                               formDataToUpload.append('logo', file);
                               try {
                                 const token = localStorage.getItem('authToken');
-                                const response = await fetch(`${API_ENDPOINTS.brands}/upload-logo`, {
+                                const response = await fetch(`https://testapi.knowledgemarkg.com/api/Brands/upload-logo`, {
                                   method: 'POST',
                                   headers: {
                                     ...(token && { 'Authorization': `Bearer ${token}` }),

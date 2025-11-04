@@ -37,12 +37,10 @@ const fetchProducts = async () => {
   setLoading(true);
   
   try {
-    // 🎯 Loading toast with no auto close (will be dismissed manually)
-    // const loadingId = toast.info('Loading products...', { autoClose: 0 });
 
     const token = localStorage.getItem('token');
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:7196';
-    const response = await fetch(`${apiUrl}/api/Products`, {
+
+    const response = await fetch(`https://testapi.knowledgemarkg.com/api/Products`, {
       headers: {
         'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json',

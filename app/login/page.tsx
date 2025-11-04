@@ -21,7 +21,7 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      const response = await fetch('https://localhost:7196/api/auth/login', {
+      const response = await fetch('https://testapi.knowledgemarkg.com/api/Auth/login', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

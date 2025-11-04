@@ -19,7 +19,8 @@ import {
   Menu,
   X,
   Tag,
-  Factory
+  Factory,
+  Image as ImageIcon, // <-- ADDED: Correct icon for Banners
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -31,6 +32,7 @@ const navigation = [
   { name: 'Manufacturers', href: '/admin/manufacturers', icon: Factory },
   { name: 'Orders', href: '/admin/orders', icon: ShoppingCart },
   { name: 'Customers', href: '/admin/customers', icon: Users },
+  { name: 'Banners', href: '/admin/banners', icon: ImageIcon }, // FIXED: Correct icon
 ];
 
 export default function AdminLayout({ children }: { children: ReactNode }) {
@@ -40,23 +42,13 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
   const [userName, setUserName] = useState<string>('');
   const [userInitial, setUserInitial] = useState<string>('A');
 
-  // Helper function to check if current path is under a navigation item
   const isActiveRoute = (navHref: string, currentPath: string) => {
-    // Exact match for Dashboard
-    if (navHref === '/admin' && currentPath === '/admin') {
-      return true;
-    }
-    
-    // For other routes, check if current path starts with nav path
-    if (navHref !== '/admin' && currentPath.startsWith(navHref)) {
-      return true;
-    }
-    
+    if (navHref === '/admin' && currentPath === '/admin') return true;
+    if (navHref !== '/admin' && currentPath.startsWith(navHref)) return true;
     return false;
   };
 
   useEffect(() => {
-    // Get user data from localStorage
     const email = localStorage.getItem('userEmail') || 'admin@ecom.com';
     const storedUserData = localStorage.getItem('userData');
 
@@ -68,21 +60,23 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
         let firstName = userData.firstName || '';
         let lastName = userData.lastName || '';
 
-        // If firstName/lastName not in userData, try to extract from JWT token
         if (!firstName || !lastName) {
           const token = localStorage.getItem('authToken');
           if (token) {
             try {
               const base64Url = token.split('.')[1];
               const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-              const jsonPayload = decodeURIComponent(atob(base64).split('').map(c => {
-                return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
-              }).join(''));
+              const jsonPayload = decodeURIComponent(
+                atob(base64)
+                  .split('')
+                  .map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
+                  .join('')
+              );
               const tokenData = JSON.parse(jsonPayload);
               firstName = firstName || tokenData.firstName || '';
               lastName = lastName || tokenData.lastName || '';
             } catch (err) {
-              console.error('Error decoding token:', err);
+              console.error('Token decode error:', err);
             }
           }
         }
@@ -119,14 +113,13 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
       <div className="fixed -bottom-8 left-1/2 w-96 h-96 bg-pink-500 rounded-full mix-blend-multiply filter blur-3xl opacity-10 animate-blob animation-delay-4000" />
 
       <div className="relative z-10 flex h-screen overflow-hidden">
-        {/* Sidebar - Fixed with Protected Styles */}
+        {/* Sidebar */}
         <aside 
           className={cn(
-            "fixed lg:relative h-full w-64 bg-slate-900/80 backdrop-blur-xl border-r border-slate-800 flex flex-col transition-transform duration-300 z-50 overflow-hidden",
+            "fixed lg:relative h-full w-64 bg-slate-900/80 backdrop-blur-xl border-r border-slate-800 flex flex-col transition-transform duration-300 z-50",
             sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
           )}
           style={{
-            // 🛡️ Force sidebar styles to prevent any external interference
             backgroundColor: 'rgba(15, 23, 42, 0.8)',
             backdropFilter: 'blur(12px)',
             borderRight: '1px solid rgb(30, 41, 59)',
@@ -145,7 +138,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
             </div>
           </div>
 
-          {/* Navigation - Scrollable with Protected Active States */}
+          {/* Navigation */}
           <nav className="flex-1 p-4 space-y-1.5 overflow-y-auto custom-scrollbar">
             {navigation.map((item) => {
               const isActive = isActiveRoute(item.href, pathname);
@@ -163,7 +156,6 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
                       : "text-slate-400 hover:text-white hover:bg-slate-800/50"
                   )}
                   style={isActive ? {
-                    // 🎯 Force active styles with high specificity
                     background: 'linear-gradient(to right, rgb(139, 92, 246), rgb(6, 182, 212))',
                     color: 'white',
                     boxShadow: '0 10px 15px -3px rgba(139, 92, 246, 0.3)',
@@ -174,15 +166,13 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
                   <span className="font-medium text-sm flex-1" style={isActive ? { color: 'white' } : {}}>
                     {item.name}
                   </span>
-                  {isActive && (
-                    <ChevronRight className="h-4 w-4" style={{ color: 'white' }} />
-                  )}
+                  {isActive && <ChevronRight className="h-4 w-4" style={{ color: 'white' }} />}
                 </Link>
               );
             })}
           </nav>
 
-          {/* Bottom Section */}
+          {/* Bottom Links */}
           <div className="p-4 border-t border-slate-800 flex-shrink-0 space-y-1.5">
             <Link
               href="/"
@@ -191,7 +181,6 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
               <Store className="h-5 w-5" />
               <span className="font-medium text-sm">View Store</span>
             </Link>
-
             <button className="w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800/50 transition-all">
               <Settings className="h-5 w-5" />
               <span className="font-medium text-sm">Settings</span>
@@ -201,7 +190,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
           {/* User Profile */}
           <div className="p-4 border-t border-slate-800 flex-shrink-0">
             <div className="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-slate-800/50">
-              <div className="w-9 h-9 rounded-full bg-gradient-to-br from-violet-500 to-cyan-500 flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
+              <div className="w-9 h-9 rounded-full bg-gradient-to-br from-violet-500 to-cyan-500 flex items-center justify-center text-white font-bold text-sm">
                 {userInitial}
               </div>
               <div className="flex-1 min-w-0">
@@ -210,7 +199,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
               </div>
               <button
                 onClick={handleLogout}
-                className="text-slate-400 hover:text-red-400 transition-colors flex-shrink-0"
+                className="text-slate-400 hover:text-red-400 transition-colors"
                 title="Logout"
               >
                 <LogOut className="h-4 w-4" />
@@ -229,42 +218,36 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
 
         {/* Main Content */}
         <div className="flex-1 flex flex-col overflow-hidden">
-          {/* Header - Fixed */}
+          {/* Header */}
           <header className="flex-shrink-0 bg-slate-900/80 backdrop-blur-xl border-b border-slate-800 z-30">
             <div className="px-6 py-4">
               <div className="flex items-center justify-between gap-4">
-                {/* Left: Mobile Menu + Search */}
                 <div className="flex items-center gap-3 flex-1">
-                  {/* Mobile Menu Button */}
                   <button
                     onClick={() => setSidebarOpen(!sidebarOpen)}
-                    className="lg:hidden p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-all"
+                    className="lg:hidden p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg"
                   >
                     {sidebarOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
                   </button>
 
-                  {/* Search Bar */}
                   <div className="flex-1 max-w-xl">
                     <div className="relative">
                       <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
                       <input
                         type="search"
                         placeholder="Search products, orders, customers..."
-                        className="w-full pl-10 pr-4 py-2 bg-slate-800/50 border border-slate-700 rounded-lg text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+                        className="w-full pl-10 pr-4 py-2 bg-slate-800/50 border border-slate-700 rounded-lg text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500"
                       />
                     </div>
                   </div>
                 </div>
 
-                {/* Right: Notifications + Profile */}
                 <div className="flex items-center gap-3">
-                  {/* Notifications */}
-                  <button className="relative p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-all">
+                  <button className="relative p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg">
                     <Bell className="h-5 w-5" />
                     <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-violet-500 rounded-full ring-2 ring-slate-900"></span>
                   </button>
 
-                  {/* Profile (Desktop) */}
                   <div className="hidden lg:flex items-center gap-2.5 pl-3 ml-3 border-l border-slate-800">
                     <div className="w-9 h-9 rounded-full bg-gradient-to-br from-violet-500 to-cyan-500 flex items-center justify-center text-white font-bold text-sm">
                       {userInitial}
@@ -282,29 +265,27 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
             </div>
           </header>
 
-          {/* Main Content Area - Scrollable */}
+          {/* Main Content Area */}
           <main className="flex-1 overflow-y-auto p-2 custom-scrollbar">
             {children}
           </main>
         </div>
       </div>
 
-   <style jsx global>{`
+      <style jsx global>{`
         @keyframes blob {
           0% { transform: translate(0px, 0px) scale(1); }
           33% { transform: translate(30px, -50px) scale(1.1); }
           66% { transform: translate(-20px, 20px) scale(0.9); }
           100% { transform: translate(0px, 0px) scale(1); }
         }
-        .animate-blob {
-          animation: blob 7s infinite;
-        }
-        .animation-delay-2000 {
-          animation-delay: 2s;
-        }
-        .animation-delay-4000 {
-          animation-delay: 4s;
-        }
+        .animate-blob { animation: blob 7s infinite; }
+        .animation-delay-2000 { animation-delay: 2s; }
+        .animation-delay-4000 { animation-delay: 4s; }
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(148, 163, 184, 0.3); border-radius: 3px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(148, 163, 184, 0.5); }
       `}</style>
     </div>
   );

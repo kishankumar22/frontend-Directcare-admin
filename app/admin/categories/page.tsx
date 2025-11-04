@@ -37,7 +37,8 @@ export default function CategoriesPage() {
   const [selectedImageUrl, setSelectedImageUrl] = useState<string | null>(null);
   const [viewingCategory, setViewingCategory] = useState<Category | null>(null);
   const [statusFilter, setStatusFilter] = useState<string>("all");
-  
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+
   // Pagination states
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(25);
@@ -94,6 +95,44 @@ const handleSubmit = async (e: React.FormEvent) => {
   e.preventDefault();
 
   try {
+    // First upload image if there's a file selected
+    let finalImageUrl = formData.imageUrl;
+    
+    // Check if there's a new file to upload (you'll need to add this state)
+    const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
+    if (fileInput?.files?.[0]) {
+      const file = fileInput.files[0];
+      const formDataToUpload = new FormData();
+      formDataToUpload.append('image', file);
+      formDataToUpload.append('name', formData.name); // Category name bhi send kar rahe hain
+
+      try {
+        const token = localStorage.getItem('authToken');
+        const response = await fetch(`${API_ENDPOINTS.categories}/upload-image`, {
+          method: 'POST',
+          headers: {
+            ...(token && { 'Authorization': `Bearer ${token}` }),
+          },
+          body: formDataToUpload,
+        });
+
+        if (response.ok) {
+          const result = await response.json();
+          finalImageUrl = result.data; // Response se data ko finalImageUrl mein set kar rahe hain
+          toast.success('Image uploaded successfully! 📸');
+        } else {
+          const errorData = await response.text();
+          toast.error('Failed to upload image: ' + errorData);
+          return; // Image upload fail hone par category create nahi karte
+        }
+      } catch (error) {
+        console.error('Error uploading image:', error);
+        toast.error('Network error while uploading image');
+        return;
+      }
+    }
+
+    // Now create/update category with final image URL
     const url = editingCategory
       ? `${API_ENDPOINTS.categories}/${editingCategory.id}`
       : API_ENDPOINTS.categories;
@@ -102,6 +141,7 @@ const handleSubmit = async (e: React.FormEvent) => {
 
     const payload: any = {
       ...formData,
+      imageUrl: finalImageUrl, // Final image URL use kar rahe hain
       parentCategoryId: formData.parentCategoryId || null,
     };
 
@@ -120,7 +160,7 @@ const handleSubmit = async (e: React.FormEvent) => {
     });
 
     if (response.ok) {
-      // 🎯 Success toast
+      // Success toast
       if (editingCategory) {
         toast.success('Category updated successfully! ✅');
       } else {
@@ -131,13 +171,13 @@ const handleSubmit = async (e: React.FormEvent) => {
       setShowModal(false);
       resetForm();
     } else {
-      // 🎯 Error toast
+      // Error toast
       const error = await response.json();
       const message = error.message || error.error || 'Something went wrong';
       toast.error(`Failed to ${editingCategory ? 'update' : 'create'} category: ${message}`);
     }
   } catch (error) {
-    // 🎯 Network error toast
+    // Network error toast
     console.error('Error saving category:', error);
     toast.error(`Failed to ${editingCategory ? 'update' : 'create'} category. Please try again.`);
   }
@@ -187,7 +227,100 @@ const handleDelete = async (id: string) => {
     setIsDeleting(false);
   }
 };
+// File input handler
+const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const file = e.target.files?.[0];
+  if (file) {
+    setSelectedFile(file);
+    // Preview ke liye URL create karein
+    const previewUrl = URL.createObjectURL(file);
+    setFormData({...formData, imageUrl: previewUrl});
+  }
+};
 
+// Update image handler (existing image ke liye)
+const handleUpdateImage = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const file = e.target.files?.[0];
+  if (file) {
+    setSelectedFile(file);
+    const formDataToUpload = new FormData();
+    formDataToUpload.append('image', file);
+    formDataToUpload.append('name', formData.name); // Category name bhi send
+    
+    try {
+      const token = localStorage.getItem('authToken');
+      const response = await fetch(`${API_ENDPOINTS.categories}/upload-image`, {
+        method: 'POST',
+        headers: {
+          ...(token && { 'Authorization': `Bearer ${token}` }),
+        },
+        body: formDataToUpload,
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        setFormData({...formData, imageUrl: result.data}); // Response data ko set kar rahe hain
+        setSelectedFile(null); // File state clear kar dein
+        toast.success('Image updated successfully! 📸');
+      } else {
+        const errorData = await response.text();
+        toast.error('Failed to upload image: ' + errorData);
+      }
+    } catch (error) {
+      console.error('Error uploading image:', error);
+      toast.error('Network error while uploading image');
+    }
+  }
+};
+
+// Add this function to extract filename from URL
+const getFileNameFromUrl = (imageUrl: string) => {
+  if (!imageUrl) return '';
+  
+  // Handle both full URLs and relative paths
+  const url = imageUrl.includes('/uploads/') 
+    ? imageUrl.split('/uploads/')[1] 
+    : imageUrl.split('/').pop() || '';
+  
+  return url;
+};
+
+// Delete image function
+const handleDeleteImage = async () => {
+  if (!formData.imageUrl) return;
+
+  try {
+    const fileName = getFileNameFromUrl(formData.imageUrl);
+    if (!fileName) {
+      toast.error('Invalid image URL');
+      return;
+    }
+
+    const token = localStorage.getItem('authToken');
+    const response = await fetch(`https://testapi.knowledgemarkg.com/api/ImageManagement/category/${fileName}`, {
+      method: 'DELETE',
+      headers: {
+        ...(token && { 'Authorization': `Bearer ${token}` }),
+      },
+    });
+
+    if (response.ok) {
+      // Clear the image from form
+      setFormData({...formData, imageUrl: ''});
+      toast.success('Image deleted successfully! 🗑️');
+    } else if (response.status === 404) {
+      // Image not found on server, but clear from form anyway
+      setFormData({...formData, imageUrl: ''});
+      toast.warning('Image not found on server, but removed from form');
+    } else {
+      const errorData = await response.text();
+      toast.error('Failed to delete image: ' + errorData);
+    }
+  } catch (error) {
+    console.error('Error deleting image:', error);
+    toast.error('Network error while deleting image');
+  }
+};
 
 
   const resetForm = () => {
@@ -670,58 +803,45 @@ const handleDelete = async (id: string) => {
                 </h3>
                 <div className="space-y-2">
                   {/* Current Image Display */}
-                  {formData.imageUrl && (
-                    <div className="flex items-center gap-4 p-3 bg-slate-900/30 rounded-xl border border-slate-600">
-                      <div 
-                        className="w-16 h-16 rounded-lg overflow-hidden border-2 border-violet-500/30 cursor-pointer hover:border-violet-500 transition-all"
-                        onClick={() => setSelectedImageUrl(getImageUrl(formData.imageUrl))}
-                      >
-                        <img
-                          src={getImageUrl(formData.imageUrl)}
-                          alt="Current image"
-                          className="w-full h-full object-cover"
-                        />
-                      </div>
-                      <div className="flex-1">
-                        <p className="text-white font-medium">Current Image</p>
-                        <p className="text-xs text-slate-400">Click to view full size</p>
-                      </div>
-                      <label className="px-3 py-2 bg-violet-500/20 text-violet-400 rounded-lg hover:bg-violet-500/30 transition-all text-sm font-medium cursor-pointer">
-                        Update Image
-                        <input
-                          type="file"
-                          accept="image/*"
-                          className="hidden"
-                          onChange={async (e) => {
-                            const file = e.target.files?.[0];
-                            if (file) {
-                              const formDataToUpload = new FormData();
-                              formDataToUpload.append('image', file);
-                              try {
-                                const token = localStorage.getItem('authToken');
-                                const response = await fetch(`${API_ENDPOINTS.categories}/upload-image`, {
-                                  method: 'POST',
-                                  headers: {
-                                    ...(token && { 'Authorization': `Bearer ${token}` }),
-                                  },
-                                  body: formDataToUpload,
-                                });
-                                if (response.ok) {
-                                  const result = await response.json();
-                                  setFormData({...formData, imageUrl: result.data});
-                                } else {
-                                  alert('Failed to upload image');
-                                }
-                              } catch (error) {
-                                console.error('Error uploading image:', error);
-                                alert('Failed to upload image');
-                              }
-                            }
-                          }}
-                        />
-                      </label>
-                    </div>
-                  )}
+
+{/* Current Image Display */}
+{formData.imageUrl && (
+<div className="flex items-center gap-4 p-3 bg-slate-900/30 rounded-xl border border-slate-600">
+<div className="w-16 h-16 rounded-lg overflow-hidden border-2 border-violet-500/30 cursor-pointer hover:border-violet-500 transition-all" onClick={() => setSelectedImageUrl(getImageUrl(formData.imageUrl))}>
+<img
+src={getImageUrl(formData.imageUrl)}
+alt="Current image"
+className="w-full h-full object-cover"
+/>
+</div>
+<div className="flex-1">
+<p className="text-white font-medium">Current Image</p>
+<p className="text-xs text-slate-400">Click to view full size</p>
+</div>
+
+{/* Update Image Button - Separate */}
+<label className="px-3 py-2 bg-violet-500/20 text-violet-400 rounded-lg hover:bg-violet-500/30 transition-all text-sm font-medium cursor-pointer">
+Update Image
+<input
+  type="file"
+  accept="image/*"
+  className="hidden"
+  onChange={handleFileSelect} // New handler
+/>
+</label>
+
+{/* Delete Image Button - Add this */}
+<button
+type="button"
+onClick={handleDeleteImage}
+className="px-3 py-2 bg-red-500/20 text-red-400 rounded-lg hover:bg-red-500/30 transition-all text-sm font-medium"
+>
+Delete
+</button>
+</div>
+)}
+
+
 
                   {/* Upload Area - Compact */}
                   {!formData.imageUrl && (
@@ -734,37 +854,13 @@ const handleDelete = async (id: string) => {
                             <p className="text-xs text-slate-500">PNG, JPG, GIF up to 10MB</p>
                           </div>
                         </div>
-                        <input
-                          type="file"
-                          accept="image/*"
-                          className="hidden"
-                          onChange={async (e) => {
-                            const file = e.target.files?.[0];
-                            if (file) {
-                              const formDataToUpload = new FormData();
-                              formDataToUpload.append('image', file);
-                              try {
-                                const token = localStorage.getItem('authToken');
-                                const response = await fetch(`${API_ENDPOINTS.categories}/upload-image`, {
-                                  method: 'POST',
-                                  headers: {
-                                    ...(token && { 'Authorization': `Bearer ${token}` }),
-                                  },
-                                  body: formDataToUpload,
-                                });
-                                if (response.ok) {
-                                  const result = await response.json();
-                                  setFormData({...formData, imageUrl: result.data});
-                                } else {
-                                  alert('Failed to upload image');
-                                }
-                              } catch (error) {
-                                console.error('Error uploading image:', error);
-                                alert('Failed to upload image');
-                              }
-                            }
-                          }}
-                        />
+                      {/* Update Image Input */}
+<input
+  type="file"
+  accept="image/*"
+  className="hidden"
+  onChange={handleUpdateImage} // Updated handler
+/>
                       </label>
                     </div>
                   )}

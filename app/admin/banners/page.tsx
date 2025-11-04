@@ -50,7 +50,7 @@ export default function ManageBanners() {
   const [viewingBanner, setViewingBanner] = useState<Banner | null>(null);
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [uploadingImage, setUploadingImage] = useState(false);
-  
+  const [selectedImageFile, setSelectedImageFile] = useState<File | null>(null);
   // Pagination states
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(25);
@@ -70,6 +70,7 @@ export default function ManageBanners() {
     isActive: true,
     displayOrder: 1,
     startDate: "",
+    imagePreview: "", // for previe
     endDate: ""
   });
 
@@ -116,16 +117,63 @@ export default function ManageBanners() {
     }
   };
 
+// ========== MAIN SUBMIT ==========
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    let relativeImagePath = formData.imageUrl;
+    let fullImageLink = formData.link;
+
     try {
-      console.log('🚀 Submitting banner data:', formData);
-      
+      // Step 1: Upload image if new file selected
+      if (selectedImageFile) {
+        if (!formData.title.trim()) {
+          toast.error("Please enter a title before uploading image");
+          return;
+        }
+
+        setUploadingImage(true);
+        try {
+          const formDataUpload = new FormData();
+          formDataUpload.append('title', formData.title);
+          formDataUpload.append('image', selectedImageFile);
+
+          const uploadResponse = await fetch(`https://testapi.knowledgemarkg.com/api/Banners/upload-image`, {
+            method: 'POST',
+            headers: { 'Authorization': localStorage.getItem('authToken') || '' },
+            body: formDataUpload,
+          });
+
+          const uploadData = await uploadResponse.json();
+
+          if (!uploadResponse.ok || !uploadData.success || !uploadData.data) {
+            throw new Error(uploadData.message || "Image upload failed");
+          }
+
+          const uploadedPath = typeof uploadData.data === 'string'
+            ? uploadData.data
+            : uploadData.data.imageUrl || uploadData.data.url || "";
+
+          if (!uploadedPath) throw new Error("No image path returned");
+
+          relativeImagePath = uploadedPath;                    // Save in imageUrl
+          fullImageLink = `${API_BASE_URL}${uploadedPath}`;    // Save in link
+
+          toast.success("Image uploaded!");
+
+        } catch (err: any) {
+          toast.error(`Upload failed: ${err.message}`);
+          return;
+        } finally {
+          setUploadingImage(false);
+        }
+      }
+
+      // Step 2: Save banner
       const payload = {
         title: formData.title,
-        imageUrl: formData.imageUrl,
-        link: formData.link,
+        imageUrl: relativeImagePath,        // relative path
+        link: fullImageLink,                // full URL
         description: formData.description,
         isActive: formData.isActive,
         displayOrder: formData.displayOrder,
@@ -133,66 +181,37 @@ export default function ManageBanners() {
         endDate: formData.endDate || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
       };
 
-      console.log('📤 Final payload:', payload);
-
       let response: any;
-      
       if (editingBanner) {
-        console.log('✏️ Updating banner with ID:', editingBanner.id);
-        response = await apiClient.put<BannerApiResponse>(`${API_ENDPOINTS.banners}/${editingBanner.id}`, payload);
+        response = await apiClient.put(`${API_ENDPOINTS.banners}/${editingBanner.id}`, payload);
       } else {
-        console.log('🆕 Creating new banner');
-        response = await apiClient.post<BannerApiResponse>(API_ENDPOINTS.banners, payload);
+        response = await apiClient.post(API_ENDPOINTS.banners, payload);
       }
 
-      console.log('📦 Submit Response:', response);
+      const success = response.data?.success || response.data?.data;
 
-      // Enhanced response handling for the actual API structure
-      let success = false;
-      
-      if (response.data) {
-        // Check for success in nested data structure
-        if (response.data.success === true) {
-          success = true;
-        }
-        // Check for data presence (indicates success)
-        else if (response.data.data) {
-          success = true;
-        }
-      }
-      
       if (success) {
-        const successMessage = editingBanner 
-          ? "Banner updated successfully! ✅" 
-          : "Banner created successfully! 🎉";
-        
-        toast.success(successMessage, { autoClose: 4000 });
+        toast.success(editingBanner ? "Banner updated!" : "Banner created!");
         await fetchBanners();
         setShowModal(false);
         resetForm();
       } else {
-        throw new Error(response.error || response.data?.message || "Failed to save banner");
+        throw new Error(response.data?.message || "Save failed");
       }
-      
+
     } catch (error: any) {
-      console.error("❌ Error saving banner:", error);
-      console.error("Error response:", error.response?.data);
-      
-      const errorMessage = editingBanner 
-        ? `Failed to update banner: ${error.response?.data?.message || error.message || 'Unknown error'}`
-        : `Failed to create banner: ${error.response?.data?.message || error.message || 'Unknown error'}`;
-      
-      toast.error(errorMessage);
+      toast.error(error.response?.data?.message || error.message || "Operation failed");
+    } finally {
+      setSelectedImageFile(null);
     }
   };
-
-  // Fixed edit function to properly handle banner ID
+  // ========== EDIT: Load relative path ==========
   const handleEdit = (banner: Banner) => {
-    console.log('🔧 Setting edit banner:', banner);
-    setEditingBanner(banner); // Fixed: Set the complete banner object
+    setEditingBanner(banner);
     setFormData({
       title: banner.title,
-      imageUrl: banner.imageUrl,
+      imageUrl: banner.imageUrl.replace(API_BASE_URL, ''), // relative path
+      imagePreview: getImageUrl(banner.imageUrl),
       link: banner.link,
       description: banner.description,
       isActive: banner.isActive,
@@ -200,42 +219,10 @@ export default function ManageBanners() {
       startDate: banner.startDate ? banner.startDate.slice(0, 16) : "",
       endDate: banner.endDate ? banner.endDate.slice(0, 16) : ""
     });
+    setSelectedImageFile(null);
     setShowModal(true);
   };
-
-  const handleDelete = async (id: string) => {
-    setIsDeleting(true);
-    
-    try {
-      console.log('🗑️ Deleting banner with ID:', id);
-      const response = await apiClient.delete<ApiResponse>(`${API_ENDPOINTS.banners}/${id}`);
-      console.log('📦 Delete Response:', response);
-      
-      // Enhanced success checking for delete
-      let success = false;
-      
-      if (response.data?.success === true) {
-        success = true;
-      } else if (!response.error) {
-        success = true;
-      }
-      
-      if (success) {
-        toast.success("Banner deleted successfully! 🗑️");
-        await fetchBanners();
-      } else {
-        throw new Error(response.error || "Failed to delete banner");
-      }
-      
-    } catch (error: any) {
-      console.error("❌ Error deleting banner:", error);
-      toast.error(`Failed to delete banner: ${error.response?.data?.message || error.message || 'Unknown error'}`);
-    } finally {
-      setIsDeleting(false);
-      setDeleteConfirm(null);
-    }
-  };
-
+  
   // Fixed image upload function to use current form title
   const handleImageUpload = async (file: File) => {
     if (!formData.title.trim()) {
@@ -256,7 +243,7 @@ export default function ManageBanners() {
       console.log('🔄 Uploading to:', API_ENDPOINTS.uploadImage);
       
       // Use direct fetch for multipart/form-data upload
-      const response = await fetch(`${API_BASE_URL}${API_ENDPOINTS.uploadImage}`, {
+      const response = await fetch(`https://testapi.knowledgemarkg.com/api/Banners/upload-image`, {
         method: 'POST',
         headers: {
           'Authorization': localStorage.getItem('authToken') || '',
@@ -305,6 +292,41 @@ export default function ManageBanners() {
     }
   };
 
+  const handleDelete = async (id: string) => {
+    setIsDeleting(true);
+    
+    try {
+
+      const response = await apiClient.delete<ApiResponse>(`${API_ENDPOINTS.banners}/${id}`);
+      console.log('📦 Delete Response:', response);
+      
+      // Enhanced success checking for delete
+      let success = false;
+      
+      if (response.data?.success === true) {
+        success = true;
+      } else if (!response.error) {
+        success = true;
+      }
+      
+      if (success) {
+        toast.success("Banner deleted successfully! 🗑️");
+        await fetchBanners();
+      } else {
+        throw new Error(response.error || "Failed to delete banner");
+      }
+      
+    } catch (error: any) {
+      console.error("❌ Error deleting banner:", error);
+      toast.error(`Failed to delete banner: ${error.response?.data?.message || error.message || 'Unknown error'}`);
+    } finally {
+      setIsDeleting(false);
+      setDeleteConfirm(null);
+    }
+  };
+
+
+
   const resetForm = () => {
     setFormData({
       title: "",
@@ -314,7 +336,8 @@ export default function ManageBanners() {
       isActive: true,
       displayOrder: 1,
       startDate: "",
-      endDate: ""
+      endDate: "",
+      imagePreview: "", // for previe
     });
     setEditingBanner(null);
   };

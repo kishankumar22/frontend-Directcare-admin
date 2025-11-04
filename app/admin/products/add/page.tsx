@@ -21,6 +21,19 @@ interface BrandApiResponse {
   data: BrandData[];
   errors: null;
 }
+// Interface for images
+// Updated interface to include file property
+interface ProductImage {
+  id: string;
+  imageUrl: string;
+  altText: string;
+  sortOrder: number;
+  isMain: boolean;
+  fileName?: string;
+  fileSize?: number;
+  file?: File; // Add this to store the actual file
+}
+
 // Types for products API response
 interface ProductItem {
   id: string;
@@ -98,7 +111,31 @@ interface CategoryData {
   parentCategoryName?: string | null;
   subCategories?: CategoryData[];
 }
+// First, define the API response interfaces at the top of your file:
+interface ApiResponse<T> {
+  success: boolean;
+  message: string;
+  data: T;
+  errors?: string[] | null;
+}
 
+interface ImageUploadResponse {
+  id: string;
+  imageUrl: string;
+  url?: string;
+  originalName?: string;
+}
+
+// Interface for images
+interface ProductImage {
+  id: string;
+  imageUrl: string;
+  altText: string;
+  sortOrder: number;
+  isMain: boolean;
+  fileName?: string;
+  fileSize?: number;
+}
 // Update DropdownsData interface
 interface DropdownsData {
   brands: BrandData[];
@@ -114,6 +151,11 @@ export default function AddProductPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 // Add this to your component state
 const [availableProducts, setAvailableProducts] = useState<Array<{id: string, name: string, sku: string, price: string}>>([]);
+
+// State variables for image upload
+const [uploadingImages, setUploadingImages] = useState(false);
+const [imageUploadProgress, setImageUploadProgress] = useState<{[key: string]: number}>({});
+
 
 
 // Update initial state
@@ -216,13 +258,13 @@ useEffect(() => {
     gtin: '',
     manufacturerPartNumber: '',
     adminComment: '',
-
+   productImages: [] as ProductImage[], 
     // Related Products
     relatedProducts: [] as string[],
     crossSellProducts: [] as string[],
 
     // New fields for additional tabs
-    productImages: [] as Array<{id: string, url: string, altText: string, displayOrder: number}>,
+    // productImages: [] as Array<{id: string, url: string, altText: string, displayOrder: number}>,
     videoUrls: [] as string[],
     specifications: [] as Array<{id: string, name: string, value: string, displayOrder: number}>,
 
@@ -398,6 +440,75 @@ const renderCategoryOptions = (categories: CategoryData[]): JSX.Element[] => {
   
   return options;
 };
+// New function to upload images to specific product
+// Fixed function to upload images to specific product
+const uploadImagesToProduct = async (productId: string, images: (ProductImage & { file?: File })[]) => {
+  console.log(`📸 Uploading ${images.length} images to product ${productId}...`);
+  
+  try {
+    const uploadPromises = images.map(async (image, index) => {
+      try {
+        // Check if we have the actual file object stored
+        if (!image.file) {
+          console.log(`⏭️ Skipping image ${index + 1} (no file object)`);
+          return null;
+        }
+
+        // Create FormData for this specific product
+        const uploadFormData = new FormData();
+        
+        // FIXED: Use 'images' as array field name (as per your API screenshot)
+        uploadFormData.append('images', image.file);
+        
+        // Optional: Add metadata if your API supports it
+        // uploadFormData.append('altText', image.altText || '');
+        // uploadFormData.append('sortOrder', image.sortOrder.toString());
+        // uploadFormData.append('isMain', image.isMain.toString());
+
+        console.log(`📤 Uploading image ${index + 1}:`, image.fileName);
+
+        // FIXED: Use correct API endpoint with product ID
+        const uploadResponse: any = await apiClient.post(
+          `/api/Product/${productId}/images`, // Correct API endpoint
+          uploadFormData,
+          {
+            headers: {
+              'Content-Type': 'multipart/form-data',
+            },
+          }
+        );
+
+        if (uploadResponse && uploadResponse.data && uploadResponse.data.success) {
+          console.log(`✅ Image ${index + 1} uploaded successfully`);
+          return uploadResponse.data;
+        } else {
+          throw new Error(`Upload failed: ${uploadResponse.data?.message || 'Unknown error'}`);
+        }
+      } catch (error: any) {
+        console.error(`❌ Error uploading image ${index + 1}:`, error);
+        
+        // Better error logging
+        if (error.response) {
+          console.error('Response error:', error.response.status, error.response.data);
+        }
+        
+        // Don't throw error, just return null to continue with other uploads
+        return null;
+      }
+    });
+
+    // Wait for all image uploads to complete
+    const results = await Promise.all(uploadPromises);
+    const successfulUploads = results.filter(result => result !== null);
+    
+    console.log(`✅ ${successfulUploads.length} out of ${images.length} images uploaded successfully`);
+    return successfulUploads;
+
+  } catch (error) {
+    console.error('❌ Error in uploadImagesToProduct:', error);
+    throw error;
+  }
+};
 
 const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
   e.preventDefault();
@@ -412,7 +523,6 @@ const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
   try {
     // Validate required fields
     if (!formData.name || !formData.sku) {
-      // 🎯 Warning toast for validation
       toast.warning('Please fill in required fields: Product Name and SKU');
       return;
     }
@@ -540,7 +650,7 @@ const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
     console.log('🏷️ Brand ID:', brandId);
     console.log('🏭 Manufacturer ID:', manufacturerId);
 
-    // Try multiple API endpoints
+    // STEP 1: Create Product First
     let response;
     const endpoints = ['/api/Products', '/Products', '/api/Product'];
     
@@ -563,31 +673,54 @@ const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
     // Dismiss loading toast
     toast.dismiss(loadingId);
 
-    // Handle successful response
+    // Handle successful response and get product ID
     if (response && response.data) {
       console.log('✅ Product created successfully:', response.data);
       
-      // 🎯 Success toast messages
-      if (isDraft) {
-        toast.success(
-          <div>
-            <div className="font-semibold">Product saved as draft! 📝</div>
-            <div className="text-sm opacity-80 mt-1">
-              "{formData.name}" has been saved
-            </div>
-          </div>,
-          { autoClose: 4000 }
-        );
+      // STEP 2: Get Product ID from response
+      let productId = null;
+      if (response.data.data && response.data.data.id) {
+        productId = response.data.data.id;
+      } else if (response.data.id) {
+        productId = response.data.id;
+      }
+
+      console.log('📦 Created Product ID:', productId);
+
+      // STEP 3: Upload Images if product ID exists and images are available
+      if (productId && formData.productImages && formData.productImages.length > 0) {
+        toast.info('Uploading product images...', { autoClose: 0 });
+        
+        try {
+          await uploadImagesToProduct(productId, formData.productImages);
+          toast.success('Product and images uploaded successfully! 🎉');
+        } catch (imageError) {
+          console.error('❌ Error uploading images:', imageError);
+          toast.warning('Product created successfully, but some images failed to upload.');
+        }
       } else {
-        toast.success(
-          <div>
-            <div className="font-semibold">Product created successfully! 🎉</div>
-            <div className="text-sm opacity-80 mt-1">
-              "{formData.name}" is now available
-            </div>
-          </div>,
-          { autoClose: 4000 }
-        );
+        // Success toast for product only
+        if (isDraft) {
+          toast.success(
+            <div>
+              <div className="font-semibold">Product saved as draft! 📝</div>
+              <div className="text-sm opacity-80 mt-1">
+                "{formData.name}" has been saved
+              </div>
+            </div>,
+            { autoClose: 4000 }
+          );
+        } else {
+          toast.success(
+            <div>
+              <div className="font-semibold">Product created successfully! 🎉</div>
+              <div className="text-sm opacity-80 mt-1">
+                "{formData.name}" is now available
+              </div>
+            </div>,
+            { autoClose: 4000 }
+          );
+        }
       }
       
       // Redirect to products list
@@ -611,10 +744,8 @@ const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
       });
       
       if (status === 404) {
-        // 🎯 API not found error
         toast.error('API endpoint not found. Please check the server configuration.');
       } else if (status === 400 && errorData?.errors) {
-        // 🎯 Validation errors - show as warning with details
         let errorMessage = 'Please fix the following errors:\n';
         for (const [field, messages] of Object.entries(errorData.errors)) {
           const fieldName = field.replace('$', '').replace('.', ' ');
@@ -630,20 +761,15 @@ const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
           { autoClose: 8000 }
         );
       } else if (status === 401) {
-        // 🎯 Unauthorized error
         toast.error('Session expired. Please login again.');
       } else if (errorData?.message || errorData?.title) {
-        // 🎯 Server error with message
         toast.error(`Error ${status}: ${errorData.message || errorData.title}`);
       } else {
-        // 🎯 Generic HTTP error
         toast.error(`HTTP Error ${status}: ${error.response.statusText}`);
       }
     } else if (error.request) {
-      // 🎯 Network error
       toast.error('Network error: No response from server. Please check your connection.');
     } else {
-      // 🎯 Generic error
       toast.error(`Error: ${error.message}`);
     }
   } finally {
@@ -766,23 +892,70 @@ const addCrossSellProduct = (productId: string) => {
     }));
   };
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (files && files.length > 0) {
-      const newImages = Array.from(files).map((file, index) => ({
-        id: `${Date.now()}-${index}`,
-        url: URL.createObjectURL(file),
-        altText: '',
-        displayOrder: formData.productImages.length + index + 1,
-        file: file
+// Updated handleImageUpload - Store image files properly for later upload
+const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const files = e.target.files;
+  if (!files || files.length === 0) return;
+
+  if (formData.productImages.length + files.length > 10) {
+    toast.error(`Maximum 10 images allowed. You can add ${10 - formData.productImages.length} more.`);
+    return;
+  }
+
+  setUploadingImages(true);
+  
+  try {
+    const processedImages = Array.from(files).map((file, index) => {
+      // File validation
+      if (file.size > 5 * 1024 * 1024) {
+        toast.error(`${file.name} is too large. Max size is 5MB.`);
+        return null;
+      }
+
+      if (!file.type.startsWith('image/')) {
+        toast.error(`${file.name} is not a valid image file.`);
+        return null;
+      }
+
+      // Create blob URL for preview
+      const imageUrl = URL.createObjectURL(file);
+
+      // Return image object with file stored
+      return {
+        id: `temp-${Date.now()}-${index}`,
+        imageUrl: imageUrl, // Temporary blob URL for preview
+        altText: file.name.replace(/\.[^/.]+$/, ""),
+        sortOrder: formData.productImages.length + index + 1,
+        isMain: formData.productImages.length === 0 && index === 0,
+        fileName: file.name,
+        fileSize: file.size,
+        file: file, // IMPORTANT: Store the actual file for later upload
+      };
+    });
+
+    const validImages = processedImages.filter(img => img !== null);
+
+    if (validImages.length > 0) {
+      setFormData(prev => ({
+        ...prev,
+        productImages: [...prev.productImages, ...validImages]
       }));
 
-      setFormData({
-        ...formData,
-        productImages: [...formData.productImages, ...newImages as any]
-      });
+      toast.success(`${validImages.length} images ready for upload! 📸`);
     }
-  };
+
+    // Clear file input
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+
+  } catch (error: any) {
+    console.error('Upload error:', error);
+    toast.error('Failed to process images. Please try again.');
+  } finally {
+    setUploadingImages(false);
+  }
+};
 
   const handleBrowseClick = () => {
     fileInputRef.current?.click();
@@ -2140,107 +2313,112 @@ const addCrossSellProduct = (productId: string) => {
                 </div>
               </TabsContent>
 
-              {/* Pictures Tab */}
-              <TabsContent value="pictures" className="space-y-2 mt-2">
-                <div className="space-y-4">
-                  <h3 className="text-lg font-semibold text-white border-b border-slate-800 pb-2">Product Images</h3>
-                  <p className="text-sm text-slate-400">
-                    Upload and manage product images. First image will be the main product image.
-                  </p>
+    
+{/* Pictures Tab - केवल Upload functionality */}
+<TabsContent value="pictures" className="space-y-2 mt-2">
+  <div className="space-y-4">
+    {/* Header */}
+    <div className="flex items-center justify-between">
+      <div>
+        <h3 className="text-lg font-semibold text-white">Product Images</h3>
+        <p className="text-sm text-slate-400">Upload product images</p>
+      </div>
+      <div className="text-sm text-slate-400">
+        {formData.productImages.length} / 10 images
+      </div>
+    </div>
 
-                  {/* Image Upload Area */}
-                  <div className="border-2 border-dashed border-slate-700 rounded-xl p-8 bg-slate-800/20 hover:border-violet-500/50 transition-all">
-                    <div className="text-center">
-                      <Upload className="mx-auto h-16 w-16 text-slate-500 mb-4" />
-                      <h3 className="text-lg font-semibold text-white mb-2">Upload Product Images</h3>
-                      <p className="text-sm text-slate-400 mb-4">
-                        Drag and drop images here, or click to browse
-                      </p>
-                      <input
-                        ref={fileInputRef}
-                        type="file"
-                        accept="image/*"
-                        multiple
-                        onChange={handleImageUpload}
-                        className="hidden"
-                      />
-                      <button
-                        type="button"
-                        onClick={handleBrowseClick}
-                        className="px-6 py-2.5 bg-slate-800/50 border border-slate-700 rounded-xl text-slate-300 hover:bg-slate-800 transition-all text-sm font-medium"
-                      >
-                        Browse Files
-                      </button>
-                      <p className="text-xs text-slate-400 mt-3">
-                        Supported: JPG, PNG, WebP (Max 5MB each)
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Image Preview Grid */}
-                  {formData.productImages.length > 0 ? (
-                    <div className="space-y-4">
-                      <h4 className="text-sm font-medium text-slate-300">Uploaded Images ({formData.productImages.length})</h4>
-                      <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                        {formData.productImages.map((image) => (
-                          <div key={image.id} className="bg-slate-800/30 border border-slate-700 rounded-xl p-3 space-y-3">
-                            <div className="aspect-square bg-slate-700/50 rounded-lg flex items-center justify-center overflow-hidden">
-                              {image.url ? (
-                                <img src={image.url} alt={image.altText || 'Product image'} className="w-full h-full object-cover" />
-                              ) : (
-                                <Image className="h-12 w-12 text-slate-500" />
-                              )}
-                            </div>
-                            <div className="space-y-2">
-                              <input
-                                type="text"
-                                placeholder="Alt text"
-                                value={image.altText}
-                                onChange={(e) => {
-                                  setFormData({
-                                    ...formData,
-                                    productImages: formData.productImages.map(img =>
-                                      img.id === image.id ? { ...img, altText: e.target.value } : img
-                                    )
-                                  });
-                                }}
-                                className="w-full px-2 py-1.5 text-xs bg-slate-800/50 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
-                              />
-                              <input
-                                type="number"
-                                placeholder="Display order"
-                                value={image.displayOrder}
-                                onChange={(e) => {
-                                  setFormData({
-                                    ...formData,
-                                    productImages: formData.productImages.map(img =>
-                                      img.id === image.id ? { ...img, displayOrder: parseInt(e.target.value) || 0 } : img
-                                    )
-                                  });
-                                }}
-                                className="w-full px-2 py-1.5 text-xs bg-slate-800/50 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
-                              />
-                              <button
-                                type="button"
-                                onClick={() => removeImage(image.id)}
-                                className="w-full px-2 py-1.5 bg-red-500/20 border border-red-500/30 text-red-400 hover:bg-red-500/30 rounded-lg text-xs transition-all flex items-center justify-center gap-1"
-                              >
-                                <X className="h-3 w-3" />
-                                Delete
-                              </button>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="text-center py-8 border border-slate-700 rounded-xl bg-slate-800/20">
-                      <Image className="mx-auto h-12 w-12 text-slate-600 mb-2" />
-                      <p className="text-sm text-slate-400">No images uploaded yet</p>
-                    </div>
-                  )}
+    {/* Upload Area */}
+    <div className="border-2 border-dashed border-slate-700 rounded-xl p-8 bg-slate-800/20 hover:border-violet-500/50 transition-all">
+      <div className="text-center">
+        <Upload className={`mx-auto h-16 w-16 text-slate-500 mb-4 ${uploadingImages ? 'animate-pulse' : ''}`} />
+        <h3 className="text-lg font-semibold text-white mb-2">
+          {uploadingImages ? 'Uploading Images...' : 'Upload Product Images'}
+        </h3>
+        <p className="text-sm text-slate-400 mb-4">
+          Click to browse and upload multiple images
+        </p>
+        
+        {/* Progress Bars */}
+        {Object.keys(imageUploadProgress).length > 0 && (
+          <div className="mb-4 space-y-2">
+            {Object.entries(imageUploadProgress).map(([uploadId, progress]) => (
+              <div key={uploadId} className="bg-slate-800/50 rounded-lg p-2">
+                <div className="flex justify-between text-xs text-slate-300 mb-1">
+                  <span>Uploading...</span>
+                  <span>{progress}%</span>
                 </div>
-              </TabsContent>
+                <div className="w-full bg-slate-700 rounded-full h-2">
+                  <div 
+                    className="bg-violet-500 h-2 rounded-full transition-all"
+                    style={{ width: `${progress}%` }}
+                  ></div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          multiple
+          onChange={handleImageUpload}
+          disabled={uploadingImages || formData.productImages.length >= 10}
+          className="hidden"
+        />
+        
+        <button
+          type="button"
+          onClick={() => fileInputRef.current?.click()}
+          disabled={uploadingImages || formData.productImages.length >= 10}
+          className="px-6 py-2.5 bg-slate-800/50 border border-slate-700 rounded-xl text-slate-300 hover:bg-slate-800 transition-all text-sm font-medium disabled:opacity-50"
+        >
+          {uploadingImages ? 'Uploading...' : 'Choose Images'}
+        </button>
+        
+        <p className="text-xs text-slate-400 mt-3">
+          JPG, PNG, WebP • Max 5MB each • Up to 10 images
+        </p>
+      </div>
+    </div>
+
+    {/* Simple Image List */}
+    {formData.productImages.length > 0 ? (
+      <div className="space-y-2">
+        <h4 className="text-sm font-medium text-slate-300">
+          Uploaded Images ({formData.productImages.length})
+        </h4>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          {formData.productImages.map((image) => (
+            <div key={image.id} className="bg-slate-800/30 border border-slate-700 rounded-lg p-2">
+              <div className="aspect-square bg-slate-700/50 rounded-md flex items-center justify-center overflow-hidden mb-2">
+                {image.imageUrl ? (
+                  <img 
+                    src={image.imageUrl} 
+                    alt={image.altText} 
+                    className="w-full h-full object-cover" 
+                  />
+                ) : (
+                  <Image className="h-8 w-8 text-slate-500" />
+                )}
+              </div>
+              <p className="text-xs text-slate-400 truncate">
+                {image.fileName || 'Image'}
+              </p>
+            </div>
+          ))}
+        </div>
+      </div>
+    ) : (
+      <div className="text-center py-8 border border-slate-700 rounded-xl bg-slate-800/20">
+        <Image className="mx-auto h-12 w-12 text-slate-600 mb-2" />
+        <p className="text-sm text-slate-400">No images uploaded yet</p>
+      </div>
+    )}
+  </div>
+</TabsContent>
 
               {/* Videos Tab */}
               <TabsContent value="videos" className="space-y-2 mt-2">
