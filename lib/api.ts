@@ -1,6 +1,8 @@
 import axios from 'axios';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://localhost:7196';
+// ✅ FIXED - Use correct API URL
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://testapi.knowledgemarkg.com';
+
 
 export interface ApiResponse<T> {
   data?: T;
@@ -18,8 +20,8 @@ class ApiClient {
       headers: {
         'Content-Type': 'application/json',
       },
-      // Add these for HTTPS localhost
-      httpsAgent: false, // For development with self-signed certificates
+      // ✅ FIXED - Remove httpsAgent (causing issues)
+      // httpsAgent: false, // Remove this line
       validateStatus: (status) => {
         // Accept status codes from 200-299 and 400-499 (to handle API errors properly)
         return (status >= 200 && status < 300) || (status >= 400 && status < 500);
@@ -37,9 +39,12 @@ class ApiClient {
         const fullUrl = `${config.baseURL}${config.url}`;
         console.log(`🚀 API Request: ${config.method?.toUpperCase()} ${fullUrl}`);
         
-        const token = localStorage.getItem('authToken');
-        if (token) {
-          config.headers.Authorization = `Bearer ${token}`;
+        // ✅ FIXED - Check if we're in browser environment
+        if (typeof window !== 'undefined') {
+          const token = localStorage.getItem('authToken');
+          if (token) {
+            config.headers.Authorization = `Bearer ${token}`;
+          }
         }
         return config;
       },
@@ -59,7 +64,8 @@ class ApiClient {
       (error: any) => {
         console.error(`❌ API Error: ${error.response?.status} ${error.config?.url}`, error.response?.data);
         
-        if (error.response?.status === 401) {
+        // ✅ FIXED - Check if we're in browser environment
+        if (error.response?.status === 401 && typeof window !== 'undefined') {
           localStorage.removeItem('authToken');
           window.location.href = '/login';
         }
@@ -111,8 +117,8 @@ class ApiClient {
           errorMessage = `API endpoint not found: ${endpoint}`;
         }
       } else if (error.request) {
-        // Request made but no response received
-        errorMessage = 'Network error - no response received';
+        // ✅ FIXED - Better network error message
+        errorMessage = 'No response received from server';
       } else {
         // Error in setting up request
         errorMessage = error.message;
@@ -140,14 +146,18 @@ class ApiClient {
 
   // Utility methods
   setAuthToken(token: string): void {
-    localStorage.setItem('authToken', token);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('authToken', token);
+    }
   }
 
   clearAuthToken(): void {
-    localStorage.removeItem('authToken');
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('authToken');
+    }
   }
 
-  // File upload method
+  // ✅ FIXED - File upload method with better FormData handling
   async uploadFile<T>(endpoint: string, file: File, additionalData?: Record<string, any>): Promise<ApiResponse<T>> {
     const formData = new FormData();
     formData.append('file', file);
@@ -158,8 +168,9 @@ class ApiClient {
       });
     }
 
+    // ✅ FIXED - Don't set Content-Type for FormData, let browser set it
     return this.request<T>('POST', endpoint, formData, {
-      headers: { 'Content-Type': 'multipart/form-data' }
+      headers: {} // Remove 'Content-Type': 'multipart/form-data'
     });
   }
 }

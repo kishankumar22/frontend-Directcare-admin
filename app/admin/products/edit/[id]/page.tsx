@@ -16,6 +16,7 @@ import { apiClient } from "@/lib/api"; // Import your axios client
 import { ProductDescriptionEditor } from "@/app/admin/products/SelfHostedEditor";
 // import { ProductDescriptionEditor, RichTextEditor } from "../../RichTextEditor";
 import  {useToast } from "@/components/CustomToast";
+import { API_BASE_URL } from "@/lib/api-config";
 
 // Dynamic API response interfaces
 interface BrandData {
@@ -73,7 +74,25 @@ interface ManufacturerApiResponse {
   data: ManufacturerData[];
   errors: null;
 }
+// ✅ Add these interfaces after existing ones
+interface ProductApiImage {
+  id: string;
+  imageUrl: string;
+  altText: string;
+  sortOrder: number;
+  isMain: boolean;
+}
 
+interface ProductImage {
+  id: string;
+  imageUrl: string;  // Change from 'url' to 'imageUrl'
+  altText: string;
+  sortOrder: number; // Change from 'displayOrder' to 'sortOrder'  
+  isMain: boolean;
+  fileName?: string;
+  fileSize?: number;
+  file?: File;
+}
 interface ProductItem {
   id: string;
   name: string;
@@ -114,6 +133,9 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
   const [searchTermCross, setSearchTermCross] = useState('');
   const [attributes, setAttributes] = useState<Array<{id: string, name: string, values: string[]}>>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
+// ✅ Add these new states
+const [isDeletingImage, setIsDeletingImage] = useState(false);
+const [uploadingImages, setUploadingImages] = useState(false);
 
   // Dynamic dropdown data from API
   const [dropdownsData, setDropdownsData] = useState<DropdownsData>({
@@ -155,7 +177,7 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
     crossSellProducts: [] as string[],
 
     // New fields for additional tabs
-    productImages: [] as Array<{id: string, url: string, altText: string, displayOrder: number}>,
+productImages: [] as ProductImage[],
     videoUrls: [] as string[],
     specifications: [] as Array<{id: string, name: string, value: string, displayOrder: number}>,
 
@@ -434,13 +456,16 @@ useEffect(() => {
                 product.videoUrls.split(',').filter((url: string) => url.trim()) : 
                 product.videoUrls) : [],
                 
-            // Product Images
-            productImages: product.images?.map((img: any) => ({
-              id: img.id || Date.now().toString(),
-              url: img.url || '',
-              altText: img.altText || '',
-              displayOrder: img.displayOrder || 1
-            })) || [],
+          productImages: product.images?.map((img: any) => ({
+  id: img.id || Date.now().toString(),
+  imageUrl: img.imageUrl || '',
+  altText: img.altText || '',
+  sortOrder: img.sortOrder || 1,
+  isMain: img.isMain || false,
+  fileName: img.imageUrl ? img.imageUrl.split('/').pop() : undefined,
+  fileSize: undefined,
+  file: undefined
+})) || [],
             
             // Specifications
             specifications: product.specificationAttributes?.map((spec: any) => ({
@@ -761,35 +786,151 @@ const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElemen
       return attr;
     }));
   };
+// ✅ REPLACE existing handleImageUpload function:
+const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const files = e.target.files;
+  if (!files || files.length === 0) return;
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (files && files.length > 0) {
-      const newImages = Array.from(files).map((file, index) => ({
-        id: `${Date.now()}-${index}`,
-        url: URL.createObjectURL(file),
-        altText: '',
-        displayOrder: formData.productImages.length + index + 1,
-        file: file
-      }));
+  if (!formData.name.trim()) {
+    toast.error("Please enter product name before uploading images");
+    return;
+  }
 
-      setFormData({
-        ...formData,
-        productImages: [...formData.productImages, ...newImages as any]
-      });
+  if (formData.productImages.length + files.length > 10) {
+    toast.error(`Maximum 10 images allowed. You can add ${10 - formData.productImages.length} more.`);
+    return;
+  }
+
+  setUploadingImages(true);
+
+  try {
+    // Since we have productId, upload directly to the product
+    const uploadedImages = await uploadImagesToProductDirect(productId, Array.from(files));
+    
+    // Add uploaded images to existing images
+    const newImages = uploadedImages.map(img => ({
+      id: img.id,
+      imageUrl: img.imageUrl,
+      altText: img.altText,
+      sortOrder: img.sortOrder,
+      isMain: img.isMain,
+      fileName: img.imageUrl.split('/').pop() || '',
+      fileSize: 0,
+      file: undefined
+    }));
+
+    setFormData(prev => ({
+      ...prev,
+      productImages: [...prev.productImages, ...newImages]
+    }));
+
+    toast.success(`${uploadedImages.length} image(s) uploaded successfully! 📷`);
+
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
     }
-  };
+
+  } catch (error: any) {
+    console.error('Error processing images:', error);
+    toast.error('Failed to process images. Please try again.');
+  } finally {
+    setUploadingImages(false);
+  }
+};
+
 
   const handleBrowseClick = () => {
     fileInputRef.current?.click();
   };
 
-  const removeImage = (imageId: string) => {
+// ✅ REPLACE existing removeImage function with this:
+const removeImage = async (imageId: string) => {
+  const imageToRemove = formData.productImages.find(img => img.id === imageId);
+  if (!imageToRemove) return;
+
+  // If it's a blob URL (newly uploaded), just remove from state
+  if (imageToRemove.imageUrl.startsWith('blob:')) {
+    URL.revokeObjectURL(imageToRemove.imageUrl);
     setFormData({
       ...formData,
       productImages: formData.productImages.filter(img => img.id !== imageId)
     });
-  };
+    return;
+  }
+
+  // If it's an existing image from database, call delete API
+  setIsDeletingImage(true);
+  
+  try {
+    const token = localStorage.getItem('authToken');
+    
+    const deleteResponse = await fetch(
+      `${API_BASE_URL}/api/Products/images/${imageId}`,
+      {
+        method: 'DELETE',
+        headers: {
+          ...(token && { 'Authorization': `Bearer ${token}` }),
+        },
+      }
+    );
+
+    if (deleteResponse.ok) {
+      toast.success('Image deleted successfully! 🗑️');
+      setFormData({
+        ...formData,
+        productImages: formData.productImages.filter(img => img.id !== imageId)
+      });
+    } else {
+      const errorData = await deleteResponse.json().catch(() => ({ message: 'Failed to delete image' }));
+      throw new Error(errorData.message || 'Failed to delete image');
+    }
+
+  } catch (error: any) {
+    console.error('Error deleting image:', error);
+    toast.error(`Failed to delete image: ${error.message}`);
+  } finally {
+    setIsDeletingImage(false);
+  }
+};
+// ✅ ADD this new function:
+const uploadImagesToProductDirect = async (productId: string, files: File[]): Promise<ProductApiImage[]> => {
+  const uploadPromises = files.map(async (file, index) => {
+    try {
+      const uploadFormData = new FormData();
+      uploadFormData.append('images', file);
+      uploadFormData.append('altText', file.name.replace(/\.[^/.]+$/, ""));
+      uploadFormData.append('sortOrder', (formData.productImages.length + index + 1).toString());
+      uploadFormData.append('isMain', (formData.productImages.length === 0 && index === 0).toString());
+
+      const token = localStorage.getItem('authToken');
+      const uploadResponse = await fetch(
+        `${API_BASE_URL}/api/Products/${productId}/images?name=${encodeURIComponent(formData.name)}`,
+        {
+          method: 'POST',
+          headers: {
+            ...(token && { 'Authorization': `Bearer ${token}` }),
+          },
+          body: uploadFormData,
+        }
+      );
+
+      if (uploadResponse.ok) {
+        const result = await uploadResponse.json();
+        if (result && result.success && result.data) {
+          return Array.isArray(result.data) ? result.data[0] : result.data;
+        }
+      }
+      throw new Error(`Upload failed for ${file.name}`);
+    } catch (error: any) {
+      console.error(`Error uploading ${file.name}:`, error);
+      toast.error(`Failed to upload ${file.name}`);
+      return null;
+    }
+  });
+
+  const results = await Promise.all(uploadPromises);
+  return results.filter(result => result !== null);
+};
 
 
   return (
@@ -2143,106 +2284,203 @@ const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElemen
               </TabsContent>
 
               {/* Pictures Tab */}
-              <TabsContent value="pictures" className="space-y-2 mt-2">
-                <div className="space-y-4">
-                  <h3 className="text-lg font-semibold text-white border-b border-slate-800 pb-2">Product Images</h3>
-                  <p className="text-sm text-slate-400">
-                    Upload and manage product images. First image will be the main product image.
-                  </p>
+         {/* ✅ REPLACE the entire Pictures TabContent with this: */}
+<TabsContent value="pictures" className="space-y-2 mt-2">
+  <div className="space-y-4">
+    <h3 className="text-lg font-semibold text-white border-b border-slate-800 pb-2">Product Images</h3>
+    <p className="text-sm text-slate-400">
+      Upload additional images or manage existing ones. Images are uploaded immediately.
+    </p>
 
-                  {/* Image Upload Area */}
-                  <div className="border-2 border-dashed border-slate-700 rounded-xl p-8 bg-slate-800/20 hover:border-violet-500/50 transition-all">
-                    <div className="text-center">
-                      <Upload className="mx-auto h-16 w-16 text-slate-500 mb-4" />
-                      <h3 className="text-lg font-semibold text-white mb-2">Upload Product Images</h3>
-                      <p className="text-sm text-slate-400 mb-4">
-                        Drag and drop images here, or click to browse
-                      </p>
-                      <input
-                        ref={fileInputRef}
-                        type="file"
-                        accept="image/*"
-                        multiple
-                        onChange={handleImageUpload}
-                        className="hidden"
-                      />
-                      <button
-                        type="button"
-                        onClick={handleBrowseClick}
-                        className="px-6 py-2.5 bg-slate-800/50 border border-slate-700 rounded-xl text-slate-300 hover:bg-slate-800 transition-all text-sm font-medium"
-                      >
-                        Browse Files
-                      </button>
-                      <p className="text-xs text-slate-400 mt-3">
-                        Supported: JPG, PNG, WebP (Max 5MB each)
-                      </p>
-                    </div>
-                  </div>
+    {/* Image Upload Area */}
+    <div className={`border-2 border-dashed rounded-xl p-8 bg-slate-800/20 transition-all ${
+      uploadingImages 
+        ? 'border-violet-500/50 bg-violet-500/5' 
+        : 'border-slate-700 hover:border-violet-500/50'
+    }`}>
+      <div className="text-center">
+        {uploadingImages ? (
+          <div className="space-y-4">
+            <div className="w-16 h-16 border-4 border-violet-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
+            <div>
+              <h3 className="text-lg font-semibold text-white mb-2">Uploading Images...</h3>
+              <p className="text-sm text-slate-400">Please wait while we upload your images</p>
+            </div>
+          </div>
+        ) : (
+          <div>
+            <Upload className="mx-auto h-16 w-16 text-slate-500 mb-4" />
+            <h3 className="text-lg font-semibold text-white mb-2">Add More Images</h3>
+            <p className="text-sm text-slate-400 mb-4">
+              {!formData.name.trim() 
+                ? 'Please enter product name before uploading images'
+                : 'Images will be uploaded immediately to the product'
+              }
+            </p>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              multiple
+              onChange={handleImageUpload}
+              disabled={!formData.name.trim() || uploadingImages}
+              className="hidden"
+            />
+            <button
+              type="button"
+              onClick={() => {
+                if (!formData.name.trim()) {
+                  toast.warning('Please enter product name first');
+                  return;
+                }
+                fileInputRef.current?.click();
+              }}
+              disabled={uploadingImages}
+              className={`px-6 py-2.5 rounded-xl text-sm font-medium transition-all ${
+                !formData.name.trim() || uploadingImages
+                  ? 'bg-slate-700/50 text-slate-500 cursor-not-allowed'
+                  : 'bg-slate-800/50 border border-slate-700 text-slate-300 hover:bg-slate-800'
+              }`}
+            >
+              {uploadingImages ? 'Processing...' : 'Browse Files'}
+            </button>
+            <p className="text-xs text-slate-400 mt-3">
+              Supported: JPG, PNG, WebP • Max 5MB each • Up to 10 images
+            </p>
+          </div>
+        )}
+      </div>
+    </div>
 
-                  {/* Image Preview Grid */}
-                  {formData.productImages.length > 0 ? (
-                    <div className="space-y-4">
-                      <h4 className="text-sm font-medium text-slate-300">Uploaded Images ({formData.productImages.length})</h4>
-                      <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                        {formData.productImages.map((image) => (
-                          <div key={image.id} className="bg-slate-800/30 border border-slate-700 rounded-xl p-3 space-y-3">
-                            <div className="aspect-square bg-slate-700/50 rounded-lg flex items-center justify-center overflow-hidden">
-                              {image.url ? (
-                                <img src={image.url} alt={image.altText || 'Product image'} className="w-full h-full object-cover" />
-                              ) : (
-                                <Image className="h-12 w-12 text-slate-500" />
-                              )}
-                            </div>
-                            <div className="space-y-2">
-                              <input
-                                type="text"
-                                placeholder="Alt text"
-                                value={image.altText}
-                                onChange={(e) => {
-                                  setFormData({
-                                    ...formData,
-                                    productImages: formData.productImages.map(img =>
-                                      img.id === image.id ? { ...img, altText: e.target.value } : img
-                                    )
-                                  });
-                                }}
-                                className="w-full px-2 py-1.5 text-xs bg-slate-800/50 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
-                              />
-                              <input
-                                type="number"
-                                placeholder="Display order"
-                                value={image.displayOrder}
-                                onChange={(e) => {
-                                  setFormData({
-                                    ...formData,
-                                    productImages: formData.productImages.map(img =>
-                                      img.id === image.id ? { ...img, displayOrder: parseInt(e.target.value) || 0 } : img
-                                    )
-                                  });
-                                }}
-                                className="w-full px-2 py-1.5 text-xs bg-slate-800/50 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
-                              />
-                              <button
-                                type="button"
-                                onClick={() => removeImage(image.id)}
-                                className="w-full px-2 py-1.5 bg-red-500/20 border border-red-500/30 text-red-400 hover:bg-red-500/30 rounded-lg text-xs transition-all flex items-center justify-center gap-1"
-                              >
-                                <X className="h-3 w-3" />
-                                Delete
-                              </button>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="text-center py-8 border border-slate-700 rounded-xl bg-slate-800/20">
-                      <Image className="mx-auto h-12 w-12 text-slate-600 mb-2" />
-                      <p className="text-sm text-slate-400">No images uploaded yet</p>
-                    </div>
-                  )}
+    {/* Image Preview Grid */}
+    {formData.productImages.length > 0 ? (
+      <div className="space-y-4">
+        <h4 className="text-sm font-medium text-slate-300">
+          Current Images ({formData.productImages.length})
+        </h4>
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+          {formData.productImages.map((image, index) => (
+            <div key={image.id} className="bg-slate-800/30 border border-slate-700 rounded-xl p-3 space-y-3 relative">
+              {/* Main Image Badge */}
+              {image.isMain && (
+                <div className="absolute top-2 left-2 px-2 py-1 bg-violet-500 text-white text-xs font-medium rounded-lg z-10">
+                  Main
                 </div>
-              </TabsContent>
+              )}
+              
+              <div className="aspect-square bg-slate-700/50 rounded-lg flex items-center justify-center overflow-hidden relative">
+                {image.imageUrl ? (
+                  <img 
+                    src={image.imageUrl.startsWith('http') ? image.imageUrl : `${API_BASE_URL}${image.imageUrl}`} 
+                    alt={image.altText || 'Product image'} 
+                    className="w-full h-full object-cover" 
+                  />
+                ) : (
+                  <Image className="h-12 w-12 text-slate-500" />
+                )}
+                
+                {/* Delete Button */}
+                <button
+                  type="button"
+                  onClick={() => removeImage(image.id)}
+                  disabled={isDeletingImage}
+                  className={`absolute top-2 right-2 p-1.5 rounded-lg transition-all z-10 ${
+                    isDeletingImage 
+                      ? 'bg-slate-500/90 text-slate-300 cursor-not-allowed'
+                      : 'bg-red-500/90 text-white hover:bg-red-600'
+                  }`}
+                  title={isDeletingImage ? 'Deleting...' : 'Delete Image'}
+                >
+                  {isDeletingImage ? (
+                    <div className="w-3 h-3 border border-slate-300 border-t-transparent rounded-full animate-spin"></div>
+                  ) : (
+                    <X className="h-3 w-3" />
+                  )}
+                </button>
+              </div>
+              
+              <div className="space-y-2">
+                <input
+                  type="text"
+                  placeholder="Alt text"
+                  value={image.altText}
+                  onChange={(e) => {
+                    setFormData({
+                      ...formData,
+                      productImages: formData.productImages.map(img =>
+                        img.id === image.id ? { ...img, altText: e.target.value } : img
+                      )
+                    });
+                  }}
+                  className="w-full px-2 py-1.5 text-xs bg-slate-800/50 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+                />
+                <div className="flex items-center gap-1">
+                  <input
+                    type="number"
+                    placeholder="Order"
+                    value={image.sortOrder}
+                    onChange={(e) => {
+                      setFormData({
+                        ...formData,
+                        productImages: formData.productImages.map(img =>
+                          img.id === image.id ? { ...img, sortOrder: parseInt(e.target.value) || 1 } : img
+                        )
+                      });
+                    }}
+                    className="flex-1 px-2 py-1.5 text-xs bg-slate-800/50 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+                  />
+                  <label className="flex items-center gap-1">
+                    <input
+                      type="checkbox"
+                      checked={image.isMain}
+                      onChange={(e) => {
+                        setFormData({
+                          ...formData,
+                          productImages: formData.productImages.map(img =>
+                            img.id === image.id ? { ...img, isMain: e.target.checked } : 
+                            e.target.checked ? { ...img, isMain: false } : img
+                          )
+                        });
+                      }}
+                      className="w-3 h-3 text-violet-500"
+                    />
+                    <span className="text-xs text-slate-400">Main</span>
+                  </label>
+                </div>
+                
+                {/* File Info */}
+                {image.fileName && (
+                  <div className="text-xs text-slate-500">
+                    <div>{image.fileName}</div>
+                    {!image.file && (
+                      <div className="text-xs text-green-400">✓ Saved</div>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    ) : (
+      <div className="text-center py-8 border border-slate-700 rounded-xl bg-slate-800/20">
+        <Image className="mx-auto h-12 w-12 text-slate-600 mb-2" />
+        <p className="text-sm text-slate-400">No images uploaded yet</p>
+      </div>
+    )}
+
+    {/* Info Box */}
+    <div className="bg-violet-500/10 border border-violet-500/30 rounded-xl p-4">
+      <h4 className="font-semibold text-sm text-violet-400 mb-2">Edit Mode Information</h4>
+      <ul className="text-sm text-slate-300 space-y-1">
+        <li>• Images are uploaded immediately to the product</li>
+        <li>• Delete images instantly using the delete button</li>
+        <li>• Changes to alt text and main image are saved when you update the product</li>
+        <li>• Supported formats: JPG, PNG, WebP (max 5MB each)</li>
+      </ul>
+    </div>
+  </div>
+</TabsContent>
 
               {/* Videos Tab */}
               <TabsContent value="videos" className="space-y-2 mt-2">

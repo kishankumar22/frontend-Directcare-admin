@@ -13,6 +13,7 @@ import Link from "next/link";
 import { apiClient } from "../../../../lib/api"; // Import your axios client
 import { ProductDescriptionEditor } from "@/app/admin/products/SelfHostedEditor";
 import { useToast } from "@/components/CustomToast";
+import API_BASE_URL from "@/lib/api-config";
 
 // API response interfaces को properly define करें
 interface BrandApiResponse {
@@ -21,17 +22,17 @@ interface BrandApiResponse {
   data: BrandData[];
   errors: null;
 }
-// Interface for images
-// Updated interface to include file property
+
+// Add these interfaces at the top
 interface ProductImage {
   id: string;
-  imageUrl: string;
+  imageUrl: string;  // This should be 'imageUrl', not 'url'
   altText: string;
-  sortOrder: number;
+  sortOrder: number;  // This should be 'sortOrder', not 'displayOrder'
   isMain: boolean;
   fileName?: string;
   fileSize?: number;
-  file?: File; // Add this to store the actual file
+  file?: File; // For storing actual file during upload
 }
 
 // Types for products API response
@@ -43,6 +44,30 @@ interface ProductItem {
   oldPrice?: number;
   description?: string;
   shortDescription?: string;
+}
+
+interface ApiResponse<T = any> {
+  data?: T;
+  success?: boolean;
+  message?: string;
+  errors?: string[] | null;
+  error?: string;
+  status?: number;
+  result?: T;
+}
+
+interface ProductCreateResponse {
+  id: string;
+  name: string;
+  sku: string;
+  [key: string]: any;
+}
+
+interface ProductApiResponse {
+  success: boolean;
+  data?: ProductCreateResponse;
+  message?: string;
+  errors?: string[] | null;
 }
 
 interface ProductsApiResponse {
@@ -111,31 +136,7 @@ interface CategoryData {
   parentCategoryName?: string | null;
   subCategories?: CategoryData[];
 }
-// First, define the API response interfaces at the top of your file:
-interface ApiResponse<T> {
-  success: boolean;
-  message: string;
-  data: T;
-  errors?: string[] | null;
-}
 
-interface ImageUploadResponse {
-  id: string;
-  imageUrl: string;
-  url?: string;
-  originalName?: string;
-}
-
-// Interface for images
-interface ProductImage {
-  id: string;
-  imageUrl: string;
-  altText: string;
-  sortOrder: number;
-  isMain: boolean;
-  fileName?: string;
-  fileSize?: number;
-}
 // Update DropdownsData interface
 interface DropdownsData {
   brands: BrandData[];
@@ -151,12 +152,7 @@ export default function AddProductPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 // Add this to your component state
 const [availableProducts, setAvailableProducts] = useState<Array<{id: string, name: string, sku: string, price: string}>>([]);
-
-// State variables for image upload
 const [uploadingImages, setUploadingImages] = useState(false);
-const [imageUploadProgress, setImageUploadProgress] = useState<{[key: string]: number}>({});
-
-
 
 // Update initial state
 const [dropdownsData, setDropdownsData] = useState<DropdownsData>({
@@ -258,13 +254,13 @@ useEffect(() => {
     gtin: '',
     manufacturerPartNumber: '',
     adminComment: '',
-   productImages: [] as ProductImage[], 
+
     // Related Products
     relatedProducts: [] as string[],
     crossSellProducts: [] as string[],
 
     // New fields for additional tabs
-    // productImages: [] as Array<{id: string, url: string, altText: string, displayOrder: number}>,
+    productImages: [] as ProductImage[],  // Use proper interface
     videoUrls: [] as string[],
     specifications: [] as Array<{id: string, name: string, value: string, displayOrder: number}>,
 
@@ -440,75 +436,6 @@ const renderCategoryOptions = (categories: CategoryData[]): JSX.Element[] => {
   
   return options;
 };
-// New function to upload images to specific product
-// Fixed function to upload images to specific product
-const uploadImagesToProduct = async (productId: string, images: (ProductImage & { file?: File })[]) => {
-  console.log(`📸 Uploading ${images.length} images to product ${productId}...`);
-  
-  try {
-    const uploadPromises = images.map(async (image, index) => {
-      try {
-        // Check if we have the actual file object stored
-        if (!image.file) {
-          console.log(`⏭️ Skipping image ${index + 1} (no file object)`);
-          return null;
-        }
-
-        // Create FormData for this specific product
-        const uploadFormData = new FormData();
-        
-        // FIXED: Use 'images' as array field name (as per your API screenshot)
-        uploadFormData.append('images', image.file);
-        
-        // Optional: Add metadata if your API supports it
-        // uploadFormData.append('altText', image.altText || '');
-        // uploadFormData.append('sortOrder', image.sortOrder.toString());
-        // uploadFormData.append('isMain', image.isMain.toString());
-
-        console.log(`📤 Uploading image ${index + 1}:`, image.fileName);
-
-        // FIXED: Use correct API endpoint with product ID
-        const uploadResponse: any = await apiClient.post(
-          `/api/Product/${productId}/images`, // Correct API endpoint
-          uploadFormData,
-          {
-            headers: {
-              'Content-Type': 'multipart/form-data',
-            },
-          }
-        );
-
-        if (uploadResponse && uploadResponse.data && uploadResponse.data.success) {
-          console.log(`✅ Image ${index + 1} uploaded successfully`);
-          return uploadResponse.data;
-        } else {
-          throw new Error(`Upload failed: ${uploadResponse.data?.message || 'Unknown error'}`);
-        }
-      } catch (error: any) {
-        console.error(`❌ Error uploading image ${index + 1}:`, error);
-        
-        // Better error logging
-        if (error.response) {
-          console.error('Response error:', error.response.status, error.response.data);
-        }
-        
-        // Don't throw error, just return null to continue with other uploads
-        return null;
-      }
-    });
-
-    // Wait for all image uploads to complete
-    const results = await Promise.all(uploadPromises);
-    const successfulUploads = results.filter(result => result !== null);
-    
-    console.log(`✅ ${successfulUploads.length} out of ${images.length} images uploaded successfully`);
-    return successfulUploads;
-
-  } catch (error) {
-    console.error('❌ Error in uploadImagesToProduct:', error);
-    throw error;
-  }
-};
 
 const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
   e.preventDefault();
@@ -535,7 +462,7 @@ const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
       { autoClose: 0 }
     );
 
-    // Prepare categoryId - ensure it's a valid GUID or null
+    // Prepare product data (same as before)
     const guidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
     let categoryId: string | null = null;
@@ -543,183 +470,187 @@ const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
       const trimmedCategory = formData.categories.trim();
       if (guidRegex.test(trimmedCategory)) {
         categoryId = trimmedCategory;
-      } else {
-        console.warn('⚠️ Invalid category GUID:', trimmedCategory);
       }
     }
 
-    // Prepare brandId - ensure it's a valid GUID or null
     let brandId: string | null = null;
     if (formData.brand && formData.brand.trim()) {
       const trimmedBrand = formData.brand.trim();
       if (guidRegex.test(trimmedBrand)) {
         brandId = trimmedBrand;
-      } else {
-        console.warn('⚠️ Invalid brand GUID:', trimmedBrand);
       }
     }
 
-    // Prepare manufacturerId - ensure it's a valid GUID or null
     let manufacturerId: string | null = null;
     if (formData.manufacturerId && formData.manufacturerId.trim()) {
       const trimmedManufacturer = formData.manufacturerId.trim();
       if (guidRegex.test(trimmedManufacturer)) {
         manufacturerId = trimmedManufacturer;
-      } else {
-        console.warn('⚠️ Invalid manufacturer GUID:', trimmedManufacturer);
       }
     }
 
-    // Prepare product data for API
     const productData = {
-      // Basic Info - Required fields
       name: formData.name.trim(),
       description: formData.fullDescription || formData.shortDescription || formData.name || 'Product description',
       shortDescription: formData.shortDescription?.trim() || '',
       sku: formData.sku.trim(),
-      
-      // Optional basic fields
       gtin: formData.gtin?.trim() || null,
       manufacturerPartNumber: formData.manufacturerPartNumber?.trim() || null,
       displayOrder: parseInt(formData.displayOrder) || 1,
       adminComment: formData.adminComment?.trim() || null,
-
-      // Pricing
       price: parseFloat(formData.price) || 0,
       oldPrice: formData.oldPrice ? parseFloat(formData.oldPrice) : null,
       compareAtPrice: formData.oldPrice ? parseFloat(formData.oldPrice) : null,
       costPrice: formData.cost ? parseFloat(formData.cost) : null,
-
-      // Shipping
       weight: parseFloat(formData.weight) || 0,
       length: formData.length ? parseFloat(formData.length) : null,
       width: formData.width ? parseFloat(formData.width) : null,
       height: formData.height ? parseFloat(formData.height) : null,
       requiresShipping: formData.isShipEnabled,
-
-      // Inventory
       stockQuantity: parseInt(formData.stockQuantity) || 0,
       trackQuantity: formData.manageInventory === 'track',
-
-      // IDs - Only include if valid GUIDs
       ...(categoryId && { categoryId }),
       ...(brandId && { brandId }),
       ...(manufacturerId && { manufacturerId }),
-
-      // Availability dates - properly formatted
-      availableStartDate: formData.availableStartDate ? 
-        new Date(formData.availableStartDate).toISOString() : null,
-      availableEndDate: formData.availableEndDate ? 
-        new Date(formData.availableEndDate).toISOString() : null,
-
-      // Status and visibility
       isPublished: isDraft ? false : formData.published,
       status: isDraft ? 1 : (formData.published ? 2 : 1),
       visibleIndividually: formData.visibleIndividually,
       showOnHomepage: formData.showOnHomepage || false,
-
-      // SEO - only non-empty values
       metaTitle: formData.metaTitle?.trim() || null,
       metaDescription: formData.metaDescription?.trim() || null,
       metaKeywords: formData.metaKeywords?.trim() || null,
-      searchEngineFriendlyPageName: formData.searchEngineFriendlyPageName?.trim() || null,
-
-      // Additional fields
-      manufacturer: formData.manufacturer?.trim() || null,
-      vendor: formData.manufacturer?.trim() || null,
-      tags: formData.productTags?.trim() || null,
-      
-      // Related products - comma separated
-      relatedProductIds: Array.isArray(formData.relatedProducts) && formData.relatedProducts.length > 0 ? 
-        formData.relatedProducts.join(',') : null,
-      crossSellProductIds: Array.isArray(formData.crossSellProducts) && formData.crossSellProducts.length > 0 ? 
-        formData.crossSellProducts.join(',') : null,
-
-      // Video URLs - comma separated
-      videoUrls: formData.videoUrls && formData.videoUrls.length > 0 ? 
-        formData.videoUrls.join(',') : null,
     };
 
-    // Clean up null values (remove them completely)
+    // Clean up null values
     const cleanProductData = Object.fromEntries(
       Object.entries(productData).filter(([_, value]) => value !== null && value !== undefined && value !== '')
     );
 
     console.log('📦 Clean product data:', cleanProductData);
-    console.log('📋 Category ID:', categoryId);
-    console.log('🏷️ Brand ID:', brandId);
-    console.log('🏭 Manufacturer ID:', manufacturerId);
 
-    // STEP 1: Create Product First
-    let response;
+    // ✅ FIXED - STEP 1: Create Product with proper typing
+    let response: ApiResponse<ProductCreateResponse> | undefined;
     const endpoints = ['/api/Products', '/Products', '/api/Product'];
     
     for (const endpoint of endpoints) {
       try {
         console.log(`🔄 Trying POST ${endpoint}...`);
-        response = await apiClient.post(endpoint, cleanProductData);
+        const apiResponse = await apiClient.post(endpoint, cleanProductData);
+        response = apiResponse as ApiResponse<ProductCreateResponse>;
         console.log(`✅ Success with ${endpoint}`);
-        break; // Exit loop if successful
+        break;
       } catch (error: any) {
         console.log(`❌ Failed with ${endpoint}:`, error.response?.status);
         if (endpoints.indexOf(endpoint) === endpoints.length - 1) {
-          // If this is the last endpoint, throw the error
           throw error;
         }
-        // Continue to next endpoint
       }
     }
 
     // Dismiss loading toast
     toast.dismiss(loadingId);
 
-    // Handle successful response and get product ID
-    if (response && response.data) {
-      console.log('✅ Product created successfully:', response.data);
-      
-      // STEP 2: Get Product ID from response
-      let productId = null;
-      if (response.data.data && response.data.data.id) {
-        productId = response.data.data.id;
-      } else if (response.data.id) {
-        productId = response.data.id;
+    // ✅ FIXED - Handle successful response with proper type checking
+    if (response && (response.data || response.success !== false)) {
+      console.log('✅ Product created successfully:', response);
+
+      // ✅ STEP 2: Extract Product ID with proper type safety
+      let productId: string | null = null;
+
+      try {
+        console.log('🔍 Full API Response:', response);
+        
+        // Handle different response structures with type safety
+        if (response) {
+          // Case 1: response.data.data.id (nested data)
+          if (response.data && typeof response.data === 'object' && 'data' in response.data) {
+            const nestedData = (response.data as any).data;
+            if (nestedData && typeof nestedData === 'object' && 'id' in nestedData) {
+              productId = nestedData.id as string;
+              console.log('✅ Product ID found in response.data.data.id:', productId);
+            }
+          } 
+          // Case 2: response.data.id (direct in data)
+          else if (response.data && typeof response.data === 'object' && 'id' in response.data) {
+            productId = (response.data as any).id as string;
+            console.log('✅ Product ID found in response.data.id:', productId);
+          }
+          // Case 3: response.data (if the ID is directly in data as string)
+          else if (response.data && typeof response.data === 'string') {
+            productId = response.data;
+            console.log('✅ Product ID found directly in response.data:', productId);
+          }
+          // Case 4: Check for nested success response
+          else if (response.success && response.result && typeof response.result === 'object' && 'id' in response.result) {
+            productId = (response.result as any).id as string;
+            console.log('✅ Product ID found in response.result.id:', productId);
+          }
+          // Case 5: apiClient wrapped response (response.data is the actual API response)
+          else if (response.data && typeof response.data === 'object') {
+            const apiData = response.data as any;
+            if (apiData.id) {
+              productId = apiData.id as string;
+              console.log('✅ Product ID found in wrapped response:', productId);
+            } else if (apiData.data && apiData.data.id) {
+              productId = apiData.data.id as string;
+              console.log('✅ Product ID found in wrapped response.data:', productId);
+            }
+          }
+        }
+
+        if (!productId) {
+          console.warn('⚠️ Product ID not found in response. Response structure:', JSON.stringify(response, null, 2));
+          toast.warning('Product created but ID not returned. Images will be skipped.');
+        }
+
+      } catch (parseError) {
+        console.error('❌ Error parsing product ID from response:', parseError);
+        console.log('🔍 Response that caused error:', response);
+        productId = null;
       }
 
-      console.log('📦 Created Product ID:', productId);
+      console.log('🎯 Final Product ID:', productId);
 
-      // STEP 3: Upload Images if product ID exists and images are available
+      // ✅ STEP 3: Upload Images (only if product ID exists and images are available)
       if (productId && formData.productImages && formData.productImages.length > 0) {
+        console.log(`🖼️ Starting image upload for product ID: ${productId}`);
         toast.info('Uploading product images...', { autoClose: 0 });
         
         try {
-          await uploadImagesToProduct(productId, formData.productImages);
-          toast.success('Product and images uploaded successfully! 🎉');
+          // Filter images that have file objects (newly uploaded ones)
+          const imagesToUpload = formData.productImages.filter(img => img.file);
+          
+          if (imagesToUpload.length > 0) {
+            console.log(`📷 Found ${imagesToUpload.length} images to upload`);
+            
+            // Call uploadImagesToProduct function
+            const uploadedImages = await uploadImagesToProduct(productId, imagesToUpload);
+            
+            if (uploadedImages && uploadedImages.length > 0) {
+              toast.success(`Product and ${uploadedImages.length} images uploaded successfully! 🎉`);
+            } else {
+              toast.warning('Product created successfully, but no images were uploaded.');
+            }
+          } else {
+            console.log('ℹ️ No images with file objects found');
+            toast.success('Product created successfully! ✅');
+          }
         } catch (imageError) {
           console.error('❌ Error uploading images:', imageError);
-          toast.warning('Product created successfully, but some images failed to upload.');
+          toast.error('Product created successfully, but some images failed to upload.');
         }
       } else {
         // Success toast for product only
-        if (isDraft) {
-          toast.success(
-            <div>
-              <div className="font-semibold">Product saved as draft! 📝</div>
-              <div className="text-sm opacity-80 mt-1">
-                "{formData.name}" has been saved
-              </div>
-            </div>,
-            { autoClose: 4000 }
-          );
+        if (productId) {
+          console.log('✅ Product created successfully without images');
         } else {
-          toast.success(
-            <div>
-              <div className="font-semibold">Product created successfully! 🎉</div>
-              <div className="text-sm opacity-80 mt-1">
-                "{formData.name}" is now available
-              </div>
-            </div>,
-            { autoClose: 4000 }
-          );
+          console.log('ℹ️ Product creation completed but no ID returned');
+        }
+        
+        if (isDraft) {
+          toast.success(`Product saved as draft! 📝`);
+        } else {
+          toast.success(`Product created successfully! 🎉`);
         }
       }
       
@@ -732,7 +663,7 @@ const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
   } catch (error: any) {
     console.error('❌ Error submitting form:', error);
     
-    // Detailed error handling with toast notifications
+    // Detailed error handling
     if (error.response) {
       const errorData = error.response.data;
       const status = error.response.status;
@@ -751,15 +682,7 @@ const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
           const fieldName = field.replace('$', '').replace('.', ' ');
           errorMessage += `\n• ${fieldName}: ${Array.isArray(messages) ? messages.join(', ') : messages}`;
         }
-        toast.warning(
-          <div>
-            <div className="font-semibold">Validation Errors</div>
-            <div className="text-xs mt-1 whitespace-pre-line">
-              {errorMessage}
-            </div>
-          </div>,
-          { autoClose: 8000 }
-        );
+        toast.warning(errorMessage, { autoClose: 8000 });
       } else if (status === 401) {
         toast.error('Session expired. Please login again.');
       } else if (errorData?.message || errorData?.title) {
@@ -777,7 +700,6 @@ const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
     target.removeAttribute('data-submitting');
   }
 };
-
 
 // Updated handleChange function
 const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
@@ -892,10 +814,15 @@ const addCrossSellProduct = (productId: string) => {
     }));
   };
 
-// Updated handleImageUpload - Store image files properly for later upload
 const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
   const files = e.target.files;
   if (!files || files.length === 0) return;
+
+  // Check if product name is entered
+  if (!formData.name.trim()) {
+    toast.error("Please enter product name before uploading images");
+    return;
+  }
 
   if (formData.productImages.length + files.length > 10) {
     toast.error(`Maximum 10 images allowed. You can add ${10 - formData.productImages.length} more.`);
@@ -903,45 +830,44 @@ const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
   }
 
   setUploadingImages(true);
-  
+
   try {
-    const processedImages = Array.from(files).map((file, index) => {
-      // File validation
-      if (file.size > 5 * 1024 * 1024) {
-        toast.error(`${file.name} is too large. Max size is 5MB.`);
-        return null;
-      }
+    const processedImages = await Promise.all(
+      Array.from(files).map(async (file, index) => {
+        // File validation
+        if (file.size > 5 * 1024 * 1024) {
+          toast.error(`${file.name} is too large. Max size is 5MB.`);
+          return null;
+        }
 
-      if (!file.type.startsWith('image/')) {
-        toast.error(`${file.name} is not a valid image file.`);
-        return null;
-      }
+        if (!file.type.startsWith('image/')) {
+          toast.error(`${file.name} is not a valid image file.`);
+          return null;
+        }
 
-      // Create blob URL for preview
-      const imageUrl = URL.createObjectURL(file);
+        // Create temporary preview object
+        return {
+          id: `temp-${Date.now()}-${index}`,
+          imageUrl: URL.createObjectURL(file), // For preview
+          altText: file.name.replace(/\.[^/.]+$/, ""),
+          sortOrder: formData.productImages.length + index + 1,
+          isMain: formData.productImages.length === 0 && index === 0,
+          fileName: file.name,
+          fileSize: file.size,
+          file: file // Store actual file for later upload
+        };
+      })
+    );
 
-      // Return image object with file stored
-      return {
-        id: `temp-${Date.now()}-${index}`,
-        imageUrl: imageUrl, // Temporary blob URL for preview
-        altText: file.name.replace(/\.[^/.]+$/, ""),
-        sortOrder: formData.productImages.length + index + 1,
-        isMain: formData.productImages.length === 0 && index === 0,
-        fileName: file.name,
-        fileSize: file.size,
-        file: file, // IMPORTANT: Store the actual file for later upload
-      };
-    });
-
-    const validImages = processedImages.filter(img => img !== null);
-
+    const validImages = processedImages.filter(img => img !== null) as ProductImage[];
+    
     if (validImages.length > 0) {
       setFormData(prev => ({
         ...prev,
         productImages: [...prev.productImages, ...validImages]
       }));
-
-      toast.success(`${validImages.length} images ready for upload! 📸`);
+      
+      toast.success(`${validImages.length} image(s) added for upload! 📷`);
     }
 
     // Clear file input
@@ -950,10 +876,77 @@ const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     }
 
   } catch (error: any) {
-    console.error('Upload error:', error);
+    console.error('Error processing images:', error);
     toast.error('Failed to process images. Please try again.');
   } finally {
     setUploadingImages(false);
+  }
+};
+
+// ✅ NEW - Function to upload images to specific product ID
+const uploadImagesToProduct = async (productId: string, images: ProductImage[]) => {
+  console.log(`Uploading ${images.length} images to product ${productId}...`);
+
+  try {
+    const uploadPromises = images.map(async (image, index) => {
+      try {
+        // Check if we have the actual file object stored
+        if (!image.file) {
+          console.log(`Skipping image ${index + 1}: no file object`);
+          return null;
+        }
+
+        // Create FormData for this specific product
+        const uploadFormData = new FormData();
+        uploadFormData.append('images', image.file);
+        uploadFormData.append('altText', image.altText);
+        uploadFormData.append('sortOrder', image.sortOrder.toString());
+        uploadFormData.append('isMain', image.isMain.toString());
+
+        console.log(`Uploading image ${index + 1}: ${image.fileName}`);
+        
+        // ✅ UPDATED - Use product ID in URL path and product name in query parameter
+        const token = localStorage.getItem('authToken');
+        const uploadResponse = await fetch(
+          `${API_BASE_URL}/api/Products/${productId}/images?name=${encodeURIComponent(formData.name)}`,
+          {
+            method: 'POST',
+            headers: {
+              ...(token && { 'Authorization': `Bearer ${token}` }),
+            },
+            body: uploadFormData,
+          }
+        );
+
+        if (uploadResponse.ok) {
+          const result = await uploadResponse.json();
+          if (result && result.success) {
+            console.log(`Image ${index + 1} uploaded successfully`);
+            return result.data;
+          } else {
+            throw new Error(`Upload failed: ${result?.message || 'Unknown error'}`);
+          }
+        } else {
+          const errorText = await uploadResponse.text();
+          throw new Error(`HTTP ${uploadResponse.status}: ${errorText}`);
+        }
+      } catch (error: any) {
+        console.error(`Error uploading image ${index + 1}:`, error);
+        toast.error(`Failed to upload ${image.fileName}: ${error.message}`);
+        return null;
+      }
+    });
+
+    // Wait for all image uploads to complete
+    const results = await Promise.all(uploadPromises);
+    const successfulUploads = results.filter(result => result !== null);
+    
+    console.log(`${successfulUploads.length} out of ${images.length} images uploaded successfully`);
+    return successfulUploads;
+
+  } catch (error) {
+    console.error('Error in uploadImagesToProduct:', error);
+    throw error;
   }
 };
 
@@ -2313,100 +2306,192 @@ const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
                 </div>
               </TabsContent>
 
-    
-{/* Pictures Tab - केवल Upload functionality */}
-<TabsContent value="pictures" className="space-y-2 mt-2">
+ <TabsContent value="pictures" className="space-y-2 mt-2">
   <div className="space-y-4">
-    {/* Header */}
     <div className="flex items-center justify-between">
       <div>
         <h3 className="text-lg font-semibold text-white">Product Images</h3>
-        <p className="text-sm text-slate-400">Upload product images</p>
+        <p className="text-sm text-slate-400">
+          Upload and manage product images. First image will be the main product image.
+        </p>
       </div>
-      <div className="text-sm text-slate-400">
-        {formData.productImages.length} / 10 images
-      </div>
+      {formData.productImages.length > 0 && (
+        <div className="text-sm text-slate-400">
+          {formData.productImages.length}/10 images
+        </div>
+      )}
     </div>
 
-    {/* Upload Area */}
-    <div className="border-2 border-dashed border-slate-700 rounded-xl p-8 bg-slate-800/20 hover:border-violet-500/50 transition-all">
+    {/* Image Upload Area - UPDATED */}
+    <div className={`border-2 border-dashed rounded-xl p-8 bg-slate-800/20 transition-all ${
+      uploadingImages 
+        ? 'border-violet-500/50 bg-violet-500/5' 
+        : 'border-slate-700 hover:border-violet-500/50'
+    }`}>
       <div className="text-center">
-        <Upload className={`mx-auto h-16 w-16 text-slate-500 mb-4 ${uploadingImages ? 'animate-pulse' : ''}`} />
-        <h3 className="text-lg font-semibold text-white mb-2">
-          {uploadingImages ? 'Uploading Images...' : 'Upload Product Images'}
-        </h3>
-        <p className="text-sm text-slate-400 mb-4">
-          Click to browse and upload multiple images
-        </p>
-        
-        {/* Progress Bars */}
-        {Object.keys(imageUploadProgress).length > 0 && (
-          <div className="mb-4 space-y-2">
-            {Object.entries(imageUploadProgress).map(([uploadId, progress]) => (
-              <div key={uploadId} className="bg-slate-800/50 rounded-lg p-2">
-                <div className="flex justify-between text-xs text-slate-300 mb-1">
-                  <span>Uploading...</span>
-                  <span>{progress}%</span>
-                </div>
-                <div className="w-full bg-slate-700 rounded-full h-2">
-                  <div 
-                    className="bg-violet-500 h-2 rounded-full transition-all"
-                    style={{ width: `${progress}%` }}
-                  ></div>
-                </div>
-              </div>
-            ))}
+        {uploadingImages ? (
+          <div className="space-y-4">
+            <div className="w-16 h-16 border-4 border-violet-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
+            <div>
+              <h3 className="text-lg font-semibold text-white mb-2">Processing Images...</h3>
+              <p className="text-sm text-slate-400">Please wait while we prepare your images</p>
+            </div>
+          </div>
+        ) : (
+          <div>
+            <Upload className="mx-auto h-16 w-16 text-slate-500 mb-4" />
+            <h3 className="text-lg font-semibold text-white mb-2">Upload Product Images</h3>
+            <p className="text-sm text-slate-400 mb-4">
+              {!formData.name.trim() 
+                ? 'Please enter product name first before uploading images'
+                : 'Drag and drop images here, or click to browse'
+              }
+            </p>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              multiple
+              onChange={handleImageUpload}
+              disabled={!formData.name.trim() || uploadingImages}
+              className="hidden"
+            />
+            <button
+              type="button"
+              onClick={() => {
+                if (!formData.name.trim()) {
+                  toast.warning('Please enter product name first');
+                  return;
+                }
+                fileInputRef.current?.click();
+              }}
+              disabled={uploadingImages}
+              className={`px-6 py-2.5 rounded-xl text-sm font-medium transition-all ${
+                !formData.name.trim() || uploadingImages
+                  ? 'bg-slate-700/50 text-slate-500 cursor-not-allowed'
+                  : 'bg-slate-800/50 border border-slate-700 text-slate-300 hover:bg-slate-800'
+              }`}
+            >
+              {uploadingImages ? 'Processing...' : 'Browse Files'}
+            </button>
+            <p className="text-xs text-slate-400 mt-3">
+              Supported: JPG, PNG, WebP • Max 5MB each • Up to 10 images
+            </p>
+            {!formData.name.trim() && (
+              <p className="text-xs text-amber-400 mt-2">⚠️ Product name is required for image upload</p>
+            )}
           </div>
         )}
-
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="image/*"
-          multiple
-          onChange={handleImageUpload}
-          disabled={uploadingImages || formData.productImages.length >= 10}
-          className="hidden"
-        />
-        
-        <button
-          type="button"
-          onClick={() => fileInputRef.current?.click()}
-          disabled={uploadingImages || formData.productImages.length >= 10}
-          className="px-6 py-2.5 bg-slate-800/50 border border-slate-700 rounded-xl text-slate-300 hover:bg-slate-800 transition-all text-sm font-medium disabled:opacity-50"
-        >
-          {uploadingImages ? 'Uploading...' : 'Choose Images'}
-        </button>
-        
-        <p className="text-xs text-slate-400 mt-3">
-          JPG, PNG, WebP • Max 5MB each • Up to 10 images
-        </p>
       </div>
     </div>
 
-    {/* Simple Image List */}
+    {/* Image Preview Grid - UPDATED */}
     {formData.productImages.length > 0 ? (
-      <div className="space-y-2">
-        <h4 className="text-sm font-medium text-slate-300">
-          Uploaded Images ({formData.productImages.length})
-        </h4>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          {formData.productImages.map((image) => (
-            <div key={image.id} className="bg-slate-800/30 border border-slate-700 rounded-lg p-2">
-              <div className="aspect-square bg-slate-700/50 rounded-md flex items-center justify-center overflow-hidden mb-2">
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <h4 className="text-sm font-medium text-slate-300">
+            Uploaded Images ({formData.productImages.length})
+          </h4>
+          <div className="text-xs text-slate-400">
+            Images will be uploaded when product is created
+          </div>
+        </div>
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+          {formData.productImages.map((image, index) => (
+            <div key={image.id} className="bg-slate-800/30 border border-slate-700 rounded-xl p-3 space-y-3">
+              {/* Main Image Badge */}
+              {index === 0 && (
+                <div className="absolute top-2 left-2 px-2 py-1 bg-violet-500 text-white text-xs font-medium rounded-lg">
+                  Main
+                </div>
+              )}
+              
+              {/* Image Preview */}
+              <div className="relative aspect-square bg-slate-700/50 rounded-lg flex items-center justify-center overflow-hidden">
                 {image.imageUrl ? (
                   <img 
                     src={image.imageUrl} 
-                    alt={image.altText} 
+                    alt={image.altText || 'Product image'} 
                     className="w-full h-full object-cover" 
                   />
                 ) : (
-                  <Image className="h-8 w-8 text-slate-500" />
+                  <Image className="h-12 w-12 text-slate-500" />
                 )}
+                
+                {/* Delete Button */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    // Cleanup object URL to prevent memory leaks
+                    if (image.imageUrl.startsWith('blob:')) {
+                      URL.revokeObjectURL(image.imageUrl);
+                    }
+                    removeImage(image.id);
+                  }}
+                  className="absolute top-2 right-2 p-1.5 bg-red-500/90 text-white rounded-lg hover:bg-red-600 transition-all"
+                >
+                  <X className="h-3 w-3" />
+                </button>
               </div>
-              <p className="text-xs text-slate-400 truncate">
-                {image.fileName || 'Image'}
-              </p>
+              
+              {/* Image Details */}
+              <div className="space-y-2">
+                <input
+                  type="text"
+                  placeholder="Alt text"
+                  value={image.altText}
+                  onChange={(e) => {
+                    setFormData({
+                      ...formData,
+                      productImages: formData.productImages.map(img =>
+                        img.id === image.id ? { ...img, altText: e.target.value } : img
+                      )
+                    });
+                  }}
+                  className="w-full px-2 py-1.5 text-xs bg-slate-800/50 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+                />
+                <div className="flex items-center gap-1">
+                  <input
+                    type="number"
+                    placeholder="Order"
+                    value={image.sortOrder}
+                    onChange={(e) => {
+                      setFormData({
+                        ...formData,
+                        productImages: formData.productImages.map(img =>
+                          img.id === image.id ? { ...img, sortOrder: parseInt(e.target.value) || 1 } : img
+                        )
+                      });
+                    }}
+                    className="flex-1 px-2 py-1.5 text-xs bg-slate-800/50 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+                  />
+                  <label className="flex items-center gap-1">
+                    <input
+                      type="checkbox"
+                      checked={image.isMain}
+                      onChange={(e) => {
+                        setFormData({
+                          ...formData,
+                          productImages: formData.productImages.map(img =>
+                            img.id === image.id ? { ...img, isMain: e.target.checked } : 
+                            e.target.checked ? { ...img, isMain: false } : img
+                          )
+                        });
+                      }}
+                      className="w-3 h-3 text-violet-500"
+                    />
+                    <span className="text-xs text-slate-400">Main</span>
+                  </label>
+                </div>
+                
+                {/* File Info */}
+                <div className="text-xs text-slate-500">
+                  <div>{image.fileName}</div>
+                  {image.fileSize && (
+                    <div>{(image.fileSize / 1024 / 1024).toFixed(2)} MB</div>
+                  )}
+                </div>
+              </div>
             </div>
           ))}
         </div>
@@ -2417,9 +2502,20 @@ const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         <p className="text-sm text-slate-400">No images uploaded yet</p>
       </div>
     )}
+
+    {/* Info Box */}
+    <div className="bg-violet-500/10 border border-violet-500/30 rounded-xl p-4">
+      <h4 className="font-semibold text-sm text-violet-400 mb-2">Image Upload Process</h4>
+      <ul className="text-sm text-slate-300 space-y-1">
+        <li>• Images are staged for upload when product is created</li>
+        <li>• Product name is sent as query parameter for API identification</li>
+        <li>• Images are uploaded to: <code className="bg-slate-800 px-1 rounded">/api/Products/{`{id}`}/images?name=ProductName</code></li>
+        <li>• First image becomes the main product image automatically</li>
+        <li>• Supported formats: JPG, PNG, WebP (max 5MB each)</li>
+      </ul>
+    </div>
   </div>
 </TabsContent>
-
               {/* Videos Tab */}
               <TabsContent value="videos" className="space-y-2 mt-2">
                 <div className="space-y-4">

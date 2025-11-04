@@ -1,12 +1,11 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Plus, Edit, Trash2, Search, FolderTree, Eye, Camera, Filter, FilterX, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, AlertCircle } from "lucide-react";
+import { Plus, Edit, Trash2, Search, FolderTree, Eye, Upload, Filter, FilterX, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, AlertCircle } from "lucide-react";
 import { API_ENDPOINTS, API_BASE_URL } from "@/lib/api-config";
 import { ProductDescriptionEditor } from "../products/SelfHostedEditor";
 import { useToast } from "@/components/CustomToast";
 import ConfirmDialog from "@/components/ConfirmDialog";
-
 
 interface Category {
   id: string;
@@ -37,17 +36,26 @@ export default function CategoriesPage() {
   const [selectedImageUrl, setSelectedImageUrl] = useState<string | null>(null);
   const [viewingCategory, setViewingCategory] = useState<Category | null>(null);
   const [statusFilter, setStatusFilter] = useState<string>("all");
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [uploadingImage, setUploadingImage] = useState(false);
 
   // Pagination states
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(25);
-  // Inside your Category component
-const [deleteConfirm, setDeleteConfirm] = useState<{
-  id: string;
-  name: string;
-} | null>(null);
-const [isDeleting, setIsDeleting] = useState(false);
+  
+  // Delete confirmation states
+  const [deleteConfirm, setDeleteConfirm] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  
+  // NEW - Image delete confirmation state
+  const [imageDeleteConfirm, setImageDeleteConfirm] = useState<{
+    categoryId: string;
+    imageUrl: string;
+    categoryName: string;
+  } | null>(null);
+  const [isDeletingImage, setIsDeletingImage] = useState(false);
   
   const [formData, setFormData] = useState({
     name: "",
@@ -68,121 +76,191 @@ const [isDeleting, setIsDeleting] = useState(false);
     return `${API_BASE_URL}${imageUrl}`;
   };
 
-  useEffect(() => {
-    fetchCategories();
-  }, []);
-
-  const fetchCategories = async () => {
-    try {
-      const token = localStorage.getItem('authToken');
-      const response = await fetch(`${API_ENDPOINTS.categories}?includeInactive=true&includeSubCategories=false`, {
-        headers: {
-          ...(token && { 'Authorization': `Bearer ${token}` }),
-        },
-      });
-      if (response.ok) {
-        const result = await response.json();
-        setCategories(result.data || []);
-      }
-    } catch (error) {
-      console.error("Error fetching categories:", error);
-    } finally {
-      setLoading(false);
-    }
+  // Extract filename from image URL
+  const extractFilename = (imageUrl: string) => {
+    if (!imageUrl) return "";
+    const parts = imageUrl.split('/');
+    return parts[parts.length - 1];
   };
 
-const handleSubmit = async (e: React.FormEvent) => {
-  e.preventDefault();
+  // NEW - Image upload handler (same as brand/manufacturer)
+  const handleImageUpload = async (file: File) => {
+    if (!formData.name.trim()) {
+      toast.error("Please enter category name before uploading image");
+      return;
+    }
 
-  try {
-    // First upload image if there's a file selected
-    let finalImageUrl = formData.imageUrl;
-    
-    // Check if there's a new file to upload (you'll need to add this state)
-    const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
-    if (fileInput?.files?.[0]) {
-      const file = fileInput.files[0];
-      const formDataToUpload = new FormData();
-      formDataToUpload.append('image', file);
-      formDataToUpload.append('name', formData.name); // Category name bhi send kar rahe hain
+    setUploadingImage(true);
+    const formDataToUpload = new FormData();
+    formDataToUpload.append('image', file);
 
-      try {
-        const token = localStorage.getItem('authToken');
-        const response = await fetch(`${API_ENDPOINTS.categories}/upload-image`, {
+    try {
+      const token = localStorage.getItem('authToken');
+      
+      // Send category name as query parameter
+      const response = await fetch(
+        `${API_BASE_URL}/api/Categories/upload-image?name=${encodeURIComponent(formData.name)}`,
+        {
           method: 'POST',
           headers: {
             ...(token && { 'Authorization': `Bearer ${token}` }),
           },
           body: formDataToUpload,
-        });
-
-        if (response.ok) {
-          const result = await response.json();
-          finalImageUrl = result.data; // Response se data ko finalImageUrl mein set kar rahe hain
-          toast.success('Image uploaded successfully! 📸');
-        } else {
-          const errorData = await response.text();
-          toast.error('Failed to upload image: ' + errorData);
-          return; // Image upload fail hone par category create nahi karte
         }
-      } catch (error) {
-        console.error('Error uploading image:', error);
-        toast.error('Network error while uploading image');
-        return;
+      );
+
+      if (response.ok) {
+        const result = await response.json();
+        
+        // Set the imageUrl from response data
+        if (result.success && result.data) {
+          setFormData(prev => ({ ...prev, imageUrl: result.data }));
+          toast.success("Image uploaded successfully! ✅");
+        } else {
+          toast.error("Failed to get image URL from response");
+        }
+      } else {
+        const errorData = await response.json().catch(() => ({ message: 'Failed to upload image' }));
+        toast.error(errorData.message || 'Failed to upload image');
       }
+    } catch (error) {
+      console.error('Error uploading image:', error);
+      toast.error('Failed to upload image');
+    } finally {
+      setUploadingImage(false);
     }
+  };
 
-    // Now create/update category with final image URL
-    const url = editingCategory
-      ? `${API_ENDPOINTS.categories}/${editingCategory.id}`
-      : API_ENDPOINTS.categories;
+  // NEW - Delete image function
+  const handleDeleteImage = async (categoryId: string, imageUrl: string) => {
+    setIsDeletingImage(true);
+    
+    try {
+      const filename = extractFilename(imageUrl);
+      const token = localStorage.getItem('authToken');
+      
+      const response = await fetch(`${API_BASE_URL}/api/ImageManagement/category/${filename}`, {
+        method: 'DELETE',
+        headers: {
+          ...(token && { 'Authorization': `Bearer ${token}` }),
+          'Content-Type': 'application/json',
+        },
+      });
 
-    const method = editingCategory ? 'PUT' : 'POST';
-
-    const payload: any = {
-      ...formData,
-      imageUrl: finalImageUrl, // Final image URL use kar rahe hain
-      parentCategoryId: formData.parentCategoryId || null,
-    };
-
-    if (editingCategory) {
-      payload.id = editingCategory.id;
+      if (response.ok) {
+        toast.success('Image deleted successfully! 🗑️');
+        
+        // Update the category's imageUrl to empty
+        setCategories(prev => 
+          prev.map(category => 
+            category.id === categoryId 
+              ? { ...category, imageUrl: "" }
+              : category
+          )
+        );
+        
+        // Update form data if currently editing this category
+        if (editingCategory?.id === categoryId) {
+          setFormData(prev => ({ ...prev, imageUrl: "" }));
+        }
+        
+        // Update viewing category if it's the same one
+        if (viewingCategory?.id === categoryId) {
+          setViewingCategory(prev => 
+            prev ? { ...prev, imageUrl: "" } : null
+          );
+        }
+        
+      } else if (response.status === 401) {
+        toast.error('Please login again');
+      } else {
+        const errorData = await response.json().catch(() => null);
+        toast.error(errorData?.message || 'Failed to delete image');
+      }
+    } catch (error) {
+      console.error('Error deleting image:', error);
+      toast.error('Failed to delete image');
+    } finally {
+      setIsDeletingImage(false);
+      setImageDeleteConfirm(null);
     }
+  };
 
+  useEffect(() => {
+    fetchCategories();
+  }, []);
+const fetchCategories = async () => {
+  try {
     const token = localStorage.getItem('authToken');
-    const response = await fetch(url, {
-      method,
+    const response = await fetch(`${API_ENDPOINTS.categories}?includeInactive=true&includeSubCategories=false`, {
       headers: {
-        'Content-Type': 'application/json',
         ...(token && { 'Authorization': `Bearer ${token}` }),
       },
-      body: JSON.stringify(payload),
     });
-
     if (response.ok) {
-      // Success toast
-      if (editingCategory) {
-        toast.success('Category updated successfully! ✅');
-      } else {
-        toast.success('Category created successfully! 🎉');
-      }
-
-      await fetchCategories();
-      setShowModal(false);
-      resetForm();
-    } else {
-      // Error toast
-      const error = await response.json();
-      const message = error.message || error.error || 'Something went wrong';
-      toast.error(`Failed to ${editingCategory ? 'update' : 'create'} category: ${message}`);
+      const result = await response.json();
+      // ✅ Force update with spread operator
+      setCategories([...(result.data || [])]);
     }
   } catch (error) {
-    // Network error toast
-    console.error('Error saving category:', error);
-    toast.error(`Failed to ${editingCategory ? 'update' : 'create'} category. Please try again.`);
+    console.error("Error fetching categories:", error);
+  } finally {
+    setLoading(false);
   }
 };
 
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    try {
+      const url = editingCategory
+        ? `${API_ENDPOINTS.categories}/${editingCategory.id}`
+        : API_ENDPOINTS.categories;
+
+      const method = editingCategory ? 'PUT' : 'POST';
+
+      const payload: any = {
+        ...formData,
+        parentCategoryId: formData.parentCategoryId || null,
+      };
+
+      if (editingCategory) {
+        payload.id = editingCategory.id;
+      }
+
+      const token = localStorage.getItem('authToken');
+      const response = await fetch(url, {
+        method,
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token && { 'Authorization': `Bearer ${token}` }),
+        },
+        body: JSON.stringify(payload),
+      });
+
+      if (response.ok) {
+        // Success toast
+        if (editingCategory) {
+          toast.success('Category updated successfully! ✅');
+        } else {
+          toast.success('Category created successfully! 🎉');
+        }
+
+        await fetchCategories();
+        setShowModal(false);
+        resetForm();
+      } else {
+        // Error toast
+        const error = await response.json();
+        const message = error.message || error.error || 'Something went wrong';
+        toast.error(`Failed to ${editingCategory ? 'update' : 'create'} category: ${message}`);
+      }
+    } catch (error) {
+      // Network error toast
+      console.error('Error saving category:', error);
+      toast.error(`Failed to ${editingCategory ? 'update' : 'create'} category. Please try again.`);
+    }
+  };
 
   const handleEdit = (category: Category) => {
     setEditingCategory(category);
@@ -200,128 +278,34 @@ const handleSubmit = async (e: React.FormEvent) => {
     setShowModal(true);
   };
 
-const handleDelete = async (id: string) => {
-  setIsDeleting(true);
-  
-  try {
-    const token = localStorage.getItem('authToken');
-    const response = await fetch(`${API_ENDPOINTS.categories}/${id}`, {
-      method: 'DELETE',
-      headers: {
-        ...(token && { 'Authorization': `Bearer ${token}` }),
-      },
-    });
-
-    if (response.ok) {
-      toast.success('Category deleted successfully! 🗑️');
-      await fetchCategories();
-    } else if (response.status === 401) {
-      toast.error('Please login again');
-    } else {
-      toast.error('Failed to delete category');
-    }
-  } catch (error) {
-    console.error('Error deleting category:', error);
-    toast.error('Failed to delete category');
-  } finally {
-    setIsDeleting(false);
-  }
-};
-// File input handler
-const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-  const file = e.target.files?.[0];
-  if (file) {
-    setSelectedFile(file);
-    // Preview ke liye URL create karein
-    const previewUrl = URL.createObjectURL(file);
-    setFormData({...formData, imageUrl: previewUrl});
-  }
-};
-
-// Update image handler (existing image ke liye)
-const handleUpdateImage = async (e: React.ChangeEvent<HTMLInputElement>) => {
-  const file = e.target.files?.[0];
-  if (file) {
-    setSelectedFile(file);
-    const formDataToUpload = new FormData();
-    formDataToUpload.append('image', file);
-    formDataToUpload.append('name', formData.name); // Category name bhi send
+  const handleDelete = async (id: string) => {
+    setIsDeleting(true);
     
     try {
       const token = localStorage.getItem('authToken');
-      const response = await fetch(`${API_ENDPOINTS.categories}/upload-image`, {
-        method: 'POST',
+      const response = await fetch(`${API_ENDPOINTS.categories}/${id}`, {
+        method: 'DELETE',
         headers: {
           ...(token && { 'Authorization': `Bearer ${token}` }),
         },
-        body: formDataToUpload,
       });
 
       if (response.ok) {
-        const result = await response.json();
-        setFormData({...formData, imageUrl: result.data}); // Response data ko set kar rahe hain
-        setSelectedFile(null); // File state clear kar dein
-        toast.success('Image updated successfully! 📸');
+        toast.success('Category deleted successfully! 🗑️');
+        await fetchCategories();
+      } else if (response.status === 401) {
+        toast.error('Please login again');
       } else {
-        const errorData = await response.text();
-        toast.error('Failed to upload image: ' + errorData);
+        toast.error('Failed to delete category');
       }
     } catch (error) {
-      console.error('Error uploading image:', error);
-      toast.error('Network error while uploading image');
+      console.error('Error deleting category:', error);
+      toast.error('Failed to delete category');
+    } finally {
+      setIsDeleting(false);
+      setDeleteConfirm(null);
     }
-  }
-};
-
-// Add this function to extract filename from URL
-const getFileNameFromUrl = (imageUrl: string) => {
-  if (!imageUrl) return '';
-  
-  // Handle both full URLs and relative paths
-  const url = imageUrl.includes('/uploads/') 
-    ? imageUrl.split('/uploads/')[1] 
-    : imageUrl.split('/').pop() || '';
-  
-  return url;
-};
-
-// Delete image function
-const handleDeleteImage = async () => {
-  if (!formData.imageUrl) return;
-
-  try {
-    const fileName = getFileNameFromUrl(formData.imageUrl);
-    if (!fileName) {
-      toast.error('Invalid image URL');
-      return;
-    }
-
-    const token = localStorage.getItem('authToken');
-    const response = await fetch(`https://testapi.knowledgemarkg.com/api/ImageManagement/category/${fileName}`, {
-      method: 'DELETE',
-      headers: {
-        ...(token && { 'Authorization': `Bearer ${token}` }),
-      },
-    });
-
-    if (response.ok) {
-      // Clear the image from form
-      setFormData({...formData, imageUrl: ''});
-      toast.success('Image deleted successfully! 🗑️');
-    } else if (response.status === 404) {
-      // Image not found on server, but clear from form anyway
-      setFormData({...formData, imageUrl: ''});
-      toast.warning('Image not found on server, but removed from form');
-    } else {
-      const errorData = await response.text();
-      toast.error('Failed to delete image: ' + errorData);
-    }
-  } catch (error) {
-    console.error('Error deleting image:', error);
-    toast.error('Network error while deleting image');
-  }
-};
-
+  };
 
   const resetForm = () => {
     setFormData({
@@ -416,10 +400,21 @@ const handleDeleteImage = async () => {
     setCurrentPage(1);
   }, [searchTerm, statusFilter]);
 
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <div className="text-center">
+          <div className="w-16 h-16 border-4 border-violet-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-slate-400">Loading categories...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-2">
       {/* Header */}
-      <div className="flex flex-col  sm:flex-row sm:items-center justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold tracking-tight bg-gradient-to-r from-violet-400 via-cyan-400 to-pink-400 bg-clip-text text-transparent">
             Categories Management
@@ -517,9 +512,7 @@ const handleDeleteImage = async () => {
 
       {/* Categories List */}
       <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-2xl p-2">
-        {loading ? (
-          <div className="text-center py-12 text-slate-400">Loading categories...</div>
-        ) : currentData.length === 0 ? (
+        {currentData.length === 0 ? (
           <div className="text-center py-12">
             <FolderTree className="h-16 w-16 text-slate-600 mx-auto mb-4" />
             <p className="text-slate-400">No categories found</p>
@@ -625,16 +618,16 @@ const handleDeleteImage = async () => {
                         >
                           <Edit className="h-4 w-4" />
                         </button>
-                       <button
-  onClick={() => setDeleteConfirm({ 
-    id: category.id, 
-    name: category.name 
-  })}
-  className="p-2 text-red-400 hover:bg-red-500/10 rounded-lg transition-all"
-  title="Delete Category"
->
-  <Trash2 className="h-4 w-4" />
-</button>
+                        <button
+                          onClick={() => setDeleteConfirm({ 
+                            id: category.id, 
+                            name: category.name 
+                          })}
+                          className="p-2 text-red-400 hover:bg-red-500/10 rounded-lg transition-all"
+                          title="Delete Category"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
                       </div>
                     </td>
                   </tr>
@@ -654,7 +647,6 @@ const handleDeleteImage = async () => {
             </div>
             
             <div className="flex items-center gap-2">
-              {/* First Page */}
               <button
                 onClick={goToFirstPage}
                 disabled={currentPage === 1}
@@ -664,7 +656,6 @@ const handleDeleteImage = async () => {
                 <ChevronsLeft className="h-4 w-4" />
               </button>
 
-              {/* Previous Page */}
               <button
                 onClick={goToPreviousPage}
                 disabled={currentPage === 1}
@@ -674,7 +665,6 @@ const handleDeleteImage = async () => {
                 <ChevronLeft className="h-4 w-4" />
               </button>
 
-              {/* Page Numbers */}
               <div className="flex items-center gap-1">
                 {getPageNumbers().map((page) => (
                   <button
@@ -691,7 +681,6 @@ const handleDeleteImage = async () => {
                 ))}
               </div>
 
-              {/* Next Page */}
               <button
                 onClick={goToNextPage}
                 disabled={currentPage === totalPages}
@@ -701,7 +690,6 @@ const handleDeleteImage = async () => {
                 <ChevronRight className="h-4 w-4" />
               </button>
 
-              {/* Last Page */}
               <button
                 onClick={goToLastPage}
                 disabled={currentPage === totalPages}
@@ -719,7 +707,7 @@ const handleDeleteImage = async () => {
         </div>
       )}
 
-      {/* Modal */}
+      {/* Create/Edit Modal - UPDATED WITH BRAND-STYLE UPLOAD */}
       {showModal && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-50 flex items-center justify-center p-4 animate-fadeIn">
           <div className="bg-gradient-to-br from-slate-900 via-slate-900 to-slate-800 border border-violet-500/20 rounded-3xl max-w-5xl w-full max-h-[90vh] overflow-hidden shadow-2xl shadow-violet-500/10">
@@ -762,6 +750,9 @@ const handleDeleteImage = async () => {
                       placeholder="Enter category name"
                       className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
                     />
+                    {!formData.name && (
+                      <p className="text-xs text-amber-400 mt-1">⚠️ Category name is required before uploading image</p>
+                    )}
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-slate-300 mb-2">Parent Category</label>
@@ -779,88 +770,134 @@ const handleDeleteImage = async () => {
                     </select>
                     <p className="text-xs text-slate-500 mt-2">Select a parent category to create a sub-category</p>
                   </div>
-                  {/* ✅ Replace your textarea with this */}
-                      <div>
-                      <ProductDescriptionEditor
-                        label="Description"
-                        value={formData.description}
-                        onChange={(content) => setFormData(prev => ({ 
-                          ...prev, 
-                          description: content 
-                        }))}
-                        placeholder="Enter category description with rich formatting..."
-                        height={300}
-                        required={false}
-                      />
-                      </div>
+                  <div>
+                    <ProductDescriptionEditor
+                      label="Description"
+                      value={formData.description}
+                      onChange={(content) => setFormData(prev => ({ 
+                        ...prev, 
+                        description: content 
+                      }))}
+                      placeholder="Enter category description with rich formatting..."
+                      height={300}
+                      required={false}
+                    />
+                  </div>
                 </div>
               </div>
 
+              {/* UPDATED: Category Image Section with Brand-Style Upload */}
               <div className="bg-slate-800/30 p-2 rounded-2xl border border-slate-700/50">
-                <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+                <h3 className="text-lg font-semibold text-white mb-3 flex items-center gap-2">
                   <span className="w-8 h-8 rounded-lg bg-gradient-to-br from-cyan-500 to-blue-500 flex items-center justify-center text-sm">2</span>
                   <span>Category Image</span>
                 </h3>
                 <div className="space-y-2">
-                  {/* Current Image Display */}
+                  {/* Current Image Display - UPDATED WITH DELETE BUTTON */}
+                  {formData.imageUrl && (
+                    <div className="flex items-center gap-4 p-3 bg-slate-900/30 rounded-xl border border-slate-600">
+                      <div 
+                        className="w-16 h-16 rounded-lg overflow-hidden border-2 border-violet-500/30 cursor-pointer hover:border-violet-500 transition-all"
+                        onClick={() => setSelectedImageUrl(getImageUrl(formData.imageUrl))}
+                      >
+                        <img
+                          src={getImageUrl(formData.imageUrl)}
+                          alt="Current image"
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+                      <div className="flex-1">
+                        <p className="text-white font-medium">Current Image</p>
+                        <p className="text-xs text-slate-400">Click to view full size</p>
+                      </div>
+                      
+                      {/* Update Image Button */}
+                      <label className={`px-3 py-2 rounded-lg text-sm font-medium cursor-pointer transition-all ${
+                        !formData.name || uploadingImage
+                          ? 'bg-slate-700/50 text-slate-500 cursor-not-allowed'
+                          : 'bg-violet-500/20 text-violet-400 hover:bg-violet-500/30'
+                      }`}>
+                        {uploadingImage ? 'Uploading...' : 'Update Image'}
+                        <input
+                          type="file"
+                          accept="image/*"
+                          disabled={!formData.name || uploadingImage}
+                          className="hidden"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) {
+                              handleImageUpload(file);
+                            }
+                          }}
+                        />
+                      </label>
+                      
+                      {/* DELETE IMAGE BUTTON */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (editingCategory) {
+                            setImageDeleteConfirm({
+                              categoryId: editingCategory.id,
+                              imageUrl: formData.imageUrl,
+                              categoryName: editingCategory.name
+                            });
+                          }
+                        }}
+                        className="px-3 py-2 bg-red-500/20 text-red-400 rounded-lg hover:bg-red-500/30 transition-all text-sm font-medium flex items-center gap-2"
+                        title="Delete Image"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                        Delete Image
+                      </button>
+                    </div>
+                  )}
 
-{/* Current Image Display */}
-{formData.imageUrl && (
-<div className="flex items-center gap-4 p-3 bg-slate-900/30 rounded-xl border border-slate-600">
-<div className="w-16 h-16 rounded-lg overflow-hidden border-2 border-violet-500/30 cursor-pointer hover:border-violet-500 transition-all" onClick={() => setSelectedImageUrl(getImageUrl(formData.imageUrl))}>
-<img
-src={getImageUrl(formData.imageUrl)}
-alt="Current image"
-className="w-full h-full object-cover"
-/>
-</div>
-<div className="flex-1">
-<p className="text-white font-medium">Current Image</p>
-<p className="text-xs text-slate-400">Click to view full size</p>
-</div>
-
-{/* Update Image Button - Separate */}
-<label className="px-3 py-2 bg-violet-500/20 text-violet-400 rounded-lg hover:bg-violet-500/30 transition-all text-sm font-medium cursor-pointer">
-Update Image
-<input
-  type="file"
-  accept="image/*"
-  className="hidden"
-  onChange={handleFileSelect} // New handler
-/>
-</label>
-
-{/* Delete Image Button - Add this */}
-<button
-type="button"
-onClick={handleDeleteImage}
-className="px-3 py-2 bg-red-500/20 text-red-400 rounded-lg hover:bg-red-500/30 transition-all text-sm font-medium"
->
-Delete
-</button>
-</div>
-)}
-
-
-
-                  {/* Upload Area - Compact */}
+                  {/* Upload Area */}
                   {!formData.imageUrl && (
                     <div className="flex items-center justify-center w-full">
-                      <label className="flex flex-col items-center justify-center w-full h-24 border-2 border-slate-600 border-dashed rounded-xl cursor-pointer bg-slate-900/30 hover:bg-slate-800/50 transition-all group">
+                      <label className={`flex flex-col items-center justify-center w-full h-24 border-2 border-dashed rounded-xl transition-all ${
+                        !formData.name || uploadingImage
+                          ? 'border-slate-700 bg-slate-900/20 cursor-not-allowed'
+                          : 'border-slate-600 bg-slate-900/30 hover:bg-slate-800/50 cursor-pointer group'
+                      }`}>
                         <div className="flex items-center gap-3">
-                          <Camera className="w-6 h-6 text-slate-500 group-hover:text-violet-400 transition-colors" />
+                          <Upload className={`w-6 h-6 transition-colors ${
+                            !formData.name || uploadingImage
+                              ? 'text-slate-600'
+                              : 'text-slate-500 group-hover:text-violet-400'
+                          }`} />
                           <div>
-                            <p className="text-sm text-slate-400"><span className="font-semibold">Click to upload</span> or drag and drop</p>
-                            <p className="text-xs text-slate-500">PNG, JPG, GIF up to 10MB</p>
+                            <p className={`text-sm ${
+                              !formData.name || uploadingImage
+                                ? 'text-slate-600'
+                                : 'text-slate-400'
+                            }`}>
+                              {uploadingImage ? (
+                                'Uploading image...'
+                              ) : !formData.name ? (
+                                'Enter category name first to upload'
+                              ) : (
+                                <><span className="font-semibold">Click to upload</span> or drag and drop</>
+                              )}
+                            </p>
+                            {formData.name && !uploadingImage && (
+                              <p className="text-xs text-slate-500">PNG, JPG, GIF up to 10MB</p>
+                            )}
                           </div>
                         </div>
-                      {/* Update Image Input */}
-<input
-  type="file"
-  accept="image/*"
-  className="hidden"
-  onChange={handleUpdateImage} // Updated handler
-/>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          disabled={!formData.name || uploadingImage}
+                          className="hidden"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) {
+                              handleImageUpload(file);
+                            }
+                          }}
+                        />
                       </label>
                     </div>
                   )}
@@ -963,7 +1000,7 @@ Delete
                 </div>
               </div>
 
-              <div className="flex justify-end gap-3 pt-4  border-t border-slate-700/50">
+              <div className="flex justify-end gap-3 pt-4 border-t border-slate-700/50">
                 <button
                   type="button"
                   onClick={() => {
@@ -976,7 +1013,8 @@ Delete
                 </button>
                 <button
                   type="submit"
-                  className="px-6 py-3 bg-gradient-to-r from-violet-500 via-purple-500 to-cyan-500 text-white rounded-xl hover:shadow-xl hover:shadow-violet-500/50 transition-all font-semibold hover:scale-105"
+                  disabled={uploadingImage}
+                  className="px-6 py-3 bg-gradient-to-r from-violet-500 via-purple-500 to-cyan-500 text-white rounded-xl hover:shadow-xl hover:shadow-violet-500/50 transition-all font-semibold hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {editingCategory ? '✓ Update Category' : '+ Create Category'}
                 </button>
@@ -986,33 +1024,11 @@ Delete
         </div>
       )}
 
-      {/* Image Preview Modal */}
-      {selectedImageUrl && (
-        <div
-          className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[60] flex items-center justify-center p-4"
-          onClick={() => setSelectedImageUrl(null)}
-        >
-          <div className="relative max-w-5xl max-h-[90vh]">
-            <img
-              src={selectedImageUrl}
-              alt="Full size preview"
-              className="max-w-full max-h-[90vh] object-contain rounded-lg"
-            />
-            <button
-              onClick={() => setSelectedImageUrl(null)}
-              className="absolute top-4 right-4 p-2 bg-slate-900/80 text-white rounded-lg hover:bg-slate-800 transition-all"
-            >
-              ✕
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Category Details Modal */}
+      {/* View Details Modal - UPDATED WITH DELETE BUTTON */}
       {viewingCategory && (
-        <div className="fixed inset-0 bg-black/20 backdrop-blur-md z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-50 flex items-center justify-center p-4">
           <div className="bg-gradient-to-br from-slate-900 via-slate-900 to-slate-800 border border-violet-500/20 rounded-3xl max-w-4xl w-full max-h-[90vh] overflow-hidden shadow-2xl shadow-violet-500/10">
-            <div className="p-4 border-b border-violet-500/20 bg-gradient-to-r from-violet-500/10 to-cyan-500/10">
+            <div className="p-2 border-b border-violet-500/20 bg-gradient-to-r from-violet-500/10 to-cyan-500/10">
               <div className="flex items-center justify-between">
                 <div>
                   <h2 className="text-2xl font-bold bg-gradient-to-r from-violet-400 via-cyan-400 to-pink-400 bg-clip-text text-transparent">
@@ -1029,25 +1045,41 @@ Delete
               </div>
             </div>
 
-            <div className="p-4 overflow-y-auto max-h-[calc(90vh-100px)]">
-              <div className="space-y-4">
-                {/* Image Section - Centered */}
+            <div className="p-2 overflow-y-auto max-h-[calc(90vh-120px)]">
+              <div className="space-y-2">
+                {/* Image Section - UPDATED WITH DELETE BUTTON */}
                 {viewingCategory.imageUrl && (
                   <div className="flex justify-center mb-4">
-                    <div className="w-32 h-32 rounded-xl overflow-hidden border-2 border-violet-500/20 cursor-pointer hover:border-violet-500/50 transition-all">
-                      <img
-                        src={getImageUrl(viewingCategory.imageUrl)}
-                        alt={viewingCategory.name}
-                        className="w-full h-full object-cover hover:scale-105 transition-transform"
-                        onClick={() => setSelectedImageUrl(getImageUrl(viewingCategory.imageUrl))}
-                      />
+                    <div className="relative">
+                      <div className="w-32 h-32 rounded-xl overflow-hidden border-2 border-violet-500/20 cursor-pointer hover:border-violet-500/50 transition-all">
+                        <img
+                          src={getImageUrl(viewingCategory.imageUrl)}
+                          alt={viewingCategory.name}
+                          className="w-full h-full object-cover hover:scale-105 transition-transform"
+                          onClick={() => setSelectedImageUrl(getImageUrl(viewingCategory.imageUrl))}
+                        />
+                      </div>
+                      {/* DELETE IMAGE BUTTON IN VIEW MODAL */}
+                      <button
+                        onClick={() => {
+                          setImageDeleteConfirm({
+                            categoryId: viewingCategory.id,
+                            imageUrl: viewingCategory.imageUrl!,
+                            categoryName: viewingCategory.name
+                          });
+                        }}
+                        className="absolute -top-2 -right-2 p-2 bg-red-500 text-white rounded-full hover:bg-red-600 transition-all shadow-lg"
+                        title="Delete Image"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
                     </div>
                   </div>
                 )}
 
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                   {/* Basic Info */}
-                  <div className="bg-slate-800/30 p-4 rounded-xl border border-slate-700/50">
+                  <div className="bg-slate-800/30 p-2 rounded-xl border border-slate-700/50">
                     <h3 className="text-lg font-bold text-white mb-3 flex items-center gap-2">
                       <span className="w-8 h-8 rounded-lg bg-gradient-to-br from-violet-500 to-cyan-500 flex items-center justify-center text-sm">ℹ</span>
                       Basic Information
@@ -1075,7 +1107,7 @@ Delete
                   </div>
 
                   {/* SEO Info */}
-                  <div className="bg-slate-800/30 p-4 rounded-xl border border-slate-700/50">
+                  <div className="bg-slate-800/30 p-2 rounded-xl border border-slate-700/50">
                     <h3 className="text-lg font-bold text-white mb-3 flex items-center gap-2">
                       <span className="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-500 to-green-500 flex items-center justify-center text-sm">🔍</span>
                       SEO Information
@@ -1099,7 +1131,7 @@ Delete
 
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                   {/* Statistics */}
-                  <div className="bg-gradient-to-br from-violet-500/10 to-cyan-500/10 border border-violet-500/20 rounded-xl p-4">
+                  <div className="bg-gradient-to-br from-violet-500/10 to-cyan-500/10 border border-violet-500/20 rounded-xl p-2">
                     <h3 className="text-lg font-bold text-white mb-3">Statistics</h3>
                     <div className="space-y-2">
                       <div className="bg-slate-900/50 p-3 rounded-lg flex items-center justify-between">
@@ -1118,7 +1150,7 @@ Delete
                   </div>
 
                   {/* Activity */}
-                  <div className="bg-slate-800/30 p-4 rounded-xl border border-slate-700/50">
+                  <div className="bg-slate-800/30 p-2 rounded-xl border border-slate-700/50">
                     <h3 className="text-lg font-bold text-white mb-3">Activity</h3>
                     <div className="space-y-2">
                       <div className="bg-slate-900/50 p-2 rounded-lg">
@@ -1142,7 +1174,7 @@ Delete
                 </div>
 
                 {/* Actions */}
-                <div className="flex justify-end gap-3 pt-4 border-t border-slate-700/50">
+                <div className="flex justify-end gap-3 pt-2 border-t border-slate-700/50">
                   <button
                     onClick={() => {
                       setViewingCategory(null);
@@ -1165,22 +1197,61 @@ Delete
         </div>
       )}
 
- 
-{deleteConfirm && (
-  <ConfirmDialog
-    isOpen={!!deleteConfirm}
-    onClose={() => setDeleteConfirm(null)}
-    onConfirm={() => deleteConfirm && handleDelete(deleteConfirm.id)}
-    title="Delete Category"
-    message={`Are you sure you want to delete "${deleteConfirm.name}"? This action cannot be undone and may affect related products.`}
-    confirmText="Delete Category"
-    cancelText="Cancel"
-    icon={AlertCircle}
-    iconColor="text-red-400"
-    confirmButtonStyle="bg-gradient-to-r from-red-500 to-rose-500 hover:shadow-lg hover:shadow-red-500/50"
-    isLoading={isDeleting}
-  />
-)}
+      {/* Image Preview Modal */}
+      {selectedImageUrl && (
+        <div
+          className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[60] flex items-center justify-center p-4"
+          onClick={() => setSelectedImageUrl(null)}
+        >
+          <div className="relative max-w-4xl max-h-[90vh]">
+            <img
+              src={selectedImageUrl}
+              alt="Full size preview"
+              className="max-w-full max-h-[90vh] object-contain rounded-lg"
+            />
+            <button
+              onClick={() => setSelectedImageUrl(null)}
+              className="absolute top-4 right-4 p-2 bg-slate-900/80 text-white rounded-lg hover:bg-slate-800 transition-all"
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Category Delete Confirmation Dialog */}
+      <ConfirmDialog
+        isOpen={!!deleteConfirm}
+        onClose={() => setDeleteConfirm(null)}
+        onConfirm={() => deleteConfirm && handleDelete(deleteConfirm.id)}
+        title="Delete Category"
+        message={`Are you sure you want to delete "${deleteConfirm?.name}"? This action cannot be undone and may affect related products.`}
+        confirmText="Delete Category"
+        cancelText="Cancel"
+        icon={AlertCircle}
+        iconColor="text-red-400"
+        confirmButtonStyle="bg-gradient-to-r from-red-500 to-rose-500 hover:shadow-lg hover:shadow-red-500/50"
+        isLoading={isDeleting}
+      />
+
+      {/* NEW - Image Delete Confirmation Dialog */}
+      <ConfirmDialog
+        isOpen={!!imageDeleteConfirm}
+        onClose={() => setImageDeleteConfirm(null)}
+        onConfirm={() => {
+          if (imageDeleteConfirm) {
+            handleDeleteImage(imageDeleteConfirm.categoryId, imageDeleteConfirm.imageUrl);
+          }
+        }}
+        title="Delete Image"
+        message={`Are you sure you want to delete the image for "${imageDeleteConfirm?.categoryName}"? This action cannot be undone.`}
+        confirmText="Delete Image"
+        cancelText="Cancel"
+        icon={AlertCircle}
+        iconColor="text-red-400"
+        confirmButtonStyle="bg-gradient-to-r from-red-500 to-rose-500 hover:shadow-lg hover:shadow-red-500/50"
+        isLoading={isDeletingImage}
+      />
     </div>
   );
 }

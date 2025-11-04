@@ -7,6 +7,7 @@ import { ProductDescriptionEditor } from "../products/SelfHostedEditor";
 import { useToast } from "@/components/CustomToast";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import { apiClient } from "@/lib/api";
+
 interface Manufacturer {
   id: string;
   name: string;
@@ -27,7 +28,7 @@ interface Manufacturer {
 }
 
 export default function ManufacturersPage() {
-      const toast = useToast();
+  const toast = useToast();
   const [manufacturers, setManufacturers] = useState<Manufacturer[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
@@ -37,12 +38,23 @@ export default function ManufacturersPage() {
   const [viewingManufacturer, setViewingManufacturer] = useState<Manufacturer | null>(null);
   const [publishedFilter, setPublishedFilter] = useState<string>("all");
   const [homepageFilter, setHomepageFilter] = useState<string>("all");
-  // Inside your Category component
-const [deleteConfirm, setDeleteConfirm] = useState<{
-  id: string;
-  name: string;
-} | null>(null);
-const [isDeleting, setIsDeleting] = useState(false);
+  const [uploadingLogo, setUploadingLogo] = useState(false);
+  
+  // Delete confirmation states
+  const [deleteConfirm, setDeleteConfirm] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  
+  // Image delete confirmation state
+  const [imageDeleteConfirm, setImageDeleteConfirm] = useState<{
+    manufacturerId: string;
+    imageUrl: string;
+    manufacturerName: string;
+  } | null>(null);
+  const [isDeletingImage, setIsDeletingImage] = useState(false);
+  
   // Pagination states
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(25);
@@ -65,11 +77,122 @@ const [isDeleting, setIsDeleting] = useState(false);
     return `${API_BASE_URL}${imageUrl}`;
   };
 
+  // Extract filename from image URL
+  const extractFilename = (imageUrl: string) => {
+    if (!imageUrl) return "";
+    // Extract filename from path like "/images/manufacturers/manufacturer-87960061.png"
+    const parts = imageUrl.split('/');
+    return parts[parts.length - 1];
+  };
+
+  // Delete image function
+  const handleDeleteImage = async (manufacturerId: string, imageUrl: string) => {
+    setIsDeletingImage(true);
+    
+    try {
+      const filename = extractFilename(imageUrl);
+      const token = localStorage.getItem('authToken');
+      
+      const response = await fetch(`${API_BASE_URL}/api/ImageManagement/manufacturer/${filename}`, {
+        method: 'DELETE',
+        headers: {
+          ...(token && { 'Authorization': `Bearer ${token}` }),
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (response.ok) {
+        toast.success('Image deleted successfully! 🗑️');
+        
+        // Update the manufacturer's logoUrl to empty
+        setManufacturers(prev => 
+          prev.map(manufacturer => 
+            manufacturer.id === manufacturerId 
+              ? { ...manufacturer, logoUrl: "" }
+              : manufacturer
+          )
+        );
+        
+        // Update form data if currently editing this manufacturer
+        if (editingManufacturer?.id === manufacturerId) {
+          setFormData(prev => ({ ...prev, logoUrl: "" }));
+        }
+        
+        // Update viewing manufacturer if it's the same one
+        if (viewingManufacturer?.id === manufacturerId) {
+          setViewingManufacturer(prev => 
+            prev ? { ...prev, logoUrl: "" } : null
+          );
+        }
+        
+      } else if (response.status === 401) {
+        toast.error('Please login again');
+      } else {
+        const errorData = await response.json().catch(() => null);
+        toast.error(errorData?.message || 'Failed to delete image');
+      }
+    } catch (error) {
+      console.error('Error deleting image:', error);
+      toast.error('Failed to delete image');
+    } finally {
+      setIsDeletingImage(false);
+      setImageDeleteConfirm(null);
+    }
+  };
+
+  // NEW - Logo upload handler with manufacturer name (same as brand page)
+  const handleLogoUpload = async (file: File) => {
+    if (!formData.name.trim()) {
+      toast.error("Please enter manufacturer name before uploading logo");
+      return;
+    }
+
+    setUploadingLogo(true);
+    const formDataToUpload = new FormData();
+    formDataToUpload.append('logo', file);
+
+    try {
+      const token = localStorage.getItem('authToken');
+      
+      // Send manufacturer name as query parameter
+      const response = await fetch(
+        `${API_BASE_URL}/api/Manufacturers/upload-logo?name=${encodeURIComponent(formData.name)}`,
+        {
+          method: 'POST',
+          headers: {
+            ...(token && { 'Authorization': `Bearer ${token}` }),
+          },
+          body: formDataToUpload,
+        }
+      );
+
+      if (response.ok) {
+        const result = await response.json();
+        
+        // Set the logoUrl from response data
+        if (result.success && result.data) {
+          setFormData(prev => ({ ...prev, logoUrl: result.data }));
+          toast.success("Logo uploaded successfully! ✅");
+        } else {
+          toast.error("Failed to get logo URL from response");
+        }
+      } else {
+        const errorData = await response.json();
+        toast.error(errorData.message || 'Failed to upload logo');
+      }
+    } catch (error) {
+      console.error('Error uploading logo:', error);
+      toast.error('Failed to upload logo');
+    } finally {
+      setUploadingLogo(false);
+    }
+  };
+
   useEffect(() => {
     fetchManufacturers();
   }, []);
 
- const fetchManufacturers = async () => {
+  const fetchManufacturers = async () => {
     setLoading(true);
     try {
       const response = await apiClient.get<{data: Manufacturer[]}>('/api/manufacturers?includeUnpublished=true');
@@ -90,42 +213,41 @@ const [isDeleting, setIsDeleting] = useState(false);
     }
   };
 
-
-const handleSubmit = async (e: React.FormEvent) => {
-  e.preventDefault();
-  
-  try {
-    const endpoint = editingManufacturer 
-      ? `/api/manufacturers/${editingManufacturer.id}`
-      : '/api/manufacturers';
-      
-    const requestData = {
-      ...formData,
-      ...(editingManufacturer && { id: editingManufacturer.id })
-    };
-
-    const response = editingManufacturer
-      ? await apiClient.put(endpoint, requestData)
-      : await apiClient.post(endpoint, requestData);
-
-    if (response.error) {
-      console.error('API Error:', response.error);
-      toast.error(response.error);
-      return;
-    }
-
-    // Success handling
-    toast.success(editingManufacturer ? 'Updated successfully! ✅' : 'Created successfully! 🎉');
-    await fetchManufacturers();
-    setShowModal(false);
-    resetForm();
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
     
-  } catch (error) {
-    // Network errors or unexpected errors
-    console.error('Unexpected error:', error);
-    toast.error('Something went wrong');
-  }
-};
+    try {
+      const endpoint = editingManufacturer 
+        ? `/api/manufacturers/${editingManufacturer.id}`
+        : '/api/manufacturers';
+        
+      const requestData = {
+        ...formData,
+        ...(editingManufacturer && { id: editingManufacturer.id })
+      };
+
+      const response = editingManufacturer
+        ? await apiClient.put(endpoint, requestData)
+        : await apiClient.post(endpoint, requestData);
+
+      if (response.error) {
+        console.error('API Error:', response.error);
+        toast.error(response.error);
+        return;
+      }
+
+      // Success handling
+      toast.success(editingManufacturer ? 'Updated successfully! ✅' : 'Created successfully! 🎉');
+      await fetchManufacturers();
+      setShowModal(false);
+      resetForm();
+      
+    } catch (error) {
+      // Network errors or unexpected errors
+      console.error('Unexpected error:', error);
+      toast.error('Something went wrong');
+    }
+  };
 
   const handleEdit = (manufacturer: Manufacturer) => {
     setEditingManufacturer(manufacturer);
@@ -143,33 +265,33 @@ const handleSubmit = async (e: React.FormEvent) => {
     setShowModal(true);
   };
 
-const handleDelete = async (id: string) => {
-  setIsDeleting(true);
-  
-  try {
-    const token = localStorage.getItem('authToken');
-    const response = await fetch(`${API_ENDPOINTS.manufacturers}/${id}`, {
-      method: 'DELETE',
-      headers: {
-        ...(token && { 'Authorization': `Bearer ${token}` }),
-      },
-    });
+  const handleDelete = async (id: string) => {
+    setIsDeleting(true);
+    
+    try {
+      const token = localStorage.getItem('authToken');
+      const response = await fetch(`${API_ENDPOINTS.manufacturers}/${id}`, {
+        method: 'DELETE',
+        headers: {
+          ...(token && { 'Authorization': `Bearer ${token}` }),
+        },
+      });
 
-    if (response.ok) {
-      toast.success('Manufacturer deleted successfully! 🗑️');
-      await fetchManufacturers();
-    } else if (response.status === 401) {
-      toast.error('Please login again');
-    } else {
+      if (response.ok) {
+        toast.success('Manufacturer deleted successfully! 🗑️');
+        await fetchManufacturers();
+      } else if (response.status === 401) {
+        toast.error('Please login again');
+      } else {
+        toast.error('Failed to delete manufacturer');
+      }
+    } catch (error) {
+      console.error('Error deleting manufacturer:', error);
       toast.error('Failed to delete manufacturer');
+    } finally {
+      setIsDeleting(false);
     }
-  } catch (error) {
-    console.error('Error deleting manufacturer:', error);
-    toast.error('Failed to delete manufacturer');
-  } finally {
-    setIsDeleting(false);
-  }
-};
+  };
 
   const resetForm = () => {
     setFormData({
@@ -495,16 +617,16 @@ const handleDelete = async (id: string) => {
                         >
                           <Edit className="h-4 w-4" />
                         </button>
-                     <button
-  onClick={() => setDeleteConfirm({ 
-    id: manufacturer.id, 
-    name: manufacturer.name 
-  })}
-  className="p-2 text-red-400 hover:bg-red-500/10 rounded-lg transition-all"
-  title="Delete Manufacturer"
->
-  <Trash2 className="h-4 w-4" />
-</button>
+                        <button
+                          onClick={() => setDeleteConfirm({ 
+                            id: manufacturer.id, 
+                            name: manufacturer.name 
+                          })}
+                          className="p-2 text-red-400 hover:bg-red-500/10 rounded-lg transition-all"
+                          title="Delete Manufacturer"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
                       </div>
                     </td>
                   </tr>
@@ -589,8 +711,7 @@ const handleDelete = async (id: string) => {
         </div>
       )}
 
-
-      {/* Create/Edit Modal */}
+      {/* Create/Edit Modal - UPDATED WITH BRAND-STYLE UPLOAD */}
       {showModal && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-50 flex items-center justify-center p-4 animate-fadeIn">
           <div className="bg-gradient-to-br from-slate-900 via-slate-900 to-slate-800 border border-violet-500/20 rounded-3xl max-w-5xl w-full max-h-[90vh] overflow-hidden shadow-2xl shadow-violet-500/10">
@@ -616,7 +737,7 @@ const handleDelete = async (id: string) => {
                 </button>
               </div>
             </div>
-            <form onSubmit={handleSubmit} className="p-2  space-y-2 overflow-y-auto max-h-[calc(90vh-120px)]">
+            <form onSubmit={handleSubmit} className="p-2 space-y-2 overflow-y-auto max-h-[calc(90vh-120px)]">
               <div className="bg-slate-800/30 p-2 rounded-2xl border border-slate-700/50">
                 <h3 className="text-lg font-semibold text-white mb-2 flex items-center gap-2">
                   <span className="w-8 h-8 rounded-lg bg-gradient-to-br from-violet-500 to-cyan-500 flex items-center justify-center text-sm">1</span>
@@ -634,6 +755,9 @@ const handleDelete = async (id: string) => {
                         placeholder="Enter manufacturer name"
                         className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
                       />
+                      {!formData.name && (
+                        <p className="text-xs text-amber-400 mt-1">⚠️ Manufacturer name is required before uploading logo</p>
+                      )}
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-slate-300 mb-2">Display Order</label>
@@ -646,8 +770,7 @@ const handleDelete = async (id: string) => {
                       />
                     </div>
                   </div>
-                  {/* ✅ Replace manufacturer description textarea with this */}
-                    <div >
+                  <div>
                     <ProductDescriptionEditor
                       label="Description"
                       value={formData.description}
@@ -658,19 +781,19 @@ const handleDelete = async (id: string) => {
                       placeholder="Enter manufacturer description with rich formatting..."
                       height={300}
                       required={false}
-                   
                     />
-                    </div>
+                  </div>
                 </div>
               </div>
 
+              {/* UPDATED: Manufacturer Logo Section with Brand-Style Upload */}
               <div className="bg-slate-800/30 p-2 rounded-2xl border border-slate-700/50">
-                <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+                <h3 className="text-lg font-semibold text-white mb-3 flex items-center gap-2">
                   <span className="w-8 h-8 rounded-lg bg-gradient-to-br from-cyan-500 to-blue-500 flex items-center justify-center text-sm">2</span>
                   <span>Manufacturer Logo</span>
                 </h3>
                 <div className="space-y-2">
-                  {/* Current Image Display */}
+                  {/* Current Image Display - UPDATED WITH DELETE BUTTON */}
                   {formData.logoUrl && (
                     <div className="flex items-center gap-4 p-3 bg-slate-900/30 rounded-xl border border-slate-600">
                       <div 
@@ -687,82 +810,91 @@ const handleDelete = async (id: string) => {
                         <p className="text-white font-medium">Current Logo</p>
                         <p className="text-xs text-slate-400">Click to view full size</p>
                       </div>
-                      <label className="px-3 py-2 bg-violet-500/20 text-violet-400 rounded-lg hover:bg-violet-500/30 transition-all text-sm font-medium cursor-pointer">
-                        Update Logo
+                      
+                      {/* Update Logo Button */}
+                      <label className={`px-3 py-2 rounded-lg text-sm font-medium cursor-pointer transition-all ${
+                        !formData.name || uploadingLogo
+                          ? 'bg-slate-700/50 text-slate-500 cursor-not-allowed'
+                          : 'bg-violet-500/20 text-violet-400 hover:bg-violet-500/30'
+                      }`}>
+                        {uploadingLogo ? 'Uploading...' : 'Update Logo'}
                         <input
                           type="file"
                           accept="image/*"
+                          disabled={!formData.name || uploadingLogo}
                           className="hidden"
-                          onChange={async (e) => {
+                          onChange={(e) => {
                             const file = e.target.files?.[0];
                             if (file) {
-                              const formDataToUpload = new FormData();
-                              formDataToUpload.append('logo', file);
-                              try {
-                                const token = localStorage.getItem('authToken');
-                                const response = await fetch(`${API_ENDPOINTS.manufacturers}/upload-logo`, {
-                                  method: 'POST',
-                                  headers: {
-                                    ...(token && { 'Authorization': `Bearer ${token}` }),
-                                  },
-                                  body: formDataToUpload,
-                                });
-                                if (response.ok) {
-                                  const result = await response.json();
-                                  setFormData({...formData, logoUrl: result.data});
-                                } else {
-                                  alert('Failed to upload logo');
-                                }
-                              } catch (error) {
-                                console.error('Error uploading logo:', error);
-                                alert('Failed to upload logo');
-                              }
+                              handleLogoUpload(file);
                             }
                           }}
                         />
                       </label>
+                      
+                      {/* DELETE IMAGE BUTTON */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (editingManufacturer) {
+                            setImageDeleteConfirm({
+                              manufacturerId: editingManufacturer.id,
+                              imageUrl: formData.logoUrl,
+                              manufacturerName: editingManufacturer.name
+                            });
+                          }
+                        }}
+                        className="px-3 py-2 bg-red-500/20 text-red-400 rounded-lg hover:bg-red-500/30 transition-all text-sm font-medium flex items-center gap-2"
+                        title="Delete Image"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                        Delete Image
+                      </button>
                     </div>
                   )}
 
-                  {/* Upload Area - Compact */}
+                  {/* Upload Area */}
                   {!formData.logoUrl && (
                     <div className="flex items-center justify-center w-full">
-                      <label className="flex flex-col items-center justify-center w-full h-24 border-2 border-slate-600 border-dashed rounded-xl cursor-pointer bg-slate-900/30 hover:bg-slate-800/50 transition-all group">
+                      <label className={`flex flex-col items-center justify-center w-full h-24 border-2 border-dashed rounded-xl transition-all ${
+                        !formData.name || uploadingLogo
+                          ? 'border-slate-700 bg-slate-900/20 cursor-not-allowed'
+                          : 'border-slate-600 bg-slate-900/30 hover:bg-slate-800/50 cursor-pointer group'
+                      }`}>
                         <div className="flex items-center gap-3">
-                          <Upload className="w-6 h-6 text-slate-500 group-hover:text-violet-400 transition-colors" />
+                          <Upload className={`w-6 h-6 transition-colors ${
+                            !formData.name || uploadingLogo
+                              ? 'text-slate-600'
+                              : 'text-slate-500 group-hover:text-violet-400'
+                          }`} />
                           <div>
-                            <p className="text-sm text-slate-400"><span className="font-semibold">Click to upload</span> or drag and drop</p>
-                            <p className="text-xs text-slate-500">PNG, JPG, GIF up to 10MB</p>
+                            <p className={`text-sm ${
+                              !formData.name || uploadingLogo
+                                ? 'text-slate-600'
+                                : 'text-slate-400'
+                            }`}>
+                              {uploadingLogo ? (
+                                'Uploading logo...'
+                              ) : !formData.name ? (
+                                'Enter manufacturer name first to upload'
+                              ) : (
+                                <><span className="font-semibold">Click to upload</span> or drag and drop</>
+                              )}
+                            </p>
+                            {formData.name && !uploadingLogo && (
+                              <p className="text-xs text-slate-500">PNG, JPG, GIF up to 10MB</p>
+                            )}
                           </div>
                         </div>
                         <input
                           type="file"
                           accept="image/*"
+                          disabled={!formData.name || uploadingLogo}
                           className="hidden"
-                          onChange={async (e) => {
+                          onChange={(e) => {
                             const file = e.target.files?.[0];
                             if (file) {
-                              const formDataToUpload = new FormData();
-                              formDataToUpload.append('logo', file);
-                              try {
-                                const token = localStorage.getItem('authToken');
-                                const response = await fetch(`${API_ENDPOINTS.manufacturers}/upload-logo`, {
-                                  method: 'POST',
-                                  headers: {
-                                    ...(token && { 'Authorization': `Bearer ${token}` }),
-                                  },
-                                  body: formDataToUpload,
-                                });
-                                if (response.ok) {
-                                  const result = await response.json();
-                                  setFormData({...formData, logoUrl: result.data});
-                                } else {
-                                  alert('Failed to upload logo');
-                                }
-                              } catch (error) {
-                                console.error('Error uploading logo:', error);
-                                alert('Failed to upload logo');
-                              }
+                              handleLogoUpload(file);
                             }
                           }}
                         />
@@ -878,7 +1010,8 @@ const handleDelete = async (id: string) => {
                 </button>
                 <button
                   type="submit"
-                  className="px-6 py-3 bg-gradient-to-r from-violet-500 via-purple-500 to-cyan-500 text-white rounded-xl hover:shadow-xl hover:shadow-violet-500/50 transition-all font-semibold hover:scale-105"
+                  disabled={uploadingLogo}
+                  className="px-6 py-3 bg-gradient-to-r from-violet-500 via-purple-500 to-cyan-500 text-white rounded-xl hover:shadow-xl hover:shadow-violet-500/50 transition-all font-semibold hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {editingManufacturer ? '✓ Update Manufacturer' : '+ Create Manufacturer'}
                 </button>
@@ -888,7 +1021,7 @@ const handleDelete = async (id: string) => {
         </div>
       )}
 
-      {/* View Details Modal */}
+      {/* View Details Modal - UPDATED WITH DELETE BUTTON */}
       {viewingManufacturer && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-50 flex items-center justify-center p-4">
           <div className="bg-gradient-to-br from-slate-900 via-slate-900 to-slate-800 border border-violet-500/20 rounded-3xl max-w-4xl w-full max-h-[90vh] overflow-hidden shadow-2xl shadow-violet-500/10">
@@ -911,16 +1044,32 @@ const handleDelete = async (id: string) => {
 
             <div className="p-2 overflow-y-auto max-h-[calc(90vh-120px)]">
               <div className="space-y-2">
-                {/* Image Section - Centered */}
+                {/* Image Section - UPDATED WITH DELETE BUTTON */}
                 {viewingManufacturer.logoUrl && (
                   <div className="flex justify-center mb-4">
-                    <div className="w-32 h-32 rounded-xl overflow-hidden border-2 border-violet-500/20 cursor-pointer hover:border-violet-500/50 transition-all">
-                      <img
-                        src={getImageUrl(viewingManufacturer.logoUrl)}
-                        alt={viewingManufacturer.name}
-                        className="w-full h-full object-cover hover:scale-105 transition-transform"
-                        onClick={() => setSelectedImageUrl(getImageUrl(viewingManufacturer.logoUrl))}
-                      />
+                    <div className="relative">
+                      <div className="w-32 h-32 rounded-xl overflow-hidden border-2 border-violet-500/20 cursor-pointer hover:border-violet-500/50 transition-all">
+                        <img
+                          src={getImageUrl(viewingManufacturer.logoUrl)}
+                          alt={viewingManufacturer.name}
+                          className="w-full h-full object-cover hover:scale-105 transition-transform"
+                          onClick={() => setSelectedImageUrl(getImageUrl(viewingManufacturer.logoUrl))}
+                        />
+                      </div>
+                      {/* DELETE IMAGE BUTTON IN VIEW MODAL */}
+                      <button
+                        onClick={() => {
+                          setImageDeleteConfirm({
+                            manufacturerId: viewingManufacturer.id,
+                            imageUrl: viewingManufacturer.logoUrl!,
+                            manufacturerName: viewingManufacturer.name
+                          });
+                        }}
+                        className="absolute -top-2 -right-2 p-2 bg-red-500 text-white rounded-full hover:bg-red-600 transition-all shadow-lg"
+                        title="Delete Image"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
                     </div>
                   </div>
                 )}
@@ -1075,20 +1224,39 @@ const handleDelete = async (id: string) => {
         </div>
       )}
 
-
+      {/* Manufacturer Delete Confirmation Dialog */}
       <ConfirmDialog
-  isOpen={!!deleteConfirm}
-  onClose={() => setDeleteConfirm(null)}
-  onConfirm={() => deleteConfirm && handleDelete(deleteConfirm.id)}
-  title="Delete Manufacturer"
-  message={`Are you sure you want to delete "${deleteConfirm?.name}"? This action cannot be undone and may affect related products.`}
-  confirmText="Delete Manufacturer"
-  cancelText="Cancel"
-  icon={AlertCircle}
-  iconColor="text-red-400"
-  confirmButtonStyle="bg-gradient-to-r from-red-500 to-rose-500 hover:shadow-lg hover:shadow-red-500/50"
-  isLoading={isDeleting}
-/>
+        isOpen={!!deleteConfirm}
+        onClose={() => setDeleteConfirm(null)}
+        onConfirm={() => deleteConfirm && handleDelete(deleteConfirm.id)}
+        title="Delete Manufacturer"
+        message={`Are you sure you want to delete "${deleteConfirm?.name}"? This action cannot be undone and may affect related products.`}
+        confirmText="Delete Manufacturer"
+        cancelText="Cancel"
+        icon={AlertCircle}
+        iconColor="text-red-400"
+        confirmButtonStyle="bg-gradient-to-r from-red-500 to-rose-500 hover:shadow-lg hover:shadow-red-500/50"
+        isLoading={isDeleting}
+      />
+
+      {/* Image Delete Confirmation Dialog */}
+      <ConfirmDialog
+        isOpen={!!imageDeleteConfirm}
+        onClose={() => setImageDeleteConfirm(null)}
+        onConfirm={() => {
+          if (imageDeleteConfirm) {
+            handleDeleteImage(imageDeleteConfirm.manufacturerId, imageDeleteConfirm.imageUrl);
+          }
+        }}
+        title="Delete Image"
+        message={`Are you sure you want to delete the image for "${imageDeleteConfirm?.manufacturerName}"? This action cannot be undone.`}
+        confirmText="Delete Image"
+        cancelText="Cancel"
+        icon={AlertCircle}
+        iconColor="text-red-400"
+        confirmButtonStyle="bg-gradient-to-r from-red-500 to-rose-500 hover:shadow-lg hover:shadow-red-500/50"
+        isLoading={isDeletingImage}
+      />
     </div>
   );
 }
