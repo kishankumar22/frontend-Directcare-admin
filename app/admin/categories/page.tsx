@@ -83,53 +83,119 @@ export default function CategoriesPage() {
     return parts[parts.length - 1];
   };
 
-  // NEW - Image upload handler (same as brand/manufacturer)
-  const handleImageUpload = async (file: File) => {
-    if (!formData.name.trim()) {
-      toast.error("Please enter category name before uploading image");
-      return;
+    useEffect(() => {
+    fetchCategories();
+  }, []);
+const fetchCategories = async () => {
+  try {
+    const token = localStorage.getItem('authToken');
+    const response = await fetch(`${API_ENDPOINTS.categories}?includeInactive=true&includeSubCategories=false`, {
+      headers: {
+        ...(token && { 'Authorization': `Bearer ${token}` }),
+      },
+    });
+    if (response.ok) {
+      const result = await response.json();
+      // ✅ Force update with spread operator
+      setCategories([...(result.data || [])]);
     }
+  } catch (error) {
+    console.error("Error fetching categories:", error);
+  } finally {
+    setLoading(false);
+  }
+};
+// ✅ Add this useEffect in your component
+useEffect(() => {
+  const handleFocus = () => {
+    fetchCategories();
+  };
 
-    setUploadingImage(true);
+  window.addEventListener('focus', handleFocus);
+  return () => window.removeEventListener('focus', handleFocus);
+}, []);
+
+const handleImageUpload = async (file: File) => {
+  if (!formData.name.trim()) {
+    toast.error("Please enter category name before uploading image");
+    return;
+  }
+
+  setUploadingImage(true);
+  
+  // ✅ Store old image URL to delete after successful upload
+  const oldImageUrl = editingCategory?.imageUrl || "";
+
+  try {
     const formDataToUpload = new FormData();
     formDataToUpload.append('image', file);
+    const token = localStorage.getItem('authToken');
 
-    try {
-      const token = localStorage.getItem('authToken');
-      
-      // Send category name as query parameter
-      const response = await fetch(
-        `${API_BASE_URL}/api/Categories/upload-image?name=${encodeURIComponent(formData.name)}`,
-        {
-          method: 'POST',
-          headers: {
-            ...(token && { 'Authorization': `Bearer ${token}` }),
-          },
-          body: formDataToUpload,
-        }
-      );
+    const response = await fetch(`${API_BASE_URL}/api/Categories/upload-image?name=${encodeURIComponent(formData.name)}`, {
+      method: 'POST',
+      headers: {
+        ...(token && { Authorization: `Bearer ${token}` }),
+      },
+      body: formDataToUpload,
+    });
 
-      if (response.ok) {
-        const result = await response.json();
+    if (response.ok) {
+      const result = await response.json();
+      if (result.success && result.data) {
+        // ✅ Update form data with new image
+        setFormData(prev => ({ ...prev, imageUrl: result.data }));
         
-        // Set the imageUrl from response data
-        if (result.success && result.data) {
-          setFormData(prev => ({ ...prev, imageUrl: result.data }));
-          toast.success("Image uploaded successfully! ✅");
-        } else {
-          toast.error("Failed to get image URL from response");
+        // ✅ Delete old image if exists and is different from new one
+        if (oldImageUrl && oldImageUrl !== result.data) {
+          try {
+            const filename = extractFilename(oldImageUrl);
+            const deleteResponse = await fetch(`${API_BASE_URL}/api/ImageManagement/category/${filename}`, {
+              method: 'DELETE',
+              headers: {
+                ...(token && { 'Authorization': `Bearer ${token}` }),
+                'Content-Type': 'application/json',
+              },
+            });
+            
+            if (deleteResponse.ok) {
+              console.log('✅ Old image deleted successfully');
+            }
+          } catch (error) {
+            console.log('❌ Failed to delete old image:', error);
+            // Don't show error to user as new image is uploaded successfully
+          }
         }
+        
+        // ✅ ADD THIS: Update list instantly with cache busting
+        setCategories(prev => 
+          prev.map(category => 
+            category.id === editingCategory?.id 
+              ? { ...category, imageUrl: `${result.data}?v=${Date.now()}` }
+              : category
+          )
+        );
+        
+        toast.success("Image uploaded successfully! ✅");
+        
+        // ✅ Optional: Backup refresh 
+        setTimeout(() => {
+          fetchCategories();
+        }, 500);
+        
       } else {
-        const errorData = await response.json().catch(() => ({ message: 'Failed to upload image' }));
-        toast.error(errorData.message || 'Failed to upload image');
+        toast.error("Failed to get image URL from response");
       }
-    } catch (error) {
-      console.error('Error uploading image:', error);
-      toast.error('Failed to upload image');
-    } finally {
-      setUploadingImage(false);
+    } else {
+      const errorData = await response.json().catch(() => ({ message: "Failed to upload image" }));
+      toast.error(errorData.message || "Failed to upload image");
     }
-  };
+  } catch (error) {
+    console.error('Error uploading image:', error);
+    toast.error('Failed to upload image');
+  } finally {
+    setUploadingImage(false);
+  }
+};
 
   // NEW - Delete image function
   const handleDeleteImage = async (categoryId: string, imageUrl: string) => {
@@ -186,81 +252,56 @@ export default function CategoriesPage() {
     }
   };
 
-  useEffect(() => {
-    fetchCategories();
-  }, []);
-const fetchCategories = async () => {
+
+
+const handleSubmit = async (e: React.FormEvent) => {
+  e.preventDefault();
+
   try {
+    const url = editingCategory
+      ? `${API_ENDPOINTS.categories}/${editingCategory.id}`
+      : API_ENDPOINTS.categories;
+
+    const method = editingCategory ? 'PUT' : 'POST';
+    const payload: any = {
+      ...formData,
+      parentCategoryId: formData.parentCategoryId || null,
+    };
+
+    if (editingCategory) {
+      payload.id = editingCategory.id;
+    }
+
     const token = localStorage.getItem('authToken');
-    const response = await fetch(`${API_ENDPOINTS.categories}?includeInactive=true&includeSubCategories=false`, {
+    const response = await fetch(url, {
+      method,
       headers: {
+        'Content-Type': 'application/json',
         ...(token && { 'Authorization': `Bearer ${token}` }),
       },
+      body: JSON.stringify(payload),
     });
+
     if (response.ok) {
-      const result = await response.json();
-      // ✅ Force update with spread operator
-      setCategories([...(result.data || [])]);
+      if (editingCategory) {
+        toast.success('Category updated successfully! ✅');
+      } else {
+        toast.success('Category created successfully! 🎉');
+      }
+
+      fetchCategories(); // ✅ Refresh list
+      setShowModal(false);
+      resetForm();
+    } else {
+      const error = await response.json();
+      const message = error.message || error.error || 'Something went wrong';
+      toast.error(`Failed to ${editingCategory ? 'update' : 'create'} category: ${message}`);
     }
   } catch (error) {
-    console.error("Error fetching categories:", error);
-  } finally {
-    setLoading(false);
+    console.error('Error saving category:', error);
+    toast.error(`Failed to ${editingCategory ? 'update' : 'create'} category. Please try again.`);
   }
 };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    try {
-      const url = editingCategory
-        ? `${API_ENDPOINTS.categories}/${editingCategory.id}`
-        : API_ENDPOINTS.categories;
-
-      const method = editingCategory ? 'PUT' : 'POST';
-
-      const payload: any = {
-        ...formData,
-        parentCategoryId: formData.parentCategoryId || null,
-      };
-
-      if (editingCategory) {
-        payload.id = editingCategory.id;
-      }
-
-      const token = localStorage.getItem('authToken');
-      const response = await fetch(url, {
-        method,
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token && { 'Authorization': `Bearer ${token}` }),
-        },
-        body: JSON.stringify(payload),
-      });
-
-      if (response.ok) {
-        // Success toast
-        if (editingCategory) {
-          toast.success('Category updated successfully! ✅');
-        } else {
-          toast.success('Category created successfully! 🎉');
-        }
-
-        await fetchCategories();
-        setShowModal(false);
-        resetForm();
-      } else {
-        // Error toast
-        const error = await response.json();
-        const message = error.message || error.error || 'Something went wrong';
-        toast.error(`Failed to ${editingCategory ? 'update' : 'create'} category: ${message}`);
-      }
-    } catch (error) {
-      // Network error toast
-      console.error('Error saving category:', error);
-      toast.error(`Failed to ${editingCategory ? 'update' : 'create'} category. Please try again.`);
-    }
-  };
 
   const handleEdit = (category: Category) => {
     setEditingCategory(category);
@@ -1100,9 +1141,17 @@ const fetchCategories = async () => {
                         </div>
                       </div>
                       <div className="bg-slate-900/50 p-3 rounded-lg">
-                        <p className="text-xs text-slate-400 mb-1">Description</p>
-                        <p className="text-white text-sm">{viewingCategory.description || 'No description'}</p>
-                      </div>
+  <p className="text-xs text-slate-400 mb-1">Description</p>
+  {viewingCategory.description ? (
+    <div
+      className="text-white text-sm prose prose-invert max-w-none"
+      dangerouslySetInnerHTML={{ __html: viewingCategory.description }}
+    />
+  ) : (
+    <p className="text-white text-sm">No description</p>
+  )}
+</div>
+
                     </div>
                   </div>
 

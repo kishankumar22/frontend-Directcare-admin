@@ -335,7 +335,13 @@ useEffect(() => {
       console.log('🔄 Fetching all data (dropdowns + products + product details)...');
 
       // Fetch dropdowns and products in parallel
-      const [brandsResponse, categoriesResponse, manufacturersResponse, productsResponse, productResponse] = await Promise.all([
+      const [
+        brandsResponse,
+        categoriesResponse,
+        manufacturersResponse,
+        productsResponse,
+        productResponse
+      ] = await Promise.all([
         apiClient.get<BrandApiResponse>('/api/Brands?includeUnpublished=false'),
         apiClient.get<CategoryApiResponse>('/api/Categories?includeInactive=true&includeSubCategories=true'),
         apiClient.get<ManufacturerApiResponse>('/api/Manufacturers'),
@@ -358,7 +364,7 @@ useEffect(() => {
       // Extract and transform products data for related/cross-sell
       if (productsResponse.data && !productsResponse.error) {
         const apiResponse = productsResponse.data as ProductsApiResponse;
-        
+
         if (apiResponse.success && apiResponse.data.items) {
           const transformedProducts = apiResponse.data.items.map(product => ({
             id: product.id,
@@ -366,7 +372,7 @@ useEffect(() => {
             sku: product.sku,
             price: `₹${product.price.toFixed(2)}`
           }));
-          
+
           setAvailableProducts(transformedProducts);
         }
       }
@@ -374,15 +380,14 @@ useEffect(() => {
       // Extract and populate product details
       if (productResponse.data && !productResponse.error) {
         const productApiResponse = productResponse.data as any;
-        
+
         if (productApiResponse.success && productApiResponse.data) {
           const product = productApiResponse.data;
-          // console.log('📦 Product data loaded:', product);
 
           // 🎯 Helper function to get category display name
           const getCategoryDisplayName = (categoryId: string, categories: CategoryData[]): string => {
             if (!categoryId) return '';
-            
+
             for (const cat of categories) {
               if (cat.id === categoryId) {
                 return cat.name; // Parent category
@@ -404,15 +409,16 @@ useEffect(() => {
           // Populate form with product data
           setFormData(prevData => ({
             ...prevData,
-            // Basic Info - pre-fill all existing values
+
+            // Basic Info
             name: product.name || '',
             shortDescription: product.shortDescription || '',
             fullDescription: product.description || '',
             sku: product.sku || '',
-            brand: product.brandId || '', // Pre-fill brand ID
-            categories: product.categoryId || '', // Pre-fill category ID
-            categoryName: categoryDisplayName, // 🎯 Set category display name
-            manufacturerId: product.manufacturerId || '', // Pre-fill manufacturer ID
+            brand: product.brandId || '',
+            categories: product.categoryId || '',
+            categoryName: categoryDisplayName,
+            manufacturerId: product.manufacturerId || '',
             published: product.isPublished ?? true,
             productType: product.productType || 'simple',
             visibleIndividually: product.visibleIndividually ?? true,
@@ -421,78 +427,90 @@ useEffect(() => {
             productTags: product.tags || '',
             gtin: product.gtin || '',
             manufacturerPartNumber: product.manufacturerPartNumber || '',
-            
+
             // Pricing
             price: product.price?.toString() || '',
             oldPrice: product.oldPrice?.toString() || product.compareAtPrice?.toString() || '',
             cost: product.costPrice?.toString() || '',
-            
+
             // Inventory
             stockQuantity: product.stockQuantity?.toString() || '0',
             manageInventory: product.trackQuantity ? 'track' : 'dont-track',
-            
+
             // Shipping
             weight: product.weight?.toString() || '',
             length: product.length?.toString() || '',
             width: product.width?.toString() || '',
             height: product.height?.toString() || '',
             isShipEnabled: product.requiresShipping ?? true,
-            
+
             // SEO
             metaTitle: product.metaTitle || '',
             metaDescription: product.metaDescription || '',
             metaKeywords: product.metaKeywords || '',
             searchEngineFriendlyPageName: product.searchEngineFriendlyPageName || '',
-            
-            // Related Products
-            relatedProducts: product.relatedProductIds ? 
-              product.relatedProductIds.split(',').filter((id: string) => id.trim()) : [],
-            crossSellProducts: product.crossSellProductIds ? 
-              product.crossSellProductIds.split(',').filter((id: string) => id.trim()) : [],
-              
-            // Video URLs
-            videoUrls: product.videoUrls ? 
-              (typeof product.videoUrls === 'string' ? 
-                product.videoUrls.split(',').filter((url: string) => url.trim()) : 
-                product.videoUrls) : [],
-                
-          productImages: product.images?.map((img: any) => ({
-  id: img.id || Date.now().toString(),
-  imageUrl: img.imageUrl || '',
-  altText: img.altText || '',
-  sortOrder: img.sortOrder || 1,
-  isMain: img.isMain || false,
-  fileName: img.imageUrl ? img.imageUrl.split('/').pop() : undefined,
-  fileSize: undefined,
-  file: undefined
-})) || [],
-            
-            // Specifications
-            specifications: product.specificationAttributes?.map((spec: any) => ({
-              id: spec.id || Date.now().toString(),
-              name: spec.name || '',
-              value: spec.value || '',
-              displayOrder: spec.displayOrder || 1
-            })) || [],
-          }));
 
-          // console.log('✅ Form populated with product data');
-          // console.log('🏷️ Category display name:', categoryDisplayName);
+            // Related Products
+            relatedProducts:
+              typeof product.relatedProductIds === 'string'
+                ? product.relatedProductIds.split(',').filter((id: string) => id.trim())
+                : Array.isArray(product.relatedProductIds)
+                ? product.relatedProductIds
+                : [],
+
+            crossSellProducts:
+              typeof product.crossSellProductIds === 'string'
+                ? product.crossSellProductIds.split(',').filter((id: string) => id.trim())
+                : Array.isArray(product.crossSellProductIds)
+                ? product.crossSellProductIds
+                : [],
+
+            // Video URLs
+            videoUrls:
+              typeof product.videoUrls === 'string'
+                ? product.videoUrls.split(',').filter((url: string) => url.trim())
+                : Array.isArray(product.videoUrls)
+                ? product.videoUrls
+                : [],
+
+            // Product Images
+            productImages:
+              product.images?.map((img: any) => ({
+                id: img.id || Date.now().toString(),
+                imageUrl: img.imageUrl || '',
+                altText: img.altText || '',
+                sortOrder: img.sortOrder || 1,
+                isMain: img.isMain || false,
+                fileName: img.imageUrl ? img.imageUrl.split('/').pop() : undefined,
+                fileSize: undefined,
+                file: undefined
+              })) || [],
+
+            // Specifications (✅ Safe handling for array or string)
+            specifications:
+              (
+                Array.isArray(product.specificationAttributes)
+                  ? product.specificationAttributes
+                  : (() => {
+                      try {
+                        return JSON.parse(product.specificationAttributes || '[]');
+                      } catch {
+                        return [];
+                      }
+                    })()
+              )?.map((spec: any) => ({
+                id: spec.id || Date.now().toString(),
+                name: spec.name || '',
+                value: spec.value || '',
+                displayOrder: spec.displayOrder || 1
+              })) || []
+          }));
         }
       }
-
-      // console.log('✅ All data loaded:', {
-      //   brandsCount: brandsData.length,
-      //   categoriesCount: categoriesData.length,
-      //   manufacturersCount: manufacturersData.length,
-      //   productsCount: productsResponse.data ? (productsResponse.data as ProductsApiResponse).data.items.length : 0
-      // });
 
     } catch (error) {
       console.error('❌ Error fetching data:', error);
       alert('Error loading data');
-    } finally {
-      
     }
   };
 

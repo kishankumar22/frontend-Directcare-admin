@@ -141,52 +141,88 @@ export default function ManufacturersPage() {
   };
 
   // NEW - Logo upload handler with manufacturer name (same as brand page)
-  const handleLogoUpload = async (file: File) => {
-    if (!formData.name.trim()) {
-      toast.error("Please enter manufacturer name before uploading logo");
-      return;
-    }
+// ✅ FIXED: Updated handleLogoUpload with auto-delete old image
+const handleLogoUpload = async (file: File) => {
+  if (!formData.name.trim()) {
+    toast.error("Please enter manufacturer name before uploading logo");
+    return;
+  }
 
-    setUploadingLogo(true);
+  setUploadingLogo(true);
+  
+  // ✅ Store old image URL to delete after successful upload
+  const oldLogoUrl = editingManufacturer?.logoUrl || "";
+
+  try {
     const formDataToUpload = new FormData();
     formDataToUpload.append('logo', file);
+    const token = localStorage.getItem('authToken');
 
-    try {
-      const token = localStorage.getItem('authToken');
-      
-      // Send manufacturer name as query parameter
-      const response = await fetch(
-        `${API_BASE_URL}/api/Manufacturers/upload-logo?name=${encodeURIComponent(formData.name)}`,
-        {
-          method: 'POST',
-          headers: {
-            ...(token && { 'Authorization': `Bearer ${token}` }),
-          },
-          body: formDataToUpload,
-        }
-      );
-
-      if (response.ok) {
-        const result = await response.json();
-        
-        // Set the logoUrl from response data
-        if (result.success && result.data) {
-          setFormData(prev => ({ ...prev, logoUrl: result.data }));
-          toast.success("Logo uploaded successfully! ✅");
-        } else {
-          toast.error("Failed to get logo URL from response");
-        }
-      } else {
-        const errorData = await response.json();
-        toast.error(errorData.message || 'Failed to upload logo');
+    const response = await fetch(
+      `${API_BASE_URL}/api/Manufacturers/upload-logo?name=${encodeURIComponent(formData.name)}`,
+      {
+        method: 'POST',
+        headers: {
+          ...(token && { 'Authorization': `Bearer ${token}` }),
+        },
+        body: formDataToUpload,
       }
-    } catch (error) {
-      console.error('Error uploading logo:', error);
-      toast.error('Failed to upload logo');
-    } finally {
-      setUploadingLogo(false);
+    );
+
+    if (response.ok) {
+      const result = await response.json();
+      
+      if (result.success && result.data) {
+        // ✅ Update form data with new logo
+        setFormData(prev => ({ ...prev, logoUrl: result.data }));
+        
+        // ✅ Delete old logo if exists and is different from new one
+        if (oldLogoUrl && oldLogoUrl !== result.data) {
+          try {
+            const filename = extractFilename(oldLogoUrl);
+            const deleteResponse = await fetch(`${API_BASE_URL}/api/ImageManagement/manufacturer/${filename}`, {
+              method: 'DELETE',
+              headers: {
+                ...(token && { 'Authorization': `Bearer ${token}` }),
+                'Content-Type': 'application/json',
+              },
+            });
+            
+            if (deleteResponse.ok) {
+              console.log('✅ Old logo deleted successfully');
+            }
+          } catch (error) {
+            console.log('❌ Failed to delete old logo:', error);
+            // Don't show error to user as new logo is uploaded successfully
+          }
+        }
+        
+        // ✅ Update list instantly with cache busting
+        setManufacturers(prev => 
+          prev.map(manufacturer => 
+            manufacturer.id === editingManufacturer?.id 
+              ? { ...manufacturer, logoUrl: `${result.data}?v=${Date.now()}` }
+              : manufacturer
+          )
+        );
+        
+        toast.success("Logo uploaded successfully! ✅");
+        
+      } else {
+        toast.error("Failed to get logo URL from response");
+      }
+    } else {
+      const errorData = await response.json();
+      toast.error(errorData.message || 'Failed to upload logo');
     }
-  };
+  } catch (error) {
+    console.error('Error uploading logo:', error);
+    toast.error('Failed to upload logo');
+  } finally {
+    setUploadingLogo(false);
+  }
+};
+
 
   useEffect(() => {
     fetchManufacturers();
@@ -1097,9 +1133,17 @@ export default function ManufacturersPage() {
                         </div>
                       </div>
                       <div className="bg-slate-900/50 p-3 rounded-lg">
-                        <p className="text-xs text-slate-400 mb-1">Description</p>
-                        <p className="text-white text-sm">{viewingManufacturer.description || 'No description'}</p>
-                      </div>
+  <p className="text-xs text-slate-400 mb-1">Description</p>
+  {viewingManufacturer.description ? (
+    <div
+      className="text-white text-sm prose prose-invert max-w-none"
+      dangerouslySetInnerHTML={{ __html: viewingManufacturer.description }}
+    />
+  ) : (
+    <p className="text-white text-sm">No description</p>
+  )}
+</div>
+
                     </div>
                   </div>
 

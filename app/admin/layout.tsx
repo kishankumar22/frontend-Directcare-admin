@@ -20,7 +20,8 @@ import {
   X,
   Tag,
   Factory,
-  Image as ImageIcon, // <-- ADDED: Correct icon for Banners
+  Image as ImageIcon,
+  DiscIcon, // <-- ADDED: Correct icon for Banners
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -33,6 +34,7 @@ const navigation = [
   { name: 'Orders', href: '/admin/orders', icon: ShoppingCart },
   { name: 'Customers', href: '/admin/customers', icon: Users },
   { name: 'Banners', href: '/admin/banners', icon: ImageIcon }, // FIXED: Correct icon
+  { name: 'Discounts', href: '/admin/discounts', icon: DiscIcon }, // FIXED: Correct icon
 ];
 
 export default function AdminLayout({ children }: { children: ReactNode }) {

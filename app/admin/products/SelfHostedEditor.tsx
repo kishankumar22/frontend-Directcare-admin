@@ -1,4 +1,4 @@
-// components/SelfHostedTinyMCE.tsx - WORKING PLACEHOLDER + TYPING
+// components/SelfHostedTinyMCE.tsx - KEYBOARD DELETE ONLY
 'use client';
 
 import React, { useEffect, useRef, useState } from 'react';
@@ -33,6 +33,41 @@ export const SelfHostedTinyMCE: React.FC<SelfHostedTinyMCEProps> = ({
   useEffect(() => {
     setIsMounted(true);
   }, []);
+
+  // 🗑️ Image deletion function
+  const deleteImageFromServer = async (imageUrl: string): Promise<boolean> => {
+    try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://testapi.knowledgemarkg.com';
+      
+      // Extract filename from URL
+      const urlParts = imageUrl.split('/');
+      const fileName = urlParts[urlParts.length - 1];
+      
+      if (!fileName) {
+        console.error('Could not extract filename from URL:', imageUrl);
+        return false;
+      }
+
+      const response = await fetch(`${apiUrl}/api/Editor/delete-image?fileName=${fileName}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('authToken')}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        console.error('Failed to delete image:', response.statusText);
+        return false;
+      }
+
+      console.log('✅ Image deleted successfully:', fileName);
+      return true;
+    } catch (error) {
+      console.error('❌ Error deleting image:', error);
+      return false;
+    }
+  };
 
   useEffect(() => {
     if (!isMounted) return;
@@ -82,10 +117,10 @@ export const SelfHostedTinyMCE: React.FC<SelfHostedTinyMCEProps> = ({
           'insertdatetime', 'media', 'table', 'wordcount', 'help'
         ],
         
-        // 🔧 Toolbar
+        // 🔧 Toolbar with delete button
         toolbar: 'undo redo | formatselect | bold italic underline | ' +
                 'alignleft aligncenter alignright | ' +
-                'bullist numlist | link image | removeformat | code',
+                'bullist numlist | link image | deleteimage | removeformat | code',
         
         // 🎨 DARK THEME
         skin: 'oxide-dark',
@@ -94,7 +129,7 @@ export const SelfHostedTinyMCE: React.FC<SelfHostedTinyMCEProps> = ({
         // 📋 Menu
         menubar: 'edit view insert format tools',
         
-        // ✅ FIXED: Content styling with working placeholder
+        // ✅ Content styling with WHITE placeholder
         content_style: `
           body { 
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
@@ -109,27 +144,31 @@ export const SelfHostedTinyMCE: React.FC<SelfHostedTinyMCEProps> = ({
             position: relative;
           }
           
-          /* ✅ WORKING PLACEHOLDER - Shows when body is empty */
+          /* ✅ WHITE PLACEHOLDER - Clearly visible */
           body[data-mce-placeholder]:not([data-mce-placeholder=""]):empty::before {
             content: attr(data-mce-placeholder);
-            color: #64748b;
+            color: #ffffff !important;
             font-style: italic;
             position: absolute;
             top: 16px;
             left: 16px;
             pointer-events: none;
             z-index: 1;
+            opacity: 0.8;
+            font-size: 14px;
           }
           
           body:empty::before {
             content: "${placeholder}";
-            color: #64748b;
+            color: #ffffff !important;
             font-style: italic;
             position: absolute;
             top: 16px;
             left: 16px;
             pointer-events: none;
             z-index: 1;
+            opacity: 0.8;
+            font-size: 14px;
           }
           
           * {
@@ -151,7 +190,6 @@ export const SelfHostedTinyMCE: React.FC<SelfHostedTinyMCEProps> = ({
             margin-bottom: 0;
           }
           
-          /* Empty paragraph handling */
           p:empty {
             min-height: 1.4em;
           }
@@ -260,6 +298,18 @@ export const SelfHostedTinyMCE: React.FC<SelfHostedTinyMCEProps> = ({
             max-width: 100%;
             height: auto;
             border-radius: 8px;
+            cursor: pointer;
+          }
+          
+          /* Image selection highlight */
+          img:hover {
+            opacity: 0.8;
+            box-shadow: 0 0 0 2px #a855f7;
+          }
+          
+          /* Selected image highlight */
+          img[data-mce-selected] {
+            box-shadow: 0 0 0 3px #a855f7 !important;
           }
         `,
         
@@ -273,63 +323,248 @@ export const SelfHostedTinyMCE: React.FC<SelfHostedTinyMCEProps> = ({
         statusbar: true,
         elementpath: false,
         
-        // 📸 Image upload handler
-images_upload_handler: async (blobInfo: { blob: () => Blob; filename: () => string | undefined; }, progress: any) => {
-  return new Promise(async (resolve, reject) => {
-    try {
-      const formData = new FormData();
-      formData.append('file', blobInfo.blob(), blobInfo.filename());
+        // 📸 Direct image upload
+        images_upload_handler: async (blobInfo: { blob: () => Blob; filename: () => string | undefined; }, progress: any) => {
+          return new Promise(async (resolve, reject) => {
+            try {
+              const formData = new FormData();
+              formData.append('file', blobInfo.blob(), blobInfo.filename());
 
-      // ✅ Correct base URL
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://testapi.knowledgemarkg.com';
+              const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://testapi.knowledgemarkg.com';
 
-      // ✅ Correct endpoint
-      const response = await fetch(`${apiUrl}/api/Editor/upload-image`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('authToken')}`
+              const response = await fetch(`${apiUrl}/api/Editor/upload-image`, {
+                method: 'POST',
+                headers: {
+                  'Authorization': `Bearer ${localStorage.getItem('authToken')}`
+                },
+                body: formData
+              });
+
+              if (!response.ok) {
+                reject(`❌ Upload failed: ${response.statusText}`);
+                return;
+              }
+
+              let result;
+              try {
+                result = await response.json();
+              } catch (e) {
+                reject('❌ Upload failed: Invalid JSON response');
+                return;
+              }
+
+              if (result?.location) {
+                resolve(`${apiUrl}${result.location}`);
+              } else {
+                reject('❌ Upload failed: Missing image location');
+              }
+
+            } catch (error) {
+              console.error('Upload error:', error);
+              reject('❌ Upload failed: Network error');
+            }
+          });
         },
-        body: formData
-      });
+        
+        // 🎯 Direct file browser
+        file_picker_types: 'image',
+        file_picker_callback: (callback: any, value: any, meta: any) => {
+          if (meta.filetype === 'image') {
+            const input = document.createElement('input');
+            input.setAttribute('type', 'file');
+            input.setAttribute('accept', 'image/png,image/jpeg,image/gif,image/webp');
+            input.style.display = 'none';
+            
+            document.body.appendChild(input);
+            
+            input.onchange = async function() {
+              const file = (this as HTMLInputElement).files?.[0];
+              document.body.removeChild(input);
+              
+              if (!file) return;
+              
+              try {
+                if (editorRef.current) {
+                  editorRef.current.notificationManager.open({
+                    text: '⏳ Uploading image...',
+                    type: 'info',
+                    timeout: 3000
+                  });
+                }
+                
+                const formData = new FormData();
+                formData.append('file', file, file.name);
 
-      if (!response.ok) {
-        reject(`Upload failed: ${response.statusText}`);
-        return;
-      }
+                const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://testapi.knowledgemarkg.com';
 
-      let result;
-      try {
-        result = await response.json();
-      } catch (e) {
-        reject('Upload failed: Invalid JSON response');
-        return;
-      }
+                const response = await fetch(`${apiUrl}/api/Editor/upload-image`, {
+                  method: 'POST',
+                  headers: {
+                    'Authorization': `Bearer ${localStorage.getItem('authToken')}`
+                  },
+                  body: formData
+                });
 
-      // ✅ Match your backend’s actual keys
-      if (result?.location) {
-        // resolve the full image URL so TinyMCE can display it
-        resolve(`${apiUrl}${result.location}`);
-      } else {
-        reject('Upload failed: Missing image location');
-      }
+                if (!response.ok) {
+                  throw new Error(`Upload failed: ${response.statusText}`);
+                }
 
-    } catch (error) {
-      console.error('Upload error:', error);
-      reject('Upload failed: Network error');
-    }
-  });
-},
-
+                const result = await response.json();
+                
+                if (result?.location) {
+                  const imageUrl = `${apiUrl}${result.location}`;
+                  
+                  callback(imageUrl, {
+                    alt: file.name,
+                    title: file.name
+                  });
+                  
+                  if (editorRef.current) {
+                    editorRef.current.notificationManager.open({
+                      text: '✅ Image uploaded successfully',
+                      type: 'success',
+                      timeout: 3000
+                    });
+                  }
+                } else {
+                  throw new Error('Missing image location in response');
+                }
+                
+              } catch (error) {
+                console.error('Upload error:', error);
+                
+                if (editorRef.current) {
+                  editorRef.current.notificationManager.open({
+                    text: '❌ Image upload failed',
+                    type: 'error',
+                    timeout: 5000
+                  });
+                }
+              }
+            };
+            
+            input.click();
+          }
+        },
         
         // 🔄 Setup callback
         setup: (editor: any) => {
           editorRef.current = editor;
           
+          // 🗑️ Register Delete Image button
+          editor.ui.registry.addButton('deleteimage', {
+            text: '🗑️',
+            tooltip: 'Delete Selected Image',
+            onAction: async () => {
+              const selectedImg = editor.selection.getNode();
+              if (selectedImg && selectedImg.nodeName === 'IMG') {
+                const imageUrl = selectedImg.src;
+                const imageName = imageUrl.split('/').pop() || 'this image';
+                
+                const confirmed = confirm(
+                  `⚠️ Delete "${imageName}"?\n\n` +
+                  `This action cannot be undone and will permanently remove the image from both the editor and server.`
+                );
+                
+                if (confirmed) {
+                  try {
+                    const deleted = await deleteImageFromServer(imageUrl);
+                    if (deleted) {
+                      editor.dom.remove(selectedImg);
+                      editor.nodeChanged();
+                      
+                      const content = editor.getContent();
+                      onChange(content);
+                      
+                      editor.notificationManager.open({
+                        text: '✅ Image deleted successfully',
+                        type: 'success',
+                        timeout: 3000
+                      });
+                    } else {
+                      editor.notificationManager.open({
+                        text: '❌ Failed to delete image from server',
+                        type: 'error',
+                        timeout: 5000
+                      });
+                    }
+                  } catch (error) {
+                    console.error('Delete image error:', error);
+                    editor.notificationManager.open({
+                      text: '❌ Error deleting image',
+                      type: 'error',
+                      timeout: 5000
+                    });
+                  }
+                }
+              } else {
+                editor.notificationManager.open({
+                  text: '📝 Please select an image first',
+                  type: 'warning',
+                  timeout: 2000
+                });
+              }
+            }
+          });
+
+          // ⌨️ KEYBOARD DELETE - Backspace aur Delete keys
+          editor.on('keydown', async (e: any) => {
+            // Check for Backspace (8) or Delete (46) key
+            if (e.keyCode === 8 || e.keyCode === 46) {
+              const selectedNode = editor.selection.getNode();
+              
+              // Check if selected element is an image
+              if (selectedNode && selectedNode.nodeName === 'IMG') {
+                e.preventDefault(); // Prevent default delete behavior
+                
+                const imageUrl = selectedNode.src;
+                const imageName = imageUrl.split('/').pop() || 'this image';
+                
+                // ⚠️ Confirmation dialog
+                const confirmed = confirm(
+                  `⚠️ Delete "${imageName}"?\n\n` +
+                  `This action cannot be undone and will permanently remove the image from both the editor and server.`
+                );
+                
+                if (confirmed) {
+                  try {
+                    const deleted = await deleteImageFromServer(imageUrl);
+                    if (deleted) {
+                      editor.dom.remove(selectedNode);
+                      editor.nodeChanged();
+                      
+                      const content = editor.getContent();
+                      onChange(content);
+                      
+                      editor.notificationManager.open({
+                        text: '✅ Image deleted successfully',
+                        type: 'success',
+                        timeout: 3000
+                      });
+                    } else {
+                      editor.notificationManager.open({
+                        text: '❌ Failed to delete image from server',
+                        type: 'error',
+                        timeout: 5000
+                      });
+                    }
+                  } catch (error) {
+                    console.error('Delete image error:', error);
+                    editor.notificationManager.open({
+                      text: '❌ Error deleting image',
+                      type: 'error',
+                      timeout: 5000
+                    });
+                  }
+                }
+              }
+            }
+          });
+          
           editor.on('change input undo redo', () => {
             const content = editor.getContent();
             onChange(content);
             
-            // ✅ Update placeholder visibility
             const body = editor.getBody();
             if (body) {
               const isEmpty = editor.getContent({ format: 'text' }).trim() === '';
@@ -344,18 +579,15 @@ images_upload_handler: async (blobInfo: { blob: () => Blob; filename: () => stri
           editor.on('init', () => {
             setIsReady(true);
             
-            // Set initial content
             if (value) {
               editor.setContent(value);
             } else {
-              // ✅ Set placeholder attribute for empty editor
               const body = editor.getBody();
               if (body) {
                 body.setAttribute('data-mce-placeholder', placeholder);
               }
             }
             
-            // Apply dark theme styling to editor container
             const container = editor.getContainer();
             if (container) {
               container.style.backgroundColor = '#1e293b';
@@ -365,7 +597,6 @@ images_upload_handler: async (blobInfo: { blob: () => Blob; filename: () => stri
             }
           });
           
-          // ✅ Handle focus events for placeholder
           editor.on('focus', () => {
             const body = editor.getBody();
             const isEmpty = editor.getContent({ format: 'text' }).trim() === '';
@@ -427,7 +658,6 @@ images_upload_handler: async (blobInfo: { blob: () => Blob; filename: () => stri
         </div>
       )}
       
-      {/* Dark themed editor container */}
       <div
         className="rounded-xl overflow-hidden border border-slate-700"
         style={{
@@ -484,6 +714,7 @@ export const ProductDescriptionEditor = ({
           {showHelpText}
         </p>
       )}
+  
     </div>
   );
 };

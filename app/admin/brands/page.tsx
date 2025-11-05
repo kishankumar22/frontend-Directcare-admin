@@ -150,17 +150,29 @@ export default function BrandsPage() {
   }, []);
 
 // ✅ UPDATED - Force refresh with spread operator
+// ✅ FIXED: Update fetchBrands function 
 const fetchBrands = async () => {
   try {
     const token = localStorage.getItem("authToken");
 
-    const response = await apiClient.get<BrandApiResponse>(API_ENDPOINTS.brands, {
-      params: { includeUnpublished: "true" },
+    const response = await fetch(`${API_BASE_URL}/api/Brands?includeInactive=true`, {
       headers: token ? { Authorization: `Bearer ${token}` } : undefined,
     });
     
-    // ✅ Force update with spread operator
-    setBrands([...(response.data?.data || [])]);
+    if (response.ok) {
+      const result: BrandApiResponse = await response.json();
+      
+      // ✅ Force refresh images with cache busting
+      const brandsWithFreshImages = (result.data || []).map(brand => ({
+        ...brand,
+        logoUrl: brand.logoUrl ? `${brand.logoUrl}?v=${Date.now()}` : undefined
+      }));
+      
+      setBrands(brandsWithFreshImages);
+    } else {
+      console.error("Failed to fetch brands");
+      setBrands([]);
+    }
     
   } catch (error) {
     console.error("Error fetching brands:", error);
@@ -171,106 +183,151 @@ const fetchBrands = async () => {
 };
 
 
-  // ✅ FIXED: Image upload handler with brand name
-  const handleLogoUpload = async (file: File) => {
-    if (!formData.name.trim()) {
-      toast.error("Please enter brand name before uploading logo");
-      return;
-    }
 
-    setUploadingLogo(true);
+const handleLogoUpload = async (file: File) => {
+  if (!formData.name.trim()) {
+    toast.error("Please enter brand name before uploading logo");
+    return;
+  }
+
+  setUploadingLogo(true);
+  
+  // ✅ Store old image URL to delete after successful upload
+  const oldLogoUrl = editingBrand?.logoUrl || "";
+
+  try {
     const formDataToUpload = new FormData();
     formDataToUpload.append('logo', file);
+    const token = localStorage.getItem('authToken');
 
-    try {
-      const token = localStorage.getItem('authToken');
-      
-      // ✅ Send brand name as query parameter
-      const response = await fetch(
-        `https://testapi.knowledgemarkg.com/api/Brands/upload-logo?name=${encodeURIComponent(formData.name)}`,
-        {
-          method: 'POST',
-          headers: {
-            ...(token && { 'Authorization': `Bearer ${token}` }),
-          },
-          body: formDataToUpload,
-        }
-      );
-
-      if (response.ok) {
-        const result = await response.json();
-        
-        // ✅ Set the logoUrl from response data
-        if (result.success && result.data) {
-          setFormData(prev => ({ ...prev, logoUrl: result.data }));
-          toast.success("Logo uploaded successfully! ✅");
-        } else {
-          toast.error("Failed to get logo URL from response");
-        }
-      } else {
-        const errorData = await response.json();
-        toast.error(errorData.message || 'Failed to upload logo');
+    const response = await fetch(
+      `${API_BASE_URL}/api/Brands/upload-logo?name=${encodeURIComponent(formData.name)}`,
+      {
+        method: 'POST',
+        headers: {
+          ...(token && { 'Authorization': `Bearer ${token}` }),
+        },
+        body: formDataToUpload,
       }
-    } catch (error) {
-      console.error('Error uploading logo:', error);
-      toast.error('Failed to upload logo');
-    } finally {
-      setUploadingLogo(false);
+    );
+
+    if (response.ok) {
+      const result = await response.json();
+      
+      if (result.success && result.data) {
+        // ✅ Update form data with new logo
+        setFormData(prev => ({ ...prev, logoUrl: result.data }));
+        
+        // ✅ Delete old logo if exists and is different from new one
+        if (oldLogoUrl && oldLogoUrl !== result.data) {
+          try {
+            const filename = extractFilename(oldLogoUrl);
+            const deleteResponse = await fetch(`${API_BASE_URL}/api/ImageManagement/brand/${filename}`, {
+              method: 'DELETE',
+              headers: {
+                ...(token && { 'Authorization': `Bearer ${token}` }),
+                'Content-Type': 'application/json',
+              },
+            });
+            
+            if (deleteResponse.ok) {
+              console.log('✅ Old logo deleted successfully');
+            }
+          } catch (error) {
+            console.log('❌ Failed to delete old logo:', error);
+          }
+        }
+        
+        // ✅ Update list instantly with cache busting - same as categories
+        setBrands(prev => 
+          prev.map(brand => 
+            brand.id === editingBrand?.id 
+              ? { ...brand, logoUrl: `${result.data}?v=${Date.now()}` }
+              : brand
+          )
+        );
+        
+        toast.success("Logo uploaded successfully! ✅");
+        
+      } else {
+        toast.error("Failed to get logo URL from response");
+      }
+    } else {
+      const errorData = await response.json();
+      toast.error(errorData.message || 'Failed to upload logo');
     }
+  } catch (error) {
+    console.error('Error uploading logo:', error);
+    toast.error('Failed to upload logo');
+  } finally {
+    setUploadingLogo(false);
+  }
+};
+
+
+// ✅ FIXED: Updated handleSubmit to refresh list after successful update
+const handleSubmit = async (e: React.FormEvent) => {
+  e.preventDefault();
+
+  const token = localStorage.getItem("authToken");
+  if (!token) {
+    toast.error("Please login first");
+    return;
+  }
+
+  try {
+    const url = editingBrand
+      ? `${API_ENDPOINTS.brands}/${editingBrand.id}`
+      : API_ENDPOINTS.brands;
+
+    const payload = {
+      ...formData,
+      ...(editingBrand && { id: editingBrand.id }),
+    };
+
+    const response = editingBrand
+      ? await apiClient.put(url, payload, {
+          headers: { Authorization: `Bearer ${token}` },
+        })
+      : await apiClient.post(url, payload, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+
+    const successMessage = editingBrand 
+      ? "Brand updated successfully! ✅" 
+      : "Brand created successfully! 🎉";
+    
+    toast.success(successMessage, { autoClose: 4000 });
+
+    fetchBrands(); // ✅ Refresh list
+    setShowModal(false);
+    resetForm();
+
+  } catch (error: any) {
+    console.error("Error saving brand:", error);
+
+    if (error.response?.status === 401) {
+      toast.error("Unauthorized. Please login again.");
+    } else {
+      const message = error.response?.data?.message || "Failed to save brand";
+      const errorMessage = editingBrand 
+        ? `Failed to update brand: ${message}`
+        : `Failed to create brand: ${message}`;
+      
+      toast.error(errorMessage);
+    }
+  }
+};
+
+// ✅ Add Auto-refresh on Window Focus (add this useEffect)
+useEffect(() => {
+  const handleFocus = () => {
+    fetchBrands();
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    const token = localStorage.getItem("authToken");
-    if (!token) {
-      toast.error("Please login first");
-      return;
-    }
-
-    try {
-      const url = editingBrand
-        ? `${API_ENDPOINTS.brands}/${editingBrand.id}`
-        : API_ENDPOINTS.brands;
-
-      const payload = {
-        ...formData,
-        ...(editingBrand && { id: editingBrand.id }),
-      };
-
-      const response = editingBrand
-        ? await apiClient.put(url, payload, {
-            headers: { Authorization: `Bearer ${token}` },
-          })
-        : await apiClient.post(url, payload, {
-            headers: { Authorization: `Bearer ${token}` },
-          });
-
-      const successMessage = editingBrand 
-        ? "Brand updated successfully! ✅" 
-        : "Brand created successfully! 🎉";
-      
-      toast.success(successMessage, { autoClose: 4000 });
-
-      await fetchBrands();
-      setShowModal(false);
-      resetForm();
-
-    } catch (error: any) {
-      console.error("Error saving brand:", error);
-
-      if (error.response?.status === 401) {
-        toast.error("Unauthorized. Please login again.");
-      } else {
-        const message = error.response?.data?.message || "Failed to save brand";
-        const errorMessage = editingBrand 
-          ? `Failed to update brand: ${message}`
-          : `Failed to create brand: ${message}`;
-        
-        toast.error(errorMessage);
-      }
-    }
-  };
+  window.addEventListener('focus', handleFocus);
+  return () => window.removeEventListener('focus', handleFocus);
+}, []);
 
   const handleEdit = (brand: Brand) => {
     setEditingBrand(brand);
@@ -1105,10 +1162,18 @@ const fetchBrands = async () => {
                           <p className="text-white font-semibold">{viewingBrand.displayOrder}</p>
                         </div>
                       </div>
-                      <div className="bg-slate-900/50 p-3 rounded-lg">
-                        <p className="text-xs text-slate-400 mb-1">Description</p>
-                        <p className="text-white text-sm">{viewingBrand.description || 'No description'}</p>
-                      </div>
+                    <div className="bg-slate-900/50 p-3 rounded-lg">
+  <p className="text-xs text-slate-400 mb-1">Description</p>
+  {viewingBrand.description ? (
+    <div
+      className="text-white text-sm prose prose-invert max-w-none"
+      dangerouslySetInnerHTML={{ __html: viewingBrand.description }}
+    />
+  ) : (
+    <p className="text-white text-sm">No description</p>
+  )}
+</div>
+
                     </div>
                   </div>
 

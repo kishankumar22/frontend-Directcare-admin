@@ -6,6 +6,7 @@ import { API_ENDPOINTS, API_BASE_URL } from "@/lib/api-config";
 import { apiClient } from "@/lib/api";
 import { useToast } from "@/components/CustomToast";
 import ConfirmDialog from "@/components/ConfirmDialog";
+import { ProductDescriptionEditor } from "../products/SelfHostedEditor";
 
 interface Banner {
   id: string;
@@ -601,7 +602,17 @@ export default function ManageBanners() {
                           >
                             {banner.title || 'Untitled Banner'}
                           </p>
-                          <p className="text-xs text-slate-500">{banner.description?.slice(0, 50) || 'No description'}...</p>
+                          <p
+  className="text-xs text-slate-500"
+  dangerouslySetInnerHTML={{
+    __html: banner.description
+      ? banner.description.length > 50
+        ? banner.description.slice(0, 50) + "..."
+        : banner.description
+      : "No description",
+  }}
+></p>
+
                           {banner.link && (
                             <div className="flex items-center gap-1 mt-1">
                               <ExternalLink className="h-3 w-3 text-slate-500" />
@@ -813,14 +824,20 @@ export default function ManageBanners() {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-slate-300 mb-2">Description</label>
-                    <textarea
-                      value={formData.description}
-                      onChange={(e) => setFormData({...formData, description: e.target.value})}
-                      placeholder="Enter banner description"
-                      rows={3}
-                      className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all resize-none"
-                    />
+                 <ProductDescriptionEditor
+  label="Description"
+  value={formData.description}
+  onChange={(content) =>
+    setFormData((prev) => ({
+      ...prev,
+      description: content,
+    }))
+  }
+  placeholder="Enter banner description with rich formatting..."
+  height={300}
+  required={false}
+/>
+
                   </div>
                 </div>
               </div>
@@ -1107,10 +1124,16 @@ export default function ManageBanners() {
                       <p className="text-xs text-slate-400 mb-1">Title</p>
                       <p className="text-lg font-bold text-white">{viewingBanner.title || 'Untitled'}</p>
                     </div>
-                    <div className="bg-slate-900/50 p-3 rounded-lg">
-                      <p className="text-xs text-slate-400 mb-1">Description</p>
-                      <p className="text-white text-sm">{viewingBanner.description || 'No description'}</p>
-                    </div>
+               <div className="bg-slate-900/50 p-3 rounded-lg">
+  <p className="text-xs text-slate-400 mb-1">Description</p>
+  <div
+    className="prose prose-invert max-w-none text-white text-sm"
+    dangerouslySetInnerHTML={{
+      __html: viewingBanner.description || "No description",
+    }}
+  />
+</div>
+
                     <div className="bg-slate-900/50 p-3 rounded-lg">
                       <p className="text-xs text-slate-400 mb-1">Image Path (relative)</p>
                       <p className="text-white text-xs font-mono break-all">{viewingBanner.imageUrl || 'No image'}</p>
