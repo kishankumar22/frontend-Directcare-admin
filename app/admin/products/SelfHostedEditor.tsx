@@ -274,34 +274,52 @@ export const SelfHostedTinyMCE: React.FC<SelfHostedTinyMCEProps> = ({
         elementpath: false,
         
         // 📸 Image upload handler
-        images_upload_handler: async (blobInfo: any, progress: any) => {
-          return new Promise(async (resolve, reject) => {
-            try {
-              const formData = new FormData();
-              formData.append('file', blobInfo.blob(), blobInfo.filename());
-              
-              const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:7196';
-              const response = await fetch(`${apiUrl}/api/Upload/image`, {
-                method: 'POST',
-                headers: {
-                  'Authorization': `Bearer ${localStorage.getItem('authToken')}`
-                },
-                body: formData
-              });
-              
-              const result = await response.json();
-              
-              if (result.success) {
-                resolve(`${apiUrl}${result.url}`);
-              } else {
-                reject('Upload failed: ' + result.error);
-              }
-            } catch (error) {
-              console.error('Upload error:', error);
-              reject('Upload failed: Network error');
-            }
-          });
+images_upload_handler: async (blobInfo: { blob: () => Blob; filename: () => string | undefined; }, progress: any) => {
+  return new Promise(async (resolve, reject) => {
+    try {
+      const formData = new FormData();
+      formData.append('file', blobInfo.blob(), blobInfo.filename());
+
+      // ✅ Correct base URL
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://testapi.knowledgemarkg.com';
+
+      // ✅ Correct endpoint
+      const response = await fetch(`${apiUrl}/api/Editor/upload-image`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('authToken')}`
         },
+        body: formData
+      });
+
+      if (!response.ok) {
+        reject(`Upload failed: ${response.statusText}`);
+        return;
+      }
+
+      let result;
+      try {
+        result = await response.json();
+      } catch (e) {
+        reject('Upload failed: Invalid JSON response');
+        return;
+      }
+
+      // ✅ Match your backend’s actual keys
+      if (result?.location) {
+        // resolve the full image URL so TinyMCE can display it
+        resolve(`${apiUrl}${result.location}`);
+      } else {
+        reject('Upload failed: Missing image location');
+      }
+
+    } catch (error) {
+      console.error('Upload error:', error);
+      reject('Upload failed: Network error');
+    }
+  });
+},
+
         
         // 🔄 Setup callback
         setup: (editor: any) => {
