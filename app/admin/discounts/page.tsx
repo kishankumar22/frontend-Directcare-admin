@@ -1023,11 +1023,11 @@ const fetchDropdownData = async () => {
                       onChange={(e) => setFormData({...formData, discountType: e.target.value as DiscountType})}
                       className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
                     >
-                      <option value="AssignedToOrderTotal">Order Total</option>
-                      <option value="AssignedToProducts">Products</option>
-                      <option value="AssignedToCategories">Categories</option>
-                      <option value="AssignedToManufacturers">Manufacturers</option>
-                      <option value="AssignedToShipping">Shipping</option>
+                      <option value="AssignedToOrderTotal">	Assigned to order total</option>
+                      <option value="AssignedToProducts">Assigned to products</option>
+                      <option value="AssignedToCategories">Assigned to categories</option>
+                      <option value="AssignedToManufacturers">Assigned to manufacturers</option>
+                      <option value="AssignedToShipping">Assigned to shipping</option>
                     </select>
                   </div>
                 </div>

@@ -1,4 +1,4 @@
-// components/SelfHostedTinyMCE.tsx - KEYBOARD DELETE ONLY
+// components/SelfHostedTinyMCE.tsx
 'use client';
 
 import React, { useEffect, useRef, useState } from 'react';
@@ -25,21 +25,26 @@ export const SelfHostedTinyMCE: React.FC<SelfHostedTinyMCEProps> = ({
   className = ""
 }) => {
   const editorRef = useRef<any>(null);
+  const onChangeRef = useRef(onChange); // ✅ Store onChange in ref
+  const isUpdatingRef = useRef(false);
   const [isLoaded, setIsLoaded] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
   const [isReady, setIsReady] = useState(false);
   const [editorId] = useState(() => `tinymce-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`);
 
+  // ✅ Update onChange ref
+  useEffect(() => {
+    onChangeRef.current = onChange;
+  }, [onChange]);
+
   useEffect(() => {
     setIsMounted(true);
   }, []);
 
-  // 🗑️ Image deletion function
   const deleteImageFromServer = async (imageUrl: string): Promise<boolean> => {
     try {
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://testapi.knowledgemarkg.com';
       
-      // Extract filename from URL
       const urlParts = imageUrl.split('/');
       const fileName = urlParts[urlParts.length - 1];
       
@@ -103,33 +108,26 @@ export const SelfHostedTinyMCE: React.FC<SelfHostedTinyMCEProps> = ({
         selector: `#${editorId}`,
         height: height,
         
-        // 🔑 License
         license_key: 'gpl',
         
-        // 📁 Base configuration
         base_url: '/tinymce',
         suffix: '.min',
         
-        // 🧩 Core plugins
         plugins: [
           'advlist', 'autolink', 'lists', 'link', 'image', 'charmap',
           'searchreplace', 'visualblocks', 'code', 'fullscreen',
           'insertdatetime', 'media', 'table', 'wordcount', 'help'
         ],
         
-        // 🔧 Toolbar with delete button
         toolbar: 'undo redo | formatselect | bold italic underline | ' +
                 'alignleft aligncenter alignright | ' +
                 'bullist numlist | link image | deleteimage | removeformat | code',
         
-        // 🎨 DARK THEME
         skin: 'oxide-dark',
         content_css: 'dark',
         
-        // 📋 Menu
         menubar: 'edit view insert format tools',
         
-        // ✅ Content styling with WHITE placeholder
         content_style: `
           body { 
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
@@ -141,34 +139,12 @@ export const SelfHostedTinyMCE: React.FC<SelfHostedTinyMCEProps> = ({
             padding: 16px;
             min-height: ${height - 120}px;
             box-sizing: border-box;
-            position: relative;
-          }
-          
-          /* ✅ WHITE PLACEHOLDER - Clearly visible */
-          body[data-mce-placeholder]:not([data-mce-placeholder=""]):empty::before {
-            content: attr(data-mce-placeholder);
-            color: #ffffff !important;
-            font-style: italic;
-            position: absolute;
-            top: 16px;
-            left: 16px;
-            pointer-events: none;
-            z-index: 1;
-            opacity: 0.8;
-            font-size: 14px;
           }
           
           body:empty::before {
             content: "${placeholder}";
-            color: #ffffff !important;
-            font-style: italic;
-            position: absolute;
-            top: 16px;
-            left: 16px;
-            pointer-events: none;
-            z-index: 1;
-            opacity: 0.8;
-            font-size: 14px;
+            color: #ffffff;
+            opacity: 0.6;
           }
           
           * {
@@ -301,29 +277,24 @@ export const SelfHostedTinyMCE: React.FC<SelfHostedTinyMCEProps> = ({
             cursor: pointer;
           }
           
-          /* Image selection highlight */
           img:hover {
             opacity: 0.8;
             box-shadow: 0 0 0 2px #a855f7;
           }
           
-          /* Selected image highlight */
           img[data-mce-selected] {
             box-shadow: 0 0 0 3px #a855f7 !important;
           }
         `,
         
-        // ⚙️ Editor settings
         branding: false,
         promotion: false,
         resize: true,
         
-        // 🔧 UI Settings
         toolbar_mode: 'wrap',
         statusbar: true,
         elementpath: false,
         
-        // 📸 Direct image upload
         images_upload_handler: async (blobInfo: { blob: () => Blob; filename: () => string | undefined; }, progress: any) => {
           return new Promise(async (resolve, reject) => {
             try {
@@ -366,7 +337,6 @@ export const SelfHostedTinyMCE: React.FC<SelfHostedTinyMCEProps> = ({
           });
         },
         
-        // 🎯 Direct file browser
         file_picker_types: 'image',
         file_picker_callback: (callback: any, value: any, meta: any) => {
           if (meta.filetype === 'image') {
@@ -447,11 +417,9 @@ export const SelfHostedTinyMCE: React.FC<SelfHostedTinyMCEProps> = ({
           }
         },
         
-        // 🔄 Setup callback
         setup: (editor: any) => {
           editorRef.current = editor;
           
-          // 🗑️ Register Delete Image button
           editor.ui.registry.addButton('deleteimage', {
             text: '🗑️',
             tooltip: 'Delete Selected Image',
@@ -473,8 +441,10 @@ export const SelfHostedTinyMCE: React.FC<SelfHostedTinyMCEProps> = ({
                       editor.dom.remove(selectedImg);
                       editor.nodeChanged();
                       
+                      isUpdatingRef.current = true;
                       const content = editor.getContent();
-                      onChange(content);
+                      onChangeRef.current(content);
+                      setTimeout(() => isUpdatingRef.current = false, 100);
                       
                       editor.notificationManager.open({
                         text: '✅ Image deleted successfully',
@@ -507,20 +477,16 @@ export const SelfHostedTinyMCE: React.FC<SelfHostedTinyMCEProps> = ({
             }
           });
 
-          // ⌨️ KEYBOARD DELETE - Backspace aur Delete keys
           editor.on('keydown', async (e: any) => {
-            // Check for Backspace (8) or Delete (46) key
             if (e.keyCode === 8 || e.keyCode === 46) {
               const selectedNode = editor.selection.getNode();
               
-              // Check if selected element is an image
               if (selectedNode && selectedNode.nodeName === 'IMG') {
-                e.preventDefault(); // Prevent default delete behavior
+                e.preventDefault();
                 
                 const imageUrl = selectedNode.src;
                 const imageName = imageUrl.split('/').pop() || 'this image';
                 
-                // ⚠️ Confirmation dialog
                 const confirmed = confirm(
                   `⚠️ Delete "${imageName}"?\n\n` +
                   `This action cannot be undone and will permanently remove the image from both the editor and server.`
@@ -533,8 +499,10 @@ export const SelfHostedTinyMCE: React.FC<SelfHostedTinyMCEProps> = ({
                       editor.dom.remove(selectedNode);
                       editor.nodeChanged();
                       
+                      isUpdatingRef.current = true;
                       const content = editor.getContent();
-                      onChange(content);
+                      onChangeRef.current(content);
+                      setTimeout(() => isUpdatingRef.current = false, 100);
                       
                       editor.notificationManager.open({
                         text: '✅ Image deleted successfully',
@@ -562,18 +530,10 @@ export const SelfHostedTinyMCE: React.FC<SelfHostedTinyMCEProps> = ({
           });
           
           editor.on('change input undo redo', () => {
+            isUpdatingRef.current = true;
             const content = editor.getContent();
-            onChange(content);
-            
-            const body = editor.getBody();
-            if (body) {
-              const isEmpty = editor.getContent({ format: 'text' }).trim() === '';
-              if (isEmpty) {
-                body.setAttribute('data-mce-placeholder', placeholder);
-              } else {
-                body.removeAttribute('data-mce-placeholder');
-              }
-            }
+            onChangeRef.current(content); // ✅ Use ref instead of direct onChange
+            setTimeout(() => isUpdatingRef.current = false, 50);
           });
           
           editor.on('init', () => {
@@ -581,11 +541,6 @@ export const SelfHostedTinyMCE: React.FC<SelfHostedTinyMCEProps> = ({
             
             if (value) {
               editor.setContent(value);
-            } else {
-              const body = editor.getBody();
-              if (body) {
-                body.setAttribute('data-mce-placeholder', placeholder);
-              }
             }
             
             const container = editor.getContainer();
@@ -594,22 +549,6 @@ export const SelfHostedTinyMCE: React.FC<SelfHostedTinyMCEProps> = ({
               container.style.border = '1px solid #475569';
               container.style.borderRadius = '12px';
               container.style.overflow = 'hidden';
-            }
-          });
-          
-          editor.on('focus', () => {
-            const body = editor.getBody();
-            const isEmpty = editor.getContent({ format: 'text' }).trim() === '';
-            if (isEmpty && body) {
-              body.removeAttribute('data-mce-placeholder');
-            }
-          });
-          
-          editor.on('blur', () => {
-            const body = editor.getBody();
-            const isEmpty = editor.getContent({ format: 'text' }).trim() === '';
-            if (isEmpty && body) {
-              body.setAttribute('data-mce-placeholder', placeholder);
             }
           });
         }
@@ -623,11 +562,14 @@ export const SelfHostedTinyMCE: React.FC<SelfHostedTinyMCEProps> = ({
         window.tinymce.remove(`#${editorId}`);
       }
     };
-  }, [isMounted, editorId, placeholder]);
+  }, [isMounted, editorId, placeholder, height]); // ✅ Removed onChange dependency
 
   useEffect(() => {
-    if (editorRef.current && isReady && value !== editorRef.current.getContent()) {
-      editorRef.current.setContent(value || '');
+    if (editorRef.current && isReady && !isUpdatingRef.current) {
+      const currentContent = editorRef.current.getContent();
+      if (value !== currentContent) {
+        editorRef.current.setContent(value || '');
+      }
     }
   }, [value, isReady]);
 

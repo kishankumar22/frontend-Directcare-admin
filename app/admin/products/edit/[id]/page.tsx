@@ -133,6 +133,55 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
   const [searchTermCross, setSearchTermCross] = useState('');
   const [attributes, setAttributes] = useState<Array<{id: string, name: string, values: string[]}>>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  // Helper function to format datetime for React inputs
+const formatDateTimeForInput = (dateString: string | null): string => {
+  if (!dateString) return '';
+  try {
+    // Remove timezone info, milliseconds and keep only YYYY-MM-DDTHH:MM
+    if (dateString.includes('T')) {
+      const [datePart, timePart] = dateString.split('T');
+      const cleanTime = timePart.split('.')[0]; // Remove milliseconds
+      const shortTime = cleanTime.length > 5 ? cleanTime.substring(0, 5) : cleanTime; // Keep only HH:MM
+      return `${datePart}T${shortTime}`;
+    }
+    return dateString;
+  } catch {
+    return '';
+  }
+};
+const parseSpecificationString = (specString: string | null): Array<{id: string, name: string, value: string, displayOrder: number}> => {
+  if (!specString || !specString.trim()) return [];
+  
+  try {
+    // If it's already JSON format
+    if (specString.startsWith('[') && specString.endsWith(']')) {
+      const parsed = JSON.parse(specString);
+      return Array.isArray(parsed) ? parsed : [];
+    }
+    
+    // Parse comma-separated key:value pairs
+    const specs = [];
+    const pairs = specString.split(', ');
+    
+    for (let i = 0; i < pairs.length; i++) {
+      const pair = pairs[i];
+      if (pair.includes(':')) {
+        const [key, ...valueParts] = pair.split(':');
+        const value = valueParts.join(':'); // Handle values with colons
+        specs.push({
+          id: Date.now().toString() + i,
+          name: key.trim(),
+          value: value.trim(),
+          displayOrder: i + 1
+        });
+      }
+    }
+    return specs;
+  } catch (error) {
+    console.error('Error parsing specifications:', error);
+    return [];
+  }
+};
 // ✅ Add these new states
 const [isDeletingImage, setIsDeletingImage] = useState(false);
 const [uploadingImages, setUploadingImages] = useState(false);
@@ -171,7 +220,7 @@ const [uploadingImages, setUploadingImages] = useState(false);
     gtin: '',
     manufacturerPartNumber: '',
     adminComment: '',
-
+    allowCustomerReviews: false,
     // Related Products
     relatedProducts: [] as string[],
     crossSellProducts: [] as string[],
@@ -187,7 +236,7 @@ productImages: [] as ProductImage[],
     cost: '',
     disableBuyButton: false,
     disableWishlistButton: false,
-    availableForPreOrder: false,
+ 
     preOrderAvailabilityStartDate: '',
     callForPrice: false,
     customerEntersPrice: false,
@@ -407,104 +456,128 @@ useEffect(() => {
           const categoryDisplayName = getCategoryDisplayName(product.categoryId || '', categoriesData);
 
           // Populate form with product data
-          setFormData(prevData => ({
-            ...prevData,
+// Replace your existing setFormData section in useEffect with this:
+// REPLACE your existing setFormData section in useEffect with this COMPLETE VERSION:
+setFormData(prevData => ({
+  ...prevData,
 
-            // Basic Info
-            name: product.name || '',
-            shortDescription: product.shortDescription || '',
-            fullDescription: product.description || '',
-            sku: product.sku || '',
-            brand: product.brandId || '',
-            categories: product.categoryId || '',
-            categoryName: categoryDisplayName,
-            manufacturerId: product.manufacturerId || '',
-            published: product.isPublished ?? true,
-            productType: product.productType || 'simple',
-            visibleIndividually: product.visibleIndividually ?? true,
-            showOnHomepage: false,
-            displayOrder: '1',
-            productTags: product.tags || '',
-            gtin: product.gtin || '',
-            manufacturerPartNumber: product.manufacturerPartNumber || '',
+  // Basic Info
+  name: product.name || '',
+  shortDescription: product.shortDescription || '',
+  fullDescription: product.description || '',
+  sku: product.sku || '',
+  brand: product.brandId || '',
+  categories: product.categoryId || '',
+  categoryName: categoryDisplayName,
+  manufacturerId: product.manufacturerId || '',
+  published: product.isPublished ?? true,
+  productType: product.productType || 'simple',
+  visibleIndividually: product.visibleIndividually ?? true,
+  showOnHomepage: product.showOnHomepage ?? false,
+  displayOrder: product.displayOrder?.toString() || '1',
+  productTags: product.tags || '',
+  gtin: product.gtin || '',
+  manufacturerPartNumber: product.manufacturerPartNumber || '',
 
-            // Pricing
-            price: product.price?.toString() || '',
-            oldPrice: product.oldPrice?.toString() || product.compareAtPrice?.toString() || '',
-            cost: product.costPrice?.toString() || '',
+  // ✅ FIXED - Admin Comment
+  adminComment: product.adminComment || '',
 
-            // Inventory
-            stockQuantity: product.stockQuantity?.toString() || '0',
-            manageInventory: product.trackQuantity ? 'track' : 'dont-track',
+  // ✅ FIXED - Customer Reviews (add this field)
+  allowCustomerReviews: product.allowCustomerReviews ?? false,
 
-            // Shipping
-            weight: product.weight?.toString() || '',
-            length: product.length?.toString() || '',
-            width: product.width?.toString() || '',
-            height: product.height?.toString() || '',
-            isShipEnabled: product.requiresShipping ?? true,
+  // Pricing
+  price: product.price?.toString() || '',
+  oldPrice: product.oldPrice?.toString() || product.compareAtPrice?.toString() || '',
+  cost: product.costPrice?.toString() || '',
 
-            // SEO
-            metaTitle: product.metaTitle || '',
-            metaDescription: product.metaDescription || '',
-            metaKeywords: product.metaKeywords || '',
-            searchEngineFriendlyPageName: product.searchEngineFriendlyPageName || '',
+  // ✅ FIXED - Availability Dates with proper formatting
+  availableStartDate: formatDateTimeForInput(product.availableStartDate),
+  availableEndDate: formatDateTimeForInput(product.availableEndDate),
 
-            // Related Products
-            relatedProducts:
-              typeof product.relatedProductIds === 'string'
-                ? product.relatedProductIds.split(',').filter((id: string) => id.trim())
-                : Array.isArray(product.relatedProductIds)
-                ? product.relatedProductIds
-                : [],
+  // ✅ FIXED - Pre-order date
+  preOrderAvailabilityStartDate: formatDateTimeForInput(product.preOrderAvailabilityStartDate),
 
-            crossSellProducts:
-              typeof product.crossSellProductIds === 'string'
-                ? product.crossSellProductIds.split(',').filter((id: string) => id.trim())
-                : Array.isArray(product.crossSellProductIds)
-                ? product.crossSellProductIds
-                : [],
 
-            // Video URLs
-            videoUrls:
-              typeof product.videoUrls === 'string'
-                ? product.videoUrls.split(',').filter((url: string) => url.trim())
-                : Array.isArray(product.videoUrls)
-                ? product.videoUrls
-                : [],
+  // ✅ FIXED - Mark as New Dates  
+  markAsNewStartDate: formatDateTimeForInput(product.markAsNewStartDate),
+  markAsNewEndDate: formatDateTimeForInput(product.markAsNewEndDate),
+  markAsNew: !!(product.markAsNewStartDate || product.markAsNewEndDate),
 
-            // Product Images
-            productImages:
-              product.images?.map((img: any) => ({
-                id: img.id || Date.now().toString(),
-                imageUrl: img.imageUrl || '',
-                altText: img.altText || '',
-                sortOrder: img.sortOrder || 1,
-                isMain: img.isMain || false,
-                fileName: img.imageUrl ? img.imageUrl.split('/').pop() : undefined,
-                fileSize: undefined,
-                file: undefined
-              })) || [],
+  // Inventory
+  stockQuantity: product.stockQuantity?.toString() || '0',
+  manageInventory: product.trackQuantity ? 'track' : 'dont-track',
+ minStockQuantity: product.minStockQuantity?.toString() || '0',
 
-            // Specifications (✅ Safe handling for array or string)
-            specifications:
-              (
-                Array.isArray(product.specificationAttributes)
-                  ? product.specificationAttributes
-                  : (() => {
-                      try {
-                        return JSON.parse(product.specificationAttributes || '[]');
-                      } catch {
-                        return [];
-                      }
-                    })()
-              )?.map((spec: any) => ({
-                id: spec.id || Date.now().toString(),
-                name: spec.name || '',
-                value: spec.value || '',
-                displayOrder: spec.displayOrder || 1
-              })) || []
-          }));
+  // Shipping
+  weight: product.weight?.toString() || '',
+  length: product.length?.toString() || '',
+  width: product.width?.toString() || '',
+  height: product.height?.toString() || '',
+  isShipEnabled: product.requiresShipping ?? true,
+
+  // SEO
+  metaTitle: product.metaTitle || '',
+  metaDescription: product.metaDescription || '',
+  metaKeywords: product.metaKeywords || '',
+  searchEngineFriendlyPageName: product.searchEngineFriendlyPageName || '',
+
+  // Related Products
+  relatedProducts:
+    typeof product.relatedProductIds === 'string'
+      ? product.relatedProductIds.split(',').filter((id: string) => id.trim())
+      : Array.isArray(product.relatedProductIds)
+      ? product.relatedProductIds
+      : [],
+
+  crossSellProducts:
+    typeof product.crossSellProductIds === 'string'
+      ? product.crossSellProductIds.split(',').filter((id: string) => id.trim())
+      : Array.isArray(product.crossSellProductIds)
+      ? product.crossSellProductIds
+      : [],
+
+  // Video URLs
+  videoUrls:
+    typeof product.videoUrls === 'string'
+      ? product.videoUrls.split(',').filter((url: string) => url.trim())
+      : Array.isArray(product.videoUrls)
+      ? product.videoUrls
+      : [],
+
+  // Product Images
+  productImages:
+    product.images?.map((img: any) => ({
+      id: img.id || Date.now().toString(),
+      imageUrl: img.imageUrl || '',
+      altText: img.altText || '',
+      sortOrder: img.sortOrder || 1,
+      isMain: img.isMain || false,
+      fileName: img.imageUrl ? img.imageUrl.split('/').pop() : undefined,
+      fileSize: undefined,
+      file: undefined
+    })) || [],
+
+  // ✅ COMPLETELY FIXED - Specifications parsing
+  specifications: parseSpecificationString(product.specificationAttributes)
+}));
+
+// ✅ COMPLETELY FIXED - Set attributes from API if they exist
+if (product.attributes && Array.isArray(product.attributes)) {
+  setAttributes(
+    product.attributes.map((attr: any) => ({
+      id: attr.id || Date.now().toString(),
+      name: attr.name || '',
+      values: Array.isArray(attr.values) ? attr.values : 
+              typeof attr.values === 'string' ? attr.values.split(',').map((v: string) => v.trim()) : 
+              ['']
+    }))
+  );
+} else {
+  // If no attributes in API, reset to empty
+  setAttributes([]);
+}
+
+
         }
       }
 
@@ -519,166 +592,189 @@ useEffect(() => {
   }
 }, [productId]);
 
+const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
+  e.preventDefault();
 
-  const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
-    e.preventDefault();
+  // Prevent multiple submissions
+  const target = e.target as HTMLElement;
+  if (target.hasAttribute('data-submitting')) {
+    toast.info('⏳ Already submitting... Please wait!');
+    return;
+  }
+  target.setAttribute('data-submitting', 'true');
 
-    // Prevent multiple submissions
-    const target = e.target as HTMLElement;
-    if (target.hasAttribute('data-submitting')) {
+  try {
+    // Validate required fields
+    if (!formData.name || !formData.sku) {
+      toast.error('⚠️ Please fill in required fields: Product Name and SKU');
       return;
     }
-    target.setAttribute('data-submitting', 'true');
 
-    try {
-      // Validate required fields
-      if (!formData.name || !formData.sku) {
-        alert('Please fill in required fields: Product Name and SKU');
-        return;
+    toast.info('🚀 Preparing product data...', { autoClose: 2000 });
+
+    // Prepare GUIDs validation
+    const guidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+    // Prepare categoryId
+    let categoryId: string | null = null;
+    if (formData.categories && formData.categories.trim()) {
+      const trimmedCategory = formData.categories.trim();
+      if (guidRegex.test(trimmedCategory)) {
+        categoryId = trimmedCategory;
       }
-
-      console.log('🚀 Starting product submission...');
-
-      // Prepare GUIDs validation
-      const guidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
-      // Prepare categoryId
-      let categoryId: string | null = null;
-      if (formData.categories && formData.categories.trim()) {
-        const trimmedCategory = formData.categories.trim();
-        if (guidRegex.test(trimmedCategory)) {
-          categoryId = trimmedCategory;
-        }
-      }
-
-      // Prepare brandId
-      let brandId: string | null = null;
-      if (formData.brand && formData.brand.trim()) {
-        const trimmedBrand = formData.brand.trim();
-        if (guidRegex.test(trimmedBrand)) {
-          brandId = trimmedBrand;
-        }
-      }
-
-      // Prepare manufacturerId
-      let manufacturerId: string | null = null;
-      if (formData.manufacturerId && formData.manufacturerId.trim()) {
-        const trimmedManufacturer = formData.manufacturerId.trim();
-        if (guidRegex.test(trimmedManufacturer)) {
-          manufacturerId = trimmedManufacturer;
-        }
-      }
-
-      // Prepare product data for API
-      const productData = {
-        // ID
-        id: productId,
-
-        // Basic Info
-        name: formData.name.trim(),
-        description: formData.fullDescription || formData.shortDescription || formData.name || 'Product description',
-        shortDescription: formData.shortDescription?.trim() || '',
-        sku: formData.sku.trim(),
-        gtin: formData.gtin?.trim() || null,
-        manufacturerPartNumber: formData.manufacturerPartNumber?.trim() || null,
-        displayOrder: parseInt(formData.displayOrder) || 1,
-        adminComment: formData.adminComment?.trim() || null,
-
-        // Pricing
-        price: parseFloat(formData.price) || 0,
-        oldPrice: formData.oldPrice ? parseFloat(formData.oldPrice) : null,
-        compareAtPrice: formData.oldPrice ? parseFloat(formData.oldPrice) : null,
-        costPrice: formData.cost ? parseFloat(formData.cost) : null,
-
-        // Shipping
-        weight: parseFloat(formData.weight) || 0,
-        length: formData.length ? parseFloat(formData.length) : null,
-        width: formData.width ? parseFloat(formData.width) : null,
-        height: formData.height ? parseFloat(formData.height) : null,
-        requiresShipping: formData.isShipEnabled,
-
-        // Inventory
-        stockQuantity: parseInt(formData.stockQuantity) || 0,
-        trackQuantity: formData.manageInventory === 'track',
-
-        // IDs - Only include if valid GUIDs
-        ...(categoryId && { categoryId }),
-        ...(brandId && { brandId }),
-        ...(manufacturerId && { manufacturerId }),
-
-        // Availability dates
-        availableStartDate: formData.availableStartDate ? 
-          new Date(formData.availableStartDate).toISOString() : null,
-        availableEndDate: formData.availableEndDate ? 
-          new Date(formData.availableEndDate).toISOString() : null,
-
-        // Status
-        isPublished: isDraft ? false : formData.published,
-        status: isDraft ? 1 : (formData.published ? 2 : 1),
-        visibleIndividually: formData.visibleIndividually,
-        showOnHomepage: formData.showOnHomepage || false,
-
-        // SEO
-        metaTitle: formData.metaTitle?.trim() || null,
-        metaDescription: formData.metaDescription?.trim() || null,
-        metaKeywords: formData.metaKeywords?.trim() || null,
-        searchEngineFriendlyPageName: formData.searchEngineFriendlyPageName?.trim() || null,
-
-        // Additional
-        tags: formData.productTags?.trim() || null,
-        relatedProductIds: Array.isArray(formData.relatedProducts) && formData.relatedProducts.length > 0 ? 
-          formData.relatedProducts.join(',') : null,
-        crossSellProductIds: Array.isArray(formData.crossSellProducts) && formData.crossSellProducts.length > 0 ? 
-          formData.crossSellProducts.join(',') : null,
-
-        // Video URLs
-        videoUrls: formData.videoUrls && formData.videoUrls.length > 0 ? 
-          formData.videoUrls.join(',') : null,
-      };
-
-      // console.log('📦 Product data prepared:', productData);
-      // console.log('📋 Category ID:', categoryId);
-      // console.log('🏷️ Brand ID:', brandId);
-      // console.log('🏭 Manufacturer ID:', manufacturerId);
-
-      // Call API using axios
-      const response = await apiClient.put(`/api/Products/${productId}`, productData);
-
-      if (response && response.data) {
-
-        toast.error('✅ Product updated successfully:', response.data);
-        
-        const message = isDraft ? 'Product saved as draft!' : 'Product updated successfully!';
-        // alert(message);
-        
-        router.push('/admin/products');
-      } else {
-        throw new Error('No response received from server');
-      }
-
-    } catch (error: any) {
-      console.error('❌ Error submitting form:', error);
-      
-      if (error.response) {
-        const errorData = error.response.data;
-        
-        if (errorData?.errors) {
-          let errorMessage = 'Validation errors:\n';
-          for (const [field, messages] of Object.entries(errorData.errors)) {
-            const fieldName = field.replace('$', '').replace('.', ' ');
-            errorMessage += `\n• ${fieldName}: ${Array.isArray(messages) ? messages.join(', ') : messages}`;
-          }
-          alert(errorMessage);
-        } else {
-          alert('Error updating product: ' + (errorData?.message || errorData?.title || 'Unknown error'));
-        }
-      } else {
-        alert('Error submitting form. Please check console for details.');
-      }
-    } finally {
-      target.removeAttribute('data-submitting');
     }
-  };
+
+    const formattedAttributes = attributes
+      .filter(attr => attr.name && attr.name.trim())
+      .map(attr => {
+        const filteredValues = attr.values
+          .filter(value => value && value.trim())
+          .map(value => value.trim());
+        
+        return {
+          id: attr.id,
+          name: attr.name.trim(),
+          values: filteredValues
+        };
+      })
+      .filter(attr => attr.values.length > 0);
+
+    // Prepare brandId & manufacturerId
+    let brandId: string | null = null;
+    if (formData.brand && formData.brand.trim()) {
+      const trimmedBrand = formData.brand.trim();
+      if (guidRegex.test(trimmedBrand)) {
+        brandId = trimmedBrand;
+      }
+    }
+
+    let manufacturerId: string | null = null;
+    if (formData.manufacturerId && formData.manufacturerId.trim()) {
+      const trimmedManufacturer = formData.manufacturerId.trim();
+      if (guidRegex.test(trimmedManufacturer)) {
+        manufacturerId = trimmedManufacturer;
+      }
+    }
+
+    // Prepare product data
+    const productData = {
+      id: productId,
+      name: formData.name.trim(),
+      description: formData.fullDescription || formData.shortDescription || formData.name || 'Product description',
+      shortDescription: formData.shortDescription?.trim() || '',
+      sku: formData.sku.trim(),
+      gtin: formData.gtin?.trim() || null,
+      manufacturerPartNumber: formData.manufacturerPartNumber?.trim() || null,
+      displayOrder: parseInt(formData.displayOrder) || 1,
+      adminComment: formData.adminComment?.trim() || null,
+
+      price: parseFloat(formData.price) || 0,
+      oldPrice: formData.oldPrice ? parseFloat(formData.oldPrice) : null,
+      compareAtPrice: formData.oldPrice ? parseFloat(formData.oldPrice) : null,
+      costPrice: formData.cost ? parseFloat(formData.cost) : null,
+      attributes: formattedAttributes,
+
+      weight: parseFloat(formData.weight) || 0,
+      length: formData.length ? parseFloat(formData.length) : null,
+      width: formData.width ? parseFloat(formData.width) : null,
+      height: formData.height ? parseFloat(formData.height) : null,
+      requiresShipping: formData.isShipEnabled,
+
+      stockQuantity: parseInt(formData.stockQuantity) || 0,
+      trackQuantity: formData.manageInventory === 'track',
+
+      ...(categoryId && { categoryId }),
+      ...(brandId && { brandId }),
+      ...(manufacturerId && { manufacturerId }),
+
+      availableStartDate: formData.availableStartDate ? new Date(formData.availableStartDate).toISOString() : null,
+      availableEndDate: formData.availableEndDate ? new Date(formData.availableEndDate).toISOString() : null,
+      markAsNewStartDate: formData.markAsNewStartDate ? new Date(formData.markAsNewStartDate).toISOString() : null,
+      markAsNewEndDate: formData.markAsNewEndDate ? new Date(formData.markAsNewEndDate).toISOString() : null,
+      preOrderAvailabilityStartDate: formData.preOrderAvailabilityStartDate ? new Date(formData.preOrderAvailabilityStartDate).toISOString() : null,
+
+      specificationAttributes: formData.specifications.length > 0 ? JSON.stringify(formData.specifications) : null,
+
+      isPublished: isDraft ? false : formData.published,
+      status: isDraft ? 1 : (formData.published ? 2 : 1),
+      visibleIndividually: formData.visibleIndividually,
+      showOnHomepage: formData.showOnHomepage || false,
+
+      metaTitle: formData.metaTitle?.trim() || null,
+      metaDescription: formData.metaDescription?.trim() || null,
+      metaKeywords: formData.metaKeywords?.trim() || null,
+      searchEngineFriendlyPageName: formData.searchEngineFriendlyPageName?.trim() || null,
+
+      tags: formData.productTags?.trim() || null,
+      relatedProductIds: Array.isArray(formData.relatedProducts) && formData.relatedProducts.length > 0 
+        ? formData.relatedProducts.join(',') : null,
+      crossSellProductIds: Array.isArray(formData.crossSellProducts) && formData.crossSellProducts.length > 0 
+        ? formData.crossSellProducts.join(',') : null,
+
+      videoUrls: formData.videoUrls && formData.videoUrls.length > 0 
+        ? formData.videoUrls.join(',') : null,
+    };
+
+    toast.info('📤 Sending request to server...', { autoClose: 3000 });
+
+    // Call API
+    const response = await apiClient.put(`/api/Products/${productId}`, productData);
+
+    if (response?.data) {
+      const message = isDraft 
+        ? '💾 Product saved as draft successfully!' 
+        : '✅ Product updated successfully!';
+
+      toast.success(message, {
+        autoClose: 5000,
+        closeButton: true,
+        draggable: true,
+      });
+
+      // Optional: Show product name in toast
+      toast.info(`Product: ${formData.name}`, { autoClose: 4000 });
+
+      // Redirect after success
+      setTimeout(() => {
+        router.push('/admin/products');
+      }, 800);
+    }
+
+  } catch (error: any) {
+    console.error('❌ Error submitting form:', error);
+
+    let errorMessage = 'Failed to update product';
+
+    if (error.response?.data) {
+      const errorData = error.response.data;
+
+      if (errorData?.errors) {
+        let details = '';
+        for (const [field, messages] of Object.entries(errorData.errors)) {
+          const fieldName = field.replace('$', '').replace('.', ' ').trim();
+          const msg = Array.isArray(messages) ? messages.join(', ') : messages;
+          details += `• ${fieldName}: ${msg}\n`;
+        }
+        errorMessage = `Validation Failed:\n${details}`;
+      } else if (errorData?.message) {
+        errorMessage = errorData.message;
+      } else if (errorData?.title) {
+        errorMessage = errorData.title;
+      }
+    } else if (error.message) {
+      errorMessage = error.message;
+    }
+
+    toast.error(errorMessage, {
+    
+      closeButton: true,
+      draggable: true,
+    });
+
+  } finally {
+    target.removeAttribute('data-submitting');
+  }
+};
 
 // Updated handleChange to extract clean hierarchical names
 const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
@@ -757,53 +853,72 @@ const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElemen
     p.sku.toLowerCase().includes(searchTermCross.toLowerCase())
   );
 
-  const addAttribute = () => {
-    const newAttribute = {
-      id: Date.now().toString(),
-      name: '',
-      values: ['']
-    };
-    setAttributes([...attributes, newAttribute]);
+// ✅ REPLACE your existing addAttribute function
+const addAttribute = () => {
+  const newAttribute = {
+    id: Date.now().toString() + Math.random().toString(36), // More unique ID
+    name: '',
+    values: [''] // Start with one empty value
   };
+  setAttributes(prevAttributes => [...prevAttributes, newAttribute]);
+  
+  // Optional: Auto-focus on the new attribute name field
+  setTimeout(() => {
+    const newInput = document.querySelector(`input[data-attr-id="${newAttribute.id}"]`);
+    if (newInput) (newInput as HTMLInputElement).focus();
+  }, 100);
+};
 
-  const removeAttribute = (id: string) => {
-    setAttributes(attributes.filter(attr => attr.id !== id));
-  };
 
-  const updateAttributeName = (id: string, name: string) => {
-    setAttributes(attributes.map(attr =>
+// ✅ REPLACE existing functions with these improved versions
+
+const removeAttribute = (id: string) => {
+  setAttributes(prevAttributes => prevAttributes.filter(attr => attr.id !== id));
+};
+
+const updateAttributeName = (id: string, name: string) => {
+  setAttributes(prevAttributes => 
+    prevAttributes.map(attr => 
       attr.id === id ? { ...attr, name } : attr
-    ));
-  };
+    )
+  );
+};
 
-  const updateAttributeValue = (attrId: string, valueIndex: number, value: string) => {
-    setAttributes(attributes.map(attr => {
+const updateAttributeValue = (attrId: string, valueIndex: number, value: string) => {
+  setAttributes(prevAttributes => 
+    prevAttributes.map(attr => {
       if (attr.id === attrId) {
         const newValues = [...attr.values];
         newValues[valueIndex] = value;
         return { ...attr, values: newValues };
       }
       return attr;
-    }));
-  };
+    })
+  );
+};
 
-  const addAttributeValue = (attrId: string) => {
-    setAttributes(attributes.map(attr => {
+const addAttributeValue = (attrId: string) => {
+  setAttributes(prevAttributes => 
+    prevAttributes.map(attr => {
       if (attr.id === attrId) {
         return { ...attr, values: [...attr.values, ''] };
       }
       return attr;
-    }));
-  };
+    })
+  );
+};
 
-  const removeAttributeValue = (attrId: string, valueIndex: number) => {
-    setAttributes(attributes.map(attr => {
-      if (attr.id === attrId) {
+const removeAttributeValue = (attrId: string, valueIndex: number) => {
+  setAttributes(prevAttributes => 
+    prevAttributes.map(attr => {
+      if (attr.id === attrId && attr.values.length > 1) { // Keep at least one value
         return { ...attr, values: attr.values.filter((_, idx) => idx !== valueIndex) };
       }
       return attr;
-    }));
-  };
+    })
+  );
+};
+
 // ✅ REPLACE existing handleImageUpload function:
 const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
   const files = e.target.files;
@@ -1278,6 +1393,17 @@ const uploadImagesToProductDirect = async (productId: string, files: File[]): Pr
                       <span className="text-sm text-slate-300">Visible individually</span>
                       <span className="text-xs text-slate-400">(can be accessed from catalog)</span>
                     </label>
+{/* In the Publishing section, add this checkbox: */}
+<label className="flex items-center gap-2">
+  <input
+    type="checkbox"
+    name="allowCustomerReviews"
+    checked={formData.allowCustomerReviews}
+    onChange={handleChange}
+    className="rounded bg-slate-800/50 border-slate-700 text-violet-500 focus:ring-violet-500 focus:ring-offset-slate-900"
+  />
+  <span className="text-sm text-slate-300">Allow customer reviews</span>
+</label>
 
                     <label className="flex items-center gap-2">
                       <input
@@ -1461,34 +1587,47 @@ const uploadImagesToProductDirect = async (productId: string, files: File[]): Pr
                   )}
                 </div>
 
-                {/* Pre-order Section */}
-                <div className="space-y-4">
-                  <h3 className="text-lg font-semibold text-white border-b border-slate-800 pb-2">Pre-order</h3>
+{/* Pre-order Section */}
+<div className="space-y-4">
+  <h3 className="text-lg font-semibold text-white border-b border-slate-800 pb-2">Pre-order</h3>
 
-                  <label className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      name="availableForPreOrder"
-                      checked={formData.availableForPreOrder}
-                      onChange={handleChange}
-                      className="rounded bg-slate-800/50 border-slate-700 text-violet-500 focus:ring-violet-500 focus:ring-offset-slate-900"
-                    />
-                    <span className="text-sm text-slate-300">Available for pre-order</span>
-                  </label>
+  <label className="flex items-center gap-2">
+    <input
+      type="checkbox"
+      name="availableStartDate"
+      checked={!!formData.availableStartDate}
+      onChange={handleChange}
+      className="rounded bg-slate-800/50 border-slate-700 text-violet-500 focus:ring-violet-500 focus:ring-offset-slate-900"
+    />
+    <span className="text-sm text-slate-300">Available for pre-order</span>
+  </label>
 
-                  {formData.availableForPreOrder && (
-                    <div>
-                      <label className="block text-sm font-medium text-slate-300 mb-2">Pre-order Availability Start Date</label>
-                      <input
-                        type="datetime-local"
-                        name="preOrderAvailabilityStartDate"
-                        value={formData.preOrderAvailabilityStartDate}
-                        onChange={handleChange}
-                        className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
-                      />
-                    </div>
-                  )}
-                </div>
+  {formData.availableStartDate && (
+    <div className="grid md:grid-cols-2 gap-4 bg-slate-800/30 border border-slate-700 p-4 rounded-xl">
+      <div>
+        <label className="block text-sm font-medium text-slate-300 mb-2">Start Date</label>
+        <input
+          type="datetime-local"
+          name="availableStartDate"
+          value={formData.availableStartDate || ''}
+          onChange={handleChange}
+          className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+        />
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-slate-300 mb-2">End Date</label>
+        <input
+          type="datetime-local"
+          name="availableEndDate"
+          value={formData.availableEndDate || ''}
+          onChange={handleChange}
+          className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+        />
+      </div>
+    </div>
+  )}
+</div>
 
                 {/* Mark as New Section */}
                 <div className="space-y-4">

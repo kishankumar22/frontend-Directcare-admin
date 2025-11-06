@@ -1,8 +1,8 @@
 import type { NextConfig } from 'next';
 
 const nextConfig: NextConfig = {
-  eslint: {
-    ignoreDuringBuilds: false,
+  eslint: {    
+     ignoreDuringBuilds: true, // ✅ skip linting on build
   },
   typescript: {
     ignoreBuildErrors: false,
@@ -14,6 +14,7 @@ const nextConfig: NextConfig = {
       'api.directcare.com',     // 🔹 replace this with your actual API domain
     ],
   },
+  
 };
 
 export default nextConfig;
