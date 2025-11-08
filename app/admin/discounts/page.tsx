@@ -404,8 +404,8 @@ const fetchDropdownData = async () => {
       discountAmount: discount.discountAmount,
       discountPercentage: discount.discountPercentage,
       maximumDiscountAmount: discount.maximumDiscountAmount,
-      startDate: discount.startDate.split('T')[0],
-      endDate: discount.endDate.split('T')[0],
+    startDate: discount.startDate.slice(0, 16),  // "2025-11-07T14:30:00" → "2025-11-07T14:30"
+     endDate: discount.endDate.slice(0, 16),
       requiresCouponCode: discount.requiresCouponCode,
       couponCode: discount.couponCode || "",
       isCumulative: discount.isCumulative,
@@ -1149,35 +1149,38 @@ const fetchDropdownData = async () => {
               </div>
 
               {/* Date Range */}
-              <div className="bg-slate-800/30 p-2 rounded-2xl border border-slate-700/50">
-                <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-                  <span className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center text-sm">3</span>
-                  <span>Valid Period</span>
-                </h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-slate-300 mb-2">Start Date *</label>
-                    <input
-                      type="date"
-                      required
-                      value={formData.startDate}
-                      onChange={(e) => setFormData({...formData, startDate: e.target.value})}
-                      className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-slate-300 mb-2">End Date *</label>
-                    <input
-                      type="date"
-                      required
-                      value={formData.endDate}
-                      onChange={(e) => setFormData({...formData, endDate: e.target.value})}
-                      className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
-                    />
-                  </div>
-                </div>
-              </div>
+<div className="bg-slate-800/30 p-2 rounded-2xl border border-slate-700/50">
+  <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+    <span className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center text-sm">3</span>
+    <span>Valid Period</span>
+  </h3>
+  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+    
+    {/* START DATE & TIME */}
+    <div>
+      <label className="block text-sm font-medium text-slate-300 mb-2">Start Date & Time *</label>
+      <input
+        type="datetime-local"
+        required
+        value={formData.startDate}
+        onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
+        className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+      />
+    </div>
 
+    {/* END DATE & TIME */}
+    <div>
+      <label className="block text-sm font-medium text-slate-300 mb-2">End Date & Time *</label>
+      <input
+        type="datetime-local"
+        required
+        value={formData.endDate}
+        onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
+        className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+      />
+    </div>
+  </div>
+</div>
               {/* Coupon Code */}
               <div className="bg-slate-800/30 p-2 rounded-2xl border border-slate-700/50">
                 <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">

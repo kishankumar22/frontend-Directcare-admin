@@ -12,6 +12,7 @@ const nextConfig: NextConfig = {
       'localhost',              // for local development
       '127.0.0.1',              // optional local IP
       'api.directcare.com',     // 🔹 replace this with your actual API domain
+      'testapi.knowledgemarkg.com',
     ],
   },
   

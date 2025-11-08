@@ -610,7 +610,6 @@ const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
       return;
     }
 
-    toast.info('🚀 Preparing product data...', { autoClose: 2000 });
 
     // Prepare GUIDs validation
     const guidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -715,7 +714,7 @@ const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
         ? formData.videoUrls.join(',') : null,
     };
 
-    toast.info('📤 Sending request to server...', { autoClose: 3000 });
+  
 
     // Call API
     const response = await apiClient.put(`/api/Products/${productId}`, productData);
@@ -731,8 +730,7 @@ const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
         draggable: true,
       });
 
-      // Optional: Show product name in toast
-      toast.info(`Product: ${formData.name}`, { autoClose: 4000 });
+
 
       // Redirect after success
       setTimeout(() => {

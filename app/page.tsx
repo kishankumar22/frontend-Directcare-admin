@@ -24,6 +24,7 @@ const features = [
 interface Product {
   id: string;
   name: string;
+  slug: string; // ✅ IMPORTANT: Need slug for routing
   price: number;
   oldPrice?: number | null;
   averageRating?: number;
@@ -59,8 +60,7 @@ interface HomeBanner {
   link?: string;
 }
 
-
-// ✅ Fetch
+// ✅ Fetch Functions
 async function getHomeBanners(baseUrl: string): Promise<HomeBanner[]> {
   try {
     const res = await fetch(`${baseUrl}/api/Banners?includeInactive=true`, {
@@ -96,16 +96,13 @@ async function getCategories(baseUrl: string) {
 
     if (!result.success || !Array.isArray(result.data)) return [];
 
-    // ✅ Sort categories by sortOrder (ascending)
     return result.data.sort(
       (a: any, b: any) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0)
     );
-
   } catch {
     return [];
   }
 }
-
 
 async function getBrands(baseUrl: string) {
   try {
@@ -113,17 +110,15 @@ async function getBrands(baseUrl: string) {
       next: { revalidate: 300 },
     });
     const result = await res.json();
-   return result.success
-  ? result.data
-      .filter((b: Brand) => b.showOnHomepage)
-      .sort((a: Brand, b: Brand) => a.displayOrder - b.displayOrder)
-  : [];
-
+    return result.success
+      ? result.data
+          .filter((b: Brand) => b.showOnHomepage)
+          .sort((a: Brand, b: Brand) => a.displayOrder - b.displayOrder)
+      : [];
   } catch {
     return [];
   }
 }
-
 
 // ✅ MAIN PAGE
 export default async function Home() {
@@ -138,12 +133,10 @@ export default async function Home() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-white to-gray-50">
-
       {/* ✅ HERO SLIDER */}
       <HomeBannerSlider banners={banners} baseUrl={baseUrl} />
 
       <main className="max-w-7xl mx-auto px-4 py-8 md:py-12">
-
         {/* ✅ FEATURES SECTION */}
         <section className="mb-12 md:mb-16">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
@@ -179,27 +172,32 @@ export default async function Home() {
             <p className="text-center text-gray-500">No products found.</p>
           ) : (
             <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
-
-              {products.map((product:Product) => (
+              {products.map((product: Product) => (
                 <Card key={product.id} className="group border-0 shadow-md hover:shadow-xl transition-all duration-300">
                   <CardContent className="p-0 flex flex-col h-full">
-
-                    {/* IMAGE */}
-                    <div className="relative flex items-center justify-center bg-gray-100 h-32 sm:h-40 md:h-48 overflow-hidden">
-                      <img
-                        src={
-                          product.images?.[0]?.imageUrl?.startsWith("http")
-                            ? product.images[0].imageUrl
-                            : `${baseUrl}${product.images?.[0]?.imageUrl || ""}`
-                        }
-                        alt={product.name}
-                        className="object-contain w-full h-full group-hover:scale-105 transition-transform"
-                      />
-                    </div>
+                    {/* ✅ CLICKABLE IMAGE - Navigate to product detail */}
+                    <Link href={`/products/${product.slug}`} className="block">
+                      <div className="relative flex items-center justify-center h-32 sm:h-40 md:h-48 overflow-hidden">
+                        <img
+                          src={
+                            product.images?.[0]?.imageUrl?.startsWith("http")
+                              ? product.images[0].imageUrl
+                              : `${baseUrl}${product.images?.[0]?.imageUrl || ""}`
+                          }
+                          alt={product.name}
+                          className="object-contain w-full h-full group-hover:scale-105 transition-transform"
+                        />
+                      </div>
+                    </Link>
 
                     {/* CONTENT */}
                     <div className="p-3 md:p-4 flex flex-col flex-grow">
-                      <h3 className="font-semibold text-sm md:text-lg mb-1 md:mb-2 line-clamp-2">{product.name}</h3>
+                      {/* ✅ CLICKABLE TITLE - Navigate to product detail */}
+                      <Link href={`/products/${product.slug}`}>
+                        <h3 className="font-semibold text-sm md:text-lg mb-1 md:mb-2 line-clamp-2 hover:text-[#445D41] transition">
+                          {product.name}
+                        </h3>
+                      </Link>
 
                       {/* Rating */}
                       <div className="flex items-center gap-1 md:gap-2 mb-2 md:mb-3">
@@ -224,6 +222,7 @@ export default async function Home() {
                         )}
                       </div>
 
+                      {/* ✅ Add to Cart Button - Stays as button (can add onClick later) */}
                       <Button className="w-full mt-auto text-xs md:text-sm bg-[#445D41] hover:bg-green-700">
                         <ShoppingCart className="mr-1 md:mr-2 h-4 w-4" /> Add to Cart
                       </Button>
@@ -231,7 +230,6 @@ export default async function Home() {
                   </CardContent>
                 </Card>
               ))}
-
             </div>
           )}
         </section>
@@ -247,7 +245,7 @@ export default async function Home() {
             <p className="text-center text-gray-500">No brands available.</p>
           ) : (
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
-              {brands.map((brand:Brand) => (
+              {brands.map((brand: Brand) => (
                 <Link key={brand.id} href={`/brand/${brand.slug}`}>
                   <Card className="group p-4 md:p-6 text-center shadow-md hover:shadow-lg transition rounded-xl">
                     <img
@@ -279,7 +277,7 @@ export default async function Home() {
             <p className="text-center text-gray-500">No categories found.</p>
           ) : (
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 md:gap-4">
-              {categories.map((category:Category) => (
+              {categories.map((category: Category) => (
                 <Link key={category.id} href={`/category/${category.slug}`}>
                   <Card className="shadow-md hover:shadow-lg transition rounded-lg">
                     <CardContent className="p-4 md:p-6 text-center">
@@ -322,7 +320,6 @@ export default async function Home() {
             </Button>
           </div>
         </section>
-
       </main>
     </div>
   );

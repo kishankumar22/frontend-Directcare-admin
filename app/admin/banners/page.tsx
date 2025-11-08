@@ -264,52 +264,64 @@ export default function ManageBanners() {
   };
 
   // UPDATED - Handle submit with proper URL handling for both imageUrl and link
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+// app/admin/banners/page.tsx
+const handleSubmit = async (e: React.FormEvent) => {
+  e.preventDefault();
 
-    try {
-      // UPDATED - Prepare payload with proper URL handling
-      const payload = {
-        title: formData.title,
-        imageUrl: getRelativeImageUrl(formData.imageUrl), // Relative path for imageUrl
-        link: formData.link, // Keep link as is (could be full URL)
-        description: formData.description,
-        isActive: formData.isActive,
-        displayOrder: formData.displayOrder,
-        startDate: formData.startDate || new Date().toISOString(),
-        endDate: formData.endDate || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-      };
+  try {
+    const payload = {
+      title: formData.title,
+      imageUrl: getRelativeImageUrl(formData.imageUrl),
+      link: formData.link,
+      description: formData.description,
+      isActive: formData.isActive,
+      displayOrder: formData.displayOrder,
+      startDate: formData.startDate,
+      endDate: formData.endDate,
+    };
 
-      let response: any;
-      
-      if (editingBanner) {
-        // Include ID in payload for PUT request
-        const putPayload = {
-          ...payload,
-          id: editingBanner.id
-        };
-        response = await apiClient.put(`${API_ENDPOINTS.banners}/${editingBanner.id}`, putPayload);
-      } else {
-        response = await apiClient.post(API_ENDPOINTS.banners, payload);
-      }
-
-      // Check for success
-      const success = response.data?.success || !response.error;
-
-      if (success) {
-        toast.success(editingBanner ? "Banner updated successfully! ✅" : "Banner created successfully! 🎉");
-        await fetchBanners();
-        setShowModal(false);
-        resetForm();
-      } else {
-        throw new Error(response.error || response.data?.message || "Operation failed");
-      }
-
-    } catch (error: any) {
-      console.error('Error saving banner:', error);
-      toast.error(error.response?.data?.message || error.message || "Failed to save banner");
+    let response;
+    
+    if (editingBanner) {
+      // ✅ PUT request for edit
+      response = await apiClient.put(
+        `${API_ENDPOINTS.banners}/${editingBanner.id}`, 
+        { ...payload, id: editingBanner.id }
+      );
+    } else {
+      // ✅ POST request for create
+      response = await apiClient.post(API_ENDPOINTS.banners, payload);
     }
-  };
+
+    // ✅ Check for errors
+    if (response.error) {
+      throw new Error(response.error);
+    }
+
+    // ✅ Check API response format
+    if (response.data?.success === false) {
+      const errorMsg = response.data.errors?.join(', ') || 
+                      response.data.message || 
+                      'Operation failed';
+      throw new Error(errorMsg);
+    }
+
+    // ✅ Success
+    toast.success(
+      editingBanner 
+        ? "Banner updated successfully! ✅" 
+        : "Banner created successfully! 🎉"
+    );
+    
+    await fetchBanners();
+    setShowModal(false);
+    resetForm();
+
+  } catch (error: any) {
+    console.error('❌ Error saving banner:', error);
+    toast.error(error.message || 'Failed to save banner');
+  }
+};
 
   // Handle edit function
   const handleEdit = (banner: Banner) => {

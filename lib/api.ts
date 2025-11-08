@@ -1,30 +1,30 @@
-import axios from 'axios';
+// lib/api.ts
+import axios, { AxiosInstance, AxiosError } from 'axios';
 
-// ✅ FIXED - Use correct API URL
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://testapi.knowledgemarkg.com';
-
 
 export interface ApiResponse<T> {
   data?: T;
   error?: string;
   message?: string;
+  status?: number;
 }
 
 class ApiClient {
-  private client: any;
+  private client: AxiosInstance;
 
   constructor(baseURL: string) {
     this.client = axios.create({
       baseURL,
-      timeout: 30000,
+      timeout: 60000, // ✅ Increased to 60 seconds
       headers: {
         'Content-Type': 'application/json',
       },
-      // ✅ FIXED - Remove httpsAgent (causing issues)
-      // httpsAgent: false, // Remove this line
+      // ✅ CRITICAL FIX: Increase body size limits
+      maxContentLength: 100 * 1024 * 1024, // 100MB response limit
+      maxBodyLength: 100 * 1024 * 1024,    // 100MB request limit
       validateStatus: (status) => {
-        // Accept status codes from 200-299 and 400-499 (to handle API errors properly)
-        return (status >= 200 && status < 300) || (status >= 400 && status < 500);
+        return status < 500;
       }
     });
 
@@ -32,43 +32,64 @@ class ApiClient {
   }
 
   private setupInterceptors(): void {
-    // Request interceptor
+    // REQUEST INTERCEPTOR
     this.client.interceptors.request.use(
-      (config: any) => {
-        // Log the full URL being called
+      (config) => {
         const fullUrl = `${config.baseURL}${config.url}`;
         console.log(`🚀 API Request: ${config.method?.toUpperCase()} ${fullUrl}`);
         
-        // ✅ FIXED - Check if we're in browser environment
         if (typeof window !== 'undefined') {
           const token = localStorage.getItem('authToken');
-          if (token) {
+          if (token && config.headers) {
             config.headers.Authorization = `Bearer ${token}`;
           }
         }
+        
         return config;
       },
-      (error: any) => {
+      (error) => {
         console.error('❌ Request interceptor error:', error);
         return Promise.reject(error);
       }
     );
 
-    // Response interceptor
+    // RESPONSE INTERCEPTOR
     this.client.interceptors.response.use(
-      (response: any) => {
+      (response) => {
         console.log(`✅ API Response: ${response.status} ${response.config?.url}`);
-        console.log('📦 Response data:', response.data);
+        
+        if (response.status >= 400 && response.status < 500) {
+          console.warn(`⚠️ Client error: ${response.status}`, response.data);
+        }
+        
         return response;
       },
-      (error: any) => {
-        console.error(`❌ API Error: ${error.response?.status} ${error.config?.url}`, error.response?.data);
+      (error: AxiosError) => {
+        if (error.response) {
+          console.error(`❌ API Error: ${error.response.status} ${error.config?.url}`, {
+            status: error.response.status,
+            statusText: error.response.statusText,
+            data: error.response.data
+          });
+        } else if (error.request) {
+          console.error('❌ Network Error:', {
+            message: error.message,
+            code: error.code
+          });
+        } else {
+          console.error('❌ Request Setup Error:', error.message);
+        }
         
-        // ✅ FIXED - Check if we're in browser environment
+        // ✅ Handle 413 Payload Too Large
+        if (error.response?.status === 413) {
+          console.error('❌ 413: Payload Too Large - Data size exceeds server limit');
+        }
+        
         if (error.response?.status === 401 && typeof window !== 'undefined') {
           localStorage.removeItem('authToken');
           window.location.href = '/login';
         }
+        
         return Promise.reject(error);
       }
     );
@@ -90,41 +111,85 @@ class ApiClient {
         ...options,
       });
 
-      // Return successful response
+      if (response.data?.success === false) {
+        const apiError = response.data?.message || response.data?.error || 'API operation failed';
+        return { 
+          error: apiError,
+          status: response.status,
+          data: response.data 
+        };
+      }
+
+      if (response.status >= 400 && response.status < 500) {
+        const errorMessage = response.data?.message || 
+                            response.data?.error || 
+                            `Request failed with status ${response.status}`;
+        return { 
+          error: errorMessage,
+          status: response.status 
+        };
+      }
+
       return { 
         data: response.data,
-        message: 'Request successful'
+        message: 'Request successful',
+        status: response.status
       };
       
     } catch (error: any) {
-      let errorMessage = 'An unknown error occurred';
-      
-      console.error('❌ Request failed:', {
+      const errorDetails = {
         endpoint,
         method,
-        error: error.message,
+        message: error.message,
+        code: error.code,
         status: error.response?.status,
         responseData: error.response?.data
-      });
+      };
+
+      console.error('❌ Request failed:', errorDetails);
+      
+      let errorMessage = 'An unexpected error occurred';
+      let status = error.response?.status;
       
       if (error.response) {
-        // Server responded with error status
         const errorData = error.response.data;
-        errorMessage = errorData?.message || errorData?.error || `HTTP error! status: ${error.response.status}`;
         
-        // For 404 errors, provide specific message
-        if (error.response.status === 404) {
-          errorMessage = `API endpoint not found: ${endpoint}`;
+        errorMessage = 
+          errorData?.message || 
+          errorData?.error || 
+          errorData?.errors?.[0] ||
+          `HTTP ${error.response.status}: ${error.response.statusText}`;
+        
+        // ✅ Specific error messages
+        if (error.response.status === 413) {
+          errorMessage = 'Request too large. Please reduce the amount of data or compress images.';
+        } else if (error.response.status === 404) {
+          errorMessage = `Endpoint not found: ${endpoint}`;
+        } else if (error.response.status === 500) {
+          errorMessage = 'Internal server error. Please try again later.';
+        } else if (error.response.status === 400) {
+          errorMessage = errorData?.message || 'Bad request. Please check your input.';
         }
+        
       } else if (error.request) {
-        // ✅ FIXED - Better network error message
-        errorMessage = 'No response received from server';
+        // ✅ Check for body size errors
+        if (error.code === 'ERR_FR_MAX_BODY_LENGTH_EXCEEDED') {
+          errorMessage = 'Request data is too large. Please reduce the size or compress content.';
+        } else if (error.code === 'ECONNABORTED') {
+          errorMessage = 'Request timeout. Please check your connection.';
+        } else if (error.code === 'ERR_NETWORK') {
+          errorMessage = 'Network error. Please check your internet connection.';
+        } else {
+          errorMessage = 'No response from server. Please try again.';
+        }
       } else {
-        // Error in setting up request
-        errorMessage = error.message;
+        errorMessage = error.message || 'Failed to setup request';
       }
 
-      return { error: errorMessage };
+      return { 
+        error: errorMessage,
+        status 
+      };
     }
   }
 
@@ -140,11 +205,14 @@ class ApiClient {
     return this.request<T>('PUT', endpoint, body, options);
   }
 
+  async patch<T>(endpoint: string, body?: unknown, options?: any): Promise<ApiResponse<T>> {
+    return this.request<T>('PATCH', endpoint, body, options);
+  }
+
   async delete<T>(endpoint: string, options?: any): Promise<ApiResponse<T>> {
     return this.request<T>('DELETE', endpoint, undefined, options);
   }
 
-  // Utility methods
   setAuthToken(token: string): void {
     if (typeof window !== 'undefined') {
       localStorage.setItem('authToken', token);
@@ -157,22 +225,62 @@ class ApiClient {
     }
   }
 
-  // ✅ FIXED - File upload method with better FormData handling
-  async uploadFile<T>(endpoint: string, file: File, additionalData?: Record<string, any>): Promise<ApiResponse<T>> {
+  getAuthToken(): string | null {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('authToken');
+    }
+    return null;
+  }
+
+  async uploadFile<T>(
+    endpoint: string, 
+    file: File, 
+    additionalData?: Record<string, any>
+  ): Promise<ApiResponse<T>> {
     const formData = new FormData();
     formData.append('file', file);
     
     if (additionalData) {
-      Object.keys(additionalData).forEach(key => {
-        formData.append(key, additionalData[key]);
+      Object.entries(additionalData).forEach(([key, value]) => {
+        formData.append(key, String(value));
       });
     }
 
-    // ✅ FIXED - Don't set Content-Type for FormData, let browser set it
     return this.request<T>('POST', endpoint, formData, {
-      headers: {} // Remove 'Content-Type': 'multipart/form-data'
+      headers: {
+        'Content-Type': 'multipart/form-data'
+      },
+      maxContentLength: 100 * 1024 * 1024,
+      maxBodyLength: 100 * 1024 * 1024
+    });
+  }
+
+  async uploadMultipleFiles<T>(
+    endpoint: string,
+    files: File[],
+    additionalData?: Record<string, any>
+  ): Promise<ApiResponse<T>> {
+    const formData = new FormData();
+    
+    files.forEach((file) => {
+      formData.append('files', file);
+    });
+    
+    if (additionalData) {
+      Object.entries(additionalData).forEach(([key, value]) => {
+        formData.append(key, String(value));
+      });
+    }
+
+    return this.request<T>('POST', endpoint, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data'
+      },
+      maxContentLength: 100 * 1024 * 1024,
+      maxBodyLength: 100 * 1024 * 1024
     });
   }
 }
 
 export const apiClient = new ApiClient(API_BASE_URL);
+export { ApiClient };
