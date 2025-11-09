@@ -1,9 +1,9 @@
-// app/products/page.tsx (Server Component - NO "use client")
+// app/products/page.tsx (Server Component)
 import { Suspense } from 'react';
 import ProductsClient from './ProductsClient';
 import { Loader2 } from 'lucide-react';
 
-// ✅ Server-side types
+// ✅ Types
 interface ProductImage {
   id: string;
   imageUrl: string;
@@ -44,36 +44,214 @@ interface ApiResponse {
   };
 }
 
-// ✅ Server-side data fetching
-async function getProducts(page = 1, pageSize = 12) {
+interface Category {
+  id: string;
+  name: string;
+  slug: string;
+  imageUrl: string;
+  isActive: boolean;
+  productCount: number;
+  subCategories: Category[];
+}
+
+interface Brand {
+  id: string;
+  name: string;
+  slug: string;
+  logoUrl: string;
+  isPublished: boolean;
+  productCount: number;
+}
+
+interface SearchParams {
+  searchTerm?: string;
+  sortBy?: string;
+  sortDirection?: string;
+  page?: string;
+  pageSize?: string;
+}
+
+// ✅ Fetch Products with timeout
+async function getAllProducts(params: SearchParams = {}): Promise<ApiResponse> {
+  const {
+    searchTerm = '',
+    sortBy = 'name',
+    sortDirection = 'asc',
+    page = '1',
+    pageSize = '1000'
+  } = params;
+
   try {
+    const queryParams = new URLSearchParams({
+      page,
+      pageSize,
+      sortBy,
+      sortDirection,
+    });
+
+    if (searchTerm) {
+      queryParams.set('searchTerm', searchTerm);
+    }
+
     const res = await fetch(
-      `${process.env.NEXT_PUBLIC_API_URL}/api/Products?page=${page}&pageSize=${pageSize}&sortBy=name&sortDirection=asc`,
+      `${process.env.NEXT_PUBLIC_API_URL}/api/Products?${queryParams.toString()}`,
       {
-        next: { revalidate: 60 }, // ✅ Cache for 60 seconds
+        cache: 'no-store',
+        next: { revalidate: 0 },
+        headers: {
+          'Content-Type': 'application/json',
+          'Cache-Control': 'no-cache',
+        },
+        signal: AbortSignal.timeout(15000), // 15 second timeout
       }
     );
 
     if (!res.ok) {
-      return { success: false, data: { items: [], totalCount: 0, totalPages: 0 } };
+      console.error('Products API Error:', res.status, res.statusText);
+      return { 
+        success: false,
+        message: 'Failed to fetch products',
+        data: { 
+          items: [], 
+          totalCount: 0, 
+          totalPages: 0,
+          page: 1,
+          pageSize: parseInt(pageSize),
+          hasPrevious: false,
+          hasNext: false
+        } 
+      };
     }
 
     const data: ApiResponse = await res.json();
     return data;
   } catch (error) {
-    console.error('Error fetching products:', error);
-    return { success: false, data: { items: [], totalCount: 0, totalPages: 0 } };
+    if (error instanceof Error && error.name === 'TimeoutError') {
+      console.error('Products API timeout');
+    } else {
+      console.error('Error fetching products:', error);
+    }
+    
+    return { 
+      success: false,
+      message: 'Error fetching products',
+      data: { 
+        items: [], 
+        totalCount: 0, 
+        totalPages: 0,
+        page: 1,
+        pageSize: parseInt(pageSize),
+        hasPrevious: false,
+        hasNext: false
+      } 
+    };
   }
 }
 
-// ✅ Generate Metadata for SEO
-export async function generateMetadata() {
+// ✅ Fetch Categories with timeout
+async function getCategories(): Promise<{ success: boolean; data: Category[] }> {
+  try {
+    const res = await fetch(
+      `${process.env.NEXT_PUBLIC_API_URL}/api/Categories?includeInactive=false&includeSubCategories=true`,
+      {
+        cache: 'no-store',
+        next: { revalidate: 0 },
+        headers: {
+          'Content-Type': 'application/json',
+          'Cache-Control': 'no-cache',
+        },
+        signal: AbortSignal.timeout(10000),
+      }
+    );
+
+    if (!res.ok) {
+      console.error('Categories API Error:', res.status, res.statusText);
+      return { success: false, data: [] };
+    }
+
+    const data: { success: boolean; data: Category[] } = await res.json();
+    return data;
+  } catch (error) {
+    if (error instanceof Error && error.name === 'TimeoutError') {
+      console.error('Categories API timeout');
+    } else {
+      console.error('Error fetching categories:', error);
+    }
+    return { success: false, data: [] };
+  }
+}
+
+// ✅ Fetch Brands with timeout
+async function getBrands(): Promise<{ success: boolean; data: Brand[] }> {
+  try {
+    const res = await fetch(
+      `${process.env.NEXT_PUBLIC_API_URL}/api/Brands?includeUnpublished=false`,
+      {
+        cache: 'no-store',
+        next: { revalidate: 0 },
+        headers: {
+          'Content-Type': 'application/json',
+          'Cache-Control': 'no-cache',
+        },
+        signal: AbortSignal.timeout(10000),
+      }
+    );
+
+    if (!res.ok) {
+      console.error('Brands API Error:', res.status, res.statusText);
+      return { success: false, data: [] };
+    }
+
+    const data: { success: boolean; data: Brand[] } = await res.json();
+    return data;
+  } catch (error) {
+    if (error instanceof Error && error.name === 'TimeoutError') {
+      console.error('Brands API timeout');
+    } else {
+      console.error('Error fetching brands:', error);
+    }
+    return { success: false, data: [] };
+  }
+}
+
+// ✅ SEO Metadata
+export async function generateMetadata({ 
+  searchParams 
+}: { 
+  searchParams: Promise<SearchParams> 
+}) {
+  const params = await searchParams;
+  const { searchTerm } = params;
+
+  let title = 'All Products | Direct Care';
+  let description = 'Browse our complete collection of health & beauty products';
+
+  if (searchTerm) {
+    title = `Search: ${searchTerm} | Direct Care`;
+    description = `Search results for "${searchTerm}" in our health & beauty products`;
+  }
+
   return {
-    title: 'All Products | Direct Care',
-    description: 'Browse our complete collection of health & beauty products',
+    title,
+    description,
     openGraph: {
-      title: 'All Products | Direct Care',
-      description: 'Browse our complete collection of health & beauty products',
+      title,
+      description,
+      type: 'website',
+      siteName: 'Direct Care',
+      url: `${process.env.NEXT_PUBLIC_BASE_URL}/products`,
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title,
+      description,
+    },
+    robots: {
+      index: true,
+      follow: true,
+    },
+    alternates: {
+      canonical: `${process.env.NEXT_PUBLIC_BASE_URL}/products`,
     },
   };
 }
@@ -81,8 +259,11 @@ export async function generateMetadata() {
 // ✅ Loading Component
 function ProductsLoading() {
   return (
-    <div className="min-h-screen flex items-center justify-center">
-      <Loader2 className="h-12 w-12 animate-spin text-[#445D41]" />
+    <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="text-center">
+        <Loader2 className="h-12 w-12 animate-spin text-[#445D41] mx-auto mb-4" />
+        <p className="text-gray-600">Loading products...</p>
+      </div>
     </div>
   );
 }
@@ -91,20 +272,30 @@ function ProductsLoading() {
 export default async function ProductsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ page?: string }>;
+  searchParams: Promise<SearchParams>;
 }) {
   const params = await searchParams;
-  const page = parseInt(params.page || '1');
   
-  // ✅ Server-side fetch (No loading state needed)
-  const productsData = await getProducts(page, 12);
+  // ✅ Parallel fetch with error handling
+  const [productsData, categoriesData, brandsData] = await Promise.all([
+    getAllProducts(params),
+    getCategories(),
+    getBrands()
+  ]);
 
   return (
     <Suspense fallback={<ProductsLoading />}>
       <ProductsClient 
         initialProducts={productsData.data.items} 
-        initialTotalPages={productsData.data.totalPages}
-        initialPage={page}
+        totalCount={productsData.data.totalCount}
+        currentPage={productsData.data.page}
+        pageSize={productsData.data.pageSize}
+        totalPages={productsData.data.totalPages}
+        initialSearchTerm={params.searchTerm || ''}
+        initialSortBy={params.sortBy || 'name'}
+        initialSortDirection={params.sortDirection || 'asc'}
+        categories={categoriesData.data}
+        brands={brandsData.data}
       />
     </Suspense>
   );
