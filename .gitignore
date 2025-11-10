@@ -1,37 +1,122 @@
-# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+# ============================================================
+# 🧠 Universal .gitignore for Next.js + Node.js + TypeScript
+# Clean setup to prevent unwanted uploads to GitHub
+# ============================================================
 
-# dependencies
-/node_modules
-/.pnp
+# === Node dependencies ===
+node_modules/
+.pnp/
 .pnp.js
+.yarn/
+.yarnrc.yml
 .yarn/install-state.gz
 
-# testing
-/coverage
+# === Build & Production output ===
+.next/
+out/
+build/
+dist/
+.cache/
+.npm/
+.temp/
+tmp/
 
-# next.js
-/.next/
-/out/
-
-# production
-/build
-
-# misc
-.DS_Store
-*.pem
-
-# debug
+# === Logs ===
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+pnpm-debug.log*
+logs/
+*.log
 
-# local env files
-.env*.local
+# === Environment Files (Keep them secret!) ===
 .env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
 
-# vercel
-.vercel
+# === OS & Editor specific junk ===
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*.tmp
+*.bak
+*.orig
+*.pid
+*.seed
+*.lock
+.idea/
+.vscode/
+*.code-workspace
 
-# typescript
+# === Testing & Coverage ===
+coverage/
+jest/
+*.lcov
+__tests__/
+__mocks__/
+
+# === TypeScript ===
 *.tsbuildinfo
 next-env.d.ts
+
+# === Certificates / Keys ===
+*.pem
+*.crt
+*.key
+*.csr
+
+# === Uploads / Archives (Important for you) ===
+*.zip
+*.rar
+*.7z
+*.tar
+*.gz
+
+# === Vercel / Deployment ===
+.vercel
+.now/
+
+# === Image Cache / Build Artifacts ===
+public/static/
+public/uploads/
+*.cache
+*.map
+
+# === Misc ===
+*.bak
+*.old
+*.tmp
+*.swp
+*.swo
+*.pid
+*.seed
+
+# === System backups ===
+*.bak
+*.backup
+*.bk
+*.bkp
+
+# === IDE Specific ===
+.vscode/
+.idea/
+*.iml
+
+# === macOS ===
+.AppleDouble
+.LSOverride
+Icon?
+.Spotlight-V100
+.Trashes
+.AppleDB
+.AppleDesktop
+Network Trash Folder
+Temporary Items
+
+# === Windows ===
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
