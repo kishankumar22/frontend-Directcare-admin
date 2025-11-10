@@ -43,16 +43,6 @@ interface CategoryData {
   subCategories?: CategoryData[];
 }
 
-interface ManufacturerData {
-  id: string;
-  name: string;
-  description?: string;
-  slug?: string;
-  logoUrl?: string;
-  isPublished?: boolean;
-  showOnHomepage?: boolean;
-  displayOrder?: number;
-}
 
 interface BrandApiResponse {
   success: boolean;
@@ -68,12 +58,7 @@ interface CategoryApiResponse {
   errors: null;
 }
 
-interface ManufacturerApiResponse {
-  success: boolean;
-  message: string;
-  data: ManufacturerData[];
-  errors: null;
-}
+
 // ✅ Add these interfaces after existing ones
 interface ProductApiImage {
   id: string;
@@ -121,7 +106,7 @@ interface ProductsApiResponse {
 interface DropdownsData {
   brands: BrandData[];
   categories: CategoryData[];
-  manufacturers: ManufacturerData[];
+ 
 }
 
 export default function EditProductPage({ params }: { params: Promise<{ id: string }> }) {
@@ -134,54 +119,7 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
   const [attributes, setAttributes] = useState<Array<{id: string, name: string, values: string[]}>>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   // Helper function to format datetime for React inputs
-const formatDateTimeForInput = (dateString: string | null): string => {
-  if (!dateString) return '';
-  try {
-    // Remove timezone info, milliseconds and keep only YYYY-MM-DDTHH:MM
-    if (dateString.includes('T')) {
-      const [datePart, timePart] = dateString.split('T');
-      const cleanTime = timePart.split('.')[0]; // Remove milliseconds
-      const shortTime = cleanTime.length > 5 ? cleanTime.substring(0, 5) : cleanTime; // Keep only HH:MM
-      return `${datePart}T${shortTime}`;
-    }
-    return dateString;
-  } catch {
-    return '';
-  }
-};
-const parseSpecificationString = (specString: string | null): Array<{id: string, name: string, value: string, displayOrder: number}> => {
-  if (!specString || !specString.trim()) return [];
-  
-  try {
-    // If it's already JSON format
-    if (specString.startsWith('[') && specString.endsWith(']')) {
-      const parsed = JSON.parse(specString);
-      return Array.isArray(parsed) ? parsed : [];
-    }
-    
-    // Parse comma-separated key:value pairs
-    const specs = [];
-    const pairs = specString.split(', ');
-    
-    for (let i = 0; i < pairs.length; i++) {
-      const pair = pairs[i];
-      if (pair.includes(':')) {
-        const [key, ...valueParts] = pair.split(':');
-        const value = valueParts.join(':'); // Handle values with colons
-        specs.push({
-          id: Date.now().toString() + i,
-          name: key.trim(),
-          value: value.trim(),
-          displayOrder: i + 1
-        });
-      }
-    }
-    return specs;
-  } catch (error) {
-    console.error('Error parsing specifications:', error);
-    return [];
-  }
-};
+
 // ✅ Add these new states
 const [isDeletingImage, setIsDeletingImage] = useState(false);
 const [uploadingImages, setUploadingImages] = useState(false);
@@ -190,7 +128,7 @@ const [uploadingImages, setUploadingImages] = useState(false);
   const [dropdownsData, setDropdownsData] = useState<DropdownsData>({
     brands: [],
     categories: [],
-    manufacturers: []
+ 
   });
 
   // Available products for related/cross-sell (from API)
@@ -236,7 +174,7 @@ productImages: [] as ProductImage[],
     cost: '',
     disableBuyButton: false,
     disableWishlistButton: false,
- 
+    allowBackorder:'',
     preOrderAvailabilityStartDate: '',
     callForPrice: false,
     customerEntersPrice: false,
@@ -387,13 +325,11 @@ useEffect(() => {
       const [
         brandsResponse,
         categoriesResponse,
-        manufacturersResponse,
         productsResponse,
         productResponse
       ] = await Promise.all([
         apiClient.get<BrandApiResponse>('/api/Brands?includeUnpublished=false'),
         apiClient.get<CategoryApiResponse>('/api/Categories?includeInactive=true&includeSubCategories=true'),
-        apiClient.get<ManufacturerApiResponse>('/api/Manufacturers'),
         apiClient.get<ProductsApiResponse>('/api/Products'),
         apiClient.get(`/api/Products/${productId}`)
       ]);
@@ -401,13 +337,11 @@ useEffect(() => {
       // Extract dropdown data
       const brandsData = (brandsResponse.data as BrandApiResponse)?.data || [];
       const categoriesData = (categoriesResponse.data as CategoryApiResponse)?.data || [];
-      const manufacturersData = (manufacturersResponse.data as ManufacturerApiResponse)?.data || [];
 
       // Set dropdown data
       setDropdownsData({
         brands: brandsData,
         categories: categoriesData,
-        manufacturers: manufacturersData
       });
 
       // Extract and transform products data for related/cross-sell
@@ -439,12 +373,12 @@ useEffect(() => {
 
             for (const cat of categories) {
               if (cat.id === categoryId) {
-                return cat.name; // Parent category
+                return cat.name;
               }
               if (cat.subCategories) {
                 for (const sub of cat.subCategories) {
                   if (sub.id === categoryId) {
-                    return `${cat.name} >> ${sub.name}`; // Subcategory with hierarchy
+                    return `${cat.name} >> ${sub.name}`;
                   }
                 }
               }
@@ -452,138 +386,240 @@ useEffect(() => {
             return '';
           };
 
+          // Helper function to format date for datetime-local input
+          const formatDateTimeForInput = (dateString: string | null | undefined): string => {
+            if (!dateString) return '';
+            try {
+              const date = new Date(dateString);
+              if (isNaN(date.getTime())) return '';
+              const year = date.getFullYear();
+              const month = String(date.getMonth() + 1).padStart(2, '0');
+              const day = String(date.getDate()).padStart(2, '0');
+              const hours = String(date.getHours()).padStart(2, '0');
+              const minutes = String(date.getMinutes()).padStart(2, '0');
+              return `${year}-${month}-${day}T${hours}:${minutes}`;
+            } catch {
+              return '';
+            }
+          };
+
+          // Helper to parse specification string
+          const parseSpecificationString = (specStr: string | null): Array<{id: string, name: string, value: string, displayOrder: number}> => {
+            if (!specStr) return [];
+            try {
+              const parsed = JSON.parse(specStr);
+              return Array.isArray(parsed) ? parsed : [];
+            } catch {
+              return [];
+            }
+          };
+
           // Get the category display name
           const categoryDisplayName = getCategoryDisplayName(product.categoryId || '', categoriesData);
 
-          // Populate form with product data
-// Replace your existing setFormData section in useEffect with this:
-// REPLACE your existing setFormData section in useEffect with this COMPLETE VERSION:
-setFormData(prevData => ({
-  ...prevData,
+          // ✅ COMPLETE FORM DATA POPULATION (WITHOUT preOrderAvailabilityStartDate)
+          setFormData(prevData => ({
+            ...prevData,
 
-  // Basic Info
-  name: product.name || '',
-  shortDescription: product.shortDescription || '',
-  fullDescription: product.description || '',
-  sku: product.sku || '',
-  brand: product.brandId || '',
-  categories: product.categoryId || '',
-  categoryName: categoryDisplayName,
-  manufacturerId: product.manufacturerId || '',
-  published: product.isPublished ?? true,
-  productType: product.productType || 'simple',
-  visibleIndividually: product.visibleIndividually ?? true,
-  showOnHomepage: product.showOnHomepage ?? false,
-  displayOrder: product.displayOrder?.toString() || '1',
-  productTags: product.tags || '',
-  gtin: product.gtin || '',
-  manufacturerPartNumber: product.manufacturerPartNumber || '',
+            // Basic Info
+            name: product.name || '',
+            shortDescription: product.shortDescription || '',
+            fullDescription: product.description || '',
+            sku: product.sku || '',
+            brand: product.brandId || '',
+            categories: product.categoryId || '',
+            categoryName: categoryDisplayName,
+            manufacturerId: product.manufacturerId || '',
+            published: product.isPublished ?? true,
+            productType: product.productType || 'simple',
+            visibleIndividually: product.visibleIndividually ?? true,
+            showOnHomepage: product.showOnHomepage ?? false,
+            displayOrder: product.displayOrder?.toString() || '1',
+            productTags: product.tags || '',
+            gtin: product.gtin || '',
+            manufacturerPartNumber: product.manufacturerPartNumber || '',
+            adminComment: product.adminComment || '',
+            deliveryDateId: product.deliveryDateId || '',
 
-  // ✅ FIXED - Admin Comment
-  adminComment: product.adminComment || '',
+            // Customer Reviews
+            allowCustomerReviews: product.allowCustomerReviews ?? false,
 
-  // ✅ FIXED - Customer Reviews (add this field)
-  allowCustomerReviews: product.allowCustomerReviews ?? false,
+            // Pricing
+            price: product.price?.toString() || '',
+            oldPrice: product.oldPrice?.toString() || product.compareAtPrice?.toString() || '',
+            cost: product.costPrice?.toString() || '',
 
-  // Pricing
-  price: product.price?.toString() || '',
-  oldPrice: product.oldPrice?.toString() || product.compareAtPrice?.toString() || '',
-  cost: product.costPrice?.toString() || '',
+            // Buy/Wishlist Buttons
+            disableBuyButton: product.disableBuyButton ?? false,
+            disableWishlistButton: product.disableWishlistButton ?? false,
 
-  // ✅ FIXED - Availability Dates with proper formatting
-  availableStartDate: formatDateTimeForInput(product.availableStartDate),
-  availableEndDate: formatDateTimeForInput(product.availableEndDate),
+            // Call for Price
+            callForPrice: product.callForPrice ?? false,
+            customerEntersPrice: product.customerEntersPrice ?? false,
+            minimumCustomerEnteredPrice: product.minimumCustomerEnteredPrice?.toString() || '',
+            maximumCustomerEnteredPrice: product.maximumCustomerEnteredPrice?.toString() || '',
 
-  // ✅ FIXED - Pre-order date
-  preOrderAvailabilityStartDate: formatDateTimeForInput(product.preOrderAvailabilityStartDate),
+            // Base Price
+            basepriceEnabled: false,
+            basepriceAmount: '',
+            basepriceUnit: '',
+            basepriceBaseAmount: '',
+            basepriceBaseUnit: '',
 
+            // Mark as New
+            markAsNew: !!(product.markAsNewStartDate || product.markAsNewEndDate),
+            markAsNewStartDate: formatDateTimeForInput(product.markAsNewStartDate),
+            markAsNewEndDate: formatDateTimeForInput(product.markAsNewEndDate),
 
-  // ✅ FIXED - Mark as New Dates  
-  markAsNewStartDate: formatDateTimeForInput(product.markAsNewStartDate),
-  markAsNewEndDate: formatDateTimeForInput(product.markAsNewEndDate),
-  markAsNew: !!(product.markAsNewStartDate || product.markAsNewEndDate),
+            // ✅ FIXED: Availability Dates ONLY (NO preOrderAvailabilityStartDate)
+            availableStartDate: formatDateTimeForInput(product.availableStartDate),
+            availableEndDate: formatDateTimeForInput(product.availableEndDate),
 
-  // Inventory
-  stockQuantity: product.stockQuantity?.toString() || '0',
-  manageInventory: product.trackQuantity ? 'track' : 'dont-track',
- minStockQuantity: product.minStockQuantity?.toString() || '0',
+            // Discounts
+            hasDiscountsApplied: false,
 
-  // Shipping
-  weight: product.weight?.toString() || '',
-  length: product.length?.toString() || '',
-  width: product.width?.toString() || '',
-  height: product.height?.toString() || '',
-  isShipEnabled: product.requiresShipping ?? true,
+            // Tax
+            taxExempt: product.taxExempt ?? false,
+            taxCategoryId: product.taxCategoryId || '',
+            telecommunicationsBroadcastingElectronicServices: false,
 
-  // SEO
-  metaTitle: product.metaTitle || '',
-  metaDescription: product.metaDescription || '',
-  metaKeywords: product.metaKeywords || '',
-  searchEngineFriendlyPageName: product.searchEngineFriendlyPageName || '',
+            // SEO
+            metaTitle: product.metaTitle || '',
+            metaKeywords: product.metaKeywords || '',
+            metaDescription: product.metaDescription || '',
+            searchEngineFriendlyPageName: product.searchEngineFriendlyPageName || '',
 
-  // Related Products
-  relatedProducts:
-    typeof product.relatedProductIds === 'string'
-      ? product.relatedProductIds.split(',').filter((id: string) => id.trim())
-      : Array.isArray(product.relatedProductIds)
-      ? product.relatedProductIds
-      : [],
+            // Inventory
+            stockQuantity: product.stockQuantity?.toString() || '0',
+            manageInventory: product.trackQuantity ? 'track' : 'dont-track',
+            minStockQuantity: product.minStockQuantity?.toString() || '0',
+            notifyAdminForQuantityBelow: product.notifyQuantityBelow?.toString() || '1',
+            
+            // Backorder
+            allowBackorder: product.allowBackorder ?? false,
+            allowBackInStockSubscriptions: product.allowBackorder ?? false,
+            backorders: product.backorderMode || 'no-backorders',
 
-  crossSellProducts:
-    typeof product.crossSellProductIds === 'string'
-      ? product.crossSellProductIds.split(',').filter((id: string) => id.trim())
-      : Array.isArray(product.crossSellProductIds)
-      ? product.crossSellProductIds
-      : [],
+            // Display settings
+            displayStockAvailability: true,
+            displayStockQuantity: false,
+            
+            // Cart quantities
+            minCartQuantity: product.orderMinimumQuantity?.toString() || '1',
+            maxCartQuantity: product.orderMaximumQuantity?.toString() || '10000',
+            allowedQuantities: product.allowedQuantities || '',
+            
+            // Other inventory
+            lowStockActivity: 'nothing',
+            productAvailabilityRange: '',
+            allowAddingOnlyExistingAttributeCombinations: false,
+            
+            // Not Returnable
+            notReturnable: product.notReturnable ?? false,
 
-  // Video URLs
-  videoUrls:
-    typeof product.videoUrls === 'string'
-      ? product.videoUrls.split(',').filter((url: string) => url.trim())
-      : Array.isArray(product.videoUrls)
-      ? product.videoUrls
-      : [],
+            // Shipping
+            isShipEnabled: product.requiresShipping ?? true,
+            isFreeShipping: product.isFreeShipping ?? false,
+            shipSeparately: product.shipSeparately ?? false,
+            additionalShippingCharge: product.additionalShippingCharge?.toString() || '',
+            weight: product.weight?.toString() || '',
+            length: product.length?.toString() || '',
+            width: product.width?.toString() || '',
+            height: product.height?.toString() || '',
+           
 
-  // Product Images
-  productImages:
-    product.images?.map((img: any) => ({
-      id: img.id || Date.now().toString(),
-      imageUrl: img.imageUrl || '',
-      altText: img.altText || '',
-      sortOrder: img.sortOrder || 1,
-      isMain: img.isMain || false,
-      fileName: img.imageUrl ? img.imageUrl.split('/').pop() : undefined,
-      fileSize: undefined,
-      file: undefined
-    })) || [],
+            // Gift Cards
+            isGiftCard: false,
+            giftCardType: 'virtual',
+            overriddenGiftCardAmount: '',
 
-  // ✅ COMPLETELY FIXED - Specifications parsing
-  specifications: parseSpecificationString(product.specificationAttributes)
-}));
+            // Downloadable
+            isDownload: false,
+            downloadId: '',
+            unlimitedDownloads: true,
+            maxNumberOfDownloads: '',
+            downloadExpirationDays: '',
+            downloadActivationType: 'when-order-is-paid',
+            hasUserAgreement: false,
+            userAgreementText: '',
+            hasSampleDownload: false,
+            sampleDownloadId: '',
 
-// ✅ COMPLETELY FIXED - Set attributes from API if they exist
-if (product.attributes && Array.isArray(product.attributes)) {
-  setAttributes(
-    product.attributes.map((attr: any) => ({
-      id: attr.id || Date.now().toString(),
-      name: attr.name || '',
-      values: Array.isArray(attr.values) ? attr.values : 
-              typeof attr.values === 'string' ? attr.values.split(',').map((v: string) => v.trim()) : 
-              ['']
-    }))
-  );
-} else {
-  // If no attributes in API, reset to empty
-  setAttributes([]);
-}
+            // Recurring
+            isRecurring: false,
+            recurringCycleLength: '',
+            recurringCyclePeriod: 'days',
+            recurringTotalCycles: '',
 
+            // Rental
+            isRental: false,
+            rentalPriceLength: '',
+            rentalPricePeriod: 'days',
 
+            // Customer Roles & Stores
+            customerRoles: 'all',
+            limitedToStores: false,
+            vendorId: '',
+            requireOtherProducts: false,
+            requiredProductIds: '',
+            automaticallyAddProducts: false,
+
+            // Related Products
+            relatedProducts: typeof product.relatedProductIds === 'string'
+              ? product.relatedProductIds.split(',').filter((id: string) => id.trim())
+              : Array.isArray(product.relatedProductIds)
+              ? product.relatedProductIds
+              : [],
+
+            crossSellProducts: typeof product.crossSellProductIds === 'string'
+              ? product.crossSellProductIds.split(',').filter((id: string) => id.trim())
+              : Array.isArray(product.crossSellProductIds)
+              ? product.crossSellProductIds
+              : [],
+
+            // Video URLs
+            videoUrls: typeof product.videoUrls === 'string'
+              ? product.videoUrls.split(',').filter((url: string) => url.trim())
+              : Array.isArray(product.videoUrls)
+              ? product.videoUrls
+              : [],
+
+            // Product Images
+            productImages: product.images?.map((img: any) => ({
+              id: img.id || Date.now().toString(),
+              imageUrl: img.imageUrl || '',
+              altText: img.altText || '',
+              sortOrder: img.sortOrder || 1,
+              isMain: img.isMain || false,
+              fileName: img.imageUrl ? img.imageUrl.split('/').pop() : undefined,
+              fileSize: undefined,
+              file: undefined
+            })) || [],
+
+            // Specifications
+            specifications: parseSpecificationString(product.specificationAttributes)
+          }));
+
+          // Set attributes from API if they exist
+          if (product.attributes && Array.isArray(product.attributes)) {
+            setAttributes(
+              product.attributes.map((attr: any) => ({
+                id: attr.id || Date.now().toString(),
+                name: attr.name || '',
+                values: Array.isArray(attr.values) ? attr.values : 
+                        typeof attr.values === 'string' ? attr.values.split(',').map((v: string) => v.trim()) : 
+                        ['']
+              }))
+            );
+          } else {
+            setAttributes([]);
+          }
         }
       }
 
     } catch (error) {
       console.error('❌ Error fetching data:', error);
-      alert('Error loading data');
+      toast.error('Failed to load product data');
     }
   };
 
@@ -592,10 +628,10 @@ if (product.attributes && Array.isArray(product.attributes)) {
   }
 }, [productId]);
 
+
 const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
   e.preventDefault();
 
-  // Prevent multiple submissions
   const target = e.target as HTMLElement;
   if (target.hasAttribute('data-submitting')) {
     toast.info('⏳ Already submitting... Please wait!');
@@ -604,17 +640,13 @@ const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
   target.setAttribute('data-submitting', 'true');
 
   try {
-    // Validate required fields
     if (!formData.name || !formData.sku) {
       toast.error('⚠️ Please fill in required fields: Product Name and SKU');
       return;
     }
 
-
-    // Prepare GUIDs validation
     const guidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-    // Prepare categoryId
     let categoryId: string | null = null;
     if (formData.categories && formData.categories.trim()) {
       const trimmedCategory = formData.categories.trim();
@@ -638,7 +670,6 @@ const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
       })
       .filter(attr => attr.values.length > 0);
 
-    // Prepare brandId & manufacturerId
     let brandId: string | null = null;
     if (formData.brand && formData.brand.trim()) {
       const trimmedBrand = formData.brand.trim();
@@ -655,9 +686,10 @@ const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
       }
     }
 
-    // Prepare product data
     const productData = {
       id: productId,
+      
+      // Basic Info
       name: formData.name.trim(),
       description: formData.fullDescription || formData.shortDescription || formData.name || 'Product description',
       shortDescription: formData.shortDescription?.trim() || '',
@@ -667,56 +699,130 @@ const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
       displayOrder: parseInt(formData.displayOrder) || 1,
       adminComment: formData.adminComment?.trim() || null,
 
+      // Pricing
       price: parseFloat(formData.price) || 0,
       oldPrice: formData.oldPrice ? parseFloat(formData.oldPrice) : null,
       compareAtPrice: formData.oldPrice ? parseFloat(formData.oldPrice) : null,
       costPrice: formData.cost ? parseFloat(formData.cost) : null,
+
+      // Buy/Wishlist Buttons
+      disableBuyButton: formData.disableBuyButton,
+      disableWishlistButton: formData.disableWishlistButton,
+
+      // Call for Price
+      callForPrice: formData.callForPrice,
+      customerEntersPrice: formData.customerEntersPrice,
+      minimumCustomerEnteredPrice: formData.customerEntersPrice && formData.minimumCustomerEnteredPrice 
+        ? parseFloat(formData.minimumCustomerEnteredPrice) 
+        : null,
+      maximumCustomerEnteredPrice: formData.customerEntersPrice && formData.maximumCustomerEnteredPrice 
+        ? parseFloat(formData.maximumCustomerEnteredPrice) 
+        : null,
+
+      // Attributes
       attributes: formattedAttributes,
 
+      // Dimensions
       weight: parseFloat(formData.weight) || 0,
       length: formData.length ? parseFloat(formData.length) : null,
       width: formData.width ? parseFloat(formData.width) : null,
       height: formData.height ? parseFloat(formData.height) : null,
-      requiresShipping: formData.isShipEnabled,
 
+      // Shipping
+      requiresShipping: formData.isShipEnabled,
+      isFreeShipping: formData.isFreeShipping,
+      shipSeparately: formData.shipSeparately,
+      additionalShippingCharge: formData.additionalShippingCharge 
+        ? parseFloat(formData.additionalShippingCharge) 
+        : null,
+      
+      // ✅ FIXED: Delivery Date
+      deliveryDateId: formData.deliveryDateId || null,
+
+      // Inventory
       stockQuantity: parseInt(formData.stockQuantity) || 0,
       trackQuantity: formData.manageInventory === 'track',
+      minStockQuantity: parseInt(formData.minStockQuantity) || 0,
+      notifyAdminForQuantityBelow: true,
+      notifyQuantityBelow: parseInt(formData.notifyAdminForQuantityBelow) || 1,
+      
+      // Backorder
+      allowBackorder: formData.allowBackorder,
+      backorderMode: formData.backorders || 'no-backorders',
 
+      // Cart Quantities
+      orderMinimumQuantity: parseInt(formData.minCartQuantity) || 1,
+      orderMaximumQuantity: parseInt(formData.maxCartQuantity) || 10000,
+      allowedQuantities: formData.allowedQuantities?.trim() || null,
+
+      // Not Returnable
+      notReturnable: formData.notReturnable,
+
+      // Categories & Brand
       ...(categoryId && { categoryId }),
       ...(brandId && { brandId }),
       ...(manufacturerId && { manufacturerId }),
 
-      availableStartDate: formData.availableStartDate ? new Date(formData.availableStartDate).toISOString() : null,
-      availableEndDate: formData.availableEndDate ? new Date(formData.availableEndDate).toISOString() : null,
-      markAsNewStartDate: formData.markAsNewStartDate ? new Date(formData.markAsNewStartDate).toISOString() : null,
-      markAsNewEndDate: formData.markAsNewEndDate ? new Date(formData.markAsNewEndDate).toISOString() : null,
-      preOrderAvailabilityStartDate: formData.preOrderAvailabilityStartDate ? new Date(formData.preOrderAvailabilityStartDate).toISOString() : null,
+      // Mark as New
+      markAsNew: formData.markAsNew,
+      
+      // Dates
+      availableStartDate: formData.availableStartDate && formData.availableStartDate.trim()
+        ? new Date(formData.availableStartDate).toISOString() 
+        : null,
+      availableEndDate: formData.availableEndDate && formData.availableEndDate.trim()
+        ? new Date(formData.availableEndDate).toISOString() 
+        : null,
+      markAsNewStartDate: formData.markAsNew && formData.markAsNewStartDate 
+        ? new Date(formData.markAsNewStartDate).toISOString() 
+        : null,
+      markAsNewEndDate: formData.markAsNew && formData.markAsNewEndDate 
+        ? new Date(formData.markAsNewEndDate).toISOString() 
+        : null,
 
-      specificationAttributes: formData.specifications.length > 0 ? JSON.stringify(formData.specifications) : null,
+      // Specifications
+      specificationAttributes: formData.specifications.length > 0 
+        ? JSON.stringify(formData.specifications) 
+        : null,
 
+      // Publishing
       isPublished: isDraft ? false : formData.published,
       status: isDraft ? 1 : (formData.published ? 2 : 1),
       visibleIndividually: formData.visibleIndividually,
       showOnHomepage: formData.showOnHomepage || false,
 
+      // ✅ FIXED: Customer Reviews (Try both field names)
+      allowCustomerReviews: formData.allowCustomerReviews,
+      approvedRatingSum: 0,  // Default value if needed
+      approvedTotalReviews: 0,  // Default value if needed
+
+      // Tax
+      taxExempt: formData.taxExempt,
+      taxCategoryId: formData.taxCategoryId || null,
+
+      // SEO
       metaTitle: formData.metaTitle?.trim() || null,
       metaDescription: formData.metaDescription?.trim() || null,
       metaKeywords: formData.metaKeywords?.trim() || null,
       searchEngineFriendlyPageName: formData.searchEngineFriendlyPageName?.trim() || null,
 
+      // Related Products
       tags: formData.productTags?.trim() || null,
       relatedProductIds: Array.isArray(formData.relatedProducts) && formData.relatedProducts.length > 0 
-        ? formData.relatedProducts.join(',') : null,
+        ? formData.relatedProducts.join(',') 
+        : null,
       crossSellProductIds: Array.isArray(formData.crossSellProducts) && formData.crossSellProducts.length > 0 
-        ? formData.crossSellProducts.join(',') : null,
+        ? formData.crossSellProducts.join(',') 
+        : null,
 
+      // Videos
       videoUrls: formData.videoUrls && formData.videoUrls.length > 0 
-        ? formData.videoUrls.join(',') : null,
+        ? formData.videoUrls.join(',') 
+        : null,
     };
 
-  
+    console.log('📦 Sending product data:', productData);
 
-    // Call API
     const response = await apiClient.put(`/api/Products/${productId}`, productData);
 
     if (response?.data) {
@@ -730,12 +836,11 @@ const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
         draggable: true,
       });
 
-
-
-      // Redirect after success
       setTimeout(() => {
         router.push('/admin/products');
       }, 800);
+    } else if (response?.error) {
+      throw new Error(response.error);
     }
 
   } catch (error: any) {
@@ -764,7 +869,7 @@ const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
     }
 
     toast.error(errorMessage, {
-    
+      autoClose: 8000,
       closeButton: true,
       draggable: true,
     });
@@ -774,7 +879,8 @@ const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
   }
 };
 
-// Updated handleChange to extract clean hierarchical names
+
+// ✅ COMPLETE FIXED handleChange
 const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
   const { name, value, type } = e.target;
   
@@ -787,7 +893,6 @@ const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElemen
     if (value === '') {
       displayName = '';
     } else {
-      // Get the clean hierarchical display name
       displayName = selectedOption.dataset.categoryName || 
                    selectedOption.dataset.displayName || 
                    selectedOption.text.replace(/^[\s\u00A0]*└──\s*/, '').replace(/📁\s*/, '');
@@ -796,15 +901,37 @@ const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElemen
     setFormData({
       ...formData,
       [name]: value,
-      categoryName: displayName // Store clean display name
+      categoryName: displayName
     });
-  } else {
+  } 
+  // ✅ FIX: Special handling for markAsNew checkbox
+  else if (name === 'markAsNew') {
+    const checked = (e.target as HTMLInputElement).checked;
     setFormData({
       ...formData,
-      [name]: type === 'checkbox' ? (e.target as HTMLInputElement).checked : value
+      markAsNew: checked,
+      // Clear dates when unchecked
+      markAsNewStartDate: checked ? formData.markAsNewStartDate : '',
+      markAsNewEndDate: checked ? formData.markAsNewEndDate : ''
+    });
+  }
+  // ✅ FIX: Handle all checkbox types properly
+  else if (type === 'checkbox') {
+    const checked = (e.target as HTMLInputElement).checked;
+    setFormData({
+      ...formData,
+      [name]: checked
+    });
+  } 
+  // Handle all other inputs
+  else {
+    setFormData({
+      ...formData,
+      [name]: value
     });
   }
 };
+
 
   // All existing methods remain same...
   const addRelatedProduct = (productId: string) => {
@@ -970,9 +1097,6 @@ const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
 };
 
 
-  const handleBrowseClick = () => {
-    fileInputRef.current?.click();
-  };
 
 // ✅ REPLACE existing removeImage function with this:
 const removeImage = async (imageId: string) => {
@@ -1161,300 +1285,299 @@ const uploadImagesToProductDirect = async (productId: string, files: File[]): Pr
               </div>
 
               {/* Product Info Tab */}
-              <TabsContent value="product-info" className="space-y-2 mt-2">
-                {/* Basic Info Section */}
-                <div className="space-y-4">
-                  <h3 className="text-lg font-semibold text-white border-b border-slate-800 pb-2">Basic Info</h3>
+<TabsContent value="product-info" className="space-y-2 mt-2">
+  {/* Basic Info Section */}
+  <div className="space-y-4">
+    <h3 className="text-lg font-semibold text-white border-b border-slate-800 pb-2">Basic Info</h3>
 
-                  <div className="grid gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-slate-300 mb-2">
-                        Product Name <span className="text-red-500">*</span>
-                      </label>
-                      <input
-                        type="text"
-                        name="name"
-                        value={formData.name}
-                        onChange={handleChange}
-                        placeholder="Enter product name"
-                        className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
-                        required
-                      />
-                    </div>
+    <div className="grid gap-4">
+      {/* Product Name */}
+      <div>
+        <label className="block text-sm font-medium text-slate-300 mb-2">
+          Product Name <span className="text-red-500">*</span>
+        </label>
+        <input
+          type="text"
+          name="name"
+          value={formData.name}
+          onChange={handleChange}
+          placeholder="Enter product name"
+          className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+          required
+        />
+      </div>
 
+      {/* Short Description Editor */}
+      <ProductDescriptionEditor
+        label="Short Description"
+        value={formData.shortDescription}
+        onChange={(content) => setFormData(prev => ({ 
+          ...prev, 
+          shortDescription: content 
+        }))}
+        placeholder="Enter product short description..."
+        height={250}
+      />
 
-{/* // In your product form component */}
-<ProductDescriptionEditor
-  label="Short Description"
-  value={formData.shortDescription}
-  onChange={(content) => setFormData(prev => ({ 
-    ...prev, 
-    shortDescription: content 
-  }))}
-  placeholder="Enter product short description..."
-  height={250}
-/>
+      {/* Full Description Editor */}
+      <ProductDescriptionEditor
+        label="Full Description"
+        value={formData.fullDescription}
+        onChange={(content) => setFormData(prev => ({ 
+          ...prev, 
+          fullDescription: content 
+        }))}
+        placeholder="Enter detailed product description..."
+        height={400}
+        required
+      />
 
-<ProductDescriptionEditor
-  label="Full Description"
-  value={formData.fullDescription}
-  onChange={(content) => setFormData(prev => ({ 
-    ...prev, 
-    fullDescription: content 
-  }))}
-  placeholder="Enter detailed product description..."
-  height={400}
-  required
-/>
+      {/* ✅ Row 1: SKU & Brand */}
+      <div className="grid md:grid-cols-2 gap-4">
+        <div>
+          <label className="block text-sm font-medium text-slate-300 mb-2">
+            SKU <span className="text-red-500">*</span>
+          </label>
+          <input
+            type="text"
+            name="sku"
+            value={formData.sku}
+            onChange={handleChange}
+            placeholder="e.g., PROD-001"
+            className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+            required
+          />
+        </div>
 
+        <div>
+          <label className="block text-sm font-medium text-slate-300 mb-2">Brand</label>
+          <select
+            name="brand"
+            value={formData.brand}
+            onChange={handleChange}
+            className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+          >
+            <option value="">Select brand ({dropdownsData.brands.length})</option>
+            {dropdownsData.brands.map((brand) => (
+              <option key={brand.id} value={brand.id}>
+                {brand.name}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
 
-                     <div className="grid md:grid-cols-3 gap-4">
-                     
-                        <div>
-                        <label className="block text-sm font-medium text-slate-300 mb-2">
-                          SKU <span className="text-red-500">*</span>
-                        </label>
-                        <input
-                          type="text"
-                          name="sku"
-                          value={formData.sku}
-                          onChange={handleChange}
-                          placeholder="e.g., PROD-001"
-                          className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
-                          required
-                        />
-                        </div>
+      {/* ✅ Row 2: Categories & Product Type */}
+      <div className="grid md:grid-cols-2 gap-4">
+        <div>
+          <label className="block text-sm font-medium text-slate-300 mb-2">Categories</label>
+          
+          <div className="relative">
+            <select
+              name="categories"
+              value={formData.categories}
+              onChange={handleChange}
+              className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-transparent focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all appearance-none cursor-pointer"
+            >
+              <option value="" className="text-white">Select category ({dropdownsData.categories.length})</option>
+              {renderCategoryOptions(dropdownsData.categories)}
+            </select>
+            
+            {/* Clean text overlay */}
+            <div className="absolute inset-0 px-3 py-2 pointer-events-none flex items-center justify-between">
+              <span className={`truncate text-sm ${formData.categoryName ? 'text-white' : 'text-slate-400'}`}>
+                {formData.categoryName || 'Select category'}
+              </span>
+              
+              <svg className="w-4 h-4 text-slate-400 flex-shrink-0 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </div>
+          </div>
+        </div>
 
+        <div>
+          <label className="block text-sm font-medium text-slate-300 mb-2">Product Type</label>
+          <select
+            name="productType"
+            value={formData.productType}
+            onChange={handleChange}
+            className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+          >
+            <option value="simple">Simple Product</option>
+            <option value="grouped">Grouped Product (product variants)</option>
+          </select>
+        </div>
+      </div>
 
+      {/* ✅ Row 3: GTIN & Manufacturer Part Number */}
+      <div className="grid md:grid-cols-2 gap-4">
+        <div>
+          <label className="block text-sm font-medium text-slate-300 mb-2">GTIN</label>
+          <input
+            type="text"
+            name="gtin"
+            value={formData.gtin}
+            onChange={handleChange}
+            placeholder="Global Trade Item Number"
+            className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+          />
+        </div>
 
-                      <div>
-                        <label className="block text-sm font-medium text-slate-300 mb-2">Brand  </label>
-                        <select
-                          name="brand"
-                          value={formData.brand}
-                          onChange={handleChange}
-                          className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
-                        >
-                          <option value="">Select brand ({dropdownsData.brands.length}) </option>
-                          {dropdownsData.brands.map((brand) => (
-                            <option key={brand.id} value={brand.id}>
-                              {brand.name}
-                            </option>
-                          ))}
-                        </select>
-                      
-                      </div>
+        <div>
+          <label className="block text-sm font-medium text-slate-300 mb-2">Manufacturer Part Number</label>
+          <input
+            type="text"
+            name="manufacturerPartNumber"
+            value={formData.manufacturerPartNumber}
+            onChange={handleChange}
+            placeholder="MPN"
+            className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+          />
+        </div>
+      </div>
 
-                 <div>
-  <label className="block text-sm font-medium text-slate-300 mb-2">Categories</label>
-  
-  {/* Container with overlay for clean display */}
-  <div className="relative">
-    <select
-      name="categories"
-      value={formData.categories}
-      onChange={handleChange}
-      className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-transparent focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all appearance-none cursor-pointer"
-    >
-      <option value="" className="text-white" title="categories loaded (includes subcategories)">Select category ({dropdownsData.categories.length}) </option>
-      {renderCategoryOptions(dropdownsData.categories)}
-    </select>
-    
-    {/* Clean text overlay showing hierarchical name */}
-    <div className="absolute inset-0 px-3 py-2 pointer-events-none flex items-center justify-between">
-      <span className={`truncate text-sm ${formData.categoryName ? 'text-white' : 'text-slate-400'}`}>
-        {formData.categoryName || 'Select category'}
-      </span>
-      
-      {/* Dropdown arrow */}
-      <svg className="w-4 h-4 text-slate-400 flex-shrink-0 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-      </svg>
+      {/* Product Tags */}
+      <div>
+        <label className="block text-sm font-medium text-slate-300 mb-2">Product Tags</label>
+        <input
+          type="text"
+          name="productTags"
+          value={formData.productTags}
+          onChange={handleChange}
+          placeholder="tag1, tag2, tag3"
+          className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+        />
+        <p className="text-xs text-slate-400 mt-1">Comma-separated tags</p>
+      </div>
+    </div>
+  </div>
+
+  {/* Publishing Section */}
+<div className="space-y-4">
+
+  <div className="space-y-3"> 
+    {/* ✅ FINAL PERFECT: Show on Homepage + Display Order */}
+<div className="space-y-4">
+  <h3 className="text-lg font-semibold text-white border-b border-slate-800 pb-2">Publishing</h3>
+
+  <div className="space-y-3">
+    <label className="flex items-center gap-2">
+      <input
+        type="checkbox"
+        name="published"
+        checked={formData.published}
+        onChange={handleChange}
+        className="rounded bg-slate-800/50 border-slate-700 text-violet-500 focus:ring-violet-500 focus:ring-offset-slate-900"
+      />
+      <span className="text-sm text-slate-300">Published</span>
+    </label>
+
+    <label className="flex items-center gap-2">
+      <input
+        type="checkbox"
+        name="visibleIndividually"
+        checked={formData.visibleIndividually}
+        onChange={handleChange}
+        className="rounded bg-slate-800/50 border-slate-700 text-violet-500 focus:ring-violet-500 focus:ring-offset-slate-900"
+      />
+      <span className="text-sm text-slate-300">Visible individually</span>
+      <span className="text-xs text-slate-400">(can be accessed from catalog)</span>
+    </label>
+
+    <label className="flex items-center gap-2">
+      <input
+        type="checkbox"
+        name="allowCustomerReviews"
+        checked={formData.allowCustomerReviews}
+        onChange={handleChange}
+        className="rounded bg-slate-800/50 border-slate-700 text-violet-500 focus:ring-violet-500 focus:ring-offset-slate-900"
+      />
+      <span className="text-sm text-slate-300">Allow customer reviews</span>
+    </label>
+
+    {/* ✅ FINAL: Show on Homepage (NO LABEL) + Display Order (WITH LABEL) */}
+    <div className="grid md:grid-cols-2 gap-4">
+      {/* Left Column - Show on Homepage checkbox (NO LABEL, just empty space) */}
+      <div className="pt-6">
+        <label className="flex items-center gap-2 w-full px-3 py-3 bg-slate-800/50 border border-slate-700 rounded-xl cursor-pointer hover:border-violet-500 transition-all">
+          <input
+            type="checkbox"
+            name="showOnHomepage"
+            checked={formData.showOnHomepage}
+            onChange={handleChange}
+            className="rounded bg-slate-800/50 border-slate-700 text-violet-500 focus:ring-violet-500 focus:ring-offset-slate-900"
+          />
+          <span className="text-sm text-slate-300">Show on home page</span>
+        </label>
+      </div>
+
+      {/* Right Column - Display Order (WITH LABEL) */}
+      <div>
+        {formData.showOnHomepage && (
+          <>
+            <label className="block text-sm font-medium text-slate-300 mb-2">Display Order</label>
+            <input
+              type="number"
+              name="displayOrder"
+              value={formData.displayOrder}
+              onChange={handleChange}
+              placeholder="1"
+              className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-400 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+            />
+          </>
+        )}
+      </div>
     </div>
   </div>
 </div>
-                    </div>
 
-                    <div className="grid md:grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-sm font-medium text-slate-300 mb-2">Manufacturer</label>
-                        <select
-                          name="manufacturerId"
-                          value={formData.manufacturerId}
-                          onChange={handleChange}
-                          className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
-                        >
-                          <option value="">Select manufacturer</option>
-                          {dropdownsData.manufacturers.map((manufacturer) => (
-                            <option key={manufacturer.id} value={manufacturer.id}>
-                              {manufacturer.name}
-                            </option>
-                          ))}
-                        </select>
-                        <p className="text-xs text-slate-400 mt-1">
-                          {dropdownsData.manufacturers.length} manufacturers loaded
-                        </p>
-                      </div>
+  </div>
 
-                      <div>
-                        <label className="block text-sm font-medium text-slate-300 mb-2">Product Type</label>
-                        <select
-                          name="productType"
-                          value={formData.productType}
-                          onChange={handleChange}
-                          className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
-                        >
-                          <option value="simple">Simple Product</option>
-                          <option value="grouped">Grouped Product (product variants)</option>
-                        </select>
-                      </div>
-                    </div>
+  {/* Available Dates */}
+  <div className="grid md:grid-cols-2 gap-4">
+    <div>
+      <label className="block text-sm font-medium text-slate-300 mb-2">Available Start Date/Time</label>
+      <input
+        type="datetime-local"
+        name="availableStartDate"
+        value={formData.availableStartDate || ''}
+        onChange={handleChange}
+        className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+      />
+    </div>
+
+    <div>
+      <label className="block text-sm font-medium text-slate-300 mb-2">Available End Date/Time</label>
+      <input
+        type="datetime-local"
+        name="availableEndDate"
+        value={formData.availableEndDate || ''}
+        onChange={handleChange}
+        className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+      />
+    </div>
+  </div>
+</div>
 
 
-                    <div className="grid md:grid-cols-3 gap-4">
-                      <div>
-                        <label className="block text-sm font-medium text-slate-300 mb-2">GTIN</label>
-                        <input
-                          type="text"
-                          name="gtin"
-                          value={formData.gtin}
-                          onChange={handleChange}
-                          placeholder="Global Trade Item Number"
-                          className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
-                        />
-                      </div>
+  {/* Admin Comment */}
+  <div className="space-y-4">
+    <h3 className="text-lg font-semibold text-white border-b border-slate-800 pb-2">Admin Comment</h3>
+    <div>
+      <textarea
+        name="adminComment"
+        value={formData.adminComment}
+        onChange={handleChange}
+        placeholder="Internal notes (not visible to customers)"
+        rows={3}
+        className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+      />
+    </div>
+  </div>
+</TabsContent>
 
-                      <div>
-                        <label className="block text-sm font-medium text-slate-300 mb-2">Manufacturer Part Number</label>
-                        <input
-                          type="text"
-                          name="manufacturerPartNumber"
-                          value={formData.manufacturerPartNumber}
-                          onChange={handleChange}
-                          placeholder="MPN"
-                          className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
-                        />
-                      </div>
 
-                      <div>
-                        <label className="block text-sm font-medium text-slate-300 mb-2">Display Order</label>
-                        <input
-                          type="number"
-                          name="displayOrder"
-                          value={formData.displayOrder}
-                          onChange={handleChange}
-                          placeholder="1"
-                          className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
-                        />
-                      </div>
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-slate-300 mb-2">Product Tags</label>
-                      <input
-                        type="text"
-                        name="productTags"
-                        value={formData.productTags}
-                        onChange={handleChange}
-                        placeholder="tag1, tag2, tag3"
-                        className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
-                      />
-                      <p className="text-xs text-slate-400 mt-1">Comma-separated tags</p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Publishing Section */}
-                <div className="space-y-4">
-                  <h3 className="text-lg font-semibold text-white border-b border-slate-800 pb-2">Publishing</h3>
-
-                  <div className="space-y-3">
-                    <label className="flex items-center gap-2">
-                      <input
-                        type="checkbox"
-                        name="published"
-                        checked={formData.published}
-                        onChange={handleChange}
-                        className="rounded bg-slate-800/50 border-slate-700 text-violet-500 focus:ring-violet-500 focus:ring-offset-slate-900"
-                      />
-                      <span className="text-sm text-slate-300">Published</span>
-                    </label>
-
-                    <label className="flex items-center gap-2">
-                      <input
-                        type="checkbox"
-                        name="visibleIndividually"
-                        checked={formData.visibleIndividually}
-                        onChange={handleChange}
-                        className="rounded bg-slate-800/50 border-slate-700 text-violet-500 focus:ring-violet-500 focus:ring-offset-slate-900"
-                      />
-                      <span className="text-sm text-slate-300">Visible individually</span>
-                      <span className="text-xs text-slate-400">(can be accessed from catalog)</span>
-                    </label>
-{/* In the Publishing section, add this checkbox: */}
-<label className="flex items-center gap-2">
-  <input
-    type="checkbox"
-    name="allowCustomerReviews"
-    checked={formData.allowCustomerReviews}
-    onChange={handleChange}
-    className="rounded bg-slate-800/50 border-slate-700 text-violet-500 focus:ring-violet-500 focus:ring-offset-slate-900"
-  />
-  <span className="text-sm text-slate-300">Allow customer reviews</span>
-</label>
-
-                    <label className="flex items-center gap-2">
-                      <input
-                        type="checkbox"
-                        name="showOnHomepage"
-                        checked={formData.showOnHomepage}
-                        onChange={handleChange}
-                        className="rounded bg-slate-800/50 border-slate-700 text-violet-500 focus:ring-violet-500 focus:ring-offset-slate-900"
-                      />
-                      <span className="text-sm text-slate-300">Show on home page</span>
-                    </label>
-                  </div>
-
-                  <div className="grid md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-slate-300 mb-2">Available Start Date/Time</label>
-                      <input
-                        type="datetime-local"
-                        name="availableStartDate"
-                        value={formData.availableStartDate}
-                        onChange={handleChange}
-                        className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-slate-300 mb-2">Available End Date/Time</label>
-                      <input
-                        type="datetime-local"
-                        name="availableEndDate"
-                        value={formData.availableEndDate}
-                        onChange={handleChange}
-                        className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                {/* Admin Comment */}
-                <div className="space-y-4">
-                  <h3 className="text-lg font-semibold text-white border-b border-slate-800 pb-2">Admin Comment</h3>
-                  <div>
-                    <textarea
-                      name="adminComment"
-                      value={formData.adminComment}
-                      onChange={handleChange}
-                      placeholder="Internal notes (not visible to customers)"
-                      rows={3}
-                      className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
-                    />
-                  </div>
-                </div>
-              </TabsContent>
 
               {/* Prices Tab */}
               <TabsContent value="prices" className="space-y-2 mt-2">
@@ -1584,48 +1707,6 @@ const uploadImagesToProductDirect = async (productId: string, files: File[]): Pr
                     </div>
                   )}
                 </div>
-
-{/* Pre-order Section */}
-<div className="space-y-4">
-  <h3 className="text-lg font-semibold text-white border-b border-slate-800 pb-2">Pre-order</h3>
-
-  <label className="flex items-center gap-2">
-    <input
-      type="checkbox"
-      name="availableStartDate"
-      checked={!!formData.availableStartDate}
-      onChange={handleChange}
-      className="rounded bg-slate-800/50 border-slate-700 text-violet-500 focus:ring-violet-500 focus:ring-offset-slate-900"
-    />
-    <span className="text-sm text-slate-300">Available for pre-order</span>
-  </label>
-
-  {formData.availableStartDate && (
-    <div className="grid md:grid-cols-2 gap-4 bg-slate-800/30 border border-slate-700 p-4 rounded-xl">
-      <div>
-        <label className="block text-sm font-medium text-slate-300 mb-2">Start Date</label>
-        <input
-          type="datetime-local"
-          name="availableStartDate"
-          value={formData.availableStartDate || ''}
-          onChange={handleChange}
-          className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
-        />
-      </div>
-
-      <div>
-        <label className="block text-sm font-medium text-slate-300 mb-2">End Date</label>
-        <input
-          type="datetime-local"
-          name="availableEndDate"
-          value={formData.availableEndDate || ''}
-          onChange={handleChange}
-          className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
-        />
-      </div>
-    </div>
-  )}
-</div>
 
                 {/* Mark as New Section */}
                 <div className="space-y-4">

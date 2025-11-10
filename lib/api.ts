@@ -16,13 +16,13 @@ class ApiClient {
   constructor(baseURL: string) {
     this.client = axios.create({
       baseURL,
-      timeout: 60000, // ✅ Increased to 60 seconds
+      timeout: 120000, // 2 minutes
       headers: {
         'Content-Type': 'application/json',
       },
-      // ✅ CRITICAL FIX: Increase body size limits
-      maxContentLength: 100 * 1024 * 1024, // 100MB response limit
-      maxBodyLength: 100 * 1024 * 1024,    // 100MB request limit
+      // ✅ CRITICAL: Set to Infinity for unlimited size
+      maxContentLength: Infinity,
+      maxBodyLength: Infinity,
       validateStatus: (status) => {
         return status < 500;
       }
@@ -35,6 +35,10 @@ class ApiClient {
     // REQUEST INTERCEPTOR
     this.client.interceptors.request.use(
       (config) => {
+        // ✅ Force unlimited size on every request
+        config.maxContentLength = Infinity;
+        config.maxBodyLength = Infinity;
+        
         const fullUrl = `${config.baseURL}${config.url}`;
         console.log(`🚀 API Request: ${config.method?.toUpperCase()} ${fullUrl}`);
         
@@ -80,7 +84,6 @@ class ApiClient {
           console.error('❌ Request Setup Error:', error.message);
         }
         
-        // ✅ Handle 413 Payload Too Large
         if (error.response?.status === 413) {
           console.error('❌ 413: Payload Too Large - Data size exceeds server limit');
         }
@@ -108,6 +111,8 @@ class ApiClient {
         method,
         url: endpoint,
         data,
+        maxContentLength: Infinity, // ✅ Per-request override
+        maxBodyLength: Infinity,
         ...options,
       });
 
@@ -138,20 +143,20 @@ class ApiClient {
       
     } catch (error: any) {
       const errorDetails = {
-        endpoint,
-        method,
-        message: error.message,
-        code: error.code,
-        status: error.response?.status,
-        responseData: error.response?.data
+        endpoint: endpoint || 'unknown',
+        method: method || 'unknown',
+        message: error?.message || 'Unknown error',
+        code: error?.code || 'NO_CODE',
+        status: error?.response?.status || 'NO_STATUS',
+        responseData: error?.response?.data || null
       };
 
-      console.error('❌ Request failed:', errorDetails);
+      console.error('❌ Request failed:', JSON.stringify(errorDetails, null, 2));
       
       let errorMessage = 'An unexpected error occurred';
-      let status = error.response?.status;
+      let status = error?.response?.status;
       
-      if (error.response) {
+      if (error?.response) {
         const errorData = error.response.data;
         
         errorMessage = 
@@ -160,9 +165,8 @@ class ApiClient {
           errorData?.errors?.[0] ||
           `HTTP ${error.response.status}: ${error.response.statusText}`;
         
-        // ✅ Specific error messages
         if (error.response.status === 413) {
-          errorMessage = 'Request too large. Please reduce the amount of data or compress images.';
+          errorMessage = 'Request too large. Server limit exceeded. Please reduce content size.';
         } else if (error.response.status === 404) {
           errorMessage = `Endpoint not found: ${endpoint}`;
         } else if (error.response.status === 500) {
@@ -171,19 +175,18 @@ class ApiClient {
           errorMessage = errorData?.message || 'Bad request. Please check your input.';
         }
         
-      } else if (error.request) {
-        // ✅ Check for body size errors
+      } else if (error?.request) {
         if (error.code === 'ERR_FR_MAX_BODY_LENGTH_EXCEEDED') {
-          errorMessage = 'Request data is too large. Please reduce the size or compress content.';
+          errorMessage = 'Request data too large. This should not happen with current settings. Check server configuration.';
         } else if (error.code === 'ECONNABORTED') {
-          errorMessage = 'Request timeout. Please check your connection.';
+          errorMessage = 'Request timeout (2 min). Your data may be too large or connection is slow.';
         } else if (error.code === 'ERR_NETWORK') {
-          errorMessage = 'Network error. Please check your internet connection.';
+          errorMessage = 'Network error. Check:\n1. Internet connection\n2. CORS configuration\n3. Server is running';
         } else {
           errorMessage = 'No response from server. Please try again.';
         }
       } else {
-        errorMessage = error.message || 'Failed to setup request';
+        errorMessage = error?.message || 'Failed to setup request';
       }
 
       return { 
@@ -250,8 +253,8 @@ class ApiClient {
       headers: {
         'Content-Type': 'multipart/form-data'
       },
-      maxContentLength: 100 * 1024 * 1024,
-      maxBodyLength: 100 * 1024 * 1024
+      maxContentLength: Infinity,
+      maxBodyLength: Infinity
     });
   }
 
@@ -276,8 +279,8 @@ class ApiClient {
       headers: {
         'Content-Type': 'multipart/form-data'
       },
-      maxContentLength: 100 * 1024 * 1024,
-      maxBodyLength: 100 * 1024 * 1024
+      maxContentLength: Infinity,
+      maxBodyLength: Infinity
     });
   }
 }

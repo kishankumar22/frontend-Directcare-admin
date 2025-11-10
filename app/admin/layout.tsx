@@ -30,7 +30,6 @@ const navigation = [
   { name: 'Products', href: '/admin/products', icon: Package },
   { name: 'Categories', href: '/admin/categories', icon: FolderTree },
   { name: 'Brands', href: '/admin/brands', icon: Tag },
-  { name: 'Manufacturers', href: '/admin/manufacturers', icon: Factory },
   { name: 'Orders', href: '/admin/orders', icon: ShoppingCart },
   { name: 'Customers', href: '/admin/customers', icon: Users },
   { name: 'Banners', href: '/admin/banners', icon: ImageIcon }, // FIXED: Correct icon

@@ -572,7 +572,7 @@ export default function ProductDetails({ product }: ProductDetailsProps) {
                   >
                     <Card className="hover:shadow-lg transition h-full">
                       <CardContent className="p-4">
-                        <div className="aspect-square relative mb-3 rounded bg-gray-100">
+                        <div className="aspect-square relative mb-3 rounded ">
                           <Image
                             src={getImageUrl(relatedProduct.images[0]?.imageUrl)}
                             alt={relatedProduct.name}

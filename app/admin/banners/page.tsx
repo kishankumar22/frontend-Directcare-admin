@@ -299,12 +299,13 @@ const handleSubmit = async (e: React.FormEvent) => {
     }
 
     // ✅ Check API response format
-    if (response.data?.success === false) {
-      const errorMsg = response.data.errors?.join(', ') || 
-                      response.data.message || 
-                      'Operation failed';
-      throw new Error(errorMsg);
-    }
+const data = response.data as { success?: boolean; message?: string; errors?: string[] };
+
+if (data?.success === false) {
+  const errorMsg = data.errors?.join(', ') || data.message || 'Operation failed';
+  throw new Error(errorMsg);
+}
+
 
     // ✅ Success
     toast.success(

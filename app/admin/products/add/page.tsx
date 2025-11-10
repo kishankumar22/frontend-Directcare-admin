@@ -1466,35 +1466,6 @@ const uploadImagesToProduct = async (productId: string, images: ProductImage[]) 
                   )}
                 </div>
 
-                {/* Pre-order Section */}
-                <div className="space-y-4">
-                  <h3 className="text-lg font-semibold text-white border-b border-slate-800 pb-2">Pre-order</h3>
-
-                  <label className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      name="availableForPreOrder"
-                      checked={formData.availableForPreOrder}
-                      onChange={handleChange}
-                      className="rounded bg-slate-800/50 border-slate-700 text-violet-500 focus:ring-violet-500 focus:ring-offset-slate-900"
-                    />
-                    <span className="text-sm text-slate-300">Available for pre-order</span>
-                  </label>
-
-                  {formData.availableForPreOrder && (
-                    <div>
-                      <label className="block text-sm font-medium text-slate-300 mb-2">Pre-order Availability Start Date</label>
-                      <input
-                        type="datetime-local"
-                        name="preOrderAvailabilityStartDate"
-                        value={formData.preOrderAvailabilityStartDate}
-                        onChange={handleChange}
-                        className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
-                      />
-                    </div>
-                  )}
-                </div>
-
                 {/* Mark as New Section */}
                 <div className="space-y-4">
                   <h3 className="text-lg font-semibold text-white border-b border-slate-800 pb-2">Mark as New</h3>
