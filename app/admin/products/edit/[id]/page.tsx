@@ -43,7 +43,30 @@ interface CategoryData {
   subCategories?: CategoryData[];
 }
 
+// Product Variant interface matching backend ProductVariantDto/CreateDto
+interface ProductVariant {
+  id: string;
+  name: string;
+  sku: string;
+  price: number | null;
+  compareAtPrice: number | null;
+  weight: number | null;
+  stockQuantity: number;
+  option1: string | null;
+  option2: string | null;
+  option3: string | null;
+  imageUrl: string | null;
+  isDefault: boolean;
+  imageFile?: File;
+}
 
+// Product Attribute interface matching backend ProductAttributeDto/CreateDto
+interface ProductAttribute {
+  id: string;
+  name: string;
+  value: string;
+  displayOrder: number;
+}
 interface BrandApiResponse {
   success: boolean;
   message: string;
@@ -116,10 +139,11 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
   const { id: productId } = use(params);
   const [searchTerm, setSearchTerm] = useState('');
   const [searchTermCross, setSearchTermCross] = useState('');
-  const [attributes, setAttributes] = useState<Array<{id: string, name: string, values: string[]}>>([]);
+
   const fileInputRef = useRef<HTMLInputElement>(null);
   // Helper function to format datetime for React inputs
-
+  const [productAttributes, setProductAttributes] = useState<ProductAttribute[]>([]);
+  const [productVariants, setProductVariants] = useState<ProductVariant[]>([]);
 // ✅ Add these new states
 const [isDeletingImage, setIsDeletingImage] = useState(false);
 const [uploadingImages, setUploadingImages] = useState(false);
@@ -600,20 +624,43 @@ displayStockQuantity: product.displayStockQuantity ?? false,
             specifications: parseSpecificationString(product.specificationAttributes)
           }));
 
-          // Set attributes from API if they exist
-          if (product.attributes && Array.isArray(product.attributes)) {
-            setAttributes(
-              product.attributes.map((attr: any) => ({
-                id: attr.id || Date.now().toString(),
-                name: attr.name || '',
-                values: Array.isArray(attr.values) ? attr.values : 
-                        typeof attr.values === 'string' ? attr.values.split(',').map((v: string) => v.trim()) : 
-                        ['']
-              }))
-            );
-          } else {
-            setAttributes([]);
-          }
+// Load Product Attributes (matching backend ProductAttributeDto)
+if (product.attributes && Array.isArray(product.attributes)) {
+  const loadedAttributes = product.attributes
+    .filter((attr: any) => attr.name && attr.value) // Filter valid attributes
+    .map((attr: any) => ({
+      id: attr.id || Date.now().toString() + Math.random(),
+      name: attr.name || '',
+      value: attr.value || '',
+      displayOrder: attr.displayOrder || attr.sortOrder || 0
+    }));
+  setProductAttributes(loadedAttributes);
+  console.log('✅ Loaded product attributes:', loadedAttributes);
+} else {
+  setProductAttributes([]);
+}
+
+// Load Product Variants (matching backend ProductVariantDto)
+if (product.variants && Array.isArray(product.variants)) {
+  const loadedVariants = product.variants.map((variant: any) => ({
+    id: variant.id || Date.now().toString() + Math.random(),
+    name: variant.name || '',
+    sku: variant.sku || '',
+    price: variant.price !== null && variant.price !== undefined ? variant.price : null,
+    compareAtPrice: variant.compareAtPrice || null,
+    weight: variant.weight || null,
+    stockQuantity: variant.stockQuantity || 0,
+    option1: variant.option1 || null,
+    option2: variant.option2 || null,
+    option3: variant.option3 || null,
+    imageUrl: variant.imageUrl || null,
+    isDefault: variant.isDefault || false
+  }));
+  setProductVariants(loadedVariants);
+  console.log('✅ Loaded product variants:', loadedVariants);
+} else {
+  setProductVariants([]);
+}
         }
       }
 
@@ -655,20 +702,40 @@ const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
       }
     }
 
-    const formattedAttributes = attributes
-      .filter(attr => attr.name && attr.name.trim())
-      .map(attr => {
-        const filteredValues = attr.values
-          .filter(value => value && value.trim())
-          .map(value => value.trim());
-        
-        return {
-          id: attr.id,
-          name: attr.name.trim(),
-          values: filteredValues
-        };
-      })
-      .filter(attr => attr.values.length > 0);
+// Prepare specifications array matching backend ProductSpecificationDto
+    const specificationsArray = formData.specifications
+      .filter(spec => spec.name && spec.value)
+      .map(spec => ({
+        id: spec.id,
+        name: spec.name,
+        value: spec.value,
+        displayOrder: spec.displayOrder
+      }));
+
+    // Prepare product attributes array matching backend ProductAttributeCreateDto
+    const attributesArray = productAttributes
+      .filter(attr => attr.name && attr.value)
+      .map(attr => ({
+        id: attr.id,
+        name: attr.name,
+        value: attr.value,
+        displayOrder: attr.displayOrder
+      }));
+
+    // Prepare variants array matching backend ProductVariantCreateDto (without images for now)
+    const variantsArray = productVariants.map(variant => ({
+      name: variant.name,
+      sku: variant.sku,
+      price: variant.price,
+      compareAtPrice: variant.compareAtPrice,
+      weight: variant.weight,
+      stockQuantity: variant.stockQuantity,
+      option1: variant.option1,
+      option2: variant.option2,
+      option3: variant.option3,
+      imageUrl: variant.imageUrl,
+      isDefault: variant.isDefault
+    }));
 
     let brandId: string | null = null;
     if (formData.brand && formData.brand.trim()) {
@@ -718,9 +785,12 @@ const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
       maximumCustomerEnteredPrice: formData.customerEntersPrice && formData.maximumCustomerEnteredPrice 
         ? parseFloat(formData.maximumCustomerEnteredPrice) 
         : null,
+    
+      // Add new fields for specifications, attributes, and variants
+      ...(specificationsArray.length > 0 && { specificationAttributes: specificationsArray }),
+      ...(attributesArray.length > 0 && { attributes: attributesArray }),
+      ...(variantsArray.length > 0 && { variants: variantsArray }),
 
-      // Attributes
-      attributes: formattedAttributes,
 
       // Dimensions
       weight: parseFloat(formData.weight) || 0,
@@ -982,71 +1052,86 @@ const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElemen
   );
 
 // ✅ REPLACE your existing addAttribute function
-const addAttribute = () => {
-  const newAttribute = {
-    id: Date.now().toString() + Math.random().toString(36), // More unique ID
+
+// Product Attribute handlers (matching backend ProductAttributeCreateDto)
+const addProductAttribute = () => {
+  const newAttr: ProductAttribute = {
+    id: Date.now().toString(),
     name: '',
-    values: [''] // Start with one empty value
+    value: '',
+    displayOrder: productAttributes.length + 1
   };
-  setAttributes(prevAttributes => [...prevAttributes, newAttribute]);
-  
-  // Optional: Auto-focus on the new attribute name field
-  setTimeout(() => {
-    const newInput = document.querySelector(`input[data-attr-id="${newAttribute.id}"]`);
-    if (newInput) (newInput as HTMLInputElement).focus();
-  }, 100);
+  setProductAttributes([...productAttributes, newAttr]);
 };
 
-
-// ✅ REPLACE existing functions with these improved versions
-
-const removeAttribute = (id: string) => {
-  setAttributes(prevAttributes => prevAttributes.filter(attr => attr.id !== id));
+const removeProductAttribute = (id: string) => {
+  setProductAttributes(productAttributes.filter(attr => attr.id !== id));
 };
 
-const updateAttributeName = (id: string, name: string) => {
-  setAttributes(prevAttributes => 
-    prevAttributes.map(attr => 
-      attr.id === id ? { ...attr, name } : attr
-    )
-  );
+const updateProductAttribute = (id: string, field: keyof ProductAttribute, value: any) => {
+  setProductAttributes(productAttributes.map(attr =>
+    attr.id === id ? { ...attr, [field]: value } : attr
+  ));
 };
 
-const updateAttributeValue = (attrId: string, valueIndex: number, value: string) => {
-  setAttributes(prevAttributes => 
-    prevAttributes.map(attr => {
-      if (attr.id === attrId) {
-        const newValues = [...attr.values];
-        newValues[valueIndex] = value;
-        return { ...attr, values: newValues };
+// Product Variant handlers (matching backend ProductVariantCreateDto)
+const addProductVariant = () => {
+  const newVariant: ProductVariant = {
+    id: Date.now().toString(),
+    name: '',
+    sku: `${formData.sku}-V${productVariants.length + 1}`,
+    price: formData.price ? parseFloat(formData.price) : null,
+    compareAtPrice: null,
+    weight: formData.weight ? parseFloat(formData.weight) : null,
+    stockQuantity: 0,
+    option1: null,
+    option2: null,
+    option3: null,
+    imageUrl: null,
+    isDefault: productVariants.length === 0
+  };
+  setProductVariants([...productVariants, newVariant]);
+};
+
+const removeProductVariant = (id: string) => {
+  setProductVariants(productVariants.filter(v => v.id !== id));
+};
+
+const updateProductVariant = (id: string, field: keyof ProductVariant, value: any) => {
+  setProductVariants(productVariants.map(variant =>
+    variant.id === id ? { ...variant, [field]: value } : variant
+  ));
+};
+
+const handleVariantImageUpload = (variantId: string, file: File) => {
+  const reader = new FileReader();
+  reader.onloadend = () => {
+    setProductVariants(productVariants.map(variant => {
+      if (variant.id === variantId) {
+        return {
+          ...variant,
+          imageUrl: reader.result as string,
+          imageFile: file
+        };
       }
-      return attr;
-    })
-  );
+      return variant;
+    }));
+  };
+  reader.readAsDataURL(file);
 };
 
-const addAttributeValue = (attrId: string) => {
-  setAttributes(prevAttributes => 
-    prevAttributes.map(attr => {
-      if (attr.id === attrId) {
-        return { ...attr, values: [...attr.values, ''] };
-      }
-      return attr;
-    })
-  );
+const removeVariantImage = (variantId: string) => {
+  setProductVariants(productVariants.map(variant => {
+    if (variant.id === variantId) {
+      return {
+        ...variant,
+        imageUrl: null,
+        imageFile: undefined
+      };
+    }
+    return variant;
+  }));
 };
-
-const removeAttributeValue = (attrId: string, valueIndex: number) => {
-  setAttributes(prevAttributes => 
-    prevAttributes.map(attr => {
-      if (attr.id === attrId && attr.values.length > 1) { // Keep at least one value
-        return { ...attr, values: attr.values.filter((_, idx) => idx !== valueIndex) };
-      }
-      return attr;
-    })
-  );
-};
-
 // ✅ REPLACE existing handleImageUpload function:
 const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
   const files = e.target.files;
@@ -1264,9 +1349,13 @@ const uploadImagesToProductDirect = async (productId: string, files: File[]): Pr
                     <LinkIcon className="h-4 w-4" />
                     Related
                   </TabsTrigger>
-                  <TabsTrigger value="attributes" className="flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-slate-400 hover:text-violet-400 border-b-2 border-transparent data-[state=active]:border-violet-500 data-[state=active]:text-violet-400 data-[state=active]:bg-slate-800/50 whitespace-nowrap transition-all rounded-t-lg">
+                   <TabsTrigger value="product-attributes" className="flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-slate-400 hover:text-violet-400 border-b-2 border-transparent data-[state=active]:border-violet-500 data-[state=active]:text-violet-400 data-[state=active]:bg-slate-800/50 whitespace-nowrap transition-all rounded-t-lg">
                     <Tag className="h-4 w-4" />
                     Attributes
+                  </TabsTrigger>
+                  <TabsTrigger value="variants" className="flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-slate-400 hover:text-violet-400 border-b-2 border-transparent data-[state=active]:border-violet-500 data-[state=active]:text-violet-400 data-[state=active]:bg-slate-800/50 whitespace-nowrap transition-all rounded-t-lg">
+                    <Package className="h-4 w-4" />
+                    Variants
                   </TabsTrigger>
                   <TabsTrigger value="seo" className="flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-slate-400 hover:text-violet-400 border-b-2 border-transparent data-[state=active]:border-violet-500 data-[state=active]:text-violet-400 data-[state=active]:bg-slate-800/50 whitespace-nowrap transition-all rounded-t-lg">
                     <Globe className="h-4 w-4" />
@@ -2319,106 +2408,362 @@ const uploadImagesToProductDirect = async (productId: string, files: File[]): Pr
                 </div>
               </TabsContent>
 
-              {/* Attributes Tab */}
-              <TabsContent value="attributes" className="space-y-2 mt-2">
+
+              {/* Product Attributes Tab */}
+              <TabsContent value="product-attributes" className="space-y-2 mt-2">
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
                     <div>
                       <h3 className="text-lg font-semibold text-white">Product Attributes</h3>
                       <p className="text-sm text-slate-400">
-                        Add attributes like size, color, material to create product variations
+                        Add custom attributes like warranty, brand info, material details etc.
                       </p>
                     </div>
                     <button
-                      onClick={addAttribute}
-                      className="px-4 py-2 bg-slate-800/50 border border-slate-700 rounded-lg text-slate-300 hover:bg-slate-800 transition-all text-sm flex items-center gap-2"
+                      type="button"
+                      onClick={addProductAttribute}
+                      className="px-4 py-2 bg-violet-500 hover:bg-violet-600 text-white rounded-lg transition-colors flex items-center gap-2"
                     >
                       <Tag className="h-4 w-4" />
                       Add Attribute
                     </button>
                   </div>
 
-                  {attributes.length === 0 ? (
-                    <div className="text-center py-12 border-2 border-dashed border-slate-700 rounded-xl bg-slate-800/20">
-                      <Package className="mx-auto h-16 w-16 text-slate-600 mb-4" />
-                      <h3 className="text-lg font-semibold text-white mb-2">No Attributes Yet</h3>
+                  {productAttributes.length === 0 ? (
+                    <div className="bg-slate-800/30 border border-slate-700 rounded-xl p-8 text-center">
+                      <Tag className="h-12 w-12 text-slate-600 mx-auto mb-4" />
+                      <h3 className="text-lg font-semibold text-white mb-2">No Product Attributes Yet</h3>
                       <p className="text-slate-400 mb-4">
-                        Click "Add Attribute" to create product variations
+                        Click "Add Attribute" to add custom product information
                       </p>
                     </div>
                   ) : (
-                    <div className="space-y-4">
-                      {attributes.map((attribute, attrIdx) => (
-                        <div key={attribute.id} className="bg-slate-800/30 border border-slate-700 rounded-xl p-4">
-                          <div className="space-y-4">
-                            <div className="flex items-start gap-4">
-                              <div className="flex-1">
+                    <div className="space-y-3">
+                      {productAttributes.map((attr, index) => (
+                        <div key={attr.id} className="bg-slate-800/30 border border-slate-700 rounded-xl p-4">
+                          <div className="flex items-start gap-4">
+                            <div className="flex-1 grid grid-cols-3 gap-4">
+                              <div>
                                 <label className="block text-sm font-medium text-slate-300 mb-2">
                                   Attribute Name <span className="text-red-500">*</span>
                                 </label>
                                 <input
                                   type="text"
-                                  value={attribute.name}
-                                  onChange={(e) => updateAttributeName(attribute.id, e.target.value)}
-                                  placeholder="e.g., Size, Color, Material"
-                                  className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+                                  value={attr.name}
+                                  onChange={(e) => updateProductAttribute(attr.id, 'name', e.target.value)}
+                                  placeholder="e.g., Warranty, Material, Brand"
+                                  className="w-full px-4 py-2.5 bg-slate-900 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500"
                                 />
                               </div>
-                              <button
-                                onClick={() => removeAttribute(attribute.id)}
-                                className="mt-7 p-2 bg-red-500/20 border border-red-500/30 text-red-400 hover:bg-red-500/30 rounded-lg transition-all"
-                              >
-                                <X className="h-4 w-4" />
-                              </button>
-                            </div>
-
-                            <div>
-                              <label className="block text-sm font-medium text-slate-300 mb-2">Values</label>
-                              <div className="space-y-2">
-                                {attribute.values.map((value, valueIdx) => (
-                                  <div key={valueIdx} className="flex items-center gap-2">
-                                    <input
-                                      type="text"
-                                      value={value}
-                                      onChange={(e) => updateAttributeValue(attribute.id, valueIdx, e.target.value)}
-                                      placeholder="e.g., Small, Red, Cotton"
-                                      className="flex-1 px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
-                                    />
-                                    {attribute.values.length > 1 && (
-                                      <button
-                                        onClick={() => removeAttributeValue(attribute.id, valueIdx)}
-                                        className="p-2 bg-slate-800/50 border border-slate-700 text-slate-400 hover:text-red-400 hover:border-red-500/30 rounded-lg transition-all"
-                                      >
-                                        <X className="h-4 w-4" />
-                                      </button>
-                                    )}
-                                  </div>
-                                ))}
-                                <button
-                                  onClick={() => addAttributeValue(attribute.id)}
-                                  className="w-full px-4 py-2 bg-slate-800/50 border border-slate-700 rounded-lg text-slate-300 hover:bg-slate-800 transition-all text-sm"
-                                >
-                                  + Add Value
-                                </button>
+                              <div>
+                                <label className="block text-sm font-medium text-slate-300 mb-2">
+                                  Value <span className="text-red-500">*</span>
+                                </label>
+                                <input
+                                  type="text"
+                                  value={attr.value}
+                                  onChange={(e) => updateProductAttribute(attr.id, 'value', e.target.value)}
+                                  placeholder="e.g., 1 Year, Cotton, Nike"
+                                  className="w-full px-4 py-2.5 bg-slate-900 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-sm font-medium text-slate-300 mb-2">
+                                  Display Order
+                                </label>
+                                <input
+                                  type="number"
+                                  value={attr.displayOrder}
+                                  onChange={(e) => updateProductAttribute(attr.id, 'displayOrder', parseInt(e.target.value) || 0)}
+                                  className="w-full px-4 py-2.5 bg-slate-900 border border-slate-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-violet-500"
+                                />
                               </div>
                             </div>
+                            <button
+                              type="button"
+                              onClick={() => removeProductAttribute(attr.id)}
+                              className="mt-8 p-2 text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-lg transition-colors"
+                            >
+                              <X className="h-5 w-5" />
+                            </button>
                           </div>
                         </div>
                       ))}
                     </div>
                   )}
 
-                  {/* Info Box */}
-                  {formData.productType === 'grouped' && attributes.length > 0 && (
-                    <div className="bg-violet-500/10 border border-violet-500/30 rounded-xl p-4">
-                      <h4 className="font-semibold text-sm text-violet-400 mb-2">Product Variations</h4>
-                      <p className="text-sm text-slate-300">
-                        With the attributes you've added, you can create {
-                          attributes.reduce((acc, attr) => acc * attr.values.filter(v => v).length, 1)
-                        } product variations. Each variation will have its own price, SKU, and inventory.
+                  <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-4">
+                    <h4 className="font-semibold text-sm text-blue-400 mb-2">💡 Attribute Examples</h4>
+                    <ul className="text-sm text-slate-400 space-y-1">
+                      <li>• Warranty: 1 Year Manufacturer Warranty</li>
+                      <li>• Material: 100% Cotton</li>
+                      <li>• Brand: Nike</li>
+                      <li>• Country of Origin: Made in India</li>
+                    </ul>
+                  </div>
+                </div>
+              </TabsContent>
+
+              {/* Product Variants Tab - NEW */}
+              <TabsContent value="variants" className="space-y-2 mt-2">
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="text-lg font-semibold text-white">Product Variants</h3>
+                      <p className="text-sm text-slate-400">
+                        Create variants like different sizes, colors, or configurations with their own pricing and inventory
                       </p>
                     </div>
+                    <button
+                      type="button"
+                      onClick={addProductVariant}
+                      className="px-4 py-2 bg-violet-500 hover:bg-violet-600 text-white rounded-lg transition-colors flex items-center gap-2"
+                    >
+                      <Package className="h-4 w-4" />
+                      Add Variant
+                    </button>
+                  </div>
+
+                  {productVariants.length === 0 ? (
+                    <div className="bg-slate-800/30 border border-slate-700 rounded-xl p-8 text-center">
+                      <Package className="h-12 w-12 text-slate-600 mx-auto mb-4" />
+                      <h3 className="text-lg font-semibold text-white mb-2">No Product Variants Yet</h3>
+                      <p className="text-slate-400 mb-4">
+                        Click "Add Variant" to create different versions of this product
+                      </p>
+                      <p className="text-sm text-slate-500">
+                        Example: iPhone 128GB Black, iPhone 256GB White
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {productVariants.map((variant, index) => (
+                        <div key={variant.id} className="bg-slate-800/30 border border-slate-700 rounded-xl p-4">
+                          <div className="flex items-start justify-between mb-4">
+                            <div className="flex items-center gap-2">
+                              <h4 className="text-white font-medium">Variant #{index + 1}</h4>
+                              {variant.isDefault && (
+                                <span className="px-2 py-1 bg-violet-500/20 text-violet-400 text-xs rounded-md">
+                                  Default
+                                </span>
+                              )}
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => removeProductVariant(variant.id)}
+                              className="p-2 text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-lg transition-colors"
+                            >
+                              <X className="h-5 w-5" />
+                            </button>
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-4 mb-4">
+                            <div>
+                              <label className="block text-sm font-medium text-slate-300 mb-2">
+                                Variant Name <span className="text-red-500">*</span>
+                              </label>
+                              <input
+                                type="text"
+                                value={variant.name}
+                                onChange={(e) => updateProductVariant(variant.id, 'name', e.target.value)}
+                                placeholder="e.g., 128GB Black"
+                                className="w-full px-4 py-2.5 bg-slate-900 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-sm font-medium text-slate-300 mb-2">
+                                SKU <span className="text-red-500">*</span>
+                              </label>
+                              <input
+                                type="text"
+                                value={variant.sku}
+                                onChange={(e) => updateProductVariant(variant.id, 'sku', e.target.value)}
+                                placeholder="e.g., SKU-128-BLK"
+                                className="w-full px-4 py-2.5 bg-slate-900 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500"
+                              />
+                            </div>
+                          </div>
+
+                          <div className="grid grid-cols-4 gap-4 mb-4">
+                            <div>
+                              <label className="block text-sm font-medium text-slate-300 mb-2">
+                                Price (₹)
+                              </label>
+                              <input
+                                type="number"
+                                step="0.01"
+                                value={variant.price || ''}
+                                onChange={(e) => updateProductVariant(variant.id, 'price', e.target.value ? parseFloat(e.target.value) : null)}
+                                placeholder="0.00"
+                                className="w-full px-4 py-2.5 bg-slate-900 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-sm font-medium text-slate-300 mb-2">
+                                Compare At Price
+                              </label>
+                              <input
+                                type="number"
+                                step="0.01"
+                                value={variant.compareAtPrice || ''}
+                                onChange={(e) => updateProductVariant(variant.id, 'compareAtPrice', e.target.value ? parseFloat(e.target.value) : null)}
+                                placeholder="0.00"
+                                className="w-full px-4 py-2.5 bg-slate-900 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-sm font-medium text-slate-300 mb-2">
+                                Weight (kg)
+                              </label>
+                              <input
+                                type="number"
+                                step="0.01"
+                                value={variant.weight || ''}
+                                onChange={(e) => updateProductVariant(variant.id, 'weight', e.target.value ? parseFloat(e.target.value) : null)}
+                                placeholder="0.00"
+                                className="w-full px-4 py-2.5 bg-slate-900 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-sm font-medium text-slate-300 mb-2">
+                                Stock Quantity
+                              </label>
+                              <input
+                                type="number"
+                                value={variant.stockQuantity}
+                                onChange={(e) => updateProductVariant(variant.id, 'stockQuantity', parseInt(e.target.value) || 0)}
+                                placeholder="0"
+                                className="w-full px-4 py-2.5 bg-slate-900 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500"
+                              />
+                            </div>
+                          </div>
+
+                          <div className="grid grid-cols-3 gap-4 mb-4">
+                            <div>
+                              <label className="block text-sm font-medium text-slate-300 mb-2">
+                                Option 1 (e.g., Size)
+                              </label>
+                              <input
+                                type="text"
+                                value={variant.option1 || ''}
+                                onChange={(e) => updateProductVariant(variant.id, 'option1', e.target.value || null)}
+                                placeholder="e.g., 128GB, Large, Red"
+                                className="w-full px-4 py-2.5 bg-slate-900 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-sm font-medium text-slate-300 mb-2">
+                                Option 2 (e.g., Color)
+                              </label>
+                              <input
+                                type="text"
+                                value={variant.option2 || ''}
+                                onChange={(e) => updateProductVariant(variant.id, 'option2', e.target.value || null)}
+                                placeholder="e.g., Black, Cotton, Matte"
+                                className="w-full px-4 py-2.5 bg-slate-900 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-sm font-medium text-slate-300 mb-2">
+                                Option 3 (e.g., Material)
+                              </label>
+                              <input
+                                type="text"
+                                value={variant.option3 || ''}
+                                onChange={(e) => updateProductVariant(variant.id, 'option3', e.target.value || null)}
+                                placeholder="e.g., Premium, WiFi+Cellular"
+                                className="w-full px-4 py-2.5 bg-slate-900 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500"
+                              />
+                            </div>
+                          </div>
+
+                          {/* Variant Image Upload */}
+                          <div>
+                            <label className="block text-sm font-medium text-slate-300 mb-2">
+                              Variant Image
+                            </label>
+                            {variant.imageUrl ? (
+                              <div className="relative inline-block">
+                              
+
+<img
+  src={
+    variant?.imageUrl
+      ? `${API_BASE_URL.replace(/\/$/, "")}/${variant.imageUrl.replace(/^\//, "")}`
+      : "No IMAGE Available" // fallback image
+  }
+  alt={variant?.name || "Variant"}
+  className="w-32 h-32 object-cover rounded-lg border border-slate-700"
+/>
+
+                                <button
+                                  type="button"
+                                  onClick={() => removeVariantImage(variant.id)}
+                                  className="absolute -top-2 -right-2 p-1 bg-red-500 hover:bg-red-600 text-white rounded-full transition-colors"
+                                >
+                                  <X className="h-4 w-4" />
+                                </button>
+                              </div>
+                            ) : (
+                              <div className="flex items-center gap-2">
+                                <input
+                                  type="file"
+                                  accept="image/*"
+                                  onChange={(e) => {
+                                    const file = e.target.files?.[0];
+                                    if (file) {
+                                      handleVariantImageUpload(variant.id, file);
+                                    }
+                                  }}
+                                  className="hidden"
+                                  id={`variant-image-${variant.id}`}
+                                />
+                                <label
+                                  htmlFor={`variant-image-${variant.id}`}
+                                  className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-colors cursor-pointer flex items-center gap-2"
+                                >
+                                  <Upload className="h-4 w-4" />
+                                  Upload Image
+                                </label>
+                                <span className="text-sm text-slate-400">
+                                  Optional - Image specific to this variant
+                                </span>
+                              </div>
+                            )}
+                          </div>
+
+                          <div className="mt-4 flex items-center gap-2">
+                            <input
+                              type="checkbox"
+                              id={`variant-default-${variant.id}`}
+                              checked={variant.isDefault}
+                              onChange={(e) => {
+                                // Set all variants to not default first
+                                setProductVariants(productVariants.map(v => ({
+                                  ...v,
+                                  isDefault: v.id === variant.id ? e.target.checked : false
+                                })));
+                              }}
+                              className="w-4 h-4 rounded border-slate-700 bg-slate-900 text-violet-500 focus:ring-2 focus:ring-violet-500"
+                            />
+                            <label htmlFor={`variant-default-${variant.id}`} className="text-sm text-slate-300">
+                              Set as default variant
+                            </label>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
                   )}
+
+                  <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-4">
+                    <h4 className="font-semibold text-sm text-blue-400 mb-2">💡 Variant Tips</h4>
+                    <ul className="text-sm text-slate-400 space-y-1">
+                      <li>• Each variant should have a unique SKU</li>
+                      <li>• Use Option fields to categorize variants (Size, Color, Material)</li>
+                      <li>• Upload specific images for each variant to show the difference</li>
+                      <li>• Set one variant as default - it will be shown first to customers</li>
+                    </ul>
+                  </div>
                 </div>
               </TabsContent>
 
