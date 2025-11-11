@@ -495,14 +495,14 @@ useEffect(() => {
             minStockQuantity: product.minStockQuantity?.toString() || '0',
             notifyAdminForQuantityBelow: product.notifyQuantityBelow?.toString() || '1',
             
-            // Backorder
-            allowBackorder: product.allowBackorder ?? false,
-            allowBackInStockSubscriptions: product.allowBackorder ?? false,
-            backorders: product.backorderMode || 'no-backorders',
+       
+    // Backorder
+allowBackorder: product.allowBackorder ?? false,
+allowBackInStockSubscriptions: product.allowBackInStockSubscriptions ?? false,
 
-            // Display settings
-            displayStockAvailability: true,
-            displayStockQuantity: false,
+    // Display settings
+displayStockAvailability: product.displayStockAvailability ?? true,  // ✅ Changed from hardcoded true
+displayStockQuantity: product.displayStockQuantity ?? false,
             
             // Cart quantities
             minCartQuantity: product.orderMinimumQuantity?.toString() || '1',
@@ -745,9 +745,12 @@ const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
       minStockQuantity: parseInt(formData.minStockQuantity) || 0,
       notifyAdminForQuantityBelow: true,
       notifyQuantityBelow: parseInt(formData.notifyAdminForQuantityBelow) || 1,
-      
+      // ✅ ADD THESE THREE FIELDS
+    displayStockAvailability: formData.displayStockAvailability,
+    displayStockQuantity: formData.displayStockQuantity,
       // Backorder
       allowBackorder: formData.allowBackorder,
+      allowBackInStockSubscriptions: formData.allowBackInStockSubscriptions, 
       backorderMode: formData.backorders || 'no-backorders',
 
       // Cart Quantities
@@ -1907,38 +1910,10 @@ const uploadImagesToProductDirect = async (productId: string, files: File[]): Pr
                           <span className="text-sm text-slate-300">Display stock quantity</span>
                         </label>
 
-                        <label className="flex items-center gap-2">
-                          <input
-                            type="checkbox"
-                            name="allowBackInStockSubscriptions"
-                            checked={formData.allowBackInStockSubscriptions}
-                            onChange={handleChange}
-                            className="rounded bg-slate-800/50 border-slate-700 text-violet-500 focus:ring-violet-500 focus:ring-offset-slate-900"
-                          />
-                          <span className="text-sm text-slate-300">Allow back in stock subscriptions</span>
-                        </label>
+                       
                       </div>
                     </div>
 
-                    <div className="space-y-4">
-                      <h3 className="text-lg font-semibold text-white border-b border-slate-800 pb-2">Multiple Warehouses</h3>
-
-                      <div>
-                        <label className="block text-sm font-medium text-slate-300 mb-2">Product Availability Range</label>
-                        <select
-                          name="productAvailabilityRange"
-                          value={formData.productAvailabilityRange}
-                          onChange={handleChange}
-                          className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
-                        >
-                          <option value="">None</option>
-                          <option value="1-2-days">1-2 days</option>
-                          <option value="3-5-days">3-5 days</option>
-                          <option value="1-week">1 week</option>
-                          <option value="2-weeks">2 weeks</option>
-                        </select>
-                      </div>
-                    </div>
                   </>
                 )}
 

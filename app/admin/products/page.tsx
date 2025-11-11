@@ -1446,7 +1446,7 @@ export default function ProductsPage() {
                 <div className="flex justify-end gap-3 pt-4 border-t border-slate-700/50">
                   <Link href={`/admin/products/edit/${viewingProduct.id}`}>
                     <button className="px-6 py-2.5 bg-gradient-to-r from-cyan-500 to-blue-500 text-white rounded-xl hover:shadow-lg hover:shadow-cyan-500/50 transition-all font-medium text-sm flex items-center gap-2">
-                      <Edit className="w-4 w-4" />
+                      <Edit className="w-4" />
                       Edit Product
                     </button>
                   </Link>
