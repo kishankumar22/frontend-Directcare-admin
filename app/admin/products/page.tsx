@@ -964,505 +964,506 @@ export default function ProductsPage() {
       )}
 
       {/* FULL DETAILS VIEW MODAL - ALL FIELDS WITH OPTIMIZATIONS */}
-      {viewingProduct && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-[60] flex items-center justify-center p-4">
-          <div className="bg-gradient-to-br from-slate-900 via-slate-900 to-slate-800 border border-violet-500/20 rounded-3xl max-w-6xl w-full max-h-[90vh] overflow-hidden shadow-2xl shadow-violet-500/10">
-            
-            {/* Header */}
-            <div className="p-6 border-b border-violet-500/20 bg-gradient-to-r from-violet-500/10 to-cyan-500/10 sticky top-0 z-10">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h2 className="text-2xl font-bold bg-gradient-to-r from-violet-400 via-cyan-400 to-pink-400 bg-clip-text text-transparent">
-                    Complete Product Details
-                  </h2>
-           
-                </div>
-                <button
-                  onClick={() => setViewingProduct(null)}
-                  className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-all"
-                >
-                  <X className="h-5 w-5" />
-                </button>
-              </div>
-            </div>
+ {/* FULL DETAILS VIEW MODAL - ALL FIELDS WITH OPTIMIZATIONS */}
+{viewingProduct && (
+  <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-[60] flex items-center justify-center p-4">
+    <div className="bg-gradient-to-br from-slate-900 via-slate-900 to-slate-800 border border-violet-500/20 rounded-3xl max-w-6xl w-full max-h-[90vh] overflow-hidden shadow-2xl shadow-violet-500/10">
+      
+      {/* Header */}
+      <div className="p-6 border-b border-violet-500/20 bg-gradient-to-r from-violet-500/10 to-cyan-500/10 sticky top-0 z-10">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-2xl font-bold bg-gradient-to-r from-violet-400 via-cyan-400 to-pink-400 bg-clip-text text-transparent">
+              Complete Product Details
+            </h2>
+          </div>
+          <button
+            onClick={() => setViewingProduct(null)}
+            className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-all"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+      </div>
 
-            {/* Loading State */}
-            {loadingDetails ? (
-              <div className="flex items-center justify-center py-20">
-                <div className="text-center">
-                  <div className="w-12 h-12 border-4 border-violet-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-                  <p className="text-slate-400">Loading product details...</p>
-                </div>
-              </div>
-            ) : (
-              <div className="p-6 overflow-y-auto max-h-[calc(90vh-120px)] space-y-6">
-                
-                {/* Product Header with Images */}
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                  {/* Product Images */}
-                  <div className="space-y-4">
-                    <div className="w-full h-64 rounded-xl bg-gradient-to-br from-violet-500/20 to-cyan-500/20 flex items-center justify-center overflow-hidden border border-slate-700/50">
-                      {viewingProduct.images && viewingProduct.images.length > 0 ? (
-                        <img
-                          src={`${API_BASE_URL.replace(/\/$/, '')}/${viewingProduct.images.find(img => img.isMain)?.imageUrl.replace(/^\//, '') || viewingProduct.images[0]?.imageUrl.replace(/^\//, '')}`}
-                          alt={viewingProduct.name}
-                          className="w-full h-full object-cover cursor-pointer hover:scale-105 transition-transform"
-                          onClick={() => setViewingImage(`${API_BASE_URL.replace(/\/$/, '')}/${viewingProduct.images?.find(img => img.isMain)?.imageUrl.replace(/^\//, '') || viewingProduct.images?.[0]?.imageUrl.replace(/^\//, '') || ''}`)}
-                        />
-                      ) : (
-                        <span className="text-6xl">📦</span>
-                      )}
-                    </div>
-                    
-                    {/* Additional Images */}
-                    {viewingProduct.images && viewingProduct.images.length > 1 && (
-                      <div className="grid grid-cols-4 gap-2">
-                        {viewingProduct.images.map((img, idx) => (
-                          <div 
-                            key={img.id}
-                            className="aspect-square rounded-lg overflow-hidden bg-slate-800/50 cursor-pointer hover:ring-2 hover:ring-violet-400 transition-all border border-slate-700/50"
-                            onClick={() => setViewingImage(`${API_BASE_URL.replace(/\/$/, '')}/${img.imageUrl.replace(/^\//, '')}`)}
-                          >
-                            <img
-                              src={`${API_BASE_URL.replace(/\/$/, '')}/${img.imageUrl.replace(/^\//, '')}`}
-                              alt={img.altText || `Image ${idx + 1}`}
-                              className="w-full h-full object-cover"
-                            />
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Basic Info */}
-                  <div className="lg:col-span-2 space-y-4">
-                    <div>
-                      <h3 className="text-3xl font-bold text-white mb-2">{viewingProduct.name}</h3>
-                      <div className="flex items-center gap-2 flex-wrap mb-4">
-                        <span className="px-3 py-1 bg-violet-500/10 text-violet-400 rounded-lg text-sm font-medium">
-                          {viewingProduct.category}
-                        </span>
-                        <span className="px-3 py-1 bg-cyan-500/10 text-cyan-400 rounded-lg text-sm font-medium">
-                          {viewingProduct.brandName}
-                        </span>
-                        <span className={`px-3 py-1 rounded-lg text-sm font-medium ${
-                          viewingProduct.status === 'In Stock' ? 'bg-green-500/10 text-green-400' :
-                          viewingProduct.status === 'Low Stock' ? 'bg-orange-500/10 text-orange-400' :
-                          'bg-red-500/10 text-red-400'
-                        }`}>
-                          {viewingProduct.status}
-                        </span>
-                        <span className={`px-3 py-1 rounded-lg text-sm font-medium ${
-                          viewingProduct.isPublished ? 'bg-green-500/10 text-green-400' : 'bg-slate-500/10 text-slate-400'
-                        }`}>
-                          {viewingProduct.isPublished ? '✓ Published' : '✗ Unpublished'}
-                        </span>
-                        {viewingProduct.markAsNew && (
-                          <span className="px-3 py-1 bg-pink-500/10 text-pink-400 rounded-lg text-sm font-medium animate-pulse">
-                            🆕 New
-                          </span>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Short Description */}
-                    {viewingProduct.shortDescription && (
-                      <div className="p-4 bg-slate-800/50 rounded-xl border border-slate-700/50">
-                        <div 
-                          className="prose prose-invert prose-sm max-w-none text-slate-300"
-                          dangerouslySetInnerHTML={{ __html: viewingProduct.shortDescription }}
-                        />
-                      </div>
-                    )}
-
-                    {/* Quick Stats */}
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                      <div className="p-3 bg-slate-800/50 rounded-xl text-center border border-slate-700/50">
-                        <DollarSign className="w-5 h-5 text-green-400 mx-auto mb-1" />
-                        <p className="text-xs text-slate-400">Price</p>
-                        <p className="text-lg font-bold text-white">₹{viewingProduct.price?.toFixed(2)}</p>
-                        {viewingProduct.oldPrice && viewingProduct.oldPrice > viewingProduct.price && (
-                          <p className="text-xs text-red-400 line-through">₹{viewingProduct.oldPrice.toFixed(2)}</p>
-                        )}
-                      </div>
-                      <div className="p-3 bg-slate-800/50 rounded-xl text-center border border-slate-700/50">
-                        <Package className="w-5 h-5 text-cyan-400 mx-auto mb-1" />
-                        <p className="text-xs text-slate-400">Stock</p>
-                        <p className="text-lg font-bold text-white">{viewingProduct.stockQuantity}</p>
-                      </div>
-                      <div className="p-3 bg-slate-800/50 rounded-xl text-center border border-slate-700/50">
-                        <Star className="w-5 h-5 text-yellow-400 mx-auto mb-1" />
-                        <p className="text-xs text-slate-400">Rating</p>
-                        <p className="text-lg font-bold text-white">{viewingProduct.averageRating?.toFixed(1) || '0.0'}</p>
-                        <p className="text-xs text-slate-400">({viewingProduct.reviewCount || 0} reviews)</p>
-                      </div>
-                      <div className="p-3 bg-slate-800/50 rounded-xl text-center border border-slate-700/50">
-                        <Eye className="w-5 h-5 text-violet-400 mx-auto mb-1" />
-                        <p className="text-xs text-slate-400">Views</p>
-                        <p className="text-lg font-bold text-white">{viewingProduct.viewCount || 0}</p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Full Description */}
-                {viewingProduct.description && (
-                  <div className="bg-slate-800/30 rounded-xl p-6 border border-slate-700">
-                    <h4 className="text-lg font-bold text-white mb-3 flex items-center gap-2">
-                      <FileText className="w-5 h-5 text-violet-400" />
-                      Full Description
-                    </h4>
-                    <div 
-                      className="prose prose-invert max-w-none text-slate-300"
-                      dangerouslySetInnerHTML={{ __html: viewingProduct.description }}
-                    />
-                  </div>
-                )}
-
-                {/* Product Identification */}
-                <div className="bg-slate-800/30 rounded-xl p-6 border border-slate-700">
-                  <h4 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
-                    <Tag className="w-5 h-5 text-cyan-400" />
-                    Product Identification
-                  </h4>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                    <InfoField label="SKU" value={viewingProduct.sku} />
-                    <InfoField label="Slug" value={viewingProduct.slug} />
-                    <InfoField label="GTIN" value={viewingProduct.gtin} />
-                    <InfoField label="Manufacturer Part #" value={viewingProduct.manufacturerPartNumber} />
-                    <InfoField label="Product Type" value={viewingProduct.productType} />
-                    <InfoField label="Display Order" value={viewingProduct.displayOrder?.toString()} />
-                  </div>
-                </div>
-
-                {/* Pricing Information */}
-                <div className="bg-slate-800/30 rounded-xl p-6 border border-slate-700">
-                  <h4 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
-                    <DollarSign className="w-5 h-5 text-green-400" />
-                    Pricing Information
-                  </h4>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                    <InfoField label="Current Price" value={`₹${viewingProduct.price?.toFixed(2)}`} highlight />
-                    <InfoField label="Old Price" value={viewingProduct.oldPrice ? `₹${viewingProduct.oldPrice.toFixed(2)}` : 'N/A'} />
-                    <InfoField label="Compare At Price" value={viewingProduct.compareAtPrice ? `₹${viewingProduct.compareAtPrice.toFixed(2)}` : 'N/A'} />
-                    <InfoField label="Cost Price" value={viewingProduct.costPrice ? `₹${viewingProduct.costPrice.toFixed(2)}` : 'N/A'} />
-                    <InfoField label="Call For Price" value={viewingProduct.callForPrice ? 'Yes' : 'No'} />
-                    <InfoField label="Customer Enters Price" value={viewingProduct.customerEntersPrice ? 'Yes' : 'No'} />
-                    {viewingProduct.customerEntersPrice && (
-                      <>
-                        <InfoField label="Min Customer Price" value={`₹${viewingProduct.minimumCustomerEnteredPrice?.toFixed(2)}`} />
-                        <InfoField label="Max Customer Price" value={`₹${viewingProduct.maximumCustomerEnteredPrice?.toFixed(2)}`} />
-                      </>
-                    )}
-                  </div>
-                </div>
-
-                {/* Inventory Management */}
-                <div className="bg-slate-800/30 rounded-xl p-6 border border-slate-700">
-                  <h4 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
-                    <Package className="w-5 h-5 text-orange-400" />
-                    Inventory Management
-                  </h4>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                    <InfoField label="Stock Quantity" value={viewingProduct.stockQuantity?.toString()} highlight />
-                    <InfoField label="Track Quantity" value={viewingProduct.trackQuantity ? 'Yes' : 'No'} />
-                    <InfoField label="Manage Inventory" value={viewingProduct.manageInventoryMethod || 'N/A'} />
-                    <InfoField label="Min Stock Quantity" value={viewingProduct.minStockQuantity?.toString()} />
-                    <InfoField label="Notify Below Quantity" value={viewingProduct.notifyQuantityBelow?.toString()} />
-                    <InfoField label="Allow Backorder" value={viewingProduct.allowBackorder ? 'Yes' : 'No'} />
-                    <InfoField label="Backorder Mode" value={viewingProduct.backorderMode || 'N/A'} />
-                    <InfoField label="Min Order Quantity" value={viewingProduct.orderMinimumQuantity?.toString()} />
-                    <InfoField label="Max Order Quantity" value={viewingProduct.orderMaximumQuantity?.toString()} />
-                    {viewingProduct.allowedQuantities && (
-                      <InfoField label="Allowed Quantities" value={viewingProduct.allowedQuantities} className="col-span-full" />
-                    )}
-                  </div>
-                </div>
-
-                {/* Shipping & Dimensions */}
-                <div className="bg-slate-800/30 rounded-xl p-6 border border-slate-700">
-                  <h4 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
-                    <Truck className="w-5 h-5 text-blue-400" />
-                    Shipping & Dimensions
-                  </h4>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                    <InfoField label="Requires Shipping" value={viewingProduct.requiresShipping ? 'Yes' : 'No'} />
-                    <InfoField label="Free Shipping" value={viewingProduct.isFreeShipping ? 'Yes' : 'No'} />
-                    <InfoField label="Ship Separately" value={viewingProduct.shipSeparately ? 'Yes' : 'No'} />
-                    <InfoField label="Additional Shipping" value={viewingProduct.additionalShippingCharge ? `₹${viewingProduct.additionalShippingCharge}` : 'N/A'} />
-                    <InfoField 
-                      label="Weight" 
-                      value={viewingProduct.weight ? `${viewingProduct.weight} ${viewingProduct.weightUnit || 'kg'}` : 'N/A'} 
-                      icon={<Scale className="w-4 h-4" />}
-                    />
-                    <InfoField 
-                      label="Length" 
-                      value={viewingProduct.length ? `${viewingProduct.length} ${viewingProduct.dimensionUnit || 'cm'}` : 'N/A'}
-                      icon={<Ruler className="w-4 h-4" />}
-                    />
-                    <InfoField 
-                      label="Width" 
-                      value={viewingProduct.width ? `${viewingProduct.width} ${viewingProduct.dimensionUnit || 'cm'}` : 'N/A'}
-                      icon={<Ruler className="w-4 h-4" />}
-                    />
-                    <InfoField 
-                      label="Height" 
-                      value={viewingProduct.height ? `${viewingProduct.height} ${viewingProduct.dimensionUnit || 'cm'}` : 'N/A'}
-                      icon={<Box className="w-4 h-4" />}
-                    />
-                  </div>
-                </div>
-
-                {/* Availability & Dates */}
-                <div className="bg-slate-800/30 rounded-xl p-6 border border-slate-700">
-                  <h4 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
-                    <Calendar className="w-5 h-5 text-yellow-400" />
-                    Availability & Important Dates
-                  </h4>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                    <InfoField label="Published At" value={viewingProduct.publishedAt ? formatDate(viewingProduct.publishedAt) : 'N/A'} />
-                    <InfoField label="Available From" value={viewingProduct.availableStartDate ? formatDate(viewingProduct.availableStartDate) : 'N/A'} />
-                    <InfoField label="Available Until" value={viewingProduct.availableEndDate ? formatDate(viewingProduct.availableEndDate) : 'N/A'} />
-                    {viewingProduct.markAsNew && (
-                      <>
-                        <InfoField label="Mark New From" value={viewingProduct.markAsNewStartDate ? formatDate(viewingProduct.markAsNewStartDate) : 'N/A'} />
-                        <InfoField label="Mark New Until" value={viewingProduct.markAsNewEndDate ? formatDate(viewingProduct.markAsNewEndDate) : 'N/A'} />
-                      </>
-                    )}
-                  </div>
-                </div>
-
-                {/* Visibility & Settings */}
-                <div className="bg-slate-800/30 rounded-xl p-6 border border-slate-700">
-                  <h4 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
-                    <Eye className="w-5 h-5 text-purple-400" />
-                    Visibility & Settings
-                  </h4>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                    <InfoField label="Published" value={viewingProduct.isPublished ? 'Yes' : 'No'} />
-                    <InfoField label="Visible Individually" value={viewingProduct.visibleIndividually ? 'Yes' : 'No'} />
-                    <InfoField label="Show on Homepage" value={viewingProduct.showOnHomepage ? 'Yes' : 'No'} />
-                    <InfoField label="Disable Buy Button" value={viewingProduct.disableBuyButton ? 'Yes' : 'No'} />
-                    <InfoField label="Disable Wishlist" value={viewingProduct.disableWishlistButton ? 'Yes' : 'No'} />
-                    <InfoField label="Not Returnable" value={viewingProduct.notReturnable ? 'Yes' : 'No'} />
-                    <InfoField label="Allow Reviews" value={viewingProduct.allowCustomerReviews ? 'Yes' : 'No'} />
-                    <InfoField label="Tax Exempt" value={viewingProduct.taxExempt ? 'Yes' : 'No'} />
-                    <InfoField label="Tax Category ID" value={viewingProduct.taxCategoryId || 'N/A'} />
-                  </div>
-                </div>
-
-                {/* SEO Information */}
-                <div className="bg-slate-800/30 rounded-xl p-6 border border-slate-700">
-                  <h4 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
-                    <Globe className="w-5 h-5 text-indigo-400" />
-                    SEO Information
-                  </h4>
-                  <div className="space-y-3">
-                    <InfoField label="Meta Title" value={viewingProduct.metaTitle} fullWidth />
-                    <InfoField label="Meta Description" value={viewingProduct.metaDescription} fullWidth />
-                    <InfoField label="Meta Keywords" value={viewingProduct.metaKeywords} fullWidth />
-                    <InfoField label="SEO Friendly URL" value={viewingProduct.searchEngineFriendlyPageName} fullWidth />
-                  </div>
-                </div>
-
-                {/* Tags */}
-                {viewingProduct.tags && (
-                  <div className="bg-slate-800/30 rounded-xl p-6 border border-slate-700">
-                    <h4 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
-                      <Tag className="w-5 h-5 text-pink-400" />
-                      Tags
-                    </h4>
-                    <div className="flex flex-wrap gap-2">
-                      {viewingProduct.tags.split(',').map((tag, idx) => (
-                        <span key={idx} className="px-3 py-1 bg-pink-500/10 text-pink-400 rounded-lg text-sm border border-pink-500/20">
-                          {tag.trim()}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Product Videos - ENHANCED WITH EMBED */}
-                {viewingProduct.videoUrls && (
-                  <div className="bg-slate-800/30 rounded-xl p-6 border border-slate-700">
-                    <h4 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
-                      <Video className="w-5 h-5 text-red-400" />
-                      Product Videos ({viewingProduct.videoUrls.split(',').length})
-                    </h4>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      {viewingProduct.videoUrls.split(',').map((url, idx) => {
-                        const embedUrl = getYouTubeEmbedUrl(url.trim());
-                        return (
-                          <div key={idx} className="bg-slate-900/50 rounded-lg overflow-hidden border border-slate-700/50">
-                            {embedUrl ? (
-                              <div 
-                                className="relative aspect-video bg-slate-900 flex items-center justify-center cursor-pointer group"
-                                onClick={() => setPlayingVideo(embedUrl)}
-                              >
-                                <iframe
-                                  src={`${embedUrl}?controls=0`}
-                                  className="w-full h-full pointer-events-none"
-                                  title={`Product Video ${idx + 1}`}
-                                />
-                                <div className="absolute inset-0 bg-black/40 group-hover:bg-black/60 transition-all flex items-center justify-center">
-                                  <div className="bg-red-500 rounded-full p-4 group-hover:scale-110 transition-transform">
-                                    <Play className="w-6 h-6 text-white fill-white" />
-                                  </div>
-                                </div>
-                              </div>
-                            ) : (
-                              <a
-                                href={url.trim()}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="flex items-center gap-3 p-4 hover:bg-slate-800/50 transition-all group"
-                              >
-                                <div className="p-2 bg-red-500/10 rounded-lg group-hover:bg-red-500/20 transition-all">
-                                  <ExternalLink className="w-5 h-5 text-red-400" />
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                  <p className="text-slate-300 text-sm truncate group-hover:text-white transition-colors">
-                                    Video {idx + 1}
-                                  </p>
-                                  <p className="text-xs text-slate-500 truncate">{url.trim()}</p>
-                                </div>
-                              </a>
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-
-                {/* Specification Attributes */}
-                {viewingProduct.specificationAttributes && parseSpecifications(viewingProduct.specificationAttributes).length > 0 && (
-                  <div className="bg-slate-800/30 rounded-xl p-6 border border-slate-700">
-                    <h4 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
-                      <Info className="w-5 h-5 text-teal-400" />
-                      Specifications ({parseSpecifications(viewingProduct.specificationAttributes).length})
-                    </h4>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      {parseSpecifications(viewingProduct.specificationAttributes).map((spec) => (
-                        <div key={spec.id} className="flex justify-between items-center p-3 bg-slate-900/50 rounded-lg border border-slate-700/50">
-                          <span className="text-slate-400 text-sm">{spec.name}</span>
-                          <span className="text-white font-medium text-sm">{spec.value}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Related Products - WITH PRODUCT NAMES */}
-                {viewingProduct.relatedProducts && viewingProduct.relatedProducts.length > 0 && (
-                  <div className="bg-slate-800/30 rounded-xl p-6 border border-slate-700">
-                    <h4 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
-                      <ShoppingCart className="w-5 h-5 text-green-400" />
-                      Related Products ({viewingProduct.relatedProducts.length})
-                    </h4>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                      {viewingProduct.relatedProducts.map((product) => (
-                        <div key={product.id} className="bg-slate-900/50 rounded-lg p-4 border border-slate-700/50 hover:border-violet-500/50 transition-all group">
-                          <div className="flex items-center gap-3">
-                            <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-violet-500 to-pink-500 flex items-center justify-center overflow-hidden flex-shrink-0">
-                              {product.image && product.image !== "📦" ? (
-                                <img src={product.image} alt={product.name} className="w-full h-full object-cover" />
-                              ) : (
-                                <span className="text-lg">📦</span>
-                              )}
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <p className="text-white text-sm font-medium truncate group-hover:text-violet-400 transition-colors">
-                                {product.name}
-                              </p>
-                              <p className="text-xs text-slate-400 font-mono">{product.sku}</p>
-                              <p className="text-xs text-green-400 font-semibold">₹{product.price.toFixed(2)}</p>
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Cross-Sell Products - WITH PRODUCT NAMES */}
-                {viewingProduct.crossSellProducts && viewingProduct.crossSellProducts.length > 0 && (
-                  <div className="bg-slate-800/30 rounded-xl p-6 border border-slate-700">
-                    <h4 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
-                      <ShoppingCart className="w-5 h-5 text-cyan-400" />
-                      Cross-Sell Products ({viewingProduct.crossSellProducts.length})
-                    </h4>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                      {viewingProduct.crossSellProducts.map((product) => (
-                        <div key={product.id} className="bg-slate-900/50 rounded-lg p-4 border border-slate-700/50 hover:border-cyan-500/50 transition-all group">
-                          <div className="flex items-center gap-3">
-                            <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-cyan-500 to-blue-500 flex items-center justify-center overflow-hidden flex-shrink-0">
-                              {product.image && product.image !== "📦" ? (
-                                <img src={product.image} alt={product.name} className="w-full h-full object-cover" />
-                              ) : (
-                                <span className="text-lg">📦</span>
-                              )}
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <p className="text-white text-sm font-medium truncate group-hover:text-cyan-400 transition-colors">
-                                {product.name}
-                              </p>
-                              <p className="text-xs text-slate-400 font-mono">{product.sku}</p>
-                              <p className="text-xs text-green-400 font-semibold">₹{product.price.toFixed(2)}</p>
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Admin Comment */}
-                {viewingProduct.adminComment && (
-                  <div className="bg-slate-800/30 rounded-xl p-6 border border-slate-700">
-                    <h4 className="text-lg font-bold text-white mb-3 flex items-center gap-2">
-                      <AlertCircle className="w-5 h-5 text-amber-400" />
-                      Admin Comment
-                    </h4>
-                    <p className="text-slate-300 text-sm">{viewingProduct.adminComment}</p>
-                  </div>
-                )}
-
-                {/* Activity Timeline */}
-                <div className="bg-slate-800/30 rounded-xl p-6 border border-slate-700">
-                  <h4 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
-                    <Activity className="w-5 h-5 text-blue-400" />
-                    Activity Timeline
-                  </h4>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                    <InfoField label="Created At" value={viewingProduct.createdAt} icon={<Clock className="w-4 h-4" />} />
-                    <InfoField label="Created By" value={viewingProduct.createdBy || 'N/A'} icon={<User className="w-4 h-4" />} />
-                    <InfoField label="Updated At" value={viewingProduct.updatedAt} icon={<Clock className="w-4 h-4" />} />
-                    <InfoField label="Updated By" value={viewingProduct.updatedBy || 'N/A'} icon={<User className="w-4 h-4" />} />
-                  </div>
-                </div>
-
-                {/* Action Buttons */}
-                <div className="flex justify-end gap-3 pt-4 border-t border-slate-700/50">
-                  <Link href={`/admin/products/edit/${viewingProduct.id}`}>
-                    <button className="px-6 py-2.5 bg-gradient-to-r from-cyan-500 to-blue-500 text-white rounded-xl hover:shadow-lg hover:shadow-cyan-500/50 transition-all font-medium text-sm flex items-center gap-2">
-                      <Edit className="w-4" />
-                      Edit Product
-                    </button>
-                  </Link>
-                  <button
-                    onClick={() => setViewingProduct(null)}
-                    className="px-6 py-2.5 bg-slate-800 text-white rounded-xl hover:bg-slate-700 transition-all font-medium text-sm"
-                  >
-                    Close
-                  </button>
-                </div>
-
-              </div>
-            )}
+      {/* Loading State */}
+      {loadingDetails ? (
+        <div className="flex items-center justify-center py-20">
+          <div className="text-center">
+            <div className="w-12 h-12 border-4 border-violet-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+            <p className="text-slate-400">Loading product details...</p>
           </div>
         </div>
+      ) : (
+        <div className="p-6 overflow-y-auto max-h-[calc(90vh-120px)] space-y-6">
+          
+          {/* Product Header with Images */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* Product Images */}
+            <div className="space-y-4">
+              <div className="w-full h-64 rounded-xl bg-gradient-to-br from-violet-500/20 to-cyan-500/20 flex items-center justify-center overflow-hidden border border-slate-700/50">
+                {viewingProduct.images && viewingProduct.images.length > 0 ? (
+                  <img
+                    src={`${API_BASE_URL.replace(/\/$/, '')}/${viewingProduct.images.find(img => img.isMain)?.imageUrl.replace(/^\//, '') || viewingProduct.images[0]?.imageUrl.replace(/^\//, '')}`}
+                    alt={viewingProduct.name}
+                    className="w-full h-full object-cover cursor-pointer hover:scale-105 transition-transform"
+                    onClick={() => setViewingImage(`${API_BASE_URL.replace(/\/$/, '')}/${viewingProduct.images?.find(img => img.isMain)?.imageUrl.replace(/^\//, '') || viewingProduct.images?.[0]?.imageUrl.replace(/^\//, '') || ''}`)}
+                  />
+                ) : (
+                  <span className="text-6xl">📦</span>
+                )}
+              </div>
+              
+              {/* Additional Images - ✅ FIX: Added key prop */}
+              {viewingProduct.images && viewingProduct.images.length > 1 && (
+                <div className="grid grid-cols-4 gap-2">
+                  {viewingProduct.images.map((img, idx) => (
+                    <div 
+                      key={img.id || `img-${idx}`}
+                      className="aspect-square rounded-lg overflow-hidden bg-slate-800/50 cursor-pointer hover:ring-2 hover:ring-violet-400 transition-all border border-slate-700/50"
+                      onClick={() => setViewingImage(`${API_BASE_URL.replace(/\/$/, '')}/${img.imageUrl.replace(/^\//, '')}`)}
+                    >
+                      <img
+                        src={`${API_BASE_URL.replace(/\/$/, '')}/${img.imageUrl.replace(/^\//, '')}`}
+                        alt={img.altText || `Image ${idx + 1}`}
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Basic Info */}
+            <div className="lg:col-span-2 space-y-4">
+              <div>
+                <h3 className="text-3xl font-bold text-white mb-2">{viewingProduct.name}</h3>
+                <div className="flex items-center gap-2 flex-wrap mb-4">
+                  <span className="px-3 py-1 bg-violet-500/10 text-violet-400 rounded-lg text-sm font-medium">
+                    {viewingProduct.category}
+                  </span>
+                  <span className="px-3 py-1 bg-cyan-500/10 text-cyan-400 rounded-lg text-sm font-medium">
+                    {viewingProduct.brandName}
+                  </span>
+                  <span className={`px-3 py-1 rounded-lg text-sm font-medium ${
+                    viewingProduct.status === 'In Stock' ? 'bg-green-500/10 text-green-400' :
+                    viewingProduct.status === 'Low Stock' ? 'bg-orange-500/10 text-orange-400' :
+                    'bg-red-500/10 text-red-400'
+                  }`}>
+                    {viewingProduct.status}
+                  </span>
+                  <span className={`px-3 py-1 rounded-lg text-sm font-medium ${
+                    viewingProduct.isPublished ? 'bg-green-500/10 text-green-400' : 'bg-slate-500/10 text-slate-400'
+                  }`}>
+                    {viewingProduct.isPublished ? '✓ Published' : '✗ Unpublished'}
+                  </span>
+                  {viewingProduct.markAsNew && (
+                    <span className="px-3 py-1 bg-pink-500/10 text-pink-400 rounded-lg text-sm font-medium animate-pulse">
+                      🆕 New
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              {/* Short Description */}
+              {viewingProduct.shortDescription && (
+                <div className="p-4 bg-slate-800/50 rounded-xl border border-slate-700/50">
+                  <div 
+                    className="prose prose-invert prose-sm max-w-none text-slate-300"
+                    dangerouslySetInnerHTML={{ __html: viewingProduct.shortDescription }}
+                  />
+                </div>
+              )}
+
+              {/* Quick Stats */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div className="p-3 bg-slate-800/50 rounded-xl text-center border border-slate-700/50">
+                  <DollarSign className="w-5 h-5 text-green-400 mx-auto mb-1" />
+                  <p className="text-xs text-slate-400">Price</p>
+                  <p className="text-lg font-bold text-white">₹{viewingProduct.price?.toFixed(2)}</p>
+                  {viewingProduct.oldPrice && viewingProduct.oldPrice > viewingProduct.price && (
+                    <p className="text-xs text-red-400 line-through">₹{viewingProduct.oldPrice.toFixed(2)}</p>
+                  )}
+                </div>
+                <div className="p-3 bg-slate-800/50 rounded-xl text-center border border-slate-700/50">
+                  <Package className="w-5 h-5 text-cyan-400 mx-auto mb-1" />
+                  <p className="text-xs text-slate-400">Stock</p>
+                  <p className="text-lg font-bold text-white">{viewingProduct.stockQuantity}</p>
+                </div>
+                <div className="p-3 bg-slate-800/50 rounded-xl text-center border border-slate-700/50">
+                  <Star className="w-5 h-5 text-yellow-400 mx-auto mb-1" />
+                  <p className="text-xs text-slate-400">Rating</p>
+                  <p className="text-lg font-bold text-white">{viewingProduct.averageRating?.toFixed(1) || '0.0'}</p>
+                  <p className="text-xs text-slate-400">({viewingProduct.reviewCount || 0} reviews)</p>
+                </div>
+                <div className="p-3 bg-slate-800/50 rounded-xl text-center border border-slate-700/50">
+                  <Eye className="w-5 h-5 text-violet-400 mx-auto mb-1" />
+                  <p className="text-xs text-slate-400">Views</p>
+                  <p className="text-lg font-bold text-white">{viewingProduct.viewCount || 0}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Full Description */}
+          {viewingProduct.description && (
+            <div className="bg-slate-800/30 rounded-xl p-6 border border-slate-700">
+              <h4 className="text-lg font-bold text-white mb-3 flex items-center gap-2">
+                <FileText className="w-5 h-5 text-violet-400" />
+                Full Description
+              </h4>
+              <div 
+                className="prose prose-invert max-w-none text-slate-300"
+                dangerouslySetInnerHTML={{ __html: viewingProduct.description }}
+              />
+            </div>
+          )}
+
+          {/* Product Identification */}
+          <div className="bg-slate-800/30 rounded-xl p-6 border border-slate-700">
+            <h4 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
+              <Tag className="w-5 h-5 text-cyan-400" />
+              Product Identification
+            </h4>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              <InfoField label="SKU" value={viewingProduct.sku} />
+              <InfoField label="Slug" value={viewingProduct.slug} />
+              <InfoField label="GTIN" value={viewingProduct.gtin} />
+              <InfoField label="Manufacturer Part #" value={viewingProduct.manufacturerPartNumber} />
+              <InfoField label="Product Type" value={viewingProduct.productType} />
+              <InfoField label="Display Order" value={viewingProduct.displayOrder?.toString()} />
+            </div>
+          </div>
+
+          {/* Pricing Information */}
+          <div className="bg-slate-800/30 rounded-xl p-6 border border-slate-700">
+            <h4 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
+              <DollarSign className="w-5 h-5 text-green-400" />
+              Pricing Information
+            </h4>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              <InfoField label="Current Price" value={`₹${viewingProduct.price?.toFixed(2)}`} highlight />
+              <InfoField label="Old Price" value={viewingProduct.oldPrice ? `₹${viewingProduct.oldPrice.toFixed(2)}` : 'N/A'} />
+              <InfoField label="Compare At Price" value={viewingProduct.compareAtPrice ? `₹${viewingProduct.compareAtPrice.toFixed(2)}` : 'N/A'} />
+              <InfoField label="Cost Price" value={viewingProduct.costPrice ? `₹${viewingProduct.costPrice.toFixed(2)}` : 'N/A'} />
+              <InfoField label="Call For Price" value={viewingProduct.callForPrice ? 'Yes' : 'No'} />
+              <InfoField label="Customer Enters Price" value={viewingProduct.customerEntersPrice ? 'Yes' : 'No'} />
+              {viewingProduct.customerEntersPrice && (
+                <>
+                  <InfoField label="Min Customer Price" value={`₹${viewingProduct.minimumCustomerEnteredPrice?.toFixed(2)}`} />
+                  <InfoField label="Max Customer Price" value={`₹${viewingProduct.maximumCustomerEnteredPrice?.toFixed(2)}`} />
+                </>
+              )}
+            </div>
+          </div>
+
+          {/* Inventory Management */}
+          <div className="bg-slate-800/30 rounded-xl p-6 border border-slate-700">
+            <h4 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
+              <Package className="w-5 h-5 text-orange-400" />
+              Inventory Management
+            </h4>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              <InfoField label="Stock Quantity" value={viewingProduct.stockQuantity?.toString()} highlight />
+              <InfoField label="Track Quantity" value={viewingProduct.trackQuantity ? 'Yes' : 'No'} />
+              <InfoField label="Manage Inventory" value={viewingProduct.manageInventoryMethod || 'N/A'} />
+              <InfoField label="Min Stock Quantity" value={viewingProduct.minStockQuantity?.toString()} />
+              <InfoField label="Notify Below Quantity" value={viewingProduct.notifyQuantityBelow?.toString()} />
+              <InfoField label="Allow Backorder" value={viewingProduct.allowBackorder ? 'Yes' : 'No'} />
+              <InfoField label="Backorder Mode" value={viewingProduct.backorderMode || 'N/A'} />
+              <InfoField label="Min Order Quantity" value={viewingProduct.orderMinimumQuantity?.toString()} />
+              <InfoField label="Max Order Quantity" value={viewingProduct.orderMaximumQuantity?.toString()} />
+              {viewingProduct.allowedQuantities && (
+                <InfoField label="Allowed Quantities" value={viewingProduct.allowedQuantities} className="col-span-full" />
+              )}
+            </div>
+          </div>
+
+          {/* Shipping & Dimensions */}
+          <div className="bg-slate-800/30 rounded-xl p-6 border border-slate-700">
+            <h4 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
+              <Truck className="w-5 h-5 text-blue-400" />
+              Shipping & Dimensions
+            </h4>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              <InfoField label="Requires Shipping" value={viewingProduct.requiresShipping ? 'Yes' : 'No'} />
+              <InfoField label="Free Shipping" value={viewingProduct.isFreeShipping ? 'Yes' : 'No'} />
+              <InfoField label="Ship Separately" value={viewingProduct.shipSeparately ? 'Yes' : 'No'} />
+              <InfoField label="Additional Shipping" value={viewingProduct.additionalShippingCharge ? `₹${viewingProduct.additionalShippingCharge}` : 'N/A'} />
+              <InfoField 
+                label="Weight" 
+                value={viewingProduct.weight ? `${viewingProduct.weight} ${viewingProduct.weightUnit || 'kg'}` : 'N/A'} 
+                icon={<Scale className="w-4 h-4" />}
+              />
+              <InfoField 
+                label="Length" 
+                value={viewingProduct.length ? `${viewingProduct.length} ${viewingProduct.dimensionUnit || 'cm'}` : 'N/A'}
+                icon={<Ruler className="w-4 h-4" />}
+              />
+              <InfoField 
+                label="Width" 
+                value={viewingProduct.width ? `${viewingProduct.width} ${viewingProduct.dimensionUnit || 'cm'}` : 'N/A'}
+                icon={<Ruler className="w-4 h-4" />}
+              />
+              <InfoField 
+                label="Height" 
+                value={viewingProduct.height ? `${viewingProduct.height} ${viewingProduct.dimensionUnit || 'cm'}` : 'N/A'}
+                icon={<Box className="w-4 h-4" />}
+              />
+            </div>
+          </div>
+
+          {/* Availability & Dates */}
+          <div className="bg-slate-800/30 rounded-xl p-6 border border-slate-700">
+            <h4 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
+              <Calendar className="w-5 h-5 text-yellow-400" />
+              Availability & Important Dates
+            </h4>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              <InfoField label="Published At" value={viewingProduct.publishedAt ? formatDate(viewingProduct.publishedAt) : 'N/A'} />
+              <InfoField label="Available From" value={viewingProduct.availableStartDate ? formatDate(viewingProduct.availableStartDate) : 'N/A'} />
+              <InfoField label="Available Until" value={viewingProduct.availableEndDate ? formatDate(viewingProduct.availableEndDate) : 'N/A'} />
+              {viewingProduct.markAsNew && (
+                <>
+                  <InfoField label="Mark New From" value={viewingProduct.markAsNewStartDate ? formatDate(viewingProduct.markAsNewStartDate) : 'N/A'} />
+                  <InfoField label="Mark New Until" value={viewingProduct.markAsNewEndDate ? formatDate(viewingProduct.markAsNewEndDate) : 'N/A'} />
+                </>
+              )}
+            </div>
+          </div>
+
+          {/* Visibility & Settings */}
+          <div className="bg-slate-800/30 rounded-xl p-6 border border-slate-700">
+            <h4 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
+              <Eye className="w-5 h-5 text-purple-400" />
+              Visibility & Settings
+            </h4>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              <InfoField label="Published" value={viewingProduct.isPublished ? 'Yes' : 'No'} />
+              <InfoField label="Visible Individually" value={viewingProduct.visibleIndividually ? 'Yes' : 'No'} />
+              <InfoField label="Show on Homepage" value={viewingProduct.showOnHomepage ? 'Yes' : 'No'} />
+              <InfoField label="Disable Buy Button" value={viewingProduct.disableBuyButton ? 'Yes' : 'No'} />
+              <InfoField label="Disable Wishlist" value={viewingProduct.disableWishlistButton ? 'Yes' : 'No'} />
+              <InfoField label="Not Returnable" value={viewingProduct.notReturnable ? 'Yes' : 'No'} />
+              <InfoField label="Allow Reviews" value={viewingProduct.allowCustomerReviews ? 'Yes' : 'No'} />
+              <InfoField label="Tax Exempt" value={viewingProduct.taxExempt ? 'Yes' : 'No'} />
+              <InfoField label="Tax Category ID" value={viewingProduct.taxCategoryId || 'N/A'} />
+            </div>
+          </div>
+
+          {/* SEO Information */}
+          <div className="bg-slate-800/30 rounded-xl p-6 border border-slate-700">
+            <h4 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
+              <Globe className="w-5 h-5 text-indigo-400" />
+              SEO Information
+            </h4>
+            <div className="space-y-3">
+              <InfoField label="Meta Title" value={viewingProduct.metaTitle} fullWidth />
+              <InfoField label="Meta Description" value={viewingProduct.metaDescription} fullWidth />
+              <InfoField label="Meta Keywords" value={viewingProduct.metaKeywords} fullWidth />
+              <InfoField label="SEO Friendly URL" value={viewingProduct.searchEngineFriendlyPageName} fullWidth />
+            </div>
+          </div>
+
+          {/* Tags - ✅ FIX: Added key prop */}
+          {viewingProduct.tags && (
+            <div className="bg-slate-800/30 rounded-xl p-6 border border-slate-700">
+              <h4 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
+                <Tag className="w-5 h-5 text-pink-400" />
+                Tags
+              </h4>
+              <div className="flex flex-wrap gap-2">
+                {viewingProduct.tags.split(',').map((tag, idx) => (
+                  <span key={`tag-${idx}-${tag.trim()}`} className="px-3 py-1 bg-pink-500/10 text-pink-400 rounded-lg text-sm border border-pink-500/20">
+                    {tag.trim()}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Product Videos - ✅ FIX: Added key prop */}
+          {viewingProduct.videoUrls && (
+            <div className="bg-slate-800/30 rounded-xl p-6 border border-slate-700">
+              <h4 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
+                <Video className="w-5 h-5 text-red-400" />
+                Product Videos ({viewingProduct.videoUrls.split(',').length})
+              </h4>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {viewingProduct.videoUrls.split(',').map((url, idx) => {
+                  const embedUrl = getYouTubeEmbedUrl(url.trim());
+                  return (
+                    <div key={`video-${idx}-${url.trim()}`} className="bg-slate-900/50 rounded-lg overflow-hidden border border-slate-700/50">
+                      {embedUrl ? (
+                        <div 
+                          className="relative aspect-video bg-slate-900 flex items-center justify-center cursor-pointer group"
+                          onClick={() => setPlayingVideo(embedUrl)}
+                        >
+                          <iframe
+                            src={`${embedUrl}?controls=0`}
+                            className="w-full h-full pointer-events-none"
+                            title={`Product Video ${idx + 1}`}
+                          />
+                          <div className="absolute inset-0 bg-black/40 group-hover:bg-black/60 transition-all flex items-center justify-center">
+                            <div className="bg-red-500 rounded-full p-4 group-hover:scale-110 transition-transform">
+                              <Play className="w-6 h-6 text-white fill-white" />
+                            </div>
+                          </div>
+                        </div>
+                      ) : (
+                        <a
+                          href={url.trim()}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-3 p-4 hover:bg-slate-800/50 transition-all group"
+                        >
+                          <div className="p-2 bg-red-500/10 rounded-lg group-hover:bg-red-500/20 transition-all">
+                            <ExternalLink className="w-5 h-5 text-red-400" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-slate-300 text-sm truncate group-hover:text-white transition-colors">
+                              Video {idx + 1}
+                            </p>
+                            <p className="text-xs text-slate-500 truncate">{url.trim()}</p>
+                          </div>
+                        </a>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Specification Attributes - ✅ FIX: THIS IS THE MAIN ISSUE */}
+          {viewingProduct.specificationAttributes && parseSpecifications(viewingProduct.specificationAttributes).length > 0 && (
+            <div className="bg-slate-800/30 rounded-xl p-6 border border-slate-700">
+              <h4 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
+                <Info className="w-5 h-5 text-teal-400" />
+                Specifications ({parseSpecifications(viewingProduct.specificationAttributes).length})
+              </h4>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {parseSpecifications(viewingProduct.specificationAttributes).map((spec) => (
+                  <div key={spec.id || `spec-${spec.name}-${spec.value}`} className="flex justify-between items-center p-3 bg-slate-900/50 rounded-lg border border-slate-700/50">
+                    <span className="text-slate-400 text-sm">{spec.name}</span>
+                    <span className="text-white font-medium text-sm">{spec.value}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Related Products - ✅ FIX: Added key prop */}
+          {viewingProduct.relatedProducts && viewingProduct.relatedProducts.length > 0 && (
+            <div className="bg-slate-800/30 rounded-xl p-6 border border-slate-700">
+              <h4 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
+                <ShoppingCart className="w-5 h-5 text-green-400" />
+                Related Products ({viewingProduct.relatedProducts.length})
+              </h4>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {viewingProduct.relatedProducts.map((product) => (
+                  <div key={product.id || `related-${product.sku}`} className="bg-slate-900/50 rounded-lg p-4 border border-slate-700/50 hover:border-violet-500/50 transition-all group">
+                    <div className="flex items-center gap-3">
+                      <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-violet-500 to-pink-500 flex items-center justify-center overflow-hidden flex-shrink-0">
+                        {product.image && product.image !== "📦" ? (
+                          <img src={product.image} alt={product.name} className="w-full h-full object-cover" />
+                        ) : (
+                          <span className="text-lg">📦</span>
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-white text-sm font-medium truncate group-hover:text-violet-400 transition-colors">
+                          {product.name}
+                        </p>
+                        <p className="text-xs text-slate-400 font-mono">{product.sku}</p>
+                        <p className="text-xs text-green-400 font-semibold">₹{product.price.toFixed(2)}</p>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Cross-Sell Products - ✅ FIX: Added key prop */}
+          {viewingProduct.crossSellProducts && viewingProduct.crossSellProducts.length > 0 && (
+            <div className="bg-slate-800/30 rounded-xl p-6 border border-slate-700">
+              <h4 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
+                <ShoppingCart className="w-5 h-5 text-cyan-400" />
+                Cross-Sell Products ({viewingProduct.crossSellProducts.length})
+              </h4>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {viewingProduct.crossSellProducts.map((product) => (
+                  <div key={product.id || `cross-${product.sku}`} className="bg-slate-900/50 rounded-lg p-4 border border-slate-700/50 hover:border-cyan-500/50 transition-all group">
+                    <div className="flex items-center gap-3">
+                      <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-cyan-500 to-blue-500 flex items-center justify-center overflow-hidden flex-shrink-0">
+                        {product.image && product.image !== "📦" ? (
+                          <img src={product.image} alt={product.name} className="w-full h-full object-cover" />
+                        ) : (
+                          <span className="text-lg">📦</span>
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-white text-sm font-medium truncate group-hover:text-cyan-400 transition-colors">
+                          {product.name}
+                        </p>
+                        <p className="text-xs text-slate-400 font-mono">{product.sku}</p>
+                        <p className="text-xs text-green-400 font-semibold">₹{product.price.toFixed(2)}</p>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Admin Comment */}
+          {viewingProduct.adminComment && (
+            <div className="bg-slate-800/30 rounded-xl p-6 border border-slate-700">
+              <h4 className="text-lg font-bold text-white mb-3 flex items-center gap-2">
+                <AlertCircle className="w-5 h-5 text-amber-400" />
+                Admin Comment
+              </h4>
+              <p className="text-slate-300 text-sm">{viewingProduct.adminComment}</p>
+            </div>
+          )}
+
+          {/* Activity Timeline */}
+          <div className="bg-slate-800/30 rounded-xl p-6 border border-slate-700">
+            <h4 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
+              <Activity className="w-5 h-5 text-blue-400" />
+              Activity Timeline
+            </h4>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              <InfoField label="Created At" value={viewingProduct.createdAt} icon={<Clock className="w-4 h-4" />} />
+              <InfoField label="Created By" value={viewingProduct.createdBy || 'N/A'} icon={<User className="w-4 h-4" />} />
+              <InfoField label="Updated At" value={viewingProduct.updatedAt} icon={<Clock className="w-4 h-4" />} />
+              <InfoField label="Updated By" value={viewingProduct.updatedBy || 'N/A'} icon={<User className="w-4 h-4" />} />
+            </div>
+          </div>
+
+          {/* Action Buttons */}
+          <div className="flex justify-end gap-3 pt-4 border-t border-slate-700/50">
+            <Link href={`/admin/products/edit/${viewingProduct.id}`}>
+              <button className="px-6 py-2.5 bg-gradient-to-r from-cyan-500 to-blue-500 text-white rounded-xl hover:shadow-lg hover:shadow-cyan-500/50 transition-all font-medium text-sm flex items-center gap-2">
+                <Edit className="w-4" />
+                Edit Product
+              </button>
+            </Link>
+            <button
+              onClick={() => setViewingProduct(null)}
+              className="px-6 py-2.5 bg-slate-800 text-white rounded-xl hover:bg-slate-700 transition-all font-medium text-sm"
+            >
+              Close
+            </button>
+          </div>
+
+        </div>
       )}
+    </div>
+  </div>
+)}
+
 
       {/* Delete Confirmation Dialog */}
       <ConfirmDialog

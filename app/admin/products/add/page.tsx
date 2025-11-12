@@ -166,7 +166,7 @@ interface CategoryData {
 interface DropdownsData {
   brands: BrandData[];
   categories: CategoryData[];
-
+  manufacturers: ManufacturerData[]; // Add this line
 }
 export default function AddProductPage() {
   const router = useRouter();
@@ -186,7 +186,7 @@ const [uploadingImages, setUploadingImages] = useState(false);
 const [dropdownsData, setDropdownsData] = useState<DropdownsData>({
   brands: [],
   categories: [],
-
+  manufacturers: [] // Add this line
 });
 
 // Updated combined useEffect with manufacturers API
@@ -195,22 +195,23 @@ useEffect(() => {
     try {
       console.log('🔄 Fetching all data (dropdowns + products + manufacturers)...');
       // Fetch all data in parallel including manufacturers
-      const [brandsResponse, categoriesResponse, productsResponse] = await Promise.all([
+      const [brandsResponse, categoriesResponse, productsResponse, manufacturersResponse] = await Promise.all([
         apiClient.get<BrandApiResponse>('/api/Brands?includeUnpublished=false'),
         apiClient.get<CategoryApiResponse>('/api/Categories?includeInactive=true&includeSubCategories=true'),
-        apiClient.get<ProductsApiResponse>('/api/Products')       
+        apiClient.get<ProductsApiResponse>('/api/Products'),
+        apiClient.get<ManufacturerApiResponse>('/api/Manufacturers') // Added manufacturers API
       ]);
 
       // Extract dropdown data with proper typing
       const brandsData = (brandsResponse.data as BrandApiResponse)?.data || [];
       const categoriesData = (categoriesResponse.data as CategoryApiResponse)?.data || [];
-     
+      const manufacturersData = (manufacturersResponse.data as ManufacturerApiResponse)?.data || [];
 
       // Set dropdown data including manufacturers
       setDropdownsData({
         brands: brandsData,
         categories: categoriesData,
-       
+        manufacturers: manufacturersData // Add manufacturers data
       });
 
       // Extract and transform products data
@@ -231,7 +232,12 @@ useEffect(() => {
         setAvailableProducts([]);
       }
 
-
+      console.log('✅ All data loaded:', {
+        brandsCount: brandsData.length,
+        categoriesCount: categoriesData.length,
+        manufacturersCount: manufacturersData.length,
+        productsCount: productsResponse.data ? (productsResponse.data as ProductsApiResponse).data.items.length : 0
+      });
 
     } catch (error) {
       console.error('❌ Error fetching data:', error);
@@ -240,7 +246,7 @@ useEffect(() => {
       setDropdownsData({
         brands: [],
         categories: [],
-    
+        manufacturers: []
       });
       setAvailableProducts([]);
     }
@@ -259,11 +265,11 @@ useEffect(() => {
     sku: '',
     categories: '', // Will store category ID
     brand: '', // Will store brand ID
- 
+    manufacturer: '',
     published: true,
     productType: 'simple',
     visibleIndividually: true,
- 
+    manufacturerId: '', // Changed from 'manufacturer' to 'manufacturerId'
     customerRoles: 'all',
     limitedToStores: false,
     vendorId: '',
@@ -476,6 +482,7 @@ const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
     // Validate required fields
     if (!formData.name || !formData.sku) {
       toast.warning('Please fill in required fields: Product Name and SKU');
+      target.removeAttribute('data-submitting');
       return;
     }
 
@@ -484,10 +491,10 @@ const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
     // Show loading toast
     const loadingId = toast.info(
       isDraft ? 'Saving as draft...' : 'Creating product...', 
-      { autoClose: 0 }
+    
     );
 
-    // Prepare product data (same as before)
+    // Prepare product data
     const guidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
     let categoryId: string | null = null;
@@ -506,8 +513,15 @@ const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
       }
     }
 
-   
-    // Prepare specifications array matching backend ProductSpecificationDto
+    let manufacturerId: string | null = null;
+    if (formData.manufacturerId && formData.manufacturerId.trim()) {
+      const trimmedManufacturer = formData.manufacturerId.trim();
+      if (guidRegex.test(trimmedManufacturer)) {
+        manufacturerId = trimmedManufacturer;
+      }
+    }
+
+    // Prepare specifications array
     const specificationAttributes = formData.specifications
       .filter(spec => spec.name && spec.value)
       .map(spec => ({
@@ -517,7 +531,7 @@ const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
         displayOrder: spec.displayOrder
       }));
 
-    // Prepare attributes array matching backend ProductAttributeCreateDto
+    // Prepare attributes array
     const attributesArray = productAttributes
       .filter(attr => attr.name && attr.value)
       .map(attr => ({
@@ -527,7 +541,7 @@ const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
         displayOrder: attr.displayOrder
       }));
 
-    // Prepare variants array matching backend ProductVariantCreateDto (without images for now)
+    // Prepare variants array
     const variantsArray = productVariants.map(variant => ({
       name: variant.name,
       sku: variant.sku,
@@ -543,6 +557,7 @@ const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
     }));
 
     const productData = {
+      // Basic Info
       name: formData.name.trim(),
       description: formData.fullDescription || formData.shortDescription || formData.name || 'Product description',
       shortDescription: formData.shortDescription?.trim() || '',
@@ -551,76 +566,141 @@ const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
       manufacturerPartNumber: formData.manufacturerPartNumber?.trim() || null,
       displayOrder: parseInt(formData.displayOrder) || 1,
       adminComment: formData.adminComment?.trim() || null,
+      
+      // Pricing
       price: parseFloat(formData.price) || 0,
       oldPrice: formData.oldPrice ? parseFloat(formData.oldPrice) : null,
       compareAtPrice: formData.oldPrice ? parseFloat(formData.oldPrice) : null,
       costPrice: formData.cost ? parseFloat(formData.cost) : null,
+      
+      // Dimensions
       weight: parseFloat(formData.weight) || 0,
       length: formData.length ? parseFloat(formData.length) : null,
       width: formData.width ? parseFloat(formData.width) : null,
       height: formData.height ? parseFloat(formData.height) : null,
+      
+      // Shipping
       requiresShipping: formData.isShipEnabled,
+      isFreeShipping: formData.isFreeShipping || false,
+      shipSeparately: formData.shipSeparately || false,
+      additionalShippingCharge: formData.additionalShippingCharge ? parseFloat(formData.additionalShippingCharge) : null,
+      deliveryDateId: formData.deliveryDateId || null,
+      
+      // Inventory
       stockQuantity: parseInt(formData.stockQuantity) || 0,
       trackQuantity: formData.manageInventory === 'track',
+      minStockQuantity: formData.minStockQuantity ? parseInt(formData.minStockQuantity) : null,
+      lowStockActivity: formData.lowStockActivity || null,
+      notifyAdminForQuantityBelow: formData.notifyAdminForQuantityBelow ? parseInt(formData.notifyAdminForQuantityBelow) : null,
+      backorders: formData.backorders || null,
+      displayStockAvailability: formData.displayStockAvailability || false,
+      displayStockQuantity: formData.displayStockQuantity || false,
+      allowBackInStockSubscriptions: formData.allowBackInStockSubscriptions || false,
+      productAvailabilityRange: formData.productAvailabilityRange || null,
+      
+      // Categories and Relations
       ...(categoryId && { categoryId }),
       ...(brandId && { brandId }),
-    
+      ...(manufacturerId && { manufacturerId }),
+      
+      // Publishing
       isPublished: isDraft ? false : formData.published,
       status: isDraft ? 1 : (formData.published ? 2 : 1),
       visibleIndividually: formData.visibleIndividually,
       showOnHomepage: formData.showOnHomepage || false,
+      
+      // SEO
       metaTitle: formData.metaTitle?.trim() || null,
       metaDescription: formData.metaDescription?.trim() || null,
       metaKeywords: formData.metaKeywords?.trim() || null,
       searchEngineFriendlyPageName: formData.searchEngineFriendlyPageName?.trim() || null,
 
-      // Add new fields for specifications, attributes, and variants
+      // Specifications, Attributes, and Variants
       ...(specificationAttributes.length > 0 && { specificationAttributes }),
       ...(attributesArray.length > 0 && { attributes: attributesArray }),
       ...(variantsArray.length > 0 && { variants: variantsArray }),
 
-      // Pricing options
-      disableBuyButton: formData.disableBuyButton,
-      disableWishlistButton: formData.disableWishlistButton,
-      callForPrice: formData.callForPrice,
-      markAsNew: formData.markAsNew,
-      markAsNewStartDate: formData.markAsNewStartDate ? new Date(formData.markAsNewStartDate).toISOString() : null,
-      markAsNewEndDate: formData.markAsNewEndDate ? new Date(formData.markAsNewEndDate).toISOString() : null,
-      availableForPreOrder: formData.availableForPreOrder,
-      preOrderAvailabilityStartDate: formData.preOrderAvailabilityStartDate ? new Date(formData.preOrderAvailabilityStartDate).toISOString() : null,
+      // ✅ FIX 1: Pricing Options
+      disableBuyButton: formData.disableBuyButton || false,
+      disableWishlistButton: formData.disableWishlistButton || false,
+      callForPrice: formData.callForPrice || false,
+      
+      // ✅ FIX 2: Customer Enters Price with Start/End Date
+      customerEntersPrice: formData.customerEntersPrice || false,
+      minimumCustomerEnteredPrice: formData.customerEntersPrice && formData.minimumCustomerEnteredPrice 
+        ? parseFloat(formData.minimumCustomerEnteredPrice) 
+        : null,
+      maximumCustomerEnteredPrice: formData.customerEntersPrice && formData.maximumCustomerEnteredPrice 
+        ? parseFloat(formData.maximumCustomerEnteredPrice) 
+        : null,
+
+      // ✅ FIX 3: Mark as New
+      markAsNew: formData.markAsNew || false,
+      markAsNewStartDate: formData.markAsNew && formData.markAsNewStartDate 
+        ? new Date(formData.markAsNewStartDate).toISOString() 
+        : null,
+      markAsNewEndDate: formData.markAsNew && formData.markAsNewEndDate 
+        ? new Date(formData.markAsNewEndDate).toISOString() 
+        : null,
+      
+      // Pre-order
+      availableForPreOrder: formData.availableForPreOrder || false,
+      preOrderAvailabilityStartDate: formData.availableForPreOrder && formData.preOrderAvailabilityStartDate 
+        ? new Date(formData.preOrderAvailabilityStartDate).toISOString() 
+        : null,
 
       // Availability dates
-      availableStartDate: formData.availableStartDate ? new Date(formData.availableStartDate).toISOString() : null,
-      availableEndDate: formData.availableEndDate ? new Date(formData.availableEndDate).toISOString() : null,
-
-      // Shipping
-      isFreeShipping: formData.isFreeShipping,
+      availableStartDate: formData.availableStartDate 
+        ? new Date(formData.availableStartDate).toISOString() 
+        : null,
+      availableEndDate: formData.availableEndDate 
+        ? new Date(formData.availableEndDate).toISOString() 
+        : null,
 
       // Related products and cross-sell
       relatedProductIds: Array.isArray(formData.relatedProducts) && formData.relatedProducts.length > 0
-        ? formData.relatedProducts.join(',') : null,
+        ? formData.relatedProducts.join(',') 
+        : null,
       crossSellProductIds: Array.isArray(formData.crossSellProducts) && formData.crossSellProducts.length > 0
-        ? formData.crossSellProducts.join(',') : null,
+        ? formData.crossSellProducts.join(',') 
+        : null,
 
       // Multimedia
       videoUrls: formData.videoUrls && formData.videoUrls.length > 0
-        ? formData.videoUrls.join(',') : null,
+        ? formData.videoUrls.join(',') 
+        : null,
 
-      // Tags
+      // ✅ FIX 4: Product Tags
       tags: formData.productTags?.trim() || null,
 
       // Reviews
-      allowCustomerReviews: formData.allowCustomerReviews,
+      allowCustomerReviews: formData.allowCustomerReviews || false,
+
+      // ✅ FIX 5: Tax Settings
+      taxExempt: formData.taxExempt || false,
+      taxCategoryId: formData.taxCategoryId || null,
+
+      // ✅ FIX 6: Cart Settings - Allowed Quantities
+      allowedQuantities: formData.allowedQuantities?.trim() || null,
+      minCartQuantity: formData.minCartQuantity ? parseInt(formData.minCartQuantity) : null,
+      maxCartQuantity: formData.maxCartQuantity ? parseInt(formData.maxCartQuantity) : null,
+      
+      // ✅ FIX 7: Not Returnable
+      notReturnable: formData.notReturnable || false,
     };
 
-    // Clean up null values
+    // Clean up null/undefined/empty values
     const cleanProductData = Object.fromEntries(
-      Object.entries(productData).filter(([_, value]) => value !== null && value !== undefined && value !== '')
+      Object.entries(productData).filter(([_, value]) => {
+        // Keep false boolean values, remove only null, undefined, and empty strings
+        if (value === false) return true;
+        return value !== null && value !== undefined && value !== '';
+      })
     );
 
     console.log('📦 Clean product data:', cleanProductData);
 
-    // ✅ FIXED - STEP 1: Create Product with proper typing
+    // Create Product
     let response: ApiResponse<ProductCreateResponse> | undefined;
     const endpoints = ['/api/Products', '/Products', '/api/Product'];
     
@@ -642,17 +722,16 @@ const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
     // Dismiss loading toast
     toast.dismiss(loadingId);
 
-    // ✅ FIXED - Handle successful response with proper type checking
+    // Handle successful response
     if (response && (response.data || response.success !== false)) {
       console.log('✅ Product created successfully:', response);
 
-      // ✅ STEP 2: Extract Product ID with proper type safety
+      // Extract Product ID
       let productId: string | null = null;
 
       try {
         console.log('🔍 Full API Response:', response);
         
-        // Handle different response structures with type safety
         if (response) {
           // Case 1: response.data.data.id (nested data)
           if (response.data && typeof response.data === 'object' && 'data' in response.data) {
@@ -677,7 +756,7 @@ const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
             productId = (response.result as any).id as string;
             console.log('✅ Product ID found in response.result.id:', productId);
           }
-          // Case 5: apiClient wrapped response (response.data is the actual API response)
+          // Case 5: apiClient wrapped response
           else if (response.data && typeof response.data === 'object') {
             const apiData = response.data as any;
             if (apiData.id) {
@@ -703,19 +782,17 @@ const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
 
       console.log('🎯 Final Product ID:', productId);
 
-      // ✅ STEP 3: Upload Images (only if product ID exists and images are available)
+      // Upload Images (only if product ID exists and images are available)
       if (productId && formData.productImages && formData.productImages.length > 0) {
         console.log(`🖼️ Starting image upload for product ID: ${productId}`);
-        toast.info('Uploading product images...', { autoClose: 0 });
+        toast.info('Uploading product images...');
         
         try {
-          // Filter images that have file objects (newly uploaded ones)
           const imagesToUpload = formData.productImages.filter(img => img.file);
           
           if (imagesToUpload.length > 0) {
             console.log(`📷 Found ${imagesToUpload.length} images to upload`);
             
-            // Call uploadImagesToProduct function
             const uploadedImages = await uploadImagesToProduct(productId, imagesToUpload);
 
             if (uploadedImages && uploadedImages.length > 0) {
@@ -728,15 +805,14 @@ const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
             toast.success('Product created successfully! ✅');
           }
 
-          // ✅ STEP 4: Upload Variant Images (if variants exist with images)
+          // Upload Variant Images
           if (productVariants.length > 0) {
             const variantsWithImages = productVariants.filter(v => v.imageFile);
             if (variantsWithImages.length > 0) {
               console.log(`🖼️ Starting variant image upload for ${variantsWithImages.length} variants`);
-              toast.info(`Uploading ${variantsWithImages.length} variant images...`, { autoClose: 0 });
+              toast.info(`Uploading ${variantsWithImages.length} variant images...`);
 
               try {
-                // Get the full product response with variants
                 let productResponseData = null;
                 if (response.data && typeof response.data === 'object' && 'data' in response.data) {
                   productResponseData = (response.data as any).data;
@@ -757,7 +833,6 @@ const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
           toast.error('Product created successfully, but some images failed to upload.');
         }
       } else {
-        // Success toast for product only
         if (productId) {
           console.log('✅ Product created successfully without images');
         } else {
@@ -1444,6 +1519,40 @@ const uploadVariantImages = async (productResponse: any) => {
 </div>
                     </div>
 
+                    <div className="grid md:grid-cols-2 gap-4">
+  <div>
+    <label className="block text-sm font-medium text-slate-300 mb-2">Manufacturer</label>
+    <select
+      name="manufacturerId"
+      value={formData.manufacturerId}
+      onChange={handleChange}
+      className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+    >
+      <option value="">Select manufacturer</option>
+      {dropdownsData.manufacturers.map((manufacturer) => (
+        <option key={manufacturer.id} value={manufacturer.id}>
+          {manufacturer.name}
+        </option>
+      ))}
+    </select>
+    <p className="text-xs text-slate-400 mt-1">
+      {dropdownsData.manufacturers.length} manufacturers loaded
+    </p>
+  </div>
+
+  <div>
+    <label className="block text-sm font-medium text-slate-300 mb-2">Product Type</label>
+    <select
+      name="productType"
+      value={formData.productType}
+      onChange={handleChange}
+      className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+    >
+      <option value="simple">Simple Product</option>
+      <option value="grouped">Grouped Product (product variants)</option>
+    </select>
+  </div>
+</div>
 
 
                     <div className="grid md:grid-cols-3 gap-4">
