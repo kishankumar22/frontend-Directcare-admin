@@ -157,7 +157,7 @@ export default function ProductsPage() {
     
     try {
       const token = localStorage.getItem('authToken');
-      const response = await fetch(`${API_BASE_URL}/api/Products`, {
+      const response = await fetch(`${API_BASE_URL}/api/Products?page=1&pageSize=1000`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
@@ -830,7 +830,7 @@ export default function ProductsPage() {
       {/* Image View Modal */}
       {viewingImage && (
         <div
-          className="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4"
+          className="fixed inset-0 bg-black/80 backdrop-blur-md  z-[70]  flex items-center justify-center p-4"
           onClick={() => setViewingImage(null)}
         >
           <div
@@ -869,7 +869,7 @@ export default function ProductsPage() {
       {/* Video Player Modal */}
       {playingVideo && (
         <div
-          className="fixed inset-0 bg-black/90 backdrop-blur-md z-50 flex items-center justify-center p-4"
+          className="fixed inset-0 bg-black/90 backdrop-blur-md  z-[70]  flex items-center justify-center p-4"
           onClick={() => setPlayingVideo(null)}
         >
           <div
@@ -965,7 +965,7 @@ export default function ProductsPage() {
 
       {/* FULL DETAILS VIEW MODAL - ALL FIELDS WITH OPTIMIZATIONS */}
       {viewingProduct && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-[60] flex items-center justify-center p-4">
           <div className="bg-gradient-to-br from-slate-900 via-slate-900 to-slate-800 border border-violet-500/20 rounded-3xl max-w-6xl w-full max-h-[90vh] overflow-hidden shadow-2xl shadow-violet-500/10">
             
             {/* Header */}
@@ -975,7 +975,7 @@ export default function ProductsPage() {
                   <h2 className="text-2xl font-bold bg-gradient-to-r from-violet-400 via-cyan-400 to-pink-400 bg-clip-text text-transparent">
                     Complete Product Details
                   </h2>
-                  <p className="text-slate-400 text-sm mt-1">All product information from A to Z</p>
+           
                 </div>
                 <button
                   onClick={() => setViewingProduct(null)}

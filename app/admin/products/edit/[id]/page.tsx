@@ -157,134 +157,145 @@ const [uploadingImages, setUploadingImages] = useState(false);
 
   // Available products for related/cross-sell (from API)
   const [availableProducts, setAvailableProducts] = useState<Array<{id: string, name: string, sku: string, price: string}>>([]);
+const [formData, setFormData] = useState({
+  // ===== BASIC INFO =====
+  name: '',
+  shortDescription: '',
+  fullDescription: '',
+  sku: '',
+  brand: '',
+  categories: '',
 
-  const [formData, setFormData] = useState({
-    // Basic Info
-    name: '',
-    shortDescription: '',
-    fullDescription: '',
-    sku: '',
-    brand: '', // Will store brand ID
-    categories: '', // Will store category ID
-    manufacturerId: '', // Will store manufacturer ID
-    published: true,
-    productType: 'simple',
-    visibleIndividually: true,
-    customerRoles: 'all',
-    limitedToStores: false,
-    vendorId: '',
-    requireOtherProducts: false,
-    requiredProductIds: '',
-    automaticallyAddProducts: false,
-    showOnHomepage: false,
-    displayOrder: '1',
-    productTags: '',
-    gtin: '',
-    manufacturerPartNumber: '',
-    adminComment: '',
-    allowCustomerReviews: false,
-    // Related Products
-    relatedProducts: [] as string[],
-    crossSellProducts: [] as string[],
-
-    // New fields for additional tabs
-productImages: [] as ProductImage[],
-    videoUrls: [] as string[],
-    specifications: [] as Array<{id: string, name: string, value: string, displayOrder: number}>,
-
-    // Pricing
-    price: '',
-    oldPrice: '',
-    cost: '',
-    disableBuyButton: false,
-    disableWishlistButton: false,
-    allowBackorder:'',
-    preOrderAvailabilityStartDate: '',
-    callForPrice: false,
-    customerEntersPrice: false,
-    minimumCustomerEnteredPrice: '',
-    maximumCustomerEnteredPrice: '',
-    basepriceEnabled: false,
-    basepriceAmount: '',
-    basepriceUnit: '',
-    basepriceBaseAmount: '',
-    basepriceBaseUnit: '',
-    markAsNew: false,
-    markAsNewStartDate: '',
-    markAsNewEndDate: '',
-    categoryName: '', // Add this for clean display name
-    // Discounts
-    hasDiscountsApplied: false,
-    availableStartDate: '',
-    availableEndDate: '',
-
-    // Tax
-    taxExempt: false,
-    taxCategoryId: '',
-    telecommunicationsBroadcastingElectronicServices: false,
-
-    // SEO
-    metaTitle: '',
-    metaKeywords: '',
-    metaDescription: '',
-    searchEngineFriendlyPageName: '',
-
-    // Inventory
-    manageInventory: 'track',
-    stockQuantity: '',
-    displayStockAvailability: true,
-    displayStockQuantity: false,
-    minStockQuantity: '',
-    lowStockActivity: 'nothing',
-    notifyAdminForQuantityBelow: '',
-    backorders: 'no-backorders',
-    allowBackInStockSubscriptions: false,
-    productAvailabilityRange: '',
-    minCartQuantity: '1',
-    maxCartQuantity: '10000',
-    allowedQuantities: '',
-    allowAddingOnlyExistingAttributeCombinations: false,
-    notReturnable: false,
-
-    // Shipping
-    isShipEnabled: true,
-    isFreeShipping: false,
-    shipSeparately: false,
-    additionalShippingCharge: '',
-    deliveryDateId: '',
-    weight: '',
-    length: '',
-    width: '',
-    height: '',
-
-    // Gift Cards
-    isGiftCard: false,
-    giftCardType: 'virtual',
-    overriddenGiftCardAmount: '',
-
-    // Downloadable Product
-    isDownload: false,
-    downloadId: '',
-    unlimitedDownloads: true,
-    maxNumberOfDownloads: '',
-    downloadExpirationDays: '',
-    downloadActivationType: 'when-order-is-paid',
-    hasUserAgreement: false,
-    userAgreementText: '',
-    hasSampleDownload: false,
-    sampleDownloadId: '',
-
-    // Recurring Product
-    isRecurring: false,
-    recurringCycleLength: '',
-    recurringCyclePeriod: 'days',
-    recurringTotalCycles: '',
-
-    // Rental Product
-    isRental: false,
-    rentalPriceLength: '',
-    rentalPricePeriod: 'days',
-  });
+  published: true,
+  productType: 'simple',
+  visibleIndividually: true,
+  customerRoles: 'all',
+  limitedToStores: false,
+  vendorId: '',
+  requireOtherProducts: false,
+  requiredProductIds: '',
+  automaticallyAddProducts: false,
+  showOnHomepage: false,
+  displayOrder: '1',
+  productTags: '',
+  gtin: '',
+  manufacturerPartNumber: '',
+  adminComment: '',
+  allowCustomerReviews: false,
+  categoryName: '',
+  deliveryDateId: '',
+  
+  // ===== RELATED PRODUCTS =====
+  relatedProducts: [] as string[],
+  crossSellProducts: [] as string[],
+  
+  // ===== MEDIA =====
+  productImages: [] as ProductImage[],
+  videoUrls: [] as string[],
+  specifications: [] as Array<{
+    id: string;
+    name: string;
+    value: string;
+    displayOrder: number;
+  }>,
+  
+  // ===== PRICING =====
+  price: '',
+  oldPrice: '',
+  cost: '',
+  disableBuyButton: false,
+  disableWishlistButton: false,
+  callForPrice: false,
+  customerEntersPrice: false,
+  minimumCustomerEnteredPrice: '',
+  maximumCustomerEnteredPrice: '',
+  
+  // ===== BASE PRICE =====
+  basepriceEnabled: false,
+  basepriceAmount: '',
+  basepriceUnit: '',
+  basepriceBaseAmount: '',
+  basepriceBaseUnit: '',
+  
+  // ===== PROMOTIONS =====
+  markAsNew: false,
+  markAsNewStartDate: '',
+  markAsNewEndDate: '',
+  
+  // ===== AVAILABILITY =====
+  availableForPreOrder: false,        // ✅ Added
+  preOrderAvailabilityStartDate: '',
+  availableStartDate: '',
+  availableEndDate: '',
+  hasDiscountsApplied: false,
+  
+  // ===== TAX =====
+  taxExempt: false,
+  taxCategoryId: '',
+  telecommunicationsBroadcastingElectronicServices: false,
+  
+  // ===== SEO =====
+  metaTitle: '',
+  metaKeywords: '',
+  metaDescription: '',
+  searchEngineFriendlyPageName: '',
+  
+  // ===== INVENTORY =====
+  manageInventory: 'track',
+  stockQuantity: '',
+  displayStockAvailability: true,
+  displayStockQuantity: false,
+  minStockQuantity: '',
+  lowStockActivity: 'nothing',
+  notifyAdminForQuantityBelow: '',
+  backorders: 'no-backorders',
+  allowBackorder: false,              // ✅ Fixed: Boolean, not string
+  allowBackInStockSubscriptions: false,
+  productAvailabilityRange: '',
+  minCartQuantity: '1',
+  maxCartQuantity: '10000',
+  allowedQuantities: '',
+  allowAddingOnlyExistingAttributeCombinations: false,
+  notReturnable: false,
+  
+  // ===== SHIPPING =====
+  isShipEnabled: true,
+  isFreeShipping: false,
+  shipSeparately: false,
+  additionalShippingCharge: '',
+  weight: '',
+  length: '',
+  width: '',
+  height: '',
+  
+  // ===== GIFT CARDS =====
+  isGiftCard: false,
+  giftCardType: 'virtual',
+  overriddenGiftCardAmount: false,    // ✅ Fixed: Boolean, not string
+  
+  // ===== DOWNLOADABLE PRODUCT =====
+  isDownload: false,
+  downloadId: '',
+  unlimitedDownloads: true,
+  maxNumberOfDownloads: '',
+  downloadExpirationDays: '',
+  downloadActivationType: 'when-order-is-paid',
+  hasUserAgreement: false,
+  userAgreementText: '',
+  hasSampleDownload: false,
+  sampleDownloadId: '',
+  
+  // ===== RECURRING PRODUCT =====
+  isRecurring: false,
+  recurringCycleLength: '',
+  recurringCyclePeriod: 'days',
+  recurringTotalCycles: '',
+  
+  // ===== RENTAL PRODUCT =====
+  isRental: false,
+  rentalPriceLength: '',
+  rentalPricePeriod: 'days',
+});
 
 // Clean renderCategoryOptions - no symbols, just clean hierarchy
 const renderCategoryOptions = (categories: CategoryData[]): JSX.Element[] => {
@@ -343,9 +354,8 @@ const renderCategoryOptions = (categories: CategoryData[]): JSX.Element[] => {
 useEffect(() => {
   const fetchAllData = async () => {
     try {
-      console.log('🔄 Fetching all data (dropdowns + products + product details)...');
+      console.log('🔄 Fetching all data...');
 
-      // Fetch dropdowns and products in parallel
       const [
         brandsResponse,
         categoriesResponse,
@@ -358,17 +368,14 @@ useEffect(() => {
         apiClient.get(`/api/Products/${productId}`)
       ]);
 
-      // Extract dropdown data
       const brandsData = (brandsResponse.data as BrandApiResponse)?.data || [];
       const categoriesData = (categoriesResponse.data as CategoryApiResponse)?.data || [];
 
-      // Set dropdown data
       setDropdownsData({
         brands: brandsData,
         categories: categoriesData,
       });
 
-      // Extract and transform products data for related/cross-sell
       if (productsResponse.data && !productsResponse.error) {
         const apiResponse = productsResponse.data as ProductsApiResponse;
 
@@ -384,14 +391,13 @@ useEffect(() => {
         }
       }
 
-      // Extract and populate product details
       if (productResponse.data && !productResponse.error) {
         const productApiResponse = productResponse.data as any;
 
         if (productApiResponse.success && productApiResponse.data) {
           const product = productApiResponse.data;
 
-          // 🎯 Helper function to get category display name
+          // Helper: Get category display name
           const getCategoryDisplayName = (categoryId: string, categories: CategoryData[]): string => {
             if (!categoryId) return '';
 
@@ -410,7 +416,7 @@ useEffect(() => {
             return '';
           };
 
-          // Helper function to format date for datetime-local input
+          // Helper: Format date for datetime-local input
           const formatDateTimeForInput = (dateString: string | null | undefined): string => {
             if (!dateString) return '';
             try {
@@ -427,25 +433,47 @@ useEffect(() => {
             }
           };
 
-          // Helper to parse specification string
-          const parseSpecificationString = (specStr: string | null): Array<{id: string, name: string, value: string, displayOrder: number}> => {
-            if (!specStr) return [];
-            try {
-              const parsed = JSON.parse(specStr);
-              return Array.isArray(parsed) ? parsed : [];
-            } catch {
-              return [];
-            }
+// Helper: Parse specification string
+const parseSpecificationString = (specStr: string | null): Array<{
+  id: string;
+  name: string;
+  value: string;
+  displayOrder: number;
+}> => {
+  if (!specStr) return [];
+  
+  try {
+    const parsed = JSON.parse(specStr);
+    
+    if (!Array.isArray(parsed)) return [];
+    
+    // ✅ Ensure all fields are defined with fallbacks
+    return parsed.map((spec, index) => ({
+      id: spec.id || spec.Id || `spec-${Date.now()}-${index}`,  // ✅ Fallback ID
+      name: spec.name || spec.Name || '',                       // ✅ Fallback name
+      value: spec.value || spec.Value || '',                    // ✅ Fallback value
+      displayOrder: spec.displayOrder || spec.DisplayOrder || index  // ✅ Fallback order
+    }));
+  } catch (error) {
+    console.error('Error parsing specifications:', error);
+    return [];
+  }
+};
+
+
+          // ✅ Helper: Determine backorder mode string from boolean
+          const getBackorderMode = (allowBackorder: boolean | undefined): string => {
+            if (allowBackorder === true) return 'allow-backorders';
+            return 'no-backorders';
           };
 
-          // Get the category display name
           const categoryDisplayName = getCategoryDisplayName(product.categoryId || '', categoriesData);
 
-          // ✅ COMPLETE FORM DATA POPULATION (WITHOUT preOrderAvailabilityStartDate)
-          setFormData(prevData => ({
-            ...prevData,
+          console.log('📦 Product data received:', product);
 
-            // Basic Info
+          // ✅ COMPLETE FORM DATA POPULATION
+          setFormData({
+            // ===== BASIC INFO =====
             name: product.name || '',
             shortDescription: product.shortDescription || '',
             fullDescription: product.description || '',
@@ -453,7 +481,7 @@ useEffect(() => {
             brand: product.brandId || '',
             categories: product.categoryId || '',
             categoryName: categoryDisplayName,
-            manufacturerId: product.manufacturerId || '',
+           
             published: product.isPublished ?? true,
             productType: product.productType || 'simple',
             visibleIndividually: product.visibleIndividually ?? true,
@@ -464,84 +492,78 @@ useEffect(() => {
             manufacturerPartNumber: product.manufacturerPartNumber || '',
             adminComment: product.adminComment || '',
             deliveryDateId: product.deliveryDateId || '',
-
-            // Customer Reviews
             allowCustomerReviews: product.allowCustomerReviews ?? false,
+            customerRoles: 'all',
+            limitedToStores: false,
+            vendorId: '',
+            requireOtherProducts: false,
+            requiredProductIds: '',
+            automaticallyAddProducts: false,
 
-            // Pricing
+            // ===== PRICING =====
             price: product.price?.toString() || '',
             oldPrice: product.oldPrice?.toString() || product.compareAtPrice?.toString() || '',
             cost: product.costPrice?.toString() || '',
-
-            // Buy/Wishlist Buttons
             disableBuyButton: product.disableBuyButton ?? false,
             disableWishlistButton: product.disableWishlistButton ?? false,
-
-            // Call for Price
             callForPrice: product.callForPrice ?? false,
             customerEntersPrice: product.customerEntersPrice ?? false,
             minimumCustomerEnteredPrice: product.minimumCustomerEnteredPrice?.toString() || '',
             maximumCustomerEnteredPrice: product.maximumCustomerEnteredPrice?.toString() || '',
 
-            // Base Price
-            basepriceEnabled: false,
-            basepriceAmount: '',
-            basepriceUnit: '',
-            basepriceBaseAmount: '',
-            basepriceBaseUnit: '',
+            // ===== BASE PRICE =====
+            basepriceEnabled: product.basepriceEnabled ?? false,
+            basepriceAmount: product.basepriceAmount?.toString() || '',
+            basepriceUnit: product.basepriceUnit || '',
+            basepriceBaseAmount: product.basepriceBaseAmount?.toString() || '',
+            basepriceBaseUnit: product.basepriceBaseUnit || '',
 
-            // Mark as New
+            // ===== PROMOTIONS =====
             markAsNew: !!(product.markAsNewStartDate || product.markAsNewEndDate),
             markAsNewStartDate: formatDateTimeForInput(product.markAsNewStartDate),
             markAsNewEndDate: formatDateTimeForInput(product.markAsNewEndDate),
 
-            // ✅ FIXED: Availability Dates ONLY (NO preOrderAvailabilityStartDate)
+            // ===== AVAILABILITY =====
+            availableForPreOrder: product.availableForPreOrder ?? false,
+            preOrderAvailabilityStartDate: formatDateTimeForInput(product.preOrderAvailabilityStartDate),
             availableStartDate: formatDateTimeForInput(product.availableStartDate),
             availableEndDate: formatDateTimeForInput(product.availableEndDate),
+            hasDiscountsApplied: product.hasDiscountsApplied ?? false,
 
-            // Discounts
-            hasDiscountsApplied: false,
-
-            // Tax
+            // ===== TAX =====
             taxExempt: product.taxExempt ?? false,
             taxCategoryId: product.taxCategoryId || '',
-            telecommunicationsBroadcastingElectronicServices: false,
+            telecommunicationsBroadcastingElectronicServices: product.telecommunicationsBroadcastingElectronicServices ?? false,
 
-            // SEO
+            // ===== SEO =====
             metaTitle: product.metaTitle || '',
             metaKeywords: product.metaKeywords || '',
             metaDescription: product.metaDescription || '',
             searchEngineFriendlyPageName: product.searchEngineFriendlyPageName || '',
 
-            // Inventory
+            // ===== INVENTORY =====
             stockQuantity: product.stockQuantity?.toString() || '0',
             manageInventory: product.trackQuantity ? 'track' : 'dont-track',
             minStockQuantity: product.minStockQuantity?.toString() || '0',
             notifyAdminForQuantityBelow: product.notifyQuantityBelow?.toString() || '1',
+            displayStockAvailability: product.displayStockAvailability ?? true,
+            displayStockQuantity: product.displayStockQuantity ?? false,
             
-       
-    // Backorder
-allowBackorder: product.allowBackorder ?? false,
-allowBackInStockSubscriptions: product.allowBackInStockSubscriptions ?? false,
-
-    // Display settings
-displayStockAvailability: product.displayStockAvailability ?? true,  // ✅ Changed from hardcoded true
-displayStockQuantity: product.displayStockQuantity ?? false,
+            // ✅ FIXED: Backorder handling
+            allowBackorder: product.allowBackorder ?? false,
+            backorders: getBackorderMode(product.allowBackorder),
+            allowBackInStockSubscriptions: product.allowBackInStockSubscriptions ?? false,
             
             // Cart quantities
             minCartQuantity: product.orderMinimumQuantity?.toString() || '1',
             maxCartQuantity: product.orderMaximumQuantity?.toString() || '10000',
             allowedQuantities: product.allowedQuantities || '',
-            
-            // Other inventory
             lowStockActivity: 'nothing',
             productAvailabilityRange: '',
             allowAddingOnlyExistingAttributeCombinations: false,
-            
-            // Not Returnable
             notReturnable: product.notReturnable ?? false,
 
-            // Shipping
+            // ===== SHIPPING =====
             isShipEnabled: product.requiresShipping ?? true,
             isFreeShipping: product.isFreeShipping ?? false,
             shipSeparately: product.shipSeparately ?? false,
@@ -550,45 +572,36 @@ displayStockQuantity: product.displayStockQuantity ?? false,
             length: product.length?.toString() || '',
             width: product.width?.toString() || '',
             height: product.height?.toString() || '',
-           
 
-            // Gift Cards
-            isGiftCard: false,
-            giftCardType: 'virtual',
-            overriddenGiftCardAmount: '',
+            // ===== GIFT CARDS =====
+            isGiftCard: product.isGiftCard ?? false,
+            giftCardType: product.giftCardType || 'virtual',
+            overriddenGiftCardAmount: product.overriddenGiftCardAmount ?? false,
 
-            // Downloadable
-            isDownload: false,
-            downloadId: '',
-            unlimitedDownloads: true,
-            maxNumberOfDownloads: '',
-            downloadExpirationDays: '',
-            downloadActivationType: 'when-order-is-paid',
-            hasUserAgreement: false,
-            userAgreementText: '',
-            hasSampleDownload: false,
-            sampleDownloadId: '',
+            // ===== DOWNLOADABLE =====
+            isDownload: product.isDownload ?? false,
+            downloadId: product.downloadId || '',
+            unlimitedDownloads: product.unlimitedDownloads ?? true,
+            maxNumberOfDownloads: product.maxNumberOfDownloads?.toString() || '',
+            downloadExpirationDays: product.downloadExpirationDays?.toString() || '',
+            downloadActivationType: product.downloadActivationType || 'when-order-is-paid',
+            hasUserAgreement: product.hasUserAgreement ?? false,
+            userAgreementText: product.userAgreementText || '',
+            hasSampleDownload: product.hasSampleDownload ?? false,
+            sampleDownloadId: product.sampleDownloadId || '',
 
-            // Recurring
-            isRecurring: false,
-            recurringCycleLength: '',
-            recurringCyclePeriod: 'days',
-            recurringTotalCycles: '',
+            // ===== RECURRING =====
+            isRecurring: product.isRecurring ?? false,
+            recurringCycleLength: product.recurringCycleLength?.toString() || '',
+            recurringCyclePeriod: product.recurringCyclePeriod || 'days',
+            recurringTotalCycles: product.recurringTotalCycles?.toString() || '',
 
-            // Rental
-            isRental: false,
-            rentalPriceLength: '',
-            rentalPricePeriod: 'days',
+            // ===== RENTAL =====
+            isRental: product.isRental ?? false,
+            rentalPriceLength: product.rentalPriceLength?.toString() || '',
+            rentalPricePeriod: product.rentalPricePeriod || 'days',
 
-            // Customer Roles & Stores
-            customerRoles: 'all',
-            limitedToStores: false,
-            vendorId: '',
-            requireOtherProducts: false,
-            requiredProductIds: '',
-            automaticallyAddProducts: false,
-
-            // Related Products
+            // ===== RELATED PRODUCTS =====
             relatedProducts: typeof product.relatedProductIds === 'string'
               ? product.relatedProductIds.split(',').filter((id: string) => id.trim())
               : Array.isArray(product.relatedProductIds)
@@ -601,66 +614,76 @@ displayStockQuantity: product.displayStockQuantity ?? false,
               ? product.crossSellProductIds
               : [],
 
-            // Video URLs
+            // ===== MEDIA =====
             videoUrls: typeof product.videoUrls === 'string'
               ? product.videoUrls.split(',').filter((url: string) => url.trim())
               : Array.isArray(product.videoUrls)
               ? product.videoUrls
               : [],
 
-            // Product Images
             productImages: product.images?.map((img: any) => ({
               id: img.id || Date.now().toString(),
               imageUrl: img.imageUrl || '',
+              url: img.imageUrl || '',              // ✅ Added alias
+              preview: img.imageUrl || '',          // ✅ Added alias
               altText: img.altText || '',
+              alt: img.altText || '',               // ✅ Added alias
               sortOrder: img.sortOrder || 1,
+              displayOrder: img.sortOrder || 1,     // ✅ Added alias
               isMain: img.isMain || false,
               fileName: img.imageUrl ? img.imageUrl.split('/').pop() : undefined,
               fileSize: undefined,
               file: undefined
             })) || [],
+// In your useEffect, replace the specifications line with:
+specifications: parseSpecificationString(product.specificationAttributes).map((spec, index) => ({
+  ...spec,
+  id: spec.id || `spec-${Date.now()}-${index}`,  // ✅ Ensure unique ID
+  name: spec.name || '',                          // ✅ Ensure string
+  value: spec.value || '',                        // ✅ Ensure string
+  displayOrder: spec.displayOrder ?? index        // ✅ Ensure number
+}))
+          });
 
-            // Specifications
-            specifications: parseSpecificationString(product.specificationAttributes)
-          }));
+          console.log('✅ Form populated successfully');
 
-// Load Product Attributes (matching backend ProductAttributeDto)
-if (product.attributes && Array.isArray(product.attributes)) {
-  const loadedAttributes = product.attributes
-    .filter((attr: any) => attr.name && attr.value) // Filter valid attributes
-    .map((attr: any) => ({
-      id: attr.id || Date.now().toString() + Math.random(),
-      name: attr.name || '',
-      value: attr.value || '',
-      displayOrder: attr.displayOrder || attr.sortOrder || 0
-    }));
-  setProductAttributes(loadedAttributes);
-  console.log('✅ Loaded product attributes:', loadedAttributes);
-} else {
-  setProductAttributes([]);
-}
+          // ===== LOAD ATTRIBUTES =====
+          if (product.attributes && Array.isArray(product.attributes)) {
+            const loadedAttributes = product.attributes
+              .filter((attr: any) => attr.name && attr.value)
+              .map((attr: any) => ({
+                id: attr.id || Date.now().toString() + Math.random(),
+                name: attr.name || '',
+                value: attr.value || '',
+                displayOrder: attr.displayOrder || attr.sortOrder || 0
+              }));
+            setProductAttributes(loadedAttributes);
+            console.log('✅ Loaded attributes:', loadedAttributes);
+          } else {
+            setProductAttributes([]);
+          }
 
-// Load Product Variants (matching backend ProductVariantDto)
-if (product.variants && Array.isArray(product.variants)) {
-  const loadedVariants = product.variants.map((variant: any) => ({
-    id: variant.id || Date.now().toString() + Math.random(),
-    name: variant.name || '',
-    sku: variant.sku || '',
-    price: variant.price !== null && variant.price !== undefined ? variant.price : null,
-    compareAtPrice: variant.compareAtPrice || null,
-    weight: variant.weight || null,
-    stockQuantity: variant.stockQuantity || 0,
-    option1: variant.option1 || null,
-    option2: variant.option2 || null,
-    option3: variant.option3 || null,
-    imageUrl: variant.imageUrl || null,
-    isDefault: variant.isDefault || false
-  }));
-  setProductVariants(loadedVariants);
-  console.log('✅ Loaded product variants:', loadedVariants);
-} else {
-  setProductVariants([]);
-}
+          // ===== LOAD VARIANTS =====
+          if (product.variants && Array.isArray(product.variants)) {
+            const loadedVariants = product.variants.map((variant: any) => ({
+              id: variant.id || Date.now().toString() + Math.random(),
+              name: variant.name || '',
+              sku: variant.sku || '',
+              price: variant.price !== null && variant.price !== undefined ? variant.price : null,
+              compareAtPrice: variant.compareAtPrice || null,
+              weight: variant.weight || null,
+              stockQuantity: variant.stockQuantity || 0,
+              option1: variant.option1 || null,
+              option2: variant.option2 || null,
+              option3: variant.option3 || null,
+              imageUrl: variant.imageUrl || null,
+              isDefault: variant.isDefault || false
+            }));
+            setProductVariants(loadedVariants);
+            console.log('✅ Loaded variants:', loadedVariants);
+          } else {
+            setProductVariants([]);
+          }
         }
       }
 
@@ -702,28 +725,36 @@ const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
       }
     }
 
-// Prepare specifications array matching backend ProductSpecificationDto
-    const specificationsArray = formData.specifications
-      .filter(spec => spec.name && spec.value)
-      .map(spec => ({
-        id: spec.id,
-        name: spec.name,
-        value: spec.value,
-        displayOrder: spec.displayOrder
-      }));
+    let brandId: string | null = null;
+    if (formData.brand && formData.brand.trim()) {
+      const trimmedBrand = formData.brand.trim();
+      if (guidRegex.test(trimmedBrand)) {
+        brandId = trimmedBrand;
+      }
+    }
 
-    // Prepare product attributes array matching backend ProductAttributeCreateDto
+
+    // ✅ Prepare specifications array (proper object array, not string)
+    const specificationsArray = formData.specifications
+      ?.filter(spec => spec.name && spec.value)
+      .map(spec => ({
+        name: spec.name,           // Remove 'id' if backend doesn't expect it
+        value: spec.value,
+        displayOrder: spec.displayOrder || 0
+      })) || [];
+
+    // Prepare product attributes array
     const attributesArray = productAttributes
-      .filter(attr => attr.name && attr.value)
+      ?.filter(attr => attr.name && attr.value)
       .map(attr => ({
         id: attr.id,
         name: attr.name,
         value: attr.value,
         displayOrder: attr.displayOrder
-      }));
+      })) || [];
 
-    // Prepare variants array matching backend ProductVariantCreateDto (without images for now)
-    const variantsArray = productVariants.map(variant => ({
+    // Prepare variants array
+    const variantsArray = productVariants?.map(variant => ({
       name: variant.name,
       sku: variant.sku,
       price: variant.price,
@@ -735,23 +766,7 @@ const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
       option3: variant.option3,
       imageUrl: variant.imageUrl,
       isDefault: variant.isDefault
-    }));
-
-    let brandId: string | null = null;
-    if (formData.brand && formData.brand.trim()) {
-      const trimmedBrand = formData.brand.trim();
-      if (guidRegex.test(trimmedBrand)) {
-        brandId = trimmedBrand;
-      }
-    }
-
-    let manufacturerId: string | null = null;
-    if (formData.manufacturerId && formData.manufacturerId.trim()) {
-      const trimmedManufacturer = formData.manufacturerId.trim();
-      if (guidRegex.test(trimmedManufacturer)) {
-        manufacturerId = trimmedManufacturer;
-      }
-    }
+    })) || [];
 
     const productData = {
       id: productId,
@@ -785,12 +800,6 @@ const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
       maximumCustomerEnteredPrice: formData.customerEntersPrice && formData.maximumCustomerEnteredPrice 
         ? parseFloat(formData.maximumCustomerEnteredPrice) 
         : null,
-    
-      // Add new fields for specifications, attributes, and variants
-      ...(specificationsArray.length > 0 && { specificationAttributes: specificationsArray }),
-      ...(attributesArray.length > 0 && { attributes: attributesArray }),
-      ...(variantsArray.length > 0 && { variants: variantsArray }),
-
 
       // Dimensions
       weight: parseFloat(formData.weight) || 0,
@@ -805,8 +814,6 @@ const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
       additionalShippingCharge: formData.additionalShippingCharge 
         ? parseFloat(formData.additionalShippingCharge) 
         : null,
-      
-      // ✅ FIXED: Delivery Date
       deliveryDateId: formData.deliveryDateId || null,
 
       // Inventory
@@ -815,9 +822,9 @@ const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
       minStockQuantity: parseInt(formData.minStockQuantity) || 0,
       notifyAdminForQuantityBelow: true,
       notifyQuantityBelow: parseInt(formData.notifyAdminForQuantityBelow) || 1,
-      // ✅ ADD THESE THREE FIELDS
-    displayStockAvailability: formData.displayStockAvailability,
-    displayStockQuantity: formData.displayStockQuantity,
+      displayStockAvailability: formData.displayStockAvailability,
+      displayStockQuantity: formData.displayStockQuantity,
+
       // Backorder
       allowBackorder: formData.allowBackorder,
       allowBackInStockSubscriptions: formData.allowBackInStockSubscriptions, 
@@ -834,7 +841,7 @@ const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
       // Categories & Brand
       ...(categoryId && { categoryId }),
       ...(brandId && { brandId }),
-      ...(manufacturerId && { manufacturerId }),
+ 
 
       // Mark as New
       markAsNew: formData.markAsNew,
@@ -853,10 +860,12 @@ const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
         ? new Date(formData.markAsNewEndDate).toISOString() 
         : null,
 
-      // Specifications
-      specificationAttributes: formData.specifications.length > 0 
-        ? JSON.stringify(formData.specifications) 
-        : null,
+      // ✅ FIXED: Specifications as array, not stringified
+      ...(specificationsArray.length > 0 && { specificationAttributes: specificationsArray }),
+      
+      // ✅ FIXED: Attributes and Variants
+      ...(attributesArray.length > 0 && { attributes: attributesArray }),
+      ...(variantsArray.length > 0 && { variants: variantsArray }),
 
       // Publishing
       isPublished: isDraft ? false : formData.published,
@@ -864,10 +873,10 @@ const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
       visibleIndividually: formData.visibleIndividually,
       showOnHomepage: formData.showOnHomepage || false,
 
-      // ✅ FIXED: Customer Reviews (Try both field names)
+      // Customer Reviews
       allowCustomerReviews: formData.allowCustomerReviews,
-      approvedRatingSum: 0,  // Default value if needed
-      approvedTotalReviews: 0,  // Default value if needed
+      approvedRatingSum: 0,
+      approvedTotalReviews: 0,
 
       // Tax
       taxExempt: formData.taxExempt,
@@ -894,9 +903,17 @@ const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
         : null,
     };
 
-    console.log('📦 Sending product data:', productData);
+    // ✅ Clean up null/undefined values
+    const cleanProductData = Object.fromEntries(
+      Object.entries(productData).filter(([_, value]) => 
+        value !== null && value !== undefined && value !== ''
+      )
+    );
 
-    const response = await apiClient.put(`/api/Products/${productId}`, productData);
+    console.log('📦 Sending product data:', cleanProductData);
+    console.log('📋 Specifications:', specificationsArray);
+
+    const response = await apiClient.put(`/api/Products/${productId}`, cleanProductData);
 
     if (response?.data) {
       const message = isDraft 
@@ -951,6 +968,7 @@ const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
     target.removeAttribute('data-submitting');
   }
 };
+
 
 
 // ✅ COMPLETE FIXED handleChange
@@ -1050,8 +1068,6 @@ const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElemen
     p.name.toLowerCase().includes(searchTermCross.toLowerCase()) ||
     p.sku.toLowerCase().includes(searchTermCross.toLowerCase())
   );
-
-// ✅ REPLACE your existing addAttribute function
 
 // Product Attribute handlers (matching backend ProductAttributeCreateDto)
 const addProductAttribute = () => {
@@ -2686,15 +2702,15 @@ const uploadImagesToProductDirect = async (productId: string, files: File[]): Pr
                               <div className="relative inline-block">
                               
 
-<img
-  src={
-    variant?.imageUrl
-      ? `${API_BASE_URL.replace(/\/$/, "")}/${variant.imageUrl.replace(/^\//, "")}`
-      : "No IMAGE Available" // fallback image
-  }
-  alt={variant?.name || "Variant"}
-  className="w-32 h-32 object-cover rounded-lg border border-slate-700"
-/>
+                                      <img
+                                      src={
+                                        variant?.imageUrl
+                                          ? `${variant.imageUrl.replace(/^\//, "")}`
+                                          : "No IMAGE Available" // fallback image
+                                      }
+                                      alt={variant?.name || "Variant"}
+                                      className="w-32 h-32 object-cover rounded-lg border border-slate-700"
+                                      />
 
                                 <button
                                   type="button"
@@ -3117,124 +3133,139 @@ const uploadImagesToProductDirect = async (productId: string, files: File[]): Pr
               </TabsContent>
 
               {/* Specifications Tab */}
-              <TabsContent value="specifications" className="space-y-2 mt-2">
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h3 className="text-lg font-semibold text-white">Product Specifications</h3>
-                      <p className="text-sm text-slate-400">
-                        Add technical specifications and product details
-                      </p>
-                    </div>
-                    <button
-                      onClick={() => {
-                        setFormData({
-                          ...formData,
-                          specifications: [
-                            ...formData.specifications,
-                            { id: Date.now().toString(), name: '', value: '', displayOrder: formData.specifications.length + 1 }
-                          ]
-                        });
-                      }}
-                      className="px-4 py-2 bg-slate-800/50 border border-slate-700 rounded-lg text-slate-300 hover:bg-slate-800 transition-all text-sm flex items-center gap-2"
-                    >
-                      <BarChart3 className="h-4 w-4" />
-                      Add Specification
-                    </button>
-                  </div>
+<TabsContent value="specifications" className="space-y-2 mt-2">
+  <div className="space-y-4">
+    <div className="flex items-center justify-between">
+      <div>
+        <h3 className="text-lg font-semibold text-white">Product Specifications</h3>
+        <p className="text-sm text-slate-400">
+          Add technical specifications and product details
+        </p>
+      </div>
+      <button
+        onClick={() => {
+          setFormData({
+            ...formData,
+            specifications: [
+              ...formData.specifications,
+              { 
+                id: Date.now().toString(), 
+                name: '', 
+                value: '', 
+                displayOrder: formData.specifications.length + 1 
+              }
+            ]
+          });
+        }}
+        className="px-4 py-2 bg-slate-800/50 border border-slate-700 rounded-lg text-slate-300 hover:bg-slate-800 transition-all text-sm flex items-center gap-2"
+      >
+        <BarChart3 className="h-4 w-4" />
+        Add Specification
+      </button>
+    </div>
 
-                  {formData.specifications.length > 0 ? (
-                    <div className="space-y-3">
-                      {formData.specifications.map((spec) => (
-                        <div key={spec.id} className="bg-slate-800/30 border border-slate-700 rounded-xl p-4">
-                          <div className="grid md:grid-cols-12 gap-3">
-                            <div className="md:col-span-4">
-                              <label className="block text-sm font-medium text-slate-300 mb-2">Specification Name</label>
-                              <input
-                                type="text"
-                                value={spec.name}
-                                onChange={(e) => {
-                                  setFormData({
-                                    ...formData,
-                                    specifications: formData.specifications.map(s =>
-                                      s.id === spec.id ? { ...s, name: e.target.value } : s
-                                    )
-                                  });
-                                }}
-                                placeholder="e.g., Processor, RAM, Storage"
-                                className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
-                              />
-                            </div>
-                            <div className="md:col-span-5">
-                              <label className="block text-sm font-medium text-slate-300 mb-2">Value</label>
-                              <input
-                                type="text"
-                                value={spec.value}
-                                onChange={(e) => {
-                                  setFormData({
-                                    ...formData,
-                                    specifications: formData.specifications.map(s =>
-                                      s.id === spec.id ? { ...s, value: e.target.value } : s
-                                    )
-                                  });
-                                }}
-                                placeholder="e.g., Intel Core i7, 16GB, 512GB SSD"
-                                className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
-                              />
-                            </div>
-                            <div className="md:col-span-2">
-                              <label className="block text-sm font-medium text-slate-300 mb-2">Order</label>
-                              <input
-                                type="number"
-                                value={spec.displayOrder}
-                                onChange={(e) => {
-                                  setFormData({
-                                    ...formData,
-                                    specifications: formData.specifications.map(s =>
-                                      s.id === spec.id ? { ...s, displayOrder: parseInt(e.target.value) || 0 } : s
-                                    )
-                                  });
-                                }}
-                                className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
-                              />
-                            </div>
-                            <div className="md:col-span-1 flex items-end">
-                              <button
-                                onClick={() => {
-                                  setFormData({
-                                    ...formData,
-                                    specifications: formData.specifications.filter(s => s.id !== spec.id)
-                                  });
-                                }}
-                                className="w-full p-2 bg-red-500/20 border border-red-500/30 text-red-400 hover:bg-red-500/30 rounded-lg transition-all"
-                              >
-                                <X className="h-4 w-4 mx-auto" />
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="text-center py-12 border-2 border-dashed border-slate-700 rounded-xl bg-slate-800/20">
-                      <BarChart3 className="mx-auto h-16 w-16 text-slate-600 mb-4" />
-                      <h3 className="text-lg font-semibold text-white mb-2">No Specifications Added</h3>
-                      <p className="text-slate-400 mb-4">
-                        Click "Add Specification" to add technical details
-                      </p>
-                    </div>
-                  )}
+    {formData.specifications.length > 0 ? (
+      <div className="space-y-3">
+        {formData.specifications.map((spec, index) => (
+          <div 
+            key={spec.id || `spec-${index}`}  
+            className="bg-slate-800/30 border border-slate-700 rounded-xl p-4"
+          >
+            <div className="grid md:grid-cols-12 gap-3">
+              <div className="md:col-span-4">
+                <label className="block text-sm font-medium text-slate-300 mb-2">
+                  Specification Name
+                </label>
+                <input
+                  type="text"
+                  value={spec.name || ''}  
+                  onChange={(e) => {
+                    setFormData({
+                      ...formData,
+                      specifications: formData.specifications.map(s =>
+                        s.id === spec.id ? { ...s, name: e.target.value } : s
+                      )
+                    });
+                  }}
+                  placeholder="e.g., Processor, RAM, Storage"
+                  className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+                />
+              </div>
+              <div className="md:col-span-5">
+                <label className="block text-sm font-medium text-slate-300 mb-2">
+                  Value
+                </label>
+                <input
+                  type="text"
+                  value={spec.value || ''}  
+                  onChange={(e) => {
+                    setFormData({
+                      ...formData,
+                      specifications: formData.specifications.map(s =>
+                        s.id === spec.id ? { ...s, value: e.target.value } : s
+                      )
+                    });
+                  }}
+                  placeholder="e.g., Intel Core i7, 16GB, 512GB SSD"
+                  className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+                />
+              </div>
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-slate-300 mb-2">
+                  Order
+                </label>
+                <input
+                  type="number"
+                  value={spec.displayOrder || 0} 
+                  onChange={(e) => {
+                    setFormData({
+                      ...formData,
+                      specifications: formData.specifications.map(s =>
+                        s.id === spec.id ? { ...s, displayOrder: parseInt(e.target.value) || 0 } : s
+                      )
+                    });
+                  }}
+                  className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+                />
+              </div>
+              <div className="md:col-span-1 flex items-end">
+                <button
+                  onClick={() => {
+                    setFormData({
+                      ...formData,
+                      specifications: formData.specifications.filter(s => s.id !== spec.id)
+                    });
+                  }}
+                  className="w-full p-2 bg-red-500/20 border border-red-500/30 text-red-400 hover:bg-red-500/30 rounded-lg transition-all"
+                >
+                  <X className="h-4 w-4 mx-auto" />
+                </button>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    ) : (
+      <div className="text-center py-12 border-2 border-dashed border-slate-700 rounded-xl bg-slate-800/20">
+        <BarChart3 className="mx-auto h-16 w-16 text-slate-600 mb-4" />
+        <h3 className="text-lg font-semibold text-white mb-2">No Specifications Added</h3>
+        <p className="text-slate-400 mb-4">
+          Click "Add Specification" to add technical details
+        </p>
+      </div>
+    )}
 
-                  <div className="bg-violet-500/10 border border-violet-500/30 rounded-xl p-4">
-                    <h4 className="font-semibold text-sm text-violet-400 mb-2">Specification Examples</h4>
-                    <ul className="text-sm text-slate-300 space-y-1">
-                      <li>• <strong>Electronics:</strong> Processor, RAM, Storage, Display Size, Battery</li>
-                      <li>• <strong>Clothing:</strong> Material, Care Instructions, Country of Origin</li>
-                      <li>• <strong>Furniture:</strong> Dimensions, Material, Weight Capacity, Assembly</li>
-                    </ul>
-                  </div>
-                </div>
-              </TabsContent>
+    <div className="bg-violet-500/10 border border-violet-500/30 rounded-xl p-4">
+      <h4 className="font-semibold text-sm text-violet-400 mb-2">Specification Examples</h4>
+      <ul className="text-sm text-slate-300 space-y-1">
+        <li>• <strong>Electronics:</strong> Processor, RAM, Storage, Display Size, Battery</li>
+        <li>• <strong>Clothing:</strong> Material, Care Instructions, Country of Origin</li>
+        <li>• <strong>Furniture:</strong> Dimensions, Material, Weight Capacity, Assembly</li>
+      </ul>
+    </div>
+  </div>
+</TabsContent>
+
             </Tabs>
           </div>
         </div>
