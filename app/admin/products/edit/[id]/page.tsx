@@ -18,6 +18,8 @@ import { ProductDescriptionEditor } from "@/app/admin/products/SelfHostedEditor"
 import  {useToast } from "@/components/CustomToast";
 import { API_BASE_URL } from "@/lib/api-config";
 
+// ===== UPDATED INTERFACES =====
+
 // Dynamic API response interfaces
 interface BrandData {
   id: string;
@@ -41,6 +43,14 @@ interface CategoryData {
   parentCategoryId?: string | null;
   parentCategoryName?: string | null;
   subCategories?: CategoryData[];
+}
+
+// ✅ Product Specification interface
+interface ProductSpecification {
+  id: string;
+  name: string;
+  value: string;
+  displayOrder: number;
 }
 
 // Product Variant interface matching backend ProductVariantDto/CreateDto
@@ -67,6 +77,7 @@ interface ProductAttribute {
   value: string;
   displayOrder: number;
 }
+
 interface BrandApiResponse {
   success: boolean;
   message: string;
@@ -81,8 +92,7 @@ interface CategoryApiResponse {
   errors: null;
 }
 
-
-// ✅ Add these interfaces after existing ones
+// ✅ Product API Image interface
 interface ProductApiImage {
   id: string;
   imageUrl: string;
@@ -91,16 +101,23 @@ interface ProductApiImage {
   isMain: boolean;
 }
 
+// ✅ UPDATED ProductImage interface with all optional aliases
 interface ProductImage {
   id: string;
-  imageUrl: string;  // Change from 'url' to 'imageUrl'
+  imageUrl: string;
   altText: string;
-  sortOrder: number; // Change from 'displayOrder' to 'sortOrder'  
+  sortOrder: number;
   isMain: boolean;
   fileName?: string;
   fileSize?: number;
   file?: File;
+  // ✅ Optional aliases for backward compatibility
+  url?: string;
+  preview?: string;
+  alt?: string;
+  displayOrder?: number;
 }
+
 interface ProductItem {
   id: string;
   name: string;
@@ -129,8 +146,8 @@ interface ProductsApiResponse {
 interface DropdownsData {
   brands: BrandData[];
   categories: CategoryData[];
- 
 }
+
 
 export default function EditProductPage({ params }: { params: Promise<{ id: string }> }) {
   const router = useRouter();
@@ -165,25 +182,33 @@ const [formData, setFormData] = useState({
   sku: '',
   brand: '',
   categories: '',
+  categoryName: '',
 
+  // ===== PRODUCT STATUS & PUBLISHING =====
   published: true,
   productType: 'simple',
   visibleIndividually: true,
   customerRoles: 'all',
   limitedToStores: false,
+  showOnHomepage: false,
+  displayOrder: '1',
+  
+  // ===== VENDOR ===== (✅ MISSING - ADDED)
   vendorId: '',
+  vendor: '',                          // ✅ NEW: Vendor name string
+  
+  // ===== PRODUCT DEPENDENCIES =====
   requireOtherProducts: false,
   requiredProductIds: '',
   automaticallyAddProducts: false,
-  showOnHomepage: false,
-  displayOrder: '1',
+  
+  // ===== BASIC FIELDS =====
   productTags: '',
   gtin: '',
   manufacturerPartNumber: '',
   adminComment: '',
-  allowCustomerReviews: false,
-  categoryName: '',
   deliveryDateId: '',
+  allowCustomerReviews: false,
   
   // ===== RELATED PRODUCTS =====
   relatedProducts: [] as string[],
@@ -205,6 +230,12 @@ const [formData, setFormData] = useState({
   cost: '',
   disableBuyButton: false,
   disableWishlistButton: false,
+  
+  // ===== PRE-ORDER ===== (✅ ADDED)
+  availableForPreOrder: false,
+  preOrderAvailabilityStartDate: '',
+  
+  // ===== CALL FOR PRICE =====
   callForPrice: false,
   customerEntersPrice: false,
   minimumCustomerEnteredPrice: '',
@@ -223,8 +254,6 @@ const [formData, setFormData] = useState({
   markAsNewEndDate: '',
   
   // ===== AVAILABILITY =====
-  availableForPreOrder: false,        // ✅ Added
-  preOrderAvailabilityStartDate: '',
   availableStartDate: '',
   availableEndDate: '',
   hasDiscountsApplied: false,
@@ -242,15 +271,23 @@ const [formData, setFormData] = useState({
   
   // ===== INVENTORY =====
   manageInventory: 'track',
+  manageInventoryMethod: 'DontManageStock',    // ✅ NEW: API inventory method
   stockQuantity: '',
   displayStockAvailability: true,
   displayStockQuantity: false,
   minStockQuantity: '',
+  lowStockThreshold: '',                       // ✅ NEW: Low stock warning
   lowStockActivity: 'nothing',
   notifyAdminForQuantityBelow: '',
+  notifyQuantityBelow: '',                     // ✅ NEW: Notification threshold
+  
+  // ===== BACKORDER =====
   backorders: 'no-backorders',
-  allowBackorder: false,              // ✅ Fixed: Boolean, not string
+  backorderMode: 'NoBackorders',               // ✅ NEW: API backorder mode
+  allowBackorder: false,
   allowBackInStockSubscriptions: false,
+  
+  // ===== CART QUANTITIES =====
   productAvailabilityRange: '',
   minCartQuantity: '1',
   maxCartQuantity: '10000',
@@ -263,17 +300,22 @@ const [formData, setFormData] = useState({
   isFreeShipping: false,
   shipSeparately: false,
   additionalShippingCharge: '',
+  
+  // ===== DIMENSIONS & WEIGHT =====
   weight: '',
   length: '',
   width: '',
   height: '',
+  weightUnit: 'kg',                            // ✅ NEW: Weight unit
+  dimensionUnit: 'cm',                         // ✅ NEW: Dimension unit
   
   // ===== GIFT CARDS =====
   isGiftCard: false,
   giftCardType: 'virtual',
-  overriddenGiftCardAmount: false,    // ✅ Fixed: Boolean, not string
+  overriddenGiftCardAmount: false,
   
-  // ===== DOWNLOADABLE PRODUCT =====
+  // ===== DIGITAL PRODUCT =====
+  isDigital: false,                            // ✅ NEW: Digital product flag
   isDownload: false,
   downloadId: '',
   unlimitedDownloads: true,
@@ -296,6 +338,7 @@ const [formData, setFormData] = useState({
   rentalPriceLength: '',
   rentalPricePeriod: 'days',
 });
+
 
 // Clean renderCategoryOptions - no symbols, just clean hierarchy
 const renderCategoryOptions = (categories: CategoryData[]): JSX.Element[] => {
@@ -397,6 +440,8 @@ useEffect(() => {
         if (productApiResponse.success && productApiResponse.data) {
           const product = productApiResponse.data;
 
+          // ===== HELPER FUNCTIONS =====
+          
           // Helper: Get category display name
           const getCategoryDisplayName = (categoryId: string, categories: CategoryData[]): string => {
             if (!categoryId) return '';
@@ -433,33 +478,45 @@ useEffect(() => {
             }
           };
 
-// Helper: Parse specification string
-const parseSpecificationString = (specStr: string | null): Array<{
-  id: string;
-  name: string;
-  value: string;
-  displayOrder: number;
-}> => {
-  if (!specStr) return [];
-  
-  try {
-    const parsed = JSON.parse(specStr);
-    
-    if (!Array.isArray(parsed)) return [];
-    
-    // ✅ Ensure all fields are defined with fallbacks
-    return parsed.map((spec, index) => ({
-      id: spec.id || spec.Id || `spec-${Date.now()}-${index}`,  // ✅ Fallback ID
-      name: spec.name || spec.Name || '',                       // ✅ Fallback name
-      value: spec.value || spec.Value || '',                    // ✅ Fallback value
-      displayOrder: spec.displayOrder || spec.DisplayOrder || index  // ✅ Fallback order
-    }));
-  } catch (error) {
-    console.error('Error parsing specifications:', error);
-    return [];
-  }
-};
-
+          // Helper: Parse specification string/array
+          const parseSpecificationString = (specStr: string | any[] | null): Array<{
+            id: string;
+            name: string;
+            value: string;
+            displayOrder: number;
+          }> => {
+            if (!specStr) return [];
+            
+            try {
+              // ✅ If already an array, use it
+              if (Array.isArray(specStr)) {
+                return specStr.map((spec, index) => ({
+                  id: spec.id || spec.Id || `spec-${Date.now()}-${index}`,
+                  name: spec.name || spec.Name || '',
+                  value: spec.value || spec.Value || '',
+                  displayOrder: spec.displayOrder || spec.DisplayOrder || index
+                }));
+              }
+              
+              // ✅ If string, parse it
+              if (typeof specStr === 'string') {
+                const parsed = JSON.parse(specStr);
+                if (!Array.isArray(parsed)) return [];
+                
+                return parsed.map((spec, index) => ({
+                  id: spec.id || spec.Id || `spec-${Date.now()}-${index}`,
+                  name: spec.name || spec.Name || '',
+                  value: spec.value || spec.Value || '',
+                  displayOrder: spec.displayOrder || spec.DisplayOrder || index
+                }));
+              }
+              
+              return [];
+            } catch (error) {
+              console.error('Error parsing specifications:', error);
+              return [];
+            }
+          };
 
           // ✅ Helper: Determine backorder mode string from boolean
           const getBackorderMode = (allowBackorder: boolean | undefined): string => {
@@ -467,11 +524,26 @@ const parseSpecificationString = (specStr: string | null): Array<{
             return 'no-backorders';
           };
 
+          // ✅ Helper: Get API backorder mode string
+          const getBackorderModeApi = (backorderMode: string | undefined): string => {
+            if (!backorderMode) return 'NoBackorders';
+            const mode = backorderMode.toLowerCase();
+            if (mode.includes('allow') && mode.includes('notify')) return 'AllowQtyBelow0AndNotifyCustomer';
+            if (mode.includes('allow')) return 'AllowQtyBelow0';
+            return 'NoBackorders';
+          };
+
+          // ✅ Helper: Get inventory method
+          const getInventoryMethod = (trackQuantity: boolean | undefined, manageInventoryMethod: string | undefined): string => {
+            if (manageInventoryMethod) return manageInventoryMethod;
+            return trackQuantity ? 'ManageStock' : 'DontManageStock';
+          };
+
           const categoryDisplayName = getCategoryDisplayName(product.categoryId || '', categoriesData);
 
           console.log('📦 Product data received:', product);
 
-          // ✅ COMPLETE FORM DATA POPULATION
+          // ===== COMPLETE FORM DATA POPULATION =====
           setFormData({
             // ===== BASIC INFO =====
             name: product.name || '',
@@ -481,24 +553,32 @@ const parseSpecificationString = (specStr: string | null): Array<{
             brand: product.brandId || '',
             categories: product.categoryId || '',
             categoryName: categoryDisplayName,
-           
+            
+            // ===== PRODUCT STATUS & PUBLISHING =====
             published: product.isPublished ?? true,
             productType: product.productType || 'simple',
             visibleIndividually: product.visibleIndividually ?? true,
             showOnHomepage: product.showOnHomepage ?? false,
             displayOrder: product.displayOrder?.toString() || '1',
+            customerRoles: product.customerRoles || 'all',
+            limitedToStores: product.limitedToStores ?? false,
+            
+            // ===== VENDOR ===== (✅ ADDED)
+            vendorId: product.vendorId || '',
+            vendor: product.vendor || '',
+            
+            // ===== PRODUCT DEPENDENCIES ===== (✅ ADDED)
+            requireOtherProducts: product.requireOtherProducts ?? false,
+            requiredProductIds: product.requiredProductIds || '',
+            automaticallyAddProducts: product.automaticallyAddProducts ?? false,
+            
+            // ===== BASIC FIELDS =====
             productTags: product.tags || '',
             gtin: product.gtin || '',
             manufacturerPartNumber: product.manufacturerPartNumber || '',
             adminComment: product.adminComment || '',
             deliveryDateId: product.deliveryDateId || '',
             allowCustomerReviews: product.allowCustomerReviews ?? false,
-            customerRoles: 'all',
-            limitedToStores: false,
-            vendorId: '',
-            requireOtherProducts: false,
-            requiredProductIds: '',
-            automaticallyAddProducts: false,
 
             // ===== PRICING =====
             price: product.price?.toString() || '',
@@ -506,6 +586,12 @@ const parseSpecificationString = (specStr: string | null): Array<{
             cost: product.costPrice?.toString() || '',
             disableBuyButton: product.disableBuyButton ?? false,
             disableWishlistButton: product.disableWishlistButton ?? false,
+            
+            // ===== PRE-ORDER ===== (✅ ADDED)
+            availableForPreOrder: product.availableForPreOrder ?? false,
+            preOrderAvailabilityStartDate: formatDateTimeForInput(product.preOrderAvailabilityStartDate),
+            
+            // ===== CALL FOR PRICE =====
             callForPrice: product.callForPrice ?? false,
             customerEntersPrice: product.customerEntersPrice ?? false,
             minimumCustomerEnteredPrice: product.minimumCustomerEnteredPrice?.toString() || '',
@@ -524,8 +610,6 @@ const parseSpecificationString = (specStr: string | null): Array<{
             markAsNewEndDate: formatDateTimeForInput(product.markAsNewEndDate),
 
             // ===== AVAILABILITY =====
-            availableForPreOrder: product.availableForPreOrder ?? false,
-            preOrderAvailabilityStartDate: formatDateTimeForInput(product.preOrderAvailabilityStartDate),
             availableStartDate: formatDateTimeForInput(product.availableStartDate),
             availableEndDate: formatDateTimeForInput(product.availableEndDate),
             hasDiscountsApplied: product.hasDiscountsApplied ?? false,
@@ -541,20 +625,24 @@ const parseSpecificationString = (specStr: string | null): Array<{
             metaDescription: product.metaDescription || '',
             searchEngineFriendlyPageName: product.searchEngineFriendlyPageName || '',
 
-            // ===== INVENTORY =====
+            // ===== INVENTORY ===== (✅ UPDATED)
             stockQuantity: product.stockQuantity?.toString() || '0',
             manageInventory: product.trackQuantity ? 'track' : 'dont-track',
+            manageInventoryMethod: getInventoryMethod(product.trackQuantity, product.manageInventoryMethod),
             minStockQuantity: product.minStockQuantity?.toString() || '0',
-            notifyAdminForQuantityBelow: product.notifyQuantityBelow?.toString() || '1',
+            lowStockThreshold: product.lowStockThreshold?.toString() || '0',  // ✅ ADDED
+            notifyAdminForQuantityBelow: (product.notifyAdminForQuantityBelow ?? true).toString(),
+            notifyQuantityBelow: product.notifyQuantityBelow?.toString() || '1',  // ✅ ADDED
             displayStockAvailability: product.displayStockAvailability ?? true,
             displayStockQuantity: product.displayStockQuantity ?? false,
             
-            // ✅ FIXED: Backorder handling
+            // ===== BACKORDER ===== (✅ UPDATED)
             allowBackorder: product.allowBackorder ?? false,
             backorders: getBackorderMode(product.allowBackorder),
+            backorderMode: getBackorderModeApi(product.backorderMode),  // ✅ ADDED
             allowBackInStockSubscriptions: product.allowBackInStockSubscriptions ?? false,
             
-            // Cart quantities
+            // ===== CART QUANTITIES =====
             minCartQuantity: product.orderMinimumQuantity?.toString() || '1',
             maxCartQuantity: product.orderMaximumQuantity?.toString() || '10000',
             allowedQuantities: product.allowedQuantities || '',
@@ -568,17 +656,22 @@ const parseSpecificationString = (specStr: string | null): Array<{
             isFreeShipping: product.isFreeShipping ?? false,
             shipSeparately: product.shipSeparately ?? false,
             additionalShippingCharge: product.additionalShippingCharge?.toString() || '',
+            
+            // ===== DIMENSIONS & WEIGHT ===== (✅ UPDATED)
             weight: product.weight?.toString() || '',
             length: product.length?.toString() || '',
             width: product.width?.toString() || '',
             height: product.height?.toString() || '',
+            weightUnit: product.weightUnit || 'kg',      // ✅ ADDED
+            dimensionUnit: product.dimensionUnit || 'cm',  // ✅ ADDED
 
             // ===== GIFT CARDS =====
             isGiftCard: product.isGiftCard ?? false,
             giftCardType: product.giftCardType || 'virtual',
             overriddenGiftCardAmount: product.overriddenGiftCardAmount ?? false,
 
-            // ===== DOWNLOADABLE =====
+            // ===== DIGITAL PRODUCT ===== (✅ UPDATED)
+            isDigital: product.isDigital ?? false,  // ✅ ADDED
             isDownload: product.isDownload ?? false,
             downloadId: product.downloadId || '',
             unlimitedDownloads: product.unlimitedDownloads ?? true,
@@ -621,28 +714,29 @@ const parseSpecificationString = (specStr: string | null): Array<{
               ? product.videoUrls
               : [],
 
-            productImages: product.images?.map((img: any) => ({
-              id: img.id || Date.now().toString(),
+            productImages: product.images?.map((img: any, index: number) => ({
+              id: img.id || `img-${Date.now()}-${index}`,
               imageUrl: img.imageUrl || '',
-              url: img.imageUrl || '',              // ✅ Added alias
-              preview: img.imageUrl || '',          // ✅ Added alias
+              url: img.imageUrl || '',
+              preview: img.imageUrl || '',
               altText: img.altText || '',
-              alt: img.altText || '',               // ✅ Added alias
-              sortOrder: img.sortOrder || 1,
-              displayOrder: img.sortOrder || 1,     // ✅ Added alias
-              isMain: img.isMain || false,
+              alt: img.altText || '',
+              sortOrder: img.sortOrder ?? index,
+              displayOrder: img.sortOrder ?? index,
+              isMain: img.isMain ?? (index === 0),
               fileName: img.imageUrl ? img.imageUrl.split('/').pop() : undefined,
               fileSize: undefined,
               file: undefined
             })) || [],
-// In your useEffect, replace the specifications line with:
-specifications: parseSpecificationString(product.specificationAttributes).map((spec, index) => ({
-  ...spec,
-  id: spec.id || `spec-${Date.now()}-${index}`,  // ✅ Ensure unique ID
-  name: spec.name || '',                          // ✅ Ensure string
-  value: spec.value || '',                        // ✅ Ensure string
-  displayOrder: spec.displayOrder ?? index        // ✅ Ensure number
-}))
+
+            // ===== SPECIFICATIONS =====
+            specifications: parseSpecificationString(product.specificationAttributes).map((spec, index) => ({
+              ...spec,
+              id: spec.id || `spec-${Date.now()}-${index}`,
+              name: spec.name || '',
+              value: spec.value || '',
+              displayOrder: spec.displayOrder ?? index
+            }))
           });
 
           console.log('✅ Form populated successfully');
@@ -651,11 +745,11 @@ specifications: parseSpecificationString(product.specificationAttributes).map((s
           if (product.attributes && Array.isArray(product.attributes)) {
             const loadedAttributes = product.attributes
               .filter((attr: any) => attr.name && attr.value)
-              .map((attr: any) => ({
-                id: attr.id || Date.now().toString() + Math.random(),
+              .map((attr: any, index: number) => ({
+                id: attr.id || `attr-${Date.now()}-${index}`,
                 name: attr.name || '',
                 value: attr.value || '',
-                displayOrder: attr.displayOrder || attr.sortOrder || 0
+                displayOrder: attr.displayOrder ?? attr.sortOrder ?? index
               }));
             setProductAttributes(loadedAttributes);
             console.log('✅ Loaded attributes:', loadedAttributes);
@@ -665,19 +759,19 @@ specifications: parseSpecificationString(product.specificationAttributes).map((s
 
           // ===== LOAD VARIANTS =====
           if (product.variants && Array.isArray(product.variants)) {
-            const loadedVariants = product.variants.map((variant: any) => ({
-              id: variant.id || Date.now().toString() + Math.random(),
+            const loadedVariants = product.variants.map((variant: any, index: number) => ({
+              id: variant.id || `variant-${Date.now()}-${index}`,
               name: variant.name || '',
               sku: variant.sku || '',
-              price: variant.price !== null && variant.price !== undefined ? variant.price : null,
+              price: variant.price ?? null,
               compareAtPrice: variant.compareAtPrice || null,
               weight: variant.weight || null,
-              stockQuantity: variant.stockQuantity || 0,
+              stockQuantity: variant.stockQuantity ?? 0,
               option1: variant.option1 || null,
               option2: variant.option2 || null,
               option3: variant.option3 || null,
               imageUrl: variant.imageUrl || null,
-              isDefault: variant.isDefault || false
+              isDefault: variant.isDefault ?? false
             }));
             setProductVariants(loadedVariants);
             console.log('✅ Loaded variants:', loadedVariants);
@@ -733,12 +827,20 @@ const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
       }
     }
 
+    let vendorId: string | null = null;
+    if (formData.vendorId && formData.vendorId.trim()) {
+      const trimmedVendor = formData.vendorId.trim();
+      if (guidRegex.test(trimmedVendor)) {
+        vendorId = trimmedVendor;
+      }
+    }
 
-    // ✅ Prepare specifications array (proper object array, not string)
+    // ✅ Prepare specifications array
     const specificationsArray = formData.specifications
       ?.filter(spec => spec.name && spec.value)
       .map(spec => ({
-        name: spec.name,           // Remove 'id' if backend doesn't expect it
+        id: spec.id || null,
+        name: spec.name,
         value: spec.value,
         displayOrder: spec.displayOrder || 0
       })) || [];
@@ -747,31 +849,39 @@ const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
     const attributesArray = productAttributes
       ?.filter(attr => attr.name && attr.value)
       .map(attr => ({
-        id: attr.id,
+        id: attr.id || null,
         name: attr.name,
         value: attr.value,
-        displayOrder: attr.displayOrder
+        displayOrder: attr.displayOrder || 0
       })) || [];
 
     // Prepare variants array
     const variantsArray = productVariants?.map(variant => ({
       name: variant.name,
       sku: variant.sku,
-      price: variant.price,
-      compareAtPrice: variant.compareAtPrice,
-      weight: variant.weight,
-      stockQuantity: variant.stockQuantity,
-      option1: variant.option1,
-      option2: variant.option2,
-      option3: variant.option3,
-      imageUrl: variant.imageUrl,
-      isDefault: variant.isDefault
+      price: variant.price ?? 0,
+      compareAtPrice: variant.compareAtPrice || null,
+      weight: variant.weight || null,
+      stockQuantity: variant.stockQuantity || 0,
+      option1: variant.option1 || null,
+      option2: variant.option2 || null,
+      option3: variant.option3 || null,
+      imageUrl: variant.imageUrl || null,
+      isDefault: variant.isDefault || false
+    })) || [];
+
+    // ✅ Prepare images array
+    const imagesArray = formData.productImages?.map((img, index) => ({
+      imageUrl: img.imageUrl || '',
+      altText: img.altText || formData.name || '',
+      sortOrder: img.sortOrder || index,
+      isMain: img.isMain || index === 0
     })) || [];
 
     const productData = {
       id: productId,
       
-      // Basic Info
+      // ===== BASIC INFO =====
       name: formData.name.trim(),
       description: formData.fullDescription || formData.shortDescription || formData.name || 'Product description',
       shortDescription: formData.shortDescription?.trim() || '',
@@ -781,19 +891,43 @@ const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
       displayOrder: parseInt(formData.displayOrder) || 1,
       adminComment: formData.adminComment?.trim() || null,
 
-      // Pricing
+      // ===== PRODUCT STATUS & PUBLISHING =====
+      status: isDraft ? 1 : (formData.published ? 2 : 1),
+      isPublished: isDraft ? false : formData.published,
+      productType: formData.productType || 'simple',
+      visibleIndividually: formData.visibleIndividually ?? true,
+      customerRoles: formData.customerRoles?.trim() || null,
+      limitedToStores: formData.limitedToStores ?? false,
+      showOnHomepage: formData.showOnHomepage || false,
+
+      // ===== VENDOR =====
+      ...(vendorId && { vendorId }),
+      vendor: formData.vendor?.trim() || null,
+
+      // ===== PRODUCT DEPENDENCIES =====
+      requireOtherProducts: formData.requireOtherProducts ?? false,
+      requiredProductIds: formData.requiredProductIds?.trim() || null,
+      automaticallyAddProducts: formData.automaticallyAddProducts ?? false,
+
+      // ===== PRICING =====
       price: parseFloat(formData.price) || 0,
       oldPrice: formData.oldPrice ? parseFloat(formData.oldPrice) : null,
       compareAtPrice: formData.oldPrice ? parseFloat(formData.oldPrice) : null,
       costPrice: formData.cost ? parseFloat(formData.cost) : null,
 
-      // Buy/Wishlist Buttons
-      disableBuyButton: formData.disableBuyButton,
-      disableWishlistButton: formData.disableWishlistButton,
+      // ===== BUY/WISHLIST BUTTONS =====
+      disableBuyButton: formData.disableBuyButton ?? false,
+      disableWishlistButton: formData.disableWishlistButton ?? false,
 
-      // Call for Price
-      callForPrice: formData.callForPrice,
-      customerEntersPrice: formData.customerEntersPrice,
+      // ===== PRE-ORDER =====
+      availableForPreOrder: formData.availableForPreOrder ?? false,
+      preOrderAvailabilityStartDate: formData.availableForPreOrder && formData.preOrderAvailabilityStartDate
+        ? new Date(formData.preOrderAvailabilityStartDate).toISOString()
+        : null,
+
+      // ===== CALL FOR PRICE =====
+      callForPrice: formData.callForPrice ?? false,
+      customerEntersPrice: formData.customerEntersPrice ?? false,
       minimumCustomerEnteredPrice: formData.customerEntersPrice && formData.minimumCustomerEnteredPrice 
         ? parseFloat(formData.minimumCustomerEnteredPrice) 
         : null,
@@ -801,58 +935,23 @@ const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
         ? parseFloat(formData.maximumCustomerEnteredPrice) 
         : null,
 
-      // Dimensions
-      weight: parseFloat(formData.weight) || 0,
-      length: formData.length ? parseFloat(formData.length) : null,
-      width: formData.width ? parseFloat(formData.width) : null,
-      height: formData.height ? parseFloat(formData.height) : null,
-
-      // Shipping
-      requiresShipping: formData.isShipEnabled,
-      isFreeShipping: formData.isFreeShipping,
-      shipSeparately: formData.shipSeparately,
-      additionalShippingCharge: formData.additionalShippingCharge 
-        ? parseFloat(formData.additionalShippingCharge) 
+      // ===== BASE PRICE (UNIT PRICING) =====
+      basepriceEnabled: formData.basepriceEnabled ?? false,
+      basepriceAmount: formData.basepriceEnabled && formData.basepriceAmount
+        ? parseFloat(formData.basepriceAmount)
         : null,
-      deliveryDateId: formData.deliveryDateId || null,
-
-      // Inventory
-      stockQuantity: parseInt(formData.stockQuantity) || 0,
-      trackQuantity: formData.manageInventory === 'track',
-      minStockQuantity: parseInt(formData.minStockQuantity) || 0,
-      notifyAdminForQuantityBelow: true,
-      notifyQuantityBelow: parseInt(formData.notifyAdminForQuantityBelow) || 1,
-      displayStockAvailability: formData.displayStockAvailability,
-      displayStockQuantity: formData.displayStockQuantity,
-
-      // Backorder
-      allowBackorder: formData.allowBackorder,
-      allowBackInStockSubscriptions: formData.allowBackInStockSubscriptions, 
-      backorderMode: formData.backorders || 'no-backorders',
-
-      // Cart Quantities
-      orderMinimumQuantity: parseInt(formData.minCartQuantity) || 1,
-      orderMaximumQuantity: parseInt(formData.maxCartQuantity) || 10000,
-      allowedQuantities: formData.allowedQuantities?.trim() || null,
-
-      // Not Returnable
-      notReturnable: formData.notReturnable,
-
-      // Categories & Brand
-      ...(categoryId && { categoryId }),
-      ...(brandId && { brandId }),
- 
-
-      // Mark as New
-      markAsNew: formData.markAsNew,
-      
-      // Dates
-      availableStartDate: formData.availableStartDate && formData.availableStartDate.trim()
-        ? new Date(formData.availableStartDate).toISOString() 
+      basepriceUnit: formData.basepriceEnabled && formData.basepriceUnit
+        ? formData.basepriceUnit.trim()
         : null,
-      availableEndDate: formData.availableEndDate && formData.availableEndDate.trim()
-        ? new Date(formData.availableEndDate).toISOString() 
+      basepriceBaseAmount: formData.basepriceEnabled && formData.basepriceBaseAmount
+        ? parseFloat(formData.basepriceBaseAmount)
         : null,
+      basepriceBaseUnit: formData.basepriceEnabled && formData.basepriceBaseUnit
+        ? formData.basepriceBaseUnit.trim()
+        : null,
+
+      // ===== MARK AS NEW =====
+      markAsNew: formData.markAsNew ?? false,
       markAsNewStartDate: formData.markAsNew && formData.markAsNewStartDate 
         ? new Date(formData.markAsNewStartDate).toISOString() 
         : null,
@@ -860,35 +959,130 @@ const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
         ? new Date(formData.markAsNewEndDate).toISOString() 
         : null,
 
-      // ✅ FIXED: Specifications as array, not stringified
-      ...(specificationsArray.length > 0 && { specificationAttributes: specificationsArray }),
-      
-      // ✅ FIXED: Attributes and Variants
-      ...(attributesArray.length > 0 && { attributes: attributesArray }),
-      ...(variantsArray.length > 0 && { variants: variantsArray }),
+      // ===== AVAILABILITY DATES =====
+      availableStartDate: formData.availableStartDate && formData.availableStartDate.trim()
+        ? new Date(formData.availableStartDate).toISOString() 
+        : null,
+      availableEndDate: formData.availableEndDate && formData.availableEndDate.trim()
+        ? new Date(formData.availableEndDate).toISOString() 
+        : null,
 
-      // Publishing
-      isPublished: isDraft ? false : formData.published,
-      status: isDraft ? 1 : (formData.published ? 2 : 1),
-      visibleIndividually: formData.visibleIndividually,
-      showOnHomepage: formData.showOnHomepage || false,
-
-      // Customer Reviews
-      allowCustomerReviews: formData.allowCustomerReviews,
-      approvedRatingSum: 0,
-      approvedTotalReviews: 0,
-
-      // Tax
-      taxExempt: formData.taxExempt,
+      // ===== TAX =====
+      taxExempt: formData.taxExempt ?? false,
       taxCategoryId: formData.taxCategoryId || null,
+      telecommunicationsBroadcastingElectronicServices: formData.telecommunicationsBroadcastingElectronicServices ?? false,
 
-      // SEO
+      // ===== INVENTORY =====
+      trackQuantity: formData.manageInventory === 'track',
+      manageInventoryMethod: formData.manageInventoryMethod || 'DontManageStock',
+      stockQuantity: parseInt(formData.stockQuantity) || 0,
+      displayStockAvailability: formData.displayStockAvailability ?? false,
+      displayStockQuantity: formData.displayStockQuantity ?? false,
+      minStockQuantity: parseInt(formData.minStockQuantity) || 0,
+      lowStockThreshold: parseInt(formData.lowStockThreshold) || 0,
+      
+      // ✅ FIX: Convert string to boolean properly
+      notifyAdminForQuantityBelow: (() => {
+        const value = formData.notifyAdminForQuantityBelow;
+        if (typeof value === 'boolean') return value;
+        if (typeof value === 'string') {
+          return value.toLowerCase() === 'true' || value === '1';
+        }
+        return true; // Default to true
+      })(),
+      
+      notifyQuantityBelow: parseInt(formData.notifyQuantityBelow) || 1,
+
+      // ===== BACKORDER =====
+      allowBackorder: formData.allowBackorder ?? false,
+      backorderMode: formData.backorderMode || formData.backorders || 'NoBackorders',
+
+      // ===== CART QUANTITIES =====
+      orderMinimumQuantity: parseInt(formData.minCartQuantity) || 1,
+      orderMaximumQuantity: parseInt(formData.maxCartQuantity) || 10000,
+      allowedQuantities: formData.allowedQuantities?.trim() || null,
+
+      // ===== NOT RETURNABLE =====
+      notReturnable: formData.notReturnable ?? false,
+
+      // ===== SHIPPING =====
+      requiresShipping: formData.isShipEnabled ?? true,
+      isFreeShipping: formData.isFreeShipping ?? false,
+      shipSeparately: formData.shipSeparately ?? false,
+      additionalShippingCharge: formData.additionalShippingCharge 
+        ? parseFloat(formData.additionalShippingCharge) 
+        : null,
+      deliveryDateId: formData.deliveryDateId || null,
+
+      // ===== DIMENSIONS & WEIGHT =====
+      weight: parseFloat(formData.weight) || 0,
+      length: formData.length ? parseFloat(formData.length) : null,
+      width: formData.width ? parseFloat(formData.width) : null,
+      height: formData.height ? parseFloat(formData.height) : null,
+      weightUnit: formData.weightUnit || 'kg',
+      dimensionUnit: formData.dimensionUnit || 'cm',
+
+      // ===== DIGITAL PRODUCT =====
+      isDigital: formData.isDigital ?? false,
+      isDownload: formData.isDownload ?? false,
+      downloadId: formData.isDownload && formData.downloadId ? formData.downloadId : null,
+      unlimitedDownloads: formData.unlimitedDownloads ?? false,
+      maxNumberOfDownloads: !formData.unlimitedDownloads && formData.maxNumberOfDownloads
+        ? parseInt(formData.maxNumberOfDownloads)
+        : null,
+      downloadExpirationDays: formData.downloadExpirationDays
+        ? parseInt(formData.downloadExpirationDays)
+        : null,
+      downloadActivationType: formData.downloadActivationType || null,
+      hasUserAgreement: formData.hasUserAgreement ?? false,
+      userAgreementText: formData.hasUserAgreement && formData.userAgreementText
+        ? formData.userAgreementText.trim()
+        : null,
+      hasSampleDownload: formData.hasSampleDownload ?? false,
+      sampleDownloadId: formData.hasSampleDownload && formData.sampleDownloadId
+        ? formData.sampleDownloadId
+        : null,
+
+      // ===== RECURRING PRODUCT =====
+      isRecurring: formData.isRecurring ?? false,
+      recurringCycleLength: formData.isRecurring && formData.recurringCycleLength
+        ? parseInt(formData.recurringCycleLength)
+        : null,
+      recurringCyclePeriod: formData.isRecurring && formData.recurringCyclePeriod
+        ? formData.recurringCyclePeriod
+        : null,
+      recurringTotalCycles: formData.isRecurring && formData.recurringTotalCycles
+        ? parseInt(formData.recurringTotalCycles)
+        : null,
+
+      // ===== RENTAL PRODUCT =====
+      isRental: formData.isRental ?? false,
+      rentalPriceLength: formData.isRental && formData.rentalPriceLength
+        ? parseInt(formData.rentalPriceLength)
+        : null,
+      rentalPricePeriod: formData.isRental && formData.rentalPricePeriod
+        ? formData.rentalPricePeriod
+        : null,
+
+      // ===== SEO =====
       metaTitle: formData.metaTitle?.trim() || null,
       metaDescription: formData.metaDescription?.trim() || null,
       metaKeywords: formData.metaKeywords?.trim() || null,
       searchEngineFriendlyPageName: formData.searchEngineFriendlyPageName?.trim() || null,
 
-      // Related Products
+      // ===== CUSTOMER REVIEWS =====
+      allowCustomerReviews: formData.allowCustomerReviews ?? true,
+
+      // ===== VIDEOS =====
+      videoUrls: formData.videoUrls && formData.videoUrls.length > 0 
+        ? formData.videoUrls.join(',') 
+        : null,
+
+      // ===== CATEGORIES & BRAND =====
+      ...(categoryId && { categoryId }),
+      ...(brandId && { brandId }),
+
+      // ===== TAGS & RELATED PRODUCTS =====
       tags: formData.productTags?.trim() || null,
       relatedProductIds: Array.isArray(formData.relatedProducts) && formData.relatedProducts.length > 0 
         ? formData.relatedProducts.join(',') 
@@ -897,21 +1091,26 @@ const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
         ? formData.crossSellProducts.join(',') 
         : null,
 
-      // Videos
-      videoUrls: formData.videoUrls && formData.videoUrls.length > 0 
-        ? formData.videoUrls.join(',') 
-        : null,
+      // ===== SPECIFICATIONS, ATTRIBUTES, VARIANTS =====
+      ...(specificationsArray.length > 0 && { specificationAttributes: specificationsArray }),
+      ...(attributesArray.length > 0 && { attributes: attributesArray }),
+      ...(variantsArray.length > 0 && { variants: variantsArray }),
+
+      // ===== IMAGES =====
+      ...(imagesArray.length > 0 && { images: imagesArray }),
     };
 
-    // ✅ Clean up null/undefined values
+    // ✅ Clean up null/undefined values but keep booleans
     const cleanProductData = Object.fromEntries(
-      Object.entries(productData).filter(([_, value]) => 
-        value !== null && value !== undefined && value !== ''
-      )
+      Object.entries(productData).filter(([key, value]) => {
+        // Keep boolean false values
+        if (typeof value === 'boolean') return true;
+        // Remove null, undefined, and empty strings
+        return value !== null && value !== undefined && value !== '';
+      })
     );
 
     console.log('📦 Sending product data:', cleanProductData);
-    console.log('📋 Specifications:', specificationsArray);
 
     const response = await apiClient.put(`/api/Products/${productId}`, cleanProductData);
 
@@ -1389,6 +1588,14 @@ const uploadImagesToProductDirect = async (productId: string, files: File[]): Pr
                     <BarChart3 className="h-4 w-4" />
                     Specifications
                   </TabsTrigger>
+                  <TabsTrigger 
+  value="advanced" 
+  className="flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-slate-400 hover:text-violet-400 border-b-2 border-transparent data-[state=active]:border-violet-500 data-[state=active]:text-violet-400 data-[state=active]:bg-slate-800/50 whitespace-nowrap transition-all rounded-t-lg"
+>
+  <Settings className="h-4 w-4" />
+  Advanced
+</TabsTrigger>
+
                 </TabsList>
               </div>
 
@@ -3266,7 +3473,681 @@ const uploadImagesToProductDirect = async (productId: string, files: File[]): Pr
   </div>
 </TabsContent>
 
-            </Tabs>
+{/* ===== ADVANCED SETTINGS TAB ===== */}
+<TabsContent value="advanced" className="space-y-2 mt-2">
+  <div className="space-y-6">
+    
+    {/* ===== VENDOR SECTION ===== */}
+    <div className="space-y-4">
+      <h3 className="text-lg font-semibold text-white border-b border-slate-800 pb-2">Vendor Information</h3>
+      
+      <div className="grid md:grid-cols-2 gap-4">
+        <div>
+          <label className="block text-sm font-medium text-slate-300 mb-2">Vendor ID (GUID)</label>
+          <input
+            type="text"
+            name="vendorId"
+            value={formData.vendorId}
+            onChange={handleChange}
+            placeholder="e.g., 3fa85f64-5717-4562-b3fc-2c963f66afa6"
+            className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+          />
+          <p className="text-xs text-slate-400 mt-1">GUID of the vendor (if product is sold by a specific vendor)</p>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-slate-300 mb-2">Vendor Name</label>
+          <input
+            type="text"
+            name="vendor"
+            value={formData.vendor}
+            onChange={handleChange}
+            placeholder="Enter vendor name"
+            className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+          />
+        </div>
+      </div>
+    </div>
+
+    {/* ===== CUSTOMER & STORE RESTRICTIONS ===== */}
+    <div className="space-y-4">
+      <h3 className="text-lg font-semibold text-white border-b border-slate-800 pb-2">Access Restrictions</h3>
+      
+      <div className="grid md:grid-cols-2 gap-4">
+        <div>
+          <label className="block text-sm font-medium text-slate-300 mb-2">Customer Roles</label>
+          <select
+            name="customerRoles"
+            value={formData.customerRoles}
+            onChange={handleChange}
+            className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+          >
+            <option value="all">All Customers</option>
+            <option value="registered">Registered Only</option>
+            <option value="guests">Guests Only</option>
+            <option value="administrators">Administrators</option>
+            <option value="vendors">Vendors</option>
+          </select>
+          <p className="text-xs text-slate-400 mt-1">Select which customer roles can view this product</p>
+        </div>
+
+        <div className="flex items-center pt-6">
+          <label className="flex items-center gap-2 w-full px-3 py-3 bg-slate-800/50 border border-slate-700 rounded-xl cursor-pointer hover:border-violet-500 transition-all">
+            <input
+              type="checkbox"
+              name="limitedToStores"
+              checked={formData.limitedToStores}
+              onChange={handleChange}
+              className="rounded bg-slate-800/50 border-slate-700 text-violet-500 focus:ring-violet-500 focus:ring-offset-slate-900"
+            />
+            <span className="text-sm text-slate-300">Limited to stores</span>
+          </label>
+        </div>
+      </div>
+    </div>
+
+    {/* ===== PRODUCT DEPENDENCIES ===== */}
+    <div className="space-y-4">
+      <h3 className="text-lg font-semibold text-white border-b border-slate-800 pb-2">Product Dependencies</h3>
+      
+      <div className="space-y-3">
+        <label className="flex items-center gap-2">
+          <input
+            type="checkbox"
+            name="requireOtherProducts"
+            checked={formData.requireOtherProducts}
+            onChange={handleChange}
+            className="rounded bg-slate-800/50 border-slate-700 text-violet-500 focus:ring-violet-500 focus:ring-offset-slate-900"
+          />
+          <span className="text-sm text-slate-300">Require other products</span>
+        </label>
+
+        {formData.requireOtherProducts && (
+          <div className="bg-slate-800/30 border border-slate-700 p-4 rounded-xl space-y-3">
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-2">Required Product IDs</label>
+              <input
+                type="text"
+                name="requiredProductIds"
+                value={formData.requiredProductIds}
+                onChange={handleChange}
+                placeholder="e.g., product-id-1, product-id-2"
+                className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+              />
+              <p className="text-xs text-slate-400 mt-1">Comma-separated product IDs that must be added to cart</p>
+            </div>
+
+            <label className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                name="automaticallyAddProducts"
+                checked={formData.automaticallyAddProducts}
+                onChange={handleChange}
+                className="rounded bg-slate-800/50 border-slate-700 text-violet-500 focus:ring-violet-500 focus:ring-offset-slate-900"
+              />
+              <span className="text-sm text-slate-300">Automatically add required products to cart</span>
+            </label>
+          </div>
+        )}
+      </div>
+    </div>
+
+    {/* ===== PRE-ORDER SETTINGS ===== */}
+    <div className="space-y-4">
+      <h3 className="text-lg font-semibold text-white border-b border-slate-800 pb-2">Pre-Order Settings</h3>
+      
+      <label className="flex items-center gap-2">
+        <input
+          type="checkbox"
+          name="availableForPreOrder"
+          checked={formData.availableForPreOrder}
+          onChange={handleChange}
+          className="rounded bg-slate-800/50 border-slate-700 text-violet-500 focus:ring-violet-500 focus:ring-offset-slate-900"
+        />
+        <span className="text-sm text-slate-300">Available for pre-order</span>
+      </label>
+
+      {formData.availableForPreOrder && (
+        <div className="bg-slate-800/30 border border-slate-700 p-4 rounded-xl">
+          <label className="block text-sm font-medium text-slate-300 mb-2">Pre-Order Start Date/Time</label>
+          <input
+            type="datetime-local"
+            name="preOrderAvailabilityStartDate"
+            value={formData.preOrderAvailabilityStartDate}
+            onChange={handleChange}
+            className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+          />
+          <p className="text-xs text-slate-400 mt-1">When pre-orders will start being accepted</p>
+        </div>
+      )}
+    </div>
+
+    {/* ===== BASE PRICE (UNIT PRICING) ===== */}
+    <div className="space-y-4">
+      <h3 className="text-lg font-semibold text-white border-b border-slate-800 pb-2">Base Price (Unit Pricing)</h3>
+      <p className="text-sm text-slate-400">Used for price per unit display (e.g., €5.00 per kg)</p>
+      
+      <label className="flex items-center gap-2">
+        <input
+          type="checkbox"
+          name="basepriceEnabled"
+          checked={formData.basepriceEnabled}
+          onChange={handleChange}
+          className="rounded bg-slate-800/50 border-slate-700 text-violet-500 focus:ring-violet-500 focus:ring-offset-slate-900"
+        />
+        <span className="text-sm text-slate-300">Enable base price</span>
+      </label>
+
+      {formData.basepriceEnabled && (
+        <div className="bg-slate-800/30 border border-slate-700 p-4 rounded-xl">
+          <div className="grid md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-2">Base Price Amount</label>
+              <input
+                type="number"
+                name="basepriceAmount"
+                value={formData.basepriceAmount}
+                onChange={handleChange}
+                placeholder="0.00"
+                step="0.01"
+                className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-2">Unit</label>
+              <input
+                type="text"
+                name="basepriceUnit"
+                value={formData.basepriceUnit}
+                onChange={handleChange}
+                placeholder="e.g., kg, liter, piece"
+                className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-2">Reference Amount</label>
+              <input
+                type="number"
+                name="basepriceBaseAmount"
+                value={formData.basepriceBaseAmount}
+                onChange={handleChange}
+                placeholder="1"
+                step="0.01"
+                className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-2">Reference Unit</label>
+              <input
+                type="text"
+                name="basepriceBaseUnit"
+                value={formData.basepriceBaseUnit}
+                onChange={handleChange}
+                placeholder="e.g., kg, liter"
+                className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+              />
+            </div>
+          </div>
+          <p className="text-xs text-slate-400 mt-3">
+            Example: Product price ₹50 for 500g → Base price: ₹100 per 1 kg
+          </p>
+        </div>
+      )}
+    </div>
+
+    {/* ===== INVENTORY ADVANCED ===== */}
+    <div className="space-y-4">
+      <h3 className="text-lg font-semibold text-white border-b border-slate-800 pb-2">Advanced Inventory</h3>
+      
+      <div className="grid md:grid-cols-2 gap-4">
+        <div>
+          <label className="block text-sm font-medium text-slate-300 mb-2">Inventory Method</label>
+          <select
+            name="manageInventoryMethod"
+            value={formData.manageInventoryMethod}
+            onChange={handleChange}
+            className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+          >
+            <option value="DontManageStock">Don't Manage Stock</option>
+            <option value="ManageStock">Manage Stock</option>
+            <option value="ManageStockByAttributes">Manage Stock By Attributes</option>
+          </select>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-slate-300 mb-2">Low Stock Threshold</label>
+          <input
+            type="number"
+            name="lowStockThreshold"
+            value={formData.lowStockThreshold}
+            onChange={handleChange}
+            placeholder="0"
+            className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+          />
+          <p className="text-xs text-slate-400 mt-1">Trigger low stock warning at this quantity</p>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-slate-300 mb-2">Notify Quantity Below</label>
+          <input
+            type="number"
+            name="notifyQuantityBelow"
+            value={formData.notifyQuantityBelow}
+            onChange={handleChange}
+            placeholder="1"
+            className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+          />
+          <p className="text-xs text-slate-400 mt-1">Send notification when stock falls below this number</p>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-slate-300 mb-2">Backorder Mode</label>
+          <select
+            name="backorderMode"
+            value={formData.backorderMode}
+            onChange={handleChange}
+            className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+          >
+            <option value="NoBackorders">No Backorders</option>
+            <option value="AllowQtyBelow0">Allow Quantity Below 0</option>
+            <option value="AllowQtyBelow0AndNotifyCustomer">Allow Qty Below 0 & Notify Customer</option>
+          </select>
+        </div>
+      </div>
+
+      <label className="flex items-center gap-2">
+        <input
+          type="checkbox"
+          name="allowBackInStockSubscriptions"
+          checked={formData.allowBackInStockSubscriptions}
+          onChange={handleChange}
+          className="rounded bg-slate-800/50 border-slate-700 text-violet-500 focus:ring-violet-500 focus:ring-offset-slate-900"
+        />
+        <span className="text-sm text-slate-300">Allow back-in-stock subscriptions</span>
+      </label>
+    </div>
+
+    {/* ===== SHIPPING ADVANCED ===== */}
+    <div className="space-y-4">
+      <h3 className="text-lg font-semibold text-white border-b border-slate-800 pb-2">Shipping Units</h3>
+      
+      <div className="grid md:grid-cols-2 gap-4">
+        <div>
+          <label className="block text-sm font-medium text-slate-300 mb-2">Weight Unit</label>
+          <select
+            name="weightUnit"
+            value={formData.weightUnit}
+            onChange={handleChange}
+            className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+          >
+            <option value="kg">Kilogram (kg)</option>
+            <option value="g">Gram (g)</option>
+            <option value="lb">Pound (lb)</option>
+            <option value="oz">Ounce (oz)</option>
+          </select>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-slate-300 mb-2">Dimension Unit</label>
+          <select
+            name="dimensionUnit"
+            value={formData.dimensionUnit}
+            onChange={handleChange}
+            className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+          >
+            <option value="cm">Centimeter (cm)</option>
+            <option value="m">Meter (m)</option>
+            <option value="in">Inch (in)</option>
+            <option value="ft">Feet (ft)</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    {/* ===== DIGITAL PRODUCT ===== */}
+    <div className="space-y-4">
+      <h3 className="text-lg font-semibold text-white border-b border-slate-800 pb-2">Digital Product</h3>
+      
+      <label className="flex items-center gap-2">
+        <input
+          type="checkbox"
+          name="isDigital"
+          checked={formData.isDigital}
+          onChange={handleChange}
+          className="rounded bg-slate-800/50 border-slate-700 text-violet-500 focus:ring-violet-500 focus:ring-offset-slate-900"
+        />
+        <span className="text-sm text-slate-300">This is a digital product</span>
+      </label>
+
+      {formData.isDigital && (
+        <div className="bg-slate-800/30 border border-slate-700 p-4 rounded-xl space-y-3">
+          <label className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              name="isDownload"
+              checked={formData.isDownload}
+              onChange={handleChange}
+              className="rounded bg-slate-800/50 border-slate-700 text-violet-500 focus:ring-violet-500 focus:ring-offset-slate-900"
+            />
+            <span className="text-sm text-slate-300">Is downloadable</span>
+          </label>
+
+          {formData.isDownload && (
+            <>
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-2">Download ID</label>
+                <input
+                  type="text"
+                  name="downloadId"
+                  value={formData.downloadId}
+                  onChange={handleChange}
+                  placeholder="Enter download file ID"
+                  className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+                />
+              </div>
+
+              <label className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  name="unlimitedDownloads"
+                  checked={formData.unlimitedDownloads}
+                  onChange={handleChange}
+                  className="rounded bg-slate-800/50 border-slate-700 text-violet-500 focus:ring-violet-500 focus:ring-offset-slate-900"
+                />
+                <span className="text-sm text-slate-300">Unlimited downloads</span>
+              </label>
+
+              {!formData.unlimitedDownloads && (
+                <div>
+                  <label className="block text-sm font-medium text-slate-300 mb-2">Max Downloads</label>
+                  <input
+                    type="number"
+                    name="maxNumberOfDownloads"
+                    value={formData.maxNumberOfDownloads}
+                    onChange={handleChange}
+                    placeholder="5"
+                    className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+                  />
+                </div>
+              )}
+
+              <div className="grid md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate-300 mb-2">Download Expiration (Days)</label>
+                  <input
+                    type="number"
+                    name="downloadExpirationDays"
+                    value={formData.downloadExpirationDays}
+                    onChange={handleChange}
+                    placeholder="30"
+                    className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-slate-300 mb-2">Activation Type</label>
+                  <select
+                    name="downloadActivationType"
+                    value={formData.downloadActivationType}
+                    onChange={handleChange}
+                    className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+                  >
+                    <option value="when-order-is-paid">When Order Is Paid</option>
+                    <option value="manually">Manually</option>
+                  </select>
+                </div>
+              </div>
+
+              <label className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  name="hasUserAgreement"
+                  checked={formData.hasUserAgreement}
+                  onChange={handleChange}
+                  className="rounded bg-slate-800/50 border-slate-700 text-violet-500 focus:ring-violet-500 focus:ring-offset-slate-900"
+                />
+                <span className="text-sm text-slate-300">Has user agreement</span>
+              </label>
+
+              {formData.hasUserAgreement && (
+                <div>
+                  <label className="block text-sm font-medium text-slate-300 mb-2">User Agreement Text</label>
+                  <textarea
+                    name="userAgreementText"
+                    value={formData.userAgreementText}
+                    onChange={handleChange}
+                    placeholder="Enter user agreement terms..."
+                    rows={4}
+                    className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+                  />
+                </div>
+              )}
+
+              <label className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  name="hasSampleDownload"
+                  checked={formData.hasSampleDownload}
+                  onChange={handleChange}
+                  className="rounded bg-slate-800/50 border-slate-700 text-violet-500 focus:ring-violet-500 focus:ring-offset-slate-900"
+                />
+                <span className="text-sm text-slate-300">Has sample download</span>
+              </label>
+
+              {formData.hasSampleDownload && (
+                <div>
+                  <label className="block text-sm font-medium text-slate-300 mb-2">Sample Download ID</label>
+                  <input
+                    type="text"
+                    name="sampleDownloadId"
+                    value={formData.sampleDownloadId}
+                    onChange={handleChange}
+                    placeholder="Enter sample file ID"
+                    className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+                  />
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      )}
+    </div>
+
+    {/* ===== RECURRING PRODUCT ===== */}
+    <div className="space-y-4">
+      <h3 className="text-lg font-semibold text-white border-b border-slate-800 pb-2">Recurring Product (Subscription)</h3>
+      
+      <label className="flex items-center gap-2">
+        <input
+          type="checkbox"
+          name="isRecurring"
+          checked={formData.isRecurring}
+          onChange={handleChange}
+          className="rounded bg-slate-800/50 border-slate-700 text-violet-500 focus:ring-violet-500 focus:ring-offset-slate-900"
+        />
+        <span className="text-sm text-slate-300">This is a recurring product</span>
+      </label>
+
+      {formData.isRecurring && (
+        <div className="bg-slate-800/30 border border-slate-700 p-4 rounded-xl">
+          <div className="grid md:grid-cols-3 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-2">Cycle Length</label>
+              <input
+                type="number"
+                name="recurringCycleLength"
+                value={formData.recurringCycleLength}
+                onChange={handleChange}
+                placeholder="1"
+                className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-2">Cycle Period</label>
+              <select
+                name="recurringCyclePeriod"
+                value={formData.recurringCyclePeriod}
+                onChange={handleChange}
+                className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+              >
+                <option value="days">Days</option>
+                <option value="weeks">Weeks</option>
+                <option value="months">Months</option>
+                <option value="years">Years</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-2">Total Cycles</label>
+              <input
+                type="number"
+                name="recurringTotalCycles"
+                value={formData.recurringTotalCycles}
+                onChange={handleChange}
+                placeholder="0 = unlimited"
+                className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+              />
+            </div>
+          </div>
+          <p className="text-xs text-slate-400 mt-3">
+            Example: Cycle Length: 1, Period: Months, Total: 12 = Monthly subscription for 1 year
+          </p>
+        </div>
+      )}
+    </div>
+
+    {/* ===== RENTAL PRODUCT ===== */}
+    <div className="space-y-4">
+      <h3 className="text-lg font-semibold text-white border-b border-slate-800 pb-2">Rental Product</h3>
+      
+      <label className="flex items-center gap-2">
+        <input
+          type="checkbox"
+          name="isRental"
+          checked={formData.isRental}
+          onChange={handleChange}
+          className="rounded bg-slate-800/50 border-slate-700 text-violet-500 focus:ring-violet-500 focus:ring-offset-slate-900"
+        />
+        <span className="text-sm text-slate-300">This is a rental product</span>
+      </label>
+
+      {formData.isRental && (
+        <div className="bg-slate-800/30 border border-slate-700 p-4 rounded-xl">
+          <div className="grid md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-2">Rental Price Length</label>
+              <input
+                type="number"
+                name="rentalPriceLength"
+                value={formData.rentalPriceLength}
+                onChange={handleChange}
+                placeholder="1"
+                className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-2">Rental Period</label>
+              <select
+                name="rentalPricePeriod"
+                value={formData.rentalPricePeriod}
+                onChange={handleChange}
+                className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+              >
+                <option value="days">Days</option>
+                <option value="weeks">Weeks</option>
+                <option value="months">Months</option>
+              </select>
+            </div>
+          </div>
+          <p className="text-xs text-slate-400 mt-3">
+            Example: Length: 1, Period: Days = Daily rental pricing
+          </p>
+        </div>
+      )}
+    </div>
+
+    {/* ===== GIFT CARD ===== */}
+    <div className="space-y-4">
+      <h3 className="text-lg font-semibold text-white border-b border-slate-800 pb-2">Gift Card</h3>
+      
+      <label className="flex items-center gap-2">
+        <input
+          type="checkbox"
+          name="isGiftCard"
+          checked={formData.isGiftCard}
+          onChange={handleChange}
+          className="rounded bg-slate-800/50 border-slate-700 text-violet-500 focus:ring-violet-500 focus:ring-offset-slate-900"
+        />
+        <span className="text-sm text-slate-300">This is a gift card</span>
+      </label>
+
+      {formData.isGiftCard && (
+        <div className="bg-slate-800/30 border border-slate-700 p-4 rounded-xl space-y-3">
+          <div>
+            <label className="block text-sm font-medium text-slate-300 mb-2">Gift Card Type</label>
+            <select
+              name="giftCardType"
+              value={formData.giftCardType}
+              onChange={handleChange}
+              className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+            >
+              <option value="virtual">Virtual</option>
+              <option value="physical">Physical</option>
+            </select>
+          </div>
+
+          <label className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              name="overriddenGiftCardAmount"
+              checked={formData.overriddenGiftCardAmount}
+              onChange={handleChange}
+              className="rounded bg-slate-800/50 border-slate-700 text-violet-500 focus:ring-violet-500 focus:ring-offset-slate-900"
+            />
+            <span className="text-sm text-slate-300">Override gift card amount</span>
+          </label>
+        </div>
+      )}
+    </div>
+
+    {/* ===== TELECOMMUNICATIONS TAX ===== */}
+    <div className="space-y-4">
+      <h3 className="text-lg font-semibold text-white border-b border-slate-800 pb-2">Special Tax Settings</h3>
+      
+      <label className="flex items-center gap-2">
+        <input
+          type="checkbox"
+          name="telecommunicationsBroadcastingElectronicServices"
+          checked={formData.telecommunicationsBroadcastingElectronicServices}
+          onChange={handleChange}
+          className="rounded bg-slate-800/50 border-slate-700 text-violet-500 focus:ring-violet-500 focus:ring-offset-slate-900"
+        />
+        <span className="text-sm text-slate-300">Telecommunications, broadcasting and electronic services (EU VAT)</span>
+      </label>
+      <p className="text-xs text-slate-400">Check if this product falls under EU telecommunications/electronic services VAT rules</p>
+    </div>
+
+    {/* ===== INFO BOX ===== */}
+    <div className="bg-violet-500/10 border border-violet-500/30 rounded-xl p-4">
+      <h4 className="font-semibold text-sm text-violet-400 mb-2">⚙️ Advanced Settings Info</h4>
+      <ul className="text-sm text-slate-300 space-y-1">
+        <li><strong className="text-white">Vendor:</strong> Assign product to a specific vendor/supplier</li>
+        <li><strong className="text-white">Dependencies:</strong> Force customers to buy required products together</li>
+        <li><strong className="text-white">Base Price:</strong> Show unit pricing for better price comparison</li>
+        <li><strong className="text-white">Digital:</strong> Configure downloadable products with access control</li>
+        <li><strong className="text-white">Recurring:</strong> Set up subscription-based products</li>
+        <li><strong className="text-white">Rental:</strong> Enable time-based product rentals</li>
+      </ul>
+    </div>
+
+  </div>
+</TabsContent>
+</Tabs>
           </div>
         </div>
       </div>

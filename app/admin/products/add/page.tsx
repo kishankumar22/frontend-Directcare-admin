@@ -7,15 +7,16 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   ArrowLeft, Save, Upload, X, Info, Search, Image, Package,
   Tag, BarChart3, Globe,  Truck, Gift, Calendar,
-  Users, DollarSign, Link as LinkIcon, ShoppingCart, Video
+  Users, DollarSign, Link as LinkIcon, ShoppingCart, Video,
+  Settings
 } from "lucide-react";
 import Link from "next/link";
 import { apiClient } from "../../../../lib/api"; // Import your axios client
 import { ProductDescriptionEditor } from "@/app/admin/products/SelfHostedEditor";
 import { useToast } from "@/components/CustomToast";
 import API_BASE_URL from "@/lib/api-config";
+// ===== API RESPONSE INTERFACES =====
 
-// API response interfaces को properly define करें
 interface BrandApiResponse {
   success: boolean;
   message: string;
@@ -23,77 +24,14 @@ interface BrandApiResponse {
   errors: null;
 }
 
-// Add these interfaces at the top
-interface ProductImage {
-  id: string;
-  imageUrl: string;  // This should be 'imageUrl', not 'url'
-  altText: string;
-  sortOrder: number;  // This should be 'sortOrder', not 'displayOrder'
-  isMain: boolean;
-  fileName?: string;
-  fileSize?: number;
-  file?: File; // For storing actual file during upload
-}
-
-// Product Variant interface matching backend ProductVariantCreateDto
-interface ProductVariant {
-  id: string;
-  name: string;
-  sku: string;
-  price: number | null;
-  compareAtPrice: number | null;
-  weight: number | null;
-  stockQuantity: number;
-  option1: string | null;
-  option2: string | null;
-  option3: string | null;
-  imageUrl: string | null;
-  isDefault: boolean;
-  imageFile?: File; // For storing the actual file
-}
-
-// Product Attribute interface matching backend ProductAttributeCreateDto
-interface ProductAttribute {
-  id: string;
-  name: string;
-  value: string;
-  displayOrder: number;
-}
-
-// Types for products API response
-interface ProductItem {
-  id: string;
-  name: string;
-  sku: string;
-  price: number;
-  oldPrice?: number;
-  description?: string;
-  shortDescription?: string;
-}
-
-interface ApiResponse<T = any> {
-  data?: T;
-  success?: boolean;
-  message?: string;
-  errors?: string[] | null;
-  error?: string;
-  status?: number;
-  result?: T;
-}
-
-interface ProductCreateResponse {
-  id: string;
-  name: string;
-  sku: string;
-  [key: string]: any;
-}
-
-interface ProductApiResponse {
+interface CategoryApiResponse {
   success: boolean;
-  data?: ProductCreateResponse;
-  message?: string;
-  errors?: string[] | null;
+  message: string;
+  data: CategoryData[];
+  errors: null;
 }
+
+
 
 interface ProductsApiResponse {
   success: boolean;
@@ -110,12 +48,24 @@ interface ProductsApiResponse {
   errors: null;
 }
 
-interface CategoryApiResponse {
+interface ProductApiResponse {
   success: boolean;
-  message: string;
-  data: CategoryData[];
-  errors: null;
+  data?: ProductCreateResponse;
+  message?: string;
+  errors?: string[] | null;
 }
+
+interface ApiResponse<T = any> {
+  data?: T;
+  success?: boolean;
+  message?: string;
+  errors?: string[] | null;
+  error?: string;
+  status?: number;
+  result?: T;
+}
+
+// ===== DATA INTERFACES =====
 
 interface BrandData {
   id: string;
@@ -126,26 +76,6 @@ interface BrandData {
   isPublished?: boolean;
   showOnHomepage?: boolean;
   displayOrder?: number;
-}
-
-
-// Add Manufacturer interface
-interface ManufacturerData {
-  id: string;
-  name: string;
-  description?: string;
-  slug?: string;
-  logoUrl?: string;
-  isPublished?: boolean;
-  showOnHomepage?: boolean;
-  displayOrder?: number;
-}
-
-interface ManufacturerApiResponse {
-  success: boolean;
-  message: string;
-  data: ManufacturerData[];
-  errors: null;
 }
 
 
@@ -162,12 +92,90 @@ interface CategoryData {
   subCategories?: CategoryData[];
 }
 
-// Update DropdownsData interface
 interface DropdownsData {
   brands: BrandData[];
   categories: CategoryData[];
-  manufacturers: ManufacturerData[]; // Add this line
+ 
 }
+
+// ===== PRODUCT INTERFACES =====
+
+interface ProductItem {
+  id: string;
+  name: string;
+  sku: string;
+  price: number;
+  oldPrice?: number;
+  description?: string;
+  shortDescription?: string;
+}
+
+interface ProductCreateResponse {
+  id: string;
+  name: string;
+  sku: string;
+  [key: string]: any;
+}
+
+// ✅ UPDATED: ProductSpecification interface
+interface ProductSpecification {
+  id: string;
+  name: string;
+  value: string;
+  displayOrder: number;
+}
+
+// ✅ UPDATED: ProductImage interface with all aliases
+interface ProductImage {
+  id: string;
+  imageUrl: string;
+  altText: string;
+  sortOrder: number;
+  isMain: boolean;
+  fileName?: string;
+  fileSize?: number;
+  file?: File;
+  // Optional aliases for backward compatibility
+  url?: string;
+  preview?: string;
+  alt?: string;
+  displayOrder?: number;
+}
+
+// ✅ Product Variant interface
+interface ProductVariant {
+  id: string;
+  name: string;
+  sku: string;
+  price: number | null;
+  compareAtPrice: number | null;
+  weight: number | null;
+  stockQuantity: number;
+  option1: string | null;
+  option2: string | null;
+  option3: string | null;
+  imageUrl: string | null;
+  isDefault: boolean;
+  imageFile?: File;
+}
+
+// ✅ Product Attribute interface
+interface ProductAttribute {
+  id: string;
+  name: string;
+  value: string;
+  displayOrder: number;
+}
+
+// ✅ Product API Image interface (for API responses)
+interface ProductApiImage {
+  id: string;
+  imageUrl: string;
+  altText: string;
+  sortOrder: number;
+  isMain: boolean;
+}
+
 export default function AddProductPage() {
   const router = useRouter();
      const toast = useToast();
@@ -186,32 +194,30 @@ const [uploadingImages, setUploadingImages] = useState(false);
 const [dropdownsData, setDropdownsData] = useState<DropdownsData>({
   brands: [],
   categories: [],
-  manufacturers: [] // Add this line
+ 
 });
 
-// Updated combined useEffect with manufacturers API
+// Updated combined useEffect 
 useEffect(() => {
   const fetchAllData = async () => {
     try {
-      console.log('🔄 Fetching all data (dropdowns + products + manufacturers)...');
-      // Fetch all data in parallel including manufacturers
-      const [brandsResponse, categoriesResponse, productsResponse, manufacturersResponse] = await Promise.all([
+      console.log('🔄 Fetching all data (dropdowns + products )...');
+      // Fetch all data in parallel including 
+      const [brandsResponse, categoriesResponse, productsResponse] = await Promise.all([
         apiClient.get<BrandApiResponse>('/api/Brands?includeUnpublished=false'),
         apiClient.get<CategoryApiResponse>('/api/Categories?includeInactive=true&includeSubCategories=true'),
-        apiClient.get<ProductsApiResponse>('/api/Products'),
-        apiClient.get<ManufacturerApiResponse>('/api/Manufacturers') // Added manufacturers API
+        apiClient.get<ProductsApiResponse>('/api/Products')       
       ]);
 
       // Extract dropdown data with proper typing
       const brandsData = (brandsResponse.data as BrandApiResponse)?.data || [];
       const categoriesData = (categoriesResponse.data as CategoryApiResponse)?.data || [];
-      const manufacturersData = (manufacturersResponse.data as ManufacturerApiResponse)?.data || [];
+     
 
-      // Set dropdown data including manufacturers
+      // Set dropdown data including brands and categories
       setDropdownsData({
         brands: brandsData,
-        categories: categoriesData,
-        manufacturers: manufacturersData // Add manufacturers data
+        categories: categoriesData      
       });
 
       // Extract and transform products data
@@ -234,8 +240,7 @@ useEffect(() => {
 
       console.log('✅ All data loaded:', {
         brandsCount: brandsData.length,
-        categoriesCount: categoriesData.length,
-        manufacturersCount: manufacturersData.length,
+        categoriesCount: categoriesData.length,     
         productsCount: productsResponse.data ? (productsResponse.data as ProductsApiResponse).data.items.length : 0
       });
 
@@ -245,8 +250,7 @@ useEffect(() => {
       // Set fallbacks
       setDropdownsData({
         brands: [],
-        categories: [],
-        manufacturers: []
+        categories: []
       });
       setAvailableProducts([]);
     }
@@ -257,138 +261,321 @@ useEffect(() => {
 
 
 
-  const [formData, setFormData] = useState({
-    // Basic Info
-    name: '',
-    shortDescription: '',
-    fullDescription: '',
-    sku: '',
-    categories: '', // Will store category ID
-    brand: '', // Will store brand ID
-    manufacturer: '',
-    published: true,
-    productType: 'simple',
-    visibleIndividually: true,
-    manufacturerId: '', // Changed from 'manufacturer' to 'manufacturerId'
-    customerRoles: 'all',
-    limitedToStores: false,
-    vendorId: '',
-    requireOtherProducts: false,
-    requiredProductIds: '',
-    automaticallyAddProducts: false,
-    showOnHomepage: false,
-    displayOrder: '1',
-    productTags: '',
-    gtin: '',
-    manufacturerPartNumber: '',
-    adminComment: '',
+const [formData, setFormData] = useState<{
+  // ===== BASIC INFO =====
+  name: string;
+  shortDescription: string;
+  fullDescription: string;
+  sku: string;
+  brand: string;
+  categories: string;
+  categoryName: string;
+ 
+  
+  // ===== PRODUCT STATUS & PUBLISHING =====
+  published: boolean;
+  productType: string;
+  visibleIndividually: boolean;
+  customerRoles: string;
+  limitedToStores: boolean;
+  showOnHomepage: boolean;
+  displayOrder: string;
+  
+  // ===== VENDOR =====
+  vendorId: string;
+  vendor: string;
+  
+  // ===== PRODUCT DEPENDENCIES =====
+  requireOtherProducts: boolean;
+  requiredProductIds: string;
+  automaticallyAddProducts: boolean;
+  
+  // ===== BASIC FIELDS =====
+  productTags: string;
+  gtin: string;
+  manufacturerPartNumber: string;
+  adminComment: string;
+  deliveryDateId: string;
+  allowCustomerReviews: boolean;
+  
+  // ===== RELATED PRODUCTS & MEDIA =====
+  relatedProducts: string[];
+  crossSellProducts: string[];
+  productImages: ProductImage[];
+  videoUrls: string[];
+  specifications: ProductSpecification[];
+  
+  // ===== PRICING =====
+  price: string;
+  oldPrice: string;
+  cost: string;
+  disableBuyButton: boolean;
+  disableWishlistButton: boolean;
+  
+  // ===== PRE-ORDER =====
+  availableForPreOrder: boolean;
+  preOrderAvailabilityStartDate: string;
+  
+  // ===== CALL FOR PRICE =====
+  callForPrice: boolean;
+  customerEntersPrice: boolean;
+  minimumCustomerEnteredPrice: string;
+  maximumCustomerEnteredPrice: string;
+  
+  // ===== BASE PRICE =====
+  basepriceEnabled: boolean;
+  basepriceAmount: string;
+  basepriceUnit: string;
+  basepriceBaseAmount: string;
+  basepriceBaseUnit: string;
+  
+  // ===== PROMOTIONS =====
+  markAsNew: boolean;
+  markAsNewStartDate: string;
+  markAsNewEndDate: string;
+  
+  // ===== AVAILABILITY =====
+  availableStartDate: string;
+  availableEndDate: string;
+  hasDiscountsApplied: boolean;
+  
+  // ===== TAX =====
+  taxExempt: boolean;
+  taxCategoryId: string;
+  telecommunicationsBroadcastingElectronicServices: boolean;
+  
+  // ===== SEO =====
+  metaTitle: string;
+  metaKeywords: string;
+  metaDescription: string;
+  searchEngineFriendlyPageName: string;
+  
+  // ===== INVENTORY =====
+  manageInventory: string;
+  manageInventoryMethod: string;
+  stockQuantity: string;
+  displayStockAvailability: boolean;
+  displayStockQuantity: boolean;
+  minStockQuantity: string;
+  lowStockThreshold: string;
+  lowStockActivity: string;
+  notifyAdminForQuantityBelow: boolean;  // ✅ FIXED: Changed to boolean
+  notifyQuantityBelow: string;
+  
+  // ===== BACKORDER =====
+  backorders: string;
+  backorderMode: string;
+  allowBackorder: boolean;
+  allowBackInStockSubscriptions: boolean;
+  
+  // ===== CART QUANTITIES =====
+  productAvailabilityRange: string;
+  minCartQuantity: string;
+  maxCartQuantity: string;
+  allowedQuantities: string;
+  allowAddingOnlyExistingAttributeCombinations: boolean;
+  notReturnable: boolean;
+  
+  // ===== SHIPPING =====
+  isShipEnabled: boolean;
+  isFreeShipping: boolean;
+  shipSeparately: boolean;
+  additionalShippingCharge: string;
+  
+  // ===== DIMENSIONS & WEIGHT =====
+  weight: string;
+  length: string;
+  width: string;
+  height: string;
+  weightUnit: string;
+  dimensionUnit: string;
+  
+  // ===== GIFT CARDS =====
+  isGiftCard: boolean;
+  giftCardType: string;
+  overriddenGiftCardAmount: boolean;
+  
+  // ===== DIGITAL PRODUCT =====
+  isDigital: boolean;
+  isDownload: boolean;
+  downloadId: string;
+  unlimitedDownloads: boolean;
+  maxNumberOfDownloads: string;
+  downloadExpirationDays: string;
+  downloadActivationType: string;
+  hasUserAgreement: boolean;
+  userAgreementText: string;
+  hasSampleDownload: boolean;
+  sampleDownloadId: string;
+  
+  // ===== RECURRING PRODUCT =====
+  isRecurring: boolean;
+  recurringCycleLength: string;
+  recurringCyclePeriod: string;
+  recurringTotalCycles: string;
+  
+  // ===== RENTAL PRODUCT =====
+  isRental: boolean;
+  rentalPriceLength: string;
+  rentalPricePeriod: string;
+}>({
+  // ===== BASIC INFO =====
+  name: '',
+  shortDescription: '',
+  fullDescription: '',
+  sku: '',
+  brand: '',
+  categories: '',
+  categoryName: '',
 
-    // Related Products
-    relatedProducts: [] as string[],
-    crossSellProducts: [] as string[],
 
-    // New fields for additional tabs
-    productImages: [] as ProductImage[],  // Use proper interface
-    videoUrls: [] as string[],
-    specifications: [] as Array<{id: string, name: string, value: string, displayOrder: number}>,
-
-    // Pricing
-    price: '',
-    oldPrice: '',
-    cost: '',
-    disableBuyButton: false,
-    disableWishlistButton: false,
-    availableForPreOrder: false,
-    preOrderAvailabilityStartDate: '',
-    callForPrice: false,
-    customerEntersPrice: false,
-    minimumCustomerEnteredPrice: '',
-    maximumCustomerEnteredPrice: '',
-    basepriceEnabled: false,
-    basepriceAmount: '',
-    basepriceUnit: '',
-    basepriceBaseAmount: '',
-    basepriceBaseUnit: '',
-    markAsNew: false,
-    markAsNewStartDate: '',
-    markAsNewEndDate: '',
-
-    // Discounts
-    hasDiscountsApplied: false,
-    availableStartDate: '',
-    availableEndDate: '',
-
-    // Tax
-    taxExempt: false,
-    taxCategoryId: '',
-    telecommunicationsBroadcastingElectronicServices: false,
-
-    // SEO
-    metaTitle: '',
-    metaKeywords: '',
-    metaDescription: '',
-    searchEngineFriendlyPageName: '',
-
-    // Inventory
-    manageInventory: 'track',
-    stockQuantity: '',
-    displayStockAvailability: true,
-    displayStockQuantity: false,
-    minStockQuantity: '',
-    lowStockActivity: 'nothing',
-    notifyAdminForQuantityBelow: '',
-    backorders: 'no-backorders',
-    allowBackInStockSubscriptions: false,
-    productAvailabilityRange: '',
-    minCartQuantity: '1',
-    maxCartQuantity: '10000',
-    allowedQuantities: '',
-    allowAddingOnlyExistingAttributeCombinations: false,
-    notReturnable: false,
-
-    // Shipping
-    isShipEnabled: true,
-    isFreeShipping: false,
-    shipSeparately: false,
-    additionalShippingCharge: '',
-    deliveryDateId: '',
-    weight: '',
-    length: '',
-    width: '',
-    height: '',
-
-    // Gift Cards
-    isGiftCard: false,
-    giftCardType: 'virtual',
-    overriddenGiftCardAmount: '',
-
-    // Downloadable Product
-    isDownload: false,
-    downloadId: '',
-    unlimitedDownloads: true,
-    maxNumberOfDownloads: '',
-    downloadExpirationDays: '',
-    downloadActivationType: 'when-order-is-paid',
-    hasUserAgreement: false,
-    userAgreementText: '',
-    hasSampleDownload: false,
-    sampleDownloadId: '',
-    categoryName: '', // Add this for clean category name
-
-    // Recurring Product
-    isRecurring: false,
-    recurringCycleLength: '',
-    recurringCyclePeriod: 'days',
-    recurringTotalCycles: '',
-
-    // Rental Product
-    isRental: false,
-    rentalPriceLength: '',
-    rentalPricePeriod: 'days',
-
-    // Reviews
-    allowCustomerReviews: true,
-  });
+  // ===== PRODUCT STATUS & PUBLISHING =====
+  published: true,
+  productType: 'simple',
+  visibleIndividually: true,
+  customerRoles: 'all',
+  limitedToStores: false,
+  showOnHomepage: false,
+  displayOrder: '1',
+  
+  // ===== VENDOR =====
+  vendorId: '',
+  vendor: '',
+  
+  // ===== PRODUCT DEPENDENCIES =====
+  requireOtherProducts: false,
+  requiredProductIds: '',
+  automaticallyAddProducts: false,
+  
+  // ===== BASIC FIELDS =====
+  productTags: '',
+  gtin: '',
+  manufacturerPartNumber: '',
+  adminComment: '',
+  deliveryDateId: '',
+  allowCustomerReviews: false,
+  
+  // ===== RELATED PRODUCTS & MEDIA =====
+  relatedProducts: [],
+  crossSellProducts: [],
+  productImages: [],
+  videoUrls: [],
+  specifications: [],
+  
+  // ===== PRICING =====
+  price: '',
+  oldPrice: '',
+  cost: '',
+  disableBuyButton: false,
+  disableWishlistButton: false,
+  
+  // ===== PRE-ORDER =====
+  availableForPreOrder: false,
+  preOrderAvailabilityStartDate: '',
+  
+  // ===== CALL FOR PRICE =====
+  callForPrice: false,
+  customerEntersPrice: false,
+  minimumCustomerEnteredPrice: '',
+  maximumCustomerEnteredPrice: '',
+  
+  // ===== BASE PRICE =====
+  basepriceEnabled: false,
+  basepriceAmount: '',
+  basepriceUnit: '',
+  basepriceBaseAmount: '',
+  basepriceBaseUnit: '',
+  
+  // ===== PROMOTIONS =====
+  markAsNew: false,
+  markAsNewStartDate: '',
+  markAsNewEndDate: '',
+  
+  // ===== AVAILABILITY =====
+  availableStartDate: '',
+  availableEndDate: '',
+  hasDiscountsApplied: false,
+  
+  // ===== TAX =====
+  taxExempt: false,
+  taxCategoryId: '',
+  telecommunicationsBroadcastingElectronicServices: false,
+  
+  // ===== SEO =====
+  metaTitle: '',
+  metaKeywords: '',
+  metaDescription: '',
+  searchEngineFriendlyPageName: '',
+  
+  // ===== INVENTORY =====
+  manageInventory: 'track',
+  manageInventoryMethod: 'DontManageStock',
+  stockQuantity: '',
+  displayStockAvailability: true,
+  displayStockQuantity: false,
+  minStockQuantity: '',
+  lowStockThreshold: '',
+  lowStockActivity: 'nothing',
+  notifyAdminForQuantityBelow: true,  // ✅ FIXED: Boolean instead of string
+  notifyQuantityBelow: '',
+  
+  // ===== BACKORDER =====
+  backorders: 'no-backorders',
+  backorderMode: 'NoBackorders',
+  allowBackorder: false,
+  allowBackInStockSubscriptions: false,
+  
+  // ===== CART QUANTITIES =====
+  productAvailabilityRange: '',
+  minCartQuantity: '1',
+  maxCartQuantity: '10000',
+  allowedQuantities: '',
+  allowAddingOnlyExistingAttributeCombinations: false,
+  notReturnable: false,
+  
+  // ===== SHIPPING =====
+  isShipEnabled: true,
+  isFreeShipping: false,
+  shipSeparately: false,
+  additionalShippingCharge: '',
+  
+  // ===== DIMENSIONS & WEIGHT =====
+  weight: '',
+  length: '',
+  width: '',
+  height: '',
+  weightUnit: 'kg',
+  dimensionUnit: 'cm',
+  
+  // ===== GIFT CARDS =====
+  isGiftCard: false,
+  giftCardType: 'virtual',
+  overriddenGiftCardAmount: false,
+  
+  // ===== DIGITAL PRODUCT =====
+  isDigital: false,
+  isDownload: false,
+  downloadId: '',
+  unlimitedDownloads: true,
+  maxNumberOfDownloads: '',
+  downloadExpirationDays: '',
+  downloadActivationType: 'when-order-is-paid',
+  hasUserAgreement: false,
+  userAgreementText: '',
+  hasSampleDownload: false,
+  sampleDownloadId: '',
+  
+  // ===== RECURRING PRODUCT =====
+  isRecurring: false,
+  recurringCycleLength: '',
+  recurringCyclePeriod: 'days',
+  recurringTotalCycles: '',
+  
+  // ===== RENTAL PRODUCT =====
+  isRental: false,
+  rentalPriceLength: '',
+  rentalPricePeriod: 'days',
+});
 
 
 
@@ -491,7 +678,6 @@ const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
     // Show loading toast
     const loadingId = toast.info(
       isDraft ? 'Saving as draft...' : 'Creating product...', 
-    
     );
 
     // Prepare product data
@@ -513,11 +699,13 @@ const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
       }
     }
 
-    let manufacturerId: string | null = null;
-    if (formData.manufacturerId && formData.manufacturerId.trim()) {
-      const trimmedManufacturer = formData.manufacturerId.trim();
-      if (guidRegex.test(trimmedManufacturer)) {
-        manufacturerId = trimmedManufacturer;
+
+    // ✅ NEW: Vendor ID validation
+    let vendorId: string | null = null;
+    if (formData.vendorId && formData.vendorId.trim()) {
+      const trimmedVendor = formData.vendorId.trim();
+      if (guidRegex.test(trimmedVendor)) {
+        vendorId = trimmedVendor;
       }
     }
 
@@ -525,39 +713,47 @@ const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
     const specificationAttributes = formData.specifications
       .filter(spec => spec.name && spec.value)
       .map(spec => ({
-        id: spec.id,
+        id: spec.id || null,
         name: spec.name,
         value: spec.value,
-        displayOrder: spec.displayOrder
+        displayOrder: spec.displayOrder || 0
       }));
 
     // Prepare attributes array
     const attributesArray = productAttributes
       .filter(attr => attr.name && attr.value)
       .map(attr => ({
-        id: attr.id,
+        id: attr.id || null,
         name: attr.name,
         value: attr.value,
-        displayOrder: attr.displayOrder
+        displayOrder: attr.displayOrder || 0
       }));
 
     // Prepare variants array
     const variantsArray = productVariants.map(variant => ({
       name: variant.name,
       sku: variant.sku,
-      price: variant.price,
-      compareAtPrice: variant.compareAtPrice,
-      weight: variant.weight,
-      stockQuantity: variant.stockQuantity,
-      option1: variant.option1,
-      option2: variant.option2,
-      option3: variant.option3,
-      imageUrl: variant.imageUrl,
-      isDefault: variant.isDefault
+      price: variant.price ?? 0,
+      compareAtPrice: variant.compareAtPrice || null,
+      weight: variant.weight || null,
+      stockQuantity: variant.stockQuantity || 0,
+      option1: variant.option1 || null,
+      option2: variant.option2 || null,
+      option3: variant.option3 || null,
+      imageUrl: variant.imageUrl || null,
+      isDefault: variant.isDefault || false
     }));
 
+    // ✅ Prepare images array
+    const imagesArray = formData.productImages?.map((img, index) => ({
+      imageUrl: img.imageUrl || '',
+      altText: img.altText || formData.name || '',
+      sortOrder: img.sortOrder || index,
+      isMain: img.isMain || index === 0
+    })) || [];
+
     const productData = {
-      // Basic Info
+      // ===== BASIC INFO =====
       name: formData.name.trim(),
       description: formData.fullDescription || formData.shortDescription || formData.name || 'Product description',
       shortDescription: formData.shortDescription?.trim() || '',
@@ -566,67 +762,44 @@ const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
       manufacturerPartNumber: formData.manufacturerPartNumber?.trim() || null,
       displayOrder: parseInt(formData.displayOrder) || 1,
       adminComment: formData.adminComment?.trim() || null,
-      
-      // Pricing
+
+      // ===== PRODUCT STATUS & PUBLISHING =====
+      status: isDraft ? 1 : (formData.published ? 2 : 1),
+      isPublished: isDraft ? false : formData.published,
+      productType: formData.productType || 'simple',
+      visibleIndividually: formData.visibleIndividually ?? true,
+      customerRoles: formData.customerRoles?.trim() || null,
+      limitedToStores: formData.limitedToStores ?? false,
+      showOnHomepage: formData.showOnHomepage || false,
+
+      // ===== VENDOR ===== (✅ ADDED)
+      ...(vendorId && { vendorId }),
+      vendor: formData.vendor?.trim() || null,
+
+      // ===== PRODUCT DEPENDENCIES ===== (✅ ADDED)
+      requireOtherProducts: formData.requireOtherProducts ?? false,
+      requiredProductIds: formData.requiredProductIds?.trim() || null,
+      automaticallyAddProducts: formData.automaticallyAddProducts ?? false,
+
+      // ===== PRICING =====
       price: parseFloat(formData.price) || 0,
       oldPrice: formData.oldPrice ? parseFloat(formData.oldPrice) : null,
       compareAtPrice: formData.oldPrice ? parseFloat(formData.oldPrice) : null,
       costPrice: formData.cost ? parseFloat(formData.cost) : null,
-      
-      // Dimensions
-      weight: parseFloat(formData.weight) || 0,
-      length: formData.length ? parseFloat(formData.length) : null,
-      width: formData.width ? parseFloat(formData.width) : null,
-      height: formData.height ? parseFloat(formData.height) : null,
-      
-      // Shipping
-      requiresShipping: formData.isShipEnabled,
-      isFreeShipping: formData.isFreeShipping || false,
-      shipSeparately: formData.shipSeparately || false,
-      additionalShippingCharge: formData.additionalShippingCharge ? parseFloat(formData.additionalShippingCharge) : null,
-      deliveryDateId: formData.deliveryDateId || null,
-      
-      // Inventory
-      stockQuantity: parseInt(formData.stockQuantity) || 0,
-      trackQuantity: formData.manageInventory === 'track',
-      minStockQuantity: formData.minStockQuantity ? parseInt(formData.minStockQuantity) : null,
-      lowStockActivity: formData.lowStockActivity || null,
-      notifyAdminForQuantityBelow: formData.notifyAdminForQuantityBelow ? parseInt(formData.notifyAdminForQuantityBelow) : null,
-      backorders: formData.backorders || null,
-      displayStockAvailability: formData.displayStockAvailability || false,
-      displayStockQuantity: formData.displayStockQuantity || false,
-      allowBackInStockSubscriptions: formData.allowBackInStockSubscriptions || false,
-      productAvailabilityRange: formData.productAvailabilityRange || null,
-      
-      // Categories and Relations
-      ...(categoryId && { categoryId }),
-      ...(brandId && { brandId }),
-      ...(manufacturerId && { manufacturerId }),
-      
-      // Publishing
-      isPublished: isDraft ? false : formData.published,
-      status: isDraft ? 1 : (formData.published ? 2 : 1),
-      visibleIndividually: formData.visibleIndividually,
-      showOnHomepage: formData.showOnHomepage || false,
-      
-      // SEO
-      metaTitle: formData.metaTitle?.trim() || null,
-      metaDescription: formData.metaDescription?.trim() || null,
-      metaKeywords: formData.metaKeywords?.trim() || null,
-      searchEngineFriendlyPageName: formData.searchEngineFriendlyPageName?.trim() || null,
 
-      // Specifications, Attributes, and Variants
-      ...(specificationAttributes.length > 0 && { specificationAttributes }),
-      ...(attributesArray.length > 0 && { attributes: attributesArray }),
-      ...(variantsArray.length > 0 && { variants: variantsArray }),
+      // ===== BUY/WISHLIST BUTTONS =====
+      disableBuyButton: formData.disableBuyButton ?? false,
+      disableWishlistButton: formData.disableWishlistButton ?? false,
 
-      // ✅ FIX 1: Pricing Options
-      disableBuyButton: formData.disableBuyButton || false,
-      disableWishlistButton: formData.disableWishlistButton || false,
-      callForPrice: formData.callForPrice || false,
-      
-      // ✅ FIX 2: Customer Enters Price with Start/End Date
-      customerEntersPrice: formData.customerEntersPrice || false,
+      // ===== PRE-ORDER ===== (✅ ADDED)
+      availableForPreOrder: formData.availableForPreOrder ?? false,
+      preOrderAvailabilityStartDate: formData.availableForPreOrder && formData.preOrderAvailabilityStartDate
+        ? new Date(formData.preOrderAvailabilityStartDate).toISOString()
+        : null,
+
+      // ===== CALL FOR PRICE =====
+      callForPrice: formData.callForPrice ?? false,
+      customerEntersPrice: formData.customerEntersPrice ?? false,
       minimumCustomerEnteredPrice: formData.customerEntersPrice && formData.minimumCustomerEnteredPrice 
         ? parseFloat(formData.minimumCustomerEnteredPrice) 
         : null,
@@ -634,66 +807,179 @@ const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
         ? parseFloat(formData.maximumCustomerEnteredPrice) 
         : null,
 
-      // ✅ FIX 3: Mark as New
-      markAsNew: formData.markAsNew || false,
+      // ===== BASE PRICE ===== (✅ ADDED)
+      basepriceEnabled: formData.basepriceEnabled ?? false,
+      basepriceAmount: formData.basepriceEnabled && formData.basepriceAmount
+        ? parseFloat(formData.basepriceAmount)
+        : null,
+      basepriceUnit: formData.basepriceEnabled && formData.basepriceUnit
+        ? formData.basepriceUnit.trim()
+        : null,
+      basepriceBaseAmount: formData.basepriceEnabled && formData.basepriceBaseAmount
+        ? parseFloat(formData.basepriceBaseAmount)
+        : null,
+      basepriceBaseUnit: formData.basepriceEnabled && formData.basepriceBaseUnit
+        ? formData.basepriceBaseUnit.trim()
+        : null,
+
+      // ===== MARK AS NEW =====
+      markAsNew: formData.markAsNew ?? false,
       markAsNewStartDate: formData.markAsNew && formData.markAsNewStartDate 
         ? new Date(formData.markAsNewStartDate).toISOString() 
         : null,
       markAsNewEndDate: formData.markAsNew && formData.markAsNewEndDate 
         ? new Date(formData.markAsNewEndDate).toISOString() 
         : null,
-      
-      // Pre-order
-      availableForPreOrder: formData.availableForPreOrder || false,
-      preOrderAvailabilityStartDate: formData.availableForPreOrder && formData.preOrderAvailabilityStartDate 
-        ? new Date(formData.preOrderAvailabilityStartDate).toISOString() 
-        : null,
 
-      // Availability dates
-      availableStartDate: formData.availableStartDate 
+      // ===== AVAILABILITY DATES =====
+      availableStartDate: formData.availableStartDate && formData.availableStartDate.trim()
         ? new Date(formData.availableStartDate).toISOString() 
         : null,
-      availableEndDate: formData.availableEndDate 
+      availableEndDate: formData.availableEndDate && formData.availableEndDate.trim()
         ? new Date(formData.availableEndDate).toISOString() 
         : null,
 
-      // Related products and cross-sell
-      relatedProductIds: Array.isArray(formData.relatedProducts) && formData.relatedProducts.length > 0
-        ? formData.relatedProducts.join(',') 
+      // ===== TAX =====
+      taxExempt: formData.taxExempt ?? false,
+      taxCategoryId: formData.taxCategoryId || null,
+      telecommunicationsBroadcastingElectronicServices: formData.telecommunicationsBroadcastingElectronicServices ?? false,
+
+      // ===== INVENTORY =====
+      trackQuantity: formData.manageInventory === 'track',
+      manageInventoryMethod: formData.manageInventoryMethod || 'DontManageStock',
+      stockQuantity: parseInt(formData.stockQuantity) || 0,
+      displayStockAvailability: formData.displayStockAvailability ?? false,
+      displayStockQuantity: formData.displayStockQuantity ?? false,
+      minStockQuantity: parseInt(formData.minStockQuantity) || 0,
+      lowStockThreshold: parseInt(formData.lowStockThreshold) || 0,
+      lowStockActivity: formData.lowStockActivity || null,
+      
+      // ✅ FIXED: Changed to boolean (was causing TypeScript error)
+      notifyAdminForQuantityBelow: formData.notifyAdminForQuantityBelow ?? true,
+      notifyQuantityBelow: parseInt(formData.notifyQuantityBelow) || 1,
+
+      // ===== BACKORDER =====
+      allowBackorder: formData.allowBackorder ?? false,
+      backorderMode: formData.backorderMode || formData.backorders || 'NoBackorders',
+      allowBackInStockSubscriptions: formData.allowBackInStockSubscriptions ?? false,
+
+      // ===== CART QUANTITIES =====
+      orderMinimumQuantity: parseInt(formData.minCartQuantity) || 1,
+      orderMaximumQuantity: parseInt(formData.maxCartQuantity) || 10000,
+      allowedQuantities: formData.allowedQuantities?.trim() || null,
+      productAvailabilityRange: formData.productAvailabilityRange || null,
+      allowAddingOnlyExistingAttributeCombinations: formData.allowAddingOnlyExistingAttributeCombinations ?? false,
+
+      // ===== NOT RETURNABLE =====
+      notReturnable: formData.notReturnable ?? false,
+
+      // ===== SHIPPING =====
+      requiresShipping: formData.isShipEnabled ?? true,
+      isFreeShipping: formData.isFreeShipping ?? false,
+      shipSeparately: formData.shipSeparately ?? false,
+      additionalShippingCharge: formData.additionalShippingCharge 
+        ? parseFloat(formData.additionalShippingCharge) 
         : null,
-      crossSellProductIds: Array.isArray(formData.crossSellProducts) && formData.crossSellProducts.length > 0
-        ? formData.crossSellProducts.join(',') 
+      deliveryDateId: formData.deliveryDateId || null,
+
+      // ===== DIMENSIONS & WEIGHT =====
+      weight: parseFloat(formData.weight) || 0,
+      length: formData.length ? parseFloat(formData.length) : null,
+      width: formData.width ? parseFloat(formData.width) : null,
+      height: formData.height ? parseFloat(formData.height) : null,
+      weightUnit: formData.weightUnit || 'kg',
+      dimensionUnit: formData.dimensionUnit || 'cm',
+
+      // ===== DIGITAL PRODUCT ===== (✅ ADDED)
+      isDigital: formData.isDigital ?? false,
+      isDownload: formData.isDownload ?? false,
+      downloadId: formData.isDownload && formData.downloadId ? formData.downloadId : null,
+      unlimitedDownloads: formData.unlimitedDownloads ?? false,
+      maxNumberOfDownloads: !formData.unlimitedDownloads && formData.maxNumberOfDownloads
+        ? parseInt(formData.maxNumberOfDownloads)
+        : null,
+      downloadExpirationDays: formData.downloadExpirationDays
+        ? parseInt(formData.downloadExpirationDays)
+        : null,
+      downloadActivationType: formData.downloadActivationType || null,
+      hasUserAgreement: formData.hasUserAgreement ?? false,
+      userAgreementText: formData.hasUserAgreement && formData.userAgreementText
+        ? formData.userAgreementText.trim()
+        : null,
+      hasSampleDownload: formData.hasSampleDownload ?? false,
+      sampleDownloadId: formData.hasSampleDownload && formData.sampleDownloadId
+        ? formData.sampleDownloadId
         : null,
 
-      // Multimedia
-      videoUrls: formData.videoUrls && formData.videoUrls.length > 0
+      // ===== RECURRING PRODUCT ===== (✅ ADDED)
+      isRecurring: formData.isRecurring ?? false,
+      recurringCycleLength: formData.isRecurring && formData.recurringCycleLength
+        ? parseInt(formData.recurringCycleLength)
+        : null,
+      recurringCyclePeriod: formData.isRecurring && formData.recurringCyclePeriod
+        ? formData.recurringCyclePeriod
+        : null,
+      recurringTotalCycles: formData.isRecurring && formData.recurringTotalCycles
+        ? parseInt(formData.recurringTotalCycles)
+        : null,
+
+      // ===== RENTAL PRODUCT ===== (✅ ADDED)
+      isRental: formData.isRental ?? false,
+      rentalPriceLength: formData.isRental && formData.rentalPriceLength
+        ? parseInt(formData.rentalPriceLength)
+        : null,
+      rentalPricePeriod: formData.isRental && formData.rentalPricePeriod
+        ? formData.rentalPricePeriod
+        : null,
+
+      // ===== GIFT CARD ===== (✅ ADDED)
+      isGiftCard: formData.isGiftCard ?? false,
+      giftCardType: formData.isGiftCard ? formData.giftCardType : null,
+      overriddenGiftCardAmount: formData.isGiftCard ? formData.overriddenGiftCardAmount : null,
+
+      // ===== SEO =====
+      metaTitle: formData.metaTitle?.trim() || null,
+      metaDescription: formData.metaDescription?.trim() || null,
+      metaKeywords: formData.metaKeywords?.trim() || null,
+      searchEngineFriendlyPageName: formData.searchEngineFriendlyPageName?.trim() || null,
+
+      // ===== CUSTOMER REVIEWS =====
+      allowCustomerReviews: formData.allowCustomerReviews ?? false,
+
+      // ===== VIDEOS =====
+      videoUrls: formData.videoUrls && formData.videoUrls.length > 0 
         ? formData.videoUrls.join(',') 
         : null,
 
-      // ✅ FIX 4: Product Tags
+      // ===== CATEGORIES, BRAND & MANUFACTURER =====
+      ...(categoryId && { categoryId }),
+      ...(brandId && { brandId }),
+
+
+      // ===== TAGS & RELATED PRODUCTS =====
       tags: formData.productTags?.trim() || null,
+      relatedProductIds: Array.isArray(formData.relatedProducts) && formData.relatedProducts.length > 0 
+        ? formData.relatedProducts.join(',') 
+        : null,
+      crossSellProductIds: Array.isArray(formData.crossSellProducts) && formData.crossSellProducts.length > 0 
+        ? formData.crossSellProducts.join(',') 
+        : null,
 
-      // Reviews
-      allowCustomerReviews: formData.allowCustomerReviews || false,
+      // ===== SPECIFICATIONS, ATTRIBUTES, VARIANTS =====
+      ...(specificationAttributes.length > 0 && { specificationAttributes }),
+      ...(attributesArray.length > 0 && { attributes: attributesArray }),
+      ...(variantsArray.length > 0 && { variants: variantsArray }),
 
-      // ✅ FIX 5: Tax Settings
-      taxExempt: formData.taxExempt || false,
-      taxCategoryId: formData.taxCategoryId || null,
-
-      // ✅ FIX 6: Cart Settings - Allowed Quantities
-      allowedQuantities: formData.allowedQuantities?.trim() || null,
-      minCartQuantity: formData.minCartQuantity ? parseInt(formData.minCartQuantity) : null,
-      maxCartQuantity: formData.maxCartQuantity ? parseInt(formData.maxCartQuantity) : null,
-      
-      // ✅ FIX 7: Not Returnable
-      notReturnable: formData.notReturnable || false,
+      // ===== IMAGES =====
+      ...(imagesArray.length > 0 && { images: imagesArray }),
     };
 
-    // Clean up null/undefined/empty values
+    // Clean up null/undefined/empty values but keep boolean false
     const cleanProductData = Object.fromEntries(
-      Object.entries(productData).filter(([_, value]) => {
-        // Keep false boolean values, remove only null, undefined, and empty strings
-        if (value === false) return true;
+      Object.entries(productData).filter(([key, value]) => {
+        // Keep false boolean values
+        if (typeof value === 'boolean') return true;
+        // Remove only null, undefined, and empty strings
         return value !== null && value !== undefined && value !== '';
       })
     );
@@ -957,54 +1243,6 @@ const addCrossSellProduct = (productId: string) => {
     p.name.toLowerCase().includes(searchTermCross.toLowerCase()) ||
     p.sku.toLowerCase().includes(searchTermCross.toLowerCase())
   );
-
-  const addAttribute = () => {
-    const newAttribute = {
-      id: Date.now().toString(),
-      name: '',
-      values: ['']
-    };
-    setAttributes([...attributes, newAttribute]);
-  };
-
-  const removeAttribute = (id: string) => {
-    setAttributes(attributes.filter(attr => attr.id !== id));
-  };
-
-  const updateAttributeName = (id: string, name: string) => {
-    setAttributes(attributes.map(attr =>
-      attr.id === id ? { ...attr, name } : attr
-    ));
-  };
-
-  const updateAttributeValue = (attrId: string, valueIndex: number, value: string) => {
-    setAttributes(attributes.map(attr => {
-      if (attr.id === attrId) {
-        const newValues = [...attr.values];
-        newValues[valueIndex] = value;
-        return { ...attr, values: newValues };
-      }
-      return attr;
-    }));
-  };
-
-  const addAttributeValue = (attrId: string) => {
-    setAttributes(attributes.map(attr => {
-      if (attr.id === attrId) {
-        return { ...attr, values: [...attr.values, ''] };
-      }
-      return attr;
-    }));
-  };
-
-  const removeAttributeValue = (attrId: string, valueIndex: number) => {
-    setAttributes(attributes.map(attr => {
-      if (attr.id === attrId) {
-        return { ...attr, values: attr.values.filter((_, idx) => idx !== valueIndex) };
-      }
-      return attr;
-    }));
-  };
 
   // Product Attribute handlers (matching backend ProductAttributeCreateDto)
   const addProductAttribute = () => {
@@ -1362,9 +1600,9 @@ const uploadVariantImages = async (productResponse: any) => {
         <div className="w-full">
           <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-2xl p-2">
             <Tabs defaultValue="product-info" className="w-full">
-              <div className="border-b border-slate-800 mb-">
+              <div className="border-b border-slate-800 ">
                 <TabsList className="flex gap-1 overflow-x-auto pb-px scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-transparent bg-transparent h-auto p-0">
-                  <TabsTrigger value="product-info" className="flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-slate-400 hover:text-violet-400 border-b-2 border-transparent data-[state=active]:border-violet-500 data-[state=active]:text-violet-400 data-[state=active]:bg-slate-800/50 whitespace-nowrap transition-all rounded-t-lg">
+                  <TabsTrigger value="product-info" className="flex items-center px-4 py-2 text-sm font-medium text-slate-400 hover:text-violet-400 border-b-2 border-transparent data-[state=active]:border-violet-500 data-[state=active]:text-violet-400 data-[state=active]:bg-slate-800/50 whitespace-nowrap transition-all rounded-t-lg">
                     <Info className="h-4 w-4" />
                     Product Info
                   </TabsTrigger>
@@ -1408,6 +1646,14 @@ const uploadVariantImages = async (productResponse: any) => {
                     <BarChart3 className="h-4 w-4" />
                     Specifications
                   </TabsTrigger>
+                  <TabsTrigger 
+  value="advanced" 
+  className="flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-slate-400 hover:text-violet-400 border-b-2 border-transparent data-[state=active]:border-violet-500 data-[state=active]:text-violet-400 data-[state=active]:bg-slate-800/50 whitespace-nowrap transition-all rounded-t-lg"
+>
+  <Settings className="h-4 w-4" />
+  Advanced
+</TabsTrigger>
+
                 </TabsList>
               </div>
 
@@ -1520,25 +1766,7 @@ const uploadVariantImages = async (productResponse: any) => {
                     </div>
 
                     <div className="grid md:grid-cols-2 gap-4">
-  <div>
-    <label className="block text-sm font-medium text-slate-300 mb-2">Manufacturer</label>
-    <select
-      name="manufacturerId"
-      value={formData.manufacturerId}
-      onChange={handleChange}
-      className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
-    >
-      <option value="">Select manufacturer</option>
-      {dropdownsData.manufacturers.map((manufacturer) => (
-        <option key={manufacturer.id} value={manufacturer.id}>
-          {manufacturer.name}
-        </option>
-      ))}
-    </select>
-    <p className="text-xs text-slate-400 mt-1">
-      {dropdownsData.manufacturers.length} manufacturers loaded
-    </p>
-  </div>
+ 
 
   <div>
     <label className="block text-sm font-medium text-slate-300 mb-2">Product Type</label>
@@ -1997,16 +2225,21 @@ const uploadVariantImages = async (productResponse: any) => {
                         </div>
 
                         <div>
-                          <label className="block text-sm font-medium text-slate-300 mb-2">Notify Admin for Quantity Below</label>
-                          <input
-                            type="number"
-                            name="notifyAdminForQuantityBelow"
-                            value={formData.notifyAdminForQuantityBelow}
-                            onChange={handleChange}
-                            placeholder="1"
-                            className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
-                          />
-                        </div>
+  <label className="flex items-center gap-2 w-full px-3 py-3 bg-slate-800/50 border border-slate-700 rounded-xl cursor-pointer hover:border-violet-500 transition-all">
+    <input
+      type="checkbox"
+      name="notifyAdminForQuantityBelow"
+      checked={formData.notifyAdminForQuantityBelow}
+      onChange={handleChange}
+      className="rounded bg-slate-800/50 border-slate-700 text-violet-500 focus:ring-violet-500 focus:ring-offset-slate-900"
+    />
+    <div className="flex-1">
+      <span className="text-sm font-medium text-slate-300">Notify admin for quantity below</span>
+      <p className="text-xs text-slate-400 mt-0.5">Send notification when stock falls below minimum quantity</p>
+    </div>
+  </label>
+</div>
+
                       </div>
 
                       <div>
@@ -3313,6 +3546,644 @@ const uploadVariantImages = async (productResponse: any) => {
                   </div>
                 </div>
               </TabsContent>
+
+              {/* ===== ADVANCED SETTINGS TAB ===== */}
+<TabsContent value="advanced" className="space-y-2 mt-2">
+  <div className="space-y-6">
+    
+    {/* ===== VENDOR SECTION ===== */}
+    <div className="space-y-4">
+      <h3 className="text-lg font-semibold text-white border-b border-slate-800 pb-2">Vendor Information</h3>
+      
+      <div className="grid md:grid-cols-2 gap-4">
+        <div>
+          <label className="block text-sm font-medium text-slate-300 mb-2">Vendor ID (GUID)</label>
+          <input
+            type="text"
+            name="vendorId"
+            value={formData.vendorId}
+            onChange={handleChange}
+            placeholder="e.g., 3fa85f64-5717-4562-b3fc-2c963f66afa6"
+            className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+          />
+          <p className="text-xs text-slate-400 mt-1">GUID of the vendor (if product is sold by a specific vendor)</p>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-slate-300 mb-2">Vendor Name</label>
+          <input
+            type="text"
+            name="vendor"
+            value={formData.vendor}
+            onChange={handleChange}
+            placeholder="Enter vendor name"
+            className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+          />
+        </div>
+      </div>
+    </div>
+
+
+
+    {/* ===== CUSTOMER & STORE RESTRICTIONS ===== */}
+    <div className="space-y-4">
+      <h3 className="text-lg font-semibold text-white border-b border-slate-800 pb-2">Access Restrictions</h3>
+      
+      <div className="grid md:grid-cols-2 gap-4">
+        <div>
+          <label className="block text-sm font-medium text-slate-300 mb-2">Customer Roles</label>
+          <select
+            name="customerRoles"
+            value={formData.customerRoles}
+            onChange={handleChange}
+            className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+          >
+            <option value="all">All Customers</option>
+            <option value="registered">Registered Only</option>
+            <option value="guests">Guests Only</option>
+            <option value="administrators">Administrators</option>
+            <option value="vendors">Vendors</option>
+          </select>
+          <p className="text-xs text-slate-400 mt-1">Select which customer roles can view this product</p>
+        </div>
+
+        <div className="flex items-center pt-6">
+          <label className="flex items-center gap-2 w-full px-3 py-3 bg-slate-800/50 border border-slate-700 rounded-xl cursor-pointer hover:border-violet-500 transition-all">
+            <input
+              type="checkbox"
+              name="limitedToStores"
+              checked={formData.limitedToStores}
+              onChange={handleChange}
+              className="rounded bg-slate-800/50 border-slate-700 text-violet-500 focus:ring-violet-500 focus:ring-offset-slate-900"
+            />
+            <span className="text-sm text-slate-300">Limited to stores</span>
+          </label>
+        </div>
+      </div>
+    </div>
+
+    {/* ===== PRODUCT DEPENDENCIES ===== */}
+    <div className="space-y-4">
+      <h3 className="text-lg font-semibold text-white border-b border-slate-800 pb-2">Product Dependencies</h3>
+      
+      <div className="space-y-3">
+        <label className="flex items-center gap-2">
+          <input
+            type="checkbox"
+            name="requireOtherProducts"
+            checked={formData.requireOtherProducts}
+            onChange={handleChange}
+            className="rounded bg-slate-800/50 border-slate-700 text-violet-500 focus:ring-violet-500 focus:ring-offset-slate-900"
+          />
+          <span className="text-sm text-slate-300">Require other products</span>
+        </label>
+
+        {formData.requireOtherProducts && (
+          <div className="bg-slate-800/30 border border-slate-700 p-4 rounded-xl space-y-3">
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-2">Required Product IDs</label>
+              <input
+                type="text"
+                name="requiredProductIds"
+                value={formData.requiredProductIds}
+                onChange={handleChange}
+                placeholder="e.g., product-id-1, product-id-2"
+                className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+              />
+              <p className="text-xs text-slate-400 mt-1">Comma-separated product IDs that must be added to cart</p>
+            </div>
+
+            <label className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                name="automaticallyAddProducts"
+                checked={formData.automaticallyAddProducts}
+                onChange={handleChange}
+                className="rounded bg-slate-800/50 border-slate-700 text-violet-500 focus:ring-violet-500 focus:ring-offset-slate-900"
+              />
+              <span className="text-sm text-slate-300">Automatically add required products to cart</span>
+            </label>
+          </div>
+        )}
+      </div>
+    </div>
+
+    {/* ===== BASE PRICE (UNIT PRICING) ===== */}
+    <div className="space-y-4">
+      <h3 className="text-lg font-semibold text-white border-b border-slate-800 pb-2">Base Price (Unit Pricing)</h3>
+      <p className="text-sm text-slate-400">Used for price per unit display (e.g., €5.00 per kg)</p>
+      
+      <label className="flex items-center gap-2">
+        <input
+          type="checkbox"
+          name="basepriceEnabled"
+          checked={formData.basepriceEnabled}
+          onChange={handleChange}
+          className="rounded bg-slate-800/50 border-slate-700 text-violet-500 focus:ring-violet-500 focus:ring-offset-slate-900"
+        />
+        <span className="text-sm text-slate-300">Enable base price</span>
+      </label>
+
+      {formData.basepriceEnabled && (
+        <div className="bg-slate-800/30 border border-slate-700 p-4 rounded-xl">
+          <div className="grid md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-2">Base Price Amount</label>
+              <input
+                type="number"
+                name="basepriceAmount"
+                value={formData.basepriceAmount}
+                onChange={handleChange}
+                placeholder="0.00"
+                step="0.01"
+                className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-2">Unit</label>
+              <input
+                type="text"
+                name="basepriceUnit"
+                value={formData.basepriceUnit}
+                onChange={handleChange}
+                placeholder="e.g., kg, liter, piece"
+                className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-2">Reference Amount</label>
+              <input
+                type="number"
+                name="basepriceBaseAmount"
+                value={formData.basepriceBaseAmount}
+                onChange={handleChange}
+                placeholder="1"
+                step="0.01"
+                className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-2">Reference Unit</label>
+              <input
+                type="text"
+                name="basepriceBaseUnit"
+                value={formData.basepriceBaseUnit}
+                onChange={handleChange}
+                placeholder="e.g., kg, liter"
+                className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+              />
+            </div>
+          </div>
+          <p className="text-xs text-slate-400 mt-3">
+            Example: Product price ₹50 for 500g → Base price: ₹100 per 1 kg
+          </p>
+        </div>
+      )}
+    </div>
+
+    {/* ===== INVENTORY ADVANCED ===== */}
+    <div className="space-y-4">
+      <h3 className="text-lg font-semibold text-white border-b border-slate-800 pb-2">Advanced Inventory</h3>
+      
+      <div className="grid md:grid-cols-2 gap-4">
+        <div>
+          <label className="block text-sm font-medium text-slate-300 mb-2">Inventory Method</label>
+          <select
+            name="manageInventoryMethod"
+            value={formData.manageInventoryMethod}
+            onChange={handleChange}
+            className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+          >
+            <option value="DontManageStock">Don't Manage Stock</option>
+            <option value="ManageStock">Manage Stock</option>
+            <option value="ManageStockByAttributes">Manage Stock By Attributes</option>
+          </select>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-slate-300 mb-2">Low Stock Threshold</label>
+          <input
+            type="number"
+            name="lowStockThreshold"
+            value={formData.lowStockThreshold}
+            onChange={handleChange}
+            placeholder="0"
+            className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+          />
+          <p className="text-xs text-slate-400 mt-1">Trigger low stock warning at this quantity</p>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-slate-300 mb-2">Notify Quantity Below</label>
+          <input
+            type="number"
+            name="notifyQuantityBelow"
+            value={formData.notifyQuantityBelow}
+            onChange={handleChange}
+            placeholder="1"
+            className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+          />
+          <p className="text-xs text-slate-400 mt-1">Send notification when stock falls below this number</p>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-slate-300 mb-2">Backorder Mode</label>
+          <select
+            name="backorderMode"
+            value={formData.backorderMode}
+            onChange={handleChange}
+            className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+          >
+            <option value="NoBackorders">No Backorders</option>
+            <option value="AllowQtyBelow0">Allow Quantity Below 0</option>
+            <option value="AllowQtyBelow0AndNotifyCustomer">Allow Qty Below 0 & Notify Customer</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    {/* ===== SHIPPING ADVANCED ===== */}
+    <div className="space-y-4">
+      <h3 className="text-lg font-semibold text-white border-b border-slate-800 pb-2">Shipping Units</h3>
+      
+      <div className="grid md:grid-cols-2 gap-4">
+        <div>
+          <label className="block text-sm font-medium text-slate-300 mb-2">Weight Unit</label>
+          <select
+            name="weightUnit"
+            value={formData.weightUnit}
+            onChange={handleChange}
+            className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+          >
+            <option value="kg">Kilogram (kg)</option>
+            <option value="g">Gram (g)</option>
+            <option value="lb">Pound (lb)</option>
+            <option value="oz">Ounce (oz)</option>
+          </select>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-slate-300 mb-2">Dimension Unit</label>
+          <select
+            name="dimensionUnit"
+            value={formData.dimensionUnit}
+            onChange={handleChange}
+            className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+          >
+            <option value="cm">Centimeter (cm)</option>
+            <option value="m">Meter (m)</option>
+            <option value="in">Inch (in)</option>
+            <option value="ft">Feet (ft)</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    {/* ===== DIGITAL PRODUCT ===== */}
+    <div className="space-y-4">
+      <h3 className="text-lg font-semibold text-white border-b border-slate-800 pb-2">Digital Product</h3>
+      
+      <label className="flex items-center gap-2">
+        <input
+          type="checkbox"
+          name="isDigital"
+          checked={formData.isDigital}
+          onChange={handleChange}
+          className="rounded bg-slate-800/50 border-slate-700 text-violet-500 focus:ring-violet-500 focus:ring-offset-slate-900"
+        />
+        <span className="text-sm text-slate-300">This is a digital product</span>
+      </label>
+
+      {formData.isDigital && (
+        <div className="bg-slate-800/30 border border-slate-700 p-4 rounded-xl space-y-3">
+          <label className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              name="isDownload"
+              checked={formData.isDownload}
+              onChange={handleChange}
+              className="rounded bg-slate-800/50 border-slate-700 text-violet-500 focus:ring-violet-500 focus:ring-offset-slate-900"
+            />
+            <span className="text-sm text-slate-300">Is downloadable</span>
+          </label>
+
+          {formData.isDownload && (
+            <>
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-2">Download ID</label>
+                <input
+                  type="text"
+                  name="downloadId"
+                  value={formData.downloadId}
+                  onChange={handleChange}
+                  placeholder="Enter download file ID"
+                  className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+                />
+              </div>
+
+              <label className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  name="unlimitedDownloads"
+                  checked={formData.unlimitedDownloads}
+                  onChange={handleChange}
+                  className="rounded bg-slate-800/50 border-slate-700 text-violet-500 focus:ring-violet-500 focus:ring-offset-slate-900"
+                />
+                <span className="text-sm text-slate-300">Unlimited downloads</span>
+              </label>
+
+              {!formData.unlimitedDownloads && (
+                <div>
+                  <label className="block text-sm font-medium text-slate-300 mb-2">Max Downloads</label>
+                  <input
+                    type="number"
+                    name="maxNumberOfDownloads"
+                    value={formData.maxNumberOfDownloads}
+                    onChange={handleChange}
+                    placeholder="5"
+                    className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+                  />
+                </div>
+              )}
+
+              <div className="grid md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate-300 mb-2">Download Expiration (Days)</label>
+                  <input
+                    type="number"
+                    name="downloadExpirationDays"
+                    value={formData.downloadExpirationDays}
+                    onChange={handleChange}
+                    placeholder="30"
+                    className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-slate-300 mb-2">Activation Type</label>
+                  <select
+                    name="downloadActivationType"
+                    value={formData.downloadActivationType}
+                    onChange={handleChange}
+                    className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+                  >
+                    <option value="when-order-is-paid">When Order Is Paid</option>
+                    <option value="manually">Manually</option>
+                  </select>
+                </div>
+              </div>
+
+              <label className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  name="hasUserAgreement"
+                  checked={formData.hasUserAgreement}
+                  onChange={handleChange}
+                  className="rounded bg-slate-800/50 border-slate-700 text-violet-500 focus:ring-violet-500 focus:ring-offset-slate-900"
+                />
+                <span className="text-sm text-slate-300">Has user agreement</span>
+              </label>
+
+              {formData.hasUserAgreement && (
+                <div>
+                  <label className="block text-sm font-medium text-slate-300 mb-2">User Agreement Text</label>
+                  <textarea
+                    name="userAgreementText"
+                    value={formData.userAgreementText}
+                    onChange={handleChange}
+                    placeholder="Enter user agreement terms..."
+                    rows={4}
+                    className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+                  />
+                </div>
+              )}
+
+              <label className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  name="hasSampleDownload"
+                  checked={formData.hasSampleDownload}
+                  onChange={handleChange}
+                  className="rounded bg-slate-800/50 border-slate-700 text-violet-500 focus:ring-violet-500 focus:ring-offset-slate-900"
+                />
+                <span className="text-sm text-slate-300">Has sample download</span>
+              </label>
+
+              {formData.hasSampleDownload && (
+                <div>
+                  <label className="block text-sm font-medium text-slate-300 mb-2">Sample Download ID</label>
+                  <input
+                    type="text"
+                    name="sampleDownloadId"
+                    value={formData.sampleDownloadId}
+                    onChange={handleChange}
+                    placeholder="Enter sample file ID"
+                    className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+                  />
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      )}
+    </div>
+
+    {/* ===== RECURRING PRODUCT ===== */}
+    <div className="space-y-4">
+      <h3 className="text-lg font-semibold text-white border-b border-slate-800 pb-2">Recurring Product (Subscription)</h3>
+      
+      <label className="flex items-center gap-2">
+        <input
+          type="checkbox"
+          name="isRecurring"
+          checked={formData.isRecurring}
+          onChange={handleChange}
+          className="rounded bg-slate-800/50 border-slate-700 text-violet-500 focus:ring-violet-500 focus:ring-offset-slate-900"
+        />
+        <span className="text-sm text-slate-300">This is a recurring product</span>
+      </label>
+
+      {formData.isRecurring && (
+        <div className="bg-slate-800/30 border border-slate-700 p-4 rounded-xl">
+          <div className="grid md:grid-cols-3 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-2">Cycle Length</label>
+              <input
+                type="number"
+                name="recurringCycleLength"
+                value={formData.recurringCycleLength}
+                onChange={handleChange}
+                placeholder="1"
+                className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-2">Cycle Period</label>
+              <select
+                name="recurringCyclePeriod"
+                value={formData.recurringCyclePeriod}
+                onChange={handleChange}
+                className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+              >
+                <option value="days">Days</option>
+                <option value="weeks">Weeks</option>
+                <option value="months">Months</option>
+                <option value="years">Years</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-2">Total Cycles</label>
+              <input
+                type="number"
+                name="recurringTotalCycles"
+                value={formData.recurringTotalCycles}
+                onChange={handleChange}
+                placeholder="0 = unlimited"
+                className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+              />
+            </div>
+          </div>
+          <p className="text-xs text-slate-400 mt-3">
+            Example: Cycle Length: 1, Period: Months, Total: 12 = Monthly subscription for 1 year
+          </p>
+        </div>
+      )}
+    </div>
+
+    {/* ===== RENTAL PRODUCT ===== */}
+    <div className="space-y-4">
+      <h3 className="text-lg font-semibold text-white border-b border-slate-800 pb-2">Rental Product</h3>
+      
+      <label className="flex items-center gap-2">
+        <input
+          type="checkbox"
+          name="isRental"
+          checked={formData.isRental}
+          onChange={handleChange}
+          className="rounded bg-slate-800/50 border-slate-700 text-violet-500 focus:ring-violet-500 focus:ring-offset-slate-900"
+        />
+        <span className="text-sm text-slate-300">This is a rental product</span>
+      </label>
+
+      {formData.isRental && (
+        <div className="bg-slate-800/30 border border-slate-700 p-4 rounded-xl">
+          <div className="grid md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-2">Rental Price Length</label>
+              <input
+                type="number"
+                name="rentalPriceLength"
+                value={formData.rentalPriceLength}
+                onChange={handleChange}
+                placeholder="1"
+                className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-2">Rental Period</label>
+              <select
+                name="rentalPricePeriod"
+                value={formData.rentalPricePeriod}
+                onChange={handleChange}
+                className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+              >
+                <option value="days">Days</option>
+                <option value="weeks">Weeks</option>
+                <option value="months">Months</option>
+              </select>
+            </div>
+          </div>
+          <p className="text-xs text-slate-400 mt-3">
+            Example: Length: 1, Period: Days = Daily rental pricing
+          </p>
+        </div>
+      )}
+    </div>
+
+    {/* ===== GIFT CARD ===== */}
+    <div className="space-y-4">
+      <h3 className="text-lg font-semibold text-white border-b border-slate-800 pb-2">Gift Card</h3>
+      
+      <label className="flex items-center gap-2">
+        <input
+          type="checkbox"
+          name="isGiftCard"
+          checked={formData.isGiftCard}
+          onChange={handleChange}
+          className="rounded bg-slate-800/50 border-slate-700 text-violet-500 focus:ring-violet-500 focus:ring-offset-slate-900"
+        />
+        <span className="text-sm text-slate-300">This is a gift card</span>
+      </label>
+
+      {formData.isGiftCard && (
+        <div className="bg-slate-800/30 border border-slate-700 p-4 rounded-xl space-y-3">
+          <div>
+            <label className="block text-sm font-medium text-slate-300 mb-2">Gift Card Type</label>
+            <select
+              name="giftCardType"
+              value={formData.giftCardType}
+              onChange={handleChange}
+              className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+            >
+              <option value="virtual">Virtual</option>
+              <option value="physical">Physical</option>
+            </select>
+          </div>
+
+          <label className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              name="overriddenGiftCardAmount"
+              checked={formData.overriddenGiftCardAmount}
+              onChange={handleChange}
+              className="rounded bg-slate-800/50 border-slate-700 text-violet-500 focus:ring-violet-500 focus:ring-offset-slate-900"
+            />
+            <span className="text-sm text-slate-300">Override gift card amount</span>
+          </label>
+        </div>
+      )}
+    </div>
+
+    {/* ===== TELECOMMUNICATIONS TAX ===== */}
+    <div className="space-y-4">
+      <h3 className="text-lg font-semibold text-white border-b border-slate-800 pb-2">Special Tax Settings</h3>
+      
+      <label className="flex items-center gap-2">
+        <input
+          type="checkbox"
+          name="telecommunicationsBroadcastingElectronicServices"
+          checked={formData.telecommunicationsBroadcastingElectronicServices}
+          onChange={handleChange}
+          className="rounded bg-slate-800/50 border-slate-700 text-violet-500 focus:ring-violet-500 focus:ring-offset-slate-900"
+        />
+        <span className="text-sm text-slate-300">Telecommunications, broadcasting and electronic services (EU VAT)</span>
+      </label>
+      <p className="text-xs text-slate-400">Check if this product falls under EU telecommunications/electronic services VAT rules</p>
+    </div>
+
+    {/* ===== INFO BOX ===== */}
+    <div className="bg-violet-500/10 border border-violet-500/30 rounded-xl p-4">
+      <h4 className="font-semibold text-sm text-violet-400 mb-2">⚙️ Advanced Settings Info</h4>
+      <ul className="text-sm text-slate-300 space-y-1">
+        <li><strong className="text-white">Vendor:</strong> Assign product to a specific vendor/supplier</li>
+      
+        <li><strong className="text-white">Dependencies:</strong> Force customers to buy required products together</li>
+        <li><strong className="text-white">Base Price:</strong> Show unit pricing for better price comparison</li>
+        <li><strong className="text-white">Digital:</strong> Configure downloadable products with access control</li>
+        <li><strong className="text-white">Recurring:</strong> Set up subscription-based products</li>
+        <li><strong className="text-white">Rental:</strong> Enable time-based product rentals</li>
+      </ul>
+    </div>
+
+  </div>
+</TabsContent>
+
             </Tabs>
           </div>
         </div>
