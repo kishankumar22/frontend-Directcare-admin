@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
-import ClientLayout from "./ClientLayout";
 import { ToastProvider } from "@/components/CustomToast";
+import ConditionalLayout from "./ConditionalLayout";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -19,7 +19,6 @@ export default async function RootLayout({
 }: {
   children: React.ReactNode;
 }) {
-
   // ✅ SSR FETCH CATEGORIES
   const res = await fetch(
     `${process.env.NEXT_PUBLIC_API_URL}/api/Categories?includeInactive=false&includeSubCategories=true`,
@@ -35,9 +34,10 @@ export default async function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={inter.className} suppressHydrationWarning>
-        {/* ✅ Passing categories SSR → ClientLayout */}
         <ToastProvider>
-        <ClientLayout categories={categories}>{children}</ClientLayout>
+          <ConditionalLayout categories={categories}>
+            {children}
+          </ConditionalLayout>
         </ToastProvider>
       </body>
     </html>

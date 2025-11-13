@@ -14,6 +14,28 @@ interface ProductImage {
   sortOrder: number;
   isMain: boolean;
 }
+interface ProductAttribute {
+  id: string;
+  name: string;
+  value: string;
+  displayName: string;
+  sortOrder: number;
+}
+
+interface ProductVariant {
+  id: string;
+  name: string;
+  sku: string;
+  price: number;
+  compareAtPrice?: number;
+  weight?: number;
+  stockQuantity: number;
+  option1?: string;
+  option2?: string;
+  option3?: string;
+  imageUrl?: string;
+  isDefault: boolean;
+}
 
 interface SpecificationAttribute {
   id: string;
@@ -112,7 +134,8 @@ interface Product {
   crossSellProductIds?: string;
   createdBy?: string;
   images?: ProductImage[];
-  
+    attributes?: ProductAttribute[];
+  variants?: ProductVariant[];
   // Populated related products
   relatedProducts?: RelatedProduct[];
   crossSellProducts?: RelatedProduct[];
@@ -444,15 +467,41 @@ export default function ProductsPage() {
     publishedCount: products.filter(p => p.isPublished).length,
   }), [products]);
 
-  // Parse specification attributes
-  const parseSpecifications = (specString: string | undefined): SpecificationAttribute[] => {
-    if (!specString) return [];
-    try {
-      return JSON.parse(specString);
-    } catch {
+
+// ✅ SUPER ROBUST: Parse specification attributes with case-insensitive handling
+const parseSpecifications = (specString: string | undefined): SpecificationAttribute[] => {
+  if (!specString || specString.trim() === '' || specString === '[]') {
+    return [];
+  }
+  
+  try {
+    // Parse the JSON string
+    const parsed = JSON.parse(specString);
+    
+    // Handle if it's not an array
+    if (!Array.isArray(parsed)) {
+      console.warn('Specifications is not an array:', parsed);
       return [];
     }
-  };
+    
+    // Map with case-insensitive property access
+    return parsed
+      .filter((spec: any) => spec && typeof spec === 'object') // Filter out invalid entries
+      .map((spec: any) => ({
+        id: spec.Id || spec.id || spec.ID || '',
+        name: spec.Name || spec.name || spec.NAME || '',
+        value: spec.Value || spec.value || spec.VALUE || '',
+        displayOrder: spec.DisplayOrder || spec.displayOrder || spec.display_order || 0
+      }))
+      .filter((spec) => spec.name && spec.value); // Only include valid specs with name and value
+    
+  } catch (error) {
+    console.error('Error parsing specifications:', error, 'Input:', specString);
+    return [];
+  }
+};
+
+
 
   // Extract YouTube video ID
   const getYouTubeEmbedUrl = (url: string): string | null => {
@@ -1001,7 +1050,7 @@ export default function ProductsPage() {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Product Images */}
             <div className="space-y-4">
-              <div className="w-full h-64 rounded-xl bg-gradient-to-br from-violet-500/20 to-cyan-500/20 flex items-center justify-center overflow-hidden border border-slate-700/50">
+              <div className="w-full h-64 rounded-xl bg-gradient-to-br from-violet-500/20 to-cyan-500/20 flex items-center justify-center overflow-hidden border border-slate-700/50 hover:border-violet-500/50 transition-all group">
                 {viewingProduct.images && viewingProduct.images.length > 0 ? (
                   <img
                     src={`${API_BASE_URL.replace(/\/$/, '')}/${viewingProduct.images.find(img => img.isMain)?.imageUrl.replace(/^\//, '') || viewingProduct.images[0]?.imageUrl.replace(/^\//, '')}`}
@@ -1014,13 +1063,13 @@ export default function ProductsPage() {
                 )}
               </div>
               
-              {/* Additional Images - ✅ FIX: Added key prop */}
+              {/* Additional Images */}
               {viewingProduct.images && viewingProduct.images.length > 1 && (
                 <div className="grid grid-cols-4 gap-2">
                   {viewingProduct.images.map((img, idx) => (
                     <div 
                       key={img.id || `img-${idx}`}
-                      className="aspect-square rounded-lg overflow-hidden bg-slate-800/50 cursor-pointer hover:ring-2 hover:ring-violet-400 transition-all border border-slate-700/50"
+                      className="aspect-square rounded-lg overflow-hidden bg-slate-800/50 cursor-pointer hover:ring-2 hover:ring-violet-400 hover:scale-105 transition-all border border-slate-700/50"
                       onClick={() => setViewingImage(`${API_BASE_URL.replace(/\/$/, '')}/${img.imageUrl.replace(/^\//, '')}`)}
                     >
                       <img
@@ -1039,26 +1088,26 @@ export default function ProductsPage() {
               <div>
                 <h3 className="text-3xl font-bold text-white mb-2">{viewingProduct.name}</h3>
                 <div className="flex items-center gap-2 flex-wrap mb-4">
-                  <span className="px-3 py-1 bg-violet-500/10 text-violet-400 rounded-lg text-sm font-medium">
+                  <span className="px-3 py-1 bg-violet-500/10 text-violet-400 rounded-lg text-sm font-medium hover:bg-violet-500/20 transition-all">
                     {viewingProduct.category}
                   </span>
-                  <span className="px-3 py-1 bg-cyan-500/10 text-cyan-400 rounded-lg text-sm font-medium">
+                  <span className="px-3 py-1 bg-cyan-500/10 text-cyan-400 rounded-lg text-sm font-medium hover:bg-cyan-500/20 transition-all">
                     {viewingProduct.brandName}
                   </span>
-                  <span className={`px-3 py-1 rounded-lg text-sm font-medium ${
-                    viewingProduct.status === 'In Stock' ? 'bg-green-500/10 text-green-400' :
-                    viewingProduct.status === 'Low Stock' ? 'bg-orange-500/10 text-orange-400' :
-                    'bg-red-500/10 text-red-400'
+                  <span className={`px-3 py-1 rounded-lg text-sm font-medium hover:scale-105 transition-all ${
+                    viewingProduct.status === 'In Stock' ? 'bg-green-500/10 text-green-400 hover:bg-green-500/20' :
+                    viewingProduct.status === 'Low Stock' ? 'bg-orange-500/10 text-orange-400 hover:bg-orange-500/20' :
+                    'bg-red-500/10 text-red-400 hover:bg-red-500/20'
                   }`}>
                     {viewingProduct.status}
                   </span>
-                  <span className={`px-3 py-1 rounded-lg text-sm font-medium ${
-                    viewingProduct.isPublished ? 'bg-green-500/10 text-green-400' : 'bg-slate-500/10 text-slate-400'
+                  <span className={`px-3 py-1 rounded-lg text-sm font-medium hover:scale-105 transition-all ${
+                    viewingProduct.isPublished ? 'bg-green-500/10 text-green-400 hover:bg-green-500/20' : 'bg-slate-500/10 text-slate-400 hover:bg-slate-500/20'
                   }`}>
                     {viewingProduct.isPublished ? '✓ Published' : '✗ Unpublished'}
                   </span>
                   {viewingProduct.markAsNew && (
-                    <span className="px-3 py-1 bg-pink-500/10 text-pink-400 rounded-lg text-sm font-medium animate-pulse">
+                    <span className="px-3 py-1 bg-pink-500/10 text-pink-400 rounded-lg text-sm font-medium animate-pulse hover:bg-pink-500/20 transition-all">
                       🆕 New
                     </span>
                   )}
@@ -1067,7 +1116,7 @@ export default function ProductsPage() {
 
               {/* Short Description */}
               {viewingProduct.shortDescription && (
-                <div className="p-4 bg-slate-800/50 rounded-xl border border-slate-700/50">
+                <div className="p-4 bg-slate-800/50 rounded-xl border border-slate-700/50 hover:border-violet-500/30 hover:bg-slate-800/70 transition-all">
                   <div 
                     className="prose prose-invert prose-sm max-w-none text-slate-300"
                     dangerouslySetInnerHTML={{ __html: viewingProduct.shortDescription }}
@@ -1077,27 +1126,27 @@ export default function ProductsPage() {
 
               {/* Quick Stats */}
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                <div className="p-3 bg-slate-800/50 rounded-xl text-center border border-slate-700/50">
-                  <DollarSign className="w-5 h-5 text-green-400 mx-auto mb-1" />
+                <div className="p-3 bg-slate-800/50 rounded-xl text-center border border-slate-700/50 hover:border-green-500/50 hover:bg-slate-800/70 hover:scale-105 transition-all group">
+                  <DollarSign className="w-5 h-5 text-green-400 mx-auto mb-1 group-hover:scale-110 transition-transform" />
                   <p className="text-xs text-slate-400">Price</p>
                   <p className="text-lg font-bold text-white">₹{viewingProduct.price?.toFixed(2)}</p>
                   {viewingProduct.oldPrice && viewingProduct.oldPrice > viewingProduct.price && (
                     <p className="text-xs text-red-400 line-through">₹{viewingProduct.oldPrice.toFixed(2)}</p>
                   )}
                 </div>
-                <div className="p-3 bg-slate-800/50 rounded-xl text-center border border-slate-700/50">
-                  <Package className="w-5 h-5 text-cyan-400 mx-auto mb-1" />
+                <div className="p-3 bg-slate-800/50 rounded-xl text-center border border-slate-700/50 hover:border-cyan-500/50 hover:bg-slate-800/70 hover:scale-105 transition-all group">
+                  <Package className="w-5 h-5 text-cyan-400 mx-auto mb-1 group-hover:scale-110 transition-transform" />
                   <p className="text-xs text-slate-400">Stock</p>
                   <p className="text-lg font-bold text-white">{viewingProduct.stockQuantity}</p>
                 </div>
-                <div className="p-3 bg-slate-800/50 rounded-xl text-center border border-slate-700/50">
-                  <Star className="w-5 h-5 text-yellow-400 mx-auto mb-1" />
+                <div className="p-3 bg-slate-800/50 rounded-xl text-center border border-slate-700/50 hover:border-yellow-500/50 hover:bg-slate-800/70 hover:scale-105 transition-all group">
+                  <Star className="w-5 h-5 text-yellow-400 mx-auto mb-1 group-hover:scale-110 transition-transform" />
                   <p className="text-xs text-slate-400">Rating</p>
                   <p className="text-lg font-bold text-white">{viewingProduct.averageRating?.toFixed(1) || '0.0'}</p>
                   <p className="text-xs text-slate-400">({viewingProduct.reviewCount || 0} reviews)</p>
                 </div>
-                <div className="p-3 bg-slate-800/50 rounded-xl text-center border border-slate-700/50">
-                  <Eye className="w-5 h-5 text-violet-400 mx-auto mb-1" />
+                <div className="p-3 bg-slate-800/50 rounded-xl text-center border border-slate-700/50 hover:border-violet-500/50 hover:bg-slate-800/70 hover:scale-105 transition-all group">
+                  <Eye className="w-5 h-5 text-violet-400 mx-auto mb-1 group-hover:scale-110 transition-transform" />
                   <p className="text-xs text-slate-400">Views</p>
                   <p className="text-lg font-bold text-white">{viewingProduct.viewCount || 0}</p>
                 </div>
@@ -1107,9 +1156,9 @@ export default function ProductsPage() {
 
           {/* Full Description */}
           {viewingProduct.description && (
-            <div className="bg-slate-800/30 rounded-xl p-6 border border-slate-700">
+            <div className="bg-slate-800/30 rounded-xl p-6 border border-slate-700 hover:border-violet-500/50 hover:bg-slate-800/40 transition-all group">
               <h4 className="text-lg font-bold text-white mb-3 flex items-center gap-2">
-                <FileText className="w-5 h-5 text-violet-400" />
+                <FileText className="w-5 h-5 text-violet-400 group-hover:scale-110 transition-transform" />
                 Full Description
               </h4>
               <div 
@@ -1120,9 +1169,9 @@ export default function ProductsPage() {
           )}
 
           {/* Product Identification */}
-          <div className="bg-slate-800/30 rounded-xl p-6 border border-slate-700">
+          <div className="bg-slate-800/30 rounded-xl p-6 border border-slate-700 hover:border-cyan-500/50 hover:bg-slate-800/40 transition-all group">
             <h4 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
-              <Tag className="w-5 h-5 text-cyan-400" />
+              <Tag className="w-5 h-5 text-cyan-400 group-hover:scale-110 transition-transform" />
               Product Identification
             </h4>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -1136,9 +1185,9 @@ export default function ProductsPage() {
           </div>
 
           {/* Pricing Information */}
-          <div className="bg-slate-800/30 rounded-xl p-6 border border-slate-700">
+          <div className="bg-slate-800/30 rounded-xl p-6 border border-slate-700 hover:border-green-500/50 hover:bg-slate-800/40 transition-all group">
             <h4 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
-              <DollarSign className="w-5 h-5 text-green-400" />
+              <DollarSign className="w-5 h-5 text-green-400 group-hover:scale-110 transition-transform" />
               Pricing Information
             </h4>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -1158,9 +1207,9 @@ export default function ProductsPage() {
           </div>
 
           {/* Inventory Management */}
-          <div className="bg-slate-800/30 rounded-xl p-6 border border-slate-700">
+          <div className="bg-slate-800/30 rounded-xl p-6 border border-slate-700 hover:border-orange-500/50 hover:bg-slate-800/40 transition-all group">
             <h4 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
-              <Package className="w-5 h-5 text-orange-400" />
+              <Package className="w-5 h-5 text-orange-400 group-hover:scale-110 transition-transform" />
               Inventory Management
             </h4>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -1180,9 +1229,9 @@ export default function ProductsPage() {
           </div>
 
           {/* Shipping & Dimensions */}
-          <div className="bg-slate-800/30 rounded-xl p-6 border border-slate-700">
+          <div className="bg-slate-800/30 rounded-xl p-6 border border-slate-700 hover:border-blue-500/50 hover:bg-slate-800/40 transition-all group">
             <h4 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
-              <Truck className="w-5 h-5 text-blue-400" />
+              <Truck className="w-5 h-5 text-blue-400 group-hover:scale-110 transition-transform" />
               Shipping & Dimensions
             </h4>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -1213,68 +1262,91 @@ export default function ProductsPage() {
             </div>
           </div>
 
-          {/* Availability & Dates */}
-          <div className="bg-slate-800/30 rounded-xl p-6 border border-slate-700">
+          {/* Availability & Dates - ✅ ENHANCED WITH HOVER & DEFAULT TEXT */}
+          <div className="bg-slate-800/30 rounded-xl p-6 border border-slate-700 hover:border-yellow-500/50 hover:bg-slate-800/40 transition-all group">
             <h4 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
-              <Calendar className="w-5 h-5 text-yellow-400" />
+              <Calendar className="w-5 h-5 text-yellow-400 group-hover:scale-110 transition-transform" />
               Availability & Important Dates
             </h4>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              <InfoField label="Published At" value={viewingProduct.publishedAt ? formatDate(viewingProduct.publishedAt) : 'N/A'} />
-              <InfoField label="Available From" value={viewingProduct.availableStartDate ? formatDate(viewingProduct.availableStartDate) : 'N/A'} />
-              <InfoField label="Available Until" value={viewingProduct.availableEndDate ? formatDate(viewingProduct.availableEndDate) : 'N/A'} />
-              {viewingProduct.markAsNew && (
-                <>
-                  <InfoField label="Mark New From" value={viewingProduct.markAsNewStartDate ? formatDate(viewingProduct.markAsNewStartDate) : 'N/A'} />
-                  <InfoField label="Mark New Until" value={viewingProduct.markAsNewEndDate ? formatDate(viewingProduct.markAsNewEndDate) : 'N/A'} />
-                </>
-              )}
-            </div>
+            {!viewingProduct.publishedAt && !viewingProduct.availableStartDate && !viewingProduct.availableEndDate && !viewingProduct.markAsNewStartDate ? (
+              <div className="text-center py-8">
+                <Calendar className="w-12 h-12 text-slate-600 mx-auto mb-3" />
+                <p className="text-slate-500 text-sm">No availability dates configured</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                <InfoField label="Published At" value={viewingProduct.publishedAt ? formatDate(viewingProduct.publishedAt) : 'Not published yet'} />
+                <InfoField label="Available From" value={viewingProduct.availableStartDate ? formatDate(viewingProduct.availableStartDate) : 'Always available'} />
+                <InfoField label="Available Until" value={viewingProduct.availableEndDate ? formatDate(viewingProduct.availableEndDate) : 'No end date'} />
+                {viewingProduct.markAsNew && (
+                  <>
+                    <InfoField label="Mark New From" value={viewingProduct.markAsNewStartDate ? formatDate(viewingProduct.markAsNewStartDate) : 'Not set'} />
+                    <InfoField label="Mark New Until" value={viewingProduct.markAsNewEndDate ? formatDate(viewingProduct.markAsNewEndDate) : 'Not set'} />
+                  </>
+                )}
+              </div>
+            )}
           </div>
 
-          {/* Visibility & Settings */}
-          <div className="bg-slate-800/30 rounded-xl p-6 border border-slate-700">
-            <h4 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
-              <Eye className="w-5 h-5 text-purple-400" />
-              Visibility & Settings
-            </h4>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              <InfoField label="Published" value={viewingProduct.isPublished ? 'Yes' : 'No'} />
-              <InfoField label="Visible Individually" value={viewingProduct.visibleIndividually ? 'Yes' : 'No'} />
-              <InfoField label="Show on Homepage" value={viewingProduct.showOnHomepage ? 'Yes' : 'No'} />
-              <InfoField label="Disable Buy Button" value={viewingProduct.disableBuyButton ? 'Yes' : 'No'} />
-              <InfoField label="Disable Wishlist" value={viewingProduct.disableWishlistButton ? 'Yes' : 'No'} />
-              <InfoField label="Not Returnable" value={viewingProduct.notReturnable ? 'Yes' : 'No'} />
-              <InfoField label="Allow Reviews" value={viewingProduct.allowCustomerReviews ? 'Yes' : 'No'} />
-              <InfoField label="Tax Exempt" value={viewingProduct.taxExempt ? 'Yes' : 'No'} />
-              <InfoField label="Tax Category ID" value={viewingProduct.taxCategoryId || 'N/A'} />
-            </div>
-          </div>
+          {/* Visibility & Settings - ✅ ENHANCED WITH HOVER & BETTER LAYOUT */}
+{/* Visibility & Settings - ✅ FIXED TypeScript Errors */}
+<div className="bg-slate-800/30 rounded-xl p-6 border border-slate-700 hover:border-purple-500/50 hover:bg-slate-800/40 transition-all group">
+  <h4 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
+    <Eye className="w-5 h-5 text-purple-400 group-hover:scale-110 group-hover:rotate-12 transition-all" />
+    Visibility & Settings
+  </h4>
+  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+    <ToggleField label="Published" value={viewingProduct.isPublished ?? false} />
+    <ToggleField label="Visible Individually" value={viewingProduct.visibleIndividually ?? false} />
+    <ToggleField label="Show on Homepage" value={viewingProduct.showOnHomepage ?? false} />
+    <ToggleField label="Buy Button" value={!(viewingProduct.disableBuyButton ?? false)} />
+    <ToggleField label="Wishlist Button" value={!(viewingProduct.disableWishlistButton ?? false)} />
+    <ToggleField label="Returnable" value={!(viewingProduct.notReturnable ?? false)} />
+    <ToggleField label="Customer Reviews" value={viewingProduct.allowCustomerReviews ?? false} />
+    <ToggleField label="Tax Exempt" value={viewingProduct.taxExempt ?? false} />
+  </div>
+  {viewingProduct.taxCategoryId && (
+    <div className="mt-4 p-3 bg-slate-900/50 rounded-lg border border-slate-700/50 hover:border-purple-500/30 hover:bg-slate-800/70 transition-all group/tax cursor-pointer">
+      <p className="text-xs text-slate-400 mb-1 group-hover/tax:text-slate-300 transition-colors">Tax Category ID</p>
+      <p className="text-sm text-white font-mono group-hover/tax:text-purple-400 transition-colors">{viewingProduct.taxCategoryId}</p>
+    </div>
+  )}
+</div>
+
 
           {/* SEO Information */}
-          <div className="bg-slate-800/30 rounded-xl p-6 border border-slate-700">
-            <h4 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
-              <Globe className="w-5 h-5 text-indigo-400" />
-              SEO Information
-            </h4>
-            <div className="space-y-3">
-              <InfoField label="Meta Title" value={viewingProduct.metaTitle} fullWidth />
-              <InfoField label="Meta Description" value={viewingProduct.metaDescription} fullWidth />
-              <InfoField label="Meta Keywords" value={viewingProduct.metaKeywords} fullWidth />
-              <InfoField label="SEO Friendly URL" value={viewingProduct.searchEngineFriendlyPageName} fullWidth />
-            </div>
-          </div>
+{/* SEO Information - ✅ ENHANCED WITH HOVER */}
+<div className="bg-slate-800/30 rounded-xl p-6 border border-slate-700 hover:border-indigo-500/50 hover:bg-slate-800/40 transition-all group">
+  <h4 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
+    <Globe className="w-5 h-5 text-indigo-400 group-hover:scale-110 group-hover:rotate-12 transition-all" />
+    SEO Information
+  </h4>
+  {!viewingProduct.metaTitle && !viewingProduct.metaDescription && !viewingProduct.metaKeywords ? (
+    <div className="text-center py-8">
+      <Globe className="w-12 h-12 text-slate-600 mx-auto mb-3" />
+      <p className="text-slate-500 text-sm">No SEO data configured</p>
+    </div>
+  ) : (
+    <div className="space-y-3">
+      <InfoField label="Meta Title" value={viewingProduct.metaTitle || 'Not set'} fullWidth />
+      <InfoField label="Meta Description" value={viewingProduct.metaDescription || 'Not set'} fullWidth />
+      <InfoField label="Meta Keywords" value={viewingProduct.metaKeywords || 'Not set'} fullWidth />
+      <InfoField label="SEO Friendly URL" value={viewingProduct.searchEngineFriendlyPageName || 'Not set'} fullWidth />
+    </div>
+  )}
+</div>
 
-          {/* Tags - ✅ FIX: Added key prop */}
+
+          {/* Tags */}
           {viewingProduct.tags && (
-            <div className="bg-slate-800/30 rounded-xl p-6 border border-slate-700">
+            <div className="bg-slate-800/30 rounded-xl p-6 border border-slate-700 hover:border-pink-500/50 hover:bg-slate-800/40 transition-all group">
               <h4 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
-                <Tag className="w-5 h-5 text-pink-400" />
+                <Tag className="w-5 h-5 text-pink-400 group-hover:scale-110 transition-transform" />
                 Tags
               </h4>
               <div className="flex flex-wrap gap-2">
                 {viewingProduct.tags.split(',').map((tag, idx) => (
-                  <span key={`tag-${idx}-${tag.trim()}`} className="px-3 py-1 bg-pink-500/10 text-pink-400 rounded-lg text-sm border border-pink-500/20">
+                  <span key={`tag-${idx}-${tag.trim()}`} className="px-3 py-1 bg-pink-500/10 text-pink-400 rounded-lg text-sm border border-pink-500/20 hover:bg-pink-500/20 hover:scale-105 transition-all cursor-pointer">
                     {tag.trim()}
                   </span>
                 ))}
@@ -1282,21 +1354,21 @@ export default function ProductsPage() {
             </div>
           )}
 
-          {/* Product Videos - ✅ FIX: Added key prop */}
+          {/* Product Videos */}
           {viewingProduct.videoUrls && (
-            <div className="bg-slate-800/30 rounded-xl p-6 border border-slate-700">
+            <div className="bg-slate-800/30 rounded-xl p-6 border border-slate-700 hover:border-red-500/50 hover:bg-slate-800/40 transition-all group">
               <h4 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
-                <Video className="w-5 h-5 text-red-400" />
+                <Video className="w-5 h-5 text-red-400 group-hover:scale-110 transition-transform" />
                 Product Videos ({viewingProduct.videoUrls.split(',').length})
               </h4>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {viewingProduct.videoUrls.split(',').map((url, idx) => {
                   const embedUrl = getYouTubeEmbedUrl(url.trim());
                   return (
-                    <div key={`video-${idx}-${url.trim()}`} className="bg-slate-900/50 rounded-lg overflow-hidden border border-slate-700/50">
+                    <div key={`video-${idx}-${url.trim()}`} className="bg-slate-900/50 rounded-lg overflow-hidden border border-slate-700/50 hover:border-red-500/50 hover:scale-105 transition-all">
                       {embedUrl ? (
                         <div 
-                          className="relative aspect-video bg-slate-900 flex items-center justify-center cursor-pointer group"
+                          className="relative aspect-video bg-slate-900 flex items-center justify-center cursor-pointer group/video"
                           onClick={() => setPlayingVideo(embedUrl)}
                         >
                           <iframe
@@ -1304,8 +1376,8 @@ export default function ProductsPage() {
                             className="w-full h-full pointer-events-none"
                             title={`Product Video ${idx + 1}`}
                           />
-                          <div className="absolute inset-0 bg-black/40 group-hover:bg-black/60 transition-all flex items-center justify-center">
-                            <div className="bg-red-500 rounded-full p-4 group-hover:scale-110 transition-transform">
+                          <div className="absolute inset-0 bg-black/40 group-hover/video:bg-black/60 transition-all flex items-center justify-center">
+                            <div className="bg-red-500 rounded-full p-4 group-hover/video:scale-110 transition-transform">
                               <Play className="w-6 h-6 text-white fill-white" />
                             </div>
                           </div>
@@ -1315,13 +1387,13 @@ export default function ProductsPage() {
                           href={url.trim()}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="flex items-center gap-3 p-4 hover:bg-slate-800/50 transition-all group"
+                          className="flex items-center gap-3 p-4 hover:bg-slate-800/50 transition-all group/link"
                         >
-                          <div className="p-2 bg-red-500/10 rounded-lg group-hover:bg-red-500/20 transition-all">
+                          <div className="p-2 bg-red-500/10 rounded-lg group-hover/link:bg-red-500/20 transition-all">
                             <ExternalLink className="w-5 h-5 text-red-400" />
                           </div>
                           <div className="flex-1 min-w-0">
-                            <p className="text-slate-300 text-sm truncate group-hover:text-white transition-colors">
+                            <p className="text-slate-300 text-sm truncate group-hover/link:text-white transition-colors">
                               Video {idx + 1}
                             </p>
                             <p className="text-xs text-slate-500 truncate">{url.trim()}</p>
@@ -1335,36 +1407,222 @@ export default function ProductsPage() {
             </div>
           )}
 
-          {/* Specification Attributes - ✅ FIX: THIS IS THE MAIN ISSUE */}
-          {viewingProduct.specificationAttributes && parseSpecifications(viewingProduct.specificationAttributes).length > 0 && (
-            <div className="bg-slate-800/30 rounded-xl p-6 border border-slate-700">
+          {/* Specification Attributes */}
+{/* Specification Attributes - ✅ ENHANCED WITH DEFAULT MESSAGE */}
+{/* Specification Attributes - ✅ FIXED WITH CASE HANDLING */}
+<div className="bg-slate-800/30 rounded-xl p-6 border border-slate-700 hover:border-teal-500/50 hover:bg-slate-800/40 transition-all group">
+  <h4 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
+    <Info className="w-5 h-5 text-teal-400 group-hover:scale-110 group-hover:rotate-12 transition-all" />
+    Specifications
+    {viewingProduct.specificationAttributes && parseSpecifications(viewingProduct.specificationAttributes).length > 0 && (
+      <span className="text-xs text-slate-500 ml-1">
+        ({parseSpecifications(viewingProduct.specificationAttributes).length})
+      </span>
+    )}
+  </h4>
+  
+  {/* Check if specifications exist */}
+  {(() => {
+    const specs = parseSpecifications(viewingProduct.specificationAttributes);
+    
+    if (!specs || specs.length === 0) {
+      return (
+        <div className="text-center py-8">
+          <div className="w-16 h-16 rounded-full bg-teal-500/10 flex items-center justify-center mx-auto mb-4">
+            <Info className="w-8 h-8 text-teal-400/50" />
+          </div>
+          <p className="text-slate-500 text-sm font-medium mb-1">No specifications available</p>
+          <p className="text-slate-600 text-xs">Product specifications have not been configured yet</p>
+        </div>
+      );
+    }
+    
+    return (
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        {specs
+          .sort((a, b) => (a.displayOrder || 0) - (b.displayOrder || 0))
+          .map((spec, idx) => (
+            <div 
+              key={spec.id || `spec-${idx}-${spec.name}`} 
+              className="flex justify-between items-center p-3 bg-slate-900/50 rounded-lg border border-slate-700/50 hover:border-teal-500/50 hover:bg-slate-800/70 hover:scale-[1.02] transition-all group/spec cursor-pointer"
+            >
+              <div className="flex items-center gap-2 flex-1 min-w-0">
+                <div className="w-6 h-6 bg-teal-500/20 rounded flex items-center justify-center flex-shrink-0 group-hover/spec:bg-teal-500/30 transition-all">
+                  <span className="text-xs text-teal-400 font-bold">{spec.displayOrder || '0'}</span>
+                </div>
+                <span className="text-slate-400 text-sm group-hover/spec:text-slate-300 transition-colors font-medium truncate">
+                  {spec.name}
+                </span>
+              </div>
+              <span className="text-white font-semibold text-sm group-hover/spec:text-teal-400 transition-colors ml-3">
+                {spec.value}
+              </span>
+            </div>
+          ))}
+      </div>
+    );
+  })()}
+</div>
+
+
+          {/* Product Attributes */}
+          {viewingProduct.attributes && viewingProduct.attributes.length > 0 && (
+            <div className="bg-slate-800/30 rounded-xl p-6 border border-slate-700 hover:border-purple-500/50 hover:bg-slate-800/40 transition-all group">
               <h4 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
-                <Info className="w-5 h-5 text-teal-400" />
-                Specifications ({parseSpecifications(viewingProduct.specificationAttributes).length})
+                <Tag className="w-5 h-5 text-purple-400 group-hover:scale-110 transition-transform" />
+                Product Attributes ({viewingProduct.attributes.length})
               </h4>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {parseSpecifications(viewingProduct.specificationAttributes).map((spec) => (
-                  <div key={spec.id || `spec-${spec.name}-${spec.value}`} className="flex justify-between items-center p-3 bg-slate-900/50 rounded-lg border border-slate-700/50">
-                    <span className="text-slate-400 text-sm">{spec.name}</span>
-                    <span className="text-white font-medium text-sm">{spec.value}</span>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                {viewingProduct.attributes
+                  .sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0))
+                  .map((attr) => (
+                    <div 
+                      key={attr.id || `attr-${attr.name}-${attr.value}`} 
+                      className="flex flex-col p-4 bg-slate-900/50 rounded-lg border border-slate-700/50 hover:border-purple-500/50 hover:bg-slate-800/70 hover:scale-105 transition-all group/attr cursor-pointer"
+                    >
+                      <div className="flex items-center gap-2 mb-2">
+                        <div className="w-6 h-6 bg-purple-500/20 rounded flex items-center justify-center flex-shrink-0 group-hover/attr:bg-purple-500/30 transition-all">
+                          <span className="text-xs text-purple-400 font-bold">{attr.sortOrder || '0'}</span>
+                        </div>
+                        <span className="text-slate-400 text-sm font-medium group-hover/attr:text-slate-300 transition-colors">{attr.displayName || attr.name}</span>
+                      </div>
+                      <span className="text-white font-semibold text-base pl-8 group-hover/attr:text-purple-400 transition-colors">
+                        {attr.value}
+                      </span>
+                    </div>
+                  ))}
+              </div>
+            </div>
+          )}
+
+          {/* Product Variants */}
+          {viewingProduct.variants && viewingProduct.variants.length > 0 && (
+            <div className="bg-slate-800/30 rounded-xl p-6 border border-slate-700 hover:border-indigo-500/50 hover:bg-slate-800/40 transition-all group">
+              <h4 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
+                <Package className="w-5 h-5 text-indigo-400 group-hover:scale-110 transition-transform" />
+                Product Variants ({viewingProduct.variants.length})
+              </h4>
+              <div className="space-y-3">
+                {viewingProduct.variants.map((variant, idx) => (
+                  <div 
+                    key={variant.id || `variant-${variant.sku}-${idx}`}
+                    className={`bg-slate-900/50 rounded-lg p-4 border transition-all hover:shadow-lg hover:scale-[1.02] ${
+                      variant.isDefault 
+                        ? 'border-indigo-500/50 bg-indigo-500/5 hover:border-indigo-500/70' 
+                        : 'border-slate-700/50 hover:border-indigo-500/30'
+                    }`}
+                  >
+                    <div className="flex items-start gap-4">
+                      {/* Variant Image */}
+                      <div className="w-16 h-16 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center overflow-hidden flex-shrink-0 hover:scale-110 transition-transform">
+                        {variant.imageUrl ? (
+                          <img
+                            src={`${API_BASE_URL.replace(/\/$/, '')}/${variant.imageUrl.replace(/^\//, '')}`}
+                            alt={variant.name}
+                            className="w-full h-full object-cover"
+                            onError={(e) => {
+                              const target = e.target as HTMLImageElement;
+                              target.style.display = 'none';
+                            }}
+                          />
+                        ) : (
+                          <span className="text-2xl">📦</span>
+                        )}
+                      </div>
+
+                      {/* Variant Details */}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap mb-2">
+                          <h5 className="text-white font-semibold text-base">{variant.name}</h5>
+                          {variant.isDefault && (
+                            <span className="px-2 py-0.5 bg-indigo-500/20 text-indigo-400 text-xs rounded-full border border-indigo-500/30 font-medium animate-pulse">
+                              Default
+                            </span>
+                          )}
+                        </div>
+                        
+                        {/* Variant Info Grid */}
+                        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 mt-3">
+                          <div className="bg-slate-800/50 rounded-lg p-2 border border-slate-700/30 hover:border-indigo-500/50 hover:scale-105 transition-all">
+                            <p className="text-xs text-slate-400 mb-0.5">SKU</p>
+                            <p className="text-sm text-white font-mono truncate" title={variant.sku}>
+                              {variant.sku}
+                            </p>
+                          </div>
+                          
+                          <div className="bg-slate-800/50 rounded-lg p-2 border border-slate-700/30 hover:border-green-500/50 hover:scale-105 transition-all">
+                            <p className="text-xs text-slate-400 mb-0.5">Price</p>
+                            <p className="text-sm text-green-400 font-bold">
+                              ₹{variant.price.toFixed(2)}
+                            </p>
+                            {variant.compareAtPrice && variant.compareAtPrice > variant.price && (
+                              <p className="text-xs text-red-400 line-through">
+                                ₹{variant.compareAtPrice.toFixed(2)}
+                              </p>
+                            )}
+                          </div>
+                          
+                          <div className="bg-slate-800/50 rounded-lg p-2 border border-slate-700/30 hover:border-cyan-500/50 hover:scale-105 transition-all">
+                            <p className="text-xs text-slate-400 mb-0.5">Stock</p>
+                            <p className={`text-sm font-bold ${
+                              variant.stockQuantity > 10 ? 'text-green-400' :
+                              variant.stockQuantity > 0 ? 'text-orange-400' :
+                              'text-red-400'
+                            }`}>
+                              {variant.stockQuantity}
+                            </p>
+                          </div>
+                          
+                          {variant.weight && (
+                            <div className="bg-slate-800/50 rounded-lg p-2 border border-slate-700/30 hover:border-blue-500/50 hover:scale-105 transition-all">
+                              <p className="text-xs text-slate-400 mb-0.5">Weight</p>
+                              <p className="text-sm text-white">{variant.weight} kg</p>
+                            </div>
+                          )}
+                          
+                          {(variant.option1 || variant.option2 || variant.option3) && (
+                            <div className="bg-slate-800/50 rounded-lg p-2 border border-slate-700/30 col-span-2 sm:col-span-1 hover:border-purple-500/50 hover:scale-105 transition-all">
+                              <p className="text-xs text-slate-400 mb-0.5">Options</p>
+                              <div className="flex flex-wrap gap-1">
+                                {variant.option1 && (
+                                  <span className="text-xs bg-indigo-500/10 text-indigo-400 px-2 py-0.5 rounded border border-indigo-500/20 hover:bg-indigo-500/20 transition-all">
+                                    {variant.option1}
+                                  </span>
+                                )}
+                                {variant.option2 && (
+                                  <span className="text-xs bg-purple-500/10 text-purple-400 px-2 py-0.5 rounded border border-purple-500/20 hover:bg-purple-500/20 transition-all">
+                                    {variant.option2}
+                                  </span>
+                                )}
+                                {variant.option3 && (
+                                  <span className="text-xs bg-pink-500/10 text-pink-400 px-2 py-0.5 rounded border border-pink-500/20 hover:bg-pink-500/20 transition-all">
+                                    {variant.option3}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 ))}
               </div>
             </div>
           )}
 
-          {/* Related Products - ✅ FIX: Added key prop */}
+          {/* Related Products */}
           {viewingProduct.relatedProducts && viewingProduct.relatedProducts.length > 0 && (
-            <div className="bg-slate-800/30 rounded-xl p-6 border border-slate-700">
+            <div className="bg-slate-800/30 rounded-xl p-6 border border-slate-700 hover:border-green-500/50 hover:bg-slate-800/40 transition-all group">
               <h4 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
-                <ShoppingCart className="w-5 h-5 text-green-400" />
+                <ShoppingCart className="w-5 h-5 text-green-400 group-hover:scale-110 transition-transform" />
                 Related Products ({viewingProduct.relatedProducts.length})
               </h4>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 {viewingProduct.relatedProducts.map((product) => (
-                  <div key={product.id || `related-${product.sku}`} className="bg-slate-900/50 rounded-lg p-4 border border-slate-700/50 hover:border-violet-500/50 transition-all group">
+                  <div key={product.id || `related-${product.sku}`} className="bg-slate-900/50 rounded-lg p-4 border border-slate-700/50 hover:border-violet-500/50 hover:scale-105 hover:shadow-lg transition-all group/prod cursor-pointer">
                     <div className="flex items-center gap-3">
-                      <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-violet-500 to-pink-500 flex items-center justify-center overflow-hidden flex-shrink-0">
+                      <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-violet-500 to-pink-500 flex items-center justify-center overflow-hidden flex-shrink-0 group-hover/prod:scale-110 transition-transform">
                         {product.image && product.image !== "📦" ? (
                           <img src={product.image} alt={product.name} className="w-full h-full object-cover" />
                         ) : (
@@ -1372,7 +1630,7 @@ export default function ProductsPage() {
                         )}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-white text-sm font-medium truncate group-hover:text-violet-400 transition-colors">
+                        <p className="text-white text-sm font-medium truncate group-hover/prod:text-violet-400 transition-colors">
                           {product.name}
                         </p>
                         <p className="text-xs text-slate-400 font-mono">{product.sku}</p>
@@ -1385,18 +1643,18 @@ export default function ProductsPage() {
             </div>
           )}
 
-          {/* Cross-Sell Products - ✅ FIX: Added key prop */}
+          {/* Cross-Sell Products */}
           {viewingProduct.crossSellProducts && viewingProduct.crossSellProducts.length > 0 && (
-            <div className="bg-slate-800/30 rounded-xl p-6 border border-slate-700">
+            <div className="bg-slate-800/30 rounded-xl p-6 border border-slate-700 hover:border-cyan-500/50 hover:bg-slate-800/40 transition-all group">
               <h4 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
-                <ShoppingCart className="w-5 h-5 text-cyan-400" />
+                <ShoppingCart className="w-5 h-5 text-cyan-400 group-hover:scale-110 transition-transform" />
                 Cross-Sell Products ({viewingProduct.crossSellProducts.length})
               </h4>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 {viewingProduct.crossSellProducts.map((product) => (
-                  <div key={product.id || `cross-${product.sku}`} className="bg-slate-900/50 rounded-lg p-4 border border-slate-700/50 hover:border-cyan-500/50 transition-all group">
+                  <div key={product.id || `cross-${product.sku}`} className="bg-slate-900/50 rounded-lg p-4 border border-slate-700/50 hover:border-cyan-500/50 hover:scale-105 hover:shadow-lg transition-all group/prod cursor-pointer">
                     <div className="flex items-center gap-3">
-                      <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-cyan-500 to-blue-500 flex items-center justify-center overflow-hidden flex-shrink-0">
+                      <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-cyan-500 to-blue-500 flex items-center justify-center overflow-hidden flex-shrink-0 group-hover/prod:scale-110 transition-transform">
                         {product.image && product.image !== "📦" ? (
                           <img src={product.image} alt={product.name} className="w-full h-full object-cover" />
                         ) : (
@@ -1404,7 +1662,7 @@ export default function ProductsPage() {
                         )}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-white text-sm font-medium truncate group-hover:text-cyan-400 transition-colors">
+                        <p className="text-white text-sm font-medium truncate group-hover/prod:text-cyan-400 transition-colors">
                           {product.name}
                         </p>
                         <p className="text-xs text-slate-400 font-mono">{product.sku}</p>
@@ -1419,9 +1677,9 @@ export default function ProductsPage() {
 
           {/* Admin Comment */}
           {viewingProduct.adminComment && (
-            <div className="bg-slate-800/30 rounded-xl p-6 border border-slate-700">
+            <div className="bg-slate-800/30 rounded-xl p-6 border border-slate-700 hover:border-amber-500/50 hover:bg-slate-800/40 transition-all group">
               <h4 className="text-lg font-bold text-white mb-3 flex items-center gap-2">
-                <AlertCircle className="w-5 h-5 text-amber-400" />
+                <AlertCircle className="w-5 h-5 text-amber-400 group-hover:scale-110 transition-transform" />
                 Admin Comment
               </h4>
               <p className="text-slate-300 text-sm">{viewingProduct.adminComment}</p>
@@ -1429,9 +1687,9 @@ export default function ProductsPage() {
           )}
 
           {/* Activity Timeline */}
-          <div className="bg-slate-800/30 rounded-xl p-6 border border-slate-700">
+          <div className="bg-slate-800/30 rounded-xl p-6 border border-slate-700 hover:border-blue-500/50 hover:bg-slate-800/40 transition-all group">
             <h4 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
-              <Activity className="w-5 h-5 text-blue-400" />
+              <Activity className="w-5 h-5 text-blue-400 group-hover:scale-110 transition-transform" />
               Activity Timeline
             </h4>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -1445,14 +1703,14 @@ export default function ProductsPage() {
           {/* Action Buttons */}
           <div className="flex justify-end gap-3 pt-4 border-t border-slate-700/50">
             <Link href={`/admin/products/edit/${viewingProduct.id}`}>
-              <button className="px-6 py-2.5 bg-gradient-to-r from-cyan-500 to-blue-500 text-white rounded-xl hover:shadow-lg hover:shadow-cyan-500/50 transition-all font-medium text-sm flex items-center gap-2">
+              <button className="px-6 py-2.5 bg-gradient-to-r from-cyan-500 to-blue-500 text-white rounded-xl hover:shadow-lg hover:shadow-cyan-500/50 hover:scale-105 transition-all font-medium text-sm flex items-center gap-2">
                 <Edit className="w-4" />
                 Edit Product
               </button>
             </Link>
             <button
               onClick={() => setViewingProduct(null)}
-              className="px-6 py-2.5 bg-slate-800 text-white rounded-xl hover:bg-slate-700 transition-all font-medium text-sm"
+              className="px-6 py-2.5 bg-slate-800 text-white rounded-xl hover:bg-slate-700 hover:scale-105 transition-all font-medium text-sm"
             >
               Close
             </button>
@@ -1463,6 +1721,7 @@ export default function ProductsPage() {
     </div>
   </div>
 )}
+
 
 
       {/* Delete Confirmation Dialog */}
@@ -1483,6 +1742,34 @@ export default function ProductsPage() {
   );
 }
 
+
+// Toggle Field Component with Hover Effect
+// ✅ FIXED: Toggle Field Component with proper typing
+const ToggleField = ({ label, value }: { label: string; value: boolean | undefined }) => {
+  const isEnabled = value ?? false; // Handle undefined values
+  
+  return (
+    <div className={`p-3 rounded-lg border transition-all hover:scale-105 cursor-pointer ${
+      isEnabled 
+        ? 'bg-green-500/10 border-green-500/30 hover:bg-green-500/20 hover:border-green-500/50' 
+        : 'bg-red-500/10 border-red-500/30 hover:bg-red-500/20 hover:border-red-500/50'
+    }`}>
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-xs text-slate-400">{label}</span>
+        {isEnabled ? (
+          <CheckCircle className="w-4 h-4 text-green-400" />
+        ) : (
+          <XCircle className="w-4 h-4 text-red-400" />
+        )}
+      </div>
+      <p className={`text-sm font-semibold mt-1 ${isEnabled ? 'text-green-400' : 'text-red-400'}`}>
+        {isEnabled ? 'Enabled' : 'Disabled'}
+      </p>
+    </div>
+  );
+};
+
+
 // Helper Component for Info Fields
 interface InfoFieldProps {
   label: string;
@@ -1493,16 +1780,38 @@ interface InfoFieldProps {
   icon?: React.ReactNode;
 }
 
-function InfoField({ label, value, highlight, fullWidth, className, icon }: InfoFieldProps) {
-  return (
-    <div className={`p-3 bg-slate-900/50 rounded-lg border border-slate-700/50 ${fullWidth ? 'col-span-full' : ''} ${className || ''}`}>
-      <div className="flex items-center gap-2 text-slate-400 text-xs mb-1">
-        {icon}
-        <span>{label}</span>
-      </div>
-      <p className={`text-sm break-words ${highlight ? 'text-white font-bold text-lg' : 'text-slate-200'}`}>
-        {value || 'N/A'}
-      </p>
+// ✅ ENHANCED: InfoField Component with full hover effects
+const InfoField = ({ 
+  label, 
+  value, 
+  icon, 
+  fullWidth = false, 
+  highlight = false,
+  className = '' 
+}: { 
+  label: string; 
+  value?: string | null; 
+  icon?: React.ReactNode;
+  fullWidth?: boolean;
+  highlight?: boolean;
+  className?: string;
+}) => (
+  <div className={`
+    p-3 bg-slate-900/50 rounded-lg border border-slate-700/50 
+    hover:bg-slate-800/70 hover:border-violet-500/50 hover:scale-[1.02]
+    transition-all group cursor-pointer
+    ${fullWidth ? 'col-span-full' : ''} 
+    ${highlight ? 'ring-1 ring-violet-500/30' : ''} 
+    ${className}
+  `}>
+    <div className="flex items-center gap-2 mb-1">
+      {icon && <span className="text-slate-400 group-hover:text-violet-400 transition-colors">{icon}</span>}
+      <p className="text-xs text-slate-400 group-hover:text-slate-300 transition-colors">{label}</p>
     </div>
-  );
-}
+    <p className={`text-sm font-medium truncate group-hover:text-white transition-colors ${
+      value && value !== 'N/A' && value !== 'Not set' ? 'text-white' : 'text-slate-500'
+    }`}>
+      {value || 'Not available'}
+    </p>
+  </div>
+);

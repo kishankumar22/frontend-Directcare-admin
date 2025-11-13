@@ -25,10 +25,7 @@ interface Product {
   name: string;
 }
 
-interface Manufacturer {
-  id: string;
-  name: string;
-}
+
 
 type DiscountType = "AssignedToOrderTotal" | "AssignedToProducts" | "AssignedToCategories" | "AssignedToManufacturers" | "AssignedToShipping";
 type DiscountLimitationType = "Unlimited" | "NTimesOnly" | "NTimesPerCustomer";
@@ -210,7 +207,7 @@ export default function DiscountsPage() {
   // ✅ DROPDOWN DATA STATES
   const [categories, setCategories] = useState<Category[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
-  const [manufacturers, setManufacturers] = useState<Manufacturer[]>([]);
+
   
   // Pagination states
   const [currentPage, setCurrentPage] = useState(1);
@@ -265,10 +262,9 @@ const fetchDropdownData = async () => {
       headers.Authorization = `Bearer ${token}`;
     }
 
-    const [categoriesRes, productsRes, manufacturersRes] = await Promise.all([
+    const [categoriesRes, productsRes] = await Promise.all([
       fetch(`${API_BASE_URL}/api/Categories?includeInactive=false`, { headers }),
-      fetch(`${API_BASE_URL}/api/Products`, { headers }),
-      fetch(`${API_BASE_URL}/api/Manufacturers?includeUnpublished=false`, { headers })
+      fetch(`${API_BASE_URL}/api/Products`, { headers })  
     ]);
 
     // Process responses...
@@ -286,12 +282,6 @@ const fetchDropdownData = async () => {
       }
     }
 
-    if (manufacturersRes.ok) {
-      const manufacturersData = await manufacturersRes.json();
-      if (manufacturersData.success && manufacturersData.data) {
-        setManufacturers(manufacturersData.data);
-      }
-    }
 
   } catch (error) {
     console.error('Error fetching dropdown data:', error);
@@ -311,10 +301,6 @@ const fetchDropdownData = async () => {
     label: product.name
   }));
 
-  const manufacturerOptions: SelectOption[] = manufacturers.map(manufacturer => ({
-    value: manufacturer.id,
-    label: manufacturer.name
-  }));
 
   // ✅ FETCH DISCOUNTS FUNCTION
   const fetchDiscounts = async () => {
@@ -1025,8 +1011,7 @@ const fetchDropdownData = async () => {
                     >
                       <option value="AssignedToOrderTotal">	Assigned to order total</option>
                       <option value="AssignedToProducts">Assigned to products</option>
-                      <option value="AssignedToCategories">Assigned to categories</option>
-                      <option value="AssignedToManufacturers">Assigned to manufacturers</option>
+                      <option value="AssignedToCategories">Assigned to categories</option>              
                       <option value="AssignedToShipping">Assigned to shipping</option>
                     </select>
                   </div>
@@ -1336,36 +1321,7 @@ const fetchDropdownData = async () => {
                     </div>
                   )}
                   
-                  {/* ✅ MANUFACTURERS MULTI-SELECT */}
-                  {formData.discountType === "AssignedToManufacturers" && (
-                    <div>
-                      <label className="block text-sm font-medium text-slate-300 mb-2">
-                        Select Manufacturers *
-                        <span className="text-xs text-slate-400 ml-2">(Choose which manufacturers this discount applies to)</span>
-                      </label>
-                      <Select
-                        isMulti
-                        options={manufacturerOptions}
-                        value={manufacturerOptions.filter(opt => formData.assignedManufacturerIds.includes(opt.value))}
-                        onChange={(selectedOptions) => {
-                          const ids = selectedOptions ? selectedOptions.map(opt => opt.value) : [];
-                          setFormData({...formData, assignedManufacturerIds: ids});
-                        }}
-                        placeholder="Search and select manufacturers..."
-                        isSearchable
-                        closeMenuOnSelect={false}
-                        styles={customSelectStyles}
-                        className="react-select-container"
-                        classNamePrefix="react-select"
-                        noOptionsMessage={() => "No manufacturers found"}
-                        loadingMessage={() => "Loading manufacturers..."}
-                      />
-                      <p className="text-xs text-slate-400 mt-1">
-                        {formData.assignedManufacturerIds.length} manufacturer{formData.assignedManufacturerIds.length !== 1 ? 's' : ''} selected
-                      </p>
-                    </div>
-                  )}
-                  
+
                   {/* Settings Checkboxes */}
                   <div className="grid grid-cols-2 gap-4">
                     <div>
@@ -1597,22 +1553,7 @@ const fetchDropdownData = async () => {
                         </div>
                       </div>
                     )}
-                    
-                    {viewingDiscount.assignedManufacturerIds && (
-                      <div>
-                        <p className="text-white font-medium mb-1">Assigned Manufacturers:</p>
-                        <div className="flex flex-wrap gap-2">
-                          {viewingDiscount.assignedManufacturerIds.split(',').map(manufacturerId => {
-                            const manufacturer = manufacturers.find(m => m.id === manufacturerId.trim());
-                            return (
-                              <span key={manufacturerId} className="px-2 py-1 bg-purple-500/10 text-purple-400 rounded text-sm">
-                                {manufacturer ? manufacturer.name : manufacturerId}
-                              </span>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    )}
+
                   </div>
                 )}
 
