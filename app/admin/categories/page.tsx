@@ -6,6 +6,7 @@ import { API_ENDPOINTS, API_BASE_URL } from "@/lib/api-config";
 import { ProductDescriptionEditor } from "../products/SelfHostedEditor";
 import { useToast } from "@/components/CustomToast";
 import ConfirmDialog from "@/components/ConfirmDialog";
+import { apiClient } from "@/lib/api";
 
 interface Category {
   id: string;
@@ -24,6 +25,11 @@ interface Category {
   updatedAt?: string;
   createdBy?: string;
   updatedBy?: string;
+}
+interface CategoryApiResponse {
+  success: boolean;
+  message?: string;
+  data: Category[];
 }
 
 export default function CategoriesPage() {
@@ -88,23 +94,25 @@ export default function CategoriesPage() {
   }, []);
 const fetchCategories = async () => {
   try {
-    const token = localStorage.getItem('authToken');
-    const response = await fetch(`${API_ENDPOINTS.categories}?includeInactive=true&includeSubCategories=false`, {
-      headers: {
-        ...(token && { 'Authorization': `Bearer ${token}` }),
-      },
-    });
-    if (response.ok) {
-      const result = await response.json();
-      // ✅ Force update with spread operator
-      setCategories([...(result.data || [])]);
-    }
+    const token = localStorage.getItem("authToken");
+
+    const response = await apiClient.get<CategoryApiResponse>(
+      API_ENDPOINTS.categories,
+      {
+        params: { includeInactive: true, includeSubCategories: false },
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      }
+    );
+
+    setCategories([...(response.data?.data || [])]);
+
   } catch (error) {
     console.error("Error fetching categories:", error);
   } finally {
     setLoading(false);
   }
 };
+
 // ✅ Add this useEffect in your component
 useEffect(() => {
   const handleFocus = () => {
@@ -122,135 +130,120 @@ const handleImageUpload = async (file: File) => {
   }
 
   setUploadingImage(true);
-  
-  // ✅ Store old image URL to delete after successful upload
+
   const oldImageUrl = editingCategory?.imageUrl || "";
 
   try {
+    const token = localStorage.getItem("authToken");
+
     const formDataToUpload = new FormData();
-    formDataToUpload.append('image', file);
-    const token = localStorage.getItem('authToken');
+    formDataToUpload.append("image", file);
 
-    const response = await fetch(`${API_BASE_URL}/api/Categories/upload-image?name=${encodeURIComponent(formData.name)}`, {
-      method: 'POST',
-      headers: {
-        ...(token && { Authorization: `Bearer ${token}` }),
-      },
-      body: formDataToUpload,
-    });
-
-    if (response.ok) {
-      const result = await response.json();
-      if (result.success && result.data) {
-        // ✅ Update form data with new image
-        setFormData(prev => ({ ...prev, imageUrl: result.data }));
-        
-        // ✅ Delete old image if exists and is different from new one
-        if (oldImageUrl && oldImageUrl !== result.data) {
-          try {
-            const filename = extractFilename(oldImageUrl);
-            const deleteResponse = await fetch(`${API_BASE_URL}/api/ImageManagement/category/${filename}`, {
-              method: 'DELETE',
-              headers: {
-                ...(token && { 'Authorization': `Bearer ${token}` }),
-                'Content-Type': 'application/json',
-              },
-            });
-            
-            if (deleteResponse.ok) {
-              console.log('✅ Old image deleted successfully');
-            }
-          } catch (error) {
-            console.log('❌ Failed to delete old image:', error);
-            // Don't show error to user as new image is uploaded successfully
-          }
-        }
-        
-        // ✅ ADD THIS: Update list instantly with cache busting
-        setCategories(prev => 
-          prev.map(category => 
-            category.id === editingCategory?.id 
-              ? { ...category, imageUrl: `${result.data}?v=${Date.now()}` }
-              : category
-          )
-        );
-        
-        toast.success("Image uploaded successfully! ✅");
-        
-        // ✅ Optional: Backup refresh 
-        setTimeout(() => {
-          fetchCategories();
-        }, 500);
-        
-      } else {
-        toast.error("Failed to get image URL from response");
+    const response = await apiClient.post<{
+      success: boolean;
+      data: string;
+    }>(
+      `${API_ENDPOINTS.categories}/upload-image`,
+      formDataToUpload,
+      {
+        params: { name: formData.name },
+        headers: {
+          ...(token && { Authorization: `Bearer ${token}` }),
+          "Content-Type": "multipart/form-data",
+        },
       }
+    );
+
+const result = response.data!;
+
+
+    if (result.success && result.data) {
+      setFormData((prev) => ({ ...prev, imageUrl: result.data }));
+
+      // Delete old image
+      if (oldImageUrl && oldImageUrl !== result.data) {
+        try {
+          const filename = extractFilename(oldImageUrl);
+
+          await apiClient.delete(`${API_ENDPOINTS.imageManagement}/category/${filename}`, {
+            headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+          });
+
+          console.log("✅ Old image deleted");
+        } catch (err) {
+          console.log("❌ Failed to delete old image", err);
+        }
+      }
+
+      // Update UI instantly
+      setCategories((prev) =>
+        prev.map((c) =>
+          c.id === editingCategory?.id
+            ? { ...c, imageUrl: `${result.data}?v=${Date.now()}` }
+            : c
+        )
+      );
+
+      toast.success("Image uploaded successfully! ✅");
+
+      setTimeout(() => fetchCategories(), 500);
+
     } else {
-      const errorData = await response.json().catch(() => ({ message: "Failed to upload image" }));
-      toast.error(errorData.message || "Failed to upload image");
+      toast.error("Failed to get uploaded image URL");
     }
   } catch (error) {
-    console.error('Error uploading image:', error);
-    toast.error('Failed to upload image');
+    console.error("Error uploading image:", error);
+    toast.error("Failed to upload image");
   } finally {
     setUploadingImage(false);
   }
 };
 
-  // NEW - Delete image function
-  const handleDeleteImage = async (categoryId: string, imageUrl: string) => {
-    setIsDeletingImage(true);
-    
-    try {
-      const filename = extractFilename(imageUrl);
-      const token = localStorage.getItem('authToken');
-      
-      const response = await fetch(`${API_BASE_URL}/api/ImageManagement/category/${filename}`, {
-        method: 'DELETE',
-        headers: {
-          ...(token && { 'Authorization': `Bearer ${token}` }),
-          'Content-Type': 'application/json',
-        },
-      });
 
-      if (response.ok) {
-        toast.success('Image deleted successfully! 🗑️');
-        
-        // Update the category's imageUrl to empty
-        setCategories(prev => 
-          prev.map(category => 
-            category.id === categoryId 
-              ? { ...category, imageUrl: "" }
-              : category
-          )
-        );
-        
-        // Update form data if currently editing this category
-        if (editingCategory?.id === categoryId) {
-          setFormData(prev => ({ ...prev, imageUrl: "" }));
-        }
-        
-        // Update viewing category if it's the same one
-        if (viewingCategory?.id === categoryId) {
-          setViewingCategory(prev => 
-            prev ? { ...prev, imageUrl: "" } : null
-          );
-        }
-        
-      } else if (response.status === 401) {
-        toast.error('Please login again');
-      } else {
-        const errorData = await response.json().catch(() => null);
-        toast.error(errorData?.message || 'Failed to delete image');
-      }
-    } catch (error) {
-      console.error('Error deleting image:', error);
-      toast.error('Failed to delete image');
-    } finally {
-      setIsDeletingImage(false);
-      setImageDeleteConfirm(null);
+  // NEW - Delete image function
+const handleDeleteImage = async (categoryId: string, imageUrl: string) => {
+  setIsDeletingImage(true);
+
+  try {
+    const token = localStorage.getItem("authToken");
+    const filename = extractFilename(imageUrl);
+
+    await apiClient.delete(`${API_ENDPOINTS.imageManagement}/category/${filename}`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+    });
+
+    toast.success("Image deleted successfully! 🗑️");
+
+    // Update UI
+    setCategories((prev) =>
+      prev.map((c) =>
+        c.id === categoryId ? { ...c, imageUrl: "" } : c
+      )
+    );
+
+    if (editingCategory?.id === categoryId) {
+      setFormData((prev) => ({ ...prev, imageUrl: "" }));
     }
-  };
+
+    if (viewingCategory?.id === categoryId) {
+      setViewingCategory((prev) =>
+        prev ? { ...prev, imageUrl: "" } : null
+      );
+    }
+
+  } catch (error: any) {
+    console.error("Error deleting image:", error);
+
+    if (error.response?.status === 401) {
+      toast.error("Please login again");
+    } else {
+      toast.error(error.response?.data?.message || "Failed to delete image");
+    }
+  } finally {
+    setIsDeletingImage(false);
+    setImageDeleteConfirm(null);
+  }
+};
 
 
 
@@ -258,50 +251,50 @@ const handleSubmit = async (e: React.FormEvent) => {
   e.preventDefault();
 
   try {
+    const token = localStorage.getItem("authToken");
+
     const url = editingCategory
       ? `${API_ENDPOINTS.categories}/${editingCategory.id}`
       : API_ENDPOINTS.categories;
 
-    const method = editingCategory ? 'PUT' : 'POST';
-    const payload: any = {
+    const payload = {
       ...formData,
       parentCategoryId: formData.parentCategoryId || null,
+      ...(editingCategory && { id: editingCategory.id }),
     };
 
     if (editingCategory) {
-      payload.id = editingCategory.id;
-    }
+      await apiClient.put(url, payload, {
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      });
 
-    const token = localStorage.getItem('authToken');
-    const response = await fetch(url, {
-      method,
-      headers: {
-        'Content-Type': 'application/json',
-        ...(token && { 'Authorization': `Bearer ${token}` }),
-      },
-      body: JSON.stringify(payload),
-    });
-
-    if (response.ok) {
-      if (editingCategory) {
-        toast.success('Category updated successfully! ✅');
-      } else {
-        toast.success('Category created successfully! 🎉');
-      }
-
-      fetchCategories(); // ✅ Refresh list
-      setShowModal(false);
-      resetForm();
+      toast.success("Category updated successfully! ✅");
     } else {
-      const error = await response.json();
-      const message = error.message || error.error || 'Something went wrong';
-      toast.error(`Failed to ${editingCategory ? 'update' : 'create'} category: ${message}`);
+      await apiClient.post(url, payload, {
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      });
+
+      toast.success("Category created successfully! 🎉");
     }
-  } catch (error) {
-    console.error('Error saving category:', error);
-    toast.error(`Failed to ${editingCategory ? 'update' : 'create'} category. Please try again.`);
+
+    fetchCategories();
+    setShowModal(false);
+    resetForm();
+
+  } catch (error: any) {
+    console.error("Error saving category:", error);
+
+    const message =
+      error.response?.data?.message ||
+      error.response?.data?.error ||
+      "Something went wrong";
+
+    toast.error(
+      `Failed to ${editingCategory ? "update" : "create"} category: ${message}`
+    );
   }
 };
+
 
   const handleEdit = (category: Category) => {
     setEditingCategory(category);
@@ -319,34 +312,36 @@ const handleSubmit = async (e: React.FormEvent) => {
     setShowModal(true);
   };
 
-  const handleDelete = async (id: string) => {
-    setIsDeleting(true);
-    
-    try {
-      const token = localStorage.getItem('authToken');
-      const response = await fetch(`${API_ENDPOINTS.categories}/${id}`, {
-        method: 'DELETE',
-        headers: {
-          ...(token && { 'Authorization': `Bearer ${token}` }),
-        },
-      });
+const handleDelete = async (id: string) => {
+  setIsDeleting(true);
 
-      if (response.ok) {
-        toast.success('Category deleted successfully! 🗑️');
-        await fetchCategories();
-      } else if (response.status === 401) {
-        toast.error('Please login again');
-      } else {
-        toast.error('Failed to delete category');
-      }
-    } catch (error) {
-      console.error('Error deleting category:', error);
-      toast.error('Failed to delete category');
-    } finally {
-      setIsDeleting(false);
-      setDeleteConfirm(null);
+  try {
+    const token = localStorage.getItem("authToken");
+
+    const response = await apiClient.delete(`${API_ENDPOINTS.categories}/${id}`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+    });
+
+    if (response.status === 200 || response.status === 204) {
+      toast.success("Category deleted successfully! 🗑️");
+      await fetchCategories();
+    } else {
+      toast.error("Failed to delete category");
     }
-  };
+  } catch (error: any) {
+    console.error("Error deleting category:", error);
+
+    if (error?.response?.status === 401) {
+      toast.error("Please login again");
+    } else {
+      toast.error("Failed to delete category");
+    }
+  } finally {
+    setIsDeleting(false);
+    setDeleteConfirm(null);
+  }
+};
+
 
   const resetForm = () => {
     setFormData({

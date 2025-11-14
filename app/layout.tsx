@@ -14,22 +14,32 @@ export const metadata: Metadata = {
   },
 };
 
-export default async function RootLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
-  // ✅ SSR FETCH CATEGORIES
-  const res = await fetch(
-    `${process.env.NEXT_PUBLIC_API_URL}/api/Categories?includeInactive=false&includeSubCategories=true`,
-    { cache: "no-store" }
-  );
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  let categories: any[] = [];
 
-  const json = await res.json();
+  try {
+    const res = await fetch(
+      `${process.env.NEXT_PUBLIC_API_URL}/api/Categories?includeInactive=false&includeSubCategories=true`,
+      { cache: "no-store" }
+    );
 
-  const categories = json.success
-    ? json.data.filter((c: any) => !c.parentCategoryId)
-    : [];
+    if (res.ok) {
+      let json = null;
+
+      // SAFE JSON PARSE
+      try {
+        json = await res.json();
+      } catch (err) {
+        console.error("❌ JSON parse failed:", err);
+      }
+
+      if (json?.success && Array.isArray(json.data)) {
+        categories = json.data.filter((c: any) => !c.parentCategoryId);
+      }
+    }
+  } catch (error) {
+    console.error("❌ Categories API failed:", error);
+  }
 
   return (
     <html lang="en" suppressHydrationWarning>

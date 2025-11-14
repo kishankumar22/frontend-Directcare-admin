@@ -2,10 +2,11 @@
 
 import { useState, useEffect, useMemo, useCallback } from "react";
 import Link from "next/link";
-import { Plus, Package, Edit, Trash2, Eye, Search, Filter, FilterX, TrendingUp, AlertCircle, X, Tag, DollarSign, Calendar, User, CheckCircle, XCircle, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Info, Star, Video, ShoppingCart, Truck, Scale, Ruler, Box, FileText, Globe, Clock, Activity, ExternalLink, Play, ImageIcon } from "lucide-react";
+import { Plus, Package, Edit, Trash2, Eye, Search, Filter, FilterX, TrendingUp, AlertCircle, X, Tag, PoundSterling, Calendar, User, CheckCircle, XCircle, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Info, Star, Video, ShoppingCart, Truck, Scale, Ruler, Box, FileText, Globe, Clock, Activity, ExternalLink, Play, ImageIcon, Download, ChevronDown, FileSpreadsheet } from "lucide-react";
 import { useToast } from "@/components/CustomToast";
-import { API_BASE_URL } from "@/lib/api-config";
+import { API_BASE_URL, API_ENDPOINTS } from "@/lib/api-config";
 import ConfirmDialog from "@/components/ConfirmDialog";
+import { apiClient } from "@/lib/api";
 
 interface ProductImage {
   id: string;
@@ -157,6 +158,8 @@ export default function ProductsPage() {
   const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; name: string; } | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [loadingDetails, setLoadingDetails] = useState(false);
+  const [showExportMenu, setShowExportMenu] = useState(false);
+
   
   // Filter states
   const [searchTerm, setSearchTerm] = useState("");
@@ -175,181 +178,310 @@ export default function ProductsPage() {
     fetchCategories();
   }, []);
 
-  const fetchProducts = async () => {
-    setLoading(true);
-    
-    try {
-      const token = localStorage.getItem('authToken');
-      const response = await fetch(`${API_BASE_URL}/api/Products?page=1&pageSize=1000`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
+// =============================
+// ⭐ FETCH PRODUCTS (apiClient)
+// =============================
+const fetchProducts = async () => {
+  setLoading(true);
+
+  try {
+    const token = localStorage.getItem("authToken");
+
+    const res = await apiClient.get(
+      `${API_ENDPOINTS.products}?page=1&pageSize=1000`,
+      {
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      }
+    );
+
+    const data = res.data as any;
+
+    if (data?.success && data?.data?.items) {
+      const items = data.data.items;
+
+      const formattedProducts = items.map((p: any) => ({
+        id: p.id,
+        name: p.name,
+        categoryName: p.categoryName || "Uncategorized",
+        price: p.price || 0,
+        stock: p.stockQuantity || 0,
+        stockQuantity: p.stockQuantity || 0,
+        status: getStockStatus(p.stockQuantity),
+        image: getProductImage(p.images),
+        sales: 0,
+        shortDescription: p.shortDescription || "",
+        sku: p.sku || "",
+        createdAt: formatDate(p.createdAt),
+        updatedAt: p.updatedAt ? formatDate(p.updatedAt) : "N/A",
+        updatedBy: p.updatedBy || "N/A",
+        description: p.description || p.shortDescription || "",
+        category: p.categoryName || "Uncategorized",
+        isPublished: p.isPublished || false,
+        productType: p.productType || "simple",
+        brandName: p.brandName || "No Brand",
+      }));
+
+      setProducts(formattedProducts);
+
+      // Map for related products
+      const productMap = new Map<string, RelatedProduct>();
+      items.forEach((p: any) => {
+        productMap.set(p.id, {
+          id: p.id,
+          name: p.name,
+          price: p.price || 0,
+          sku: p.sku || "",
+          image: getProductImage(p.images),
+        });
       });
 
-      if (response.ok) {
-        const data = await response.json();
-        if (data.success && data.data && data.data.items) {
-          const formattedProducts = data.data.items.map((p: any) => ({
+      setAllProductsMap(productMap);
+    } else {
+      toast.warning("No products found.");
+      setProducts([]);
+    }
+  } catch (err) {
+    console.error("Error fetching products:", err);
+    toast.error("Failed to load products.");
+  } finally {
+    setLoading(false);
+  }
+};
+
+
+// ================================
+// ⭐ FETCH CATEGORIES (apiClient)
+// ================================
+const fetchCategories = async () => {
+  try {
+    const token = localStorage.getItem("authToken");
+
+    const res = await apiClient.get(API_ENDPOINTS.categories, {
+      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+    });
+
+    const data = res.data as any;
+
+    if (data?.success && Array.isArray(data?.data)) {
+      setCategories(data.data);
+    }
+  } catch (err) {
+    console.error("Error fetching categories:", err);
+  }
+};
+
+
+// ===================================================
+// ⭐ FETCH PRODUCT DETAILS + RELATED PRODUCTS
+// ===================================================
+const fetchProductDetails = async (productId: string) => {
+  setLoadingDetails(true);
+
+  try {
+    const token = localStorage.getItem("authToken");
+
+    const res = await apiClient.get(`${API_ENDPOINTS.products}/${productId}`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+    });
+
+    const result = res.data as any;
+
+    if (result?.success && result?.data) {
+      const p = result.data;
+
+      const fullProduct: Product = {
+        ...p,
+        status: getStockStatus(p.stockQuantity),
+        image: getProductImage(p.images),
+        createdAt: formatDate(p.createdAt),
+        updatedAt: p.updatedAt ? formatDate(p.updatedAt) : "N/A",
+        category: p.categoryName || "Uncategorized",
+        stock: p.stockQuantity || 0,
+      };
+
+      // Related Products
+      if (fullProduct.relatedProductIds) {
+        fullProduct.relatedProducts = fullProduct.relatedProductIds
+          .split(",")
+          .map((id) => allProductsMap.get(id.trim()))
+          .filter((p): p is RelatedProduct => p !== undefined);
+      }
+
+      // Cross Sell Products
+      if (fullProduct.crossSellProductIds) {
+        fullProduct.crossSellProducts = fullProduct.crossSellProductIds
+          .split(",")
+          .map((id) => allProductsMap.get(id.trim()))
+          .filter((p): p is RelatedProduct => p !== undefined);
+      }
+
+      setViewingProduct(fullProduct);
+    }
+  } catch (err) {
+    console.error("Error fetching product details:", err);
+    toast.error("Failed to load product details");
+  } finally {
+    setLoadingDetails(false);
+  }
+};
+
+
+// =============================
+// ⭐ DELETE PRODUCT (apiClient)
+// =============================
+const handleDelete = async (id: string) => {
+  setIsDeleting(true);
+
+  try {
+    const token = localStorage.getItem("authToken");
+
+    const res = await apiClient.delete(`${API_ENDPOINTS.products}/${id}`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+    });
+
+    if (res?.status === 200) {
+      toast.success("Product deleted successfully! 🗑️");
+      await fetchProducts();
+    } else {
+      const err = (res.data as any)?.message || "Failed to delete product";
+      toast.error(err);
+    }
+  } catch (err) {
+    console.error("Delete error:", err);
+    toast.error("Failed to delete product");
+  } finally {
+    setIsDeleting(false);
+    setDeleteConfirm(null);
+  }
+};
+
+ const handleExport = async (exportAll: boolean = false) => {
+    try {
+      let productsToExport: Product[] = [];
+
+      if (exportAll) {
+        // Fetch all products from API
+        setLoading(true);
+        const token = localStorage.getItem("authToken");
+        const response = await apiClient.get(
+          `${API_ENDPOINTS.products}?page=1&pageSize=10000`,
+          {
+            headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+          }
+        );
+        
+        const data = response.data as any;
+        if (data?.success && data?.data?.items) {
+          const items = data.data.items;
+          productsToExport = items.map((p: any) => ({
             id: p.id,
             name: p.name,
-            categoryName: p.categoryName || 'Uncategorized',
+            categoryName: p.categoryName || "Uncategorized",
             price: p.price || 0,
             stock: p.stockQuantity || 0,
             stockQuantity: p.stockQuantity || 0,
             status: getStockStatus(p.stockQuantity),
             image: getProductImage(p.images),
             sales: 0,
-            shortDescription: p.shortDescription || '',
-            sku: p.sku || '',
+            shortDescription: p.shortDescription || "",
+            sku: p.sku || "",
             createdAt: formatDate(p.createdAt),
-            updatedAt: p.updatedAt ? formatDate(p.updatedAt) : 'N/A',
-            updatedBy: p.updatedBy || 'N/A',
-            description: p.description || p.shortDescription || '',
-            category: p.categoryName || 'Uncategorized',
+            updatedAt: p.updatedAt ? formatDate(p.updatedAt) : "N/A",
+            updatedBy: p.updatedBy || "N/A",
+            description: p.description || p.shortDescription || "",
+            category: p.categoryName || "Uncategorized",
             isPublished: p.isPublished || false,
-            productType: p.productType || 'simple',
-            brandName: p.brandName || 'No Brand'
+            productType: p.productType || "simple",
+            brandName: p.brandName || "No Brand",
+            gtin: p.gtin,
+            weight: p.weight,
+            length: p.length,
+            width: p.width,
+            height: p.height,
+            weightUnit: p.weightUnit,
+            dimensionUnit: p.dimensionUnit,
+            tags: p.tags,
+            oldPrice: p.oldPrice,
           }));
-          
-          setProducts(formattedProducts);
-          
-          // Create a map for quick product lookup (for related products)
-          const productMap = new Map<string, RelatedProduct>();
-          data.data.items.forEach((p: any) => {
-            productMap.set(p.id, {
-              id: p.id,
-              name: p.name,
-              price: p.price || 0,
-              sku: p.sku || '',
-              image: getProductImage(p.images)
-            });
-          });
-          setAllProductsMap(productMap);
-          
-        } else {
-          toast.warning('No products found in your inventory.');
-          setProducts([]);
         }
+        setLoading(false);
       } else {
-        if (response.status === 401) {
-          toast.error('Session expired. Please login again.');
-          setTimeout(() => {
-            window.location.href = '/login';
-          }, 2000);
-        } else {
-          toast.error(`Failed to load products (Error ${response.status})`);
-        }
+        // Use filtered products
+        productsToExport = filteredProducts;
       }
+
+      // Check if there are any products
+      if (productsToExport.length === 0) {
+        toast.warning("⚠️ No products to export");
+        return;
+      }
+
+      const csvHeaders = [
+        "Product Name",
+        "SKU",
+        "Category",
+        "Brand",
+        "Price",
+        "Old Price",
+        "Stock",
+        "Status",
+        "Published",
+        "Created Date",
+        "GTIN",
+        "Weight",
+        "Dimensions (L×W×H)",
+        "Tags"
+      ];
+
+      const csvData = productsToExport.map(product => [
+        product.name,
+        product.sku,
+        product.categoryName || 'N/A',
+        product.brandName || 'N/A',
+        product.price,
+        product.oldPrice || 'N/A',
+        product.stockQuantity,
+        product.status || getStockStatus(product.stockQuantity),
+        product.isPublished ? 'Yes' : 'No',
+        product.createdAt,
+        product.gtin || 'N/A',
+        product.weight ? `${product.weight} ${product.weightUnit || 'kg'}` : 'N/A',
+        product.length && product.width && product.height 
+          ? `${product.length}×${product.width}×${product.height} ${product.dimensionUnit || 'cm'}` 
+          : 'N/A',
+        product.tags || 'N/A'
+      ]);
+
+      const csvContent = [
+        csvHeaders.join(','),
+        ...csvData.map(row => row.map(cell => `"${cell}"`).join(','))
+      ].join('\n');
+
+      // Add BOM for proper UTF-8 encoding in Excel
+      const BOM = '\uFEFF';
+      const blob = new Blob([BOM + csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      
+      // Dynamic filename
+      const exportType = exportAll ? "all" : "filtered";
+      const filterInfo = !exportAll && statusFilter !== "all" ? `_${statusFilter}` : "";
+      const searchInfo = !exportAll && searchTerm ? `_search` : "";
+      link.download = `products_${exportType}${filterInfo}${searchInfo}_${new Date().toISOString().split('T')[0]}.csv`;
+      
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+
+      toast.success(`📥 ${productsToExport.length} product${productsToExport.length > 1 ? 's' : ''} exported successfully!`);
     } catch (error) {
-      console.error('Error fetching products:', error);
-      toast.error('Failed to load products. Please check your connection and try again.');
-    } finally {
+      console.error("Export error:", error);
+      toast.error("Failed to export products");
       setLoading(false);
     }
   };
-
-  const fetchCategories = async () => {
-    try {
-      const token = localStorage.getItem('authToken');
-      const response = await fetch(`${API_BASE_URL}/api/categories`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        if (data.success && data.data) {
-          setCategories(data.data);
-        }
-      }
-    } catch (error) {
-      console.error('Error fetching categories:', error);
-    }
-  };
-
-  // Fetch full product details from API with related products
-  const fetchProductDetails = async (productId: string) => {
-    setLoadingDetails(true);
-    try {
-      const token = localStorage.getItem('authToken');
-      const response = await fetch(`${API_BASE_URL}/api/Products/${productId}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-      });
-
-      if (response.ok) {
-        const result = await response.json();
-        if (result.success && result.data) {
-          const fullProduct: Product = {
-            ...result.data,
-            status: getStockStatus(result.data.stockQuantity),
-            image: getProductImage(result.data.images),
-            createdAt: formatDate(result.data.createdAt),
-            updatedAt: result.data.updatedAt ? formatDate(result.data.updatedAt) : 'N/A',
-            category: result.data.categoryName || 'Uncategorized',
-            stock: result.data.stockQuantity || 0,
-          };
-          
-          // Populate related products
-          if (fullProduct.relatedProductIds) {
-            fullProduct.relatedProducts = fullProduct.relatedProductIds
-              .split(',')
-              .map(id => allProductsMap.get(id.trim()))
-              .filter((p): p is RelatedProduct => p !== undefined);
-          }
-          
-          // Populate cross-sell products
-          if (fullProduct.crossSellProductIds) {
-            fullProduct.crossSellProducts = fullProduct.crossSellProductIds
-              .split(',')
-              .map(id => allProductsMap.get(id.trim()))
-              .filter((p): p is RelatedProduct => p !== undefined);
-          }
-          
-          setViewingProduct(fullProduct);
-        }
-      } else {
-        toast.error('Failed to load product details');
-      }
-    } catch (error) {
-      console.error('Error fetching product details:', error);
-      toast.error('Failed to load product details');
-    } finally {
-      setLoadingDetails(false);
-    }
-  };
-
-  const handleDelete = async (id: string) => {
-    setIsDeleting(true);
-    
-    try {
-      const token = localStorage.getItem("authToken");
-      const response = await fetch(`${API_BASE_URL}/api/Products/${id}`, {
-        method: 'DELETE',
-        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-      });
-      
-      if (response.ok) {
-        toast.success("Product deleted successfully! 🗑️");
-        await fetchProducts();
-      } else {
-        const errorData = await response.json();
-        toast.error(errorData.message || "Failed to delete product");
-      }
-    } catch (error: any) {
-      console.error("Error deleting product:", error);
-      toast.error("Failed to delete product");
-    } finally {
-      setIsDeleting(false);
-      setDeleteConfirm(null);
-    }
-  };
-
   const getStockStatus = (stockQuantity: number): string => {
     if (stockQuantity > 10) return 'In Stock';
     if (stockQuantity > 0) return 'Low Stock';
@@ -524,20 +656,80 @@ const parseSpecifications = (specString: string | undefined): SpecificationAttri
   return (
     <div className="space-y-2">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+<div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold tracking-tight bg-gradient-to-r from-violet-400 via-cyan-400 to-pink-400 bg-clip-text text-transparent">
             Product Management
           </h1>
           <p className="text-slate-400">Manage your product inventory</p>
         </div>
-        <Link href="/admin/products/add">
-          <button className="px-4 py-2 bg-gradient-to-r from-violet-500 to-cyan-500 text-white rounded-xl hover:shadow-lg hover:shadow-violet-500/50 transition-all flex items-center gap-2 font-semibold">
-            <Plus className="h-4 w-4" />
-            Add Product
-          </button>
-        </Link>
+        
+        <div className="flex items-center gap-3">
+          {/* ✅ Export Button with Dropdown */}
+          <div className="relative">
+            <button 
+              onClick={() => setShowExportMenu(!showExportMenu)}
+              className="px-4 py-2 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-xl hover:shadow-lg hover:shadow-green-500/50 transition-all flex items-center gap-2 font-semibold"
+            >
+              <Download className="w-5 h-5" />
+              Export
+              <ChevronDown className="w-4 h-4" />
+            </button>
+            
+            {/* Dropdown Menu */}
+            {showExportMenu && (
+              <>
+                {/* Backdrop */}
+                <div 
+                  className="fixed inset-0 z-10" 
+                  onClick={() => setShowExportMenu(false)}
+                />
+                
+                {/* Menu Items */}
+                <div className="absolute right-0 mt-2 w-64 bg-slate-800 border border-slate-700 rounded-xl shadow-2xl shadow-black/50 z-20 overflow-hidden">
+                  <button
+                    onClick={() => {
+                      handleExport(false);
+                      setShowExportMenu(false);
+                    }}
+                    disabled={filteredProducts.length === 0}
+                    className="w-full px-4 py-3 text-left text-white hover:bg-slate-700 transition-all flex items-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed border-b border-slate-700"
+                  >
+                    <FileSpreadsheet className="w-4 h-4 text-green-400" />
+                    <div>
+                      <p className="text-sm font-medium">Export to Excel (filtered)</p>
+                      <p className="text-xs text-slate-400">{filteredProducts.length} products</p>
+                    </div>
+                  </button>
+                  
+                  <button
+                    onClick={() => {
+                      handleExport(true);
+                      setShowExportMenu(false);
+                    }}
+                    disabled={products.length === 0}
+                    className="w-full px-4 py-3 text-left text-white hover:bg-slate-700 transition-all flex items-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <FileSpreadsheet className="w-4 h-4 text-cyan-400" />
+                    <div>
+                      <p className="text-sm font-medium">Export to Excel (all found)</p>
+                      <p className="text-xs text-slate-400">{products.length} products</p>
+                    </div>
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+
+          <Link href="/admin/products/add">
+            <button className="px-4 py-2 bg-gradient-to-r from-violet-500 to-cyan-500 text-white rounded-xl hover:shadow-lg hover:shadow-violet-500/50 transition-all flex items-center gap-2 font-semibold">
+              <Plus className="h-4 w-4" />
+              Add Product
+            </button>
+          </Link>
+        </div>
       </div>
+
 
       {/* Stats Cards */}
       <div className="grid gap-4 md:grid-cols-4">
@@ -789,7 +981,7 @@ const parseSpecifications = (specString: string | undefined): SpecificationAttri
                     </td>
                     <td className="py-4 px-4 text-center">
                       <div className="flex items-center justify-center gap-1">
-                        <span className="text-green-400">₹</span>
+                        <span className="text-green-400">£</span>
                         <span className="text-white font-semibold">{product.price.toFixed(2)}</span>
                       </div>
                     </td>
@@ -1127,11 +1319,11 @@ const parseSpecifications = (specString: string | undefined): SpecificationAttri
               {/* Quick Stats */}
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 <div className="p-3 bg-slate-800/50 rounded-xl text-center border border-slate-700/50 hover:border-green-500/50 hover:bg-slate-800/70 hover:scale-105 transition-all group">
-                  <DollarSign className="w-5 h-5 text-green-400 mx-auto mb-1 group-hover:scale-110 transition-transform" />
+                  <PoundSterling className="w-5 h-5 text-green-400 mx-auto mb-1 group-hover:scale-110 transition-transform" />
                   <p className="text-xs text-slate-400">Price</p>
-                  <p className="text-lg font-bold text-white">₹{viewingProduct.price?.toFixed(2)}</p>
+                  <p className="text-lg font-bold text-white">£{viewingProduct.price?.toFixed(2)}</p>
                   {viewingProduct.oldPrice && viewingProduct.oldPrice > viewingProduct.price && (
-                    <p className="text-xs text-red-400 line-through">₹{viewingProduct.oldPrice.toFixed(2)}</p>
+                    <p className="text-xs text-red-400 line-through">£{viewingProduct.oldPrice.toFixed(2)}</p>
                   )}
                 </div>
                 <div className="p-3 bg-slate-800/50 rounded-xl text-center border border-slate-700/50 hover:border-cyan-500/50 hover:bg-slate-800/70 hover:scale-105 transition-all group">
@@ -1187,20 +1379,20 @@ const parseSpecifications = (specString: string | undefined): SpecificationAttri
           {/* Pricing Information */}
           <div className="bg-slate-800/30 rounded-xl p-6 border border-slate-700 hover:border-green-500/50 hover:bg-slate-800/40 transition-all group">
             <h4 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
-              <DollarSign className="w-5 h-5 text-green-400 group-hover:scale-110 transition-transform" />
+              <PoundSterling className="w-5 h-5 text-green-400 group-hover:scale-110 transition-transform" />
               Pricing Information
             </h4>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              <InfoField label="Current Price" value={`₹${viewingProduct.price?.toFixed(2)}`} highlight />
-              <InfoField label="Old Price" value={viewingProduct.oldPrice ? `₹${viewingProduct.oldPrice.toFixed(2)}` : 'N/A'} />
-              <InfoField label="Compare At Price" value={viewingProduct.compareAtPrice ? `₹${viewingProduct.compareAtPrice.toFixed(2)}` : 'N/A'} />
-              <InfoField label="Cost Price" value={viewingProduct.costPrice ? `₹${viewingProduct.costPrice.toFixed(2)}` : 'N/A'} />
+              <InfoField label="Current Price" value={`£${viewingProduct.price?.toFixed(2)}`} highlight />
+              <InfoField label="Old Price" value={viewingProduct.oldPrice ? `£${viewingProduct.oldPrice.toFixed(2)}` : 'N/A'} />
+              <InfoField label="Compare At Price" value={viewingProduct.compareAtPrice ? `£${viewingProduct.compareAtPrice.toFixed(2)}` : 'N/A'} />
+              <InfoField label="Cost Price" value={viewingProduct.costPrice ? `£${viewingProduct.costPrice.toFixed(2)}` : 'N/A'} />
               <InfoField label="Call For Price" value={viewingProduct.callForPrice ? 'Yes' : 'No'} />
               <InfoField label="Customer Enters Price" value={viewingProduct.customerEntersPrice ? 'Yes' : 'No'} />
               {viewingProduct.customerEntersPrice && (
                 <>
-                  <InfoField label="Min Customer Price" value={`₹${viewingProduct.minimumCustomerEnteredPrice?.toFixed(2)}`} />
-                  <InfoField label="Max Customer Price" value={`₹${viewingProduct.maximumCustomerEnteredPrice?.toFixed(2)}`} />
+                  <InfoField label="Min Customer Price" value={`£${viewingProduct.minimumCustomerEnteredPrice?.toFixed(2)}`} />
+                  <InfoField label="Max Customer Price" value={`£${viewingProduct.maximumCustomerEnteredPrice?.toFixed(2)}`} />
                 </>
               )}
             </div>
@@ -1238,7 +1430,7 @@ const parseSpecifications = (specString: string | undefined): SpecificationAttri
               <InfoField label="Requires Shipping" value={viewingProduct.requiresShipping ? 'Yes' : 'No'} />
               <InfoField label="Free Shipping" value={viewingProduct.isFreeShipping ? 'Yes' : 'No'} />
               <InfoField label="Ship Separately" value={viewingProduct.shipSeparately ? 'Yes' : 'No'} />
-              <InfoField label="Additional Shipping" value={viewingProduct.additionalShippingCharge ? `₹${viewingProduct.additionalShippingCharge}` : 'N/A'} />
+              <InfoField label="Additional Shipping" value={viewingProduct.additionalShippingCharge ? `£${viewingProduct.additionalShippingCharge}` : 'N/A'} />
               <InfoField 
                 label="Weight" 
                 value={viewingProduct.weight ? `${viewingProduct.weight} ${viewingProduct.weightUnit || 'kg'}` : 'N/A'} 
@@ -1553,11 +1745,11 @@ const parseSpecifications = (specString: string | undefined): SpecificationAttri
                           <div className="bg-slate-800/50 rounded-lg p-2 border border-slate-700/30 hover:border-green-500/50 hover:scale-105 transition-all">
                             <p className="text-xs text-slate-400 mb-0.5">Price</p>
                             <p className="text-sm text-green-400 font-bold">
-                              ₹{variant.price.toFixed(2)}
+                              £{variant.price.toFixed(2)}
                             </p>
                             {variant.compareAtPrice && variant.compareAtPrice > variant.price && (
                               <p className="text-xs text-red-400 line-through">
-                                ₹{variant.compareAtPrice.toFixed(2)}
+                                £{variant.compareAtPrice.toFixed(2)}
                               </p>
                             )}
                           </div>
@@ -1634,7 +1826,7 @@ const parseSpecifications = (specString: string | undefined): SpecificationAttri
                           {product.name}
                         </p>
                         <p className="text-xs text-slate-400 font-mono">{product.sku}</p>
-                        <p className="text-xs text-green-400 font-semibold">₹{product.price.toFixed(2)}</p>
+                        <p className="text-xs text-green-400 font-semibold">£{product.price.toFixed(2)}</p>
                       </div>
                     </div>
                   </div>
@@ -1666,7 +1858,7 @@ const parseSpecifications = (specString: string | undefined): SpecificationAttri
                           {product.name}
                         </p>
                         <p className="text-xs text-slate-400 font-mono">{product.sku}</p>
-                        <p className="text-xs text-green-400 font-semibold">₹{product.price.toFixed(2)}</p>
+                        <p className="text-xs text-green-400 font-semibold">£{product.price.toFixed(2)}</p>
                       </div>
                     </div>
                   </div>

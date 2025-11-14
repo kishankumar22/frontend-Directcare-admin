@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import Select from 'react-select';
 import { Plus, Edit, Trash2, Search, Percent, Eye, Filter, FilterX, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, AlertCircle, Calendar, Gift, Target } from "lucide-react";
-import { API_BASE_URL } from "@/lib/api-config";
+import {  API_ENDPOINTS } from "@/lib/api-config";
 import { apiClient } from "@/lib/api";
 import { ProductDescriptionEditor } from "../products/SelfHostedEditor";
 import { useToast } from "@/components/CustomToast";
@@ -250,44 +250,43 @@ export default function DiscountsPage() {
     fetchDropdownData();
   }, []);
 
-  // ✅ FETCH DROPDOWN DATA FUNCTION
-// ✅ CORRECT WAY: Proper headers typing
 const fetchDropdownData = async () => {
   try {
-    const token = localStorage.getItem('authToken');
-    
-    // ✅ FIX: Proper conditional headers
+    const token = localStorage.getItem("authToken");
+
     const headers: Record<string, string> = {};
     if (token) {
       headers.Authorization = `Bearer ${token}`;
     }
 
+    // 👉 API Calls using apiClient
     const [categoriesRes, productsRes] = await Promise.all([
-      fetch(`${API_BASE_URL}/api/Categories?includeInactive=false`, { headers }),
-      fetch(`${API_BASE_URL}/api/Products`, { headers })  
+      apiClient.get(`${API_ENDPOINTS.categories}?includeInactive=false`, { headers }),
+      apiClient.get(API_ENDPOINTS.products, { headers })
     ]);
 
-    // Process responses...
-    if (categoriesRes.ok) {
-      const categoriesData = await categoriesRes.json();
-      if (categoriesData.success && categoriesData.data) {
-        setCategories(categoriesData.data);
+    // 👉 Categories Response Handling
+    if (categoriesRes?.data) {
+      const c = categoriesRes.data as any;
+      if (c.success && Array.isArray(c.data)) {
+        setCategories(c.data);
       }
     }
 
-    if (productsRes.ok) {
-      const productsData = await productsRes.json();
-      if (productsData.success && productsData.data && productsData.data.items) {
-        setProducts(productsData.data.items);
+    // 👉 Products Response Handling
+    if (productsRes?.data) {
+      const p = productsRes.data as any;
+      if (p.success && p.data?.items) {
+        setProducts(p.data.items);
       }
     }
-
 
   } catch (error) {
-    console.error('Error fetching dropdown data:', error);
-    toast.error('Failed to load dropdown data');
+    console.error("Error fetching dropdown data:", error);
+    toast.error("Failed to load dropdown data");
   }
 };
+
 
 
   // ✅ CONVERT DATA TO SELECT OPTIONS
@@ -303,81 +302,84 @@ const fetchDropdownData = async () => {
 
 
   // ✅ FETCH DISCOUNTS FUNCTION
-  const fetchDiscounts = async () => {
-    try {
-      const token = localStorage.getItem("authToken");
-      const response = await fetch(`${API_BASE_URL}/api/Discounts?includeInactive=true`, {
-        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-      });
-      
-      if (response.ok) {
-        const result = await response.json();
-        setDiscounts([...(result.data || [])]);
-      } else {
-        console.error("Failed to fetch discounts");
-        setDiscounts([]);
-      }
-      
-    } catch (error) {
-      console.error("Error fetching discounts:", error);
+// ✅ FETCH DISCOUNTS (apiClient version)
+const fetchDiscounts = async () => {
+  try {
+    setLoading(true);
+
+    const response = await apiClient.get<{ success: boolean; data: Discount[] }>(
+      `${API_ENDPOINTS.discounts}?includeInactive=true`
+    );
+
+    if (response.data?.success && Array.isArray(response.data.data)) {
+      setDiscounts(response.data.data);
+    } else {
       setDiscounts([]);
-    } finally {
-      setLoading(false);
     }
-  };
+
+  } catch (error) {
+    console.error("Error fetching discounts:", error);
+    setDiscounts([]);
+  } finally {
+    setLoading(false);
+  }
+};
+
 
   // ✅ COMPLETE HANDLE SUBMIT FUNCTION
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+// ✅ HANDLE SUBMIT using apiClient
+const handleSubmit = async (e: React.FormEvent) => {
+  e.preventDefault();
 
-    const token = localStorage.getItem("authToken");
-    if (!token) {
-      toast.error("Please login first");
-      return;
+  const token = localStorage.getItem("authToken");
+  if (!token) {
+    toast.error("Please login first");
+    return;
+  }
+
+  try {
+    const payload = {
+      ...formData,
+      assignedProductIds: formData.assignedProductIds.join(','),
+      assignedCategoryIds: formData.assignedCategoryIds.join(','),
+      assignedManufacturerIds: formData.assignedManufacturerIds.join(','),
+      ...(editingDiscount && { id: editingDiscount.id }),
+    };
+
+    const url = editingDiscount
+      ? `${API_ENDPOINTS.discounts}/${editingDiscount.id}`
+      : `${API_ENDPOINTS.discounts}`;
+
+    const response = editingDiscount
+      ? await apiClient.put(url, payload)
+      : await apiClient.post(url, payload);
+
+    // 🟢 Check success
+    const data = response.data as {
+      success?: boolean;
+      message?: string;
+      errors?: string[];
+    };
+
+    if (data?.success === false) {
+      const errorMsg = data.errors?.join(", ") || data.message || "Operation failed";
+      throw new Error(errorMsg);
     }
 
-    try {
-      const url = editingDiscount
-        ? `${API_BASE_URL}/api/Discounts/${editingDiscount.id}`
-        : `${API_BASE_URL}/api/Discounts`;
+    toast.success(
+      editingDiscount ? "Discount updated successfully! ✅" : "Discount created successfully! 🎉"
+    );
 
-      const payload = {
-        ...formData,
-        assignedProductIds: formData.assignedProductIds.join(','),
-        assignedCategoryIds: formData.assignedCategoryIds.join(','),
-        assignedManufacturerIds: formData.assignedManufacturerIds.join(','),
-        ...(editingDiscount && { id: editingDiscount.id }),
-      };
+    await fetchDiscounts();
+    setShowModal(false);
+    resetForm();
 
-      const response = await fetch(url, {
-        method: editingDiscount ? 'PUT' : 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(payload),
-      });
+  } catch (error: any) {
+    console.error("Error saving discount:", error);
+    toast.error(error.message || "Failed to save discount");
+  }
+};
 
-      if (response.ok) {
-        const successMessage = editingDiscount 
-          ? "Discount updated successfully! ✅" 
-          : "Discount created successfully! 🎉";
-        
-        toast.success(successMessage, { autoClose: 4000 });
-
-        await fetchDiscounts();
-        setShowModal(false);
-        resetForm();
-      } else {
-        const errorData = await response.json();
-        toast.error(errorData.message || "Failed to save discount");
-      }
-
-    } catch (error: any) {
-      console.error("Error saving discount:", error);
-      toast.error("Failed to save discount");
-    }
-  };
 
   // ✅ COMPLETE HANDLE EDIT FUNCTION
   const handleEdit = (discount: Discount) => {
@@ -440,7 +442,7 @@ const fetchDropdownData = async () => {
     
     try {
       const token = localStorage.getItem("authToken");
-      const response = await fetch(`${API_BASE_URL}/api/Discounts/${id}`, {
+      const response = await fetch(`${API_ENDPOINTS.discounts}/${id}`, {
         method: 'DELETE',
         headers: token ? { Authorization: `Bearer ${token}` } : undefined,
       });
@@ -497,7 +499,7 @@ const fetchDropdownData = async () => {
     if (discount.usePercentage) {
       return `${discount.discountPercentage}%`;
     }
-    return `₹${discount.discountAmount}`;
+    return `£${discount.discountAmount}`;
   };
 
   const isDiscountActive = (discount: Discount) => {
@@ -1098,7 +1100,7 @@ const fetchDropdownData = async () => {
                           placeholder="0.00"
                           className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all pl-12"
                         />
-                        <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">₹</span>
+                        <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"> £</span>
                       </div>
                     </div>
                   )}
@@ -1115,7 +1117,7 @@ const fetchDropdownData = async () => {
                         placeholder="No limit"
                         className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all pl-12"
                       />
-                      <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">₹</span>
+                      <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">£</span>
                     </div>
                   </div>
 

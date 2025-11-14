@@ -10,7 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   ArrowLeft, Save, Upload, X, Info, Search, Image, Package,
   Tag, BarChart3, Globe, Settings, Truck, Gift, Calendar,
-  Users, DollarSign, Shield, FileText, Link as LinkIcon, ShoppingCart, Video,
+  Users, PoundSterling, Shield, FileText, Link as LinkIcon, ShoppingCart, Video,
   Play
 } from "lucide-react";
 import Link from "next/link";
@@ -18,7 +18,7 @@ import { apiClient } from "@/lib/api"; // Import your axios client
 import { ProductDescriptionEditor } from "@/app/admin/products/SelfHostedEditor";
 // import { ProductDescriptionEditor, RichTextEditor } from "../../RichTextEditor";
 import  {useToast } from "@/components/CustomToast";
-import { API_BASE_URL } from "@/lib/api-config";
+import { API_BASE_URL, API_ENDPOINTS } from "@/lib/api-config";
 
 // Dynamic API response interfaces
 interface BrandData {
@@ -383,10 +383,10 @@ useEffect(() => {
         productsResponse,
         productResponse
       ] = await Promise.all([
-        apiClient.get<BrandApiResponse>('/api/Brands?includeUnpublished=false'),
-        apiClient.get<CategoryApiResponse>('/api/Categories?includeInactive=true&includeSubCategories=true'),
-        apiClient.get<ProductsApiResponse>('/api/Products'),
-        apiClient.get(`/api/Products/${productId}`)
+        apiClient.get<BrandApiResponse>(`${API_ENDPOINTS.brands}?includeUnpublished=false`),
+        apiClient.get<CategoryApiResponse>(`${API_ENDPOINTS.categories}?includeInactive=true&includeSubCategories=true`),
+        apiClient.get<ProductsApiResponse>(`${API_ENDPOINTS.products}`),
+        apiClient.get(`${API_ENDPOINTS.products}/${productId}`)
       ]);
 
       const brandsData = (brandsResponse.data as BrandApiResponse)?.data || [];
@@ -1371,7 +1371,7 @@ const uploadImagesToProductDirect = async (productId: string, files: File[]): Pr
                     Product Info
                   </TabsTrigger>
                   <TabsTrigger value="prices" className="flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-slate-400 hover:text-violet-400 border-b-2 border-transparent data-[state=active]:border-violet-500 data-[state=active]:text-violet-400 data-[state=active]:bg-slate-800/50 whitespace-nowrap transition-all rounded-t-lg">
-                    <DollarSign className="h-4 w-4" />
+                    <PoundSterling className="h-4 w-4" />
                     Prices
                   </TabsTrigger>
                   <TabsTrigger value="inventory" className="flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-slate-400 hover:text-violet-400 border-b-2 border-transparent data-[state=active]:border-violet-500 data-[state=active]:text-violet-400 data-[state=active]:bg-slate-800/50 whitespace-nowrap transition-all rounded-t-lg">
@@ -1736,7 +1736,7 @@ const uploadImagesToProductDirect = async (productId: string, files: File[]): Pr
                   <div className="grid md:grid-cols-3 gap-4">
                     <div>
                       <label className="block text-sm font-medium text-slate-300 mb-2">
-                        Price ($) <span className="text-red-500">*</span>
+                        Price (£)<span className="text-red-500">*</span>
                       </label>
                       <input
                         type="number"
@@ -1751,7 +1751,7 @@ const uploadImagesToProductDirect = async (productId: string, files: File[]): Pr
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-slate-300 mb-2">Old Price ($)</label>
+                      <label className="block text-sm font-medium text-slate-300 mb-2">Old Price (£)</label>
                       <input
                         type="number"
                         name="oldPrice"
@@ -1765,7 +1765,7 @@ const uploadImagesToProductDirect = async (productId: string, files: File[]): Pr
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-slate-300 mb-2">Product Cost ($)</label>
+                      <label className="block text-sm font-medium text-slate-300 mb-2">Product Cost (£)</label>
                       <input
                         type="number"
                         name="cost"
@@ -2164,7 +2164,7 @@ const uploadImagesToProductDirect = async (productId: string, files: File[]): Pr
                       </div>
 
                       <div>
-                        <label className="block text-sm font-medium text-slate-300 mb-2">Additional Shipping Charge ($)</label>
+                        <label className="block text-sm font-medium text-slate-300 mb-2">Additional Shipping Charge (£)</label>
                         <input
                           type="number"
                           name="additionalShippingCharge"
@@ -2643,7 +2643,7 @@ const uploadImagesToProductDirect = async (productId: string, files: File[]): Pr
                           <div className="grid grid-cols-4 gap-4 mb-4">
                             <div>
                               <label className="block text-sm font-medium text-slate-300 mb-2">
-                                Price (₹)
+                                Price (£)
                               </label>
                               <input
                                 type="number"

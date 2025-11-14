@@ -20,8 +20,13 @@ export const API_ENDPOINTS = {
   // Orders
   orders: `${API_BASE_URL}/api/orders`,
 
+  // Image Management
+  imageManagement: `${API_BASE_URL}/api/ImageManagement`,
   // Customers
   customers: `${API_BASE_URL}/api/customers`,
+  // Discounts
+  discounts: `${API_BASE_URL}/api/discounts`,
+  // Banners
   banners: `${API_BASE_URL}/api/banners`,
   uploadImage: `${API_BASE_URL}/api/upload-image`
   

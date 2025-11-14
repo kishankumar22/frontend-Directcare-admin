@@ -90,90 +90,85 @@ export default function BrandsPage() {
   };
 
   // NEW - Delete image function
-  const handleDeleteImage = async (brandId: string, imageUrl: string) => {
-    setIsDeletingImage(true);
-    
-    try {
-      const filename = extractFilename(imageUrl);
-      const token = localStorage.getItem('authToken');
-      
-      // Use brand delete endpoint
-      const response = await fetch(`${API_BASE_URL}/api/ImageManagement/brand/${filename}`, {
-        method: 'DELETE',
-        headers: {
-          ...(token && { 'Authorization': `Bearer ${token}` }),
-          'Content-Type': 'application/json',
-        },
-      });
+const handleDeleteImage = async (brandId: string, imageUrl: string) => {
+  setIsDeletingImage(true);
 
-      if (response.ok) {
-        toast.success('Image deleted successfully! 🗑️');
-        
-        // Update the brand's logoUrl to empty
-        setBrands(prev => 
-          prev.map(brand => 
-            brand.id === brandId 
-              ? { ...brand, logoUrl: "" }
-              : brand
-          )
-        );
-        
-        // Update form data if currently editing this brand
-        if (editingBrand?.id === brandId) {
-          setFormData(prev => ({ ...prev, logoUrl: "" }));
-        }
-        
-        // Update viewing brand if it's the same one
-        if (viewingBrand?.id === brandId) {
-          setViewingBrand(prev => 
-            prev ? { ...prev, logoUrl: "" } : null
-          );
-        }
-        
-      } else if (response.status === 401) {
-        toast.error('Please login again');
-      } else {
-        const errorData = await response.json().catch(() => null);
-        toast.error(errorData?.message || 'Failed to delete image');
+  try {
+    const filename = extractFilename(imageUrl);
+    const token = localStorage.getItem("authToken");
+
+    const response = await apiClient.delete(
+      `${API_ENDPOINTS.imageManagement}/brand/${filename}`,
+      {
+        headers: token
+          ? { Authorization: `Bearer ${token}` }
+          : undefined,
       }
-    } catch (error) {
-      console.error('Error deleting image:', error);
-      toast.error('Failed to delete image');
-    } finally {
-      setIsDeletingImage(false);
-      setImageDeleteConfirm(null);
+    );
+
+    toast.success("Image deleted successfully! 🗑️");
+
+    // Update brand logo
+    setBrands((prev) =>
+      prev.map((brand) =>
+        brand.id === brandId ? { ...brand, logoUrl: "" } : brand
+      )
+    );
+
+    // Update form data (if editing same brand)
+    if (editingBrand?.id === brandId) {
+      setFormData((prev) => ({ ...prev, logoUrl: "" }));
     }
-  };
+
+    // Update viewingBrand (if same brand)
+    if (viewingBrand?.id === brandId) {
+      setViewingBrand((prev) =>
+        prev ? { ...prev, logoUrl: "" } : null
+      );
+    }
+  } catch (error: any) {
+    console.error("Error deleting image:", error);
+
+    if (error.response?.status === 401) {
+      toast.error("Please login again");
+    } else {
+      toast.error(error.response?.data?.message || "Failed to delete image");
+    }
+  } finally {
+    setIsDeletingImage(false);
+    setImageDeleteConfirm(null);
+  }
+};
+
 
   useEffect(() => {
     fetchBrands();
   }, []);
 
-// ✅ UPDATED - Force refresh with spread operator
-// ✅ FIXED: Update fetchBrands function 
 const fetchBrands = async () => {
   try {
     const token = localStorage.getItem("authToken");
 
-    const response = await fetch(`${API_BASE_URL}/api/Brands?includeInactive=true`, {
-      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-    });
+    const response = await apiClient.get<BrandApiResponse>(
+       `${API_ENDPOINTS.brands}`,
     
-    if (response.ok) {
-      const result: BrandApiResponse = await response.json();
-      
-      // ✅ Force refresh images with cache busting
-      const brandsWithFreshImages = (result.data || []).map(brand => ({
-        ...brand,
-        logoUrl: brand.logoUrl ? `${brand.logoUrl}?v=${Date.now()}` : undefined
-      }));
-      
-      setBrands(brandsWithFreshImages);
-    } else {
-      console.error("Failed to fetch brands");
-      setBrands([]);
-    }
-    
+      {
+        params: { includeInactive: true },
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      }
+    );
+
+    const result = response.data ?? { data: [] };  // 👈 FIX HERE
+
+    const brandsWithFreshImages = (result.data || []).map((brand) => ({
+      ...brand,
+      logoUrl: brand.logoUrl
+        ? `${brand.logoUrl}?v=${Date.now()}`
+        : undefined,
+    }));
+
+    setBrands(brandsWithFreshImages);
+
   } catch (error) {
     console.error("Error fetching brands:", error);
     setBrands([]);
@@ -191,74 +186,69 @@ const handleLogoUpload = async (file: File) => {
   }
 
   setUploadingLogo(true);
-  
-  // ✅ Store old image URL to delete after successful upload
+
   const oldLogoUrl = editingBrand?.logoUrl || "";
 
   try {
-    const formDataToUpload = new FormData();
-    formDataToUpload.append('logo', file);
-    const token = localStorage.getItem('authToken');
+    const token = localStorage.getItem("authToken");
 
-    const response = await fetch(
-      `${API_BASE_URL}/api/Brands/upload-logo?name=${encodeURIComponent(formData.name)}`,
+    const formDataToUpload = new FormData();
+    formDataToUpload.append("logo", file);
+
+    const response = await apiClient.post<{
+      success: boolean;
+      data: string;
+    }>(
+      `${API_ENDPOINTS.brands}/upload-logo`,
+      formDataToUpload,
       {
-        method: 'POST',
+        params: { name: formData.name },
         headers: {
-          ...(token && { 'Authorization': `Bearer ${token}` }),
+          ...(token && { Authorization: `Bearer ${token}` }),
+          "Content-Type": "multipart/form-data",
         },
-        body: formDataToUpload,
       }
     );
 
-    if (response.ok) {
-      const result = await response.json();
-      
-      if (result.success && result.data) {
-        // ✅ Update form data with new logo
-        setFormData(prev => ({ ...prev, logoUrl: result.data }));
-        
-        // ✅ Delete old logo if exists and is different from new one
-        if (oldLogoUrl && oldLogoUrl !== result.data) {
-          try {
-            const filename = extractFilename(oldLogoUrl);
-            const deleteResponse = await fetch(`${API_BASE_URL}/api/ImageManagement/brand/${filename}`, {
-              method: 'DELETE',
-              headers: {
-                ...(token && { 'Authorization': `Bearer ${token}` }),
-                'Content-Type': 'application/json',
-              },
-            });
-            
-            if (deleteResponse.ok) {
-              console.log('✅ Old logo deleted successfully');
-            }
-          } catch (error) {
-            console.log('❌ Failed to delete old logo:', error);
-          }
+    const result = response.data;
+
+    if (result?.success && result?.data) {
+      // Update form
+      setFormData((prev) => ({ ...prev, logoUrl: result.data }));
+
+      // Delete old logo (if changed)
+      if (oldLogoUrl && oldLogoUrl !== result.data) {
+        try {
+          const filename = extractFilename(oldLogoUrl);
+
+          await apiClient.delete(`${API_ENDPOINTS.imageManagement}/brand/${filename}`, {
+            headers: {
+              ...(token && { Authorization: `Bearer ${token}` }),
+            },
+          });
+
+          console.log("✅ Old logo deleted successfully");
+        } catch (err) {
+          console.log("❌ Failed to delete old logo", err);
         }
-        
-        // ✅ Update list instantly with cache busting - same as categories
-        setBrands(prev => 
-          prev.map(brand => 
-            brand.id === editingBrand?.id 
-              ? { ...brand, logoUrl: `${result.data}?v=${Date.now()}` }
-              : brand
-          )
-        );
-        
-        toast.success("Logo uploaded successfully! ✅");
-        
-      } else {
-        toast.error("Failed to get logo URL from response");
       }
+
+      // Update UI instantly with cache-busting
+      setBrands((prev) =>
+        prev.map((brand) =>
+          brand.id === editingBrand?.id
+            ? { ...brand, logoUrl: `${result.data}?v=${Date.now()}` }
+            : brand
+        )
+      );
+
+      toast.success("Logo uploaded successfully! ✅");
     } else {
-      const errorData = await response.json();
-      toast.error(errorData.message || 'Failed to upload logo');
+      toast.error("Failed to get logo URL from response");
     }
   } catch (error) {
-    console.error('Error uploading logo:', error);
-    toast.error('Failed to upload logo');
+    console.error("Error uploading logo:", error);
+    toast.error("Failed to upload logo");
   } finally {
     setUploadingLogo(false);
   }
@@ -293,29 +283,23 @@ const handleSubmit = async (e: React.FormEvent) => {
           headers: { Authorization: `Bearer ${token}` },
         });
 
-    const successMessage = editingBrand 
-      ? "Brand updated successfully! ✅" 
+    const successMessage = editingBrand
+      ? "Brand updated successfully! ✅"
       : "Brand created successfully! 🎉";
-    
-    toast.success(successMessage, { autoClose: 4000 });
 
-    fetchBrands(); // ✅ Refresh list
+    toast.success(successMessage);
+
+    fetchBrands();
     setShowModal(false);
     resetForm();
-
   } catch (error: any) {
     console.error("Error saving brand:", error);
 
-    if (error.response?.status === 401) {
-      toast.error("Unauthorized. Please login again.");
-    } else {
-      const message = error.response?.data?.message || "Failed to save brand";
-      const errorMessage = editingBrand 
-        ? `Failed to update brand: ${message}`
-        : `Failed to create brand: ${message}`;
-      
-      toast.error(errorMessage);
-    }
+    const message =
+      error.response?.data?.message ||
+      (editingBrand ? "Failed to update brand" : "Failed to create brand");
+
+    toast.error(message);
   }
 };
 

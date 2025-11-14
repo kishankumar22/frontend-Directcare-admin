@@ -122,148 +122,133 @@ export default function ManageBanners() {
   };
 
   // Image upload handler
-  const handleImageUpload = async (file: File) => {
-    if (!formData.title.trim()) {
-      toast.error("Please enter banner title before uploading image");
+const handleImageUpload = async (file: File) => {
+  if (!formData.title.trim()) {
+    toast.error("Please enter banner title before uploading image");
+    return;
+  }
+
+  setUploadingImage(true);
+
+  try {
+    const token = localStorage.getItem("authToken");
+
+    const formDataToUpload = new FormData();
+    formDataToUpload.append("image", file);
+
+    const response = await apiClient.post<{
+      success: boolean;
+      data: string;
+      message?: string;
+    }>(
+      `${API_ENDPOINTS.banners}/upload-image`,
+      formDataToUpload,
+      {
+        params: { title: formData.title },
+        headers: {
+          ...(token && { Authorization: `Bearer ${token}` }),
+          "Content-Type": "multipart/form-data",
+        },
+      }
+    );
+
+    const result = response.data;
+    if (!result?.success || !result.data) {
+      toast.error(result?.message || "Image upload failed");
       return;
     }
 
-    setUploadingImage(true);
-    const formDataToUpload = new FormData();
-    formDataToUpload.append('image', file);
+    // Extract URLs
+    const relativeUrl = getRelativeImageUrl(result.data);
+    const fullUrl = getFullImageUrl(relativeUrl);
 
-    try {
-      const token = localStorage.getItem('authToken');
-      
-      const response = await fetch(
-        `${API_BASE_URL}/api/Banners/upload-image?title=${encodeURIComponent(formData.title)}`,
-        {
-          method: 'POST',
-          headers: {
-            ...(token && { 'Authorization': `Bearer ${token}` }),
-          },
-          body: formDataToUpload,
-        }
-      );
+    setFormData(prev => ({
+      ...prev,
+      imageUrl: relativeUrl,
+      link: fullUrl
+    }));
 
-      if (response.ok) {
-        const result = await response.json();
-        
-        if (result.success && result.data) {
-          // Store relative path in imageUrl and full path in link
-          const relativeUrl = getRelativeImageUrl(result.data);
-          const fullUrl = getFullImageUrl(relativeUrl);
-          
-          setFormData(prev => ({ 
-            ...prev, 
-            imageUrl: relativeUrl,
-            link: fullUrl // UPDATED - Set full URL in link field
-          }));
-          toast.success("Image uploaded successfully! ✅");
-        } else {
-          toast.error("Failed to get image URL from response");
-        }
-      } else {
-        const errorData = await response.json().catch(() => ({ message: 'Failed to upload image' }));
-        toast.error(errorData.message || 'Failed to upload image');
-      }
-    } catch (error) {
-      console.error('Error uploading image:', error);
-      toast.error('Failed to upload image');
-    } finally {
-      setUploadingImage(false);
-    }
-  };
+    toast.success("Image uploaded successfully! ✅");
+  } catch (err) {
+    console.error("Upload error:", err);
+    toast.error("Failed to upload image");
+  } finally {
+    setUploadingImage(false);
+  }
+};
+
 
   // Delete image function
-  const handleDeleteImage = async (bannerId: string, imageUrl: string) => {
-    setIsDeletingImage(true);
-    
-    try {
-      const filename = extractFilename(imageUrl);
-      const token = localStorage.getItem('authToken');
-      
-      const response = await fetch(`${API_BASE_URL}/api/ImageManagement/banner/${filename}`, {
-        method: 'DELETE',
-        headers: {
-          ...(token && { 'Authorization': `Bearer ${token}` }),
-          'Content-Type': 'application/json',
-        },
-      });
+const handleDeleteImage = async (bannerId: string, imageUrl: string) => {
+  setIsDeletingImage(true);
 
-      if (response.ok) {
-        toast.success('Image deleted successfully! 🗑️');
-        
-        // Update the banner's imageUrl and link to empty
-        setBanners(prev => 
-          prev.map(banner => 
-            banner.id === bannerId 
-              ? { ...banner, imageUrl: "", link: "" }
-              : banner
-          )
+  try {
+    const token = localStorage.getItem("authToken");
+
+    const filename = extractFilename(imageUrl);
+
+    const response = await apiClient.delete(`${API_ENDPOINTS.imageManagement}banner/${filename}`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : undefined
+    });
+
+    if (response.status === 200) {
+      toast.success("Image deleted successfully! 🗑️");
+
+      setBanners(prev =>
+        prev.map(b =>
+          b.id === bannerId ? { ...b, imageUrl: "", link: "" } : b
+        )
+      );
+
+      if (editingBanner?.id === bannerId) {
+        setFormData(prev => ({ ...prev, imageUrl: "", link: "" }));
+      }
+
+      if (viewingBanner?.id === bannerId) {
+        setViewingBanner(prev =>
+          prev ? { ...prev, imageUrl: "", link: "" } : null
         );
-        
-        // Update form data if currently editing this banner
-        if (editingBanner?.id === bannerId) {
-          setFormData(prev => ({ ...prev, imageUrl: "", link: "" }));
-        }
-        
-        // Update viewing banner if it's the same one
-        if (viewingBanner?.id === bannerId) {
-          setViewingBanner(prev => 
-            prev ? { ...prev, imageUrl: "", link: "" } : null
-          );
-        }
-        
-      } else if (response.status === 401) {
-        toast.error('Please login again');
-      } else {
-        const errorData = await response.json().catch(() => null);
-        toast.error(errorData?.message || 'Failed to delete image');
       }
-    } catch (error) {
-      console.error('Error deleting image:', error);
-      toast.error('Failed to delete image');
-    } finally {
-      setIsDeletingImage(false);
-      setImageDeleteConfirm(null);
+
+    } else {
+      toast.error("Failed to delete image");
     }
-  };
+  } catch (err) {
+    console.error("Delete error:", err);
+    toast.error("Failed to delete image");
+  } finally {
+    setIsDeletingImage(false);
+    setImageDeleteConfirm(null);
+  }
+};
 
-  useEffect(() => {
-    fetchBanners();
-  }, []);
+const fetchBanners = async () => {
+  try {
+    setLoading(true);
 
-  const fetchBanners = async () => {
-    try {
-      setLoading(true);
-      
-      const response = await apiClient.get<BannerApiResponse>(`${API_ENDPOINTS.banners}?includeInactive=true`);
-      
-      let bannersData: Banner[] = [];
-      
-      if (response.data) {
-        if (response.data.success && Array.isArray(response.data.data)) {
-          bannersData = response.data.data;
-        } else if (Array.isArray(response.data)) {
-          bannersData = response.data;
-        } else if (response.data.data && Array.isArray(response.data.data)) {
-          bannersData = response.data.data;
-        }
-      }
-      
-      setBanners(bannersData);
-      
-    } catch (error: any) {
-      console.error("Error fetching banners:", error);
-      toast.error("Failed to fetch banners");
-      setBanners([]);
-    } finally {
-      setLoading(false);
-    }
-  };
+    const response = await apiClient.get<BannerApiResponse>(
+      API_ENDPOINTS.banners,
+      { params: { includeInactive: true } }
+    );
 
-  // UPDATED - Handle submit with proper URL handling for both imageUrl and link
+    const result = response.data;
+
+    const bannersData = result?.success && Array.isArray(result.data)
+      ? result.data
+      : [];
+
+    setBanners(bannersData);
+
+  } catch (error) {
+    console.error("Error fetching banners:", error);
+    toast.error("Failed to fetch banners");
+    setBanners([]);
+  } finally {
+    setLoading(false);
+  }
+};
+
+
 // app/admin/banners/page.tsx
 const handleSubmit = async (e: React.FormEvent) => {
   e.preventDefault();
@@ -281,48 +266,46 @@ const handleSubmit = async (e: React.FormEvent) => {
     };
 
     let response;
-    
+
     if (editingBanner) {
-      // ✅ PUT request for edit
       response = await apiClient.put(
-        `${API_ENDPOINTS.banners}/${editingBanner.id}`, 
+        `${API_ENDPOINTS.banners}/${editingBanner.id}`,
         { ...payload, id: editingBanner.id }
       );
     } else {
-      // ✅ POST request for create
       response = await apiClient.post(API_ENDPOINTS.banners, payload);
     }
 
-    // ✅ Check for errors
-    if (response.error) {
-      throw new Error(response.error);
+    const data = response.data as { success?: boolean; message?: string; errors?: string[] };
+
+    if (data?.success === false) {
+      const errorMsg =
+        data.errors?.join(", ") ||
+        data.message ||
+        "Operation failed";
+      throw new Error(errorMsg);
     }
 
-    // ✅ Check API response format
-const data = response.data as { success?: boolean; message?: string; errors?: string[] };
-
-if (data?.success === false) {
-  const errorMsg = data.errors?.join(', ') || data.message || 'Operation failed';
-  throw new Error(errorMsg);
-}
-
-
-    // ✅ Success
     toast.success(
-      editingBanner 
-        ? "Banner updated successfully! ✅" 
+      editingBanner
+        ? "Banner updated successfully! ✅"
         : "Banner created successfully! 🎉"
     );
-    
+
     await fetchBanners();
     setShowModal(false);
     resetForm();
 
   } catch (error: any) {
-    console.error('❌ Error saving banner:', error);
-    toast.error(error.message || 'Failed to save banner');
+    console.error("❌ Error saving banner:", error);
+    toast.error(error.message || "Failed to save banner");
   }
 };
+
+
+  useEffect(() => {
+    fetchBanners();
+  }, []);
 
   // Handle edit function
   const handleEdit = (banner: Banner) => {
