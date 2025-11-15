@@ -1140,35 +1140,59 @@ const updateProductVariant = (id: string, field: keyof ProductVariant, value: an
   ));
 };
 
-const handleVariantImageUpload = (variantId: string, file: File) => {
-  const reader = new FileReader();
-  reader.onloadend = () => {
-    setProductVariants(productVariants.map(variant => {
-      if (variant.id === variantId) {
-        return {
-          ...variant,
-          imageUrl: reader.result as string,
-          imageFile: file
-        };
+// UPDATED - Upload variant image immediately in Edit mode
+// UPDATED - Upload variant image immediately in Edit mode
+const handleVariantImageUpload = async (variantId: string, file: File) => {
+  if (!productId) {
+    toast.error("Product ID not found");
+    return;
+  }
+
+  try {
+    const formData = new FormData();
+    formData.append("image", file);
+
+    const token = localStorage.getItem("authToken");
+
+    const uploadResponse = await fetch(
+      `${API_BASE_URL}/api/Products/variants/${variantId}/image`,
+      {
+        method: "POST",
+        headers: {
+          ...(token && { Authorization: `Bearer ${token}` }),
+        },
+        body: formData,
       }
-      return variant;
-    }));
-  };
-  reader.readAsDataURL(file);
+    );
+
+    if (uploadResponse.ok) {
+      const result = await uploadResponse.json();
+      
+      // Update variant with returned image URL (not base64)
+      setProductVariants(productVariants.map(variant => {
+        if (variant.id === variantId) {
+          return {
+            ...variant,
+            imageUrl: result.imageUrl || result.data?.imageUrl,
+            imageFile: undefined,
+          };
+        }
+        return variant;
+      }));
+
+      toast.success("Variant image uploaded successfully!");
+    } else {
+      const errorText = await uploadResponse.text();
+      throw new Error(`Upload failed: ${errorText}`);
+    }
+  } catch (error: any) {
+    console.error("Error uploading variant image:", error);
+    toast.error(`Failed to upload variant image: ${error.message}`);
+  }
 };
 
-const removeVariantImage = (variantId: string) => {
-  setProductVariants(productVariants.map(variant => {
-    if (variant.id === variantId) {
-      return {
-        ...variant,
-        imageUrl: null,
-        imageFile: undefined
-      };
-    }
-    return variant;
-  }));
-};
+
+
 // ✅ REPLACE existing handleImageUpload function:
 const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
   const files = e.target.files;
@@ -2733,60 +2757,53 @@ const uploadImagesToProductDirect = async (productId: string, files: File[]): Pr
                             </div>
                           </div>
 
-                          {/* Variant Image Upload */}
-                          <div>
-                            <label className="block text-sm font-medium text-slate-300 mb-2">
-                              Variant Image
-                            </label>
-                            {variant.imageUrl ? (
-                              <div className="relative inline-block">
-                              
+{/* Variant Image Upload */}
+<div>
+  <label className="block text-sm font-medium text-slate-300 mb-2">
+    Variant Image
+  </label>
+  
+  {variant.imageUrl ? (
+    <div className="relative inline-block">
+      <img
+        src={
+          variant.imageUrl.startsWith("http") || variant.imageUrl.startsWith("/")
+            ? `${API_BASE_URL}${variant.imageUrl}`
+            : variant.imageUrl
+        }
+        alt={variant?.name || "Variant"}
+        className="w-32 h-32 object-cover rounded-lg border border-slate-700"
+      />
+      
+    </div>
+  ) : null}
+  
+  <div className="flex items-center gap-2 mt-2">
+    <input
+      type="file"
+      accept="image/*"
+      onChange={(e) => {
+        const file = e.target.files?.[0];
+        if (file) {
+          handleVariantImageUpload(variant.id, file);
+        }
+      }}
+      className="hidden"
+      id={`variant-image-${variant.id}`}
+    />
+    <label
+      htmlFor={`variant-image-${variant.id}`}
+      className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-colors cursor-pointer flex items-center gap-2"
+    >
+      <Upload className="h-4 w-4" />
+      {variant.imageUrl ? "Change Image" : "Upload Image"}
+    </label>
+    <span className="text-sm text-slate-400">
+      Optional - Image specific to this variant
+    </span>
+  </div>
+</div>
 
-                                      <img
-                                      src={
-                                        variant?.imageUrl
-                                          ? `${variant.imageUrl.replace(/^\//, "")}`
-                                          : "No IMAGE Available" // fallback image
-                                      }
-                                      alt={variant?.name || "Variant"}
-                                      className="w-32 h-32 object-cover rounded-lg border border-slate-700"
-                                      />
-
-                                <button
-                                  type="button"
-                                  onClick={() => removeVariantImage(variant.id)}
-                                  className="absolute -top-2 -right-2 p-1 bg-red-500 hover:bg-red-600 text-white rounded-full transition-colors"
-                                >
-                                  <X className="h-4 w-4" />
-                                </button>
-                              </div>
-                            ) : (
-                              <div className="flex items-center gap-2">
-                                <input
-                                  type="file"
-                                  accept="image/*"
-                                  onChange={(e) => {
-                                    const file = e.target.files?.[0];
-                                    if (file) {
-                                      handleVariantImageUpload(variant.id, file);
-                                    }
-                                  }}
-                                  className="hidden"
-                                  id={`variant-image-${variant.id}`}
-                                />
-                                <label
-                                  htmlFor={`variant-image-${variant.id}`}
-                                  className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-colors cursor-pointer flex items-center gap-2"
-                                >
-                                  <Upload className="h-4 w-4" />
-                                  Upload Image
-                                </label>
-                                <span className="text-sm text-slate-400">
-                                  Optional - Image specific to this variant
-                                </span>
-                              </div>
-                            )}
-                          </div>
 
                           <div className="mt-4 flex items-center gap-2">
                             <input

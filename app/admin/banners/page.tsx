@@ -49,7 +49,9 @@ export default function ManageBanners() {
   const [selectedImageUrl, setSelectedImageUrl] = useState<string | null>(null);
   const [viewingBanner, setViewingBanner] = useState<Banner | null>(null);
   const [statusFilter, setStatusFilter] = useState<string>("all");
-  const [uploadingImage, setUploadingImage] = useState(false);
+const [imageFile, setImageFile] = useState<File | null>(null);
+const [imagePreview, setImagePreview] = useState<string | null>(null);
+
 
   // Pagination states
   const [currentPage, setCurrentPage] = useState(1);
@@ -82,11 +84,16 @@ export default function ManageBanners() {
   });
 
   // Helper function to get full image URL for display
-  const getImageUrl = (imageUrl: string | undefined) => {
-    if (!imageUrl) return "";
-    if (imageUrl.startsWith("http")) return imageUrl;
-    return `${API_BASE_URL}${imageUrl}`;
-  };
+// FIXED - Remove existing query params
+const getImageUrl = (imageUrl?: string) => {
+  if (!imageUrl) return "";
+  if (imageUrl.startsWith("http")) return imageUrl;
+  
+  // Remove any existing query parameters
+  const cleanUrl = imageUrl.split('?')[0];
+  
+  return `${API_BASE_URL}${cleanUrl}`;
+};
 
   // Helper function to convert full URL to relative path
   const getRelativeImageUrl = (imageUrl: string) => {
@@ -122,59 +129,22 @@ export default function ManageBanners() {
   };
 
   // Image upload handler
-const handleImageUpload = async (file: File) => {
-  if (!formData.title.trim()) {
-    toast.error("Please enter banner title before uploading image");
-    return;
-  }
-
-  setUploadingImage(true);
-
-  try {
-    const token = localStorage.getItem("authToken");
-
-    const formDataToUpload = new FormData();
-    formDataToUpload.append("image", file);
-
-    const response = await apiClient.post<{
-      success: boolean;
-      data: string;
-      message?: string;
-    }>(
-      `${API_ENDPOINTS.banners}/upload-image`,
-      formDataToUpload,
-      {
-        params: { title: formData.title },
-        headers: {
-          ...(token && { Authorization: `Bearer ${token}` }),
-          "Content-Type": "multipart/form-data",
-        },
-      }
-    );
-
-    const result = response.data;
-    if (!result?.success || !result.data) {
-      toast.error(result?.message || "Image upload failed");
-      return;
-    }
-
-    // Extract URLs
-    const relativeUrl = getRelativeImageUrl(result.data);
-    const fullUrl = getFullImageUrl(relativeUrl);
-
-    setFormData(prev => ({
-      ...prev,
-      imageUrl: relativeUrl,
-      link: fullUrl
-    }));
-
-    toast.success("Image uploaded successfully! ✅");
-  } catch (err) {
-    console.error("Upload error:", err);
-    toast.error("Failed to upload image");
-  } finally {
-    setUploadingImage(false);
-  }
+// UPDATED - Only create preview, don't upload immediately
+const handleImageFileChange = (file: File) => {
+  // Store the file
+  setImageFile(file);
+  
+  // Create preview URL
+  const previewUrl = URL.createObjectURL(file);
+  setImagePreview(previewUrl);
+  
+  // Auto-fill link with the preview URL (temporary)
+  setFormData(prev => ({
+    ...prev,
+    link: previewUrl, // Will be replaced with actual URL after upload
+  }));
+  
+  toast.success("Image selected! Click Create/Update to upload.");
 };
 
 
@@ -253,54 +223,129 @@ const fetchBanners = async () => {
 const handleSubmit = async (e: React.FormEvent) => {
   e.preventDefault();
 
+  const token = localStorage.getItem("authToken");
+  if (!token) {
+    toast.error("Please login first");
+    return;
+  }
+
   try {
+    if (!formData.title.trim()) {
+      toast.error("Banner title is required");
+      return;
+    }
+
+    let finalImageUrl = formData.imageUrl; // Keep existing URL if no new file
+    let finalLinkUrl = formData.link; // Keep existing link if no new file
+
+    // STEP 1: Upload image first if new file selected
+    if (imageFile) {
+      try {
+        const formDataToUpload = new FormData();
+        formDataToUpload.append("image", imageFile);
+
+        const response = await apiClient.post<{
+          success: boolean;
+          data: string;
+          message?: string;
+        }>(API_ENDPOINTS.banners + "/upload-image", formDataToUpload, {
+          params: {
+            title: formData.title,
+          },
+          headers: {
+            ...(token && { Authorization: `Bearer ${token}` }),
+            "Content-Type": "multipart/form-data",
+          },
+        });
+
+        const result = response.data;
+        if (!result?.success || !result.data) {
+          toast.error(result?.message || "Image upload failed");
+          return;
+        }
+
+        // Extract URLs
+        const relativeUrl = getRelativeImageUrl(result.data);
+        const fullUrl = getFullImageUrl(relativeUrl);
+
+        finalImageUrl = relativeUrl;
+        finalLinkUrl = fullUrl;
+
+        // Delete old image if updating
+        if (editingBanner?.imageUrl && editingBanner.imageUrl !== finalImageUrl) {
+          try {
+            const filename = extractFilename(editingBanner.imageUrl);
+            await apiClient.delete(API_ENDPOINTS.imageManagement + `/banner/${filename}`, {
+              headers: {
+                ...(token && { Authorization: `Bearer ${token}` }),
+              },
+            });
+          } catch (err) {
+            console.log("Failed to delete old image:", err);
+          }
+        }
+      } catch (uploadError: any) {
+        console.error("Error uploading image:", uploadError);
+        toast.error("Failed to upload image. Please try again.");
+        return; // Stop if upload fails
+      }
+    }
+
+    // STEP 2: Create or Update Banner with image URL
+    const url = editingBanner
+      ? API_ENDPOINTS.banners + `/${editingBanner.id}`
+      : API_ENDPOINTS.banners;
+
     const payload = {
-      title: formData.title,
-      imageUrl: getRelativeImageUrl(formData.imageUrl),
-      link: formData.link,
+      title: formData.title.trim(),
+      imageUrl: finalImageUrl ? getRelativeImageUrl(finalImageUrl) : "",
+      link: finalLinkUrl || "",
       description: formData.description,
-      isActive: formData.isActive,
-      displayOrder: formData.displayOrder,
-      startDate: formData.startDate,
-      endDate: formData.endDate,
+      isActive: Boolean(formData.isActive),
+      displayOrder: Number(formData.displayOrder) || 1,
+      startDate: formData.startDate || null,
+      endDate: formData.endDate || null,
+      ...(editingBanner && {
+        id: editingBanner.id,
+        createdBy: editingBanner.createdBy,
+        createdAt: editingBanner.createdAt,
+      }),
     };
 
-    let response;
+    console.log("Payload:", payload);
 
-    if (editingBanner) {
-      response = await apiClient.put(
-        `${API_ENDPOINTS.banners}/${editingBanner.id}`,
-        { ...payload, id: editingBanner.id }
-      );
-    } else {
-      response = await apiClient.post(API_ENDPOINTS.banners, payload);
+    const response = editingBanner
+      ? await apiClient.put(url, payload, {
+          headers: { Authorization: `Bearer ${token}` },
+        })
+      : await apiClient.post(url, payload, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+
+    const successMessage = editingBanner
+      ? "Banner updated successfully!"
+      : "Banner created successfully!";
+
+    toast.success(successMessage);
+
+    // Cleanup
+    if (imagePreview) {
+      URL.revokeObjectURL(imagePreview); // Clean up blob URL
     }
-
-    const data = response.data as { success?: boolean; message?: string; errors?: string[] };
-
-    if (data?.success === false) {
-      const errorMsg =
-        data.errors?.join(", ") ||
-        data.message ||
-        "Operation failed";
-      throw new Error(errorMsg);
-    }
-
-    toast.success(
-      editingBanner
-        ? "Banner updated successfully! ✅"
-        : "Banner created successfully! 🎉"
-    );
+    setImageFile(null);
+    setImagePreview(null);
 
     await fetchBanners();
     setShowModal(false);
     resetForm();
-
   } catch (error: any) {
-    console.error("❌ Error saving banner:", error);
-    toast.error(error.message || "Failed to save banner");
+    console.error("Error:", error);
+    const message =
+      error.response?.data?.message || "Failed to save banner";
+    toast.error(message);
   }
 };
+
 
 
   useEffect(() => {
@@ -308,20 +353,26 @@ const handleSubmit = async (e: React.FormEvent) => {
   }, []);
 
   // Handle edit function
-  const handleEdit = (banner: Banner) => {
-    setEditingBanner(banner);
-    setFormData({
-      title: banner.title,
-      imageUrl: banner.imageUrl || "", // Keep as relative path in form
-      link: banner.link || "", // Keep link as is
-      description: banner.description,
-      isActive: banner.isActive,
-      displayOrder: banner.displayOrder,
-      startDate: banner.startDate ? banner.startDate.slice(0, 16) : "",
-      endDate: banner.endDate ? banner.endDate.slice(0, 16) : ""
-    });
-    setShowModal(true);
-  };
+const handleEdit = (banner: Banner) => {
+  setEditingBanner(banner);
+  setFormData({
+    title: banner.title,
+    imageUrl: banner.imageUrl || "",
+    link: banner.link || "",
+    description: banner.description,
+    isActive: banner.isActive,
+    displayOrder: banner.displayOrder,
+    startDate: banner.startDate ? banner.startDate.slice(0, 16) : "",
+    endDate: banner.endDate ? banner.endDate.slice(0, 16) : "",
+  });
+  
+  // Clear any preview since we're editing existing
+  setImageFile(null);
+  setImagePreview(null);
+  
+  setShowModal(true);
+};
+
 
   const handleDelete = async (id: string) => {
     setIsDeleting(true);
@@ -347,19 +398,27 @@ const handleSubmit = async (e: React.FormEvent) => {
     }
   };
 
-  const resetForm = () => {
-    setFormData({
-      title: "",
-      imageUrl: "",
-      link: "",
-      description: "",
-      isActive: true,
-      displayOrder: 1,
-      startDate: "",
-      endDate: ""
-    });
-    setEditingBanner(null);
-  };
+ const resetForm = () => {
+  setFormData({
+    title: "",
+    imageUrl: "",
+    link: "",
+    description: "",
+    isActive: true,
+    displayOrder: 1,
+    startDate: "",
+    endDate: "",
+  });
+  setEditingBanner(null);
+  
+  // Clear image file and preview
+  setImageFile(null);
+  if (imagePreview) {
+    URL.revokeObjectURL(imagePreview);
+  }
+  setImagePreview(null);
+};
+
 
   const clearFilters = () => {
     setStatusFilter("all");
@@ -638,7 +697,7 @@ const handleSubmit = async (e: React.FormEvent) => {
                       {banner.createdAt ? new Date(banner.createdAt).toLocaleString() : '-'}
                     </td>
                     <td className="py-4 px-4 text-slate-300 text-sm">
-                      {banner.updatedBy || banner.createdBy || '-'}
+                      {banner.updatedBy}
                     </td>
                     <td className="py-4 px-4">
                       <div className="flex items-center justify-center gap-2">
@@ -838,149 +897,194 @@ const handleSubmit = async (e: React.FormEvent) => {
                 </div>
               </div>
 
-              {/* Banner Image Section */}
-              <div className="bg-slate-800/30 p-2 rounded-2xl border border-slate-700/50">
-                <h3 className="text-lg font-semibold text-white mb-3 flex items-center gap-2">
-                  <span className="w-8 h-8 rounded-lg bg-gradient-to-br from-cyan-500 to-blue-500 flex items-center justify-center text-sm">2</span>
-                  <span>Banner Image</span>
-                </h3>
-                
-                <div className="space-y-4">
-                  {/* Current Image Display */}
-                  {formData.imageUrl && (
-                    <div className="flex items-center gap-4 p-3 bg-slate-900/30 rounded-xl border border-slate-600">
-                      <div 
-                        className="w-20 h-12 rounded-lg overflow-hidden border-2 border-violet-500/30 cursor-pointer hover:border-violet-500 transition-all"
-                        onClick={() => setSelectedImageUrl(getImageUrl(formData.imageUrl))}
-                      >
-                        <img
-                          src={getImageUrl(formData.imageUrl)}
-                          alt="Current banner"
-                          className="w-full h-full object-cover"
-                        />
-                      </div>
-                      <div className="flex-1">
-                        <p className="text-white font-medium">Current Image</p>
-                        <p className="text-xs text-slate-400">Click to view full size</p>
-                        <p className="text-xs text-slate-500">Path: {formData.imageUrl}</p>
-                        <p className="text-xs text-slate-500">Link: {formData.link}</p>
-                      </div>
-                      
-                      {/* Update Image Button */}
-                      <label className={`px-3 py-2 rounded-lg text-sm font-medium cursor-pointer transition-all ${
-                        !formData.title || uploadingImage
-                          ? 'bg-slate-700/50 text-slate-500 cursor-not-allowed'
-                          : 'bg-violet-500/20 text-violet-400 hover:bg-violet-500/30'
-                      }`}>
-                        {uploadingImage ? 'Uploading...' : 'Update Image'}
-                        <input
-                          type="file"
-                          accept="image/*"
-                          disabled={!formData.title || uploadingImage}
-                          className="hidden"
-                          onChange={(e) => {
-                            const file = e.target.files?.[0];
-                            if (file) handleImageUpload(file);
-                          }}
-                        />
-                      </label>
-                      
-                      {/* Delete Image Button */}
-                      <button
-                        type="button"
-                        onClick={() => {
-                          if (editingBanner) {
-                            setImageDeleteConfirm({
-                              bannerId: editingBanner.id,
-                              imageUrl: formData.imageUrl,
-                              bannerTitle: editingBanner.title
-                            });
-                          }
-                        }}
-                        className="px-3 py-2 bg-red-500/20 text-red-400 rounded-lg hover:bg-red-500/30 transition-all text-sm font-medium flex items-center gap-2"
-                        title="Delete Image"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                        Delete Image
-                      </button>
-                    </div>
-                  )}
+{/* UPDATED Banner Image Section */}
+<div className="bg-slate-800/30 p-6 rounded-2xl border border-slate-700/50">
+  <h3 className="text-lg font-semibold text-white mb-3 flex items-center gap-2">
+    <span className="w-8 h-8 rounded-lg bg-gradient-to-br from-cyan-500 to-blue-500 flex items-center justify-center text-sm">
+      2
+    </span>
+    <span>Banner Image</span>
+  </h3>
 
-                  {/* Upload Area */}
-                  {!formData.imageUrl && (
-                    <div className="flex items-center justify-center w-full">
-                      <label className={`flex flex-col items-center justify-center w-full h-32 border-2 border-dashed rounded-xl transition-all cursor-pointer ${
-                        !formData.title || uploadingImage
-                          ? 'border-slate-700 bg-slate-900/20 cursor-not-allowed opacity-50'
-                          : 'border-slate-600 bg-slate-900/30 hover:bg-slate-800/50 group'
-                      }`}>
-                        <div className="flex flex-col items-center justify-center pt-5 pb-6">
-                          {uploadingImage ? (
-                            <div className="w-8 h-8 border-4 border-violet-500 border-t-transparent rounded-full animate-spin mb-2"></div>
-                          ) : (
-                            <Upload className={`w-8 h-8 mb-4 transition-colors ${
-                              !formData.title ? 'text-slate-600' : 'text-slate-500 group-hover:text-violet-400'
-                            }`} />
-                          )}
-                          <p className={`mb-2 text-sm ${
-                            !formData.title || uploadingImage ? 'text-slate-600' : 'text-slate-500'
-                          }`}>
-                            <span className="font-semibold">
-                              {uploadingImage ? 'Uploading...' : 
-                               !formData.title ? 'Enter title first' : 'Click to upload'}
-                            </span> 
-                            {!uploadingImage && formData.title && ' or drag and drop'}
-                          </p>
-                          {formData.title && !uploadingImage && (
-                            <p className="text-xs text-slate-500">PNG, JPG, GIF up to 10MB</p>
-                          )}
-                          {formData.title && !uploadingImage && (
-                            <p className="text-xs text-amber-400 mt-1">📎 Link will be auto-filled after upload</p>
-                          )}
-                        </div>
-                        <input
-                          type="file"
-                          accept="image/*"
-                          disabled={!formData.title || uploadingImage}
-                          className="hidden"
-                          onChange={(e) => {
-                            const file = e.target.files?.[0];
-                            if (file) handleImageUpload(file);
-                          }}
-                        />
-                      </label>
-                    </div>
-                  )}
+  <div className="space-y-4">
+    {/* Current/Preview Image Display */}
+    {(imagePreview || formData.imageUrl) && (
+      <div className="flex items-center gap-4 p-3 bg-slate-900/30 rounded-xl border border-slate-600">
+        <div
+          className="w-20 h-12 rounded-lg overflow-hidden border-2 border-violet-500/30 cursor-pointer hover:border-violet-500 transition-all"
+          onClick={() => setSelectedImageUrl(imagePreview || getImageUrl(formData.imageUrl))}
+        >
+          <img
+            src={imagePreview || getImageUrl(formData.imageUrl)}
+            alt="Banner preview"
+            className="w-full h-full object-cover"
+          />
+        </div>
+        <div className="flex-1">
+          <p className="text-white font-medium">
+            {imagePreview ? "New Image Selected" : "Current Image"}
+          </p>
+          <p className="text-xs text-slate-400">
+            {imagePreview ? "Will be uploaded on save" : "Click to view full size"}
+          </p>
+          {!imagePreview && (
+            <>
+              <p className="text-xs text-slate-500">Path: {formData.imageUrl}</p>
+              <p className="text-xs text-slate-500">Link: {formData.link}</p>
+            </>
+          )}
+        </div>
 
-                  {/* URL Input */}
-                  <div className="relative">
-                    <div className="absolute inset-0 flex items-center">
-                      <div className="w-full border-t border-slate-700"></div>
-                    </div>
-                    <div className="relative flex justify-center text-sm">
-                      <span className="px-2 bg-slate-800 text-slate-400">OR</span>
-                    </div>
-                  </div>
-                  <input
-                    type="text"
-                    value={formData.imageUrl}
-                    onChange={(e) => {
-                      const inputValue = e.target.value;
-                      setFormData({...formData, imageUrl: inputValue});
-                    }}
-                    onBlur={(e) => {
-                      // Auto-fill link when image URL is entered manually
-                      const inputValue = e.target.value;
-                      if (inputValue && !formData.link) {
-                        const fullUrl = getFullImageUrl(inputValue);
-                        setFormData(prev => ({...prev, link: fullUrl}));
-                      }
-                    }}
-                    placeholder="Paste image URL (relative or full path)"
-                    className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
-                  />
-                </div>
-              </div>
+        {/* Change/Remove buttons */}
+        <div className="flex gap-2">
+          <label
+            className={`px-3 py-2 rounded-lg text-sm font-medium cursor-pointer transition-all ${
+              !formData.title
+                ? "bg-slate-700/50 text-slate-500 cursor-not-allowed"
+                : "bg-violet-500/20 text-violet-400 hover:bg-violet-500/30"
+            }`}
+          >
+            Change
+            <input
+              type="file"
+              accept="image/*"
+              disabled={!formData.title}
+              className="hidden"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) handleImageFileChange(file);
+              }}
+            />
+          </label>
+
+          {imagePreview && (
+            <button
+              type="button"
+              onClick={() => {
+                if (imagePreview) URL.revokeObjectURL(imagePreview);
+                setImageFile(null);
+                setImagePreview(null);
+                setFormData(prev => ({ ...prev, link: "" }));
+                toast.success("Image selection removed");
+              }}
+              className="px-3 py-2 bg-red-500/20 text-red-400 rounded-lg hover:bg-red-500/30 transition-all text-sm font-medium"
+            >
+              Remove
+            </button>
+          )}
+
+          {/* Delete button for existing images (only in edit mode) */}
+          {editingBanner && formData.imageUrl && !imagePreview && (
+            <button
+              type="button"
+              onClick={() => {
+                if (editingBanner) {
+                  setImageDeleteConfirm({
+                    bannerId: editingBanner.id,
+                    imageUrl: formData.imageUrl!,
+                    bannerTitle: editingBanner.title,
+                  });
+                }
+              }}
+              className="px-3 py-2 bg-red-500/20 text-red-400 rounded-lg hover:bg-red-500/30 transition-all text-sm font-medium flex items-center gap-2"
+              title="Delete Image"
+            >
+              <Trash2 className="h-4 w-4" />
+              Delete
+            </button>
+          )}
+        </div>
+      </div>
+    )}
+
+    {/* Upload Area - Show only if no image */}
+    {!formData.imageUrl && !imagePreview && (
+      <div className="flex items-center justify-center w-full">
+        <label
+          className={`flex flex-col items-center justify-center w-full h-32 border-2 border-dashed rounded-xl transition-all cursor-pointer ${
+            !formData.title
+              ? "border-slate-700 bg-slate-900/20 cursor-not-allowed opacity-50"
+              : "border-slate-600 bg-slate-900/30 hover:bg-slate-800/50 group"
+          }`}
+        >
+          <div className="flex flex-col items-center justify-center pt-5 pb-6">
+            <Upload
+              className={`w-8 h-8 mb-4 transition-colors ${
+                !formData.title
+                  ? "text-slate-600"
+                  : "text-slate-500 group-hover:text-violet-400"
+              }`}
+            />
+            <p
+              className={`mb-2 text-sm ${
+                !formData.title ? "text-slate-600" : "text-slate-500"
+              }`}
+            >
+              {!formData.title ? (
+                "Enter title first"
+              ) : (
+                <>
+                  <span className="font-semibold">Click to upload</span> or drag and drop
+                </>
+              )}
+            </p>
+            {formData.title && (
+              <>
+                <p className="text-xs text-slate-500">PNG, JPG, GIF up to 10MB</p>
+                <p className="text-xs text-amber-400 mt-1">
+                  Link will be auto-filled after upload
+                </p>
+              </>
+            )}
+          </div>
+          <input
+            type="file"
+            accept="image/*"
+            disabled={!formData.title}
+            className="hidden"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) handleImageFileChange(file);
+            }}
+          />
+        </label>
+      </div>
+    )}
+
+    {/* URL Input - Optional */}
+    {!imagePreview && (
+      <>
+        <div className="relative">
+          <div className="absolute inset-0 flex items-center">
+            <div className="w-full border-t border-slate-700"></div>
+          </div>
+          <div className="relative flex justify-center text-sm">
+            <span className="px-2 bg-slate-800 text-slate-400">OR</span>
+          </div>
+        </div>
+        <input
+          type="text"
+          value={formData.imageUrl}
+          onChange={(e) => {
+            const inputValue = e.target.value;
+            setFormData({ ...formData, imageUrl: inputValue });
+          }}
+          onBlur={(e) => {
+            // Auto-fill link when image URL is entered manually
+            const inputValue = e.target.value;
+            if (inputValue && !formData.link) {
+              const fullUrl = getFullImageUrl(inputValue);
+              setFormData(prev => ({ ...prev, link: fullUrl }));
+            }
+          }}
+          placeholder="Paste image URL (relative or full path)..."
+          className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+        />
+      </>
+    )}
+  </div>
+</div>
+
 
               {/* Schedule */}
               <div className="bg-slate-800/30 p-2 rounded-2xl border border-slate-700/50">
@@ -1044,12 +1148,13 @@ const handleSubmit = async (e: React.FormEvent) => {
                   Cancel
                 </button>
                 <button
-                  type="submit"
-                  disabled={!formData.title.trim() || uploadingImage}
-                  className="px-6 py-3 bg-gradient-to-r from-violet-500 via-purple-500 to-cyan-500 text-white rounded-xl hover:shadow-xl hover:shadow-violet-500/50 transition-all font-semibold hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
-                >
-                  {editingBanner ? '✓ Update Banner' : '+ Create Banner'}
-                </button>
+  type="submit"
+  disabled={!formData.title.trim()}
+  className="px-6 py-3 bg-gradient-to-r from-violet-500 via-purple-500 to-cyan-500 text-white rounded-xl hover:shadow-xl hover:shadow-violet-500/50 transition-all font-semibold hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
+>
+  {editingBanner ? "Update Banner" : "Create Banner"}
+</button>
+
               </div>
             </form>
           </div>

@@ -73,15 +73,7 @@ interface ProductItem {
   shortDescription?: string;
 }
 
-interface ApiResponse<T = any> {
-  data?: T;
-  success?: boolean;
-  message?: string;
-  errors?: string[] | null;
-  error?: string;
-  status?: number;
-  result?: T;
-}
+
 
 interface ProductCreateResponse {
   id: string;
@@ -90,12 +82,7 @@ interface ProductCreateResponse {
   [key: string]: any;
 }
 
-interface ProductApiResponse {
-  success: boolean;
-  data?: ProductCreateResponse;
-  message?: string;
-  errors?: string[] | null;
-}
+
 
 interface ProductsApiResponse {
   success: boolean;
@@ -131,22 +118,12 @@ interface BrandData {
 }
 
 
-// Add Manufacturer interface
-interface ManufacturerData {
-  id: string;
-  name: string;
-  description?: string;
-  slug?: string;
-  logoUrl?: string;
-  isPublished?: boolean;
-  showOnHomepage?: boolean;
-  displayOrder?: number;
-}
+
 
 interface ManufacturerApiResponse {
   success: boolean;
   message: string;
-  data: ManufacturerData[];
+
   errors: null;
 }
 
@@ -168,7 +145,6 @@ interface CategoryData {
 interface DropdownsData {
   brands: BrandData[];
   categories: CategoryData[];
-  manufacturers: ManufacturerData[]; // Add this line
 }
 export default function AddProductPage() {
   const router = useRouter();
@@ -188,32 +164,32 @@ const [uploadingImages, setUploadingImages] = useState(false);
 const [dropdownsData, setDropdownsData] = useState<DropdownsData>({
   brands: [],
   categories: [],
-  manufacturers: [] // Add this line
+
 });
 
 // Updated combined useEffect with manufacturers API
 useEffect(() => {
   const fetchAllData = async () => {
     try {
-      console.log('🔄 Fetching all data (dropdowns + products + manufacturers)...');
+      console.log('🔄 Fetching all data (dropdowns + products )...');
       // Fetch all data in parallel including manufacturers
-      const [brandsResponse, categoriesResponse, productsResponse, manufacturersResponse] = await Promise.all([
+      const [brandsResponse, categoriesResponse, productsResponse] = await Promise.all([
         apiClient.get<BrandApiResponse>('/api/Brands?includeUnpublished=false'),
         apiClient.get<CategoryApiResponse>('/api/Categories?includeInactive=true&includeSubCategories=true'),
         apiClient.get<ProductsApiResponse>('/api/Products'),
-        apiClient.get<ManufacturerApiResponse>('/api/Manufacturers') // Added manufacturers API
+    
       ]);
 
       // Extract dropdown data with proper typing
       const brandsData = (brandsResponse.data as BrandApiResponse)?.data || [];
       const categoriesData = (categoriesResponse.data as CategoryApiResponse)?.data || [];
-      const manufacturersData = (manufacturersResponse.data as ManufacturerApiResponse)?.data || [];
+   
 
       // Set dropdown data including manufacturers
       setDropdownsData({
         brands: brandsData,
         categories: categoriesData,
-        manufacturers: manufacturersData // Add manufacturers data
+ 
       });
 
       // Extract and transform products data
@@ -237,7 +213,7 @@ useEffect(() => {
       console.log('✅ All data loaded:', {
         brandsCount: brandsData.length,
         categoriesCount: categoriesData.length,
-        manufacturersCount: manufacturersData.length,
+     
         productsCount: productsResponse.data ? (productsResponse.data as ProductsApiResponse).data.items.length : 0
       });
 
@@ -248,7 +224,7 @@ useEffect(() => {
       setDropdownsData({
         brands: [],
         categories: [],
-        manufacturers: []
+ 
       });
       setAvailableProducts([]);
     }
@@ -267,11 +243,11 @@ useEffect(() => {
     sku: '',
     categories: '', // Will store category ID
     brand: '', // Will store brand ID
-    manufacturer: '',
+ 
     published: true,
     productType: 'simple',
     visibleIndividually: true,
-    manufacturerId: '', // Changed from 'manufacturer' to 'manufacturerId'
+ 
     customerRoles: 'all',
     limitedToStores: false,
     vendorId: '',
@@ -525,11 +501,7 @@ const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
       brandId = formData.brand.trim();
     }
 
-    let manufacturerId: string | null = null;
-    if (formData.manufacturerId && formData.manufacturerId.trim() && guidRegex.test(formData.manufacturerId.trim())) {
-      manufacturerId = formData.manufacturerId.trim();
-    }
-
+ 
     // Prepare specifications array - ✅ BACKEND FORMAT
     const specificationAttributes = formData.specifications
       .filter(spec => spec.name && spec.value)
@@ -1476,25 +1448,7 @@ const uploadVariantImages = async (productResponse: any) => {
                     </div>
 
                     <div className="grid md:grid-cols-2 gap-4">
-  <div>
-    <label className="block text-sm font-medium text-slate-300 mb-2">Manufacturer</label>
-    <select
-      name="manufacturerId"
-      value={formData.manufacturerId}
-      onChange={handleChange}
-      className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
-    >
-      <option value="">Select manufacturer</option>
-      {dropdownsData.manufacturers.map((manufacturer) => (
-        <option key={manufacturer.id} value={manufacturer.id}>
-          {manufacturer.name}
-        </option>
-      ))}
-    </select>
-    <p className="text-xs text-slate-400 mt-1">
-      {dropdownsData.manufacturers.length} manufacturers loaded
-    </p>
-  </div>
+ 
 
   <div>
     <label className="block text-sm font-medium text-slate-300 mb-2">Product Type</label>

@@ -42,7 +42,10 @@ export default function CategoriesPage() {
   const [selectedImageUrl, setSelectedImageUrl] = useState<string | null>(null);
   const [viewingCategory, setViewingCategory] = useState<Category | null>(null);
   const [statusFilter, setStatusFilter] = useState<string>("all");
-  const [uploadingImage, setUploadingImage] = useState(false);
+
+// Add these states near other useState declarations
+const [imageFile, setImageFile] = useState<File | null>(null);
+const [imagePreview, setImagePreview] = useState<string | null>(null);
 
   // Pagination states
   const [currentPage, setCurrentPage] = useState(1);
@@ -76,11 +79,17 @@ export default function CategoriesPage() {
   });
 
   // Helper function to get full image URL
-  const getImageUrl = (imageUrl: string | undefined) => {
-    if (!imageUrl) return "";
-    if (imageUrl.startsWith("http")) return imageUrl;
-    return `${API_BASE_URL}${imageUrl}`;
-  };
+// FIXED - Remove existing query params before adding timestamp
+const getImageUrl = (imageUrl?: string) => {
+  if (!imageUrl) return "";
+  if (imageUrl.startsWith("http")) return imageUrl;
+  
+  // Remove any existing query parameters
+  const cleanUrl = imageUrl.split('?')[0];
+  
+  return `${API_BASE_URL}${cleanUrl}`;
+};
+
 
   // Extract filename from image URL
   const extractFilename = (imageUrl: string) => {
@@ -123,81 +132,18 @@ useEffect(() => {
   return () => window.removeEventListener('focus', handleFocus);
 }, []);
 
-const handleImageUpload = async (file: File) => {
-  if (!formData.name.trim()) {
-    toast.error("Please enter category name before uploading image");
-    return;
-  }
-
-  setUploadingImage(true);
-
-  const oldImageUrl = editingCategory?.imageUrl || "";
-
-  try {
-    const token = localStorage.getItem("authToken");
-
-    const formDataToUpload = new FormData();
-    formDataToUpload.append("image", file);
-
-    const response = await apiClient.post<{
-      success: boolean;
-      data: string;
-    }>(
-      `${API_ENDPOINTS.categories}/upload-image`,
-      formDataToUpload,
-      {
-        params: { name: formData.name },
-        headers: {
-          ...(token && { Authorization: `Bearer ${token}` }),
-          "Content-Type": "multipart/form-data",
-        },
-      }
-    );
-
-const result = response.data!;
-
-
-    if (result.success && result.data) {
-      setFormData((prev) => ({ ...prev, imageUrl: result.data }));
-
-      // Delete old image
-      if (oldImageUrl && oldImageUrl !== result.data) {
-        try {
-          const filename = extractFilename(oldImageUrl);
-
-          await apiClient.delete(`${API_ENDPOINTS.imageManagement}/category/${filename}`, {
-            headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-          });
-
-          console.log("✅ Old image deleted");
-        } catch (err) {
-          console.log("❌ Failed to delete old image", err);
-        }
-      }
-
-      // Update UI instantly
-      setCategories((prev) =>
-        prev.map((c) =>
-          c.id === editingCategory?.id
-            ? { ...c, imageUrl: `${result.data}?v=${Date.now()}` }
-            : c
-        )
-      );
-
-      toast.success("Image uploaded successfully! ✅");
-
-      setTimeout(() => fetchCategories(), 500);
-
-    } else {
-      toast.error("Failed to get uploaded image URL");
-    }
-  } catch (error) {
-    console.error("Error uploading image:", error);
-    toast.error("Failed to upload image");
-  } finally {
-    setUploadingImage(false);
-  }
+// UPDATED - Only create preview, don't upload immediately
+const handleImageFileChange = (file: File) => {
+  // Store the file
+  setImageFile(file);
+  
+  // Create preview URL
+  const previewUrl = URL.createObjectURL(file);
+  setImagePreview(previewUrl);
+  
+  toast.success("Image selected! Click Create/Update to upload.");
 };
+
 
 
   // NEW - Delete image function
@@ -252,43 +198,94 @@ const handleSubmit = async (e: React.FormEvent) => {
 
   try {
     const token = localStorage.getItem("authToken");
+    let finalImageUrl = formData.imageUrl; // Keep existing URL if no new file
 
+    // STEP 1: Upload image first if new file selected
+    if (imageFile) {
+      try {
+        const formDataToUpload = new FormData();
+        formDataToUpload.append("image", imageFile);
+
+        const uploadResponse = await apiClient.post<{
+          success: boolean;
+          data: string;
+        }>(API_ENDPOINTS.categories + "/upload-image", formDataToUpload, {
+          params: {
+            name: formData.name,
+          },
+          headers: {
+            ...(token && { Authorization: `Bearer ${token}` }),
+            "Content-Type": "multipart/form-data",
+          },
+        });
+
+        const result = uploadResponse.data;
+        if (result?.success && result?.data) {
+          finalImageUrl = result.data; // Get new image URL
+          
+          // Delete old image if updating
+          if (editingCategory?.imageUrl && editingCategory.imageUrl !== finalImageUrl) {
+            try {
+              const filename = extractFilename(editingCategory.imageUrl);
+              await apiClient.delete(API_ENDPOINTS.imageManagement + `/category/${filename}`, {
+                headers: {
+                  ...(token && { Authorization: `Bearer ${token}` }),
+                },
+              });
+            } catch (err) {
+              console.log("Failed to delete old image:", err);
+            }
+          }
+        } else {
+          throw new Error("Failed to get image URL from response");
+        }
+      } catch (uploadError: any) {
+        console.error("Error uploading image:", uploadError);
+        toast.error("Failed to upload image. Please try again.");
+        return; // Stop if upload fails
+      }
+    }
+
+    // STEP 2: Create or Update Category with image URL
     const url = editingCategory
-      ? `${API_ENDPOINTS.categories}/${editingCategory.id}`
+      ? API_ENDPOINTS.categories + `/${editingCategory.id}`
       : API_ENDPOINTS.categories;
 
     const payload = {
       ...formData,
+      imageUrl: finalImageUrl, // Use uploaded image URL or existing one
       parentCategoryId: formData.parentCategoryId || null,
       ...(editingCategory && { id: editingCategory.id }),
     };
 
     if (editingCategory) {
       await apiClient.put(url, payload, {
-        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+        headers: { ...(token && { Authorization: `Bearer ${token}` }) },
       });
-
-      toast.success("Category updated successfully! ✅");
+      toast.success("Category updated successfully!");
     } else {
       await apiClient.post(url, payload, {
-        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+        headers: { ...(token && { Authorization: `Bearer ${token}` }) },
       });
-
-      toast.success("Category created successfully! 🎉");
+      toast.success("Category created successfully!");
     }
+
+    // Cleanup
+    if (imagePreview) {
+      URL.revokeObjectURL(imagePreview); // Clean up blob URL
+    }
+    setImageFile(null);
+    setImagePreview(null);
 
     fetchCategories();
     setShowModal(false);
     resetForm();
-
   } catch (error: any) {
     console.error("Error saving category:", error);
-
     const message =
       error.response?.data?.message ||
       error.response?.data?.error ||
       "Something went wrong";
-
     toast.error(
       `Failed to ${editingCategory ? "update" : "create"} category: ${message}`
     );
@@ -296,21 +293,28 @@ const handleSubmit = async (e: React.FormEvent) => {
 };
 
 
-  const handleEdit = (category: Category) => {
-    setEditingCategory(category);
-    setFormData({
-      name: category.name,
-      description: category.description,
-      imageUrl: category.imageUrl || "",
-      isActive: category.isActive,
-      sortOrder: category.sortOrder,
-      metaTitle: category.metaTitle || "",
-      metaDescription: category.metaDescription || "",
-      metaKeywords: category.metaKeywords || "",
-      parentCategoryId: category.parentCategoryId || ""
-    });
-    setShowModal(true);
-  };
+
+const handleEdit = (category: Category) => {
+  setEditingCategory(category);
+  setFormData({
+    name: category.name,
+    description: category.description,
+    imageUrl: category.imageUrl || "",
+    isActive: category.isActive,
+    sortOrder: category.sortOrder,
+    metaTitle: category.metaTitle || "",
+    metaDescription: category.metaDescription || "",
+    metaKeywords: category.metaKeywords || "",
+    parentCategoryId: category.parentCategoryId || "",
+  });
+  
+  // Clear any preview since we're editing existing
+  setImageFile(null);
+  setImagePreview(null);
+  
+  setShowModal(true);
+};
+
 
 const handleDelete = async (id: string) => {
   setIsDeleting(true);
@@ -343,20 +347,28 @@ const handleDelete = async (id: string) => {
 };
 
 
-  const resetForm = () => {
-    setFormData({
-      name: "",
-      description: "",
-      imageUrl: "",
-      isActive: true,
-      sortOrder: 1,
-      metaTitle: "",
-      metaDescription: "",
-      metaKeywords: "",
-      parentCategoryId: ""
-    });
-    setEditingCategory(null);
-  };
+const resetForm = () => {
+  setFormData({
+    name: "",
+    description: "",
+    imageUrl: "",
+    isActive: true,
+    sortOrder: 1,
+    metaTitle: "",
+    metaDescription: "",
+    metaKeywords: "",
+    parentCategoryId: "",
+  });
+  setEditingCategory(null);
+  
+  // Clear image file and preview
+  setImageFile(null);
+  if (imagePreview) {
+    URL.revokeObjectURL(imagePreview);
+  }
+  setImagePreview(null);
+};
+
 
   // Get parent categories (exclude current category and its children)
   const getParentCategoryOptions = () => {
@@ -829,139 +841,173 @@ const handleDelete = async (id: string) => {
               </div>
 
               {/* UPDATED: Category Image Section with Brand-Style Upload */}
-              <div className="bg-slate-800/30 p-2 rounded-2xl border border-slate-700/50">
-                <h3 className="text-lg font-semibold text-white mb-3 flex items-center gap-2">
-                  <span className="w-8 h-8 rounded-lg bg-gradient-to-br from-cyan-500 to-blue-500 flex items-center justify-center text-sm">2</span>
-                  <span>Category Image</span>
-                </h3>
-                <div className="space-y-2">
-                  {/* Current Image Display - UPDATED WITH DELETE BUTTON */}
-                  {formData.imageUrl && (
-                    <div className="flex items-center gap-4 p-3 bg-slate-900/30 rounded-xl border border-slate-600">
-                      <div 
-                        className="w-16 h-16 rounded-lg overflow-hidden border-2 border-violet-500/30 cursor-pointer hover:border-violet-500 transition-all"
-                        onClick={() => setSelectedImageUrl(getImageUrl(formData.imageUrl))}
-                      >
-                        <img
-                          src={getImageUrl(formData.imageUrl)}
-                          alt="Current image"
-                          className="w-full h-full object-cover"
-                        />
-                      </div>
-                      <div className="flex-1">
-                        <p className="text-white font-medium">Current Image</p>
-                        <p className="text-xs text-slate-400">Click to view full size</p>
-                      </div>
-                      
-                      {/* Update Image Button */}
-                      <label className={`px-3 py-2 rounded-lg text-sm font-medium cursor-pointer transition-all ${
-                        !formData.name || uploadingImage
-                          ? 'bg-slate-700/50 text-slate-500 cursor-not-allowed'
-                          : 'bg-violet-500/20 text-violet-400 hover:bg-violet-500/30'
-                      }`}>
-                        {uploadingImage ? 'Uploading...' : 'Update Image'}
-                        <input
-                          type="file"
-                          accept="image/*"
-                          disabled={!formData.name || uploadingImage}
-                          className="hidden"
-                          onChange={(e) => {
-                            const file = e.target.files?.[0];
-                            if (file) {
-                              handleImageUpload(file);
-                            }
-                          }}
-                        />
-                      </label>
-                      
-                      {/* DELETE IMAGE BUTTON */}
-                      <button
-                        type="button"
-                        onClick={() => {
-                          if (editingCategory) {
-                            setImageDeleteConfirm({
-                              categoryId: editingCategory.id,
-                              imageUrl: formData.imageUrl,
-                              categoryName: editingCategory.name
-                            });
-                          }
-                        }}
-                        className="px-3 py-2 bg-red-500/20 text-red-400 rounded-lg hover:bg-red-500/30 transition-all text-sm font-medium flex items-center gap-2"
-                        title="Delete Image"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                        Delete Image
-                      </button>
-                    </div>
-                  )}
+{/* UPDATED Category Image Section */}
+<div className="bg-slate-800/30 p-6 rounded-2xl border border-slate-700/50">
+  <h3 className="text-lg font-semibold text-white mb-3 flex items-center gap-2">
+    <span className="w-8 h-8 rounded-lg bg-gradient-to-br from-cyan-500 to-blue-500 flex items-center justify-center text-sm">
+      2
+    </span>
+    <span>Category Image</span>
+  </h3>
 
-                  {/* Upload Area */}
-                  {!formData.imageUrl && (
-                    <div className="flex items-center justify-center w-full">
-                      <label className={`flex flex-col items-center justify-center w-full h-24 border-2 border-dashed rounded-xl transition-all ${
-                        !formData.name || uploadingImage
-                          ? 'border-slate-700 bg-slate-900/20 cursor-not-allowed'
-                          : 'border-slate-600 bg-slate-900/30 hover:bg-slate-800/50 cursor-pointer group'
-                      }`}>
-                        <div className="flex items-center gap-3">
-                          <Upload className={`w-6 h-6 transition-colors ${
-                            !formData.name || uploadingImage
-                              ? 'text-slate-600'
-                              : 'text-slate-500 group-hover:text-violet-400'
-                          }`} />
-                          <div>
-                            <p className={`text-sm ${
-                              !formData.name || uploadingImage
-                                ? 'text-slate-600'
-                                : 'text-slate-400'
-                            }`}>
-                              {uploadingImage ? (
-                                'Uploading image...'
-                              ) : !formData.name ? (
-                                'Enter category name first to upload'
-                              ) : (
-                                <><span className="font-semibold">Click to upload</span> or drag and drop</>
-                              )}
-                            </p>
-                            {formData.name && !uploadingImage && (
-                              <p className="text-xs text-slate-500">PNG, JPG, GIF up to 10MB</p>
-                            )}
-                          </div>
-                        </div>
-                        <input
-                          type="file"
-                          accept="image/*"
-                          disabled={!formData.name || uploadingImage}
-                          className="hidden"
-                          onChange={(e) => {
-                            const file = e.target.files?.[0];
-                            if (file) {
-                              handleImageUpload(file);
-                            }
-                          }}
-                        />
-                      </label>
-                    </div>
-                  )}
+  <div className="space-y-4">
+    {/* Current/Preview Image Display */}
+    {(imagePreview || formData.imageUrl) && (
+      <div className="flex items-center gap-4 p-3 bg-slate-900/30 rounded-xl border border-slate-600">
+        <div
+          className="w-16 h-16 rounded-lg overflow-hidden border-2 border-violet-500/30 cursor-pointer hover:border-violet-500 transition-all"
+          onClick={() => setSelectedImageUrl(imagePreview || getImageUrl(formData.imageUrl))}
+        >
+          <img
+            src={imagePreview || getImageUrl(formData.imageUrl)}
+            alt="Category image"
+            className="w-full h-full object-cover"
+          />
+        </div>
+        <div className="flex-1">
+          <p className="text-white font-medium">
+            {imagePreview ? "New Image Selected" : "Current Image"}
+          </p>
+          <p className="text-xs text-slate-400">
+            {imagePreview ? "Will be uploaded on save" : "Click to view full size"}
+          </p>
+        </div>
 
-                  {/* URL Input */}
-                  <div className="relative">
-                    <div className="absolute inset-0 flex items-center">
-                      <div className="w-full border-t border-slate-700"></div>
-                    </div>
-                    <div className="relative flex justify-center text-sm">
-                      <span className="px-2 bg-slate-800 text-slate-400">OR</span>
-                    </div>
-                  </div>
-                  <input
-                    type="text"
-                    value={formData.imageUrl}
-                    onChange={(e) => setFormData({...formData, imageUrl: e.target.value})}
-                    placeholder="Paste image URL"
-                    className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
-                  />
-                </div>
-              </div>
+        {/* Change/Remove buttons */}
+        <div className="flex gap-2">
+          <label
+            className={`px-3 py-2 rounded-lg text-sm font-medium cursor-pointer transition-all ${
+              !formData.name
+                ? "bg-slate-700/50 text-slate-500 cursor-not-allowed"
+                : "bg-violet-500/20 text-violet-400 hover:bg-violet-500/30"
+            }`}
+          >
+            Change
+            <input
+              type="file"
+              accept="image/*"
+              disabled={!formData.name}
+              className="hidden"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) handleImageFileChange(file);
+              }}
+            />
+          </label>
+
+          {imagePreview && (
+            <button
+              type="button"
+              onClick={() => {
+                if (imagePreview) URL.revokeObjectURL(imagePreview);
+                setImageFile(null);
+                setImagePreview(null);
+                toast.success("Image selection removed");
+              }}
+              className="px-3 py-2 bg-red-500/20 text-red-400 rounded-lg hover:bg-red-500/30 transition-all text-sm font-medium"
+            >
+              Remove
+            </button>
+          )}
+
+          {/* Delete button for existing images (only in edit mode) */}
+          {editingCategory && formData.imageUrl && !imagePreview && (
+            <button
+              type="button"
+              onClick={() => {
+                if (editingCategory) {
+                  setImageDeleteConfirm({
+                    categoryId: editingCategory.id,
+                    imageUrl: formData.imageUrl!,
+                    categoryName: editingCategory.name,
+                  });
+                }
+              }}
+              className="px-3 py-2 bg-red-500/20 text-red-400 rounded-lg hover:bg-red-500/30 transition-all text-sm font-medium flex items-center gap-2"
+              title="Delete Image"
+            >
+              <Trash2 className="h-4 w-4" />
+              Delete
+            </button>
+          )}
+        </div>
+      </div>
+    )}
+
+    {/* Upload Area - Show only if no image */}
+    {!formData.imageUrl && !imagePreview && (
+      <div className="flex items-center justify-center w-full">
+        <label
+          className={`flex flex-col items-center justify-center w-full h-24 border-2 border-dashed rounded-xl transition-all ${
+            !formData.name
+              ? "border-slate-700 bg-slate-900/20 cursor-not-allowed"
+              : "border-slate-600 bg-slate-900/30 hover:bg-slate-800/50 cursor-pointer group"
+          }`}
+        >
+          <div className="flex items-center gap-3">
+            <Upload
+              className={`w-6 h-6 transition-colors ${
+                !formData.name
+                  ? "text-slate-600"
+                  : "text-slate-500 group-hover:text-violet-400"
+              }`}
+            />
+            <div>
+              <p
+                className={`text-sm ${
+                  !formData.name ? "text-slate-600" : "text-slate-400"
+                }`}
+              >
+                {!formData.name ? (
+                  "Enter category name first to upload"
+                ) : (
+                  <>
+                    <span className="font-semibold">Click to upload</span> or drag and drop
+                  </>
+                )}
+              </p>
+              {formData.name && (
+                <p className="text-xs text-slate-500">PNG, JPG, GIF up to 10MB</p>
+              )}
+            </div>
+          </div>
+          <input
+            type="file"
+            accept="image/*"
+            disabled={!formData.name}
+            className="hidden"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) handleImageFileChange(file);
+            }}
+          />
+        </label>
+      </div>
+    )}
+
+    {/* URL Input - Optional */}
+    {!imagePreview && (
+      <>
+        <div className="relative">
+          <div className="absolute inset-0 flex items-center">
+            <div className="w-full border-t border-slate-700"></div>
+          </div>
+          <div className="relative flex justify-center text-sm">
+            <span className="px-2 bg-slate-800 text-slate-400">OR</span>
+          </div>
+        </div>
+        <input
+          type="text"
+          value={formData.imageUrl}
+          onChange={(e) => setFormData({ ...formData, imageUrl: e.target.value })}
+          placeholder="Paste image URL"
+          className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+        />
+      </>
+    )}
+  </div>
+</div>
+
 
               <div className="bg-slate-800/30 p-2 rounded-2xl border border-slate-700/50">
                 <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
@@ -1054,8 +1100,7 @@ const handleDelete = async (id: string) => {
                   Cancel
                 </button>
                 <button
-                  type="submit"
-                  disabled={uploadingImage}
+                  type="submit"               
                   className="px-6 py-3 bg-gradient-to-r from-violet-500 via-purple-500 to-cyan-500 text-white rounded-xl hover:shadow-xl hover:shadow-violet-500/50 transition-all font-semibold hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {editingCategory ? '✓ Update Category' : '+ Create Category'}
