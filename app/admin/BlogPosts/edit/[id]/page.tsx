@@ -1,12 +1,24 @@
 "use client";
-
 import { useState, useEffect } from "react";
 import { useRouter, useParams } from "next/navigation";
-import { ArrowLeft, Save, Upload, X, AlertTriangle, CheckCircle, Info, Loader2, Plus } from "lucide-react";
+import {
+  ArrowLeft,
+  Save,
+  Upload,
+  X,
+  AlertTriangle,
+  CheckCircle,
+  Info,
+  Loader2,
+  Plus,
+  ImagePlus,
+  Trash2
+} from "lucide-react";
 import { API_ENDPOINTS, API_BASE_URL } from "@/lib/api-config";
+
+import { useToast } from "@/components/CustomToast";
 import { apiClient } from "@/lib/api";
 import { ProductDescriptionEditor } from "@/app/admin/products/SelfHostedEditor";
-import { useToast } from "@/components/CustomToast";
 
 interface BlogCategory {
   id: string;
@@ -31,7 +43,7 @@ interface ApiResponse<T> {
 interface SEOAnalysis {
   score: number;
   issues: {
-    type: 'error' | 'warning' | 'success';
+    type: "error" | "warning" | "success";
     title: string;
     description: string;
     points: number;
@@ -42,18 +54,22 @@ export default function EditBlogPostPage() {
   const router = useRouter();
   const params = useParams();
   const postId = params?.id as string;
-  const toast = useToast();
+  const  toast  = useToast();
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [uploadingImage, setUploadingImage] = useState(false);
+
+  // Blog categories
   const [blogCategories, setBlogCategories] = useState<BlogCategory[]>([]);
   const [popularTags, setPopularTags] = useState<string[]>([]);
   const [showNewCategoryInput, setShowNewCategoryInput] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState("");
   const [creatingCategory, setCreatingCategory] = useState(false);
-  
+
   // Form states - ALL FIELDS
   const [formData, setFormData] = useState({
+    id: "", // ✅ Added
     title: "",
     body: "",
     bodyOverview: "",
@@ -77,26 +93,38 @@ export default function EditBlogPostPage() {
     authorName: "",
     authorId: "",
     tags: [] as string[],
-    labels: [] as Label[],
+    labels: [] as Label[], // ✅ Added
     limitedToStores: false,
     storeIds: [] as string[],
     customerRoles: "",
     languageId: "",
     relatedBlogPostIds: [] as string[],
-    blogCategoryId: ""
+    blogCategoryId: "",
   });
 
-  // Image upload states
+  // ✅ Image upload states
   const [featuredImage, setFeaturedImage] = useState<File | null>(null);
-  const [featuredImagePreview, setFeaturedImagePreview] = useState<string>("");
-  
+  const [featuredImagePreview, setFeaturedImagePreview] = useState("");
+  const [thumbnailImage, setThumbnailImage] = useState<File | null>(null);
+  const [thumbnailImagePreview, setThumbnailImagePreview] = useState("");
+  const [galleryImages, setGalleryImages] = useState<File[]>([]);
+  const [galleryImagePreviews, setGalleryImagePreviews] = useState<string[]>([]);
+
+  // ✅ Label states
+  const [labelInput, setLabelInput] = useState({
+    name: "",
+    color: "#4CAF50",
+    icon: "star",
+    priority: 1,
+  });
+
   // Tag input
   const [tagInput, setTagInput] = useState("");
-  
+
   // SEO Analysis
   const [seoAnalysis, setSeoAnalysis] = useState<SEOAnalysis>({
     score: 0,
-    issues: []
+    issues: [],
   });
 
   // Word count
@@ -113,7 +141,13 @@ export default function EditBlogPostPage() {
   // Real-time SEO analysis
   useEffect(() => {
     analyzeSEO();
-  }, [formData.title, formData.body, formData.metaTitle, formData.metaDescription, formData.metaKeywords]);
+  }, [
+    formData.title,
+    formData.body,
+    formData.metaTitle,
+    formData.metaDescription,
+    formData.metaKeywords,
+  ]);
 
   const fetchBlogCategories = async () => {
     try {
@@ -126,9 +160,8 @@ export default function EditBlogPostPage() {
           },
         }
       );
-
       if (response.data?.success) {
-        setBlogCategories(response.data.data || []);
+        setBlogCategories(response.data.data);
       }
     } catch (error) {
       console.error("Error fetching categories:", error);
@@ -137,58 +170,25 @@ export default function EditBlogPostPage() {
 
   const fetchPopularTags = async () => {
     setPopularTags([
-      "Adsense Earnings", "AI Tools", "ASP.NET Core", "Best Practices",
-      "Blog Reader Retention", "Blog Traffic Strategies", "Blog Writing Tips",
-      "Blogging for Beginners", "Blogging Tips", "C#", "Canva", "Canva features",
-      "Content Marketing Strategies", "Copyright-Free Images", "Custom React Hooks"
+      "productivity",
+      "technology",
+      "business",
+      "marketing",
+      "design",
+      "development",
+      "lifestyle",
+      "tutorial",
+      "news",
+      "opinion",
     ]);
-  };
-
-  const handleCreateCategory = async () => {
-    if (!newCategoryName.trim()) {
-      toast.error("Please enter category name");
-      return;
-    }
-
-    setCreatingCategory(true);
-    try {
-      const token = localStorage.getItem("authToken");
-      const response = await apiClient.post<ApiResponse<BlogCategory>>(
-        "/api/BlogCategories",
-        {
-          name: newCategoryName,
-          slug: newCategoryName.toLowerCase().replace(/\s+/g, '-'),
-          description: "",
-          isActive: true,
-          displayOrder: 0
-        },
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
-
-      if (response.data?.success) {
-        toast.success("Category created successfully!");
-        setNewCategoryName("");
-        setShowNewCategoryInput(false);
-        await fetchBlogCategories();
-      }
-    } catch (error: any) {
-      console.error("Error creating category:", error);
-      toast.error(error.response?.data?.message || "Failed to create category");
-    } finally {
-      setCreatingCategory(false);
-    }
   };
 
   const fetchBlogPost = async (id: string) => {
     setLoading(true);
     try {
       const token = localStorage.getItem("authToken");
-      console.log("🔄 Fetching blog post:", id);
-      
+      console.log("📥 Fetching blog post:", id);
+
       const response = await apiClient.get<ApiResponse<any>>(
         `/api/BlogPosts/${id}`,
         {
@@ -202,21 +202,29 @@ export default function EditBlogPostPage() {
 
       if (response.data?.success && response.data?.data) {
         const post = response.data.data;
-        
-        // Prefill all form data
+
+        // ✅ Prefill ALL form data including ID
         setFormData({
+          id: post.id || "", // ✅ Important!
           title: post.title || "",
           body: post.body || "",
           bodyOverview: post.bodyOverview || "",
           slug: post.slug || "",
-          isPublished: post.isPublished || false,
-          publishedAt: post.publishedAt ? new Date(post.publishedAt).toISOString().slice(0, 16) : "",
-          startDate: post.startDate ? new Date(post.startDate).toISOString().slice(0, 16) : "",
-          endDate: post.endDate ? new Date(post.endDate).toISOString().slice(0, 16) : "",
+          isPublished: post.isPublished !== undefined ? post.isPublished : false,
+          publishedAt: post.publishedAt
+            ? new Date(post.publishedAt).toISOString().slice(0, 16)
+            : "",
+          startDate: post.startDate
+            ? new Date(post.startDate).toISOString().slice(0, 16)
+            : "",
+          endDate: post.endDate
+            ? new Date(post.endDate).toISOString().slice(0, 16)
+            : "",
           allowComments: post.allowComments !== undefined ? post.allowComments : true,
           displayOrder: post.displayOrder || 0,
           showOnHomePage: post.showOnHomePage || false,
-          includeInSitemap: post.includeInSitemap !== undefined ? post.includeInSitemap : true,
+          includeInSitemap:
+            post.includeInSitemap !== undefined ? post.includeInSitemap : true,
           featuredImageUrl: post.featuredImageUrl || "",
           thumbnailImageUrl: post.thumbnailImageUrl || "",
           imageUrls: Array.isArray(post.imageUrls) ? post.imageUrls : [],
@@ -228,18 +236,26 @@ export default function EditBlogPostPage() {
           authorName: post.authorName || "",
           authorId: post.authorId || "",
           tags: Array.isArray(post.tags) ? post.tags : [],
-          labels: Array.isArray(post.labels) ? post.labels : [],
+          labels: Array.isArray(post.labels) ? post.labels : [], // ✅ Labels
           limitedToStores: post.limitedToStores || false,
           storeIds: Array.isArray(post.storeIds) ? post.storeIds : [],
           customerRoles: post.customerRoles || "",
           languageId: post.languageId || "",
-          relatedBlogPostIds: Array.isArray(post.relatedBlogPostIds) ? post.relatedBlogPostIds : [],
-          blogCategoryId: post.blogCategoryId || ""
+          relatedBlogPostIds: Array.isArray(post.relatedBlogPostIds)
+            ? post.relatedBlogPostIds
+            : [],
+          blogCategoryId: post.blogCategoryId || "",
         });
-        
-        // Set featured image preview if exists
+
+        // Set image previews
         if (post.featuredImageUrl) {
           setFeaturedImagePreview(getImageUrl(post.featuredImageUrl));
+        }
+        if (post.thumbnailImageUrl) {
+          setThumbnailImagePreview(getImageUrl(post.thumbnailImageUrl));
+        }
+        if (post.imageUrls && post.imageUrls.length > 0) {
+          setGalleryImagePreviews(post.imageUrls.map((url: string) => getImageUrl(url)));
         }
 
         toast.success("Post loaded successfully!");
@@ -259,21 +275,21 @@ export default function EditBlogPostPage() {
   const getImageUrl = (imageUrl?: string) => {
     if (!imageUrl) return "";
     if (imageUrl.startsWith("http")) return imageUrl;
-    const cleanUrl = imageUrl.replace(API_BASE_URL, "").split('?')[0];
+    const cleanUrl = imageUrl.replace(API_BASE_URL, "").split("?")[0];
     return `${API_BASE_URL}${cleanUrl}`;
   };
 
-  const handleImageUpload = async (file: File) => {
+  // ✅ Image upload handler
+  const handleImageUpload = async (file: File, title: string) => {
     try {
       const token = localStorage.getItem("authToken");
       const formDataToUpload = new FormData();
-      formDataToUpload.append("file", file);
-      formDataToUpload.append("title", formData.title || "blog-post");
+      formDataToUpload.append("image", file);
 
-      console.log("📤 Uploading image...");
+      console.log("📤 Uploading image to /api/BlogPosts/upload-image");
 
       const uploadResponse = await apiClient.post<ApiResponse<string>>(
-        "/api/BlogPosts/upload-image",
+        `/api/BlogPosts/upload-image?title=${encodeURIComponent(title)}`,
         formDataToUpload,
         {
           headers: {
@@ -288,51 +304,125 @@ export default function EditBlogPostPage() {
       if (uploadResponse.data?.success && uploadResponse.data?.data) {
         return uploadResponse.data.data;
       }
+      return null;
     } catch (error) {
       console.error("❌ Error uploading image:", error);
       toast.error("Failed to upload image");
+      return null;
     }
-    return null;
   };
 
+  // ✅ Featured image change
   const handleFeaturedImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
       setFeaturedImage(file);
       const previewUrl = URL.createObjectURL(file);
       setFeaturedImagePreview(previewUrl);
-      toast.success("Image selected. Will upload on save.");
+      toast.success("Featured image selected. Will upload on save.");
     }
   };
 
+  // ✅ Thumbnail image change
+  const handleThumbnailImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setThumbnailImage(file);
+      const previewUrl = URL.createObjectURL(file);
+      setThumbnailImagePreview(previewUrl);
+      toast.success("Thumbnail image selected. Will upload on save.");
+    }
+  };
+
+  // ✅ Gallery images change
+  const handleGalleryImagesChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length > 0) {
+      setGalleryImages((prev) => [...prev, ...files]);
+      const previews = files.map((file) => URL.createObjectURL(file));
+      setGalleryImagePreviews((prev) => [...prev, ...previews]);
+      toast.success(`${files.length} image(s) selected for gallery`);
+    }
+  };
+
+  // ✅ Remove gallery image
+  const handleRemoveGalleryImage = (index: number) => {
+    setGalleryImages((prev) => prev.filter((_, i) => i !== index));
+    setGalleryImagePreviews((prev) => prev.filter((_, i) => i !== index));
+    // Also remove from formData if it's an existing URL
+    if (index < formData.imageUrls.length) {
+      setFormData((prev) => ({
+        ...prev,
+        imageUrls: prev.imageUrls.filter((_, i) => i !== index),
+      }));
+    }
+  };
+
+  // ✅ Label management
+  const handleAddLabel = () => {
+    if (!labelInput.name.trim()) {
+      toast.error("Please enter label name");
+      return;
+    }
+
+    const newLabel: Label = {
+      name: labelInput.name,
+      color: labelInput.color,
+      icon: labelInput.icon,
+      priority: labelInput.priority,
+    };
+
+    setFormData((prev) => ({
+      ...prev,
+      labels: [...prev.labels, newLabel],
+    }));
+
+    // Reset label input
+    setLabelInput({
+      name: "",
+      color: "#4CAF50",
+      icon: "star",
+      priority: 1,
+    });
+
+    toast.success("Label added!");
+  };
+
+  const handleRemoveLabel = (index: number) => {
+    setFormData((prev) => ({
+      ...prev,
+      labels: prev.labels.filter((_, i) => i !== index),
+    }));
+  };
+
   const analyzeSEO = () => {
-    const issues: SEOAnalysis['issues'] = [];
+    const issues: SEOAnalysis["issues"] = [];
     let score = 100;
 
     // Title Analysis
     const titleLength = formData.title.length;
     if (titleLength === 0) {
       issues.push({
-        type: 'error',
-        title: 'Title Missing',
-        description: 'Add a title to your post',
-        points: 0
+        type: "error",
+        title: "Title Missing",
+        description: "Add a title to your post",
+        points: 0,
       });
       score -= 20;
     } else if (titleLength < 30 || titleLength > 60) {
       issues.push({
-        type: 'warning',
-        title: titleLength < 30 ? 'Title Too Short' : 'Title Too Long',
+        type: "warning",
+        title: titleLength < 30 ? "Title Too Short" : "Title Too Long",
         description: `Title is ${titleLength} characters. Recommended: 30-60 characters`,
-        points: 5
+        points: 5,
       });
       score -= 5;
     } else {
       issues.push({
-        type: 'success',
-        title: 'Title Length',
+        type: "success",
+        title: "Title Length",
         description: `Good title length (${titleLength} characters)`,
-        points: 10
+        points: 10,
       });
     }
 
@@ -340,126 +430,77 @@ export default function EditBlogPostPage() {
     const metaDescLength = formData.metaDescription.length;
     if (metaDescLength === 0) {
       issues.push({
-        type: 'warning',
-        title: 'Meta Description Missing',
-        description: 'Add a meta description to improve search results',
-        points: 0
+        type: "warning",
+        title: "Meta Description Missing",
+        description: "Add a meta description to improve search results",
+        points: 0,
       });
       score -= 10;
     } else if (metaDescLength < 120 || metaDescLength > 160) {
       issues.push({
-        type: 'warning',
-        title: metaDescLength < 120 ? 'Meta Description Too Short' : 'Meta Description Too Long',
+        type: "warning",
+        title:
+          metaDescLength < 120 ? "Meta Description Too Short" : "Meta Description Too Long",
         description: `Meta description is ${metaDescLength} characters. Recommended: 120-160 characters`,
-        points: 5
+        points: 5,
       });
       score -= 5;
     } else {
       issues.push({
-        type: 'success',
-        title: 'Meta Description',
+        type: "success",
+        title: "Meta Description",
         description: `Good meta description length (${metaDescLength} characters)`,
-        points: 10
+        points: 10,
       });
     }
 
     // Content Analysis
-    const textContent = formData.body.replace(/<[^>]*>/g, '');
-    const words = textContent.trim().split(/\s+/).filter(w => w.length > 0);
+    const textContent = formData.body.replace(/<[^>]*>/g, "");
+    const words = textContent.trim().split(/\s+/).filter((w) => w.length > 0);
     const contentWordCount = words.length;
     setWordCount(contentWordCount);
 
     if (contentWordCount === 0) {
       issues.push({
-        type: 'error',
-        title: 'Content Missing',
-        description: 'Add content to your post',
-        points: 0
+        type: "error",
+        title: "Content Missing",
+        description: "Add content to your post",
+        points: 0,
       });
       score -= 30;
     } else if (contentWordCount < 300) {
       issues.push({
-        type: 'warning',
-        title: 'Content Too Short',
+        type: "warning",
+        title: "Content Too Short",
         description: `Content is ${contentWordCount} words. Recommended: 300+ words`,
-        points: 3
+        points: 3,
       });
       score -= 15;
     } else {
       issues.push({
-        type: 'success',
-        title: 'Content Length',
+        type: "success",
+        title: "Content Length",
         description: `Good content length (${contentWordCount} words)`,
-        points: 10
-      });
-    }
-
-    // Headings Structure
-    const headingMatches = formData.body.match(/<h[1-6][^>]*>/gi);
-    const headingCount = headingMatches ? headingMatches.length : 0;
-    
-    if (headingCount === 0 && contentWordCount > 300) {
-      issues.push({
-        type: 'warning',
-        title: 'No Headings',
-        description: 'Add headings (H1, H2, H3) to structure your content',
-        points: 0
-      });
-      score -= 10;
-    } else if (headingCount > 0) {
-      issues.push({
-        type: 'success',
-        title: 'Headings Structure',
-        description: `Good use of headings (${headingCount} found)`,
-        points: 10
-      });
-    }
-
-    // Focus Keywords
-    if (!formData.metaKeywords || formData.metaKeywords.length === 0) {
-      issues.push({
-        type: 'warning',
-        title: 'Focus Keywords Missing',
-        description: 'Add focus keywords to improve SEO',
-        points: 0
-      });
-      score -= 10;
-    } else {
-      issues.push({
-        type: 'success',
-        title: 'Focus Keywords Set',
-        description: 'Focus keywords are defined',
-        points: 10
+        points: 10,
       });
     }
 
     // Featured Image
     if (!formData.featuredImageUrl && !featuredImagePreview) {
       issues.push({
-        type: 'warning',
-        title: 'Featured Image Missing',
-        description: 'Add a featured image to improve social sharing',
-        points: 0
+        type: "warning",
+        title: "Featured Image Missing",
+        description: "Add a featured image to improve social sharing",
+        points: 0,
       });
       score -= 5;
     } else {
       issues.push({
-        type: 'success',
-        title: 'Featured Image Set',
-        description: 'Featured image is added',
-        points: 5
+        type: "success",
+        title: "Featured Image Set",
+        description: "Featured image is added",
+        points: 5,
       });
-    }
-
-    // Excerpt
-    if (!formData.bodyOverview || formData.bodyOverview.length === 0) {
-      issues.push({
-        type: 'warning',
-        title: 'Excerpt Missing',
-        description: 'Add an excerpt for better content previews',
-        points: 0
-      });
-      score -= 5;
     }
 
     setSeoAnalysis({
@@ -467,25 +508,25 @@ export default function EditBlogPostPage() {
       issues: issues.sort((a, b) => {
         const order = { error: 0, warning: 1, success: 2 };
         return order[a.type] - order[b.type];
-      })
+      }),
     });
   };
 
   const handleAddTag = (tag: string) => {
     const trimmedTag = tag.trim();
     if (trimmedTag && !formData.tags.includes(trimmedTag)) {
-      setFormData(prev => ({
+      setFormData((prev) => ({
         ...prev,
-        tags: [...prev.tags, trimmedTag]
+        tags: [...prev.tags, trimmedTag],
       }));
       setTagInput("");
     }
   };
 
   const handleRemoveTag = (tag: string) => {
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
-      tags: prev.tags.filter(t => t !== tag)
+      tags: prev.tags.filter((t) => t !== tag),
     }));
   };
 
@@ -498,38 +539,78 @@ export default function EditBlogPostPage() {
         return;
       }
 
-      let finalFeaturedImageUrl = formData.featuredImageUrl;
+      setUploadingImage(true);
 
-      // Upload featured image if new file selected
+      // ✅ STEP 1: Upload featured image
+      let finalFeaturedImageUrl = formData.featuredImageUrl;
       if (featuredImage) {
-        const uploadedUrl = await handleImageUpload(featuredImage);
+        const uploadedUrl = await handleImageUpload(
+          featuredImage,
+          formData.title || "featured-image"
+        );
         if (uploadedUrl) {
           finalFeaturedImageUrl = uploadedUrl;
+          toast.success("Featured image uploaded!");
         }
       }
 
+      // ✅ STEP 2: Upload thumbnail image
+      let finalThumbnailImageUrl = formData.thumbnailImageUrl;
+      if (thumbnailImage) {
+        const uploadedUrl = await handleImageUpload(
+          thumbnailImage,
+          formData.title || "thumbnail"
+        );
+        if (uploadedUrl) {
+          finalThumbnailImageUrl = uploadedUrl;
+          toast.success("Thumbnail uploaded!");
+        }
+      }
+
+      // ✅ STEP 3: Upload gallery images
+      const finalImageUrls = [...formData.imageUrls];
+      if (galleryImages.length > 0) {
+        for (let i = 0; i < galleryImages.length; i++) {
+          const uploadedUrl = await handleImageUpload(
+            galleryImages[i],
+            `${formData.title || "gallery"}-${i + 1}`
+          );
+          if (uploadedUrl) {
+            finalImageUrls.push(uploadedUrl);
+          }
+        }
+        toast.success(`${galleryImages.length} gallery image(s) uploaded!`);
+      }
+
+      setUploadingImage(false);
+
+      // ✅ STEP 4: Prepare payload with ID
       const payload = {
+        // id: formData.id, // ✅ Important for update
         ...formData,
         featuredImageUrl: finalFeaturedImageUrl,
-        thumbnailImageUrl: finalFeaturedImageUrl,
+        thumbnailImageUrl: finalThumbnailImageUrl,
+        imageUrls: finalImageUrls,
         isPublished: !isDraft,
         publishedAt: formData.publishedAt || new Date().toISOString(),
       };
 
-      console.log("📤 Updating post:", payload);
+      console.log("📤 Updating post with payload:", payload);
 
       const response = await apiClient.put<ApiResponse<any>>(
         `/api/BlogPosts/${postId}`,
         payload,
         {
-          headers: { Authorization: `Bearer ${token}` },
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
         }
       );
 
       console.log("✅ Post updated:", response.data);
 
       if (response.data?.success) {
-        toast.success(isDraft ? "Draft saved successfully!" : "Post updated successfully! ✅");
+        toast.success(isDraft ? "Draft saved successfully!" : "Post updated successfully!");
         router.push("/admin/BlogPosts");
       } else {
         throw new Error(response.data?.message || "Update failed");
@@ -539,13 +620,14 @@ export default function EditBlogPostPage() {
       toast.error(error.response?.data?.message || "Failed to update post");
     } finally {
       setSaving(false);
+      setUploadingImage(false);
     }
   };
 
   const getSEOScoreColor = (score: number) => {
-    if (score >= 80) return { bg: 'bg-green-500', text: 'text-green-500', label: 'Good' };
-    if (score >= 60) return { bg: 'bg-yellow-500', text: 'text-yellow-500', label: 'OK' };
-    return { bg: 'bg-red-500', text: 'text-red-500', label: 'Poor' };
+    if (score >= 80) return { bg: "bg-green-500", text: "text-green-500", label: "Good" };
+    if (score >= 60) return { bg: "bg-yellow-500", text: "text-yellow-500", label: "OK" };
+    return { bg: "bg-red-500", text: "text-red-500", label: "Poor" };
   };
 
   const seoColors = getSEOScoreColor(seoAnalysis.score);
@@ -562,7 +644,7 @@ export default function EditBlogPostPage() {
   }
 
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900/10 to-slate-900">
       {/* Header */}
       <div className="bg-slate-900/20 backdrop-blur-xl border-b border-slate-800 sticky top-0 z-10">
         <div className="max-w-[1920px] mx-auto px-6 py-4">
@@ -579,7 +661,7 @@ export default function EditBlogPostPage() {
                   Edit Post
                 </h1>
                 <p className="text-sm text-slate-400 mt-0.5">
-                  {formData.title || 'Untitled Post'}
+                  {formData.title || "Untitled Post"}
                 </p>
               </div>
             </div>
@@ -624,7 +706,7 @@ export default function EditBlogPostPage() {
                 value={formData.body}
                 onChange={(content) => setFormData({ ...formData, body: content })}
                 placeholder="Write your content here..."
-                height={400}
+              
                 required={false}
               />
               <div className="mt-2 flex items-center justify-between text-xs text-slate-500">
@@ -636,9 +718,9 @@ export default function EditBlogPostPage() {
             {/* Excerpt */}
             <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-xl p-4">
               <label className="block text-sm font-medium text-slate-300 mb-3">
-                Excerpt
+                Excerpt{" "}
                 <span className="text-slate-500 font-normal ml-2">
-                  (Excerpts are optional hand-crafted summaries of your content that can be used in your theme)
+                  (Excerpts are optional hand-crafted summaries of your content)
                 </span>
               </label>
               <textarea
@@ -650,6 +732,218 @@ export default function EditBlogPostPage() {
               />
             </div>
 
+            {/* ✅ Image Upload Section */}
+            <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-xl p-6">
+              <div className="flex items-center gap-2 mb-4">
+                <div className="w-8 h-8 rounded-lg bg-violet-500/10 flex items-center justify-center">
+                  <ImagePlus className="h-4 w-4 text-violet-400" />
+                </div>
+                <h3 className="text-lg font-semibold text-white">Images</h3>
+              </div>
+
+              <div className="space-y-6">
+                {/* Featured Image */}
+                <div>
+                  <label className="block text-sm font-medium text-slate-300 mb-2">
+                    Featured Image
+                  </label>
+                  {featuredImagePreview ? (
+                    <div className="relative">
+                      <img
+                        src={featuredImagePreview}
+                        alt="Featured"
+                        className="w-full h-48 object-cover rounded-lg border-2 border-dashed border-slate-600"
+                      />
+                      <button
+                        onClick={() => {
+                          setFeaturedImage(null);
+                          setFeaturedImagePreview("");
+                          setFormData({ ...formData, featuredImageUrl: "" });
+                        }}
+                        className="absolute top-2 right-2 p-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-all"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                      <label className="mt-3 block w-full px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white text-center rounded-lg cursor-pointer transition-all text-sm">
+                        Change Image
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={handleFeaturedImageChange}
+                          className="hidden"
+                        />
+                      </label>
+                    </div>
+                  ) : (
+                    <label className="flex flex-col items-center justify-center w-full h-48 border-2 border-dashed border-slate-600 rounded-lg cursor-pointer hover:border-violet-500 transition-all group">
+                      <div className="flex flex-col items-center">
+                        <Upload className="h-12 w-12 text-slate-500 group-hover:text-violet-400 transition-colors mb-2" />
+                        <p className="text-sm text-slate-400 text-center">
+                          <span className="font-semibold text-white">Click to upload</span> or
+                          drag and drop
+                        </p>
+                        <p className="text-xs text-slate-500 mt-1">PNG, JPG, GIF up to 10MB</p>
+                      </div>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleFeaturedImageChange}
+                        className="hidden"
+                      />
+                    </label>
+                  )}
+                </div>
+
+                {/* Thumbnail Image */}
+                <div>
+                  <label className="block text-sm font-medium text-slate-300 mb-2">
+                    Thumbnail Image
+                  </label>
+                  {thumbnailImagePreview ? (
+                    <div className="relative">
+                      <img
+                        src={thumbnailImagePreview}
+                        alt="Thumbnail"
+                        className="w-full h-32 object-cover rounded-lg border-2 border-dashed border-slate-600"
+                      />
+                      <button
+                        onClick={() => {
+                          setThumbnailImage(null);
+                          setThumbnailImagePreview("");
+                          setFormData({ ...formData, thumbnailImageUrl: "" });
+                        }}
+                        className="absolute top-2 right-2 p-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-all"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                      <label className="mt-3 block w-full px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white text-center rounded-lg cursor-pointer transition-all text-sm">
+                        Change Thumbnail
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={handleThumbnailImageChange}
+                          className="hidden"
+                        />
+                      </label>
+                    </div>
+                  ) : (
+                    <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-slate-600 rounded-lg cursor-pointer hover:border-violet-500 transition-all group">
+                      <Upload className="h-8 w-8 text-slate-500 group-hover:text-violet-400 transition-colors" />
+                      <p className="text-xs text-slate-400 mt-2">Upload Thumbnail</p>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleThumbnailImageChange}
+                        className="hidden"
+                      />
+                    </label>
+                  )}
+                </div>
+
+                {/* Gallery Images */}
+                <div>
+                  <label className="block text-sm font-medium text-slate-300 mb-2">
+                    Gallery Images
+                  </label>
+                  <div className="grid grid-cols-3 gap-3 mb-3">
+                    {galleryImagePreviews.map((preview, index) => (
+                      <div key={index} className="relative group">
+                        <img
+                          src={preview}
+                          alt={`Gallery ${index + 1}`}
+                          className="w-full h-24 object-cover rounded-lg border border-slate-600"
+                        />
+                        <button
+                          onClick={() => handleRemoveGalleryImage(index)}
+                          className="absolute top-1 right-1 p-1 bg-red-500 text-white rounded opacity-0 group-hover:opacity-100 transition-opacity"
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                  <label className="flex flex-col items-center justify-center w-full h-24 border-2 border-dashed border-slate-600 rounded-lg cursor-pointer hover:border-violet-500 transition-all">
+                    <Plus className="h-6 w-6 text-slate-500" />
+                    <p className="text-xs text-slate-400 mt-1">Add Gallery Images</p>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      multiple
+                      onChange={handleGalleryImagesChange}
+                      className="hidden"
+                    />
+                  </label>
+                </div>
+              </div>
+            </div>
+
+            {/* ✅ Labels Section */}
+            <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-xl p-6">
+              <h3 className="text-lg font-semibold text-white mb-4">Labels</h3>
+
+              {/* Existing Labels */}
+              {formData.labels.length > 0 && (
+                <div className="flex flex-wrap gap-2 mb-4">
+                  {formData.labels.map((label, index) => (
+                    <div
+                      key={index}
+                      className="px-3 py-1.5 rounded-lg flex items-center gap-2"
+                      style={{ backgroundColor: `${label.color}20`, color: label.color }}
+                    >
+                      <span className="text-sm font-medium">{label.name}</span>
+                      <span className="text-xs opacity-70">Priority: {label.priority}</span>
+                      <button
+                        onClick={() => handleRemoveLabel(index)}
+                        className="hover:opacity-70"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Add Label Form */}
+              <div className="grid grid-cols-2 gap-3">
+                <input
+                  type="text"
+                  value={labelInput.name}
+                  onChange={(e) => setLabelInput({ ...labelInput, name: e.target.value })}
+                  placeholder="Label name (e.g., Featured)"
+                  className="px-4 py-2.5 bg-slate-800/50 border border-slate-600 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 text-sm"
+                />
+                <input
+                  type="color"
+                  value={labelInput.color}
+                  onChange={(e) => setLabelInput({ ...labelInput, color: e.target.value })}
+                  className="px-2 py-2.5 bg-slate-800/50 border border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-500"
+                />
+                <input
+                  type="text"
+                  value={labelInput.icon}
+                  onChange={(e) => setLabelInput({ ...labelInput, icon: e.target.value })}
+                  placeholder="Icon (e.g., star)"
+                  className="px-4 py-2.5 bg-slate-800/50 border border-slate-600 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 text-sm"
+                />
+                <input
+                  type="number"
+                  value={labelInput.priority}
+                  onChange={(e) =>
+                    setLabelInput({ ...labelInput, priority: parseInt(e.target.value) || 1 })
+                  }
+                  placeholder="Priority"
+                  min="1"
+                  className="px-4 py-2.5 bg-slate-800/50 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-violet-500"
+                />
+              </div>
+              <button
+                onClick={handleAddLabel}
+                className="mt-3 w-full px-4 py-2 bg-violet-600 hover:bg-violet-700 text-white rounded-lg transition-all text-sm font-medium"
+              >
+                Add Label
+              </button>
+            </div>
+
             {/* SEO Settings */}
             <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-xl p-6">
               <div className="flex items-center gap-2 mb-4">
@@ -658,7 +952,7 @@ export default function EditBlogPostPage() {
                 </div>
                 <h3 className="text-lg font-semibold text-white">SEO Settings</h3>
               </div>
-              
+
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-slate-300 mb-2">
@@ -671,9 +965,7 @@ export default function EditBlogPostPage() {
                     placeholder="SEO optimized title"
                     className="w-full px-4 py-3 bg-slate-800/50 border border-slate-600 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500"
                   />
-                  <p className="mt-1 text-xs text-slate-500">
-                    Recommended: 50-60 characters
-                  </p>
+                  <p className="mt-1 text-xs text-slate-500">Recommended: 50-60 characters</p>
                 </div>
 
                 <div>
@@ -682,14 +974,14 @@ export default function EditBlogPostPage() {
                   </label>
                   <textarea
                     value={formData.metaDescription}
-                    onChange={(e) => setFormData({ ...formData, metaDescription: e.target.value })}
+                    onChange={(e) =>
+                      setFormData({ ...formData, metaDescription: e.target.value })
+                    }
                     placeholder="Brief description for search engines"
                     rows={3}
                     className="w-full px-4 py-3 bg-slate-800/50 border border-slate-600 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 resize-none"
                   />
-                  <p className="mt-1 text-xs text-slate-500">
-                    Recommended: 150-160 characters
-                  </p>
+                  <p className="mt-1 text-xs text-slate-500">Recommended: 150-160 characters</p>
                 </div>
 
                 <div>
@@ -703,96 +995,7 @@ export default function EditBlogPostPage() {
                     placeholder="keyword1, keyword2, keyword3"
                     className="w-full px-4 py-3 bg-slate-800/50 border border-slate-600 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500"
                   />
-                  <p className="mt-1 text-xs text-slate-500">
-                    Separate keywords with commas
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            {/* Additional Fields Section */}
-            <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-xl p-6">
-              <h3 className="text-lg font-semibold text-white mb-4">Additional Settings</h3>
-              
-              <div className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-slate-300 mb-2">Start Date</label>
-                    <input
-                      type="datetime-local"
-                      value={formData.startDate}
-                      onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
-                      className="w-full px-4 py-2.5 bg-slate-800/50 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-violet-500 text-sm"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-slate-300 mb-2">End Date</label>
-                    <input
-                      type="datetime-local"
-                      value={formData.endDate}
-                      onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
-                      className="w-full px-4 py-2.5 bg-slate-800/50 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-violet-500 text-sm"
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-slate-300 mb-2">Display Order</label>
-                    <input
-                      type="number"
-                      value={formData.displayOrder}
-                      onChange={(e) => setFormData({ ...formData, displayOrder: parseInt(e.target.value) || 0 })}
-                      className="w-full px-4 py-2.5 bg-slate-800/50 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-violet-500"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-slate-300 mb-2">Video URL</label>
-                    <input
-                      type="url"
-                      value={formData.videoUrl}
-                      onChange={(e) => setFormData({ ...formData, videoUrl: e.target.value })}
-                      placeholder="https://youtube.com/..."
-                      className="w-full px-4 py-2.5 bg-slate-800/50 border border-slate-600 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-2">Search Engine Friendly Page Name</label>
-                  <input
-                    type="text"
-                    value={formData.searchEngineFriendlyPageName}
-                    onChange={(e) => setFormData({ ...formData, searchEngineFriendlyPageName: e.target.value })}
-                    placeholder="seo-friendly-page-name"
-                    className="w-full px-4 py-2.5 bg-slate-800/50 border border-slate-600 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500"
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-slate-300 mb-2">Author Name</label>
-                    <input
-                      type="text"
-                      value={formData.authorName}
-                      onChange={(e) => setFormData({ ...formData, authorName: e.target.value })}
-                      placeholder="John Doe"
-                      className="w-full px-4 py-2.5 bg-slate-800/50 border border-slate-600 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-slate-300 mb-2">Language ID</label>
-                    <input
-                      type="text"
-                      value={formData.languageId}
-                      onChange={(e) => setFormData({ ...formData, languageId: e.target.value })}
-                      placeholder="en-US"
-                      className="w-full px-4 py-2.5 bg-slate-800/50 border border-slate-600 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500"
-                    />
-                  </div>
+                  <p className="mt-1 text-xs text-slate-500">Separate keywords with commas</p>
                 </div>
               </div>
             </div>
@@ -800,17 +1003,20 @@ export default function EditBlogPostPage() {
 
           {/* Sidebar */}
           <div className="space-y-4">
-
-                        {/* SEO Analysis */}
+            {/* SEO Analysis */}
             <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-xl p-6">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-lg font-semibold text-white">SEO Analysis</h3>
                 <div className="flex items-center gap-3">
-                  <div className={`w-16 h-16 rounded-full ${seoColors.bg} flex items-center justify-center`}>
+                  <div
+                    className={`w-16 h-16 rounded-full ${seoColors.bg} flex items-center justify-center`}
+                  >
                     <span className="text-white text-xl font-bold">{seoAnalysis.score}</span>
                   </div>
                   <div>
-                    <p className={`text-sm font-semibold ${seoColors.text}`}>{seoColors.label}</p>
+                    <p className={`text-sm font-semibold ${seoColors.text}`}>
+                      {seoColors.label}
+                    </p>
                     <p className="text-xs text-slate-500">SEO Score</p>
                   </div>
                 </div>
@@ -821,27 +1027,33 @@ export default function EditBlogPostPage() {
                   <div
                     key={index}
                     className={`p-4 rounded-lg border ${
-                      issue.type === 'error'
-                        ? 'bg-red-500/5 border-red-500/20'
-                        : issue.type === 'warning'
-                        ? 'bg-yellow-500/5 border-yellow-500/20'
-                        : 'bg-green-500/5 border-green-500/20'
+                      issue.type === "error"
+                        ? "bg-red-500/5 border-red-500/20"
+                        : issue.type === "warning"
+                        ? "bg-yellow-500/5 border-yellow-500/20"
+                        : "bg-green-500/5 border-green-500/20"
                     }`}
                   >
                     <div className="flex items-start gap-3">
                       <div className="mt-0.5">
-                        {issue.type === 'error' && <AlertTriangle className="h-5 w-5 text-red-400" />}
-                        {issue.type === 'warning' && <Info className="h-5 w-5 text-yellow-400" />}
-                        {issue.type === 'success' && <CheckCircle className="h-5 w-5 text-green-400" />}
+                        {issue.type === "error" ? (
+                          <AlertTriangle className="h-5 w-5 text-red-400" />
+                        ) : issue.type === "warning" ? (
+                          <Info className="h-5 w-5 text-yellow-400" />
+                        ) : (
+                          <CheckCircle className="h-5 w-5 text-green-400" />
+                        )}
                       </div>
                       <div className="flex-1">
-                        <h4 className={`font-semibold text-sm mb-1 ${
-                          issue.type === 'error'
-                            ? 'text-red-400'
-                            : issue.type === 'warning'
-                            ? 'text-yellow-400'
-                            : 'text-green-400'
-                        }`}>
+                        <h4
+                          className={`font-semibold text-sm mb-1 ${
+                            issue.type === "error"
+                              ? "text-red-400"
+                              : issue.type === "warning"
+                              ? "text-yellow-400"
+                              : "text-green-400"
+                          }`}
+                        >
                           {issue.title}
                         </h4>
                         <p className="text-xs text-slate-400">{issue.description}</p>
@@ -858,90 +1070,33 @@ export default function EditBlogPostPage() {
               >
                 Refresh Analysis
               </button>
-
-              {/* Save Buttons */}
-              <div className="mt-6 space-y-3 pt-6 border-t border-slate-700">
-                <button
-                  onClick={() => handleSubmit(true)}
-                  disabled={saving}
-                  className="w-full px-6 py-3 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-all font-medium flex items-center justify-center gap-2 disabled:opacity-50"
-                >
-                  <Save className="h-4 w-4" />
-                  {saving ? 'Saving...' : 'Save Draft'}
-                </button>
-                <button
-                  onClick={() => handleSubmit(false)}
-                  disabled={saving}
-                  className="w-full px-6 py-3 bg-gradient-to-r from-violet-500 to-cyan-500 text-white rounded-lg hover:shadow-lg hover:shadow-violet-500/50 transition-all font-semibold flex items-center justify-center gap-2 disabled:opacity-50"
-                >
-                  {saving ? (
-                    <>
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      Updating...
-                    </>
-                  ) : (
-                    'Update Post'
-                  )}
-                </button>
-              </div>
             </div>
-            {/* Featured Image */}
-            <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-xl p-6">
-              <h3 className="text-lg font-semibold text-white mb-4">Featured Image</h3>
-              
-              {featuredImagePreview ? (
-                <div className="relative">
-                  <img
-                    src={featuredImagePreview}
-                    alt="Featured"
-                    className="w-full h-48 object-cover rounded-lg border-2 border-dashed border-slate-600"
-                  />
-                  <button
-                    onClick={() => {
-                      setFeaturedImage(null);
-                      setFeaturedImagePreview("");
-                      setFormData({ ...formData, featuredImageUrl: "" });
-                    }}
-                    className="absolute top-2 right-2 p-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-all"
-                  >
-                    <X className="h-4 w-4" />
-                  </button>
-                  <label className="mt-3 block w-full px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white text-center rounded-lg cursor-pointer transition-all text-sm">
-                    Change Image
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={handleFeaturedImageChange}
-                      className="hidden"
-                    />
-                  </label>
-                </div>
-              ) : (
-                <label className="flex flex-col items-center justify-center w-full h-48 border-2 border-dashed border-slate-600 rounded-lg cursor-pointer hover:border-violet-500 transition-all group">
-                  <div className="flex flex-col items-center">
-                    <Upload className="h-12 w-12 text-slate-500 group-hover:text-violet-400 transition-colors mb-2" />
-                    <p className="text-sm text-slate-400 text-center">
-                      <span className="font-semibold text-white">Click to upload</span> or drag and drop
-                    </p>
-                    <p className="text-xs text-slate-500 mt-1">PNG, JPG, GIF up to 10MB</p>
-                  </div>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={handleFeaturedImageChange}
-                    className="hidden"
-                  />
-                </label>
-              )}
 
-              <div className="mt-4">
-                <label className="block text-sm font-medium text-slate-300 mb-2">Alt Text</label>
-                <input
-                  type="text"
-                  placeholder="Describe the image for accessibility"
-                  className="w-full px-4 py-2.5 bg-slate-800/50 border border-slate-600 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 text-sm"
-                />
-              </div>
+            {/* Save Buttons */}
+            <div className="mt-6 space-y-3 pt-6 border-t border-slate-700">
+              <button
+                onClick={() => handleSubmit(true)}
+                disabled={saving || uploadingImage}
+                className="w-full px-6 py-3 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-all font-medium flex items-center justify-center gap-2 disabled:opacity-50"
+              >
+                <Save className="h-4 w-4" />
+                {saving ? "Saving..." : "Save Draft"}
+              </button>
+
+              <button
+                onClick={() => handleSubmit(false)}
+                disabled={saving || uploadingImage}
+                className="w-full px-6 py-3 bg-gradient-to-r from-violet-500 to-cyan-500 text-white rounded-lg hover:shadow-lg hover:shadow-violet-500/50 transition-all font-semibold flex items-center justify-center gap-2 disabled:opacity-50"
+              >
+                {saving || uploadingImage ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    {uploadingImage ? "Uploading Images..." : "Updating..."}
+                  </>
+                ) : (
+                  "Update Post"
+                )}
+              </button>
             </div>
 
             {/* Categories */}
@@ -949,67 +1104,33 @@ export default function EditBlogPostPage() {
               <h3 className="text-lg font-semibold text-white mb-4">Categories</h3>
               <div className="space-y-2 max-h-64 overflow-y-auto custom-scrollbar">
                 {blogCategories.map((category) => (
-                  <label key={category.id} className="flex items-center gap-3 p-3 hover:bg-slate-800/30 rounded-lg cursor-pointer transition-all">
+                  <label
+                    key={category.id}
+                    className="flex items-center gap-3 p-3 hover:bg-slate-800/30 rounded-lg cursor-pointer transition-all"
+                  >
                     <input
                       type="checkbox"
                       checked={formData.blogCategoryId === category.id}
-                      onChange={() => setFormData({ ...formData, blogCategoryId: category.id })}
+                      onChange={() =>
+                        setFormData({ ...formData, blogCategoryId: category.id })
+                      }
                       className="w-4 h-4 text-violet-500 focus:ring-2 focus:ring-violet-500 rounded"
                     />
                     <span className="text-sm text-slate-300">{category.name}</span>
                   </label>
                 ))}
               </div>
-
-              {showNewCategoryInput ? (
-                <div className="mt-4 space-y-2">
-                  <input
-                    type="text"
-                    value={newCategoryName}
-                    onChange={(e) => setNewCategoryName(e.target.value)}
-                    placeholder="New category name"
-                    className="w-full px-4 py-2.5 bg-slate-800/50 border border-slate-600 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 text-sm"
-                  />
-                  <div className="flex gap-2">
-                    <button
-                      onClick={handleCreateCategory}
-                      disabled={creatingCategory}
-                      className="flex-1 px-4 py-2 bg-violet-600 hover:bg-violet-700 text-white rounded-lg transition-all text-sm font-medium disabled:opacity-50"
-                    >
-                      {creatingCategory ? "Creating..." : "Add"}
-                    </button>
-                    <button
-                      onClick={() => {
-                        setShowNewCategoryInput(false);
-                        setNewCategoryName("");
-                      }}
-                      className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-all text-sm font-medium"
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <button
-                  onClick={() => setShowNewCategoryInput(true)}
-                  className="mt-4 w-full px-4 py-2 text-violet-400 hover:text-violet-300 text-sm font-medium transition-all flex items-center justify-center gap-2"
-                >
-                  <Plus className="h-4 w-4" />
-                  Add New Category
-                </button>
-              )}
             </div>
 
             {/* Tags */}
             <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-xl p-6">
               <h3 className="text-lg font-semibold text-white mb-4">Tags</h3>
-              
               <input
                 type="text"
                 value={tagInput}
                 onChange={(e) => setTagInput(e.target.value)}
                 onKeyPress={(e) => {
-                  if (e.key === 'Enter') {
+                  if (e.key === "Enter") {
                     e.preventDefault();
                     handleAddTag(tagInput);
                   }
@@ -1057,13 +1178,14 @@ export default function EditBlogPostPage() {
             {/* Publish Settings */}
             <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-xl p-6">
               <h3 className="text-lg font-semibold text-white mb-4">Publish</h3>
-              
               <div className="space-y-4">
                 <label className="flex items-center gap-3 cursor-pointer p-3 bg-slate-800/30 rounded-lg hover:bg-slate-800/50 transition-all">
                   <input
                     type="checkbox"
                     checked={formData.isPublished}
-                    onChange={(e) => setFormData({ ...formData, isPublished: e.target.checked })}
+                    onChange={(e) =>
+                      setFormData({ ...formData, isPublished: e.target.checked })
+                    }
                     className="w-5 h-5 rounded border-slate-600 text-violet-500 focus:ring-2 focus:ring-violet-500"
                   />
                   <div>
@@ -1076,7 +1198,9 @@ export default function EditBlogPostPage() {
                   <input
                     type="checkbox"
                     checked={formData.showOnHomePage}
-                    onChange={(e) => setFormData({ ...formData, showOnHomePage: e.target.checked })}
+                    onChange={(e) =>
+                      setFormData({ ...formData, showOnHomePage: e.target.checked })
+                    }
                     className="w-5 h-5 rounded border-slate-600 text-violet-500 focus:ring-2 focus:ring-violet-500"
                   />
                   <span className="text-sm text-slate-300">Featured post</span>
@@ -1086,7 +1210,9 @@ export default function EditBlogPostPage() {
                   <input
                     type="checkbox"
                     checked={formData.allowComments}
-                    onChange={(e) => setFormData({ ...formData, allowComments: e.target.checked })}
+                    onChange={(e) =>
+                      setFormData({ ...formData, allowComments: e.target.checked })
+                    }
                     className="w-5 h-5 rounded border-slate-600 text-violet-500 focus:ring-2 focus:ring-violet-500"
                   />
                   <span className="text-sm text-slate-300">Allow comments</span>
@@ -1096,7 +1222,9 @@ export default function EditBlogPostPage() {
                   <input
                     type="checkbox"
                     checked={formData.includeInSitemap}
-                    onChange={(e) => setFormData({ ...formData, includeInSitemap: e.target.checked })}
+                    onChange={(e) =>
+                      setFormData({ ...formData, includeInSitemap: e.target.checked })
+                    }
                     className="w-5 h-5 rounded border-slate-600 text-violet-500 focus:ring-2 focus:ring-violet-500"
                   />
                   <span className="text-sm text-slate-300">Include in sitemap</span>
@@ -1115,8 +1243,6 @@ export default function EditBlogPostPage() {
                 </div>
               </div>
             </div>
-
-
           </div>
         </div>
       </div>
@@ -1125,17 +1251,14 @@ export default function EditBlogPostPage() {
         .custom-scrollbar::-webkit-scrollbar {
           width: 6px;
         }
-        
         .custom-scrollbar::-webkit-scrollbar-track {
           background: rgba(15, 23, 42, 0.3);
           border-radius: 10px;
         }
-        
         .custom-scrollbar::-webkit-scrollbar-thumb {
           background: rgba(148, 163, 184, 0.3);
           border-radius: 10px;
         }
-        
         .custom-scrollbar::-webkit-scrollbar-thumb:hover {
           background: rgba(148, 163, 184, 0.5);
         }

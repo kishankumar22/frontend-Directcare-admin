@@ -258,7 +258,6 @@ const handleSubmit = async (e: React.FormEvent) => {
         console.log("📦 File:", imageFile.name);
         console.log("📝 Title:", formData.name);
 
-        // ✅ Add proper type to the response
         const uploadResponse = await apiClient.post<ImageUploadResponse>(
           `/api/BlogCategories/upload-image?title=${encodeURIComponent(formData.name || "category")}`,
           formDataToUpload,
@@ -273,13 +272,13 @@ const handleSubmit = async (e: React.FormEvent) => {
         console.log("✅ Full Upload Response:", uploadResponse);
         console.log("✅ Response Data:", uploadResponse.data);
 
-        // ✅ Now TypeScript knows the structure
         if (uploadResponse.data?.success && uploadResponse.data?.data) {
           finalImageUrl = uploadResponse.data.data;
           console.log("🖼️ Final Image URL:", finalImageUrl);
           toast.success("Image uploaded successfully! ✅");
 
-          // Delete old image if updating
+          // ✅ TODO: Delete old image when /api/ImageManagement/blogcategory/ is implemented
+          /* 
           if (editingBlogCategory?.imageUrl && editingBlogCategory.imageUrl !== finalImageUrl) {
             try {
               const filename = extractFilename(editingBlogCategory.imageUrl);
@@ -296,8 +295,8 @@ const handleSubmit = async (e: React.FormEvent) => {
               console.log("⚠️ Failed to delete old image:", err);
             }
           }
+          */
         } else {
-          // Handle the case where success is false
           const errorMessage = uploadResponse.data?.message || "Failed to upload image";
           console.error("❌ Upload failed:", errorMessage);
           throw new Error(errorMessage);
@@ -324,19 +323,36 @@ const handleSubmit = async (e: React.FormEvent) => {
       ? `/api/BlogCategories/${editingBlogCategory.id}`
       : "/api/BlogCategories";
 
-    const payload = {
-      name: formData.name,
-      description: formData.description,
-      slug: formData.slug,
-      imageUrl: finalImageUrl,
-      isActive: formData.isActive,
-      displayOrder: formData.displayOrder,
-      metaTitle: formData.metaTitle,
-      metaDescription: formData.metaDescription,
-      metaKeywords: formData.metaKeywords,
-      searchEngineFriendlyPageName: formData.searchEngineFriendlyPageName,
-      parentCategoryId: formData.parentCategoryId || null,
-    };
+    // ✅ FIX: Include id in payload for PUT requests
+    const payload = editingBlogCategory
+      ? {
+          id: editingBlogCategory.id, // ✅ Add this for update
+          name: formData.name,
+          description: formData.description,
+          slug: formData.slug,
+          imageUrl: finalImageUrl,
+          isActive: formData.isActive,
+          displayOrder: formData.displayOrder,
+          metaTitle: formData.metaTitle,
+          metaDescription: formData.metaDescription,
+          metaKeywords: formData.metaKeywords,
+          searchEngineFriendlyPageName: formData.searchEngineFriendlyPageName,
+          parentCategoryId: formData.parentCategoryId || null,
+        }
+      : {
+          // For POST (create), no id needed
+          name: formData.name,
+          description: formData.description,
+          slug: formData.slug,
+          imageUrl: finalImageUrl,
+          isActive: formData.isActive,
+          displayOrder: formData.displayOrder,
+          metaTitle: formData.metaTitle,
+          metaDescription: formData.metaDescription,
+          metaKeywords: formData.metaKeywords,
+          searchEngineFriendlyPageName: formData.searchEngineFriendlyPageName,
+          parentCategoryId: formData.parentCategoryId || null,
+        };
 
     console.log("📤 Submitting Blog Category payload:", payload);
 
@@ -381,6 +397,7 @@ const handleSubmit = async (e: React.FormEvent) => {
     toast.error(message);
   }
 };
+
 
 
   useEffect(() => {
@@ -774,10 +791,12 @@ const handleSubmit = async (e: React.FormEvent) => {
                     <td className="py-4 px-4 text-slate-300 text-sm">
                       {blogCategory.parentCategoryName || '-'}
                     </td>
-                    <td className="py-4 px-4 text-slate-300 text-sm">
+                    <td className="py-4 px-4 text-slate-300 text-sm"
+                    title={blogCategory.createdBy }>
                       {blogCategory.createdAt ? new Date(blogCategory.createdAt).toLocaleString() : '-'}
                     </td>
-                    <td className="py-4 px-4 text-slate-300 text-sm">
+                    <td className="py-4 px-4 text-slate-300 text-sm"
+                     title={blogCategory.updatedBy }>
                       {blogCategory.updatedAt ? new Date(blogCategory.updatedAt).toLocaleString() : '-'}
                     </td>
                     <td className="py-4 px-4">
