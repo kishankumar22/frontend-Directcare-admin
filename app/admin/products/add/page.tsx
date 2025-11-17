@@ -15,7 +15,7 @@ import Link from "next/link";
 import { apiClient } from "../../../../lib/api"; // Import your axios client
 import { ProductDescriptionEditor } from "@/app/admin/products/SelfHostedEditor";
 import { useToast } from "@/components/CustomToast";
-import API_BASE_URL from "@/lib/api-config";
+import API_BASE_URL, { API_ENDPOINTS } from "@/lib/api-config";
 
 // API response interfaces को properly define करें
 interface BrandApiResponse {
@@ -174,9 +174,9 @@ useEffect(() => {
       console.log('🔄 Fetching all data (dropdowns + products )...');
       // Fetch all data in parallel including manufacturers
       const [brandsResponse, categoriesResponse, productsResponse] = await Promise.all([
-        apiClient.get<BrandApiResponse>('/api/Brands?includeUnpublished=false'),
-        apiClient.get<CategoryApiResponse>('/api/Categories?includeInactive=true&includeSubCategories=true'),
-        apiClient.get<ProductsApiResponse>('/api/Products'),
+        apiClient.get<BrandApiResponse>(`${API_ENDPOINTS.brands}?includeUnpublished=false`),
+        apiClient.get<CategoryApiResponse>(`${API_ENDPOINTS.categories}?includeInactive=true&includeSubCategories=true`),
+        apiClient.get<ProductsApiResponse>(`${API_ENDPOINTS.products}`),
     
       ]);
 
@@ -1087,7 +1087,7 @@ const uploadImagesToProduct = async (productId: string, images: ProductImage[]) 
         // ✅ UPDATED - Use product ID in URL path and product name in query parameter
         const token = localStorage.getItem('authToken');
         const uploadResponse = await fetch(
-          `${API_BASE_URL}/api/Products/${productId}/images?name=${encodeURIComponent(formData.name)}`,
+          `${API_ENDPOINTS.products}/${productId}/images?name=${encodeURIComponent(formData.name)}`,
           {
             method: 'POST',
             headers: {

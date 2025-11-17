@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Plus, Edit, Trash2, Search, Image as ImageIcon, Eye, Upload, Filter, FilterX, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, AlertCircle, Calendar, ExternalLink } from "lucide-react";
+import { Plus, Edit, Trash2, Search,CheckCircle, Image as ImageIcon, Eye, Upload, Filter, FilterX, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, AlertCircle, Calendar, ExternalLink } from "lucide-react";
 import { API_ENDPOINTS, API_BASE_URL } from "@/lib/api-config";
 import { apiClient } from "@/lib/api";
 import { useToast } from "@/components/CustomToast";
@@ -38,7 +38,12 @@ interface ApiResponse<T = any> {
   errors?: string[] | null;
   error?: string;
 }
-
+interface BannerStats {
+  totalBanners: number;
+  activeBanners: number;
+  inactiveBanners: number;
+  upcomingBanners: number;
+}
 export default function ManageBanners() {
   const toast = useToast();
   const [banners, setBanners] = useState<Banner[]>([]);
@@ -52,7 +57,35 @@ export default function ManageBanners() {
 const [imageFile, setImageFile] = useState<File | null>(null);
 const [imagePreview, setImagePreview] = useState<string | null>(null);
 
+// Add state for statistics (near other useState declarations)
+const [stats, setStats] = useState<BannerStats>({
+  totalBanners: 0,
+  activeBanners: 0,
+  inactiveBanners: 0,
+  upcomingBanners: 0
+});
 
+// Add this function to calculate statistics
+const calculateStats = (bannersData: Banner[]) => {
+  const totalBanners = bannersData.length;
+  const activeBanners = bannersData.filter(b => b.isActive).length;
+  const inactiveBanners = bannersData.filter(b => !b.isActive).length;
+  
+  // Count upcoming banners (start date is in the future)
+  const now = new Date();
+  const upcomingBanners = bannersData.filter(b => {
+    if (!b.startDate) return false;
+    const startDate = new Date(b.startDate);
+    return startDate > now;
+  }).length;
+
+  setStats({
+    totalBanners,
+    activeBanners,
+    inactiveBanners,
+    upcomingBanners
+  });
+};
   // Pagination states
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(25);
@@ -157,7 +190,7 @@ const handleDeleteImage = async (bannerId: string, imageUrl: string) => {
 
     const filename = extractFilename(imageUrl);
 
-    const response = await apiClient.delete(`${API_ENDPOINTS.imageManagement}banner/${filename}`, {
+    const response = await apiClient.delete(`${API_ENDPOINTS.imageManagement}/banner/${filename}`, {
       headers: token ? { Authorization: `Bearer ${token}` } : undefined
     });
 
@@ -208,6 +241,7 @@ const fetchBanners = async () => {
       : [];
 
     setBanners(bannersData);
+    calculateStats(bannersData); // ✅ Add this line
 
   } catch (error) {
     console.error("Error fetching banners:", error);
@@ -217,7 +251,6 @@ const fetchBanners = async () => {
     setLoading(false);
   }
 };
-
 
 // app/admin/banners/page.tsx
 const handleSubmit = async (e: React.FormEvent) => {
@@ -547,7 +580,60 @@ const handleEdit = (banner: Banner) => {
           </div>
         </div>
       </div>
+ {/* ✅ Statistics Cards - NEW */}
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      {/* Total Banners */}
+      <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-6 hover:border-violet-500/50 transition-all">
+        <div className="flex items-center gap-4">
+          <div className="w-12 h-12 rounded-xl bg-violet-500/10 flex items-center justify-center">
+            <ImageIcon className="h-6 w-6 text-violet-400" />
+          </div>
+          <div className="flex-1">
+            <p className="text-slate-400 text-sm font-medium mb-1">Total Banners</p>
+            <p className="text-white text-2xl font-bold">{stats.totalBanners}</p>
+          </div>
+        </div>
+      </div>
 
+      {/* Active Banners */}
+      <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-6 hover:border-green-500/50 transition-all">
+        <div className="flex items-center gap-4">
+          <div className="w-12 h-12 rounded-xl bg-green-500/10 flex items-center justify-center">
+            <CheckCircle className="h-6 w-6 text-green-400" />
+          </div>
+          <div className="flex-1">
+            <p className="text-slate-400 text-sm font-medium mb-1">Active</p>
+            <p className="text-white text-2xl font-bold">{stats.activeBanners}</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Inactive Banners */}
+      <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-6 hover:border-red-500/50 transition-all">
+        <div className="flex items-center gap-4">
+          <div className="w-12 h-12 rounded-xl bg-red-500/10 flex items-center justify-center">
+            <AlertCircle className="h-6 w-6 text-red-400" />
+          </div>
+          <div className="flex-1">
+            <p className="text-slate-400 text-sm font-medium mb-1">Inactive</p>
+            <p className="text-white text-2xl font-bold">{stats.inactiveBanners}</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Upcoming Banners */}
+      <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-6 hover:border-cyan-500/50 transition-all">
+        <div className="flex items-center gap-4">
+          <div className="w-12 h-12 rounded-xl bg-cyan-500/10 flex items-center justify-center">
+            <Calendar className="h-6 w-6 text-cyan-400" />
+          </div>
+          <div className="flex-1">
+            <p className="text-slate-400 text-sm font-medium mb-1">Upcoming</p>
+            <p className="text-white text-2xl font-bold">{stats.upcomingBanners}</p>
+          </div>
+        </div>
+      </div>
+    </div>
       {/* Search and Filters */}
       <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-2xl p-2">
         <div className="flex flex-wrap items-center gap-4">

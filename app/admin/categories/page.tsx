@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Plus, Edit, Trash2, Search, FolderTree, Eye, Upload, Filter, FilterX, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, AlertCircle } from "lucide-react";
+import { Plus, Edit, Trash2, Search, FolderTree, Eye, Upload, Filter, FilterX, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, AlertCircle, CheckCircle } from "lucide-react";
 import { API_ENDPOINTS, API_BASE_URL } from "@/lib/api-config";
 import { ProductDescriptionEditor } from "../products/SelfHostedEditor";
 import { useToast } from "@/components/CustomToast";
@@ -25,12 +25,21 @@ interface Category {
   updatedAt?: string;
   createdBy?: string;
   updatedBy?: string;
+  subCategories?: Category[]; // Add this line to represent subcategories
 }
 interface CategoryApiResponse {
   success: boolean;
   message?: string;
   data: Category[];
 }
+interface CategoryStats {
+  totalCategories: number;
+  totalSubCategories: number;
+  totalProducts: number;
+  activeCategories: number;
+}
+
+
 
 export default function CategoriesPage() {
   const toast = useToast();
@@ -57,7 +66,14 @@ const [imagePreview, setImagePreview] = useState<string | null>(null);
     name: string;
   } | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
-  
+  // Add state for statistics
+const [stats, setStats] = useState<CategoryStats>({
+  totalCategories: 0,
+  totalSubCategories: 0,
+  totalProducts: 0,
+  activeCategories: 0
+});
+
   // NEW - Image delete confirmation state
   const [imageDeleteConfirm, setImageDeleteConfirm] = useState<{
     categoryId: string;
@@ -101,6 +117,7 @@ const getImageUrl = (imageUrl?: string) => {
     useEffect(() => {
     fetchCategories();
   }, []);
+// Update the fetchCategories function to calculate stats
 const fetchCategories = async () => {
   try {
     const token = localStorage.getItem("authToken");
@@ -108,12 +125,16 @@ const fetchCategories = async () => {
     const response = await apiClient.get<CategoryApiResponse>(
       API_ENDPOINTS.categories,
       {
-        params: { includeInactive: true, includeSubCategories: false },
+        params: { includeInactive: true, includeSubCategories: true }, // ✅ Changed to true
         headers: token ? { Authorization: `Bearer ${token}` } : undefined,
       }
     );
 
-    setCategories([...(response.data?.data || [])]);
+    const categoriesData = response.data?.data || [];
+    setCategories([...categoriesData]);
+    
+    // Calculate statistics
+    calculateStats(categoriesData);
 
   } catch (error) {
     console.error("Error fetching categories:", error);
@@ -122,6 +143,30 @@ const fetchCategories = async () => {
   }
 };
 
+// Add this function to calculate statistics
+const calculateStats = (categoriesData: Category[]) => {
+  const totalCategories = categoriesData.length;
+  
+  // Count subcategories from all categories
+  const totalSubCategories = categoriesData.reduce((count, cat) => {
+    return count + (cat.subCategories?.length || 0);
+  }, 0);
+  
+  // Count total products across all categories
+  const totalProducts = categoriesData.reduce((count, cat) => {
+    return count + (cat.productCount || 0);
+  }, 0);
+  
+  // Count active categories
+  const activeCategories = categoriesData.filter(cat => cat.isActive).length;
+
+  setStats({
+    totalCategories,
+    totalSubCategories,
+    totalProducts,
+    activeCategories
+  });
+};
 // ✅ Add this useEffect in your component
 useEffect(() => {
   const handleFocus = () => {
@@ -480,6 +525,63 @@ const resetForm = () => {
           Add Category
         </button>
       </div>
+
+       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      {/* Total Categories */}
+      <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-6 hover:border-violet-500/50 transition-all">
+        <div className="flex items-center gap-4">
+          <div className="w-12 h-12 rounded-xl bg-violet-500/10 flex items-center justify-center">
+            <FolderTree className="h-6 w-6 text-violet-400" />
+          </div>
+          <div className="flex-1">
+            <p className="text-slate-400 text-sm font-medium mb-1">Total Categories</p>
+            <p className="text-white text-2xl font-bold">{stats.totalCategories}</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Subcategories */}
+      <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-6 hover:border-cyan-500/50 transition-all">
+        <div className="flex items-center gap-4">
+          <div className="w-12 h-12 rounded-xl bg-cyan-500/10 flex items-center justify-center">
+            <FolderTree className="h-6 w-6 text-cyan-400" />
+          </div>
+          <div className="flex-1">
+            <p className="text-slate-400 text-sm font-medium mb-1">Subcategories</p>
+            <p className="text-white text-2xl font-bold">{stats.totalSubCategories}</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Total Products */}
+      <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-6 hover:border-pink-500/50 transition-all">
+        <div className="flex items-center gap-4">
+          <div className="w-12 h-12 rounded-xl bg-pink-500/10 flex items-center justify-center">
+            <svg className="h-6 w-6 text-pink-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+            </svg>
+          </div>
+          <div className="flex-1">
+            <p className="text-slate-400 text-sm font-medium mb-1">Total Products</p>
+            <p className="text-white text-2xl font-bold">{stats.totalProducts}</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Active Categories */}
+      <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-6 hover:border-green-500/50 transition-all">
+        <div className="flex items-center gap-4">
+          <div className="w-12 h-12 rounded-xl bg-green-500/10 flex items-center justify-center">
+            <CheckCircle className="h-6 w-6 text-green-400" />
+          </div>
+          <div className="flex-1">
+            <p className="text-slate-400 text-sm font-medium mb-1">Active Categories</p>
+            <p className="text-white text-2xl font-bold">{stats.activeCategories}</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
 
       {/* Items Per Page Selector */}
       <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-2xl p-2">

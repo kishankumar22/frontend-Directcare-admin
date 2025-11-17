@@ -22,14 +22,25 @@ export const API_ENDPOINTS = {
 
   // Image Management
   imageManagement: `${API_BASE_URL}/api/ImageManagement`,
+
   // Customers
   customers: `${API_BASE_URL}/api/customers`,
+
   // Discounts
   discounts: `${API_BASE_URL}/api/discounts`,
+
   // Banners
   banners: `${API_BASE_URL}/api/banners`,
-  uploadImage: `${API_BASE_URL}/api/upload-image`
+  uploadImage: `${API_BASE_URL}/api/upload-image`,
   
+  //BlogCategories
+  blogCategories: `${API_BASE_URL}/api/BlogCategories`,
+
+  //BlogPosts
+  blogPosts: `${API_BASE_URL}/api/BlogPosts`,
+  
+  //comments
+  comments: `${API_BASE_URL}/api/comments`,
 };
 
 export default API_BASE_URL;

@@ -934,7 +934,7 @@ const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
     console.log('📦 Sending product data:', cleanProductData);
     console.log('📋 Specifications:', specificationsArray);
 
-    const response = await apiClient.put(`/api/Products/${productId}`, cleanProductData);
+    const response = await apiClient.put(`${API_ENDPOINTS.products}/${productId}`, cleanProductData);
 
     if (response?.data) {
       const message = isDraft 

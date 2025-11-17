@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Plus, Edit, Trash2, Search, Tag, Eye, Upload, Filter, FilterX, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, AlertCircle } from "lucide-react";
+import { Plus, Edit, Trash2, Search, Tag, Eye,CheckCircle, Upload, Filter, FilterX, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, AlertCircle } from "lucide-react";
 import { API_ENDPOINTS, API_BASE_URL } from "@/lib/api-config";
 import { apiClient } from "@/lib/api";
 import { ProductDescriptionEditor } from "../products/SelfHostedEditor";
@@ -31,7 +31,13 @@ interface BrandApiResponse {
   success: boolean;
   data: Brand[];
 }
-
+// Add this interface
+interface BrandStats {
+  totalBrands: number;
+  publishedBrands: number;
+  homepageBrands: number;
+  totalProducts: number;
+}
 export default function BrandsPage() {
   const toast = useToast();
   const [brands, setBrands] = useState<Brand[]>([]);
@@ -47,7 +53,13 @@ export default function BrandsPage() {
   // Add this state near other useState declarations
 const [logoFile, setLogoFile] = useState<File | null>(null);
 const [logoPreview, setLogoPreview] = useState<string | null>(null);
-
+// Add state for statistics (near other useState declarations)
+const [stats, setStats] = useState<BrandStats>({
+  totalBrands: 0,
+  publishedBrands: 0,
+  homepageBrands: 0,
+  totalProducts: 0
+});
   // Pagination states
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(25);
@@ -153,6 +165,21 @@ const handleDeleteImage = async (brandId: string, imageUrl: string) => {
     fetchBrands();
   }, []);
 
+  // Add this function to calculate statistics
+const calculateStats = (brandsData: Brand[]) => {
+  const totalBrands = brandsData.length;
+  const publishedBrands = brandsData.filter(b => b.isPublished).length;
+  const homepageBrands = brandsData.filter(b => b.showOnHomepage).length;
+  const totalProducts = brandsData.reduce((sum, brand) => sum + (brand.productCount || 0), 0);
+
+  setStats({
+    totalBrands,
+    publishedBrands,
+    homepageBrands,
+    totalProducts
+  });
+}
+
 const fetchBrands = async () => {
   try {
     const token = localStorage.getItem("authToken");
@@ -169,15 +196,10 @@ const fetchBrands = async () => {
     );
 
     const result = response.data ?? { data: [] };
+    const brandsData = result.data || [];
     
-    // REMOVE THIS - Don't add timestamp here
-    // const brandsWithFreshImages = result.data?.map((brand) => ({
-    //   ...brand,
-    //   logoUrl: brand.logoUrl ? `${brand.logoUrl}?v=${Date.now()}` : undefined,
-    // }));
-
-    // Use data directly
-    setBrands(result.data || []);
+    setBrands(brandsData);
+    calculateStats(brandsData); // ✅ Add this line
   } catch (error) {
     console.error("Error fetching brands:", error);
     setBrands([]);
@@ -482,6 +504,65 @@ const handleEdit = (brand: Brand) => {
           Add Brand
         </button>
       </div>
+
+      
+    {/* ✅ Statistics Cards - NEW */}
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      {/* Total Brands */}
+      <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-6 hover:border-violet-500/50 transition-all">
+        <div className="flex items-center gap-4">
+          <div className="w-12 h-12 rounded-xl bg-violet-500/10 flex items-center justify-center">
+            <Tag className="h-6 w-6 text-violet-400" />
+          </div>
+          <div className="flex-1">
+            <p className="text-slate-400 text-sm font-medium mb-1">Total Brands</p>
+            <p className="text-white text-2xl font-bold">{stats.totalBrands}</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Published Brands */}
+      <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-6 hover:border-green-500/50 transition-all">
+        <div className="flex items-center gap-4">
+          <div className="w-12 h-12 rounded-xl bg-green-500/10 flex items-center justify-center">
+            <CheckCircle className="h-6 w-6 text-green-400" />
+          </div>
+          <div className="flex-1">
+            <p className="text-slate-400 text-sm font-medium mb-1">Published</p>
+            <p className="text-white text-2xl font-bold">{stats.publishedBrands}</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Homepage Brands */}
+      <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-6 hover:border-cyan-500/50 transition-all">
+        <div className="flex items-center gap-4">
+          <div className="w-12 h-12 rounded-xl bg-cyan-500/10 flex items-center justify-center">
+            <Eye className="h-6 w-6 text-cyan-400" />
+          </div>
+          <div className="flex-1">
+            <p className="text-slate-400 text-sm font-medium mb-1">On Homepage</p>
+            <p className="text-white text-2xl font-bold">{stats.homepageBrands}</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Total Products */}
+      <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-6 hover:border-pink-500/50 transition-all">
+        <div className="flex items-center gap-4">
+          <div className="w-12 h-12 rounded-xl bg-pink-500/10 flex items-center justify-center">
+            <svg className="h-6 w-6 text-pink-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+            </svg>
+          </div>
+          <div className="flex-1">
+            <p className="text-slate-400 text-sm font-medium mb-1">Total Products</p>
+            <p className="text-white text-2xl font-bold">{stats.totalProducts}</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
 
       {/* Items Per Page Selector */}
       <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-2xl p-2">
@@ -816,13 +897,19 @@ const handleEdit = (brand: Brand) => {
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-slate-300 mb-2">Display Order</label>
-                      <input
-                        type="number"
-                       value={formData.displayOrder ?? 0}
-                        onChange={(e) => setFormData({...formData, displayOrder: parseInt(e.target.value)})}
-                        placeholder="0"
-                        className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
-                      />
+                    <input
+  type="number"
+  value={formData.displayOrder === 0 ? "" : formData.displayOrder}
+  onChange={(e) => {
+    const val = e.target.value;
+
+    setFormData({
+      ...formData,
+      displayOrder: val === "" ? 0 : Number(val),
+    });
+  }}
+   className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+/>
                     </div>
                   </div>
                   

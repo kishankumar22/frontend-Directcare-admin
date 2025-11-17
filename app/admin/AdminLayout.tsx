@@ -4,6 +4,7 @@ import { ReactNode, useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
+  FolderKanban ,
   LayoutDashboard,
   Package,
   ShoppingCart,
@@ -27,6 +28,8 @@ import {
   UserCircle,
   Gift,
   Cog,
+  FileText,
+  MessageSquare,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -79,9 +82,19 @@ const navigation: NavigationItem[] = [
     children: [
       { name: 'Banners', href: '/admin/banners', icon: ImageIcon },
     ],
+  },
+
+  // 🔥 UPDATED CONTENT MANAGEMENT ICONS
+  {
+    name: 'Content Management',
+    icon: FileText,
+    children: [
+      { name: 'Blog Categories', href: '/admin/BlogCategories', icon: FolderKanban  },
+      { name: 'Blog Posts', href: '/admin/BlogPosts', icon: FileText },
+      { name: 'Blog Comments', href: '/admin/comments', icon: MessageSquare },
+    ],
   },  
 ];
-
 export default function AdminLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
