@@ -1,5 +1,6 @@
 "use client";
-import { useState, useEffect } from "react";
+
+import { useState, useEffect, useRef } from "react";
 import { useRouter, useParams } from "next/navigation";
 import {
   ArrowLeft,
@@ -15,7 +16,6 @@ import {
   Trash2
 } from "lucide-react";
 import { API_ENDPOINTS, API_BASE_URL } from "@/lib/api-config";
-
 import { useToast } from "@/components/CustomToast";
 import { apiClient } from "@/lib/api";
 import { ProductDescriptionEditor } from "@/app/admin/products/SelfHostedEditor";
@@ -54,8 +54,12 @@ export default function EditBlogPostPage() {
   const router = useRouter();
   const params = useParams();
   const postId = params?.id as string;
-  const  toast  = useToast();
+  const toast = useToast();
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
+  let slugTimer: any;
+
+  // States
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
@@ -66,6 +70,14 @@ export default function EditBlogPostPage() {
   const [showNewCategoryInput, setShowNewCategoryInput] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState("");
   const [creatingCategory, setCreatingCategory] = useState(false);
+
+  // ✅ Related Posts States
+  const [allBlogPosts, setAllBlogPosts] = useState<{ id: string; title: string }[]>([]);
+  const [relatedPostSearch, setRelatedPostSearch] = useState("");
+  const [showRelatedDropdown, setShowRelatedDropdown] = useState(false);
+// ✅ ADD these states
+const [slugExists, setSlugExists] = useState(false);
+const [checkingSlug, setCheckingSlug] = useState(false);
 
   // Form states - ALL FIELDS
   const [formData, setFormData] = useState({
@@ -98,11 +110,12 @@ export default function EditBlogPostPage() {
     storeIds: [] as string[],
     customerRoles: "",
     languageId: "",
-    relatedBlogPostIds: [] as string[],
+    relatedBlogPostIds: [] as string[], // ✅ Added
     blogCategoryId: "",
+    manualSlugEdited: false
   });
 
-  // ✅ Image upload states
+  // Image upload states
   const [featuredImage, setFeaturedImage] = useState<File | null>(null);
   const [featuredImagePreview, setFeaturedImagePreview] = useState("");
   const [thumbnailImage, setThumbnailImage] = useState<File | null>(null);
@@ -110,7 +123,7 @@ export default function EditBlogPostPage() {
   const [galleryImages, setGalleryImages] = useState<File[]>([]);
   const [galleryImagePreviews, setGalleryImagePreviews] = useState<string[]>([]);
 
-  // ✅ Label states
+  // Label states
   const [labelInput, setLabelInput] = useState({
     name: "",
     color: "#4CAF50",
@@ -130,9 +143,103 @@ export default function EditBlogPostPage() {
   // Word count
   const [wordCount, setWordCount] = useState(0);
 
+  // ✅ Fetch All Blog Posts for Related Selection
+  const fetchAllBlogPosts = async () => {
+    try {
+      const token = localStorage.getItem("authToken");
+      const response = await apiClient.get<ApiResponse<any[]>>(
+        `${API_ENDPOINTS.blogPosts}`,
+        {
+          headers: {
+            ...(token && { Authorization: `Bearer ${token}` }),
+          },
+        }
+      );
+      
+      if (response.data?.success && Array.isArray(response.data.data)) {
+        const posts = response.data.data
+          .filter((post: any) => post.id !== postId) // ✅ Exclude current post
+          .map((post: any) => ({
+            id: post.id,
+            title: post.title,
+          }));
+        console.log("✅ Loaded blog posts for related selection:", posts.length);
+        setAllBlogPosts(posts);
+      }
+    } catch (error) {
+      console.error("❌ Error fetching blog posts:", error);
+    }
+  };
+// ✅ ADD this function - Important: Excludes current post
+const checkSlugExists = async (slug: string) => {
+  if (!slug || slug.length < 3) {
+    setSlugExists(false);
+    return;
+  }
+
+  setCheckingSlug(true);
+  try {
+    const token = localStorage.getItem("authToken");
+    const response = await apiClient.get<ApiResponse<any[]>>(
+      "/api/BlogPosts",
+      {
+        headers: { ...(token && { Authorization: `Bearer ${token}` }) },
+      }
+    );
+
+    if (response.data && response.data.success && Array.isArray(response.data.data)) {
+      const exists = response.data.data.some(
+        (post: any) => 
+          post.slug.toLowerCase() === slug.toLowerCase() && 
+          post.id !== postId // ✅ Exclude current post
+      );
+      setSlugExists(exists);
+    }
+  } catch (error) {
+    console.error("Error checking slug:", error);
+    setSlugExists(false);
+  } finally {
+    setCheckingSlug(false);
+  }
+};
+
+
+  // ✅ Click Outside Handler for Dropdown
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        dropdownRef.current &&
+        !dropdownRef.current.contains(event.target as Node) &&
+        showRelatedDropdown
+      ) {
+        console.log("🔵 Clicked outside - closing dropdown");
+        setShowRelatedDropdown(false);
+        setRelatedPostSearch("");
+      }
+    };
+
+    if (showRelatedDropdown) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [showRelatedDropdown]);
+
+  // ✅ Monitor Related Posts State Changes
+  useEffect(() => {
+    console.log("📊 Related Posts State Updated:");
+    console.log("  Total:", formData.relatedBlogPostIds.length);
+    console.log("  IDs:", formData.relatedBlogPostIds);
+  }, [formData.relatedBlogPostIds]);
+
+  // ✅ useEffect - Load Data on Mount
   useEffect(() => {
     fetchBlogCategories();
     fetchPopularTags();
+    fetchAllBlogPosts();
+    
     if (postId) {
       fetchBlogPost(postId);
     }
@@ -141,19 +248,13 @@ export default function EditBlogPostPage() {
   // Real-time SEO analysis
   useEffect(() => {
     analyzeSEO();
-  }, [
-    formData.title,
-    formData.body,
-    formData.metaTitle,
-    formData.metaDescription,
-    formData.metaKeywords,
-  ]);
+  }, [formData.title, formData.body, formData.metaTitle, formData.metaDescription, formData.metaKeywords]);
 
   const fetchBlogCategories = async () => {
     try {
       const token = localStorage.getItem("authToken");
       const response = await apiClient.get<ApiResponse<BlogCategory[]>>(
-        "/api/BlogCategories",
+        `${API_ENDPOINTS.blogCategories}`,
         {
           headers: {
             ...(token && { Authorization: `Bearer ${token}` }),
@@ -183,14 +284,15 @@ export default function EditBlogPostPage() {
     ]);
   };
 
+  // ✅ Fetch Blog Post Details
   const fetchBlogPost = async (id: string) => {
     setLoading(true);
     try {
       const token = localStorage.getItem("authToken");
       console.log("📥 Fetching blog post:", id);
-
+      
       const response = await apiClient.get<ApiResponse<any>>(
-        `/api/BlogPosts/${id}`,
+        `${API_ENDPOINTS.blogPosts}/${id}`,
         {
           headers: {
             ...(token && { Authorization: `Bearer ${token}` }),
@@ -205,7 +307,7 @@ export default function EditBlogPostPage() {
 
         // ✅ Prefill ALL form data including ID
         setFormData({
-          id: post.id || "", // ✅ Important!
+          id: post.id, // ✅ Important!
           title: post.title || "",
           body: post.body || "",
           bodyOverview: post.bodyOverview || "",
@@ -223,8 +325,7 @@ export default function EditBlogPostPage() {
           allowComments: post.allowComments !== undefined ? post.allowComments : true,
           displayOrder: post.displayOrder || 0,
           showOnHomePage: post.showOnHomePage || false,
-          includeInSitemap:
-            post.includeInSitemap !== undefined ? post.includeInSitemap : true,
+          includeInSitemap: post.includeInSitemap !== undefined ? post.includeInSitemap : true,
           featuredImageUrl: post.featuredImageUrl || "",
           thumbnailImageUrl: post.thumbnailImageUrl || "",
           imageUrls: Array.isArray(post.imageUrls) ? post.imageUrls : [],
@@ -236,15 +337,16 @@ export default function EditBlogPostPage() {
           authorName: post.authorName || "",
           authorId: post.authorId || "",
           tags: Array.isArray(post.tags) ? post.tags : [],
-          labels: Array.isArray(post.labels) ? post.labels : [], // ✅ Labels
+          labels: Array.isArray(post.labels) ? post.labels : [],
           limitedToStores: post.limitedToStores || false,
           storeIds: Array.isArray(post.storeIds) ? post.storeIds : [],
           customerRoles: post.customerRoles || "",
           languageId: post.languageId || "",
-          relatedBlogPostIds: Array.isArray(post.relatedBlogPostIds)
-            ? post.relatedBlogPostIds
-            : [],
+          relatedBlogPostIds: Array.isArray(post.relatedBlogPostIds) 
+            ? post.relatedBlogPostIds 
+            : [], // ✅ Prefilled
           blogCategoryId: post.blogCategoryId || "",
+          manualSlugEdited: false,
         });
 
         // Set image previews
@@ -255,10 +357,12 @@ export default function EditBlogPostPage() {
           setThumbnailImagePreview(getImageUrl(post.thumbnailImageUrl));
         }
         if (post.imageUrls && post.imageUrls.length > 0) {
-          setGalleryImagePreviews(post.imageUrls.map((url: string) => getImageUrl(url)));
+          setGalleryImagePreviews(
+            post.imageUrls.map((url: string) => getImageUrl(url))
+          );
         }
 
-        toast.success("Post loaded successfully!");
+        console.log("✅ Related posts prefilled:", post.relatedBlogPostIds?.length || 0);
       } else {
         toast.error("Failed to load post");
         router.push("/admin/BlogPosts");
@@ -272,6 +376,78 @@ export default function EditBlogPostPage() {
     }
   };
 
+  // ✅ Add Related Post Handler - OPTIMIZED
+  const handleAddRelatedPost = (postId: string) => {
+    console.log("🖱️ Button clicked - Adding post:", postId);
+    console.log("🔵 Current IDs before update:", formData.relatedBlogPostIds);
+
+    if (!postId?.trim()) {
+      toast.error("Invalid post ID");
+      return;
+    }
+
+    setFormData((prev) => {
+      console.log("🟢 Inside updater - Current IDs:", prev.relatedBlogPostIds);
+      
+      if (prev.relatedBlogPostIds.includes(postId)) {
+        console.log("⚠️ Post already exists");
+        toast.warning("This post is already added!");
+        return prev;
+      }
+
+      const newIds = [...prev.relatedBlogPostIds, postId];
+      console.log("✅ New IDs after add:", newIds);
+
+    
+
+      return {
+        ...prev,
+        relatedBlogPostIds: newIds,
+      };
+    });
+
+    setTimeout(() => {
+      setRelatedPostSearch("");
+      setShowRelatedDropdown(false);
+    }, 200);
+  };
+
+  // ✅ Remove Related Post Handler - OPTIMIZED
+  const handleRemoveRelatedPost = (postId: string) => {
+    console.log("🗑️ Removing post:", postId);
+
+    setFormData((prev) => {
+      const newIds = prev.relatedBlogPostIds.filter((id) => id !== postId);
+      console.log("✅ Remaining IDs:", newIds);
+
+      return {
+        ...prev,
+        relatedBlogPostIds: newIds,
+      };
+    });
+  };
+
+  // ✅ Filter Posts for Dropdown - OPTIMIZED
+  const filteredBlogPosts = allBlogPosts.filter((post) => {
+    const searchLower = relatedPostSearch.toLowerCase().trim();
+    
+    if (formData.relatedBlogPostIds.includes(post.id)) {
+      return false;
+    }
+    
+    if (!searchLower) {
+      return true;
+    }
+    
+    return post.title.toLowerCase().includes(searchLower);
+  });
+
+  // ✅ Get Post Title by ID - OPTIMIZED
+  const getSelectedPostTitle = (postId: string) => {
+    const post = allBlogPosts.find((p) => p.id === postId);
+    return post?.title || "Unknown Post";
+  };
+
   const getImageUrl = (imageUrl?: string) => {
     if (!imageUrl) return "";
     if (imageUrl.startsWith("http")) return imageUrl;
@@ -279,17 +455,67 @@ export default function EditBlogPostPage() {
     return `${API_BASE_URL}${cleanUrl}`;
   };
 
-  // ✅ Image upload handler
+  // ✅ Create New Category Handler
+  const handleCreateCategory = async () => {
+    if (!newCategoryName.trim()) {
+      toast.error("Please enter category name");
+      return;
+    }
+
+    setCreatingCategory(true);
+    try {
+      const token = localStorage.getItem("authToken");
+      const response = await apiClient.post<ApiResponse<BlogCategory>>(
+        `${API_ENDPOINTS.blogCategories}`,
+        {
+          name: newCategoryName,
+          slug: newCategoryName.toLowerCase().replace(/\s+/g, "-"),
+          description: "",
+          isActive: true,
+          displayOrder: 0,
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      if (response.data?.success) {
+        toast.success("Category created successfully!");
+        setNewCategoryName("");
+        setShowNewCategoryInput(false);
+        await fetchBlogCategories();
+        
+        // ✅ Auto-select the new category
+      const categoryId = response?.data?.data?.id;
+
+if (categoryId) {
+  setFormData((prev) => ({
+    ...prev,
+    blogCategoryId: categoryId,
+  }));
+}
+
+      }
+    } catch (error: any) {
+      console.error("Error creating category:", error);
+      toast.error(error.response?.data?.message || "Failed to create category");
+    } finally {
+      setCreatingCategory(false);
+    }
+  };
+
+  // Image upload handler
   const handleImageUpload = async (file: File, title: string) => {
     try {
       const token = localStorage.getItem("authToken");
       const formDataToUpload = new FormData();
       formDataToUpload.append("image", file);
 
-      console.log("📤 Uploading image to /api/BlogPosts/upload-image");
-
+      console.log(`Uploading image to ${API_ENDPOINTS.blogPosts}/upload-image`);
       const uploadResponse = await apiClient.post<ApiResponse<string>>(
-        `/api/BlogPosts/upload-image?title=${encodeURIComponent(title)}`,
+        `${API_ENDPOINTS.blogPosts}/upload-image?title=${encodeURIComponent(title)}`,
         formDataToUpload,
         {
           headers: {
@@ -299,21 +525,23 @@ export default function EditBlogPostPage() {
         }
       );
 
-      console.log("✅ Image uploaded:", uploadResponse.data);
+      console.log("Image uploaded:", uploadResponse.data);
 
       if (uploadResponse.data?.success && uploadResponse.data?.data) {
         return uploadResponse.data.data;
       }
       return null;
     } catch (error) {
-      console.error("❌ Error uploading image:", error);
+      console.error("Error uploading image:", error);
       toast.error("Failed to upload image");
       return null;
     }
   };
 
-  // ✅ Featured image change
-  const handleFeaturedImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Featured image change
+  const handleFeaturedImageChange = async (
+    e: React.ChangeEvent<HTMLInputElement>
+  ) => {
     const file = e.target.files?.[0];
     if (file) {
       setFeaturedImage(file);
@@ -323,8 +551,10 @@ export default function EditBlogPostPage() {
     }
   };
 
-  // ✅ Thumbnail image change
-  const handleThumbnailImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Thumbnail image change
+  const handleThumbnailImageChange = async (
+    e: React.ChangeEvent<HTMLInputElement>
+  ) => {
     const file = e.target.files?.[0];
     if (file) {
       setThumbnailImage(file);
@@ -334,21 +564,24 @@ export default function EditBlogPostPage() {
     }
   };
 
-  // ✅ Gallery images change
-  const handleGalleryImagesChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Gallery images change
+  const handleGalleryImagesChange = (
+    e: React.ChangeEvent<HTMLInputElement>
+  ) => {
     const files = Array.from(e.target.files || []);
     if (files.length > 0) {
       setGalleryImages((prev) => [...prev, ...files]);
       const previews = files.map((file) => URL.createObjectURL(file));
       setGalleryImagePreviews((prev) => [...prev, ...previews]);
-      toast.success(`${files.length} image(s) selected for gallery`);
+      toast.success(`${files.length} images selected for gallery`);
     }
   };
 
-  // ✅ Remove gallery image
+  // Remove gallery image
   const handleRemoveGalleryImage = (index: number) => {
     setGalleryImages((prev) => prev.filter((_, i) => i !== index));
     setGalleryImagePreviews((prev) => prev.filter((_, i) => i !== index));
+    
     // Also remove from formData if it's an existing URL
     if (index < formData.imageUrls.length) {
       setFormData((prev) => ({
@@ -358,7 +591,7 @@ export default function EditBlogPostPage() {
     }
   };
 
-  // ✅ Label management
+  // Label management
   const handleAddLabel = () => {
     if (!labelInput.name.trim()) {
       toast.error("Please enter label name");
@@ -377,7 +610,6 @@ export default function EditBlogPostPage() {
       labels: [...prev.labels, newLabel],
     }));
 
-    // Reset label input
     setLabelInput({
       name: "",
       color: "#4CAF50",
@@ -395,122 +627,320 @@ export default function EditBlogPostPage() {
     }));
   };
 
-  const analyzeSEO = () => {
-    const issues: SEOAnalysis["issues"] = [];
-    let score = 100;
+// ✅ COMPLETE analyzeSEO with Headings Check
+const analyzeSEO = () => {
+  const issues: SEOAnalysis["issues"] = [];
+  let score = 100;
 
-    // Title Analysis
-    const titleLength = formData.title.length;
-    if (titleLength === 0) {
-      issues.push({
-        type: "error",
-        title: "Title Missing",
-        description: "Add a title to your post",
-        points: 0,
-      });
-      score -= 20;
-    } else if (titleLength < 30 || titleLength > 60) {
+  // Get keywords array
+  const keywords = formData.metaKeywords
+    .split(",")
+    .map((k) => k.trim().toLowerCase())
+    .filter((k) => k.length > 0);
+
+  // Title Analysis
+  const titleLength = formData.title.length;
+  if (titleLength === 0) {
+    issues.push({
+      type: "error",
+      title: "Title Missing",
+      description: "Add a title to your post",
+      points: 0,
+    });
+    score -= 20;
+  } else if (titleLength < 30 || titleLength > 60) {
+    issues.push({
+      type: "warning",
+      title: titleLength < 30 ? "Title Too Short" : "Title Too Long",
+      description: `Title is ${titleLength} characters. Recommended: 30-60`,
+      points: 5,
+    });
+    score -= 5;
+  } else {
+    issues.push({
+      type: "success",
+      title: "Title Length",
+      description: `Good title length (${titleLength} characters)`,
+      points: 10,
+    });
+  }
+
+  // Keywords in Title
+  if (keywords.length > 0) {
+    const titleLower = formData.title.toLowerCase();
+    const keywordsInTitle = keywords.filter((keyword) =>
+      titleLower.includes(keyword)
+    );
+
+    if (keywordsInTitle.length === 0) {
       issues.push({
         type: "warning",
-        title: titleLength < 30 ? "Title Too Short" : "Title Too Long",
-        description: `Title is ${titleLength} characters. Recommended: 30-60 characters`,
-        points: 5,
-      });
-      score -= 5;
-    } else {
-      issues.push({
-        type: "success",
-        title: "Title Length",
-        description: `Good title length (${titleLength} characters)`,
-        points: 10,
-      });
-    }
-
-    // Meta Description
-    const metaDescLength = formData.metaDescription.length;
-    if (metaDescLength === 0) {
-      issues.push({
-        type: "warning",
-        title: "Meta Description Missing",
-        description: "Add a meta description to improve search results",
+        title: "Keywords Not in Title",
+        description: "Consider including focus keywords in your title",
         points: 0,
       });
       score -= 10;
-    } else if (metaDescLength < 120 || metaDescLength > 160) {
-      issues.push({
-        type: "warning",
-        title:
-          metaDescLength < 120 ? "Meta Description Too Short" : "Meta Description Too Long",
-        description: `Meta description is ${metaDescLength} characters. Recommended: 120-160 characters`,
-        points: 5,
-      });
-      score -= 5;
     } else {
       issues.push({
         type: "success",
-        title: "Meta Description",
-        description: `Good meta description length (${metaDescLength} characters)`,
+        title: "Keywords in Title",
+        description: `Found ${keywordsInTitle.length} keyword(s): ${keywordsInTitle.join(", ")}`,
         points: 10,
       });
     }
+  }
 
-    // Content Analysis
-    const textContent = formData.body.replace(/<[^>]*>/g, "");
-    const words = textContent.trim().split(/\s+/).filter((w) => w.length > 0);
-    const contentWordCount = words.length;
-    setWordCount(contentWordCount);
-
-    if (contentWordCount === 0) {
-      issues.push({
-        type: "error",
-        title: "Content Missing",
-        description: "Add content to your post",
-        points: 0,
-      });
-      score -= 30;
-    } else if (contentWordCount < 300) {
-      issues.push({
-        type: "warning",
-        title: "Content Too Short",
-        description: `Content is ${contentWordCount} words. Recommended: 300+ words`,
-        points: 3,
-      });
-      score -= 15;
-    } else {
-      issues.push({
-        type: "success",
-        title: "Content Length",
-        description: `Good content length (${contentWordCount} words)`,
-        points: 10,
-      });
-    }
-
-    // Featured Image
-    if (!formData.featuredImageUrl && !featuredImagePreview) {
-      issues.push({
-        type: "warning",
-        title: "Featured Image Missing",
-        description: "Add a featured image to improve social sharing",
-        points: 0,
-      });
-      score -= 5;
-    } else {
-      issues.push({
-        type: "success",
-        title: "Featured Image Set",
-        description: "Featured image is added",
-        points: 5,
-      });
-    }
-
-    setSeoAnalysis({
-      score: Math.max(0, Math.min(100, score)),
-      issues: issues.sort((a, b) => {
-        const order = { error: 0, warning: 1, success: 2 };
-        return order[a.type] - order[b.type];
-      }),
+  // Meta Description
+  const metaDescLength = formData.metaDescription.length;
+  if (metaDescLength === 0) {
+    issues.push({
+      type: "warning",
+      title: "Meta Description Missing",
+      description: "Add a meta description",
+      points: 0,
     });
-  };
+    score -= 10;
+  } else if (metaDescLength < 120 || metaDescLength > 160) {
+    issues.push({
+      type: "warning",
+      title: metaDescLength < 120 ? "Meta Description Too Short" : "Meta Description Too Long",
+      description: `${metaDescLength} characters. Recommended: 120-160`,
+      points: 5,
+    });
+    score -= 5;
+  } else {
+    issues.push({
+      type: "success",
+      title: "Meta Description",
+      description: `Perfect length (${metaDescLength} characters)`,
+      points: 10,
+    });
+  }
+
+  // Content Analysis
+  const textContent = formData.body.replace(/<[^>]*>/g, "");
+  const words = textContent.trim().split(/\s+/).filter((w) => w.length > 0);
+  const contentWordCount = words.length;
+  setWordCount(contentWordCount);
+
+  if (contentWordCount === 0) {
+    issues.push({
+      type: "error",
+      title: "Content Missing",
+      description: "Add content to your post",
+      points: 0,
+    });
+    score -= 30;
+  } else if (contentWordCount < 300) {
+    issues.push({
+      type: "warning",
+      title: "Content Too Short",
+      description: `${contentWordCount} words. Recommended: 300+`,
+      points: 3,
+    });
+    score -= 15;
+  } else {
+    issues.push({
+      type: "success",
+      title: "Content Length",
+      description: `Good content (${contentWordCount} words)`,
+      points: 10,
+    });
+  }
+
+  // ✅ NEW: Headings Check (H1, H2, H3)
+  const h1Count = (formData.body.match(/<h1[^>]*>/gi) || []).length;
+  const h2Count = (formData.body.match(/<h2[^>]*>/gi) || []).length;
+  const h3Count = (formData.body.match(/<h3[^>]*>/gi) || []).length;
+  const totalHeadings = h1Count + h2Count + h3Count;
+
+  if (totalHeadings === 0) {
+    issues.push({
+      type: "warning",
+      title: "No Headings",
+      description: "Add headings (H1, H2, H3) to structure your content",
+      points: 0,
+    });
+    score -= 10;
+  } else {
+    const headingDetails = [];
+    if (h1Count > 0) headingDetails.push(`${h1Count} H1`);
+    if (h2Count > 0) headingDetails.push(`${h2Count} H2`);
+    if (h3Count > 0) headingDetails.push(`${h3Count} H3`);
+
+    issues.push({
+      type: "success",
+      title: "Content Structure",
+      description: `Good use of headings: ${headingDetails.join(", ")}`,
+      points: 10,
+    });
+
+    // Warning if too many H1s
+    if (h1Count > 1) {
+      issues.push({
+        type: "warning",
+        title: "Multiple H1 Tags",
+        description: `Found ${h1Count} H1 tags. Use only one H1 per page for better SEO`,
+        points: 0,
+      });
+      score -= 5;
+    }
+  }
+
+  // Keywords in Content
+  if (keywords.length > 0 && contentWordCount > 0) {
+    const contentLower = textContent.toLowerCase();
+    const keywordsInContent = keywords.filter((keyword) =>
+      contentLower.includes(keyword)
+    );
+
+    if (keywordsInContent.length === 0) {
+      issues.push({
+        type: "warning",
+        title: "Keywords Not in Content",
+        description: "Include focus keywords naturally in your content",
+        points: 0,
+      });
+      score -= 10;
+    } else {
+      const keywordOccurrences = keywordsInContent.reduce((count, keyword) => {
+        const regex = new RegExp(keyword, "gi");
+        return count + (contentLower.match(regex) || []).length;
+      }, 0);
+
+      const density = ((keywordOccurrences / contentWordCount) * 100).toFixed(2);
+
+      if (parseFloat(density) < 0.5) {
+        issues.push({
+          type: "warning",
+          title: "Low Keyword Density",
+          description: `Keywords appear ${keywordOccurrences} time(s) (${density}%). Use more naturally`,
+          points: 5,
+        });
+        score -= 5;
+      } else if (parseFloat(density) > 3) {
+        issues.push({
+          type: "warning",
+          title: "High Keyword Density",
+          description: `Keywords appear too frequently (${density}%). Avoid keyword stuffing`,
+          points: 5,
+        });
+        score -= 5;
+      } else {
+        issues.push({
+          type: "success",
+          title: "Keywords in Content",
+          description: `Good keyword density (${density}%)`,
+          points: 10,
+        });
+      }
+    }
+  }
+
+  // Focus Keywords Check
+  if (keywords.length === 0) {
+    issues.push({
+      type: "warning",
+      title: "No Focus Keywords",
+      description: "Add focus keywords to improve SEO",
+      points: 0,
+    });
+    score -= 5;
+  } else if (keywords.length > 5) {
+    issues.push({
+      type: "warning",
+      title: "Too Many Keywords",
+      description: `${keywords.length} keywords. Recommended: 3-5`,
+      points: 5,
+    });
+    score -= 5;
+  } else {
+    issues.push({
+      type: "success",
+      title: "Focus Keywords Set",
+      description: `${keywords.length} keyword(s): ${keywords.join(", ")}`,
+      points: 5,
+    });
+  }
+
+  // Featured Image
+  if (!formData.featuredImageUrl && !featuredImagePreview) {
+    issues.push({
+      type: "warning",
+      title: "Featured Image Missing",
+      description: "Add a featured image",
+      points: 0,
+    });
+    score -= 5;
+  } else {
+    issues.push({
+      type: "success",
+      title: "Featured Image Set",
+      description: "Featured image added",
+      points: 5,
+    });
+  }
+
+  // Slug Check
+  if (formData.slug.length === 0) {
+    issues.push({
+      type: "error",
+      title: "URL Slug Missing",
+      description: "Add a URL slug",
+      points: 0,
+    });
+    score -= 10;
+  } else if (formData.slug.length > 60) {
+    issues.push({
+      type: "warning",
+      title: "URL Slug Too Long",
+      description: "Keep URL under 60 characters",
+      points: 5,
+    });
+    score -= 5;
+  } else {
+    issues.push({
+      type: "success",
+      title: "URL Slug",
+      description: `Good URL (${formData.slug.length} chars)`,
+      points: 5,
+    });
+  }
+
+  // Keywords in URL
+  if (keywords.length > 0) {
+    const slugLower = formData.slug.toLowerCase();
+    const keywordsInSlug = keywords.filter((keyword) =>
+      slugLower.includes(keyword)
+    );
+
+    if (keywordsInSlug.length > 0) {
+      issues.push({
+        type: "success",
+        title: "Keywords in URL",
+        description: `URL contains: ${keywordsInSlug.join(", ")}`,
+        points: 5,
+      });
+    } else {
+      issues.push({
+        type: "warning",
+        title: "Keywords Not in URL",
+        description: "Include a keyword in URL",
+        points: 0,
+      });
+      score -= 5;
+    }
+  }
+
+  setSeoAnalysis({
+    score: Math.max(0, Math.min(100, score)),
+    issues: issues.sort((a, b) => {
+      const order = { error: 0, warning: 1, success: 2 };
+      return order[a.type] - order[b.type];
+    }),
+  });
+};
+
 
   const handleAddTag = (tag: string) => {
     const trimmedTag = tag.trim();
@@ -530,99 +960,277 @@ export default function EditBlogPostPage() {
     }));
   };
 
-  const handleSubmit = async (isDraft: boolean = false) => {
-    setSaving(true);
-    try {
-      const token = localStorage.getItem("authToken");
-      if (!token) {
-        toast.error("Please login first");
-        return;
-      }
+// ✅ FIXED: handleSubmit function
+const handleSubmit = async (isDraft: boolean = false) => {
+  setSaving(true);
+  try {
+    const token = localStorage.getItem("authToken");
+    if (!token) {
+      toast.error("Please login first");
+      setSaving(false);
+      return;
+    }
 
-      setUploadingImage(true);
+    // Validate required fields
+    if (!formData.title.trim()) {
+      toast.error("Title is required");
+      setSaving(false);
+      return;
+    }
 
-      // ✅ STEP 1: Upload featured image
-      let finalFeaturedImageUrl = formData.featuredImageUrl;
-      if (featuredImage) {
+    if (!formData.body.trim()) {
+      toast.error("Content is required");
+      setSaving(false);
+      return;
+    }
+
+
+    // ✅ CRITICAL: Verify we have the post ID
+    if (!postId) {
+      toast.error("Post ID is missing");
+      setSaving(false);
+      return;
+    }
+    // ✅ ADD THIS - Slug validation before upload
+    if (slugExists) {
+      toast.error("Slug already exists in another post!");
+      setSaving(false);
+      return;
+    }
+    setUploadingImage(true);
+
+    // Upload images (same as before)
+    let finalFeaturedImageUrl = formData.featuredImageUrl;
+    if (featuredImage) {
+      try {
         const uploadedUrl = await handleImageUpload(
           featuredImage,
-          formData.title || "featured-image"
+          `${formData.title}-featured-image`
         );
         if (uploadedUrl) {
           finalFeaturedImageUrl = uploadedUrl;
           toast.success("Featured image uploaded!");
         }
+      } catch (err) {
+        console.error("Featured image upload failed:", err);
       }
+    }
 
-      // ✅ STEP 2: Upload thumbnail image
-      let finalThumbnailImageUrl = formData.thumbnailImageUrl;
-      if (thumbnailImage) {
+    let finalThumbnailImageUrl = formData.thumbnailImageUrl;
+    if (thumbnailImage) {
+      try {
         const uploadedUrl = await handleImageUpload(
           thumbnailImage,
-          formData.title || "thumbnail"
+          `${formData.title}-thumbnail`
         );
         if (uploadedUrl) {
           finalThumbnailImageUrl = uploadedUrl;
           toast.success("Thumbnail uploaded!");
         }
+      } catch (err) {
+        console.error("Thumbnail upload failed:", err);
       }
+    }
 
-      // ✅ STEP 3: Upload gallery images
-      const finalImageUrls = [...formData.imageUrls];
-      if (galleryImages.length > 0) {
-        for (let i = 0; i < galleryImages.length; i++) {
+    const finalImageUrls = [...formData.imageUrls];
+    if (galleryImages.length > 0) {
+      let successCount = 0;
+      for (let i = 0; i < galleryImages.length; i++) {
+        try {
           const uploadedUrl = await handleImageUpload(
             galleryImages[i],
-            `${formData.title || "gallery"}-${i + 1}`
+            `${formData.title}-gallery-${i + 1}`
           );
           if (uploadedUrl) {
             finalImageUrls.push(uploadedUrl);
+            successCount++;
           }
+        } catch (err) {
+          console.error(`Gallery image ${i + 1} upload failed:`, err);
         }
-        toast.success(`${galleryImages.length} gallery image(s) uploaded!`);
       }
+      if (successCount > 0) {
+        toast.success(`${successCount} gallery images uploaded!`);
+      }
+    }
 
-      setUploadingImage(false);
+    setUploadingImage(false);
 
-      // ✅ STEP 4: Prepare payload with ID
-      const payload = {
-        // id: formData.id, // ✅ Important for update
-        ...formData,
-        featuredImageUrl: finalFeaturedImageUrl,
-        thumbnailImageUrl: finalThumbnailImageUrl,
-        imageUrls: finalImageUrls,
-        isPublished: !isDraft,
-        publishedAt: formData.publishedAt || new Date().toISOString(),
-      };
+    // Clean HTML entities
+    const cleanBody = formData.body
+      .replace(/&lt;/g, "<")
+      .replace(/&gt;/g, ">")
+      .replace(/&amp;/g, "&")
+      .replace(/&quot;/g, '"')
+      .replace(/&#39;/g, "'")
+      .replace(/<span class="token">/g, "")
+      .replace(/<\/span>/g, "");
 
-      console.log("📤 Updating post with payload:", payload);
+    // ✅ CRITICAL FIX: Include ID in payload
+    const payload = {
+      id: postId, // ✅ ADD THIS - Must match URL parameter
+      title: formData.title.trim(),
+      body: cleanBody,
+      bodyOverview: formData.bodyOverview.trim() || "",
+      slug:
+        formData.slug.trim() ||
+        formData.title.toLowerCase().replace(/\s+/g, "-"),
+      isPublished: !isDraft,
 
-      const response = await apiClient.put<ApiResponse<any>>(
-        `/api/BlogPosts/${postId}`,
-        payload,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
+      publishedAt: formData.publishedAt
+        ? new Date(formData.publishedAt).toISOString()
+        : new Date().toISOString(),
+      startDate: formData.startDate
+        ? new Date(formData.startDate).toISOString()
+        : new Date().toISOString(),
+      endDate: formData.endDate
+        ? new Date(formData.endDate).toISOString()
+        : new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
+
+      allowComments: formData.allowComments,
+      displayOrder: formData.displayOrder || 0,
+      showOnHomePage: formData.showOnHomePage,
+      includeInSitemap: formData.includeInSitemap,
+      limitedToStores: formData.limitedToStores || false,
+
+      featuredImageUrl: finalFeaturedImageUrl || "",
+      thumbnailImageUrl: finalThumbnailImageUrl || "",
+      imageUrls: finalImageUrls,
+
+      videoUrl: formData.videoUrl.trim() || null,
+      metaTitle: formData.metaTitle.trim() || formData.title.trim(),
+      metaDescription: formData.metaDescription.trim() || "",
+      metaKeywords: formData.metaKeywords.trim() || "",
+      searchEngineFriendlyPageName:
+        formData.searchEngineFriendlyPageName.trim() || formData.slug.trim(),
+
+      authorName: formData.authorName.trim() || "Admin",
+      authorId: formData.authorId.trim() || null,
+
+      tags: formData.tags || [],
+      labels: formData.labels || [],
+      storeIds: formData.storeIds || [],
+      relatedBlogPostIds: formData.relatedBlogPostIds || [],
+
+      customerRoles: formData.customerRoles.trim() || null,
+      languageId: formData.languageId.trim() || "en-US",
+
+      blogCategoryId: formData.blogCategoryId || null,
+    };
+
+    console.log("📤 Updating post ID:", postId);
+    console.log("📤 Payload:", JSON.stringify(payload, null, 2));
+
+    // ✅ Verify ID match
+    if (payload.id !== postId) {
+      console.error("❌ ID MISMATCH DETECTED!");
+      console.error("  Payload ID:", payload.id);
+      console.error("  URL ID:", postId);
+      toast.error("ID mismatch error - please refresh the page");
+      setSaving(false);
+      return;
+    }
+
+    const response = await apiClient.put<ApiResponse<any>>(
+      `${API_ENDPOINTS.blogPosts}/${postId}`,
+      payload,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+      }
+    );
+
+    console.log("✅ Post updated:", response.data);
+
+    if (response.data?.success) {
+      toast.success(
+        isDraft ? "Draft saved successfully!" : "Post updated successfully!"
       );
 
-      console.log("✅ Post updated:", response.data);
-
-      if (response.data?.success) {
-        toast.success(isDraft ? "Draft saved successfully!" : "Post updated successfully!");
-        router.push("/admin/BlogPosts");
-      } else {
-        throw new Error(response.data?.message || "Update failed");
+      // Cleanup blob URLs
+      if (featuredImagePreview.startsWith("blob:")) {
+        URL.revokeObjectURL(featuredImagePreview);
       }
-    } catch (error: any) {
-      console.error("❌ Error updating post:", error);
-      toast.error(error.response?.data?.message || "Failed to update post");
-    } finally {
-      setSaving(false);
-      setUploadingImage(false);
+      if (thumbnailImagePreview.startsWith("blob:")) {
+        URL.revokeObjectURL(thumbnailImagePreview);
+      }
+      galleryImagePreviews
+        .filter((url) => url.startsWith("blob:"))
+        .forEach((url) => URL.revokeObjectURL(url));
+
+      setTimeout(() => {
+        router.push("/admin/BlogPosts");
+      }, 1000);
+    } else {
+      throw new Error(response.data?.message || "Update failed");
     }
+  } catch (error: any) {
+    console.error("❌ Error updating post:", error);
+
+    let errorMessage = "Failed to update post";
+    if (error.code === "ERR_NETWORK") {
+      errorMessage = "Network error - Please check your internet connection";
+    } else if (error.response?.data?.message) {
+      errorMessage = error.response.data.message;
+    } else if (error.response?.data?.errors?.[0]) {
+      errorMessage = error.response.data.errors[0];
+    } else if (error.message) {
+      errorMessage = error.message;
+    }
+
+    toast.error(errorMessage);
+  } finally {
+    setSaving(false);
+    setUploadingImage(false);
+  }
+};
+
+
+  const generateSlug = (text: string): string => {
+    return text
+      .toLowerCase()
+      .trim()
+      .replace(/[^\w\s-]/g, "")
+      .replace(/\s+/g, "-")
+      .replace(/--+/g, "-")
+      .replace(/^-+|-+$/g, "");
   };
+
+// ✅ REPLACE existing handleTitleChange
+const handleTitleChange = (newTitle: string) => {
+  const newSlug = generateSlug(newTitle);
+  
+  setFormData((prev) => ({
+    ...prev,
+    title: newTitle,
+    slug: newSlug,
+  }));
+
+  clearTimeout(slugTimer);
+  slugTimer = setTimeout(() => {
+    if (newSlug.length > 2) {
+      checkSlugExists(newSlug);
+    }
+  }, 800);
+};
+
+
+// ✅ REPLACE existing handleSlugChange
+const handleSlugChange = (value: string) => {
+  setFormData((prev) => ({ ...prev, slug: value }));
+
+  clearTimeout(slugTimer);
+  slugTimer = setTimeout(() => {
+    const clean = generateSlug(value);
+    setFormData((prev) => ({ ...prev, slug: clean }));
+    if (clean.length > 2) {
+      checkSlugExists(clean);
+    }
+  }, 800);
+};
+
 
   const getSEOScoreColor = (score: number) => {
     if (score >= 80) return { bg: "bg-green-500", text: "text-green-500", label: "Good" };
@@ -634,7 +1242,7 @@ export default function EditBlogPostPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-screen bg-slate-900">
+      <div className="flex items-center justify-center h-screen ">
         <div className="text-center">
           <Loader2 className="w-16 h-16 text-violet-500 animate-spin mx-auto mb-4" />
           <p className="text-slate-400">Loading post...</p>
@@ -644,10 +1252,10 @@ export default function EditBlogPostPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900/10 to-slate-900">
+    <div className="min-h-screen ">
       {/* Header */}
-      <div className="bg-slate-900/20 backdrop-blur-xl border-b border-slate-800 sticky top-0 z-10">
-        <div className="max-w-[1920px] mx-auto px-6 py-4">
+      <div className="z-10">
+        <div className="max-w-[1920px] mx-auto px-6 py-2">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               <button
@@ -671,42 +1279,105 @@ export default function EditBlogPostPage() {
 
       <div className="max-w-[1920px] mx-auto px-6 py-6">
         <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-          {/* Main Content */}
+          {/* Main Content - Same as Create Page */}
           <div className="xl:col-span-2 space-y-4">
             {/* Title */}
-            <div>
+            <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-xl p-2">
               <input
                 type="text"
                 value={formData.title}
-                onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                onChange={(e) => handleTitleChange(e.target.value)}
                 placeholder="Add title"
-                className="w-full px-0 py-3 bg-transparent border-0 border-b-2 border-slate-700/50 text-3xl font-bold text-white placeholder-slate-600 focus:outline-none focus:border-violet-500 transition-all"
+                className="w-full px-0 py-2 bg-transparent border-0 border-b-2 border-slate-700/50 text-2xl font-bold text-white placeholder-slate-600 focus:outline-none focus:border-violet-500 transition-all"
               />
             </div>
 
             {/* Permalink */}
-            <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-xl p-4">
-              <div className="flex items-center gap-2 text-sm">
-                <span className="text-slate-400">Permalink:</span>
-                <span className="text-slate-500">/blog/</span>
-                <input
-                  type="text"
-                  value={formData.slug}
-                  onChange={(e) => setFormData({ ...formData, slug: e.target.value })}
-                  placeholder="post-slug"
-                  className="flex-1 px-2 py-1 bg-slate-800/50 border border-slate-600 rounded text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
-                />
-              </div>
-            </div>
+{/* ✅ REPLACE Permalink section in Edit page */}
+<div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-xl p-4">
+  <div className="flex items-center gap-2 text-sm">
+    <span className="text-slate-400">Permalink:</span>
+    <span className="text-slate-500">/blog/</span>
+    <div className="flex-1 relative">
+      <input
+        type="text"
+        value={formData.slug}
+        onChange={(e) => handleSlugChange(e.target.value)}
+        placeholder="post-slug"
+        className={`w-full px-3 py-2 pr-10 bg-slate-800/50 border rounded text-white text-sm focus:outline-none focus:ring-2 transition-all ${
+          checkingSlug
+            ? "border-blue-500 ring-blue-500/50"
+            : slugExists
+            ? "border-red-500 ring-red-500/50"
+            : formData.slug
+            ? "border-green-500 ring-green-500/50"
+            : "border-slate-600"
+        }`}
+      />
+      
+      {/* Status Icon */}
+      <div className="absolute right-3 top-1/2 -translate-y-1/2">
+        {checkingSlug && (
+          <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+        )}
+        {!checkingSlug && slugExists && (
+          <AlertTriangle className="h-4 w-4 text-red-400" />
+        )}
+        {!checkingSlug && !slugExists && formData.slug && (
+          <CheckCircle className="h-4 w-4 text-green-400" />
+        )}
+      </div>
+    </div>
+  </div>
+
+  {/* ✅ CHANGED: Left-Right Split */}
+  <div className="mt-2 flex items-center justify-between gap-4 text-xs">
+    {/* Left Side - URL */}
+    <div className="flex-shrink-0">
+      {formData.slug && (
+        <>
+          <span className="text-slate-500">URL: </span>
+          <span className="text-violet-400">/blog/{formData.slug}</span>
+        </>
+      )}
+    </div>
+
+    {/* Right Side - Status Messages */}
+    <div className="flex-shrink-0">
+      {checkingSlug && (
+        <span className="text-blue-400">Checking availability...</span>
+      )}
+      
+      {slugExists && (
+        <span className="text-red-400 flex items-center gap-1">
+          <AlertTriangle className="h-3 w-3" />
+          Slug already exists in another post!
+        </span>
+      )}
+
+      {!checkingSlug && !slugExists && formData.slug && (
+        <span className="text-green-400 flex items-center gap-1">
+          <CheckCircle className="h-3 w-3" />
+          Slug is available!
+        </span>
+      )}
+    </div>
+  </div>
+</div>
+
+
 
             {/* Content Editor */}
             <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-xl p-4">
-              <label className="block text-sm font-medium text-slate-300 mb-3">Content</label>
+              <label className="block text-sm font-medium text-slate-300 mb-3">
+                Content
+              </label>
               <ProductDescriptionEditor
                 value={formData.body}
-                onChange={(content) => setFormData({ ...formData, body: content })}
+                onChange={(content: any) =>
+                  setFormData({ ...formData, body: content })
+                }
                 placeholder="Write your content here..."
-              
                 required={false}
               />
               <div className="mt-2 flex items-center justify-between text-xs text-slate-500">
@@ -715,24 +1386,26 @@ export default function EditBlogPostPage() {
               </div>
             </div>
 
-            {/* Excerpt */}
+            {/* bodyOverview */}
             <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-xl p-4">
               <label className="block text-sm font-medium text-slate-300 mb-3">
-                Excerpt{" "}
+                BodyOverview{" "}
                 <span className="text-slate-500 font-normal ml-2">
-                  (Excerpts are optional hand-crafted summaries of your content)
+                  (BodyOverview are optional hand-crafted summaries of your content)
                 </span>
               </label>
               <textarea
                 value={formData.bodyOverview}
-                onChange={(e) => setFormData({ ...formData, bodyOverview: e.target.value })}
+                onChange={(e) =>
+                  setFormData({ ...formData, bodyOverview: e.target.value })
+                }
                 placeholder="Write a brief excerpt..."
                 rows={4}
                 className="w-full px-4 py-3 bg-slate-800/50 border border-slate-600 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 resize-none"
               />
             </div>
 
-            {/* ✅ Image Upload Section */}
+            {/* Image Upload Section - Same as Create Page */}
             <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-xl p-6">
               <div className="flex items-center gap-2 mb-4">
                 <div className="w-8 h-8 rounded-lg bg-violet-500/10 flex items-center justify-center">
@@ -779,10 +1452,14 @@ export default function EditBlogPostPage() {
                       <div className="flex flex-col items-center">
                         <Upload className="h-12 w-12 text-slate-500 group-hover:text-violet-400 transition-colors mb-2" />
                         <p className="text-sm text-slate-400 text-center">
-                          <span className="font-semibold text-white">Click to upload</span> or
-                          drag and drop
+                          <span className="font-semibold text-white">
+                            Click to upload
+                          </span>{" "}
+                          or drag and drop
                         </p>
-                        <p className="text-xs text-slate-500 mt-1">PNG, JPG, GIF up to 10MB</p>
+                        <p className="text-xs text-slate-500 mt-1">
+                          PNG, JPG, GIF up to 10MB
+                        </p>
                       </div>
                       <input
                         type="file"
@@ -877,74 +1554,116 @@ export default function EditBlogPostPage() {
               </div>
             </div>
 
-            {/* ✅ Labels Section */}
-            <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-xl p-6">
-              <h3 className="text-lg font-semibold text-white mb-4">Labels</h3>
+            {/* Labels Section */}
+{/* ✅ ADD THIS IN EDIT PAGE - After Tags Section */}
+<div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-xl p-6">
+  <h3 className="text-lg font-semibold text-white mb-4">Labels</h3>
 
-              {/* Existing Labels */}
-              {formData.labels.length > 0 && (
-                <div className="flex flex-wrap gap-2 mb-4">
-                  {formData.labels.map((label, index) => (
-                    <div
-                      key={index}
-                      className="px-3 py-1.5 rounded-lg flex items-center gap-2"
-                      style={{ backgroundColor: `${label.color}20`, color: label.color }}
-                    >
-                      <span className="text-sm font-medium">{label.name}</span>
-                      <span className="text-xs opacity-70">Priority: {label.priority}</span>
-                      <button
-                        onClick={() => handleRemoveLabel(index)}
-                        className="hover:opacity-70"
-                      >
-                        <X className="h-3 w-3" />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
+  {/* Existing Labels Display */}
+  {formData.labels.length > 0 && (
+    <div className="flex flex-wrap gap-2 mb-4">
+      {formData.labels.map((label, index) => (
+        <div
+          key={index}
+          className="px-3 py-1.5 rounded-lg flex items-center gap-2 border"
+          style={{
+            backgroundColor: `${label.color}20`,
+            borderColor: `${label.color}40`,
+            color: label.color,
+          }}
+        >
+          {/* Color Indicator */}
+          <div
+            className="w-3 h-3 rounded-full"
+            style={{ backgroundColor: label.color }}
+          />
+          <span className="text-sm font-medium">{label.name}</span>
+          <span className="text-xs opacity-70">
+            Priority: {label.priority}
+          </span>
+          <button
+            onClick={() => handleRemoveLabel(index)}
+            className="hover:opacity-70 transition-opacity"
+          >
+            <X className="h-3 w-3" />
+          </button>
+        </div>
+      ))}
+    </div>
+  )}
 
-              {/* Add Label Form */}
-              <div className="grid grid-cols-2 gap-3">
-                <input
-                  type="text"
-                  value={labelInput.name}
-                  onChange={(e) => setLabelInput({ ...labelInput, name: e.target.value })}
-                  placeholder="Label name (e.g., Featured)"
-                  className="px-4 py-2.5 bg-slate-800/50 border border-slate-600 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 text-sm"
-                />
-                <input
-                  type="color"
-                  value={labelInput.color}
-                  onChange={(e) => setLabelInput({ ...labelInput, color: e.target.value })}
-                  className="px-2 py-2.5 bg-slate-800/50 border border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-500"
-                />
-                <input
-                  type="text"
-                  value={labelInput.icon}
-                  onChange={(e) => setLabelInput({ ...labelInput, icon: e.target.value })}
-                  placeholder="Icon (e.g., star)"
-                  className="px-4 py-2.5 bg-slate-800/50 border border-slate-600 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 text-sm"
-                />
-                <input
-                  type="number"
-                  value={labelInput.priority}
-                  onChange={(e) =>
-                    setLabelInput({ ...labelInput, priority: parseInt(e.target.value) || 1 })
-                  }
-                  placeholder="Priority"
-                  min="1"
-                  className="px-4 py-2.5 bg-slate-800/50 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-violet-500"
-                />
-              </div>
-              <button
-                onClick={handleAddLabel}
-                className="mt-3 w-full px-4 py-2 bg-violet-600 hover:bg-violet-700 text-white rounded-lg transition-all text-sm font-medium"
-              >
-                Add Label
-              </button>
-            </div>
+  {/* Add Label Form */}
+  <div className="space-y-3">
+    {/* Row 1: Name & Color */}
+    <div className="grid grid-cols-2 gap-3">
+      <input
+        type="text"
+        value={labelInput.name}
+        onChange={(e) =>
+          setLabelInput({ ...labelInput, name: e.target.value })
+        }
+        placeholder="Label name (e.g., Featured)"
+        className="px-4 py-2.5 bg-slate-800/50 border border-slate-600 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 text-sm"
+      />
+      
+      {/* Color Picker with Preview */}
+      <div className="flex items-center gap-2">
+        <input
+          type="color"
+          value={labelInput.color}
+          onChange={(e) =>
+            setLabelInput({ ...labelInput, color: e.target.value })
+          }
+          className="w-14 h-11 rounded-lg cursor-pointer border-2 border-slate-600"
+        />
+        <div
+          className="w-11 h-11 rounded-lg border-2 border-slate-600"
+          style={{ backgroundColor: labelInput.color }}
+        />
+      </div>
+    </div>
 
-            {/* SEO Settings */}
+    {/* Row 2: Icon & Priority */}
+    <div className="grid grid-cols-2 gap-3">
+      <input
+        type="text"
+        value={labelInput.icon}
+        onChange={(e) =>
+          setLabelInput({ ...labelInput, icon: e.target.value })
+        }
+        placeholder="Icon (e.g., star)"
+        className="px-4 py-2.5 bg-slate-800/50 border border-slate-600 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 text-sm"
+      />
+      <input
+        type="number"
+        value={labelInput.priority}
+        onChange={(e) =>
+          setLabelInput({
+            ...labelInput,
+            priority: parseInt(e.target.value) || 1,
+          })
+        }
+        placeholder="Priority"
+        min={1}
+        max={10}
+        className="px-4 py-2.5 bg-slate-800/50 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-violet-500"
+      />
+    </div>
+
+    {/* Add Button */}
+    <button
+      onClick={handleAddLabel}
+      disabled={!labelInput.name.trim()}
+      className="w-full px-4 py-2.5 bg-violet-600 hover:bg-violet-700 disabled:bg-slate-700 disabled:cursor-not-allowed text-white rounded-lg transition-all text-sm font-medium flex items-center justify-center gap-2"
+    >
+      <Plus className="h-4 w-4" />
+      Add Label
+    </button>
+  </div>
+</div>
+
+
+            {/* SEO Settings - Same as Create Page */}
             <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-xl p-6">
               <div className="flex items-center gap-2 mb-4">
                 <div className="w-8 h-8 rounded-lg bg-violet-500/10 flex items-center justify-center">
@@ -961,11 +1680,15 @@ export default function EditBlogPostPage() {
                   <input
                     type="text"
                     value={formData.metaTitle}
-                    onChange={(e) => setFormData({ ...formData, metaTitle: e.target.value })}
+                    onChange={(e) =>
+                      setFormData({ ...formData, metaTitle: e.target.value })
+                    }
                     placeholder="SEO optimized title"
                     className="w-full px-4 py-3 bg-slate-800/50 border border-slate-600 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500"
                   />
-                  <p className="mt-1 text-xs text-slate-500">Recommended: 50-60 characters</p>
+                  <p className="mt-1 text-xs text-slate-500">
+                    Recommended: 50-60 characters
+                  </p>
                 </div>
 
                 <div>
@@ -975,13 +1698,18 @@ export default function EditBlogPostPage() {
                   <textarea
                     value={formData.metaDescription}
                     onChange={(e) =>
-                      setFormData({ ...formData, metaDescription: e.target.value })
+                      setFormData({
+                        ...formData,
+                        metaDescription: e.target.value,
+                      })
                     }
                     placeholder="Brief description for search engines"
                     rows={3}
                     className="w-full px-4 py-3 bg-slate-800/50 border border-slate-600 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 resize-none"
                   />
-                  <p className="mt-1 text-xs text-slate-500">Recommended: 150-160 characters</p>
+                  <p className="mt-1 text-xs text-slate-500">
+                    Recommended: 150-160 characters
+                  </p>
                 </div>
 
                 <div>
@@ -991,19 +1719,154 @@ export default function EditBlogPostPage() {
                   <input
                     type="text"
                     value={formData.metaKeywords}
-                    onChange={(e) => setFormData({ ...formData, metaKeywords: e.target.value })}
+                    onChange={(e) =>
+                      setFormData({ ...formData, metaKeywords: e.target.value })
+                    }
                     placeholder="keyword1, keyword2, keyword3"
                     className="w-full px-4 py-3 bg-slate-800/50 border border-slate-600 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500"
                   />
-                  <p className="mt-1 text-xs text-slate-500">Separate keywords with commas</p>
+                  <p className="mt-1 text-xs text-slate-500">
+                    Separate keywords with commas
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-slate-300 mb-2">
+                    Search Engine Friendly Page Name
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.searchEngineFriendlyPageName}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        searchEngineFriendlyPageName: e.target.value
+                          .toLowerCase()
+                          .trim()
+                          .replace(/\s+/g, "-")
+                          .replace(/[^a-z0-9-]/g, ""),
+                      })
+                    }
+                    placeholder="your-page-name"
+                    className="w-full px-4 py-3 bg-slate-800/50 border border-slate-600 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500"
+                  />
+                  <p className="mt-1 text-xs text-slate-500">
+                    Auto-formatted into SEO friendly page name
+                  </p>
                 </div>
               </div>
             </div>
+            {/* ✅ Additional Settings Section - ADD THIS */}
+<div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-xl p-6">
+  <h3 className="text-lg font-semibold text-white mb-4">
+    Additional Settings
+  </h3>
+
+  <div className="space-y-4">
+    {/* Start Date & End Date */}
+    <div className="grid grid-cols-2 gap-4">
+      <div>
+        <label className="block text-sm font-medium text-slate-300 mb-2">
+          Start Date
+        </label>
+        <input
+          type="datetime-local"
+          value={formData.startDate}
+          onChange={(e) =>
+            setFormData({ ...formData, startDate: e.target.value })
+          }
+          className="w-full px-4 py-2.5 bg-slate-800/50 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-violet-500 text-sm"
+        />
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-slate-300 mb-2">
+          End Date
+        </label>
+        <input
+          type="datetime-local"
+          value={formData.endDate}
+          onChange={(e) =>
+            setFormData({ ...formData, endDate: e.target.value })
+          }
+          className="w-full px-4 py-2.5 bg-slate-800/50 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-violet-500 text-sm"
+        />
+      </div>
+    </div>
+
+    {/* Display Order & Video URL */}
+    <div className="grid grid-cols-2 gap-4">
+      <div>
+        <label className="block text-sm font-medium text-slate-300 mb-2">
+          Display Order
+        </label>
+        <input
+          type="number"
+          value={formData.displayOrder}
+          onChange={(e) =>
+            setFormData({
+              ...formData,
+              displayOrder: parseInt(e.target.value) || 0,
+            })
+          }
+          className="w-full px-4 py-2.5 bg-slate-800/50 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-violet-500"
+        />
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-slate-300 mb-2">
+          Video URL
+        </label>
+        <input
+          type="url"
+          value={formData.videoUrl}
+          onChange={(e) =>
+            setFormData({ ...formData, videoUrl: e.target.value })
+          }
+          placeholder="https://youtube.com/..."
+          className="w-full px-4 py-2.5 bg-slate-800/50 border border-slate-600 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500"
+        />
+      </div>
+    </div>
+
+    {/* Author Name & Language ID */}
+    <div className="grid grid-cols-2 gap-4">
+      <div>
+        <label className="block text-sm font-medium text-slate-300 mb-2">
+          Author Name
+        </label>
+        <input
+          type="text"
+          value={formData.authorName}
+          onChange={(e) =>
+            setFormData({ ...formData, authorName: e.target.value })
+          }
+          placeholder="John Doe"
+          className="w-full px-4 py-2.5 bg-slate-800/50 border border-slate-600 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500"
+        />
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-slate-300 mb-2">
+          Language ID
+        </label>
+        <input
+          type="text"
+          value={formData.languageId}
+          onChange={(e) =>
+            setFormData({ ...formData, languageId: e.target.value })
+          }
+          placeholder="en-US"
+          className="w-full px-4 py-2.5 bg-slate-800/50 border border-slate-600 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500"
+        />
+      </div>
+    </div>
+  </div>
+</div>
+
           </div>
+          
 
           {/* Sidebar */}
           <div className="space-y-4">
-            {/* SEO Analysis */}
+            {/* SEO Analysis - Same as Create Page */}
             <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-xl p-6">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-lg font-semibold text-white">SEO Analysis</h3>
@@ -1011,7 +1874,9 @@ export default function EditBlogPostPage() {
                   <div
                     className={`w-16 h-16 rounded-full ${seoColors.bg} flex items-center justify-center`}
                   >
-                    <span className="text-white text-xl font-bold">{seoAnalysis.score}</span>
+                    <span className="text-white text-xl font-bold">
+                      {seoAnalysis.score}
+                    </span>
                   </div>
                   <div>
                     <p className={`text-sm font-semibold ${seoColors.text}`}>
@@ -1057,7 +1922,9 @@ export default function EditBlogPostPage() {
                           {issue.title}
                         </h4>
                         <p className="text-xs text-slate-400">{issue.description}</p>
-                        <p className="text-xs text-slate-500 mt-1">{issue.points} points</p>
+                        <p className="text-xs text-slate-500 mt-1">
+                          {issue.points} points
+                        </p>
                       </div>
                     </div>
                   </div>
@@ -1089,19 +1956,16 @@ export default function EditBlogPostPage() {
                 className="w-full px-6 py-3 bg-gradient-to-r from-violet-500 to-cyan-500 text-white rounded-lg hover:shadow-lg hover:shadow-violet-500/50 transition-all font-semibold flex items-center justify-center gap-2 disabled:opacity-50"
               >
                 {saving || uploadingImage ? (
-                  <>
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    {uploadingImage ? "Uploading Images..." : "Updating..."}
-                  </>
-                ) : (
-                  "Update Post"
-                )}
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : null}
+                {uploadingImage ? "Uploading Images..." : saving ? "Updating..." : "Update Post"}
               </button>
             </div>
 
             {/* Categories */}
             <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-xl p-6">
               <h3 className="text-lg font-semibold text-white mb-4">Categories</h3>
+
               <div className="space-y-2 max-h-64 overflow-y-auto custom-scrollbar">
                 {blogCategories.map((category) => (
                   <label
@@ -1120,11 +1984,51 @@ export default function EditBlogPostPage() {
                   </label>
                 ))}
               </div>
+
+              {/* ✅ Add New Category Section */}
+              {showNewCategoryInput ? (
+                <div className="mt-4 space-y-2">
+                  <input
+                    type="text"
+                    value={newCategoryName}
+                    onChange={(e) => setNewCategoryName(e.target.value)}
+                    placeholder="New category name"
+                    className="w-full px-4 py-2.5 bg-slate-800/50 border border-slate-600 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 text-sm"
+                  />
+                  <div className="flex gap-2">
+                    <button
+                      onClick={handleCreateCategory}
+                      disabled={creatingCategory}
+                      className="flex-1 px-4 py-2 bg-violet-600 hover:bg-violet-700 text-white rounded-lg transition-all text-sm font-medium disabled:opacity-50"
+                    >
+                      {creatingCategory ? "Creating..." : "Add"}
+                    </button>
+                    <button
+                      onClick={() => {
+                        setShowNewCategoryInput(false);
+                        setNewCategoryName("");
+                      }}
+                      className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-all text-sm font-medium"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <button
+                  onClick={() => setShowNewCategoryInput(true)}
+                  className="mt-4 w-full px-4 py-2 text-violet-400 hover:text-violet-300 text-sm font-medium transition-all flex items-center justify-center gap-2"
+                >
+                  <Plus className="h-4 w-4" />
+                  Add New Category
+                </button>
+              )}
             </div>
 
             {/* Tags */}
             <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-xl p-6">
               <h3 className="text-lg font-semibold text-white mb-4">Tags</h3>
+
               <input
                 type="text"
                 value={tagInput}
@@ -1158,26 +2062,131 @@ export default function EditBlogPostPage() {
                 </div>
               )}
 
-              <div>
-                <p className="text-sm font-medium text-slate-400 mb-2">Popular Tags</p>
-                <div className="flex flex-wrap gap-2 max-h-48 overflow-y-auto custom-scrollbar">
-                  {popularTags.map((tag) => (
-                    <button
-                      key={tag}
-                      onClick={() => handleAddTag(tag)}
-                      disabled={formData.tags.includes(tag)}
-                      className="px-3 py-1.5 bg-slate-700/50 hover:bg-slate-600 text-slate-300 rounded-lg text-xs transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      {tag}
-                    </button>
-                  ))}
-                </div>
+              <p className="text-sm font-medium text-slate-400 mb-2">Popular Tags</p>
+              <div className="flex flex-wrap gap-2 max-h-48 overflow-y-auto custom-scrollbar">
+                {popularTags.map((tag) => (
+                  <button
+                    key={tag}
+                    onClick={() => handleAddTag(tag)}
+                    disabled={formData.tags.includes(tag)}
+                    className="px-3 py-1.5 bg-slate-700/50 hover:bg-slate-600 text-slate-300 rounded-lg text-xs transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {tag}
+                  </button>
+                ))}
               </div>
+            </div>
+
+            {/* ✅ Related Blog Posts - COMPLETE OPTIMIZED SECTION */}
+            <div
+              ref={dropdownRef}
+              className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-xl p-6"
+            >
+              <div className="flex items-center gap-2 mb-4">
+                <div className="w-8 h-8 rounded-lg bg-violet-500/10 flex items-center justify-center">
+                  <Info className="h-4 w-4 text-violet-400" />
+                </div>
+                <h3 className="text-lg font-semibold text-white">Related Posts</h3>
+              </div>
+
+              {/* Search Input */}
+              <div className="relative mb-4">
+                <input
+                  type="text"
+                  value={relatedPostSearch}
+                  onChange={(e) => {
+                    setRelatedPostSearch(e.target.value);
+                    setShowRelatedDropdown(true);
+                  }}
+                  onFocus={() => setShowRelatedDropdown(true)}
+                  placeholder="Search and select related posts..."
+                  className="w-full px-4 py-2.5 bg-slate-800/50 border border-slate-600 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 text-sm"
+                />
+
+                {/* Dropdown Results */}
+                {showRelatedDropdown && filteredBlogPosts.length > 0 && (
+                  <div className="absolute z-[60] w-full mt-2 bg-slate-800 border border-slate-600 rounded-lg shadow-2xl max-h-64 overflow-y-auto custom-scrollbar">
+                    {filteredBlogPosts.map((post) => (
+                      <button
+                        key={post.id}
+                        type="button"
+                        onClick={() => {
+                          console.log("🖱️ Dropdown button clicked:", post.title);
+                          handleAddRelatedPost(post.id);
+                        }}
+                        className="w-full text-left px-4 py-3 hover:bg-slate-700 text-slate-300 hover:text-white transition-all text-sm border-b border-slate-700 last:border-0"
+                      >
+                        <p className="font-medium truncate">{post.title}</p>
+                        <p className="text-xs text-slate-500 mt-1">
+                          Click to add as related post
+                        </p>
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {/* No Results */}
+                {showRelatedDropdown &&
+                  relatedPostSearch &&
+                  filteredBlogPosts.length === 0 && (
+                    <div className="absolute z-[60] w-full mt-2 bg-slate-800 border border-slate-600 rounded-lg shadow-2xl p-4">
+                      <p className="text-sm text-slate-400 text-center">
+                        No posts found matching "{relatedPostSearch}"
+                      </p>
+                    </div>
+                  )}
+              </div>
+
+              {/* Selected Related Posts */}
+              {formData.relatedBlogPostIds.length > 0 ? (
+                <div className="space-y-2">
+                  <p className="text-xs text-slate-400 font-medium mb-2">
+                    Selected ({formData.relatedBlogPostIds.length})
+                  </p>
+                  <div className="space-y-2 max-h-64 overflow-y-auto custom-scrollbar">
+                    {formData.relatedBlogPostIds.map((postId, index) => (
+                      <div
+                        key={postId}
+                        className="flex items-center justify-between gap-2 p-3 bg-slate-800/30 hover:bg-slate-800/50 rounded-lg transition-all group"
+                      >
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm text-slate-300 truncate">
+                            {index + 1}. {getSelectedPostTitle(postId)}
+                          </p>
+                          <p className="text-xs text-slate-500 mt-0.5 truncate">
+                            ID: {postId.substring(0, 8)}...
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveRelatedPost(postId)}
+                          className="p-1.5 hover:bg-red-500/20 text-slate-400 hover:text-red-400 rounded transition-all opacity-0 group-hover:opacity-100"
+                          title="Remove"
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <div className="text-center py-8 px-4 bg-slate-800/20 rounded-lg border border-dashed border-slate-700">
+                  <Info className="h-8 w-8 text-slate-600 mx-auto mb-2" />
+                  <p className="text-sm text-slate-500">No related posts selected</p>
+                  <p className="text-xs text-slate-600 mt-1">Search and click to add</p>
+                </div>
+              )}
+
+              <p className="text-xs text-slate-500 mt-3 flex items-start gap-2">
+                <Info className="h-3 w-3 mt-0.5 flex-shrink-0" />
+                Related posts will be shown at the end of this blog
+              </p>
             </div>
 
             {/* Publish Settings */}
             <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-xl p-6">
               <h3 className="text-lg font-semibold text-white mb-4">Publish</h3>
+
               <div className="space-y-4">
                 <label className="flex items-center gap-3 cursor-pointer p-3 bg-slate-800/30 rounded-lg hover:bg-slate-800/50 transition-all">
                   <input
@@ -1199,7 +2208,10 @@ export default function EditBlogPostPage() {
                     type="checkbox"
                     checked={formData.showOnHomePage}
                     onChange={(e) =>
-                      setFormData({ ...formData, showOnHomePage: e.target.checked })
+                      setFormData({
+                        ...formData,
+                        showOnHomePage: e.target.checked,
+                      })
                     }
                     className="w-5 h-5 rounded border-slate-600 text-violet-500 focus:ring-2 focus:ring-violet-500"
                   />
@@ -1211,7 +2223,10 @@ export default function EditBlogPostPage() {
                     type="checkbox"
                     checked={formData.allowComments}
                     onChange={(e) =>
-                      setFormData({ ...formData, allowComments: e.target.checked })
+                      setFormData({
+                        ...formData,
+                        allowComments: e.target.checked,
+                      })
                     }
                     className="w-5 h-5 rounded border-slate-600 text-violet-500 focus:ring-2 focus:ring-violet-500"
                   />
@@ -1223,7 +2238,10 @@ export default function EditBlogPostPage() {
                     type="checkbox"
                     checked={formData.includeInSitemap}
                     onChange={(e) =>
-                      setFormData({ ...formData, includeInSitemap: e.target.checked })
+                      setFormData({
+                        ...formData,
+                        includeInSitemap: e.target.checked,
+                      })
                     }
                     className="w-5 h-5 rounded border-slate-600 text-violet-500 focus:ring-2 focus:ring-violet-500"
                   />
@@ -1237,7 +2255,9 @@ export default function EditBlogPostPage() {
                   <input
                     type="datetime-local"
                     value={formData.publishedAt}
-                    onChange={(e) => setFormData({ ...formData, publishedAt: e.target.value })}
+                    onChange={(e) =>
+                      setFormData({ ...formData, publishedAt: e.target.value })
+                    }
                     className="w-full px-4 py-2.5 bg-slate-800/50 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-violet-500 text-sm"
                   />
                 </div>

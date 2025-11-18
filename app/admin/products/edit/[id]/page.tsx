@@ -137,7 +137,8 @@ interface DropdownsData {
 export default function EditProductPage({ params }: { params: Promise<{ id: string }> }) {
   const router = useRouter();
       const toast = useToast();
-  
+  let seoTimer: any = null;
+
   const { id: productId } = use(params);
   const [searchTerm, setSearchTerm] = useState('');
   const [searchTermCross, setSearchTermCross] = useState('');
@@ -989,59 +990,101 @@ const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
     target.removeAttribute('data-submitting');
   }
 };
-
+// Slug generator for SEO-friendly names
+const generateSeoName = (text: string) => {
+  return text
+    .toLowerCase()
+    .trim()
+    .replace(/\s+/g, "-")        // spaces → hyphens
+    .replace(/[^a-z0-9\-]/g, "") // remove special characters
+    .replace(/--+/g, "-")        // remove multiple hyphens
+    .replace(/^-+|-+$/g, "");    // trim hyphens
+};
 
 
 // ✅ COMPLETE FIXED handleChange
-const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+const handleChange = (
+  e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
+) => {
   const { name, value, type } = e.target;
-  
-  // Special handling for category selection
-  if (name === 'categories') {
-    const selectElement = e.target as HTMLSelectElement;
-    const selectedOption = selectElement.options[selectElement.selectedIndex];
-    
-    let displayName = '';
-    if (value === '') {
-      displayName = '';
-    } else {
-      displayName = selectedOption.dataset.categoryName || 
-                   selectedOption.dataset.displayName || 
-                   selectedOption.text.replace(/^[\s\u00A0]*└──\s*/, '').replace(/📁\s*/, '');
-    }
-    
+
+  // -------------------------------
+  // Category logic (unchanged)
+  // -------------------------------
+  if (name === "categories") {
+    const select = e.target as HTMLSelectElement;
+    const opt = select.options[select.selectedIndex];
+
+    let displayName =
+      opt.dataset.categoryName ||
+      opt.dataset.displayName ||
+      opt.text.replace(/^[\s\u00A0]*└──\s*/, "").replace(/📁\s*/, "");
+
     setFormData({
       ...formData,
-      [name]: value,
+      categories: value,
       categoryName: displayName
     });
-  } 
-  // ✅ FIX: Special handling for markAsNew checkbox
-  else if (name === 'markAsNew') {
+    return;
+  }
+
+  // -------------------------------
+  // Input for SEO-friendly page name
+  // User can type normally
+  // -------------------------------
+  if (name === "searchEngineFriendlyPageName") {
+    // 1) Input box me original text rakhna
+    setFormData({
+      ...formData,
+      searchEngineFriendlyPageName: value
+    });
+
+    // 2) Debounce — user typing stop → slug auto-generate
+    clearTimeout(seoTimer);
+    seoTimer = setTimeout(() => {
+      setFormData(prev => ({
+        ...prev,
+        searchEngineFriendlyPageName: generateSeoName(prev.searchEngineFriendlyPageName)
+      }));
+    }, 1500);
+
+    return;
+  }
+
+  // -------------------------------
+  // markAsNew checkbox
+  // -------------------------------
+  if (name === "markAsNew") {
     const checked = (e.target as HTMLInputElement).checked;
+
     setFormData({
       ...formData,
       markAsNew: checked,
-      // Clear dates when unchecked
-      markAsNewStartDate: checked ? formData.markAsNewStartDate : '',
-      markAsNewEndDate: checked ? formData.markAsNewEndDate : ''
+      markAsNewStartDate: checked ? formData.markAsNewStartDate : "",
+      markAsNewEndDate: checked ? formData.markAsNewEndDate : ""
     });
+    return;
   }
-  // ✅ FIX: Handle all checkbox types properly
-  else if (type === 'checkbox') {
+
+  // -------------------------------
+  // Generic checkboxes
+  // -------------------------------
+  if (type === "checkbox") {
     const checked = (e.target as HTMLInputElement).checked;
     setFormData({
       ...formData,
-      [name]: checked
+      [name]: checked,
     });
-  } 
-  // Handle all other inputs
-  else {
-    setFormData({
-      ...formData,
-      [name]: value
-    });
+    return;
   }
+
+  // -------------------------------
+  // Default handling (text, textarea, select)
+  // -------------------------------
+  setFormData({
+    ...formData,
+    [name]: value
+  });
 };
 
 

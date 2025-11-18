@@ -799,36 +799,62 @@ const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
   }
 };
 
+// Global timer for delayed slug generation
+let slugTimer: NodeJS.Timeout;
 
-// Updated handleChange function
-const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+// Slug generator
+const generateSeoName = (text: string) => {
+  return text
+    .toLowerCase()
+    .trim()
+    .replace(/\s+/g, "-")
+    .replace(/[^a-z0-9\-]/g, "")
+    .replace(/--+/g, "-")
+    .replace(/^-+|-+$/g, "");
+};
+
+// ⭐ FINAL handleChange for ADD PAGE
+const handleChange = (
+  e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
+) => {
   const { name, value, type } = e.target;
-  
-  // Special handling for category selection
-  if (name === 'categories') {
+
+  // ⭐ CATEGORY HANDLING
+  if (name === "categories") {
     const selectElement = e.target as HTMLSelectElement;
     const selectedOption = selectElement.options[selectElement.selectedIndex];
-    
-    let displayName = '';
-    if (value === '') {
-      displayName = 'All';
-    } else {
-      // Get clean display name
-      displayName = selectedOption.dataset.categoryName || selectedOption.text;
-    }
-    
-    setFormData({
-      ...formData,
+
+    setFormData((prev) => ({
+      ...prev,
       categories: value,
-      categoryName: displayName
-    });
-  } else {
-    setFormData({
-      ...formData,
-      [name]: type === 'checkbox' ? (e.target as HTMLInputElement).checked : value
-    });
+      categoryName:
+        selectedOption.dataset.categoryName ||
+        selectedOption.text.replace(/📁\s*/, ""),
+    }));
+    return;
+  }
+
+  // ⭐ LIVE TYPING → USER-TYPED VALUE SET
+  setFormData((prev) => ({
+    ...prev,
+    [name]: type === "checkbox"
+      ? (e.target as HTMLInputElement).checked
+      : value,
+  }));
+
+  // ⭐ AUTO-GENERATE SLUG — ONLY FOR ‘name’ FIELD
+  if (name === "name") {
+    clearTimeout(slugTimer);
+
+    slugTimer = setTimeout(() => {
+      setFormData((prev) => ({
+        ...prev,
+        searchEngineFriendlyPageName: generateSeoName(value),
+      }));
+    }, 1000); // 1 second delay after user stops typing
   }
 };
+
   const addRelatedProduct = (productId: string) => {
     if (!formData.relatedProducts.includes(productId)) {
       setFormData({

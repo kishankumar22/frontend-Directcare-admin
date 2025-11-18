@@ -121,7 +121,7 @@ export default function BlogCategoriesPage() {
       const token = localStorage.getItem("authToken");
 
       await apiClient.delete(
-        `/api/ImageManagement/blogcategory/${filename}`,
+        `${API_ENDPOINTS.imageManagement}/blogcategory/${filename}`,
         {
           headers: token
             ? { Authorization: `Bearer ${token}` }
@@ -171,7 +171,7 @@ const fetchBlogCategories = async () => {
       console.log("🚀 API Request: GET", `/api/BlogCategories`);
       
       const response = await apiClient.get<ApiResponse<BlogCategory[]>>(
-        "/api/BlogCategories",
+        `${API_ENDPOINTS.blogCategories}`,
         {
           headers: {
             ...(token && { Authorization: `Bearer ${token}` }),
@@ -254,12 +254,12 @@ const handleSubmit = async (e: React.FormEvent) => {
         const formDataToUpload = new FormData();
         formDataToUpload.append("image", imageFile);
 
-        console.log("📤 Uploading image to /api/BlogCategories/upload-image");
+        console.log("📤 Uploading image to ${API_ENDPOINTS.blogCategories}/upload-image");
         console.log("📦 File:", imageFile.name);
         console.log("📝 Title:", formData.name);
 
         const uploadResponse = await apiClient.post<ImageUploadResponse>(
-          `/api/BlogCategories/upload-image?title=${encodeURIComponent(formData.name || "category")}`,
+          `${API_ENDPOINTS.blogCategories}/upload-image?title=${encodeURIComponent(formData.name || "category")}`,
           formDataToUpload,
           {
             headers: {
@@ -283,7 +283,7 @@ const handleSubmit = async (e: React.FormEvent) => {
             try {
               const filename = extractFilename(editingBlogCategory.imageUrl);
               await apiClient.delete(
-                `/api/ImageManagement/blogcategory/${filename}`,
+                `${API_ENDPOINTS.imageManagement}/blogcategory/${filename}`,
                 {
                   headers: {
                     Authorization: `Bearer ${token}`,
@@ -320,8 +320,8 @@ const handleSubmit = async (e: React.FormEvent) => {
 
     // STEP 2: Create or Update Blog Category
     const url = editingBlogCategory
-      ? `/api/BlogCategories/${editingBlogCategory.id}`
-      : "/api/BlogCategories";
+      ? `${API_ENDPOINTS.blogCategories}/${editingBlogCategory.id}`
+      : `${API_ENDPOINTS.blogCategories}`;
 
     // ✅ FIX: Include id in payload for PUT requests
     const payload = editingBlogCategory
@@ -437,7 +437,7 @@ const handleSubmit = async (e: React.FormEvent) => {
     try {
       const token = localStorage.getItem("authToken");
       const response = await apiClient.delete<ApiResponse<null>>(
-        `/api/BlogCategories/${id}`, 
+        `${API_ENDPOINTS.blogCategories}/${id}`, 
         {
           headers: token ? { Authorization: `Bearer ${token}` } : undefined,
         }
