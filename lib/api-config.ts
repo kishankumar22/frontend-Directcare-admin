@@ -32,12 +32,17 @@ export const API_ENDPOINTS = {
   // Banners
   banners: `${API_BASE_URL}/api/banners`,
   uploadImage: `${API_BASE_URL}/api/upload-image`,
+  deleteImage: `${API_BASE_URL}/api/Banners/delete-image`,
+
   
   //BlogCategories
   blogCategories: `${API_BASE_URL}/api/BlogCategories`,
+  deleteBlogCategoryImage: `${API_BASE_URL}/api/BlogCategories/delete-image`,
 
   //BlogPosts
   blogPosts: `${API_BASE_URL}/api/BlogPosts`,
+  deleteBlogPostImage: `${API_BASE_URL}/api/BlogPosts/delete-image`,
+  
   
   //comments
   comments: `${API_BASE_URL}/api/comments`,

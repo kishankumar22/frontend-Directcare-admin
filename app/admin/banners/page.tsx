@@ -152,14 +152,18 @@ const getImageUrl = (imageUrl?: string) => {
   };
 
   // Extract filename function to handle both full and relative URLs
-  const extractFilename = (imageUrl: string) => {
-    if (!imageUrl) return "";
-    
-    // Get the relative path first
-    const relativePath = getRelativeImageUrl(imageUrl);
-    const parts = relativePath.split('/');
-    return parts[parts.length - 1];
-  };
+const extractFilename = (imageUrl: string) => {
+  if (!imageUrl) return "";
+
+  // Remove full domain if present
+  const cleanedUrl = imageUrl.replace(API_BASE_URL, "");
+
+  // Split by "/" to extract last segment
+  const parts = cleanedUrl.split("/");
+
+  // Return only filename
+  return parts.pop() || "";
+};
 
   // Image upload handler
 // UPDATED - Only create preview, don't upload immediately
@@ -181,49 +185,8 @@ const handleImageFileChange = (file: File) => {
 };
 
 
-  // Delete image function
-const handleDeleteImage = async (bannerId: string, imageUrl: string) => {
-  setIsDeletingImage(true);
 
-  try {
-    const token = localStorage.getItem("authToken");
 
-    const filename = extractFilename(imageUrl);
-
-    const response = await apiClient.delete(`${API_ENDPOINTS.imageManagement}/banner/${filename}`, {
-      headers: token ? { Authorization: `Bearer ${token}` } : undefined
-    });
-
-    if (response.status === 200) {
-      toast.success("Image deleted successfully! 🗑️");
-
-      setBanners(prev =>
-        prev.map(b =>
-          b.id === bannerId ? { ...b, imageUrl: "", link: "" } : b
-        )
-      );
-
-      if (editingBanner?.id === bannerId) {
-        setFormData(prev => ({ ...prev, imageUrl: "", link: "" }));
-      }
-
-      if (viewingBanner?.id === bannerId) {
-        setViewingBanner(prev =>
-          prev ? { ...prev, imageUrl: "", link: "" } : null
-        );
-      }
-
-    } else {
-      toast.error("Failed to delete image");
-    }
-  } catch (err) {
-    console.error("Delete error:", err);
-    toast.error("Failed to delete image");
-  } finally {
-    setIsDeletingImage(false);
-    setImageDeleteConfirm(null);
-  }
-};
 
 const fetchBanners = async () => {
   try {
@@ -252,6 +215,61 @@ const fetchBanners = async () => {
   }
 };
 
+const handleDeleteImage = async (bannerId: string, imageUrl: string) => {
+  setIsDeletingImage(true);
+
+  try {
+    const token = localStorage.getItem("authToken");
+    const filename = extractFilename(imageUrl);
+
+    const response = await apiClient.delete(
+      `${API_ENDPOINTS.deleteImage}?imageUrl=${filename}`,
+      {
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined
+      }
+    );
+
+    if (response.status === 200 && response.data) {
+      toast.success("Image deleted successfully! 🗑️");
+
+      // ✅ FIX 1: Update banners list
+      setBanners(prev =>
+        prev.map(b =>
+          b.id === bannerId ? { ...b, imageUrl: "", link: "" } : b
+        )
+      );
+
+      // ✅ FIX 2: Update editingBanner (CRITICAL!)
+      if (editingBanner?.id === bannerId) {
+        setEditingBanner(prev =>
+          prev ? { ...prev, imageUrl: "", link: "" } : null
+        );
+        setFormData(prev => ({ ...prev, imageUrl: "", link: "" }));
+      }
+
+      // ✅ FIX 3: Update viewingBanner
+      if (viewingBanner?.id === bannerId) {
+        setViewingBanner(prev =>
+          prev ? { ...prev, imageUrl: "", link: "" } : null
+        );
+      }
+
+      // ✅ FIX 4: Clear image states
+      setImageFile(null);
+      setImagePreview(null);
+
+    } else {
+      toast.error("Failed to delete image");
+    }
+  } catch (err) {
+    console.error("Delete error:", err);
+    toast.error("Failed to delete image");
+  } finally {
+    setIsDeletingImage(false);
+    setImageDeleteConfirm(null);
+  }
+};
+
 // app/admin/banners/page.tsx
 const handleSubmit = async (e: React.FormEvent) => {
   e.preventDefault();
@@ -268,8 +286,9 @@ const handleSubmit = async (e: React.FormEvent) => {
       return;
     }
 
-    let finalImageUrl = formData.imageUrl; // Keep existing URL if no new file
-    let finalLinkUrl = formData.link; // Keep existing link if no new file
+    // ✅ FIX: Don't store initial values - use directly from formData
+    let finalImageUrl = ""; 
+    let finalLinkUrl = "";
 
     // STEP 1: Upload image first if new file selected
     if (imageFile) {
@@ -320,19 +339,20 @@ const handleSubmit = async (e: React.FormEvent) => {
       } catch (uploadError: any) {
         console.error("Error uploading image:", uploadError);
         toast.error("Failed to upload image. Please try again.");
-        return; // Stop if upload fails
+        return;
       }
     }
 
-    // STEP 2: Create or Update Banner with image URL
+    // STEP 2: Create or Update Banner
     const url = editingBanner
       ? API_ENDPOINTS.banners + `/${editingBanner.id}`
       : API_ENDPOINTS.banners;
 
+    // ✅ FIX: Use finalImageUrl if new upload, otherwise use formData
     const payload = {
       title: formData.title.trim(),
-      imageUrl: finalImageUrl ? getRelativeImageUrl(finalImageUrl) : "",
-      link: finalLinkUrl || "",
+      imageUrl: imageFile ? finalImageUrl : (formData.imageUrl || ""),  // ✅ FIXED
+      link: imageFile ? finalLinkUrl : (formData.link || ""),            // ✅ FIXED
       description: formData.description,
       isActive: Boolean(formData.isActive),
       displayOrder: Number(formData.displayOrder) || 1,
@@ -363,7 +383,7 @@ const handleSubmit = async (e: React.FormEvent) => {
 
     // Cleanup
     if (imagePreview) {
-      URL.revokeObjectURL(imagePreview); // Clean up blob URL
+      URL.revokeObjectURL(imagePreview);
     }
     setImageFile(null);
     setImagePreview(null);
@@ -378,8 +398,6 @@ const handleSubmit = async (e: React.FormEvent) => {
     toast.error(message);
   }
 };
-
-
 
   useEffect(() => {
     fetchBanners();

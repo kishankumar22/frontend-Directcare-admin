@@ -121,7 +121,7 @@ export default function BlogCategoriesPage() {
       const token = localStorage.getItem("authToken");
 
       await apiClient.delete(
-        `${API_ENDPOINTS.imageManagement}/blogcategory/${filename}`,
+        `${API_ENDPOINTS.deleteBlogCategoryImage}?imageUrl=${filename}`,
         {
           headers: token
             ? { Authorization: `Bearer ${token}` }

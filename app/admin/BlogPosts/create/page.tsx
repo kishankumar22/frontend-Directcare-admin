@@ -1,4 +1,6 @@
 "use client";
+// ✅ ADD this import after existing lucide-react imports
+import * as Icons from "lucide-react";
 
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
@@ -69,6 +71,8 @@ export default function CreateBlogPostPage() {
 const [slugExists, setSlugExists] = useState(false);
 const [checkingSlug, setCheckingSlug] = useState(false);
 const [slugCheckTimer, setSlugCheckTimer] = useState<NodeJS.Timeout | null>(null);
+// ✅ ADD these states after labelInput
+const [showIconSuggestions, setShowIconSuggestions] = useState(false);
 
   // ✅ Related Posts States
   const [allBlogPosts, setAllBlogPosts] = useState<{ id: string; title: string }[]>([]);
@@ -123,8 +127,8 @@ const [slugCheckTimer, setSlugCheckTimer] = useState<NodeJS.Timeout | null>(null
   // Label states
   const [labelInput, setLabelInput] = useState({
     name: "",
-    color: "#4CAF50",
-    icon: "star",
+    color: "#050505",
+    icon: "Tag",
     priority: 1,
   });
 
@@ -136,6 +140,45 @@ const [slugCheckTimer, setSlugCheckTimer] = useState<NodeJS.Timeout | null>(null
     score: 0,
     issues: [],
   });
+// ✅ ADD: Popular icons list
+// ✅ REPLACE POPULAR_ICONS with this
+const POPULAR_ICONS = [
+  // Featured & Status
+  "Star", "Fire", "Zap", "TrendingUp", "Award", "Trophy", "Medal", "Crown",
+  
+  // Engagement
+  "Heart", "ThumbsUp", "ThumbsDown", "MessageSquare", "Eye", "Share2",
+  
+  // E-commerce
+  "ShoppingCart", "ShoppingBag", "CreditCard", "DollarSign", "Tag", "Package",
+  "Gift", "Truck", "PercentSquare", "Receipt",
+  
+  // Blog Categories
+  "BookOpen", "Newspaper", "FileText", "Edit", "Pen", "Bookmark",
+  
+  // Time & Schedule
+  "Clock", "Calendar", "Timer", "AlarmClock",
+  
+  // Social & Media
+  "Image", "Video", "Music", "Camera", "Youtube", "Instagram",
+  
+  // Alerts & Info
+  "Bell", "AlertCircle", "Info", "CheckCircle", "XCircle",
+  
+  // Business
+  "Briefcase", "Building", "Users", "User", "Target",
+  
+  // Tech & Digital
+  "Smartphone", "Laptop", "Wifi", "Globe",
+];
+
+// Total: 50 icons ✅
+
+
+// ✅ ADD: Filtered icons
+const filteredIcons = POPULAR_ICONS.filter(icon =>
+  labelInput.icon.toLowerCase().includes(icon.toLowerCase())
+);
 
   // Word count
   const [wordCount, setWordCount] = useState(0);
@@ -153,7 +196,7 @@ const checkSlugExists = async (slug: string) => {
 
     // Fetch all blog posts and check if slug exists
     const response = await apiClient.get<ApiResponse<any[]>>(
-      "/api/BlogPosts",
+      `${API_ENDPOINTS.blogPosts}?includeUnpublished=true&onlyHomePage=true`,
       {
         headers: {
           ...(token && { Authorization: `Bearer ${token}` }),
@@ -216,6 +259,24 @@ const checkSlugExists = async (slug: string) => {
     fetchPopularTags();
     fetchAllBlogPosts(); // ✅ Added
   }, []);
+// ✅ ADD: Close dropdown when clicking outside
+useEffect(() => {
+  const handleClickOutside = (event: MouseEvent) => {
+    const target = event.target as HTMLElement;
+    
+    // Check if click is outside the icon input
+    if (!target.closest('.icon-search-container')) {
+      setShowIconSuggestions(false);
+    }
+  };
+
+  if (showIconSuggestions) {
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }
+}, [showIconSuggestions]);
 
   // ✅ Click Outside Handler for Dropdown
   useEffect(() => {
@@ -301,6 +362,28 @@ const checkSlugExists = async (slug: string) => {
       };
     });
   };
+// ✅ ADD: Render icon function
+const renderIcon = (iconName: string, className: string = "h-4 w-4", color?: string) => {
+  if (!iconName || iconName.trim() === "") {
+    return <Icons.Tag className={className} style={{ color }} />;
+  }
+  
+  try {
+    const IconComponent = (Icons as any)[iconName];
+    
+    if (
+      IconComponent && 
+      typeof IconComponent === 'object' && 
+      '$$typeof' in IconComponent
+    ) {
+      return <IconComponent className={className} style={{ color }} />;
+    }
+  } catch (error) {
+    // Silent
+  }
+  
+  return <Icons.Tag className={className} style={{ color }} />;
+};
 
   // ✅ Filter Posts for Dropdown - OPTIMIZED
   const filteredBlogPosts = allBlogPosts.filter((post) => {
@@ -504,7 +587,7 @@ const checkSlugExists = async (slug: string) => {
     setLabelInput({
       name: "",
       color: "#4CAF50",
-      icon: "star",
+      icon: "Star",
       priority: 1,
     });
 
@@ -1463,6 +1546,7 @@ const handleSlugChange = (value: string) => {
 
             {/* Labels Section */}
 {/* ✅ COMPLETE LABELS SECTION - REPLACE ENTIRE SECTION */}
+{/* ✅ REPLACE ENTIRE LABELS SECTION */}
 <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-xl p-6">
   <h3 className="text-lg font-semibold text-white mb-4">Labels</h3>
 
@@ -1479,15 +1563,12 @@ const handleSlugChange = (value: string) => {
             color: label.color,
           }}
         >
-          {/* Color Indicator Dot */}
-          <div
-            className="w-3 h-3 rounded-full"
-            style={{ backgroundColor: label.color }}
-          />
+          {/* Icon */}
+          {renderIcon(label.icon, "h-3.5 w-3.5", label.color)}
+          
           <span className="text-sm font-medium">{label.name}</span>
-          <span className="text-xs opacity-70">
-            Priority: {label.priority}
-          </span>
+          <span className="text-xs opacity-70">P:{label.priority}</span>
+          
           <button
             onClick={() => handleRemoveLabel(index)}
             className="hover:opacity-70 transition-opacity"
@@ -1499,79 +1580,109 @@ const handleSlugChange = (value: string) => {
     </div>
   )}
 
+  {/* Quick Icon Buttons */}
+  <div className="flex flex-wrap gap-2 mb-3">
+    {["Star", "Fire", "Zap", "Heart", "Trophy", "Crown", "ThumbsUp", "Share2", "Eye", "Image",
+      "Video", "Music", "ShoppingCart", "Gift", "Package", "Sun", "Moon", "Cloud", "CloudRain", 
+      "Leaf", "Flower", "Building", "DollarSign", "CreditCard", "Clock", "Calendar"].map((icon) => (
+      <button
+        key={icon}
+        onClick={() => setLabelInput({ ...labelInput, icon })}
+        className="px-2 py-1 text-xs bg-slate-800 hover:bg-violet-600 border border-slate-600 rounded flex items-center gap-1 text-slate-300 hover:text-white transition-colors"
+      >
+        {renderIcon(icon, "h-3 w-3")}
+        {icon}
+      </button>
+    ))}
+  </div>
+
   {/* Add Label Form */}
   <div className="space-y-3">
-    {/* Row 1: Name & Color */}
+    <input
+      type="text"
+      value={labelInput.name}
+      onChange={(e) => setLabelInput({ ...labelInput, name: e.target.value })}
+      placeholder="Label name (e.g., Featured)"
+      className="w-full px-4 py-2.5 bg-slate-800/50 border border-slate-600 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 text-sm"
+    />
+
     <div className="grid grid-cols-2 gap-3">
-      <input
-        type="text"
-        value={labelInput.name}
-        onChange={(e) =>
-          setLabelInput({ ...labelInput, name: e.target.value })
-        }
-        placeholder="Label name (e.g., Featured)"
-        className="px-4 py-2.5 bg-slate-800/50 border border-slate-600 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 text-sm"
-      />
-      
-      {/* Enhanced Color Picker */}
+      {/* Color Picker */}
       <div className="flex items-center gap-2">
         <input
           type="color"
           value={labelInput.color}
-          onChange={(e) =>
-            setLabelInput({ ...labelInput, color: e.target.value })
-          }
-          className="w-14 h-11 rounded-lg cursor-pointer border-2 border-slate-600 bg-slate-800"
+          onChange={(e) => setLabelInput({ ...labelInput, color: e.target.value })}
+          className="w-14 h-11 rounded-lg cursor-pointer border-2 border-slate-600"
         />
         <div
-          className="w-11 h-11 rounded-lg border-2 border-slate-600"
+          className="w-11 h-11 rounded-lg border-2 border-slate-600 flex items-center justify-center"
           style={{ backgroundColor: labelInput.color }}
-          title={labelInput.color}
-        />
+        >
+          {renderIcon(labelInput.icon, "h-5 w-5", "#ffffff")}
+        </div>
+      </div>
+
+      {/* Icon Input with Autocomplete */}
+      <div className="relative">
         <input
           type="text"
-          value={labelInput.color}
-          onChange={(e) =>
-            setLabelInput({ ...labelInput, color: e.target.value })
-          }
-          placeholder="#8B5CF6"
-          className="flex-1 px-3 py-2 bg-slate-800/50 border border-slate-600 rounded-lg text-white text-xs font-mono focus:outline-none focus:ring-2 focus:ring-violet-500"
+          value={labelInput.icon}
+          onChange={(e) => {
+            setLabelInput({ ...labelInput, icon: e.target.value });
+            setShowIconSuggestions(true);
+          }}
+          onFocus={() => setShowIconSuggestions(true)}
+          placeholder="Icon name"
+          className="w-full px-4 py-2.5 pr-10 bg-slate-800/50 border border-slate-600 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 text-sm"
         />
+        
+        {labelInput.icon && (
+          <button
+            onClick={() => {
+              setLabelInput({ ...labelInput, icon: "" });
+              setShowIconSuggestions(false);
+            }}
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-red-400"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        )}
+
+        {showIconSuggestions && filteredIcons.length > 0 && (
+          <div className="absolute z-50 mt-2 w-full bg-slate-800 border border-slate-600 rounded-lg shadow-xl max-h-48 overflow-y-auto">
+            {filteredIcons.map((icon) => (
+              <button
+                key={icon}
+                onClick={() => {
+                  setLabelInput({ ...labelInput, icon });
+                  setShowIconSuggestions(false);
+                }}
+                className="w-full px-3 py-2 text-left hover:bg-slate-700 text-white text-sm flex items-center gap-2"
+              >
+                {renderIcon(icon, "h-4 w-4")}
+                <span>{icon}</span>
+              </button>
+            ))}
+          </div>
+        )}
       </div>
     </div>
 
-    {/* Row 2: Icon & Priority */}
-    <div className="grid grid-cols-2 gap-3">
-      <input
-        type="text"
-        value={labelInput.icon}
-        onChange={(e) =>
-          setLabelInput({ ...labelInput, icon: e.target.value })
-        }
-        placeholder="Icon (e.g., star, fire)"
-        className="px-4 py-2.5 bg-slate-800/50 border border-slate-600 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 text-sm"
-      />
-      <input
-        type="number"
-        value={labelInput.priority}
-        onChange={(e) =>
-          setLabelInput({
-            ...labelInput,
-            priority: parseInt(e.target.value) || 1,
-          })
-        }
-        placeholder="Priority (1-10)"
-        min={1}
-        max={10}
-        className="px-4 py-2.5 bg-slate-800/50 border border-slate-600 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500"
-      />
-    </div>
+    <input
+      type="number"
+      value={labelInput.priority}
+      onChange={(e) => setLabelInput({ ...labelInput, priority: parseInt(e.target.value) || 1 })}
+      placeholder="Priority (1-10)"
+      min={1}
+      max={10}
+      className="w-full px-4 py-2.5 bg-slate-800/50 border border-slate-600 rounded-lg text-white"
+    />
 
-    {/* Add Button */}
     <button
       onClick={handleAddLabel}
       disabled={!labelInput.name.trim()}
-      className="w-full px-4 py-2.5 bg-violet-600 hover:bg-violet-700 disabled:bg-slate-700 disabled:cursor-not-allowed text-white rounded-lg transition-all text-sm font-medium flex items-center justify-center gap-2"
+      className="w-full px-4 py-2.5 bg-violet-600 hover:bg-violet-700 disabled:bg-slate-700 text-white rounded-lg font-medium flex items-center justify-center gap-2"
     >
       <Plus className="h-4 w-4" />
       Add Label

@@ -1,8 +1,14 @@
 "use client";
+// ✅ ADD these imports at top of file
+import React, { useState } from "react";
+import * as Icons from "lucide-react";
 
-import { useState, useEffect, useRef } from "react";
+
+
+import {  useEffect, useRef } from "react";
 import { useRouter, useParams } from "next/navigation";
 import {
+  Tag,
   ArrowLeft,
   Save,
   Upload,
@@ -58,6 +64,52 @@ export default function EditBlogPostPage() {
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   let slugTimer: any;
+// ✅ REPLACE POPULAR_ICONS with this
+const POPULAR_ICONS = [
+  // Featured & Status
+  "Star", "Fire", "Zap", "TrendingUp", "Award", "Trophy", "Medal", "Crown",
+  
+  // Engagement
+  "Heart", "ThumbsUp", "ThumbsDown", "MessageSquare", "Eye", "Share2",
+  
+  // E-commerce
+  "ShoppingCart", "ShoppingBag", "CreditCard", "DollarSign", "Tag", "Package",
+  "Gift", "Truck", "PercentSquare", "Receipt",
+  
+  // Blog Categories
+  "BookOpen", "Newspaper", "FileText", "Edit", "Pen", "Bookmark",
+  
+  // Time & Schedule
+  "Clock", "Calendar", "Timer", "AlarmClock",
+  
+  // Social & Media
+  "Image", "Video", "Music", "Camera", "Youtube", "Instagram",
+  
+  // Alerts & Info
+  "Bell", "AlertCircle", "Info", "CheckCircle", "XCircle",
+  
+  // Business
+  "Briefcase", "Building", "Users", "User", "Target",
+  
+  // Tech & Digital
+  "Smartphone", "Laptop", "Wifi", "Globe",
+];
+
+// ✅ ADD: Extract filename from URL
+const extractFilename = (imageUrl: string) => {
+  if (!imageUrl) return "";
+
+  // Remove full domain if present
+  const cleanedUrl = imageUrl.replace(API_BASE_URL, "");
+
+  // Split by "/" to extract last segment
+  const parts = cleanedUrl.split("/");
+
+  // Return only filename
+  return parts.pop() || "";
+};
+
+
 
   // States
   const [loading, setLoading] = useState(true);
@@ -78,6 +130,39 @@ export default function EditBlogPostPage() {
 // ✅ ADD these states
 const [slugExists, setSlugExists] = useState(false);
 const [checkingSlug, setCheckingSlug] = useState(false);
+// ✅ ADD this state for icon dropdown
+
+
+// ✅ ADD these states
+const [showIconSuggestions, setShowIconSuggestions] = useState(false);
+
+const renderIcon = (iconName: string, className: string = "h-4 w-4", color?: string) => {
+  if (!iconName || iconName.trim() === "") {
+    const TagIcon = Icons.Tag;
+    return <TagIcon className={className} style={{ color }} />;
+  }
+  
+  try {
+    // Get icon from Icons object
+    const IconComponent = (Icons as any)[iconName];
+    
+    // Check if it exists and is a React component
+    if (
+      IconComponent && 
+      typeof IconComponent === 'object' && 
+      '$$typeof' in IconComponent
+    ) {
+      return <IconComponent className={className} style={{ color }} />;
+    }
+  } catch (error) {
+    // Silent error
+  }
+  
+  // Fallback to Tag icon
+  const TagIcon = Icons.Tag;
+  return <TagIcon className={className} style={{ color }} />;
+};
+
 
   // Form states - ALL FIELDS
   const [formData, setFormData] = useState({
@@ -122,17 +207,29 @@ const [checkingSlug, setCheckingSlug] = useState(false);
   const [thumbnailImagePreview, setThumbnailImagePreview] = useState("");
   const [galleryImages, setGalleryImages] = useState<File[]>([]);
   const [galleryImagePreviews, setGalleryImagePreviews] = useState<string[]>([]);
+// ✅ ADD: Close icon suggestions when clicking outside
+useEffect(() => {
+  const handleClickOutside = () => setShowIconSuggestions(false);
+  
+  if (showIconSuggestions) {
+    document.addEventListener('click', handleClickOutside);
+    return () => document.removeEventListener('click', handleClickOutside);
+  }
+}, [showIconSuggestions]);
 
   // Label states
   const [labelInput, setLabelInput] = useState({
     name: "",
-    color: "#4CAF50",
-    icon: "star",
+    color: "#050505",
+    icon: "Tag",
     priority: 1,
   });
-
+// Filter icons
+const filteredIcons = POPULAR_ICONS.filter(icon =>
+  icon.toLowerCase().includes(labelInput.icon.toLowerCase())
+);
   // Tag input
-  const [tagInput, setTagInput] = useState("");
+  const [tagInput, setTagInput] = useState("")
 
   // SEO Analysis
   const [seoAnalysis, setSeoAnalysis] = useState<SEOAnalysis>({
@@ -170,6 +267,46 @@ const [checkingSlug, setCheckingSlug] = useState(false);
       console.error("❌ Error fetching blog posts:", error);
     }
   };
+  // ✅ ADD: Delete image from server
+const deleteImageFromServer = async (imageUrl: string) => {
+  if (!imageUrl) return;
+
+  try {
+    const filename = extractFilename(imageUrl);
+    
+    if (!filename) {
+      console.log("No filename extracted from:", imageUrl);
+      return;
+    }
+
+    console.log("🗑️ Deleting image:", filename);
+
+    const token = localStorage.getItem("authToken");
+    
+    const response = await apiClient.delete<ApiResponse<boolean>>(
+      `${API_ENDPOINTS.deleteBlogPostImage}?imageUrl=${encodeURIComponent(filename)}`,
+      {
+        headers: {
+          ...(token && { Authorization: `Bearer ${token}` }),
+        },
+      }
+    );
+
+    if (response.data?.success) {
+      console.log("✅ Image deleted from server:", filename);
+      toast.success("Image deleted successfully");
+      return true;
+    } else {
+      console.log("❌ Failed to delete image:", response.data?.message);
+      return false;
+    }
+  } catch (error: any) {
+    console.error("Error deleting image:", error);
+    // Don't show error to user - image might already be deleted
+    return false;
+  }
+};
+
 // ✅ ADD this function - Important: Excludes current post
 const checkSlugExists = async (slug: string) => {
   if (!slug || slug.length < 3) {
@@ -337,7 +474,7 @@ const checkSlugExists = async (slug: string) => {
           authorName: post.authorName || "",
           authorId: post.authorId || "",
           tags: Array.isArray(post.tags) ? post.tags : [],
-          labels: Array.isArray(post.labels) ? post.labels : [],
+        labels: Array.isArray(post.labels) ? post.labels : [], // ✅ Prefill labels
           limitedToStores: post.limitedToStores || false,
           storeIds: Array.isArray(post.storeIds) ? post.storeIds : [],
           customerRoles: post.customerRoles || "",
@@ -537,6 +674,44 @@ if (categoryId) {
       return null;
     }
   };
+// ✅ REPLACE: Delete featured image with API call
+const handleDeleteFeaturedImage = async () => {
+  // Delete from server if URL exists
+  if (formData.featuredImageUrl) {
+    await deleteImageFromServer(formData.featuredImageUrl);
+  }
+
+  // Clear local state
+  setFeaturedImage(null);
+  setFeaturedImagePreview("");
+  
+  // Clear from formData
+  setFormData({
+    ...formData,
+    featuredImageUrl: "",
+  });
+
+  toast.success("Featured image removed");
+};
+// ✅ REPLACE: Delete thumbnail image with API call
+const handleDeleteThumbnailImage = async () => {
+  // Delete from server if URL exists
+  if (formData.thumbnailImageUrl) {
+    await deleteImageFromServer(formData.thumbnailImageUrl);
+  }
+
+  // Clear local state
+  setThumbnailImage(null);
+  setThumbnailImagePreview("");
+  
+  // Clear from formData
+  setFormData({
+    ...formData,
+    thumbnailImageUrl: "",
+  });
+
+  toast.success("Thumbnail image removed");
+};
 
   // Featured image change
   const handleFeaturedImageChange = async (
@@ -578,18 +753,26 @@ if (categoryId) {
   };
 
   // Remove gallery image
-  const handleRemoveGalleryImage = (index: number) => {
-    setGalleryImages((prev) => prev.filter((_, i) => i !== index));
-    setGalleryImagePreviews((prev) => prev.filter((_, i) => i !== index));
+ // ✅ REPLACE: Delete gallery image with API call
+const handleRemoveGalleryImage = async (index: number) => {
+  // Check if it's an existing server image
+  if (index < formData.imageUrls.length) {
+    const imageUrl = formData.imageUrls[index];
+    await deleteImageFromServer(imageUrl);
     
-    // Also remove from formData if it's an existing URL
-    if (index < formData.imageUrls.length) {
-      setFormData((prev) => ({
-        ...prev,
-        imageUrls: prev.imageUrls.filter((_, i) => i !== index),
-      }));
-    }
-  };
+    // Remove from formData
+    setFormData((prev) => ({
+      ...prev,
+      imageUrls: prev.imageUrls.filter((_, i) => i !== index),
+    }));
+  }
+
+  // Remove from preview arrays
+  setGalleryImages((prev) => prev.filter((_, i) => i !== index));
+  setGalleryImagePreviews((prev) => prev.filter((_, i) => i !== index));
+
+  toast.success("Gallery image removed");
+};
 
   // Label management
   const handleAddLabel = () => {
@@ -612,8 +795,8 @@ if (categoryId) {
 
     setLabelInput({
       name: "",
-      color: "#4CAF50",
-      icon: "star",
+      color: "#050505",
+      icon: "",
       priority: 1,
     });
 
@@ -1280,7 +1463,7 @@ const handleSlugChange = (value: string) => {
       <div className="max-w-[1920px] mx-auto px-6 py-6">
         <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
           {/* Main Content - Same as Create Page */}
-          <div className="xl:col-span-2 space-y-4">
+          <div className="xl:col-span-2 space-y-2">
             {/* Title */}
             <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-xl p-2">
               <input
@@ -1406,160 +1589,157 @@ const handleSlugChange = (value: string) => {
             </div>
 
             {/* Image Upload Section - Same as Create Page */}
-            <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-xl p-6">
-              <div className="flex items-center gap-2 mb-4">
-                <div className="w-8 h-8 rounded-lg bg-violet-500/10 flex items-center justify-center">
-                  <ImagePlus className="h-4 w-4 text-violet-400" />
-                </div>
-                <h3 className="text-lg font-semibold text-white">Images</h3>
-              </div>
+{/* ✅ COMPLETE IMAGES SECTION WITH API DELETE */}
+<div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-xl p-6">
+  <div className="flex items-center gap-2 mb-4">
+    <div className="w-8 h-8 rounded-lg bg-violet-500/10 flex items-center justify-center">
+      <ImagePlus className="h-4 w-4 text-violet-400" />
+    </div>
+    <h3 className="text-lg font-semibold text-white">Images</h3>
+  </div>
 
-              <div className="space-y-6">
-                {/* Featured Image */}
-                <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-2">
-                    Featured Image
-                  </label>
-                  {featuredImagePreview ? (
-                    <div className="relative">
-                      <img
-                        src={featuredImagePreview}
-                        alt="Featured"
-                        className="w-full h-48 object-cover rounded-lg border-2 border-dashed border-slate-600"
-                      />
-                      <button
-                        onClick={() => {
-                          setFeaturedImage(null);
-                          setFeaturedImagePreview("");
-                          setFormData({ ...formData, featuredImageUrl: "" });
-                        }}
-                        className="absolute top-2 right-2 p-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-all"
-                      >
-                        <X className="h-4 w-4" />
-                      </button>
-                      <label className="mt-3 block w-full px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white text-center rounded-lg cursor-pointer transition-all text-sm">
-                        Change Image
-                        <input
-                          type="file"
-                          accept="image/*"
-                          onChange={handleFeaturedImageChange}
-                          className="hidden"
-                        />
-                      </label>
-                    </div>
-                  ) : (
-                    <label className="flex flex-col items-center justify-center w-full h-48 border-2 border-dashed border-slate-600 rounded-lg cursor-pointer hover:border-violet-500 transition-all group">
-                      <div className="flex flex-col items-center">
-                        <Upload className="h-12 w-12 text-slate-500 group-hover:text-violet-400 transition-colors mb-2" />
-                        <p className="text-sm text-slate-400 text-center">
-                          <span className="font-semibold text-white">
-                            Click to upload
-                          </span>{" "}
-                          or drag and drop
-                        </p>
-                        <p className="text-xs text-slate-500 mt-1">
-                          PNG, JPG, GIF up to 10MB
-                        </p>
-                      </div>
-                      <input
-                        type="file"
-                        accept="image/*"
-                        onChange={handleFeaturedImageChange}
-                        className="hidden"
-                      />
-                    </label>
-                  )}
-                </div>
+  <div className="space-y-6">
+    {/* Featured Image */}
+    <div>
+      <label className="block text-sm font-medium text-slate-300 mb-2">
+        Featured Image
+      </label>
+      {featuredImagePreview ? (
+        <div className="relative">
+          <img
+            src={featuredImagePreview}
+            alt="Featured"
+            className="w-full h-48 object-cover rounded-lg border-2 border-dashed border-slate-600"
+          />
+          <button
+            onClick={handleDeleteFeaturedImage}
+            className="absolute top-2 right-2 p-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-all shadow-lg"
+            title="Delete featured image"
+          >
+            <X className="h-4 w-4" />
+          </button>
+          <label className="mt-3 block w-full px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white text-center rounded-lg cursor-pointer transition-all text-sm">
+            Change Image
+            <input
+              type="file"
+              accept="image/*"
+              onChange={handleFeaturedImageChange}
+              className="hidden"
+            />
+          </label>
+        </div>
+      ) : (
+        <label className="flex flex-col items-center justify-center w-full h-48 border-2 border-dashed border-slate-600 rounded-lg cursor-pointer hover:border-violet-500 transition-all group">
+          <div className="flex flex-col items-center">
+            <Upload className="h-12 w-12 text-slate-500 group-hover:text-violet-400 transition-colors mb-2" />
+            <p className="text-sm text-slate-400 text-center">
+              <span className="font-semibold text-white">
+                Click to upload
+              </span>{" "}
+              or drag and drop
+            </p>
+            <p className="text-xs text-slate-500 mt-1">
+              PNG, JPG, GIF up to 10MB
+            </p>
+          </div>
+          <input
+            type="file"
+            accept="image/*"
+            onChange={handleFeaturedImageChange}
+            className="hidden"
+          />
+        </label>
+      )}
+    </div>
 
-                {/* Thumbnail Image */}
-                <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-2">
-                    Thumbnail Image
-                  </label>
-                  {thumbnailImagePreview ? (
-                    <div className="relative">
-                      <img
-                        src={thumbnailImagePreview}
-                        alt="Thumbnail"
-                        className="w-full h-32 object-cover rounded-lg border-2 border-dashed border-slate-600"
-                      />
-                      <button
-                        onClick={() => {
-                          setThumbnailImage(null);
-                          setThumbnailImagePreview("");
-                          setFormData({ ...formData, thumbnailImageUrl: "" });
-                        }}
-                        className="absolute top-2 right-2 p-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-all"
-                      >
-                        <X className="h-4 w-4" />
-                      </button>
-                      <label className="mt-3 block w-full px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white text-center rounded-lg cursor-pointer transition-all text-sm">
-                        Change Thumbnail
-                        <input
-                          type="file"
-                          accept="image/*"
-                          onChange={handleThumbnailImageChange}
-                          className="hidden"
-                        />
-                      </label>
-                    </div>
-                  ) : (
-                    <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-slate-600 rounded-lg cursor-pointer hover:border-violet-500 transition-all group">
-                      <Upload className="h-8 w-8 text-slate-500 group-hover:text-violet-400 transition-colors" />
-                      <p className="text-xs text-slate-400 mt-2">Upload Thumbnail</p>
-                      <input
-                        type="file"
-                        accept="image/*"
-                        onChange={handleThumbnailImageChange}
-                        className="hidden"
-                      />
-                    </label>
-                  )}
-                </div>
+    {/* Thumbnail Image */}
+    <div>
+      <label className="block text-sm font-medium text-slate-300 mb-2">
+        Thumbnail Image
+      </label>
+      {thumbnailImagePreview ? (
+        <div className="relative">
+          <img
+            src={thumbnailImagePreview}
+            alt="Thumbnail"
+            className="w-full h-32 object-cover rounded-lg border-2 border-dashed border-slate-600"
+          />
+          <button
+            onClick={handleDeleteThumbnailImage}
+            className="absolute top-2 right-2 p-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-all shadow-lg"
+            title="Delete thumbnail image"
+          >
+            <X className="h-4 w-4" />
+          </button>
+          <label className="mt-3 block w-full px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white text-center rounded-lg cursor-pointer transition-all text-sm">
+            Change Thumbnail
+            <input
+              type="file"
+              accept="image/*"
+              onChange={handleThumbnailImageChange}
+              className="hidden"
+            />
+          </label>
+        </div>
+      ) : (
+        <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-slate-600 rounded-lg cursor-pointer hover:border-violet-500 transition-all group">
+          <Upload className="h-8 w-8 text-slate-500 group-hover:text-violet-400 transition-colors" />
+          <p className="text-xs text-slate-400 mt-2">Upload Thumbnail</p>
+          <input
+            type="file"
+            accept="image/*"
+            onChange={handleThumbnailImageChange}
+            className="hidden"
+          />
+        </label>
+      )}
+    </div>
 
-                {/* Gallery Images */}
-                <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-2">
-                    Gallery Images
-                  </label>
-                  <div className="grid grid-cols-3 gap-3 mb-3">
-                    {galleryImagePreviews.map((preview, index) => (
-                      <div key={index} className="relative group">
-                        <img
-                          src={preview}
-                          alt={`Gallery ${index + 1}`}
-                          className="w-full h-24 object-cover rounded-lg border border-slate-600"
-                        />
-                        <button
-                          onClick={() => handleRemoveGalleryImage(index)}
-                          className="absolute top-1 right-1 p-1 bg-red-500 text-white rounded opacity-0 group-hover:opacity-100 transition-opacity"
-                        >
-                          <Trash2 className="h-3 w-3" />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                  <label className="flex flex-col items-center justify-center w-full h-24 border-2 border-dashed border-slate-600 rounded-lg cursor-pointer hover:border-violet-500 transition-all">
-                    <Plus className="h-6 w-6 text-slate-500" />
-                    <p className="text-xs text-slate-400 mt-1">Add Gallery Images</p>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      multiple
-                      onChange={handleGalleryImagesChange}
-                      className="hidden"
-                    />
-                  </label>
-                </div>
-              </div>
-            </div>
+    {/* Gallery Images */}
+    <div>
+      <label className="block text-sm font-medium text-slate-300 mb-2">
+        Gallery Images
+      </label>
+      <div className="grid grid-cols-3 gap-3 mb-3">
+        {galleryImagePreviews.map((preview, index) => (
+          <div key={index} className="relative group">
+            <img
+              src={preview}
+              alt={`Gallery ${index + 1}`}
+              className="w-full h-24 object-cover rounded-lg border border-slate-600"
+            />
+            <button
+              onClick={() => handleRemoveGalleryImage(index)}
+              className="absolute top-1 right-1 p-1 bg-red-500 text-white rounded opacity-0 group-hover:opacity-100 transition-opacity shadow-lg"
+              title="Delete gallery image"
+            >
+              <Trash2 className="h-3 w-3" />
+            </button>
+          </div>
+        ))}
+      </div>
+      <label className="flex flex-col items-center justify-center w-full h-24 border-2 border-dashed border-slate-600 rounded-lg cursor-pointer hover:border-violet-500 transition-all group">
+        <Plus className="h-6 w-6 text-slate-500 group-hover:text-violet-400 transition-colors" />
+        <p className="text-xs text-slate-400 mt-1">Add Gallery Images</p>
+        <input
+          type="file"
+          accept="image/*"
+          multiple
+          onChange={handleGalleryImagesChange}
+          className="hidden"
+        />
+      </label>
+    </div>
+  </div>
+</div>
+
 
             {/* Labels Section */}
-{/* ✅ ADD THIS IN EDIT PAGE - After Tags Section */}
+{/* ✅ COMPLETE FIXED LABELS SECTION */}
 <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-xl p-6">
   <h3 className="text-lg font-semibold text-white mb-4">Labels</h3>
 
-  {/* Existing Labels Display */}
+  {/* Existing Labels */}
   {formData.labels.length > 0 && (
     <div className="flex flex-wrap gap-2 mb-4">
       {formData.labels.map((label, index) => (
@@ -1572,18 +1752,17 @@ const handleSlugChange = (value: string) => {
             color: label.color,
           }}
         >
-          {/* Color Indicator */}
-          <div
-            className="w-3 h-3 rounded-full"
-            style={{ backgroundColor: label.color }}
-          />
+          {/* Icon */}
+          {renderIcon(label.icon, "h-3.5 w-3.5", label.color)}
+          
+          {/* ❌ REMOVED: Color Dot */}
+          
           <span className="text-sm font-medium">{label.name}</span>
-          <span className="text-xs opacity-70">
-            Priority: {label.priority}
-          </span>
+          <span className="text-xs opacity-70">P:{label.priority}</span>
+          
           <button
             onClick={() => handleRemoveLabel(index)}
-            className="hover:opacity-70 transition-opacity"
+            className="hover:opacity-70 transition-opacity ml-1"
           >
             <X className="h-3 w-3" />
           </button>
@@ -1592,63 +1771,109 @@ const handleSlugChange = (value: string) => {
     </div>
   )}
 
+  {/* Quick Icon Buttons */}
+  <div className="flex flex-wrap gap-2 mb-3">
+    {["Star", "Fire", "Zap", "Heart", "Trophy", "Crown", "ThumbsUp", "Share2", "Eye", "Image",
+      "Video", "Music", "ShoppingCart", "Gift", "Package", "Sun", "Moon", "Cloud", "CloudRain", 
+      "Leaf", "Flower", "Building", "DollarSign", "CreditCard", "Clock", "Calendar"].map((icon) => (
+      <button
+        key={icon}
+        onClick={() => setLabelInput({ ...labelInput, icon })}
+        className="px-2 py-1 text-xs bg-slate-800 hover:bg-violet-600 border border-slate-600 rounded flex items-center gap-1 text-slate-300 hover:text-white transition-colors"
+      >
+        {renderIcon(icon, "h-3 w-3")}
+        {icon}
+      </button>
+    ))}
+  </div>
+
   {/* Add Label Form */}
   <div className="space-y-3">
-    {/* Row 1: Name & Color */}
+    {/* Name Input */}
+    <input
+      type="text"
+      value={labelInput.name}
+      onChange={(e) => setLabelInput({ ...labelInput, name: e.target.value })}
+      placeholder="Label name (e.g., Featured)"
+      className="w-full px-4 py-2.5 bg-slate-800/50 border border-slate-600 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 text-sm"
+    />
+
+    {/* Color & Icon Row */}
     <div className="grid grid-cols-2 gap-3">
-      <input
-        type="text"
-        value={labelInput.name}
-        onChange={(e) =>
-          setLabelInput({ ...labelInput, name: e.target.value })
-        }
-        placeholder="Label name (e.g., Featured)"
-        className="px-4 py-2.5 bg-slate-800/50 border border-slate-600 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 text-sm"
-      />
-      
-      {/* Color Picker with Preview */}
+      {/* Color Picker */}
       <div className="flex items-center gap-2">
         <input
           type="color"
           value={labelInput.color}
-          onChange={(e) =>
-            setLabelInput({ ...labelInput, color: e.target.value })
-          }
+          onChange={(e) => setLabelInput({ ...labelInput, color: e.target.value })}
           className="w-14 h-11 rounded-lg cursor-pointer border-2 border-slate-600"
         />
         <div
-          className="w-11 h-11 rounded-lg border-2 border-slate-600"
+          className="w-11 h-11 rounded-lg border-2 border-slate-600 flex items-center justify-center"
           style={{ backgroundColor: labelInput.color }}
+        >
+          {renderIcon(labelInput.icon, "h-5 w-5", "#ffffff")}
+        </div>
+      </div>
+
+      {/* Icon Input with Autocomplete */}
+      <div className="relative">
+        <input
+          type="text"
+          value={labelInput.icon}
+          onChange={(e) => {
+            setLabelInput({ ...labelInput, icon: e.target.value });
+            setShowIconSuggestions(true);
+          }}
+          onFocus={() => setShowIconSuggestions(true)}
+          placeholder="Icon name (e.g., Star)"
+          className="w-full px-4 py-2.5 pr-10 bg-slate-800/50 border border-slate-600 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 text-sm"
         />
+        
+        {/* Clear Button */}
+        {labelInput.icon && (
+          <button
+            onClick={() => {
+              setLabelInput({ ...labelInput, icon: "" });
+              setShowIconSuggestions(false);
+            }}
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-red-400 transition-colors"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        )}
+
+        {/* Icon Suggestions Dropdown */}
+        {showIconSuggestions && filteredIcons.length > 0 && (
+          <div className="absolute z-50 mt-2 w-full bg-slate-800 border border-slate-600 rounded-lg shadow-xl max-h-48 overflow-y-auto">
+            {filteredIcons.map((icon) => (
+              <button
+                key={icon}
+                onClick={() => {
+                  setLabelInput({ ...labelInput, icon });
+                  setShowIconSuggestions(false);
+                }}
+                className="w-full px-3 py-2 text-left hover:bg-slate-700 text-white text-sm flex items-center gap-2 transition-colors"
+              >
+                {renderIcon(icon, "h-4 w-4")}
+                <span>{icon}</span>
+              </button>
+            ))}
+          </div>
+        )}
       </div>
     </div>
 
-    {/* Row 2: Icon & Priority */}
-    <div className="grid grid-cols-2 gap-3">
-      <input
-        type="text"
-        value={labelInput.icon}
-        onChange={(e) =>
-          setLabelInput({ ...labelInput, icon: e.target.value })
-        }
-        placeholder="Icon (e.g., star)"
-        className="px-4 py-2.5 bg-slate-800/50 border border-slate-600 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 text-sm"
-      />
-      <input
-        type="number"
-        value={labelInput.priority}
-        onChange={(e) =>
-          setLabelInput({
-            ...labelInput,
-            priority: parseInt(e.target.value) || 1,
-          })
-        }
-        placeholder="Priority"
-        min={1}
-        max={10}
-        className="px-4 py-2.5 bg-slate-800/50 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-violet-500"
-      />
-    </div>
+    {/* Priority */}
+    <input
+      type="number"
+      value={labelInput.priority}
+      onChange={(e) => setLabelInput({ ...labelInput, priority: parseInt(e.target.value) || 1 })}
+      placeholder="Priority (1-10)"
+      min={1}
+      max={10}
+      className="w-full px-4 py-2.5 bg-slate-800/50 border border-slate-600 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500"
+    />
 
     {/* Add Button */}
     <button
@@ -1661,6 +1886,8 @@ const handleSlugChange = (value: string) => {
     </button>
   </div>
 </div>
+
+
 
 
             {/* SEO Settings - Same as Create Page */}

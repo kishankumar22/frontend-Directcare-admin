@@ -113,7 +113,7 @@ export default function BlogPostsPage() {
     try {
       const token = localStorage.getItem("authToken");
       const response = await apiClient.get<ApiResponse<BlogPost[]>>(
-        "/api/BlogPosts",
+        `${API_ENDPOINTS.blogPosts}?includeUnpublished=true&onlyHomePage=true`,
         {
           headers: {
             ...(token && { Authorization: `Bearer ${token}` }),
@@ -157,7 +157,7 @@ export default function BlogPostsPage() {
     try {
       const token = localStorage.getItem("authToken");
       const response = await apiClient.delete<ApiResponse<null>>(
-        `/api/BlogPosts/${id}`, 
+        `${API_ENDPOINTS.blogPosts}/${id}`, 
         {
           headers: token ? { Authorization: `Bearer ${token}` } : undefined,
         }
