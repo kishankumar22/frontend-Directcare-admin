@@ -2,23 +2,20 @@ export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://localhos
 
 export const API_ENDPOINTS = {
   // Auth
-  login: `${API_BASE_URL}/api/auth/login`,
-  register: `${API_BASE_URL}/api/auth/register`,
+  login: `${API_BASE_URL}/api/Auth/login`,
+  register: `${API_BASE_URL}/api/Auth/register`,
 
   // Categories
-  categories: `${API_BASE_URL}/api/categories`,
+  categories: `${API_BASE_URL}/api/Categories`,
 
   // Brands
-  brands: `${API_BASE_URL}/api/brands`,
-
-  // Manufacturers
-  manufacturers: `${API_BASE_URL}/api/manufacturers`,
+  brands: `${API_BASE_URL}/api/Brands`,
 
   // Products
-  products: `${API_BASE_URL}/api/products`,
+  products: `${API_BASE_URL}/api/Products`,
 
   // Orders
-  orders: `${API_BASE_URL}/api/orders`,
+  orders: `${API_BASE_URL}/api/Orders`,
 
   // Image Management
   imageManagement: `${API_BASE_URL}/api/ImageManagement`,
@@ -27,12 +24,12 @@ export const API_ENDPOINTS = {
   customers: `${API_BASE_URL}/api/customers`,
 
   // Discounts
-  discounts: `${API_BASE_URL}/api/discounts`,
+  discounts: `${API_BASE_URL}/api/Discounts`,
 
   // Banners
-  banners: `${API_BASE_URL}/api/banners`,
+  banners: `${API_BASE_URL}/api/Banners`,
   uploadImage: `${API_BASE_URL}/api/upload-image`,
-  deleteImage: `${API_BASE_URL}/api/Banners/delete-image`,
+  deleteBannerImage: `${API_BASE_URL}/api/Banners/delete-image`,
 
   
   //BlogCategories

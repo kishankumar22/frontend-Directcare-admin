@@ -14,7 +14,10 @@ import {
   LayoutGrid,
   ChevronLeft,
   ChevronRight,
-  ExternalLink
+  ExternalLink,
+  VenusAndMars,
+  BadgePercent,
+  Users
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -46,6 +49,9 @@ interface Product {
   averageRating: number;
   reviewCount: number;
   tags: string;
+  taxExempt?: boolean;
+gender?: string; // optional if you want "Unisex" logic later
+
 }
 
 interface Category {
@@ -562,14 +568,30 @@ export default function ProductsClient({
                       -{discount}%
                     </Badge>
                   )}
+                  {/* VAT Relief */}
+{product.taxExempt && (
+  <div className="absolute top-3 right-3 bg-green-600 text-white px-2 py-1 rounded-md shadow flex items-center gap-1 text-[10px] font-semibold">
+    <BadgePercent className="h-3 w-3" />
+    VAT Relief
+  </div>
+)}
                   {product.stockQuantity === 0 && (
                     <Badge className="absolute top-3 left-3 bg-gray-500 text-white">
                       Out of Stock
                     </Badge>
                   )}
-                  <div className="absolute top-3 left-3 opacity-0 group-hover:opacity-100 transition">
-                    <ExternalLink className="h-5 w-5 text-white drop-shadow-lg" />
-                  </div>
+                 {/* Unisex Icon */}
+<div className="absolute top-3 left-3 bg-white/90 px-2 py-1 rounded-full shadow flex items-center gap-1">
+  <Users className="h-4 w-4 text-gray-700" />
+  <span className="text-[10px] font-semibold text-gray-700">Unisex</span>
+</div>
+
+
+{/* External Link Icon */}
+<div className="absolute bottom-3 right-3 opacity-0 group-hover:opacity-100 transition">
+  <ExternalLink className="h-5 w-5 text-white drop-shadow-lg" />
+</div>
+
                 </div>
               </div>
 
@@ -602,16 +624,24 @@ export default function ProductsClient({
                 </div>
 
                 {/* Price */}
-                <div className="flex items-center gap-2 mb-4">
-                  <span className="text-2xl font-bold text-[#445D41]">
-                    £{product.price.toFixed(2)}
-                  </span>
-                  {product.oldPrice > product.price && (
-                    <span className="text-sm text-gray-400 line-through">
-                      £{product.oldPrice.toFixed(2)}
-                    </span>
-                  )}
-                </div>
+              <div className="flex items-center gap-2 mb-4">
+  <span className="text-2xl font-bold text-[#445D41]">
+    £{product.price.toFixed(2)}
+  </span>
+
+  {product.oldPrice > product.price && (
+    <span className="text-sm text-gray-400 line-through">
+      £{product.oldPrice.toFixed(2)}
+    </span>
+  )}
+
+  {product.taxExempt && (
+    <span className="text-xs font-semibold text-green-700 bg-green-100 px-2 py-0.5 rounded">
+      (0% VAT)
+    </span>
+  )}
+</div>
+
 
                 {/* Add to Cart Button */}
                 <Button

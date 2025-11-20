@@ -54,7 +54,6 @@ export default function BlogPostsPage() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedImageUrl, setSelectedImageUrl] = useState<string | null>(null);
-  const [viewingBlogPost, setViewingBlogPost] = useState<BlogPost | null>(null);
   const [activeFilter, setActiveFilter] = useState<string>("all");
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
   
@@ -81,6 +80,12 @@ export default function BlogPostsPage() {
     if (imageUrl.startsWith("http")) return imageUrl;
     const cleanUrl = imageUrl.replace(API_BASE_URL, "").split('?')[0];
     return `${API_BASE_URL}${cleanUrl}`;
+  };
+
+  // ✅ NEW FUNCTION - Open blog post in new tab
+  const handleViewBlogPost = (slug: string) => {
+    const blogUrl = `${process.env.NEXT_PUBLIC_APP_URL}/blog/${slug}`;
+    window.open(blogUrl, '_blank', 'noopener,noreferrer');
   };
 
   useEffect(() => {
@@ -113,7 +118,7 @@ export default function BlogPostsPage() {
     try {
       const token = localStorage.getItem("authToken");
       const response = await apiClient.get<ApiResponse<BlogPost[]>>(
-        `${API_ENDPOINTS.blogPosts}?includeUnpublished=true&onlyHomePage=true`,
+        `${API_ENDPOINTS.blogPosts}`,
         {
           headers: {
             ...(token && { Authorization: `Bearer ${token}` }),
@@ -476,7 +481,7 @@ export default function BlogPostsPage() {
                         <div>
                           <p
                             className="text-white font-medium cursor-pointer hover:text-violet-400 transition-colors"
-                            onClick={() => setViewingBlogPost(blogPost)}
+                            onClick={() => handleViewBlogPost(blogPost.slug)}
                           >
                             {blogPost.title}
                           </p>
@@ -509,10 +514,11 @@ export default function BlogPostsPage() {
                     </td>
                     <td className="py-4 px-4">
                       <div className="flex items-center justify-center gap-2">
+                        {/* ✅ UPDATED - View button opens in new tab */}
                         <button
-                          onClick={() => setViewingBlogPost(blogPost)}
+                          onClick={() => handleViewBlogPost(blogPost.slug)}
                           className="p-2 text-violet-400 hover:bg-violet-500/10 rounded-lg transition-all"
-                          title="View Details"
+                          title="View Blog Post (New Tab)"
                         >
                           <Eye className="h-4 w-4" />
                         </button>
@@ -600,100 +606,6 @@ export default function BlogPostsPage() {
             
             <div className="text-sm text-slate-400">
               Total: {totalItems} items
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* View Details Modal - Same styling as BlogCategories */}
-      {viewingBlogPost && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-50 flex items-center justify-center p-4">
-          <div className="bg-gradient-to-br from-slate-900 via-slate-900 to-slate-800 border border-violet-500/20 rounded-3xl max-w-4xl w-full max-h-[90vh] overflow-hidden shadow-2xl shadow-violet-500/10">
-            <div className="p-2 border-b border-violet-500/20 bg-gradient-to-r from-violet-500/10 to-cyan-500/10">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h2 className="text-2xl font-bold bg-gradient-to-r from-violet-400 via-cyan-400 to-pink-400 bg-clip-text text-transparent">
-                    Blog Post Details
-                  </h2>
-                  <p className="text-slate-400 text-sm mt-1">View blog post information</p>
-                </div>
-                <button
-                  onClick={() => setViewingBlogPost(null)}
-                  className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-all"
-                >
-                  ✕
-                </button>
-              </div>
-            </div>
-
-            <div className="p-2 overflow-y-auto max-h-[calc(90vh-120px)]">
-              <div className="space-y-4">
-                {viewingBlogPost.thumbnailImageUrl && (
-                  <div className="relative w-full h-64 rounded-xl overflow-hidden border-2 border-violet-500/20">
-                    <img
-                      src={getImageUrl(viewingBlogPost.thumbnailImageUrl)}
-                      alt={viewingBlogPost.title}
-                      className="w-full h-full object-cover hover:scale-105 transition-transform cursor-pointer"
-                      onClick={() => setSelectedImageUrl(getImageUrl(viewingBlogPost.thumbnailImageUrl))}
-                    />
-                  </div>
-                )}
-
-                <div className="bg-slate-800/30 p-4 rounded-xl border border-slate-700/50">
-                  <h1 className="text-3xl font-bold text-white mb-2">{viewingBlogPost.title}</h1>
-                  <p className="text-slate-400 text-sm mb-4">{viewingBlogPost.slug}</p>
-                  
-                  <div className="flex flex-wrap items-center gap-4 mb-4">
-                    <span className={`px-3 py-1 rounded-lg text-xs font-medium ${
-                      viewingBlogPost.isPublished
-                        ? 'bg-green-500/10 text-green-400'
-                        : 'bg-yellow-500/10 text-yellow-400'
-                    }`}>
-                      {viewingBlogPost.isPublished ? 'Published' : 'Draft'}
-                    </span>
-                  </div>
-
-                  {viewingBlogPost.tags && viewingBlogPost.tags.length > 0 && (
-                    <div className="flex flex-wrap gap-2 mb-4">
-                      {viewingBlogPost.tags.map((tag, index) => (
-                        <span key={index} className="px-3 py-1 bg-violet-500/10 text-violet-400 rounded-lg text-xs font-medium flex items-center gap-1">
-                          <Tag className="h-3 w-3" />
-                          {tag}
-                        </span>
-                      ))}
-                    </div>
-                  )}
-
-                  <div className="prose prose-invert max-w-none">
-                    <h3 className="text-lg font-semibold text-white mb-2">Summary</h3>
-                    <p className="text-slate-300 mb-4">{viewingBlogPost.summary}</p>
-                    
-                    <h3 className="text-lg font-semibold text-white mb-2">Content</h3>
-                    <div
-                      className="text-slate-300"
-                      dangerouslySetInnerHTML={{ __html: viewingBlogPost.content }}
-                    />
-                  </div>
-                </div>
-
-                <div className="flex justify-end gap-3 pt-4 border-t border-slate-700/50">
-                  <button
-                    onClick={() => {
-                      setViewingBlogPost(null);
-                      router.push(`/admin/BlogPosts/edit/${viewingBlogPost.id}`);
-                    }}
-                    className="px-4 py-2 bg-cyan-500 text-white rounded-lg hover:bg-cyan-600 transition-all font-medium text-sm"
-                  >
-                    Edit Blog Post
-                  </button>
-                  <button
-                    onClick={() => setViewingBlogPost(null)}
-                    className="px-4 py-2 bg-slate-800 text-white rounded-lg hover:bg-slate-700 transition-all font-medium text-sm"
-                  >
-                    Close
-                  </button>
-                </div>
-              </div>
             </div>
           </div>
         </div>

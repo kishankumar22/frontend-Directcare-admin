@@ -3,6 +3,7 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import { ToastProvider } from "@/components/CustomToast";
 import ConditionalLayout from "./ConditionalLayout";
+import { CartProvider } from "@/context/CartContext";  // <-- IMPORT THIS
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -25,8 +26,6 @@ export default async function RootLayout({ children }: { children: React.ReactNo
 
     if (res.ok) {
       let json = null;
-
-      // SAFE JSON PARSE
       try {
         json = await res.json();
       } catch (err) {
@@ -45,9 +44,11 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     <html lang="en" suppressHydrationWarning>
       <body className={inter.className} suppressHydrationWarning>
         <ToastProvider>
-          <ConditionalLayout categories={categories}>
-            {children}
-          </ConditionalLayout>
+          <CartProvider>                {/* ✅ FIX */}
+            <ConditionalLayout categories={categories}>
+              {children}
+            </ConditionalLayout>
+          </CartProvider>
         </ToastProvider>
       </body>
     </html>

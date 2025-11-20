@@ -6,6 +6,7 @@ import Link from "next/link";
 import { Menu, Search, Heart, ShoppingCart, User, X, ChevronDown, ChevronRight, Truck, Package, Bike } from "lucide-react";
 import MegaMenu from "./MegaMenu";
 import { useToast } from "@/components/CustomToast";
+import { useCart } from "@/context/CartContext";
 
 interface Category {
   id: string;
@@ -31,6 +32,7 @@ export default function Header({
   const lastScroll = useRef(0);
   const scrollDirection = useRef<"up" | "down" | null>(null);
   const toast = useToast();
+  const { cartCount , isInitialized} = useCart();
 
   const mobileTopMessages = [
     {
@@ -140,9 +142,11 @@ export default function Header({
 
   const toggleChild = (id: string) =>
     setOpenChildren((s) => ({ ...s, [id]: !s[id] }));
+
+  
  
   return (
-    <header className="bg-white shadow-2xl sticky top-0  pb-2.5 ba z-50 w-full">
+    <header className="bg-white shadow-2xl sticky top-0  pb-[-0.375rem] ba z-50 w-full">
       {/* ✅ TOP INFO BAR */}
       <div
         className={`bg-[#445D41] text-white w-full z-50 transition-all duration-300 overflow-hidden ${
@@ -217,7 +221,7 @@ export default function Header({
               <Menu size={24} />
             </button>
             <Link href="/" className="flex items-center">
-              <Image src="/logo/logo.png" alt="Direct Care Logo" width={190} height={60} className="object-contain" />
+              <Image src="/logo/logo.png" alt="Direct Care Logo" width={150} height={50} className="object-contain md:w-[240px] md:h-[80px]" />
             </Link>
           </div>
 
@@ -240,7 +244,7 @@ export default function Header({
 
           {/* Search - Desktop */}
           <form onSubmit={handleSearch} className="hidden md:flex flex-1 px-4 md:px-6">
-            <div className="relative max-w-3xl mx-auto w-full">
+            <div className="relative max-w-[40rem] mx-auto w-full">
               <input
                 type="text"
                 placeholder="Search..."
@@ -262,10 +266,16 @@ export default function Header({
             >
               <Heart size={22} />
             </button>
-            <button className="hover:text-green-800 transition relative">
-              <ShoppingCart size={22} />
-              <span className="absolute -top-1 -right-2 bg-[#445D41] text-white text-xs rounded-full px-1.5">0</span>
-            </button>
+            <Link href="/cart">
+    <button className="hover:text-green-800 transition relative">
+      <ShoppingCart size={22} />
+      {isInitialized && cartCount > 0 && (
+        <span className="absolute -top-1 -right-2 bg-[#445D41] text-white text-xs rounded-full px-1.5">
+          {cartCount}
+        </span>
+      )}
+    </button>
+  </Link>
             <button className="hover:text-green-800 transition">
               <User size={22} />
             </button>
@@ -318,7 +328,8 @@ export default function Header({
             activeCategory.subCategories.length > 0 && (
               <div
                 className="absolute left-0 right-0 top-full z-50"
-                onMouseEnter={() => setHovered(true)}
+                 onMouseEnter={() => setHovered(true)}
+                 
               >
                 <MegaMenu activeMainCategory={activeCategory} />
               </div>

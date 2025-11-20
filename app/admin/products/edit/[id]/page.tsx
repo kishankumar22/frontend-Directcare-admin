@@ -981,7 +981,7 @@ const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
     }
 
     toast.error(errorMessage, {
-      autoClose: 8000,
+      autoClose: 4000,
       closeButton: true,
       draggable: true,
     });

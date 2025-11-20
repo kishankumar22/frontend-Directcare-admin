@@ -55,7 +55,7 @@ const MegaMenu: React.FC<MegaMenuProps> = ({ activeMainCategory }) => {
 
   return (
     <div className="absolute left-0 right-0 top-full z-50">
-    <div className="max-w-[1000px] bg-white shadow-lg rounded-b-md overflow-hidden ml-[82px]">
+    <div className="max-w-[1000px] bg-white shadow-lg rounded-b-md overflow-hidden ml-[175px]">
 
         <div className="flex min-h-[300px]">
 

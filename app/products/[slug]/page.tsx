@@ -80,8 +80,9 @@ async function getProduct(slug: string): Promise<Product | null> {
 export async function generateMetadata({ 
   params 
 }: { 
-  params: Promise<{ slug: string }> 
-}) {
+  params: { slug: string } 
+})
+ {
   const { slug } = await params;
   const product = await getProduct(slug);
 
@@ -158,8 +159,9 @@ export async function generateStaticParams() {
 export default async function ProductDetailPage({ 
   params 
 }: { 
-  params: Promise<{ slug: string }> 
-}) {
+  params: { slug: string } 
+})
+ {
   const { slug } = await params;
   const product = await getProduct(slug);
 

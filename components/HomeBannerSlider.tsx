@@ -53,7 +53,7 @@ export default function HomeBannerSlider({ banners, baseUrl }: Props) {
       className="
         relative 
         w-full 
-        h-[150px]        /* ✅ Mobile height EXACT DirectCare style */
+        h-[138px]        /* ✅ Mobile height EXACT DirectCare style */
         md:h-[500px]     /* ✅ Desktop untouched */
         overflow-hidden 
         group
