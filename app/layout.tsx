@@ -44,7 +44,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     <html lang="en" suppressHydrationWarning>
       <body className={inter.className} suppressHydrationWarning>
         <ToastProvider>
-          <CartProvider>                {/* ✅ FIX */}
+          <CartProvider>            
             <ConditionalLayout categories={categories}>
               {children}
             </ConditionalLayout>

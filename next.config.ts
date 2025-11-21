@@ -34,7 +34,7 @@ const nextConfig: NextConfig = {
       {
         protocol: 'https',
         hostname: 'testapi.knowledgemarkg.com',
-        pathname: '/images/**', // ✅ Only allow images path
+        pathname: '/**', // ✅ Only allow images path
       },
     ],
 

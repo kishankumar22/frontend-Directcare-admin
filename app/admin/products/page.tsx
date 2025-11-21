@@ -837,7 +837,7 @@ const parseSpecifications = (specString: string | undefined): SpecificationAttri
           </div>
 
           {/* Filters */}
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3  flex-wrap">
             <Filter className="h-4 w-4 text-slate-400" />
             
             {/* Category Filter */}

@@ -601,7 +601,7 @@ const handleSubmit = async (e: React.FormEvent) => {
             resetForm();
             setShowModal(true);
           }}
-          className="px-4 py-2 bg-gradient-to-r from-violet-500 to-cyan-500 text-white rounded-xl hover:shadow-lg hover:shadow-violet-500/50 transition-all flex items-center gap-2 font-semibold"
+          className="px-4 py-2 bg-gradient-to-r from-violet-500 to-cyan-500 text-white rounded-xl  justify-center hover:shadow-lg hover:shadow-violet-500/50 transition-all flex items-center gap-2 font-semibold"
         >
           <Plus className="h-4 w-4" />
           Add Discount

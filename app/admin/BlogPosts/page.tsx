@@ -118,7 +118,7 @@ export default function BlogPostsPage() {
     try {
       const token = localStorage.getItem("authToken");
       const response = await apiClient.get<ApiResponse<BlogPost[]>>(
-        `${API_ENDPOINTS.blogPosts}`,
+        `${API_ENDPOINTS.blogPosts}?includeUnpublished=true&onlyHomePage=true`,
         {
           headers: {
             ...(token && { Authorization: `Bearer ${token}` }),
@@ -279,7 +279,7 @@ export default function BlogPostsPage() {
         </div>
         <button
           onClick={() => router.push("/admin/BlogPosts/create")}
-          className="px-4 py-2 bg-gradient-to-r from-violet-500 to-cyan-500 text-white rounded-xl hover:shadow-lg hover:shadow-violet-500/50 transition-all flex items-center gap-2 font-semibold"
+          className="px-4 py-2 bg-gradient-to-r from-violet-500 justify-center to-cyan-500 text-white rounded-xl hover:shadow-lg hover:shadow-violet-500/50 transition-all flex items-center gap-2 font-semibold"
         >
           <Plus className="h-4 w-4" />
           Add New Post

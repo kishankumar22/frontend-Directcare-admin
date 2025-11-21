@@ -94,7 +94,6 @@ const [stats, setStats] = useState<CategoryStats>({
     parentCategoryId: ""
   });
 
-  // Helper function to get full image URL
 // FIXED - Remove existing query params before adding timestamp
 const getImageUrl = (imageUrl?: string) => {
   if (!imageUrl) return "";
@@ -237,15 +236,98 @@ const handleDeleteImage = async (categoryId: string, imageUrl: string) => {
 };
 
 
-
+const [isSubmitting, setIsSubmitting] = useState(false); // Add this state at top
 const handleSubmit = async (e: React.FormEvent) => {
   e.preventDefault();
 
-  try {
-    const token = localStorage.getItem("authToken");
-    let finalImageUrl = formData.imageUrl; // Keep existing URL if no new file
+  // 🔥 STEP 1: VALIDATION
+  if (!formData.name.trim()) {
+    toast.error("Category name is required");
+    return;
+  }
 
-    // STEP 1: Upload image first if new file selected
+  if (formData.name.trim().length < 2) {
+    toast.error("Category name must be at least 2 characters");
+    return;
+  }
+
+  if (formData.name.trim().length > 100) {
+    toast.error("Category name must be less than 100 characters");
+    return;
+  }
+
+  // Duplicate check
+  const isDuplicateName = categories.some(
+    cat => 
+      cat.name.toLowerCase().trim() === formData.name.toLowerCase().trim() &&
+      cat.id !== editingCategory?.id
+  );
+
+  if (isDuplicateName) {
+    toast.error("A category with this name already exists!");
+    return;
+  }
+
+  if (!formData.description.trim()) {
+    toast.error("Description is required");
+    return;
+  }
+
+  if (formData.description.trim().length < 10) {
+    toast.error("Description must be at least 10 characters");
+    return;
+  }
+
+  if (formData.sortOrder < 0) {
+    toast.error("Sort order cannot be negative");
+    return;
+  }
+
+  // SEO validations
+  if (formData.metaTitle && formData.metaTitle.length > 60) {
+    toast.error("Meta title should be less than 60 characters");
+    return;
+  }
+
+  if (formData.metaDescription && formData.metaDescription.length > 160) {
+    toast.error("Meta description should be less than 160 characters");
+    return;
+  }
+
+  if (formData.metaKeywords && formData.metaKeywords.length > 255) {
+    toast.error("Meta keywords must be less than 255 characters");
+    return;
+  }
+
+  // Image validation
+  if (imageFile) {
+    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+    const maxSize = 10 * 1024 * 1024;
+
+    if (!allowedTypes.includes(imageFile.type)) {
+      toast.error("Only JPG, PNG, and WebP images are allowed");
+      return;
+    }
+
+    if (imageFile.size > maxSize) {
+      toast.error("Image size must be less than 10MB");
+      return;
+    }
+  }
+
+  const token = localStorage.getItem("authToken");
+  if (!token) {
+    toast.error("Please login first");
+    return;
+  }
+
+  if (isSubmitting) return;
+  setIsSubmitting(true);
+
+  try {
+    let finalImageUrl = formData.imageUrl;
+
+    // Upload image if new file selected
     if (imageFile) {
       try {
         const formDataToUpload = new FormData();
@@ -255,28 +337,25 @@ const handleSubmit = async (e: React.FormEvent) => {
           success: boolean;
           data: string;
         }>(API_ENDPOINTS.categories + "/upload-image", formDataToUpload, {
-          params: {
-            name: formData.name,
-          },
+          params: { name: formData.name },
           headers: {
-            ...(token && { Authorization: `Bearer ${token}` }),
+            Authorization: `Bearer ${token}`,
             "Content-Type": "multipart/form-data",
           },
         });
 
         const result = uploadResponse.data;
         if (result?.success && result?.data) {
-          finalImageUrl = result.data; // Get new image URL
+          finalImageUrl = result.data;
+          toast.success("Image uploaded successfully!");
           
-          // Delete old image if updating
           if (editingCategory?.imageUrl && editingCategory.imageUrl !== finalImageUrl) {
             try {
               const filename = extractFilename(editingCategory.imageUrl);
-              await apiClient.delete(API_ENDPOINTS.imageManagement + `/category/${filename}`, {
-                headers: {
-                  ...(token && { Authorization: `Bearer ${token}` }),
-                },
-              });
+              await apiClient.delete(
+                API_ENDPOINTS.imageManagement + `/category/${filename}`, 
+                { headers: { Authorization: `Bearer ${token}` } }
+              );
             } catch (err) {
               console.log("Failed to delete old image:", err);
             }
@@ -286,43 +365,50 @@ const handleSubmit = async (e: React.FormEvent) => {
         }
       } catch (uploadError: any) {
         console.error("Error uploading image:", uploadError);
-        toast.error("Failed to upload image. Please try again.");
-        return; // Stop if upload fails
+        toast.error(uploadError.response?.data?.message || "Failed to upload image");
+        setIsSubmitting(false);
+        return;
       }
     }
 
-    // STEP 2: Create or Update Category with image URL
+    // 🔥 FIXED: Correct field names matching your formData structure
     const url = editingCategory
       ? API_ENDPOINTS.categories + `/${editingCategory.id}`
       : API_ENDPOINTS.categories;
 
     const payload = {
-      ...formData,
-      imageUrl: finalImageUrl, // Use uploaded image URL or existing one
+      name: formData.name.trim(),
+      description: formData.description.trim(),
+      imageUrl: finalImageUrl,
+      isActive: formData.isActive, // ✅ Changed from isPublished
+      sortOrder: formData.sortOrder, // ✅ Changed from displayOrder
       parentCategoryId: formData.parentCategoryId || null,
+      metaTitle: formData.metaTitle.trim() || undefined,
+      metaDescription: formData.metaDescription.trim() || undefined,
+      metaKeywords: formData.metaKeywords.trim() || undefined,
       ...(editingCategory && { id: editingCategory.id }),
     };
 
     if (editingCategory) {
       await apiClient.put(url, payload, {
-        headers: { ...(token && { Authorization: `Bearer ${token}` }) },
+        headers: { Authorization: `Bearer ${token}` },
       });
-      toast.success("Category updated successfully!");
+      toast.success("Category updated successfully! 🎉");
     } else {
       await apiClient.post(url, payload, {
-        headers: { ...(token && { Authorization: `Bearer ${token}` }) },
+        headers: { Authorization: `Bearer ${token}` },
       });
-      toast.success("Category created successfully!");
+      toast.success("Category created successfully! 🎉");
     }
 
     // Cleanup
     if (imagePreview) {
-      URL.revokeObjectURL(imagePreview); // Clean up blob URL
+      URL.revokeObjectURL(imagePreview);
     }
     setImageFile(null);
     setImagePreview(null);
 
-    fetchCategories();
+    await fetchCategories();
     setShowModal(false);
     resetForm();
   } catch (error: any) {
@@ -330,10 +416,10 @@ const handleSubmit = async (e: React.FormEvent) => {
     const message =
       error.response?.data?.message ||
       error.response?.data?.error ||
-      "Something went wrong";
-    toast.error(
-      `Failed to ${editingCategory ? "update" : "create"} category: ${message}`
-    );
+      "Failed to save category";
+    toast.error(message);
+  } finally {
+    setIsSubmitting(false);
   }
 };
 
@@ -519,7 +605,7 @@ const resetForm = () => {
             resetForm();
             setShowModal(true);
           }}
-          className="px-4 py-2 bg-gradient-to-r from-violet-500 to-cyan-500 text-white rounded-xl hover:shadow-lg hover:shadow-violet-500/50 transition-all flex items-center gap-2 font-semibold"
+          className="px-4 py-2 bg-gradient-to-r from-violet-500 to-cyan-500 text-white rounded-xl hover:shadow-lg hover:shadow-violet-500/50 transition-all flex items-center justify-center gap-2 font-semibold"
         >
           <Plus className="h-4 w-4" />
           Add Category
@@ -532,7 +618,7 @@ const resetForm = () => {
         <div className="flex items-center gap-4">
           <div className="w-12 h-12 rounded-xl bg-violet-500/10 flex items-center justify-center">
             <FolderTree className="h-6 w-6 text-violet-400" />
-          </div>
+          </div> 
           <div className="flex-1">
             <p className="text-slate-400 text-sm font-medium mb-1">Total Categories</p>
             <p className="text-white text-2xl font-bold">{stats.totalCategories}</p>
@@ -1190,24 +1276,56 @@ const resetForm = () => {
                 </div>
               </div>
 
-              <div className="flex justify-end gap-3 pt-4 border-t border-slate-700/50">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowModal(false);
-                    resetForm();
-                  }}
-                  className="px-6 py-3 bg-slate-800 text-white rounded-xl hover:bg-slate-700 transition-all font-medium"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"               
-                  className="px-6 py-3 bg-gradient-to-r from-violet-500 via-purple-500 to-cyan-500 text-white rounded-xl hover:shadow-xl hover:shadow-violet-500/50 transition-all font-semibold hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {editingCategory ? '✓ Update Category' : '+ Create Category'}
-                </button>
-              </div>
+<div className="flex justify-end gap-3 pt-4 border-t border-slate-700/50">
+  <button
+    type="button"
+    onClick={() => {
+      setShowModal(false);
+      resetForm();
+    }}
+    disabled={isSubmitting}
+    className="px-6 py-3 bg-slate-800 text-white rounded-xl hover:bg-slate-700 transition-all font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+  >
+    Cancel
+  </button>
+  <button
+    type="submit"
+    disabled={isSubmitting}
+    className="px-6 py-3 bg-gradient-to-r from-violet-500 via-purple-500 to-cyan-500 text-white rounded-xl hover:shadow-xl hover:shadow-violet-500/50 transition-all font-semibold hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+  >
+    {isSubmitting ? (
+      <>
+        {/* 🔥 Spinner */}
+        <svg 
+          className="animate-spin h-5 w-5 text-white" 
+          xmlns="http://www.w3.org/2000/svg" 
+          fill="none" 
+          viewBox="0 0 24 24"
+        >
+          <circle 
+            className="opacity-25" 
+            cx="12" 
+            cy="12" 
+            r="10" 
+            stroke="currentColor" 
+            strokeWidth="4"
+          />
+          <path 
+            className="opacity-75" 
+            fill="currentColor" 
+            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+          />
+        </svg>
+        {editingCategory ? 'Updating Category...' : 'Creating Category...'}
+      </>
+    ) : (
+      <>
+        {editingCategory ? '✓ Update Category' : '+ Create Category'}
+      </>
+    )}
+  </button>
+</div>
+
             </form>
           </div>
         </div>

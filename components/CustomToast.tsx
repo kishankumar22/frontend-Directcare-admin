@@ -1,4 +1,3 @@
-// components/CustomToast.tsx
 "use client";
 
 import React, { useState, useEffect, useRef, createContext, useContext, ReactNode } from 'react';
@@ -10,7 +9,7 @@ import {
   X 
 } from 'lucide-react';
 
-// === Types ===
+// === Types (same as before) ===
 interface ToastProps {
   id: string;
   message: string | ReactNode;
@@ -21,6 +20,8 @@ interface ToastProps {
   draggable?: boolean;
   hideProgressBar?: boolean;
   closeButton?: boolean;
+  position?: 'top-left' | 'top-center' | 'top-right' | 'bottom-left' | 'bottom-center' | 'bottom-right';
+  index?: number;
 }
 
 interface ToastOptions {
@@ -30,6 +31,7 @@ interface ToastOptions {
   draggable?: boolean;
   hideProgressBar?: boolean;
   closeButton?: boolean;
+  position?: 'top-left' | 'top-center' | 'top-right' | 'bottom-left' | 'bottom-center' | 'bottom-right';
 }
 
 interface ToastContextType {
@@ -50,99 +52,181 @@ interface ToastProviderProps {
   children: ReactNode;
 }
 
-interface ToastContainerProps {
-  position?: 'top-left' | 'top-center' | 'top-right' | 'bottom-left' | 'bottom-center' | 'bottom-right';
-  autoClose?: number;
-  hideProgressBar?: boolean;
-  pauseOnHover?: boolean;
-  draggable?: boolean;
-  closeButton?: boolean;
-  limit?: number;
-}
-
-// === Toast Types ===
 const TOAST_TYPES = {
-  success: { bgColor: 'bg-green-50', borderColor: 'border-green-200', textColor: 'text-green-800', iconColor: 'text-green-500', progressColor: 'bg-green-500', icon: CheckCircle },
-  error: { bgColor: 'bg-red-50', borderColor: 'border-red-200', textColor: 'text-red-800', iconColor: 'text-red-500', progressColor: 'bg-red-500', icon: XCircle },
-  info: { bgColor: 'bg-blue-50', borderColor: 'border-blue-200', textColor: 'text-blue-800', iconColor: 'text-blue-500', progressColor: 'bg-blue-500', icon: Info },
-  warning: { bgColor: 'bg-yellow-50', borderColor: 'border-yellow-200', textColor: 'text-yellow-800', iconColor: 'text-yellow-500', progressColor: 'bg-yellow-500', icon: AlertTriangle }
+  success: { 
+    bgColor: 'bg-green-50 dark:bg-green-900/20', 
+    borderColor: 'border-green-200 dark:border-green-800', 
+    textColor: 'text-green-800 dark:text-green-200', 
+    iconColor: 'text-green-500 dark:text-green-400', 
+    progressColor: 'bg-green-500', 
+    icon: CheckCircle 
+  },
+  error: { 
+    bgColor: 'bg-red-50 dark:bg-red-900/20', 
+    borderColor: 'border-red-200 dark:border-red-800', 
+    textColor: 'text-red-800 dark:text-red-200', 
+    iconColor: 'text-red-500 dark:text-red-400', 
+    progressColor: 'bg-red-500', 
+    icon: XCircle 
+  },
+  info: { 
+    bgColor: 'bg-blue-50 dark:bg-blue-900/20', 
+    borderColor: 'border-blue-200 dark:border-blue-800', 
+    textColor: 'text-blue-800 dark:text-blue-200', 
+    iconColor: 'text-blue-500 dark:text-blue-400', 
+    progressColor: 'bg-blue-500', 
+    icon: Info 
+  },
+  warning: { 
+    bgColor: 'bg-yellow-50 dark:bg-yellow-900/20', 
+    borderColor: 'border-yellow-200 dark:border-yellow-800', 
+    textColor: 'text-yellow-800 dark:text-yellow-200', 
+    iconColor: 'text-yellow-500 dark:text-yellow-400', 
+    progressColor: 'bg-yellow-500', 
+    icon: AlertTriangle 
+  }
 };
 
-// === Context ===
 const ToastContext = createContext<ToastContextType | null>(null);
 
-// === Toast Component ===
-// === Toast Component (UPDATED - Better UI) ===
+// === 🔥 PERFECT Toast Component with Pause/Resume ===
 const Toast: React.FC<ToastProps> = ({ 
   id, message, type = 'info', autoClose = 5000, onClose, 
-  pauseOnHover = true, draggable = true, hideProgressBar = false, closeButton = true 
+  pauseOnHover = true, draggable = true, hideProgressBar = false, closeButton = true,
+  index = 0
 }) => {
   const [isVisible, setIsVisible] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
-  const [progress, setProgress] = useState(100);
   const [isDragging, setIsDragging] = useState(false);
   const [dragOffset, setDragOffset] = useState(0);
   
   const toastRef = useRef<HTMLDivElement>(null);
+  const progressRef = useRef<HTMLDivElement>(null);
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const dragStartRef = useRef({ x: 0, startOffset: 0 });
-  const startTimeRef = useRef<number>(Date.now());
-  const elapsedBeforePauseRef = useRef<number>(0);
+  const pauseTimeRef = useRef<number>(0);
+  const remainingTimeRef = useRef<number>(autoClose);
   const isPausedRef = useRef<boolean>(false);
 
   const toastStyle = TOAST_TYPES[type] || TOAST_TYPES.info;
   const IconComponent = toastStyle.icon;
 
   useEffect(() => {
-    setIsVisible(true);
-    if (autoClose > 0) startCountdown();
-    return () => clearAllTimers();
+    requestAnimationFrame(() => {
+      setIsVisible(true);
+    });
+    
+    if (autoClose > 0) {
+      startCountdown();
+    }
+    
+    return () => {
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    };
   }, []);
 
-  const clearAllTimers = () => {
-    if (timeoutRef.current) clearTimeout(timeoutRef.current);
-    if (intervalRef.current) clearInterval(intervalRef.current);
-  };
-
+  // 🔥 Start countdown with smooth CSS animation
   const startCountdown = () => {
-    clearAllTimers();
-    startTimeRef.current = Date.now();
+    if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    
     isPausedRef.current = false;
+    
+    // 🔥 Smooth CSS transform animation
+    if (progressRef.current) {
+      progressRef.current.style.transition = 'none';
+      progressRef.current.style.transform = 'scaleX(1)';
+      
+      requestAnimationFrame(() => {
+        if (progressRef.current) {
+          progressRef.current.style.transition = `transform ${remainingTimeRef.current}ms linear`;
+          progressRef.current.style.transform = 'scaleX(0)';
+        }
+      });
+    }
 
-    intervalRef.current = setInterval(() => {
-      if (isPausedRef.current) return;
-      const elapsed = elapsedBeforePauseRef.current + (Date.now() - startTimeRef.current);
-      const progressPercentage = Math.max(0, 100 - (elapsed / autoClose) * 100);
-      setProgress(progressPercentage);
-      if (progressPercentage <= 0) handleClose();
-    }, 16);
-
+    // Timer to close when done
     timeoutRef.current = setTimeout(() => {
-      if (!isPausedRef.current) handleClose();
-    }, autoClose - elapsedBeforePauseRef.current);
+      if (!isPausedRef.current) {
+        handleClose();
+      }
+    }, remainingTimeRef.current);
   };
 
+  // 🔥 Pause: Save current position
   const handleMouseEnter = () => {
     if (!pauseOnHover || isPausedRef.current) return;
+    
     setIsPaused(true);
     isPausedRef.current = true;
-    elapsedBeforePauseRef.current += (Date.now() - startTimeRef.current);
-    clearAllTimers();
+    pauseTimeRef.current = Date.now();
+    
+    // Clear timeout
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+      timeoutRef.current = null;
+    }
+    
+    // 🔥 Get current scale and calculate remaining time
+    if (progressRef.current) {
+      const computedStyle = window.getComputedStyle(progressRef.current);
+      const matrix = new DOMMatrix(computedStyle.transform);
+      const currentScale = Math.max(0, Math.min(1, matrix.a)); // scaleX value (0 to 1)
+      
+      // Update remaining time based on current progress
+      remainingTimeRef.current = Math.ceil(remainingTimeRef.current * currentScale);
+      
+      // Freeze at current position
+      const currentTransform = computedStyle.transform;
+      progressRef.current.style.transition = 'none';
+      progressRef.current.style.transform = currentTransform;
+    }
   };
 
+  // 🔥 Resume: Continue from paused position
   const handleMouseLeave = () => {
     if (!pauseOnHover || !isPausedRef.current) return;
+    
     setIsPaused(false);
     isPausedRef.current = false;
-    startCountdown();
+    
+    // 🔥 Resume animation from current position
+    if (progressRef.current && remainingTimeRef.current > 0) {
+      const computedStyle = window.getComputedStyle(progressRef.current);
+      const currentTransform = computedStyle.transform;
+      
+      // Get current scale to resume from exact position
+      const matrix = new DOMMatrix(currentTransform);
+      const currentScale = Math.max(0, Math.min(1, matrix.a));
+      
+      // Set starting position
+      progressRef.current.style.transition = 'none';
+      progressRef.current.style.transform = `scaleX(${currentScale})`;
+      
+      // Resume animation to 0
+      requestAnimationFrame(() => {
+        if (progressRef.current) {
+          progressRef.current.style.transition = `transform ${remainingTimeRef.current}ms linear`;
+          progressRef.current.style.transform = 'scaleX(0)';
+        }
+      });
+      
+      // Set new timeout for remaining time
+      timeoutRef.current = setTimeout(() => {
+        if (!isPausedRef.current) {
+          handleClose();
+        }
+      }, remainingTimeRef.current);
+    } else {
+      handleClose();
+    }
   };
 
-const handleClose = () => {
-  clearAllTimers();
-  setIsVisible(false);
-  setTimeout(() => onClose(id), 300);
-};
+  const handleClose = () => {
+    if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    setIsVisible(false);
+    setTimeout(() => onClose(id), 300);
+  };
+
   const handleMouseDown = (e: React.MouseEvent) => {
     if (!draggable) return;
     e.preventDefault();
@@ -156,14 +240,14 @@ const handleClose = () => {
     const deltaX = e.clientX - dragStartRef.current.x;
     const newOffset = dragStartRef.current.startOffset + deltaX;
     setDragOffset(newOffset);
-    if (Math.abs(newOffset) > 250) handleClose();
+    if (Math.abs(newOffset) > 300) handleClose();
   };
 
   const handleMouseUp = () => {
     if (!isDragging) return;
     setIsDragging(false);
     if (!isPaused) handleMouseLeave();
-    if (Math.abs(dragOffset) < 250) setDragOffset(0);
+    if (Math.abs(dragOffset) < 300) setDragOffset(0);
   };
 
   useEffect(() => {
@@ -177,135 +261,140 @@ const handleClose = () => {
     }
   }, [isDragging, dragOffset]);
 
-  const rotation = isDragging ? Math.min(Math.abs(dragOffset) / 50, 5) * Math.sign(dragOffset) : 0;
+  const rotation = isDragging ? Math.min(Math.abs(dragOffset) / 80, 8) * Math.sign(dragOffset) : 0;
 
-return (
-  <div
-    ref={toastRef}
-    className={`
-      relative w-96 max-w-full mx-auto rounded-xl border shadow-xl cursor-pointer
-      transform transition-all duration-300 ease-out select-none overflow-hidden
-      ${toastStyle.bgColor} ${toastStyle.borderColor}
-      ${isVisible ? 'translate-y-0 opacity-100 scale-100' : '-translate-y-4 opacity-0 scale-95'}
-      ${isDragging ? 'shadow-2xl scale-105 z-50 cursor-grabbing' : 'cursor-grab'}
-      ${isPaused ? 'ring-2 ring-blue-400 ring-opacity-60' : ''}
-    `}
-    style={{
-      transform: `translateX(${dragOffset}px) rotate(${rotation}deg) scale(${isDragging ? 1.05 : 1})`,
-      opacity: Math.max(0.3, 1 - Math.abs(dragOffset) / 300),
-      transition: isDragging ? 'none' : 'all 0.3s ease-out',
-      zIndex: isDragging ? 1000 : 999,
-    }}
-    onMouseEnter={handleMouseEnter}
-    onMouseLeave={handleMouseLeave}
-    onMouseDown={handleMouseDown}
-  >
-    {/* Main Content - CENTER ALIGNED */}
-    <div className="flex items-center p-4 gap-3 min-h-16">
-      {/* Icon */}
-      <div className={`flex-shrink-0 ${toastStyle.iconColor}`}>
-        <IconComponent size={24} />
-      </div>
+  return (
+    <div
+      ref={toastRef}
+      className={`
+        relative w-96 max-w-full rounded-xl border-2 shadow-2xl
+        transform ease-out select-none overflow-hidden backdrop-blur-sm
+        ${toastStyle.bgColor} ${toastStyle.borderColor}
+        ${isVisible ? 'translate-y-0 opacity-100 scale-100' : 'translate-y-2 opacity-0 scale-95'}
+        ${isDragging ? 'shadow-[0_20px_60px_rgba(0,0,0,0.3)] scale-105 z-50 cursor-grabbing' : 'cursor-grab hover:shadow-xl'}
+        ${isPaused ? 'ring-2 ring-blue-400 dark:ring-blue-500 ring-opacity-50' : ''}
+        transition-all duration-400
+      `}
+      style={{
+        transform: `translateX(${dragOffset}px) rotate(${rotation}deg) scale(${isDragging ? 1.05 : 1})`,
+        opacity: Math.max(0.5, 1 - Math.abs(dragOffset) / 400),
+        transitionProperty: isDragging ? 'box-shadow' : 'all',
+        transitionDuration: isDragging ? '200ms' : '400ms',
+        transitionTimingFunction: 'cubic-bezier(0.16, 1, 0.3, 1)',
+        zIndex: isDragging ? 1000 : 999 - index,
+      }}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
+      onMouseDown={handleMouseDown}
+    >
+      <div className="flex items-center p-4 gap-3 min-h-16">
+        <div className={`flex-shrink-0 ${toastStyle.iconColor}`}>
+          <IconComponent size={24} strokeWidth={2.5} />
+        </div>
 
-      {/* Message */}
-      <div className={`flex-1 text-sm font-medium ${toastStyle.textColor} leading-relaxed`}>
-        {typeof message === 'string' ? (
-          <p className="whitespace-pre-wrap break-words">{message}</p>
-        ) : (
-          <div className="break-words">{message}</div>
+        <div className={`flex-1 text-sm font-medium ${toastStyle.textColor} leading-relaxed`}>
+          {typeof message === 'string' ? (
+            <p className="whitespace-pre-wrap break-words">{message}</p>
+          ) : (
+            <div className="break-words">{message}</div>
+          )}
+        </div>
+
+        {closeButton && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              handleClose();
+            }}
+            className={`
+              flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center 
+              transition-all duration-200 ${toastStyle.textColor}
+              hover:bg-white/40 dark:hover:bg-black/20 active:scale-90
+              opacity-60 hover:opacity-100
+            `}
+            aria-label="Close notification"
+          >
+            <X size={16} strokeWidth={2.5} />
+          </button>
         )}
       </div>
 
-      {/* Close Button - NO DRAG TRIGGER */}
-      {closeButton && (
-        <button
-          onClick={(e) => {
-            e.stopPropagation(); // Prevent drag
-            handleClose();       // No event passed
-          }}
-          className={`flex-shrink-0 w-8 h-8 rounded-full hover:bg-white/30 flex items-center justify-center transition-all ${toastStyle.textColor} opacity-70 hover:opacity-100`}
-        >
-          <X size={16} />
-        </button>
-      )}
-    </div>
-
-    {/* Progress Bar */}
-    {!hideProgressBar && autoClose > 0 && (
-      <div className="absolute bottom-0 left-0 w-full h-1 bg-white/30">
-        <div
-          className={`h-full transition-none ${toastStyle.progressColor}`}
-          style={{ 
-            width: `${progress}%`, 
-            opacity: isPaused ? 0.6 : 1,
-            transition: 'width 0.1s linear'
-          }}
-        />
-      </div>
-    )}
-
-    {/* Pause Indicator */}
-    {isPaused && (
-      <div className="absolute top-3 right-3 flex gap-1">
-        <div className="w-1 h-3 bg-blue-600 rounded-full animate-pulse"></div>
-        <div className="w-1 h-3 bg-blue-600 rounded-full animate-pulse" style={{ animationDelay: '0.2s' }}></div>
-      </div>
-    )}
-
-    {/* MODERN SWIPE TO DISMISS HINT - Only on drag */}
-    {/* {isDragging && (
-      <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 text-center pointer-events-none">
-        <div className="inline-flex items-center gap-2 bg-white/95 backdrop-blur-sm text-gray-700 text-xs font-medium px-4 py-2 rounded-full shadow-lg animate-pulse">
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 9l4-4 4 4m0 6l-4 4-4-4" />
-          </svg>
-          Swipe to dismiss
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 15l4 4 4-4m0-6l-4-4-4 4" />
-          </svg>
+      {/* 🔥 SMOOTH Progress Bar with Perfect Pause/Resume */}
+      {!hideProgressBar && autoClose > 0 && (
+        <div className="absolute bottom-0 left-0 w-full h-1.5 bg-black/10 dark:bg-white/10 overflow-hidden">
+          <div
+            ref={progressRef}
+            className={`h-full ${toastStyle.progressColor} origin-left`}
+            style={{ 
+              transform: 'scaleX(1)',
+              opacity: isPaused ? 0.5 : 1,
+              willChange: 'transform',
+            }}
+          />
         </div>
-      </div>
-    )} */}
-  </div>
-);
-};
+      )}
 
-// === ToastContainer ===
-const ToastContainer: React.FC<ToastContainerProps> = ({ 
-  position = 'top-right', limit = 5 
-}) => {
-  const context = useContext(ToastContext);
-  if (!context) return null;
-  const { toasts } = context;
+      {isPaused && (
+        <div className="absolute top-2 right-12 flex gap-1">
+          <div className="w-1.5 h-3 bg-blue-600 dark:bg-blue-400 rounded-full animate-pulse"></div>
+          <div className="w-1.5 h-3 bg-blue-600 dark:bg-blue-400 rounded-full animate-pulse" style={{ animationDelay: '0.15s' }}></div>
+        </div>
+      )}
 
-  const getPositionClasses = () => {
-    switch (position) {
-      case 'top-left': return 'top-4 left-4';
-      case 'top-center': return 'top-4 left-1/2 transform -translate-x-1/2';
-      case 'top-right': return 'top-4 right-4';
-      case 'bottom-left': return 'bottom-4 left-4';
-      case 'bottom-center': return 'bottom-4 left-1/2 transform -translate-x-1/2';
-      case 'bottom-right': return 'bottom-4 right-4';
-      default: return 'top-4 right-4';
-    }
-  };
-
-  const limitedToasts = toasts.slice(-limit);
-
-  return (
-    <div className={`fixed pointer-events-none ${getPositionClasses()}`} style={{ zIndex: 99999 }}>
-      <div className="pointer-events-auto space-y-3">
-        {limitedToasts.map((toast, index) => (
-          <div key={toast.id} style={{ animationDelay: `${index * 100}ms` }}>
-            <Toast {...toast} />
+      {isDragging && (
+        <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
+          <div className="bg-black/10 dark:bg-white/10 backdrop-blur-sm px-4 py-2 rounded-full text-xs font-semibold">
+            {Math.abs(dragOffset) > 200 ? '👋 Release to dismiss' : '↔️ Swipe to dismiss'}
           </div>
-        ))}
-      </div>
+        </div>
+      )}
     </div>
   );
 };
 
-// === ToastProvider (with auto container) ===
+// === Toast Container (same as before) ===
+const ToastContainerByPosition: React.FC<{
+  position: string;
+  toasts: any[];
+  limit: number;
+}> = ({ position, toasts, limit }) => {
+  const getPositionClasses = () => {
+    switch (position) {
+      case 'top-left': return 'top-4 left-4 items-start';
+      case 'top-center': return 'top-4 left-1/2 -translate-x-1/2 items-center';
+      case 'top-right': return 'top-4 right-4 items-end';
+      case 'bottom-left': return 'bottom-4 left-4 items-start flex-col-reverse';
+      case 'bottom-center': return 'bottom-4 left-1/2 -translate-x-1/2 items-center flex-col-reverse';
+      case 'bottom-right': return 'bottom-4 right-4 items-end flex-col-reverse';
+      default: return 'top-4 right-4 items-end';
+    }
+  };
+
+  const positionToasts = toasts.filter(t => (t.position || 'top-right') === position);
+  const limitedToasts = positionToasts.slice(-limit);
+
+  if (limitedToasts.length === 0) return null;
+
+  return (
+    <div className={`fixed pointer-events-none flex flex-col gap-3 z-[99999] ${getPositionClasses()}`}>
+      {limitedToasts.map((toast, index) => (
+        <div 
+          key={toast.id} 
+          className="pointer-events-auto transition-all duration-400 ease-out"
+          style={{
+            transform: `translateY(${index * -4}px) scale(${1 - index * 0.02})`,
+            zIndex: limitedToasts.length - index,
+            opacity: 1 - index * 0.15,
+          }}
+        >
+          <Toast {...toast} index={index} />
+        </div>
+      ))}
+    </div>
+  );
+};
+
+// === Provider (same as before) ===
 const ToastProvider: React.FC<ToastProviderProps> = ({ children }) => {
   const [toasts, setToasts] = useState<any[]>([]);
 
@@ -320,9 +409,19 @@ const ToastProvider: React.FC<ToastProviderProps> = ({ children }) => {
       draggable: options.draggable ?? true,
       hideProgressBar: options.hideProgressBar ?? false,
       closeButton: options.closeButton ?? true,
+      position: options.position || 'top-right',
       onClose: (toastId: string) => removeToast(toastId),
     };
-    setToasts(prev => [...prev, newToast]);
+    
+    setToasts(prev => {
+      const samePositionToasts = prev.filter(t => t.position === newToast.position);
+      if (samePositionToasts.length >= 5) {
+        const oldestId = samePositionToasts[0].id;
+        return [...prev.filter(t => t.id !== oldestId), newToast];
+      }
+      return [...prev, newToast];
+    });
+    
     return id;
   };
 
@@ -331,7 +430,6 @@ const ToastProvider: React.FC<ToastProviderProps> = ({ children }) => {
   };
 
   const dismissAll = () => setToasts([]);
-
   const isActive = (id: string) => toasts.some(toast => toast.id === id);
 
   const toast = {
@@ -345,15 +443,18 @@ const ToastProvider: React.FC<ToastProviderProps> = ({ children }) => {
     show: addToast
   };
 
+  const positions = ['top-left', 'top-center', 'top-right', 'bottom-left', 'bottom-center', 'bottom-right'];
+
   return (
     <ToastContext.Provider value={{ toasts, toast }}>
       {children}
-      <ToastContainer position="top-right" limit={5} />
+      {positions.map(pos => (
+        <ToastContainerByPosition key={pos} position={pos} toasts={toasts} limit={5} />
+      ))}
     </ToastContext.Provider>
   );
 };
 
-// === Hook ===
 const useToast = () => {
   const context = useContext(ToastContext);
   if (!context) throw new Error('useToast must be used within a ToastProvider');

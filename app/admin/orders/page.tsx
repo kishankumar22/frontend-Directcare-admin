@@ -322,7 +322,7 @@ const handleExport = async (exportAll: boolean = false) => {
   }
 
   return (
-    <div className="space-y-6 pb-8">
+    <div className="space-y-2">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold bg-gradient-to-r from-violet-400 via-cyan-400 to-pink-400 bg-clip-text text-transparent">
@@ -479,8 +479,8 @@ const handleExport = async (exportAll: boolean = false) => {
       </div>
 
       {/* Search and Filter */}
-      <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-2xl p-6">
-        <div className="flex items-center gap-4 mb-6">
+      <div className="bg-slate-900/50 backdrop-blur-xl border  border-slate-800 rounded-2xl p-4">
+        <div className="flex items-center gap-4 mb-2">
           <div className="relative flex-1">
             <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-slate-400 w-5 h-5" />
             <input
@@ -510,13 +510,13 @@ const handleExport = async (exportAll: boolean = false) => {
 
         {/* Orders Table */}
         {filteredOrders.length === 0 ? (
-          <div className="text-center py-12">
+          <div className="text-center py-12 ">
             <ShoppingCart className="w-16 h-16 text-slate-600 mx-auto mb-4" />
             <p className="text-slate-400 text-lg">No orders found</p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full">
+          <div className="overflow-x-auto max-h-[75vh] ">
+            <table className="w-full ">
               <thead>
                 <tr className="border-b border-slate-700">
                   <th className="text-left py-4 px-4 text-slate-300 font-semibold">Order ID</th>

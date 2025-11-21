@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Plus, Edit, Trash2, Search, Tag, Eye,CheckCircle, Upload, Filter, FilterX, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, AlertCircle } from "lucide-react";
+import { Plus, Edit, Trash2, Search, Tag, Eye,CheckCircle, Upload, Filter, FilterX, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, AlertCircle, Loader2 } from "lucide-react";
 import { API_ENDPOINTS, API_BASE_URL } from "@/lib/api-config";
 import { apiClient } from "@/lib/api";
 import { ProductDescriptionEditor } from "../products/SelfHostedEditor";
@@ -50,6 +50,8 @@ export default function BrandsPage() {
   const [publishedFilter, setPublishedFilter] = useState<string>("all");
   const [homepageFilter, setHomepageFilter] = useState<string>("all");
   const [uploadingLogo, setUploadingLogo] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
   // Add this state near other useState declarations
 const [logoFile, setLogoFile] = useState<File | null>(null);
 const [logoPreview, setLogoPreview] = useState<string | null>(null);
@@ -224,9 +226,100 @@ const handleLogoFileChange = (file: File) => {
 };
 
 
-// ✅ FIXED: Updated handleSubmit to refresh list after successful update
+// ✅ COMPLETE: handleSubmit with ALL validations
 const handleSubmit = async (e: React.FormEvent) => {
   e.preventDefault();
+
+//  🔥 BRAND FORM VALIDATION (SEO Optimized)
+if (!formData.name.trim()) {
+  toast.error("Brand name is required");
+  return;
+}
+
+if (formData.name.trim().length < 2) {
+  toast.error("Brand name must be at least 2 characters");
+  return;
+}
+
+if (formData.name.trim().length > 60) {
+  toast.error("Brand name must be less than 60 characters (SEO recommended)");
+  return;
+}
+
+// ❗ Brand name should not contain only symbols or numbers
+if (!/^[A-Za-z0-9\s\-&]+$/.test(formData.name.trim())) {
+  toast.error("Brand name contains invalid characters");
+  return;
+}
+
+
+
+//  🏷 Meta Title — SEO Length: 50–60 is ideal
+if (formData.metaTitle.trim().length > 60) {
+  toast.error("Meta title must be less than 60 characters (SEO recommended)");
+  return;
+}
+
+// 📝 Meta Description — SEO Length: 120–160 ideal
+if (formData.metaDescription.trim().length > 160) {
+  toast.error("Meta description must be less than 160 characters (SEO recommended)");
+  return;
+}
+
+// 🔑 Meta Keywords — comma separated
+if (formData.metaKeywords.trim().length > 200) {
+  toast.error("Meta keywords must be less than 200 characters");
+  return;
+}
+
+if (formData.metaKeywords && !/^([a-zA-Z0-9\s]+)(\s*,\s*[a-zA-Z0-9\s]+)*$/.test(formData.metaKeywords)) {
+  toast.error("Enter keywords separated with commas only. Example: perfume, luxury perfume");
+  return;
+}
+
+
+  // 🔥 Duplicate name check
+  const isDuplicateName = brands.some(
+    brand => 
+      brand.name.toLowerCase().trim() === formData.name.toLowerCase().trim() &&
+      brand.id !== editingBrand?.id
+  );
+
+  if (isDuplicateName) {
+    toast.error("A brand with this name already exists!");
+    return;
+  }
+
+  if (!formData.description.trim()) {
+    toast.error("Description is required");
+    return;
+  }
+
+  if (formData.description.trim().length < 10) {
+    toast.error("Description must be at least 10 characters");
+    return;
+  }
+
+  if (formData.displayOrder < 0) {
+    toast.error("Display order cannot be negative");
+    return;
+  }
+
+  // Logo file validation
+  if (logoFile) {
+    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+    const maxSize = 10 * 1024 * 1024;
+
+    if (!allowedTypes.includes(logoFile.type)) {
+      toast.error("Only JPG, PNG, and WebP images are allowed");
+      return;
+    }
+
+    if (logoFile.size > maxSize) {
+      toast.error("Image size must be less than 10MB");
+      return;
+    }
+  }
 
   const token = localStorage.getItem("authToken");
   if (!token) {
@@ -234,10 +327,12 @@ const handleSubmit = async (e: React.FormEvent) => {
     return;
   }
 
-  try {
-    let finalLogoUrl = formData.logoUrl; // Keep existing URL if no new file
+  setIsSubmitting(true); // 🔥 Start loading
 
-    // STEP 1: Upload logo first if new file selected
+  try {
+    let finalLogoUrl = formData.logoUrl;
+
+    // Upload logo if new file selected
     if (logoFile) {
       try {
         const formDataToUpload = new FormData();
@@ -247,28 +342,25 @@ const handleSubmit = async (e: React.FormEvent) => {
           success: boolean;
           data: string;
         }>(API_ENDPOINTS.brands + "/upload-logo", formDataToUpload, {
-          params: {
-            name: formData.name,
-          },
+          params: { name: formData.name },
           headers: {
-            ...(token && { Authorization: `Bearer ${token}` }),
+            Authorization: `Bearer ${token}`,
             "Content-Type": "multipart/form-data",
           },
         });
 
         const result = uploadResponse.data;
         if (result?.success && result?.data) {
-          finalLogoUrl = result.data; // Get new logo URL
+          finalLogoUrl = result.data;
+          toast.success("Image uploaded successfully!");
           
-          // Delete old logo if updating
           if (editingBrand?.logoUrl && editingBrand.logoUrl !== finalLogoUrl) {
             try {
               const filename = extractFilename(editingBrand.logoUrl);
-              await apiClient.delete(API_ENDPOINTS.imageManagement + `/brand/${filename}`, {
-                headers: {
-                  ...(token && { Authorization: `Bearer ${token}` }),
-                },
-              });
+              await apiClient.delete(
+                API_ENDPOINTS.imageManagement + `/brand/${filename}`, 
+                { headers: { Authorization: `Bearer ${token}` } }
+              );
             } catch (err) {
               console.log("Failed to delete old logo:", err);
             }
@@ -278,39 +370,45 @@ const handleSubmit = async (e: React.FormEvent) => {
         }
       } catch (uploadError: any) {
         console.error("Error uploading logo:", uploadError);
-        toast.error("Failed to upload logo. Please try again.");
-        return; // Stop if upload fails
+        toast.error(uploadError.response?.data?.message || "Failed to upload logo");
+        setIsSubmitting(false);
+        return;
       }
     }
 
-    // STEP 2: Create or Update Brand with logo URL
+    // Create or Update Brand
     const url = editingBrand
       ? API_ENDPOINTS.brands + `/${editingBrand.id}`
       : API_ENDPOINTS.brands;
 
     const payload = {
-      ...formData,
-      logoUrl: finalLogoUrl, // Use uploaded logo URL or existing one
+      name: formData.name.trim(),
+      description: formData.description.trim(),
+      logoUrl: finalLogoUrl,
+      isPublished: formData.isPublished,
+      showOnHomepage: formData.showOnHomepage,
+      displayOrder: formData.displayOrder,
+      metaTitle: formData.metaTitle.trim() || undefined,
+      metaDescription: formData.metaDescription.trim() || undefined,
+      metaKeywords: formData.metaKeywords.trim() || undefined,
       ...(editingBrand && { id: editingBrand.id }),
     };
 
-    const response = editingBrand
-      ? await apiClient.put(url, payload, {
-          headers: { Authorization: `Bearer ${token}` },
-        })
-      : await apiClient.post(url, payload, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-
-    const successMessage = editingBrand
-      ? "Brand updated successfully!"
-      : "Brand created successfully!";
-    
-    toast.success(successMessage);
+    if (editingBrand) {
+      await apiClient.put(url, payload, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      toast.success("Brand updated successfully! 🎉");
+    } else {
+      await apiClient.post(url, payload, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      toast.success("Brand created successfully! 🎉");
+    }
     
     // Cleanup
     if (logoPreview) {
-      URL.revokeObjectURL(logoPreview); // Clean up blob URL
+      URL.revokeObjectURL(logoPreview);
     }
     setLogoFile(null);
     setLogoPreview(null);
@@ -320,10 +418,9 @@ const handleSubmit = async (e: React.FormEvent) => {
     resetForm();
   } catch (error: any) {
     console.error("Error saving brand:", error);
-    const message =
-      error.response?.data?.message ||
-      (editingBrand ? "Failed to update brand" : "Failed to create brand");
-    toast.error(message);
+    toast.error(error.response?.data?.message || "Failed to save brand");
+  } finally {
+    setIsSubmitting(false); // 🔥 Stop loading
   }
 };
 
@@ -1141,25 +1238,38 @@ const handleEdit = (brand: Brand) => {
                 </div>
               </div>
 
-              <div className="flex justify-end gap-3 pt-4 border-t border-slate-700/50">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowModal(false);
-                    resetForm();
-                  }}
-                  className="px-6 py-3 bg-slate-800 text-white rounded-xl hover:bg-slate-700 transition-all font-medium"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={uploadingLogo}
-                  className="px-6 py-3 bg-gradient-to-r from-violet-500 via-purple-500 to-cyan-500 text-white rounded-xl hover:shadow-xl hover:shadow-violet-500/50 transition-all font-semibold hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {editingBrand ? '✓ Update Brand' : '+ Create Brand'}
-                </button>
-              </div>
+{/* Submit Buttons */}
+<div className="flex justify-end gap-3 pt-4 border-t border-slate-700/50">
+  <button
+    type="button"
+    onClick={() => {
+      setShowModal(false);
+      resetForm();
+    }}
+    disabled={isSubmitting}
+    className="px-6 py-3 bg-slate-800 text-white rounded-xl hover:bg-slate-700 transition-all font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+  >
+    Cancel
+  </button>
+  <button
+    type="submit"
+    disabled={isSubmitting}
+    className="px-6 py-3 bg-gradient-to-r from-violet-500 via-purple-500 to-cyan-500 text-white rounded-xl hover:shadow-xl hover:shadow-violet-500/50 transition-all font-semibold hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+  >
+    {isSubmitting ? (
+      <>
+        {/* 🔥 Lucide Loader Icon */}
+        <Loader2 className="w-5 h-5 animate-spin" />
+        {editingBrand ? 'Updating Brand...' : 'Creating Brand...'}
+      </>
+    ) : (
+      <>
+        {editingBrand ? '✓ Update Brand' : '+ Create Brand'}
+      </>
+    )}
+  </button>
+</div>
+
             </form>
           </div>
         </div>

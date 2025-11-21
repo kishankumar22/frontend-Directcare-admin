@@ -221,7 +221,7 @@ export default function Header({
               <Menu size={24} />
             </button>
             <Link href="/" className="flex items-center">
-              <Image src="/logo/logo.png" alt="Direct Care Logo" width={150} height={50} className="object-contain md:w-[240px] md:h-[80px]" />
+              <Image src="/logo/logo.png" alt="Direct Care Logo" width={150} height={50} priority className="object-contain md:w-[240px] md:h-[80px]" />
             </Link>
           </div>
 

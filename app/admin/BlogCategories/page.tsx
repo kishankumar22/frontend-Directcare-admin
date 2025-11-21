@@ -56,6 +56,7 @@ export default function BlogCategoriesPage() {
   const [viewingBlogCategory, setViewingBlogCategory] = useState<BlogCategory | null>(null);
   const [activeFilter, setActiveFilter] = useState<string>("all");
   const [uploadingImage, setUploadingImage] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false); // Add this state
     const [stats, setStats] = useState({
     totalCategories: 0,
     totalPosts: 0,
@@ -238,16 +239,116 @@ const fetchBlogCategories = async () => {
 const handleSubmit = async (e: React.FormEvent) => {
   e.preventDefault();
 
+  // 🔥 STEP 1: VALIDATION
+  // Name validation
+  if (!formData.name.trim()) {
+    toast.error("Blog category name is required");
+    return;
+  }
+
+  if (formData.name.trim().length < 2) {
+    toast.error("Category name must be at least 2 characters");
+    return;
+  }
+
+  if (formData.name.trim().length > 100) {
+    toast.error("Category name must be less than 100 characters");
+    return;
+  }
+
+  // 🔥 Duplicate name check
+  const isDuplicateName = blogCategories.some(
+    cat => 
+      cat.name.toLowerCase().trim() === formData.name.toLowerCase().trim() &&
+      cat.id !== editingBlogCategory?.id
+  );
+
+  if (isDuplicateName) {
+    toast.error("A blog category with this name already exists!");
+    return;
+  }
+
+  // Slug validation
+  if (!formData.slug.trim()) {
+    toast.error("Slug is required");
+    return;
+  }
+
+  if (formData.slug.trim().length < 2) {
+    toast.error("Slug must be at least 2 characters");
+    return;
+  }
+
+  // Description validation
+  if (!formData.description.trim()) {
+    toast.error("Description is required");
+    return;
+  }
+
+  if (formData.description.trim().length < 10) {
+    toast.error("Description must be at least 10 characters");
+    return;
+  }
+
+  // Display order validation
+  if (formData.displayOrder < 0) {
+    toast.error("Display order cannot be negative");
+    return;
+  }
+
+  // 🔥 SEO Fields Validation
+  if (formData.metaTitle && formData.metaTitle.length > 60) {
+    toast.error("Meta title should be less than 60 characters for better SEO");
+    return;
+  }
+
+  if (formData.metaDescription && formData.metaDescription.length > 160) {
+    toast.error("Meta description should be less than 160 characters for better SEO");
+    return;
+  }
+
+  if (formData.metaKeywords && formData.metaKeywords.length > 255) {
+    toast.error("Meta keywords must be less than 255 characters");
+    return;
+  }
+
+  if (formData.searchEngineFriendlyPageName && formData.searchEngineFriendlyPageName.length > 200) {
+    toast.error("Search engine friendly page name must be less than 200 characters");
+    return;
+  }
+
+  // Image validation
+  if (imageFile) {
+    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+    const maxSize = 10 * 1024 * 1024; // 10MB
+
+    if (!allowedTypes.includes(imageFile.type)) {
+      toast.error("Only JPG, PNG, and WebP images are allowed");
+      return;
+    }
+
+    if (imageFile.size > maxSize) {
+      toast.error("Image size must be less than 10MB");
+      return;
+    }
+  }
+
+  // 🔥 STEP 2: CHECK TOKEN
   const token = localStorage.getItem("authToken");
   if (!token) {
     toast.error("Please login first");
     return;
   }
 
+  // 🔥 STEP 3: PREVENT DOUBLE SUBMISSION
+  if (isSubmitting || uploadingImage) return;
+  
+  setIsSubmitting(true);
+
   try {
     let finalImageUrl = formData.imageUrl;
 
-    // STEP 1: Upload image first if new file selected
+    // 🔥 STEP 4: Upload image if new file selected
     if (imageFile) {
       setUploadingImage(true);
       try {
@@ -276,26 +377,6 @@ const handleSubmit = async (e: React.FormEvent) => {
           finalImageUrl = uploadResponse.data.data;
           console.log("🖼️ Final Image URL:", finalImageUrl);
           toast.success("Image uploaded successfully! ✅");
-
-          // ✅ TODO: Delete old image when /api/ImageManagement/blogcategory/ is implemented
-          /* 
-          if (editingBlogCategory?.imageUrl && editingBlogCategory.imageUrl !== finalImageUrl) {
-            try {
-              const filename = extractFilename(editingBlogCategory.imageUrl);
-              await apiClient.delete(
-                `${API_ENDPOINTS.imageManagement}/blogcategory/${filename}`,
-                {
-                  headers: {
-                    Authorization: `Bearer ${token}`,
-                  },
-                }
-              );
-              console.log("🗑️ Old image deleted");
-            } catch (err) {
-              console.log("⚠️ Failed to delete old image:", err);
-            }
-          }
-          */
         } else {
           const errorMessage = uploadResponse.data?.message || "Failed to upload image";
           console.error("❌ Upload failed:", errorMessage);
@@ -312,45 +393,44 @@ const handleSubmit = async (e: React.FormEvent) => {
           "Failed to upload image";
         toast.error(errorMessage);
         setUploadingImage(false);
+        setIsSubmitting(false);
         return;
       } finally {
         setUploadingImage(false);
       }
     }
 
-    // STEP 2: Create or Update Blog Category
+    // 🔥 STEP 5: Create or Update Blog Category
     const url = editingBlogCategory
       ? `${API_ENDPOINTS.blogCategories}/${editingBlogCategory.id}`
       : `${API_ENDPOINTS.blogCategories}`;
 
-    // ✅ FIX: Include id in payload for PUT requests
     const payload = editingBlogCategory
       ? {
-          id: editingBlogCategory.id, // ✅ Add this for update
-          name: formData.name,
-          description: formData.description,
-          slug: formData.slug,
+          id: editingBlogCategory.id,
+          name: formData.name.trim(),
+          description: formData.description.trim(),
+          slug: formData.slug.trim(),
           imageUrl: finalImageUrl,
           isActive: formData.isActive,
           displayOrder: formData.displayOrder,
-          metaTitle: formData.metaTitle,
-          metaDescription: formData.metaDescription,
-          metaKeywords: formData.metaKeywords,
-          searchEngineFriendlyPageName: formData.searchEngineFriendlyPageName,
+          metaTitle: formData.metaTitle.trim() || undefined,
+          metaDescription: formData.metaDescription.trim() || undefined,
+          metaKeywords: formData.metaKeywords.trim() || undefined,
+          searchEngineFriendlyPageName: formData.searchEngineFriendlyPageName.trim() || undefined,
           parentCategoryId: formData.parentCategoryId || null,
         }
       : {
-          // For POST (create), no id needed
-          name: formData.name,
-          description: formData.description,
-          slug: formData.slug,
+          name: formData.name.trim(),
+          description: formData.description.trim(),
+          slug: formData.slug.trim(),
           imageUrl: finalImageUrl,
           isActive: formData.isActive,
           displayOrder: formData.displayOrder,
-          metaTitle: formData.metaTitle,
-          metaDescription: formData.metaDescription,
-          metaKeywords: formData.metaKeywords,
-          searchEngineFriendlyPageName: formData.searchEngineFriendlyPageName,
+          metaTitle: formData.metaTitle.trim() || undefined,
+          metaDescription: formData.metaDescription.trim() || undefined,
+          metaKeywords: formData.metaKeywords.trim() || undefined,
+          searchEngineFriendlyPageName: formData.searchEngineFriendlyPageName.trim() || undefined,
           parentCategoryId: formData.parentCategoryId || null,
         };
 
@@ -368,11 +448,12 @@ const handleSubmit = async (e: React.FormEvent) => {
 
     if (response.data && response.data.success) {
       const successMessage = editingBlogCategory
-        ? "Blog Category updated successfully! ✅"
-        : "Blog Category created successfully! ✅";
+        ? "Blog Category updated successfully! 🎉"
+        : "Blog Category created successfully! 🎉";
 
       toast.success(successMessage);
 
+      // Cleanup
       if (imagePreview) {
         URL.revokeObjectURL(imagePreview);
       }
@@ -395,9 +476,10 @@ const handleSubmit = async (e: React.FormEvent) => {
         ? "Failed to update blog category"
         : "Failed to create blog category");
     toast.error(message);
+  } finally {
+    setIsSubmitting(false);
   }
 };
-
 
 
   useEffect(() => {
@@ -574,7 +656,7 @@ const handleSubmit = async (e: React.FormEvent) => {
             resetForm();
             setShowModal(true);
           }}
-          className="px-4 py-2 bg-gradient-to-r from-violet-500 to-cyan-500 text-white rounded-xl hover:shadow-lg hover:shadow-violet-500/50 transition-all flex items-center gap-2 font-semibold"
+          className="px-4 py-2 bg-gradient-to-r from-violet-500 to-cyan-500 justify-center text-white rounded-xl hover:shadow-lg hover:shadow-violet-500/50 transition-all flex items-center gap-2 font-semibold"
         >
           <Plus className="h-4 w-4" />
           Create Blog Category
@@ -1208,34 +1290,81 @@ const handleSubmit = async (e: React.FormEvent) => {
                 </div>
               </div>
 
-              <div className="flex justify-end gap-3 pt-4 border-t border-slate-700/50">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowModal(false);
-                    resetForm();
-                  }}
-                  className="px-6 py-3 bg-slate-800 text-white rounded-xl hover:bg-slate-700 transition-all font-medium"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={uploadingImage}
-                  className="px-6 py-3 bg-gradient-to-r from-violet-500 via-purple-500 to-cyan-500 text-white rounded-xl hover:shadow-xl hover:shadow-violet-500/50 transition-all font-semibold hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-                >
-                  {uploadingImage ? (
-                    <>
-                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                      Uploading...
-                    </>
-                  ) : (
-                    <>
-                      {editingBlogCategory ? '✓ Update Blog Category' : '+ Create Blog Category'}
-                    </>
-                  )}
-                </button>
-              </div>
+<div className="flex justify-end gap-3 pt-4 border-t border-slate-700/50">
+  <button
+    type="button"
+    onClick={() => {
+      setShowModal(false);
+      resetForm();
+    }}
+    disabled={isSubmitting || uploadingImage}
+    className="px-6 py-3 bg-slate-800 text-white rounded-xl hover:bg-slate-700 transition-all font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+  >
+    Cancel
+  </button>
+  <button
+    type="submit"
+    disabled={isSubmitting || uploadingImage}
+    className="px-6 py-3 bg-gradient-to-r from-violet-500 via-purple-500 to-cyan-500 text-white rounded-xl hover:shadow-xl hover:shadow-violet-500/50 transition-all font-semibold hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+  >
+    {uploadingImage ? (
+      <>
+        {/* Image uploading spinner */}
+        <svg 
+          className="animate-spin h-5 w-5 text-white" 
+          xmlns="http://www.w3.org/2000/svg" 
+          fill="none" 
+          viewBox="0 0 24 24"
+        >
+          <circle 
+            className="opacity-25" 
+            cx="12" 
+            cy="12" 
+            r="10" 
+            stroke="currentColor" 
+            strokeWidth="4"
+          />
+          <path 
+            className="opacity-75" 
+            fill="currentColor" 
+            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+          />
+        </svg>
+        Uploading Image...
+      </>
+    ) : isSubmitting ? (
+      <>
+        {/* Saving spinner */}
+        <svg 
+          className="animate-spin h-5 w-5 text-white" 
+          xmlns="http://www.w3.org/2000/svg" 
+          fill="none" 
+          viewBox="0 0 24 24"
+        >
+          <circle 
+            className="opacity-25" 
+            cx="12" 
+            cy="12" 
+            r="10" 
+            stroke="currentColor" 
+            strokeWidth="4"
+          />
+          <path 
+            className="opacity-75" 
+            fill="currentColor" 
+            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+          />
+        </svg>
+        {editingBlogCategory ? 'Updating...' : 'Creating...'}
+      </>
+    ) : (
+      <>
+        {editingBlogCategory ? '✓ Update Blog Category' : '+ Create Blog Category'}
+      </>
+    )}
+  </button>
+</div>
+
             </form>
           </div>
         </div>

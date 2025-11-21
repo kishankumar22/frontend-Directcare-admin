@@ -1234,7 +1234,7 @@ const handleSlugChange = (value: string) => {
     <div className="min-h-screen ">
       {/* Header */}
       <div className=" z-10">
-        <div className="max-w-[1920px] mx-auto px-6 py-4">
+        <div className="max-w-[1920px] mx-auto px-4 ">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               <button
