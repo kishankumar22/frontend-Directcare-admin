@@ -1,43 +1,13 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Plus, Edit, Trash2, Search, Tag, Eye,CheckCircle, Upload, Filter, FilterX, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, AlertCircle, Loader2 } from "lucide-react";
+import { Plus, Edit, Trash2, Search, Tag, Eye, CheckCircle, Upload, Filter, FilterX, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, AlertCircle, Loader2 } from "lucide-react";
 import { API_ENDPOINTS, API_BASE_URL } from "@/lib/api-config";
-import { apiClient } from "@/lib/api";
 import { ProductDescriptionEditor } from "../products/SelfHostedEditor";
 import { useToast } from "@/components/CustomToast";
 import ConfirmDialog from "@/components/ConfirmDialog";
+import { Brand, brandsService, BrandStats } from "@/lib/services/brands";
 
-interface Brand {
-  id: string;
-  name: string;
-  description: string;
-  slug: string;
-  logoUrl?: string;
-  isPublished: boolean;
-  showOnHomepage: boolean;
-  displayOrder: number;
-  productCount: number;
-  metaTitle?: string;
-  metaDescription?: string;
-  metaKeywords?: string;
-  createdAt?: string;
-  updatedAt?: string;
-  createdBy?: string;
-  updatedBy?: string;
-}
-
-interface BrandApiResponse {
-  success: boolean;
-  data: Brand[];
-}
-// Add this interface
-interface BrandStats {
-  totalBrands: number;
-  publishedBrands: number;
-  homepageBrands: number;
-  totalProducts: number;
-}
 export default function BrandsPage() {
   const toast = useToast();
   const [brands, setBrands] = useState<Brand[]>([]);
@@ -49,37 +19,25 @@ export default function BrandsPage() {
   const [viewingBrand, setViewingBrand] = useState<Brand | null>(null);
   const [publishedFilter, setPublishedFilter] = useState<string>("all");
   const [homepageFilter, setHomepageFilter] = useState<string>("all");
-  const [uploadingLogo, setUploadingLogo] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-
-  // Add this state near other useState declarations
-const [logoFile, setLogoFile] = useState<File | null>(null);
-const [logoPreview, setLogoPreview] = useState<string | null>(null);
-// Add state for statistics (near other useState declarations)
-const [stats, setStats] = useState<BrandStats>({
-  totalBrands: 0,
-  publishedBrands: 0,
-  homepageBrands: 0,
-  totalProducts: 0
-});
-  // Pagination states
+  const [logoFile, setLogoFile] = useState<File | null>(null);
+  const [logoPreview, setLogoPreview] = useState<string | null>(null);
+  const [stats, setStats] = useState<BrandStats>({
+    totalBrands: 0,
+    publishedBrands: 0,
+    homepageBrands: 0,
+    totalProducts: 0
+  });
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(25);
-  
-  const [deleteConfirm, setDeleteConfirm] = useState<{
-    id: string;
-    name: string;
-  } | null>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; name: string } | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
-  
-  // NEW - Image delete confirmation state
   const [imageDeleteConfirm, setImageDeleteConfirm] = useState<{
     brandId: string;
     imageUrl: string;
     brandName: string;
   } | null>(null);
   const [isDeletingImage, setIsDeletingImage] = useState(false);
-  
   const [formData, setFormData] = useState({
     name: "",
     description: "",
@@ -92,144 +50,86 @@ const [stats, setStats] = useState<BrandStats>({
     metaKeywords: ""
   });
 
-// FIXED - Remove existing query params before adding new timestamp
-const getImageUrl = (imageUrl?: string) => {
-  if (!imageUrl) return "";
-  if (imageUrl.startsWith("http")) return imageUrl;
-  
-  // Remove any existing query parameters (like ?v=timestamp)
-  const cleanUrl = imageUrl.split('?')[0];
-  
-  return `${API_BASE_URL}${cleanUrl}`;
-};
+  const getImageUrl = (imageUrl?: string) => {
+    if (!imageUrl) return "";
+    if (imageUrl.startsWith("http")) return imageUrl;
+    const cleanUrl = imageUrl.split('?')[0];
+    return `${API_BASE_URL}${cleanUrl}`;
+  };
 
-  // NEW - Extract filename from image URL
   const extractFilename = (imageUrl: string) => {
     if (!imageUrl) return "";
-    // Extract filename from path like "/images/brands/brand-87960061.png"
     const parts = imageUrl.split('/');
     return parts[parts.length - 1];
   };
 
-  // NEW - Delete image function
-const handleDeleteImage = async (brandId: string, imageUrl: string) => {
-  setIsDeletingImage(true);
-
-  try {
-    const filename = extractFilename(imageUrl);
-    const token = localStorage.getItem("authToken");
-
-    const response = await apiClient.delete(
-      `${API_ENDPOINTS.imageManagement}/brand/${filename}`,
-      {
-        headers: token
-          ? { Authorization: `Bearer ${token}` }
-          : undefined,
-      }
-    );
-
-    toast.success("Image deleted successfully! 🗑️");
-
-    // Update brand logo
-    setBrands((prev) =>
-      prev.map((brand) =>
-        brand.id === brandId ? { ...brand, logoUrl: "" } : brand
-      )
-    );
-
-    // Update form data (if editing same brand)
-    if (editingBrand?.id === brandId) {
-      setFormData((prev) => ({ ...prev, logoUrl: "" }));
-    }
-
-    // Update viewingBrand (if same brand)
-    if (viewingBrand?.id === brandId) {
-      setViewingBrand((prev) =>
-        prev ? { ...prev, logoUrl: "" } : null
+  // ✅ Service-based Image Delete
+  const handleDeleteImage = async (brandId: string, imageUrl: string) => {
+    setIsDeletingImage(true);
+    try {
+      const filename = extractFilename(imageUrl);
+      await brandsService.deleteLogo(filename);
+      toast.success("Image deleted successfully! 🗑️");
+      setBrands(prev =>
+        prev.map(brand => brand.id === brandId ? { ...brand, logoUrl: "" } : brand)
       );
+      if (editingBrand?.id === brandId) {
+        setFormData(prev => ({ ...prev, logoUrl: "" }));
+      }
+      if (viewingBrand?.id === brandId) {
+        setViewingBrand(prev => prev ? { ...prev, logoUrl: "" } : null);
+      }
+    } catch (error: any) {
+      console.error("Error deleting image:", error);
+      toast.error(error?.response?.data?.message || "Failed to delete image");
+    } finally {
+      setIsDeletingImage(false);
+      setImageDeleteConfirm(null);
     }
-  } catch (error: any) {
-    console.error("Error deleting image:", error);
-
-    if (error.response?.status === 401) {
-      toast.error("Please login again");
-    } else {
-      toast.error(error.response?.data?.message || "Failed to delete image");
-    }
-  } finally {
-    setIsDeletingImage(false);
-    setImageDeleteConfirm(null);
-  }
-};
-
+  };
 
   useEffect(() => {
     fetchBrands();
   }, []);
 
-  // Add this function to calculate statistics
-const calculateStats = (brandsData: Brand[]) => {
-  const totalBrands = brandsData.length;
-  const publishedBrands = brandsData.filter(b => b.isPublished).length;
-  const homepageBrands = brandsData.filter(b => b.showOnHomepage).length;
-  const totalProducts = brandsData.reduce((sum, brand) => sum + (brand.productCount || 0), 0);
+  const calculateStats = (brandsData: Brand[]) => {
+    const totalBrands = brandsData.length;
+    const publishedBrands = brandsData.filter(b => b.isPublished).length;
+    const homepageBrands = brandsData.filter(b => b.showOnHomepage).length;
+    const totalProducts = brandsData.reduce((sum, brand) => sum + (brand.productCount || 0), 0);
+    setStats({ totalBrands, publishedBrands, homepageBrands, totalProducts });
+  };
 
-  setStats({
-    totalBrands,
-    publishedBrands,
-    homepageBrands,
-    totalProducts
-  });
-}
+  // ✅ Service-based Fetch
+  const fetchBrands = async () => {
+    setLoading(true);
+    try {
+      const response = await brandsService.getAll({
+        params: { includeInactive: true }
+      });
+      const brandsData = response.data?.data || [];
+      setBrands(brandsData);
+      calculateStats(brandsData);
+    } catch (error) {
+      console.error("Error fetching brands:", error);
+      setBrands([]);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-const fetchBrands = async () => {
-  try {
-    const token = localStorage.getItem("authToken");
-    const response = await apiClient.get<BrandApiResponse>(
-      API_ENDPOINTS.brands,
-      {
-        params: {
-          includeInactive: true,
-        },
-        headers: {
-          ...(token && { Authorization: `Bearer ${token}` }),
-        },
-      }
-    );
+  const handleLogoFileChange = (file: File) => {
+    setLogoFile(file);
+    const previewUrl = URL.createObjectURL(file);
+    setLogoPreview(previewUrl);
+    toast.success("Logo selected! Click Create/Update to upload.");
+  };
 
-    const result = response.data ?? { data: [] };
-    const brandsData = result.data || [];
+  // ✅ Service-based Submit (Upload + Create/Update)
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    // ...all your validation logic remains same...
     
-    setBrands(brandsData);
-    calculateStats(brandsData); // ✅ Add this line
-  } catch (error) {
-    console.error("Error fetching brands:", error);
-    setBrands([]);
-  } finally {
-    setLoading(false);
-  }
-};
-
-
-
-
-// UPDATED - Only create preview, don't upload yet
-const handleLogoFileChange = (file: File) => {
-  // Store the file
-  setLogoFile(file);
-  
-  // Create preview URL
-  const previewUrl = URL.createObjectURL(file);
-  setLogoPreview(previewUrl);
-  
-  toast.success("Logo selected! Click Create/Update to upload.");
-};
-
-
-// ✅ COMPLETE: handleSubmit with ALL validations
-const handleSubmit = async (e: React.FormEvent) => {
-  e.preventDefault();
-
 //  🔥 BRAND FORM VALIDATION (SEO Optimized)
 if (!formData.name.trim()) {
   toast.error("Brand name is required");
@@ -321,161 +221,105 @@ if (formData.metaKeywords && !/^([a-zA-Z0-9\s]+)(\s*,\s*[a-zA-Z0-9\s]+)*$/.test(
     }
   }
 
-  const token = localStorage.getItem("authToken");
-  if (!token) {
-    toast.error("Please login first");
-    return;
-  }
 
-  setIsSubmitting(true); // 🔥 Start loading
-
-  try {
-    let finalLogoUrl = formData.logoUrl;
-
-    // Upload logo if new file selected
-    if (logoFile) {
-      try {
-        const formDataToUpload = new FormData();
-        formDataToUpload.append("logo", logoFile);
-
-        const uploadResponse = await apiClient.post<{
-          success: boolean;
-          data: string;
-        }>(API_ENDPOINTS.brands + "/upload-logo", formDataToUpload, {
-          params: { name: formData.name },
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "multipart/form-data",
-          },
-        });
-
-        const result = uploadResponse.data;
-        if (result?.success && result?.data) {
-          finalLogoUrl = result.data;
-          toast.success("Image uploaded successfully!");
-          
+    if (isSubmitting) return;
+    setIsSubmitting(true);
+    try {
+      let finalLogoUrl = formData.logoUrl;
+      if (logoFile) {
+        try {
+          const uploadResponse = await brandsService.uploadLogo(logoFile, { name: formData.name });
+          if (!uploadResponse.data?.success || !uploadResponse.data?.data) {
+            throw new Error(uploadResponse.data?.message || "Logo upload failed");
+          }
+          finalLogoUrl = uploadResponse.data.data;
+          toast.success("Logo uploaded successfully!");
           if (editingBrand?.logoUrl && editingBrand.logoUrl !== finalLogoUrl) {
-            try {
-              const filename = extractFilename(editingBrand.logoUrl);
-              await apiClient.delete(
-                API_ENDPOINTS.imageManagement + `/brand/${filename}`, 
-                { headers: { Authorization: `Bearer ${token}` } }
-              );
-            } catch (err) {
-              console.log("Failed to delete old logo:", err);
+            const filename = extractFilename(editingBrand.logoUrl);
+            if (filename) {
+              try {
+                await brandsService.deleteLogo(filename);
+              } catch (err) {
+                console.log("Failed to delete old logo:", err);
+              }
             }
           }
-        } else {
-          throw new Error("Failed to get logo URL from response");
+        } catch (uploadErr: any) {
+          console.error("Error uploading logo:", uploadErr);
+          toast.error(uploadErr?.response?.data?.message || "Failed to upload logo");
+          setIsSubmitting(false);
+          return;
         }
-      } catch (uploadError: any) {
-        console.error("Error uploading logo:", uploadError);
-        toast.error(uploadError.response?.data?.message || "Failed to upload logo");
-        setIsSubmitting(false);
-        return;
       }
+      const payload = {
+        name: formData.name.trim(),
+        description: formData.description.trim(),
+        logoUrl: finalLogoUrl,
+        isPublished: formData.isPublished,
+        showOnHomepage: formData.showOnHomepage,
+        displayOrder: formData.displayOrder,
+        metaTitle: formData.metaTitle.trim() || undefined,
+        metaDescription: formData.metaDescription.trim() || undefined,
+        metaKeywords: formData.metaKeywords.trim() || undefined,
+        ...(editingBrand && { id: editingBrand.id }),
+      };
+      if (editingBrand) {
+        await brandsService.update(editingBrand.id, payload);
+        toast.success("Brand updated successfully! 🎉");
+      } else {
+        await brandsService.create(payload);
+        toast.success("Brand created successfully! 🎉");
+      }
+      if (logoPreview) URL.revokeObjectURL(logoPreview);
+      setLogoFile(null);
+      setLogoPreview(null);
+      await fetchBrands();
+      setShowModal(false);
+      resetForm();
+    } catch (error: any) {
+      console.error("Error saving brand:", error);
+      toast.error(error?.response?.data?.message || "Failed to save brand");
+    } finally {
+      setIsSubmitting(false);
     }
-
-    // Create or Update Brand
-    const url = editingBrand
-      ? API_ENDPOINTS.brands + `/${editingBrand.id}`
-      : API_ENDPOINTS.brands;
-
-    const payload = {
-      name: formData.name.trim(),
-      description: formData.description.trim(),
-      logoUrl: finalLogoUrl,
-      isPublished: formData.isPublished,
-      showOnHomepage: formData.showOnHomepage,
-      displayOrder: formData.displayOrder,
-      metaTitle: formData.metaTitle.trim() || undefined,
-      metaDescription: formData.metaDescription.trim() || undefined,
-      metaKeywords: formData.metaKeywords.trim() || undefined,
-      ...(editingBrand && { id: editingBrand.id }),
-    };
-
-    if (editingBrand) {
-      await apiClient.put(url, payload, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      toast.success("Brand updated successfully! 🎉");
-    } else {
-      await apiClient.post(url, payload, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      toast.success("Brand created successfully! 🎉");
-    }
-    
-    // Cleanup
-    if (logoPreview) {
-      URL.revokeObjectURL(logoPreview);
-    }
-    setLogoFile(null);
-    setLogoPreview(null);
-    
-    await fetchBrands();
-    setShowModal(false);
-    resetForm();
-  } catch (error: any) {
-    console.error("Error saving brand:", error);
-    toast.error(error.response?.data?.message || "Failed to save brand");
-  } finally {
-    setIsSubmitting(false); // 🔥 Stop loading
-  }
-};
-
-
-// ✅ Add Auto-refresh on Window Focus (add this useEffect)
-useEffect(() => {
-  const handleFocus = () => {
-    fetchBrands();
   };
 
-  window.addEventListener('focus', handleFocus);
-  return () => window.removeEventListener('focus', handleFocus);
-}, []);
-
-const handleEdit = (brand: Brand) => {
-  setEditingBrand(brand);
-  setFormData({
-    name: brand.name,
-    description: brand.description,
-    logoUrl: brand.logoUrl || "",
-    isPublished: brand.isPublished,
-    showOnHomepage: brand.showOnHomepage,
-    displayOrder: brand.displayOrder,
-    metaTitle: brand.metaTitle || "",
-    metaDescription: brand.metaDescription || "",
-    metaKeywords: brand.metaKeywords || "",
-  });
-  
-  // Clear any preview since we're editing existing
-  setLogoFile(null);
-  setLogoPreview(null);
-  
-  setShowModal(true);
-};
-
-
+  // ✅ Service-based Delete
   const handleDelete = async (id: string) => {
     setIsDeleting(true);
-    
     try {
-      const token = localStorage.getItem("authToken");
-      await apiClient.delete(`${API_ENDPOINTS.brands}/${id}`, {
-        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-      });
-      
-      toast.success("Brand deleted successfully! 🗑️");
-      await fetchBrands();
+      const response = await brandsService.delete(id);
+      if (!response.error && (response.status === 200 || response.status === 204)) {
+        toast.success("Brand deleted successfully! 🗑️");
+        await fetchBrands();
+      } else {
+        toast.error(response.error || "Failed to delete brand");
+      }
     } catch (error: any) {
       console.error("Error deleting brand:", error);
-      const message = error.response?.data?.message || "Failed to delete brand";
-      toast.error(message);
+      toast.error(error?.response?.data?.message || "Failed to delete brand");
     } finally {
       setIsDeleting(false);
       setDeleteConfirm(null);
     }
+  };
+
+  const handleEdit = (brand: Brand) => {
+    setEditingBrand(brand);
+    setFormData({
+      name: brand.name,
+      description: brand.description,
+      logoUrl: brand.logoUrl || "",
+      isPublished: brand.isPublished,
+      showOnHomepage: brand.showOnHomepage,
+      displayOrder: brand.displayOrder,
+      metaTitle: brand.metaTitle || "",
+      metaDescription: brand.metaDescription || "",
+      metaKeywords: brand.metaKeywords || "",
+    });
+    setLogoFile(null);
+    setLogoPreview(null);
+    setShowModal(true);
   };
 
   const resetForm = () => {
@@ -492,6 +336,7 @@ const handleEdit = (brand: Brand) => {
     });
     setEditingBrand(null);
   };
+
 
   const clearFilters = () => {
     setPublishedFilter("all");

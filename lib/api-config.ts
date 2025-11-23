@@ -1,48 +1,50 @@
+// lib/api-config.ts
 export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://localhost:7196';
-
 export const API_ENDPOINTS = {
   // Auth
-  login: `${API_BASE_URL}/api/Auth/login`,
-  register: `${API_BASE_URL}/api/Auth/register`,
+  login: '/api/Auth/login',
+  register: '/api/Auth/register',
 
   // Categories
-  categories: `${API_BASE_URL}/api/Categories`,
+  categories: '/api/Categories',
+  uploadCategoryImage: '/api/Categories/upload-image',
+  deleteCategoryImage: '/api/ImageManagement/category',
 
   // Brands
-  brands: `${API_BASE_URL}/api/Brands`,
+  brands: '/api/Brands',
+ uploadBrandLogo: '/api/Brands/upload-logo',
+ deleteBrandLogo: '/api/ImageManagement/brand',
 
   // Products
-  products: `${API_BASE_URL}/api/Products`,
+  products: '/api/Products',
 
   // Orders
-  orders: `${API_BASE_URL}/api/Orders`,
+  orders: '/api/Orders',
 
   // Image Management
-  imageManagement: `${API_BASE_URL}/api/ImageManagement`,
+  imageManagement: '/api/ImageManagement',
 
   // Customers
-  customers: `${API_BASE_URL}/api/customers`,
+  customers: '/api/customers',
 
   // Discounts
-  discounts: `${API_BASE_URL}/api/Discounts`,
+  discounts: '/api/Discounts',
 
   // Banners
-  banners: `${API_BASE_URL}/api/Banners`,
-  uploadImage: `${API_BASE_URL}/api/upload-image`,
-  deleteBannerImage: `${API_BASE_URL}/api/Banners/delete-image`,
+  banners: '/api/Banners',
+  uploadBannerImage: '/api/Banners/upload-image',
+  deleteBannerImage: '/api/Banners/delete-image',
 
-  
-  //BlogCategories
-  blogCategories: `${API_BASE_URL}/api/BlogCategories`,
-  deleteBlogCategoryImage: `${API_BASE_URL}/api/BlogCategories/delete-image`,
+  // BlogCategories
+  blogCategories: '/api/BlogCategories',
+  deleteBlogCategoryImage: '/api/BlogCategories/delete-image',
+  uploadBlogCategoryImage: '/api/BlogCategories/upload-image',
 
-  //BlogPosts
-  blogPosts: `${API_BASE_URL}/api/BlogPosts`,
-  deleteBlogPostImage: `${API_BASE_URL}/api/BlogPosts/delete-image`,
-  
-  
-  //comments
-  comments: `${API_BASE_URL}/api/comments`,
+  // BlogPosts
+   blogPosts: '/api/BlogPosts',
+  uploadBlogPostImage: '/api/BlogPosts/upload-image',
+  deleteBlogPostImage: '/api/BlogPosts/delete-image',
+
+  // Comments
+blogComments: '/api/BlogComments',
 };
-
-export default API_BASE_URL;

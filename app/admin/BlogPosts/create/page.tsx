@@ -21,6 +21,8 @@ import { API_ENDPOINTS, API_BASE_URL } from "@/lib/api-config";
 import { useToast } from "@/components/CustomToast";
 import { apiClient } from "@/lib/api";
 import { ProductDescriptionEditor } from "../../products/SelfHostedEditor";
+import { blogPostsService } from "@/lib/services/blogPosts";
+import { blogCategoriesService } from "@/lib/services";
 
 interface BlogCategory {
   id: string;
@@ -35,12 +37,7 @@ interface Label {
   priority: number;
 }
 
-interface ApiResponse<T> {
-  success: boolean;
-  message: string;
-  data: T;
-  errors: string[] | null;
-}
+
 
 interface SEOAnalysis {
   score: number;
@@ -191,18 +188,10 @@ const checkSlugExists = async (slug: string) => {
 
   setCheckingSlug(true);
   try {
-    const token = localStorage.getItem("authToken");
     console.log("🔍 Checking if slug exists:", slug);
 
-    // Fetch all blog posts and check if slug exists
-    const response = await apiClient.get<ApiResponse<any[]>>(
-      `${API_ENDPOINTS.blogPosts}?includeUnpublished=true&onlyHomePage=true`,
-      {
-        headers: {
-          ...(token && { Authorization: `Bearer ${token}` }),
-        },
-      }
-    );
+    // Use service to fetch all posts
+    const response = await blogPostsService.getAll(true, false);
 
     if (response.data?.success && Array.isArray(response.data.data)) {
       const posts = response.data.data;
@@ -227,31 +216,24 @@ const checkSlugExists = async (slug: string) => {
   }
 };
 
+
   // ✅ Fetch All Blog Posts for Related Selection
-  const fetchAllBlogPosts = async () => {
-    try {
-      const token = localStorage.getItem("authToken");
-      const response = await apiClient.get<ApiResponse<any[]>>(
-        `${API_ENDPOINTS.blogPosts}`,
-        {
-          headers: {
-            ...(token && { Authorization: `Bearer ${token}` }),
-          },
-        }
-      );
-      
-      if (response.data?.success && Array.isArray(response.data.data)) {
-        const posts = response.data.data.map((post: any) => ({
-          id: post.id,
-          title: post.title,
-        }));
-        console.log("✅ Loaded blog posts for related selection:", posts.length);
-        setAllBlogPosts(posts);
-      }
-    } catch (error) {
-      console.error("❌ Error fetching blog posts:", error);
+const fetchAllBlogPosts = async () => {
+  try {
+    const response = await blogPostsService.getAll(true, false);
+    
+    if (response.data?.success && Array.isArray(response.data.data)) {
+      const posts = response.data.data.map((post: any) => ({
+        id: post.id,
+        title: post.title,
+      }));
+      console.log("✅ Loaded blog posts for related selection:", posts.length);
+      setAllBlogPosts(posts);
     }
-  };
+  } catch (error) {
+    console.error("❌ Error fetching blog posts:", error);
+  }
+};
 
   // ✅ useEffect - Load Data on Mount
   useEffect(() => {
@@ -414,24 +396,17 @@ const renderIcon = (iconName: string, className: string = "h-4 w-4", color?: str
     analyzeSEO();
   }, [formData.title, formData.body, formData.metaTitle, formData.metaDescription, formData.metaKeywords]);
 
-  const fetchBlogCategories = async () => {
-    try {
-      const token = localStorage.getItem("authToken");
-      const response = await apiClient.get<ApiResponse<BlogCategory[]>>(
-        `${API_ENDPOINTS.blogCategories}`,
-        {
-          headers: {
-            ...(token && { Authorization: `Bearer ${token}` }),
-          },
-        }
-      );
-      if (response.data?.success) {
-        setBlogCategories(response.data.data);
-      }
-    } catch (error) {
-      console.error("Error fetching categories:", error);
+const fetchBlogCategories = async () => {
+  try {
+    const response = await blogPostsService.getAllCategories();
+    if (response.data?.success) {
+      setBlogCategories(response.data.data);
     }
-  };
+  } catch (error) {
+    console.error("Error fetching categories:", error);
+  }
+};
+
 
   const fetchPopularTags = async () => {
     setPopularTags([
@@ -448,76 +423,57 @@ const renderIcon = (iconName: string, className: string = "h-4 w-4", color?: str
     ]);
   };
 
-  const handleCreateCategory = async () => {
-    if (!newCategoryName.trim()) {
-      toast.error("Please enter category name");
-      return;
-    }
+const handleCreateCategory = async () => {
+  if (!newCategoryName.trim()) {
+    toast.error("Please enter category name");
+    return;
+  }
 
-    setCreatingCategory(true);
-    try {
-      const token = localStorage.getItem("authToken");
-      const response = await apiClient.post<ApiResponse<BlogCategory>>(
-        `${API_ENDPOINTS.blogCategories}`,
-        {
-          name: newCategoryName,
-          slug: newCategoryName.toLowerCase().replace(/\s+/g, "-"),
-          description: "",
-          isActive: true,
-          displayOrder: 0,
-        },
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
+  setCreatingCategory(true);
+  try {
+    const response = await blogCategoriesService.create({
+      name: newCategoryName,
+      slug: newCategoryName.toLowerCase().replace(/\s+/g, "-"),
+      description: "",
+      isActive: true,
+      displayOrder: 0,
+    });
 
-      if (response.data?.success) {
-        toast.success("Category created successfully!");
-        setNewCategoryName("");
-        setShowNewCategoryInput(false);
-        await fetchBlogCategories();
-      }
-    } catch (error: any) {
-      console.error("Error creating category:", error);
-      toast.error(error.response?.data?.message || "Failed to create category");
-    } finally {
-      setCreatingCategory(false);
+    if (response.data) {
+      toast.success("Category created successfully!");
+      setNewCategoryName("");
+      setShowNewCategoryInput(false);
+      await fetchBlogCategories();
     }
-  };
+  } catch (error: any) {
+    console.error("Error creating category:", error);
+    toast.error(error.response?.data?.message || "Failed to create category");
+  } finally {
+    setCreatingCategory(false);
+  }
+};
+
 
   // Image upload handler
-  const handleImageUpload = async (file: File, title: string) => {
-    try {
-      const token = localStorage.getItem("authToken");
-      const formDataToUpload = new FormData();
-      formDataToUpload.append("image", file);
+const handleImageUpload = async (file: File, title: string) => {
+  try {
+    console.log(`Uploading image with title: ${title}`);
+    
+    const uploadResponse = await blogPostsService.uploadImage(file, { title });
 
-      console.log(`Uploading image to ${API_ENDPOINTS.blogPosts}/upload-image`);
-      const uploadResponse = await apiClient.post<ApiResponse<string>>(
-        `${API_ENDPOINTS.blogPosts}/upload-image?title=${encodeURIComponent(title)}`,
-        formDataToUpload,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "multipart/form-data",
-          },
-        }
-      );
+    console.log("Image uploaded:", uploadResponse.data);
 
-      console.log("Image uploaded:", uploadResponse.data);
-
-      if (uploadResponse.data?.success && uploadResponse.data?.data) {
-        return uploadResponse.data.data;
-      }
-      return null;
-    } catch (error) {
-      console.error("Error uploading image:", error);
-      toast.error("Failed to upload image");
-      return null;
+    if (uploadResponse.data?.success && uploadResponse.data?.data) {
+      return uploadResponse.data.data;
     }
-  };
+    return null;
+  } catch (error) {
+    console.error("Error uploading image:", error);
+    toast.error("Failed to upload image");
+    return null;
+  }
+};
+
 
   // Featured image change
   const handleFeaturedImageChange = async (
@@ -936,29 +892,23 @@ const analyzeSEO = () => {
     }));
   };
 
-  const handleSubmit = async (isDraft: boolean = false) => {
-    setSaving(true);
-    try {
-      const token = localStorage.getItem("authToken");
-      if (!token) {
-        toast.error("Please login first");
-        setSaving(false);
-        return;
-      }
+const handleSubmit = async (isDraft: boolean = false) => { 
+  setSaving(true);
+  try {
+    // Validate required fields
+    if (!formData.title.trim()) {
+      toast.error("Title is required");
+      setSaving(false);
+      return;
+    }
 
-      // Validate required fields
-      if (!formData.title.trim()) {
-        toast.error("Title is required");
-        setSaving(false);
-        return;
-      }
+    if (!formData.body.trim()) {
+      toast.error("Content is required");
+      setSaving(false);
+      return;
+    }
 
-      if (!formData.body.trim()) {
-        toast.error("Content is required");
-        setSaving(false);
-        return;
-      }
-        // ✅ NEW: Check slug before submitting
+    // ✅ Check slug before submitting
     if (!formData.slug.trim()) {
       toast.error("Slug is required");
       setSaving(false);
@@ -969,7 +919,9 @@ const analyzeSEO = () => {
       toast.error("This slug already exists. Please choose a different one.");
       setSaving(false);
       return;
-    }// ✅ Final slug check before submit
+    }
+
+    // ✅ Final slug check before submit
     console.log("🔍 Final slug validation before submit...");
     await checkSlugExists(formData.slug);
     
@@ -982,206 +934,184 @@ const analyzeSEO = () => {
       return;
     }
 
-      setUploadingImage(true);
+    setUploadingImage(true);
 
-      // Upload images
-      let finalFeaturedImageUrl = formData.featuredImageUrl;
-      if (featuredImage) {
-        try {
-          const uploadedUrl = await handleImageUpload(
-            featuredImage,
-            `${formData.title}-featured-image`
-          );
-          if (uploadedUrl) {
-            finalFeaturedImageUrl = uploadedUrl;
-            toast.success("Featured image uploaded!");
-          }
-        } catch (err) {
-          console.error("Featured image upload failed:", err);
-          toast.error("Featured image upload failed");
-        }
-      }
-
-      let finalThumbnailImageUrl = formData.thumbnailImageUrl;
-      if (thumbnailImage) {
-        try {
-          const uploadedUrl = await handleImageUpload(
-            thumbnailImage,
-            `${formData.title}-thumbnail`
-          );
-          if (uploadedUrl) {
-            finalThumbnailImageUrl = uploadedUrl;
-            toast.success("Thumbnail uploaded!");
-          }
-        } catch (err) {
-          console.error("Thumbnail upload failed:", err);
-          toast.error("Thumbnail upload failed");
-        }
-      }
-
-      const finalImageUrls = [...formData.imageUrls];
-      if (galleryImages.length > 0) {
-        let successCount = 0;
-        for (let i = 0; i < galleryImages.length; i++) {
-          try {
-            const uploadedUrl = await handleImageUpload(
-              galleryImages[i],
-              `${formData.title}-gallery-${i + 1}`
-            );
-            if (uploadedUrl) {
-              finalImageUrls.push(uploadedUrl);
-              successCount++;
-            }
-          } catch (err) {
-            console.error(`Gallery image ${i + 1} upload failed:`, err);
-          }
-        }
-        if (successCount > 0) {
-          toast.success(`${successCount} gallery images uploaded!`);
-        }
-      }
-
-      setUploadingImage(false);
-
-      // Clean HTML entities
-      const cleanBody = formData.body
-        .replace(/&lt;/g, "<")
-        .replace(/&gt;/g, ">")
-        .replace(/&amp;/g, "&")
-        .replace(/&quot;/g, '"')
-        .replace(/&#39;/g, "'")
-        .replace(/<span class="token">/g, "")
-        .replace(/<\/span>/g, "");
-
-      const payload = {
-        title: formData.title.trim(),
-        body: cleanBody,
-        bodyOverview: formData.bodyOverview.trim() || "",
-        slug:
-          formData.slug.trim() ||
-          formData.title.toLowerCase().replace(/\s+/g, "-"),
-        isPublished: !isDraft,
-
-        // DateTime fields - proper ISO format
-        publishedAt: formData.publishedAt
-          ? new Date(formData.publishedAt).toISOString()
-          : new Date().toISOString(),
-        startDate: formData.startDate
-          ? new Date(formData.startDate).toISOString()
-          : new Date().toISOString(),
-        endDate: formData.endDate
-          ? new Date(formData.endDate).toISOString()
-          : new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
-
-        // Boolean fields
-        allowComments: formData.allowComments,
-        displayOrder: formData.displayOrder || 0,
-        showOnHomePage: formData.showOnHomePage,
-        includeInSitemap: formData.includeInSitemap,
-        limitedToStores: formData.limitedToStores || false,
-
-        // Image URLs
-        featuredImageUrl: finalFeaturedImageUrl || "",
-        thumbnailImageUrl: finalThumbnailImageUrl || "",
-        imageUrls: finalImageUrls,
-
-        // Optional string fields - use null for empty
-        videoUrl: formData.videoUrl.trim() || null,
-        metaTitle: formData.metaTitle.trim() || formData.title.trim(),
-        metaDescription: formData.metaDescription.trim() || "",
-        metaKeywords: formData.metaKeywords.trim() || "",
-        searchEngineFriendlyPageName:
-          formData.searchEngineFriendlyPageName.trim() || formData.slug.trim(),
-
-        // Author fields - CRITICAL FIX
-        authorName: formData.authorName.trim() || "Admin",
-        authorId: formData.authorId.trim() || null, // ✅ null instead of ""
-
-        // Arrays - send empty array, not omit
-        tags: formData.tags || [],
-        labels: formData.labels || [],
-        storeIds: formData.storeIds || [],
-        relatedBlogPostIds: formData.relatedBlogPostIds || [], // ✅ ADDED
-
-        // Other optional fields
-        customerRoles: formData.customerRoles.trim() || null,
-        languageId: formData.languageId.trim() || "en-US",
-
-        // Category - null if not selected
-        blogCategoryId: formData.blogCategoryId || null, // ✅ null instead of ""
-      };
-
-      console.log("📤 Final payload being sent:", JSON.stringify(payload, null, 2));
-
-      // Add timeout and retry logic
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 30000); // 30s timeout
-
+    // Upload images
+    let finalFeaturedImageUrl = formData.featuredImageUrl;
+    if (featuredImage) {
       try {
-        const response = await apiClient.post<ApiResponse<any>>(
-          `${API_ENDPOINTS.blogPosts}`,
-          payload,
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-              "Content-Type": "application/json",
-            },
-            signal: controller.signal,
-          }
+        const uploadedUrl = await handleImageUpload(
+          featuredImage,
+          `${formData.title}-featured-image`
         );
-
-        clearTimeout(timeoutId);
-
-        console.log("✅ Post response:", response.data);
-
-        if (response.data?.success) {
-          toast.success(
-            isDraft ? "Draft saved successfully!" : "Post created successfully!"
-          );
-
-          // Clear preview URLs
-          if (featuredImagePreview) {
-            URL.revokeObjectURL(featuredImagePreview);
-          }
-          if (thumbnailImagePreview) {
-            URL.revokeObjectURL(thumbnailImagePreview);
-          }
-          galleryImagePreviews.forEach((url) => URL.revokeObjectURL(url));
-
-          setTimeout(() => {
-            router.push("/admin/BlogPosts");
-          }, 1000);
-        } else {
-          throw new Error(response.data?.message || "Create failed");
+        if (uploadedUrl) {
+          finalFeaturedImageUrl = uploadedUrl;
+          toast.success("Featured image uploaded!");
         }
-      } catch (fetchError: any) {
-        clearTimeout(timeoutId);
-        if (fetchError.name === "AbortError") {
-          throw new Error("Request timeout - Server took too long to respond");
-        }
-        throw fetchError;
+      } catch (err) {
+        console.error("Featured image upload failed:", err);
+        toast.error("Featured image upload failed");
       }
-    } catch (error: any) {
-      console.error("❌ Error creating post:", error);
-
-      let errorMessage = "Failed to create post";
-      if (error.code === "ERR_NETWORK") {
-        errorMessage =
-          "Network error - Please check your internet connection or contact admin about CORS configuration";
-      } else if (error.response?.data?.message) {
-        errorMessage = error.response.data.message;
-      } else if (error.response?.data?.errors?.[0]) {
-        errorMessage = error.response.data.errors[0];
-      } else if (error.message) {
-        errorMessage = error.message;
-      }
-
-      toast.error(errorMessage);
-    } finally {
-      setSaving(false);
-      setUploadingImage(false);
     }
-  };
+
+    let finalThumbnailImageUrl = formData.thumbnailImageUrl;
+    if (thumbnailImage) {
+      try {
+        const uploadedUrl = await handleImageUpload(
+          thumbnailImage,
+          `${formData.title}-thumbnail`
+        );
+        if (uploadedUrl) {
+          finalThumbnailImageUrl = uploadedUrl;
+          toast.success("Thumbnail uploaded!");
+        }
+      } catch (err) {
+        console.error("Thumbnail upload failed:", err);
+        toast.error("Thumbnail upload failed");
+      }
+    }
+
+    const finalImageUrls = [...formData.imageUrls];
+    if (galleryImages.length > 0) {
+      let successCount = 0;
+      for (let i = 0; i < galleryImages.length; i++) {
+        try {
+          const uploadedUrl = await handleImageUpload(
+            galleryImages[i],
+            `${formData.title}-gallery-${i + 1}`
+          );
+          if (uploadedUrl) {
+            finalImageUrls.push(uploadedUrl);
+            successCount++;
+          }
+        } catch (err) {
+          console.error(`Gallery image ${i + 1} upload failed:`, err);
+        }
+      }
+      if (successCount > 0) {
+        toast.success(`${successCount} gallery images uploaded!`);
+      }
+    }
+
+    setUploadingImage(false);
+
+    // Clean HTML entities
+    const cleanBody = formData.body
+      .replace(/&lt;/g, "<")
+      .replace(/&gt;/g, ">")
+      .replace(/&amp;/g, "&")
+      .replace(/&quot;/g, '"')
+      .replace(/&#39;/g, "'")
+      .replace(/<span class="token">/g, "")
+      .replace(/<\/span>/g, "");
+
+    const payload = {
+      title: formData.title.trim(),
+      body: cleanBody,
+      bodyOverview: formData.bodyOverview.trim() || "",
+      slug:
+        formData.slug.trim() ||
+        formData.title.toLowerCase().replace(/\s+/g, "-"),
+      isPublished: !isDraft,
+
+      // DateTime fields - proper ISO format
+      publishedAt: formData.publishedAt
+        ? new Date(formData.publishedAt).toISOString()
+        : new Date().toISOString(),
+      startDate: formData.startDate
+        ? new Date(formData.startDate).toISOString()
+        : new Date().toISOString(),
+      endDate: formData.endDate
+        ? new Date(formData.endDate).toISOString()
+        : new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
+
+      // Boolean fields
+      allowComments: formData.allowComments,
+      displayOrder: formData.displayOrder || 0,
+      showOnHomePage: formData.showOnHomePage,
+      includeInSitemap: formData.includeInSitemap,
+      limitedToStores: formData.limitedToStores || false,
+
+      // Image URLs
+      featuredImageUrl: finalFeaturedImageUrl || "",
+      thumbnailImageUrl: finalThumbnailImageUrl || "",
+      imageUrls: finalImageUrls,
+
+      // Optional string fields - use null for empty
+      videoUrl: formData.videoUrl.trim() || null,
+      metaTitle: formData.metaTitle.trim() || formData.title.trim(),
+      metaDescription: formData.metaDescription.trim() || "",
+      metaKeywords: formData.metaKeywords.trim() || "",
+      searchEngineFriendlyPageName:
+        formData.searchEngineFriendlyPageName.trim() || formData.slug.trim(),
+
+      // Author fields
+      authorName: formData.authorName.trim() || "Admin",
+      authorId: formData.authorId.trim() || null,
+
+      // Arrays - send empty array, not omit
+      tags: formData.tags || [],
+      labels: formData.labels || [],
+      storeIds: formData.storeIds || [],
+      relatedBlogPostIds: formData.relatedBlogPostIds || [],
+
+      // Other optional fields
+      customerRoles: formData.customerRoles.trim() || null,
+      languageId: formData.languageId.trim() || "en-US",
+
+      // Category - null if not selected
+      blogCategoryId: formData.blogCategoryId || null,
+    };
+
+    console.log("📤 Final payload being sent:", JSON.stringify(payload, null, 2));
+
+    // ✅ SERVICE-BASED API CALL (replaces apiClient.post)
+    const response = await blogPostsService.create(payload);
+
+    console.log("✅ Post response:", response.data);
+
+    if (response.data?.success) {
+      toast.success(
+        isDraft ? "Draft saved successfully!" : "Post created successfully!"
+      );
+
+      // Clear preview URLs
+      if (featuredImagePreview) {
+        URL.revokeObjectURL(featuredImagePreview);
+      }
+      if (thumbnailImagePreview) {
+        URL.revokeObjectURL(thumbnailImagePreview);
+      }
+      galleryImagePreviews.forEach((url) => URL.revokeObjectURL(url));
+
+      setTimeout(() => {
+        router.push("/admin/BlogPosts");
+      }, 1000);
+    } else {
+      throw new Error(response.data?.message || "Create failed");
+    }
+  } catch (error: any) {
+    console.error("❌ Error creating post:", error);
+
+    let errorMessage = "Failed to create post";
+    if (error.code === "ERR_NETWORK") {
+      errorMessage =
+        "Network error - Please check your internet connection or contact admin about CORS configuration";
+    } else if (error.response?.data?.message) {
+      errorMessage = error.response.data.message;
+    } else if (error.response?.data?.errors?.[0]) {
+      errorMessage = error.response.data.errors[0];
+    } else if (error.message) {
+      errorMessage = error.message;
+    }
+
+    toast.error(errorMessage);
+  } finally {
+    setSaving(false);
+    setUploadingImage(false);
+  }
+};
+
 
   // Slug validation and generation function
   const generateSlug = (text: string): string => {

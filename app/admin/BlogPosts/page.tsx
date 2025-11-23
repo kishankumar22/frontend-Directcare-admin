@@ -2,49 +2,11 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Edit, Trash2, Search, FileText, Eye, Filter, FilterX, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, AlertCircle, Calendar, User, Tag, CheckCircle, Edit3, Star } from "lucide-react";
-import { API_ENDPOINTS, API_BASE_URL } from "@/lib/api-config";
-import { apiClient } from "@/lib/api";
+import { Plus, Edit, Trash2, Search, FileText, Eye, Filter, FilterX, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, AlertCircle, CheckCircle, Edit3, Star } from "lucide-react";
+import { API_BASE_URL } from "@/lib/api-config";
+import { BlogPost, blogPostsService, BlogCategory } from "@/lib/services/blogPosts";
 import { useToast } from "@/components/CustomToast";
 import ConfirmDialog from "@/components/ConfirmDialog";
-
-interface BlogPost {
-  id: string;
-  title: string;
-  slug: string;
-  summary: string;
-  content: string;
-  thumbnailImageUrl?: string;
-  isPublished: boolean;
-  publishedAt?: string;
-  viewCount: number;
-  blogCategoryId?: string;
-  blogCategoryName?: string;
-  authorId?: string;
-  authorName?: string;
-  tags?: string[];
-  metaTitle?: string;
-  metaDescription?: string;
-  metaKeywords?: string;
-  createdAt?: string;
-  updatedAt?: string;
-  createdBy?: string;
-  updatedBy?: string;
-  showOnHomePage?: boolean;
-}
-
-interface BlogCategory {
-  id: string;
-  name: string;
-  slug: string;
-}
-
-interface ApiResponse<T> {
-  success: boolean;
-  message: string;
-  data: T;
-  errors: string[] | null;
-}
 
 export default function BlogPostsPage() {
   const router = useRouter();
@@ -82,7 +44,6 @@ export default function BlogPostsPage() {
     return `${API_BASE_URL}${cleanUrl}`;
   };
 
-  // ✅ NEW FUNCTION - Open blog post in new tab
   const handleViewBlogPost = (slug: string) => {
     const blogUrl = `${process.env.NEXT_PUBLIC_APP_URL}/blog/${slug}`;
     window.open(blogUrl, '_blank', 'noopener,noreferrer');
@@ -93,18 +54,10 @@ export default function BlogPostsPage() {
     fetchBlogCategories();
   }, []);
 
+  // ✅ Service-based fetch categories
   const fetchBlogCategories = async () => {
     try {
-      const token = localStorage.getItem("authToken");
-      const response = await apiClient.get<ApiResponse<BlogCategory[]>>(
-        "/api/BlogCategories",
-        {
-          headers: {
-            ...(token && { Authorization: `Bearer ${token}` }),
-          },
-        }
-      );
-
+      const response = await blogPostsService.getAllCategories();
       if (response.data && response.data.success) {
         const categoriesData = response.data.data || [];
         setBlogCategories(categoriesData);
@@ -114,18 +67,10 @@ export default function BlogPostsPage() {
     }
   };
 
+  // ✅ Service-based fetch posts
   const fetchBlogPosts = async () => {
     try {
-      const token = localStorage.getItem("authToken");
-      const response = await apiClient.get<ApiResponse<BlogPost[]>>(
-        `${API_ENDPOINTS.blogPosts}?includeUnpublished=true&onlyHomePage=true`,
-        {
-          headers: {
-            ...(token && { Authorization: `Bearer ${token}` }),
-          },
-        }
-      );
-
+      const response = await blogPostsService.getAll(true, true);
       if (response.data && response.data.success) {
         const postsData = response.data.data || [];
         setBlogPosts(postsData);
@@ -156,18 +101,11 @@ export default function BlogPostsPage() {
     });
   };
 
+  // ✅ Service-based delete
   const handleDelete = async (id: string) => {
     setIsDeleting(true);
-    
     try {
-      const token = localStorage.getItem("authToken");
-      const response = await apiClient.delete<ApiResponse<null>>(
-        `${API_ENDPOINTS.blogPosts}/${id}`, 
-        {
-          headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-        }
-      );
-      
+      const response = await blogPostsService.delete(id);
       if (response.data && response.data.success) {
         toast.success("Blog Post deleted successfully! 🗑️");
         await fetchBlogPosts();
@@ -288,7 +226,6 @@ export default function BlogPostsPage() {
 
       {/* Statistics Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Total Posts */}
         <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-6 hover:border-violet-500/50 transition-all">
           <div className="flex items-center gap-4">
             <div className="w-12 h-12 rounded-xl bg-violet-500/10 flex items-center justify-center">
@@ -301,7 +238,6 @@ export default function BlogPostsPage() {
           </div>
         </div>
 
-        {/* Published */}
         <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-6 hover:border-green-500/50 transition-all">
           <div className="flex items-center gap-4">
             <div className="w-12 h-12 rounded-xl bg-green-500/10 flex items-center justify-center">
@@ -314,7 +250,6 @@ export default function BlogPostsPage() {
           </div>
         </div>
 
-        {/* Drafts */}
         <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-6 hover:border-yellow-500/50 transition-all">
           <div className="flex items-center gap-4">
             <div className="w-12 h-12 rounded-xl bg-yellow-500/10 flex items-center justify-center">
@@ -327,7 +262,6 @@ export default function BlogPostsPage() {
           </div>
         </div>
 
-        {/* Featured */}
         <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-6 hover:border-pink-500/50 transition-all">
           <div className="flex items-center gap-4">
             <div className="w-12 h-12 rounded-xl bg-pink-500/10 flex items-center justify-center">
@@ -428,7 +362,7 @@ export default function BlogPostsPage() {
         </div>
       </div>
 
-      {/* Blog Posts List */}
+      {/* Blog Posts Table */}
       <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-2xl p-2">
         {currentData.length === 0 ? (
           <div className="text-center py-12">
@@ -514,11 +448,10 @@ export default function BlogPostsPage() {
                     </td>
                     <td className="py-4 px-4">
                       <div className="flex items-center justify-center gap-2">
-                        {/* ✅ UPDATED - View button opens in new tab */}
                         <button
                           onClick={() => handleViewBlogPost(blogPost.slug)}
                           className="p-2 text-violet-400 hover:bg-violet-500/10 rounded-lg transition-all"
-                          title="View Blog Post (New Tab)"
+                          title="View Blog Post"
                         >
                           <Eye className="h-4 w-4" />
                         </button>

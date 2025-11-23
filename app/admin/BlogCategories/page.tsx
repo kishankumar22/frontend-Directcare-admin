@@ -7,6 +7,7 @@ import { apiClient } from "@/lib/api";
 import { ProductDescriptionEditor } from "../products/SelfHostedEditor";
 import { useToast } from "@/components/CustomToast";
 import ConfirmDialog from "@/components/ConfirmDialog";
+import { blogCategoriesService } from "@/lib/services";
 
 interface BlogCategory {
   id: string;
@@ -114,93 +115,55 @@ export default function BlogCategoriesPage() {
     return parts[parts.length - 1];
   };
 
-  const handleDeleteImage = async (categoryId: string, imageUrl: string) => {
-    setIsDeletingImage(true);
-
-    try {
-      const filename = extractFilename(imageUrl);
-      const token = localStorage.getItem("authToken");
-
-      await apiClient.delete(
-        `${API_ENDPOINTS.deleteBlogCategoryImage}?imageUrl=${filename}`,
-        {
-          headers: token
-            ? { Authorization: `Bearer ${token}` }
-            : undefined,
-        }
-      );
-
-      toast.success("Image deleted successfully! 🗑️");
-
-      setBlogCategories((prev) =>
-        prev.map((cat) =>
-          cat.id === categoryId ? { ...cat, imageUrl: "" } : cat
-        )
-      );
-
-      if (editingBlogCategory?.id === categoryId) {
-        setFormData((prev) => ({ ...prev, imageUrl: "" }));
-      }
-
-      if (viewingBlogCategory?.id === categoryId) {
-        setViewingBlogCategory((prev) =>
-          prev ? { ...prev, imageUrl: "" } : null
-        );
-      }
-    } catch (error: any) {
-      console.error("Error deleting image:", error);
-
-      if (error.response?.status === 401) {
-        toast.error("Please login again");
-      } else {
-        toast.error(error.response?.data?.message || "Failed to delete image");
-      }
-    } finally {
-      setIsDeletingImage(false);
-      setImageDeleteConfirm(null);
+const handleDeleteImage = async (categoryId: string, imageUrl: string) => {
+  setIsDeletingImage(true);
+  try {
+    const filename = extractFilename(imageUrl);
+    await blogCategoriesService.deleteImage(filename);
+    toast.success("Image deleted successfully! 🗑️");
+    
+    setBlogCategories(prev =>
+      prev.map(cat => cat.id === categoryId ? { ...cat, imageUrl: "" } : cat)
+    );
+    if (editingBlogCategory?.id === categoryId) {
+      setFormData(prev => ({ ...prev, imageUrl: "" }));
     }
-  };
+    if (viewingBlogCategory?.id === categoryId) {
+      setViewingBlogCategory(prev => prev ? { ...prev, imageUrl: "" } : null);
+    }
+  } catch (error: any) {
+    console.error("Error deleting image:", error);
+    toast.error(error?.response?.data?.message || "Failed to delete image");
+  } finally {
+    setIsDeletingImage(false);
+    setImageDeleteConfirm(null);
+  }
+};
+
 
   useEffect(() => {
     fetchBlogCategories();
   }, []);
 
 const fetchBlogCategories = async () => {
-    try {
-      const token = localStorage.getItem("authToken");
-      
-      console.log("🚀 API Request: GET", `/api/BlogCategories`);
-      
-      const response = await apiClient.get<ApiResponse<BlogCategory[]>>(
-        `${API_ENDPOINTS.blogCategories}`,
-        {
-          headers: {
-            ...(token && { Authorization: `Bearer ${token}` }),
-          },
-        }
-      );
-
-      console.log("✅ API Response:", response.data);
-
-      if (response.data && response.data.success) {
-        const categoriesData = response.data.data || [];
-        setBlogCategories(categoriesData);
-        
-        // Calculate statistics
-        calculateStats(categoriesData);
-        
-        console.log("📦 Blog Categories loaded:", categoriesData.length);
-      } else {
-        setBlogCategories([]);
-      }
-    } catch (error: any) {
-      console.error("❌ Error fetching blog categories:", error);
-      toast.error("Failed to load blog categories");
+  try {
+    setLoading(true);
+    const response = await blogCategoriesService.getAll();
+    if (response.data && response.data.success) {
+      const categoriesData = response.data.data || [];
+      setBlogCategories(categoriesData);
+      calculateStats(categoriesData);
+    } else {
       setBlogCategories([]);
-    } finally {
-      setLoading(false);
     }
-  };
+  } catch (error: any) {
+    console.error("Error fetching blog categories:", error);
+    toast.error("Failed to load blog categories");
+    setBlogCategories([]);
+  } finally {
+    setLoading(false);
+  }
+};
 
   const calculateStats = (categories: BlogCategory[]) => {
     // Total Categories
@@ -238,9 +201,9 @@ const fetchBlogCategories = async () => {
 
 const handleSubmit = async (e: React.FormEvent) => {
   e.preventDefault();
-
-  // 🔥 STEP 1: VALIDATION
-  // Name validation
+  
+  // ...all your validation logic...
+   // Name validation
   if (!formData.name.trim()) {
     toast.error("Blog category name is required");
     return;
@@ -341,57 +304,40 @@ const handleSubmit = async (e: React.FormEvent) => {
   }
 
   // 🔥 STEP 3: PREVENT DOUBLE SUBMISSION
-  if (isSubmitting || uploadingImage) return;
   
+  if (isSubmitting || uploadingImage) return;
   setIsSubmitting(true);
 
   try {
     let finalImageUrl = formData.imageUrl;
 
-    // 🔥 STEP 4: Upload image if new file selected
+    // Upload image if file selected
     if (imageFile) {
       setUploadingImage(true);
       try {
-        const formDataToUpload = new FormData();
-        formDataToUpload.append("image", imageFile);
-
-        console.log("📤 Uploading image to ${API_ENDPOINTS.blogCategories}/upload-image");
-        console.log("📦 File:", imageFile.name);
-        console.log("📝 Title:", formData.name);
-
-        const uploadResponse = await apiClient.post<ImageUploadResponse>(
-          `${API_ENDPOINTS.blogCategories}/upload-image?title=${encodeURIComponent(formData.name || "category")}`,
-          formDataToUpload,
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-              "Content-Type": "multipart/form-data",
-            },
-          }
-        );
-
-        console.log("✅ Full Upload Response:", uploadResponse);
-        console.log("✅ Response Data:", uploadResponse.data);
-
-        if (uploadResponse.data?.success && uploadResponse.data?.data) {
-          finalImageUrl = uploadResponse.data.data;
-          console.log("🖼️ Final Image URL:", finalImageUrl);
-          toast.success("Image uploaded successfully! ✅");
-        } else {
-          const errorMessage = uploadResponse.data?.message || "Failed to upload image";
-          console.error("❌ Upload failed:", errorMessage);
-          throw new Error(errorMessage);
+        const uploadResponse = await blogCategoriesService.uploadImage(imageFile, {
+          title: formData.name
+        });
+        if (!uploadResponse.data?.success || !uploadResponse.data?.data) {
+          throw new Error(uploadResponse.data?.message || "Image upload failed");
         }
-      } catch (uploadError: any) {
-        console.error("❌ Error uploading image:", uploadError);
-        console.error("❌ Response:", uploadError.response?.data);
+        finalImageUrl = uploadResponse.data.data;
+        toast.success("Image uploaded successfully!");
 
-        const errorMessage =
-          uploadError.response?.data?.message ||
-          uploadError.response?.data?.errors?.[0] ||
-          uploadError.message ||
-          "Failed to upload image";
-        toast.error(errorMessage);
+        // Delete old image if updating
+        if (editingBlogCategory?.imageUrl && editingBlogCategory.imageUrl !== finalImageUrl) {
+          const filename = extractFilename(editingBlogCategory.imageUrl);
+          if (filename) {
+            try {
+              await blogCategoriesService.deleteImage(filename);
+            } catch (err) {
+              console.log("Failed to delete old image:", err);
+            }
+          }
+        }
+      } catch (uploadErr: any) {
+        console.error("Error uploading image:", uploadErr);
+        toast.error(uploadErr?.response?.data?.message || "Failed to upload image");
         setUploadingImage(false);
         setIsSubmitting(false);
         return;
@@ -400,82 +346,38 @@ const handleSubmit = async (e: React.FormEvent) => {
       }
     }
 
-    // 🔥 STEP 5: Create or Update Blog Category
-    const url = editingBlogCategory
-      ? `${API_ENDPOINTS.blogCategories}/${editingBlogCategory.id}`
-      : `${API_ENDPOINTS.blogCategories}`;
+    const payload = {
+      name: formData.name.trim(),
+      description: formData.description.trim(),
+      slug: formData.slug.trim(),
+      imageUrl: finalImageUrl,
+      isActive: formData.isActive,
+      displayOrder: formData.displayOrder,
+      metaTitle: formData.metaTitle.trim() || undefined,
+      metaDescription: formData.metaDescription.trim() || undefined,
+      metaKeywords: formData.metaKeywords.trim() || undefined,
+      searchEngineFriendlyPageName: formData.searchEngineFriendlyPageName.trim() || undefined,
+      parentCategoryId: formData.parentCategoryId || null,
+      ...(editingBlogCategory && { id: editingBlogCategory.id }),
+    };
 
-    const payload = editingBlogCategory
-      ? {
-          id: editingBlogCategory.id,
-          name: formData.name.trim(),
-          description: formData.description.trim(),
-          slug: formData.slug.trim(),
-          imageUrl: finalImageUrl,
-          isActive: formData.isActive,
-          displayOrder: formData.displayOrder,
-          metaTitle: formData.metaTitle.trim() || undefined,
-          metaDescription: formData.metaDescription.trim() || undefined,
-          metaKeywords: formData.metaKeywords.trim() || undefined,
-          searchEngineFriendlyPageName: formData.searchEngineFriendlyPageName.trim() || undefined,
-          parentCategoryId: formData.parentCategoryId || null,
-        }
-      : {
-          name: formData.name.trim(),
-          description: formData.description.trim(),
-          slug: formData.slug.trim(),
-          imageUrl: finalImageUrl,
-          isActive: formData.isActive,
-          displayOrder: formData.displayOrder,
-          metaTitle: formData.metaTitle.trim() || undefined,
-          metaDescription: formData.metaDescription.trim() || undefined,
-          metaKeywords: formData.metaKeywords.trim() || undefined,
-          searchEngineFriendlyPageName: formData.searchEngineFriendlyPageName.trim() || undefined,
-          parentCategoryId: formData.parentCategoryId || null,
-        };
-
-    console.log("📤 Submitting Blog Category payload:", payload);
-
-    const response = editingBlogCategory
-      ? await apiClient.put<ApiResponse<BlogCategory>>(url, payload, {
-          headers: { Authorization: `Bearer ${token}` },
-        })
-      : await apiClient.post<ApiResponse<BlogCategory>>(url, payload, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-
-    console.log("✅ Save Response:", response.data);
-
-    if (response.data && response.data.success) {
-      const successMessage = editingBlogCategory
-        ? "Blog Category updated successfully! 🎉"
-        : "Blog Category created successfully! 🎉";
-
-      toast.success(successMessage);
-
-      // Cleanup
-      if (imagePreview) {
-        URL.revokeObjectURL(imagePreview);
-      }
-      setImageFile(null);
-      setImagePreview(null);
-
-      await fetchBlogCategories();
-      setShowModal(false);
-      resetForm();
+    if (editingBlogCategory) {
+      await blogCategoriesService.update(editingBlogCategory.id, payload);
+      toast.success("Blog Category updated successfully! 🎉");
     } else {
-      throw new Error(response.data?.message || "Operation failed");
+      await blogCategoriesService.create(payload);
+      toast.success("Blog Category created successfully! 🎉");
     }
+
+    if (imagePreview) URL.revokeObjectURL(imagePreview);
+    setImageFile(null);
+    setImagePreview(null);
+    await fetchBlogCategories();
+    setShowModal(false);
+    resetForm();
   } catch (error: any) {
-    console.error("❌ Error saving blog category:", error);
-    const message =
-      error.response?.data?.message ||
-      error.response?.data?.errors?.[0] ||
-      error.message ||
-      (editingBlogCategory
-        ? "Failed to update blog category"
-        : "Failed to create blog category");
-    toast.error(message);
+    console.error("Error saving blog category:", error);
+    toast.error(error?.response?.data?.message || "Failed to save blog category");
   } finally {
     setIsSubmitting(false);
   }
@@ -513,35 +415,25 @@ const handleSubmit = async (e: React.FormEvent) => {
     setShowModal(true);
   };
 
-  const handleDelete = async (id: string) => {
-    setIsDeleting(true);
-    
-    try {
-      const token = localStorage.getItem("authToken");
-      const response = await apiClient.delete<ApiResponse<null>>(
-        `${API_ENDPOINTS.blogCategories}/${id}`, 
-        {
-          headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-        }
-      );
-      
-      console.log("✅ Delete Response:", response.data);
-      
-      if (response.data && response.data.success) {
-        toast.success("Blog Category deleted successfully! 🗑️");
-        await fetchBlogCategories();
-      } else {
-        throw new Error(response.data?.message || "Delete failed");
-      }
-    } catch (error: any) {
-      console.error("❌ Error deleting blog category:", error);
-      const message = error.response?.data?.message || error.message || "Failed to delete blog category";
-      toast.error(message);
-    } finally {
-      setIsDeleting(false);
-      setDeleteConfirm(null);
+const handleDelete = async (id: string) => {
+  setIsDeleting(true);
+  try {
+    const response = await blogCategoriesService.delete(id);
+    if (!response.error && (response.status === 200 || response.status === 204)) {
+      toast.success("Blog Category deleted successfully! 🗑️");
+      await fetchBlogCategories();
+    } else {
+      toast.error(response.error || "Failed to delete blog category");
     }
-  };
+  } catch (error: any) {
+    console.error("Error deleting blog category:", error);
+    toast.error(error?.response?.data?.message || "Failed to delete blog category");
+  } finally {
+    setIsDeleting(false);
+    setDeleteConfirm(null);
+  }
+};
+
 
   const resetForm = () => {
     setFormData({
@@ -1404,19 +1296,7 @@ const handleSubmit = async (e: React.FormEvent) => {
                           onClick={() => setSelectedImageUrl(getImageUrl(viewingBlogCategory.imageUrl))}
                         />
                       </div>
-                      <button
-                        onClick={() => {
-                          setImageDeleteConfirm({
-                            categoryId: viewingBlogCategory.id,
-                            imageUrl: viewingBlogCategory.imageUrl!,
-                            categoryName: viewingBlogCategory.name
-                          });
-                        }}
-                        className="absolute -top-2 -right-2 p-2 bg-red-500 text-white rounded-full hover:bg-red-600 transition-all shadow-lg"
-                        title="Delete Image"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
+                
                     </div>
                   </div>
                 )}

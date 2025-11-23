@@ -2,9 +2,8 @@
 // ✅ ADD these imports at top of file
 import React, { useState } from "react";
 import * as Icons from "lucide-react";
-
-
-
+import { BlogCategory, blogPostsService } from "@/lib/services/blogPosts";
+import { blogCategoriesService } from "@/lib/services/blogCategories";
 import {  useEffect, useRef } from "react";
 import { useRouter, useParams } from "next/navigation";
 import {
@@ -26,11 +25,6 @@ import { useToast } from "@/components/CustomToast";
 import { apiClient } from "@/lib/api";
 import { ProductDescriptionEditor } from "@/app/admin/products/SelfHostedEditor";
 
-interface BlogCategory {
-  id: string;
-  name: string;
-  slug: string;
-}
 
 interface Label {
   name: string;
@@ -241,32 +235,25 @@ const filteredIcons = POPULAR_ICONS.filter(icon =>
   const [wordCount, setWordCount] = useState(0);
 
   // ✅ Fetch All Blog Posts for Related Selection
-  const fetchAllBlogPosts = async () => {
-    try {
-      const token = localStorage.getItem("authToken");
-      const response = await apiClient.get<ApiResponse<any[]>>(
-        `${API_ENDPOINTS.blogPosts}`,
-        {
-          headers: {
-            ...(token && { Authorization: `Bearer ${token}` }),
-          },
-        }
-      );
-      
-      if (response.data?.success && Array.isArray(response.data.data)) {
-        const posts = response.data.data
-          .filter((post: any) => post.id !== postId) // ✅ Exclude current post
-          .map((post: any) => ({
-            id: post.id,
-            title: post.title,
-          }));
-        console.log("✅ Loaded blog posts for related selection:", posts.length);
-        setAllBlogPosts(posts);
-      }
-    } catch (error) {
-      console.error("❌ Error fetching blog posts:", error);
+const fetchAllBlogPosts = async () => {
+  try {
+    const response = await blogPostsService.getAll(true, false);
+    
+    if (response.data?.success && Array.isArray(response.data.data)) {
+      const posts = response.data.data
+        .filter((post: any) => post.id !== postId) // ✅ Exclude current post
+        .map((post: any) => ({
+          id: post.id,
+          title: post.title,
+        }));
+      console.log("✅ Loaded blog posts for related selection:", posts.length);
+      setAllBlogPosts(posts);
     }
-  };
+  } catch (error) {
+    console.error("❌ Error fetching blog posts:", error);
+  }
+};
+
   // ✅ ADD: Delete image from server
 const deleteImageFromServer = async (imageUrl: string) => {
   if (!imageUrl) return;
@@ -280,17 +267,8 @@ const deleteImageFromServer = async (imageUrl: string) => {
     }
 
     console.log("🗑️ Deleting image:", filename);
-
-    const token = localStorage.getItem("authToken");
     
-    const response = await apiClient.delete<ApiResponse<boolean>>(
-      `${API_ENDPOINTS.deleteBlogPostImage}?imageUrl=${encodeURIComponent(filename)}`,
-      {
-        headers: {
-          ...(token && { Authorization: `Bearer ${token}` }),
-        },
-      }
-    );
+    const response = await blogPostsService.deleteImage(filename);
 
     if (response.data?.success) {
       console.log("✅ Image deleted from server:", filename);
@@ -302,10 +280,10 @@ const deleteImageFromServer = async (imageUrl: string) => {
     }
   } catch (error: any) {
     console.error("Error deleting image:", error);
-    // Don't show error to user - image might already be deleted
     return false;
   }
 };
+
 
 // ✅ ADD this function - Important: Excludes current post
 const checkSlugExists = async (slug: string) => {
@@ -316,13 +294,7 @@ const checkSlugExists = async (slug: string) => {
 
   setCheckingSlug(true);
   try {
-    const token = localStorage.getItem("authToken");
-    const response = await apiClient.get<ApiResponse<any[]>>(
-      "/api/BlogPosts",
-      {
-        headers: { ...(token && { Authorization: `Bearer ${token}` }) },
-      }
-    );
+    const response = await blogPostsService.getAll(true, false);
 
     if (response.data && response.data.success && Array.isArray(response.data.data)) {
       const exists = response.data.data.some(
@@ -387,24 +359,16 @@ const checkSlugExists = async (slug: string) => {
     analyzeSEO();
   }, [formData.title, formData.body, formData.metaTitle, formData.metaDescription, formData.metaKeywords]);
 
-  const fetchBlogCategories = async () => {
-    try {
-      const token = localStorage.getItem("authToken");
-      const response = await apiClient.get<ApiResponse<BlogCategory[]>>(
-        `${API_ENDPOINTS.blogCategories}`,
-        {
-          headers: {
-            ...(token && { Authorization: `Bearer ${token}` }),
-          },
-        }
-      );
-      if (response.data?.success) {
-        setBlogCategories(response.data.data);
-      }
-    } catch (error) {
-      console.error("Error fetching categories:", error);
+const fetchBlogCategories = async () => {
+  try {
+    const response = await blogPostsService.getAllCategories();
+    if (response.data?.success) {
+      setBlogCategories(response.data.data);
     }
-  };
+  } catch (error) {
+    console.error("Error fetching categories:", error);
+  }
+};
 
   const fetchPopularTags = async () => {
     setPopularTags([
@@ -422,96 +386,106 @@ const checkSlugExists = async (slug: string) => {
   };
 
   // ✅ Fetch Blog Post Details
-  const fetchBlogPost = async (id: string) => {
-    setLoading(true);
-    try {
-      const token = localStorage.getItem("authToken");
-      console.log("📥 Fetching blog post:", id);
-      
-      const response = await apiClient.get<ApiResponse<any>>(
-        `${API_ENDPOINTS.blogPosts}/${id}`,
-        {
-          headers: {
-            ...(token && { Authorization: `Bearer ${token}` }),
-          },
-        }
-      );
+const fetchBlogPost = async (id: string) => {
+  setLoading(true);
+  try {
+    console.log("📥 Fetching blog post:", id);
+    
+    const response = await blogPostsService.getById(id);
+    console.log("✅ Blog post loaded:", response.data);
 
-      console.log("✅ Blog post loaded:", response.data);
+    if (response.data?.success && response.data.data) {
+      const post = response.data.data;
 
-      if (response.data?.success && response.data?.data) {
-        const post = response.data.data;
+      // ✅ SET ALL FIELDS (complete object)
+      setFormData({
+        id: post.id,
+        title: post.title || "",
+        body: post.body || "",
+        bodyOverview: post.bodyOverview || "",
+        slug: post.slug || "",
+        isPublished: post.isPublished !== undefined ? post.isPublished : false,
+        
+        // ✅ DateTime fields
+        publishedAt: post.publishedAt
+          ? new Date(post.publishedAt).toISOString().slice(0, 16)
+          : "",
+        startDate: post.startDate
+          ? new Date(post.startDate).toISOString().slice(0, 16)
+          : "",
+        endDate: post.endDate
+          ? new Date(post.endDate).toISOString().slice(0, 16)
+          : "",
+        
+        // ✅ Boolean fields
+        allowComments: post.allowComments !== undefined ? post.allowComments : true,
+        showOnHomePage: post.showOnHomePage || false,
+        includeInSitemap: post.includeInSitemap !== undefined ? post.includeInSitemap : true,
+        limitedToStores: post.limitedToStores || false,
+        
+        // ✅ Number field
+        displayOrder: post.displayOrder || 0,
+        
+        // ✅ Image URLs
+        featuredImageUrl: post.featuredImageUrl || "",
+        thumbnailImageUrl: post.thumbnailImageUrl || "",
+        imageUrls: Array.isArray(post.imageUrls) ? post.imageUrls : [],
+        
+        // ✅ Optional string fields
+        videoUrl: post.videoUrl || "",
+        metaTitle: post.metaTitle || "",
+        metaDescription: post.metaDescription || "",
+        metaKeywords: post.metaKeywords || "",
+        searchEngineFriendlyPageName: post.searchEngineFriendlyPageName || "",
+        
+        // ✅ Author fields
+        authorName: post.authorName || "",
+        authorId: post.authorId || "",
+        
+        // ✅ Array fields
+        tags: Array.isArray(post.tags) ? post.tags : [],
+        labels: Array.isArray(post.labels) ? post.labels : [],
+        storeIds: Array.isArray(post.storeIds) ? post.storeIds : [],
+        relatedBlogPostIds: Array.isArray(post.relatedBlogPostIds) ? post.relatedBlogPostIds : [],
+        
+        // ✅ Other optional fields
+        customerRoles: post.customerRoles || "",
+        languageId: post.languageId || "",
+        blogCategoryId: post.blogCategoryId || "",
+        
+        // ✅ Internal field
+        manualSlugEdited: false,
+      });
 
-        // ✅ Prefill ALL form data including ID
-        setFormData({
-          id: post.id, // ✅ Important!
-          title: post.title || "",
-          body: post.body || "",
-          bodyOverview: post.bodyOverview || "",
-          slug: post.slug || "",
-          isPublished: post.isPublished !== undefined ? post.isPublished : false,
-          publishedAt: post.publishedAt
-            ? new Date(post.publishedAt).toISOString().slice(0, 16)
-            : "",
-          startDate: post.startDate
-            ? new Date(post.startDate).toISOString().slice(0, 16)
-            : "",
-          endDate: post.endDate
-            ? new Date(post.endDate).toISOString().slice(0, 16)
-            : "",
-          allowComments: post.allowComments !== undefined ? post.allowComments : true,
-          displayOrder: post.displayOrder || 0,
-          showOnHomePage: post.showOnHomePage || false,
-          includeInSitemap: post.includeInSitemap !== undefined ? post.includeInSitemap : true,
-          featuredImageUrl: post.featuredImageUrl || "",
-          thumbnailImageUrl: post.thumbnailImageUrl || "",
-          imageUrls: Array.isArray(post.imageUrls) ? post.imageUrls : [],
-          videoUrl: post.videoUrl || "",
-          metaTitle: post.metaTitle || "",
-          metaDescription: post.metaDescription || "",
-          metaKeywords: post.metaKeywords || "",
-          searchEngineFriendlyPageName: post.searchEngineFriendlyPageName || "",
-          authorName: post.authorName || "",
-          authorId: post.authorId || "",
-          tags: Array.isArray(post.tags) ? post.tags : [],
-        labels: Array.isArray(post.labels) ? post.labels : [], // ✅ Prefill labels
-          limitedToStores: post.limitedToStores || false,
-          storeIds: Array.isArray(post.storeIds) ? post.storeIds : [],
-          customerRoles: post.customerRoles || "",
-          languageId: post.languageId || "",
-          relatedBlogPostIds: Array.isArray(post.relatedBlogPostIds) 
-            ? post.relatedBlogPostIds 
-            : [], // ✅ Prefilled
-          blogCategoryId: post.blogCategoryId || "",
-          manualSlugEdited: false,
-        });
-
-        // Set image previews
-        if (post.featuredImageUrl) {
-          setFeaturedImagePreview(getImageUrl(post.featuredImageUrl));
-        }
-        if (post.thumbnailImageUrl) {
-          setThumbnailImagePreview(getImageUrl(post.thumbnailImageUrl));
-        }
-        if (post.imageUrls && post.imageUrls.length > 0) {
-          setGalleryImagePreviews(
-            post.imageUrls.map((url: string) => getImageUrl(url))
-          );
-        }
-
-        console.log("✅ Related posts prefilled:", post.relatedBlogPostIds?.length || 0);
-      } else {
-        toast.error("Failed to load post");
-        router.push("/admin/BlogPosts");
+      // Set image previews
+      if (post.featuredImageUrl) {
+        setFeaturedImagePreview(getImageUrl(post.featuredImageUrl));
       }
-    } catch (error: any) {
-      console.error("❌ Error fetching blog post:", error);
-      toast.error(error.response?.data?.message || "Failed to load blog post");
+      if (post.thumbnailImageUrl) {
+        setThumbnailImagePreview(getImageUrl(post.thumbnailImageUrl));
+      }
+      if (post.imageUrls && post.imageUrls.length > 0) {
+        setGalleryImagePreviews(
+          post.imageUrls.map((url: string) => getImageUrl(url))
+        );
+      }
+
+      console.log("✅ Related posts prefilled:", post.relatedBlogPostIds?.length || 0);
+    } else {
+      toast.error("Failed to load post");
       router.push("/admin/BlogPosts");
-    } finally {
-      setLoading(false);
     }
-  };
+  } catch (error: any) {
+    console.error("❌ Error fetching blog post:", error);
+    toast.error(error.response?.data?.message || "Failed to load blog post");
+    router.push("/admin/BlogPosts");
+  } finally {
+    setLoading(false);
+  }
+};
+
+
+
 
   // ✅ Add Related Post Handler - OPTIMIZED
   const handleAddRelatedPost = (postId: string) => {
@@ -593,87 +567,68 @@ const checkSlugExists = async (slug: string) => {
   };
 
   // ✅ Create New Category Handler
-  const handleCreateCategory = async () => {
-    if (!newCategoryName.trim()) {
-      toast.error("Please enter category name");
-      return;
-    }
+const handleCreateCategory = async () => {
+  if (!newCategoryName.trim()) {
+    toast.error("Please enter category name");
+    return;
+  }
 
-    setCreatingCategory(true);
-    try {
-      const token = localStorage.getItem("authToken");
-      const response = await apiClient.post<ApiResponse<BlogCategory>>(
-        `${API_ENDPOINTS.blogCategories}`,
-        {
-          name: newCategoryName,
-          slug: newCategoryName.toLowerCase().replace(/\s+/g, "-"),
-          description: "",
-          isActive: true,
-          displayOrder: 0,
-        },
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
+  setCreatingCategory(true);
+  try {
+    const response = await blogCategoriesService.create({
+      name: newCategoryName,
+      slug: newCategoryName.toLowerCase().replace(/\s+/g, "-"),
+      description: "",
+      isActive: true,
+      displayOrder: 0,
+    });
 
-      if (response.data?.success) {
-        toast.success("Category created successfully!");
-        setNewCategoryName("");
-        setShowNewCategoryInput(false);
-        await fetchBlogCategories();
-        
-        // ✅ Auto-select the new category
-      const categoryId = response?.data?.data?.id;
-
-if (categoryId) {
-  setFormData((prev) => ({
-    ...prev,
-    blogCategoryId: categoryId,
-  }));
-}
-
+    // ✅ CORRECT: response.data is ApiResponse<BlogCategory>
+    if (response.data?.success) {
+      toast.success("Category created successfully!");
+      setNewCategoryName("");
+      setShowNewCategoryInput(false);
+      await fetchBlogCategories();
+      
+      // ✅ Auto-select the new category
+      const categoryId = response.data.data.id;
+      if (categoryId) {
+        setFormData((prev) => ({
+          ...prev,
+          blogCategoryId: categoryId,
+        }));
       }
-    } catch (error: any) {
-      console.error("Error creating category:", error);
-      toast.error(error.response?.data?.message || "Failed to create category");
-    } finally {
-      setCreatingCategory(false);
     }
-  };
+  } catch (error: any) {
+    console.error("Error creating category:", error);
+    toast.error(error.response?.data?.message || "Failed to create category");
+  } finally {
+    setCreatingCategory(false);
+  }
+};
+
+
 
   // Image upload handler
-  const handleImageUpload = async (file: File, title: string) => {
-    try {
-      const token = localStorage.getItem("authToken");
-      const formDataToUpload = new FormData();
-      formDataToUpload.append("image", file);
+const handleImageUpload = async (file: File, title: string) => {
+  try {
+    console.log(`Uploading image with title: ${title}`);
+    
+    const uploadResponse = await blogPostsService.uploadImage(file, { title });
 
-      console.log(`Uploading image to ${API_ENDPOINTS.blogPosts}/upload-image`);
-      const uploadResponse = await apiClient.post<ApiResponse<string>>(
-        `${API_ENDPOINTS.blogPosts}/upload-image?title=${encodeURIComponent(title)}`,
-        formDataToUpload,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "multipart/form-data",
-          },
-        }
-      );
+    console.log("Image uploaded:", uploadResponse.data);
 
-      console.log("Image uploaded:", uploadResponse.data);
-
-      if (uploadResponse.data?.success && uploadResponse.data?.data) {
-        return uploadResponse.data.data;
-      }
-      return null;
-    } catch (error) {
-      console.error("Error uploading image:", error);
-      toast.error("Failed to upload image");
-      return null;
+    if (uploadResponse.data?.success && uploadResponse.data?.data) {
+      return uploadResponse.data.data;
     }
-  };
+    return null;
+  } catch (error) {
+    console.error("Error uploading image:", error);
+    toast.error("Failed to upload image");
+    return null;
+  }
+};
+
 // ✅ REPLACE: Delete featured image with API call
 const handleDeleteFeaturedImage = async () => {
   // Delete from server if URL exists
@@ -754,7 +709,7 @@ const handleDeleteThumbnailImage = async () => {
 
   // Remove gallery image
  // ✅ REPLACE: Delete gallery image with API call
-const handleRemoveGalleryImage = async (index: number) => {
+const handleRemoveGalleryImage = async (index: number) => { 
   // Check if it's an existing server image
   if (index < formData.imageUrls.length) {
     const imageUrl = formData.imageUrls[index];
@@ -1124,7 +1079,6 @@ const analyzeSEO = () => {
   });
 };
 
-
   const handleAddTag = (tag: string) => {
     const trimmedTag = tag.trim();
     if (trimmedTag && !formData.tags.includes(trimmedTag)) {
@@ -1147,13 +1101,6 @@ const analyzeSEO = () => {
 const handleSubmit = async (isDraft: boolean = false) => {
   setSaving(true);
   try {
-    const token = localStorage.getItem("authToken");
-    if (!token) {
-      toast.error("Please login first");
-      setSaving(false);
-      return;
-    }
-
     // Validate required fields
     if (!formData.title.trim()) {
       toast.error("Title is required");
@@ -1167,22 +1114,23 @@ const handleSubmit = async (isDraft: boolean = false) => {
       return;
     }
 
-
     // ✅ CRITICAL: Verify we have the post ID
     if (!postId) {
       toast.error("Post ID is missing");
       setSaving(false);
       return;
     }
-    // ✅ ADD THIS - Slug validation before upload
+
+    // ✅ Slug validation
     if (slugExists) {
       toast.error("Slug already exists in another post!");
       setSaving(false);
       return;
     }
+
     setUploadingImage(true);
 
-    // Upload images (same as before)
+    // Upload images (same logic as before)
     let finalFeaturedImageUrl = formData.featuredImageUrl;
     if (featuredImage) {
       try {
@@ -1249,9 +1197,8 @@ const handleSubmit = async (isDraft: boolean = false) => {
       .replace(/<span class="token">/g, "")
       .replace(/<\/span>/g, "");
 
-    // ✅ CRITICAL FIX: Include ID in payload
     const payload = {
-      id: postId, // ✅ ADD THIS - Must match URL parameter
+      id: postId, // ✅ Must match URL parameter
       title: formData.title.trim(),
       body: cleanBody,
       bodyOverview: formData.bodyOverview.trim() || "",
@@ -1304,26 +1251,8 @@ const handleSubmit = async (isDraft: boolean = false) => {
     console.log("📤 Updating post ID:", postId);
     console.log("📤 Payload:", JSON.stringify(payload, null, 2));
 
-    // ✅ Verify ID match
-    if (payload.id !== postId) {
-      console.error("❌ ID MISMATCH DETECTED!");
-      console.error("  Payload ID:", payload.id);
-      console.error("  URL ID:", postId);
-      toast.error("ID mismatch error - please refresh the page");
-      setSaving(false);
-      return;
-    }
-
-    const response = await apiClient.put<ApiResponse<any>>(
-      `${API_ENDPOINTS.blogPosts}/${postId}`,
-      payload,
-      {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-      }
-    );
+    // ✅ SERVICE-BASED UPDATE (replaces apiClient.put)
+    const response = await blogPostsService.update(postId, payload);
 
     console.log("✅ Post updated:", response.data);
 
@@ -1369,6 +1298,7 @@ const handleSubmit = async (isDraft: boolean = false) => {
     setUploadingImage(false);
   }
 };
+
 
 
   const generateSlug = (text: string): string => {

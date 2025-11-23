@@ -1,15 +1,9 @@
 "use client";
 
 import React, { useState, useEffect, useRef, createContext, useContext, ReactNode } from 'react';
-import { 
-  CheckCircle, 
-  XCircle, 
-  Info, 
-  AlertTriangle,
-  X 
-} from 'lucide-react';
+import { CheckCircle, XCircle, Info, AlertTriangle, X } from 'lucide-react';
 
-// === Types (same as before) ===
+// === Types ===
 interface ToastProps {
   id: string;
   message: string | ReactNode;
@@ -52,44 +46,45 @@ interface ToastProviderProps {
   children: ReactNode;
 }
 
+// === Styled Types ===
 const TOAST_TYPES = {
   success: { 
-    bgColor: 'bg-green-50 dark:bg-green-900/20', 
-    borderColor: 'border-green-200 dark:border-green-800', 
-    textColor: 'text-green-800 dark:text-green-200', 
-    iconColor: 'text-green-500 dark:text-green-400', 
-    progressColor: 'bg-green-500', 
-    icon: CheckCircle 
+    bg: 'bg-gradient-to-br from-green-50 via-green-100 to-green-200 dark:from-green-900 dark:via-green-800 dark:to-green-900',
+    border: 'border-green-300 dark:border-green-600',
+    text: 'text-green-950 dark:text-green-100',
+    icon: 'text-green-600 dark:text-green-400',
+    progress: 'bg-gradient-to-r from-green-400 via-green-500 to-green-600',
+    iconComponent: CheckCircle
   },
-  error: { 
-    bgColor: 'bg-red-50 dark:bg-red-900/20', 
-    borderColor: 'border-red-200 dark:border-red-800', 
-    textColor: 'text-red-800 dark:text-red-200', 
-    iconColor: 'text-red-500 dark:text-red-400', 
-    progressColor: 'bg-red-500', 
-    icon: XCircle 
+  error: {
+    bg: 'bg-gradient-to-br from-red-50 via-red-100 to-red-200 dark:from-red-900 dark:via-red-800 dark:to-red-900',
+    border: 'border-red-300 dark:border-red-600',
+    text: 'text-red-950 dark:text-red-100',
+    icon: 'text-red-600 dark:text-red-400',
+    progress: 'bg-gradient-to-r from-red-400 via-red-500 to-red-600',
+    iconComponent: XCircle
   },
   info: { 
-    bgColor: 'bg-blue-50 dark:bg-blue-900/20', 
-    borderColor: 'border-blue-200 dark:border-blue-800', 
-    textColor: 'text-blue-800 dark:text-blue-200', 
-    iconColor: 'text-blue-500 dark:text-blue-400', 
-    progressColor: 'bg-blue-500', 
-    icon: Info 
+    bg: 'bg-gradient-to-br from-blue-50 via-blue-100 to-blue-200 dark:from-blue-900 dark:via-blue-800 dark:to-blue-900',
+    border: 'border-blue-300 dark:border-blue-600',
+    text: 'text-blue-950 dark:text-blue-100',
+    icon: 'text-blue-600 dark:text-blue-400',
+    progress: 'bg-gradient-to-r from-blue-400 via-blue-500 to-blue-600',
+    iconComponent: Info
   },
   warning: { 
-    bgColor: 'bg-yellow-50 dark:bg-yellow-900/20', 
-    borderColor: 'border-yellow-200 dark:border-yellow-800', 
-    textColor: 'text-yellow-800 dark:text-yellow-200', 
-    iconColor: 'text-yellow-500 dark:text-yellow-400', 
-    progressColor: 'bg-yellow-500', 
-    icon: AlertTriangle 
+    bg: 'bg-gradient-to-br from-yellow-50 via-yellow-100 to-yellow-200 dark:from-yellow-900 dark:via-yellow-800 dark:to-yellow-900',
+    border: 'border-yellow-300 dark:border-yellow-600',
+    text: 'text-yellow-950 dark:text-yellow-100',
+    icon: 'text-yellow-600 dark:text-yellow-400',
+    progress: 'bg-gradient-to-r from-yellow-400 via-yellow-500 to-yellow-600',
+    iconComponent: AlertTriangle
   }
 };
 
 const ToastContext = createContext<ToastContextType | null>(null);
 
-// === 🔥 PERFECT Toast Component with Pause/Resume ===
+// === Main Toast Component (Modern/Gradient/Accurate Pause/Resume) ===
 const Toast: React.FC<ToastProps> = ({ 
   id, message, type = 'info', autoClose = 5000, onClose, 
   pauseOnHover = true, draggable = true, hideProgressBar = false, closeButton = true,
@@ -99,126 +94,75 @@ const Toast: React.FC<ToastProps> = ({
   const [isPaused, setIsPaused] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [dragOffset, setDragOffset] = useState(0);
-  
+
   const toastRef = useRef<HTMLDivElement>(null);
   const progressRef = useRef<HTMLDivElement>(null);
-  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
   const dragStartRef = useRef({ x: 0, startOffset: 0 });
-  const pauseTimeRef = useRef<number>(0);
-  const remainingTimeRef = useRef<number>(autoClose);
-  const isPausedRef = useRef<boolean>(false);
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const animationStartRef = useRef<number>(0);
+  const pauseStartRef = useRef<number>(0);
+  const totalPausedRef = useRef<number>(0);
 
-  const toastStyle = TOAST_TYPES[type] || TOAST_TYPES.info;
-  const IconComponent = toastStyle.icon;
+  const style = TOAST_TYPES[type] || TOAST_TYPES.info;
+  const IconComponent = style.iconComponent;
 
   useEffect(() => {
-    requestAnimationFrame(() => {
-      setIsVisible(true);
-    });
-    
-    if (autoClose > 0) {
-      startCountdown();
-    }
-    
-    return () => {
-      if (timeoutRef.current) clearTimeout(timeoutRef.current);
-    };
+    requestAnimationFrame(() => setIsVisible(true));
+    if (autoClose > 0) startAnimation();
+    return () => { if (timeoutRef.current) clearTimeout(timeoutRef.current); };
   }, []);
 
-  // 🔥 Start countdown with smooth CSS animation
-  const startCountdown = () => {
-    if (timeoutRef.current) clearTimeout(timeoutRef.current);
-    
-    isPausedRef.current = false;
-    
-    // 🔥 Smooth CSS transform animation
+  // --- CSS animation start ---
+  const startAnimation = () => {
+    animationStartRef.current = Date.now();
+    totalPausedRef.current = 0;
     if (progressRef.current) {
+      progressRef.current.style.width = '100%';
       progressRef.current.style.transition = 'none';
-      progressRef.current.style.transform = 'scaleX(1)';
-      
       requestAnimationFrame(() => {
         if (progressRef.current) {
-          progressRef.current.style.transition = `transform ${remainingTimeRef.current}ms linear`;
-          progressRef.current.style.transform = 'scaleX(0)';
+          progressRef.current.style.transition = `width ${autoClose}ms linear`;
+          progressRef.current.style.width = '0%';
         }
       });
     }
-
-    // Timer to close when done
-    timeoutRef.current = setTimeout(() => {
-      if (!isPausedRef.current) {
-        handleClose();
-      }
-    }, remainingTimeRef.current);
+    timeoutRef.current = setTimeout(handleClose, autoClose);
   };
 
-  // 🔥 Pause: Save current position
+  // --- Pause on hover ---
   const handleMouseEnter = () => {
-    if (!pauseOnHover || isPausedRef.current) return;
-    
+    if (!pauseOnHover || isPaused) return;
     setIsPaused(true);
-    isPausedRef.current = true;
-    pauseTimeRef.current = Date.now();
-    
-    // Clear timeout
-    if (timeoutRef.current) {
-      clearTimeout(timeoutRef.current);
-      timeoutRef.current = null;
-    }
-    
-    // 🔥 Get current scale and calculate remaining time
+    pauseStartRef.current = Date.now();
+    if (timeoutRef.current) { clearTimeout(timeoutRef.current); timeoutRef.current = null; }
     if (progressRef.current) {
-      const computedStyle = window.getComputedStyle(progressRef.current);
-      const matrix = new DOMMatrix(computedStyle.transform);
-      const currentScale = Math.max(0, Math.min(1, matrix.a)); // scaleX value (0 to 1)
-      
-      // Update remaining time based on current progress
-      remainingTimeRef.current = Math.ceil(remainingTimeRef.current * currentScale);
-      
-      // Freeze at current position
-      const currentTransform = computedStyle.transform;
+      const comp = window.getComputedStyle(progressRef.current);
+      const width = parseFloat(comp.width);
+      const parentWidth = progressRef.current.parentElement?.offsetWidth || 1;
+      const widthPercent = (width / parentWidth) * 100;
       progressRef.current.style.transition = 'none';
-      progressRef.current.style.transform = currentTransform;
+      progressRef.current.style.width = `${widthPercent}%`;
     }
   };
 
-  // 🔥 Resume: Continue from paused position
+  // --- Resume animation ---
   const handleMouseLeave = () => {
-    if (!pauseOnHover || !isPausedRef.current) return;
-    
+    if (!pauseOnHover || !isPaused) return;
     setIsPaused(false);
-    isPausedRef.current = false;
-    
-    // 🔥 Resume animation from current position
-    if (progressRef.current && remainingTimeRef.current > 0) {
-      const computedStyle = window.getComputedStyle(progressRef.current);
-      const currentTransform = computedStyle.transform;
-      
-      // Get current scale to resume from exact position
-      const matrix = new DOMMatrix(currentTransform);
-      const currentScale = Math.max(0, Math.min(1, matrix.a));
-      
-      // Set starting position
-      progressRef.current.style.transition = 'none';
-      progressRef.current.style.transform = `scaleX(${currentScale})`;
-      
-      // Resume animation to 0
+    const pauseDuration = Date.now() - pauseStartRef.current;
+    totalPausedRef.current += pauseDuration;
+    const elapsed = Date.now() - animationStartRef.current - totalPausedRef.current;
+    const remaining = Math.max(0, autoClose - elapsed);
+    if (remaining <= 0) { handleClose(); return; }
+    if (progressRef.current) {
       requestAnimationFrame(() => {
         if (progressRef.current) {
-          progressRef.current.style.transition = `transform ${remainingTimeRef.current}ms linear`;
-          progressRef.current.style.transform = 'scaleX(0)';
+          progressRef.current.style.transition = `width ${remaining}ms linear`;
+          progressRef.current.style.width = '0%';
         }
       });
-      
-      // Set new timeout for remaining time
-      timeoutRef.current = setTimeout(() => {
-        if (!isPausedRef.current) {
-          handleClose();
-        }
-      }, remainingTimeRef.current);
-    } else {
-      handleClose();
     }
+    timeoutRef.current = setTimeout(handleClose, remaining);
   };
 
   const handleClose = () => {
@@ -227,14 +171,14 @@ const Toast: React.FC<ToastProps> = ({
     setTimeout(() => onClose(id), 300);
   };
 
+  // --- Drag to dismiss ---
   const handleMouseDown = (e: React.MouseEvent) => {
     if (!draggable) return;
     e.preventDefault();
     setIsDragging(true);
-    if (pauseOnHover && !isPausedRef.current) handleMouseEnter();
+    if (pauseOnHover && !isPaused) handleMouseEnter();
     dragStartRef.current = { x: e.clientX, startOffset: dragOffset };
   };
-
   const handleMouseMove = (e: MouseEvent) => {
     if (!isDragging || !draggable) return;
     const deltaX = e.clientX - dragStartRef.current.x;
@@ -242,14 +186,12 @@ const Toast: React.FC<ToastProps> = ({
     setDragOffset(newOffset);
     if (Math.abs(newOffset) > 300) handleClose();
   };
-
   const handleMouseUp = () => {
     if (!isDragging) return;
     setIsDragging(false);
-    if (!isPaused) handleMouseLeave();
+    if (isPaused) handleMouseLeave();
     if (Math.abs(dragOffset) < 300) setDragOffset(0);
   };
-
   useEffect(() => {
     if (isDragging) {
       document.addEventListener('mousemove', handleMouseMove);
@@ -259,100 +201,86 @@ const Toast: React.FC<ToastProps> = ({
         document.removeEventListener('mouseup', handleMouseUp);
       };
     }
-  }, [isDragging, dragOffset]);
+  }, [isDragging, dragOffset, isPaused]);
 
   const rotation = isDragging ? Math.min(Math.abs(dragOffset) / 80, 8) * Math.sign(dragOffset) : 0;
 
+  // --- Render ---
   return (
     <div
       ref={toastRef}
       className={`
-        relative w-96 max-w-full rounded-xl border-2 shadow-2xl
-        transform ease-out select-none overflow-hidden backdrop-blur-sm
-        ${toastStyle.bgColor} ${toastStyle.borderColor}
+        relative w-[380px] max-w-full rounded-2xl border-2 shadow-2xl drop-shadow-xl
+        overflow-hidden backdrop-blur-md
+        ${style.bg} ${style.border}
         ${isVisible ? 'translate-y-0 opacity-100 scale-100' : 'translate-y-2 opacity-0 scale-95'}
-        ${isDragging ? 'shadow-[0_20px_60px_rgba(0,0,0,0.3)] scale-105 z-50 cursor-grabbing' : 'cursor-grab hover:shadow-xl'}
-        ${isPaused ? 'ring-2 ring-blue-400 dark:ring-blue-500 ring-opacity-50' : ''}
-        transition-all duration-400
+        ${isDragging ? 'shadow-[0_20px_60px_rgba(0,0,0,0.16)] scale-105 z-50 cursor-grabbing' : 'cursor-grab hover:shadow-lg'}
+        ${isPaused ? 'ring-2 ring-blue-400 dark:ring-blue-500 ring-opacity-60' : ''}
+        transition-all duration-500
       `}
       style={{
         transform: `translateX(${dragOffset}px) rotate(${rotation}deg) scale(${isDragging ? 1.05 : 1})`,
         opacity: Math.max(0.5, 1 - Math.abs(dragOffset) / 400),
-        transitionProperty: isDragging ? 'box-shadow' : 'all',
-        transitionDuration: isDragging ? '200ms' : '400ms',
-        transitionTimingFunction: 'cubic-bezier(0.16, 1, 0.3, 1)',
         zIndex: isDragging ? 1000 : 999 - index,
       }}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
       onMouseDown={handleMouseDown}
     >
-      <div className="flex items-center p-4 gap-3 min-h-16">
-        <div className={`flex-shrink-0 ${toastStyle.iconColor}`}>
-          <IconComponent size={24} strokeWidth={2.5} />
+      <div className="flex items-center p-5 gap-4 min-h-16">
+        <div className={`flex-shrink-0 ${style.icon}`}>
+          <IconComponent size={30} strokeWidth={2.5} />
         </div>
-
-        <div className={`flex-1 text-sm font-medium ${toastStyle.textColor} leading-relaxed`}>
-          {typeof message === 'string' ? (
-            <p className="whitespace-pre-wrap break-words">{message}</p>
-          ) : (
-            <div className="break-words">{message}</div>
-          )}
+        <div className={`flex-1 text-base font-semibold ${style.text} leading-relaxed`}>
+          {typeof message === 'string'
+            ? <p className="whitespace-pre-wrap break-words">{message}</p>
+            : <div className="break-words">{message}</div>}
         </div>
-
         {closeButton && (
           <button
-            onClick={(e) => {
-              e.stopPropagation();
-              handleClose();
-            }}
+            onClick={e => { e.stopPropagation(); handleClose(); }}
             className={`
-              flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center 
-              transition-all duration-200 ${toastStyle.textColor}
-              hover:bg-white/40 dark:hover:bg-black/20 active:scale-90
+              flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center 
+              transition-all duration-300 ${style.text}
+              hover:bg-black/20 dark:hover:bg-white/10 active:scale-95
               opacity-60 hover:opacity-100
             `}
             aria-label="Close notification"
           >
-            <X size={16} strokeWidth={2.5} />
+            <X size={18} strokeWidth={2.5} />
           </button>
         )}
       </div>
-
-      {/* 🔥 SMOOTH Progress Bar with Perfect Pause/Resume */}
       {!hideProgressBar && autoClose > 0 && (
-        <div className="absolute bottom-0 left-0 w-full h-1.5 bg-black/10 dark:bg-white/10 overflow-hidden">
+        <div className="absolute bottom-0 left-0 w-full h-2 bg-black/10 dark:bg-white/10 overflow-hidden">
           <div
             ref={progressRef}
-            className={`h-full ${toastStyle.progressColor} origin-left`}
-            style={{ 
-              transform: 'scaleX(1)',
+            className={`h-full ${style.progress} will-change-auto`}
+            style={{
+              width: '100%',
               opacity: isPaused ? 0.5 : 1,
-              willChange: 'transform',
             }}
           />
         </div>
       )}
-
       {isPaused && (
         <div className="absolute top-2 right-12 flex gap-1">
           <div className="w-1.5 h-3 bg-blue-600 dark:bg-blue-400 rounded-full animate-pulse"></div>
           <div className="w-1.5 h-3 bg-blue-600 dark:bg-blue-400 rounded-full animate-pulse" style={{ animationDelay: '0.15s' }}></div>
         </div>
       )}
-
-      {isDragging && (
+      {/* {isDragging && (
         <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
           <div className="bg-black/10 dark:bg-white/10 backdrop-blur-sm px-4 py-2 rounded-full text-xs font-semibold">
             {Math.abs(dragOffset) > 200 ? '👋 Release to dismiss' : '↔️ Swipe to dismiss'}
           </div>
         </div>
-      )}
+      )} */}
     </div>
   );
 };
 
-// === Toast Container (same as before) ===
+// === Toast Container (unchanged) ===
 const ToastContainerByPosition: React.FC<{
   position: string;
   toasts: any[];
@@ -369,12 +297,9 @@ const ToastContainerByPosition: React.FC<{
       default: return 'top-4 right-4 items-end';
     }
   };
-
   const positionToasts = toasts.filter(t => (t.position || 'top-right') === position);
   const limitedToasts = positionToasts.slice(-limit);
-
   if (limitedToasts.length === 0) return null;
-
   return (
     <div className={`fixed pointer-events-none flex flex-col gap-3 z-[99999] ${getPositionClasses()}`}>
       {limitedToasts.map((toast, index) => (
@@ -394,15 +319,13 @@ const ToastContainerByPosition: React.FC<{
   );
 };
 
-// === Provider (same as before) ===
+// === Provider (unchanged) ===
 const ToastProvider: React.FC<ToastProviderProps> = ({ children }) => {
   const [toasts, setToasts] = useState<any[]>([]);
-
   const addToast = (message: string | ReactNode, options: ToastOptions = {}) => {
     const id = Date.now() + Math.random() + '';
     const newToast = {
-      id,
-      message,
+      id, message,
       type: options.type || 'info',
       autoClose: options.autoClose ?? 5000,
       pauseOnHover: options.pauseOnHover ?? true,
@@ -412,39 +335,27 @@ const ToastProvider: React.FC<ToastProviderProps> = ({ children }) => {
       position: options.position || 'top-right',
       onClose: (toastId: string) => removeToast(toastId),
     };
-    
     setToasts(prev => {
-      const samePositionToasts = prev.filter(t => t.position === newToast.position);
-      if (samePositionToasts.length >= 5) {
-        const oldestId = samePositionToasts[0].id;
+      const same = prev.filter(t => t.position === newToast.position);
+      if (same.length >= 5) {
+        const oldestId = same[0].id;
         return [...prev.filter(t => t.id !== oldestId), newToast];
       }
       return [...prev, newToast];
     });
-    
     return id;
   };
-
-  const removeToast = (id: string) => {
-    setToasts(prev => prev.filter(toast => toast.id !== id));
-  };
-
+  const removeToast = (id: string) => { setToasts(prev => prev.filter(toast => toast.id !== id)); };
   const dismissAll = () => setToasts([]);
   const isActive = (id: string) => toasts.some(toast => toast.id === id);
-
   const toast = {
     success: (msg: string | ReactNode, opts?: ToastOptions) => addToast(msg, { ...opts, type: 'success' }),
     error: (msg: string | ReactNode, opts?: ToastOptions) => addToast(msg, { ...opts, type: 'error' }),
     info: (msg: string | ReactNode, opts?: ToastOptions) => addToast(msg, { ...opts, type: 'info' }),
     warning: (msg: string | ReactNode, opts?: ToastOptions) => addToast(msg, { ...opts, type: 'warning' }),
-    dismiss: removeToast,
-    dismissAll,
-    isActive,
-    show: addToast
+    dismiss: removeToast, dismissAll, isActive, show: addToast
   };
-
   const positions = ['top-left', 'top-center', 'top-right', 'bottom-left', 'bottom-center', 'bottom-right'];
-
   return (
     <ToastContext.Provider value={{ toasts, toast }}>
       {children}

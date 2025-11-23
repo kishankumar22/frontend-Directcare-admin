@@ -7,44 +7,9 @@ import { apiClient } from "@/lib/api";
 import { useToast } from "@/components/CustomToast";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import { ProductDescriptionEditor } from "../products/SelfHostedEditor";
+import { Banner, bannersService, BannerStats } from "@/lib/services";
 
-interface Banner {
-  id: string;
-  title: string;
-  imageUrl: string;
-  link: string;
-  description: string;
-  isActive: boolean;
-  displayOrder: number;
-  startDate: string;
-  endDate: string;
-  createdAt: string;
-  updatedAt: string | null;
-  createdBy: string;
-  updatedBy: string | null;
-}
 
-interface BannerApiResponse {
-  success?: boolean;
-  data?: Banner[] | Banner;
-  message?: string;
-  errors?: string[] | null;
-}
-
-interface ApiResponse<T = any> {
-  success?: boolean;
-  data?: T;
-  message?: string;
-  errors?: string[] | null;
-  error?: string;
-}
-
-interface BannerStats {
-  totalBanners: number;
-  activeBanners: number;
-  inactiveBanners: number;
-  upcomingBanners: number;
-}
 
 export default function ManageBanners() {
   const toast = useToast();
@@ -153,161 +118,105 @@ export default function ManageBanners() {
     toast.success("Image selected! Old image will be replaced on save.");
   };
 
-  const fetchBanners = async () => {
-    try {
-      setLoading(true);
+const fetchBanners = async () => {
+  try {
+    setLoading(true);
+    const response = await bannersService.getAll({
+      params: { includeInactive: true }
+    });
+    const bannersData = response.data?.data && Array.isArray(response.data.data)
+      ? response.data.data
+      : [];
+    setBanners(bannersData);
+    calculateStats(bannersData);
+  } catch (error) {
+    console.error("Error fetching banners:", error);
+    toast.error("Failed to fetch banners");
+    setBanners([]);
+  } finally {
+    setLoading(false);
+  }
+};
 
-      const response = await apiClient.get<BannerApiResponse>(
-        API_ENDPOINTS.banners,
-        { params: { includeInactive: true } }
-      );
-
-      const result = response.data;
-
-      const bannersData = result?.success && Array.isArray(result.data)
-        ? result.data
-        : [];
-
-      setBanners(bannersData);
-      calculateStats(bannersData);
-
-    } catch (error) {
-      console.error("Error fetching banners:", error);
-      toast.error("Failed to fetch banners");
-      setBanners([]);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   // ✅ UPDATED - Handle Submit with Auto-Delete Old Image
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+ const handleSubmit = async (e: React.FormEvent) => {
+  e.preventDefault();
+  
+  if (!formData.title.trim()) {
+    toast.error("Banner title is required");
+    return;
+  }
+  if (!editingBanner && !imageFile) {
+    toast.error("Banner image is required");
+    return;
+  }
 
-    const token = localStorage.getItem("authToken");
-    if (!token) {
-      toast.error("Please login first");
-      return;
-    }
+  try {
+    let finalImageUrl = formData.imageUrl;
 
-    try {
-      if (!formData.title.trim()) {
-        toast.error("Banner title is required");
-        return;
-      }
+    // Upload new image if file selected
+    if (imageFile) {
+      try {
+        const uploadResponse = await bannersService.uploadImage(imageFile, {
+          title: formData.title
+        });
+        if (!uploadResponse.data?.success || !uploadResponse.data?.data) {
+          throw new Error(uploadResponse.data?.message || "Image upload failed");
+        }
+        finalImageUrl = uploadResponse.data.data;
+        toast.success("Image uploaded successfully!");
 
-      // ✅ Check if image is required for new banners
-      if (!editingBanner && !imageFile) {
-        toast.error("Banner image is required");
-        return;
-      }
-
-      let finalImageUrl = formData.imageUrl; 
-
-      // STEP 1: Upload new image if selected
-      if (imageFile) {
-        try {
-          const formDataToUpload = new FormData();
-          formDataToUpload.append("image", imageFile);
-
-          const response = await apiClient.post<{
-            success: boolean;
-            data: string;
-            message?: string;
-          }>(API_ENDPOINTS.banners + "/upload-image", formDataToUpload, {
-            params: {
-              title: formData.title,
-            },
-            headers: {
-              ...(token && { Authorization: `Bearer ${token}` }),
-              "Content-Type": "multipart/form-data",
-            },
-          });
-
-          const result = response.data;
-          if (!result?.success || !result.data) {
-            toast.error(result?.message || "Image upload failed");
-            return;
-          }
-
-          const relativeUrl = getRelativeImageUrl(result.data);
-          finalImageUrl = relativeUrl;
-
-          // ✅ Delete old image automatically if updating
-          if (editingBanner?.imageUrl && editingBanner.imageUrl !== finalImageUrl) {
+        // Delete old image if updating
+        if (editingBanner?.imageUrl && editingBanner.imageUrl !== finalImageUrl) {
+          const filename = extractFilename(editingBanner.imageUrl);
+          if (filename) {
             try {
-              const filename = extractFilename(editingBanner.imageUrl);
-              await apiClient.delete(API_ENDPOINTS.imageManagement + `/banner/${filename}`, {
-                headers: {
-                  ...(token && { Authorization: `Bearer ${token}` }),
-                },
-              });
-              console.log("✅ Old image deleted successfully");
+              await bannersService.deleteImage(filename);
             } catch (err) {
-              console.log("⚠️ Failed to delete old image:", err);
+              console.log("Failed to delete old image:", err);
             }
           }
-        } catch (uploadError: any) {
-          console.error("Error uploading image:", uploadError);
-          toast.error("Failed to upload image. Please try again.");
-          return;
         }
+      } catch (uploadErr: any) {
+        console.error("Error uploading image:", uploadErr);
+        toast.error(uploadErr?.response?.data?.message || "Failed to upload image");
+        return;
       }
-
-      // STEP 2: Create or Update Banner
-      const url = editingBanner
-        ? API_ENDPOINTS.banners + `/${editingBanner.id}`
-        : API_ENDPOINTS.banners;
-
-      const payload = {
-        title: formData.title.trim(),
-        imageUrl: finalImageUrl,
-        link: formData.link || "",
-        description: formData.description || "",
-        isActive: Boolean(formData.isActive),
-        displayOrder: Number(formData.displayOrder) || 0,
-        startDate: formData.startDate || null,
-        endDate: formData.endDate || null,
-        ...(editingBanner && {
-          id: editingBanner.id,
-          createdBy: editingBanner.createdBy,
-          createdAt: editingBanner.createdAt,
-        }),
-      };
-
-      console.log("📦 Payload:", payload);
-
-      const response = editingBanner
-        ? await apiClient.put(url, payload, {
-            headers: { Authorization: `Bearer ${token}` },
-          })
-        : await apiClient.post(url, payload, {
-            headers: { Authorization: `Bearer ${token}` },
-          });
-
-      const successMessage = editingBanner
-        ? "Banner updated successfully!"
-        : "Banner created successfully!";
-
-      toast.success(successMessage);
-
-      // Cleanup
-      if (imagePreview) {
-        URL.revokeObjectURL(imagePreview);
-      }
-      setImageFile(null);
-      setImagePreview(null);
-
-      await fetchBanners();
-      setShowModal(false);
-      resetForm();
-    } catch (error: any) {
-      console.error("Error:", error);
-      const message =
-        error.response?.data?.message || "Failed to save banner";
-      toast.error(message);
     }
-  };
+
+    const payload = {
+      title: formData.title.trim(),
+      imageUrl: finalImageUrl,
+      link: formData.link || "",
+      description: formData.description || "",
+      isActive: Boolean(formData.isActive),
+      displayOrder: Number(formData.displayOrder) || 0,
+      startDate: formData.startDate || null,
+      endDate: formData.endDate || null,
+      ...(editingBanner && { id: editingBanner.id }),
+    };
+
+    if (editingBanner) {
+      await bannersService.update(editingBanner.id, payload);
+      toast.success("Banner updated successfully!");
+    } else {
+      await bannersService.create(payload);
+      toast.success("Banner created successfully!");
+    }
+
+    if (imagePreview) URL.revokeObjectURL(imagePreview);
+    setImageFile(null);
+    setImagePreview(null);
+    await fetchBanners();
+    setShowModal(false);
+    resetForm();
+  } catch (error: any) {
+    console.error("Error:", error);
+    toast.error(error?.response?.data?.message || "Failed to save banner");
+  }
+};
+
 
   useEffect(() => {
     fetchBanners();
@@ -332,29 +241,25 @@ export default function ManageBanners() {
     setShowModal(true);
   };
 
-  const handleDelete = async (id: string) => {
-    setIsDeleting(true);
-    
-    try {
-      const response = await apiClient.delete<ApiResponse>(`${API_ENDPOINTS.banners}/${id}`);
-      
-      const success = response.data?.success || !response.error;
-      
-      if (success) {
-        toast.success("Banner deleted successfully! 🗑️");
-        await fetchBanners();
-      } else {
-        throw new Error(response.error || "Failed to delete banner");
-      }
-      
-    } catch (error: any) {
-      console.error("Error deleting banner:", error);
-      toast.error(error.response?.data?.message || error.message || 'Failed to delete banner');
-    } finally {
-      setIsDeleting(false);
-      setDeleteConfirm(null);
+const handleDelete = async (id: string) => {
+  setIsDeleting(true);
+  try {
+    const response = await bannersService.delete(id);
+    if (!response.error && (response.status === 200 || response.status === 204)) {
+      toast.success("Banner deleted successfully! 🗑️");
+      await fetchBanners();
+    } else {
+      toast.error(response.error || "Failed to delete banner");
     }
-  };
+  } catch (error: any) {
+    console.error("Error deleting banner:", error);
+    toast.error(error?.response?.data?.message || "Failed to delete banner");
+  } finally {
+    setIsDeleting(false);
+    setDeleteConfirm(null);
+  }
+};
+
 
   const resetForm = () => {
     setFormData({

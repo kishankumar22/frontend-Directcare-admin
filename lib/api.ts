@@ -1,7 +1,7 @@
 // lib/api.ts
 import axios, { AxiosInstance, AxiosError } from 'axios';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://testapi.knowledgemarkg.com';
+export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://testapi.knowledgemarkg.com';
 
 export interface ApiResponse<T> {
   data?: T;
@@ -12,21 +12,15 @@ export interface ApiResponse<T> {
 
 class ApiClient {
   private client: AxiosInstance;
-
   constructor(baseURL: string) {
-    this.client = axios.create({
-      baseURL,
-      timeout: 120000, // 2 minutes
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      // ✅ CRITICAL: Set to Infinity for unlimited size
-      maxContentLength: Infinity,
-      maxBodyLength: Infinity,
-      validateStatus: (status) => {
-        return status < 500;
-      }
-    });
+   this.client = axios.create({
+  baseURL,
+  timeout: 120000,
+  maxContentLength: Infinity,
+  maxBodyLength: Infinity,
+  validateStatus: (status) => status < 500,
+});
+
 
     this.setupInterceptors();
   }

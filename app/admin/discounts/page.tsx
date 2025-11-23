@@ -8,56 +8,14 @@ import { apiClient } from "@/lib/api";
 import { ProductDescriptionEditor } from "../products/SelfHostedEditor";
 import { useToast } from "@/components/CustomToast";
 import ConfirmDialog from "@/components/ConfirmDialog";
+import { Discount, DiscountLimitationType, discountsService ,DiscountType} from "@/lib/services/discounts";
+import { Category } from "@/lib/services/categories";
+import { Product } from "@/lib/services";
 
-// ✅ COMPLETE INTERFACES
-interface SelectOption {
+
+ interface SelectOption {
   value: string;
-  label: string;
-}
-
-interface Category {
-  id: string;
-  name: string;
-}
-
-interface Product {
-  id: string;
-  name: string;
-}
-
-
-
-type DiscountType = "AssignedToOrderTotal" | "AssignedToProducts" | "AssignedToCategories" | "AssignedToManufacturers" | "AssignedToShipping";
-type DiscountLimitationType = "Unlimited" | "NTimesOnly" | "NTimesPerCustomer";
-
-interface Discount {
-  id: string;
-  name: string;
-  isActive: boolean;
-  discountType: DiscountType;
-  usePercentage: boolean;
-  discountAmount: number;
-  discountPercentage: number;
-  maximumDiscountAmount: number | null;
-  startDate: string;
-  endDate: string;
-  requiresCouponCode: boolean;
-  couponCode: string | null;
-  isCumulative: boolean;
-  discountLimitation: DiscountLimitationType;
-  limitationTimes: number | null;
-  maximumDiscountedQuantity: number | null;
-  appliedToSubOrders: boolean;
-  adminComment: string;
-  assignedProductIds: string;
-  assignedCategoryIds: string;
-  assignedManufacturerIds: string;
-  createdAt?: string;
-  updatedAt?: string | null;
-  createdBy?: string;
-  updatedBy?: string | null;
-}
-
+ }
 interface FormData {
   name: string;
   isActive: boolean;
@@ -301,22 +259,16 @@ const fetchDropdownData = async () => {
   }));
 
 
-  // ✅ FETCH DISCOUNTS FUNCTION
+
 // ✅ FETCH DISCOUNTS (apiClient version)
 const fetchDiscounts = async () => {
+  setLoading(true);
   try {
-    setLoading(true);
-
-    const response = await apiClient.get<{ success: boolean; data: Discount[] }>(
-      `${API_ENDPOINTS.discounts}?includeInactive=true`
-    );
-
-    if (response.data?.success && Array.isArray(response.data.data)) {
-      setDiscounts(response.data.data);
-    } else {
-      setDiscounts([]);
-    }
-
+    const response = await discountsService.getAll({
+      params: { includeInactive: true }
+    });
+    const discountsData = response.data?.data || [];
+    setDiscounts(discountsData);
   } catch (error) {
     console.error("Error fetching discounts:", error);
     setDiscounts([]);
@@ -326,17 +278,10 @@ const fetchDiscounts = async () => {
 };
 
 
-  // ✅ COMPLETE HANDLE SUBMIT FUNCTION
-// ✅ HANDLE SUBMIT using apiClient
+
+
 const handleSubmit = async (e: React.FormEvent) => {
   e.preventDefault();
-
-  const token = localStorage.getItem("authToken");
-  if (!token) {
-    toast.error("Please login first");
-    return;
-  }
-
   try {
     const payload = {
       ...formData,
@@ -346,39 +291,22 @@ const handleSubmit = async (e: React.FormEvent) => {
       ...(editingDiscount && { id: editingDiscount.id }),
     };
 
-    const url = editingDiscount
-      ? `${API_ENDPOINTS.discounts}/${editingDiscount.id}`
-      : `${API_ENDPOINTS.discounts}`;
-
-    const response = editingDiscount
-      ? await apiClient.put(url, payload)
-      : await apiClient.post(url, payload);
-
-    // 🟢 Check success
-    const data = response.data as {
-      success?: boolean;
-      message?: string;
-      errors?: string[];
-    };
-
-    if (data?.success === false) {
-      const errorMsg = data.errors?.join(", ") || data.message || "Operation failed";
-      throw new Error(errorMsg);
+    if (editingDiscount) {
+      await discountsService.update(editingDiscount.id, payload);
+      toast.success("Discount updated successfully! ✅");
+    } else {
+      await discountsService.create(payload);
+      toast.success("Discount created successfully! 🎉");
     }
-
-    toast.success(
-      editingDiscount ? "Discount updated successfully! ✅" : "Discount created successfully! 🎉"
-    );
-
     await fetchDiscounts();
     setShowModal(false);
     resetForm();
-
   } catch (error: any) {
     console.error("Error saving discount:", error);
-    toast.error(error.message || "Failed to save discount");
+    toast.error(error?.response?.data?.message || "Failed to save discount");
   }
 };
+
 
 
   // ✅ COMPLETE HANDLE EDIT FUNCTION
@@ -437,31 +365,25 @@ const handleSubmit = async (e: React.FormEvent) => {
   };
 
   // ✅ HANDLE DELETE FUNCTION
-  const handleDelete = async (id: string) => {
-    setIsDeleting(true);
-    
-    try {
-      const token = localStorage.getItem("authToken");
-      const response = await fetch(`${API_ENDPOINTS.discounts}/${id}`, {
-        method: 'DELETE',
-        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-      });
-      
-      if (response.ok) {
-        toast.success("Discount deleted successfully! 🗑️");
-        await fetchDiscounts();
-      } else {
-        const errorData = await response.json();
-        toast.error(errorData.message || "Failed to delete discount");
-      }
-    } catch (error: any) {
-      console.error("Error deleting discount:", error);
-      toast.error("Failed to delete discount");
-    } finally {
-      setIsDeleting(false);
-      setDeleteConfirm(null);
+const handleDelete = async (id: string) => {
+  setIsDeleting(true);
+  try {
+    const response = await discountsService.delete(id); // ✅ No extra params
+    if (!response.error && (response.status === 200 || response.status === 204)) {
+      toast.success("Discount deleted successfully! 🗑️");
+      await fetchDiscounts();
+    } else {
+      toast.error(response.error || "Failed to delete discount");
     }
-  };
+  } catch (error: any) {
+    console.error("Error deleting discount:", error);
+    toast.error(error?.response?.data?.message || "Failed to delete discount");
+  } finally {
+    setIsDeleting(false);
+    setDeleteConfirm(null);
+  }
+};
+
 
   // ✅ UTILITY FUNCTIONS
   const clearFilters = () => {

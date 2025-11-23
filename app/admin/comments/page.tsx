@@ -7,6 +7,7 @@ import { API_ENDPOINTS, API_BASE_URL } from "@/lib/api-config";
 import { apiClient } from "@/lib/api";
 import { useToast } from "@/components/CustomToast";
 import ConfirmDialog from "@/components/ConfirmDialog";
+import { blogCommentsService } from "@/lib/services/blogComments";
 
 interface BlogComment {
   id: string;
@@ -69,74 +70,55 @@ export default function CommentsPage() {
   });
 
   // ✅ Fetch Blog Posts
-  const fetchBlogPosts = async () => {
-    setLoadingPosts(true);
-    try {
-      const token = localStorage.getItem("authToken");
-      console.log("🔵 Fetching blog posts...");
-      
-      const response = await apiClient.get<ApiResponse<BlogPost[]>>(
-        "/api/BlogPosts",
-        {
-          headers: {
-            ...(token && { Authorization: `Bearer ${token}` }),
-          },
-        }
-      );
-
-      console.log("📥 Blog posts response:", response.data);
-
-      if (response.data?.success && Array.isArray(response.data.data)) {
-        const postsData = response.data.data || [];
-        console.log("✅ Loaded", postsData.length, "blog posts");
-        setBlogPosts(postsData);
-      } else {
-        console.error("❌ Invalid posts response");
-        setBlogPosts([]);
-      }
-    } catch (error: any) {
-      console.error("❌ Error fetching blog posts:", error);
-      toast.error("Failed to load blog posts");
+const fetchBlogPosts = async () => {
+  setLoadingPosts(true);
+  try {
+    const response = await blogCommentsService.getAllPosts();
+    if (response.data?.success && Array.isArray(response.data.data)) {
+      setBlogPosts(response.data.data || []);
+    } else {
       setBlogPosts([]);
-    } finally {
-      setLoadingPosts(false);
     }
-  };
+  } catch (error: any) {
+    console.error("Error fetching blog posts:", error);
+    toast.error("Failed to load blog posts");
+    setBlogPosts([]);
+  } finally {
+    setLoadingPosts(false);
+  }
+};
+
 
   // ✅ Fetch Comments for Specific Post or All Posts
- // ✅ FIXED: Fetch Comments with includeUnapproved parameter
 const fetchComments = async (specificPostId?: string) => {
   setLoadingComments(true);
   try {
-    const token = localStorage.getItem("authToken");
-    
-    let url = "";
     if (specificPostId && specificPostId !== "all") {
-      // ✅ Add includeUnapproved=true parameter
-      url = `/api/BlogComments/post/${specificPostId}?includeUnapproved=true`;
-      console.log("🔵 Fetching comments for post:", specificPostId);
+      // Fetch comments for specific post
+      const response = await blogCommentsService.getByPostId(specificPostId, true);
+      if (response.data?.success && Array.isArray(response.data.data)) {
+        const commentsData = response.data.data.map(comment => {
+          const post = blogPosts.find(p => p.id === comment.blogPostId);
+          return {
+            ...comment,
+            blogPostTitle: comment.blogPostTitle || post?.title || "Unknown Post"
+          };
+        });
+        setComments(commentsData);
+      } else {
+        setComments([]);
+      }
     } else {
       // Fetch comments from all posts
-      console.log("🔵 Fetching all comments from all posts...");
-      
       if (blogPosts.length === 0) {
-        console.log("⚠️ No posts available");
         setComments([]);
         setLoadingComments(false);
         return;
       }
 
-      // ✅ Fetch comments from all posts with includeUnapproved
       const allCommentsPromises = blogPosts.map(post =>
-        apiClient.get<ApiResponse<BlogComment[]>>(
-          `/api/BlogComments/post/${post.id}?includeUnapproved=true`, // ✅ Added parameter
-          {
-            headers: {
-              ...(token && { Authorization: `Bearer ${token}` }),
-            },
-          }
-        ).catch(err => {
-          console.error(`❌ Error for post ${post.id}:`, err);
+        blogCommentsService.getByPostId(post.id, true).catch(err => {
+          console.error(`Error for post ${post.id}:`, err);
           return { data: { success: false, data: [], message: "", errors: null } };
         })
       );
@@ -146,7 +128,6 @@ const fetchComments = async (specificPostId?: string) => {
       
       results.forEach((response, index) => {
         if (response.data?.success && Array.isArray(response.data.data)) {
-          console.log(`✅ Post "${blogPosts[index].title}": ${response.data.data.length} comments`);
           const postComments = response.data.data.map(comment => ({
             ...comment,
             blogPostTitle: comment.blogPostTitle || blogPosts[index].title
@@ -155,49 +136,17 @@ const fetchComments = async (specificPostId?: string) => {
         }
       });
 
-      console.log("✅ Total comments loaded:", allComments.length);
       setComments(allComments);
-      setLoadingComments(false);
-      return;
-    }
-
-    // Fetch for specific post
-    const response = await apiClient.get<ApiResponse<BlogComment[]>>(
-      url,
-      {
-        headers: {
-          ...(token && { Authorization: `Bearer ${token}` }),
-        },
-      }
-    );
-
-    console.log("📥 Comments API response:", response.data);
-
-    if (response.data?.success && Array.isArray(response.data.data)) {
-      const commentsData = response.data.data.map(comment => {
-        const post = blogPosts.find(p => p.id === comment.blogPostId);
-        return {
-          ...comment,
-          blogPostTitle: comment.blogPostTitle || post?.title || "Unknown Post"
-        };
-      });
-      
-      console.log("✅ Loaded comments:", commentsData.length);
-      console.log("📋 Comments data:", commentsData);
-      setComments(commentsData);
-    } else {
-      console.log("⚠️ No comments in response");
-      setComments([]);
     }
   } catch (error: any) {
-    console.error("❌ Error fetching comments:", error);
-    console.error("❌ Error details:", error.response?.data);
+    console.error("Error fetching comments:", error);
     toast.error("Failed to load comments");
     setComments([]);
   } finally {
     setLoadingComments(false);
   }
 };
+
 
 
   // ✅ Initial load
@@ -249,67 +198,56 @@ const fetchComments = async (specificPostId?: string) => {
     }
   }, [comments, searchTerm, statusFilter]);
 
-  const handleApprove = async (id: string) => {
-    setActionLoading(id);
-    try {
-      const token = localStorage.getItem("authToken");
-      const response = await apiClient.post<ApiResponse<BlogComment>>(
-        `/api/BlogComments/${id}/approve`,
-        {},
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
-
-      if (response.data?.success) {
-        toast.success("Comment approved successfully!");
-        await fetchComments(postFilter);
-      }
-    } catch (error: any) {
-      console.error("❌ Error approving comment:", error);
-      toast.error(error.response?.data?.message || "Failed to approve comment");
-    } finally {
-      setActionLoading(null);
+const handleApprove = async (id: string) => {
+  setActionLoading(id);
+  try {
+    const response = await blogCommentsService.approve(id);
+    if (response.data?.success) {
+      toast.success("Comment approved successfully!");
+      await fetchComments(postFilter);
     }
-  };
+  } catch (error: any) {
+    console.error("Error approving comment:", error);
+    toast.error(error?.response?.data?.message || "Failed to approve comment");
+  } finally {
+    setActionLoading(null);
+  }
+};
 
-  const handleMarkAsSpam = async (id: string) => {
-    setActionLoading(id);
-    try {
+const handleMarkAsSpam = async (id: string) => {
+  setActionLoading(id);
+  try {
+    const response = await blogCommentsService.markAsSpam(id);
+    if (response.data?.success) {
       toast.success("Comment marked as spam!");
       await fetchComments(postFilter);
-    } finally {
-      setActionLoading(null);
     }
-  };
+  } catch (error: any) {
+    console.error("Error marking as spam:", error);
+    toast.error(error?.response?.data?.message || "Failed to mark as spam");
+  } finally {
+    setActionLoading(null);
+  }
+};
 
-  const handleDelete = async (id: string) => {
-    setIsDeleting(true);
-    try {
-      const token = localStorage.getItem("authToken");
-      const response = await apiClient.delete<ApiResponse<null>>(
-        `/api/BlogComments/${id}`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
 
-      if (response.data?.success) {
-        toast.success("Comment deleted successfully!");
-        await fetchComments(postFilter);
-      }
-    } catch (error: any) {
-      console.error("❌ Error deleting comment:", error);
-      toast.error(error.response?.data?.message || "Failed to delete comment");
-    } finally {
-      setIsDeleting(false);
-      setDeleteConfirm(null);
+const handleDelete = async (id: string) => {
+  setIsDeleting(true);
+  try {
+    const response = await blogCommentsService.delete(id);
+    if (response.data?.success) {
+      toast.success("Comment deleted successfully!");
+      await fetchComments(postFilter);
     }
-  };
+  } catch (error: any) {
+    console.error("Error deleting comment:", error);
+    toast.error(error?.response?.data?.message || "Failed to delete comment");
+  } finally {
+    setIsDeleting(false);
+    setDeleteConfirm(null);
+  }
+};
+
 
   const toggleSelectComment = (id: string) => {
     setSelectedComments(prev =>

@@ -2,42 +2,13 @@
 
 import { useState, useEffect } from "react";
 import { Plus, Edit, Trash2, Search, FolderTree, Eye, Upload, Filter, FilterX, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, AlertCircle, CheckCircle } from "lucide-react";
-import { API_ENDPOINTS, API_BASE_URL } from "@/lib/api-config";
 import { ProductDescriptionEditor } from "../products/SelfHostedEditor";
 import { useToast } from "@/components/CustomToast";
 import ConfirmDialog from "@/components/ConfirmDialog";
-import { apiClient } from "@/lib/api";
+import { API_BASE_URL } from "@/lib/api";
+import { categoriesService ,Category,CategoryStats} from "@/lib/services/categories";
 
-interface Category {
-  id: string;
-  name: string;
-  description: string;
-  slug: string;
-  imageUrl?: string;
-  isActive: boolean;
-  sortOrder: number;
-  productCount: number;
-  metaTitle?: string;
-  metaDescription?: string;
-  metaKeywords?: string;
-  parentCategoryId?: string;
-  createdAt?: string;
-  updatedAt?: string;
-  createdBy?: string;
-  updatedBy?: string;
-  subCategories?: Category[]; // Add this line to represent subcategories
-}
-interface CategoryApiResponse {
-  success: boolean;
-  message?: string;
-  data: Category[];
-}
-interface CategoryStats {
-  totalCategories: number;
-  totalSubCategories: number;
-  totalProducts: number;
-  activeCategories: number;
-}
+
 
 
 
@@ -52,6 +23,7 @@ export default function CategoriesPage() {
   const [viewingCategory, setViewingCategory] = useState<Category | null>(null);
   const [statusFilter, setStatusFilter] = useState<string>("all");
 
+const [isSubmitting, setIsSubmitting] = useState(false); // Add this state at top
 // Add these states near other useState declarations
 const [imageFile, setImageFile] = useState<File | null>(null);
 const [imagePreview, setImagePreview] = useState<string | null>(null);
@@ -116,23 +88,15 @@ const getImageUrl = (imageUrl?: string) => {
     useEffect(() => {
     fetchCategories();
   }, []);
-// Update the fetchCategories function to calculate stats
+
 const fetchCategories = async () => {
   try {
-    const token = localStorage.getItem("authToken");
-
-    const response = await apiClient.get<CategoryApiResponse>(
-      API_ENDPOINTS.categories,
-      {
-        params: { includeInactive: true, includeSubCategories: true }, // ✅ Changed to true
-        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-      }
-    );
-
+    // Token fetch/remove KARNE ki bhi zarurat nahi, apiClient sab handle karega!
+    const response = await categoriesService.getAll({
+      params: { includeInactive: true, includeSubCategories: true }
+    });
     const categoriesData = response.data?.data || [];
     setCategories([...categoriesData]);
-    
-    // Calculate statistics
     calculateStats(categoriesData);
 
   } catch (error) {
@@ -141,6 +105,7 @@ const fetchCategories = async () => {
     setLoading(false);
   }
 };
+
 
 // Add this function to calculate statistics
 const calculateStats = (categoriesData: Category[]) => {
@@ -193,37 +158,31 @@ const handleImageFileChange = (file: File) => {
   // NEW - Delete image function
 const handleDeleteImage = async (categoryId: string, imageUrl: string) => {
   setIsDeletingImage(true);
-
   try {
     const token = localStorage.getItem("authToken");
     const filename = extractFilename(imageUrl);
 
-    await apiClient.delete(`${API_ENDPOINTS.imageManagement}/category/${filename}`, {
-      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-    });
+    // --- Using service layer (with optional headers) ---
+   await categoriesService.deleteImage(filename);
 
     toast.success("Image deleted successfully! 🗑️");
 
-    // Update UI
-    setCategories((prev) =>
-      prev.map((c) =>
+    // Update UI (remove image from category in state)
+    setCategories(prev =>
+      prev.map(c =>
         c.id === categoryId ? { ...c, imageUrl: "" } : c
       )
     );
-
     if (editingCategory?.id === categoryId) {
-      setFormData((prev) => ({ ...prev, imageUrl: "" }));
+      setFormData(prev => ({ ...prev, imageUrl: "" }));
     }
-
     if (viewingCategory?.id === categoryId) {
-      setViewingCategory((prev) =>
+      setViewingCategory(prev =>
         prev ? { ...prev, imageUrl: "" } : null
       );
     }
-
   } catch (error: any) {
     console.error("Error deleting image:", error);
-
     if (error.response?.status === 401) {
       toast.error("Please login again");
     } else {
@@ -236,152 +195,122 @@ const handleDeleteImage = async (categoryId: string, imageUrl: string) => {
 };
 
 
-const [isSubmitting, setIsSubmitting] = useState(false); // Add this state at top
 const handleSubmit = async (e: React.FormEvent) => {
   e.preventDefault();
 
-  // 🔥 STEP 1: VALIDATION
+  // --- Validation section ---
   if (!formData.name.trim()) {
     toast.error("Category name is required");
     return;
   }
-
   if (formData.name.trim().length < 2) {
     toast.error("Category name must be at least 2 characters");
     return;
   }
-
   if (formData.name.trim().length > 100) {
     toast.error("Category name must be less than 100 characters");
     return;
   }
-
-  // Duplicate check
   const isDuplicateName = categories.some(
-    cat => 
+    cat =>
       cat.name.toLowerCase().trim() === formData.name.toLowerCase().trim() &&
       cat.id !== editingCategory?.id
   );
-
   if (isDuplicateName) {
     toast.error("A category with this name already exists!");
     return;
   }
-
   if (!formData.description.trim()) {
     toast.error("Description is required");
     return;
   }
-
   if (formData.description.trim().length < 10) {
     toast.error("Description must be at least 10 characters");
     return;
   }
-
   if (formData.sortOrder < 0) {
     toast.error("Sort order cannot be negative");
     return;
   }
-
-  // SEO validations
   if (formData.metaTitle && formData.metaTitle.length > 60) {
     toast.error("Meta title should be less than 60 characters");
     return;
   }
-
   if (formData.metaDescription && formData.metaDescription.length > 160) {
     toast.error("Meta description should be less than 160 characters");
     return;
   }
-
   if (formData.metaKeywords && formData.metaKeywords.length > 255) {
     toast.error("Meta keywords must be less than 255 characters");
     return;
   }
-
-  // Image validation
   if (imageFile) {
     const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
     const maxSize = 10 * 1024 * 1024;
-
     if (!allowedTypes.includes(imageFile.type)) {
       toast.error("Only JPG, PNG, and WebP images are allowed");
       return;
     }
-
     if (imageFile.size > maxSize) {
       toast.error("Image size must be less than 10MB");
       return;
     }
   }
-
-  const token = localStorage.getItem("authToken");
-  if (!token) {
-    toast.error("Please login first");
-    return;
-  }
-
   if (isSubmitting) return;
   setIsSubmitting(true);
 
   try {
     let finalImageUrl = formData.imageUrl;
 
-    // Upload image if new file selected
-    if (imageFile) {
-      try {
-        const formDataToUpload = new FormData();
-        formDataToUpload.append("image", imageFile);
+    // ---- Step 1: Image upload (if file selected) ----
+if (imageFile) {
+  try {
+    // * params me category name pass karo (server ko chahiye jaise curl me)
+    const uploadResponse = await categoriesService.uploadImage(imageFile, {
+      name: formData.name,
+    });
 
-        const uploadResponse = await apiClient.post<{
-          success: boolean;
-          data: string;
-        }>(API_ENDPOINTS.categories + "/upload-image", formDataToUpload, {
-          params: { name: formData.name },
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "multipart/form-data",
-          },
-        });
+    // Success check server ke response ke hisab se
+    if (!uploadResponse.data?.success || !uploadResponse.data?.data) {
+      throw new Error(
+        uploadResponse.data?.message || "Image upload failed (no imageUrl in response)"
+      );
+    }
+    finalImageUrl = uploadResponse.data.data; // yahi hai jo save karna hai backend response se
+    toast.success("Image uploaded successfully!");
 
-        const result = uploadResponse.data;
-        if (result?.success && result?.data) {
-          finalImageUrl = result.data;
-          toast.success("Image uploaded successfully!");
-          
-          if (editingCategory?.imageUrl && editingCategory.imageUrl !== finalImageUrl) {
-            try {
-              const filename = extractFilename(editingCategory.imageUrl);
-              await apiClient.delete(
-                API_ENDPOINTS.imageManagement + `/category/${filename}`, 
-                { headers: { Authorization: `Bearer ${token}` } }
-              );
-            } catch (err) {
-              console.log("Failed to delete old image:", err);
-            }
-          }
-        } else {
-          throw new Error("Failed to get image URL from response");
+    // Purana image (edit mode) delete bhi kar sakte ho yahan
+    if (
+      editingCategory?.imageUrl &&
+      editingCategory.imageUrl !== finalImageUrl
+    ) {
+      const filename = extractFilename(editingCategory.imageUrl);
+      if (filename) {
+        try {
+          await categoriesService.deleteImage(filename);
+        } catch (err) {
+          console.log("Failed to delete old image:", err);
         }
-      } catch (uploadError: any) {
-        console.error("Error uploading image:", uploadError);
-        toast.error(uploadError.response?.data?.message || "Failed to upload image");
-        setIsSubmitting(false);
-        return;
       }
     }
+  } catch (uploadErr: any) {
+    console.error("Error uploading image:", uploadErr);
+    toast.error(
+      uploadErr?.response?.data?.message || "Failed to upload image"
+    );
+    setIsSubmitting(false);
+    return;
+  }
+}
 
-    // 🔥 FIXED: Correct field names matching your formData structure
-    const url = editingCategory
-      ? API_ENDPOINTS.categories + `/${editingCategory.id}`
-      : API_ENDPOINTS.categories;
 
+    // ---- Step 2: Build payload ----
     const payload = {
       name: formData.name.trim(),
       description: formData.description.trim(),
       imageUrl: finalImageUrl,
-      isActive: formData.isActive, // ✅ Changed from isPublished
-      sortOrder: formData.sortOrder, // ✅ Changed from displayOrder
+      isActive: formData.isActive,
+      sortOrder: formData.sortOrder,
       parentCategoryId: formData.parentCategoryId || null,
       metaTitle: formData.metaTitle.trim() || undefined,
       metaDescription: formData.metaDescription.trim() || undefined,
@@ -389,33 +318,29 @@ const handleSubmit = async (e: React.FormEvent) => {
       ...(editingCategory && { id: editingCategory.id }),
     };
 
+    // ---- Step 3: Create or Update ----
     if (editingCategory) {
-      await apiClient.put(url, payload, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      await categoriesService.update(editingCategory.id, payload);
       toast.success("Category updated successfully! 🎉");
     } else {
-      await apiClient.post(url, payload, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      await categoriesService.create(payload);
       toast.success("Category created successfully! 🎉");
     }
 
-    // Cleanup
-    if (imagePreview) {
-      URL.revokeObjectURL(imagePreview);
-    }
+    // ---- Step 4: UI cleanup ----
+    if (imagePreview) URL.revokeObjectURL(imagePreview);
     setImageFile(null);
     setImagePreview(null);
-
     await fetchCategories();
     setShowModal(false);
     resetForm();
+
   } catch (error: any) {
     console.error("Error saving category:", error);
     const message =
-      error.response?.data?.message ||
-      error.response?.data?.error ||
+      error?.response?.data?.message ||
+      error?.response?.data?.error ||
+      error.message ||
       "Failed to save category";
     toast.error(message);
   } finally {
@@ -423,6 +348,33 @@ const handleSubmit = async (e: React.FormEvent) => {
   }
 };
 
+const handleDelete = async (id: string) => {
+  setIsDeleting(true);
+
+  try {
+    // ✅ Service call only — no apiClient, no manual headers
+    const response = await categoriesService.delete(id);
+
+    // ApiClient returns object: { data, error, status, ... }
+    if (!response.error && (response.status === 200 || response.status === 204)) {
+      toast.success("Category deleted successfully! 🗑️");
+      await fetchCategories();
+    } else {
+      toast.error(response.error || "Failed to delete category");
+    }
+  } catch (error: any) {
+    console.error("Error deleting category:", error);
+    // Optionally handle authentication failure
+    if (error?.response?.status === 401) {
+      toast.error("Please login again");
+    } else {
+      toast.error("Failed to delete category");
+    }
+  } finally {
+    setIsDeleting(false);
+    setDeleteConfirm(null);
+  }
+};
 
 
 const handleEdit = (category: Category) => {
@@ -445,38 +397,6 @@ const handleEdit = (category: Category) => {
   
   setShowModal(true);
 };
-
-
-const handleDelete = async (id: string) => {
-  setIsDeleting(true);
-
-  try {
-    const token = localStorage.getItem("authToken");
-
-    const response = await apiClient.delete(`${API_ENDPOINTS.categories}/${id}`, {
-      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-    });
-
-    if (response.status === 200 || response.status === 204) {
-      toast.success("Category deleted successfully! 🗑️");
-      await fetchCategories();
-    } else {
-      toast.error("Failed to delete category");
-    }
-  } catch (error: any) {
-    console.error("Error deleting category:", error);
-
-    if (error?.response?.status === 401) {
-      toast.error("Please login again");
-    } else {
-      toast.error("Failed to delete category");
-    }
-  } finally {
-    setIsDeleting(false);
-    setDeleteConfirm(null);
-  }
-};
-
 
 const resetForm = () => {
   setFormData({
@@ -1366,21 +1286,7 @@ const resetForm = () => {
                           onClick={() => setSelectedImageUrl(getImageUrl(viewingCategory.imageUrl))}
                         />
                       </div>
-                      {/* DELETE IMAGE BUTTON IN VIEW MODAL */}
-                      <button
-                        onClick={() => {
-                          setImageDeleteConfirm({
-                            categoryId: viewingCategory.id,
-                            imageUrl: viewingCategory.imageUrl!,
-                            categoryName: viewingCategory.name
-                          });
-                        }}
-                        className="absolute -top-2 -right-2 p-2 bg-red-500 text-white rounded-full hover:bg-red-600 transition-all shadow-lg"
-                        title="Delete Image"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    </div>
+                  </div>
                   </div>
                 )}
 
