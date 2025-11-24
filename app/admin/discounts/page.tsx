@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Select from 'react-select';
-import { Plus, Edit, Trash2, Search, Percent, Eye, Filter, FilterX, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, AlertCircle, Calendar, Gift, Target } from "lucide-react";
+import { Plus, Edit, Trash2, Search, Percent, Eye, Filter,History , FilterX, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, AlertCircle, Calendar, Gift, Target } from "lucide-react";
 import {  API_ENDPOINTS } from "@/lib/api-config";
 import { apiClient } from "@/lib/api";
 import { ProductDescriptionEditor } from "../products/SelfHostedEditor";
@@ -10,8 +10,8 @@ import { useToast } from "@/components/CustomToast";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import { Discount, DiscountLimitationType, discountsService ,DiscountType} from "@/lib/services/discounts";
 import { Category } from "@/lib/services/categories";
-import { Product } from "@/lib/services";
-
+import { blogCategoriesService, Product } from "@/lib/services";
+import { DiscountUsageHistory, } from "@/lib/services/discounts";
 
  interface SelectOption {
   value: string;
@@ -166,7 +166,10 @@ export default function DiscountsPage() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
 
-  
+  const [usageHistoryModal, setUsageHistoryModal] = useState(false);
+const [selectedDiscountHistory, setSelectedDiscountHistory] = useState<Discount | null>(null);
+const [usageHistory, setUsageHistory] = useState<DiscountUsageHistory[]>([]);
+const [loadingHistory, setLoadingHistory] = useState(false);
   // Pagination states
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(25);
@@ -219,7 +222,7 @@ const fetchDropdownData = async () => {
 
     // 👉 API Calls using apiClient
     const [categoriesRes, productsRes] = await Promise.all([
-      apiClient.get(`${API_ENDPOINTS.categories}?includeInactive=false`, { headers }),
+      blogCategoriesService.getAll(),
       apiClient.get(API_ENDPOINTS.products, { headers })
     ]);
 
@@ -245,6 +248,51 @@ const fetchDropdownData = async () => {
   }
 };
 
+
+
+// ✅ Function to fetch usage history
+const fetchUsageHistory = async (discountId: string) => {
+  setLoadingHistory(true);
+  try {
+    const response = await discountsService.getUsageHistory(discountId);
+    if (response.data?.success) {
+      setUsageHistory(response.data.data || []);
+    } else {
+      setUsageHistory([]);
+      toast.error("No usage history found");
+    }
+  } catch (error: any) {
+    console.error("Error fetching usage history:", error);
+    toast.error(error?.response?.data?.message || "Failed to fetch usage history");
+    setUsageHistory([]);
+  } finally {
+    setLoadingHistory(false);
+  }
+};
+
+// ✅ Function to open usage history modal
+const handleViewUsageHistory = async (discount: Discount) => {
+  setSelectedDiscountHistory(discount);
+  setUsageHistoryModal(true);
+  await fetchUsageHistory(discount.id);
+};
+
+// ✅ Calculate statistics from usage history
+const calculateHistoryStats = () => {
+  if (!usageHistory.length) return {
+    totalUsage: 0,
+    totalRevenue: 0,
+    uniqueCustomers: 0,
+    averageDiscount: 0
+  };
+
+  const totalUsage = usageHistory.length;
+  const totalRevenue = usageHistory.reduce((sum, h) => sum + h.discountAmount, 0);
+  const uniqueCustomers = new Set(usageHistory.map(h => h.customerEmail)).size;
+  const averageDiscount = totalRevenue / totalUsage;
+
+  return { totalUsage, totalRevenue, uniqueCustomers, averageDiscount };
+};
 
 
   // ✅ CONVERT DATA TO SELECT OPTIONS
@@ -799,6 +847,16 @@ const handleDelete = async (id: string) => {
                         >
                           <Trash2 className="h-4 w-4" />
                         </button>
+
+                        {/* In your table actions column, add this button */}
+<button
+  onClick={() => handleViewUsageHistory(discount)}
+  className="p-2 text-blue-400 hover:bg-blue-500/10 rounded-lg transition-all"
+  title="View Usage History"
+>
+  <History className="h-4 w-4" />
+</button>
+
                       </div>
                     </td>
                   </tr>
@@ -1516,6 +1574,182 @@ const handleDelete = async (id: string) => {
           </div>
         </div>
       )}
+
+{/* ✅ USAGE HISTORY MODAL - Add this before closing div of main component */}
+{usageHistoryModal && selectedDiscountHistory && (
+  <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-50 flex items-center justify-center p-4">
+    <div className="bg-gradient-to-br from-slate-900 via-slate-900 to-slate-800 border border-violet-500/20 rounded-3xl max-w-6xl w-full max-h-[90vh] overflow-hidden shadow-2xl shadow-violet-500/10">
+      {/* Header */}
+      <div className="p-6 border-b border-violet-500/20 bg-gradient-to-r from-violet-500/10 to-cyan-500/10">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-3xl font-bold bg-gradient-to-r from-violet-400 via-cyan-400 to-pink-400 bg-clip-text text-transparent">
+              Usage History
+            </h2>
+            <p className="text-slate-400 text-sm mt-1">
+              {selectedDiscountHistory.name} ({selectedDiscountHistory.couponCode})
+            </p>
+          </div>
+          <button
+            onClick={() => {
+              setUsageHistoryModal(false);
+              setSelectedDiscountHistory(null);
+              setUsageHistory([]);
+            }}
+            className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-all"
+          >
+            ✕
+          </button>
+        </div>
+      </div>
+
+      {/* Statistics Cards */}
+      <div className="p-6 border-b border-slate-800">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="bg-gradient-to-br from-violet-500/10 to-purple-500/10 backdrop-blur-xl border border-violet-500/20 rounded-xl p-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 bg-gradient-to-br from-violet-500 to-purple-500 rounded-lg">
+                <History className="w-5 h-5 text-white" />
+              </div>
+              <div>
+                <p className="text-xs text-slate-400 mb-0.5">Total Usage</p>
+                <p className="text-2xl font-bold text-white">
+                  {calculateHistoryStats().totalUsage}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-gradient-to-br from-green-500/10 to-emerald-500/10 backdrop-blur-xl border border-green-500/20 rounded-xl p-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 bg-gradient-to-br from-green-500 to-emerald-500 rounded-lg">
+                <Percent className="w-5 h-5 text-white" />
+              </div>
+              <div>
+                <p className="text-xs text-slate-400 mb-0.5">Total Discount</p>
+                <p className="text-2xl font-bold text-white">
+                  ₹{calculateHistoryStats().totalRevenue.toFixed(2)}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-gradient-to-br from-blue-500/10 to-cyan-500/10 backdrop-blur-xl border border-blue-500/20 rounded-xl p-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-lg">
+                <Target className="w-5 h-5 text-white" />
+              </div>
+              <div>
+                <p className="text-xs text-slate-400 mb-0.5">Unique Customers</p>
+                <p className="text-2xl font-bold text-white">
+                  {calculateHistoryStats().uniqueCustomers}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-gradient-to-br from-orange-500/10 to-amber-500/10 backdrop-blur-xl border border-orange-500/20 rounded-xl p-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 bg-gradient-to-br from-orange-500 to-amber-500 rounded-lg">
+                <Gift className="w-5 h-5 text-white" />
+              </div>
+              <div>
+                <p className="text-xs text-slate-400 mb-0.5">Avg Discount</p>
+                <p className="text-2xl font-bold text-white">
+                  ₹{calculateHistoryStats().averageDiscount.toFixed(2)}
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Usage History Table */}
+      <div className="p-6 overflow-y-auto max-h-[calc(90vh-350px)]">
+        {loadingHistory ? (
+          <div className="flex items-center justify-center py-12">
+            <div className="text-center">
+              <div className="w-12 h-12 border-4 border-violet-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+              <p className="text-slate-400">Loading usage history...</p>
+            </div>
+          </div>
+        ) : usageHistory.length === 0 ? (
+          <div className="text-center py-12">
+            <History className="h-16 w-16 text-slate-600 mx-auto mb-4" />
+            <p className="text-slate-400 text-lg mb-2">No Usage History</p>
+            <p className="text-slate-500 text-sm">
+              This discount hasn't been used yet
+            </p>
+          </div>
+        ) : (
+          <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-2xl overflow-hidden">
+            <table className="w-full">
+              <thead>
+                <tr className="border-b border-slate-800">
+                  <th className="text-left py-3 px-4 text-slate-400 font-medium text-sm">
+                    Order Number
+                  </th>
+                  <th className="text-left py-3 px-4 text-slate-400 font-medium text-sm">
+                    Customer Email
+                  </th>
+                  <th className="text-center py-3 px-4 text-slate-400 font-medium text-sm">
+                    Discount Amount
+                  </th>
+                  <th className="text-center py-3 px-4 text-slate-400 font-medium text-sm">
+                    Used At
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {usageHistory.map((history) => (
+                  <tr
+                    key={history.id}
+                    className="border-b border-slate-800 hover:bg-slate-800/30 transition-colors"
+                  >
+                    <td className="py-4 px-4">
+                      <p className="text-white font-medium">{history.orderNumber}</p>
+                      <p className="text-xs text-slate-500">{history.orderId}</p>
+                    </td>
+                    <td className="py-4 px-4">
+                      <p className="text-white">{history.customerEmail}</p>
+                    </td>
+                    <td className="py-4 px-4 text-center">
+                      <span className="px-3 py-1 bg-green-500/10 text-green-400 rounded-lg text-sm font-medium">
+                        ₹{history.discountAmount.toFixed(2)}
+                      </span>
+                    </td>
+                    <td className="py-4 px-4 text-center">
+                      <p className="text-white text-sm">
+                        {new Date(history.usedAt).toLocaleString()}
+                      </p>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {/* Footer */}
+      <div className="p-6 border-t border-slate-700/50">
+        <div className="flex justify-end">
+          <button
+            onClick={() => {
+              setUsageHistoryModal(false);
+              setSelectedDiscountHistory(null);
+              setUsageHistory([]);
+            }}
+            className="px-6 py-3 bg-slate-800 text-white rounded-xl hover:bg-slate-700 transition-all font-medium"
+          >
+            Close
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+)}
+
 
       {/* ✅ DELETE CONFIRMATION DIALOG */}
       <ConfirmDialog

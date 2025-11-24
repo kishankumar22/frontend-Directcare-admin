@@ -933,7 +933,26 @@ const handleSubmit = async (isDraft: boolean = false) => {
       setSaving(false);
       return;
     }
-
+     if(formData.metaTitle.trim().length > 60){
+      toast.error("Meta Title cannot exceed 60 characters.");
+      setSaving(false);
+      return;
+     }
+     if(formData.metaDescription.trim().length > 160){
+      toast.error("Meta Description cannot exceed 160 characters.");
+      setSaving(false);
+      return;
+     }
+     if(formData.metaKeywords.trim().length > 60){
+      toast.error("Meta Keywords cannot exceed 60 characters.");
+      setSaving(false);
+      return;
+     }
+     if(formData.searchEngineFriendlyPageName.trim().length > 60){
+      toast.error("Search Engine Friendly Page Name cannot exceed 60 characters.");
+      setSaving(false);
+      return;
+     }
     setUploadingImage(true);
 
     // Upload images
@@ -1691,22 +1710,23 @@ const handleSlugChange = (value: string) => {
                   <label className="block text-sm font-medium text-slate-300 mb-2">
                     Search Engine Friendly Page Name
                   </label>
-                  <input
-                    type="text"
-                    value={formData.searchEngineFriendlyPageName}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        searchEngineFriendlyPageName: e.target.value
-                          .toLowerCase()
-                          .trim()
-                          .replace(/\s+/g, "-")
-                          .replace(/[^a-z0-9-]/g, ""),
-                      })
-                    }
-                    placeholder="example-page-name"
-                    className="w-full px-4 py-3 bg-slate-800/50 border border-slate-600 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500"
-                  />
+<input
+  type="text"
+  value={formData.searchEngineFriendlyPageName}
+  onChange={(e) =>
+    setFormData({
+      ...formData,
+      searchEngineFriendlyPageName: e.target.value
+        .toLowerCase()
+        .replace(/\s+/g, "-") // space → hyphen
+        .replace(/[^a-z0-9-]/g, "") // only a-z 0-9 and hyphens
+        .replace(/--+/g, "-"), // prevent multiple hyphens
+    })
+  }
+  placeholder="example-page-name"
+  className="w-full px-4 py-3 bg-slate-800/50 border border-slate-600 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500"
+/>
+
                   <p className="mt-1 text-xs text-slate-500">
                     Use lowercase letters, numbers & hyphens only (SEO friendly)
                   </p>

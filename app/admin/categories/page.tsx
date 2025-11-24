@@ -8,10 +8,6 @@ import ConfirmDialog from "@/components/ConfirmDialog";
 import { API_BASE_URL } from "@/lib/api";
 import { categoriesService ,Category,CategoryStats} from "@/lib/services/categories";
 
-
-
-
-
 export default function CategoriesPage() {
   const toast = useToast();
   const [categories, setCategories] = useState<Category[]>([]);

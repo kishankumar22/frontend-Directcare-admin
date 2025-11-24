@@ -8,6 +8,7 @@ import { BlogPost, blogPostsService, BlogCategory } from "@/lib/services/blogPos
 import { useToast } from "@/components/CustomToast";
 import ConfirmDialog from "@/components/ConfirmDialog";
 
+
 export default function BlogPostsPage() {
   const router = useRouter();
   const toast = useToast();
@@ -213,6 +214,7 @@ export default function BlogPostsPage() {
           <h1 className="text-3xl font-bold tracking-tight bg-gradient-to-r from-violet-400 via-cyan-400 to-pink-400 bg-clip-text text-transparent">
             Blog Posts
           </h1>
+   
           <p className="text-slate-400">Manage your blog posts</p>
         </div>
         <button

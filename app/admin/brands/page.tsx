@@ -1155,20 +1155,7 @@ if (formData.metaKeywords && !/^([a-zA-Z0-9\s]+)(\s*,\s*[a-zA-Z0-9\s]+)*$/.test(
                           onClick={() => setSelectedImageUrl(getImageUrl(viewingBrand.logoUrl))}
                         />
                       </div>
-                      {/* DELETE IMAGE BUTTON IN VIEW MODAL */}
-                      <button
-                        onClick={() => {
-                          setImageDeleteConfirm({
-                            brandId: viewingBrand.id,
-                            imageUrl: viewingBrand.logoUrl!,
-                            brandName: viewingBrand.name
-                          });
-                        }}
-                        className="absolute -top-2 -right-2 p-2 bg-red-500 text-white rounded-full hover:bg-red-600 transition-all shadow-lg"
-                        title="Delete Image"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
+
                     </div>
                   </div>
                 )}

@@ -1127,7 +1127,26 @@ const handleSubmit = async (isDraft: boolean = false) => {
       setSaving(false);
       return;
     }
-
+    if(formData.metaTitle.trim().length > 60){
+      toast.error("Meta Title cannot exceed 60 characters.");
+      setSaving(false);
+      return;
+     }
+     if(formData.metaDescription.trim().length > 160){
+      toast.error("Meta Description cannot exceed 160 characters.");
+      setSaving(false);
+      return;
+     }
+     if(formData.metaKeywords.trim().length > 60){
+      toast.error("Meta Keywords cannot exceed 60 characters.");
+      setSaving(false);
+      return;
+     }
+     if(formData.searchEngineFriendlyPageName.trim().length > 60){
+      toast.error("Search Engine Friendly Page Name cannot exceed 60 characters.");
+      setSaving(false);
+      return;
+     }
     setUploadingImage(true);
 
     // Upload images (same logic as before)
@@ -1365,12 +1384,12 @@ const handleSlugChange = (value: string) => {
   }
 
   return (
-    <div className="min-h-screen ">
+    <div className=" ">
       {/* Header */}
       <div className="z-10">
-        <div className="max-w-[1920px] mx-auto px-6 py-2">
+        <div className="max-w-[1920px]">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2">
               <button
                 onClick={() => router.back()}
                 className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-all"
@@ -1390,8 +1409,8 @@ const handleSlugChange = (value: string) => {
         </div>
       </div>
 
-      <div className="max-w-[1920px] mx-auto px-6 py-6">
-        <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+      <div className="max-w-[1920px] mt-2">
+        <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
           {/* Main Content - Same as Create Page */}
           <div className="xl:col-span-2 space-y-2">
             {/* Title */}
@@ -1559,9 +1578,9 @@ const handleSlugChange = (value: string) => {
           </label>
         </div>
       ) : (
-        <label className="flex flex-col items-center justify-center w-full h-48 border-2 border-dashed border-slate-600 rounded-lg cursor-pointer hover:border-violet-500 transition-all group">
+        <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-slate-600 rounded-lg cursor-pointer hover:border-violet-500 transition-all group">
           <div className="flex flex-col items-center">
-            <Upload className="h-12 w-12 text-slate-500 group-hover:text-violet-400 transition-colors mb-2" />
+            <Upload className="h-8 w-8 text-slate-500 group-hover:text-violet-400 transition-colors mb-2" />
             <p className="text-sm text-slate-400 text-center">
               <span className="font-semibold text-white">
                 Click to upload
@@ -1899,9 +1918,9 @@ const handleSlugChange = (value: string) => {
                         ...formData,
                         searchEngineFriendlyPageName: e.target.value
                           .toLowerCase()
-                          .trim()
-                          .replace(/\s+/g, "-")
-                          .replace(/[^a-z0-9-]/g, ""),
+        .replace(/\s+/g, "-") // space → hyphen
+        .replace(/[^a-z0-9-]/g, "") // only a-z 0-9 and hyphens
+        .replace(/--+/g, "-"), // prevent multiple hyphens
                       })
                     }
                     placeholder="your-page-name"

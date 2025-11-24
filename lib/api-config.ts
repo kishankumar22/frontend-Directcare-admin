@@ -29,6 +29,7 @@ export const API_ENDPOINTS = {
 
   // Discounts
   discounts: '/api/Discounts',
+  
 
   // Banners
   banners: '/api/Banners',

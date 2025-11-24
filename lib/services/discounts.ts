@@ -1,5 +1,7 @@
-import { apiClient } from '../api';
-import { API_ENDPOINTS } from '../api-config';
+// lib/services/discounts.ts
+
+import { apiClient } from "../api";
+import { API_ENDPOINTS } from "../api-config";
 
 // --- Discount Type & Limitation Types ---
 export type DiscountType =
@@ -9,10 +11,7 @@ export type DiscountType =
   | "AssignedToManufacturers"
   | "AssignedToShipping";
 
-export type DiscountLimitationType =
-  | "Unlimited"
-  | "NTimesOnly"
-  | "NTimesPerCustomer";
+export type DiscountLimitationType = "Unlimited" | "NTimesOnly" | "NTimesPerCustomer";
 
 // --- Discount Interface ---
 export interface Discount {
@@ -43,7 +42,35 @@ export interface Discount {
   updatedBy?: string | null;
 }
 
-// --- Create/Update DTO ---
+// ✅ NEW: Usage History Interface
+// lib/services/discounts.ts - Update interface
+
+// Add these fields to your DiscountUsageHistory interface
+export interface DiscountUsageHistory {
+  id: string;
+  discountId: string;
+  discountName: string;
+  orderId: string;
+  orderNumber: string;
+  customerEmail: string;
+  discountAmount: number;
+  usedAt: string;
+  // ✅ Add these optional fields
+  appliedToProductNames?: string;
+  appliedToCategoryNames?: string;
+  appliedToManufacturerNames?: string;
+}
+
+
+// ✅ NEW: Usage History Response
+export interface DiscountUsageHistoryResponse {
+  success: boolean;
+  message: string;
+  data: DiscountUsageHistory[];
+  errors: string[] | null;
+}
+
+// --- CreateUpdate DTO ---
 export interface CreateDiscountDto {
   name: string;
   isActive: boolean;
@@ -100,9 +127,14 @@ export const discountsService = {
   update: (id: string, data: Partial<CreateDiscountDto>, config: any = {}) =>
     apiClient.put<Discount>(`${API_ENDPOINTS.discounts}/${id}`, data, config),
 
-  // Delete discount by ID
-  
   // Delete discount by ID (no extra config/params needed)
   delete: (id: string) =>
     apiClient.delete<void>(`${API_ENDPOINTS.discounts}/${id}`),
+
+  // ✅ NEW: Get Usage History by Discount ID
+  getUsageHistory: (id: string, config: any = {}) =>
+    apiClient.get<DiscountUsageHistoryResponse>(
+      `${API_ENDPOINTS.discounts}/${id}/usage-history`,
+      config
+    ),
 };

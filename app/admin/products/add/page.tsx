@@ -15,7 +15,7 @@ import Link from "next/link";
 import { apiClient } from "../../../../lib/api"; // Import your axios client
 import { ProductDescriptionEditor } from "@/app/admin/products/SelfHostedEditor";
 import { useToast } from "@/components/CustomToast";
-import API_BASE_URL, { API_ENDPOINTS } from "@/lib/api-config";
+import  { API_BASE_URL,API_ENDPOINTS } from "@/lib/api-config";
 
 // API response interfaces को properly define करें
 interface BrandApiResponse {

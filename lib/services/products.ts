@@ -204,6 +204,7 @@ export interface PaginatedResponse<T> {
 }
 
 export interface ApiResponse<T> {
+  name(arg0: string, name: any): unknown;
   success: boolean;
   data: T;
   message?: string;

@@ -80,24 +80,6 @@ export default function ManageBanners() {
     return `${API_BASE_URL}${cleanUrl}`;
   };
 
-  const getRelativeImageUrl = (imageUrl: string) => {
-    if (!imageUrl) return "";
-    
-    if (!imageUrl.startsWith("http")) return imageUrl;
-    
-    if (imageUrl.startsWith(API_BASE_URL)) {
-      return imageUrl.replace(API_BASE_URL, "");
-    }
-    
-    return imageUrl;
-  };
-
-  const getFullImageUrl = (imageUrl: string) => {
-    if (!imageUrl) return "";
-    if (imageUrl.startsWith("http")) return imageUrl;
-    return `${API_BASE_URL}${imageUrl}`;
-  };
-
   const extractFilename = (imageUrl: string) => {
     if (!imageUrl) return "";
 
