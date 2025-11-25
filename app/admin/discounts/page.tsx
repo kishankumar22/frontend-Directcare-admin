@@ -2,20 +2,22 @@
 
 import { useState, useEffect } from "react";
 import Select from 'react-select';
-import { Plus, Edit, Trash2, Search, Percent, Eye, Filter,History , FilterX, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, AlertCircle, Calendar, Gift, Target } from "lucide-react";
-import {  API_ENDPOINTS } from "@/lib/api-config";
+import { Plus, Edit, Trash2, Search, Percent, Eye, Filter, History, FilterX, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, AlertCircle, Calendar, Gift, Target, Clock, TrendingUp, Users, Infinity as InfinityIcon, CalendarRange } from "lucide-react";
+import { API_ENDPOINTS } from "@/lib/api-config";
 import { apiClient } from "@/lib/api";
 import { ProductDescriptionEditor } from "../products/SelfHostedEditor";
 import { useToast } from "@/components/CustomToast";
 import ConfirmDialog from "@/components/ConfirmDialog";
-import { Discount, DiscountLimitationType, discountsService ,DiscountType} from "@/lib/services/discounts";
+import { Discount, DiscountLimitationType, discountsService, DiscountType } from "@/lib/services/discounts";
 import { Category } from "@/lib/services/categories";
 import { blogCategoriesService, Product } from "@/lib/services";
-import { DiscountUsageHistory, } from "@/lib/services/discounts";
+import { DiscountUsageHistory } from "@/lib/services/discounts";
 
- interface SelectOption {
+interface SelectOption {
   value: string;
- }
+  label: string;
+}
+
 interface FormData {
   name: string;
   isActive: boolean;
@@ -37,7 +39,6 @@ interface FormData {
   assignedProductIds: string[];
   assignedCategoryIds: string[];
   assignedManufacturerIds: string[];
-  
 }
 
 // ✅ COMPLETE REACT-SELECT STYLES
@@ -166,22 +167,25 @@ export default function DiscountsPage() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
 
+  // ✅ USAGE HISTORY STATES
   const [usageHistoryModal, setUsageHistoryModal] = useState(false);
-const [selectedDiscountHistory, setSelectedDiscountHistory] = useState<Discount | null>(null);
-const [usageHistory, setUsageHistory] = useState<DiscountUsageHistory[]>([]);
-const [loadingHistory, setLoadingHistory] = useState(false);
+  const [selectedDiscountHistory, setSelectedDiscountHistory] = useState<Discount | null>(null);
+  const [usageHistory, setUsageHistory] = useState<DiscountUsageHistory[]>([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
+
   // Pagination states
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(25);
-  
+    const [dateRangeFilter, setDateRangeFilter] = useState({
+    startDate: "",
+    endDate: ""
+  });
   const [deleteConfirm, setDeleteConfirm] = useState<{
     id: string;
     name: string;
   } | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
-  const isUnlimited = (limitation: DiscountLimitationType): limitation is "Unlimited" => {
-  return limitation === "Unlimited";
-};
+
   // ✅ COMPLETE FORM DATA STATE
   const [formData, setFormData] = useState<FormData>({
     name: "",
@@ -211,89 +215,104 @@ const [loadingHistory, setLoadingHistory] = useState(false);
     fetchDropdownData();
   }, []);
 
-const fetchDropdownData = async () => {
-  try {
-    const token = localStorage.getItem("authToken");
-
-    const headers: Record<string, string> = {};
-    if (token) {
-      headers.Authorization = `Bearer ${token}`;
-    }
-
-    // 👉 API Calls using apiClient
-    const [categoriesRes, productsRes] = await Promise.all([
-      blogCategoriesService.getAll(),
-      apiClient.get(API_ENDPOINTS.products, { headers })
-    ]);
-
-    // 👉 Categories Response Handling
-    if (categoriesRes?.data) {
-      const c = categoriesRes.data as any;
-      if (c.success && Array.isArray(c.data)) {
-        setCategories(c.data);
+  // ✅ FETCH DROPDOWN DATA
+  const fetchDropdownData = async () => {
+    try {
+      const token = localStorage.getItem("authToken");
+      const headers: Record<string, string> = {};
+      if (token) {
+        headers.Authorization = `Bearer ${token}`;
       }
-    }
 
-    // 👉 Products Response Handling
-    if (productsRes?.data) {
-      const p = productsRes.data as any;
-      if (p.success && p.data?.items) {
-        setProducts(p.data.items);
+      const [categoriesRes, productsRes] = await Promise.all([
+        blogCategoriesService.getAll(),
+        apiClient.get(API_ENDPOINTS.products, { headers })
+      ]);
+
+      if (categoriesRes?.data) {
+        const c = categoriesRes.data as any;
+        if (c.success && Array.isArray(c.data)) {
+          setCategories(c.data);
+        }
       }
+
+      if (productsRes?.data) {
+        const p = productsRes.data as any;
+        if (p.success && p.data?.items) {
+          setProducts(p.data.items);
+        }
+      }
+    } catch (error) {
+      console.error("Error fetching dropdown data:", error);
+      toast.error("Failed to load dropdown data");
     }
-
-  } catch (error) {
-    console.error("Error fetching dropdown data:", error);
-    toast.error("Failed to load dropdown data");
-  }
-};
-
-
-
-// ✅ Function to fetch usage history
-const fetchUsageHistory = async (discountId: string) => {
-  setLoadingHistory(true);
-  try {
-    const response = await discountsService.getUsageHistory(discountId);
-    if (response.data?.success) {
-      setUsageHistory(response.data.data || []);
-    } else {
-      setUsageHistory([]);
-      toast.error("No usage history found");
-    }
-  } catch (error: any) {
-    console.error("Error fetching usage history:", error);
-    toast.error(error?.response?.data?.message || "Failed to fetch usage history");
-    setUsageHistory([]);
-  } finally {
-    setLoadingHistory(false);
-  }
-};
-
-// ✅ Function to open usage history modal
-const handleViewUsageHistory = async (discount: Discount) => {
-  setSelectedDiscountHistory(discount);
-  setUsageHistoryModal(true);
-  await fetchUsageHistory(discount.id);
-};
-
-// ✅ Calculate statistics from usage history
-const calculateHistoryStats = () => {
-  if (!usageHistory.length) return {
-    totalUsage: 0,
-    totalRevenue: 0,
-    uniqueCustomers: 0,
-    averageDiscount: 0
   };
 
-  const totalUsage = usageHistory.length;
-  const totalRevenue = usageHistory.reduce((sum, h) => sum + h.discountAmount, 0);
-  const uniqueCustomers = new Set(usageHistory.map(h => h.customerEmail)).size;
-  const averageDiscount = totalRevenue / totalUsage;
+  // ✅ FETCH USAGE HISTORY
+  const fetchUsageHistory = async (discountId: string) => {
+    setLoadingHistory(true);
+    try {
+      const response = await discountsService.getUsageHistory(discountId);
+      if (response.data?.success) {
+        setUsageHistory(response.data.data || []);
+      } else {
+        setUsageHistory([]);
+      }
+    } catch (error: any) {
+      console.error("Error fetching usage history:", error);
+      toast.error(error?.response?.data?.message || "Failed to fetch usage history");
+      setUsageHistory([]);
+    } finally {
+      setLoadingHistory(false);
+    }
+  };
 
-  return { totalUsage, totalRevenue, uniqueCustomers, averageDiscount };
-};
+  // ✅ HANDLE VIEW USAGE HISTORY
+  const handleViewUsageHistory = async (discount: Discount) => {
+    setSelectedDiscountHistory(discount);
+    setUsageHistoryModal(true);
+    await fetchUsageHistory(discount.id);
+  };
 
+  // ✅ CALCULATE HISTORY STATS
+  const calculateHistoryStats = () => {
+    if (!usageHistory.length) return {
+      totalUsage: 0,
+      totalRevenue: 0,
+      uniqueCustomers: 0,
+      averageDiscount: 0
+    };
+
+    const totalUsage = usageHistory.length;
+    const totalRevenue = usageHistory.reduce((sum, h) => sum + h.discountAmount, 0);
+    const uniqueCustomers = new Set(usageHistory.map(h => h.customerEmail)).size;
+    const averageDiscount = totalRevenue / totalUsage;
+
+    return { totalUsage, totalRevenue, uniqueCustomers, averageDiscount };
+  };
+
+  // ✅ CALCULATE REMAINING USES
+  const calculateRemainingUses = (discount: Discount) => {
+    if (discount.discountLimitation === "Unlimited") {
+      return "∞";
+    }
+    
+    const limit = discount.limitationTimes || 0;
+    const used = usageHistory.length;
+    const remaining = limit - used;
+    
+    return remaining > 0 ? remaining : 0;
+  };
+
+  // ✅ CALCULATE DAYS UNTIL EXPIRY
+  const calculateDaysUntilExpiry = (discount: Discount) => {
+    const now = new Date();
+    const endDate = new Date(discount.endDate);
+    const diffTime = endDate.getTime() - now.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    
+    return diffDays;
+  };
 
   // ✅ CONVERT DATA TO SELECT OPTIONS
   const categoryOptions: SelectOption[] = categories.map(cat => ({
@@ -306,58 +325,52 @@ const calculateHistoryStats = () => {
     label: product.name
   }));
 
-
-
-// ✅ FETCH DISCOUNTS (apiClient version)
-const fetchDiscounts = async () => {
-  setLoading(true);
-  try {
-    const response = await discountsService.getAll({
-      params: { includeInactive: true }
-    });
-    const discountsData = response.data?.data || [];
-    setDiscounts(discountsData);
-  } catch (error) {
-    console.error("Error fetching discounts:", error);
-    setDiscounts([]);
-  } finally {
-    setLoading(false);
-  }
-};
-
-
-
-
-const handleSubmit = async (e: React.FormEvent) => {
-  e.preventDefault();
-  try {
-    const payload = {
-      ...formData,
-      assignedProductIds: formData.assignedProductIds.join(','),
-      assignedCategoryIds: formData.assignedCategoryIds.join(','),
-      assignedManufacturerIds: formData.assignedManufacturerIds.join(','),
-      ...(editingDiscount && { id: editingDiscount.id }),
-    };
-
-    if (editingDiscount) {
-      await discountsService.update(editingDiscount.id, payload);
-      toast.success("Discount updated successfully! ✅");
-    } else {
-      await discountsService.create(payload);
-      toast.success("Discount created successfully! 🎉");
+  // ✅ FETCH DISCOUNTS
+  const fetchDiscounts = async () => {
+    setLoading(true);
+    try {
+      const response = await discountsService.getAll({
+        params: { includeInactive: true }
+      });
+      const discountsData = response.data?.data || [];
+      setDiscounts(discountsData);
+    } catch (error) {
+      console.error("Error fetching discounts:", error);
+      setDiscounts([]);
+    } finally {
+      setLoading(false);
     }
-    await fetchDiscounts();
-    setShowModal(false);
-    resetForm();
-  } catch (error: any) {
-    console.error("Error saving discount:", error);
-    toast.error(error?.response?.data?.message || "Failed to save discount");
-  }
-};
+  };
 
+  // ✅ HANDLE SUBMIT
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      const payload = {
+        ...formData,
+        assignedProductIds: formData.assignedProductIds.join(','),
+        assignedCategoryIds: formData.assignedCategoryIds.join(','),
+        assignedManufacturerIds: formData.assignedManufacturerIds.join(','),
+        ...(editingDiscount && { id: editingDiscount.id }),
+      };
 
+      if (editingDiscount) {
+        await discountsService.update(editingDiscount.id, payload);
+        toast.success("Discount updated successfully! ✅");
+      } else {
+        await discountsService.create(payload);
+        toast.success("Discount created successfully! 🎉");
+      }
+      await fetchDiscounts();
+      setShowModal(false);
+      resetForm();
+    } catch (error: any) {
+      console.error("Error saving discount:", error);
+      toast.error(error?.response?.data?.message || "Failed to save discount");
+    }
+  };
 
-  // ✅ COMPLETE HANDLE EDIT FUNCTION
+  // ✅ HANDLE EDIT
   const handleEdit = (discount: Discount) => {
     setEditingDiscount(discount);
     setFormData({
@@ -368,8 +381,8 @@ const handleSubmit = async (e: React.FormEvent) => {
       discountAmount: discount.discountAmount,
       discountPercentage: discount.discountPercentage,
       maximumDiscountAmount: discount.maximumDiscountAmount,
-    startDate: discount.startDate.slice(0, 16),  // "2025-11-07T14:30:00" → "2025-11-07T14:30"
-     endDate: discount.endDate.slice(0, 16),
+      startDate: discount.startDate.slice(0, 16),
+      endDate: discount.endDate.slice(0, 16),
       requiresCouponCode: discount.requiresCouponCode,
       couponCode: discount.couponCode || "",
       isCumulative: discount.isCumulative,
@@ -385,7 +398,7 @@ const handleSubmit = async (e: React.FormEvent) => {
     setShowModal(true);
   };
 
-  // ✅ COMPLETE RESET FORM FUNCTION
+  // ✅ RESET FORM
   const resetForm = () => {
     setFormData({
       name: "",
@@ -412,26 +425,25 @@ const handleSubmit = async (e: React.FormEvent) => {
     setEditingDiscount(null);
   };
 
-  // ✅ HANDLE DELETE FUNCTION
-const handleDelete = async (id: string) => {
-  setIsDeleting(true);
-  try {
-    const response = await discountsService.delete(id); // ✅ No extra params
-    if (!response.error && (response.status === 200 || response.status === 204)) {
-      toast.success("Discount deleted successfully! 🗑️");
-      await fetchDiscounts();
-    } else {
-      toast.error(response.error || "Failed to delete discount");
+  // ✅ HANDLE DELETE
+  const handleDelete = async (id: string) => {
+    setIsDeleting(true);
+    try {
+      const response = await discountsService.delete(id);
+      if (!response.error && (response.status === 200 || response.status === 204)) {
+        toast.success("Discount deleted successfully! 🗑️");
+        await fetchDiscounts();
+      } else {
+        toast.error(response.error || "Failed to delete discount");
+      }
+    } catch (error: any) {
+      console.error("Error deleting discount:", error);
+      toast.error(error?.response?.data?.message || "Failed to delete discount");
+    } finally {
+      setIsDeleting(false);
+      setDeleteConfirm(null);
     }
-  } catch (error: any) {
-    console.error("Error deleting discount:", error);
-    toast.error(error?.response?.data?.message || "Failed to delete discount");
-  } finally {
-    setIsDeleting(false);
-    setDeleteConfirm(null);
-  }
-};
-
+  };
 
   // ✅ UTILITY FUNCTIONS
   const clearFilters = () => {
@@ -469,7 +481,7 @@ const handleDelete = async (id: string) => {
     if (discount.usePercentage) {
       return `${discount.discountPercentage}%`;
     }
-    return `£${discount.discountAmount}`;
+    return `₹${discount.discountAmount}`;
   };
 
   const isDiscountActive = (discount: Discount) => {
@@ -479,7 +491,92 @@ const handleDelete = async (id: string) => {
     const end = new Date(discount.endDate);
     return now >= start && now <= end;
   };
+ // ✅ FILTER USAGE HISTORY BY DATE RANGE
+  const getFilteredUsageHistory = () => {
+    if (!dateRangeFilter.startDate && !dateRangeFilter.endDate) {
+      return usageHistory;
+    }
 
+    return usageHistory.filter(history => {
+      const usedDate = new Date(history.usedAt);
+      const startDate = dateRangeFilter.startDate ? new Date(dateRangeFilter.startDate) : null;
+      const endDate = dateRangeFilter.endDate ? new Date(dateRangeFilter.endDate) : null;
+
+      // Set time to start/end of day for accurate comparison
+      if (startDate) {
+        startDate.setHours(0, 0, 0, 0);
+      }
+      if (endDate) {
+        endDate.setHours(23, 59, 59, 999);
+      }
+
+      const afterStart = !startDate || usedDate >= startDate;
+      const beforeEnd = !endDate || usedDate <= endDate;
+
+      return afterStart && beforeEnd;
+    });
+  };
+
+  // ✅ CALCULATE STATS FOR FILTERED DATA
+  const calculateFilteredStats = () => {
+    const filtered = getFilteredUsageHistory();
+    
+    if (!filtered.length) return {
+      totalUsage: 0,
+      totalRevenue: 0,
+      uniqueCustomers: 0,
+      averageDiscount: 0
+    };
+
+    const totalUsage = filtered.length;
+    const totalRevenue = filtered.reduce((sum, h) => sum + h.discountAmount, 0);
+    const uniqueCustomers = new Set(filtered.map(h => h.customerEmail)).size;
+    const averageDiscount = totalRevenue / totalUsage;
+
+    return { totalUsage, totalRevenue, uniqueCustomers, averageDiscount };
+  };
+
+  // ✅ QUICK DATE RANGE PRESETS
+  const setQuickDateRange = (preset: 'today' | 'week' | 'month' | 'all') => {
+    const today = new Date();
+    const startOfDay = new Date(today);
+    startOfDay.setHours(0, 0, 0, 0);
+
+    switch (preset) {
+      case 'today':
+        setDateRangeFilter({
+          startDate: startOfDay.toISOString().split('T')[0],
+          endDate: today.toISOString().split('T')[0]
+        });
+        break;
+      case 'week':
+        const weekAgo = new Date(today);
+        weekAgo.setDate(today.getDate() - 7);
+        setDateRangeFilter({
+          startDate: weekAgo.toISOString().split('T')[0],
+          endDate: today.toISOString().split('T')[0]
+        });
+        break;
+      case 'month':
+        const monthAgo = new Date(today);
+        monthAgo.setMonth(today.getMonth() - 1);
+        setDateRangeFilter({
+          startDate: monthAgo.toISOString().split('T')[0],
+          endDate: today.toISOString().split('T')[0]
+        });
+        break;
+      case 'all':
+        setDateRangeFilter({ startDate: "", endDate: "" });
+        break;
+    }
+  };
+
+  // ✅ CLEAR DATE FILTERS
+  const clearDateFilters = () => {
+    setDateRangeFilter({ startDate: "", endDate: "" });
+  };
+
+  const hasDateFilters = dateRangeFilter.startDate || dateRangeFilter.endDate
   // ✅ FILTER DATA
   const filteredDiscounts = discounts.filter(discount => {
     const matchesSearch = discount.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -558,6 +655,8 @@ const handleDelete = async (id: string) => {
 
   return (
     <div className="space-y-2">
+      {/* REST OF YOUR EXISTING JSX CODE REMAINS SAME UNTIL USAGE HISTORY MODAL */}
+      {/* I'm only showing the USAGE HISTORY MODAL part which needs to be updated */}
       {/* ✅ COMPLETE HEADER */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
@@ -1575,180 +1674,369 @@ const handleDelete = async (id: string) => {
         </div>
       )}
 
-{/* ✅ USAGE HISTORY MODAL - Add this before closing div of main component */}
-{usageHistoryModal && selectedDiscountHistory && (
-  <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-50 flex items-center justify-center p-4">
-    <div className="bg-gradient-to-br from-slate-900 via-slate-900 to-slate-800 border border-violet-500/20 rounded-3xl max-w-6xl w-full max-h-[90vh] overflow-hidden shadow-2xl shadow-violet-500/10">
-      {/* Header */}
-      <div className="p-6 border-b border-violet-500/20 bg-gradient-to-r from-violet-500/10 to-cyan-500/10">
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-3xl font-bold bg-gradient-to-r from-violet-400 via-cyan-400 to-pink-400 bg-clip-text text-transparent">
-              Usage History
-            </h2>
-            <p className="text-slate-400 text-sm mt-1">
-              {selectedDiscountHistory.name} ({selectedDiscountHistory.couponCode})
-            </p>
-          </div>
-          <button
-            onClick={() => {
-              setUsageHistoryModal(false);
-              setSelectedDiscountHistory(null);
-              setUsageHistory([]);
-            }}
-            className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-all"
-          >
-            ✕
-          </button>
-        </div>
-      </div>
+      {/* ... ALL YOUR EXISTING CODE ... */}
 
-      {/* Statistics Cards */}
-      <div className="p-6 border-b border-slate-800">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <div className="bg-gradient-to-br from-violet-500/10 to-purple-500/10 backdrop-blur-xl border border-violet-500/20 rounded-xl p-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2.5 bg-gradient-to-br from-violet-500 to-purple-500 rounded-lg">
-                <History className="w-5 h-5 text-white" />
-              </div>
-              <div>
-                <p className="text-xs text-slate-400 mb-0.5">Total Usage</p>
-                <p className="text-2xl font-bold text-white">
-                  {calculateHistoryStats().totalUsage}
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-gradient-to-br from-green-500/10 to-emerald-500/10 backdrop-blur-xl border border-green-500/20 rounded-xl p-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2.5 bg-gradient-to-br from-green-500 to-emerald-500 rounded-lg">
-                <Percent className="w-5 h-5 text-white" />
-              </div>
-              <div>
-                <p className="text-xs text-slate-400 mb-0.5">Total Discount</p>
-                <p className="text-2xl font-bold text-white">
-                  ₹{calculateHistoryStats().totalRevenue.toFixed(2)}
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-gradient-to-br from-blue-500/10 to-cyan-500/10 backdrop-blur-xl border border-blue-500/20 rounded-xl p-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2.5 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-lg">
-                <Target className="w-5 h-5 text-white" />
-              </div>
-              <div>
-                <p className="text-xs text-slate-400 mb-0.5">Unique Customers</p>
-                <p className="text-2xl font-bold text-white">
-                  {calculateHistoryStats().uniqueCustomers}
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-gradient-to-br from-orange-500/10 to-amber-500/10 backdrop-blur-xl border border-orange-500/20 rounded-xl p-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2.5 bg-gradient-to-br from-orange-500 to-amber-500 rounded-lg">
-                <Gift className="w-5 h-5 text-white" />
-              </div>
-              <div>
-                <p className="text-xs text-slate-400 mb-0.5">Avg Discount</p>
-                <p className="text-2xl font-bold text-white">
-                  ₹{calculateHistoryStats().averageDiscount.toFixed(2)}
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Usage History Table */}
-      <div className="p-6 overflow-y-auto max-h-[calc(90vh-350px)]">
-        {loadingHistory ? (
-          <div className="flex items-center justify-center py-12">
-            <div className="text-center">
-              <div className="w-12 h-12 border-4 border-violet-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-              <p className="text-slate-400">Loading usage history...</p>
-            </div>
-          </div>
-        ) : usageHistory.length === 0 ? (
-          <div className="text-center py-12">
-            <History className="h-16 w-16 text-slate-600 mx-auto mb-4" />
-            <p className="text-slate-400 text-lg mb-2">No Usage History</p>
-            <p className="text-slate-500 text-sm">
-              This discount hasn't been used yet
-            </p>
-          </div>
-        ) : (
-          <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-2xl overflow-hidden">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-slate-800">
-                  <th className="text-left py-3 px-4 text-slate-400 font-medium text-sm">
-                    Order Number
-                  </th>
-                  <th className="text-left py-3 px-4 text-slate-400 font-medium text-sm">
-                    Customer Email
-                  </th>
-                  <th className="text-center py-3 px-4 text-slate-400 font-medium text-sm">
-                    Discount Amount
-                  </th>
-                  <th className="text-center py-3 px-4 text-slate-400 font-medium text-sm">
-                    Used At
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {usageHistory.map((history) => (
-                  <tr
-                    key={history.id}
-                    className="border-b border-slate-800 hover:bg-slate-800/30 transition-colors"
-                  >
-                    <td className="py-4 px-4">
-                      <p className="text-white font-medium">{history.orderNumber}</p>
-                      <p className="text-xs text-slate-500">{history.orderId}</p>
-                    </td>
-                    <td className="py-4 px-4">
-                      <p className="text-white">{history.customerEmail}</p>
-                    </td>
-                    <td className="py-4 px-4 text-center">
-                      <span className="px-3 py-1 bg-green-500/10 text-green-400 rounded-lg text-sm font-medium">
-                        ₹{history.discountAmount.toFixed(2)}
+      {/* ✅ ENHANCED USAGE HISTORY MODAL - COMPACT VERSION */}
+  {usageHistoryModal && selectedDiscountHistory && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-gradient-to-br from-slate-900 via-slate-900 to-slate-800 border border-violet-500/20 rounded-3xl max-w-6xl w-full max-h-[92vh] overflow-hidden shadow-2xl">
+            
+            {/* Compact Header */}
+            <div className="p-4 border-b border-violet-500/20 bg-gradient-to-r from-violet-500/10 to-cyan-500/10">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-violet-500 to-pink-500 flex items-center justify-center text-lg">
+                    {getDiscountTypeIcon(selectedDiscountHistory.discountType)}
+                  </div>
+                  <div>
+                    <h2 className="text-xl font-bold text-white">
+                      {selectedDiscountHistory.name}
+                    </h2>
+                    {selectedDiscountHistory.couponCode && (
+                      <span className="text-green-400 font-mono text-sm">
+                        {selectedDiscountHistory.couponCode}
                       </span>
-                    </td>
-                    <td className="py-4 px-4 text-center">
-                      <p className="text-white text-sm">
-                        {new Date(history.usedAt).toLocaleString()}
-                      </p>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
+                    )}
+                  </div>
+                </div>
+                <button
+                  onClick={() => {
+                    setUsageHistoryModal(false);
+                    setSelectedDiscountHistory(null);
+                    setUsageHistory([]);
+                    clearDateFilters();
+                  }}
+                  className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-all"
+                >
+                  ✕
+                </button>
+              </div>
+            </div>
 
-      {/* Footer */}
-      <div className="p-6 border-t border-slate-700/50">
-        <div className="flex justify-end">
-          <button
-            onClick={() => {
-              setUsageHistoryModal(false);
-              setSelectedDiscountHistory(null);
-              setUsageHistory([]);
-            }}
-            className="px-6 py-3 bg-slate-800 text-white rounded-xl hover:bg-slate-700 transition-all font-medium"
-          >
-            Close
-          </button>
+            {/* ✅ DATE RANGE FILTER SECTION */}
+            <div className="p-4 border-b border-slate-800 bg-slate-900/30">
+              <div className="flex flex-wrap items-center gap-3">
+                <div className="flex items-center gap-2">
+                  <CalendarRange className="w-4 h-4 text-slate-400" />
+                  <span className="text-sm font-medium text-slate-300">Filter by Date:</span>
+                </div>
+
+                {/* Quick Presets */}
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setQuickDateRange('today')}
+                    className={`px-3 py-1.5 text-xs rounded-lg transition-all font-medium ${
+                      dateRangeFilter.startDate === new Date().toISOString().split('T')[0] &&
+                      dateRangeFilter.endDate === new Date().toISOString().split('T')[0]
+                        ? 'bg-violet-500 text-white'
+                        : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+                    }`}
+                  >
+                    Today
+                  </button>
+                  <button
+                    onClick={() => setQuickDateRange('week')}
+                    className="px-3 py-1.5 text-xs bg-slate-800 text-slate-300 hover:bg-slate-700 rounded-lg transition-all font-medium"
+                  >
+                    Last 7 Days
+                  </button>
+                  <button
+                    onClick={() => setQuickDateRange('month')}
+                    className="px-3 py-1.5 text-xs bg-slate-800 text-slate-300 hover:bg-slate-700 rounded-lg transition-all font-medium"
+                  >
+                    Last 30 Days
+                  </button>
+                  <button
+                    onClick={() => setQuickDateRange('all')}
+                    className={`px-3 py-1.5 text-xs rounded-lg transition-all font-medium ${
+                      !hasDateFilters
+                        ? 'bg-blue-500 text-white'
+                        : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+                    }`}
+                  >
+                    All Time
+                  </button>
+                </div>
+
+                {/* Custom Date Inputs */}
+                <div className="flex items-center gap-2 ml-auto">
+                  <div className="flex items-center gap-2">
+                    <label className="text-xs text-slate-400">From:</label>
+                    <input
+                      type="date"
+                      value={dateRangeFilter.startDate}
+                      onChange={(e) => setDateRangeFilter({...dateRangeFilter, startDate: e.target.value})}
+                      className="px-3 py-1.5 bg-slate-800 border border-slate-600 rounded-lg text-white text-xs focus:outline-none focus:ring-2 focus:ring-violet-500"
+                    />
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <label className="text-xs text-slate-400">To:</label>
+                    <input
+                      type="date"
+                      value={dateRangeFilter.endDate}
+                      onChange={(e) => setDateRangeFilter({...dateRangeFilter, endDate: e.target.value})}
+                      className="px-3 py-1.5 bg-slate-800 border border-slate-600 rounded-lg text-white text-xs focus:outline-none focus:ring-2 focus:ring-violet-500"
+                    />
+                  </div>
+                  {hasDateFilters && (
+                    <button
+                      onClick={clearDateFilters}
+                      className="p-1.5 text-red-400 hover:bg-red-500/10 rounded-lg transition-all"
+                      title="Clear Date Filter"
+                    >
+                      <FilterX className="w-4 h-4" />
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Filter Info */}
+              {hasDateFilters && (
+                <div className="mt-2 px-3 py-1.5 bg-blue-500/10 border border-blue-500/30 rounded-lg">
+                  <p className="text-xs text-blue-400">
+                    Showing {getFilteredUsageHistory().length} of {usageHistory.length} transactions
+                    {dateRangeFilter.startDate && ` from ${new Date(dateRangeFilter.startDate).toLocaleDateString('en-IN')}`}
+                    {dateRangeFilter.endDate && ` to ${new Date(dateRangeFilter.endDate).toLocaleDateString('en-IN')}`}
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {/* Compact Stats Grid - Using Filtered Data */}
+            <div className="p-4 border-b border-slate-800">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                
+                {/* Discount Value */}
+                <div className="bg-gradient-to-br from-violet-500/10 to-purple-500/10 border border-violet-500/20 rounded-xl p-3">
+                  <div className="flex items-center gap-2 mb-1">
+                    <Percent className="w-4 h-4 text-violet-400" />
+                    <span className="text-xs text-slate-400">Value</span>
+                  </div>
+                  <p className="text-xl font-bold text-white">
+                    {formatDiscountValue(selectedDiscountHistory)}
+                  </p>
+                  {selectedDiscountHistory.maximumDiscountAmount && (
+                    <p className="text-xs text-slate-400">Max: ₹{selectedDiscountHistory.maximumDiscountAmount}</p>
+                  )}
+                </div>
+
+                {/* Times Used - FILTERED */}
+                <div className="bg-gradient-to-br from-blue-500/10 to-cyan-500/10 border border-blue-500/20 rounded-xl p-3">
+                  <div className="flex items-center gap-2 mb-1">
+                    <TrendingUp className="w-4 h-4 text-blue-400" />
+                    <span className="text-xs text-slate-400">Used</span>
+                  </div>
+                  <p className="text-xl font-bold text-white">
+                    {calculateFilteredStats().totalUsage}
+                  </p>
+                  {selectedDiscountHistory.limitationTimes && (
+                    <p className="text-xs text-slate-400">
+                      of {selectedDiscountHistory.limitationTimes}
+                    </p>
+                  )}
+                </div>
+
+                {/* Remaining Uses */}
+                <div className="bg-gradient-to-br from-green-500/10 to-emerald-500/10 border border-green-500/20 rounded-xl p-3">
+                  <div className="flex items-center gap-2 mb-1">
+                    <Target className="w-4 h-4 text-green-400" />
+                    <span className="text-xs text-slate-400">Remaining</span>
+                  </div>
+                  <p className="text-xl font-bold text-white flex items-center gap-1">
+                    {selectedDiscountHistory.discountLimitation === "Unlimited" ? (
+                      <InfinityIcon className="w-6 h-6" />
+                    ) : (
+                      <>
+                        {Math.max(0, (selectedDiscountHistory.limitationTimes || 0) - usageHistory.length)}
+                      </>
+                    )}
+                  </p>
+                  <p className="text-xs text-slate-400">
+                    {selectedDiscountHistory.discountLimitation === "Unlimited" ? "Unlimited" : "uses left"}
+                  </p>
+                </div>
+
+                {/* Days Until Expiry */}
+                <div className="bg-gradient-to-br from-orange-500/10 to-amber-500/10 border border-orange-500/20 rounded-xl p-3">
+                  <div className="flex items-center gap-2 mb-1">
+                    <Clock className="w-4 h-4 text-orange-400" />
+                    <span className="text-xs text-slate-400">Expires In</span>
+                  </div>
+                  <p className="text-xl font-bold text-white">
+                    {(() => {
+                      const days = calculateDaysUntilExpiry(selectedDiscountHistory);
+                      return days < 0 ? "Expired" : days === 0 ? "Today" : `${days}d`;
+                    })()}
+                  </p>
+                  <p className="text-xs text-slate-400">
+                    {new Date(selectedDiscountHistory.endDate).toLocaleDateString()}
+                  </p>
+                </div>
+
+                {/* Total Savings - FILTERED */}
+                <div className="bg-gradient-to-br from-pink-500/10 to-rose-500/10 border border-pink-500/20 rounded-xl p-3">
+                  <div className="flex items-center gap-2 mb-1">
+                    <Gift className="w-4 h-4 text-pink-400" />
+                    <span className="text-xs text-slate-400">Total Saved</span>
+                  </div>
+                  <p className="text-xl font-bold text-white">
+                    ₹{calculateFilteredStats().totalRevenue.toFixed(2)}
+                  </p>
+                </div>
+
+                {/* Unique Customers - FILTERED */}
+                <div className="bg-gradient-to-br from-cyan-500/10 to-blue-500/10 border border-cyan-500/20 rounded-xl p-3">
+                  <div className="flex items-center gap-2 mb-1">
+                    <Users className="w-4 h-4 text-cyan-400" />
+                    <span className="text-xs text-slate-400">Customers</span>
+                  </div>
+                  <p className="text-xl font-bold text-white">
+                    {calculateFilteredStats().uniqueCustomers}
+                  </p>
+                </div>
+
+                {/* Average Discount - FILTERED */}
+                <div className="bg-gradient-to-br from-indigo-500/10 to-purple-500/10 border border-indigo-500/20 rounded-xl p-3">
+                  <div className="flex items-center gap-2 mb-1">
+                    <TrendingUp className="w-4 h-4 text-indigo-400" />
+                    <span className="text-xs text-slate-400">Avg Save</span>
+                  </div>
+                  <p className="text-xl font-bold text-white">
+                    ₹{calculateFilteredStats().averageDiscount.toFixed(2)}
+                  </p>
+                </div>
+
+                {/* Limitation Type */}
+                <div className="bg-gradient-to-br from-amber-500/10 to-yellow-500/10 border border-amber-500/20 rounded-xl p-3">
+                  <div className="flex items-center gap-2 mb-1">
+                    <AlertCircle className="w-4 h-4 text-amber-400" />
+                    <span className="text-xs text-slate-400">Type</span>
+                  </div>
+                  <p className="text-sm font-semibold text-white">
+                    {selectedDiscountHistory.discountLimitation === "Unlimited" 
+                      ? "Unlimited" 
+                      : selectedDiscountHistory.discountLimitation === "NTimesOnly"
+                      ? "Limited Total"
+                      : "Per Customer"}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Compact Usage History Table - FILTERED DATA */}
+            <div className="p-4 overflow-y-auto max-h-[calc(92vh-480px)]">
+              {loadingHistory ? (
+                <div className="flex items-center justify-center py-12">
+                  <div className="text-center">
+                    <div className="w-12 h-12 border-4 border-violet-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+                    <p className="text-slate-400">Loading history...</p>
+                  </div>
+                </div>
+              ) : getFilteredUsageHistory().length === 0 ? (
+                <div className="text-center py-12">
+                  <History className="h-16 w-16 text-slate-600 mx-auto mb-4" />
+                  <p className="text-slate-400 text-lg mb-2">
+                    {hasDateFilters ? "No transactions in selected date range" : "No Usage History"}
+                  </p>
+                  <p className="text-slate-500 text-sm">
+                    {hasDateFilters 
+                      ? "Try adjusting your date filters" 
+                      : "This discount hasn't been used yet"}
+                  </p>
+                </div>
+              ) : (
+                <div className="bg-slate-900/50 border border-slate-800 rounded-xl overflow-hidden">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b border-slate-800 bg-slate-800/30">
+                        <th className="text-left py-3 px-3 text-slate-400 font-medium text-xs">Order</th>
+                        <th className="text-left py-3 px-3 text-slate-400 font-medium text-xs">Customer</th>
+                        <th className="text-center py-3 px-3 text-slate-400 font-medium text-xs">Discount</th>
+                        <th className="text-center py-3 px-3 text-slate-400 font-medium text-xs">Date</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {getFilteredUsageHistory().map((history, index) => (
+                        <tr
+                          key={history.id}
+                          className="border-b border-slate-800 hover:bg-slate-800/30 transition-colors"
+                        >
+                          <td className="py-3 px-3">
+                            <div className="flex items-center gap-2">
+                              <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center text-white text-xs font-bold">
+                                #{index + 1}
+                              </div>
+                              <div className="min-w-0">
+                                <p className="text-white font-medium text-sm truncate">
+                                  {history.orderNumber}
+                                </p>
+                                <p className="text-xs text-slate-500 truncate">
+                                  {history.orderId.substring(0, 8)}...
+                                </p>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="py-3 px-3">
+                            <div className="flex items-center gap-2">
+                              <Users className="w-4 h-4 text-slate-500 flex-shrink-0" />
+                              <span className="text-white text-sm truncate">{history.customerEmail}</span>
+                            </div>
+                          </td>
+                          <td className="py-3 px-3 text-center">
+                            <span className="inline-flex items-center gap-1 px-3 py-1 bg-green-500/10 border border-green-500/30 text-green-400 rounded-lg text-sm font-semibold">
+                              ₹{history.discountAmount.toFixed(2)}
+                            </span>
+                          </td>
+                          <td className="py-3 px-3 text-center">
+                            <div className="flex flex-col items-center">
+                              <span className="text-white text-sm font-medium">
+                                {new Date(history.usedAt).toLocaleDateString('en-IN', { 
+                                  day: '2-digit', 
+                                  month: 'short',
+                                  year: 'numeric'
+                                })}
+                              </span>
+                              <span className="text-xs text-slate-500">
+                                {new Date(history.usedAt).toLocaleTimeString('en-IN', { 
+                                  hour: '2-digit', 
+                                  minute: '2-digit' 
+                                })}
+                              </span>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+
+            {/* Compact Footer */}
+            <div className="p-4 border-t border-slate-700/50 bg-slate-900/50">
+              <div className="flex justify-between items-center">
+                <div className="text-sm text-slate-400">
+                  {hasDateFilters 
+                    ? `Filtered: ${getFilteredUsageHistory().length} of ${usageHistory.length} transactions`
+                    : `Showing ${usageHistory.length} transaction${usageHistory.length !== 1 ? 's' : ''}`
+                  }
+                </div>
+                <button
+                  onClick={() => {
+                    setUsageHistoryModal(false);
+                    setSelectedDiscountHistory(null);
+                    setUsageHistory([]);
+                    clearDateFilters();
+                  }}
+                  className="px-5 py-2 bg-gradient-to-r from-slate-700 to-slate-600 text-white rounded-xl hover:from-slate-600 hover:to-slate-500 transition-all font-medium text-sm"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
-      </div>
-    </div>
-  </div>
-)}
+      )}
 
 
       {/* ✅ DELETE CONFIRMATION DIALOG */}

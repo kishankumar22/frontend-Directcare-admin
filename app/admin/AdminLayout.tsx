@@ -36,6 +36,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTheme } from "@/context/theme-provider";
+import { authService } from "@/lib/services/auth";
 
 interface NavigationItem {
   name: string;
@@ -155,6 +156,17 @@ const handleThemeToggle = () => {
   setTimeout(() => setIsAnimating(false), 600);
 };
 
+ useEffect(() => {
+    const interval = setInterval(() => {
+      const loggedIn = authService.isAuthenticated();
+      if (!loggedIn) {
+        authService.logout();
+        router.replace("/login");
+      }
+    }, 5000); // 🔥 every 5 seconds check
+
+    return () => clearInterval(interval);
+  }, []);
 
   useEffect(() => {
     navigation.forEach((item) => {
@@ -211,10 +223,7 @@ const handleThemeToggle = () => {
   }, []);
 
   const handleLogout = () => {
-    localStorage.removeItem('authToken');
-    localStorage.removeItem('userEmail');
-    localStorage.removeItem('userData');
-    document.cookie = 'authToken=; path=/; max-age=0';
+    authService.logout();
     router.push('/login');
   };
 

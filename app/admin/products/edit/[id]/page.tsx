@@ -719,6 +719,54 @@ specifications: parseSpecificationString(product.specificationAttributes).map((s
     fetchAllData();
   }
 }, [productId]);
+// ✅ Delete Product Attribute
+const deleteProductAttribute = async (productId: string, attributeId: string) => {
+  try {
+    const response = await apiClient.delete(
+      `/api/Products/${productId}/attributes/${attributeId}`
+    );
+    
+    if (response?.data) {
+      toast.success('✅ Attribute deleted successfully!');
+      // Remove from local state
+      setProductAttributes(productAttributes.filter(attr => attr.id !== attributeId));
+    }
+  } catch (error: any) {
+    console.error('❌ Error deleting attribute:', error);
+    toast.error(error.response?.data?.message || 'Failed to delete attribute');
+  }
+};
+
+// ✅ Delete Product Variant
+const deleteProductVariant = async (productId: string, variantId: string) => {
+  try {
+    const response = await apiClient.delete(
+      `/api/Products/${productId}/variants/${variantId}`
+    );
+    
+    if (response?.data) {
+      toast.success('✅ Variant deleted successfully!');
+      // Remove from local state
+      setProductVariants(productVariants.filter(v => v.id !== variantId));
+    }
+  } catch (error: any) {
+    console.error('❌ Error deleting variant:', error);
+    toast.error(error.response?.data?.message || 'Failed to delete variant');
+  }
+};
+
+// ✅ Updated Remove Functions with Confirmation
+const removeProductAttribute = (id: string) => {
+  if (confirm('⚠️ Are you sure you want to delete this attribute?')) {
+    deleteProductAttribute(productId, id);
+  }
+};
+
+const removeProductVariant = (id: string) => {
+  if (confirm('⚠️ Are you sure you want to delete this variant?')) {
+    deleteProductVariant(productId, id);
+  }
+};
 
 
 const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
@@ -732,8 +780,8 @@ const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
   target.setAttribute('data-submitting', 'true');
 
   try {
-    if (!formData.name || !formData.sku) {
-      toast.error('⚠️ Please fill in required fields: Product Name and SKU');
+    if (!formData.name || !formData.sku || !formData.price || !formData.stockQuantity) {
+      toast.error('⚠️ Please fill in required fields: Product Name and SKU and Price.');
       return;
     }
 
@@ -1144,9 +1192,7 @@ const addProductAttribute = () => {
   setProductAttributes([...productAttributes, newAttr]);
 };
 
-const removeProductAttribute = (id: string) => {
-  setProductAttributes(productAttributes.filter(attr => attr.id !== id));
-};
+
 
 const updateProductAttribute = (id: string, field: keyof ProductAttribute, value: any) => {
   setProductAttributes(productAttributes.map(attr =>
@@ -1173,9 +1219,6 @@ const addProductVariant = () => {
   setProductVariants([...productVariants, newVariant]);
 };
 
-const removeProductVariant = (id: string) => {
-  setProductVariants(productVariants.filter(v => v.id !== id));
-};
 
 const updateProductVariant = (id: string, field: keyof ProductVariant, value: any) => {
   setProductVariants(productVariants.map(variant =>
@@ -1435,7 +1478,7 @@ const uploadImagesToProductDirect = async (productId: string, files: File[]): Pr
                 <TabsList className="flex gap-1 overflow-x-auto pb-px scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-transparent bg-transparent h-auto p-0">
                   <TabsTrigger value="product-info" className="flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-slate-400 hover:text-violet-400 border-b-2 border-transparent data-[state=active]:border-violet-500 data-[state=active]:text-violet-400 data-[state=active]:bg-slate-800/50 whitespace-nowrap transition-all rounded-t-lg">
                     <Info className="h-4 w-4" />
-                    Product Info
+                    Info
                   </TabsTrigger>
                   <TabsTrigger value="prices" className="flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-slate-400 hover:text-violet-400 border-b-2 border-transparent data-[state=active]:border-violet-500 data-[state=active]:text-violet-400 data-[state=active]:bg-slate-800/50 whitespace-nowrap transition-all rounded-t-lg">
                     <PoundSterling className="h-4 w-4" />
@@ -2602,13 +2645,14 @@ const uploadImagesToProductDirect = async (productId: string, files: File[]): Pr
                                 />
                               </div>
                             </div>
-                            <button
-                              type="button"
-                              onClick={() => removeProductAttribute(attr.id)}
-                              className="mt-8 p-2 text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-lg transition-colors"
-                            >
-                              <X className="h-5 w-5" />
-                            </button>
+                            {/* Attribute Delete Button */}
+<button
+  type="button"
+  onClick={() => removeProductAttribute(attr.id)}
+  className="mt-8 p-2 text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-lg transition-colors"
+>
+  <X className="h-5 w-5" />
+</button>
                           </div>
                         </div>
                       ))}
@@ -2671,13 +2715,14 @@ const uploadImagesToProductDirect = async (productId: string, files: File[]): Pr
                                 </span>
                               )}
                             </div>
-                            <button
-                              type="button"
-                              onClick={() => removeProductVariant(variant.id)}
-                              className="p-2 text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-lg transition-colors"
-                            >
-                              <X className="h-5 w-5" />
-                            </button>
+                           {/* Variant Delete Button */}
+<button
+  type="button"
+  onClick={() => removeProductVariant(variant.id)}
+  className="p-2 text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-lg transition-colors"
+>
+  <X className="h-5 w-5" />
+</button>
                           </div>
 
                           <div className="grid grid-cols-2 gap-4 mb-4">

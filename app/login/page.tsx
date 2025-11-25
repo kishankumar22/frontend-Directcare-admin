@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Lock, Mail, Eye, EyeOff, Sparkles, TrendingUp, Users2, BarChart3 } from "lucide-react";
 import Link from "next/link";
+import { authService } from "@/lib/services/auth";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -15,64 +16,41 @@ export default function LoginPage() {
   });
   const [error, setError] = useState('');
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError('');
-    setLoading(true);
+const handleSubmit = async (e: React.FormEvent) => {
+  e.preventDefault();
+  setError("");
+  setLoading(true);
 
-    try {
-      const response = await fetch('https://testapi.knowledgemarkg.com/api/Auth/login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(formData)
-      });
+try {
+  const { data: result } = await authService.login(formData);
 
-      if (response.ok) {
-        const result = await response.json();
-        console.log('Login successful:', result);
+  if (!result?.accessToken && !result?.token) {
+    setError("Token not received from server");
+    return;
+  }
 
-        // Save token to localStorage and cookie
-        const token = result.accessToken || result.token;
-        if (token) {
-          localStorage.setItem('authToken', token);
-          localStorage.setItem('userEmail', result.user?.email || formData.email);
+  const token = result.accessToken ?? result.token!;
 
-          // Store user data
-          if (result.user) {
-            localStorage.setItem('userData', JSON.stringify({
-              id: result.user.id,
-              email: result.user.email,
-              firstName: result.user.firstName,
-              lastName: result.user.lastName
-            }));
-          }
+  localStorage.setItem("authToken", token);
+  localStorage.setItem("userEmail", result.user?.email ?? formData.email);
 
-          // Set cookie for middleware
-          document.cookie = `authToken=${token}; path=/; max-age=86400`; // 24 hours
+  if (result.user) {
+    localStorage.setItem("userData", JSON.stringify(result.user));
+  }
 
-          console.log('Token saved, redirecting to admin...');
+  document.cookie = `authToken=${token}; path=/; max-age=86400`;
 
-          // Small delay to ensure cookie is set
-          setTimeout(() => {
-            window.location.href = '/admin';
-          }, 100);
-        } else {
-          setError('Token not received from server');
-          setLoading(false);
-        }
-      } else {
-        const error = await response.json();
-        setError(error.message || 'Invalid email or password');
-        setLoading(false);
-      }
-    } catch (error) {
-      console.error('Login error:', error);
-      setError('Failed to connect to server. Please try again.');
-      setLoading(false);
-    }
-  };
+  setTimeout(() => {
+    window.location.href = "/admin";
+  }, 200);
+
+} catch (err: any) {
+  setError(err.response?.data?.message || "Invalid email or password");
+} finally {
+  setLoading(false);
+}
+
+};
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({
