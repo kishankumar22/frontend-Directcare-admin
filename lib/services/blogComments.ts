@@ -11,6 +11,11 @@ export interface BlogComment {
   isApproved: boolean;
   approvedAt?: string | null;
   approvedBy?: string | null;
+  isSpam?: boolean; // ✅ Added
+  spamScore?: number; // ✅ Added
+  spamReason?: string; // ✅ Added
+  flaggedAt?: string; // ✅ Added
+  flaggedBy?: string; // ✅ Added
   parentCommentId?: string | null;
   replies?: string[];
   blogPostId: string;
@@ -40,12 +45,27 @@ export interface BlogCommentStats {
   spam: number;
 }
 
+// ✅ Reply DTO
+export interface ReplyCommentDto {
+  parentCommentId: string;
+  commentText: string;
+  authorName: string;
+  userId?: string;
+}
+
 // --- Main Service ---
 export const blogCommentsService = {
   // Get all comments for a specific post (with includeUnapproved param)
   getByPostId: (postId: string, includeUnapproved: boolean = true, config: any = {}) =>
     apiClient.get<ApiResponse<BlogComment[]>>(
       `${API_ENDPOINTS.blogComments}/post/${postId}?includeUnapproved=${includeUnapproved}`,
+      config
+    ),
+
+  // ✅ Get all spam comments
+  getSpamComments: (config: any = {}) =>
+    apiClient.get<ApiResponse<BlogComment[]>>(
+      `${API_ENDPOINTS.blogComments}/spam`,
       config
     ),
 
@@ -61,11 +81,27 @@ export const blogCommentsService = {
       config
     ),
 
-  // Mark comment as spam (if backend supports)
-  markAsSpam: (id: string, config: any = {}) =>
+  // ✅ Flag comment as spam
+  flagAsSpam: (id: string, reason?: string, spamScore?: number, config: any = {}) =>
     apiClient.post<ApiResponse<BlogComment>>(
-      `${API_ENDPOINTS.blogComments}/${id}/spam`,
+      `${API_ENDPOINTS.blogComments}/${id}/flag-spam`,
+      { reason, spamScore },
+      config
+    ),
+
+  // ✅ Unflag spam (restore comment)
+  unflagSpam: (id: string, config: any = {}) =>
+    apiClient.post<ApiResponse<BlogComment>>(
+      `${API_ENDPOINTS.blogComments}/${id}/unflag-spam`,
       {},
+      config
+    ),
+
+  // ✅ Reply to comment
+  replyToComment: (commentId: string, data: ReplyCommentDto, config: any = {}) =>
+    apiClient.post<ApiResponse<BlogComment>>(
+      `${API_ENDPOINTS.blogComments}/${commentId}/reply`,
+      data,
       config
     ),
 

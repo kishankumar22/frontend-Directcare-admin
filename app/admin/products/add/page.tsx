@@ -501,16 +501,6 @@ const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
       brandId = formData.brand.trim();
     }
 
- 
-    // Prepare specifications array - ✅ BACKEND FORMAT
-    const specificationAttributes = formData.specifications
-      .filter(spec => spec.name && spec.value)
-      .map(spec => ({
-        Id: spec.id || "",
-        Name: spec.name,
-        Value: spec.value,
-        DisplayOrder: spec.displayOrder || 1
-      }));
 
     // Prepare attributes array - ✅ BACKEND FORMAT
     const attributesArray = productAttributes
@@ -622,7 +612,7 @@ const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
     if (formData.searchEngineFriendlyPageName?.trim()) productData.searchEngineFriendlyPageName = formData.searchEngineFriendlyPageName.trim();
 
     // Specifications, Attributes, Variants
-    if (specificationAttributes.length > 0) productData.specificationAttributes = specificationAttributes;
+
     if (attributesArray.length > 0) productData.attributes = attributesArray;
     if (variantsArray.length > 0) productData.variants = variantsArray;
 
@@ -891,53 +881,7 @@ const addCrossSellProduct = (productId: string) => {
     p.sku.toLowerCase().includes(searchTermCross.toLowerCase())
   );
 
-  const addAttribute = () => {
-    const newAttribute = {
-      id: Date.now().toString(),
-      name: '',
-      values: ['']
-    };
-    setAttributes([...attributes, newAttribute]);
-  };
 
-  const removeAttribute = (id: string) => {
-    setAttributes(attributes.filter(attr => attr.id !== id));
-  };
-
-  const updateAttributeName = (id: string, name: string) => {
-    setAttributes(attributes.map(attr =>
-      attr.id === id ? { ...attr, name } : attr
-    ));
-  };
-
-  const updateAttributeValue = (attrId: string, valueIndex: number, value: string) => {
-    setAttributes(attributes.map(attr => {
-      if (attr.id === attrId) {
-        const newValues = [...attr.values];
-        newValues[valueIndex] = value;
-        return { ...attr, values: newValues };
-      }
-      return attr;
-    }));
-  };
-
-  const addAttributeValue = (attrId: string) => {
-    setAttributes(attributes.map(attr => {
-      if (attr.id === attrId) {
-        return { ...attr, values: [...attr.values, ''] };
-      }
-      return attr;
-    }));
-  };
-
-  const removeAttributeValue = (attrId: string, valueIndex: number) => {
-    setAttributes(attributes.map(attr => {
-      if (attr.id === attrId) {
-        return { ...attr, values: attr.values.filter((_, idx) => idx !== valueIndex) };
-      }
-      return attr;
-    }));
-  };
 
   // Product Attribute handlers (matching backend ProductAttributeCreateDto)
   const addProductAttribute = () => {
@@ -1329,18 +1273,12 @@ const uploadVariantImages = async (productResponse: any) => {
                     <Globe className="h-4 w-4" />
                     SEO
                   </TabsTrigger>
-                  <TabsTrigger value="pictures" className="flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-slate-400 hover:text-violet-400 border-b-2 border-transparent data-[state=active]:border-violet-500 data-[state=active]:text-violet-400 data-[state=active]:bg-slate-800/50 whitespace-nowrap transition-all rounded-t-lg">
-                    <Image className="h-4 w-4" />
-                    Pictures
-                  </TabsTrigger>
-                  <TabsTrigger value="videos" className="flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-slate-400 hover:text-violet-400 border-b-2 border-transparent data-[state=active]:border-violet-500 data-[state=active]:text-violet-400 data-[state=active]:bg-slate-800/50 whitespace-nowrap transition-all rounded-t-lg">
-                    <Video className="h-4 w-4" />
-                    Videos
-                  </TabsTrigger>
-                  <TabsTrigger value="specifications" className="flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-slate-400 hover:text-violet-400 border-b-2 border-transparent data-[state=active]:border-violet-500 data-[state=active]:text-violet-400 data-[state=active]:bg-slate-800/50 whitespace-nowrap transition-all rounded-t-lg">
-                    <BarChart3 className="h-4 w-4" />
-                    Specifications
-                  </TabsTrigger>
+<TabsTrigger value="media" className="flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-slate-400 hover:text-violet-400 border-b-2 border-transparent data-[state=active]:border-violet-500 data-[state=active]:text-violet-400 data-[state=active]:bg-slate-800/50 whitespace-nowrap transition-all rounded-t-lg">
+  <Image className="h-4 w-4" />
+  Media
+</TabsTrigger>
+
+
                 </TabsList>
               </div>
 
@@ -2842,7 +2780,8 @@ const uploadVariantImages = async (productResponse: any) => {
                 </div>
               </TabsContent>
 
- <TabsContent value="pictures" className="space-y-2 mt-2">
+<TabsContent value="media" className="space-y-2 mt-2">
+  {/* ========== PICTURES SECTION ========== */}
   <div className="space-y-4">
     <div className="flex items-center justify-between">
       <div>
@@ -2858,7 +2797,7 @@ const uploadVariantImages = async (productResponse: any) => {
       )}
     </div>
 
-    {/* Image Upload Area - UPDATED */}
+    {/* Image Upload Area */}
     <div className={`border-2 border-dashed rounded-xl p-8 bg-slate-800/20 transition-all ${
       uploadingImages 
         ? 'border-violet-500/50 bg-violet-500/5' 
@@ -2921,7 +2860,7 @@ const uploadVariantImages = async (productResponse: any) => {
       </div>
     </div>
 
-    {/* Image Preview Grid - UPDATED */}
+    {/* Image Preview Grid */}
     {formData.productImages.length > 0 ? (
       <div className="space-y-4">
         <div className="flex items-center justify-between">
@@ -2934,10 +2873,10 @@ const uploadVariantImages = async (productResponse: any) => {
         </div>
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
           {formData.productImages.map((image, index) => (
-            <div key={image.id} className="bg-slate-800/30 border border-slate-700 rounded-xl p-3 space-y-3">
+            <div key={image.id} className="bg-slate-800/30 border border-slate-700 rounded-xl p-3 space-y-3 relative">
               {/* Main Image Badge */}
               {index === 0 && (
-                <div className="absolute top-2 left-2 px-2 py-1 bg-violet-500 text-white text-xs font-medium rounded-lg">
+                <div className="absolute top-2 left-2 px-2 py-1 bg-violet-500 text-white text-xs font-medium rounded-lg z-10">
                   Main
                 </div>
               )}
@@ -2958,13 +2897,12 @@ const uploadVariantImages = async (productResponse: any) => {
                 <button
                   type="button"
                   onClick={() => {
-                    // Cleanup object URL to prevent memory leaks
                     if (image.imageUrl.startsWith('blob:')) {
                       URL.revokeObjectURL(image.imageUrl);
                     }
                     removeImage(image.id);
                   }}
-                  className="absolute top-2 right-2 p-1.5 bg-red-500/90 text-white rounded-lg hover:bg-red-600 transition-all"
+                  className="absolute top-2 right-2 p-1.5 bg-red-500/90 text-white rounded-lg hover:bg-red-600 transition-all z-10"
                 >
                   <X className="h-3 w-3" />
                 </button>
@@ -3039,33 +2977,36 @@ const uploadVariantImages = async (productResponse: any) => {
       </div>
     )}
 
-    {/* Info Box */}
+    {/* Images Info Box */}
     <div className="bg-violet-500/10 border border-violet-500/30 rounded-xl p-4">
       <h4 className="font-semibold text-sm text-violet-400 mb-2">Image Upload Process</h4>
       <ul className="text-sm text-slate-300 space-y-1">
         <li>• Images are staged for upload when product is created</li>
         <li>• Product name is sent as query parameter for API identification</li>
-        <li>• Images are uploaded to: <code className="bg-slate-800 px-1 rounded">/api/Products/{`{id}`}/images?name=ProductName</code></li>
+        <li>• Images are uploaded to: de <>/api/Products/{`{id}`}/images?name=ProductName</></li>
         <li>• First image becomes the main product image automatically</li>
         <li>• Supported formats: JPG, PNG, WebP (max 5MB each)</li>
       </ul>
     </div>
   </div>
-</TabsContent>
-{/* Videos Tab - ✅ WITH GRID PREVIEW */}
-<TabsContent value="videos" className="space-y-4 mt-2">
-  <div className="space-y-4">
-    <h3 className="text-lg font-semibold text-white border-b border-slate-800 pb-2">
-      Product Videos
-    </h3>
-    <p className="text-sm text-slate-400">
-      Add video URLs (YouTube, Vimeo, etc.) to showcase your product
-    </p>
 
-    {/* Video Grid Preview - ✅ NEW SECTION */}
+  {/* ========== DIVIDER ========== */}
+  <div className="my-6 border-t-2 border-slate-800"></div>
+
+  {/* ========== VIDEOS SECTION ========== */}
+  <div className="space-y-4">
+    <div>
+      <h3 className="text-lg font-semibold text-white border-b border-slate-800 pb-2">
+        Product Videos
+      </h3>
+      <p className="text-sm text-slate-400 mt-2">
+        Add video URLs (YouTube, Vimeo, etc.) to showcase your product
+      </p>
+    </div>
+
+    {/* Video Grid Preview */}
     {formData.videoUrls.length > 0 && (
       <div className="space-y-4">
-        {/* Grid Preview */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {formData.videoUrls.map((url, index) => (
             <div 
@@ -3127,6 +3068,7 @@ const uploadVariantImages = async (productResponse: any) => {
                 
                 {/* Remove Button */}
                 <button
+                  type="button"
                   onClick={() => {
                     setFormData({
                       ...formData,
@@ -3158,6 +3100,7 @@ const uploadVariantImages = async (productResponse: any) => {
 
     {/* Add Video Button */}
     <button
+      type="button"
       onClick={() => {
         setFormData({
           ...formData,
@@ -3171,8 +3114,8 @@ const uploadVariantImages = async (productResponse: any) => {
     </button>
 
     {/* Supported Platforms Info */}
-    <div className="bg-violet-500/10 border border-violet-500/30 rounded-xl p-4">
-      <h4 className="font-semibold text-sm text-violet-400 mb-2">
+    <div className="bg-cyan-500/10 border border-cyan-500/30 rounded-xl p-4">
+      <h4 className="font-semibold text-sm text-cyan-400 mb-2">
         Supported Video Platforms
       </h4>
       <ul className="text-sm text-slate-300 space-y-1">
@@ -3185,125 +3128,7 @@ const uploadVariantImages = async (productResponse: any) => {
 </TabsContent>
 
 
-              {/* Specifications Tab */}
-              <TabsContent value="specifications" className="space-y-2 mt-2">
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h3 className="text-lg font-semibold text-white">Product Specifications</h3>
-                      <p className="text-sm text-slate-400">
-                        Add technical specifications and product details
-                      </p>
-                    </div>
-                    <button
-                      onClick={() => {
-                        setFormData({
-                          ...formData,
-                          specifications: [
-                            ...formData.specifications,
-                            { id: Date.now().toString(), name: '', value: '', displayOrder: formData.specifications.length + 1 }
-                          ]
-                        });
-                      }}
-                      className="px-4 py-2 bg-slate-800/50 border border-slate-700 rounded-lg text-slate-300 hover:bg-slate-800 transition-all text-sm flex items-center gap-2"
-                    >
-                      <BarChart3 className="h-4 w-4" />
-                      Add Specification
-                    </button>
-                  </div>
 
-                  {formData.specifications.length > 0 ? (
-                    <div className="space-y-3">
-                      {formData.specifications.map((spec) => (
-                        <div key={spec.id} className="bg-slate-800/30 border border-slate-700 rounded-xl p-4">
-                          <div className="grid md:grid-cols-12 gap-3">
-                            <div className="md:col-span-4">
-                              <label className="block text-sm font-medium text-slate-300 mb-2">Specification Name</label>
-                              <input
-                                type="text"
-                                value={spec.name}
-                                onChange={(e) => {
-                                  setFormData({
-                                    ...formData,
-                                    specifications: formData.specifications.map(s =>
-                                      s.id === spec.id ? { ...s, name: e.target.value } : s
-                                    )
-                                  });
-                                }}
-                                placeholder="e.g., Processor, RAM, Storage"
-                                className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
-                              />
-                            </div>
-                            <div className="md:col-span-5">
-                              <label className="block text-sm font-medium text-slate-300 mb-2">Value</label>
-                              <input
-                                type="text"
-                                value={spec.value}
-                                onChange={(e) => {
-                                  setFormData({
-                                    ...formData,
-                                    specifications: formData.specifications.map(s =>
-                                      s.id === spec.id ? { ...s, value: e.target.value } : s
-                                    )
-                                  });
-                                }}
-                                placeholder="e.g., Intel Core i7, 16GB, 512GB SSD"
-                                className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
-                              />
-                            </div>
-                            <div className="md:col-span-2">
-                              <label className="block text-sm font-medium text-slate-300 mb-2">Order</label>
-                              <input
-                                type="number"
-                                value={spec.displayOrder}
-                                onChange={(e) => {
-                                  setFormData({
-                                    ...formData,
-                                    specifications: formData.specifications.map(s =>
-                                      s.id === spec.id ? { ...s, displayOrder: parseInt(e.target.value) || 0 } : s
-                                    )
-                                  });
-                                }}
-                                className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
-                              />
-                            </div>
-                            <div className="md:col-span-1 flex items-end">
-                              <button
-                                onClick={() => {
-                                  setFormData({
-                                    ...formData,
-                                    specifications: formData.specifications.filter(s => s.id !== spec.id)
-                                  });
-                                }}
-                                className="w-full p-2 bg-red-500/20 border border-red-500/30 text-red-400 hover:bg-red-500/30 rounded-lg transition-all"
-                              >
-                                <X className="h-4 w-4 mx-auto" />
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="text-center py-12 border-2 border-dashed border-slate-700 rounded-xl bg-slate-800/20">
-                      <BarChart3 className="mx-auto h-16 w-16 text-slate-600 mb-4" />
-                      <h3 className="text-lg font-semibold text-white mb-2">No Specifications Added</h3>
-                      <p className="text-slate-400 mb-4">
-                        Click "Add Specification" to add technical details
-                      </p>
-                    </div>
-                  )}
-
-                  <div className="bg-violet-500/10 border border-violet-500/30 rounded-xl p-4">
-                    <h4 className="font-semibold text-sm text-violet-400 mb-2">Specification Examples</h4>
-                    <ul className="text-sm text-slate-300 space-y-1">
-                      <li>• <strong>Electronics:</strong> Processor, RAM, Storage, Display Size, Battery</li>
-                      <li>• <strong>Clothing:</strong> Material, Care Instructions, Country of Origin</li>
-                      <li>• <strong>Furniture:</strong> Dimensions, Material, Weight Capacity, Assembly</li>
-                    </ul>
-                  </div>
-                </div>
-              </TabsContent>
             </Tabs>
           </div>
         </div>

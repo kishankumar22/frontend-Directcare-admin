@@ -46,6 +46,11 @@ export const API_ENDPOINTS = {
   uploadBlogPostImage: '/api/BlogPosts/upload-image',
   deleteBlogPostImage: '/api/BlogPosts/delete-image',
 
+   // VAT Rates
+  vatrates: '/api/VATRates',
+
+  // Product Reviews
+    productReviews: '/api/ProductReviews',
   // Comments
 blogComments: '/api/BlogComments',
 };

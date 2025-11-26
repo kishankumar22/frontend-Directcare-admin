@@ -75,14 +75,17 @@ export default function CategorySlider({
               <Card className="shadow-md hover:shadow-xl transition rounded-xl p-4 md:p-6 text-center bg-white">
                 <CardContent className="p-0">
                   <img
-                    src={
-                      category.imageUrl.startsWith("http")
-                        ? category.imageUrl
-                        : `${baseUrl}${category.imageUrl}`
-                    }
-                    alt={category.name}
-                    className="w-16 h-16 md:w-20 md:h-20 mx-auto object-contain mb-3"
-                  />
+  src={
+    category.imageUrl
+      ? category.imageUrl.startsWith("http")
+        ? category.imageUrl
+        : `${baseUrl}${category.imageUrl}`
+      : "/no-image.png"   // ✅ fallback image
+  }
+  alt={category.name}
+  className="w-16 h-16 md:w-20 md:h-20 mx-auto object-contain mb-3"
+/>
+
                  <h3 className="font-semibold text-sm md:text-base line-clamp-2 min-h-[40px] md:min-h-[48px]">
   {category.name}
 </h3>

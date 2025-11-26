@@ -214,12 +214,7 @@ const [formData, setFormData] = useState({
   // ===== MEDIA =====
   productImages: [] as ProductImage[],
   videoUrls: [] as string[],
-  specifications: [] as Array<{
-    id: string;
-    name: string;
-    value: string;
-    displayOrder: number;
-  }>,
+
   
   // ===== PRICING =====
   price: '',
@@ -455,34 +450,6 @@ useEffect(() => {
             }
           };
 
-// Helper: Parse specification string
-const parseSpecificationString = (specStr: string | null): Array<{
-  id: string;
-  name: string;
-  value: string;
-  displayOrder: number;
-}> => {
-  if (!specStr) return [];
-  
-  try {
-    const parsed = JSON.parse(specStr);
-    
-    if (!Array.isArray(parsed)) return [];
-    
-    // ✅ Ensure all fields are defined with fallbacks
-    return parsed.map((spec, index) => ({
-      id: spec.id || spec.Id || `spec-${Date.now()}-${index}`,  // ✅ Fallback ID
-      name: spec.name || spec.Name || '',                       // ✅ Fallback name
-      value: spec.value || spec.Value || '',                    // ✅ Fallback value
-      displayOrder: spec.displayOrder || spec.DisplayOrder || index  // ✅ Fallback order
-    }));
-  } catch (error) {
-    console.error('Error parsing specifications:', error);
-    return [];
-  }
-};
-
-
           // ✅ Helper: Determine backorder mode string from boolean
           const getBackorderMode = (allowBackorder: boolean | undefined): string => {
             if (allowBackorder === true) return 'allow-backorders';
@@ -657,14 +624,6 @@ const parseSpecificationString = (specStr: string | null): Array<{
               fileSize: undefined,
               file: undefined
             })) || [],
-// In your useEffect, replace the specifications line with:
-specifications: parseSpecificationString(product.specificationAttributes).map((spec, index) => ({
-  ...spec,
-  id: spec.id || `spec-${Date.now()}-${index}`,  // ✅ Ensure unique ID
-  name: spec.name || '',                          // ✅ Ensure string
-  value: spec.value || '',                        // ✅ Ensure string
-  displayOrder: spec.displayOrder ?? index        // ✅ Ensure number
-}))
           });
 
           console.log('✅ Form populated successfully');
@@ -804,15 +763,6 @@ const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
     }
 
 
-    // ✅ Prepare specifications array (proper object array, not string)
-    const specificationsArray = formData.specifications
-      ?.filter(spec => spec.name && spec.value)
-      .map(spec => ({
-        name: spec.name,           // Remove 'id' if backend doesn't expect it
-        value: spec.value,
-        displayOrder: spec.displayOrder || 0
-      })) || [];
-
     // Prepare product attributes array
     const attributesArray = productAttributes
       ?.filter(attr => attr.name && attr.value)
@@ -930,8 +880,8 @@ const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
         ? new Date(formData.markAsNewEndDate).toISOString() 
         : null,
 
-      // ✅ FIXED: Specifications as array, not stringified
-      ...(specificationsArray.length > 0 && { specificationAttributes: specificationsArray }),
+   
+     
       
       // ✅ FIXED: Attributes and Variants
       ...(attributesArray.length > 0 && { attributes: attributesArray }),
@@ -981,7 +931,7 @@ const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
     );
 
     console.log('📦 Sending product data:', cleanProductData);
-    console.log('📋 Specifications:', specificationsArray);
+
 
     const response = await apiClient.put(`${API_ENDPOINTS.products}/${productId}`, cleanProductData);
 
@@ -1508,18 +1458,11 @@ const uploadImagesToProductDirect = async (productId: string, files: File[]): Pr
                     <Globe className="h-4 w-4" />
                     SEO
                   </TabsTrigger>
-                  <TabsTrigger value="pictures" className="flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-slate-400 hover:text-violet-400 border-b-2 border-transparent data-[state=active]:border-violet-500 data-[state=active]:text-violet-400 data-[state=active]:bg-slate-800/50 whitespace-nowrap transition-all rounded-t-lg">
-                    <Image className="h-4 w-4" />
-                    Pictures
-                  </TabsTrigger>
-                  <TabsTrigger value="videos" className="flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-slate-400 hover:text-violet-400 border-b-2 border-transparent data-[state=active]:border-violet-500 data-[state=active]:text-violet-400 data-[state=active]:bg-slate-800/50 whitespace-nowrap transition-all rounded-t-lg">
-                    <Video className="h-4 w-4" />
-                    Videos
-                  </TabsTrigger>
-                  <TabsTrigger value="specifications" className="flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-slate-400 hover:text-violet-400 border-b-2 border-transparent data-[state=active]:border-violet-500 data-[state=active]:text-violet-400 data-[state=active]:bg-slate-800/50 whitespace-nowrap transition-all rounded-t-lg">
-                    <BarChart3 className="h-4 w-4" />
-                    Specifications
-                  </TabsTrigger>
+                  <TabsTrigger value="media" className="flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-slate-400 hover:text-violet-400 border-b-2 border-transparent data-[state=active]:border-violet-500 data-[state=active]:text-violet-400 data-[state=active]:bg-slate-800/50 whitespace-nowrap transition-all rounded-t-lg">
+  <Image className="h-4 w-4" />
+  Media
+</TabsTrigger>
+                
                 </TabsList>
               </div>
 
@@ -3000,9 +2943,9 @@ const uploadImagesToProductDirect = async (productId: string, files: File[]): Pr
                 </div>
               </TabsContent>
 
-              {/* Pictures Tab */}
-         {/* ✅ REPLACE the entire Pictures TabContent with this: */}
-<TabsContent value="pictures" className="space-y-2 mt-2">
+{/* ✅ MERGED Media Tab (Pictures + Videos) */}
+<TabsContent value="media" className="space-y-6 mt-2">
+  {/* ========== PICTURES SECTION ========== */}
   <div className="space-y-4">
     <h3 className="text-lg font-semibold text-white border-b border-slate-800 pb-2">Product Images</h3>
     <p className="text-sm text-slate-400">
@@ -3186,9 +3129,9 @@ const uploadImagesToProductDirect = async (productId: string, files: File[]): Pr
       </div>
     )}
 
-    {/* Info Box */}
+    {/* Images Info Box */}
     <div className="bg-violet-500/10 border border-violet-500/30 rounded-xl p-4">
-      <h4 className="font-semibold text-sm text-violet-400 mb-2">Edit Mode Information</h4>
+      <h4 className="font-semibold text-sm text-violet-400 mb-2">Image Upload Information</h4>
       <ul className="text-sm text-slate-300 space-y-1">
         <li>• Images are uploaded immediately to the product</li>
         <li>• Delete images instantly using the delete button</li>
@@ -3197,11 +3140,11 @@ const uploadImagesToProductDirect = async (productId: string, files: File[]): Pr
       </ul>
     </div>
   </div>
-</TabsContent>
 
-              {/* Videos Tab */}
-{/* Videos Tab - ✅ SIMPLE GRID PREVIEW */}
-<TabsContent value="videos" className="space-y-4 mt-2">
+  {/* ========== DIVIDER ========== */}
+  <div className="border-t-2 border-slate-800"></div>
+
+  {/* ========== VIDEOS SECTION ========== */}
   <div className="space-y-4">
     {/* Header */}
     <div>
@@ -3270,6 +3213,7 @@ const uploadImagesToProductDirect = async (productId: string, files: File[]): Pr
               
               {/* Remove Button */}
               <button
+                type="button"
                 onClick={() => {
                   setFormData({
                     ...formData,
@@ -3298,6 +3242,7 @@ const uploadImagesToProductDirect = async (productId: string, files: File[]): Pr
 
     {/* Add Video Button */}
     <button
+      type="button"
       onClick={() => {
         setFormData({
           ...formData,
@@ -3311,8 +3256,8 @@ const uploadImagesToProductDirect = async (productId: string, files: File[]): Pr
     </button>
 
     {/* Supported Platforms Info */}
-    <div className="bg-violet-500/10 border border-violet-500/30 rounded-xl p-4">
-      <h4 className="font-semibold text-sm text-violet-400 mb-2">
+    <div className="bg-cyan-500/10 border border-cyan-500/30 rounded-xl p-4">
+      <h4 className="font-semibold text-sm text-cyan-400 mb-2">
         Supported Video Platforms
       </h4>
       <ul className="text-sm text-slate-300 space-y-1">
@@ -3324,139 +3269,6 @@ const uploadImagesToProductDirect = async (productId: string, files: File[]): Pr
   </div>
 </TabsContent>
 
-              {/* Specifications Tab */}
-<TabsContent value="specifications" className="space-y-2 mt-2">
-  <div className="space-y-4">
-    <div className="flex items-center justify-between">
-      <div>
-        <h3 className="text-lg font-semibold text-white">Product Specifications</h3>
-        <p className="text-sm text-slate-400">
-          Add technical specifications and product details
-        </p>
-      </div>
-      <button
-        onClick={() => {
-          setFormData({
-            ...formData,
-            specifications: [
-              ...formData.specifications,
-              { 
-                id: Date.now().toString(), 
-                name: '', 
-                value: '', 
-                displayOrder: formData.specifications.length + 1 
-              }
-            ]
-          });
-        }}
-        className="px-4 py-2 bg-slate-800/50 border border-slate-700 rounded-lg text-slate-300 hover:bg-slate-800 transition-all text-sm flex items-center gap-2"
-      >
-        <BarChart3 className="h-4 w-4" />
-        Add Specification
-      </button>
-    </div>
-
-    {formData.specifications.length > 0 ? (
-      <div className="space-y-3">
-        {formData.specifications.map((spec, index) => (
-          <div 
-            key={spec.id || `spec-${index}`}  
-            className="bg-slate-800/30 border border-slate-700 rounded-xl p-4"
-          >
-            <div className="grid md:grid-cols-12 gap-3">
-              <div className="md:col-span-4">
-                <label className="block text-sm font-medium text-slate-300 mb-2">
-                  Specification Name
-                </label>
-                <input
-                  type="text"
-                  value={spec.name || ''}  
-                  onChange={(e) => {
-                    setFormData({
-                      ...formData,
-                      specifications: formData.specifications.map(s =>
-                        s.id === spec.id ? { ...s, name: e.target.value } : s
-                      )
-                    });
-                  }}
-                  placeholder="e.g., Processor, RAM, Storage"
-                  className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
-                />
-              </div>
-              <div className="md:col-span-5">
-                <label className="block text-sm font-medium text-slate-300 mb-2">
-                  Value
-                </label>
-                <input
-                  type="text"
-                  value={spec.value || ''}  
-                  onChange={(e) => {
-                    setFormData({
-                      ...formData,
-                      specifications: formData.specifications.map(s =>
-                        s.id === spec.id ? { ...s, value: e.target.value } : s
-                      )
-                    });
-                  }}
-                  placeholder="e.g., Intel Core i7, 16GB, 512GB SSD"
-                  className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
-                />
-              </div>
-              <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-slate-300 mb-2">
-                  Order
-                </label>
-                <input
-                  type="number"
-                  value={spec.displayOrder || 0} 
-                  onChange={(e) => {
-                    setFormData({
-                      ...formData,
-                      specifications: formData.specifications.map(s =>
-                        s.id === spec.id ? { ...s, displayOrder: parseInt(e.target.value) || 0 } : s
-                      )
-                    });
-                  }}
-                  className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
-                />
-              </div>
-              <div className="md:col-span-1 flex items-end">
-                <button
-                  onClick={() => {
-                    setFormData({
-                      ...formData,
-                      specifications: formData.specifications.filter(s => s.id !== spec.id)
-                    });
-                  }}
-                  className="w-full p-2 bg-red-500/20 border border-red-500/30 text-red-400 hover:bg-red-500/30 rounded-lg transition-all"
-                >
-                  <X className="h-4 w-4 mx-auto" />
-                </button>
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
-    ) : (
-      <div className="text-center py-12 border-2 border-dashed border-slate-700 rounded-xl bg-slate-800/20">
-        <BarChart3 className="mx-auto h-16 w-16 text-slate-600 mb-4" />
-        <h3 className="text-lg font-semibold text-white mb-2">No Specifications Added</h3>
-        <p className="text-slate-400 mb-4">
-          Click "Add Specification" to add technical details
-        </p>
-      </div>
-    )}
-
-    <div className="bg-violet-500/10 border border-violet-500/30 rounded-xl p-4">
-      <h4 className="font-semibold text-sm text-violet-400 mb-2">Specification Examples</h4>
-      <ul className="text-sm text-slate-300 space-y-1">
-        <li>• <strong>Electronics:</strong> Processor, RAM, Storage, Display Size, Battery</li>
-        <li>• <strong>Clothing:</strong> Material, Care Instructions, Country of Origin</li>
-        <li>• <strong>Furniture:</strong> Dimensions, Material, Weight Capacity, Assembly</li>
-      </ul>
-    </div>
-  </div>
-</TabsContent>
 
             </Tabs>
           </div>

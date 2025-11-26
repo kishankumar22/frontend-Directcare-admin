@@ -16,6 +16,7 @@ export interface BlogPost {
   videoUrl?: string | null;
   
   isPublished: boolean;
+  isDeleted?: boolean; // ✅ ADD THIS
   publishedAt?: string;
   startDate?: string;
   endDate?: string;
@@ -50,7 +51,6 @@ export interface BlogPost {
   updatedAt?: string;
   createdBy?: string;
   updatedBy?: string;
-  // ❌ REMOVED: success?, data? (these don't belong here)
 }
 
 // --- BlogCategory Interface (Clean) ---
@@ -89,7 +89,7 @@ export const blogPostsService = {
     config: any = {}
   ) =>
     apiClient.get<ApiResponse<BlogPost[]>>(
-      `${API_ENDPOINTS.blogPosts}?includeUnpublished=${includeUnpublished}&onlyHomePage=${onlyHomePage}`,
+      `${API_ENDPOINTS.blogPosts}`,
       config
     ),
 

@@ -10,12 +10,6 @@ import ConfirmDialog from "@/components/ConfirmDialog";
 import { blogCategoriesService, BlogCategory } from "@/lib/services";
 
 // API Response interfaces
-interface ApiResponse<T> {
-  success: boolean;
-  message: string;
-  data: T;
-  errors: string[] | null;
-}
 
 export default function BlogCategoriesPage() {
   const toast = useToast();
@@ -42,6 +36,18 @@ export default function BlogCategoriesPage() {
     latestCategory: "N/A"
   });
 
+const generateSlug = (text: string) => {
+  return text
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9\s-]/g, '')   // special characters remove
+    .replace(/\s+/g, '-')          // spaces → -
+    .replace(/-+/g, '-');          // multiple - → single -
+};
+
+
+
+  
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(25);
   
@@ -175,10 +181,6 @@ export default function BlogCategoriesPage() {
       return;
     }
 
-    if (!formData.slug.trim()) {
-      toast.error("Slug is required");
-      return;
-    }
 
     if (!formData.description.trim()) {
       toast.error("Description is required");
@@ -242,7 +244,7 @@ export default function BlogCategoriesPage() {
       const payload = {
         name: formData.name.trim(),
         description: formData.description.trim(),
-        slug: formData.slug.trim(),
+       slug: generateSlug(formData.slug || formData.name),
         imageUrl: finalImageUrl,
         isActive: formData.isActive,
         displayOrder: formData.displayOrder,
@@ -812,8 +814,7 @@ useEffect(() => {
                     <div>
                       <label className="block text-sm font-medium text-slate-300 mb-2">Slug *</label>
                       <input
-                        type="text"
-                        required
+                        type="text"                   
                         value={formData.slug}
                         onChange={(e) => setFormData({...formData, slug: e.target.value})}
                         placeholder="blog-category-slug"
