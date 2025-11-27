@@ -187,7 +187,7 @@ const [formData, setFormData] = useState({
   sku: '',
   brand: '',
   categories: '',
-
+ gender: '',
   published: true,
   productType: 'simple',
   visibleIndividually: true,
@@ -214,7 +214,8 @@ const [formData, setFormData] = useState({
   // ===== MEDIA =====
   productImages: [] as ProductImage[],
   videoUrls: [] as string[],
-
+  isPack: false,
+  packSize: '', 
   
   // ===== PRICING =====
   price: '',
@@ -470,7 +471,8 @@ useEffect(() => {
             brand: product.brandId || '',
             categories: product.categoryId || '',
             categoryName: categoryDisplayName,
-           
+            isPack: product.isPack ?? false,
+            packSize: product.packSize || '',
             published: product.isPublished ?? true,
             productType: product.productType || 'simple',
             visibleIndividually: product.visibleIndividually ?? true,
@@ -488,7 +490,7 @@ useEffect(() => {
             requireOtherProducts: false,
             requiredProductIds: '',
             automaticallyAddProducts: false,
-
+            gender: product.gender || '',
             // ===== PRICING =====
             price: product.price?.toString() || '',
             oldPrice: product.oldPrice?.toString() || product.compareAtPrice?.toString() || '',
@@ -806,7 +808,9 @@ const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
       oldPrice: formData.oldPrice ? parseFloat(formData.oldPrice) : null,
       compareAtPrice: formData.oldPrice ? parseFloat(formData.oldPrice) : null,
       costPrice: formData.cost ? parseFloat(formData.cost) : null,
-
+// Gender Field — Add yeh line
+ ...(formData.gender?.trim() && { gender: formData.gender.trim() }),
+  productType: formData.productType || 'simple',
       // Buy/Wishlist Buttons
       disableBuyButton: formData.disableBuyButton,
       disableWishlistButton: formData.disableWishlistButton,
@@ -857,12 +861,23 @@ const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
 
       // Not Returnable
       notReturnable: formData.notReturnable,
-
+  // Inside productData object
+isPack: formData.isPack,
+...(formData.isPack && {
+  packSize: formData.packSize.trim() || null,
+}),
       // Categories & Brand
       ...(categoryId && { categoryId }),
       ...(brandId && { brandId }),
  
-
+isRecurring: formData.isRecurring,
+  ...(formData.isRecurring && {
+    recurringCycleLength: parseInt(formData.recurringCycleLength) || 1,
+    recurringCyclePeriod: formData.recurringCyclePeriod || 'days',
+    recurringTotalCycles: formData.recurringTotalCycles 
+      ? parseInt(formData.recurringTotalCycles) 
+      : null,
+  }),
       // Mark as New
       markAsNew: formData.markAsNew,
       
@@ -1609,6 +1624,117 @@ const uploadImagesToProductDirect = async (productId: string, files: File[]): Pr
             <option value="grouped">Grouped Product (product variants)</option>
           </select>
         </div>
+        {/* ✅ CONDITIONAL: Show only for GROUPED products */}
+{formData.productType === 'grouped' && (
+  <>
+    {/* Pack Settings */}
+    <div className="space-y-4 bg-slate-800/30 border border-slate-700 rounded-xl p-4">
+      <h4 className="text-sm font-semibold text-white flex items-center gap-2">
+        <Gift className="h-4 w-4 text-cyan-400" />
+        Pack Settings (Grouped Product Only)
+      </h4>
+
+      <label className="flex items-center gap-2">
+        <input
+          type="checkbox"
+          name="isPack"
+          checked={formData.isPack}
+          onChange={handleChange}
+          className="rounded bg-slate-800/50 border-slate-700 text-violet-500 focus:ring-violet-500 focus:ring-offset-slate-900"
+        />
+        <span className="text-sm text-slate-300">This is a pack product</span>
+      </label>
+
+      {formData.isPack && (
+        <div>
+          <label className="block text-sm font-medium text-slate-300 mb-2">
+            Pack Size <span className="text-red-500">*</span>
+          </label>
+          <input
+            type="text"
+            name="packSize"
+            value={formData.packSize}
+            onChange={handleChange}
+            placeholder="e.g., Pack of 2, Bundle of 5"
+            className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+          />
+        </div>
+      )}
+    </div>
+
+    {/* Recurring/Subscription Settings */}
+    <div className="space-y-4 bg-slate-800/30 border border-slate-700 rounded-xl p-4">
+      <h4 className="text-sm font-semibold text-white flex items-center gap-2">
+        <Calendar className="h-4 w-4 text-violet-400" />
+        Subscription Settings (Grouped Product Only)
+      </h4>
+
+      <label className="flex items-center gap-2">
+        <input
+          type="checkbox"
+          name="isRecurring"
+          checked={formData.isRecurring}
+          onChange={handleChange}
+          className="rounded bg-slate-800/50 border-slate-700 text-violet-500 focus:ring-violet-500 focus:ring-offset-slate-900"
+        />
+        <span className="text-sm text-slate-300">Enable subscription/recurring orders</span>
+      </label>
+
+      {formData.isRecurring && (
+        <div className="grid md:grid-cols-3 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-slate-300 mb-2">
+              Cycle Length <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="number"
+              name="recurringCycleLength"
+              value={formData.recurringCycleLength}
+              onChange={handleChange}
+              placeholder="30"
+              min="1"
+              className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-slate-300 mb-2">
+              Period <span className="text-red-500">*</span>
+            </label>
+            <select
+              name="recurringCyclePeriod"
+              value={formData.recurringCyclePeriod}
+              onChange={handleChange}
+              className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+            >
+              <option value="days">Days</option>
+              <option value="weeks">Weeks</option>
+              <option value="months">Months</option>
+              <option value="years">Years</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-slate-300 mb-2">
+              Total Cycles
+            </label>
+            <input
+              type="number"
+              name="recurringTotalCycles"
+              value={formData.recurringTotalCycles}
+              onChange={handleChange}
+              placeholder="0 (unlimited)"
+              min="0"
+              className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+            />
+            <p className="text-xs text-slate-400 mt-1">0 = unlimited</p>
+          </div>
+        </div>
+      )}
+    </div>
+  </>
+)}
+
       </div>
 
       {/* ✅ Row 3: GTIN & Manufacturer Part Number */}
@@ -2203,6 +2329,154 @@ const uploadImagesToProductDirect = async (productId: string, files: File[]): Pr
                           />
                           <span className="text-sm text-slate-300">Free shipping</span>
                         </label>
+                  <div className="space-y-4">
+  {/* === Recurring Checkbox === */}
+  <label className="flex items-center gap-3 cursor-pointer">
+    <input
+      type="checkbox"
+      name="isRecurring"
+      checked={formData.isRecurring}
+      onChange={handleChange}
+      className="rounded bg-slate-800/50 border-slate-700 text-violet-500 focus:ring-violet-500 focus:ring-offset-slate-900"
+    />
+    <span className="text-sm font-medium text-slate-300">This is a Recurring Product (Subscription)</span>
+  </label>
+
+  {/* === Conditional Recurring Fields === */}
+  {formData.isRecurring && (
+    <div className="ml-8 p-2 bg-slate-800/40 border border-slate-700 rounded-lg space-y-4 transition-all duration-300">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {/* Cycle Length */}
+        <div>
+          <label className="block text-xs font-medium text-slate-400 mb-1">
+            Charge every
+          </label>
+          <input
+            type="number"
+            name="recurringCycleLength"
+            value={formData.recurringCycleLength}
+            onChange={handleChange}
+            min="1"
+            className="w-full px-3 py-2 bg-slate-900/70 border border-slate-700 rounded-md text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent"
+            placeholder="30"
+          />
+        </div>
+
+        {/* Cycle Period */}
+        <div>
+          <label className="block text-xs font-medium text-slate-400 mb-1">
+            Period
+          </label>
+          <select
+            name="recurringCyclePeriod"
+            value={formData.recurringCyclePeriod}
+            onChange={handleChange}
+            className="w-full px-3 py-2 bg-slate-900/70 border border-slate-700 rounded-md text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
+          >
+            <option value="days">Days</option>
+            <option value="weeks">Weeks</option>
+            <option value="months">Months</option>
+            <option value="years">Years</option>
+          </select>
+        </div>
+
+        {/* Total Cycles */}
+        <div>
+          <label className="block text-xs font-medium text-slate-400 mb-1">
+            Total Billing Cycles
+          </label>
+          <input
+            type="number"
+            name="recurringTotalCycles"
+            value={formData.recurringTotalCycles}
+            onChange={handleChange}
+            min="0"
+            placeholder="0 = Unlimited"
+            className="w-full px-3 py-2 bg-slate-900/70 border border-slate-700 rounded-md text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent"
+          />
+         
+        </div>
+      </div>
+
+<div className="flex items-center gap-3 text-xs text-amber-400 bg-amber-900/20 px-4 py-3 rounded border border-amber-800/50 w-full">
+
+  {/* WARNING ICON */}
+  <svg
+    className="w-4 h-4 shrink-0"
+    fill="currentColor"
+    viewBox="0 0 20 20"
+  >
+    <path
+      fillRule="evenodd"
+      d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.742-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"
+      clipRule="evenodd"
+    />
+  </svg>
+
+  {/* LEFT + RIGHT SPLIT */}
+  <div className="flex w-full items-center justify-between gap-4">
+
+    {/* LEFT TEXT */}
+    <span className="text-amber-400">
+      Customer will be charged every {formData.recurringCycleLength || "?"}{" "}
+      {formData.recurringCyclePeriod || "days"}
+      {formData.recurringTotalCycles &&
+      parseInt(formData.recurringTotalCycles) > 0
+        ? ` for ${formData.recurringTotalCycles} times`
+        : " indefinitely"}
+    </span>
+
+    {/* RIGHT NOTE */}
+    <span className="text-slate-400 whitespace-nowrap">
+      Leave 0 for unlimited recurring payments
+    </span>
+
+  </div>
+</div>
+
+    </div>
+  )}
+</div>
+<div className="space-y-2">
+{/* === Is Pack Checkbox === */}
+  <div className="flex items-center gap-3">
+    <input
+      type="checkbox"
+      name="isPack"
+      checked={formData.isPack}
+      onChange={handleChange}
+      className="rounded bg-slate-800/50 border-slate-700 text-violet-500 focus:ring-violet-500 focus:ring-offset-slate-900 cursor-pointer"
+    />
+    <label className="text-sm font-medium text-slate-300 cursor-pointer">
+      This is a Pack / Bundle Product
+    </label>
+  </div>
+
+  {/* === Conditional Pack Size Field === */}
+  {formData.isPack && (
+    <div className="ml-8 p-2 bg-gradient-to-r from-violet-900/20 to-purple-900/20 border border-violet-700/50 rounded-lg transition-all duration-300">
+      <label className="block text-xs font-medium text-violet-300 mb-2">
+        Pack Name / Size <span className="text-red-400">*</span>
+      </label>
+      <input
+        type="text"
+        name="packSize"
+        value={formData.packSize}
+        onChange={handleChange}
+        required={formData.isPack}
+        placeholder="e.g. 6 Pack, Combo of 3, Family Bundle, Buy 2 Get 1"
+        className="w-full px-2 py-2 bg-slate-900/80 border border-violet-600/50 rounded-md text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-violet-500 transition-all"
+      />
+      <p className="text-xs text-slate-400 mt-2">
+        Ye name customer ko product title ke saath dikhega → "
+        <span className="text-violet-400 font-medium">
+          {formData.name} {formData.packSize && `- ${formData.packSize}`}
+        </span>"
+      </p>
+    </div>
+  )}
+
+</div>
 
                         <label className="flex items-center gap-2">
                           <input
@@ -2601,7 +2875,42 @@ const uploadImagesToProductDirect = async (productId: string, files: File[]): Pr
                       ))}
                     </div>
                   )}
+<div className="space-y-3">
+  <label className="block text-sm font-medium text-slate-300 mb-3">
+    Gender <span className="text-slate-500">(Optional)</span>
+  </label>
+  <div className="flex flex-wrap gap-6">
+    {['Not specified', 'Male', 'Female', 'Unisex', 'Kids', 'Boys', 'Girls'].map((option) => {
+      const value = option === 'Not specified' ? '' : option;
+      const isChecked = formData.gender === value;
 
+      return (
+        <label
+          key={option}
+          className="flex items-center gap-3 cursor-pointer group"
+        >
+          <input
+            type="radio"
+            name="gender"
+            value={value}
+            checked={isChecked}
+            onChange={handleChange}
+            className="w-5 h-5 rounded-full bg-slate-800/50 border-slate-700 text-violet-500 focus:ring-violet-500 focus:ring-offset-slate-900 transition-all"
+          />
+          <span
+            className={`text-sm transition-colors ${
+              isChecked
+                ? 'text-white font-medium'
+                : 'text-slate-300 group-hover:text-white'
+            }`}
+          >
+            {option}
+          </span>
+        </label>
+      );
+    })}
+  </div>
+</div>
                   <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-4">
                     <h4 className="font-semibold text-sm text-blue-400 mb-2">💡 Attribute Examples</h4>
                     <ul className="text-sm text-slate-400 space-y-1">

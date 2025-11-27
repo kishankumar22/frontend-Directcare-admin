@@ -51,6 +51,8 @@ export const API_ENDPOINTS = {
 
   // Product Reviews
     productReviews: '/api/ProductReviews',
+
+     subscriptions: '/api/Subscriptions',
   // Comments
 blogComments: '/api/BlogComments',
 };

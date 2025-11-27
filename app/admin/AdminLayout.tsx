@@ -33,6 +33,9 @@ import {
   MessageSquare,
   Moon,
   Sun,
+  Star,
+  PackageOpen,
+  Receipt,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTheme } from "@/context/theme-provider";
@@ -58,6 +61,7 @@ const navigation: NavigationItem[] = [
       { name: 'Products', href: '/admin/products', icon: Package },
       { name: 'Categories', href: '/admin/categories', icon: FolderTree },
       { name: 'Brands', href: '/admin/brands', icon: Tag },
+      { name: 'Product Reviews', href: '/admin/productReview', icon: Star },
     ],
   },
   {
@@ -79,6 +83,8 @@ const navigation: NavigationItem[] = [
     icon: Gift,
     children: [
       { name: 'Discounts', href: '/admin/discounts', icon: Percent },
+      { name: 'Subscriptions', href: '/admin/subscriptions', icon: PackageOpen },
+      { name: 'VAT Rates', href: '/admin/vatRates', icon: Receipt },
     ],
   },  
   {
@@ -134,36 +140,34 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
     });
   };
 
-  // 🔥 SIMPLE TOGGLE: Light ↔ Dark (2 states only)
-const handleThemeToggle = () => {
-  setIsAnimating(true);
-  const newTheme = theme === "light" ? "dark" : "light";
-  setTheme(newTheme);
-  
-  // 🔥 WITH POSITION
-  if (newTheme === "dark") {
-    toast.success("🌙 Dark Mode Enabled", {
-      autoClose: 2000,
-      position: "top-center" // ✅ Works now!
-    });
-  } else {
-    toast.success("☀️ Light Mode Enabled", {
-      autoClose: 2000,
-      position: "top-center" // ✅ Different position
-    });
-  }
-  
-  setTimeout(() => setIsAnimating(false), 600);
-};
+  const handleThemeToggle = () => {
+    setIsAnimating(true);
+    const newTheme = theme === "light" ? "dark" : "light";
+    setTheme(newTheme);
+    
+    if (newTheme === "dark") {
+      toast.success("🌙 Dark Mode Enabled", {
+        autoClose: 2000,
+        position: "top-center"
+      });
+    } else {
+      toast.success("☀️ Light Mode Enabled", {
+        autoClose: 2000,
+        position: "top-center"
+      });
+    }
+    
+    setTimeout(() => setIsAnimating(false), 600);
+  };
 
- useEffect(() => {
+  useEffect(() => {
     const interval = setInterval(() => {
       const loggedIn = authService.isAuthenticated();
       if (!loggedIn) {
         authService.logout();
         router.replace("/login");
       }
-    }, 5000); // 🔥 every 5 seconds check
+    }, 5000);
 
     return () => clearInterval(interval);
   }, []);
@@ -280,9 +284,9 @@ const handleThemeToggle = () => {
                     <button
                       onClick={() => isSidebarExpanded && toggleMenu(item.name)}
                       className={cn(
-                        "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 group",
+                        "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 group relative",
                         isParentItemActive
-                          ? "bg-slate-800/70 dark:bg-gray-800/80 text-white"
+                          ? "bg-slate-800/70 dark:bg-gray-800/80 text-white border-2 border-white shadow-lg shadow-white/10"
                           : "text-slate-400 dark:text-gray-500 hover:text-white hover:bg-slate-800/50 dark:hover:bg-gray-800/60"
                       )}
                       title={!isSidebarExpanded ? item.name : ""}
@@ -320,9 +324,9 @@ const handleThemeToggle = () => {
                                 key={child.name}
                                 href={child.href || '#'}
                                 className={cn(
-                                  "flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-200 group",
+                                  "flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-200 group relative",
                                   isChildActive
-                                    ? "bg-gradient-to-r from-violet-500 to-cyan-500 dark:from-violet-600 dark:to-cyan-600 text-white shadow-lg shadow-violet-500/30 dark:shadow-violet-600/50"
+                                    ? "bg-gradient-to-r from-violet-500 to-cyan-500 dark:from-violet-600 dark:to-cyan-600 text-white shadow-lg shadow-violet-500/30 dark:shadow-violet-600/50 border-2 border-white"
                                     : "text-slate-400 dark:text-gray-500 hover:text-white hover:bg-slate-800/50 dark:hover:bg-gray-800/60",
                                   isExpanded && "animate-slideIn"
                                 )}
@@ -352,9 +356,9 @@ const handleThemeToggle = () => {
                   key={item.name}
                   href={item.href || '#'}
                   className={cn(
-                    "flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 group",
+                    "flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 group relative",
                     isActive
-                      ? "bg-gradient-to-r from-violet-500 to-cyan-500 dark:from-violet-600 dark:to-cyan-600 text-white shadow-lg shadow-violet-500/30 dark:shadow-violet-600/50"
+                      ? "bg-gradient-to-r from-violet-500 to-cyan-500 dark:from-violet-600 dark:to-cyan-600 text-white shadow-lg shadow-violet-500/30 dark:shadow-violet-600/50 border-2 border-white"
                       : "text-slate-400 dark:text-gray-500 hover:text-white hover:bg-slate-800/50 dark:hover:bg-gray-800/60"
                   )}
                   title={!isSidebarExpanded ? item.name : ""}
@@ -437,7 +441,7 @@ const handleThemeToggle = () => {
           )}
         </aside>
 
-        {/* Mobile Sidebar - Same pattern */}
+        {/* Mobile Sidebar - Same changes */}
         <aside
           className={cn(
             "fixed lg:hidden h-full w-64 bg-slate-900/80 dark:bg-gray-900/90 backdrop-blur-xl border-r border-slate-800 dark:border-gray-800 flex flex-col transition-all duration-300 z-50",
@@ -472,7 +476,7 @@ const handleThemeToggle = () => {
                       className={cn(
                         "w-full flex items-center gap-3 px-4 py-2.5 rounded-lg transition-all duration-200 group",
                         isParentItemActive
-                          ? "bg-slate-800/70 dark:bg-gray-800/80 text-white"
+                          ? "bg-slate-800/70 dark:bg-gray-800/80 text-white border-2 border-white shadow-lg shadow-white/10"
                           : "text-slate-400 dark:text-gray-500 hover:text-white hover:bg-slate-800/50 dark:hover:bg-gray-800/60"
                       )}
                     >
@@ -505,7 +509,7 @@ const handleThemeToggle = () => {
                               className={cn(
                                 "flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-200 group",
                                 isChildActive
-                                  ? "bg-gradient-to-r from-violet-500 to-cyan-500 dark:from-violet-600 dark:to-cyan-600 text-white shadow-lg shadow-violet-500/30 dark:shadow-violet-600/50"
+                                  ? "bg-gradient-to-r from-violet-500 to-cyan-500 dark:from-violet-600 dark:to-cyan-600 text-white shadow-lg shadow-violet-500/30 dark:shadow-violet-600/50 border-2 border-white"
                                   : "text-slate-400 dark:text-gray-500 hover:text-white hover:bg-slate-800/50 dark:hover:bg-gray-800/60",
                                 isExpanded && "animate-slideIn"
                               )}
@@ -531,7 +535,7 @@ const handleThemeToggle = () => {
                   className={cn(
                     "flex items-center gap-3 px-4 py-2.5 rounded-lg transition-all duration-200 group",
                     isActive
-                      ? "bg-gradient-to-r from-violet-500 to-cyan-500 dark:from-violet-600 dark:to-cyan-600 text-white shadow-lg shadow-violet-500/30 dark:shadow-violet-600/50"
+                      ? "bg-gradient-to-r from-violet-500 to-cyan-500 dark:from-violet-600 dark:to-cyan-600 text-white shadow-lg shadow-violet-500/30 dark:shadow-violet-600/50 border-2 border-white"
                       : "text-slate-400 dark:text-gray-500 hover:text-white hover:bg-slate-800/50 dark:hover:bg-gray-800/60"
                   )}
                 >
@@ -593,7 +597,7 @@ const handleThemeToggle = () => {
             isSidebarExpanded ? "lg:ml-64" : "lg:ml-16"
           )}
         >
-          {/* Header */}
+          {/* Header - Same as before */}
           <header className="flex-shrink-0 bg-slate-900/80 dark:bg-gray-900/90 backdrop-blur-xl border-b border-slate-800 dark:border-gray-800 z-30 transition-colors duration-300">
             <div className="px-6 py-4">
               <div className="flex items-center justify-between gap-4">
@@ -631,7 +635,6 @@ const handleThemeToggle = () => {
                     <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-violet-500 dark:bg-violet-600 rounded-full ring-2 ring-slate-900 dark:ring-gray-950 transition-all duration-300"></span>
                   </button>
 
-                  {/* 🔥 SIMPLE 2-STATE TOGGLE BUTTON */}
                   <button
                     onClick={handleThemeToggle}
                     className={cn(
@@ -643,7 +646,6 @@ const handleThemeToggle = () => {
                     title={theme === "dark" ? "Switch to Light Mode" : "Switch to Dark Mode"}
                   >
                     <div className="relative w-5 h-5">
-                      {/* Sun Icon - Light Mode */}
                       <Sun 
                         className={cn(
                           "absolute inset-0 h-5 w-5 transition-all duration-500 text-yellow-500",
@@ -652,7 +654,6 @@ const handleThemeToggle = () => {
                             : "rotate-0 scale-100 opacity-100"
                         )} 
                       />
-                      {/* Moon Icon - Dark Mode */}
                       <Moon 
                         className={cn(
                           "absolute inset-0 h-5 w-5 transition-all duration-500 text-blue-400",
@@ -663,7 +664,6 @@ const handleThemeToggle = () => {
                       />
                     </div>
                     
-                    {/* Ripple Effect */}
                     {isAnimating && (
                       <span className="absolute inset-0 rounded-lg bg-violet-500/30 dark:bg-violet-600/40 animate-ping" />
                     )}
