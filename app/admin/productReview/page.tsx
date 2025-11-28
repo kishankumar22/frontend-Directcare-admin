@@ -22,17 +22,22 @@ import {
   TrendingUp,
   Award,
   MessageSquare,
+  Plus,
+  Package,
 } from "lucide-react";
 import { useToast } from "@/components/CustomToast";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import {
   productReviewsService,
   ProductReview,
+  CreateReviewDto,
 } from "@/lib/services/productReviews";
 interface Product {
+  [x: string]: any;
   id: string;
   name: string;
   slug?: string;
+    price?: number; // ✅ Add this
 }
 export default function ProductReviewsPage() {
   const router = useRouter();
@@ -54,6 +59,9 @@ export default function ProductReviewsPage() {
   );
   const [replyingTo, setReplyingTo] = useState<ProductReview | null>(null);
   const [replyText, setReplyText] = useState("");
+// Add these states at the top with other useState
+const [productSearch, setProductSearch] = useState('');
+const [showProductDropdown, setShowProductDropdown] = useState(false);
 
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(25);
@@ -102,6 +110,12 @@ const fetchProducts = async () => {
   }
 };
 
+// Add this before return statement (with other computed values)
+const filteredProducts = products.filter(product =>
+  product.name.toLowerCase().includes(productSearch.toLowerCase()) ||
+  product.sku?.toLowerCase().includes(productSearch.toLowerCase()) ||
+  product.price?.toString().includes(productSearch)
+);
 
   // ✅ Fetch Reviews
   const fetchReviews = async (specificProductId?: string) => {
@@ -367,6 +381,117 @@ const fetchProducts = async () => {
     setItemsPerPage(newItemsPerPage);
     setCurrentPage(1);
   };
+    // ✅ Create Review Modal States
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const [formData, setFormData] = useState<CreateReviewDto>({
+    productId: "",
+    title: "",
+    comment: "",
+    rating: 5
+  });
+  const [hoverRating, setHoverRating] = useState(0);
+
+  // ✅ Fetch Products for Dropdown
+  useEffect(() => {
+    const fetchProducts = async () => {
+      try {
+        const response = await productReviewsService.getAllProducts(1, 1000);
+        if (response.data?.success) {
+          setProducts(response.data.data.items || []);
+        }
+      } catch (error) {
+        console.error("Error fetching products:", error);
+        toast.error("Failed to load products");
+      }
+    };
+    fetchProducts();
+  }, []);
+
+  // ✅ Handle Create Review
+  const handleCreateReview = async () => {
+    // Validation
+    if (!formData.productId) {
+      toast.error("Please select a product");
+      return;
+    }
+    if (!formData.title.trim()) {
+      toast.error("Please enter a review title");
+      return;
+    }
+    if (!formData.comment.trim()) {
+      toast.error("Please enter a review comment");
+      return;
+    }
+    if (formData.rating < 1 || formData.rating > 5) {
+      toast.error("Please select a rating between 1 and 5");
+      return;
+    }
+
+    setCreating(true);
+    try {
+      console.log("📝 Creating review:", formData);
+      const response = await productReviewsService.create(formData);
+      
+      if (response.data?.success) {
+        toast.success("✅ Review created successfully!");
+        
+        // Reset form
+        setFormData({
+          productId: "",
+          title: "",
+          comment: "",
+          rating: 5
+        });
+        
+        // Close modal
+        setShowCreateModal(false);
+        
+        // Refresh reviews list (add your fetch function here)
+        // await fetchReviews();
+      } else {
+        toast.error(response.data?.message || "Failed to create review");
+      }
+    } catch (error: any) {
+      console.error("❌ Error creating review:", error);
+      toast.error(error?.response?.data?.message || "Failed to create review");
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  // ✅ Star Rating Component
+  const StarRating = ({ value, onChange, size = "h-6 w-6" }: { 
+    value: number; 
+    onChange: (rating: number) => void;
+    size?: string;
+  }) => {
+    return (
+      <div className="flex items-center gap-1">
+        {[1, 2, 3, 4, 5].map((star) => (
+          <button
+            key={star}
+            type="button"
+            onClick={() => onChange(star)}
+            onMouseEnter={() => setHoverRating(star)}
+            onMouseLeave={() => setHoverRating(0)}
+            className="focus:outline-none transition-transform hover:scale-110"
+          >
+            <Star
+              className={`${size} transition-colors ${
+                star <= (hoverRating || value)
+                  ? "fill-yellow-400 text-yellow-400"
+                  : "text-slate-600"
+              }`}
+            />
+          </button>
+        ))}
+        <span className="ml-2 text-sm text-slate-400">
+          {value} / 5
+        </span>
+      </div>
+    );
+  };
 
   const getPageNumbers = () => {
     const pages = [];
@@ -464,6 +589,13 @@ const fetchProducts = async () => {
               )}
               Refresh
             </button>
+            <button
+            onClick={() => setShowCreateModal(true)}
+            className="px-4 py-2 bg-gradient-to-r from-violet-600 to-purple-600 text-white rounded-xl hover:shadow-lg hover:shadow-violet-500/50 transition-all flex items-center gap-2 font-medium"
+          >
+            <Plus className="h-5 w-5" />
+            Create Review
+          </button>
           </div>
         </div>
 
@@ -1301,6 +1433,250 @@ const fetchProducts = async () => {
             </div>
           </div>
         )}
+
+{showCreateModal && (
+  <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-50 flex items-center justify-center p-4">
+    <div className="bg-gradient-to-br from-slate-900 via-slate-900 to-slate-800 border border-violet-500/20 rounded-3xl max-w-2xl w-full shadow-2xl shadow-violet-500/10 flex flex-col max-h-[90vh]">
+      
+      {/* ✅ Fixed Modal Header */}
+      <div className="flex-shrink-0 p-6 border-b border-violet-500/20 bg-gradient-to-r from-violet-500/10 to-purple-500/10 rounded-t-3xl">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-2xl font-bold bg-gradient-to-r from-violet-400 via-cyan-400 to-pink-400 bg-clip-text text-transparent">
+              Create Product Review
+            </h2>
+            <p className="text-slate-400 text-sm mt-1">
+              Add a new review for a product
+            </p>
+          </div>
+          <button
+            onClick={() => {
+              setShowCreateModal(false);
+              setFormData({
+                productId: "",
+                title: "",
+                comment: "",
+                rating: 5
+              });
+            }}
+            className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-all"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+      </div>
+
+      {/* ✅ Scrollable Modal Body */}
+      <div className="flex-1 overflow-y-auto p-6 space-y-5">
+        {/* Product Dropdown */}
+  <div>
+  <label className="block text-sm font-medium text-slate-300 mb-2">
+    Select Product <span className="text-red-400">*</span>
+  </label>
+  
+  <div className="relative">
+    {/* Search Input */}
+    <input
+      type="text"
+      placeholder="Search or select product..."
+      value={
+        formData.productId 
+          ? `${products.find(p => p.id === formData.productId)?.name || ''} ${products.find(p => p.id === formData.productId)?.price ? `- ₹${products.find(p => p.id === formData.productId)?.price}` : ''}`
+          : productSearch
+      }
+      onChange={(e) => {
+        setProductSearch(e.target.value);
+        setShowProductDropdown(true);
+        if (!e.target.value) {
+          setFormData({ ...formData, productId: '' });
+        }
+      }}
+      onFocus={() => setShowProductDropdown(true)}
+      className="w-full px-4 py-3 pl-10 bg-slate-800/50 border border-slate-600 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all"
+    />
+    
+    {/* Icon */}
+    <Package className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400 pointer-events-none" />
+
+    {/* Dropdown List */}
+    {showProductDropdown && (
+      <div className="absolute z-50 w-full mt-1 bg-slate-900 border border-slate-700 rounded-xl shadow-lg max-h-80 overflow-auto">
+        {filteredProducts.length > 0 ? (
+          filteredProducts.map((product: any) => (
+            <button
+              key={product.id}
+              type="button"
+              onClick={() => {
+                setFormData({ ...formData, productId: product.id });
+                setProductSearch('');
+                setShowProductDropdown(false);
+              }}
+              className={`w-full text-left px-4 py-3 hover:bg-violet-500/20 transition-colors border-b border-slate-800 last:border-b-0 ${
+                formData.productId === product.id 
+                  ? 'bg-violet-500/30 text-violet-300' 
+                  : 'text-white'
+              }`}
+            >
+              <div className="flex justify-between items-center">
+                <div>
+                  <div className="font-medium">{product.name}</div>
+                  {product.sku && (
+                    <div className="text-xs text-slate-400 mt-0.5">SKU: {product.sku}</div>
+                  )}
+                </div>
+                {product.price && (
+                  <div className="text-emerald-400 font-semibold">₹{product.price}</div>
+                )}
+              </div>
+            </button>
+          ))
+        ) : (
+          <div className="px-4 py-3 text-slate-400 text-sm text-center">
+            No products found
+          </div>
+        )}
+      </div>
+    )}
+
+    {/* Close dropdown overlay */}
+    {showProductDropdown && (
+      <div
+        className="fixed inset-0 z-40"
+        onClick={() => setShowProductDropdown(false)}
+      />
+    )}
+  </div>
+
+  {/* Helper text */}
+  {formData.productId && (
+    <p className="text-xs text-emerald-400 mt-1 flex items-center gap-1">
+      <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+      </svg>
+      Selected: {products.find(p => p.id === formData.productId)?.name}
+    </p>
+  )}
+
+  <p className="text-xs text-slate-500 mt-1">
+    {productSearch 
+      ? `Showing ${filteredProducts.length} of ${products.length} products` 
+      : `${products.length} products available`
+    }
+  </p>
+</div>
+
+        {/* Review Title */}
+        <div>
+          <label className="block text-sm font-medium text-slate-300 mb-2">
+            Review Title <span className="text-red-400">*</span>
+          </label>
+          <input
+            type="text"
+            value={formData.title}
+            onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+            placeholder="e.g., Excellent product, highly recommended!"
+            maxLength={100}
+            className="w-full px-4 py-3 bg-slate-800/50 border border-slate-600 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all"
+          />
+          <p className="text-xs text-slate-500 mt-1">
+            {formData.title.length} / 100 characters
+          </p>
+        </div>
+
+        {/* Rating */}
+        <div>
+          <label className="block text-sm font-medium text-slate-300 mb-3">
+            Rating <span className="text-red-400">*</span>
+          </label>
+          <div className="p-4 bg-slate-800/30 border border-slate-700 rounded-xl">
+            <StarRating
+              value={formData.rating}
+              onChange={(rating) => setFormData({ ...formData, rating })}
+              size="h-8 w-8"
+            />
+          </div>
+        </div>
+
+        {/* Comment */}
+        <div>
+          <label className="block text-sm font-medium text-slate-300 mb-2">
+            Review Comment <span className="text-red-400">*</span>
+          </label>
+          <textarea
+            value={formData.comment}
+            onChange={(e) => setFormData({ ...formData, comment: e.target.value })}
+            placeholder="Share your experience with this product..."
+            rows={5}
+            maxLength={1000}
+            className="w-full px-4 py-3 bg-slate-800/50 border border-slate-600 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all resize-none"
+          />
+          <p className="text-xs text-slate-500 mt-1">
+            {formData.comment.length} / 1000 characters
+          </p>
+        </div>
+
+        {/* Preview Card */}
+        {formData.title && formData.comment && (
+          <div className="p-4 bg-slate-800/30 border border-slate-700 rounded-xl">
+            <p className="text-xs text-slate-500 mb-2">Preview:</p>
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-violet-500 to-pink-500 flex items-center justify-center flex-shrink-0">
+                <span className="text-white text-sm font-bold">A</span>
+              </div>
+              <div className="flex-1">
+                <div className="flex items-center gap-2 mb-1">
+                  <p className="text-white font-semibold text-sm">Admin</p>
+                  <div className="flex items-center">
+                    {[...Array(formData.rating)].map((_, i) => (
+                      <Star key={i} className="h-3 w-3 fill-yellow-400 text-yellow-400" />
+                    ))}
+                  </div>
+                </div>
+                <p className="text-white font-medium text-sm mb-1">{formData.title}</p>
+                <p className="text-slate-400 text-xs line-clamp-2">{formData.comment}</p>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* ✅ Fixed Modal Footer */}
+      <div className="flex-shrink-0 p-6 border-t border-slate-700/50 bg-slate-900/50 flex justify-end gap-3 rounded-b-3xl">
+        <button
+          onClick={() => {
+            setShowCreateModal(false);
+            setFormData({
+              productId: "",
+              title: "",
+              comment: "",
+              rating: 5
+            });
+          }}
+          className="px-5 py-2.5 bg-slate-700 text-white rounded-xl hover:bg-slate-600 transition-all font-medium text-sm"
+        >
+          Cancel
+        </button>
+        <button
+          onClick={handleCreateReview}
+          disabled={creating || !formData.productId || !formData.title.trim() || !formData.comment.trim()}
+          className="px-5 py-2.5 bg-gradient-to-r from-violet-600 to-purple-600 text-white rounded-xl hover:shadow-lg hover:shadow-violet-500/50 transition-all font-medium text-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+        >
+          {creating ? (
+            <>
+              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              Creating...
+            </>
+          ) : (
+            <>
+              <MessageSquare className="h-4 w-4" />
+              Create Review
+            </>
+          )}
+        </button>
+      </div>
+    </div>
+  </div>
+)}
 
         {/* Delete Confirmation */}
         <ConfirmDialog

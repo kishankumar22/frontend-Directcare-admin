@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { 
   MessageSquare, 
@@ -21,7 +21,10 @@ import {
   Reply,
   Shield,
   ShieldOff,
-  AlertTriangle
+  AlertTriangle,
+  CornerDownRight,
+  User,
+  ChevronDown
 } from "lucide-react";
 import { useToast } from "@/components/CustomToast";
 import ConfirmDialog from "@/components/ConfirmDialog";
@@ -51,12 +54,117 @@ export default function CommentsPage() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
 
-  const [stats, setStats] = useState({
-    total: 0,
-    pending: 0,
-    approved: 0,
-    spam: 0
-  });
+  // ✅ User Authentication State
+  const [currentUserId, setCurrentUserId] = useState<string>("");
+  const [currentUserEmail, setCurrentUserEmail] = useState<string>("");
+  const [userName, setUserName] = useState<string>("Admin User");
+
+  //
+
+  
+// Add these states in your component
+const [showPostDropdown, setShowPostDropdown] = useState(false);
+const [postSearchTerm, setPostSearchTerm] = useState("");
+const dropdownRef = useRef<HTMLDivElement>(null);
+
+// Close dropdown when clicking outside
+useEffect(() => {
+  const handleClickOutside = (event: MouseEvent) => {
+    if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+      setShowPostDropdown(false);
+    }
+  };
+  document.addEventListener("mousedown", handleClickOutside);
+  return () => document.removeEventListener("mousedown", handleClickOutside);
+}, []);
+
+// Filter posts based on search
+const filteredPosts = blogPosts.filter(post =>
+  post.title.toLowerCase().includes(postSearchTerm.toLowerCase())
+);
+
+
+
+  // ✅ Get current user from token
+  useEffect(() => {
+    const email = localStorage.getItem('userEmail') || 'admin@ecom.com';
+    const storedUserData = localStorage.getItem('userData');
+
+    setCurrentUserEmail(email);
+
+    if (storedUserData) {
+      try {
+        const userData = JSON.parse(storedUserData);
+        let firstName = userData.firstName || '';
+        let lastName = userData.lastName || '';
+        let userId = userData.id || '';
+
+        if (!firstName || !lastName || !userId) {
+          const token = localStorage.getItem('authToken');
+          if (token) {
+            try {
+              const base64Url = token.split('.')[1];
+              const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+              const jsonPayload = decodeURIComponent(
+                atob(base64)
+                  .split('')
+                  .map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
+                  .join('')
+              );
+              const tokenData = JSON.parse(jsonPayload);
+              firstName = firstName || tokenData.firstName || '';
+              lastName = lastName || tokenData.lastName || '';
+              userId = userId || tokenData.sub || tokenData.userId || tokenData.id || '';
+            } catch (err) {
+              console.error('Token decode error:', err);
+            }
+          }
+        }
+
+        const fullName = `${firstName} ${lastName}`.trim() || 'Admin User';
+        setUserName(fullName);
+        setCurrentUserId(userId);
+      } catch (error) {
+        setUserName('Admin User');
+      }
+    }
+  }, []);
+
+  // ✅ Helper function to flatten comments (with duplicate prevention)
+  const flattenComments = (comments: BlogComment[]): BlogComment[] => {
+    const flattened: BlogComment[] = [];
+    const processedIds = new Set<string>();
+    
+    const flatten = (comment: BlogComment) => {
+      if (processedIds.has(comment.id)) return;
+      
+      processedIds.add(comment.id);
+      flattened.push(comment);
+      
+      if (comment.replies && Array.isArray(comment.replies) && comment.replies.length > 0) {
+        comment.replies.forEach(reply => flatten(reply));
+      }
+    };
+    
+    comments.forEach(comment => flatten(comment));
+    return flattened;
+  };
+
+  // ✅ Check if comment is by admin
+  const isAdminComment = (comment: BlogComment): boolean => {
+    return comment.userId === currentUserId || comment.authorEmail === currentUserEmail;
+  };
+
+  // ✅ Get only parent comments (no duplicates)
+  const getParentComments = (): BlogComment[] => {
+    const parents = comments.filter(comment => !comment.parentCommentId);
+    return parents;
+  };
+
+  // ✅ Get replies for a specific comment
+  const getReplies = (parentId: string): BlogComment[] => {
+    return comments.filter(comment => comment.parentCommentId === parentId);
+  };
 
   // ✅ Fetch Blog Posts
   const fetchBlogPosts = async () => {
@@ -64,7 +172,11 @@ export default function CommentsPage() {
     try {
       const response = await blogCommentsService.getAllPosts();
       if (response.data?.success && Array.isArray(response.data.data)) {
-        setBlogPosts(response.data.data || []);
+        // Filter out deleted posts
+        const activePosts = response.data.data.filter(post => !post.isDeleted);
+        console.log("📚 Active blog posts:", activePosts.length);
+        console.log("🗑️ Deleted posts filtered:", response.data.data.length - activePosts.length);
+        setBlogPosts(activePosts);
       } else {
         setBlogPosts([]);
       }
@@ -77,65 +189,51 @@ export default function CommentsPage() {
     }
   };
 
-  // ✅ Fetch Comments
+  // ✅ Fetch Comments (uses BlogPosts data directly)
   const fetchComments = async (specificPostId?: string) => {
     setLoadingComments(true);
     try {
-      if (statusFilter === "spam") {
-        // Fetch spam comments
-        const response = await blogCommentsService.getSpamComments();
-        if (response.data?.success && Array.isArray(response.data.data)) {
-          setComments(response.data.data);
-        } else {
-          setComments([]);
-        }
-      } else if (specificPostId && specificPostId !== "all") {
-        // Fetch comments for specific post
-        const response = await blogCommentsService.getByPostId(specificPostId, true);
-        if (response.data?.success && Array.isArray(response.data.data)) {
-          const commentsData = response.data.data.map(comment => {
-            const post = blogPosts.find(p => p.id === comment.blogPostId);
-            return {
+      console.log("🔄 Fetching comments from BlogPosts API...");
+      
+      // Extract all comments from blogPosts data
+      const allCommentsFromPosts: BlogComment[] = [];
+      
+      blogPosts
+        .filter(post => !post.isDeleted)
+        .forEach(post => {
+          if (post.comments && Array.isArray(post.comments) && post.comments.length > 0) {
+            const postComments = flattenComments(post.comments).map(comment => ({
               ...comment,
-              blogPostTitle: comment.blogPostTitle || post?.title || "Unknown Post"
-            };
-          });
-          setComments(commentsData);
-        } else {
-          setComments([]);
-        }
-      } else {
-        // Fetch comments from all posts
-        if (blogPosts.length === 0) {
-          setComments([]);
-          setLoadingComments(false);
-          return;
-        }
-
-        const allCommentsPromises = blogPosts.map(post =>
-          blogCommentsService.getByPostId(post.id, true).catch(err => {
-            console.error(`Error for post ${post.id}:`, err);
-            return { data: { success: false, data: [], message: "", errors: null } };
-          })
-        );
-
-        const results = await Promise.all(allCommentsPromises);
-        const allComments: BlogComment[] = [];
-        
-        results.forEach((response, index) => {
-          if (response.data?.success && Array.isArray(response.data.data)) {
-            const postComments = response.data.data.map(comment => ({
-              ...comment,
-              blogPostTitle: comment.blogPostTitle || blogPosts[index].title
+              blogPostTitle: comment.blogPostTitle || post.title,
+              blogPostId: post.id
             }));
-            allComments.push(...postComments);
+            allCommentsFromPosts.push(...postComments);
           }
         });
 
-        setComments(allComments);
+      console.log("📊 Total comments extracted:", allCommentsFromPosts.length);
+      console.log("📝 Comments breakdown:", {
+        total: allCommentsFromPosts.length,
+        parents: allCommentsFromPosts.filter(c => !c.parentCommentId).length,
+        replies: allCommentsFromPosts.filter(c => c.parentCommentId).length,
+        spam: allCommentsFromPosts.filter(c => c.isSpam).length
+      });
+
+      // Apply filters
+      let filteredComments = allCommentsFromPosts;
+
+      if (statusFilter === "spam") {
+        filteredComments = allCommentsFromPosts.filter(c => c.isSpam);
+        console.log("🚩 Spam filter applied:", filteredComments.length);
+      } else if (specificPostId && specificPostId !== "all") {
+        filteredComments = allCommentsFromPosts.filter(c => c.blogPostId === specificPostId);
+        console.log(`📝 Post filter applied (${specificPostId}):`, filteredComments.length);
       }
+
+      setComments(filteredComments);
+      
     } catch (error: any) {
-      console.error("Error fetching comments:", error);
+      console.error("❌ Error fetching comments:", error);
       toast.error("Failed to load comments");
       setComments([]);
     } finally {
@@ -155,142 +253,183 @@ export default function CommentsPage() {
 
   // ✅ Load comments when blogPosts, postFilter, or statusFilter changes
   useEffect(() => {
-    if (blogPosts.length > 0 || statusFilter === "spam") {
+    if (blogPosts.length > 0) {
       fetchComments(postFilter);
     }
   }, [blogPosts, postFilter, statusFilter]);
 
-  const calculateStats = (commentsData: BlogComment[]) => {
-    const total = commentsData.length;
-    const approved = commentsData.filter(c => c.isApproved && !c.isSpam).length;
-    const pending = commentsData.filter(c => !c.isApproved && !c.isSpam).length;
-    const spam = commentsData.filter(c => c.isSpam).length;
+  // ✅ Filter parent comments
+  const filteredComments = getParentComments().filter(comment => {
+    const matchesSearch =
+      comment.commentText?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      comment.authorName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      comment.authorEmail?.toLowerCase().includes(searchTerm.toLowerCase());
 
-    setStats({ total, pending, approved, spam });
+    const matchesStatus =
+      statusFilter === "all" ||
+      (statusFilter === "approved" && comment.isApproved && !comment.isSpam) ||
+      (statusFilter === "pending" && !comment.isApproved && !comment.isSpam) ||
+      (statusFilter === "spam" && comment.isSpam);
+
+    return matchesSearch && matchesStatus;
+  });
+
+  // ✅ Stats (counts all spam including nested)
+  const stats = {
+    total: getParentComments().length,
+    pending: getParentComments().filter(c => !c.isApproved && !c.isSpam).length,
+    approved: getParentComments().filter(c => c.isApproved && !c.isSpam).length,
+    spam: comments.filter(c => c.isSpam).length, // All spam including replies
   };
 
-  // ✅ Calculate stats
-  useEffect(() => {
-    if (comments.length > 0) {
-      const filtered = comments.filter(comment => {
-        const matchesSearch =
-          comment.commentText?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          comment.authorName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          comment.authorEmail?.toLowerCase().includes(searchTerm.toLowerCase());
+  // Pagination
+  const totalItems = filteredComments.length;
+  const totalPages = Math.ceil(totalItems / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const currentData = filteredComments.slice(startIndex, endIndex);
 
-        const matchesStatus =
-          statusFilter === "all" ||
-          (statusFilter === "approved" && comment.isApproved && !comment.isSpam) ||
-          (statusFilter === "pending" && !comment.isApproved && !comment.isSpam) ||
-          (statusFilter === "spam" && comment.isSpam);
-
-        return matchesSearch && matchesStatus;
-      });
-
-      calculateStats(filtered);
+// ✅ Approve Comment (UPDATED)
+const handleApprove = async (id: string) => {
+  setActionLoading(id);
+  try {
+    console.log("✅ Approving comment:", id);
+    const response = await blogCommentsService.approve(id);
+    
+    if (response.data?.success) {
+      toast.success("✅ Comment approved successfully!");
+      await fetchBlogPosts(); // Refresh data
+      console.log("✅ Data refreshed after approve");
     } else {
-      setStats({ total: 0, pending: 0, approved: 0, spam: 0 });
+      toast.error(response.data?.message || "Failed to approve comment");
     }
-  }, [comments, searchTerm, statusFilter]);
-
-  // ✅ Approve Comment
-  const handleApprove = async (id: string) => {
-    setActionLoading(id);
-    try {
-      const response = await blogCommentsService.approve(id);
-      if (response.data?.success) {
-        toast.success("✅ Comment approved successfully!");
-        await fetchComments(postFilter);
-      }
-    } catch (error: any) {
-      console.error("Error approving comment:", error);
-      toast.error(error?.response?.data?.message || "Failed to approve comment");
-    } finally {
-      setActionLoading(null);
-    }
-  };
-
-  // ✅ Flag as Spam
-  const handleFlagAsSpam = async (id: string) => {
-    setActionLoading(id);
-    try {
-      const response = await blogCommentsService.flagAsSpam(id, "Flagged by admin", 1);
-      if (response.data?.success) {
-        toast.success("🚩 Comment flagged as spam!");
-        await fetchComments(postFilter);
-      }
-    } catch (error: any) {
-      console.error("Error flagging as spam:", error);
-      toast.error(error?.response?.data?.message || "Failed to flag as spam");
-    } finally {
-      setActionLoading(null);
-    }
-  };
-
-  // ✅ Unflag Spam (Restore)
-  const handleUnflagSpam = async (id: string) => {
-    setActionLoading(id);
-    try {
-      const response = await blogCommentsService.unflagSpam(id);
-      if (response.data?.success) {
-        toast.success("✅ Comment restored from spam!");
-        await fetchComments(postFilter);
-      }
-    } catch (error: any) {
-      console.error("Error unflagging spam:", error);
-      toast.error(error?.response?.data?.message || "Failed to restore comment");
-    } finally {
-      setActionLoading(null);
-    }
-  };
-
-  // ✅ Reply to Comment
-  const handleReply = async () => {
-    if (!replyingTo || !replyText.trim()) {
-      toast.error("Please enter a reply");
-      return;
-    }
-
-    setActionLoading(replyingTo.id);
-    try {
-      const response = await blogCommentsService.replyToComment(replyingTo.id, {
-        parentCommentId: replyingTo.id,
-        commentText: replyText,
-        authorName: "Admin",
-        userId: ""
-      });
+  } catch (error: any) {
+    console.error("❌ Error approving comment:", error);
+    toast.error(error?.response?.data?.message || "Failed to approve comment");
+  } finally {
+    setActionLoading(null);
+  }
+};
+// ✅ Delete Comment (FIXED)
+const handleDelete = async (id: string) => {
+  setIsDeleting(true);
+  try {
+    console.log("🗑️ Deleting comment:", id);
+    const response = await blogCommentsService.delete(id);
+    
+    console.log("✅ Delete API Response:", response.data);
+    
+    if (response.data?.success) {
+      toast.success("🗑️ Comment deleted successfully!");
       
-      if (response.data?.success) {
-        toast.success("✅ Reply posted successfully!");
-        setReplyingTo(null);
-        setReplyText("");
-        await fetchComments(postFilter);
-      }
-    } catch (error: any) {
-      console.error("Error posting reply:", error);
-      toast.error(error?.response?.data?.message || "Failed to post reply");
-    } finally {
-      setActionLoading(null);
-    }
-  };
-
-  // ✅ Delete Comment
-  const handleDelete = async (id: string) => {
-    setIsDeleting(true);
-    try {
-      const response = await blogCommentsService.delete(id);
-      if (response.data?.success) {
-        toast.success("🗑️ Comment deleted successfully!");
-        await fetchComments(postFilter);
-      }
-    } catch (error: any) {
-      console.error("Error deleting comment:", error);
-      toast.error(error?.response?.data?.message || "Failed to delete comment");
-    } finally {
-      setIsDeleting(false);
+      // ✅ Close modal first
       setDeleteConfirm(null);
+      
+      // ✅ Refresh blog posts data
+      await fetchBlogPosts();
+      
+      // Note: fetchComments will auto-trigger via useEffect when blogPosts updates
+      console.log("✅ Data refreshed after delete");
+    } else {
+      toast.error(response.data?.message || "Failed to delete comment");
     }
-  };
+  } catch (error: any) {
+    console.error("❌ Error deleting comment:", error);
+    console.error("Error details:", error.response?.data);
+    
+    const errorMessage = 
+      error?.response?.data?.message || 
+      error?.response?.data?.errors?.[0] ||
+      error?.message ||
+      "Failed to delete comment";
+    
+    toast.error(errorMessage);
+  } finally {
+    setIsDeleting(false);
+  }
+};
+
+// ✅ Flag as Spam (UPDATED)
+const handleFlagAsSpam = async (id: string) => {
+  setActionLoading(id);
+  try {
+    console.log("🚩 Flagging as spam:", id);
+    const response = await blogCommentsService.flagAsSpam(id, "Flagged by admin", 1);
+    
+    if (response.data?.success) {
+      toast.success("🚩 Comment flagged as spam!");
+      await fetchBlogPosts(); // Refresh data
+      console.log("✅ Data refreshed after spam flag");
+    } else {
+      toast.error(response.data?.message || "Failed to flag as spam");
+    }
+  } catch (error: any) {
+    console.error("❌ Error flagging as spam:", error);
+    toast.error(error?.response?.data?.message || "Failed to flag as spam");
+  } finally {
+    setActionLoading(null);
+  }
+};
+
+// ✅ Unflag Spam (UPDATED)
+const handleUnflagSpam = async (id: string) => {
+  setActionLoading(id);
+  try {
+    console.log("🔄 Unflagging spam:", id);
+    const response = await blogCommentsService.unflagSpam(id);
+    
+    if (response.data?.success) {
+      toast.success("✅ Comment restored from spam!");
+      await fetchBlogPosts(); // Refresh data
+      console.log("✅ Data refreshed after unflag");
+    } else {
+      toast.error(response.data?.message || "Failed to restore comment");
+    }
+  } catch (error: any) {
+    console.error("❌ Error unflagging spam:", error);
+    toast.error(error?.response?.data?.message || "Failed to restore comment");
+  } finally {
+    setActionLoading(null);
+  }
+};
+
+// ✅ Reply to Comment (UPDATED)
+const handleReply = async () => {
+  if (!replyingTo || !replyText.trim()) {
+    toast.error("Please enter a reply");
+    return;
+  }
+
+  setActionLoading(replyingTo.id);
+  try {
+    console.log("💬 Posting reply to:", replyingTo.id);
+    const response = await blogCommentsService.replyToComment(replyingTo.id, {
+      parentCommentId: replyingTo.id,
+      commentText: replyText,
+      authorName: userName,
+      userId: currentUserId
+    });
+    
+    if (response.data?.success) {
+      toast.success("✅ Reply posted successfully!");
+      
+      // Close modal
+      setReplyingTo(null);
+      setReplyText("");
+      
+      // Refresh data
+      await fetchBlogPosts();
+      console.log("✅ Data refreshed after reply");
+    } else {
+      toast.error(response.data?.message || "Failed to post reply");
+    }
+  } catch (error: any) {
+    console.error("❌ Error posting reply:", error);
+    toast.error(error?.response?.data?.message || "Failed to post reply");
+  } finally {
+    setActionLoading(null);
+  }
+};
 
   const toggleSelectComment = (id: string) => {
     setSelectedComments(prev =>
@@ -314,29 +453,6 @@ export default function CommentsPage() {
   };
 
   const hasActiveFilters = statusFilter !== "all" || postFilter !== "all" || searchTerm.trim() !== "";
-
-  // Filter data
-  const filteredComments = comments.filter(comment => {
-    const matchesSearch =
-      comment.commentText?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      comment.authorName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      comment.authorEmail?.toLowerCase().includes(searchTerm.toLowerCase());
-
-    const matchesStatus =
-      statusFilter === "all" ||
-      (statusFilter === "approved" && comment.isApproved && !comment.isSpam) ||
-      (statusFilter === "pending" && !comment.isApproved && !comment.isSpam) ||
-      (statusFilter === "spam" && comment.isSpam);
-
-    return matchesSearch && matchesStatus;
-  });
-
-  // Pagination
-  const totalItems = filteredComments.length;
-  const totalPages = Math.ceil(totalItems / itemsPerPage);
-  const startIndex = (currentPage - 1) * itemsPerPage;
-  const endIndex = startIndex + itemsPerPage;
-  const currentData = filteredComments.slice(startIndex, endIndex);
 
   const goToPage = (page: number) => setCurrentPage(Math.max(1, Math.min(page, totalPages)));
   const goToFirstPage = () => setCurrentPage(1);
@@ -411,23 +527,18 @@ export default function CommentsPage() {
               )}
             </p>
           </div>
-          <div className="flex items-center gap-3">
-            <button 
-              onClick={() => {
-                fetchBlogPosts();
-                fetchComments(postFilter);
-              }}
-              disabled={loadingComments}
-              className="px-4 py-2 bg-slate-800/50 hover:bg-slate-700/50 text-white rounded-xl transition-all flex items-center gap-2 font-medium border border-slate-700/50 disabled:opacity-50"
-            >
-              {loadingComments ? (
-                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-              ) : (
-                <MessageSquare className="h-4 w-4" />
-              )}
-              Refresh
-            </button>
-          </div>
+          <button 
+            onClick={() => fetchBlogPosts()}
+            disabled={loadingComments}
+            className="px-4 py-2 bg-slate-800/50 hover:bg-slate-700/50 text-white rounded-xl transition-all flex items-center gap-2 font-medium border border-slate-700/50 disabled:opacity-50"
+          >
+            {loadingComments ? (
+              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+            ) : (
+              <MessageSquare className="h-4 w-4" />
+            )}
+            Refresh
+          </button>
         </div>
 
         {/* Statistics Cards */}
@@ -564,32 +675,104 @@ export default function CommentsPage() {
                 </div>
 
                 {/* Post Filter */}
-                <div className="relative flex-1 lg:flex-initial lg:min-w-[280px]">
-                  <select
-                    value={postFilter}
-                    onChange={(e) => setPostFilter(e.target.value)}
-                    disabled={loadingPosts || blogPosts.length === 0 || loadingComments}
-                    className={`w-full px-4 py-2.5 bg-slate-800/50 border rounded-xl text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all appearance-none cursor-pointer ${
-                      postFilter !== "all"
-                        ? "border-purple-500 bg-purple-500/10 ring-2 ring-purple-500/50"
-                        : "border-slate-600 hover:border-slate-500"
-                    } ${
-                      loadingPosts || blogPosts.length === 0 || loadingComments
-                        ? "opacity-50 cursor-not-allowed"
-                        : ""
-                    }`}
-                  >
-                    <option value="all">
-                      {loadingPosts ? "⏳ Loading posts..." : "📝 All Posts"}
-                    </option>
-                    {blogPosts.map((post) => (
-                      <option key={post.id} value={post.id}>
-                        {post.title.length > 50 ? post.title.substring(0, 50) + "..." : post.title}
-                      </option>
-                    ))}
-                  </select>
-                  <MessageSquare className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
-                </div>
+<div className="relative flex-1 lg:flex-initial lg:min-w-[280px]" ref={dropdownRef}>
+  {/* Input Field */}
+  <div className="relative">
+    <input
+      type="text"
+      value={showPostDropdown ? postSearchTerm : getSelectedPostTitle()}
+      onChange={(e) => {
+        setPostSearchTerm(e.target.value);
+        if (!showPostDropdown) setShowPostDropdown(true);
+      }}
+      onFocus={() => {
+        setShowPostDropdown(true);
+        setPostSearchTerm("");
+      }}
+      placeholder={loadingPosts ? "⏳ Loading posts..." : "🔍 Search posts..."}
+      disabled={loadingPosts || blogPosts.length === 0 || loadingComments}
+      className={`w-full px-4 py-2.5 pl-10 pr-10 bg-slate-800/50 border rounded-xl text-white text-sm placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all ${
+        postFilter !== "all"
+          ? "border-purple-500 bg-purple-500/10 ring-2 ring-purple-500/50"
+          : "border-slate-600 hover:border-slate-500"
+      } ${
+        loadingPosts || blogPosts.length === 0 || loadingComments
+          ? "opacity-50 cursor-not-allowed"
+          : ""
+      }`}
+    />
+    
+    {/* Search Icon */}
+    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
+    
+    {/* Clear/Dropdown Toggle */}
+    {postFilter !== "all" ? (
+      <button
+        onClick={() => {
+          setPostFilter("all");
+          setPostSearchTerm("");
+        }}
+        className="absolute right-3 top-1/2 -translate-y-1/2 p-1 hover:bg-slate-700 rounded transition-all"
+      >
+        <X className="h-3.5 w-3.5 text-slate-400 hover:text-white" />
+      </button>
+    ) : (
+      <ChevronDown className={`absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none transition-transform ${
+        showPostDropdown ? 'rotate-180' : ''
+      }`} />
+    )}
+  </div>
+
+  {/* Dropdown List */}
+  {showPostDropdown && (
+    <div className="absolute top-full left-0 right-0 mt-2 bg-slate-800 border border-slate-600 rounded-xl shadow-xl max-h-64 overflow-y-auto z-50">
+      {/* All Posts Option */}
+      <button
+        onClick={() => {
+          setPostFilter("all");
+          setShowPostDropdown(false);
+          setPostSearchTerm("");
+        }}
+        className={`w-full px-4 py-2.5 text-left hover:bg-slate-700 transition-all ${
+          postFilter === "all" ? "bg-purple-500/10 text-purple-400" : "text-white"
+        }`}
+      >
+        <div className="flex items-center gap-2">
+          <MessageSquare className="h-4 w-4 flex-shrink-0" />
+          <span className="text-sm">📝 All Posts</span>
+        </div>
+      </button>
+
+      {/* Filtered Posts */}
+      {filteredPosts.length > 0 ? (
+        filteredPosts.map((post) => (
+          <button
+            key={post.id}
+            onClick={() => {
+              setPostFilter(post.id);
+              setShowPostDropdown(false);
+              setPostSearchTerm("");
+            }}
+            className={`w-full px-4 py-2.5 text-left hover:bg-slate-700 transition-all border-t border-slate-700 ${
+              postFilter === post.id ? "bg-purple-500/10 text-purple-400" : "text-white"
+            }`}
+          >
+            <div className="flex items-center gap-2">
+              <MessageSquare className="h-4 w-4 flex-shrink-0 text-slate-400" />
+              <span className="text-sm truncate">{post.title}</span>
+            </div>
+          </button>
+        ))
+      ) : (
+        <div className="px-4 py-3 text-center text-slate-500 text-sm">
+          No posts found for "{postSearchTerm}"
+        </div>
+      )}
+    </div>
+  )}
+
+
+</div>
               </div>
 
               {/* Search */}
@@ -686,150 +869,311 @@ export default function CommentsPage() {
               )}
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b border-slate-800">
-                    <th className="text-left py-3 px-4">
-                      <input
-                        type="checkbox"
-                        checked={selectedComments.length === currentData.length && currentData.length > 0}
-                        onChange={toggleSelectAll}
-                        className="w-4 h-4 text-violet-500 focus:ring-2 focus:ring-violet-500 rounded"
-                      />
-                    </th>
-                    <th className="text-left py-3 px-4 text-slate-400 font-medium text-sm">COMMENT</th>
-                    <th className="text-left py-3 px-4 text-slate-400 font-medium text-sm">POST</th>
-                    <th className="text-left py-3 px-4 text-slate-400 font-medium text-sm">DATE</th>
-                    <th className="text-center py-3 px-4 text-slate-400 font-medium text-sm">STATUS</th>
-                    <th className="text-center py-3 px-4 text-slate-400 font-medium text-sm">ACTIONS</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {currentData.map((comment) => (
-                    <tr key={comment.id} className="border-b border-slate-800 hover:bg-slate-800/30 transition-colors">
-                      <td className="py-4 px-4">
-                        <input
-                          type="checkbox"
-                          checked={selectedComments.includes(comment.id)}
-                          onChange={() => toggleSelectComment(comment.id)}
-                          className="w-4 h-4 text-violet-500 focus:ring-2 focus:ring-violet-500 rounded"
-                        />
-                      </td>
-                      <td className="py-4 px-4">
-                        <div className="flex items-start gap-3">
-                          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-violet-500 to-pink-500 flex items-center justify-center flex-shrink-0">
-                            <span className="text-white text-sm font-bold">
-                              {comment.authorName?.charAt(0).toUpperCase() || 'G'}
-                            </span>
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-white font-medium text-sm">{comment.authorName}</p>
-                            <p className="text-xs text-slate-500">{comment.authorEmail}</p>
-                            <p className="text-slate-300 text-sm mt-1 line-clamp-2">{comment.commentText}</p>
-                            {comment.isSpam && (
-                              <div className="mt-2 flex items-center gap-2">
-                                <span className="px-2 py-0.5 bg-red-500/10 border border-red-500/30 rounded text-red-400 text-xs font-medium">
-                                  🚩 Spam
-                                </span>
-                                {comment.spamReason && (
-                                  <span className="text-xs text-slate-500">
-                                    {comment.spamReason}
-                                  </span>
-                                )}
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      </td>
-                      <td className="py-4 px-4">
-                        <button
-                          onClick={() => setPostFilter(comment.blogPostId)}
-                          className="text-blue-400 hover:text-blue-300 hover:underline cursor-pointer text-sm text-left max-w-xs truncate"
-                        >
-                          {comment.blogPostTitle || "Unknown Post"}
-                        </button>
-                      </td>
-                      <td className="py-4 px-4">
-                        <p className="text-slate-300 text-sm">
-                          {new Date(comment.createdAt).toLocaleDateString()}
-                        </p>
-                        <p className="text-xs text-slate-500">
-                          {new Date(comment.createdAt).toLocaleTimeString()}
-                        </p>
-                      </td>
-                      <td className="py-4 px-4 text-center">
-                        <span
-                          className={`px-3 py-1 rounded-lg text-xs font-medium ${
-                            comment.isSpam
-                              ? "bg-red-500/10 text-red-400"
-                              : comment.isApproved
-                              ? "bg-green-500/10 text-green-400"
-                              : "bg-yellow-500/10 text-yellow-400"
-                          }`}
-                        >
-                          {comment.isSpam ? "Spam" : comment.isApproved ? "Approved" : "Pending"}
+            <div className="space-y-6">
+              {currentData.map((parentComment) => {
+                const replies = getReplies(parentComment.id);
+                
+                return (
+                  <div
+                    key={`parent-${parentComment.id}`}
+                    className={`border rounded-xl p-5 transition-all ${
+                      parentComment.isSpam
+                        ? 'bg-red-500/5 border-red-500/30 hover:border-red-500/50'
+                        : 'bg-slate-800/30 border-slate-700 hover:border-slate-600'
+                    }`}
+                  >
+                    {/* Parent Comment */}
+                    <div className="flex items-start gap-4">
+                      {/* Avatar with spam indicator */}
+                      <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${
+                        parentComment.isSpam 
+                          ? 'bg-gradient-to-br from-red-500 to-rose-500'
+                          : 'bg-gradient-to-br from-violet-500 to-pink-500'
+                      }`}>
+                        <span className="text-white text-sm font-bold">
+                          {parentComment.isSpam ? '⚠️' : (parentComment.authorName?.charAt(0).toUpperCase() || 'U')}
                         </span>
-                      </td>
-                      <td className="py-4 px-4">
-                        <div className="flex items-center justify-center gap-2">
-                          {!comment.isApproved && !comment.isSpam && (
+                      </div>
+
+                      {/* Comment Content */}
+                      <div className="flex-1 min-w-0">
+                        {/* Author Info */}
+                        <div className="flex items-center gap-2 mb-1 flex-wrap">
+                          <p className="text-white font-semibold text-sm">
+                            {parentComment.authorName}
+                          </p>
+                          {isAdminComment(parentComment) && (
+                            <span className="px-2 py-0.5 bg-violet-500/10 text-violet-400 rounded text-xs font-medium">
+                              Admin
+                            </span>
+                          )}
+                          <span className="text-slate-500 text-xs">•</span>
+                          <p className="text-slate-400 text-xs">
+                            {new Date(parentComment.createdAt).toLocaleDateString('en-US', {
+                              month: 'short',
+                              day: 'numeric',
+                              year: 'numeric'
+                            })}
+                          </p>
+                          <p className="text-slate-500 text-xs">
+                            {new Date(parentComment.createdAt).toLocaleTimeString('en-US', {
+                              hour: '2-digit',
+                              minute: '2-digit'
+                            })}
+                          </p>
+                          
+                          {/* Status Badge */}
+                          <span
+                            className={`px-2 py-0.5 rounded text-xs font-medium ${
+                              parentComment.isSpam
+                                ? 'bg-red-500/10 text-red-400'
+                                : parentComment.isApproved
+                                ? 'bg-green-500/10 text-green-400'
+                                : 'bg-yellow-500/10 text-yellow-400'
+                            }`}
+                          >
+                            {parentComment.isSpam ? 'Spam' : parentComment.isApproved ? 'Approved' : 'Pending'}
+                          </span>
+                        </div>
+
+                        {/* Email */}
+                        <p className="text-slate-500 text-xs mb-2">
+                          {parentComment.authorEmail}
+                        </p>
+
+                        {/* ✅ Spam Warning Banner */}
+                        {parentComment.isSpam && (
+                          <div className="mb-2 p-2 bg-red-500/10 border border-red-500/30 rounded-lg flex items-center gap-2">
+                            <AlertTriangle className="h-4 w-4 text-red-400 flex-shrink-0" />
+                            <div className="flex-1">
+                              <p className="text-red-400 text-xs font-semibold">⚠️ Spam Comment</p>
+                              {parentComment.spamReason && (
+                                <p className="text-slate-400 text-xs">Reason: {parentComment.spamReason}</p>
+                              )}
+                              {parentComment.flaggedAt && (
+                                <p className="text-slate-500 text-xs">
+                                  Flagged on {new Date(parentComment.flaggedAt).toLocaleString()}
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Comment Text */}
+                        <p className={`text-slate-300 text-sm mb-2 ${
+                          parentComment.isSpam ? 'line-through opacity-50' : ''
+                        }`}>
+                          {parentComment.commentText}
+                        </p>
+
+                        {/* Post Title */}
+                        <p className="text-slate-500 text-xs mb-3">
+                          on <span className="text-blue-400 hover:text-blue-300 cursor-pointer" onClick={() => setPostFilter(parentComment.blogPostId)}>
+                            {parentComment.blogPostTitle || 'Unknown Post'}
+                          </span>
+                        </p>
+
+                        {/* Action Buttons */}
+                        <div className="flex items-center gap-2 flex-wrap">
+                          {!parentComment.isApproved && !parentComment.isSpam && (
                             <button
-                              onClick={() => handleApprove(comment.id)}
-                              disabled={actionLoading === comment.id}
-                              className="p-2 text-green-400 hover:bg-green-500/10 rounded-lg transition-all disabled:opacity-50"
-                              title="Approve"
+                              onClick={() => handleApprove(parentComment.id)}
+                              disabled={actionLoading === parentComment.id}
+                              className="px-3 py-1.5 bg-green-500/10 text-green-400 hover:bg-green-500/20 rounded-lg text-xs font-medium transition-all flex items-center gap-1 disabled:opacity-50"
                             >
-                              <CheckCircle className="h-4 w-4" />
+                              <CheckCircle className="h-3 w-3" />
+                              Approve
                             </button>
                           )}
-                          {!comment.isSpam ? (
+
+                          {!isAdminComment(parentComment) && !parentComment.isSpam && (
                             <button
-                              onClick={() => handleFlagAsSpam(comment.id)}
-                              disabled={actionLoading === comment.id}
-                              className="p-2 text-red-400 hover:bg-red-500/10 rounded-lg transition-all disabled:opacity-50"
-                              title="Flag as Spam"
+                              onClick={() => handleFlagAsSpam(parentComment.id)}
+                              disabled={actionLoading === parentComment.id}
+                              className="px-3 py-1.5 bg-red-500/10 text-red-400 hover:bg-red-500/20 rounded-lg text-xs font-medium transition-all flex items-center gap-1 disabled:opacity-50"
                             >
-                              <Shield className="h-4 w-4" />
-                            </button>
-                          ) : (
-                            <button
-                              onClick={() => handleUnflagSpam(comment.id)}
-                              disabled={actionLoading === comment.id}
-                              className="p-2 text-green-400 hover:bg-green-500/10 rounded-lg transition-all disabled:opacity-50"
-                              title="Restore from Spam"
-                            >
-                              <ShieldOff className="h-4 w-4" />
+                              <Shield className="h-3 w-3" />
+                              Mark Spam
                             </button>
                           )}
+
+                          {parentComment.isSpam && (
+                            <button
+                              onClick={() => handleUnflagSpam(parentComment.id)}
+                              disabled={actionLoading === parentComment.id}
+                              className="px-3 py-1.5 bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 rounded-lg text-xs font-medium transition-all flex items-center gap-1 disabled:opacity-50"
+                            >
+                              <ShieldOff className="h-3 w-3" />
+                              Restore
+                            </button>
+                          )}
+
                           <button
-                            onClick={() => setReplyingTo(comment)}
-                            disabled={comment.isSpam}
-                            className="p-2 text-blue-400 hover:bg-blue-500/10 rounded-lg transition-all disabled:opacity-50"
-                            title="Reply"
+                            onClick={() => setReplyingTo(parentComment)}
+                            disabled={parentComment.isSpam}
+                            className="px-3 py-1.5 bg-violet-500/10 text-violet-400 hover:bg-violet-500/20 rounded-lg text-xs font-medium transition-all flex items-center gap-1 disabled:opacity-50"
                           >
-                            <Reply className="h-4 w-4" />
+                            <Reply className="h-3 w-3" />
+                            Reply
                           </button>
+
                           <button
-                            onClick={() => setViewingComment(comment)}
-                            className="p-2 text-violet-400 hover:bg-violet-500/10 rounded-lg transition-all"
-                            title="View"
+                            onClick={() => setViewingComment(parentComment)}
+                            className="px-3 py-1.5 bg-violet-500/10 text-violet-400 hover:bg-violet-500/20 rounded-lg text-xs font-medium transition-all flex items-center gap-1"
                           >
-                            <Eye className="h-4 w-4" />
+                            <Eye className="h-3 w-3" />
+                            View
                           </button>
+
                           <button
-                            onClick={() => setDeleteConfirm({ id: comment.id, author: comment.authorName })}
-                            className="p-2 text-red-400 hover:bg-red-500/10 rounded-lg transition-all"
-                            title="Delete"
+                            onClick={() => setDeleteConfirm({ id: parentComment.id, author: parentComment.authorName })}
+                            className="px-3 py-1.5 bg-red-500/10 text-red-400 hover:bg-red-500/20 rounded-lg text-xs font-medium transition-all flex items-center gap-1"
                           >
-                            <Trash2 className="h-4 w-4" />
+                            <Trash2 className="h-3 w-3" />
+                            Delete
                           </button>
                         </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                      </div>
+                    </div>
+
+                    {/* ✅ Replies Section */}
+                    {replies.length > 0 && (
+                      <div className="mt-4 ml-14 space-y-3 border-l-2 border-slate-700 pl-4">
+                        <div className="flex items-center gap-2 mb-2">
+                          <CornerDownRight className="h-4 w-4 text-slate-500" />
+                          <p className="text-slate-400 text-xs font-medium">
+                            {replies.length} {replies.length === 1 ? 'Reply' : 'Replies'}
+                          </p>
+                        </div>
+                        
+                        {replies.map((reply) => (
+                          <div
+                            key={`reply-${reply.id}-${parentComment.id}`}
+                            className={`border rounded-lg p-3 transition-all ${
+                              reply.isSpam
+                                ? 'bg-red-500/5 border-red-500/30 hover:border-red-500/50'
+                                : 'bg-slate-800/50 border-slate-700/50 hover:border-slate-600/50'
+                            }`}
+                          >
+                            <div className="flex items-start gap-3">
+                              {/* Reply Avatar with spam indicator */}
+                              <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
+                                reply.isSpam
+                                  ? 'bg-gradient-to-br from-red-500 to-rose-500'
+                                  : 'bg-gradient-to-br from-cyan-500 to-blue-500'
+                              }`}>
+                                <span className="text-white text-xs font-bold">
+                                  {reply.isSpam ? '⚠️' : (reply.authorName?.charAt(0).toUpperCase() || 'U')}
+                                </span>
+                              </div>
+
+                              {/* Reply Content */}
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2 mb-1 flex-wrap">
+                                  <p className="text-white font-medium text-sm">
+                                    {reply.authorName}
+                                  </p>
+                                  {isAdminComment(reply) && (
+                                    <span className="px-2 py-0.5 bg-violet-500/10 text-violet-400 rounded text-xs font-medium">
+                                      Admin
+                                    </span>
+                                  )}
+                                  <span className="text-slate-500 text-xs">•</span>
+                                  <p className="text-slate-400 text-xs">
+                                    {new Date(reply.createdAt).toLocaleDateString('en-US', {
+                                      month: 'short',
+                                      day: 'numeric'
+                                    })}
+                                  </p>
+
+                                  {/* Status Badge */}
+                                  <span
+                                    className={`px-2 py-0.5 rounded text-xs font-medium ${
+                                      reply.isSpam
+                                        ? 'bg-red-500/10 text-red-400'
+                                        : reply.isApproved
+                                        ? 'bg-green-500/10 text-green-400'
+                                        : 'bg-yellow-500/10 text-yellow-400'
+                                    }`}
+                                  >
+                                    {reply.isSpam ? 'Spam' : reply.isApproved ? 'Approved' : 'Pending'}
+                                  </span>
+                                </div>
+
+                                {/* ✅ Spam badge for reply */}
+                                {reply.isSpam && (
+                                  <div className="mb-1 px-2 py-0.5 bg-red-500/10 border border-red-500/30 rounded text-red-400 text-xs font-medium inline-flex items-center gap-1">
+                                    <Ban className="h-3 w-3" />
+                                    Spam Reply
+                                  </div>
+                                )}
+
+                                <p className={`text-slate-300 text-sm mb-2 ${
+                                  reply.isSpam ? 'line-through opacity-50' : ''
+                                }`}>
+                                  {reply.commentText}
+                                </p>
+
+                                {/* Reply Actions */}
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  {!reply.isApproved && !reply.isSpam && (
+                                    <button
+                                      onClick={() => handleApprove(reply.id)}
+                                      disabled={actionLoading === reply.id}
+                                      className="text-green-400 hover:text-green-300 text-xs flex items-center gap-1 disabled:opacity-50"
+                                    >
+                                      <CheckCircle className="h-3 w-3" />
+                                      Approve
+                                    </button>
+                                  )}
+
+                                  {!isAdminComment(reply) && !reply.isSpam && (
+                                    <button
+                                      onClick={() => handleFlagAsSpam(reply.id)}
+                                      disabled={actionLoading === reply.id}
+                                      className="text-red-400 hover:text-red-300 text-xs flex items-center gap-1 disabled:opacity-50"
+                                    >
+                                      <Shield className="h-3 w-3" />
+                                      Spam
+                                    </button>
+                                  )}
+
+                                  {reply.isSpam && (
+                                    <button
+                                      onClick={() => handleUnflagSpam(reply.id)}
+                                      disabled={actionLoading === reply.id}
+                                      className="text-blue-400 hover:text-blue-300 text-xs flex items-center gap-1 disabled:opacity-50"
+                                    >
+                                      <ShieldOff className="h-3 w-3" />
+                                      Restore
+                                    </button>
+                                  )}
+
+                                  <button
+                                    onClick={() => setViewingComment(reply)}
+                                    className="text-violet-400 hover:text-violet-300 text-xs flex items-center gap-1"
+                                  >
+                                    <Eye className="h-3 w-3" />
+                                    View
+                                  </button>
+
+                                  <button
+                                    onClick={() => setDeleteConfirm({ id: reply.id, author: reply.authorName })}
+                                    className="text-red-400 hover:text-red-300 text-xs flex items-center gap-1"
+                                  >
+                                    <Trash2 className="h-3 w-3" />
+                                    Delete
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>
@@ -841,7 +1185,6 @@ export default function CommentsPage() {
               <div className="text-sm text-slate-400">
                 Page {currentPage} of {totalPages}
               </div>
-
               <div className="flex items-center gap-2">
                 <button
                   onClick={goToFirstPage}
@@ -850,7 +1193,6 @@ export default function CommentsPage() {
                 >
                   <ChevronsLeft className="h-4 w-4" />
                 </button>
-
                 <button
                   onClick={goToPreviousPage}
                   disabled={currentPage === 1}
@@ -858,23 +1200,21 @@ export default function CommentsPage() {
                 >
                   <ChevronLeft className="h-4 w-4" />
                 </button>
-
                 <div className="flex items-center gap-1">
-                  {getPageNumbers().map((page) => (
+                  {getPageNumbers().map(page => (
                     <button
                       key={page}
                       onClick={() => goToPage(page)}
                       className={`px-3 py-2 text-sm rounded-lg transition-all ${
                         currentPage === page
-                          ? "bg-violet-500 text-white font-semibold"
-                          : "text-slate-400 hover:text-white hover:bg-slate-800"
+                          ? 'bg-violet-500 text-white font-semibold'
+                          : 'text-slate-400 hover:text-white hover:bg-slate-800'
                       }`}
                     >
                       {page}
                     </button>
                   ))}
                 </div>
-
                 <button
                   onClick={goToNextPage}
                   disabled={currentPage === totalPages}
@@ -882,7 +1222,6 @@ export default function CommentsPage() {
                 >
                   <ChevronRight className="h-4 w-4" />
                 </button>
-
                 <button
                   onClick={goToLastPage}
                   disabled={currentPage === totalPages}
@@ -891,8 +1230,9 @@ export default function CommentsPage() {
                   <ChevronsRight className="h-4 w-4" />
                 </button>
               </div>
-
-              <div className="text-sm text-slate-400">Total: {totalItems} comments</div>
+              <div className="text-sm text-slate-400">
+                Total: {totalItems} comments
+              </div>
             </div>
           </div>
         )}
@@ -1044,7 +1384,6 @@ export default function CommentsPage() {
                             {new Date(viewingComment.createdAt).toLocaleString()}
                           </p>
                         </div>
-
                         {viewingComment.approvedAt && (
                           <div>
                             <p className="text-slate-400 text-sm mb-1">Approved At</p>

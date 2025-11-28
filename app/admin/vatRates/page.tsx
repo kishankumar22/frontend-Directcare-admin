@@ -954,77 +954,91 @@ const handleUpdate = async (e: React.FormEvent) => {
                   )}
                 </div>
 
-                {/* ✅ Country with Search */}
-                <div className="relative">
-                  <label className="block text-sm font-semibold text-slate-300 mb-1.5">
-                    Country <span className="text-red-400">*</span>
-                  </label>
-                  <div className="relative">
-                    <input
-                      type="text"
-                      required={!formData.country}
-                      value={formData.country ? getSelectedCountryName() : countrySearchTerm}
-                      onChange={(e) => {
-                        setCountrySearchTerm(e.target.value);
-                        setShowCountryDropdown(true);
-                        setFormData({ ...formData, country: '' });
-                        setFormErrors({ ...formErrors, country: '' });
-                      }}
-                      onFocus={() => setShowCountryDropdown(true)}
-                      className={`w-full px-4 py-2.5 bg-slate-800/50 border ${
-                        formErrors.country ? 'border-red-500' : 'border-slate-700'
-                      } rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all`}
-                      placeholder="Search country..."
-                    />
-                    <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-slate-400" />
-                  </div>
-                  
-                  {/* Dropdown */}
-                  {showCountryDropdown && filteredCountries.length > 0 && (
-                    <>
-                      <div className="fixed inset-0 z-10" onClick={() => setShowCountryDropdown(false)} />
-                      <div className="absolute z-20 w-full mt-1 max-h-60 overflow-y-auto bg-slate-800 border border-slate-700 rounded-xl shadow-2xl">
-                        {filteredCountries.slice(0, 50).map((country) => (
-                          <button
-                            key={country.cca2}
-                            type="button"
-                            onClick={() => {
-                              setFormData({ ...formData, country: country.cca2 });
-                              setCountrySearchTerm("");
-                              setShowCountryDropdown(false);
-                              setFormErrors({ ...formErrors, country: '' });
-                            }}
-                            className="w-full px-4 py-2 text-left text-white hover:bg-slate-700 transition-all flex items-center gap-2"
-                          >
-                            <span className="text-xl">{country.flag}</span>
-                            <span>{country.name.common}</span>
-                          </button>
-                        ))}
-                      </div>
-                    </>
-                  )}
-                  
-                  {formErrors.country && (
-                    <p className="mt-1 text-xs text-red-400 flex items-center gap-1">
-                      <AlertTriangle className="w-3 h-3" />
-                      {formErrors.country}
-                    </p>
-                  )}
-                </div>
+{/* Country with Search - Auto fills Region */}
+<div className="relative">
+  <label className="block text-sm font-semibold text-slate-300 mb-1.5">
+    Country <span className="text-red-400">*</span>
+  </label>
+  <div className="relative">
+    <input
+      type="text"
+      required={!formData.country}
+      value={formData.country ? getSelectedCountryName() : countrySearchTerm}
+      onChange={(e) => {
+        setCountrySearchTerm(e.target.value);
+        setShowCountryDropdown(true);
+        setFormData({ ...formData, country: '' });
+        setFormErrors({ ...formErrors, country: '' });
+      }}
+      onFocus={() => setShowCountryDropdown(true)}
+      className={`w-full px-4 py-2.5 bg-slate-800/50 border ${
+        formErrors.country ? 'border-red-500' : 'border-slate-700'
+      } rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all`}
+      placeholder="Search country..."
+    />
+    <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-slate-400" />
+  </div>
 
-                {/* Region */}
-                <div>
-                  <label className="block text-sm font-semibold text-slate-300 mb-1.5">
-                    Region
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.region}
-                    onChange={(e) => setFormData({ ...formData, region: e.target.value })}
-                    className="w-full px-4 py-2.5 bg-slate-800/50 border border-slate-700 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all"
-                    placeholder="e.g., Europe, Asia"
-                  />
-                </div>
+  {/* Dropdown */}
+  {showCountryDropdown && filteredCountries.length > 0 && (
+    <>
+      <div 
+        className="fixed inset-0 z-10" 
+        onClick={() => setShowCountryDropdown(false)}
+      />
+      <div className="absolute z-20 w-full mt-1 max-h-60 overflow-y-auto bg-slate-800 border border-slate-700 rounded-xl shadow-2xl">
+        {filteredCountries.slice(0, 50).map((country) => (
+          <button
+            key={country.cca2}
+            type="button"
+            onClick={() => {
+              // ✅ Set BOTH country AND region automatically
+              setFormData({ 
+                ...formData, 
+                country: country.cca2,
+                region: country.region // 🔥 Auto-fill region
+              });
+              setCountrySearchTerm('');
+              setShowCountryDropdown(false);
+              setFormErrors({ ...formErrors, country: '' });
+            }}
+            className="w-full px-4 py-2 text-left text-white hover:bg-slate-700 transition-all flex items-center gap-2"
+          >
+            <span className="text-xl">{country.flag}</span>
+            <span>{country.name.common}</span>
+            <span className="ml-auto text-xs text-slate-400">{country.region}</span>
+          </button>
+        ))}
+      </div>
+    </>
+  )}
+
+  {formErrors.country && (
+    <p className="mt-1 text-xs text-red-400 flex items-center gap-1">
+      <AlertTriangle className="w-3 h-3" />
+      {formErrors.country}
+    </p>
+  )}
+</div>
+
+{/* Region - Auto-filled (Read-only or Editable) */}
+<div>
+  <label className="block text-sm font-semibold text-slate-300 mb-1.5">
+    Region
+  </label>
+  <input
+    type="text"
+    value={formData.region}
+    onChange={(e) => setFormData({ ...formData, region: e.target.value })}
+    className="w-full px-4 py-2.5 bg-slate-800/50 border border-slate-700 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all"
+    placeholder="e.g., Europe, Asia"
+    readOnly // ✅ Optional: Make it read-only if you don't want manual edits
+  />
+  <p className="text-xs text-slate-400 mt-1">
+    Auto-filled based on selected country
+  </p>
+</div>
+
 
                 {/* Display Order */}
                 <div>
@@ -1054,7 +1068,7 @@ const handleUpdate = async (e: React.FormEvent) => {
                 </div>
 
                 {/* Checkboxes */}
-                <div className="col-span-2 flex gap-6 p-3 bg-slate-800/30 rounded-xl border border-slate-700">
+                <div className="col-span-2 grid grid-cols-2 gap-6 p-3 bg-slate-800/30 rounded-xl border border-slate-700">
                   <label className="flex items-center gap-2 cursor-pointer group">
                     <input
                       type="checkbox"

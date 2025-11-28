@@ -11,13 +11,13 @@ export interface BlogComment {
   isApproved: boolean;
   approvedAt?: string | null;
   approvedBy?: string | null;
-  isSpam?: boolean; // ✅ Added
-  spamScore?: number; // ✅ Added
-  spamReason?: string; // ✅ Added
-  flaggedAt?: string; // ✅ Added
-  flaggedBy?: string; // ✅ Added
+  isSpam?: boolean;
+  spamScore?: number;
+  spamReason?: string;
+  flaggedAt?: string;
+  flaggedBy?: string;
   parentCommentId?: string | null;
-  replies?: string[];
+  replies?: BlogComment[];
   blogPostId: string;
   blogPostTitle?: string | null;
   createdAt: string;
@@ -29,6 +29,8 @@ export interface BlogPost {
   id: string;
   title: string;
   slug: string;
+  isDeleted?: boolean;
+  comments?: BlogComment[];
 }
 
 export interface ApiResponse<T> {
@@ -45,7 +47,6 @@ export interface BlogCommentStats {
   spam: number;
 }
 
-// ✅ Reply DTO
 export interface ReplyCommentDto {
   parentCommentId: string;
   commentText: string;
@@ -55,14 +56,14 @@ export interface ReplyCommentDto {
 
 // --- Main Service ---
 export const blogCommentsService = {
-  // Get all comments for a specific post (with includeUnapproved param)
+  // Get all comments for a specific post
   getByPostId: (postId: string, includeUnapproved: boolean = true, config: any = {}) =>
     apiClient.get<ApiResponse<BlogComment[]>>(
       `${API_ENDPOINTS.blogComments}/post/${postId}?includeUnapproved=${includeUnapproved}`,
       config
     ),
 
-  // ✅ Get all spam comments
+  // Get all spam comments
   getSpamComments: (config: any = {}) =>
     apiClient.get<ApiResponse<BlogComment[]>>(
       `${API_ENDPOINTS.blogComments}/spam`,
@@ -81,7 +82,7 @@ export const blogCommentsService = {
       config
     ),
 
-  // ✅ Flag comment as spam
+  // Flag comment as spam
   flagAsSpam: (id: string, reason?: string, spamScore?: number, config: any = {}) =>
     apiClient.post<ApiResponse<BlogComment>>(
       `${API_ENDPOINTS.blogComments}/${id}/flag-spam`,
@@ -89,7 +90,7 @@ export const blogCommentsService = {
       config
     ),
 
-  // ✅ Unflag spam (restore comment)
+  // Unflag spam (restore comment)
   unflagSpam: (id: string, config: any = {}) =>
     apiClient.post<ApiResponse<BlogComment>>(
       `${API_ENDPOINTS.blogComments}/${id}/unflag-spam`,
@@ -97,7 +98,7 @@ export const blogCommentsService = {
       config
     ),
 
-  // ✅ Reply to comment
+  // Reply to comment
   replyToComment: (commentId: string, data: ReplyCommentDto, config: any = {}) =>
     apiClient.post<ApiResponse<BlogComment>>(
       `${API_ENDPOINTS.blogComments}/${commentId}/reply`,
@@ -105,11 +106,11 @@ export const blogCommentsService = {
       config
     ),
 
-  // Delete comment by ID
-  delete: (id: string) =>
-    apiClient.delete<ApiResponse<null>>(`${API_ENDPOINTS.blogComments}/${id}`),
+  // ✅ Delete comment by ID (Fixed return type)
+  delete: (id: string, config: any = {}) =>
+    apiClient.delete<ApiResponse<null>>(`${API_ENDPOINTS.blogComments}/${id}`, config),
 
-  // Get all blog posts (for filter dropdown)
+  // Get all blog posts WITH comments
   getAllPosts: (config: any = {}) =>
     apiClient.get<ApiResponse<BlogPost[]>>('/api/BlogPosts', config),
 };
