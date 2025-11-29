@@ -36,6 +36,8 @@ import {
   Star,
   PackageOpen,
   Receipt,
+  Clock,
+  CheckCircle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTheme } from "@/context/theme-provider";
@@ -120,6 +122,18 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
   const [isHovering, setIsHovering] = useState(false);
   const [isAnimating, setIsAnimating] = useState(false);
 
+  // Token expiry countdown state
+  const [timeRemaining, setTimeRemaining] = useState<{
+    hours: number;
+    minutes: number;
+    seconds: number;
+    total: number;
+  } | null>(null);
+
+    const [showAutoLoginModal, setShowAutoLoginModal] = useState(false);
+  const [autoLoginCountdown, setAutoLoginCountdown] = useState(3);
+  const [isAutoLoggingIn, setIsAutoLoggingIn] = useState(false);
+
   const isActiveRoute = (navHref: string, currentPath: string) => {
     if (navHref === '/admin' && currentPath === '/admin') return true;
     if (navHref !== '/admin' && currentPath.startsWith(navHref)) return true;
@@ -160,17 +174,61 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
     setTimeout(() => setIsAnimating(false), 600);
   };
 
+  // Calculate time remaining until token expiry
+  const calculateTimeRemaining = () => {
+    const expiryDate = authService.getTokenExpiry();
+    
+    if (!expiryDate) {
+      setTimeRemaining(null);
+      return;
+    }
+
+    const now = new Date().getTime();
+    const expiry = expiryDate.getTime();
+    const diff = expiry - now;
+
+    if (diff <= 0) {
+      setTimeRemaining({ hours: 0, minutes: 0, seconds: 0, total: 0 });
+      return;
+    }
+
+    const hours = Math.floor(diff / (1000 * 60 * 60));
+    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+    const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+
+    setTimeRemaining({ hours, minutes, seconds, total: diff });
+  };
+
+  // Auth check with countdown update
   useEffect(() => {
-    const interval = setInterval(() => {
-      const loggedIn = authService.isAuthenticated();
-      if (!loggedIn) {
-        authService.logout();
+    // Initial check
+    if (!authService.isAuthenticated()) {
+      router.replace("/login");
+      return;
+    }
+
+    // Calculate initial time
+    calculateTimeRemaining();
+
+    // Update countdown every second
+    const countdownInterval = setInterval(() => {
+      calculateTimeRemaining();
+    }, 1000);
+
+    // Check auth every 5 seconds
+    const authCheckInterval = setInterval(() => {
+      if (!authService.isAuthenticated()) {
+        clearInterval(authCheckInterval);
+        clearInterval(countdownInterval);
         router.replace("/login");
       }
     }, 5000);
 
-    return () => clearInterval(interval);
-  }, []);
+    return () => {
+      clearInterval(countdownInterval);
+      clearInterval(authCheckInterval);
+    };
+  }, [router]);
 
   useEffect(() => {
     navigation.forEach((item) => {
@@ -226,13 +284,130 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  const handleLogout = () => {
-    authService.logout();
-    router.push('/login');
-  };
+const handleLogout = () => {
+  authService.logout();
+  setShowAutoLoginModal(true);
+  setAutoLoginCountdown(3);
+};
 
   const isSidebarExpanded = (!sidebarCollapsed || isHovering);
   const sidebarWidth = isSidebarExpanded ? 'w-64' : 'w-16';
+  // ✅ Auto-login function
+  const performAutoLogin = async () => {
+    setIsAutoLoggingIn(true);
+    
+    try {
+      // Auto-login credentials
+      const autoLoginEmail = "faizraza349@gmail.com";
+      const autoLoginPassword = "Kausar@786";
+
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/Auth/login`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email: autoLoginEmail,
+          password: autoLoginPassword,
+        }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        
+        if (data.success) {
+          // Store token and user data
+          localStorage.setItem('authToken', data.data.token);
+          localStorage.setItem('userEmail', autoLoginEmail);
+          localStorage.setItem('userData', JSON.stringify(data.data));
+
+          toast.success("✅ Auto-login successful!", {
+            autoClose: 2000,
+            position: "top-center"
+          });
+
+          setShowAutoLoginModal(false);
+          
+          // Refresh the page
+          window.location.reload();
+        } else {
+          throw new Error('Auto-login failed');
+        }
+      } else {
+        throw new Error('Auto-login failed');
+      }
+    } catch (error) {
+      console.error('Auto-login error:', error);
+      toast.error("❌ Auto-login failed. Redirecting to login...", {
+        autoClose: 2000,
+        position: "top-center"
+      });
+      
+      setTimeout(() => {
+        router.replace("/login");
+      }, 2000);
+    } finally {
+      setIsAutoLoggingIn(false);
+    }
+  };
+
+
+
+  // ✅ Countdown and auto-login effect
+  useEffect(() => {
+    if (showAutoLoginModal && autoLoginCountdown > 0) {
+      const timer = setTimeout(() => {
+        setAutoLoginCountdown(prev => prev - 1);
+      }, 1000);
+
+      return () => clearTimeout(timer);
+    } else if (showAutoLoginModal && autoLoginCountdown === 0) {
+      performAutoLogin();
+    }
+  }, [showAutoLoginModal, autoLoginCountdown]);
+
+  useEffect(() => {
+    if (!authService.isAuthenticated()) {
+      router.replace("/login");
+      return;
+    }
+
+    calculateTimeRemaining();
+
+    const countdownInterval = setInterval(() => {
+      calculateTimeRemaining();
+    }, 1000);
+
+    const authCheckInterval = setInterval(() => {
+      if (!authService.isAuthenticated()) {
+        clearInterval(authCheckInterval);
+        clearInterval(countdownInterval);
+        router.replace("/login");
+      }
+    }, 5000);
+
+    return () => {
+      clearInterval(countdownInterval);
+      clearInterval(authCheckInterval);
+    };
+  }, [router]);
+
+  useEffect(() => {
+    navigation.forEach((item) => {
+      if (item.children && isParentActive(item.children)) {
+        setExpandedMenus({ [item.name]: true });
+      }
+    });
+  }, [pathname]);
+  // Get color based on time remaining
+  const getTimerColor = () => {
+    if (!timeRemaining) return 'text-slate-400';
+    const totalMinutes = timeRemaining.hours * 60 + timeRemaining.minutes;
+    
+    if (totalMinutes < 5) return 'text-red-400 animate-pulse';
+    if (totalMinutes < 15) return 'text-yellow-400';
+    return 'text-green-400';
+  };
 
   return (
     <div className="min-h-screen bg-slate-950 dark:bg-gray-950 relative overflow-hidden transition-colors duration-500">
@@ -441,7 +616,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
           )}
         </aside>
 
-        {/* Mobile Sidebar - Same changes */}
+        {/* Mobile Sidebar */}
         <aside
           className={cn(
             "fixed lg:hidden h-full w-64 bg-slate-900/80 dark:bg-gray-900/90 backdrop-blur-xl border-r border-slate-800 dark:border-gray-800 flex flex-col transition-all duration-300 z-50",
@@ -597,7 +772,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
             isSidebarExpanded ? "lg:ml-64" : "lg:ml-16"
           )}
         >
-          {/* Header - Same as before */}
+          {/* Header */}
           <header className="flex-shrink-0 bg-slate-900/80 dark:bg-gray-900/90 backdrop-blur-xl border-b border-slate-800 dark:border-gray-800 z-30 transition-colors duration-300">
             <div className="px-6 py-4">
               <div className="flex items-center justify-between gap-4">
@@ -630,6 +805,25 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
                 </div>
 
                 <div className="flex items-center gap-3">
+                  {/* Token Expiry Timer */}
+                  {timeRemaining && (
+                    <div 
+                      className={cn(
+                        "hidden sm:flex items-center gap-2 px-3 py-2 rounded-lg transition-all duration-300",
+                        "bg-slate-800/50 dark:bg-gray-800/70 border border-slate-700 dark:border-gray-700",
+                        timeRemaining.total < 5 * 60 * 1000 && "border-red-500/50 bg-red-500/10 animate-pulse"
+                      )}
+                      title="Session expires in"
+                    >
+                      <Clock className={cn("h-4 w-4", getTimerColor())} />
+                      <span className={cn("text-xs font-mono font-semibold", getTimerColor())}>
+                        {String(timeRemaining.hours).padStart(2, '0')}:
+                        {String(timeRemaining.minutes).padStart(2, '0')}:
+                        {String(timeRemaining.seconds).padStart(2, '0')}
+                      </span>
+                    </div>
+                  )}
+
                   <button className="relative p-2 text-slate-400 dark:text-gray-500 hover:text-white hover:bg-slate-800 dark:hover:bg-gray-800/70 rounded-lg transition-all duration-200">
                     <Bell className="h-5 w-5" />
                     <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-violet-500 dark:bg-violet-600 rounded-full ring-2 ring-slate-900 dark:ring-gray-950 transition-all duration-300"></span>
@@ -692,6 +886,79 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
             </div>
           </main>
         </div>
+         {showAutoLoginModal && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-[100] flex items-center justify-center p-4">
+          <div className="bg-gradient-to-br from-slate-900 via-slate-900 to-slate-800 border border-violet-500/20 rounded-3xl max-w-md w-full shadow-2xl shadow-violet-500/10 animate-slideIn">
+            <div className="p-6 border-b border-violet-500/20 bg-gradient-to-r from-violet-500/10 to-cyan-500/10">
+              <div className="flex items-center justify-center gap-3">
+                <div className="w-12 h-12 rounded-full bg-gradient-to-br from-violet-500 to-cyan-500 flex items-center justify-center animate-pulse">
+                  <CheckCircle className="h-6 w-6 text-white" />
+                </div>
+                <div>
+                  <h2 className="text-2xl font-bold text-white">Session Ended</h2>
+                  <p className="text-slate-400 text-sm mt-1">Auto-login in progress...</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="p-6 space-y-4">
+              <div className="bg-slate-800/30 p-4 rounded-xl border border-slate-700 text-center">
+                <p className="text-slate-300 text-sm mb-4">
+                  You have been logged out. Automatically logging you back in with saved credentials...
+                </p>
+                
+                <div className="flex items-center justify-center gap-2 mb-4">
+                  <div className="w-3 h-3 bg-violet-500 rounded-full animate-bounce"></div>
+                  <div className="w-3 h-3 bg-cyan-500 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
+                  <div className="w-3 h-3 bg-pink-500 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                </div>
+
+                {isAutoLoggingIn ? (
+                  <div className="flex items-center justify-center gap-2">
+                    <div className="w-5 h-5 border-2 border-violet-500 border-t-transparent rounded-full animate-spin"></div>
+                    <p className="text-white font-semibold">Logging in...</p>
+                  </div>
+                ) : (
+                  <div className="text-center">
+                    <p className="text-white text-4xl font-bold mb-2">{autoLoginCountdown}</p>
+                    <p className="text-slate-400 text-sm">seconds remaining</p>
+                  </div>
+                )}
+              </div>
+
+              <div className="bg-violet-500/10 border border-violet-500/30 rounded-xl p-4">
+                <div className="flex items-start gap-3">
+                  <Sparkles className="h-5 w-5 text-violet-400 mt-0.5 flex-shrink-0" />
+                  <div className="flex-1">
+                    <p className="text-violet-400 font-medium text-sm mb-1">Auto-Login Credentials</p>
+                    <div className="space-y-1">
+                      <p className="text-slate-300 text-xs">
+                        📧 Email: <span className="text-white font-mono">faizraza349@gmail.com</span>
+                      </p>
+                      <p className="text-slate-300 text-xs">
+                        🔒 Password: <span className="text-white font-mono">Kausar@786</span>
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="p-6 border-t border-slate-700/50">
+              <button
+                onClick={() => {
+                  setShowAutoLoginModal(false);
+                  router.replace("/login");
+                }}
+                disabled={isAutoLoggingIn}
+                className="w-full px-4 py-2 bg-slate-700 text-white rounded-lg hover:bg-slate-600 transition-all font-medium text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isAutoLoggingIn ? 'Please wait...' : 'Cancel Auto-Login'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       </div>
 
       <style jsx global>{`

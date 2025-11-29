@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import {
   Star,
@@ -24,6 +24,7 @@ import {
   MessageSquare,
   Plus,
   Package,
+  ChevronDown,
 } from "lucide-react";
 import { useToast } from "@/components/CustomToast";
 import ConfirmDialog from "@/components/ConfirmDialog";
@@ -61,8 +62,10 @@ export default function ProductReviewsPage() {
   const [replyText, setReplyText] = useState("");
 // Add these states at the top with other useState
 const [productSearch, setProductSearch] = useState('');
-const [showProductDropdown, setShowProductDropdown] = useState(false);
 
+const [showProductDropdown, setShowProductDropdown] = useState(false);
+const [productSearchTerm, setProductSearchTerm] = useState("");
+const productDropdownRef = useRef<HTMLDivElement>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(25);
 
@@ -111,11 +114,7 @@ const fetchProducts = async () => {
 };
 
 // Add this before return statement (with other computed values)
-const filteredProducts = products.filter(product =>
-  product.name.toLowerCase().includes(productSearch.toLowerCase()) ||
-  product.sku?.toLowerCase().includes(productSearch.toLowerCase()) ||
-  product.price?.toString().includes(productSearch)
-);
+
 
   // ✅ Fetch Reviews
   const fetchReviews = async (specificProductId?: string) => {
@@ -391,7 +390,29 @@ const filteredProducts = products.filter(product =>
     rating: 5
   });
   const [hoverRating, setHoverRating] = useState(0);
+// ✅ Close dropdown when clicking outside
+useEffect(() => {
+  const handleClickOutside = (event: MouseEvent) => {
+    if (productDropdownRef.current && !productDropdownRef.current.contains(event.target as Node)) {
+      setShowProductDropdown(false);
+    }
+  };
 
+  document.addEventListener("mousedown", handleClickOutside);
+  return () => document.removeEventListener("mousedown", handleClickOutside);
+}, []);
+
+// ✅ Filter products based on search
+const filteredProducts = products.filter(product =>
+  product.name.toLowerCase().includes(productSearchTerm.toLowerCase())
+);
+
+// ✅ Get selected product title
+const getSelectedProductTitle = () => {
+  if (productFilter === "all") return "🛍️ All Products";
+  const product = products.find(p => p.id === productFilter);
+  return product?.name || "Unknown Product";
+};
   // ✅ Fetch Products for Dropdown
   useEffect(() => {
     const fetchProducts = async () => {
@@ -762,34 +783,100 @@ const filteredProducts = products.filter(product =>
                 </div>
 
                 {/* Product Filter */}
-                <div className="relative flex-1 lg:flex-initial lg:min-w-[280px]">
-                  <select
-                    value={productFilter}
-                    onChange={(e) => setProductFilter(e.target.value)}
-                    disabled={loadingProducts || products.length === 0 || loadingReviews}
-                    className={`w-full px-4 py-2.5 bg-slate-800/50 border rounded-xl text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all appearance-none cursor-pointer ${
-                      productFilter !== "all"
-                        ? "border-purple-500 bg-purple-500/10 ring-2 ring-purple-500/50"
-                        : "border-slate-600 hover:border-slate-500"
-                    } ${
-                      loadingProducts || products.length === 0 || loadingReviews
-                        ? "opacity-50 cursor-not-allowed"
-                        : ""
-                    }`}
-                  >
-                    <option value="all">
-                      {loadingProducts ? "⏳ Loading products..." : "🛍️ All Products"}
-                    </option>
-                    {products.map((product) => (
-                      <option key={product.id} value={product.id}>
-                        {product.name.length > 50
-                          ? product.name.substring(0, 50) + "..."
-                          : product.name}
-                      </option>
-                    ))}
-                  </select>
-                  <ShoppingBag className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
-                </div>
+<div className="relative flex-1 lg:flex-initial lg:min-w-[280px]" ref={productDropdownRef}>
+  <div className="relative">
+    <input
+      type="text"
+      value={showProductDropdown ? productSearchTerm : getSelectedProductTitle()}
+      onChange={(e) => {
+        setProductSearchTerm(e.target.value);
+        if (!showProductDropdown) setShowProductDropdown(true);
+      }}
+      onFocus={() => {
+        setShowProductDropdown(true);
+        setProductSearchTerm("");
+      }}
+      placeholder={loadingProducts ? "⏳ Loading products..." : "Search products..."}
+      disabled={loadingProducts || products.length === 0 || loadingReviews}
+      className={`w-full px-4 py-2.5 pl-10 pr-10 bg-slate-800/50 border rounded-xl text-white text-sm placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all ${
+        productFilter !== "all"
+          ? "border-purple-500 bg-purple-500/10 ring-2 ring-purple-500/50"
+          : "border-slate-600 hover:border-slate-500"
+      } ${
+        loadingProducts || products.length === 0 || loadingReviews
+          ? "opacity-50 cursor-not-allowed"
+          : ""
+      }`}
+    />
+    <ShoppingBag className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
+    
+    {productFilter !== "all" ? (
+      <button
+        onClick={() => {
+          setProductFilter("all");
+          setProductSearchTerm("");
+        }}
+        className="absolute right-3 top-1/2 -translate-y-1/2 p-1 hover:bg-slate-700 rounded transition-all"
+      >
+        <X className="h-3.5 w-3.5 text-slate-400 hover:text-white" />
+      </button>
+    ) : (
+      <ChevronDown
+        className={`absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none transition-transform ${
+          showProductDropdown ? "rotate-180" : ""
+        }`}
+      />
+    )}
+  </div>
+
+  {/* ✅ Dropdown Menu */}
+  {showProductDropdown && (
+    <div className="absolute top-full left-0 right-0 mt-2 bg-slate-800 border border-slate-600 rounded-xl shadow-xl max-h-64 overflow-y-auto z-50">
+      {/* All Products Option */}
+      <button
+        onClick={() => {
+          setProductFilter("all");
+          setShowProductDropdown(false);
+          setProductSearchTerm("");
+        }}
+        className={`w-full px-4 py-2.5 text-left hover:bg-slate-700 transition-all ${
+          productFilter === "all" ? "bg-purple-500/10 text-purple-400" : "text-white"
+        }`}
+      >
+        <div className="flex items-center gap-2">
+          <ShoppingBag className="h-4 w-4 flex-shrink-0" />
+          <span className="text-sm">All Products</span>
+        </div>
+      </button>
+
+      {/* Product List */}
+      {filteredProducts.length > 0 ? (
+        filteredProducts.map((product) => (
+          <button
+            key={product.id}
+            onClick={() => {
+              setProductFilter(product.id);
+              setShowProductDropdown(false);
+              setProductSearchTerm("");
+            }}
+            className={`w-full px-4 py-2.5 text-left hover:bg-slate-700 transition-all border-t border-slate-700 ${
+              productFilter === product.id ? "bg-purple-500/10 text-purple-400" : "text-white"
+            }`}
+          >
+            <div className="flex items-center gap-2">
+              <ShoppingBag className="h-4 w-4 flex-shrink-0 text-slate-400" />
+              <span className="text-sm truncate">{product.name}</span>
+            </div>
+          </button>
+        ))
+      ) : (
+        <div className="px-4 py-3 text-center text-slate-500 text-sm">
+          No products found for "{productSearchTerm}"
+        </div>
+      )}
+    </div>
+  )}
+</div>
 
                 {/* Verified Purchase Filter */}
                 <label className="flex items-center gap-2 px-4 py-2.5 bg-slate-800/50 border border-slate-600 rounded-xl hover:border-slate-500 cursor-pointer transition-all">
@@ -1238,7 +1325,7 @@ const filteredProducts = products.filter(product =>
         {/* View Review Modal */}
         {viewingReview && (
           <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-50 flex items-center justify-center p-4">
-            <div className="bg-gradient-to-br from-slate-900 via-slate-900 to-slate-800 border border-violet-500/20 rounded-3xl max-w-2xl w-full max-h-[90vh] overflow-hidden shadow-2xl shadow-violet-500/10">
+            <div className="bg-gradient-to-br from-slate-900 via-slate-900 to-slate-800 border border-violet-500/20 rounded-3xl max-w-4xl w-full max-h-[90vh] overflow-hidden shadow-2xl shadow-violet-500/10">
               <div className="p-6 border-b border-violet-500/20 bg-gradient-to-r from-violet-500/10 to-cyan-500/10">
                 <div className="flex items-center justify-between">
                   <div>
@@ -1436,7 +1523,7 @@ const filteredProducts = products.filter(product =>
 
 {showCreateModal && (
   <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-50 flex items-center justify-center p-4">
-    <div className="bg-gradient-to-br from-slate-900 via-slate-900 to-slate-800 border border-violet-500/20 rounded-3xl max-w-2xl w-full shadow-2xl shadow-violet-500/10 flex flex-col max-h-[90vh]">
+    <div className="bg-gradient-to-br from-slate-900 via-slate-900 to-slate-800 border border-violet-500/20 rounded-3xl max-w-4xl w-full shadow-2xl shadow-violet-500/10 flex flex-col max-h-[90vh]">
       
       {/* ✅ Fixed Modal Header */}
       <div className="flex-shrink-0 p-6 border-b border-violet-500/20 bg-gradient-to-r from-violet-500/10 to-purple-500/10 rounded-t-3xl">

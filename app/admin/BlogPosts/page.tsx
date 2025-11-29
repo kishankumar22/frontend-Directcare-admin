@@ -2,12 +2,11 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Edit, Trash2, Search, FileText, Eye, Filter, FilterX, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, AlertCircle, CheckCircle, Edit3, Star } from "lucide-react";
+import { Plus, Edit, Trash2, Search, FileText, Eye, Filter, FilterX, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, AlertCircle, CheckCircle, Edit3, Star, MessageSquare, RotateCcw, Shield, Clock, TrendingUp } from "lucide-react";
 import { API_BASE_URL } from "@/lib/api-config";
 import { BlogPost, blogPostsService, BlogCategory } from "@/lib/services/blogPosts";
 import { useToast } from "@/components/CustomToast";
 import ConfirmDialog from "@/components/ConfirmDialog";
-
 
 export default function BlogPostsPage() {
   const router = useRouter();
@@ -19,23 +18,34 @@ export default function BlogPostsPage() {
   const [selectedImageUrl, setSelectedImageUrl] = useState<string | null>(null);
   const [activeFilter, setActiveFilter] = useState<string>("all");
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
+  const [deletionStatusFilter, setDeletionStatusFilter] = useState<string>("all");
   
   // Pagination states
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(25);
   
-  const [deleteConfirm, setDeleteConfirm] = useState<{
+  // Action confirmation state
+  const [actionConfirm, setActionConfirm] = useState<{
     id: string;
     title: string;
+    action: 'delete' | 'restore';
   } | null>(null);
-  const [isDeleting, setIsDeleting] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
 
   // Statistics state
   const [stats, setStats] = useState({
     totalPosts: 0,
     published: 0,
     drafts: 0,
-    featured: 0
+    featured: 0,
+    totalComments: 0,
+    approvedComments: 0,
+    pendingComments: 0,
+    spamComments: 0,
+    deleted: 0,
+    totalViews: 0,
+    avgViewsPerPost: 0,
+    avgCommentsPerPost: 0
   });
 
   const getImageUrl = (imageUrl?: string) => {
@@ -55,9 +65,9 @@ export default function BlogPostsPage() {
     fetchBlogCategories();
   }, []);
 
-  // ✅ Service-based fetch categories
   const fetchBlogCategories = async () => {
     try {
+      
       const response = await blogPostsService.getAllCategories();
       if (response.data && response.data.success) {
         const categoriesData = response.data.data || [];
@@ -68,47 +78,105 @@ export default function BlogPostsPage() {
     }
   };
 
-  // ✅ Service-based fetch posts
-  const fetchBlogPosts = async () => {
-    try {
-      const response = await blogPostsService.getAll(true, true);
-      if (response.data && response.data.success) {
-        const postsData = response.data.data || [];
-        setBlogPosts(postsData);
-        calculateStats(postsData);
-      } else {
-        setBlogPosts([]);
-      }
-    } catch (error: any) {
-      console.error("❌ Error fetching blog posts:", error);
-      toast.error("Failed to load blog posts");
+ // ✅ Stats calculation ko fix karo - Always calculate from ALL posts
+const fetchBlogPosts = async () => {
+  try {
+    const response = await blogPostsService.getAll(true, false, true);
+    if (response.data && response.data.success) {
+      const postsData = response.data.data || [];
+      setBlogPosts(postsData);
+      // ✅ Always calculate from complete data
+      calculateStats(postsData);
+    } else {
       setBlogPosts([]);
-    } finally {
-      setLoading(false);
     }
-  };
+  } catch (error: any) {
+    console.error("❌ Error fetching blog posts:", error);
+    toast.error("Failed to load blog posts");
+    setBlogPosts([]);
+  } finally {
+    setLoading(false);
+  }
+};
 
+
+
+  // ✅ Calculate all stats dynamically
   const calculateStats = (posts: BlogPost[]) => {
-    const totalPosts = posts.length;
-    const published = posts.filter(p => p.isPublished).length;
-    const drafts = posts.filter(p => !p.isPublished).length;
-    const featured = posts.filter(p => p.showOnHomePage).length;
+    const totalPosts = posts.filter(p => !p.isDeleted).length;
+    const published = posts.filter(p => p.isPublished && !p.isDeleted).length;
+    const drafts = posts.filter(p => !p.isPublished && !p.isDeleted).length;
+    const featured = posts.filter(p => p.showOnHomePage && !p.isDeleted).length;
+    const deleted = posts.filter(p => p.isDeleted).length;
+
+    // Calculate comment statistics
+    let totalComments = 0;
+    let approvedComments = 0;
+    let pendingComments = 0;
+    let spamComments = 0;
+
+    posts.forEach(post => {
+      if (post.comments && Array.isArray(post.comments)) {
+        const allComments = getAllComments(post.comments);
+        totalComments += allComments.length;
+        approvedComments += allComments.filter(c => c.isApproved).length;
+        pendingComments += allComments.filter(c => !c.isApproved && !c.isSpam).length;
+        spamComments += allComments.filter(c => c.isSpam).length;
+      }
+    });
+
+    // Calculate views
+    const totalViews = posts.reduce((sum, post) => sum + (post.viewCount || 0), 0);
+    const avgViewsPerPost = totalPosts > 0 ? Math.round(totalViews / totalPosts) : 0;
+    const avgCommentsPerPost = totalPosts > 0 ? parseFloat((totalComments / totalPosts).toFixed(1)) : 0;
 
     setStats({
       totalPosts,
       published,
       drafts,
-      featured
+      featured,
+      totalComments,
+      approvedComments,
+      pendingComments,
+      spamComments,
+      deleted,
+      totalViews,
+      avgViewsPerPost,
+      avgCommentsPerPost
     });
   };
 
-  // ✅ Service-based delete
+  // Helper function to get all comments including replies
+  const getAllComments = (comments: any[]): any[] => {
+    let allComments: any[] = [];
+    comments.forEach(comment => {
+      allComments.push(comment);
+      if (comment.replies && Array.isArray(comment.replies)) {
+        allComments = allComments.concat(getAllComments(comment.replies));
+      }
+    });
+    return allComments;
+  };
+
+  // Get comment count for a post
+  const getCommentCount = (post: BlogPost) => {
+    if (!post.comments || !Array.isArray(post.comments)) return 0;
+    return getAllComments(post.comments).length;
+  };
+
+  // Get spam comment count for a post
+  const getSpamCount = (post: BlogPost) => {
+    if (!post.comments || !Array.isArray(post.comments)) return 0;
+    return getAllComments(post.comments).filter(c => c.isSpam).length;
+  };
+
+  // Delete (soft delete)
   const handleDelete = async (id: string) => {
-    setIsDeleting(true);
+    setIsProcessing(true);
     try {
       const response = await blogPostsService.delete(id);
       if (response.data && response.data.success) {
-        toast.success("Blog Post deleted successfully! 🗑️");
+        toast.success(response.data.message || "Blog Post deleted successfully! 🗑️");
         await fetchBlogPosts();
       } else {
         throw new Error(response.data?.message || "Delete failed");
@@ -118,25 +186,47 @@ export default function BlogPostsPage() {
       const message = error.response?.data?.message || error.message || "Failed to delete blog post";
       toast.error(message);
     } finally {
-      setIsDeleting(false);
-      setDeleteConfirm(null);
+      setIsProcessing(false);
+      setActionConfirm(null);
+    }
+  };
+
+  // Restore
+  const handleRestore = async (id: string) => {
+    setIsProcessing(true);
+    try {
+      const response = await blogPostsService.restore(id);
+      if (response.data && response.data.success) {
+        toast.success(response.data.message || "Blog post restored successfully! ✅");
+        await fetchBlogPosts();
+      } else {
+        throw new Error(response.data?.message || "Restore failed");
+      }
+    } catch (error: any) {
+      console.error("❌ Error restoring blog post:", error);
+      const message = error.response?.data?.message || error.message || "Failed to restore blog post";
+      toast.error(message);
+    } finally {
+      setIsProcessing(false);
+      setActionConfirm(null);
     }
   };
 
   const clearFilters = () => {
     setActiveFilter("all");
     setCategoryFilter("all");
+    setDeletionStatusFilter("all");
     setSearchTerm("");
     setCurrentPage(1);
   };
 
-  const hasActiveFilters = activeFilter !== "all" || categoryFilter !== "all" || searchTerm.trim() !== "";
+  const hasActiveFilters = activeFilter !== "all" || categoryFilter !== "all" || deletionStatusFilter !== "all" || searchTerm.trim() !== "";
 
-  // Filter data
+  // Filter with deletion status
   const filteredBlogPosts = Array.isArray(blogPosts) ? blogPosts.filter(post => {
     const matchesSearch = post.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         post.summary?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         post.content?.toLowerCase().includes(searchTerm.toLowerCase());
+                         post.bodyOverview?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         post.body?.toLowerCase().includes(searchTerm.toLowerCase());
     
     const matchesActive = activeFilter === "all" || 
                          (activeFilter === "published" && post.isPublished) ||
@@ -144,7 +234,12 @@ export default function BlogPostsPage() {
 
     const matchesCategory = categoryFilter === "all" || post.blogCategoryId === categoryFilter;
 
-    return matchesSearch && matchesActive && matchesCategory;
+    const matchesDeletionStatus = 
+      (deletionStatusFilter === "active" && !post.isDeleted) ||
+      (deletionStatusFilter === "deleted" && post.isDeleted) ||
+      (deletionStatusFilter === "all");
+
+    return matchesSearch && matchesActive && matchesCategory && matchesDeletionStatus;
   }) : [];
 
   // Pagination calculations
@@ -193,7 +288,7 @@ export default function BlogPostsPage() {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm, activeFilter, categoryFilter]);
+  }, [searchTerm, activeFilter, categoryFilter, deletionStatusFilter]);
 
   if (loading) {
     return (
@@ -214,7 +309,6 @@ export default function BlogPostsPage() {
           <h1 className="text-3xl font-bold tracking-tight bg-gradient-to-r from-violet-400 via-cyan-400 to-pink-400 bg-clip-text text-transparent">
             Blog Posts
           </h1>
-   
           <p className="text-slate-400">Manage your blog posts</p>
         </div>
         <button
@@ -226,80 +320,144 @@ export default function BlogPostsPage() {
         </button>
       </div>
 
-      {/* Statistics Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-6 hover:border-violet-500/50 transition-all">
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-xl bg-violet-500/10 flex items-center justify-center">
-              <FileText className="h-6 w-6 text-violet-400" />
+      {/* ✅ Dynamic Stats - All from List Data */}
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3">
+        {/* Card 1: Posts Status */}
+        <div className="bg-gradient-to-br from-slate-800/80 to-slate-800/40 backdrop-blur-sm border border-slate-700/50 rounded-xl p-3 hover:border-violet-500/50 transition-all">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-lg bg-violet-500/20 flex items-center justify-center border border-violet-500/30">
+                <FileText className="h-4 w-4 text-violet-400" />
+              </div>
+              <div>
+                <p className="text-slate-400 text-xs font-medium">Posts Status</p>
+                <p className="text-white text-lg font-bold">{stats.totalPosts}</p>
+              </div>
             </div>
-            <div className="flex-1">
-              <p className="text-slate-400 text-sm font-medium mb-1">Total Posts</p>
-              <p className="text-white text-2xl font-bold">{stats.totalPosts}</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-6 hover:border-green-500/50 transition-all">
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-xl bg-green-500/10 flex items-center justify-center">
-              <CheckCircle className="h-6 w-6 text-green-400" />
-            </div>
-            <div className="flex-1">
-              <p className="text-slate-400 text-sm font-medium mb-1">Published</p>
-              <p className="text-white text-2xl font-bold">{stats.published}</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-6 hover:border-yellow-500/50 transition-all">
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-xl bg-yellow-500/10 flex items-center justify-center">
-              <Edit3 className="h-6 w-6 text-yellow-400" />
-            </div>
-            <div className="flex-1">
-              <p className="text-slate-400 text-sm font-medium mb-1">Drafts</p>
-              <p className="text-white text-2xl font-bold">{stats.drafts}</p>
+            
+            <div className="flex items-center gap-3">
+              <div className="text-center">
+                <p className="text-xs text-slate-400 mb-0.5">Published</p>
+                <p className="text-lg font-bold text-green-400">{stats.published}</p>
+              </div>
+              <div className="text-center">
+                <p className="text-xs text-slate-400 mb-0.5">Drafts</p>
+                <p className="text-lg font-bold text-yellow-400">{stats.drafts}</p>
+              </div>
             </div>
           </div>
         </div>
 
-        <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-6 hover:border-pink-500/50 transition-all">
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-xl bg-pink-500/10 flex items-center justify-center">
-              <Star className="h-6 w-6 text-pink-400" />
+        {/* Card 2: Comments Activity */}
+        <div className="bg-gradient-to-br from-slate-800/80 to-slate-800/40 backdrop-blur-sm border border-slate-700/50 rounded-xl p-3 hover:border-blue-500/50 transition-all">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-lg bg-blue-500/20 flex items-center justify-center border border-blue-500/30">
+                <MessageSquare className="h-4 w-4 text-blue-400" />
+              </div>
+              <div>
+                <p className="text-slate-400 text-xs font-medium">Comments</p>
+                <p className="text-white text-lg font-bold">{stats.totalComments}</p>
+              </div>
             </div>
-            <div className="flex-1">
-              <p className="text-slate-400 text-sm font-medium mb-1">Featured</p>
-              <p className="text-white text-2xl font-bold">{stats.featured}</p>
+            
+            <div className="flex items-center gap-3">
+              <div className="text-center">
+                <p className="text-xs text-slate-400 mb-0.5">Approved</p>
+                <p className="text-lg font-bold text-green-400">{stats.approvedComments}</p>
+              </div>
+              <div className="text-center">
+                <p className="text-xs text-slate-400 mb-0.5">Pending</p>
+                <p className="text-lg font-bold text-yellow-400">{stats.pendingComments}</p>
+              </div>
+              <div className="text-center">
+                <p className="text-xs text-slate-400 mb-0.5">Spam</p>
+                <p className="text-lg font-bold text-red-400">{stats.spamComments}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Card 3: Featured & Deleted */}
+        <div className="bg-gradient-to-br from-slate-800/80 to-slate-800/40 backdrop-blur-sm border border-slate-700/50 rounded-xl p-3 hover:border-pink-500/50 transition-all">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-lg bg-pink-500/20 flex items-center justify-center border border-pink-500/30">
+                <Star className="h-4 w-4 text-pink-400" />
+              </div>
+              <div>
+                <p className="text-slate-400 text-xs font-medium">Special Posts</p>
+                <p className="text-white text-lg font-bold">{stats.featured + stats.deleted}</p>
+              </div>
+            </div>
+            
+            <div className="flex items-center gap-3">
+              <div className="text-center">
+                <p className="text-xs text-slate-400 mb-0.5">Featured</p>
+                <p className="text-lg font-bold text-pink-400">{stats.featured}</p>
+              </div>
+              <div className="text-center">
+                <p className="text-xs text-slate-400 mb-0.5">Deleted</p>
+                <p className="text-lg font-bold text-orange-400">{stats.deleted}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Card 4: Views & Engagement */}
+        <div className="bg-gradient-to-br from-slate-800/80 to-slate-800/40 backdrop-blur-sm border border-slate-700/50 rounded-xl p-3 hover:border-cyan-500/50 transition-all">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-lg bg-cyan-500/20 flex items-center justify-center border border-cyan-500/30">
+                <Eye className="h-4 w-4 text-cyan-400" />
+              </div>
+              <div>
+                <p className="text-slate-400 text-xs font-medium">Total Views</p>
+                <p className="text-white text-lg font-bold">{stats.totalViews}</p>
+              </div>
+            </div>
+            
+            <div className="flex items-center gap-3">
+              <div className="text-center">
+                <p className="text-xs text-slate-400 mb-0.5">Avg/Post</p>
+                <p className="text-lg font-bold text-emerald-400">{stats.avgViewsPerPost}</p>
+              </div>
+              <div className="text-center">
+                <p className="text-xs text-slate-400 mb-0.5">Comments/Post</p>
+                <p className="text-lg font-bold text-blue-400">{stats.avgCommentsPerPost}</p>
+              </div>
             </div>
           </div>
         </div>
       </div>
 
       {/* Items Per Page Selector */}
-      <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-2xl p-2">
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <span className="text-sm text-slate-400">Show</span>
-            <select
-              value={itemsPerPage}
-              onChange={(e) => handleItemsPerPageChange(Number(e.target.value))}
-              className="px-3 py-2 bg-slate-800/50 border border-slate-600 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all"
-            >
-              <option value={25}>25</option>
-              <option value={50}>50</option>
-              <option value={75}>75</option>
-              <option value={100}>100</option>
-            </select>
-            <span className="text-sm text-slate-400">entries per page</span>
-          </div>
-          
-          <div className="text-sm text-slate-400">
-            Showing {totalItems > 0 ? startIndex + 1 : 0} to {Math.min(endIndex, totalItems)} of {totalItems} entries
-          </div>
-        </div>
+{/* ✅ Items Per Page Selector - Only show when more than 25 items */}
+{totalItems > 25 && (
+  <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-2xl p-2">
+    <div className="flex flex-wrap items-center justify-between gap-4">
+      <div className="flex items-center gap-3">
+        <span className="text-sm text-slate-400">Show</span>
+        <select
+          value={itemsPerPage}
+          onChange={(e) => handleItemsPerPageChange(Number(e.target.value))}
+          className="px-3 py-2 bg-slate-800/50 border border-slate-600 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all"
+        >
+          <option value={25}>25</option>
+          <option value={50}>50</option>
+          <option value={75}>75</option>
+          <option value={100}>100</option>
+        </select>
+        <span className="text-sm text-slate-400">entries per page</span>
       </div>
+      
+      <div className="text-sm text-slate-400">
+        Showing {totalItems > 0 ? startIndex + 1 : 0} to {Math.min(endIndex, totalItems)} of {totalItems} entries
+      </div>
+    </div>
+  </div>
+)}
+
 
       {/* Search and Filters */}
       <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-2xl p-2">
@@ -347,6 +505,20 @@ export default function BlogPostsPage() {
               ))}
             </select>
 
+            <select
+              value={deletionStatusFilter}
+              onChange={(e) => setDeletionStatusFilter(e.target.value)}
+              className={`px-3 py-3 bg-slate-800/50 border rounded-xl text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all min-w-32 ${
+                deletionStatusFilter !== "all" 
+                  ? "border-orange-500 bg-orange-500/10 ring-2 ring-orange-500/50" 
+                  : "border-slate-600"
+              }`}
+            >
+              <option value="all">Show All</option>
+              <option value="active">Active Only</option>
+              <option value="deleted">Deleted Only</option>
+            </select>
+
             {hasActiveFilters && (
               <button
                 onClick={clearFilters}
@@ -388,93 +560,128 @@ export default function BlogPostsPage() {
                   <th className="text-left py-3 px-4 text-slate-400 font-medium text-sm">Category</th>
                   <th className="text-center py-3 px-4 text-slate-400 font-medium text-sm">Status</th>
                   <th className="text-center py-3 px-4 text-slate-400 font-medium text-sm">Views</th>
+                  <th className="text-center py-3 px-4 text-slate-400 font-medium text-sm">Comments</th>
                   <th className="text-left py-3 px-4 text-slate-400 font-medium text-sm">Author</th>
                   <th className="text-left py-3 px-4 text-slate-400 font-medium text-sm">Published At</th>
                   <th className="text-center py-3 px-4 text-slate-400 font-medium text-sm">Actions</th>
                 </tr>
               </thead>
               <tbody>
-                {currentData.map((blogPost) => (
-                  <tr key={blogPost.id} className="border-b border-slate-800 hover:bg-slate-800/30 transition-colors">
-                    <td className="py-4 px-4">
-                      <div className="flex items-center gap-3">
-                        {blogPost.thumbnailImageUrl ? (
-                          <div
-                            className="w-10 h-10 rounded-lg overflow-hidden border border-slate-700 cursor-pointer hover:ring-2 hover:ring-violet-500 transition-all flex-shrink-0"
-                            onClick={() => setSelectedImageUrl(getImageUrl(blogPost.thumbnailImageUrl))}
-                          >
-                            <img
-                              src={getImageUrl(blogPost.thumbnailImageUrl)}
-                              alt={blogPost.title}
-                              className="w-full h-full object-cover"
-                            />
+                {currentData.map((blogPost) => {
+                  const commentCount = getCommentCount(blogPost);
+                  const spamCount = getSpamCount(blogPost);
+                  
+                  return (
+                    <tr key={blogPost.id} className={`border-b border-slate-800 hover:bg-slate-800/30 transition-colors ${blogPost.isDeleted ? 'opacity-60' : ''}`}>
+                      <td className="py-4 px-4">
+                        <div className="flex items-center gap-3">
+                          {blogPost.thumbnailImageUrl ? (
+                            <div
+                              className="w-10 h-10 rounded-lg overflow-hidden border border-slate-700 cursor-pointer hover:ring-2 hover:ring-violet-500 transition-all flex-shrink-0"
+                              onClick={() => setSelectedImageUrl(getImageUrl(blogPost.thumbnailImageUrl))}
+                            >
+                              <img
+                                src={getImageUrl(blogPost.thumbnailImageUrl)}
+                                alt={blogPost.title}
+                                className="w-full h-full object-cover"
+                              />
+                            </div>
+                          ) : (
+                            <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-violet-500 to-pink-500 flex items-center justify-center flex-shrink-0">
+                              <FileText className="h-5 w-5 text-white" />
+                            </div>
+                          )}
+                          <div>
+                            <p
+                              className="text-white font-medium cursor-pointer hover:text-violet-400 transition-colors"
+                              onClick={() => !blogPost.isDeleted && handleViewBlogPost(blogPost.slug)}
+                            >
+                              {blogPost.title}
+                              {blogPost.isDeleted && (
+                                <span className="ml-2 text-xs text-orange-400">(Deleted)</span>
+                              )}
+                            </p>
+                            <p className="text-xs text-slate-500">{blogPost.slug}</p>
                           </div>
-                        ) : (
-                          <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-violet-500 to-pink-500 flex items-center justify-center flex-shrink-0">
-                            <FileText className="h-5 w-5 text-white" />
-                          </div>
-                        )}
-                        <div>
-                          <p
-                            className="text-white font-medium cursor-pointer hover:text-violet-400 transition-colors"
-                            onClick={() => handleViewBlogPost(blogPost.slug)}
-                          >
-                            {blogPost.title}
-                          </p>
-                          <p className="text-xs text-slate-500">{blogPost.slug}</p>
                         </div>
-                      </div>
-                    </td>
-                    <td className="py-4 px-4 text-slate-300 text-sm">
-                      {blogPost.blogCategoryName || '-'}
-                    </td>
-                    <td className="py-4 px-4 text-center">
-                      <span className={`px-3 py-1 rounded-lg text-xs font-medium ${
-                        blogPost.isPublished
-                          ? 'bg-green-500/10 text-green-400'
-                          : 'bg-yellow-500/10 text-yellow-400'
-                      }`}>
-                        {blogPost.isPublished ? 'Published' : 'Draft'}
-                      </span>
-                    </td>
-                    <td className="py-4 px-4 text-center">
-                      <span className="px-3 py-1 bg-cyan-500/10 text-cyan-400 rounded-lg text-sm font-medium">
-                        {blogPost.viewCount || 0}
-                      </span>
-                    </td>
-                    <td className="py-4 px-4 text-slate-300 text-sm">
-                      {blogPost.authorName || 'Unknown'}
-                    </td>
-                    <td className="py-4 px-4 text-slate-300 text-sm">
-                      {blogPost.publishedAt ? new Date(blogPost.publishedAt).toLocaleDateString() : 'Not published'}
-                    </td>
-                    <td className="py-4 px-4">
-                      <div className="flex items-center justify-center gap-2">
-                        <button
-                          onClick={() => handleViewBlogPost(blogPost.slug)}
-                          className="p-2 text-violet-400 hover:bg-violet-500/10 rounded-lg transition-all"
-                          title="View Blog Post"
-                        >
-                          <Eye className="h-4 w-4" />
-                        </button>
-                        <button
-                          onClick={() => router.push(`/admin/BlogPosts/edit/${blogPost.id}`)}
-                          className="p-2 text-cyan-400 hover:bg-cyan-500/10 rounded-lg transition-all"
-                          title="Edit"
-                        >
-                          <Edit className="h-4 w-4" />
-                        </button>
-                        <button
-                          onClick={() => setDeleteConfirm({ id: blogPost.id, title: blogPost.title })}
-                          className="p-2 text-red-400 hover:bg-red-500/10 rounded-lg transition-all"
-                          title="Delete"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                      </td>
+                      <td className="py-4 px-4 text-slate-300 text-sm">
+                        {blogPost.blogCategoryName || '-'}
+                      </td>
+                      <td className="py-4 px-4 text-center">
+                        <span className={`px-3 py-1 rounded-lg text-xs font-medium ${
+                          blogPost.isPublished
+                            ? 'bg-green-500/10 text-green-400'
+                            : 'bg-yellow-500/10 text-yellow-400'
+                        }`}>
+                          {blogPost.isPublished ? 'Published' : 'Draft'}
+                        </span>
+                      </td>
+                      <td className="py-4 px-4 text-center">
+                        <span className="px-3 py-1 bg-cyan-500/10 text-cyan-400 rounded-lg text-sm font-medium">
+                          {blogPost.viewCount || 0}
+                        </span>
+                      </td>
+                      <td className="py-4 px-4 text-center">
+                        <div className="flex items-center justify-center gap-2">
+                          <span className="px-2 py-1 bg-blue-500/10 text-blue-400 rounded-lg text-sm font-medium">
+                            {commentCount}
+                          </span>
+                          {spamCount > 0 && (
+                            <span className="px-2 py-1 bg-red-500/10 text-red-400 rounded-lg text-xs font-medium" title="Spam comments">
+                              {spamCount} spam
+                            </span>
+                          )}
+                        </div>
+                      </td>
+                      <td className="py-4 px-4 text-slate-300 text-sm">
+                        {blogPost.authorName || 'Unknown'}
+                      </td>
+                      <td className="py-4 px-4 text-slate-300 text-sm">
+                        {blogPost.publishedAt ? new Date(blogPost.publishedAt).toLocaleDateString() : 'Not published'}
+                      </td>
+                      <td className="py-4 px-4">
+                        <div className="flex items-center justify-center gap-2">
+                          {!blogPost.isDeleted ? (
+                            <>
+                              <button
+                                onClick={() => handleViewBlogPost(blogPost.slug)}
+                                className="p-2 text-violet-400 hover:bg-violet-500/10 rounded-lg transition-all"
+                                title="View Blog Post"
+                              >
+                                <Eye className="h-4 w-4" />
+                              </button>
+                              <button
+                                onClick={() => router.push(`/admin/BlogPosts/edit/${blogPost.id}`)}
+                                className="p-2 text-cyan-400 hover:bg-cyan-500/10 rounded-lg transition-all"
+                                title="Edit"
+                              >
+                                <Edit className="h-4 w-4" />
+                              </button>
+                              <button
+                                onClick={() => setActionConfirm({ id: blogPost.id, title: blogPost.title, action: 'delete' })}
+                                className="p-2 text-red-400 hover:bg-red-500/10 rounded-lg transition-all"
+                                title="Delete"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </button>
+                            </>
+                          ) : (
+                            <>
+                              <button
+                                onClick={() => setActionConfirm({ id: blogPost.id, title: blogPost.title, action: 'restore' })}
+                                className="p-2 text-green-400 hover:bg-green-500/10 rounded-lg transition-all"
+                                title="Restore"
+                              >
+                                <RotateCcw className="h-4 w-4" />
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -546,19 +753,33 @@ export default function BlogPostsPage() {
         </div>
       )}
 
-      {/* Delete Confirmation Dialog */}
+      {/* Delete/Restore Confirmation Dialog */}
       <ConfirmDialog
-        isOpen={!!deleteConfirm}
-        onClose={() => setDeleteConfirm(null)}
-        onConfirm={() => deleteConfirm && handleDelete(deleteConfirm.id)}
-        title="Delete Blog Post"
-        message={`Are you sure you want to delete "${deleteConfirm?.title}"? This action cannot be undone.`}
-        confirmText="Delete Blog Post"
+        isOpen={!!actionConfirm}
+        onClose={() => setActionConfirm(null)}
+        onConfirm={() => {
+          if (actionConfirm?.action === 'delete') {
+            handleDelete(actionConfirm.id);
+          } else if (actionConfirm?.action === 'restore') {
+            handleRestore(actionConfirm.id);
+          }
+        }}
+        title={actionConfirm?.action === 'delete' ? "Delete Blog Post" : "Restore Blog Post"}
+        message={
+          actionConfirm?.action === 'delete'
+            ? `Are you sure you want to delete "${actionConfirm?.title}"? You can restore it later.`
+            : `Are you sure you want to restore "${actionConfirm?.title}"?`
+        }
+        confirmText={actionConfirm?.action === 'delete' ? "Delete Blog Post" : "Restore Blog Post"}
         cancelText="Cancel"
-        icon={AlertCircle}
-        iconColor="text-red-400"
-        confirmButtonStyle="bg-gradient-to-r from-red-500 to-rose-500 hover:shadow-lg hover:shadow-red-500/50"
-        isLoading={isDeleting}
+        icon={actionConfirm?.action === 'delete' ? Trash2 : RotateCcw}
+        iconColor={actionConfirm?.action === 'delete' ? "text-red-400" : "text-green-400"}
+        confirmButtonStyle={
+          actionConfirm?.action === 'delete'
+            ? "bg-gradient-to-r from-red-500 to-rose-500 hover:shadow-lg hover:shadow-red-500/50"
+            : "bg-gradient-to-r from-green-500 to-emerald-500 hover:shadow-lg hover:shadow-green-500/50"
+        }
+        isLoading={isProcessing}
       />
 
       {/* Image Preview Modal */}
