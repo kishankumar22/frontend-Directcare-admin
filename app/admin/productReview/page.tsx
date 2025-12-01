@@ -25,7 +25,11 @@ import {
   Plus,
   Package,
   ChevronDown,
+  Download,
 } from "lucide-react";
+import ExcelImportModal from "./ExcelImportModal";
+import { Upload } from "lucide-react";
+
 import { useToast } from "@/components/CustomToast";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import {
@@ -62,7 +66,8 @@ export default function ProductReviewsPage() {
   const [replyText, setReplyText] = useState("");
 // Add these states at the top with other useState
 const [productSearch, setProductSearch] = useState('');
-
+const [showExcelImport, setShowExcelImport] = useState(false);
+const [downloadMenuOpen, setDownloadMenuOpen] = useState(false);
 const [showProductDropdown, setShowProductDropdown] = useState(false);
 const [productSearchTerm, setProductSearchTerm] = useState("");
 const productDropdownRef = useRef<HTMLDivElement>(null);
@@ -75,7 +80,12 @@ const productDropdownRef = useRef<HTMLDivElement>(null);
   } | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
-
+const [approveConfirm, setApproveConfirm] = useState<{
+  id: string;
+  customer: string;
+  title: string;
+} | null>(null);
+const [isApproving, setIsApproving] = useState(false);
   const [stats, setStats] = useState({
     total: 0,
     pending: 0,
@@ -245,24 +255,24 @@ const fetchProducts = async () => {
   }, [reviews, searchTerm, statusFilter, ratingFilter, verifiedOnlyFilter]);
 
   // ✅ Approve Review
-  const handleApprove = async (id: string) => {
-    setActionLoading(id);
-    try {
-      const response = await productReviewsService.approve(id);
-      if (response.data?.success) {
-        toast.success("✅ Review approved successfully!");
-        await fetchReviews(productFilter);
-      }
-    } catch (error: any) {
-      console.error("Error approving review:", error);
-      toast.error(
-        error?.response?.data?.message || "Failed to approve review"
-      );
-    } finally {
-      setActionLoading(null);
+const handleApprove = async (id: string) => {
+  setIsApproving(true);
+  try {
+    const response = await productReviewsService.approve(id);
+    if (response.data?.success) {
+      toast.success("✅ Review approved successfully!");
+      await fetchReviews(productFilter);
+      setApproveConfirm(null);
     }
-  };
-
+  } catch (error: any) {
+    console.error("Error approving review:", error);
+    toast.error(
+      error?.response?.data?.message || "Failed to approve review"
+    );
+  } finally {
+    setIsApproving(false);
+  }
+};
   // ✅ Reply to Review
   const handleReply = async () => {
     if (!replyingTo || !replyText.trim()) {
@@ -541,6 +551,84 @@ const getSelectedProductTitle = () => {
     setCurrentPage(1);
   }, [searchTerm, statusFilter, ratingFilter, verifiedOnlyFilter]);
 
+
+// ✅ COMPLETE: Download Reviews Function - All Messages in English
+const handleExportReviews = (type: string) => {
+  let data: any[] = [];
+  
+  if (type === "all") {
+    // ✅ All reviews from API (no filters)
+    data = reviews;
+    
+  } else if (type === "filtered") {
+    // ✅ Reviews after search/filter
+    data = filteredReviews;
+  }
+
+  if (data.length === 0) {
+    toast.error("No reviews available to download");
+    setDownloadMenuOpen(false);
+    return;
+  }
+
+  console.log(`📥 Exporting ${data.length} reviews...`);
+
+  // Convert data to Excel format
+  const rows = data.map((r) => ({
+    "Product ID": r.productId,
+    "Customer Name": r.customerName,
+    "Title": r.title,
+    "Comment": r.comment,
+    "Rating": r.rating,
+    "Approved": r.isApproved ? "Yes" : "No",
+    "Verified Purchase": r.isVerifiedPurchase ? "Yes" : "No",
+    "Created At": new Date(r.createdAt).toLocaleString('en-IN', { 
+      timeZone: 'Asia/Kolkata',
+      year: 'numeric',
+      month: 'short',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit'
+    }),
+  }));
+
+  // Excel file export
+  import("xlsx").then((XLSX) => {
+    const ws = XLSX.utils.json_to_sheet(rows);
+    
+    // Column widths
+    ws["!cols"] = [
+      { wch: 15 }, // Product ID
+      { wch: 25 }, // Customer Name
+      { wch: 30 }, // Title
+      { wch: 50 }, // Comment
+      { wch: 10 }, // Rating
+      { wch: 12 }, // Approved
+      { wch: 18 }, // Verified Purchase
+      { wch: 25 }  // Created At
+    ];
+
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Reviews");
+    
+    // Generate filename
+    const dateStr = new Date().toISOString().split('T')[0];
+    const filename = type === "all" 
+      ? `Product_Reviews_All_${data.length}_${dateStr}.xlsx`
+      : `Product_Reviews_Filtered_${data.length}_${dateStr}.xlsx`;
+    
+    XLSX.writeFile(wb, filename);
+    toast.success(`✅ Successfully downloaded ${data.length} reviews!`);
+    setDownloadMenuOpen(false);
+    
+  }).catch((err) => {
+    console.error("❌ Excel export error:", err);
+    toast.error("Failed to create Excel file. Please try again.");
+  });
+};
+
+
+
   const getSelectedProductName = () => {
     if (productFilter === "all") return "All Products";
     const product = products.find((p) => p.id === productFilter);
@@ -610,13 +698,68 @@ const getSelectedProductTitle = () => {
               )}
               Refresh
             </button>
-            <button
-            onClick={() => setShowCreateModal(true)}
-            className="px-4 py-2 bg-gradient-to-r from-violet-600 to-purple-600 text-white rounded-xl hover:shadow-lg hover:shadow-violet-500/50 transition-all flex items-center gap-2 font-medium"
-          >
-            <Plus className="h-5 w-5" />
-            Create Review
-          </button>
+{/* ✅ Export to Excel Button (Import के right side में) */}
+<button
+  onClick={() => setShowExcelImport(true)}
+  className="px-3 sm:px-4 py-2 bg-gradient-to-r from-green-600 to-green-700 text-white rounded-xl hover:shadow-lg hover:shadow-green-500/50 transition-all flex items-center gap-2 font-medium text-sm"
+>
+  <Upload className="h-4 w-4 sm:h-5 sm:w-5" />
+  <span className="hidden sm:inline">Import Excel</span>
+  <span className="sm:hidden">Import</span>
+</button>
+
+{/* ✅ Export to Excel Dropdown - UPDATED NAME */}
+<div className="relative">
+  <button
+    className="px-3 sm:px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl flex items-center gap-2 font-medium transition-all text-sm"
+    onClick={() => setDownloadMenuOpen(v => !v)}
+  >
+    <Download className="h-4 w-4 sm:h-5 sm:w-5" />
+    <span className="hidden sm:inline">Export to Excel</span>
+    <span className="sm:hidden">Export</span>
+    <ChevronDown className={`h-3 w-3 sm:h-4 sm:w-4 transition-transform ${downloadMenuOpen ? 'rotate-180' : ''}`} />
+  </button>
+  
+  {downloadMenuOpen && (
+    <div className="absolute right-0 mt-2 w-56 sm:w-64 rounded-xl bg-slate-900 border border-slate-700 shadow-xl z-50 overflow-hidden">
+      {/* All Reviews */}
+      <button
+        className="w-full px-3 sm:px-4 py-2.5 sm:py-3 text-left hover:bg-blue-500/10 transition-all flex items-center justify-between border-b border-slate-800"
+        onClick={() => handleExportReviews('all')}
+      >
+        <div className="flex items-center gap-2">
+          <span className="text-lg sm:text-xl">📊</span>
+          <span className="text-white text-xs sm:text-sm font-medium">All Reviews</span>
+        </div>
+        <span className="text-blue-400 text-xs font-semibold bg-blue-500/10 px-2 py-1 rounded">
+          {reviews.length}
+        </span>
+      </button>
+      
+      {/* Filtered Reviews */}
+      <button
+        className="w-full px-3 sm:px-4 py-2.5 sm:py-3 text-left hover:bg-green-500/10 transition-all flex items-center justify-between"
+        onClick={() => handleExportReviews('filtered')}
+      >
+        <div className="flex items-center gap-2">
+          <span className="text-lg sm:text-xl">🎯</span>
+          <span className="text-white text-xs sm:text-sm font-medium">Filtered Reviews</span>
+        </div>
+        <span className={`text-xs font-semibold px-2 py-1 rounded ${
+          filteredReviews.length > 0 
+            ? 'text-green-400 bg-green-500/10' 
+            : 'text-slate-500 bg-slate-700/30'
+        }`}>
+          {filteredReviews.length}
+        </span>
+      </button>
+    </div>
+  )}
+</div>
+
+
+
+
           </div>
         </div>
 
@@ -1126,16 +1269,19 @@ const getSelectedProductTitle = () => {
                       </td>
                       <td className="py-4 px-4">
                         <div className="flex items-center justify-center gap-2">
-                          {!review.isApproved && (
-                            <button
-                              onClick={() => handleApprove(review.id)}
-                              disabled={actionLoading === review.id}
-                              className="p-2 text-green-400 hover:bg-green-500/10 rounded-lg transition-all disabled:opacity-50"
-                              title="Approve"
-                            >
-                              <CheckCircle className="h-4 w-4" />
-                            </button>
-                          )}
+{!review.isApproved && (
+  <button
+    onClick={() => setApproveConfirm({
+      id: review.id,
+      customer: review.customerName,
+      title: review.title
+    })}
+    className="p-2 text-green-400 hover:bg-green-500/10 rounded-lg transition-all"
+    title="Approve"
+  >
+    <CheckCircle className="h-4 w-4" />
+  </button>
+)}
                           <button
                             onClick={() => setReplyingTo(review)}
                             className="p-2 text-blue-400 hover:bg-blue-500/10 rounded-lg transition-all"
@@ -1765,6 +1911,91 @@ const getSelectedProductTitle = () => {
   </div>
 )}
 
+{/* ✅ Approve Confirmation Modal */}
+{approveConfirm && (
+  <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-50 flex items-center justify-center p-4">
+    <div className="bg-gradient-to-br from-slate-900 via-slate-900 to-slate-800 border border-green-500/20 rounded-3xl max-w-md w-full shadow-2xl shadow-green-500/10">
+      {/* Header */}
+      <div className="p-6 border-b border-green-500/20 bg-gradient-to-r from-green-500/10 to-emerald-500/10">
+        <div className="flex items-center gap-3">
+          <div className="w-12 h-12 rounded-xl bg-green-500/10 flex items-center justify-center">
+            <CheckCircle className="h-6 w-6 text-green-400" />
+          </div>
+          <div>
+            <h2 className="text-xl font-bold text-white">Approve Review</h2>
+            <p className="text-slate-400 text-sm mt-0.5">
+              Confirm review approval
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Content */}
+      <div className="p-6">
+        <div className="bg-slate-800/30 p-4 rounded-xl border border-slate-700 mb-6">
+          <p className="text-slate-300 text-sm mb-3">
+            Are you sure you want to approve this review?
+          </p>
+          <div className="space-y-2">
+            <div className="flex items-start gap-2">
+              <span className="text-slate-500 text-xs mt-0.5">👤</span>
+              <div>
+                <p className="text-xs text-slate-500">Customer</p>
+                <p className="text-white text-sm font-medium">
+                  {approveConfirm.customer}
+                </p>
+              </div>
+            </div>
+            <div className="flex items-start gap-2">
+              <span className="text-slate-500 text-xs mt-0.5">📝</span>
+              <div>
+                <p className="text-xs text-slate-500">Review Title</p>
+                <p className="text-white text-sm">
+                  {approveConfirm.title}
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-green-500/10 border border-green-500/30 rounded-xl p-3 mb-6">
+          <p className="text-green-400 text-xs flex items-center gap-2">
+            <CheckCircle className="h-4 w-4" />
+            This review will be published and visible to customers
+          </p>
+        </div>
+
+        {/* Actions */}
+        <div className="flex gap-3">
+          <button
+            onClick={() => setApproveConfirm(null)}
+            disabled={isApproving}
+            className="flex-1 px-4 py-2.5 bg-slate-700 hover:bg-slate-600 text-white rounded-xl transition-all font-medium text-sm disabled:opacity-50"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={() => handleApprove(approveConfirm.id)}
+            disabled={isApproving}
+            className="flex-1 px-4 py-2.5 bg-gradient-to-r from-green-600 to-emerald-600 hover:shadow-lg hover:shadow-green-500/50 text-white rounded-xl transition-all font-medium text-sm disabled:opacity-50 flex items-center justify-center gap-2"
+          >
+            {isApproving ? (
+              <>
+                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                Approving...
+              </>
+            ) : (
+              <>
+                <CheckCircle className="h-4 w-4" />
+                Approve Review
+              </>
+            )}
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+)}
         {/* Delete Confirmation */}
         <ConfirmDialog
           isOpen={!!deleteConfirm}
@@ -1780,6 +2011,13 @@ const getSelectedProductTitle = () => {
           isLoading={isDeleting}
         />
       </div>
+      {showExcelImport && (
+  <ExcelImportModal
+    onClose={() => setShowExcelImport(false)}
+    onSuccess={() => fetchReviews(productFilter)}
+  />
+)}
+
     </div>
   );
 }

@@ -19,6 +19,7 @@ import { ProductDescriptionEditor } from "@/app/admin/products/SelfHostedEditor"
 // import { ProductDescriptionEditor, RichTextEditor } from "../../RichTextEditor";
 import  {useToast } from "@/components/CustomToast";
 import { API_BASE_URL, API_ENDPOINTS } from "@/lib/api-config";
+import { cn } from "@/lib/utils";
 
 
 // Dynamic API response interfaces
@@ -1075,39 +1076,34 @@ const handleChange = (
   e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
 ) => {
   const { name, value, type } = e.target;
+  const checked = type === "checkbox" ? (e.target as HTMLInputElement).checked : false;
 
-  // -------------------------------
-  // Category logic (unchanged)
-  // -------------------------------
+  // ================================
+  // 1. Category Selection (unchanged)
+  // ================================
   if (name === "categories") {
     const select = e.target as HTMLSelectElement;
     const opt = select.options[select.selectedIndex];
 
-    let displayName =
+    const displayName =
       opt.dataset.categoryName ||
       opt.dataset.displayName ||
       opt.text.replace(/^[\s\u00A0]*└──\s*/, "").replace(/📁\s*/, "");
 
-    setFormData({
-      ...formData,
+    setFormData(prev => ({
+      ...prev,
       categories: value,
       categoryName: displayName
-    });
+    }));
     return;
   }
 
-  // -------------------------------
-  // Input for SEO-friendly page name
-  // User can type normally
-  // -------------------------------
+  // ================================
+  // 2. SEO Friendly Page Name (with debounce)
+  // ================================
   if (name === "searchEngineFriendlyPageName") {
-    // 1) Input box me original text rakhna
-    setFormData({
-      ...formData,
-      searchEngineFriendlyPageName: value
-    });
+    setFormData(prev => ({ ...prev, searchEngineFriendlyPageName: value }));
 
-    // 2) Debounce — user typing stop → slug auto-generate
     clearTimeout(seoTimer);
     seoTimer = setTimeout(() => {
       setFormData(prev => ({
@@ -1115,47 +1111,105 @@ const handleChange = (
         searchEngineFriendlyPageName: generateSeoName(prev.searchEngineFriendlyPageName)
       }));
     }, 1500);
-
     return;
   }
 
-  // -------------------------------
-  // markAsNew checkbox
-  // -------------------------------
+  // ================================
+  // 3. SHIPPING ENABLED - Master Switch
+  // ================================
+  if (name === "isShipEnabled") {
+    setFormData(prev => ({
+      ...prev,
+      isShipEnabled: checked,
+      isFreeShipping: checked ? prev.isFreeShipping : false,
+      additionalShippingCharge: checked ? prev.additionalShippingCharge : "0.00",
+      shipSeparately: checked ? prev.shipSeparately : false,
+      weight: checked ? prev.weight : "",
+      length: checked ? prev.length : "",
+      width: checked ? prev.width : "",
+      height: checked ? prev.height : "",
+      deliveryDateId: checked ? prev.deliveryDateId : ""
+    }));
+    return;
+  }
+
+  // ================================
+  // 4. FREE SHIPPING (Auto reset charge)
+  // ================================
+  if (name === "isFreeShipping") {
+    setFormData(prev => ({
+      ...prev,
+      isFreeShipping: checked,
+      additionalShippingCharge: checked ? "0.00" : prev.additionalShippingCharge || "0.00"
+    }));
+    return;
+  }
+
+  // ================================
+  // 5. RECURRING / SUBSCRIPTION PRODUCT
+  // ================================
+  if (name === "isRecurring") {
+    setFormData(prev => ({
+      ...prev,
+      isRecurring: checked,
+      ...(checked
+        ? {}
+        : {
+            recurringCycleLength: "",
+            recurringCyclePeriod: "days",
+            recurringTotalCycles: "",
+            subscriptionDiscountPercentage: "",
+            allowedSubscriptionFrequencies: "",
+            subscriptionDescription: ""
+          })
+    }));
+    return;
+  }
+
+  // ================================
+  // 6. PACK / BUNDLE PRODUCT
+  // ================================
+  if (name === "isPack") {
+    setFormData(prev => ({
+      ...prev,
+      isPack: checked,
+      packSize: checked ? prev.packSize : ""
+    }));
+    return;
+  }
+
+  // ================================
+  // 7. MARK AS NEW (with date reset)
+  // ================================
   if (name === "markAsNew") {
-    const checked = (e.target as HTMLInputElement).checked;
-
-    setFormData({
-      ...formData,
+    setFormData(prev => ({
+      ...prev,
       markAsNew: checked,
-      markAsNewStartDate: checked ? formData.markAsNewStartDate : "",
-      markAsNewEndDate: checked ? formData.markAsNewEndDate : ""
-    });
+      markAsNewStartDate: checked ? prev.markAsNewStartDate : "",
+      markAsNewEndDate: checked ? prev.markAsNewEndDate : ""
+    }));
     return;
   }
 
-  // -------------------------------
-  // Generic checkboxes
-  // -------------------------------
+  // ================================
+  // 8. Generic Checkboxes (isPublished, isFeatured, etc.)
+  // ================================
   if (type === "checkbox") {
-    const checked = (e.target as HTMLInputElement).checked;
-    setFormData({
-      ...formData,
-      [name]: checked,
-    });
+    setFormData(prev => ({
+      ...prev,
+      [name]: checked
+    }));
     return;
   }
 
-  // -------------------------------
-  // Default handling (text, textarea, select)
-  // -------------------------------
-  setFormData({
-    ...formData,
+  // ================================
+  // 9. Default: Text, Number, Select, Textarea
+  // ================================
+  setFormData(prev => ({
+    ...prev,
     [name]: value
-  });
+  }));
 };
-
-
   // All existing methods remain same...
   const addRelatedProduct = (productId: string) => {
     if (!formData.relatedProducts.includes(productId)) {
@@ -2340,44 +2394,69 @@ const uploadImagesToProductDirect = async (productId: string, files: File[]): Pr
     {formData.isShipEnabled && (
       <div className="space-y-4 bg-slate-800/30 border border-slate-700 p-4 rounded-xl">
         {/* Free Shipping */}
-        <div className="space-y-3">
-          <label className="flex items-center gap-2">
-            <input
-              type="checkbox"
-              name="isFreeShipping"
-              checked={formData.isFreeShipping}
-              onChange={handleChange}
-              className="rounded bg-slate-800/50 border-slate-700 text-violet-500 focus:ring-violet-500 focus:ring-offset-slate-900"
-            />
-            <span className="text-sm text-slate-300">Free shipping</span>
-          </label>
+{/* Free Shipping */}
+<div className="space-y-3">
+  <label className="flex items-center gap-2">
+    <input
+      type="checkbox"
+      name="isFreeShipping"
+      checked={formData.isFreeShipping}
+      onChange={handleChange}
+      className="rounded bg-slate-800/50 border-slate-700 text-violet-500 focus:ring-violet-500 focus:ring-offset-slate-900"
+    />
+    <span className="text-sm text-slate-300">Free shipping</span>
+  </label>
 
-          {/* Ship Separately */}
-          <label className="flex items-center gap-2">
-            <input
-              type="checkbox"
-              name="shipSeparately"
-              checked={formData.shipSeparately}
-              onChange={handleChange}
-              className="rounded bg-slate-800/50 border-slate-700 text-violet-500 focus:ring-violet-500 focus:ring-offset-slate-900"
-            />
-            <span className="text-sm text-slate-300">Ship separately (not with other products)</span>
-          </label>
-        </div>
+  {/* Ship Separately */}
+  <label className="flex items-center gap-2">
+    <input
+      type="checkbox"
+      name="shipSeparately"
+      checked={formData.shipSeparately}
+      onChange={handleChange}
+      className="rounded bg-slate-800/50 border-slate-700 text-violet-500 focus:ring-violet-500 focus:ring-offset-slate-900"
+    />
+    <span className="text-sm text-slate-300">Ship separately (not with other products)</span>
+  </label>
+</div>
 
-        {/* Additional Shipping Charge */}
-        <div>
-          <label className="block text-sm font-medium text-slate-300 mb-2">Additional Shipping Charge (£)</label>
-          <input
-            type="number"
-            name="additionalShippingCharge"
-            value={formData.additionalShippingCharge}
-            onChange={handleChange}
-            placeholder="0.00"
-            step="0.01"
-            className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
-          />
-        </div>
+{/* Additional Shipping Charge - Hide when Free Shipping is ON */}
+<div
+  className={cn(
+    "transition-all duration-500 ease-out overflow-hidden",
+    formData.isFreeShipping
+      ? "max-h-0 opacity-0 -mt-2 pb-0"
+      : "max-h-32 opacity-100 mt-4 pb-2"
+  )}
+>
+  <div className="space-y-2">
+    <label className="block text-sm font-medium text-slate-300">
+      Additional Shipping Charge (£)
+    </label>
+    <input
+      type="number"
+      name="additionalShippingCharge"
+      value={formData.additionalShippingCharge}
+      onChange={handleChange}
+      placeholder="0.00"
+      step="0.01"
+      disabled={formData.isFreeShipping}
+      className={cn(
+        "w-full px-3 py-2 bg-slate-800/50 border rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all",
+        formData.isFreeShipping
+          ? "border-slate-700/50 opacity-60 cursor-not-allowed"
+          : "border-slate-700"
+      )}
+    />
+    {/* {formData.isFreeShipping && (
+      <p className="text-xs text-emerald-400 mt-1 animate-fadeIn">
+        Free shipping enabled — no additional charge applied
+      </p>
+    )} */}
+  </div>
+</div>
+
+    
 
         {/* Delivery Date */}
         <div>

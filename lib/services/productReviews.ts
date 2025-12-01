@@ -18,6 +18,7 @@ export interface ProductReview {
   productId: string;
   customerId: string;
   customerName: string;
+  customerEmail?: string; // ✅ Add this
   title: string;
   comment: string;
   rating: number;
@@ -44,6 +45,8 @@ export interface CreateReviewDto {
   title: string;
   comment: string;
   rating: number;
+  customerEmail?: string; // ✅ Add this
+  customerName?: string;  // ✅ Add this
 }
 
 export interface UpdateReviewDto {
@@ -72,7 +75,6 @@ export interface PaginatedProductsResponse {
     slug: string;
     description?: string;
     price?: number;
-    // ... other fields
   }[];
   totalCount: number;
   page: number;
@@ -136,6 +138,39 @@ export const productReviewsService = {
       config
     ),
 
+  // ✅ Get review by Product ID and Customer Email (for checking duplicates during import)
+// lib/services/productReviews.ts
+
+getByProductAndCustomer: async (
+  productId: string, 
+  customerEmail: string
+): Promise<ProductReview | null> => {
+  try {
+    const response = await apiClient.get<ApiResponse<ProductReview[]>>(
+      `${API_ENDPOINTS.productReviews}/product/${productId}?includeUnapproved=true`
+    );
+    
+    if (response.data && 'success' in response.data && response.data.success) {
+      const reviews = response.data.data;
+      if (Array.isArray(reviews)) {
+        // ✅ Fix: Check customerName instead of customerEmail
+        const matchingReview = reviews.find((r: ProductReview) => {
+          const reviewEmail = r.customerEmail || r.customerName; // ← customerName contains email
+          return reviewEmail?.toLowerCase() === customerEmail.toLowerCase();
+        });
+        
+        console.log(`🔍 Checking product ${productId} for ${customerEmail}:`, matchingReview ? 'FOUND' : 'NOT FOUND');
+        return matchingReview || null;
+      }
+    }
+    return null;
+  } catch (error) {
+    console.error('Error fetching review by product and customer:', error);
+    return null;
+  }
+},
+
+
   // ✅ Approve review (Admin only)
   approve: (reviewId: string, config: any = {}) =>
     apiClient.put<ApiResponse<ProductReview>>(
@@ -161,9 +196,9 @@ export const productReviewsService = {
     ),
 
   // ✅ Get all products (for filter dropdown)
-getAllProducts: (page: number = 1, pageSize: number = 1000, config: any = {}) =>
-  apiClient.get<ApiResponse<PaginatedProductsResponse>>(
-    `/api/Products?page=${page}&pageSize=${pageSize}&sortDirection=asc`,
-    config
-  ),
+  getAllProducts: (page: number = 1, pageSize: number = 1000, config: any = {}) =>
+    apiClient.get<ApiResponse<PaginatedProductsResponse>>(
+      `/api/Products?page=${page}&pageSize=${pageSize}&sortDirection=asc`,
+      config
+    ),
 };

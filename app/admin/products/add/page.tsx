@@ -2194,18 +2194,24 @@ const uploadVariantImages = async (productResponse: any) => {
                   </div>
 
                   {/* Additional Shipping Charge */}
-                  <div>
-                    <label className="block text-sm font-medium text-slate-300 mb-2">Additional Shipping Charge (£)</label>
-                    <input
-                      type="number"
-                      name="additionalShippingCharge"
-                      value={formData.additionalShippingCharge}
-                      onChange={handleChange}
-                      placeholder="0.00"
-                      step="0.01"
-                      className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
-                    />
-                  </div>
+{/* Additional Shipping Charge - ONLY when Free Shipping is OFF */}
+{!formData.isFreeShipping && (
+  <div>
+    <label className="block text-sm font-medium text-slate-300 mb-2">
+      Additional Shipping Charge (£)
+    </label>
+    <input
+      type="number"
+      name="additionalShippingCharge"
+      value={formData.additionalShippingCharge}
+      onChange={handleChange}
+      placeholder="0.00"
+      step="0.01"
+      className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+    />
+  </div>
+)}
+
 
                   {/* Delivery Date */}
                   <div>
