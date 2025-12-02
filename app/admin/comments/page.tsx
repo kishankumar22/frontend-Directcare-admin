@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { MessageSquare, Clock, CheckCircle, X, Search, FilterX, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Eye, Trash2, AlertCircle, Ban, Filter, Reply, Shield, ShieldOff, AlertTriangle, CornerDownRight, User, ChevronDown } from "lucide-react";
+import { MessageSquare, Clock, CheckCircle, X, Search, FilterX, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Eye, Trash2, AlertCircle, Ban, Filter, Reply, Shield, ShieldOff, AlertTriangle, CornerDownRight, User, ChevronDown, RefreshCw } from "lucide-react";
 import { useToast } from "@/components/CustomToast";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import { blogCommentsService, BlogComment, BlogPost } from "@/lib/services/blogComments";
@@ -119,7 +119,65 @@ export default function CommentsPage() {
     });
   };
 
-  // ✅ Submit Spam Flag
+// ✅ Add this function with your other action handlers (after handleDelete)
+const handleUndelete = async (commentId: string) => {
+  if (actionLoading === commentId) return;
+  
+  setActionLoading(commentId);
+  
+  try {
+    console.log("🔄 Starting undelete process for comment:", commentId);
+    
+    const response = await blogCommentsService.undelete(commentId);
+    
+    console.log("✅ Undelete API response:", response.data);
+    
+    if (response.data?.success) {
+      toast.success(response.data.message || "Comment restored successfully! ↩️");
+      await fetchBlogPosts();
+    } else {
+      // ✅ FIXED: Better error handling
+      const errorMessage = response.data?.message || "Failed to restore comment";
+      
+      // Check specific error types
+      if (errorMessage.toLowerCase().includes("not deleted")) {
+        toast.error("⚠️ This comment is already active!");
+      } else if (errorMessage.toLowerCase().includes("not found")) {
+        toast.error("❌ Comment not found!");
+      } else {
+        toast.error(`❌ ${errorMessage}`);
+      }
+      
+      console.log("❌ Undelete failed:", errorMessage);
+    }
+    
+  } catch (error: any) {
+    console.error("❌ Error undeleting comment:", error);
+    
+    const errorMessage = 
+      error?.response?.data?.message || 
+      error?.response?.data?.errors?.[0] ||
+      error?.message || 
+      "Failed to restore comment. Please try again.";
+    
+    // ✅ Better error display
+    if (errorMessage.toLowerCase().includes("not deleted")) {
+      toast.error("⚠️ This comment is already active!");
+    } else {
+      toast.error(`❌ ${errorMessage}`);
+    }
+    
+    console.error("Error details:", {
+      status: error?.response?.status,
+      statusText: error?.response?.statusText,
+      data: error?.response?.data,
+    });
+    
+  } finally {
+    setActionLoading(null);
+  }
+};
+
 // handleSubmitSpamFlag function me console add karo
 const handleSubmitSpamFlag = async () => {
   if (!spamFlagModal) return;
@@ -131,12 +189,7 @@ const handleSubmitSpamFlag = async () => {
 
   setIsSubmittingSpam(true);
   try {
-    console.log("🚩 Submitting spam flag:", {
-      commentId: spamFlagModal.comment.id,
-      reason: spamFlagModal.reason,
-      spamScore: spamFlagModal.spamScore,
-      flaggedBy: spamFlagModal.flaggedBy
-    });
+
 
     // ✅ This will now work with query params
     const response = await blogCommentsService.flagAsSpam(
@@ -894,6 +947,23 @@ const handleSubmitSpamFlag = async () => {
                             Restore
                           </button>
                         )}
+<button
+  onClick={() => handleUndelete(parentComment.id)}
+  disabled={actionLoading === parentComment.id}
+  className="px-4 py-2 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 rounded-lg text-sm font-medium transition-all flex items-center justify-center gap-2 border border-emerald-500/30 disabled:opacity-50 min-w-[120px]"
+>
+  {actionLoading === parentComment.id ? (
+    <>
+      <div className="w-4 h-4 border-2 border-emerald-400 border-t-transparent rounded-full animate-spin" />
+      Restoring...
+    </>
+  ) : (
+    <>
+      <RefreshCw className="h-4 w-4" />
+      Restore
+    </>
+  )}
+</button>
 
                         <button
                           onClick={() => setReplyingTo(parentComment)}

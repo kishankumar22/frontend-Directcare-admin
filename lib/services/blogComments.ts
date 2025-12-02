@@ -37,7 +37,7 @@ export interface ApiResponse<T> {
   success: boolean;
   message: string;
   data: T;
-  errors: string[] | null;
+  errors?: string[] | null;
 }
 
 export const blogCommentsService = {
@@ -76,7 +76,7 @@ export const blogCommentsService = {
     ),
 
   /**
-   * ✅ FIXED: Flag comment as spam - Using QUERY PARAMETERS (backend expects this)
+   * Flag comment as spam
    */
   flagAsSpam: (
     id: string, 
@@ -85,7 +85,6 @@ export const blogCommentsService = {
     flaggedBy: string, 
     config: any = {}
   ) => {
-    // ✅ Build query parameters (backend currently uses query params)
     const params = new URLSearchParams({
       reason: reason,
       spamScore: spamScore.toString(),
@@ -95,16 +94,12 @@ export const blogCommentsService = {
     console.log("🚩 Flagging comment as spam:", {
       commentId: id,
       endpoint: `${API_ENDPOINTS.blogComments}/${id}/flag-spam?${params.toString()}`,
-      params: {
-        reason,
-        spamScore,
-        flaggedBy
-      }
+      params: { reason, spamScore, flaggedBy }
     });
 
     return apiClient.post<ApiResponse<BlogComment>>(
       `${API_ENDPOINTS.blogComments}/${id}/flag-spam?${params.toString()}`,
-      {}, // ✅ Empty body since backend uses query params
+      {},
       config
     );
   },
@@ -119,6 +114,37 @@ export const blogCommentsService = {
       `${API_ENDPOINTS.blogComments}/${id}/unflag-spam`,
       {},
       config
+    );
+  },
+
+  /**
+   * ✅ UNDELETE: Restore a previously deleted comment
+   * POST /api/BlogComments/{id}/undelete
+   * 
+   * Response Example:
+   * {
+   *   "success": true,
+   *   "message": "Comment restored successfully",
+   *   "data": true
+   * }
+   */
+  undelete: (id: string, config: any = {}) => {
+    console.log("↩️ Undeleting comment:", {
+      commentId: id,
+      endpoint: `${API_ENDPOINTS.blogComments}/${id}/undelete`
+    });
+    
+    return apiClient.post<ApiResponse<boolean>>(
+      `${API_ENDPOINTS.blogComments}/${id}/undelete`,
+      {}, // Empty body as per API specification
+      {
+        ...config,
+        headers: {
+          'Accept': 'text/plain', // API expects text/plain
+          'Content-Type': 'application/json',
+          ...config.headers,
+        },
+      }
     );
   },
 

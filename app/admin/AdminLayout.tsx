@@ -173,7 +173,29 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
     
     setTimeout(() => setIsAnimating(false), 600);
   };
+// TOKEN EXPIRY → AUTO LOGOUT (Yeh add karo!)
+useEffect(() => {
+  if (!authService.isAuthenticated()) return;
 
+  const checkExpiry = () => {
+    const expiry = authService.getTokenExpiry();
+    if (expiry && new Date() >= expiry) {
+      toast.error("Session expired! Auto-logging in...", {
+        position: "top-center",
+        autoClose: 3000,
+      });
+      handleLogout(); // Yehi modal trigger karega + auto-login
+    }
+  };
+
+  // Check immediately
+  checkExpiry();
+
+  // Check every 5 seconds
+  const interval = setInterval(checkExpiry, 5000);
+
+  return () => clearInterval(interval);
+}, []);
   // Calculate time remaining until token expiry
   const calculateTimeRemaining = () => {
     const expiryDate = authService.getTokenExpiry();
@@ -199,36 +221,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
     setTimeRemaining({ hours, minutes, seconds, total: diff });
   };
 
-  // Auth check with countdown update
-  useEffect(() => {
-    // Initial check
-    if (!authService.isAuthenticated()) {
-      router.replace("/login");
-      return;
-    }
 
-    // Calculate initial time
-    calculateTimeRemaining();
-
-    // Update countdown every second
-    const countdownInterval = setInterval(() => {
-      calculateTimeRemaining();
-    }, 1000);
-
-    // Check auth every 5 seconds
-    const authCheckInterval = setInterval(() => {
-      if (!authService.isAuthenticated()) {
-        clearInterval(authCheckInterval);
-        clearInterval(countdownInterval);
-        router.replace("/login");
-      }
-    }, 5000);
-
-    return () => {
-      clearInterval(countdownInterval);
-      clearInterval(authCheckInterval);
-    };
-  }, [router]);
 
   useEffect(() => {
     navigation.forEach((item) => {
@@ -288,7 +281,30 @@ const handleLogout = () => {
   authService.logout();
   setShowAutoLoginModal(true);
   setAutoLoginCountdown(3);
-};
+
+  toast.success("Logged out! Auto-login in 3s...", {
+    position: "top-center",
+    autoClose: 2500,
+  });
+};// Iske just upar ya neeche paste kar do
+useEffect(() => {
+  if (!authService.isAuthenticated()) return;
+
+  const checkExpiry = () => {
+    const expiry = authService.getTokenExpiry();
+    if (expiry && new Date() >= expiry) {
+      toast.error("Session expired! Auto-logging in...", {
+        position: "top-center",
+        autoClose: 3000,
+      });
+      handleLogout();
+    }
+  };
+
+  checkExpiry();
+  const interval = setInterval(checkExpiry, 5000);
+  return () => clearInterval(interval);
+}, []);
 
   const isSidebarExpanded = (!sidebarCollapsed || isHovering);
   const sidebarWidth = isSidebarExpanded ? 'w-64' : 'w-16';
@@ -350,7 +366,26 @@ const handleLogout = () => {
       setIsAutoLoggingIn(false);
     }
   };
+// FINAL & SAFE AUTH CHECK + TIMER (Yeh add karna jaruri hai!)
+useEffect(() => {
+  // Agar auto-login chal raha hai → redirect mat karo
+  if (showAutoLoginModal || isAutoLoggingIn) {
+    return;
+  }
 
+  // Agar token nahi hai → login page bhejo
+  if (!authService.isAuthenticated()) {
+    router.replace("/login");
+    return;
+  }
+
+  // Token expiry countdown start karo
+  calculateTimeRemaining();
+  const interval = setInterval(calculateTimeRemaining, 1000);
+
+  // Cleanup
+  return () => clearInterval(interval);
+}, [router, showAutoLoginModal, isAutoLoggingIn]);
 
 
   // ✅ Countdown and auto-login effect
@@ -365,32 +400,6 @@ const handleLogout = () => {
       performAutoLogin();
     }
   }, [showAutoLoginModal, autoLoginCountdown]);
-
-  useEffect(() => {
-    if (!authService.isAuthenticated()) {
-      router.replace("/login");
-      return;
-    }
-
-    calculateTimeRemaining();
-
-    const countdownInterval = setInterval(() => {
-      calculateTimeRemaining();
-    }, 1000);
-
-    const authCheckInterval = setInterval(() => {
-      if (!authService.isAuthenticated()) {
-        clearInterval(authCheckInterval);
-        clearInterval(countdownInterval);
-        router.replace("/login");
-      }
-    }, 5000);
-
-    return () => {
-      clearInterval(countdownInterval);
-      clearInterval(authCheckInterval);
-    };
-  }, [router]);
 
   useEffect(() => {
     navigation.forEach((item) => {
@@ -425,20 +434,20 @@ const handleLogout = () => {
           onMouseEnter={() => setIsHovering(true)}
           onMouseLeave={() => setIsHovering(false)}
           className={cn(
-            "hidden lg:flex fixed h-full bg-slate-900/80 dark:bg-gray-900/90 backdrop-blur-xl border-r border-slate-800 dark:border-gray-800 flex-col transition-all duration-300 z-50",
+            "hidden lg:flex fixed h-full bg-slate-900/80 dark:bg-gray-900/90 backdrop-blur-xl border-r border-slate-800 dark:border-gray-800 flex-col transition-all duration-150 z-50",
             sidebarWidth
           )}
         >
           {/* Logo */}
-          <div className="p-3 border-b border-slate-800 dark:border-gray-800 flex-shrink-0 h-[73px] flex items-center transition-colors duration-300">
+          <div className="p-3 border-b border-slate-800 dark:border-gray-800 flex-shrink-0 h-[73px] flex items-center transition-colors duration-150">
             <div className="flex items-center gap-3 overflow-hidden">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-500 to-cyan-500 dark:from-violet-600 dark:to-cyan-600 flex items-center justify-center flex-shrink-0 transition-all duration-300 shadow-lg dark:shadow-violet-500/20">
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-500 to-cyan-500 dark:from-violet-600 dark:to-cyan-600 flex items-center justify-center flex-shrink-0 transition-all duration-150 shadow-lg dark:shadow-violet-500/20">
                 <Sparkles className="w-5 h-5 text-white" />
               </div>
               {isSidebarExpanded && (
                 <div className="whitespace-nowrap">
-                  <h2 className="text-lg font-bold text-white transition-colors duration-300">EcomPanel</h2>
-                  <p className="text-xs text-slate-400 dark:text-gray-500 transition-colors duration-300">Admin Dashboard</p>
+                  <h2 className="text-lg font-bold text-white transition-colors duration-150">EcomPanel</h2>
+                  <p className="text-xs text-slate-400 dark:text-gray-500 transition-colors duration-150">Admin Dashboard</p>
                 </div>
               )}
             </div>
@@ -459,14 +468,14 @@ const handleLogout = () => {
                     <button
                       onClick={() => isSidebarExpanded && toggleMenu(item.name)}
                       className={cn(
-                        "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 group relative",
+                        "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-150 group relative",
                         isParentItemActive
                           ? "bg-slate-800/70 dark:bg-gray-800/80 text-white border-2 border-white shadow-lg shadow-white/10"
                           : "text-slate-400 dark:text-gray-500 hover:text-white hover:bg-slate-800/50 dark:hover:bg-gray-800/60"
                       )}
                       title={!isSidebarExpanded ? item.name : ""}
                     >
-                      <Icon className="h-5 w-5 flex-shrink-0 transition-transform duration-200 group-hover:scale-110" />
+                      <Icon className="h-5 w-5 flex-shrink-0 transition-transform duration-150 group-hover:scale-110" />
                       {isSidebarExpanded && (
                         <>
                           <span className="font-medium text-sm flex-1 text-left whitespace-nowrap">
@@ -474,7 +483,7 @@ const handleLogout = () => {
                           </span>
                           <ChevronDown
                             className={cn(
-                              "h-4 w-4 transition-all duration-300",
+                              "h-4 w-4 transition-all duration-150",
                               isExpanded && "rotate-180"
                             )}
                           />
@@ -485,11 +494,11 @@ const handleLogout = () => {
                     {isSidebarExpanded && (
                       <div
                         className={cn(
-                          "overflow-hidden transition-all duration-300 ease-in-out",
+                          "overflow-hidden transition-all duration-150 ease-in-out",
                           isExpanded ? "max-h-96 opacity-100" : "max-h-0 opacity-0"
                         )}
                       >
-                        <div className="ml-4 mt-1 space-y-1 border-l-2 border-slate-800 dark:border-gray-800 pl-2 transition-colors duration-300">
+                        <div className="ml-4 mt-1 space-y-1 border-l-2 border-slate-800 dark:border-gray-800 pl-2 transition-colors duration-150">
                           {item.children?.map((child, index) => {
                             const ChildIcon = child.icon;
                             const isChildActive = child.href ? isActiveRoute(child.href, pathname) : false;
@@ -499,7 +508,7 @@ const handleLogout = () => {
                                 key={child.name}
                                 href={child.href || '#'}
                                 className={cn(
-                                  "flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-200 group relative",
+                                  "flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-150 group relative",
                                   isChildActive
                                     ? "bg-gradient-to-r from-violet-500 to-cyan-500 dark:from-violet-600 dark:to-cyan-600 text-white shadow-lg shadow-violet-500/30 dark:shadow-violet-600/50 border-2 border-white"
                                     : "text-slate-400 dark:text-gray-500 hover:text-white hover:bg-slate-800/50 dark:hover:bg-gray-800/60",
@@ -509,7 +518,7 @@ const handleLogout = () => {
                                   animationDelay: `${index * 50}ms`,
                                 }}
                               >
-                                <ChildIcon className="h-4 w-4 flex-shrink-0 transition-transform duration-200 group-hover:scale-110" />
+                                <ChildIcon className="h-4 w-4 flex-shrink-0 transition-transform duration-150 group-hover:scale-110" />
                                 <span className="font-medium text-sm whitespace-nowrap">
                                   {child.name}
                                 </span>
@@ -531,14 +540,14 @@ const handleLogout = () => {
                   key={item.name}
                   href={item.href || '#'}
                   className={cn(
-                    "flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 group relative",
+                    "flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-150 group relative",
                     isActive
                       ? "bg-gradient-to-r from-violet-500 to-cyan-500 dark:from-violet-600 dark:to-cyan-600 text-white shadow-lg shadow-violet-500/30 dark:shadow-violet-600/50 border-2 border-white"
                       : "text-slate-400 dark:text-gray-500 hover:text-white hover:bg-slate-800/50 dark:hover:bg-gray-800/60"
                   )}
                   title={!isSidebarExpanded ? item.name : ""}
                 >
-                  <Icon className="h-5 w-5 flex-shrink-0 transition-transform duration-200 group-hover:scale-110" />
+                  <Icon className="h-5 w-5 flex-shrink-0 transition-transform duration-150 group-hover:scale-110" />
                   {isSidebarExpanded && (
                     <>
                       <span className="font-medium text-sm flex-1 whitespace-nowrap">
@@ -553,10 +562,10 @@ const handleLogout = () => {
           </nav>
 
           {/* Bottom Links */}
-          <div className="p-2 border-t border-slate-800 dark:border-gray-800 flex-shrink-0 space-y-1 transition-colors duration-300">
+          <div className="p-2 border-t border-slate-800 dark:border-gray-800 flex-shrink-0 space-y-1 transition-colors duration-150">
             <Link
               href="/"
-              className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-400 dark:text-gray-500 hover:text-white hover:bg-slate-800/50 dark:hover:bg-gray-800/60 transition-all duration-200"
+              className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-400 dark:text-gray-500 hover:text-white hover:bg-slate-800/50 dark:hover:bg-gray-800/60 transition-all duration-150"
               title={!isSidebarExpanded ? "View Store" : ""}
             >
               <Store className="h-5 w-5 flex-shrink-0" />
@@ -565,7 +574,7 @@ const handleLogout = () => {
               )}
             </Link>
             <button 
-              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-400 dark:text-gray-500 hover:text-white hover:bg-slate-800/50 dark:hover:bg-gray-800/60 transition-all duration-200"
+              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-400 dark:text-gray-500 hover:text-white hover:bg-slate-800/50 dark:hover:bg-gray-800/60 transition-all duration-150"
               title={!isSidebarExpanded ? "Settings" : ""}
             >
               <Settings className="h-5 w-5 flex-shrink-0" />
@@ -577,18 +586,18 @@ const handleLogout = () => {
 
           {/* User Profile - Expanded */}
           {isSidebarExpanded && (
-            <div className="p-3 border-t border-slate-800 dark:border-gray-800 flex-shrink-0 transition-colors duration-300">
-              <div className="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-slate-800/50 dark:bg-gray-800/70 transition-colors duration-300">
-                <div className="w-9 h-9 rounded-full bg-gradient-to-br from-violet-500 to-cyan-500 dark:from-violet-600 dark:to-cyan-600 flex items-center justify-center text-white font-bold text-sm flex-shrink-0 transition-all duration-300 shadow-lg dark:shadow-violet-500/30">
+            <div className="p-3 border-t border-slate-800 dark:border-gray-800 flex-shrink-0 transition-colors duration-150">
+              <div className="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-slate-800/50 dark:bg-gray-800/70 transition-colors duration-150">
+                <div className="w-9 h-9 rounded-full bg-gradient-to-br from-violet-500 to-cyan-500 dark:from-violet-600 dark:to-cyan-600 flex items-center justify-center text-white font-bold text-sm flex-shrink-0 transition-all duration-150 shadow-lg dark:shadow-violet-500/30">
                   {userInitial}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-white truncate transition-colors duration-300">{userName}</p>
-                  <p className="text-xs text-slate-400 dark:text-gray-500 truncate transition-colors duration-300">{userEmail}</p>
+                  <p className="text-sm font-semibold text-white truncate transition-colors duration-150">{userName}</p>
+                  <p className="text-xs text-slate-400 dark:text-gray-500 truncate transition-colors duration-150">{userEmail}</p>
                 </div>
                 <button
                   onClick={handleLogout}
-                  className="text-slate-400 dark:text-gray-500 hover:text-red-400 dark:hover:text-red-500 transition-colors duration-200"
+                  className="text-slate-400 dark:text-gray-500 hover:text-red-400 dark:hover:text-red-500 transition-colors duration-150"
                   title="Logout"
                 >
                   <LogOut className="h-4 w-4" />
@@ -599,14 +608,14 @@ const handleLogout = () => {
 
           {/* User Profile - Collapsed */}
           {!isSidebarExpanded && (
-            <div className="p-2 border-t border-slate-800 dark:border-gray-800 flex-shrink-0 transition-colors duration-300">
+            <div className="p-2 border-t border-slate-800 dark:border-gray-800 flex-shrink-0 transition-colors duration-150">
               <div className="flex flex-col items-center gap-2">
-                <div className="w-9 h-9 rounded-full bg-gradient-to-br from-violet-500 to-cyan-500 dark:from-violet-600 dark:to-cyan-600 flex items-center justify-center text-white font-bold text-sm transition-all duration-300 shadow-lg dark:shadow-violet-500/30">
+                <div className="w-9 h-9 rounded-full bg-gradient-to-br from-violet-500 to-cyan-500 dark:from-violet-600 dark:to-cyan-600 flex items-center justify-center text-white font-bold text-sm transition-all duration-150 shadow-lg dark:shadow-violet-500/30">
                   {userInitial}
                 </div>
                 <button
                   onClick={handleLogout}
-                  className="w-full flex items-center justify-center p-2 rounded-lg text-slate-400 dark:text-gray-500 hover:text-red-400 dark:hover:text-red-500 hover:bg-slate-800/50 dark:hover:bg-gray-800/60 transition-all duration-200"
+                  className="w-full flex items-center justify-center p-2 rounded-lg text-slate-400 dark:text-gray-500 hover:text-red-400 dark:hover:text-red-500 hover:bg-slate-800/50 dark:hover:bg-gray-800/60 transition-all duration-150"
                   title="Logout"
                 >
                   <LogOut className="h-4 w-4" />
@@ -619,18 +628,18 @@ const handleLogout = () => {
         {/* Mobile Sidebar */}
         <aside
           className={cn(
-            "fixed lg:hidden h-full w-64 bg-slate-900/80 dark:bg-gray-900/90 backdrop-blur-xl border-r border-slate-800 dark:border-gray-800 flex flex-col transition-all duration-300 z-50",
+            "fixed lg:hidden h-full w-64 bg-slate-900/80 dark:bg-gray-900/90 backdrop-blur-xl border-r border-slate-800 dark:border-gray-800 flex flex-col transition-all duration-150 z-50",
             sidebarOpen ? "translate-x-0" : "-translate-x-full"
           )}
         >
-          <div className="p-3 border-b border-slate-800 dark:border-gray-800 flex-shrink-0 transition-colors duration-300">
+          <div className="p-3 border-b border-slate-800 dark:border-gray-800 flex-shrink-0 transition-colors duration-150">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-500 to-cyan-500 dark:from-violet-600 dark:to-cyan-600 flex items-center justify-center transition-all duration-300 shadow-lg dark:shadow-violet-500/20">
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-500 to-cyan-500 dark:from-violet-600 dark:to-cyan-600 flex items-center justify-center transition-all duration-150 shadow-lg dark:shadow-violet-500/20">
                 <Sparkles className="w-5 h-5 text-white" />
               </div>
               <div>
-                <h2 className="text-lg font-bold text-white transition-colors duration-300">EcomPanel</h2>
-                <p className="text-xs text-slate-400 dark:text-gray-500 transition-colors duration-300">Admin Dashboard</p>
+                <h2 className="text-lg font-bold text-white transition-colors duration-150">EcomPanel</h2>
+                <p className="text-xs text-slate-400 dark:text-gray-500 transition-colors duration-150">Admin Dashboard</p>
               </div>
             </div>
           </div>
@@ -649,17 +658,17 @@ const handleLogout = () => {
                     <button
                       onClick={() => toggleMenu(item.name)}
                       className={cn(
-                        "w-full flex items-center gap-3 px-4 py-2.5 rounded-lg transition-all duration-200 group",
+                        "w-full flex items-center gap-3 px-4 py-2.5 rounded-lg transition-all duration-150 group",
                         isParentItemActive
                           ? "bg-slate-800/70 dark:bg-gray-800/80 text-white border-2 border-white shadow-lg shadow-white/10"
                           : "text-slate-400 dark:text-gray-500 hover:text-white hover:bg-slate-800/50 dark:hover:bg-gray-800/60"
                       )}
                     >
-                      <Icon className="h-5 w-5 transition-transform duration-200 group-hover:scale-110" />
+                      <Icon className="h-5 w-5 transition-transform duration-150 group-hover:scale-110" />
                       <span className="font-medium text-sm flex-1 text-left">{item.name}</span>
                       <ChevronDown
                         className={cn(
-                          "h-4 w-4 transition-all duration-300",
+                          "h-4 w-4 transition-all duration-150",
                           isExpanded && "rotate-180"
                         )}
                       />
@@ -667,11 +676,11 @@ const handleLogout = () => {
 
                     <div
                       className={cn(
-                        "overflow-hidden transition-all duration-300 ease-in-out",
+                        "overflow-hidden transition-all duration-150 ease-in-out",
                         isExpanded ? "max-h-96 opacity-100" : "max-h-0 opacity-0"
                       )}
                     >
-                      <div className="ml-6 mt-1 space-y-1 border-l-2 border-slate-800 dark:border-gray-800 pl-3 transition-colors duration-300">
+                      <div className="ml-6 mt-1 space-y-1 border-l-2 border-slate-800 dark:border-gray-800 pl-3 transition-colors duration-150">
                         {item.children?.map((child, index) => {
                           const ChildIcon = child.icon;
                           const isChildActive = child.href ? isActiveRoute(child.href, pathname) : false;
@@ -682,7 +691,7 @@ const handleLogout = () => {
                               href={child.href || '#'}
                               onClick={() => setSidebarOpen(false)}
                               className={cn(
-                                "flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-200 group",
+                                "flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-150 group",
                                 isChildActive
                                   ? "bg-gradient-to-r from-violet-500 to-cyan-500 dark:from-violet-600 dark:to-cyan-600 text-white shadow-lg shadow-violet-500/30 dark:shadow-violet-600/50 border-2 border-white"
                                   : "text-slate-400 dark:text-gray-500 hover:text-white hover:bg-slate-800/50 dark:hover:bg-gray-800/60",
@@ -690,7 +699,7 @@ const handleLogout = () => {
                               )}
                               style={{ animationDelay: `${index * 50}ms` }}
                             >
-                              <ChildIcon className="h-4 w-4 transition-transform duration-200 group-hover:scale-110" />
+                              <ChildIcon className="h-4 w-4 transition-transform duration-150 group-hover:scale-110" />
                               <span className="font-medium text-sm">{child.name}</span>
                               {isChildActive && <ChevronRight className="h-3 w-3 ml-auto animate-pulse" />}
                             </Link>
@@ -708,13 +717,13 @@ const handleLogout = () => {
                   href={item.href || '#'}
                   onClick={() => setSidebarOpen(false)}
                   className={cn(
-                    "flex items-center gap-3 px-4 py-2.5 rounded-lg transition-all duration-200 group",
+                    "flex items-center gap-3 px-4 py-2.5 rounded-lg transition-all duration-150 group",
                     isActive
                       ? "bg-gradient-to-r from-violet-500 to-cyan-500 dark:from-violet-600 dark:to-cyan-600 text-white shadow-lg shadow-violet-500/30 dark:shadow-violet-600/50 border-2 border-white"
                       : "text-slate-400 dark:text-gray-500 hover:text-white hover:bg-slate-800/50 dark:hover:bg-gray-800/60"
                   )}
                 >
-                  <Icon className="h-5 w-5 transition-transform duration-200 group-hover:scale-110" />
+                  <Icon className="h-5 w-5 transition-transform duration-150 group-hover:scale-110" />
                   <span className="font-medium text-sm flex-1">{item.name}</span>
                   {isActive && <ChevronRight className="h-4 w-4 animate-pulse" />}
                 </Link>
@@ -722,33 +731,33 @@ const handleLogout = () => {
             })}
           </nav>
 
-          <div className="p-4 border-t border-slate-800 dark:border-gray-800 flex-shrink-0 space-y-1.5 transition-colors duration-300">
+          <div className="p-4 border-t border-slate-800 dark:border-gray-800 flex-shrink-0 space-y-1.5 transition-colors duration-150">
             <Link
               href="/"
               onClick={() => setSidebarOpen(false)}
-              className="flex items-center gap-3 px-4 py-2.5 rounded-lg text-slate-400 dark:text-gray-500 hover:text-white hover:bg-slate-800/50 dark:hover:bg-gray-800/60 transition-all duration-200"
+              className="flex items-center gap-3 px-4 py-2.5 rounded-lg text-slate-400 dark:text-gray-500 hover:text-white hover:bg-slate-800/50 dark:hover:bg-gray-800/60 transition-all duration-150"
             >
               <Store className="h-5 w-5" />
               <span className="font-medium text-sm">View Store</span>
             </Link>
-            <button className="w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-slate-400 dark:text-gray-500 hover:text-white hover:bg-slate-800/50 dark:hover:bg-gray-800/60 transition-all duration-200">
+            <button className="w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-slate-400 dark:text-gray-500 hover:text-white hover:bg-slate-800/50 dark:hover:bg-gray-800/60 transition-all duration-150">
               <Settings className="h-5 w-5" />
               <span className="font-medium text-sm">Settings</span>
             </button>
           </div>
 
-          <div className="p-4 border-t border-slate-800 dark:border-gray-800 flex-shrink-0 transition-colors duration-300">
-            <div className="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-slate-800/50 dark:bg-gray-800/70 transition-colors duration-300">
-              <div className="w-9 h-9 rounded-full bg-gradient-to-br from-violet-500 to-cyan-500 dark:from-violet-600 dark:to-cyan-600 flex items-center justify-center text-white font-bold text-sm transition-all duration-300 shadow-lg dark:shadow-violet-500/30">
+          <div className="p-4 border-t border-slate-800 dark:border-gray-800 flex-shrink-0 transition-colors duration-150">
+            <div className="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-slate-800/50 dark:bg-gray-800/70 transition-colors duration-150">
+              <div className="w-9 h-9 rounded-full bg-gradient-to-br from-violet-500 to-cyan-500 dark:from-violet-600 dark:to-cyan-600 flex items-center justify-center text-white font-bold text-sm transition-all duration-150 shadow-lg dark:shadow-violet-500/30">
                 {userInitial}
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold text-white truncate transition-colors duration-300">{userName}</p>
-                <p className="text-xs text-slate-400 dark:text-gray-500 truncate transition-colors duration-300">{userEmail}</p>
+                <p className="text-sm font-semibold text-white truncate transition-colors duration-150">{userName}</p>
+                <p className="text-xs text-slate-400 dark:text-gray-500 truncate transition-colors duration-150">{userEmail}</p>
               </div>
               <button
                 onClick={handleLogout}
-                className="text-slate-400 dark:text-gray-500 hover:text-red-400 dark:hover:text-red-500 transition-colors duration-200"
+                className="text-slate-400 dark:text-gray-500 hover:text-red-400 dark:hover:text-red-500 transition-colors duration-150"
                 title="Logout"
               >
                 <LogOut className="h-4 w-4" />
@@ -760,7 +769,7 @@ const handleLogout = () => {
         {/* Mobile Overlay */}
         {sidebarOpen && (
           <div
-            className="fixed inset-0 bg-black/50 dark:bg-black/70 backdrop-blur-sm lg:hidden z-40 transition-all duration-300"
+            className="fixed inset-0 bg-black/50 dark:bg-black/70 backdrop-blur-sm lg:hidden z-40 transition-all duration-150"
             onClick={() => setSidebarOpen(false)}
           />
         )}
@@ -768,25 +777,25 @@ const handleLogout = () => {
         {/* Main Content */}
         <div 
           className={cn(
-            "flex-1 flex flex-col overflow-hidden transition-all duration-300",
+            "flex-1 flex flex-col overflow-hidden transition-all duration-150",
             isSidebarExpanded ? "lg:ml-64" : "lg:ml-16"
           )}
         >
           {/* Header */}
-          <header className="flex-shrink-0 bg-slate-900/80 dark:bg-gray-900/90 backdrop-blur-xl border-b border-slate-800 dark:border-gray-800 z-30 transition-colors duration-300">
+          <header className="flex-shrink-0 bg-slate-900/80 dark:bg-gray-900/90 backdrop-blur-xl border-b border-slate-800 dark:border-gray-800 z-30 transition-colors duration-150">
             <div className="px-6 py-4">
               <div className="flex items-center justify-between gap-4">
                 <div className="flex items-center gap-3 flex-1">
                   <button
                     onClick={() => setSidebarOpen(!sidebarOpen)}
-                    className="lg:hidden p-2 text-slate-400 dark:text-gray-500 hover:text-white hover:bg-slate-800 dark:hover:bg-gray-800/70 rounded-lg transition-all duration-200"
+                    className="lg:hidden p-2 text-slate-400 dark:text-gray-500 hover:text-white hover:bg-slate-800 dark:hover:bg-gray-800/70 rounded-lg transition-all duration-150"
                   >
                     {sidebarOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
                   </button>
 
                   <button
                     onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-                    className="hidden lg:block p-2 text-slate-400 dark:text-gray-500 hover:text-white hover:bg-slate-800 dark:hover:bg-gray-800/70 rounded-lg transition-all duration-200"
+                    className="hidden lg:block p-2 text-slate-400 dark:text-gray-500 hover:text-white hover:bg-slate-800 dark:hover:bg-gray-800/70 rounded-lg transition-all duration-150"
                     title={sidebarCollapsed ? "Pin Sidebar" : "Unpin Sidebar"}
                   >
                     <Menu className="h-5 w-5" />
@@ -794,11 +803,11 @@ const handleLogout = () => {
 
                   <div className="flex-1 max-w-xl">
                     <div className="relative">
-                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500 dark:text-gray-600 transition-colors duration-300" />
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500 dark:text-gray-600 transition-colors duration-150" />
                       <input
                         type="search"
                         placeholder="Search products, orders, customers..."
-                        className="w-full pl-10 pr-4 py-2 bg-slate-800/50 dark:bg-gray-800/70 border border-slate-700 dark:border-gray-700 rounded-lg text-sm text-white placeholder-slate-500 dark:placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-violet-500 dark:focus:ring-violet-600 transition-all duration-300"
+                        className="w-full pl-10 pr-4 py-2 bg-slate-800/50 dark:bg-gray-800/70 border border-slate-700 dark:border-gray-700 rounded-lg text-sm text-white placeholder-slate-500 dark:placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-violet-500 dark:focus:ring-violet-600 transition-all duration-150"
                       />
                     </div>
                   </div>
@@ -809,7 +818,7 @@ const handleLogout = () => {
                   {timeRemaining && (
                     <div 
                       className={cn(
-                        "hidden sm:flex items-center gap-2 px-3 py-2 rounded-lg transition-all duration-300",
+                        "hidden sm:flex items-center gap-2 px-3 py-2 rounded-lg transition-all duration-150",
                         "bg-slate-800/50 dark:bg-gray-800/70 border border-slate-700 dark:border-gray-700",
                         timeRemaining.total < 5 * 60 * 1000 && "border-red-500/50 bg-red-500/10 animate-pulse"
                       )}
@@ -824,15 +833,15 @@ const handleLogout = () => {
                     </div>
                   )}
 
-                  <button className="relative p-2 text-slate-400 dark:text-gray-500 hover:text-white hover:bg-slate-800 dark:hover:bg-gray-800/70 rounded-lg transition-all duration-200">
+                  <button className="relative p-2 text-slate-400 dark:text-gray-500 hover:text-white hover:bg-slate-800 dark:hover:bg-gray-800/70 rounded-lg transition-all duration-150">
                     <Bell className="h-5 w-5" />
-                    <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-violet-500 dark:bg-violet-600 rounded-full ring-2 ring-slate-900 dark:ring-gray-950 transition-all duration-300"></span>
+                    <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-violet-500 dark:bg-violet-600 rounded-full ring-2 ring-slate-900 dark:ring-gray-950 transition-all duration-150"></span>
                   </button>
 
                   <button
                     onClick={handleThemeToggle}
                     className={cn(
-                      "relative p-2 rounded-lg transition-all duration-300 group",
+                      "relative p-2 rounded-lg transition-all duration-150 group",
                       "bg-slate-800/50 dark:bg-gray-800/70 hover:bg-slate-800 dark:hover:bg-gray-800",
                       "text-slate-400 dark:text-gray-400 hover:text-white",
                       isAnimating && "scale-110 rotate-180"
@@ -863,15 +872,15 @@ const handleLogout = () => {
                     )}
                   </button>
 
-                  <div className="hidden lg:flex items-center gap-2.5 pl-3 ml-3 border-l border-slate-800 dark:border-gray-800 transition-colors duration-300">
-                    <div className="w-9 h-9 rounded-full bg-gradient-to-br from-violet-500 to-cyan-500 dark:from-violet-600 dark:to-cyan-600 flex items-center justify-center text-white font-bold text-sm transition-all duration-300 shadow-lg dark:shadow-violet-500/30">
+                  <div className="hidden lg:flex items-center gap-2.5 pl-3 ml-3 border-l border-slate-800 dark:border-gray-800 transition-colors duration-150">
+                    <div className="w-9 h-9 rounded-full bg-gradient-to-br from-violet-500 to-cyan-500 dark:from-violet-600 dark:to-cyan-600 flex items-center justify-center text-white font-bold text-sm transition-all duration-150 shadow-lg dark:shadow-violet-500/30">
                       {userInitial}
                     </div>
                     <div>
-                      <p className="text-sm font-semibold text-white leading-tight transition-colors duration-300">{userName}</p>
+                      <p className="text-sm font-semibold text-white leading-tight transition-colors duration-150">{userName}</p>
                       <div className="flex items-center gap-1.5 mt-0.5">
-                        <div className="w-1.5 h-1.5 bg-green-400 dark:bg-green-500 rounded-full transition-colors duration-300"></div>
-                        <p className="text-xs text-slate-400 dark:text-gray-500 transition-colors duration-300">Online</p>
+                        <div className="w-1.5 h-1.5 bg-green-400 dark:bg-green-500 rounded-full transition-colors duration-150"></div>
+                        <p className="text-xs text-slate-400 dark:text-gray-500 transition-colors duration-150">Online</p>
                       </div>
                     </div>
                   </div>
@@ -881,7 +890,7 @@ const handleLogout = () => {
           </header>
 
           <main className="flex-1 overflow-y-auto p-6 custom-scrollbar transition-colors duration-500">
-            <div className="transition-all duration-300">
+            <div className="transition-all duration-150">
               {children}
             </div>
           </main>
