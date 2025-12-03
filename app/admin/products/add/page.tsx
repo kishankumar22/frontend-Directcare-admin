@@ -37,7 +37,6 @@ interface ProductImage {
   file?: File; // For storing actual file during upload
 }
 
-// Product Variant interface matching backend ProductVariantCreateDto
 interface ProductVariant {
   id: string;
   name: string;
@@ -46,11 +45,17 @@ interface ProductVariant {
   compareAtPrice: number | null;
   weight: number | null;
   stockQuantity: number;
-  option1: string | null;
-  option2: string | null;
-  option3: string | null;
+  trackInventory: boolean;
+  option1Name: string | null;
+  option1Value: string | null;
+  option2Name: string | null;
+  option2Value: string | null;
+  option3Name?: string | null;
+  option3Value?: string | null;
   imageUrl: string | null;
   isDefault: boolean;
+  displayOrder: number;
+  isActive: boolean;
   imageFile?: File; // For storing the actual file
 }
 
@@ -497,13 +502,15 @@ const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
 
   const target = e.target as HTMLElement;
   if (target.hasAttribute('data-submitting')) {
+    toast.info('⏳ Already submitting... Please wait!');
     return;
   }
   target.setAttribute('data-submitting', 'true');
 
   try {
+    // ✅ Basic Validation
     if (!formData.name || !formData.sku) {
-      toast.warning('Please fill in required fields: Product Name and SKU');
+      toast.warning('⚠️ Please fill in required fields: Product Name and SKU');
       target.removeAttribute('data-submitting');
       return;
     }
@@ -511,11 +518,11 @@ const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
     console.log('🚀 Starting product submission...');
 
     const loadingId = toast.info(
-      isDraft ? 'Saving as draft...' : 'Creating product...', 
+      isDraft ? '💾 Saving as draft...' : '🔄 Creating product...', 
       { autoClose: 0 }
     );
 
-    // GUID validation
+    // ✅ GUID validation
     const guidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
     let categoryId: string | null = null;
@@ -528,35 +535,39 @@ const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
       brandId = formData.brand.trim();
     }
 
-
-    // Prepare attributes array - ✅ BACKEND FORMAT
+    // ✅ Prepare attributes array
     const attributesArray = productAttributes
       .filter(attr => attr.name && attr.value)
       .map(attr => ({
         id: attr.id,
         name: attr.name,
         value: attr.value,
-        displayName: attr.name, // Backend expects displayName
+        displayName: attr.name,
         sortOrder: attr.displayOrder || 1
       }));
 
-    // Prepare variants array - ✅ BACKEND FORMAT (without imageUrl base64)
+    // ✅ Prepare variants array WITHOUT imageUrl (will upload separately)
     const variantsArray = productVariants.map(variant => ({
       name: variant.name,
       sku: variant.sku,
-     price: parseFloat(variant.price?.toString() ?? "0") || 0,
-
+      price: parseFloat(variant.price?.toString() ?? "0") || 0,
       compareAtPrice: variant.compareAtPrice ? parseFloat(variant.compareAtPrice.toString()) : null,
       weight: variant.weight ? parseFloat(variant.weight.toString()) : null,
       stockQuantity: parseInt(variant.stockQuantity.toString()) || 0,
-      option1: variant.option1 || null,
-      option2: variant.option2 || null,
-      option3: variant.option3 || null,
-      imageUrl: null, // ✅ Set to null, upload separately after product creation
-      isDefault: variant.isDefault || false
+      trackInventory: variant.trackInventory ?? true,
+      option1Name: variant.option1Name || null,
+      option1Value: variant.option1Value || null,
+      option2Name: variant.option2Name || null,
+      option2Value: variant.option2Value || null,
+      option3Name: variant.option3Name || null,
+      option3Value: variant.option3Value || null,
+      imageUrl: null, // ✅ Don't send preview URLs
+      isDefault: variant.isDefault || false,
+      displayOrder: variant.displayOrder || 0,
+      isActive: variant.isActive ?? true
     }));
 
-    // ✅ COMPLETE PRODUCT DATA - BACKEND COMPATIBLE
+    // ✅ COMPLETE PRODUCT DATA
     const productData: any = {
       // Basic Info
       name: formData.name.trim(),
@@ -571,7 +582,7 @@ const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
       visibleIndividually: formData.visibleIndividually ?? true,
       showOnHomepage: formData.showOnHomepage ?? false,
 
-      // Pricing - ✅ ENSURE NUMBERS
+      // Pricing
       price: parseFloat(formData.price.toString()) || 0,
 
       // Stock
@@ -583,7 +594,7 @@ const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
       brandId: brandId || null,
     };
 
-    // ✅ OPTIONAL FIELDS - Only add if they have values
+    // ✅ Optional fields
     if (formData.gtin?.trim()) productData.gtin = formData.gtin.trim();
     if (formData.manufacturerPartNumber?.trim()) productData.manufacturerPartNumber = formData.manufacturerPartNumber.trim();
     if (formData.adminComment?.trim()) productData.adminComment = formData.adminComment.trim();
@@ -603,16 +614,31 @@ const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
         productData.maximumCustomerEnteredPrice = parseFloat(formData.maximumCustomerEnteredPrice.toString());
       }
     }
-    // Baaki fields ke saath yeh add kar do
-if (formData.gender?.trim()) {
-  productData.gender = formData.gender.trim();
-}
-// ✅ NEW - VAT / Tax Settings
-if (formData.vatExempt) productData.vatExempt = true;
-if (formData.vatRateId?.trim()) productData.vatRateId = formData.vatRateId.trim();
-if (formData.telecommunicationsBroadcastingElectronicServices) {
-  productData.telecommunicationsBroadcastingElectronicServices = true;
-}
+
+    // Gender
+    if (formData.gender?.trim()) {
+      productData.gender = formData.gender.trim();
+    }
+
+    // Product Type
+    if (formData.productType) {
+      productData.productType = formData.productType;
+    }
+
+    // Pack
+    if (formData.isPack) {
+      productData.isPack = true;
+      if (formData.packSize?.trim()) {
+        productData.packSize = formData.packSize.trim();
+      }
+    }
+
+    // VAT / Tax
+    if (formData.vatExempt) productData.vatExempt = true;
+    if (formData.vatRateId?.trim()) productData.vatRateId = formData.vatRateId.trim();
+    if (formData.telecommunicationsBroadcastingElectronicServices) {
+      productData.telecommunicationsBroadcastingElectronicServices = true;
+    }
 
     // Dimensions & Weight
     if (formData.weight) productData.weight = parseFloat(formData.weight.toString());
@@ -635,30 +661,38 @@ if (formData.telecommunicationsBroadcastingElectronicServices) {
     if (formData.displayStockQuantity) productData.displayStockQuantity = true;
     if (formData.displayStockAvailability) productData.displayStockAvailability = true;
     if (formData.notifyAdminForQuantityBelow) productData.notifyAdminForQuantityBelow = true;
-
     if (formData.allowedQuantities?.trim()) productData.allowedQuantities = formData.allowedQuantities.trim();
+
+    // Backorder
+    // if (formData.allowBackorder) productData.allowBackorder = true;
+    if (formData.allowBackInStockSubscriptions) productData.allowBackInStockSubscriptions = true;
+    if (formData.backorders) productData.backorderMode = formData.backorders;
+
+    // Cart Quantities
+    if (formData.minCartQuantity) productData.orderMinimumQuantity = parseInt(formData.minCartQuantity.toString());
+    if (formData.maxCartQuantity) productData.orderMaximumQuantity = parseInt(formData.maxCartQuantity.toString());
+
+    // Not Returnable
+    if (formData.notReturnable) productData.notReturnable = true;
 
     // SEO
     if (formData.metaTitle?.trim()) productData.metaTitle = formData.metaTitle.trim();
     if (formData.metaDescription?.trim()) productData.metaDescription = formData.metaDescription.trim();
     if (formData.metaKeywords?.trim()) productData.metaKeywords = formData.metaKeywords.trim();
-    if (formData.searchEngineFriendlyPageName?.trim()) productData.searchEngineFriendlyPageName = formData.searchEngineFriendlyPageName.trim();
+    if (formData.searchEngineFriendlyPageName?.trim()) {
+      productData.searchEngineFriendlyPageName = formData.searchEngineFriendlyPageName.trim();
+    }
 
-    // Specifications, Attributes, Variants
-
+    // Attributes & Variants
     if (attributesArray.length > 0) productData.attributes = attributesArray;
     if (variantsArray.length > 0) productData.variants = variantsArray;
 
     // Pricing Options
     if (formData.disableBuyButton) productData.disableBuyButton = true;
-    // if (formData.disableWishlistButton) productData.disableWishlistButton = true;
     productData.disableWishlistButton = Boolean(formData.disableWishlistButton);
-// Hamesha true ya false bhejega
-
     if (formData.callForPrice) productData.callForPrice = true;
-    if (formData.notReturnable) productData.notReturnable = true;
 
-    // New Product Settings
+    // Mark as New
     if (formData.markAsNew) {
       productData.markAsNew = true;
       if (formData.markAsNewStartDate) {
@@ -669,29 +703,28 @@ if (formData.telecommunicationsBroadcastingElectronicServices) {
       }
     }
 
-
-// RECURRING PRODUCT
-if (formData.isRecurring) {
-  productData.isRecurring = true;
-  productData.recurringCycleLength = parseInt(formData.recurringCycleLength) || 1;
-  productData.recurringCyclePeriod = formData.recurringCyclePeriod || 'days';
-  if (formData.recurringTotalCycles) {
-    productData.recurringTotalCycles = parseInt(formData.recurringTotalCycles);
-  }
-  
-  // ✅ NEW - Subscription Fields
-  if (formData.subscriptionDiscountPercentage) {
-    productData.subscriptionDiscountPercentage = parseFloat(formData.subscriptionDiscountPercentage);
-  }
-  if (formData.allowedSubscriptionFrequencies?.trim()) {
-    productData.allowedSubscriptionFrequencies = formData.allowedSubscriptionFrequencies.trim();
-  }
-  if (formData.subscriptionDescription?.trim()) {
-    productData.subscriptionDescription = formData.subscriptionDescription.trim();
-  }
-} else {
-  productData.isRecurring = false;
-}
+    // Recurring Product
+    if (formData.isRecurring) {
+      productData.isRecurring = true;
+      productData.recurringCycleLength = parseInt(formData.recurringCycleLength) || 1;
+      productData.recurringCyclePeriod = formData.recurringCyclePeriod || 'days';
+      if (formData.recurringTotalCycles) {
+        productData.recurringTotalCycles = parseInt(formData.recurringTotalCycles);
+      }
+      
+      // Subscription Fields
+      if (formData.subscriptionDiscountPercentage) {
+        productData.subscriptionDiscountPercentage = parseFloat(formData.subscriptionDiscountPercentage);
+      }
+      if (formData.allowedSubscriptionFrequencies?.trim()) {
+        productData.allowedSubscriptionFrequencies = formData.allowedSubscriptionFrequencies.trim();
+      }
+      if (formData.subscriptionDescription?.trim()) {
+        productData.subscriptionDescription = formData.subscriptionDescription.trim();
+      }
+    } else {
+      productData.isRecurring = false;
+    }
 
     // Pre-order
     if (formData.availableForPreOrder) {
@@ -717,7 +750,7 @@ if (formData.isRecurring) {
       productData.crossSellProductIds = formData.crossSellProducts.join(',');
     }
 
-    // Multimedia
+    // Videos
     if (formData.videoUrls && formData.videoUrls.length > 0) {
       productData.videoUrls = formData.videoUrls.join(',');
     }
@@ -730,7 +763,7 @@ if (formData.isRecurring) {
 
     console.log('📦 Product data to send:', productData);
 
-    // Create Product
+    // ✅ Create Product
     let response: any = undefined;
     const endpoints = ['/api/Products', '/Products', '/api/Product'];
     
@@ -754,58 +787,71 @@ if (formData.isRecurring) {
     let productId: string | null = null;
 
     if (response) {
-      // Case 1: response.data.data.id
       if (response.data?.data?.id) {
         productId = response.data.data.id;
-      }
-      // Case 2: response.data.id
-      else if (response.data?.id) {
+      } else if (response.data?.id) {
         productId = response.data.id;
-      }
-      // Case 3: response.id (direct)
-      else if (response.id) {
+      } else if (response.id) {
         productId = response.id;
       }
     }
 
-    console.log('🎯 Final Product ID:', productId);
+    console.log('🆔 Final Product ID:', productId);
 
-    // Upload Images
-    if (productId && formData.productImages && formData.productImages.length > 0) {
-      console.log(`🖼️ Starting image upload for product ID: ${productId}`);
-      
-      try {
-        const imagesToUpload = formData.productImages.filter(img => img.file);
-        
-        if (imagesToUpload.length > 0) {
-          console.log(`📷 Uploading ${imagesToUpload.length} images...`);
-          const uploadedImages = await uploadImagesToProduct(productId, imagesToUpload);
-
-          if (uploadedImages && uploadedImages.length > 0) {
-            toast.success(`Product and ${uploadedImages.length} images uploaded successfully! 🎉`);
-          }
-        } else {
-          toast.success('Product created successfully! ✅');
-        }
-
-        // Upload Variant Images
-        if (productVariants.length > 0) {
-          const variantsWithImages = productVariants.filter(v => v.imageFile);
-          if (variantsWithImages.length > 0) {
-            console.log(`🖼️ Uploading ${variantsWithImages.length} variant images...`);
-            await uploadVariantImages(response.data?.data || response.data);
-          }
-        }
-
-      } catch (imageError) {
-        console.error('❌ Error uploading images:', imageError);
-        toast.error('Product created, but some images failed to upload.');
-      }
-    } else {
-      toast.success(isDraft ? 'Product saved as draft! 📝' : 'Product created successfully! 🎉');
+    if (!productId) {
+      toast.error('❌ Product created but ID not found. Cannot upload images.');
+      router.push('/admin/products');
+      return;
     }
-    
-    router.push('/admin/products');
+
+    // ✅ Upload Product Images
+    if (formData.productImages && formData.productImages.length > 0) {
+      const imagesToUpload = formData.productImages.filter(img => img.file);
+      
+      if (imagesToUpload.length > 0) {
+        console.log(`📤 Uploading ${imagesToUpload.length} product images...`);
+        
+        try {
+          const uploadedImages = await uploadImagesToProduct(productId, imagesToUpload);
+          
+          if (uploadedImages && uploadedImages.length > 0) {
+            console.log('✅ Product images uploaded:', uploadedImages);
+          }
+        } catch (imageError) {
+          console.error('❌ Error uploading product images:', imageError);
+          toast.warning('⚠️ Product created but images failed to upload.');
+        }
+      }
+    }
+
+    // ✅ Upload Variant Images
+    if (productVariants.length > 0) {
+      const variantsWithImages = productVariants.filter(v => v.imageFile);
+      
+      if (variantsWithImages.length > 0) {
+        console.log(`🖼️ Uploading ${variantsWithImages.length} variant images...`);
+        
+        try {
+          await uploadVariantImages(response.data?.data || response.data);
+        } catch (variantError) {
+          console.error('❌ Error uploading variant images:', variantError);
+          toast.warning('⚠️ Some variant images failed to upload.');
+        }
+      }
+    }
+
+    // ✅ Success message
+    toast.success(
+      isDraft 
+        ? '💾 Product saved as draft!' 
+        : '✅ Product created successfully!',
+      { autoClose: 3000 }
+    );
+
+    // Navigate after delay
+    setTimeout(() => {
+      router.push('/admin/products');
+    }, 1000);
 
   } catch (error: any) {
     console.error('❌ Error submitting form:', error);
@@ -821,30 +867,34 @@ if (formData.isRecurring) {
       });
       
       if (status === 400 && errorData?.errors) {
-        let errorMessage = 'Please fix the following errors:\n';
+        let errorMessage = '⚠️ Please fix the following errors:\n';
         for (const [field, messages] of Object.entries(errorData.errors)) {
-          const fieldName = field.replace('$', '').replace('.', ' ');
+          const fieldName = field.replace('$', '').replace('.', ' ').trim();
           errorMessage += `\n• ${fieldName}: ${Array.isArray(messages) ? messages.join(', ') : messages}`;
         }
         toast.warning(errorMessage, { autoClose: 8000 });
       } else if (status === 400) {
         toast.error(errorData?.message || errorData?.title || 'Bad request. Please check your data.');
       } else if (status === 401) {
-        toast.error('Session expired. Please login again.');
+        toast.error('🔒 Session expired. Please login again.');
+        setTimeout(() => {
+          router.push('/login');
+        }, 2000);
       } else if (status === 404) {
-        toast.error('API endpoint not found. Please check the server configuration.');
+        toast.error('❌ API endpoint not found. Please check the server configuration.');
       } else {
         toast.error(`Error ${status}: ${errorData?.message || error.response.statusText}`);
       }
     } else if (error.request) {
-      toast.error('Network error: No response from server.');
+      toast.error('🌐 Network error: No response from server.');
     } else {
-      toast.error(`Error: ${error.message}`);
+      toast.error(`❌ Error: ${error.message}`);
     }
   } finally {
     target.removeAttribute('data-submitting');
   }
 };
+
 
 // Global timer for delayed slug generation
 let slugTimer: NodeJS.Timeout;
@@ -962,23 +1012,31 @@ const addCrossSellProduct = (productId: string) => {
   };
 
   // Product Variant handlers (matching backend ProductVariantCreateDto)
-  const addProductVariant = () => {
-    const newVariant: ProductVariant = {
-      id: Date.now().toString(),
-      name: '',
-      sku: `${formData.sku}-V${productVariants.length + 1}`,
-      price: formData.price ? parseFloat(formData.price) : null,
-      compareAtPrice: null,
-      weight: formData.weight ? parseFloat(formData.weight) : null,
-      stockQuantity: 0,
-      option1: null,
-      option2: null,
-      option3: null,
-      imageUrl: null,
-      isDefault: productVariants.length === 0
-    };
-    setProductVariants([...productVariants, newVariant]);
+// ✅ STEP 2: Replace existing addProductVariant function
+const addProductVariant = () => {
+  const newVariant: ProductVariant = {
+    id: Date.now().toString(),
+    name: '',
+    sku: `${formData.sku}-V${productVariants.length + 1}`,
+    price: formData.price ? parseFloat(formData.price) : null,
+    compareAtPrice: null,
+    weight: formData.weight ? parseFloat(formData.weight) : null,
+    stockQuantity: 0,
+    trackInventory: true,
+    option1Name: null,
+    option1Value: null,
+    option2Name: null,
+    option2Value: null,
+    option3Name: null,
+    option3Value: null,
+    imageUrl: null,
+    isDefault: productVariants.length === 0,
+    displayOrder: productVariants.length,
+    isActive: true
   };
+  setProductVariants([...productVariants, newVariant]);
+};
+
 
   const removeProductVariant = (id: string) => {
     setProductVariants(productVariants.filter(v => v.id !== id));
@@ -989,36 +1047,60 @@ const addCrossSellProduct = (productId: string) => {
       variant.id === id ? { ...variant, [field]: value } : variant
     ));
   };
+// ✅ STEP 3: Replace existing handleVariantImageUpload - SIRF PREVIEW
+const handleVariantImageUpload = (variantId: string, file: File) => {
+  // ✅ Validate file size (max 5MB)
+  if (file.size > 5 * 1024 * 1024) {
+    toast.error("Image size should be less than 5MB");
+    return;
+  }
+  
+  // ✅ Validate file type
+  if (!file.type.startsWith('image/')) {
+    toast.error("Please select a valid image file");
+    return;
+  }
 
-  const handleVariantImageUpload = (variantId: string, file: File) => {
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      setProductVariants(productVariants.map(variant => {
-        if (variant.id === variantId) {
-          return {
-            ...variant,
-            imageUrl: reader.result as string,
-            imageFile: file
-          };
-        }
-        return variant;
-      }));
-    };
-    reader.readAsDataURL(file);
-  };
-
-  const removeVariantImage = (variantId: string) => {
-    setProductVariants(productVariants.map(variant => {
-      if (variant.id === variantId) {
-        return {
-          ...variant,
-          imageUrl: null,
-          imageFile: undefined
-        };
+  // ✅ Create preview URL and store file
+  const previewUrl = URL.createObjectURL(file);
+  
+  setProductVariants(productVariants.map(variant => {
+    if (variant.id === variantId) {
+      // Cleanup old preview URL if exists
+      if (variant.imageUrl?.startsWith('blob:')) {
+        URL.revokeObjectURL(variant.imageUrl);
       }
-      return variant;
-    }));
-  };
+      
+      return {
+        ...variant,
+        imageUrl: previewUrl, // Temporary preview
+        imageFile: file // Store file for later upload
+      };
+    }
+    return variant;
+  }));
+
+  toast.success("✅ Image ready for upload!");
+};
+
+// ✅ NEW: Remove variant image preview
+const removeVariantImage = (variantId: string) => {
+  setProductVariants(productVariants.map(variant => {
+    if (variant.id === variantId) {
+      // Cleanup preview URL
+      if (variant.imageUrl?.startsWith('blob:')) {
+        URL.revokeObjectURL(variant.imageUrl);
+      }
+      return {
+        ...variant,
+        imageUrl: null,
+        imageFile: undefined
+      };
+    }
+    return variant;
+  }));
+};
+
 
 const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
   const files = e.target.files;
@@ -1090,78 +1172,93 @@ const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
 };
 
 // ✅ NEW - Function to upload images to specific product ID
+// ✅ FIXED: Complete function based on API response
 const uploadImagesToProduct = async (productId: string, images: ProductImage[]) => {
-  console.log(`Uploading ${images.length} images to product ${productId}...`);
+  console.log(`📤 Uploading ${images.length} images to product ${productId}...`);
 
   try {
-    const uploadPromises = images.map(async (image, index) => {
-      try {
-        // Check if we have the actual file object stored
-        if (!image.file) {
-          console.log(`Skipping image ${index + 1}: no file object`);
-          return null;
-        }
-
-        // Create FormData for this specific product
-        const uploadFormData = new FormData();
+    // ✅ API accepts multiple images in ONE request
+    const uploadFormData = new FormData();
+    
+    let validImageCount = 0;
+    images.forEach((image) => {
+      if (image.file) {
+        // ✅ Append each file with the same field name "images"
         uploadFormData.append('images', image.file);
-        uploadFormData.append('altText', image.altText);
-        uploadFormData.append('sortOrder', image.sortOrder.toString());
-        uploadFormData.append('isMain', image.isMain.toString());
-
-        console.log(`Uploading image ${index + 1}: ${image.fileName}`);
-        
-        // ✅ UPDATED - Use product ID in URL path and product name in query parameter
-        const token = localStorage.getItem('authToken');
-        const uploadResponse = await fetch(
-          `${API_ENDPOINTS.products}/${productId}/images?name=${encodeURIComponent(formData.name)}`,
-          {
-            method: 'POST',
-            headers: {
-              ...(token && { 'Authorization': `Bearer ${token}` }),
-            },
-            body: uploadFormData,
-          }
-        );
-
-        if (uploadResponse.ok) {
-          const result = await uploadResponse.json();
-          if (result && result.success) {
-            console.log(`Image ${index + 1} uploaded successfully`);
-            return result.data;
-          } else {
-            throw new Error(`Upload failed: ${result?.message || 'Unknown error'}`);
-          }
-        } else {
-          const errorText = await uploadResponse.text();
-          throw new Error(`HTTP ${uploadResponse.status}: ${errorText}`);
-        }
-      } catch (error: any) {
-        console.error(`Error uploading image ${index + 1}:`, error);
-        toast.error(`Failed to upload ${image.fileName}: ${error.message}`);
-        return null;
+        validImageCount++;
       }
     });
 
-    // Wait for all image uploads to complete
-    const results = await Promise.all(uploadPromises);
-    const successfulUploads = results.filter(result => result !== null);
-    
-    console.log(`${successfulUploads.length} out of ${images.length} images uploaded successfully`);
-    return successfulUploads;
+    if (validImageCount === 0) {
+      console.log('⚠️ No valid images to upload');
+      return [];
+    }
 
-  } catch (error) {
-    console.error('Error in uploadImagesToProduct:', error);
-    throw error;
+    console.log(`📷 Uploading ${validImageCount} images in batch...`);
+    
+    // ✅ Get token
+    const token = localStorage.getItem('authToken');
+    
+    if (!token) {
+      toast.error('❌ No authentication token found');
+      return [];
+    }
+
+    // ✅ Make API request
+    const uploadResponse = await fetch(
+      `${API_BASE_URL}/api/Products/${productId}/images`,
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          // ❌ DON'T add Content-Type - browser sets it automatically with boundary
+        },
+        body: uploadFormData,
+      }
+    );
+
+    console.log(`📡 Upload response status: ${uploadResponse.status}`);
+
+    if (uploadResponse.ok) {
+      const result = await uploadResponse.json();
+      console.log('✅ Upload response:', result);
+      
+      if (result.success && result.data) {
+        toast.success(`✅ ${result.data.length} image(s) uploaded successfully! 📷`);
+        return result.data;
+      } else {
+        throw new Error(result.message || 'Upload failed');
+      }
+    } else {
+      const errorText = await uploadResponse.text();
+      console.error(`❌ Upload failed:`, errorText);
+      
+      // Try to parse error JSON
+      try {
+        const errorJson = JSON.parse(errorText);
+        throw new Error(errorJson.message || `HTTP ${uploadResponse.status}`);
+      } catch {
+        throw new Error(`HTTP ${uploadResponse.status}: ${errorText.substring(0, 200)}`);
+      }
+    }
+
+  } catch (error: any) {
+    console.error('❌ Error in uploadImagesToProduct:', error);
+    toast.error(`Failed to upload images: ${error.message}`);
+    return [];
   }
 };
 
-// Function to upload variant images after product is created
-const uploadVariantImages = async (productResponse: any) => {
-  console.log('Checking for variant images to upload...');
 
+
+
+// ✅ NEW: Function to upload variant images after product is created
+const uploadVariantImages = async (productResponse: any) => {
+  console.log('🖼️ Checking for variant images to upload...');
+  
   // Get variant IDs from the response
-  const createdVariants = productResponse?.variants || [];
+  const createdVariants = productResponse?.variants;
+  
   if (!createdVariants || createdVariants.length === 0) {
     console.log('No variants found in product response');
     return;
@@ -1172,7 +1269,7 @@ const uploadVariantImages = async (productResponse: any) => {
   try {
     const uploadPromises = productVariants.map(async (localVariant) => {
       // Find corresponding created variant by SKU or name
-      const createdVariant = createdVariants.find((cv: any) =>
+      const createdVariant = createdVariants.find((cv: any) => 
         cv.sku === localVariant.sku || cv.name === localVariant.name
       );
 
@@ -1187,19 +1284,20 @@ const uploadVariantImages = async (productResponse: any) => {
         return null;
       }
 
-      console.log(`Uploading image for variant ${localVariant.name} (ID: ${createdVariant.id})`);
+      console.log(`📤 Uploading image for variant ${localVariant.name} (ID: ${createdVariant.id})`);
 
       try {
         const formData = new FormData();
-        formData.append('image', localVariant.imageFile);
+        formData.append("image", localVariant.imageFile);
 
-        const token = localStorage.getItem('authToken');
+        const token = localStorage.getItem("authToken");
+
         const uploadResponse = await fetch(
           `${API_BASE_URL}/api/Products/variants/${createdVariant.id}/image`,
           {
-            method: 'POST',
+            method: "POST",
             headers: {
-              ...(token && { 'Authorization': `Bearer ${token}` }),
+              ...(token && { Authorization: `Bearer ${token}` }),
             },
             body: formData,
           }
@@ -1207,7 +1305,7 @@ const uploadVariantImages = async (productResponse: any) => {
 
         if (uploadResponse.ok) {
           const result = await uploadResponse.json();
-          console.log(`Variant image uploaded successfully for ${localVariant.name}`);
+          console.log(`✅ Variant image uploaded successfully for ${localVariant.name}`);
           return result;
         } else {
           const errorText = await uploadResponse.text();
@@ -1222,15 +1320,17 @@ const uploadVariantImages = async (productResponse: any) => {
 
     const results = await Promise.all(uploadPromises);
     const successfulUploads = results.filter(r => r !== null);
-    console.log(`${successfulUploads.length} variant images uploaded successfully`);
-
+    
+    console.log(`✅ ${successfulUploads.length} variant images uploaded successfully`);
+    
     if (successfulUploads.length > 0) {
-      toast.success(`${successfulUploads.length} variant images uploaded!`);
+      toast.success(`${successfulUploads.length} variant image(s) uploaded! 📷`);
     }
   } catch (error) {
     console.error('Error uploading variant images:', error);
   }
 };
+
 
   const handleBrowseClick = () => {
     fileInputRef.current?.click();
@@ -2758,260 +2858,364 @@ const uploadVariantImages = async (productResponse: any) => {
               </TabsContent>
 
               {/* Product Variants Tab - NEW */}
-              <TabsContent value="variants" className="space-y-2 mt-2">
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h3 className="text-lg font-semibold text-white">Product Variants</h3>
-                      <p className="text-sm text-slate-400">
-                        Create variants like different sizes, colors, or configurations with their own pricing and inventory
-                      </p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={addProductVariant}
-                      className="px-4 py-2 bg-violet-500 hover:bg-violet-600 text-white rounded-lg transition-colors flex items-center gap-2"
-                    >
-                      <Package className="h-4 w-4" />
-                      Add Variant
-                    </button>
-                  </div>
+{/* ✅ STEP 7: Replace ENTIRE Variants TabsContent section */}
+<TabsContent value="variants" className="space-y-2 mt-2">
+  <div className="space-y-4">
+    <div className="flex items-center justify-between">
+      <div>
+        <h3 className="text-lg font-semibold text-white">Product Variants</h3>
+        <p className="text-sm text-slate-400">
+          Create variants like different sizes, colors, or configurations with their own pricing and inventory
+        </p>
+      </div>
+      <button
+        type="button"
+        onClick={addProductVariant}
+        className="px-4 py-2 bg-violet-500 hover:bg-violet-600 text-white rounded-lg transition-colors flex items-center gap-2"
+      >
+        <Package className="h-4 w-4" />
+        Add Variant
+      </button>
+    </div>
 
-                  {productVariants.length === 0 ? (
-                    <div className="bg-slate-800/30 border border-slate-700 rounded-xl p-8 text-center">
-                      <Package className="h-12 w-12 text-slate-600 mx-auto mb-4" />
-                      <h3 className="text-lg font-semibold text-white mb-2">No Product Variants Yet</h3>
-                      <p className="text-slate-400 mb-4">
-                        Click "Add Variant" to create different versions of this product
-                      </p>
-                      <p className="text-sm text-slate-500">
-                        Example: iPhone 128GB Black, iPhone 256GB White
-                      </p>
-                    </div>
-                  ) : (
-                    <div className="space-y-4">
-                      {productVariants.map((variant, index) => (
-                        <div key={variant.id} className="bg-slate-800/30 border border-slate-700 rounded-xl p-4">
-                          <div className="flex items-start justify-between mb-4">
-                            <div className="flex items-center gap-2">
-                              <h4 className="text-white font-medium">Variant #{index + 1}</h4>
-                              {variant.isDefault && (
-                                <span className="px-2 py-1 bg-violet-500/20 text-violet-400 text-xs rounded-md">
-                                  Default
-                                </span>
-                              )}
-                            </div>
-                            <button
-                              type="button"
-                              onClick={() => removeProductVariant(variant.id)}
-                              className="p-2 text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-lg transition-colors"
-                            >
-                              <X className="h-5 w-5" />
-                            </button>
-                          </div>
+    {productVariants.length === 0 ? (
+      <div className="bg-slate-800/30 border border-slate-700 rounded-xl p-8 text-center">
+        <Package className="h-12 w-12 text-slate-600 mx-auto mb-4" />
+        <h3 className="text-lg font-semibold text-white mb-2">No Product Variants Yet</h3>
+        <p className="text-slate-400 mb-4">
+          Click "Add Variant" to create different versions of this product
+        </p>
+        <p className="text-sm text-slate-500">
+          Example: 500ml Original, 750ml Original, 200ml Fresh
+        </p>
+      </div>
+    ) : (
+      <div className="space-y-4">
+        {productVariants.map((variant, index) => (
+          <div key={variant.id} className="bg-slate-800/30 border border-slate-700 rounded-xl p-4">
+            <div className="flex items-start justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <h4 className="text-white font-medium">Variant #{index + 1}</h4>
+                {variant.isDefault && (
+                  <span className="px-2 py-1 bg-violet-500/20 text-violet-400 text-xs rounded-md">
+                    Default
+                  </span>
+                )}
+                {!variant.isActive && (
+                  <span className="px-2 py-1 bg-red-500/20 text-red-400 text-xs rounded-md">
+                    Inactive
+                  </span>
+                )}
+              </div>
+              <button
+                type="button"
+                onClick={() => removeProductVariant(variant.id)}
+                className="p-2 text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-lg transition-colors"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
 
-                          <div className="grid grid-cols-2 gap-4 mb-4">
-                            <div>
-                              <label className="block text-sm font-medium text-slate-300 mb-2">
-                                Variant Name <span className="text-red-500">*</span>
-                              </label>
-                              <input
-                                type="text"
-                                value={variant.name}
-                                onChange={(e) => updateProductVariant(variant.id, 'name', e.target.value)}
-                                placeholder="e.g., 128GB Black"
-                                className="w-full px-4 py-2.5 bg-slate-900 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500"
-                              />
-                            </div>
-                            <div>
-                              <label className="block text-sm font-medium text-slate-300 mb-2">
-                                SKU <span className="text-red-500">*</span>
-                              </label>
-                              <input
-                                type="text"
-                                value={variant.sku}
-                                onChange={(e) => updateProductVariant(variant.id, 'sku', e.target.value)}
-                                placeholder="e.g., SKU-128-BLK"
-                                className="w-full px-4 py-2.5 bg-slate-900 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500"
-                              />
-                            </div>
-                          </div>
+            {/* Basic Info Row */}
+            <div className="grid grid-cols-2 gap-4 mb-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-2">
+                  Variant Name <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={variant.name}
+                  onChange={(e) => updateProductVariant(variant.id, 'name', e.target.value)}
+                  placeholder="e.g., 500ml Original"
+                  className="w-full px-4 py-2.5 bg-slate-900 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-2">
+                  SKU <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={variant.sku}
+                  onChange={(e) => updateProductVariant(variant.id, 'sku', e.target.value)}
+                  placeholder="e.g., JOHNSON-500ML"
+                  className="w-full px-4 py-2.5 bg-slate-900 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500"
+                />
+              </div>
+            </div>
 
-                          <div className="grid grid-cols-4 gap-4 mb-4">
-                            <div>
-                              <label className="block text-sm font-medium text-slate-300 mb-2">
-                                Price (£)
-                              </label>
-                              <input
-                                type="number"
-                                step="0.01"
-                                value={variant.price || ''}
-                                onChange={(e) => updateProductVariant(variant.id, 'price', e.target.value ? parseFloat(e.target.value) : null)}
-                                placeholder="0.00"
-                                className="w-full px-4 py-2.5 bg-slate-900 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500"
-                              />
-                            </div>
-                            <div>
-                              <label className="block text-sm font-medium text-slate-300 mb-2">
-                                Compare At Price
-                              </label>
-                              <input
-                                type="number"
-                                step="0.01"
-                                value={variant.compareAtPrice || ''}
-                                onChange={(e) => updateProductVariant(variant.id, 'compareAtPrice', e.target.value ? parseFloat(e.target.value) : null)}
-                                placeholder="0.00"
-                                className="w-full px-4 py-2.5 bg-slate-900 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500"
-                              />
-                            </div>
-                            <div>
-                              <label className="block text-sm font-medium text-slate-300 mb-2">
-                                Weight (kg)
-                              </label>
-                              <input
-                                type="number"
-                                step="0.01"
-                                value={variant.weight || ''}
-                                onChange={(e) => updateProductVariant(variant.id, 'weight', e.target.value ? parseFloat(e.target.value) : null)}
-                                placeholder="0.00"
-                                className="w-full px-4 py-2.5 bg-slate-900 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500"
-                              />
-                            </div>
-                            <div>
-                              <label className="block text-sm font-medium text-slate-300 mb-2">
-                                Stock Quantity
-                              </label>
-                              <input
-                                type="number"
-                                value={variant.stockQuantity}
-                                onChange={(e) => updateProductVariant(variant.id, 'stockQuantity', parseInt(e.target.value) || 0)}
-                                placeholder="0"
-                                className="w-full px-4 py-2.5 bg-slate-900 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500"
-                              />
-                            </div>
-                          </div>
+            {/* Pricing & Stock Row */}
+            <div className="grid grid-cols-4 gap-4 mb-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-2">
+                  Price (£)
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={variant.price || ''}
+                  onChange={(e) => updateProductVariant(variant.id, 'price', e.target.value ? parseFloat(e.target.value) : null)}
+                  placeholder="9.99"
+                  className="w-full px-4 py-2.5 bg-slate-900 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-2">
+                  Compare At Price (£)
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={variant.compareAtPrice || ''}
+                  onChange={(e) => updateProductVariant(variant.id, 'compareAtPrice', e.target.value ? parseFloat(e.target.value) : null)}
+                  placeholder="12.99"
+                  className="w-full px-4 py-2.5 bg-slate-900 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-2">
+                  Weight (kg)
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={variant.weight || ''}
+                  onChange={(e) => updateProductVariant(variant.id, 'weight', e.target.value ? parseFloat(e.target.value) : null)}
+                  placeholder="0.55"
+                  className="w-full px-4 py-2.5 bg-slate-900 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-2">
+                  Stock Quantity
+                </label>
+                <input
+                  type="number"
+                  value={variant.stockQuantity}
+                  onChange={(e) => updateProductVariant(variant.id, 'stockQuantity', parseInt(e.target.value) || 0)}
+                  placeholder="150"
+                  className="w-full px-4 py-2.5 bg-slate-900 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500"
+                />
+              </div>
+            </div>
 
-                          <div className="grid grid-cols-3 gap-4 mb-4">
-                            <div>
-                              <label className="block text-sm font-medium text-slate-300 mb-2">
-                                Option 1 (e.g., Size)
-                              </label>
-                              <input
-                                type="text"
-                                value={variant.option1 || ''}
-                                onChange={(e) => updateProductVariant(variant.id, 'option1', e.target.value || null)}
-                                placeholder="e.g., 128GB, Large, Red"
-                                className="w-full px-4 py-2.5 bg-slate-900 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500"
-                              />
-                            </div>
-                            <div>
-                              <label className="block text-sm font-medium text-slate-300 mb-2">
-                                Option 2 (e.g., Color)
-                              </label>
-                              <input
-                                type="text"
-                                value={variant.option2 || ''}
-                                onChange={(e) => updateProductVariant(variant.id, 'option2', e.target.value || null)}
-                                placeholder="e.g., Black, Cotton, Matte"
-                                className="w-full px-4 py-2.5 bg-slate-900 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500"
-                              />
-                            </div>
-                            <div>
-                              <label className="block text-sm font-medium text-slate-300 mb-2">
-                                Option 3 (e.g., Material)
-                              </label>
-                              <input
-                                type="text"
-                                value={variant.option3 || ''}
-                                onChange={(e) => updateProductVariant(variant.id, 'option3', e.target.value || null)}
-                                placeholder="e.g., Premium, WiFi+Cellular"
-                                className="w-full px-4 py-2.5 bg-slate-900 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500"
-                              />
-                            </div>
-                          </div>
-
-                          {/* Variant Image Upload */}
-                          <div>
-                            <label className="block text-sm font-medium text-slate-300 mb-2">
-                              Variant Image
-                            </label>
-                            {variant.imageUrl ? (
-                              <div className="relative inline-block">
-                                <img
-                                  src={variant.imageUrl}
-                                  alt={variant.name}
-                                  className="w-32 h-32 object-cover rounded-lg border border-slate-700"
-                                />
-                                <button
-                                  type="button"
-                                  onClick={() => removeVariantImage(variant.id)}
-                                  className="absolute -top-2 -right-2 p-1 bg-red-500 hover:bg-red-600 text-white rounded-full transition-colors"
-                                >
-                                  <X className="h-4 w-4" />
-                                </button>
-                              </div>
-                            ) : (
-                              <div className="flex items-center gap-2">
-                                <input
-                                  type="file"
-                                  accept="image/*"
-                                  onChange={(e) => {
-                                    const file = e.target.files?.[0];
-                                    if (file) {
-                                      handleVariantImageUpload(variant.id, file);
-                                    }
-                                  }}
-                                  className="hidden"
-                                  id={`variant-image-${variant.id}`}
-                                />
-                                <label
-                                  htmlFor={`variant-image-${variant.id}`}
-                                  className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-colors cursor-pointer flex items-center gap-2"
-                                >
-                                  <Upload className="h-4 w-4" />
-                                  Upload Image
-                                </label>
-                                <span className="text-sm text-slate-400">
-                                  Optional - Image specific to this variant
-                                </span>
-                              </div>
-                            )}
-                          </div>
-
-                          <div className="mt-4 flex items-center gap-2">
-                            <input
-                              type="checkbox"
-                              id={`variant-default-${variant.id}`}
-                              checked={variant.isDefault}
-                              onChange={(e) => {
-                                // Set all variants to not default first
-                                setProductVariants(productVariants.map(v => ({
-                                  ...v,
-                                  isDefault: v.id === variant.id ? e.target.checked : false
-                                })));
-                              }}
-                              className="w-4 h-4 rounded border-slate-700 bg-slate-900 text-violet-500 focus:ring-2 focus:ring-violet-500"
-                            />
-                            <label htmlFor={`variant-default-${variant.id}`} className="text-sm text-slate-300">
-                              Set as default variant
-                            </label>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-
-                  <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-4">
-                    <h4 className="font-semibold text-sm text-blue-400 mb-2">💡 Variant Tips</h4>
-                    <ul className="text-sm text-slate-400 space-y-1">
-                      <li>• Each variant should have a unique SKU</li>
-                      <li>• Use Option fields to categorize variants (Size, Color, Material)</li>
-                      <li>• Upload specific images for each variant to show the difference</li>
-                      <li>• Set one variant as default - it will be shown first to customers</li>
-                    </ul>
-                  </div>
+            {/* ✅ UPDATED: Option 1 (Name + Value) */}
+            <div className="space-y-4 mb-4 bg-slate-900/50 border border-slate-700 rounded-lg p-4">
+              <h5 className="text-sm font-semibold text-violet-400">Option 1</h5>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate-300 mb-2">
+                    Option Name
+                  </label>
+                  <input
+                    type="text"
+                    value={variant.option1Name || ''}
+                    onChange={(e) => updateProductVariant(variant.id, 'option1Name', e.target.value || null)}
+                    placeholder="e.g., Size, Pack Size"
+                    className="w-full px-4 py-2.5 bg-slate-900 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500"
+                  />
                 </div>
-              </TabsContent>
+                <div>
+                  <label className="block text-sm font-medium text-slate-300 mb-2">
+                    Option Value
+                  </label>
+                  <input
+                    type="text"
+                    value={variant.option1Value || ''}
+                    onChange={(e) => updateProductVariant(variant.id, 'option1Value', e.target.value || null)}
+                    placeholder="e.g., 500ml, Pack of 12"
+                    className="w-full px-4 py-2.5 bg-slate-900 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* ✅ UPDATED: Option 2 (Name + Value) */}
+            <div className="space-y-4 mb-4 bg-slate-900/50 border border-slate-700 rounded-lg p-4">
+              <h5 className="text-sm font-semibold text-cyan-400">Option 2</h5>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate-300 mb-2">
+                    Option Name
+                  </label>
+                  <input
+                    type="text"
+                    value={variant.option2Name || ''}
+                    onChange={(e) => updateProductVariant(variant.id, 'option2Name', e.target.value || null)}
+                    placeholder="e.g., Purchase Type, Color"
+                    className="w-full px-4 py-2.5 bg-slate-900 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-300 mb-2">
+                    Option Value
+                  </label>
+                  <input
+                    type="text"
+                    value={variant.option2Value || ''}
+                    onChange={(e) => updateProductVariant(variant.id, 'option2Value', e.target.value || null)}
+                    placeholder="e.g., One Time Purchase, Black"
+                    className="w-full px-4 py-2.5 bg-slate-900 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* ✅ UPDATED: Option 3 (Name + Value) - Optional */}
+            <div className="space-y-4 mb-4 bg-slate-900/50 border border-slate-700 rounded-lg p-4">
+              <h5 className="text-sm font-semibold text-pink-400">Option 3 (Optional)</h5>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate-300 mb-2">
+                    Option Name
+                  </label>
+                  <input
+                    type="text"
+                    value={variant.option3Name || ''}
+                    onChange={(e) => updateProductVariant(variant.id, 'option3Name', e.target.value || null)}
+                    placeholder="e.g., Material, Style"
+                    className="w-full px-4 py-2.5 bg-slate-900 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-300 mb-2">
+                    Option Value
+                  </label>
+                  <input
+                    type="text"
+                    value={variant.option3Value || ''}
+                    onChange={(e) => updateProductVariant(variant.id, 'option3Value', e.target.value || null)}
+                    placeholder="e.g., Premium, WiFi+Cellular"
+                    className="w-full px-4 py-2.5 bg-slate-900 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* ✅ UPDATED: Variant Image Upload with Preview */}
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-2">
+                Variant Image
+              </label>
+              
+              {/* Preview Section */}
+              {variant.imageUrl ? (
+                <div className="relative inline-block mb-3">
+                  <img
+                    src={variant.imageUrl}
+                    alt={variant.name || "Variant"}
+                    className="w-32 h-32 object-cover rounded-lg border-2 border-slate-700 shadow-lg"
+                  />
+                  
+                  {/* Preview Badge */}
+                  {variant.imageUrl.startsWith("blob:") && (
+                    <span className="absolute top-1 right-1 px-2 py-1 bg-orange-500 text-white text-xs rounded-md">
+                      Preview
+                    </span>
+                  )}
+                  
+                  {/* Remove Button */}
+                  <button
+                    type="button"
+                    onClick={() => removeVariantImage(variant.id)}
+                    className="absolute -top-2 -right-2 p-1 bg-red-500 hover:bg-red-600 text-white rounded-full transition-colors"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+              ) : null}
+              
+              {/* Upload Button */}
+              <div className="flex items-center gap-2">
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      handleVariantImageUpload(variant.id, file);
+                    }
+                  }}
+                  className="hidden"
+                  id={`variant-image-${variant.id}`}
+                />
+                <label
+                  htmlFor={`variant-image-${variant.id}`}
+                  className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-colors cursor-pointer flex items-center gap-2"
+                >
+                  <Upload className="h-4 w-4" />
+                  {variant.imageUrl ? "Change Image" : "Upload Image"}
+                </label>
+                
+                {/* Help Text */}
+                <div className="text-sm text-slate-400">
+                  {variant.imageUrl?.startsWith("blob:") ? (
+                    <span className="text-orange-400">⚠️ Will upload when you save</span>
+                  ) : (
+                    <span>Optional - Max 5MB</span>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Variant Settings */}
+            <div className="mt-4 flex items-center gap-4 flex-wrap">
+              <label className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id={`variant-default-${variant.id}`}
+                  checked={variant.isDefault}
+                  onChange={(e) => {
+                    setProductVariants(productVariants.map(v => ({
+                      ...v,
+                      isDefault: v.id === variant.id ? e.target.checked : false
+                    })));
+                  }}
+                  className="w-4 h-4 rounded border-slate-700 bg-slate-900 text-violet-500 focus:ring-2 focus:ring-violet-500"
+                />
+                <span className="text-sm text-slate-300">Set as default variant</span>
+              </label>
+
+              <label className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id={`variant-track-${variant.id}`}
+                  checked={variant.trackInventory}
+                  onChange={(e) => updateProductVariant(variant.id, 'trackInventory', e.target.checked)}
+                  className="w-4 h-4 rounded border-slate-700 bg-slate-900 text-violet-500 focus:ring-2 focus:ring-violet-500"
+                />
+                <span className="text-sm text-slate-300">Track inventory</span>
+              </label>
+
+              <label className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id={`variant-active-${variant.id}`}
+                  checked={variant.isActive}
+                  onChange={(e) => updateProductVariant(variant.id, 'isActive', e.target.checked)}
+                  className="w-4 h-4 rounded border-slate-700 bg-slate-900 text-violet-500 focus:ring-2 focus:ring-violet-500"
+                />
+                <span className="text-sm text-slate-300">Active</span>
+              </label>
+            </div>
+          </div>
+        ))}
+      </div>
+    )}
+
+    {/* Help Section */}
+    <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-4">
+      <h4 className="font-semibold text-sm text-blue-400 mb-2">💡 Variant Examples</h4>
+      <ul className="text-sm text-slate-400 space-y-1">
+        <li>• <strong>Example 1:</strong> Option1Name: "Pack Size", Option1Value: "Pack of 12" | Option2Name: "Purchase Type", Option2Value: "One Time Purchase"</li>
+        <li>• <strong>Example 2:</strong> Option1Name: "Size", Option1Value: "500ml" | Option2Name: "Scent", Option2Value: "Original"</li>
+        <li>• Each variant should have a unique SKU</li>
+        <li>• Images will be uploaded when you click "Save & Continue" or "Save as Draft"</li>
+      </ul>
+    </div>
+  </div>
+</TabsContent>
+
 
               {/* SEO Tab */}
               <TabsContent value="seo" className="space-y-2 mt-2">

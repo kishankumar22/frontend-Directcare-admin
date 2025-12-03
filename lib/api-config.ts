@@ -4,7 +4,7 @@ export const API_ENDPOINTS = {
   // Auth
   login: '/api/Auth/login',
   register: '/api/Auth/register',
-
+refreshToken:'/api/Auth/refresh-token',
   // Categories
   categories: '/api/Categories',
   uploadCategoryImage: '/api/Categories/upload-image',

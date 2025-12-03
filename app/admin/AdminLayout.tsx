@@ -37,7 +37,6 @@ import {
   PackageOpen,
   Receipt,
   Clock,
-  CheckCircle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTheme } from "@/context/theme-provider";
@@ -115,11 +114,11 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
   const { theme, setTheme } = useTheme();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(true);
+  const [isHovering, setIsHovering] = useState(false);
   const [expandedMenus, setExpandedMenus] = useState<{ [key: string]: boolean }>({});
   const [userEmail, setUserEmail] = useState<string>('');
   const [userName, setUserName] = useState<string>('');
   const [userInitial, setUserInitial] = useState<string>('A');
-  const [isHovering, setIsHovering] = useState(false);
   const [isAnimating, setIsAnimating] = useState(false);
 
   // Token expiry countdown state
@@ -129,10 +128,6 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
     seconds: number;
     total: number;
   } | null>(null);
-
-    const [showAutoLoginModal, setShowAutoLoginModal] = useState(false);
-  const [autoLoginCountdown, setAutoLoginCountdown] = useState(3);
-  const [isAutoLoggingIn, setIsAutoLoggingIn] = useState(false);
 
   const isActiveRoute = (navHref: string, currentPath: string) => {
     if (navHref === '/admin' && currentPath === '/admin') return true;
@@ -173,29 +168,42 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
     
     setTimeout(() => setIsAnimating(false), 600);
   };
-// TOKEN EXPIRY → AUTO LOGOUT (Yeh add karo!)
-useEffect(() => {
-  if (!authService.isAuthenticated()) return;
 
-  const checkExpiry = () => {
-    const expiry = authService.getTokenExpiry();
-    if (expiry && new Date() >= expiry) {
-      toast.error("Session expired! Auto-logging in...", {
+  // ✅ Token refresh check - attempt refresh if expiring soon
+  useEffect(() => {
+    if (!authService.isAuthenticated()) return;
+
+const checkAndRefresh = async () => {
+  if (authService.isTokenExpiringSoon(10)) {
+    console.log("⚠️ Token expiring soon, refreshing...");
+    
+    const refreshed = await authService.refreshToken();
+    
+    if (refreshed) {
+      // ✅ Detailed success message
+      toast.success("🔄 Session Extended -> Your session has been automatically renewed for 1 hour", {
         position: "top-center",
-        autoClose: 3000,
+        autoClose: 5000,      
       });
-      handleLogout(); // Yehi modal trigger karega + auto-login
+      
+      console.log("✅ Token refreshed successfully at", new Date().toLocaleTimeString());
+    } else {
+      // ❌ Failure message
+      toast.error("⏰ Session Expired -> Please login again to continue", {
+        position: "top-center",
+        autoClose: 5000,   
+      });      
+      router.replace("/login");
     }
-  };
+  }
+};
 
-  // Check immediately
-  checkExpiry();
 
-  // Check every 5 seconds
-  const interval = setInterval(checkExpiry, 5000);
+    checkAndRefresh();
+    const interval = setInterval(checkAndRefresh, 2 * 60 * 1000);
+    return () => clearInterval(interval);
+  }, [router, toast]);
 
-  return () => clearInterval(interval);
-}, []);
   // Calculate time remaining until token expiry
   const calculateTimeRemaining = () => {
     const expiryDate = authService.getTokenExpiry();
@@ -220,8 +228,6 @@ useEffect(() => {
 
     setTimeRemaining({ hours, minutes, seconds, total: diff });
   };
-
-
 
   useEffect(() => {
     navigation.forEach((item) => {
@@ -277,138 +283,29 @@ useEffect(() => {
     }
   }, []);
 
-const handleLogout = () => {
-  authService.logout();
-  setShowAutoLoginModal(true);
-  setAutoLoginCountdown(3);
-
-  toast.success("Logged out! Auto-login in 3s...", {
-    position: "top-center",
-    autoClose: 2500,
-  });
-};// Iske just upar ya neeche paste kar do
-useEffect(() => {
-  if (!authService.isAuthenticated()) return;
-
-  const checkExpiry = () => {
-    const expiry = authService.getTokenExpiry();
-    if (expiry && new Date() >= expiry) {
-      toast.error("Session expired! Auto-logging in...", {
-        position: "top-center",
-        autoClose: 3000,
-      });
-      handleLogout();
-    }
-  };
-
-  checkExpiry();
-  const interval = setInterval(checkExpiry, 5000);
-  return () => clearInterval(interval);
-}, []);
-
-  const isSidebarExpanded = (!sidebarCollapsed || isHovering);
-  const sidebarWidth = isSidebarExpanded ? 'w-64' : 'w-16';
-  // ✅ Auto-login function
-  const performAutoLogin = async () => {
-    setIsAutoLoggingIn(true);
-    
-    try {
-      // Auto-login credentials
-      const autoLoginEmail = "faizraza349@gmail.com";
-      const autoLoginPassword = "Kausar@786";
-
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/Auth/login`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          email: autoLoginEmail,
-          password: autoLoginPassword,
-        }),
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        
-        if (data.success) {
-          // Store token and user data
-          localStorage.setItem('authToken', data.data.token);
-          localStorage.setItem('userEmail', autoLoginEmail);
-          localStorage.setItem('userData', JSON.stringify(data.data));
-
-          toast.success("✅ Auto-login successful!", {
-            autoClose: 2000,
-            position: "top-center"
-          });
-
-          setShowAutoLoginModal(false);
-          
-          // Refresh the page
-          window.location.reload();
-        } else {
-          throw new Error('Auto-login failed');
-        }
-      } else {
-        throw new Error('Auto-login failed');
-      }
-    } catch (error) {
-      console.error('Auto-login error:', error);
-      toast.error("❌ Auto-login failed. Redirecting to login...", {
-        autoClose: 2000,
-        position: "top-center"
-      });
-      
-      setTimeout(() => {
-        router.replace("/login");
-      }, 2000);
-    } finally {
-      setIsAutoLoggingIn(false);
-    }
-  };
-// FINAL & SAFE AUTH CHECK + TIMER (Yeh add karna jaruri hai!)
-useEffect(() => {
-  // Agar auto-login chal raha hai → redirect mat karo
-  if (showAutoLoginModal || isAutoLoggingIn) {
-    return;
-  }
-
-  // Agar token nahi hai → login page bhejo
-  if (!authService.isAuthenticated()) {
-    router.replace("/login");
-    return;
-  }
-
-  // Token expiry countdown start karo
-  calculateTimeRemaining();
-  const interval = setInterval(calculateTimeRemaining, 1000);
-
-  // Cleanup
-  return () => clearInterval(interval);
-}, [router, showAutoLoginModal, isAutoLoggingIn]);
-
-
-  // ✅ Countdown and auto-login effect
-  useEffect(() => {
-    if (showAutoLoginModal && autoLoginCountdown > 0) {
-      const timer = setTimeout(() => {
-        setAutoLoginCountdown(prev => prev - 1);
-      }, 1000);
-
-      return () => clearTimeout(timer);
-    } else if (showAutoLoginModal && autoLoginCountdown === 0) {
-      performAutoLogin();
-    }
-  }, [showAutoLoginModal, autoLoginCountdown]);
-
-  useEffect(() => {
-    navigation.forEach((item) => {
-      if (item.children && isParentActive(item.children)) {
-        setExpandedMenus({ [item.name]: true });
-      }
+  const handleLogout = () => {
+    authService.logout();
+    toast.success("Logged out successfully!", {
+      position: "top-center",
+      autoClose: 2000,
     });
-  }, [pathname]);
-  // Get color based on time remaining
+  };
+
+  useEffect(() => {
+    if (!authService.isAuthenticated()) {
+      router.replace("/login");
+      return;
+    }
+
+    calculateTimeRemaining();
+    const interval = setInterval(calculateTimeRemaining, 1000);
+    return () => clearInterval(interval);
+  }, [router]);
+
+  // ✅ Sidebar expanded when: button clicked OR (collapsed AND hovering)
+  const isSidebarExpanded = !sidebarCollapsed || (sidebarCollapsed && isHovering);
+  const sidebarWidth = sidebarCollapsed ? 'w-16' : 'w-64';
+
   const getTimerColor = () => {
     if (!timeRemaining) return 'text-slate-400';
     const totalMinutes = timeRemaining.hours * 60 + timeRemaining.minutes;
@@ -420,10 +317,8 @@ useEffect(() => {
 
   return (
     <div className="min-h-screen bg-slate-950 dark:bg-gray-950 relative overflow-hidden transition-colors duration-500">
-      {/* Animated Grid Background */}
       <div className="fixed inset-0 bg-[linear-gradient(to_right,#1e293b_1px,transparent_1px),linear-gradient(to_bottom,#1e293b_1px,transparent_1px)] dark:bg-[linear-gradient(to_right,#1f2937_1px,transparent_1px),linear-gradient(to_bottom,#1f2937_1px,transparent_1px)] bg-[size:4rem_4rem] [mask-image:radial-gradient(ellipse_80%_50%_at_50%_0%,#000_70%,transparent_110%)] transition-all duration-500" />
 
-      {/* Gradient Orbs */}
       <div className="fixed top-0 -left-4 w-96 h-96 bg-violet-500 dark:bg-violet-700 rounded-full mix-blend-multiply filter blur-3xl opacity-10 dark:opacity-15 animate-blob transition-all duration-500" />
       <div className="fixed top-0 -right-4 w-96 h-96 bg-cyan-500 dark:bg-cyan-700 rounded-full mix-blend-multiply filter blur-3xl opacity-10 dark:opacity-15 animate-blob animation-delay-2000 transition-all duration-500" />
       <div className="fixed -bottom-8 left-1/2 w-96 h-96 bg-pink-500 dark:bg-pink-700 rounded-full mix-blend-multiply filter blur-3xl opacity-10 dark:opacity-15 animate-blob animation-delay-4000 transition-all duration-500" />
@@ -431,22 +326,24 @@ useEffect(() => {
       <div className="relative z-10 flex h-screen overflow-hidden">
         {/* Desktop Sidebar */}
         <aside
-          onMouseEnter={() => setIsHovering(true)}
-          onMouseLeave={() => setIsHovering(false)}
+          onMouseEnter={() => sidebarCollapsed && setIsHovering(true)}
+          onMouseLeave={() => sidebarCollapsed && setIsHovering(false)}
           className={cn(
-            "hidden lg:flex fixed h-full bg-slate-900/80 dark:bg-gray-900/90 backdrop-blur-xl border-r border-slate-800 dark:border-gray-800 flex-col transition-all duration-150 z-50",
-            sidebarWidth
+            "hidden lg:flex fixed h-full bg-slate-900/80 dark:bg-gray-900/90 backdrop-blur-xl border-r border-slate-800 dark:border-gray-800 flex-col transition-all duration-300 z-50",
+            sidebarWidth,
+            // ✅ When hovering on collapsed sidebar, show as overlay
+            sidebarCollapsed && isHovering && "!w-64 shadow-2xl"
           )}
         >
           {/* Logo */}
           <div className="p-3 border-b border-slate-800 dark:border-gray-800 flex-shrink-0 h-[73px] flex items-center transition-colors duration-150">
             <div className="flex items-center gap-3 overflow-hidden">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-500 to-cyan-500 dark:from-violet-600 dark:to-cyan-600 flex items-center justify-center flex-shrink-0 transition-all duration-150 shadow-lg dark:shadow-violet-500/20">
-                <Sparkles className="w-5 h-5 text-white" />
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-500 via-purple-500 to-cyan-500 dark:from-violet-600 dark:via-purple-600 dark:to-cyan-600 flex items-center justify-center flex-shrink-0 transition-all duration-150 shadow-lg shadow-violet-500/50 dark:shadow-violet-500/30">
+                <Sparkles className="w-5 h-5 text-white animate-pulse" />
               </div>
               {isSidebarExpanded && (
                 <div className="whitespace-nowrap">
-                  <h2 className="text-lg font-bold text-white transition-colors duration-150">EcomPanel</h2>
+                  <h2 className="text-lg font-bold bg-gradient-to-r from-violet-400 via-purple-400 to-cyan-400 bg-clip-text text-transparent">EcomPanel</h2>
                   <p className="text-xs text-slate-400 dark:text-gray-500 transition-colors duration-150">Admin Dashboard</p>
                 </div>
               )}
@@ -470,12 +367,15 @@ useEffect(() => {
                       className={cn(
                         "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-150 group relative",
                         isParentItemActive
-                          ? "bg-slate-800/70 dark:bg-gray-800/80 text-white border-2 border-white shadow-lg shadow-white/10"
+                          ? "bg-slate-800/70 dark:bg-gray-800/80 text-white shadow-lg"
                           : "text-slate-400 dark:text-gray-500 hover:text-white hover:bg-slate-800/50 dark:hover:bg-gray-800/60"
                       )}
                       title={!isSidebarExpanded ? item.name : ""}
                     >
-                      <Icon className="h-5 w-5 flex-shrink-0 transition-transform duration-150 group-hover:scale-110" />
+                      <Icon className={cn(
+                        "h-5 w-5 flex-shrink-0 transition-all duration-150 group-hover:scale-110",
+                        isParentItemActive && "text-violet-400"
+                      )} />
                       {isSidebarExpanded && (
                         <>
                           <span className="font-medium text-sm flex-1 text-left whitespace-nowrap">
@@ -494,7 +394,7 @@ useEffect(() => {
                     {isSidebarExpanded && (
                       <div
                         className={cn(
-                          "overflow-hidden transition-all duration-150 ease-in-out",
+                          "overflow-hidden transition-all duration-300 ease-in-out",
                           isExpanded ? "max-h-96 opacity-100" : "max-h-0 opacity-0"
                         )}
                       >
@@ -510,15 +410,14 @@ useEffect(() => {
                                 className={cn(
                                   "flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-150 group relative",
                                   isChildActive
-                                    ? "bg-gradient-to-r from-violet-500 to-cyan-500 dark:from-violet-600 dark:to-cyan-600 text-white shadow-lg shadow-violet-500/30 dark:shadow-violet-600/50 border-2 border-white"
-                                    : "text-slate-400 dark:text-gray-500 hover:text-white hover:bg-slate-800/50 dark:hover:bg-gray-800/60",
-                                  isExpanded && "animate-slideIn"
+                                    ? "bg-gradient-to-r from-violet-500 to-cyan-500 dark:from-violet-600 dark:to-cyan-600 text-white shadow-lg shadow-violet-500/30 dark:shadow-violet-600/50"
+                                    : "text-slate-400 dark:text-gray-500 hover:text-white hover:bg-slate-800/50 dark:hover:bg-gray-800/60"
                                 )}
-                                style={{
-                                  animationDelay: `${index * 50}ms`,
-                                }}
                               >
-                                <ChildIcon className="h-4 w-4 flex-shrink-0 transition-transform duration-150 group-hover:scale-110" />
+                                <ChildIcon className={cn(
+                                  "h-4 w-4 flex-shrink-0 transition-all duration-150 group-hover:scale-110",
+                                  isChildActive ? "text-white" : "text-cyan-400"
+                                )} />
                                 <span className="font-medium text-sm whitespace-nowrap">
                                   {child.name}
                                 </span>
@@ -542,12 +441,15 @@ useEffect(() => {
                   className={cn(
                     "flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-150 group relative",
                     isActive
-                      ? "bg-gradient-to-r from-violet-500 to-cyan-500 dark:from-violet-600 dark:to-cyan-600 text-white shadow-lg shadow-violet-500/30 dark:shadow-violet-600/50 border-2 border-white"
+                      ? "bg-gradient-to-r from-violet-500 to-cyan-500 dark:from-violet-600 dark:to-cyan-600 text-white shadow-lg shadow-violet-500/30 dark:shadow-violet-600/50"
                       : "text-slate-400 dark:text-gray-500 hover:text-white hover:bg-slate-800/50 dark:hover:bg-gray-800/60"
                   )}
                   title={!isSidebarExpanded ? item.name : ""}
                 >
-                  <Icon className="h-5 w-5 flex-shrink-0 transition-transform duration-150 group-hover:scale-110" />
+                  <Icon className={cn(
+                    "h-5 w-5 flex-shrink-0 transition-all duration-150 group-hover:scale-110",
+                    isActive ? "text-white" : "text-violet-400"
+                  )} />
                   {isSidebarExpanded && (
                     <>
                       <span className="font-medium text-sm flex-1 whitespace-nowrap">
@@ -565,19 +467,19 @@ useEffect(() => {
           <div className="p-2 border-t border-slate-800 dark:border-gray-800 flex-shrink-0 space-y-1 transition-colors duration-150">
             <Link
               href="/"
-              className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-400 dark:text-gray-500 hover:text-white hover:bg-slate-800/50 dark:hover:bg-gray-800/60 transition-all duration-150"
+              className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-400 dark:text-gray-500 hover:text-white hover:bg-slate-800/50 dark:hover:bg-gray-800/60 transition-all duration-150 group"
               title={!isSidebarExpanded ? "View Store" : ""}
             >
-              <Store className="h-5 w-5 flex-shrink-0" />
+              <Store className="h-5 w-5 flex-shrink-0 text-cyan-400 group-hover:scale-110 transition-transform" />
               {isSidebarExpanded && (
                 <span className="font-medium text-sm whitespace-nowrap">View Store</span>
               )}
             </Link>
             <button 
-              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-400 dark:text-gray-500 hover:text-white hover:bg-slate-800/50 dark:hover:bg-gray-800/60 transition-all duration-150"
+              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-400 dark:text-gray-500 hover:text-white hover:bg-slate-800/50 dark:hover:bg-gray-800/60 transition-all duration-150 group"
               title={!isSidebarExpanded ? "Settings" : ""}
             >
-              <Settings className="h-5 w-5 flex-shrink-0" />
+              <Settings className="h-5 w-5 flex-shrink-0 text-violet-400 group-hover:scale-110 transition-transform group-hover:rotate-90" />
               {isSidebarExpanded && (
                 <span className="font-medium text-sm whitespace-nowrap">Settings</span>
               )}
@@ -628,17 +530,17 @@ useEffect(() => {
         {/* Mobile Sidebar */}
         <aside
           className={cn(
-            "fixed lg:hidden h-full w-64 bg-slate-900/80 dark:bg-gray-900/90 backdrop-blur-xl border-r border-slate-800 dark:border-gray-800 flex flex-col transition-all duration-150 z-50",
+            "fixed lg:hidden h-full w-64 bg-slate-900/80 dark:bg-gray-900/90 backdrop-blur-xl border-r border-slate-800 dark:border-gray-800 flex flex-col transition-all duration-300 z-50",
             sidebarOpen ? "translate-x-0" : "-translate-x-full"
           )}
         >
           <div className="p-3 border-b border-slate-800 dark:border-gray-800 flex-shrink-0 transition-colors duration-150">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-500 to-cyan-500 dark:from-violet-600 dark:to-cyan-600 flex items-center justify-center transition-all duration-150 shadow-lg dark:shadow-violet-500/20">
-                <Sparkles className="w-5 h-5 text-white" />
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-500 via-purple-500 to-cyan-500 dark:from-violet-600 dark:via-purple-600 dark:to-cyan-600 flex items-center justify-center transition-all duration-150 shadow-lg shadow-violet-500/50 dark:shadow-violet-500/20">
+                <Sparkles className="w-5 h-5 text-white animate-pulse" />
               </div>
               <div>
-                <h2 className="text-lg font-bold text-white transition-colors duration-150">EcomPanel</h2>
+                <h2 className="text-lg font-bold bg-gradient-to-r from-violet-400 via-purple-400 to-cyan-400 bg-clip-text text-transparent">EcomPanel</h2>
                 <p className="text-xs text-slate-400 dark:text-gray-500 transition-colors duration-150">Admin Dashboard</p>
               </div>
             </div>
@@ -660,11 +562,14 @@ useEffect(() => {
                       className={cn(
                         "w-full flex items-center gap-3 px-4 py-2.5 rounded-lg transition-all duration-150 group",
                         isParentItemActive
-                          ? "bg-slate-800/70 dark:bg-gray-800/80 text-white border-2 border-white shadow-lg shadow-white/10"
+                          ? "bg-slate-800/70 dark:bg-gray-800/80 text-white shadow-lg"
                           : "text-slate-400 dark:text-gray-500 hover:text-white hover:bg-slate-800/50 dark:hover:bg-gray-800/60"
                       )}
                     >
-                      <Icon className="h-5 w-5 transition-transform duration-150 group-hover:scale-110" />
+                      <Icon className={cn(
+                        "h-5 w-5 transition-all duration-150 group-hover:scale-110",
+                        isParentItemActive && "text-violet-400"
+                      )} />
                       <span className="font-medium text-sm flex-1 text-left">{item.name}</span>
                       <ChevronDown
                         className={cn(
@@ -676,7 +581,7 @@ useEffect(() => {
 
                     <div
                       className={cn(
-                        "overflow-hidden transition-all duration-150 ease-in-out",
+                        "overflow-hidden transition-all duration-300 ease-in-out",
                         isExpanded ? "max-h-96 opacity-100" : "max-h-0 opacity-0"
                       )}
                     >
@@ -693,13 +598,14 @@ useEffect(() => {
                               className={cn(
                                 "flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-150 group",
                                 isChildActive
-                                  ? "bg-gradient-to-r from-violet-500 to-cyan-500 dark:from-violet-600 dark:to-cyan-600 text-white shadow-lg shadow-violet-500/30 dark:shadow-violet-600/50 border-2 border-white"
-                                  : "text-slate-400 dark:text-gray-500 hover:text-white hover:bg-slate-800/50 dark:hover:bg-gray-800/60",
-                                isExpanded && "animate-slideIn"
+                                  ? "bg-gradient-to-r from-violet-500 to-cyan-500 dark:from-violet-600 dark:to-cyan-600 text-white shadow-lg shadow-violet-500/30 dark:shadow-violet-600/50"
+                                  : "text-slate-400 dark:text-gray-500 hover:text-white hover:bg-slate-800/50 dark:hover:bg-gray-800/60"
                               )}
-                              style={{ animationDelay: `${index * 50}ms` }}
                             >
-                              <ChildIcon className="h-4 w-4 transition-transform duration-150 group-hover:scale-110" />
+                              <ChildIcon className={cn(
+                                "h-4 w-4 transition-all duration-150 group-hover:scale-110",
+                                isChildActive ? "text-white" : "text-cyan-400"
+                              )} />
                               <span className="font-medium text-sm">{child.name}</span>
                               {isChildActive && <ChevronRight className="h-3 w-3 ml-auto animate-pulse" />}
                             </Link>
@@ -719,11 +625,14 @@ useEffect(() => {
                   className={cn(
                     "flex items-center gap-3 px-4 py-2.5 rounded-lg transition-all duration-150 group",
                     isActive
-                      ? "bg-gradient-to-r from-violet-500 to-cyan-500 dark:from-violet-600 dark:to-cyan-600 text-white shadow-lg shadow-violet-500/30 dark:shadow-violet-600/50 border-2 border-white"
+                      ? "bg-gradient-to-r from-violet-500 to-cyan-500 dark:from-violet-600 dark:to-cyan-600 text-white shadow-lg shadow-violet-500/30 dark:shadow-violet-600/50"
                       : "text-slate-400 dark:text-gray-500 hover:text-white hover:bg-slate-800/50 dark:hover:bg-gray-800/60"
                   )}
                 >
-                  <Icon className="h-5 w-5 transition-transform duration-150 group-hover:scale-110" />
+                  <Icon className={cn(
+                    "h-5 w-5 transition-all duration-150 group-hover:scale-110",
+                    isActive ? "text-white" : "text-violet-400"
+                  )} />
                   <span className="font-medium text-sm flex-1">{item.name}</span>
                   {isActive && <ChevronRight className="h-4 w-4 animate-pulse" />}
                 </Link>
@@ -735,13 +644,13 @@ useEffect(() => {
             <Link
               href="/"
               onClick={() => setSidebarOpen(false)}
-              className="flex items-center gap-3 px-4 py-2.5 rounded-lg text-slate-400 dark:text-gray-500 hover:text-white hover:bg-slate-800/50 dark:hover:bg-gray-800/60 transition-all duration-150"
+              className="flex items-center gap-3 px-4 py-2.5 rounded-lg text-slate-400 dark:text-gray-500 hover:text-white hover:bg-slate-800/50 dark:hover:bg-gray-800/60 transition-all duration-150 group"
             >
-              <Store className="h-5 w-5" />
+              <Store className="h-5 w-5 text-cyan-400 group-hover:scale-110 transition-transform" />
               <span className="font-medium text-sm">View Store</span>
             </Link>
-            <button className="w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-slate-400 dark:text-gray-500 hover:text-white hover:bg-slate-800/50 dark:hover:bg-gray-800/60 transition-all duration-150">
-              <Settings className="h-5 w-5" />
+            <button className="w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-slate-400 dark:text-gray-500 hover:text-white hover:bg-slate-800/50 dark:hover:bg-gray-800/60 transition-all duration-150 group">
+              <Settings className="h-5 w-5 text-violet-400 group-hover:scale-110 transition-transform group-hover:rotate-90" />
               <span className="font-medium text-sm">Settings</span>
             </button>
           </div>
@@ -777,8 +686,8 @@ useEffect(() => {
         {/* Main Content */}
         <div 
           className={cn(
-            "flex-1 flex flex-col overflow-hidden transition-all duration-150",
-            isSidebarExpanded ? "lg:ml-64" : "lg:ml-16"
+            "flex-1 flex flex-col overflow-hidden transition-all duration-300",
+            sidebarCollapsed ? "lg:ml-16" : "lg:ml-64"
           )}
         >
           {/* Header */}
@@ -796,7 +705,7 @@ useEffect(() => {
                   <button
                     onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
                     className="hidden lg:block p-2 text-slate-400 dark:text-gray-500 hover:text-white hover:bg-slate-800 dark:hover:bg-gray-800/70 rounded-lg transition-all duration-150"
-                    title={sidebarCollapsed ? "Pin Sidebar" : "Unpin Sidebar"}
+                    title={sidebarCollapsed ? "Expand Sidebar" : "Collapse Sidebar"}
                   >
                     <Menu className="h-5 w-5" />
                   </button>
@@ -814,7 +723,6 @@ useEffect(() => {
                 </div>
 
                 <div className="flex items-center gap-3">
-                  {/* Token Expiry Timer */}
                   {timeRemaining && (
                     <div 
                       className={cn(
@@ -895,79 +803,6 @@ useEffect(() => {
             </div>
           </main>
         </div>
-         {showAutoLoginModal && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-[100] flex items-center justify-center p-4">
-          <div className="bg-gradient-to-br from-slate-900 via-slate-900 to-slate-800 border border-violet-500/20 rounded-3xl max-w-md w-full shadow-2xl shadow-violet-500/10 animate-slideIn">
-            <div className="p-6 border-b border-violet-500/20 bg-gradient-to-r from-violet-500/10 to-cyan-500/10">
-              <div className="flex items-center justify-center gap-3">
-                <div className="w-12 h-12 rounded-full bg-gradient-to-br from-violet-500 to-cyan-500 flex items-center justify-center animate-pulse">
-                  <CheckCircle className="h-6 w-6 text-white" />
-                </div>
-                <div>
-                  <h2 className="text-2xl font-bold text-white">Session Ended</h2>
-                  <p className="text-slate-400 text-sm mt-1">Auto-login in progress...</p>
-                </div>
-              </div>
-            </div>
-
-            <div className="p-6 space-y-4">
-              <div className="bg-slate-800/30 p-4 rounded-xl border border-slate-700 text-center">
-                <p className="text-slate-300 text-sm mb-4">
-                  You have been logged out. Automatically logging you back in with saved credentials...
-                </p>
-                
-                <div className="flex items-center justify-center gap-2 mb-4">
-                  <div className="w-3 h-3 bg-violet-500 rounded-full animate-bounce"></div>
-                  <div className="w-3 h-3 bg-cyan-500 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
-                  <div className="w-3 h-3 bg-pink-500 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
-                </div>
-
-                {isAutoLoggingIn ? (
-                  <div className="flex items-center justify-center gap-2">
-                    <div className="w-5 h-5 border-2 border-violet-500 border-t-transparent rounded-full animate-spin"></div>
-                    <p className="text-white font-semibold">Logging in...</p>
-                  </div>
-                ) : (
-                  <div className="text-center">
-                    <p className="text-white text-4xl font-bold mb-2">{autoLoginCountdown}</p>
-                    <p className="text-slate-400 text-sm">seconds remaining</p>
-                  </div>
-                )}
-              </div>
-
-              <div className="bg-violet-500/10 border border-violet-500/30 rounded-xl p-4">
-                <div className="flex items-start gap-3">
-                  <Sparkles className="h-5 w-5 text-violet-400 mt-0.5 flex-shrink-0" />
-                  <div className="flex-1">
-                    <p className="text-violet-400 font-medium text-sm mb-1">Auto-Login Credentials</p>
-                    <div className="space-y-1">
-                      <p className="text-slate-300 text-xs">
-                        📧 Email: <span className="text-white font-mono">faizraza349@gmail.com</span>
-                      </p>
-                      <p className="text-slate-300 text-xs">
-                        🔒 Password: <span className="text-white font-mono">Kausar@786</span>
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="p-6 border-t border-slate-700/50">
-              <button
-                onClick={() => {
-                  setShowAutoLoginModal(false);
-                  router.replace("/login");
-                }}
-                disabled={isAutoLoggingIn}
-                className="w-full px-4 py-2 bg-slate-700 text-white rounded-lg hover:bg-slate-600 transition-all font-medium text-sm disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {isAutoLoggingIn ? 'Please wait...' : 'Cancel Auto-Login'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
       </div>
 
       <style jsx global>{`
@@ -976,21 +811,6 @@ useEffect(() => {
           33% { transform: translate(30px, -50px) scale(1.1); }
           66% { transform: translate(-20px, 20px) scale(0.9); }
           100% { transform: translate(0px, 0px) scale(1); }
-        }
-        
-        @keyframes slideIn {
-          from {
-            opacity: 0;
-            transform: translateX(-10px);
-          }
-          to {
-            opacity: 1;
-            transform: translateX(0);
-          }
-        }
-        
-        .animate-slideIn {
-          animation: slideIn 0.3s ease-out forwards;
         }
         
         .animate-blob { animation: blob 7s infinite; }

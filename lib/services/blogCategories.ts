@@ -15,7 +15,7 @@ export interface BlogCategory {
   metaKeywords?: string;
   searchEngineFriendlyPageName?: string;
   parentCategoryId?: string | null;
-  parentCategoryName?: string;
+
   subCategories?: string[];
   blogPostCount: number;
   createdAt?: string;

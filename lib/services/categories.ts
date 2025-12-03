@@ -16,6 +16,7 @@ export interface Category {
   metaDescription?: string;
   metaKeywords?: string;
   parentCategoryId?: string;
+  parentCategoryName?:string;
   createdAt?: string;
   updatedAt?: string;
   createdBy?: string;

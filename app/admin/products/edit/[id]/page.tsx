@@ -3,9 +3,6 @@
 
 import { useState, use, useEffect, useRef, JSX } from "react";
 import { useRouter } from "next/navigation";
-import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   ArrowLeft, Save, Upload, X, Info, Search, Image, Package,
@@ -48,6 +45,7 @@ interface CategoryData {
 }
 
 // Product Variant interface matching backend ProductVariantDto/CreateDto
+// ✅ UPDATED: ProductVariant interface matching API response
 interface ProductVariant {
   id: string;
   name: string;
@@ -56,11 +54,17 @@ interface ProductVariant {
   compareAtPrice: number | null;
   weight: number | null;
   stockQuantity: number;
-  option1: string | null;
-  option2: string | null;
-  option3: string | null;
+  trackInventory: boolean;
+  option1Name: string | null;
+  option1Value: string | null;
+  option2Name: string | null;
+  option2Value: string | null;
+  option3Name?: string | null;
+  option3Value?: string | null;
   imageUrl: string | null;
   isDefault: boolean;
+  displayOrder: number;
+  isActive: boolean;
   imageFile?: File;
 }
 
@@ -691,26 +695,34 @@ useEffect(() => {
           }
 
           // ===== LOAD VARIANTS =====
-          if (product.variants && Array.isArray(product.variants)) {
-            const loadedVariants = product.variants.map((variant: any) => ({
-              id: variant.id || Date.now().toString() + Math.random(),
-              name: variant.name || '',
-              sku: variant.sku || '',
-              price: variant.price !== null && variant.price !== undefined ? variant.price : null,
-              compareAtPrice: variant.compareAtPrice || null,
-              weight: variant.weight || null,
-              stockQuantity: variant.stockQuantity || 0,
-              option1: variant.option1 || null,
-              option2: variant.option2 || null,
-              option3: variant.option3 || null,
-              imageUrl: variant.imageUrl || null,
-              isDefault: variant.isDefault || false
-            }));
-            setProductVariants(loadedVariants);
-            console.log('✅ Loaded variants:', loadedVariants);
-          } else {
-            setProductVariants([]);
-          }
+// ✅ UPDATED: Load variants from API response (inside useEffect)
+if (product.variants && Array.isArray(product.variants)) {
+  const loadedVariants = product.variants.map((variant: any) => ({
+    id: variant.id || Date.now().toString() + Math.random(),
+    name: variant.name || '',
+    sku: variant.sku || '',
+    price: variant.price !== null && variant.price !== undefined ? variant.price : null,
+    compareAtPrice: variant.compareAtPrice || null,
+    weight: variant.weight || null,
+    stockQuantity: variant.stockQuantity || 0,
+    trackInventory: variant.trackInventory ?? true,
+    option1Name: variant.option1Name || null,
+    option1Value: variant.option1Value || null,
+    option2Name: variant.option2Name || null,
+    option2Value: variant.option2Value || null,
+    option3Name: variant.option3Name || null,
+    option3Value: variant.option3Value || null,
+    imageUrl: variant.imageUrl || null,
+    isDefault: variant.isDefault || false,
+    displayOrder: variant.displayOrder || 0,
+    isActive: variant.isActive ?? true
+  }));
+  setProductVariants(loadedVariants);
+  console.log('✅ Loaded variants:', loadedVariants);
+} else {
+  setProductVariants([]);
+}
+
         }
       }
 
@@ -821,19 +833,36 @@ const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
       })) || [];
 
     // Prepare variants array
-    const variantsArray = productVariants?.map(variant => ({
-      name: variant.name,
-      sku: variant.sku,
-      price: variant.price,
-      compareAtPrice: variant.compareAtPrice,
-      weight: variant.weight,
-      stockQuantity: variant.stockQuantity,
-      option1: variant.option1,
-      option2: variant.option2,
-      option3: variant.option3,
-      imageUrl: variant.imageUrl,
-      isDefault: variant.isDefault
-    })) || [];
+// ✅ UPDATED: Prepare variants array for submission
+ const variantsArray = productVariants?.map(variant => {
+      // Don't send blob URLs to backend
+      const imageUrl = variant.imageUrl?.startsWith('blob:') 
+        ? null 
+        : variant.imageUrl;
+
+      return {
+        id: variant.id,
+        name: variant.name,
+        sku: variant.sku,
+        price: variant.price,
+        compareAtPrice: variant.compareAtPrice,
+        weight: variant.weight,
+        stockQuantity: variant.stockQuantity,
+        trackInventory: variant.trackInventory ?? true,
+        option1Name: variant.option1Name || null,
+        option1Value: variant.option1Value || null,
+        option2Name: variant.option2Name || null,
+        option2Value: variant.option2Value || null,
+        option3Name: variant.option3Name || null,
+        option3Value: variant.option3Value || null,
+        imageUrl: imageUrl, // ✅ Only send real URLs, not blob
+        isDefault: variant.isDefault,
+        displayOrder: variant.displayOrder || 0,
+        isActive: variant.isActive ?? true
+      };
+    }) || [];
+
+    console.log('📦 Variants being sent:', variantsArray);
 
     const productData = {
       id: productId,
@@ -1274,7 +1303,8 @@ const updateProductAttribute = (id: string, field: keyof ProductAttribute, value
   ));
 };
 
-// Product Variant handlers (matching backend ProductVariantCreateDto)
+
+// ✅ UPDATED: Add Product Variant with correct structure
 const addProductVariant = () => {
   const newVariant: ProductVariant = {
     id: Date.now().toString(),
@@ -1284,14 +1314,21 @@ const addProductVariant = () => {
     compareAtPrice: null,
     weight: formData.weight ? parseFloat(formData.weight) : null,
     stockQuantity: 0,
-    option1: null,
-    option2: null,
-    option3: null,
+    trackInventory: true,
+    option1Name: null,
+    option1Value: null,
+    option2Name: null,
+    option2Value: null,
+    option3Name: null,
+    option3Value: null,
     imageUrl: null,
-    isDefault: productVariants.length === 0
+    isDefault: productVariants.length === 0,
+    displayOrder: productVariants.length,
+    isActive: true
   };
   setProductVariants([...productVariants, newVariant]);
 };
+
 
 
 const updateProductVariant = (id: string, field: keyof ProductVariant, value: any) => {
@@ -1301,16 +1338,36 @@ const updateProductVariant = (id: string, field: keyof ProductVariant, value: an
 };
 
 // UPDATED - Upload variant image immediately in Edit mode
-// UPDATED - Upload variant image immediately in Edit mode
 const handleVariantImageUpload = async (variantId: string, file: File) => {
   if (!productId) {
     toast.error("Product ID not found");
     return;
   }
 
+  // ✅ Check if variant has valid database ID (GUID format)
+  const guidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  
+  if (!guidRegex.test(variantId)) {
+    toast.error("⚠️ Please save the product first, then upload variant images");
+    return;
+  }
+
   try {
+    // ✅ Show preview immediately
+    const previewUrl = URL.createObjectURL(file);
+    setProductVariants(productVariants.map(variant => {
+      if (variant.id === variantId) {
+        return {
+          ...variant,
+          imageUrl: previewUrl, // Temporary preview
+          imageFile: file // Store file for later
+        };
+      }
+      return variant;
+    }));
+
     const formData = new FormData();
-    formData.append("image", file);
+    formData.append("image", file); // ✅ Parameter name matches API
 
     const token = localStorage.getItem("authToken");
 
@@ -1328,28 +1385,50 @@ const handleVariantImageUpload = async (variantId: string, file: File) => {
     if (uploadResponse.ok) {
       const result = await uploadResponse.json();
       
-      // Update variant with returned image URL (not base64)
+      console.log("✅ Upload response:", result);
+
+      // ✅ Get the real image URL from response
+      const uploadedImageUrl = result.imageUrl || result.data?.imageUrl || result.data || null;
+
+      // ✅ Update variant with real image URL
       setProductVariants(productVariants.map(variant => {
         if (variant.id === variantId) {
+          // Revoke preview URL to free memory
+          if (variant.imageUrl?.startsWith('blob:')) {
+            URL.revokeObjectURL(variant.imageUrl);
+          }
+          
           return {
             ...variant,
-            imageUrl: result.imageUrl || result.data?.imageUrl,
+            imageUrl: uploadedImageUrl,
             imageFile: undefined,
           };
         }
         return variant;
       }));
 
-      toast.success("Variant image uploaded successfully!");
+      toast.success("✅ Variant image uploaded successfully!");
     } else {
       const errorText = await uploadResponse.text();
+      console.error("❌ Upload error:", errorText);
+      
+      // ✅ Revert preview on error
+      setProductVariants(productVariants.map(variant => {
+        if (variant.id === variantId && variant.imageUrl?.startsWith('blob:')) {
+          URL.revokeObjectURL(variant.imageUrl);
+          return { ...variant, imageUrl: null, imageFile: undefined };
+        }
+        return variant;
+      }));
+      
       throw new Error(`Upload failed: ${errorText}`);
     }
   } catch (error: any) {
-    console.error("Error uploading variant image:", error);
+    console.error("❌ Error uploading variant image:", error);
     toast.error(`Failed to upload variant image: ${error.message}`);
   }
 };
+
 
 
 
@@ -3019,207 +3098,306 @@ const uploadImagesToProductDirect = async (productId: string, files: File[]): Pr
               </TabsContent>
 
               {/* Product Variants Tab - NEW */}
-              <TabsContent value="variants" className="space-y-2 mt-2">
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h3 className="text-lg font-semibold text-white">Product Variants</h3>
-                      <p className="text-sm text-slate-400">
-                        Create variants like different sizes, colors, or configurations with their own pricing and inventory
-                      </p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={addProductVariant}
-                      className="px-4 py-2 bg-violet-500 hover:bg-violet-600 text-white rounded-lg transition-colors flex items-center gap-2"
-                    >
-                      <Package className="h-4 w-4" />
-                      Add Variant
-                    </button>
-                  </div>
+{/* ✅ COMPLETE UPDATED Product Variants Tab */}
+<TabsContent value="variants" className="space-y-2 mt-2">
+  <div className="space-y-4">
+    <div className="flex items-center justify-between">
+      <div>
+        <h3 className="text-lg font-semibold text-white">Product Variants</h3>
+        <p className="text-sm text-slate-400">
+          Create variants like different sizes, colors, or configurations with their own pricing and inventory
+        </p>
+      </div>
+      <button
+        type="button"
+        onClick={addProductVariant}
+        className="px-4 py-2 bg-violet-500 hover:bg-violet-600 text-white rounded-lg transition-colors flex items-center gap-2"
+      >
+        <Package className="h-4 w-4" />
+        Add Variant
+      </button>
+    </div>
 
-                  {productVariants.length === 0 ? (
-                    <div className="bg-slate-800/30 border border-slate-700 rounded-xl p-8 text-center">
-                      <Package className="h-12 w-12 text-slate-600 mx-auto mb-4" />
-                      <h3 className="text-lg font-semibold text-white mb-2">No Product Variants Yet</h3>
-                      <p className="text-slate-400 mb-4">
-                        Click "Add Variant" to create different versions of this product
-                      </p>
-                      <p className="text-sm text-slate-500">
-                        Example: iPhone 128GB Black, iPhone 256GB White
-                      </p>
-                    </div>
-                  ) : (
-                    <div className="space-y-4">
-                      {productVariants.map((variant, index) => (
-                        <div key={variant.id} className="bg-slate-800/30 border border-slate-700 rounded-xl p-4">
-                          <div className="flex items-start justify-between mb-4">
-                            <div className="flex items-center gap-2">
-                              <h4 className="text-white font-medium">Variant #{index + 1}</h4>
-                              {variant.isDefault && (
-                                <span className="px-2 py-1 bg-violet-500/20 text-violet-400 text-xs rounded-md">
-                                  Default
-                                </span>
-                              )}
-                            </div>
-                           {/* Variant Delete Button */}
-<button
-  type="button"
-  onClick={() => removeProductVariant(variant.id)}
-  className="p-2 text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-lg transition-colors"
->
-  <X className="h-5 w-5" />
-</button>
-                          </div>
+    {productVariants.length === 0 ? (
+      <div className="bg-slate-800/30 border border-slate-700 rounded-xl p-8 text-center">
+        <Package className="h-12 w-12 text-slate-600 mx-auto mb-4" />
+        <h3 className="text-lg font-semibold text-white mb-2">No Product Variants Yet</h3>
+        <p className="text-slate-400 mb-4">
+          Click "Add Variant" to create different versions of this product
+        </p>
+        <p className="text-sm text-slate-500">
+          Example: 500ml Original, 750ml Original, 200ml Fresh
+        </p>
+      </div>
+    ) : (
+      <div className="space-y-4">
+        {productVariants.map((variant, index) => (
+          <div key={variant.id} className="bg-slate-800/30 border border-slate-700 rounded-xl p-4">
+            <div className="flex items-start justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <h4 className="text-white font-medium">Variant #{index + 1}</h4>
+                {variant.isDefault && (
+                  <span className="px-2 py-1 bg-violet-500/20 text-violet-400 text-xs rounded-md">
+                    Default
+                  </span>
+                )}
+                {!variant.isActive && (
+                  <span className="px-2 py-1 bg-red-500/20 text-red-400 text-xs rounded-md">
+                    Inactive
+                  </span>
+                )}
+              </div>
+              <button
+                type="button"
+                onClick={() => removeProductVariant(variant.id)}
+                className="p-2 text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-lg transition-colors"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
 
-                          <div className="grid grid-cols-2 gap-4 mb-4">
-                            <div>
-                              <label className="block text-sm font-medium text-slate-300 mb-2">
-                                Variant Name <span className="text-red-500">*</span>
-                              </label>
-                              <input
-                                type="text"
-                                value={variant.name}
-                                onChange={(e) => updateProductVariant(variant.id, 'name', e.target.value)}
-                                placeholder="e.g., 128GB Black"
-                                className="w-full px-4 py-2.5 bg-slate-900 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500"
-                              />
-                            </div>
-                            <div>
-                              <label className="block text-sm font-medium text-slate-300 mb-2">
-                                SKU <span className="text-red-500">*</span>
-                              </label>
-                              <input
-                                type="text"
-                                value={variant.sku}
-                                onChange={(e) => updateProductVariant(variant.id, 'sku', e.target.value)}
-                                placeholder="e.g., SKU-128-BLK"
-                                className="w-full px-4 py-2.5 bg-slate-900 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500"
-                              />
-                            </div>
-                          </div>
+            {/* Basic Info Row */}
+            <div className="grid grid-cols-2 gap-4 mb-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-2">
+                  Variant Name <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={variant.name}
+                  onChange={(e) => updateProductVariant(variant.id, 'name', e.target.value)}
+                  placeholder="e.g., 500ml Original"
+                  className="w-full px-4 py-2.5 bg-slate-900 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-2">
+                  SKU <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={variant.sku}
+                  onChange={(e) => updateProductVariant(variant.id, 'sku', e.target.value)}
+                  placeholder="e.g., JOHNSON-500ML"
+                  className="w-full px-4 py-2.5 bg-slate-900 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500"
+                />
+              </div>
+            </div>
 
-                          <div className="grid grid-cols-4 gap-4 mb-4">
-                            <div>
-                              <label className="block text-sm font-medium text-slate-300 mb-2">
-                                Price (£)
-                              </label>
-                              <input
-                                type="number"
-                                step="0.01"
-                                value={variant.price || ''}
-                                onChange={(e) => updateProductVariant(variant.id, 'price', e.target.value ? parseFloat(e.target.value) : null)}
-                                placeholder="0.00"
-                                className="w-full px-4 py-2.5 bg-slate-900 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500"
-                              />
-                            </div>
-                            <div>
-                              <label className="block text-sm font-medium text-slate-300 mb-2">
-                                Compare At Price
-                              </label>
-                              <input
-                                type="number"
-                                step="0.01"
-                                value={variant.compareAtPrice || ''}
-                                onChange={(e) => updateProductVariant(variant.id, 'compareAtPrice', e.target.value ? parseFloat(e.target.value) : null)}
-                                placeholder="0.00"
-                                className="w-full px-4 py-2.5 bg-slate-900 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500"
-                              />
-                            </div>
-                            <div>
-                              <label className="block text-sm font-medium text-slate-300 mb-2">
-                                Weight (kg)
-                              </label>
-                              <input
-                                type="number"
-                                step="0.01"
-                                value={variant.weight || ''}
-                                onChange={(e) => updateProductVariant(variant.id, 'weight', e.target.value ? parseFloat(e.target.value) : null)}
-                                placeholder="0.00"
-                                className="w-full px-4 py-2.5 bg-slate-900 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500"
-                              />
-                            </div>
-                            <div>
-                              <label className="block text-sm font-medium text-slate-300 mb-2">
-                                Stock Quantity
-                              </label>
-                              <input
-                                type="number"
-                                value={variant.stockQuantity}
-                                onChange={(e) => updateProductVariant(variant.id, 'stockQuantity', parseInt(e.target.value) || 0)}
-                                placeholder="0"
-                                className="w-full px-4 py-2.5 bg-slate-900 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500"
-                              />
-                            </div>
-                          </div>
+            {/* Pricing & Stock Row */}
+            <div className="grid grid-cols-4 gap-4 mb-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-2">
+                  Price (£)
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={variant.price || ''}
+                  onChange={(e) => updateProductVariant(variant.id, 'price', e.target.value ? parseFloat(e.target.value) : null)}
+                  placeholder="9.99"
+                  className="w-full px-4 py-2.5 bg-slate-900 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-2">
+                  Compare At Price (£)
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={variant.compareAtPrice || ''}
+                  onChange={(e) => updateProductVariant(variant.id, 'compareAtPrice', e.target.value ? parseFloat(e.target.value) : null)}
+                  placeholder="12.99"
+                  className="w-full px-4 py-2.5 bg-slate-900 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-2">
+                  Weight (kg)
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={variant.weight || ''}
+                  onChange={(e) => updateProductVariant(variant.id, 'weight', e.target.value ? parseFloat(e.target.value) : null)}
+                  placeholder="0.55"
+                  className="w-full px-4 py-2.5 bg-slate-900 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-2">
+                  Stock Quantity
+                </label>
+                <input
+                  type="number"
+                  value={variant.stockQuantity}
+                  onChange={(e) => updateProductVariant(variant.id, 'stockQuantity', parseInt(e.target.value) || 0)}
+                  placeholder="150"
+                  className="w-full px-4 py-2.5 bg-slate-900 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500"
+                />
+              </div>
+            </div>
 
-                          <div className="grid grid-cols-3 gap-4 mb-4">
-                            <div>
-                              <label className="block text-sm font-medium text-slate-300 mb-2">
-                                Option 1 (e.g., Size)
-                              </label>
-                              <input
-                                type="text"
-                                value={variant.option1 || ''}
-                                onChange={(e) => updateProductVariant(variant.id, 'option1', e.target.value || null)}
-                                placeholder="e.g., 128GB, Large, Red"
-                                className="w-full px-4 py-2.5 bg-slate-900 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500"
-                              />
-                            </div>
-                            <div>
-                              <label className="block text-sm font-medium text-slate-300 mb-2">
-                                Option 2 (e.g., Color)
-                              </label>
-                              <input
-                                type="text"
-                                value={variant.option2 || ''}
-                                onChange={(e) => updateProductVariant(variant.id, 'option2', e.target.value || null)}
-                                placeholder="e.g., Black, Cotton, Matte"
-                                className="w-full px-4 py-2.5 bg-slate-900 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500"
-                              />
-                            </div>
-                            <div>
-                              <label className="block text-sm font-medium text-slate-300 mb-2">
-                                Option 3 (e.g., Material)
-                              </label>
-                              <input
-                                type="text"
-                                value={variant.option3 || ''}
-                                onChange={(e) => updateProductVariant(variant.id, 'option3', e.target.value || null)}
-                                placeholder="e.g., Premium, WiFi+Cellular"
-                                className="w-full px-4 py-2.5 bg-slate-900 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500"
-                              />
-                            </div>
-                          </div>
+            {/* ✅ UPDATED: Option 1 (Name + Value) */}
+            <div className="space-y-4 mb-4 bg-slate-900/50 border border-slate-700 rounded-lg p-4">
+              <h5 className="text-sm font-semibold text-violet-400">Option 1</h5>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate-300 mb-2">
+                    Option Name
+                  </label>
+                  <input
+                    type="text"
+                    value={variant.option1Name || ''}
+                    onChange={(e) => updateProductVariant(variant.id, 'option1Name', e.target.value || null)}
+                    placeholder="e.g., Size, Pack Size"
+                    className="w-full px-4 py-2.5 bg-slate-900 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-300 mb-2">
+                    Option Value
+                  </label>
+                  <input
+                    type="text"
+                    value={variant.option1Value || ''}
+                    onChange={(e) => updateProductVariant(variant.id, 'option1Value', e.target.value || null)}
+                    placeholder="e.g., 500ml, Pack of 12"
+                    className="w-full px-4 py-2.5 bg-slate-900 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500"
+                  />
+                </div>
+              </div>
+            </div>
 
-{/* Variant Image Upload */}
+            {/* ✅ UPDATED: Option 2 (Name + Value) */}
+            <div className="space-y-4 mb-4 bg-slate-900/50 border border-slate-700 rounded-lg p-4">
+              <h5 className="text-sm font-semibold text-cyan-400">Option 2</h5>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate-300 mb-2">
+                    Option Name
+                  </label>
+                  <input
+                    type="text"
+                    value={variant.option2Name || ''}
+                    onChange={(e) => updateProductVariant(variant.id, 'option2Name', e.target.value || null)}
+                    placeholder="e.g., Purchase Type, Color"
+                    className="w-full px-4 py-2.5 bg-slate-900 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-300 mb-2">
+                    Option Value
+                  </label>
+                  <input
+                    type="text"
+                    value={variant.option2Value || ''}
+                    onChange={(e) => updateProductVariant(variant.id, 'option2Value', e.target.value || null)}
+                    placeholder="e.g., One Time Purchase, Black"
+                    className="w-full px-4 py-2.5 bg-slate-900 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* ✅ UPDATED: Option 3 (Name + Value) - Optional */}
+            <div className="space-y-4 mb-4 bg-slate-900/50 border border-slate-700 rounded-lg p-4">
+              <h5 className="text-sm font-semibold text-pink-400">Option 3 (Optional)</h5>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate-300 mb-2">
+                    Option Name
+                  </label>
+                  <input
+                    type="text"
+                    value={variant.option3Name || ''}
+                    onChange={(e) => updateProductVariant(variant.id, 'option3Name', e.target.value || null)}
+                    placeholder="e.g., Material, Style"
+                    className="w-full px-4 py-2.5 bg-slate-900 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-300 mb-2">
+                    Option Value
+                  </label>
+                  <input
+                    type="text"
+                    value={variant.option3Value || ''}
+                    onChange={(e) => updateProductVariant(variant.id, 'option3Value', e.target.value || null)}
+                    placeholder="e.g., Premium, WiFi+Cellular"
+                    className="w-full px-4 py-2.5 bg-slate-900 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Variant Image Upload */}
+{/* ✅ UPDATED: Variant Image Upload with Preview */}
 <div>
   <label className="block text-sm font-medium text-slate-300 mb-2">
     Variant Image
   </label>
   
+  {/* ✅ Preview Section */}
   {variant.imageUrl ? (
-    <div className="relative inline-block">
+    <div className="relative inline-block mb-3">
       <img
         src={
-          variant.imageUrl.startsWith("http") || variant.imageUrl.startsWith("/")
-            ? `${API_BASE_URL}${variant.imageUrl}`
+          variant.imageUrl.startsWith("blob:") 
+            ? variant.imageUrl // Preview (local)
+            : variant.imageUrl.startsWith("http") || variant.imageUrl.startsWith("/")
+            ? `${API_BASE_URL}${variant.imageUrl}` // Server URL
             : variant.imageUrl
         }
         alt={variant?.name || "Variant"}
-        className="w-32 h-32 object-cover rounded-lg border border-slate-700"
+        className="w-32 h-32 object-cover rounded-lg border-2 border-slate-700 shadow-lg"
       />
       
+      {/* ✅ Preview Badge */}
+      {variant.imageUrl.startsWith("blob:") && (
+        <span className="absolute top-1 right-1 px-2 py-1 bg-orange-500 text-white text-xs rounded-md">
+          Preview
+        </span>
+      )}
+      
+      {/* ✅ Remove Image Button */}
+      <button
+        type="button"
+        onClick={() => {
+          if (variant.imageUrl?.startsWith('blob:')) {
+            URL.revokeObjectURL(variant.imageUrl);
+          }
+          updateProductVariant(variant.id, 'imageUrl', null);
+          updateProductVariant(variant.id, 'imageFile', undefined);
+        }}
+        className="absolute -top-2 -right-2 p-1 bg-red-500 hover:bg-red-600 text-white rounded-full transition-colors"
+      >
+        <X className="h-4 w-4" />
+      </button>
     </div>
   ) : null}
   
-  <div className="flex items-center gap-2 mt-2">
+  {/* ✅ Upload Button */}
+  <div className="flex items-center gap-2">
     <input
       type="file"
       accept="image/*"
       onChange={(e) => {
         const file = e.target.files?.[0];
         if (file) {
+          // ✅ Validate file size (max 5MB)
+          if (file.size > 5 * 1024 * 1024) {
+            toast.error("Image size should be less than 5MB");
+            return;
+          }
+          
+          // ✅ Validate file type
+          if (!file.type.startsWith('image/')) {
+            toast.error("Please select a valid image file");
+            return;
+          }
+          
           handleVariantImageUpload(variant.id, file);
         }
       }}
@@ -3233,47 +3411,77 @@ const uploadImagesToProductDirect = async (productId: string, files: File[]): Pr
       <Upload className="h-4 w-4" />
       {variant.imageUrl ? "Change Image" : "Upload Image"}
     </label>
-    <span className="text-sm text-slate-400">
-      Optional - Image specific to this variant
-    </span>
+    
+    {/* ✅ Help Text */}
+    <div className="text-sm text-slate-400">
+      {variant.imageUrl?.startsWith("blob:") ? (
+        <span className="text-orange-400">⚠️ Save product to upload to server</span>
+      ) : (
+        <span>Optional - Max 5MB</span>
+      )}
+    </div>
   </div>
 </div>
 
 
-                          <div className="mt-4 flex items-center gap-2">
-                            <input
-                              type="checkbox"
-                              id={`variant-default-${variant.id}`}
-                              checked={variant.isDefault}
-                              onChange={(e) => {
-                                // Set all variants to not default first
-                                setProductVariants(productVariants.map(v => ({
-                                  ...v,
-                                  isDefault: v.id === variant.id ? e.target.checked : false
-                                })));
-                              }}
-                              className="w-4 h-4 rounded border-slate-700 bg-slate-900 text-violet-500 focus:ring-2 focus:ring-violet-500"
-                            />
-                            <label htmlFor={`variant-default-${variant.id}`} className="text-sm text-slate-300">
-                              Set as default variant
-                            </label>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
+            {/* Variant Settings */}
+            <div className="mt-4 flex items-center gap-4 flex-wrap">
+              <label className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id={`variant-default-${variant.id}`}
+                  checked={variant.isDefault}
+                  onChange={(e) => {
+                    setProductVariants(productVariants.map(v => ({
+                      ...v,
+                      isDefault: v.id === variant.id ? e.target.checked : false
+                    })));
+                  }}
+                  className="w-4 h-4 rounded border-slate-700 bg-slate-900 text-violet-500 focus:ring-2 focus:ring-violet-500"
+                />
+                <span className="text-sm text-slate-300">Set as default variant</span>
+              </label>
 
-                  <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-4">
-                    <h4 className="font-semibold text-sm text-blue-400 mb-2">💡 Variant Tips</h4>
-                    <ul className="text-sm text-slate-400 space-y-1">
-                      <li>• Each variant should have a unique SKU</li>
-                      <li>• Use Option fields to categorize variants (Size, Color, Material)</li>
-                      <li>• Upload specific images for each variant to show the difference</li>
-                      <li>• Set one variant as default - it will be shown first to customers</li>
-                    </ul>
-                  </div>
-                </div>
-              </TabsContent>
+              <label className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id={`variant-track-${variant.id}`}
+                  checked={variant.trackInventory}
+                  onChange={(e) => updateProductVariant(variant.id, 'trackInventory', e.target.checked)}
+                  className="w-4 h-4 rounded border-slate-700 bg-slate-900 text-violet-500 focus:ring-2 focus:ring-violet-500"
+                />
+                <span className="text-sm text-slate-300">Track inventory</span>
+              </label>
+
+              <label className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id={`variant-active-${variant.id}`}
+                  checked={variant.isActive}
+                  onChange={(e) => updateProductVariant(variant.id, 'isActive', e.target.checked)}
+                  className="w-4 h-4 rounded border-slate-700 bg-slate-900 text-violet-500 focus:ring-2 focus:ring-violet-500"
+                />
+                <span className="text-sm text-slate-300">Active</span>
+              </label>
+            </div>
+          </div>
+        ))}
+      </div>
+    )}
+
+    {/* Help Section */}
+    <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-4">
+      <h4 className="font-semibold text-sm text-blue-400 mb-2">💡 Variant Examples</h4>
+      <ul className="text-sm text-slate-400 space-y-1">
+        <li>• <strong>Example 1:</strong> Option1Name: "Pack Size", Option1Value: "Pack of 12" | Option2Name: "Purchase Type", Option2Value: "One Time Purchase"</li>
+        <li>• <strong>Example 2:</strong> Option1Name: "Size", Option1Value: "500ml" | Option2Name: "Scent", Option2Value: "Original"</li>
+        <li>• Each variant should have a unique SKU</li>
+        <li>• Set one variant as default - it will be shown first to customers</li>
+      </ul>
+    </div>
+  </div>
+</TabsContent>
+
 
               {/* SEO Tab */}
               <TabsContent value="seo" className="space-y-2 mt-2">

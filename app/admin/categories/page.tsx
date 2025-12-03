@@ -274,7 +274,7 @@ if (imageFile) {
     }
     finalImageUrl = uploadResponse.data.data; // yahi hai jo save karna hai backend response se
     toast.success("Image uploaded successfully!");
-
+     fetchCategories();
     // Purana image (edit mode) delete bhi kar sakte ho yahan
     if (
       editingCategory?.imageUrl &&
@@ -295,6 +295,7 @@ if (imageFile) {
       uploadErr?.response?.data?.message || "Failed to upload image"
     );
     setIsSubmitting(false);
+    
     return;
   }
 }
