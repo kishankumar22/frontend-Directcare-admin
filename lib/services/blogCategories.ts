@@ -2,6 +2,8 @@ import { apiClient } from '../api';
 import { API_ENDPOINTS } from '../api-config';
 
 // --- BlogCategory Interface ---
+// @/lib/services/blogCategories.ts ya jahan interface defined hai
+
 export interface BlogCategory {
   id: string;
   name: string;
@@ -15,14 +17,15 @@ export interface BlogCategory {
   metaKeywords?: string;
   searchEngineFriendlyPageName?: string;
   parentCategoryId?: string | null;
-
-  subCategories?: string[];
-  blogPostCount: number;
+  parentCategoryName?: string;
+  subCategories?: BlogCategory[]; // ✅ Changed from string[] to BlogCategory[]
+  blogPostCount?: number;
   createdAt?: string;
   updatedAt?: string;
   createdBy?: string;
   updatedBy?: string;
 }
+
 
 export interface CreateBlogCategoryDto {
   name: string;

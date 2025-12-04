@@ -3,24 +3,14 @@
 import { useState, useRef } from "react";
 import { Upload, X, CheckCircle, AlertCircle, Download, FileSpreadsheet } from "lucide-react";
 import { useToast } from "@/components/CustomToast";
-import { productReviewsService, CreateReviewDto } from "@/lib/services/productReviews";
-import * as XLSX from "xlsx";
+import { productReviewsService, ImportResult } from "@/lib/services/productReviews";
 
-interface ExcelRow {
-  productId: string;
-  title: string;
-  comment: string;
-  rating: number;
-  customerEmail?: string; // ✅ Optional customer email
-  customerName?: string;  // ✅ Optional customer name
-}
-
-interface ImportResult {
+interface ImportResultExtended {
   total: number;
   success: number;
-  updated: number; // ✅ Track updates
   failed: number;
-  errors: { row: number; productId: string; title: string; error: string }[];
+  errors: string[];
+  warnings: string[];
 }
 
 interface ExcelImportModalProps {
@@ -35,7 +25,8 @@ export default function ExcelImportModal({ onClose, onSuccess }: ExcelImportModa
   const [file, setFile] = useState<File | null>(null);
   const [importing, setImporting] = useState(false);
   const [progress, setProgress] = useState(0);
-  const [result, setResult] = useState<ImportResult | null>(null);
+  const [result, setResult] = useState<ImportResultExtended | null>(null);
+  const [downloadingSample, setDownloadingSample] = useState(false);
 
   // ✅ Handle File Selection
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -57,290 +48,139 @@ export default function ExcelImportModal({ onClose, onSuccess }: ExcelImportModa
     setResult(null);
   };
 
-  // ✅ Parse Excel File
-const parseExcelFile = async (file: File): Promise<ExcelRow[]> => {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
+  // ✅ Download Sample using API
+  const downloadSample = async () => {
+    setDownloadingSample(true);
+    try {
+      const blob = await productReviewsService.downloadSample();
+      
+      // ✅ Create download link
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'ReviewImportTemplate.xlsx';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
 
-    reader.onload = (e) => {
-      try {
-        const data = e.target?.result;
-        const workbook = XLSX.read(data, { type: "binary" });
-        const sheetName = workbook.SheetNames[0];
-        const worksheet = workbook.Sheets[sheetName];
-        const jsonData = XLSX.utils.sheet_to_json(worksheet);
-
-        const rows: ExcelRow[] = jsonData.map((row: any) => ({
-          productId: row["Product ID"] || row["productId"] || "",
-          title: row["Title"] || row["title"] || "",
-          comment: row["Comment"] || row["comment"] || "",
-          rating: parseInt(row["Rating"] || row["rating"] || "5")
-          // ❌ Removed customerEmail, customerName
-        }));
-
-        resolve(rows);
-      } catch (error) {
-        reject(error);
-      }
-    };
-
-    reader.onerror = () => reject(new Error("Failed to read file"));
-    reader.readAsBinaryString(file);
-  });
-};
-
-  // ✅ Validate Row Data
-  const validateRow = (row: ExcelRow): string | null => {
-    if (!row.productId || row.productId.trim() === "") {
-      return "Product ID is required";
+      toast.success("✅ Sample file downloaded successfully!");
+    } catch (error: any) {
+      console.error("❌ Download sample error:", error);
+      toast.error(error.message || "❌ Failed to download sample file");
+    } finally {
+      setDownloadingSample(false);
     }
-    if (!row.title || row.title.trim() === "") {
-      return "Title is required";
-    }
-    if (row.title.length > 100) {
-      return "Title must be less than 100 characters";
-    }
-    if (!row.comment || row.comment.trim() === "") {
-      return "Comment is required";
-    }
-    if (row.comment.length > 1000) {
-      return "Comment must be less than 1000 characters";
-    }
-    if (!row.rating || row.rating < 1 || row.rating > 5) {
-      return "Rating must be between 1 and 5";
-    }
-    return null;
   };
 
-  // ✅ Import Reviews with UPDATE Logic
-const handleImport = async () => {
-  if (!file) {
-    toast.error("Please select a file first");
-    return;
-  }
-
-  setImporting(true);
-  setProgress(0);
-
-  try {
-    const rows = await parseExcelFile(file);
-
-    if (rows.length === 0) {
-      toast.error("❌ No data found in the file");
-      setImporting(false);
+  // ✅ Import Reviews using API
+  const handleImport = async () => {
+    if (!file) {
+      toast.error("Please select a file first");
       return;
     }
 
-    const importResult: ImportResult = {
-      total: rows.length,
-      success: 0,
-      updated: 0,
-      failed: 0,
-      errors: []
-    };
+    setImporting(true);
+    setProgress(0);
 
-    // ✅ Get current logged-in user email
-    // Option 1: From localStorage/sessionStorage
-    const currentUserEmail = localStorage.getItem('userEmail') || 'faizraza349@gmail.com';
-    
-    // Option 2: From auth context (if available)
-    // const { user } = useAuth();
-    // const currentUserEmail = user?.email || 'faizraza349@gmail.com';
-
-    console.log(`📧 Importing as user: ${currentUserEmail}`);
-
-    for (let i = 0; i < rows.length; i++) {
-      const row = rows[i];
-      const rowNumber = i + 2;
-
-      // Validate
-      const validationError = validateRow(row);
-      if (validationError) {
-        importResult.failed++;
-        importResult.errors.push({
-          row: rowNumber,
-          productId: row.productId || "N/A",
-          title: row.title || "N/A",
-          error: validationError
-        });
-        setProgress(((i + 1) / rows.length) * 100);
-        continue;
-      }
-
-      try {
-        console.log(`\n🔄 Processing row ${rowNumber}: ${row.title}`);
-        
-        // ✅ Check if current user already reviewed this product
-        const existingReview = await productReviewsService.getByProductAndCustomer(
-          row.productId.trim(),
-          currentUserEmail
-        );
-
-        if (existingReview) {
-          // ✅ UPDATE existing review
-          console.log(`🔄 UPDATING review ${existingReview.id}`);
-          
-          const updateResponse = await productReviewsService.update(existingReview.id, {
-            title: row.title.trim(),
-            comment: row.comment.trim(),
-            rating: row.rating
-          });
-
-          if (updateResponse.data?.success) {
-            importResult.updated++;
-            console.log(`✅ Updated successfully`);
-          } else {
-            const errorMsg = updateResponse.data?.message || "Update failed";
-            console.warn(`⚠️ Update failed: ${errorMsg}`);
-            importResult.failed++;
-            importResult.errors.push({
-              row: rowNumber,
-              productId: row.productId,
-              title: row.title,
-              error: errorMsg
-            });
+    try {
+      // ✅ Simulate progress animation
+      const progressInterval = setInterval(() => {
+        setProgress(prev => {
+          if (prev >= 90) {
+            clearInterval(progressInterval);
+            return 90;
           }
-
-        } else {
-          // ✅ CREATE new review
-          console.log(`➕ CREATING new review`);
-          
-          const reviewData: CreateReviewDto = {
-            productId: row.productId.trim(),
-            title: row.title.trim(),
-            comment: row.comment.trim(),
-            rating: row.rating
-          };
-
-          const createResponse = await productReviewsService.create(reviewData);
-
-          if (createResponse.data?.success) {
-            importResult.success++;
-            console.log(`✅ Created successfully`);
-          } else {
-            const errorMsg = createResponse.data?.message || "Creation failed";
-            console.warn(`⚠️ Create failed: ${errorMsg}`);
-            importResult.failed++;
-            importResult.errors.push({
-              row: rowNumber,
-              productId: row.productId,
-              title: row.title,
-              error: errorMsg
-            });
-          }
-        }
-
-      } catch (error: any) {
-        console.error(`❌ Error at row ${rowNumber}:`, error);
-        importResult.failed++;
-        importResult.errors.push({
-          row: rowNumber,
-          productId: row.productId,
-          title: row.title,
-          error: error?.response?.data?.message || error.message || "Unexpected error"
+          return prev + 10;
         });
-      }
+      }, 200);
 
-      setProgress(((i + 1) / rows.length) * 100);
-    }
+      // ✅ Call backend import API
+      const response = await productReviewsService.importExcel(file);
 
-    setResult(importResult);
+      clearInterval(progressInterval);
+      setProgress(100);
 
-    if (importResult.success > 0 || importResult.updated > 0) {
-      const messages = [];
-      if (importResult.success > 0) messages.push(`${importResult.success} created`);
-      if (importResult.updated > 0) messages.push(`${importResult.updated} updated`);
+      console.log("✅ Import Response:", response);
+
+      // ✅ Extract backend data
+      const backendData = response.data;
       
-      toast.success(`✅ Import completed: ${messages.join(", ")}!`);
-      if (typeof onSuccess === 'function') {
-        onSuccess();
+      const importResult: ImportResultExtended = {
+        total: backendData.totalRows || 0,
+        success: backendData.successCount || 0,
+        failed: backendData.failedCount || 0,
+        errors: backendData.errors || [],
+        warnings: backendData.warnings || []
+      };
+
+      setResult(importResult);
+
+      // ✅ Show backend success message
+      if (response.success) {
+        toast.success(`✅ ${response.message}`);
+        
+        if (importResult.success > 0 && typeof onSuccess === 'function') {
+          setTimeout(() => onSuccess(), 1000);
+        }
       }
+
+      // ✅ Show backend error message
+      if (importResult.failed > 0) {
+        toast.error(`⚠️ ${importResult.failed} reviews failed. Check error report.`);
+      }
+
+    } catch (error: any) {
+      console.error("❌ Import error:", error);
+      setProgress(100);
+
+      // ✅ Show backend error message
+      const errorMessage = error?.message || "Failed to import file";
+      toast.error(`❌ ${errorMessage}`);
+
+      // ✅ If there are specific errors, show them
+      if (error?.errors && Array.isArray(error.errors) && error.errors.length > 0) {
+        setResult({
+          total: 0,
+          success: 0,
+          failed: error.errors.length,
+          errors: error.errors,
+          warnings: []
+        });
+      }
+    } finally {
+      setImporting(false);
     }
+  };
 
-    if (importResult.failed > 0) {
-      toast.error(`❌ ${importResult.failed} reviews failed. Check error report.`);
-    }
-
-  } catch (error: any) {
-    console.error("❌ Fatal import error:", error);
-    toast.error(`❌ Failed to process file: ${error.message || "Unknown error"}`);
-  } finally {
-    setImporting(false);
-    setProgress(100);
-  }
-};
-
-
-
-  // ✅ Download Sample Excel with Customer Email column
-// ✅ Update downloadSample function in ExcelImportModal
-const downloadSample = () => {
-  const sampleData = [
-    {
-      "Product ID": "d6e6a17b-d80c-4887-953c-4102d2991d74",
-      "Title": "Amazing Coffee Quality!",
-      "Comment": "The coffee beans are fresh and delicious. Love the monthly subscription model. Highly recommended!",
-      "Rating": 5
-    },
-    {
-      "Product ID": "d6e6a17b-d80c-4887-953c-4102d2991d74",
-      "Title": "Good Value for Money",
-      "Comment": "Great quality coffee at a reasonable price. The subscription is convenient and saves money.",
-      "Rating": 4
-    },
-    {
-      "Product ID": "9b6f845b-3499-488c-9cc7-4b3043cd18b8",
-      "Title": "Impressive Smartphone",
-      "Comment": "Great camera quality and fast performance. Battery life is excellent!",
-      "Rating": 5
-    },
-    {
-      "Product ID": "fc9e5c13-8d8c-40d6-bc43-cfa500504e9a",
-      "Title": "Beast Gaming Laptop!",
-      "Comment": "Runs all my games at maximum settings without any lag. Totally worth it!",
-      "Rating": 5
-    },
-    {
-      "Product ID": "bad59dda-dea0-4d43-a278-e0e9519dd79f",
-      "Title": "Comfortable and Stylish",
-      "Comment": "Great design and very comfortable. Fabric quality is excellent. Worth every penny!",
-      "Rating": 5
-    }
-  ];
-
-  const worksheet = XLSX.utils.json_to_sheet(sampleData);
-  
-  // ✅ Column widths
-  worksheet["!cols"] = [
-    { wch: 40 }, // Product ID
-    { wch: 30 }, // Title
-    { wch: 60 }, // Comment
-    { wch: 8 }   // Rating
-  ];
-
-  const workbook = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(workbook, worksheet, "Reviews");
-  XLSX.writeFile(workbook, "sample_reviews_template.xlsx");
-  toast.success("📥 Sample file downloaded!");
-};
-
-
-  // ✅ Download Error Report
-  const downloadErrorReport = () => {
+  // ✅ Download Error Report (Client-side XLSX generation)
+  const downloadErrorReport = async () => {
     if (!result || result.errors.length === 0) return;
 
-    const errorData = result.errors.map(err => ({
-      "Row Number": err.row,
-      "Product ID": err.productId,
-      "Title": err.title,
-      "Error": err.error
-    }));
+    try {
+      // ✅ Dynamic import of xlsx
+      const XLSX = await import('xlsx');
+      
+      const errorData = result.errors.map((err, idx) => ({
+        "Error #": idx + 1,
+        "Error Message": err
+      }));
 
-    const worksheet = XLSX.utils.json_to_sheet(errorData);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Errors");
-    XLSX.writeFile(workbook, `import_errors_${Date.now()}.xlsx`);
-    toast.success("📥 Error report downloaded!");
+      const worksheet = XLSX.utils.json_to_sheet(errorData);
+      worksheet["!cols"] = [
+        { wch: 10 },  // Error #
+        { wch: 80 }   // Error Message
+      ];
+
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, "Import Errors");
+      XLSX.writeFile(workbook, `import_errors_${Date.now()}.xlsx`);
+      
+      toast.success("📥 Error report downloaded!");
+    } catch (error) {
+      console.error("Error downloading report:", error);
+      toast.error("Failed to download error report");
+    }
   };
 
   return (
@@ -351,7 +191,7 @@ const downloadSample = () => {
           <div>
             <h2 className="text-2xl font-bold text-white">Import Reviews from Excel</h2>
             <p className="text-slate-400 text-sm mt-1">
-              Upload Excel or CSV file with review data
+              Upload Excel file with review data
             </p>
           </div>
           <button
@@ -375,10 +215,20 @@ const downloadSample = () => {
                 </p>
                 <button
                   onClick={downloadSample}
-                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-all text-sm font-medium flex items-center gap-2"
+                  disabled={downloadingSample}
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-all text-sm font-medium flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  <Download className="h-4 w-4" />
-                  Download Sample File
+                  {downloadingSample ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      Downloading...
+                    </>
+                  ) : (
+                    <>
+                      <Download className="h-4 w-4" />
+                      Download Sample File
+                    </>
+                  )}
                 </button>
               </div>
             </div>
@@ -454,21 +304,17 @@ const downloadSample = () => {
             </div>
           )}
 
-          {/* Import Result - ✅ Updated with 4 columns */}
+          {/* Import Result */}
           {result && (
             <div className="space-y-4">
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                 <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-3 text-center">
                   <p className="text-slate-400 text-xs mb-1">Total</p>
                   <p className="text-xl sm:text-2xl font-bold text-white">{result.total}</p>
                 </div>
                 <div className="bg-green-500/10 border border-green-500/30 rounded-xl p-3 text-center">
-                  <p className="text-green-400 text-xs mb-1">Created</p>
+                  <p className="text-green-400 text-xs mb-1">Success</p>
                   <p className="text-xl sm:text-2xl font-bold text-green-400">{result.success}</p>
-                </div>
-                <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl p-3 text-center">
-                  <p className="text-blue-400 text-xs mb-1">Updated</p>
-                  <p className="text-xl sm:text-2xl font-bold text-blue-400">{result.updated}</p>
                 </div>
                 <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-3 text-center">
                   <p className="text-red-400 text-xs mb-1">Failed</p>
@@ -476,8 +322,23 @@ const downloadSample = () => {
                 </div>
               </div>
 
+              {/* Warnings */}
+              {result.warnings && result.warnings.length > 0 && (
+                <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-xl p-4">
+                  <h3 className="text-yellow-400 font-medium flex items-center gap-2 mb-2">
+                    <AlertCircle className="h-4 w-4" />
+                    Warnings ({result.warnings.length})
+                  </h3>
+                  <div className="max-h-32 overflow-y-auto space-y-1">
+                    {result.warnings.map((warning, idx) => (
+                      <p key={idx} className="text-yellow-300 text-xs">{warning}</p>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {/* Error List */}
-              {result.errors.length > 0 && (
+              {result.errors && result.errors.length > 0 && (
                 <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-4">
                   <div className="flex items-center justify-between mb-3">
                     <h3 className="text-red-400 font-medium flex items-center gap-2">
@@ -495,14 +356,7 @@ const downloadSample = () => {
                   <div className="max-h-48 overflow-y-auto space-y-2">
                     {result.errors.slice(0, 10).map((err, idx) => (
                       <div key={idx} className="bg-slate-900/50 rounded-lg p-3 text-sm">
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="flex-1">
-                            <p className="text-white font-medium mb-1">
-                              Row {err.row}: {err.title}
-                            </p>
-                            <p className="text-red-400 text-xs">{err.error}</p>
-                          </div>
-                        </div>
+                        <p className="text-red-400 text-xs">{err}</p>
                       </div>
                     ))}
                     {result.errors.length > 10 && (

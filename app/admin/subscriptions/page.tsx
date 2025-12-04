@@ -61,7 +61,7 @@ export default function SubscriptionsPage() {
   const [productSearchTerm, setProductSearchTerm] = useState("");
   const productDropdownRef = useRef<HTMLDivElement>(null);
 
-  const [selectedSubscriptions, setSelectedSubscriptions] = useState<string[]>([]);
+
   const [viewingSubscription, setViewingSubscription] = useState<Subscription | null>(null);
   
   // ✅ Confirmation modal states

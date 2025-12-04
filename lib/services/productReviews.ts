@@ -18,7 +18,7 @@ export interface ProductReview {
   productId: string;
   customerId: string;
   customerName: string;
-  customerEmail?: string; // ✅ Add this
+  customerEmail?: string;
   title: string;
   comment: string;
   rating: number;
@@ -45,8 +45,8 @@ export interface CreateReviewDto {
   title: string;
   comment: string;
   rating: number;
-  customerEmail?: string; // ✅ Add this
-  customerName?: string;  // ✅ Add this
+  customerEmail?: string;
+  customerName?: string;
 }
 
 export interface UpdateReviewDto {
@@ -84,9 +84,18 @@ export interface PaginatedProductsResponse {
   hasNext: boolean;
 }
 
+// ✅ NEW: Import Result Interface
+export interface ImportResult {
+  totalRows: number;
+  successCount: number;
+  failedCount: number;
+  errors: string[];
+  warnings: string[];
+}
+
 // --- Main Service ---
 export const productReviewsService = {
-  // ✅ Get reviews by product ID (Admin + Filters)
+  // Get reviews by product ID
   getByProductId: (
     productId: string, 
     includeUnapproved: boolean = true,
@@ -108,14 +117,14 @@ export const productReviewsService = {
     );
   },
 
-  // ✅ Get pending reviews (Admin only)
+  // Get pending reviews
   getPendingReviews: (pageNumber: number = 1, pageSize: number = 25, config: any = {}) =>
     apiClient.get<ApiResponse<ProductReview[]>>(
       `${API_ENDPOINTS.productReviews}/pending?pageNumber=${pageNumber}&pageSize=${pageSize}`,
       config
     ),
 
-  // ✅ Create review (Customer - not used in admin)
+  // Create review
   create: (data: CreateReviewDto, config: any = {}) =>
     apiClient.post<ApiResponse<ProductReview>>(
       API_ENDPOINTS.productReviews,
@@ -123,7 +132,7 @@ export const productReviewsService = {
       config
     ),
 
-  // ✅ Update review
+  // Update review
   update: (reviewId: string, data: UpdateReviewDto, config: any = {}) =>
     apiClient.put<ApiResponse<ProductReview>>(
       `${API_ENDPOINTS.productReviews}/${reviewId}`,
@@ -131,47 +140,42 @@ export const productReviewsService = {
       config
     ),
 
-  // ✅ Delete review
+  // Delete review
   delete: (reviewId: string, config: any = {}) =>
     apiClient.delete<ApiResponse<null>>(
       `${API_ENDPOINTS.productReviews}/${reviewId}`,
       config
     ),
 
-  // ✅ Get review by Product ID and Customer Email (for checking duplicates during import)
-// lib/services/productReviews.ts
-
-getByProductAndCustomer: async (
-  productId: string, 
-  customerEmail: string
-): Promise<ProductReview | null> => {
-  try {
-    const response = await apiClient.get<ApiResponse<ProductReview[]>>(
-      `${API_ENDPOINTS.productReviews}/product/${productId}?includeUnapproved=true`
-    );
-    
-    if (response.data && 'success' in response.data && response.data.success) {
-      const reviews = response.data.data;
-      if (Array.isArray(reviews)) {
-        // ✅ Fix: Check customerName instead of customerEmail
-        const matchingReview = reviews.find((r: ProductReview) => {
-          const reviewEmail = r.customerEmail || r.customerName; // ← customerName contains email
-          return reviewEmail?.toLowerCase() === customerEmail.toLowerCase();
-        });
-        
-        console.log(`🔍 Checking product ${productId} for ${customerEmail}:`, matchingReview ? 'FOUND' : 'NOT FOUND');
-        return matchingReview || null;
+  // Get review by Product ID and Customer Email
+  getByProductAndCustomer: async (
+    productId: string, 
+    customerEmail: string
+  ): Promise<ProductReview | null> => {
+    try {
+      const response = await apiClient.get<ApiResponse<ProductReview[]>>(
+        `${API_ENDPOINTS.productReviews}/product/${productId}?includeUnapproved=true`
+      );
+      
+      if (response.data && 'success' in response.data && response.data.success) {
+        const reviews = response.data.data;
+        if (Array.isArray(reviews)) {
+          const matchingReview = reviews.find((r: ProductReview) => {
+            const reviewEmail = r.customerEmail || r.customerName;
+            return reviewEmail?.toLowerCase() === customerEmail.toLowerCase();
+          });
+          
+          return matchingReview || null;
+        }
       }
+      return null;
+    } catch (error) {
+      console.error('Error fetching review by product and customer:', error);
+      return null;
     }
-    return null;
-  } catch (error) {
-    console.error('Error fetching review by product and customer:', error);
-    return null;
-  }
-},
+  },
 
-
-  // ✅ Approve review (Admin only)
+  // Approve review
   approve: (reviewId: string, config: any = {}) =>
     apiClient.put<ApiResponse<ProductReview>>(
       `${API_ENDPOINTS.productReviews}/${reviewId}/approve`,
@@ -179,7 +183,7 @@ getByProductAndCustomer: async (
       config
     ),
 
-  // ✅ Reply to review (Admin)
+  // Reply to review
   reply: (reviewId: string, data: ReplyReviewDto, config: any = {}) =>
     apiClient.post<ApiResponse<ReviewReply>>(
       `${API_ENDPOINTS.productReviews}/${reviewId}/reply`,
@@ -187,7 +191,7 @@ getByProductAndCustomer: async (
       config
     ),
 
-  // ✅ Mark as helpful (not used in admin)
+  // Mark as helpful
   markHelpful: (reviewId: string, isHelpful: boolean, config: any = {}) =>
     apiClient.post<ApiResponse<boolean>>(
       `${API_ENDPOINTS.productReviews}/${reviewId}/helpful?isHelpful=${isHelpful}`,
@@ -195,10 +199,68 @@ getByProductAndCustomer: async (
       config
     ),
 
-  // ✅ Get all products (for filter dropdown)
+  // Get all products
   getAllProducts: (page: number = 1, pageSize: number = 1000, config: any = {}) =>
     apiClient.get<ApiResponse<PaginatedProductsResponse>>(
       `/api/Products?page=${page}&pageSize=${pageSize}&sortDirection=asc`,
       config
     ),
+
+// ✅ NEW API 1: Download Sample Excel Template
+downloadSample: async (): Promise<Blob> => {
+  try {
+    const response = await apiClient.get(
+      `${API_ENDPOINTS.productReviews}/download-sample`,
+      {
+        responseType: 'blob', // ✅ Important for file download
+      }
+    );
+    
+    // ✅ Fix: Explicitly cast to Blob
+    return response.data as Blob;
+  } catch (error: any) {
+    console.error('❌ Error downloading sample:', error);
+    throw new Error(error?.response?.data?.message || 'Failed to download sample file');
+  }
+},
+
+// ✅ NEW API 2: Import Excel File
+importExcel: async (file: File): Promise<ApiResponse<ImportResult>> => {
+  try {
+    const formData = new FormData();
+    formData.append('excelFile', file);
+
+    const response = await apiClient.post<ApiResponse<ImportResult>>(
+      `${API_ENDPOINTS.productReviews}/import-excel`,
+      formData,
+      {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      }
+    );
+
+    // ✅ Fix: Handle undefined response
+    if (!response.data) {
+      throw new Error('No response data received from server');
+    }
+
+    return response.data;
+  } catch (error: any) {
+    console.error('❌ Error importing Excel:', error);
+    
+    // ✅ Return backend error message
+    const errorMessage = error?.response?.data?.message || 'Failed to import Excel file';
+    const errors = error?.response?.data?.errors || [];
+    
+    // ✅ Fix: Throw proper error structure
+    throw {
+      message: errorMessage,
+      errors: errors,
+      response: error?.response,
+      data: error?.response?.data
+    };
+  }
+},
+
 };

@@ -127,3 +127,27 @@
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
+
+
+/* globals.css mein add karo */
+
+/* Date Input Calendar Icon White */
+input[type="date"]::-webkit-calendar-picker-indicator {
+  filter: invert(1);
+  cursor: pointer;
+}
+
+/* Firefox ke liye */
+input[type="date"]::-moz-calendar-picker-indicator {
+  filter: invert(1);
+  cursor: pointer;
+}
+
+/* Hover effect */
+input[type="date"]:hover::-webkit-calendar-picker-indicator {
+  filter: invert(1) brightness(1.2);
+}
+
+input[type="date"]:hover::-moz-calendar-picker-indicator {
+  filter: invert(1) brightness(1.2);
+}

@@ -20,6 +20,7 @@ export interface BlogComment {
   parentCommentId?: string | null;
   replies?: BlogComment[];
   blogPostId: string;
+  isDeleted:boolean
   blogPostTitle?: string | null;
   createdAt: string;
   updatedAt?: string | null;

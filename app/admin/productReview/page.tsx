@@ -62,6 +62,17 @@ export default function ProductReviewsPage() {
   const [viewingReview, setViewingReview] = useState<ProductReview | null>(
     null
   );
+  // ✅ Add these state variables with other states
+const [dateRange, setDateRange] = useState<{
+  startDate: string;
+  endDate: string;
+}>({
+  startDate: "",
+  endDate: ""
+});
+const [showDatePicker, setShowDatePicker] = useState(false);
+const datePickerRef = useRef<HTMLDivElement>(null);
+
   const [replyingTo, setReplyingTo] = useState<ProductReview | null>(null);
   const [replyText, setReplyText] = useState("");
 // Add these states at the top with other useState
@@ -92,6 +103,17 @@ const [isApproving, setIsApproving] = useState(false);
     approved: 0,
     averageRating: 0,
   });
+// ✅ Add this useEffect for closing date picker on outside click
+useEffect(() => {
+  const handleClickOutside = (event: MouseEvent) => {
+    if (datePickerRef.current && !datePickerRef.current.contains(event.target as Node)) {
+      setShowDatePicker(false);
+    }
+  };
+
+  document.addEventListener("mousedown", handleClickOutside);
+  return () => document.removeEventListener("mousedown", handleClickOutside);
+}, []);
 
   // ✅ Fetch Products
 const fetchProducts = async () => {
@@ -124,6 +146,28 @@ const fetchProducts = async () => {
 };
 
 // Add this before return statement (with other computed values)
+// ✅ Add this helper function
+const getDateRangeLabel = () => {
+  if (!dateRange.startDate && !dateRange.endDate) return "Select Date Range";
+  
+  const formatDate = (dateStr: string) => {
+    if (!dateStr) return "";
+    return new Date(dateStr).toLocaleDateString('en-US', { 
+      month: 'short', 
+      day: 'numeric', 
+      year: 'numeric' 
+    });
+  };
+
+  if (dateRange.startDate && dateRange.endDate) {
+    return `${formatDate(dateRange.startDate)} - ${formatDate(dateRange.endDate)}`;
+  } else if (dateRange.startDate) {
+    return `From ${formatDate(dateRange.startDate)}`;
+  } else if (dateRange.endDate) {
+    return `Until ${formatDate(dateRange.endDate)}`;
+  }
+  return "Select Date Range";
+};
 
 
   // ✅ Fetch Reviews
@@ -334,42 +378,71 @@ const handleApprove = async (id: string) => {
     }
   };
 
-  const clearFilters = () => {
-    setStatusFilter("all");
-    setRatingFilter("all");
-    setProductFilter("all");
-    setVerifiedOnlyFilter(false);
-    setSearchTerm("");
-    setCurrentPage(1);
-  };
+// ✅ Update your existing clearFilters function
+const clearFilters = () => {
+  setStatusFilter("all");
+  setRatingFilter("all");
+  setProductFilter("all");
+  setVerifiedOnlyFilter(false);
+  setSearchTerm("");
+  setProductSearchTerm("");
+  setShowProductDropdown(false);
+  setDateRange({ startDate: "", endDate: "" }); // ✅ Add this line
+};
 
-  const hasActiveFilters =
-    statusFilter !== "all" ||
-    ratingFilter !== "all" ||
-    productFilter !== "all" ||
-    verifiedOnlyFilter ||
-    searchTerm.trim() !== "";
+// ✅ Update your existing hasActiveFilters
+const hasActiveFilters =
+  statusFilter !== "all" ||
+  ratingFilter !== "all" ||
+  productFilter !== "all" ||
+  verifiedOnlyFilter ||
+  searchTerm.trim() !== "" ||
+  dateRange.startDate !== "" ||  // ✅ Add this
+  dateRange.endDate !== "";      // ✅ Add this
 
   // Filter data
-  const filteredReviews = reviews.filter((review) => {
-    const matchesSearch =
-      review.comment?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      review.customerName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      review.title?.toLowerCase().includes(searchTerm.toLowerCase());
+// ✅ Find your existing filter logic and add date filtering
+const filteredReviews = reviews.filter((review) => {
+  // Existing filters
+  const matchesStatus =
+    statusFilter === "all" ||
+    (statusFilter === "approved" && review.isApproved) ||
+    (statusFilter === "pending" && !review.isApproved);
 
-    const matchesStatus =
-      statusFilter === "all" ||
-      (statusFilter === "approved" && review.isApproved) ||
-      (statusFilter === "pending" && !review.isApproved);
+  const matchesRating = ratingFilter === "all" || review.rating === parseInt(ratingFilter);
 
-    const matchesRating =
-      ratingFilter === "all" || review.rating === parseInt(ratingFilter);
+  const matchesProduct = productFilter === "all" || review.productId === productFilter;
 
-    const matchesVerified =
-      !verifiedOnlyFilter || review.isVerifiedPurchase;
+  const matchesVerified = !verifiedOnlyFilter || review.isVerifiedPurchase;
 
-    return matchesSearch && matchesStatus && matchesRating && matchesVerified;
-  });
+  const matchesSearch =
+    searchTerm === "" ||
+    review.customerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    review.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    review.comment.toLowerCase().includes(searchTerm.toLowerCase());
+
+  // ✅ NEW: Date Range Filter
+  let matchesDateRange = true;
+  if (dateRange.startDate || dateRange.endDate) {
+    const reviewDate = new Date(review.createdAt);
+    const start = dateRange.startDate ? new Date(dateRange.startDate) : null;
+    const end = dateRange.endDate ? new Date(dateRange.endDate) : null;
+
+    // Set time to start/end of day for accurate comparison
+    if (start) start.setHours(0, 0, 0, 0);
+    if (end) end.setHours(23, 59, 59, 999);
+
+    if (start && end) {
+      matchesDateRange = reviewDate >= start && reviewDate <= end;
+    } else if (start) {
+      matchesDateRange = reviewDate >= start;
+    } else if (end) {
+      matchesDateRange = reviewDate <= end;
+    }
+  }
+
+  return matchesStatus && matchesRating && matchesProduct && matchesVerified && matchesSearch && matchesDateRange;
+});
 
   // Pagination
   const totalItems = filteredReviews.length;
@@ -765,7 +838,7 @@ const handleExportReviews = (type: string) => {
 
         {/* Statistics Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-6 hover:border-violet-500/50 transition-all">
+          <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-4 hover:border-violet-500/50 transition-all">
             <div className="flex items-center gap-4">
               <div className="w-12 h-12 rounded-xl bg-blue-500/10 flex items-center justify-center">
                 <Star className="h-6 w-6 text-blue-400" />
@@ -779,7 +852,7 @@ const handleExportReviews = (type: string) => {
             </div>
           </div>
 
-          <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-6 hover:border-yellow-500/50 transition-all">
+          <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-4 hover:border-yellow-500/50 transition-all">
             <div className="flex items-center gap-4">
               <div className="w-12 h-12 rounded-xl bg-yellow-500/10 flex items-center justify-center">
                 <Clock className="h-6 w-6 text-yellow-400" />
@@ -791,7 +864,7 @@ const handleExportReviews = (type: string) => {
             </div>
           </div>
 
-          <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-6 hover:border-green-500/50 transition-all">
+          <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-4 hover:border-green-500/50 transition-all">
             <div className="flex items-center gap-4">
               <div className="w-12 h-12 rounded-xl bg-green-500/10 flex items-center justify-center">
                 <CheckCircle className="h-6 w-6 text-green-400" />
@@ -803,7 +876,7 @@ const handleExportReviews = (type: string) => {
             </div>
           </div>
 
-          <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-6 hover:border-yellow-500/50 transition-all">
+          <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-4 hover:border-yellow-500/50 transition-all">
             <div className="flex items-center gap-4">
               <div className="w-12 h-12 rounded-xl bg-yellow-500/10 flex items-center justify-center">
                 <Award className="h-6 w-6 text-yellow-400" />
@@ -821,7 +894,7 @@ const handleExportReviews = (type: string) => {
         </div>
 
         {/* Items Per Page */}
-        <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-2xl p-4">
+        <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-2xl p-3">
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div className="flex items-center gap-3">
               <span className="text-sm text-slate-400">Show</span>
@@ -852,7 +925,7 @@ const handleExportReviews = (type: string) => {
         </div>
 
         {/* Reviews Section */}
-        <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-2xl p-6">
+        <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-2xl p-2">
           {/* Filter Section */}
           <div className="space-y-4 mb-6">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -1031,6 +1104,128 @@ const handleExportReviews = (type: string) => {
                   />
                   <span className="text-sm text-slate-300">Verified Only</span>
                 </label>
+                {/* ✅ Add this AFTER "Verified Only" filter and BEFORE Search input */}
+
+{/* Date Range Filter */}
+<div className="relative lg:min-w-[240px]" ref={datePickerRef}>
+  <div className="relative">
+    <button
+      onClick={() => setShowDatePicker(!showDatePicker)}
+      className={`w-full px-4 py-2.5 pl-10 pr-10 bg-slate-800/50 border rounded-xl text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all text-left ${
+        (dateRange.startDate || dateRange.endDate)
+          ? "border-green-500 bg-green-500/10 ring-2 ring-green-500/50" 
+          : "border-slate-600 hover:border-slate-500"
+      }`}
+    >
+      <span className={dateRange.startDate || dateRange.endDate ? "text-white" : "text-slate-400"}>
+        {getDateRangeLabel()}
+      </span>
+    </button>
+    
+    {/* Calendar Icon */}
+    <svg className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <rect x="3" y="4" width="18" height="18" rx="2" ry="2" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+      <line x1="16" y1="2" x2="16" y2="6" strokeWidth="2" strokeLinecap="round"/>
+      <line x1="8" y1="2" x2="8" y2="6" strokeWidth="2" strokeLinecap="round"/>
+      <line x1="3" y1="10" x2="21" y2="10" strokeWidth="2" strokeLinecap="round"/>
+    </svg>
+    
+    {/* Clear/Chevron Icon */}
+    {(dateRange.startDate || dateRange.endDate) ? (
+      <button
+        onClick={(e) => {
+          e.stopPropagation();
+          setDateRange({ startDate: "", endDate: "" });
+        }}
+        className="absolute right-3 top-1/2 -translate-y-1/2 p-1 hover:bg-slate-700 rounded transition-all"
+      >
+        <X className="h-3.5 w-3.5 text-slate-400 hover:text-white" />
+      </button>
+    ) : (
+      <ChevronDown className={`absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none transition-transform ${showDatePicker ? "rotate-180" : ""}`} />
+    )}
+  </div>
+
+  {/* Date Picker Dropdown */}
+  {showDatePicker && (
+    <div className="absolute top-full left-0 right-0 mt-2 bg-slate-800 border border-slate-600 rounded-xl shadow-xl p-4 z-50 min-w-[280px]">
+      <div className="space-y-3">
+        {/* From Date */}
+        <div>
+          <label className="text-slate-400 text-xs font-medium mb-1.5 block">From Date</label>
+          <input
+            type="date"
+            value={dateRange.startDate}
+            onChange={(e) => {
+              setDateRange(prev => ({ ...prev, startDate: e.target.value }));
+              // Auto close after selecting both dates
+              if (dateRange.endDate && e.target.value) {
+                setTimeout(() => setShowDatePicker(false), 300);
+              }
+            }}
+            max={dateRange.endDate || new Date().toISOString().split('T')[0]}
+            className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all"
+          />
+        </div>
+        
+        {/* To Date */}
+        <div>
+          <label className="text-slate-400 text-xs font-medium mb-1.5 block">To Date</label>
+          <input
+            type="date"
+            value={dateRange.endDate}
+            onChange={(e) => {
+              setDateRange(prev => ({ ...prev, endDate: e.target.value }));
+              // Auto close after selecting both dates
+              if (dateRange.startDate && e.target.value) {
+                setTimeout(() => setShowDatePicker(false), 300);
+              }
+            }}
+            min={dateRange.startDate}
+            max={new Date().toISOString().split('T')[0]}
+            className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all"
+          />
+        </div>
+
+        {/* Quick Filter Buttons */}
+        <div className="flex items-center gap-2 pt-2">
+          <button
+            onClick={() => {
+              const today = new Date();
+              const weekAgo = new Date(today);
+              weekAgo.setDate(today.getDate() - 7);
+              setDateRange({
+                startDate: weekAgo.toISOString().split('T')[0],
+                endDate: today.toISOString().split('T')[0]
+              });
+              setShowDatePicker(false);
+            }}
+            className="flex-1 px-3 py-1.5 bg-violet-500/10 text-violet-400 hover:bg-violet-500/20 rounded-lg text-xs font-medium transition-all border border-violet-500/30"
+          >
+            Last 7 Days
+          </button>
+          
+          <button
+            onClick={() => {
+              const today = new Date();
+              const monthAgo = new Date(today);
+              monthAgo.setMonth(today.getMonth() - 1);
+              setDateRange({
+                startDate: monthAgo.toISOString().split('T')[0],
+                endDate: today.toISOString().split('T')[0]
+              });
+              setShowDatePicker(false);
+            }}
+            className="flex-1 px-3 py-1.5 bg-cyan-500/10 text-cyan-400 hover:bg-cyan-500/20 rounded-lg text-xs font-medium transition-all border border-cyan-500/30"
+          >
+            Last 30 Days
+          </button>
+        </div>
+      </div>
+    </div>
+  )}
+</div>
+
               </div>
 
               {/* Search */}
@@ -1084,6 +1279,18 @@ const handleExportReviews = (type: string) => {
                     </button>
                   </span>
                 )}
+{/* ✅ Add this in your "Active Filters" section */}
+{(dateRange.startDate || dateRange.endDate) && (
+  <span className="px-2 py-1 bg-green-500/10 border border-green-500/30 rounded-md text-green-400 text-xs font-medium flex items-center gap-1">
+    Date: {getDateRangeLabel()}
+    <button
+      onClick={() => setDateRange({ startDate: "", endDate: "" })}
+      className="hover:text-green-300"
+    >
+      <X className="h-3 w-3" />
+    </button>
+  </span>
+)}
 
                 {productFilter !== "all" && (
                   <span className="px-2 py-1 bg-purple-500/10 border border-purple-500/30 rounded-md text-purple-400 text-xs font-medium flex items-center gap-1">

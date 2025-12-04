@@ -8,7 +8,7 @@ import ConfirmDialog from "@/components/ConfirmDialog";
 import { blogCommentsService, BlogComment, BlogPost } from "@/lib/services/blogComments";
 
 export default function CommentsPage() {
-  const router = useRouter();
+
   const toast = useToast();
   const [comments, setComments] = useState<BlogComment[]>([]);
   const [blogPosts, setBlogPosts] = useState<BlogPost[]>([]);
@@ -28,6 +28,7 @@ export default function CommentsPage() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
 
+
   // User Authentication State
   const [currentUserId, setCurrentUserId] = useState<string>("");
   const [currentUserEmail, setCurrentUserEmail] = useState<string>("");
@@ -40,6 +41,16 @@ export default function CommentsPage() {
     spamScore: number;
     flaggedBy: string;
   } | null>(null);
+
+  const [dateRange, setDateRange] = useState<{
+  startDate: string;
+  endDate: string;
+}>({
+  startDate: "",
+  endDate: ""
+});
+const [showDatePicker, setShowDatePicker] = useState(false);
+const datePickerRef = useRef<HTMLDivElement>(null);
   const [isSubmittingSpam, setIsSubmittingSpam] = useState(false);
 
   const [showPostDropdown, setShowPostDropdown] = useState(false);
@@ -62,7 +73,16 @@ export default function CommentsPage() {
   const filteredPosts = blogPosts.filter(post =>
     post.title.toLowerCase().includes(postSearchTerm.toLowerCase())
   );
+useEffect(() => {
+  const handleClickOutside = (event: MouseEvent) => {
+    if (datePickerRef.current && !datePickerRef.current.contains(event.target as Node)) {
+      setShowDatePicker(false);
+    }
+  };
 
+  document.addEventListener("mousedown", handleClickOutside);
+  return () => document.removeEventListener("mousedown", handleClickOutside);
+}, []);
   // Get current user from token
   useEffect(() => {
     const email = localStorage.getItem('userEmail') || 'admin@ecom.com';
@@ -274,42 +294,86 @@ const handleSubmitSpamFlag = async () => {
     }
   };
 
-  // Fetch Comments
-  const fetchComments = async (specificPostId?: string) => {
-    setLoadingComments(true);
-    try {
-      const allCommentsFromPosts: BlogComment[] = [];
-      
-      blogPosts
-        .filter(post => !post.isDeleted)
-        .forEach(post => {
-          if (post.comments && Array.isArray(post.comments) && post.comments.length > 0) {
-            const postComments = flattenComments(post.comments).map(comment => ({
-              ...comment,
-              blogPostTitle: comment.blogPostTitle || post.title,
-              blogPostId: post.id
-            }));
-            allCommentsFromPosts.push(...postComments);
-          }
-        });
+const fetchComments = async (specificPostId?: string) => {
+  setLoadingComments(true);
+  try {
+    const allCommentsFromPosts: BlogComment[] = [];
+    
+    blogPosts
+      .filter(post => !post.isDeleted)
+      .forEach(post => {
+        if (post.comments && Array.isArray(post.comments) && post.comments.length > 0) {
+          const postComments = flattenComments(post.comments).map(comment => ({
+            ...comment,
+            blogPostTitle: comment.blogPostTitle || post.title,
+            blogPostId: post.id
+          }));
+          allCommentsFromPosts.push(...postComments);
+        }
+      });
 
-      let filteredComments = allCommentsFromPosts;
+    let filteredComments = allCommentsFromPosts;
 
-      if (statusFilter === "spam") {
-        filteredComments = allCommentsFromPosts.filter(c => c.isSpam);
-      } else if (specificPostId && specificPostId !== "all") {
-        filteredComments = allCommentsFromPosts.filter(c => c.blogPostId === specificPostId);
-      }
-
-      setComments(filteredComments);
-    } catch (error: any) {
-      console.error("Error fetching comments:", error);
-      toast.error("Failed to load comments");
-      setComments([]);
-    } finally {
-      setLoadingComments(false);
+    // Filter by Status
+    if (statusFilter === "approved") {
+      filteredComments = filteredComments.filter(c => c.isApproved && !c.isSpam && !c.isDeleted);
+    } else if (statusFilter === "pending") {
+      filteredComments = filteredComments.filter(c => !c.isApproved && !c.isSpam && !c.isDeleted);
+    } else if (statusFilter === "spam") {
+      filteredComments = filteredComments.filter(c => c.isSpam && !c.isDeleted);
+    } else if (statusFilter === "deleted") {
+      filteredComments = filteredComments.filter(c => c.isDeleted);
     }
-  };
+
+    // Filter by Post
+    if (specificPostId && specificPostId !== "all") {
+      filteredComments = filteredComments.filter(c => c.blogPostId === specificPostId);
+    } else if (postFilter !== "all") {
+      filteredComments = filteredComments.filter(c => c.blogPostId === postFilter);
+    }
+
+    // ✅ Filter by Date Range
+    if (dateRange.startDate || dateRange.endDate) {
+      filteredComments = filteredComments.filter(c => {
+        const commentDate = new Date(c.createdAt);
+        const start = dateRange.startDate ? new Date(dateRange.startDate) : null;
+        const end = dateRange.endDate ? new Date(dateRange.endDate) : null;
+
+        // Set time to start/end of day for accurate comparison
+        if (start) start.setHours(0, 0, 0, 0);
+        if (end) end.setHours(23, 59, 59, 999);
+
+        if (start && end) {
+          return commentDate >= start && commentDate <= end;
+        } else if (start) {
+          return commentDate >= start;
+        } else if (end) {
+          return commentDate <= end;
+        }
+        return true;
+      });
+    }
+
+    // Filter by Search Term
+    if (searchTerm.trim()) {
+      const searchLower = searchTerm.toLowerCase();
+      filteredComments = filteredComments.filter(c => 
+        c.authorName?.toLowerCase().includes(searchLower) ||
+        c.authorEmail?.toLowerCase().includes(searchLower) ||
+        c.commentText?.toLowerCase().includes(searchLower) ||
+        c.blogPostTitle?.toLowerCase().includes(searchLower)
+      );
+    }
+
+    setComments(filteredComments);
+  } catch (error: any) {
+    console.error("Error fetching comments:", error);
+    toast.error("Failed to load comments");
+    setComments([]);
+  } finally {
+    setLoadingComments(false);
+  }
+};
 
   useEffect(() => {
     const loadData = async () => {
@@ -320,11 +384,11 @@ const handleSubmitSpamFlag = async () => {
     loadData();
   }, []);
 
-  useEffect(() => {
-    if (blogPosts.length > 0) {
-      fetchComments(postFilter);
-    }
-  }, [blogPosts, postFilter, statusFilter]);
+useEffect(() => {
+  if (blogPosts.length > 0) {
+    fetchComments(postFilter);
+  }
+}, [blogPosts, postFilter, statusFilter, dateRange]);
 
   // Action handlers
   const handleApprove = async (id: string) => {
@@ -413,7 +477,12 @@ const handleSubmitSpamFlag = async () => {
       setActionLoading(null);
     }
   };
-
+// ✅ Initial load
+useEffect(() => {
+  if (blogPosts.length > 0) {
+    fetchComments();
+  }
+}, [blogPosts]);
   // Filter and pagination
   const filteredComments = getParentComments().filter(comment => {
     const matchesSearch = 
@@ -481,14 +550,38 @@ const handleSubmitSpamFlag = async () => {
     setCurrentPage(1);
   }, [searchTerm, statusFilter]);
 
-  const clearFilters = () => {
-    setStatusFilter("all");
-    setPostFilter("all");
-    setSearchTerm("");
-    setCurrentPage(1);
+const clearFilters = () => {
+  setStatusFilter("all");
+  setPostFilter("all");
+  setSearchTerm("");
+  setPostSearchTerm("");
+  setShowPostDropdown(false);
+  setDateRange({ startDate: "", endDate: "" }); // ✅ Clear date range
+};
+const hasActiveFilters = 
+  statusFilter !== "all" || 
+  postFilter !== "all" || 
+  searchTerm.trim() !== "" ||
+  dateRange.startDate !== "" ||
+  dateRange.endDate !== "";
+// ✅ Add this helper function
+const getDateRangeLabel = () => {
+  if (!dateRange.startDate && !dateRange.endDate) return "Select Date Range";
+  
+  const formatDate = (dateStr: string) => {
+    if (!dateStr) return "";
+    return new Date(dateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
   };
 
-  const hasActiveFilters = statusFilter !== "all" || postFilter !== "all" || searchTerm.trim() !== "";
+  if (dateRange.startDate && dateRange.endDate) {
+    return `${formatDate(dateRange.startDate)} - ${formatDate(dateRange.endDate)}`;
+  } else if (dateRange.startDate) {
+    return `From ${formatDate(dateRange.startDate)}`;
+  } else if (dateRange.endDate) {
+    return `Until ${formatDate(dateRange.endDate)}`;
+  }
+  return "Select Date Range";
+};
 
   const getSelectedPostTitle = () => {
     if (postFilter === "all") return "All Posts";
@@ -509,11 +602,11 @@ const handleSubmitSpamFlag = async () => {
 
   return (
     <div className="min-h-screen bg-slate-950">
-      <div className="mx-auto space-y-6 p-6">
+      <div className="mx-auto space-y-3 ">
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <h1 className="text-4xl font-bold tracking-tight bg-gradient-to-r from-violet-400 via-cyan-400 to-pink-400 bg-clip-text text-transparent">
+            <h1 className="text-2xl font-bold tracking-tight bg-gradient-to-r from-violet-400 via-cyan-400 to-pink-400 bg-clip-text text-transparent">
               Comments Management
             </h1>
             <p className="text-slate-400 mt-2">
@@ -538,10 +631,9 @@ const handleSubmitSpamFlag = async () => {
             Refresh
           </button>
         </div>
-
         {/* Statistics Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-6 hover:border-violet-500/50 transition-all">
+          <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-4 hover:border-violet-500/50 transition-all">
             <div className="flex items-center gap-4">
               <div className="w-12 h-12 rounded-xl bg-blue-500/10 flex items-center justify-center">
                 <MessageSquare className="h-6 w-6 text-blue-400" />
@@ -553,7 +645,7 @@ const handleSubmitSpamFlag = async () => {
             </div>
           </div>
 
-          <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-6 hover:border-yellow-500/50 transition-all">
+          <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-4 hover:border-yellow-500/50 transition-all">
             <div className="flex items-center gap-4">
               <div className="w-12 h-12 rounded-xl bg-yellow-500/10 flex items-center justify-center">
                 <Clock className="h-6 w-6 text-yellow-400" />
@@ -565,7 +657,7 @@ const handleSubmitSpamFlag = async () => {
             </div>
           </div>
 
-          <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-6 hover:border-green-500/50 transition-all">
+          <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-4 hover:border-green-500/50 transition-all">
             <div className="flex items-center gap-4">
               <div className="w-12 h-12 rounded-xl bg-green-500/10 flex items-center justify-center">
                 <CheckCircle className="h-6 w-6 text-green-400" />
@@ -577,7 +669,7 @@ const handleSubmitSpamFlag = async () => {
             </div>
           </div>
 
-          <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-6 hover:border-red-500/50 transition-all">
+          <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-4 hover:border-red-500/50 transition-all">
             <div className="flex items-center gap-4">
               <div className="w-12 h-12 rounded-xl bg-red-500/10 flex items-center justify-center">
                 <Ban className="h-6 w-6 text-red-400" />
@@ -591,7 +683,7 @@ const handleSubmitSpamFlag = async () => {
         </div>
 
         {/* Items Per Page */}
-        <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-2xl p-4">
+        <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-2xl p-3">
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div className="flex items-center gap-3">
               <span className="text-sm text-slate-400">Show</span>
@@ -615,525 +707,519 @@ const handleSubmitSpamFlag = async () => {
         </div>
 
         {/* Comments Section */}
-        <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-2xl p-6">
-          {/* Filters */}
-          <div className="space-y-4 mb-6">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              <div>
-                <h2 className="text-2xl font-bold text-white">All Comments</h2>
-                <p className="text-slate-400 text-sm mt-1">
-                  Manage and moderate user comments
-                  {blogPosts.length > 0 && (
-                    <span className="ml-2 text-slate-500">
-                      • {blogPosts.length} posts available
-                    </span>
-                  )}
-                </p>
-              </div>
+<div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-2xl p-3">
+  {/* Header */}
+  <div className="space-y-4 mb-6">
+    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div>
+        <h2 className="text-2xl font-bold text-white">All Comments</h2>
+        <p className="text-slate-400 text-sm mt-1">
+          Manage and moderate user comments
+          {blogPosts.length > 0 && (
+            <span className="ml-2 text-slate-500">
+              • {blogPosts.length} posts available
+            </span>
+          )}
+        </p>
+      </div>
 
-              {hasActiveFilters && (
-                <div className="flex items-center gap-2">
-                  <span className="px-3 py-1 bg-violet-500/10 border border-violet-500/30 rounded-full text-violet-400 text-xs font-medium">
-                    Filters Active
-                  </span>
-                  <button
-                    onClick={clearFilters}
-                    className="px-3 py-1.5 bg-red-500/10 border border-red-500/50 text-red-400 rounded-lg hover:bg-red-500/20 transition-all text-xs font-medium flex items-center gap-1.5"
-                  >
-                    <FilterX className="h-3.5 w-3.5" />
-                    Clear All
-                  </button>
-                </div>
-              )}
-            </div>
+      {hasActiveFilters && (
+        <div className="flex items-center gap-2">
+          <span className="px-3 py-1 bg-violet-500/10 border border-violet-500/30 rounded-full text-violet-400 text-xs font-medium">
+            Filters Active
+          </span>
+          <button
+            onClick={clearFilters}
+            className="px-3 py-1.5 bg-red-500/10 border border-red-500/50 text-red-400 rounded-lg hover:bg-red-500/20 transition-all text-xs font-medium flex items-center gap-1.5"
+          >
+            <FilterX className="h-3.5 w-3.5" />
+            Clear All
+          </button>
+        </div>
+      )}
+    </div>
 
-            <div className="flex flex-col lg:flex-row gap-3">
-              <div className="flex flex-wrap items-center gap-3 flex-1">
-                {/* Status Filter */}
-                <div className="relative">
-                  <select
-                    value={statusFilter}
-                    onChange={(e) => setStatusFilter(e.target.value)}
-                    className={`px-4 py-2.5 bg-slate-800/50 border rounded-xl text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all min-w-[160px] appearance-none cursor-pointer ${
-                      statusFilter !== "all" 
-                        ? "border-blue-500 bg-blue-500/10 ring-2 ring-blue-500/50" 
-                        : "border-slate-600 hover:border-slate-500"
-                    }`}
-                  >
-                    <option value="all">All Status</option>
-                    <option value="approved">✓ Approved</option>
-                    <option value="pending">⏳ Pending</option>
-                    <option value="spam">🚩 Spam</option>
-                  </select>
-                  <Filter className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
-                </div>
+    {/* ✅ SINGLE Filters Row - NO DUPLICATES */}
+    <div className="flex flex-col lg:flex-row gap-3">
+      {/* Left Side: Status + Post Filter */}
+      <div className="flex flex-wrap items-center gap-3 flex-1">
+        {/* Status Filter */}
+        <div className="relative">
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            className={`px-4 py-2.5 bg-slate-800/50 border rounded-xl text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all min-w-[180px] appearance-none cursor-pointer ${
+              statusFilter !== "all" 
+                ? "border-blue-500 bg-blue-500/10 ring-2 ring-blue-500/50" 
+                : "border-slate-600 hover:border-slate-500"
+            }`}
+          >
+            <option value="all">All Status</option>
+            <option value="approved">✓ Approved</option>
+            <option value="pending">⏳ Pending</option>
+            <option value="spam">🚩 Spam</option>
+            <option value="deleted">🗑️ Deleted</option>
+          </select>
+          <Filter className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
+        </div>
 
-                {/* Post Filter */}
-                <div className="relative flex-1 lg:flex-initial lg:min-w-[280px]" ref={dropdownRef}>
-                  <div className="relative">
-                    <input
-                      type="text"
-                      value={showPostDropdown ? postSearchTerm : getSelectedPostTitle()}
-                      onChange={(e) => {
-                        setPostSearchTerm(e.target.value);
-                        if (!showPostDropdown) setShowPostDropdown(true);
-                      }}
-                      onFocus={() => {
-                        setShowPostDropdown(true);
-                        setPostSearchTerm("");
-                      }}
-                      placeholder={loadingPosts ? "Loading posts..." : "Search posts..."}
-                      disabled={loadingPosts || blogPosts.length === 0 || loadingComments}
-                      className={`w-full px-4 py-2.5 pl-10 pr-10 bg-slate-800/50 border rounded-xl text-white text-sm placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all ${
-                        postFilter !== "all" 
-                          ? "border-purple-500 bg-purple-500/10 ring-2 ring-purple-500/50" 
-                          : "border-slate-600 hover:border-slate-500"
-                      } ${loadingPosts || blogPosts.length === 0 || loadingComments ? "opacity-50 cursor-not-allowed" : ""}`}
-                    />
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
-                    
-                    {postFilter !== "all" ? (
-                      <button
-                        onClick={() => {
-                          setPostFilter("all");
-                          setPostSearchTerm("");
-                        }}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 p-1 hover:bg-slate-700 rounded transition-all"
-                      >
-                        <X className="h-3.5 w-3.5 text-slate-400 hover:text-white" />
-                      </button>
-                    ) : (
-                      <ChevronDown className={`absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none transition-transform ${showPostDropdown ? "rotate-180" : ""}`} />
-                    )}
-                  </div>
-
-                  {showPostDropdown && (
-                    <div className="absolute top-full left-0 right-0 mt-2 bg-slate-800 border border-slate-600 rounded-xl shadow-xl max-h-64 overflow-y-auto z-50">
-                      <button
-                        onClick={() => {
-                          setPostFilter("all");
-                          setShowPostDropdown(false);
-                          setPostSearchTerm("");
-                        }}
-                        className={`w-full px-4 py-2.5 text-left hover:bg-slate-700 transition-all ${
-                          postFilter === "all" ? "bg-purple-500/10 text-purple-400" : "text-white"
-                        }`}
-                      >
-                        <div className="flex items-center gap-2">
-                          <MessageSquare className="h-4 w-4 flex-shrink-0" />
-                          <span className="text-sm">All Posts</span>
-                        </div>
-                      </button>
-
-                      {filteredPosts.length > 0 ? (
-                        filteredPosts.map(post => (
-                          <button
-                            key={post.id}
-                            onClick={() => {
-                              setPostFilter(post.id);
-                              setShowPostDropdown(false);
-                              setPostSearchTerm("");
-                            }}
-                            className={`w-full px-4 py-2.5 text-left hover:bg-slate-700 transition-all border-t border-slate-700 ${
-                              postFilter === post.id ? "bg-purple-500/10 text-purple-400" : "text-white"
-                            }`}
-                          >
-                            <div className="flex items-center gap-2">
-                              <MessageSquare className="h-4 w-4 flex-shrink-0 text-slate-400" />
-                              <span className="text-sm truncate">{post.title}</span>
-                            </div>
-                          </button>
-                        ))
-                      ) : (
-                        <div className="px-4 py-3 text-center text-slate-500 text-sm">
-                          No posts found for "{postSearchTerm}"
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Search */}
-              <div className="relative lg:w-80">
-                <input
-                  type="text"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  placeholder="Search comments..."
-                  className="w-full px-4 py-2.5 pl-10 pr-4 bg-slate-800/50 border border-slate-600 rounded-xl text-white text-sm placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 hover:border-slate-500 transition-all"
-                />
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-                {searchTerm && (
-                  <button
-                    onClick={() => setSearchTerm("")}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 p-1 hover:bg-slate-700 rounded transition-all"
-                  >
-                    <X className="h-3.5 w-3.5 text-slate-400 hover:text-white" />
-                  </button>
-                )}
-              </div>
-            </div>
+        {/* Post Filter Dropdown */}
+        <div className="relative flex-1 lg:flex-initial lg:min-w-[280px]" ref={dropdownRef}>
+          <div className="relative">
+            <input
+              type="text"
+              value={showPostDropdown ? postSearchTerm : getSelectedPostTitle()}
+              onChange={(e) => {
+                setPostSearchTerm(e.target.value);
+                if (!showPostDropdown) setShowPostDropdown(true);
+              }}
+              onFocus={() => {
+                setShowPostDropdown(true);
+                setPostSearchTerm("");
+              }}
+              placeholder={loadingPosts ? "Loading posts..." : "Filter by post..."}
+              disabled={loadingPosts || blogPosts.length === 0 || loadingComments}
+              className={`w-full px-4 py-2.5 pl-10 pr-10 bg-slate-800/50 border rounded-xl text-white text-sm placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all ${
+                postFilter !== "all" 
+                  ? "border-purple-500 bg-purple-500/10 ring-2 ring-purple-500/50" 
+                  : "border-slate-600 hover:border-slate-500"
+              } ${loadingPosts || blogPosts.length === 0 || loadingComments ? "opacity-50 cursor-not-allowed" : ""}`}
+            />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
+            
+            {postFilter !== "all" ? (
+              <button
+                onClick={() => {
+                  setPostFilter("all");
+                  setPostSearchTerm("");
+                }}
+                className="absolute right-3 top-1/2 -translate-y-1/2 p-1 hover:bg-slate-700 rounded transition-all"
+              >
+                <X className="h-3.5 w-3.5 text-slate-400 hover:text-white" />
+              </button>
+            ) : (
+              <ChevronDown className={`absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none transition-transform ${showPostDropdown ? "rotate-180" : ""}`} />
+            )}
           </div>
 
-          {/* Comments List */}
-          {loadingComments ? (
-            <div className="text-center py-12">
-              <div className="w-12 h-12 border-4 border-violet-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-              <p className="text-slate-400">Loading comments...</p>
-            </div>
-          ) : currentData.length === 0 ? (
-            <div className="text-center py-12">
-              <MessageSquare className="h-16 w-16 text-slate-600 mx-auto mb-4" />
-              <p className="text-slate-400 text-lg mb-2">
-                {comments.length === 0 ? "No comments yet" : "No comments found"}
-              </p>
-              <p className="text-slate-500 text-sm">
-                {comments.length === 0
-                  ? postFilter === "all"
-                    ? "Comments will appear here when users interact with your posts"
-                    : "This post has no comments yet"
-                  : "Try adjusting your search or filters"}
-              </p>
-              {hasActiveFilters && (
-                <button
-                  onClick={clearFilters}
-                  className="mt-4 px-4 py-2 bg-violet-600 hover:bg-violet-700 text-white rounded-lg transition-all text-sm font-medium"
-                >
-                  Clear Filters
-                </button>
-              )}
-            </div>
-          ) : (
-            <div className="space-y-6">
-              {currentData.map((parentComment) => {
-                const replies = getReplies(parentComment.id);
-                
-                return (
-                  <div
-                    key={`parent-${parentComment.id}`}
-                    className={`border rounded-2xl p-6 transition-all ${
-                      parentComment.isSpam
-                        ? 'bg-red-500/5 border-red-500/30 hover:border-red-500/50'
-                        : 'bg-slate-800/30 border-slate-700 hover:border-slate-600'
+          {/* Post Dropdown List */}
+          {showPostDropdown && (
+            <div className="absolute top-full left-0 right-0 mt-2 bg-slate-800 border border-slate-600 rounded-xl shadow-xl max-h-64 overflow-y-auto z-50">
+              <button
+                onClick={() => {
+                  setPostFilter("all");
+                  setShowPostDropdown(false);
+                  setPostSearchTerm("");
+                }}
+                className={`w-full px-4 py-2.5 text-left hover:bg-slate-700 transition-all ${
+                  postFilter === "all" ? "bg-purple-500/10 text-purple-400" : "text-white"
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  <MessageSquare className="h-4 w-4 flex-shrink-0" />
+                  <span className="text-sm">All Posts</span>
+                </div>
+              </button>
+
+              {filteredPosts.length > 0 ? (
+                filteredPosts.map(post => (
+                  <button
+                    key={post.id}
+                    onClick={() => {
+                      setPostFilter(post.id);
+                      setShowPostDropdown(false);
+                      setPostSearchTerm("");
+                    }}
+                    className={`w-full px-4 py-2.5 text-left hover:bg-slate-700 transition-all border-t border-slate-700 ${
+                      postFilter === post.id ? "bg-purple-500/10 text-purple-400" : "text-white"
                     }`}
                   >
-                    {/* ✅ NEW LAYOUT: Flex container */}
-                    <div className="flex items-start justify-between gap-6">
-                      {/* Left Side: Avatar + Content */}
-                      <div className="flex items-start gap-4 flex-1 min-w-0">
-                        {/* Avatar */}
-                        <div className={`w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0 ${
-                          parentComment.isSpam 
-                            ? 'bg-gradient-to-br from-red-500 to-rose-500' 
-                            : 'bg-gradient-to-br from-violet-500 to-pink-500'
-                        }`}>
-                          <span className="text-white text-sm font-bold">
-                            {parentComment.isSpam ? '⚠' : parentComment.authorName?.charAt(0).toUpperCase()}
-                          </span>
-                        </div>
-
-                        {/* Content */}
-                        <div className="flex-1 min-w-0">
-                          {/* Author Info + Status Badge */}
-                          <div className="flex items-center gap-2 mb-2 flex-wrap">
-                            <p className="text-white font-semibold text-base">{parentComment.authorName}</p>
-                            {isAdminComment(parentComment) && (
-                              <span className="px-2 py-0.5 bg-violet-500/10 text-violet-400 rounded text-xs font-medium border border-violet-500/30">
-                                Admin
-                              </span>
-                            )}
-                            <span className="text-slate-500 text-xs">•</span>
-                            <p className="text-slate-400 text-sm">
-                              {new Date(parentComment.createdAt).toLocaleDateString('en-US', { 
-                                month: 'short', 
-                                day: 'numeric', 
-                                year: 'numeric' 
-                              })}
-                            </p>
-                            <p className="text-slate-500 text-xs">
-                              {new Date(parentComment.createdAt).toLocaleTimeString('en-US', { 
-                                hour: '2-digit', 
-                                minute: '2-digit' 
-                              })}
-                            </p>
-                            
-                            {/* Status Badge - Right aligned */}
-                            <span className={`px-3 py-1 rounded-lg text-xs font-semibold border ml-auto ${
-                              parentComment.isSpam 
-                                ? 'bg-red-500/10 text-red-400 border-red-500/30' 
-                                : parentComment.isApproved 
-                                ? 'bg-green-500/10 text-green-400 border-green-500/30' 
-                                : 'bg-yellow-500/10 text-yellow-400 border-yellow-500/30'
-                            }`}>
-                              {parentComment.isSpam ? '🚩 Spam' : parentComment.isApproved ? '✓ Approved' : '⏳ Pending'}
-                            </span>
-                          </div>
-
-                          {/* Email */}
-                          <p className="text-slate-500 text-sm mb-3">{parentComment.authorEmail}</p>
-
-                          {/* Spam Warning */}
-                          {/* {parentComment.isSpam && (
-                            <div className="mb-3 p-3 bg-red-500/10 border border-red-500/30 rounded-xl flex items-start gap-2">
-                              <AlertTriangle className="h-5 w-5 text-red-400 flex-shrink-0 mt-0.5" />
-                              <div className="flex-1">
-                                <p className="text-red-400 text-sm font-semibold">⚠ Spam Comment</p>
-                                {parentComment.spamReason && (
-                                  <p className="text-slate-400 text-xs mt-1">
-                                    Reason: {parentComment.spamReason}
-                                  </p>
-                                )}
-                                {parentComment.flaggedAt && (
-                                  <p className="text-slate-500 text-xs mt-1">
-                                    Flagged on {new Date(parentComment.flaggedAt).toLocaleString()}
-                                  </p>
-                                )}
-                              </div>
-                            </div>
-                          )} */}
-
-                          {/* Comment Text */}
-                          <p className={`text-slate-300 text-base mb-3 ${
-                            parentComment.isSpam ? 'line-through opacity-50' : ''
-                          }`}>
-                            {parentComment.commentText}
-                          </p>
-
-                          {/* Post Title */}
-                          <p className="text-slate-500 text-sm">
-                            on{' '}
-                            <span 
-                              className="text-blue-400 hover:text-blue-300 cursor-pointer hover:underline"
-                              onClick={() => setPostFilter(parentComment.blogPostId)}
-                            >
-                              {parentComment.blogPostTitle || 'Unknown Post'}
-                            </span>
-                          </p>
-                        </div>
-                      </div>
-
-                      {/* ✅ Right Side: Action Buttons (Vertical) */}
-                      <div className="flex flex-row flex-wrap gap-2 ">
-                        {!parentComment.isApproved && !parentComment.isSpam && (
-                          <button
-                            onClick={() => handleApprove(parentComment.id)}
-                            disabled={actionLoading === parentComment.id}
-                            className="px-4 py-2 bg-green-500/10 text-green-400 hover:bg-green-500/20 rounded-lg text-sm font-medium transition-all flex items-center justify-center gap-2 border border-green-500/30 disabled:opacity-50 min-w-[120px]"
-                          >
-                            <CheckCircle className="h-4 w-4" />
-                            Approve
-                          </button>
-                        )}
-
-                        {!isAdminComment(parentComment) && !parentComment.isSpam && (
-                          <button
-                            onClick={() => openSpamFlagModal(parentComment)}
-                            disabled={actionLoading === parentComment.id}
-                            className="px-4 py-2 bg-red-500/10 text-red-400 hover:bg-red-500/20 rounded-lg text-sm font-medium transition-all flex items-center justify-center gap-2 border border-red-500/30 disabled:opacity-50 min-w-[120px]"
-                          >
-                            <Shield className="h-4 w-4" />
-                            Mark Spam
-                          </button>
-                        )}
-
-                        {parentComment.isSpam && (
-                          <button
-                            onClick={() => handleUnflagSpam(parentComment.id)}
-                            disabled={actionLoading === parentComment.id}
-                            className="px-4 py-2 bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 rounded-lg text-sm font-medium transition-all flex items-center justify-center gap-2 border border-blue-500/30 disabled:opacity-50 min-w-[120px]"
-                          >
-                            <ShieldOff className="h-4 w-4" />
-                            Restore
-                          </button>
-                        )}
-<button
-  onClick={() => handleUndelete(parentComment.id)}
-  disabled={actionLoading === parentComment.id}
-  className="px-4 py-2 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 rounded-lg text-sm font-medium transition-all flex items-center justify-center gap-2 border border-emerald-500/30 disabled:opacity-50 min-w-[120px]"
->
-  {actionLoading === parentComment.id ? (
-    <>
-      <div className="w-4 h-4 border-2 border-emerald-400 border-t-transparent rounded-full animate-spin" />
-      Restoring...
-    </>
-  ) : (
-    <>
-      <RefreshCw className="h-4 w-4" />
-      Restore
-    </>
-  )}
-</button>
-
-                        <button
-                          onClick={() => setReplyingTo(parentComment)}
-                          disabled={parentComment.isSpam}
-                          className="px-4 py-2 bg-violet-500/10 text-violet-400 hover:bg-violet-500/20 rounded-lg text-sm font-medium transition-all flex items-center justify-center gap-2 border border-violet-500/30 disabled:opacity-50 min-w-[120px]"
-                        >
-                          <Reply className="h-4 w-4" />
-                          Reply
-                        </button>
-
-                        <button
-                          onClick={() => setViewingComment(parentComment)}
-                          className="px-4 py-2 bg-cyan-500/10 text-cyan-400 hover:bg-cyan-500/20 rounded-lg text-sm font-medium transition-all flex items-center justify-center gap-2 border border-cyan-500/30 min-w-[120px]"
-                        >
-                          <Eye className="h-4 w-4" />
-                          View
-                        </button>
-
-                        <button
-                          onClick={() => setDeleteConfirm({ 
-                            id: parentComment.id, 
-                            author: parentComment.authorName 
-                          })}
-                          className="px-4 py-2 bg-red-500/10 text-red-400 hover:bg-red-500/20 rounded-lg text-sm font-medium transition-all flex items-center justify-center gap-2 border border-red-500/30 min-w-[120px]"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                          Delete
-                        </button>
-                      </div>
+                    <div className="flex items-center gap-2">
+                      <MessageSquare className="h-4 w-4 flex-shrink-0 text-slate-400" />
+                      <span className="text-sm truncate">{post.title}</span>
                     </div>
-
-                    {/* Replies Section */}
-                    {replies.length > 0 && (
-                      <div className="mt-6 ml-16 space-y-4 border-l-2 border-slate-700 pl-6">
-                        <div className="flex items-center gap-2 mb-3">
-                          <CornerDownRight className="h-4 w-4 text-slate-500" />
-                          <p className="text-slate-400 text-sm font-medium">
-                            {replies.length} {replies.length === 1 ? 'Reply' : 'Replies'}
-                          </p>
-                        </div>
-
-                        {replies.map((reply) => (
-                          <div
-                            key={`reply-${reply.id}-${parentComment.id}`}
-                            className={`border rounded-xl p-4 transition-all ${
-                              reply.isSpam 
-                                ? 'bg-red-500/5 border-red-500/30 hover:border-red-500/50' 
-                                : 'bg-slate-800/50 border-slate-700/50 hover:border-slate-600/50'
-                            }`}
-                          >
-                            <div className="flex items-start justify-between gap-4">
-                              {/* Left: Avatar + Content */}
-                              <div className="flex items-start gap-3 flex-1 min-w-0">
-                                <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${
-                                  reply.isSpam 
-                                    ? 'bg-gradient-to-br from-red-500 to-rose-500' 
-                                    : 'bg-gradient-to-br from-cyan-500 to-blue-500'
-                                }`}>
-                                  <span className="text-white text-xs font-bold">
-                                    {reply.isSpam ? '⚠' : reply.authorName?.charAt(0).toUpperCase()}
-                                  </span>
-                                </div>
-
-                                <div className="flex-1 min-w-0">
-                                  <div className="flex items-center gap-2 mb-1 flex-wrap">
-                                    <p className="text-white font-medium text-sm">{reply.authorName}</p>
-                                    {isAdminComment(reply) && (
-                                      <span className="px-2 py-0.5 bg-violet-500/10 text-violet-400 rounded text-xs font-medium">
-                                        Admin
-                                      </span>
-                                    )}
-                                    <span className="text-slate-500 text-xs">•</span>
-                                    <p className="text-slate-400 text-xs">
-                                      {new Date(reply.createdAt).toLocaleDateString('en-US', { 
-                                        month: 'short', 
-                                        day: 'numeric' 
-                                      })}
-                                    </p>
-                                    
-                                    <span className={`px-2 py-0.5 rounded text-xs font-medium ${
-                                      reply.isSpam 
-                                        ? 'bg-red-500/10 text-red-400' 
-                                        : reply.isApproved 
-                                        ? 'bg-green-500/10 text-green-400' 
-                                        : 'bg-yellow-500/10 text-yellow-400'
-                                    }`}>
-                                      {reply.isSpam ? 'Spam' : reply.isApproved ? 'Approved' : 'Pending'}
-                                    </span>
-                                  </div>
-
-                                  {reply.isSpam && (
-                                    <div className="mb-2 px-2 py-1 bg-red-500/10 border border-red-500/30 rounded text-red-400 text-xs font-medium inline-flex items-center gap-1">
-                                      <Ban className="h-3 w-3" />
-                                      Spam Reply
-                                    </div>
-                                  )}
-
-                                  <p className={`text-slate-300 text-sm ${
-                                    reply.isSpam ? 'line-through opacity-50' : ''
-                                  }`}>
-                                    {reply.commentText}
-                                  </p>
-                                </div>
-                              </div>
-
-                              {/* ✅ Right: Reply Actions (Vertical) */}
-                              <div className="flex flex-col gap-1.5 flex-shrink-0">
-                                {!reply.isApproved && !reply.isSpam && (
-                                  <button
-                                    onClick={() => handleApprove(reply.id)}
-                                    disabled={actionLoading === reply.id}
-                                    className="px-3 py-1.5 bg-green-500/10 text-green-400 hover:bg-green-500/20 rounded-lg text-xs font-medium transition-all flex items-center justify-center gap-1.5 border border-green-500/30 disabled:opacity-50 min-w-[100px]"
-                                  >
-                                    <CheckCircle className="h-3 w-3" />
-                                    Approve
-                                  </button>
-                                )}
-
-                                {!isAdminComment(reply) && !reply.isSpam && (
-                                  <button
-                                    onClick={() => openSpamFlagModal(reply)}
-                                    disabled={actionLoading === reply.id}
-                                    className="px-3 py-1.5 bg-red-500/10 text-red-400 hover:bg-red-500/20 rounded-lg text-xs font-medium transition-all flex items-center justify-center gap-1.5 border border-red-500/30 disabled:opacity-50 min-w-[100px]"
-                                  >
-                                    <Shield className="h-3 w-3" />
-                                    Spam
-                                  </button>
-                                )}
-
-                                {reply.isSpam && (
-                                  <button
-                                    onClick={() => handleUnflagSpam(reply.id)}
-                                    disabled={actionLoading === reply.id}
-                                    className="px-3 py-1.5 bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 rounded-lg text-xs font-medium transition-all flex items-center justify-center gap-1.5 border border-blue-500/30 disabled:opacity-50 min-w-[100px]"
-                                  >
-                                    <ShieldOff className="h-3 w-3" />
-                                    Restore
-                                  </button>
-                                )}
-
-                                <button
-                                  onClick={() => setViewingComment(reply)}
-                                  className="px-3 py-1.5 bg-violet-500/10 text-violet-400 hover:bg-violet-500/20 rounded-lg text-xs font-medium transition-all flex items-center justify-center gap-1.5 border border-violet-500/30 min-w-[100px]"
-                                >
-                                  <Eye className="h-3 w-3" />
-                                  View
-                                </button>
-
-                                <button
-                                  onClick={() => setDeleteConfirm({ 
-                                    id: reply.id, 
-                                    author: reply.authorName 
-                                  })}
-                                  className="px-3 py-1.5 bg-red-500/10 text-red-400 hover:bg-red-500/20 rounded-lg text-xs font-medium transition-all flex items-center justify-center gap-1.5 border border-red-500/30 min-w-[100px]"
-                                >
-                                  <Trash2 className="h-3 w-3" />
-                                  Delete
-                                </button>
-                              </div>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
+                  </button>
+                ))
+              ) : (
+                <div className="px-4 py-3 text-center text-slate-500 text-sm">
+                  No posts found for "{postSearchTerm}"
+                </div>
+              )}
             </div>
           )}
         </div>
+      </div>
+
+      {/* Right Side: Date Range + Search */}
+      <div className="flex items-center gap-3 flex-1 lg:flex-initial">
+        {/* ✅ Date Range Filter - AUTO APPLY */}
+        <div className="relative lg:min-w-[240px]" ref={datePickerRef}>
+          <div className="relative">
+            <button
+              onClick={() => setShowDatePicker(!showDatePicker)}
+              className={`w-full px-4 py-2.5 pl-10 pr-10 bg-slate-800/50 border rounded-xl text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all text-left ${
+                (dateRange.startDate || dateRange.endDate)
+                  ? "border-green-500 bg-green-500/10 ring-2 ring-green-500/50" 
+                  : "border-slate-600 hover:border-slate-500"
+              }`}
+            >
+              <span className={dateRange.startDate || dateRange.endDate ? "text-white" : "text-slate-400"}>
+                {getDateRangeLabel()}
+              </span>
+            </button>
+            
+            <svg className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <rect x="3" y="4" width="18" height="18" rx="2" ry="2" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              <line x1="16" y1="2" x2="16" y2="6" strokeWidth="2" strokeLinecap="round"/>
+              <line x1="8" y1="2" x2="8" y2="6" strokeWidth="2" strokeLinecap="round"/>
+              <line x1="3" y1="10" x2="21" y2="10" strokeWidth="2" strokeLinecap="round"/>
+            </svg>
+            
+            {(dateRange.startDate || dateRange.endDate) ? (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setDateRange({ startDate: "", endDate: "" });
+                }}
+                className="absolute right-3 top-1/2 -translate-y-1/2 p-1 hover:bg-slate-700 rounded transition-all"
+              >
+                <X className="h-3.5 w-3.5 text-slate-400 hover:text-white" />
+              </button>
+            ) : (
+              <ChevronDown className={`absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none transition-transform ${showDatePicker ? "rotate-180" : ""}`} />
+            )}
+          </div>
+
+          {/* ✅ Date Picker Dropdown - AUTO CLOSE ON SELECT */}
+          {showDatePicker && (
+            <div className="absolute top-full left-0 right-0 mt-2 bg-slate-800 border border-slate-600 rounded-xl shadow-xl p-4 z-50 min-w-[280px]">
+              <div className="space-y-3">
+                <div>
+                  <label className="text-slate-400 text-xs font-medium mb-1.5 block">From Date</label>
+                  <input
+                    type="date"
+                    value={dateRange.startDate}
+                    onChange={(e) => {
+                      setDateRange(prev => ({ ...prev, startDate: e.target.value }));
+                      // ✅ Auto close after selecting both dates
+                      if (dateRange.endDate && e.target.value) {
+                        setTimeout(() => setShowDatePicker(false), 300);
+                      }
+                    }}
+                    max={dateRange.endDate || new Date().toISOString().split('T')[0]}
+                    className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all"
+                  />
+                </div>
+                
+                <div>
+                  <label className="text-slate-400 text-xs font-medium mb-1.5 block">To Date</label>
+                  <input
+                    type="date"
+                    value={dateRange.endDate}
+                    onChange={(e) => {
+                      setDateRange(prev => ({ ...prev, endDate: e.target.value }));
+                      // ✅ Auto close after selecting both dates
+                      if (dateRange.startDate && e.target.value) {
+                        setTimeout(() => setShowDatePicker(false), 300);
+                      }
+                    }}
+                    min={dateRange.startDate}
+                    max={new Date().toISOString().split('T')[0]}
+                    className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all"
+                  />
+                </div>
+
+                {/* ✅ Quick Filter Buttons - Auto Close */}
+                <div className="flex items-center gap-2 pt-2">
+                  <button
+                    onClick={() => {
+                      const today = new Date();
+                      const weekAgo = new Date(today);
+                      weekAgo.setDate(today.getDate() - 7);
+                      setDateRange({
+                        startDate: weekAgo.toISOString().split('T')[0],
+                        endDate: today.toISOString().split('T')[0]
+                      });
+                      setShowDatePicker(false); // ✅ Auto close
+                    }}
+                    className="flex-1 px-3 py-1.5 bg-violet-500/10 text-violet-400 hover:bg-violet-500/20 rounded-lg text-xs font-medium transition-all border border-violet-500/30"
+                  >
+                    Last 7 Days
+                  </button>
+                  
+                  <button
+                    onClick={() => {
+                      const today = new Date();
+                      const monthAgo = new Date(today);
+                      monthAgo.setMonth(today.getMonth() - 1);
+                      setDateRange({
+                        startDate: monthAgo.toISOString().split('T')[0],
+                        endDate: today.toISOString().split('T')[0]
+                      });
+                      setShowDatePicker(false); // ✅ Auto close
+                    }}
+                    className="flex-1 px-3 py-1.5 bg-cyan-500/10 text-cyan-400 hover:bg-cyan-500/20 rounded-lg text-xs font-medium transition-all border border-cyan-500/30"
+                  >
+                    Last 30 Days
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Search Input */}
+        <div className="relative lg:w-80 flex-1">
+          <input
+            type="text"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            placeholder="Search comments..."
+            className="w-full px-4 py-2.5 pl-10 pr-10 bg-slate-800/50 border border-slate-600 rounded-xl text-white text-sm placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 hover:border-slate-500 transition-all"
+          />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+          {searchTerm && (
+            <button
+              onClick={() => setSearchTerm("")}
+              className="absolute right-3 top-1/2 -translate-y-1/2 p-1 hover:bg-slate-700 rounded transition-all"
+            >
+              <X className="h-3.5 w-3.5 text-slate-400 hover:text-white" />
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {/* Comments List */}
+  {loadingComments ? (
+    <div className="text-center py-12">
+      <div className="w-12 h-12 border-4 border-violet-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+      <p className="text-slate-400">Loading comments...</p>
+    </div>
+  ) : currentData.length === 0 ? (
+    <div className="text-center py-12">
+      <MessageSquare className="h-16 w-16 text-slate-600 mx-auto mb-4" />
+      <p className="text-slate-400 text-lg mb-2">
+        {comments.length === 0 ? "No comments yet" : "No comments found"}
+      </p>
+      <p className="text-slate-500 text-sm">
+        {comments.length === 0
+          ? postFilter === "all"
+            ? "Comments will appear here when users interact with your posts"
+            : "This post has no comments yet"
+          : "Try adjusting your search or filters"}
+      </p>
+      {hasActiveFilters && (
+        <button
+          onClick={clearFilters}
+          className="mt-4 px-4 py-2 bg-violet-600 hover:bg-violet-700 text-white rounded-lg transition-all text-sm font-medium"
+        >
+          Clear Filters
+        </button>
+      )}
+    </div>
+  ) : (
+    <div className="space-y-4">
+      {currentData.map((parentComment) => {
+        const replies = getReplies(parentComment.id);
+        
+        return (
+          <div
+            key={`parent-${parentComment.id}`}
+            className={`border rounded-xl p-5 transition-all ${
+              parentComment.isDeleted
+                ? 'bg-slate-800/20 border-slate-700/50 opacity-60'
+                : parentComment.isSpam
+                ? 'bg-red-500/5 border-red-500/30 hover:border-red-500/50'
+                : 'bg-slate-800/30 border-slate-700 hover:border-slate-600'
+            }`}
+          >
+            <div className="flex items-start gap-4">
+              {/* Avatar */}
+              <div className={`w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0 ${
+                parentComment.isDeleted ? 'bg-slate-600' : parentComment.isSpam ? 'bg-gradient-to-br from-red-500 to-rose-500' : 'bg-gradient-to-br from-violet-500 to-cyan-500'
+              }`}>
+                <span className="text-white text-sm font-bold">
+                  {parentComment.isDeleted ? '🗑' : parentComment.isSpam ? '⚠' : parentComment.authorName?.charAt(0).toUpperCase()}
+                </span>
+              </div>
+
+              {/* Content Section */}
+              <div className="flex-1 min-w-0">
+                {/* Header */}
+                <div className="flex items-center justify-between gap-3 mb-3">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <p className={`font-semibold ${parentComment.isDeleted ? 'text-slate-500' : 'text-white'}`}>
+                      {parentComment.authorName}
+                    </p>
+                    
+                    {isAdminComment(parentComment) && !parentComment.isDeleted && (
+                      <span className="px-2 py-0.5 bg-violet-500/10 text-violet-400 rounded text-xs font-medium border border-violet-500/30">Admin</span>
+                    )}
+                    
+                    <span className="text-slate-600">•</span>
+                    
+                    <p className="text-slate-400 text-xs">
+                      {new Date(parentComment.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                    </p>
+
+                    {/* Post Title */}
+                    {!parentComment.isDeleted && (
+                      <>
+                        <span className="text-slate-500 text-xs">Commented on</span>
+                        <span className="text-blue-400 hover:text-blue-300 cursor-pointer hover:underline text-xs font-medium" onClick={() => setPostFilter(parentComment.blogPostId)}>
+                          {parentComment.blogPostTitle || 'Unknown Post'}
+                        </span>
+                      </>
+                    )}
+
+                    {/* Status Badge */}
+                    <span className={`px-3 py-1.5 rounded-lg text-xs font-semibold border flex items-center gap-1.5 whitespace-nowrap ${
+                      parentComment.isDeleted ? 'bg-slate-700/50 text-slate-400 border-slate-600/50' : 
+                      parentComment.isSpam ? 'bg-red-500/10 text-red-400 border-red-500/30' : 
+                      parentComment.isApproved ? 'bg-green-500/10 text-green-400 border-green-500/30' : 
+                      'bg-amber-500/10 text-amber-400 border-amber-500/30'
+                    }`}>
+                      {parentComment.isDeleted ? <><Trash2 className="h-3 w-3" />Deleted</> : 
+                       parentComment.isSpam ? <><Shield className="h-3 w-3" />Spam</> : 
+                       parentComment.isApproved ? <><CheckCircle className="h-3 w-3" />Approved</> : 
+                       <><Clock className="h-3 w-3" />Pending</>}
+                    </span>
+                  </div>
+
+                  {/* Action Buttons */}
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    {parentComment.isDeleted ? (
+                      <button onClick={() => handleUndelete(parentComment.id)} disabled={actionLoading === parentComment.id} className="px-3 py-1.5 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 rounded-lg text-xs font-medium transition-all flex items-center gap-1.5 border border-emerald-500/30 disabled:opacity-50">
+                        {actionLoading === parentComment.id ? <div className="w-3.5 h-3.5 border-2 border-emerald-400 border-t-transparent rounded-full animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
+                        Restore
+                      </button>
+                    ) : parentComment.isSpam ? (
+                      <>
+                        <button onClick={() => handleUnflagSpam(parentComment.id)} disabled={actionLoading === parentComment.id} className="px-3 py-1.5 bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 rounded-lg text-xs font-medium transition-all flex items-center gap-1.5 border border-blue-500/30 disabled:opacity-50">
+                          <ShieldOff className="h-3.5 w-3.5" />Restore
+                        </button>
+                        <button onClick={() => setViewingComment(parentComment)} className="px-3 py-1.5 bg-cyan-500/10 text-cyan-400 hover:bg-cyan-500/20 rounded-lg text-xs font-medium transition-all flex items-center gap-1.5 border border-cyan-500/30">
+                          <Eye className="h-3.5 w-3.5" />View
+                        </button>
+                        <button onClick={() => setDeleteConfirm({ id: parentComment.id, author: parentComment.authorName })} className="px-3 py-1.5 bg-red-500/10 text-red-400 hover:bg-red-500/20 rounded-lg text-xs font-medium transition-all flex items-center gap-1.5 border border-red-500/30">
+                          <Trash2 className="h-3.5 w-3.5" />Delete
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        {!parentComment.isApproved && (
+                          <button onClick={() => handleApprove(parentComment.id)} disabled={actionLoading === parentComment.id} className="px-3 py-1.5 bg-green-500/10 text-green-400 hover:bg-green-500/20 rounded-lg text-xs font-medium transition-all flex items-center gap-1.5 border border-green-500/30 disabled:opacity-50">
+                            <CheckCircle className="h-3.5 w-3.5" />Approve
+                          </button>
+                        )}
+                        {!isAdminComment(parentComment) && (
+                          <button onClick={() => openSpamFlagModal(parentComment)} disabled={actionLoading === parentComment.id} className="px-3 py-1.5 bg-red-500/10 text-red-400 hover:bg-red-500/20 rounded-lg text-xs font-medium transition-all flex items-center gap-1.5 border border-red-500/30 disabled:opacity-50">
+                            <Shield className="h-3.5 w-3.5" />Spam
+                          </button>
+                        )}
+                        <button onClick={() => setReplyingTo(parentComment)} className="px-3 py-1.5 bg-violet-500/10 text-violet-400 hover:bg-violet-500/20 rounded-lg text-xs font-medium transition-all flex items-center gap-1.5 border border-violet-500/30">
+                          <Reply className="h-3.5 w-3.5" />Reply
+                        </button>
+                        <button onClick={() => setViewingComment(parentComment)} className="px-3 py-1.5 bg-cyan-500/10 text-cyan-400 hover:bg-cyan-500/20 rounded-lg text-xs font-medium transition-all flex items-center gap-1.5 border border-cyan-500/30">
+                          <Eye className="h-3.5 w-3.5" />View
+                        </button>
+                        <button onClick={() => setDeleteConfirm({ id: parentComment.id, author: parentComment.authorName })} className="px-3 py-1.5 bg-red-500/10 text-red-400 hover:bg-red-500/20 rounded-lg text-xs font-medium transition-all flex items-center gap-1.5 border border-red-500/30">
+                          <Trash2 className="h-3.5 w-3.5" />Delete
+                        </button>
+                      </>
+                    )}
+                  </div>
+                </div>
+
+                {/* Comment Text */}
+                <p className={`text-sm ${parentComment.isDeleted ? 'text-slate-600 italic' : parentComment.isSpam ? 'text-slate-400 line-through' : 'text-slate-200'}`}>
+                  {parentComment.isDeleted ? '[This comment has been deleted]' : <><span className="text-purple-600 text-md font-bold">Comment:</span> {parentComment.commentText}</>}
+                </p>
+              </div>
+            </div>
+
+            {/* Replies Section */}
+            {replies.length > 0 && !parentComment.isDeleted && (
+              <div className="mt-4 ml-14 space-y-3 border-l-2 border-slate-700/50 pl-4">
+                <div className="flex items-center gap-2">
+                  <CornerDownRight className="h-3.5 w-3.5 text-slate-500" />
+                  <p className="text-slate-400 text-xs font-medium">{replies.length} {replies.length === 1 ? 'Reply' : 'Replies'}</p>
+                </div>
+
+                {replies.map((reply) => (
+                  <div key={`reply-${reply.id}`} className={`border rounded-lg p-3 transition-all ${reply.isDeleted ? 'bg-slate-800/10 border-slate-700/30 opacity-60' : reply.isSpam ? 'bg-red-500/5 border-red-500/20' : 'bg-slate-800/40 border-slate-700/40'}`}>
+                    <div className="flex items-start gap-3">
+                      <div className={`w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 ${reply.isDeleted ? 'bg-slate-600' : reply.isSpam ? 'bg-gradient-to-br from-red-500 to-rose-500' : 'bg-gradient-to-br from-cyan-500 to-blue-500'}`}>
+                        <span className="text-white text-xs font-bold">
+                          {reply.isDeleted ? '🗑' : reply.isSpam ? '⚠' : reply.authorName?.charAt(0).toUpperCase()}
+                        </span>
+                      </div>
+
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between gap-2 mb-2">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <p className={`font-medium text-sm ${reply.isDeleted ? 'text-slate-500' : 'text-white'}`}>{reply.authorName}</p>
+                            {isAdminComment(reply) && !reply.isDeleted && <span className="px-1.5 py-0.5 bg-violet-500/10 text-violet-400 rounded text-xs font-medium">Admin</span>}
+                            <span className="text-slate-600 text-xs">•</span>
+                            <p className="text-slate-400 text-xs">{new Date(reply.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</p>
+                            <span className={`px-2 py-0.5 rounded text-xs font-medium flex items-center gap-1 ${reply.isDeleted ? 'bg-slate-700/50 text-slate-500' : reply.isSpam ? 'bg-red-500/10 text-red-400' : reply.isApproved ? 'bg-green-500/10 text-green-400' : 'bg-amber-500/10 text-amber-400'}`}>
+                              {reply.isDeleted ? <><Trash2 className="h-2.5 w-2.5" />Deleted</> : reply.isSpam ? 'Spam' : reply.isApproved ? 'Approved' : 'Pending'}
+                            </span>
+                          </div>
+
+                          <div className="flex items-center gap-1.5 flex-shrink-0">
+                            {reply.isDeleted ? (
+                              <button onClick={() => handleUndelete(reply.id)} disabled={actionLoading === reply.id} className="px-2.5 py-1 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 rounded text-xs font-medium transition-all flex items-center gap-1 border border-emerald-500/30 disabled:opacity-50">
+                                <RefreshCw className="h-3 w-3" />Restore
+                              </button>
+                            ) : (
+                              <>
+                                {!reply.isApproved && !reply.isSpam && (
+                                  <button onClick={() => handleApprove(reply.id)} disabled={actionLoading === reply.id} className="px-2.5 py-1 bg-green-500/10 text-green-400 hover:bg-green-500/20 rounded text-xs font-medium transition-all flex items-center gap-1 border border-green-500/30 disabled:opacity-50">
+                                    <CheckCircle className="h-3 w-3" />Approve
+                                  </button>
+                                )}
+                                {!isAdminComment(reply) && !reply.isSpam && (
+                                  <button onClick={() => openSpamFlagModal(reply)} disabled={actionLoading === reply.id} className="px-2.5 py-1 bg-red-500/10 text-red-400 hover:bg-red-500/20 rounded text-xs font-medium transition-all flex items-center gap-1 border border-red-500/30 disabled:opacity-50">
+                                    <Shield className="h-3 w-3" />Spam
+                                  </button>
+                                )}
+                                {reply.isSpam && (
+                                  <button onClick={() => handleUnflagSpam(reply.id)} disabled={actionLoading === reply.id} className="px-2.5 py-1 bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 rounded text-xs font-medium transition-all flex items-center gap-1 border border-blue-500/30 disabled:opacity-50">
+                                    <ShieldOff className="h-3 w-3" />Restore
+                                  </button>
+                                )}
+                                <button onClick={() => setViewingComment(reply)} className="px-2.5 py-1 bg-violet-500/10 text-violet-400 hover:bg-violet-500/20 rounded text-xs font-medium transition-all flex items-center gap-1 border border-violet-500/30">
+                                  <Eye className="h-3 w-3" />View
+                                </button>
+                                <button onClick={() => setDeleteConfirm({ id: reply.id, author: reply.authorName })} className="px-2.5 py-1 bg-red-500/10 text-red-400 hover:bg-red-500/20 rounded text-xs font-medium transition-all flex items-center gap-1 border border-red-500/30">
+                                  <Trash2 className="h-3 w-3" />Delete
+                                </button>
+                              </>
+                            )}
+                          </div>
+                        </div>
+
+                        <p className={`text-xs ${reply.isDeleted ? 'text-slate-600 italic' : reply.isSpam ? 'text-slate-400 line-through' : 'text-slate-200'}`}>
+                          {reply.isDeleted ? '[This reply has been deleted]' : reply.commentText}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  )}
+</div>
+
+
+
 
         {/* Pagination */}
         {totalPages > 1 && !loadingComments && (
