@@ -1,3 +1,5 @@
+// lib/services/auth.ts (ya jaha bhi tum rakhe ho)
+
 import { apiClient } from "../api";
 import { API_ENDPOINTS } from "../api-config";
 
@@ -15,6 +17,11 @@ export interface User {
   lastName: string;
   phoneNumber?: string;
   role?: string;
+}
+
+export interface ChangePasswordDto {
+  currentPassword: string;
+  newPassword: string;
 }
 
 // ---- Login Response ----
@@ -80,30 +87,30 @@ const isTokenExpired = (token: string): boolean => {
 
 export const authService = {
   // ---- LOGIN ----
-login: async (data: LoginDto, config: any = {}): Promise<any> => {
-  const response = await apiClient.post<LoginResponse>(
-    API_ENDPOINTS.login,
-    data,
-    config
-  );
+  login: async (data: LoginDto, config: any = {}): Promise<any> => {
+    const response = await apiClient.post<LoginResponse>(
+      API_ENDPOINTS.login,
+      data,
+      config
+    );
 
-  // ✅ Safe access with optional chaining
-  if (response.data?.accessToken) {
-    setCookie("authToken", response.data.accessToken);
-    localStorage.setItem("authToken", response.data.accessToken);
-  }
+    // ✅ Safe access with optional chaining
+    if (response.data?.accessToken) {
+      setCookie("authToken", response.data.accessToken);
+      localStorage.setItem("authToken", response.data.accessToken);
+    }
 
-  if (response.data?.refreshToken) {
-    setCookie("refreshToken", response.data.refreshToken);
-  }
+    if (response.data?.refreshToken) {
+      setCookie("refreshToken", response.data.refreshToken);
+    }
 
-  if (response.data?.user?.email) {
-    localStorage.setItem("userEmail", response.data.user.email);
-    localStorage.setItem("userData", JSON.stringify(response.data.user));
-  }
+    if (response.data?.user?.email) {
+      localStorage.setItem("userEmail", response.data.user.email);
+      localStorage.setItem("userData", JSON.stringify(response.data.user));
+    }
 
-  return response;
-},
+    return response;
+  },
 
   // ---- LOGOUT ----
   logout: (): void => {
@@ -173,7 +180,7 @@ login: async (data: LoginDto, config: any = {}): Promise<any> => {
     }
   },
 
-  // ✅ Check if token will expire soon (within next 5 minutes)
+  // ✅ Check if token will expire soon (within next X minutes)
   isTokenExpiringSoon: (minutesThreshold: number = 5): boolean => {
     try {
       const token = getCookie("authToken");
@@ -195,68 +202,67 @@ login: async (data: LoginDto, config: any = {}): Promise<any> => {
       return false;
     }
   },
-// ✅ REFRESH TOKEN: call /api/Auth/refresh-token
-refreshToken: async (): Promise<{
-  accessToken: string;
-  refreshToken: string;
-  user: User;
-} | null> => {
-  try {
-    const accessToken = getCookie("authToken");
-    const refreshToken = getCookie("refreshToken");
 
-    if (!accessToken || !refreshToken) {
-      console.warn("No tokens found for refresh");
-      authService.logout();
-      return null;
-    }
+  // ✅ REFRESH TOKEN: call /api/Auth/refresh-token
+  refreshToken: async (): Promise<{
+    accessToken: string;
+    refreshToken: string;
+    user: User;
+  } | null> => {
+    try {
+      const accessToken = getCookie("authToken");
+      const refreshToken = getCookie("refreshToken");
 
-    const response = await apiClient.post<RefreshTokenResponse>(
-      API_ENDPOINTS.refreshToken,
-      {
-        accessToken,
-        refreshToken,
+      if (!accessToken || !refreshToken) {
+        console.warn("No tokens found for refresh");
+        authService.logout();
+        return null;
       }
-    );
 
-    // ✅ Safe access with optional chaining + null checks
-    const newAccessToken = response.data?.accessToken;
-    const newRefreshToken = response.data?.refreshToken;
-    const user = response.data?.user;
+      const response = await apiClient.post<RefreshTokenResponse>(
+        API_ENDPOINTS.refreshToken,
+        {
+          accessToken,
+          refreshToken,
+        }
+      );
 
-    // ✅ Check all required fields including user
-    if (!newAccessToken || !newRefreshToken || !user) {
-      console.error("Invalid refresh token response");
+      // ✅ Safe access with optional chaining + null checks
+      const newAccessToken = response.data?.accessToken;
+      const newRefreshToken = response.data?.refreshToken;
+      const user = response.data?.user;
+
+      // ✅ Check all required fields including user
+      if (!newAccessToken || !newRefreshToken || !user) {
+        console.error("Invalid refresh token response");
+        authService.logout();
+        return null;
+      }
+
+      // Save new tokens
+      setCookie("authToken", newAccessToken);
+      localStorage.setItem("authToken", newAccessToken);
+      setCookie("refreshToken", newRefreshToken);
+
+      // Update user data
+      localStorage.setItem("userData", JSON.stringify(user));
+      if (user.email) {
+        localStorage.setItem("userEmail", user.email);
+      }
+
+      console.log("Token refreshed successfully");
+
+      return {
+        accessToken: newAccessToken,
+        refreshToken: newRefreshToken,
+        user,
+      };
+    } catch (error) {
+      console.error("Error refreshing token:", error);
       authService.logout();
       return null;
     }
-
-    // Save new tokens
-    setCookie("authToken", newAccessToken);
-    localStorage.setItem("authToken", newAccessToken);
-    setCookie("refreshToken", newRefreshToken);
-
-    // Update user data
-    localStorage.setItem("userData", JSON.stringify(user));
-    if (user.email) {
-      localStorage.setItem("userEmail", user.email);
-    }
-
-    console.log("Token refreshed successfully");
-
-    // ✅ TypeScript ab samajh gaya ki user undefined nahi hai (upar check hai)
-    return {
-      accessToken: newAccessToken,
-      refreshToken: newRefreshToken,
-      user, // Now TypeScript knows user is defined
-    };
-  } catch (error) {
-    console.error("Error refreshing token:", error);
-    authService.logout();
-    return null;
-  }
-},
-
+  },
 
   // ✅ Ensure token is valid before API call
   ensureValidToken: async (): Promise<string | null> => {
@@ -280,5 +286,42 @@ refreshToken: async (): Promise<{
     }
 
     return token;
+  },
+
+  // ✅ CHANGE PASSWORD: /api/Auth/change-password
+  changePassword: async (
+    data: ChangePasswordDto
+  ): Promise<{ success: boolean; message: string }> => {
+    const token = getCookie("authToken");
+
+    if (!token) {
+      return {
+        success: false,
+        message: "You are not authenticated. Please login again.",
+      };
+    }
+
+    const response = await apiClient.post(
+      API_ENDPOINTS.changePassword, // api-config me key add hona chahiye
+      {
+        currentPassword: data.currentPassword,
+        newPassword: data.newPassword,
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          Accept: "application/json",
+          "Content-Type": "application/json",
+        },
+      }
+    );
+
+    const message =
+      (response.data as any)?.message || "Password changed successfully.";
+
+    return {
+      success: true,
+      message,
+    };
   },
 };

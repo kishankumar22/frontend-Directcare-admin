@@ -1,5 +1,6 @@
 // Edit Product  work Fine
 "use client";
+import Select from 'react-select';
 
 import { useState, use, useEffect, useRef, JSX } from "react";
 import { useRouter } from "next/navigation";
@@ -30,7 +31,13 @@ interface BrandData {
   showOnHomepage?: boolean;
   displayOrder?: number;
 }
-
+interface SimpleProduct {
+  id: string;
+  name: string;
+  sku: string;
+  price: number;
+  stockQuantity: number;
+}
 interface CategoryData {
   id: string;
   name: string;
@@ -190,6 +197,10 @@ const [vatSearch, setVatSearch] = useState('');
     categories: [],
     vatRates: []  // ✅ Add this line
   });
+
+  // Add these states after existing states
+const [simpleProducts, setSimpleProducts] = useState<SimpleProduct[]>([]);
+const [selectedGroupedProducts, setSelectedGroupedProducts] = useState<string[]>([]);
 // ✅ Extract YouTube Video ID from URL
 const getYouTubeVideoId = (url: string): string | null => {
   if (!url) return null;
@@ -227,7 +238,7 @@ const [formData, setFormData] = useState({
   categories: '',
  gender: '',
   published: true,
-  productType: 'simple',
+  productType: 'simple',  
   visibleIndividually: true,
   customerRoles: 'all',
   limitedToStores: false,
@@ -420,24 +431,51 @@ useEffect(() => {
         categoriesResponse,
         productsResponse,
         productResponse,
-         vatRatesResponse  // ✅ Add this
+        vatRatesResponse,
+        simpleProductsResponse
       ] = await Promise.all([
         apiClient.get<BrandApiResponse>(`${API_ENDPOINTS.brands}?includeUnpublished=false`),
         apiClient.get<CategoryApiResponse>(`${API_ENDPOINTS.categories}?includeInactive=true&includeSubCategories=true`),
         apiClient.get<ProductsApiResponse>(`${API_ENDPOINTS.products}`),
         apiClient.get(`${API_ENDPOINTS.products}/${productId}`),
-        apiClient.get<VATRateApiResponse>(API_ENDPOINTS.vatrates)  
+        apiClient.get<VATRateApiResponse>(API_ENDPOINTS.vatrates),
+        apiClient.get(`${API_ENDPOINTS.products}/simple`)
       ]);
 
+      // Process Brands
       const brandsData = (brandsResponse.data as BrandApiResponse)?.data || [];
+      
+      // Process Categories
       const categoriesData = (categoriesResponse.data as CategoryApiResponse)?.data || [];
-    const vatRatesData = (vatRatesResponse.data as VATRateApiResponse)?.data || [];  // ✅ Add
+      
+      // Process VAT Rates
+      const vatRatesData = (vatRatesResponse.data as VATRateApiResponse)?.data || [];
+      
+      // Set dropdown data
       setDropdownsData({
         brands: brandsData,
         categories: categoriesData,
-        vatRates: vatRatesData  // ✅ Add
+        vatRates: vatRatesData
       });
 
+      // ✅ Process Simple Products
+      if (simpleProductsResponse.data && !simpleProductsResponse.error) {
+        const simpleApiResponse = simpleProductsResponse.data as any;
+        
+        if (simpleApiResponse.success && Array.isArray(simpleApiResponse.data)) {
+          const simpleProductsList = simpleApiResponse.data.map((p: any) => ({
+            id: p.id || '',
+            name: p.name || '',
+            sku: p.sku || '',
+            price: p.price || 0,
+            stockQuantity: p.stockQuantity || 0
+          }));
+          setSimpleProducts(simpleProductsList);
+          console.log('✅ Loaded simple products:', simpleProductsList.length);
+        }
+      }
+
+      // Process Available Products for Related/Cross-sell
       if (productsResponse.data && !productsResponse.error) {
         const apiResponse = productsResponse.data as ProductsApiResponse;
 
@@ -453,6 +491,7 @@ useEffect(() => {
         }
       }
 
+      // Process Current Product Data
       if (productResponse.data && !productResponse.error) {
         const productApiResponse = productResponse.data as any;
 
@@ -495,7 +534,7 @@ useEffect(() => {
             }
           };
 
-          // ✅ Helper: Determine backorder mode string from boolean
+          // Helper: Determine backorder mode string from boolean
           const getBackorderMode = (allowBackorder: boolean | undefined): string => {
             if (allowBackorder === true) return 'allow-backorders';
             return 'no-backorders';
@@ -504,6 +543,20 @@ useEffect(() => {
           const categoryDisplayName = getCategoryDisplayName(product.categoryId || '', categoriesData);
 
           console.log('📦 Product data received:', product);
+
+          // ✅ Load grouped products if exists
+          if (product.requiredProductIds) {
+            let groupedIds: string[] = [];
+            
+            if (typeof product.requiredProductIds === 'string') {
+              groupedIds = product.requiredProductIds.split(',').filter((id: string) => id.trim());
+            } else if (Array.isArray(product.requiredProductIds)) {
+              groupedIds = product.requiredProductIds;
+            }
+            
+            setSelectedGroupedProducts(groupedIds);
+            console.log('✅ Loaded grouped products:', groupedIds);
+          }
 
           // ✅ COMPLETE FORM DATA POPULATION
           setFormData({
@@ -531,9 +584,12 @@ useEffect(() => {
             customerRoles: 'all',
             limitedToStores: false,
             vendorId: '',
-            requireOtherProducts: false,
-            requiredProductIds: '',
-            automaticallyAddProducts: false,
+            
+            // ✅ GROUPED PRODUCT FIELDS
+            requireOtherProducts: product.requireOtherProducts ?? false,
+            requiredProductIds: product.requiredProductIds || '',
+            automaticallyAddProducts: product.automaticallyAddProducts ?? false,
+            
             gender: product.gender || '',
 
             // ===== PRICING =====
@@ -567,8 +623,8 @@ useEffect(() => {
             hasDiscountsApplied: product.hasDiscountsApplied ?? false,
 
             // ===== TAX =====
-            vatExempt: product.vatExempt ?? false,  // ✅ Backend: VATExempt
-          vatRateId: product.vatRateId || '',
+            vatExempt: product.vatExempt ?? false,
+            vatRateId: product.vatRateId || '',
             telecommunicationsBroadcastingElectronicServices: product.telecommunicationsBroadcastingElectronicServices ?? false,
 
             // ===== SEO =====
@@ -585,7 +641,7 @@ useEffect(() => {
             displayStockAvailability: product.displayStockAvailability ?? true,
             displayStockQuantity: product.displayStockQuantity ?? false,
             
-            // ✅ FIXED: Backorder handling
+            // Backorder handling
             allowBackorder: product.allowBackorder ?? false,
             backorders: getBackorderMode(product.allowBackorder),
             allowBackInStockSubscriptions: product.allowBackInStockSubscriptions ?? false,
@@ -626,8 +682,8 @@ useEffect(() => {
             hasSampleDownload: product.hasSampleDownload ?? false,
             sampleDownloadId: product.sampleDownloadId || '',
 
-            // ===== RECURRING ✅ FIXED =====
-            isRecurring: product.isRecurring ?? false,  // ✅ Use product data, not formData
+            // ===== RECURRING =====
+            isRecurring: product.isRecurring ?? false,
             recurringCycleLength: product.recurringCycleLength?.toString() || '',
             recurringCyclePeriod: product.recurringCyclePeriod || 'days',
             recurringTotalCycles: product.recurringTotalCycles?.toString() || '',
@@ -695,40 +751,43 @@ useEffect(() => {
           }
 
           // ===== LOAD VARIANTS =====
-// ✅ UPDATED: Load variants from API response (inside useEffect)
-if (product.variants && Array.isArray(product.variants)) {
-  const loadedVariants = product.variants.map((variant: any) => ({
-    id: variant.id || Date.now().toString() + Math.random(),
-    name: variant.name || '',
-    sku: variant.sku || '',
-    price: variant.price !== null && variant.price !== undefined ? variant.price : null,
-    compareAtPrice: variant.compareAtPrice || null,
-    weight: variant.weight || null,
-    stockQuantity: variant.stockQuantity || 0,
-    trackInventory: variant.trackInventory ?? true,
-    option1Name: variant.option1Name || null,
-    option1Value: variant.option1Value || null,
-    option2Name: variant.option2Name || null,
-    option2Value: variant.option2Value || null,
-    option3Name: variant.option3Name || null,
-    option3Value: variant.option3Value || null,
-    imageUrl: variant.imageUrl || null,
-    isDefault: variant.isDefault || false,
-    displayOrder: variant.displayOrder || 0,
-    isActive: variant.isActive ?? true
-  }));
-  setProductVariants(loadedVariants);
-  console.log('✅ Loaded variants:', loadedVariants);
-} else {
-  setProductVariants([]);
-}
-
+          if (product.variants && Array.isArray(product.variants)) {
+            const loadedVariants = product.variants.map((variant: any) => ({
+              id: variant.id || Date.now().toString() + Math.random(),
+              name: variant.name || '',
+              sku: variant.sku || '',
+              price: variant.price !== null && variant.price !== undefined ? variant.price : null,
+              compareAtPrice: variant.compareAtPrice || null,
+              weight: variant.weight || null,
+              stockQuantity: variant.stockQuantity || 0,
+              trackInventory: variant.trackInventory ?? true,
+              option1Name: variant.option1Name || null,
+              option1Value: variant.option1Value || null,
+              option2Name: variant.option2Name || null,
+              option2Value: variant.option2Value || null,
+              option3Name: variant.option3Name || null,
+              option3Value: variant.option3Value || null,
+              imageUrl: variant.imageUrl || null,
+              isDefault: variant.isDefault || false,
+              displayOrder: variant.displayOrder || 0,
+              isActive: variant.isActive ?? true
+            }));
+            setProductVariants(loadedVariants);
+            console.log('✅ Loaded variants:', loadedVariants);
+          } else {
+            setProductVariants([]);
+          }
         }
       }
 
-    } catch (error) {
+    } catch (error: any) {
       console.error('❌ Error fetching data:', error);
-      toast.error('Failed to load product data');
+      
+      const errorMessage = error?.response?.data?.message 
+        || error?.message 
+        || 'Failed to load product data';
+      
+      toast.error(errorMessage);
     }
   };
 
@@ -736,6 +795,7 @@ if (product.variants && Array.isArray(product.variants)) {
     fetchAllData();
   }
 }, [productId]);
+
 
 // ✅ Delete Product Attribute
 const deleteProductAttribute = async (productId: string, attributeId: string) => {
@@ -799,8 +859,16 @@ const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
 
   try {
     if (!formData.name || !formData.sku || !formData.price || !formData.stockQuantity) {
-      toast.error('⚠️ Please fill in required fields: Product Name and SKU and Price.');
+      toast.error('⚠️ Please fill in required fields: Product Name, SKU, Price, and Stock Quantity.');
       return;
+    }
+
+    // ✅ Grouped Product Validation
+    if (formData.productType === 'grouped' && formData.requireOtherProducts) {
+      if (!formData.requiredProductIds || formData.requiredProductIds.trim() === '') {
+        toast.error('⚠️ Please select at least one product for grouped product.');
+        return;
+      }
     }
 
     const guidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -821,7 +889,6 @@ const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
       }
     }
 
-
     // Prepare product attributes array
     const attributesArray = productAttributes
       ?.filter(attr => attr.name && attr.value)
@@ -832,9 +899,8 @@ const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
         displayOrder: attr.displayOrder
       })) || [];
 
-    // Prepare variants array
-// ✅ UPDATED: Prepare variants array for submission
- const variantsArray = productVariants?.map(variant => {
+    // ✅ Prepare variants array for submission
+    const variantsArray = productVariants?.map(variant => {
       // Don't send blob URLs to backend
       const imageUrl = variant.imageUrl?.startsWith('blob:') 
         ? null 
@@ -855,7 +921,7 @@ const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
         option2Value: variant.option2Value || null,
         option3Name: variant.option3Name || null,
         option3Value: variant.option3Value || null,
-        imageUrl: imageUrl, // ✅ Only send real URLs, not blob
+        imageUrl: imageUrl,
         isDefault: variant.isDefault,
         displayOrder: variant.displayOrder || 0,
         isActive: variant.isActive ?? true
@@ -877,14 +943,25 @@ const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
       displayOrder: parseInt(formData.displayOrder) || 1,
       adminComment: formData.adminComment?.trim() || null,
 
+      // Gender Field
+      ...(formData.gender?.trim() && { gender: formData.gender.trim() }),
+      
+      // ✅ Product Type & Grouped Product Configuration
+      productType: formData.productType || 'simple',
+      requireOtherProducts: formData.productType === 'grouped' ? formData.requireOtherProducts : false,
+      requiredProductIds: formData.productType === 'grouped' && formData.requireOtherProducts && formData.requiredProductIds?.trim()
+        ? formData.requiredProductIds.trim()
+        : null,
+      automaticallyAddProducts: formData.productType === 'grouped' && formData.requireOtherProducts 
+        ? formData.automaticallyAddProducts 
+        : false,
+
       // Pricing
       price: parseFloat(formData.price) || 0,
       oldPrice: formData.oldPrice ? parseFloat(formData.oldPrice) : null,
       compareAtPrice: formData.oldPrice ? parseFloat(formData.oldPrice) : null,
       costPrice: formData.cost ? parseFloat(formData.cost) : null,
-// Gender Field — Add yeh line
- ...(formData.gender?.trim() && { gender: formData.gender.trim() }),
-  productType: formData.productType || 'simple',
+
       // Buy/Wishlist Buttons
       disableBuyButton: formData.disableBuyButton,
       disableWishlistButton: formData.disableWishlistButton,
@@ -935,34 +1012,34 @@ const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
 
       // Not Returnable
       notReturnable: formData.notReturnable,
-  // Inside productData object
-isPack: formData.isPack,
-...(formData.isPack && {
-  packSize: formData.packSize.trim() || null,
-}),
+      
+      // Pack Product
+      isPack: formData.isPack,
+      ...(formData.isPack && {
+        packSize: formData.packSize.trim() || null,
+      }),
+      
       // Categories & Brand
       ...(categoryId && { categoryId }),
       ...(brandId && { brandId }),
  
-// Recurring / Subscription Product - FULL SUPPORT
-  // ✅ FIXED: Always send these fields
-  isRecurring: formData.isRecurring,
-  recurringCycleLength: formData.isRecurring 
-    ? parseInt(formData.recurringCycleLength) || 1 
-    : null,
-  recurringCyclePeriod: formData.isRecurring 
-    ? formData.recurringCyclePeriod || 'days' 
-    : null,
-  recurringTotalCycles: formData.isRecurring && formData.recurringTotalCycles
-    ? parseInt(formData.recurringTotalCycles)
-    : null,
-  
-  // ✅ THESE THREE MUST BE OUTSIDE CONDITIONAL SPREAD
-  subscriptionDiscountPercentage: formData.subscriptionDiscountPercentage 
-    ? parseFloat(formData.subscriptionDiscountPercentage) 
-    : 0,
-  allowedSubscriptionFrequencies: formData.allowedSubscriptionFrequencies?.trim() || null,
-  subscriptionDescription: formData.subscriptionDescription?.trim() || null,
+      // ✅ Recurring / Subscription Product
+      isRecurring: formData.isRecurring,
+      recurringCycleLength: formData.isRecurring 
+        ? parseInt(formData.recurringCycleLength) || 1 
+        : null,
+      recurringCyclePeriod: formData.isRecurring 
+        ? formData.recurringCyclePeriod || 'days' 
+        : null,
+      recurringTotalCycles: formData.isRecurring && formData.recurringTotalCycles
+        ? parseInt(formData.recurringTotalCycles)
+        : null,
+      subscriptionDiscountPercentage: formData.subscriptionDiscountPercentage 
+        ? parseFloat(formData.subscriptionDiscountPercentage) 
+        : 0,
+      allowedSubscriptionFrequencies: formData.allowedSubscriptionFrequencies?.trim() || null,
+      subscriptionDescription: formData.subscriptionDescription?.trim() || null,
+      
       // Mark as New
       markAsNew: formData.markAsNew,
       
@@ -980,10 +1057,7 @@ isPack: formData.isPack,
         ? new Date(formData.markAsNewEndDate).toISOString() 
         : null,
 
-   
-     
-      
-      // ✅ FIXED: Attributes and Variants
+      // ✅ Attributes and Variants
       ...(attributesArray.length > 0 && { attributes: attributesArray }),
       ...(variantsArray.length > 0 && { variants: variantsArray }),
 
@@ -999,7 +1073,7 @@ isPack: formData.isPack,
       approvedTotalReviews: 0,
 
       // Tax
-        vatExempt: formData.vatExempt,
+      vatExempt: formData.vatExempt,
       vatRateId: formData.vatRateId || null,
 
       // SEO
@@ -1023,7 +1097,7 @@ isPack: formData.isPack,
         : null,
     };
 
-    // ✅ Clean up null/undefined values
+    // ✅ Clean up null/undefined values but keep false values
     const cleanProductData = Object.fromEntries(
       Object.entries(productData).filter(([_, value]) => 
         value !== null && value !== undefined && value !== ''
@@ -1031,7 +1105,6 @@ isPack: formData.isPack,
     );
 
     console.log('📦 Sending product data:', cleanProductData);
-
 
     const response = await apiClient.put(`${API_ENDPOINTS.products}/${productId}`, cleanProductData);
 
@@ -1088,6 +1161,7 @@ isPack: formData.isPack,
     target.removeAttribute('data-submitting');
   }
 };
+
 // Slug generator for SEO-friendly names
 const generateSeoName = (text: string) => {
   return text
@@ -1230,6 +1304,43 @@ const handleChange = (
     }));
     return;
   }
+   if (name === "productType") {
+    setFormData(prev => ({
+      ...prev,
+      productType: value,
+      // Reset grouped product fields when switching to simple
+      ...(value === 'simple' && {
+        requireOtherProducts: false,
+        requiredProductIds: '',
+        automaticallyAddProducts: false
+      })
+    }));
+    
+    // Clear selected products when switching to simple
+    if (value === 'simple') {
+      setSelectedGroupedProducts([]);
+    }
+    return;
+  }
+
+  // ✅ ADD: Require Other Products Handler
+  if (name === "requireOtherProducts") {
+    setFormData(prev => ({
+      ...prev,
+      requireOtherProducts: checked,
+      // Clear related fields when disabling
+      ...(!checked && {
+        requiredProductIds: '',
+        automaticallyAddProducts: false
+      })
+    }));
+    
+    // Clear selections when disabling
+    if (!checked) {
+      setSelectedGroupedProducts([]);
+    }
+    return;
+  }
 
   // ================================
   // 9. Default: Text, Number, Select, Textarea
@@ -1239,6 +1350,19 @@ const handleChange = (
     [name]: value
   }));
 };
+
+// ✅ ADD: New handler function
+const handleGroupedProductsChange = (selectedOptions: any) => {
+  const selectedIds = selectedOptions.map((option: any) => option.value);
+  setSelectedGroupedProducts(selectedIds);
+  
+  // Update formData with comma-separated IDs
+  setFormData(prev => ({
+    ...prev,
+    requiredProductIds: selectedIds.join(',')
+  }));
+};
+
   // All existing methods remain same...
   const addRelatedProduct = (productId: string) => {
     if (!formData.relatedProducts.includes(productId)) {
@@ -1633,6 +1757,13 @@ const uploadImagesToProductDirect = async (productId: string, files: File[]): Pr
                     <Info className="h-4 w-4" />
                     Info
                   </TabsTrigger>
+ {formData.productType === "grouped" && (
+  <TabsTrigger value="grouped-products" className="flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-slate-400 hover:text-violet-400 border-b-2 border-transparent data-[state=active]:border-violet-500 data-[state=active]:text-violet-400 data-[state=active]:bg-slate-800/50 whitespace-nowrap transition-all rounded-t-lg">
+    <Package className="w-4 h-4" />
+    Grouped Products
+  </TabsTrigger>
+)}
+
                   <TabsTrigger value="prices" className="flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-slate-400 hover:text-violet-400 border-b-2 border-transparent data-[state=active]:border-violet-500 data-[state=active]:text-violet-400 data-[state=active]:bg-slate-800/50 whitespace-nowrap transition-all rounded-t-lg">
                     <PoundSterling className="h-4 w-4" />
                     Prices
@@ -1672,7 +1803,7 @@ const uploadImagesToProductDirect = async (productId: string, files: File[]): Pr
               {/* Product Info Tab */}
 <TabsContent value="product-info" className="space-y-2 mt-2">
   {/* Basic Info Section */}
-  <div className="space-y-4">
+  <div className="space-y-2">
     <h3 className="text-lg font-semibold text-white border-b border-slate-800 pb-2">Basic Info</h3>
 
     <div className="grid gap-4">
@@ -1687,57 +1818,56 @@ const uploadImagesToProductDirect = async (productId: string, files: File[]): Pr
           value={formData.name}
           onChange={handleChange}
           placeholder="Enter product name"
-          className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+          className="w-full px-3 py-2.5 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
           required
         />
       </div>
 
       {/* Short Description Editor */}
-     <ProductDescriptionEditor
-  label="Short Description"
-  value={formData.shortDescription}
-  onChange={(content) => {
-    const plainText = content.replace(/<[^>]*>/g, "").trim();
+      <ProductDescriptionEditor
+        label="Short Description"
+        value={formData.shortDescription}
+        onChange={(content) => {
+          const plainText = content.replace(/<[^>]*>/g, "").trim();
 
-    if (plainText.length > 350) {
-      alert("You can not enter more than 350 characters");
-      return; // stop further typing
-    }
+          if (plainText.length > 350) {
+            alert("You can not enter more than 350 characters");
+            return;
+          }
 
-    setFormData((prev) => ({
-      ...prev,
-      shortDescription: content,
-    }));
-  }}
-  placeholder="Enter product short description..."
-  height={250}
-/>
-
+          setFormData((prev) => ({
+            ...prev,
+            shortDescription: content,
+          }));
+        }}
+        placeholder="Enter product short description..."
+        height={250}
+      />
 
       {/* Full Description Editor */}
-<ProductDescriptionEditor
-  label="Full Description"
-  value={formData.fullDescription}
-  onChange={(content) => {
-    const plainText = content.replace(/<[^>]*>/g, "").trim();
+      <ProductDescriptionEditor
+        label="Full Description"
+        value={formData.fullDescription}
+        onChange={(content) => {
+          const plainText = content.replace(/<[^>]*>/g, "").trim();
 
-    if (plainText.length > 2000) {
-      alert("You can not enter more than 2000 characters");
-      return; // stop further typing
-    }
+          if (plainText.length > 2000) {
+            alert("You can not enter more than 2000 characters");
+            return;
+          }
 
-    setFormData((prev) => ({
-      ...prev,
-      fullDescription: content,
-    }));
-  }}
-  placeholder="Enter detailed product description..."
-  height={400}
-  required
-/>
+          setFormData((prev) => ({
+            ...prev,
+            fullDescription: content,
+          }));
+        }}
+        placeholder="Enter detailed product description..."
+        height={400}
+        required
+      />
 
-      {/* ✅ Row 1: SKU & Brand */}
-      <div className="grid md:grid-cols-2 gap-4">
+      {/* ✅ Row 1: SKU, Brand, Categories (3 Columns) */}
+      <div className="grid md:grid-cols-3 gap-4">
         <div>
           <label className="block text-sm font-medium text-slate-300 mb-2">
             SKU <span className="text-red-500">*</span>
@@ -1748,20 +1878,25 @@ const uploadImagesToProductDirect = async (productId: string, files: File[]): Pr
             value={formData.sku}
             onChange={handleChange}
             placeholder="e.g., PROD-001"
-            className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+            className="w-full px-3 py-2.5 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
             required
           />
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-slate-300 mb-2">Brand</label>
+          <label className="flex items-center justify-between text-sm font-medium text-slate-300 mb-2">
+            <span>Brand</span>
+            <span className="text-xs text-emerald-400 font-normal">
+              {dropdownsData.brands.length} loaded
+            </span>
+          </label>
           <select
             name="brand"
             value={formData.brand}
             onChange={handleChange}
-            className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+            className="w-full px-3 py-2.5 bg-slate-800/50 border border-slate-700 rounded-xl text-white focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
           >
-            <option value="">Select brand ({dropdownsData.brands.length})</option>
+            <option value="">Select brand</option>
             {dropdownsData.brands.map((brand) => (
               <option key={brand.id} value={brand.id}>
                 {brand.name}
@@ -1769,27 +1904,28 @@ const uploadImagesToProductDirect = async (productId: string, files: File[]): Pr
             ))}
           </select>
         </div>
-      </div>
 
-      {/* ✅ Row 2: Categories & Product Type */}
-      <div className="grid md:grid-cols-2 gap-4">
         <div>
-          <label className="block text-sm font-medium text-slate-300 mb-2">Categories</label>
+          <label className="flex items-center justify-between text-sm font-medium text-slate-300 mb-2">
+            <span>Categories</span>
+            <span className="text-xs text-emerald-400 font-normal">
+              {dropdownsData.categories.length} loaded
+            </span>
+          </label>
           
           <div className="relative">
             <select
               name="categories"
               value={formData.categories}
               onChange={handleChange}
-              className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-transparent focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all appearance-none cursor-pointer"
+              className="w-full px-3 py-2.5 bg-slate-800/50 border border-slate-700 rounded-xl text-transparent focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all appearance-none cursor-pointer"
             >
-              <option value="" className="text-white">Select category ({dropdownsData.categories.length})</option>
               {renderCategoryOptions(dropdownsData.categories)}
             </select>
             
             {/* Clean text overlay */}
-            <div className="absolute inset-0 px-3 py-2 pointer-events-none flex items-center justify-between">
-              <span className={`truncate text-sm ${formData.categoryName ? 'text-white' : 'text-slate-400'}`}>
+            <div className="absolute inset-0 px-3 py-2.5 pointer-events-none flex items-center justify-between">
+              <span className={`truncate text-sm ${formData.categoryName && formData.categoryName !== 'All' ? 'text-white' : 'text-slate-500'}`}>
                 {formData.categoryName || 'Select category'}
               </span>
               
@@ -1799,22 +1935,39 @@ const uploadImagesToProductDirect = async (productId: string, files: File[]): Pr
             </div>
           </div>
         </div>
+      </div>
 
+      {/* ✅ Row 2: Product Type & Product Tags (2 Columns) */}
+      <div className="grid md:grid-cols-2 gap-4">
         <div>
           <label className="block text-sm font-medium text-slate-300 mb-2">Product Type</label>
           <select
             name="productType"
             value={formData.productType}
             onChange={handleChange}
-            className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+            className="w-full px-3 py-2.5 bg-slate-800/50 border border-slate-700 rounded-xl text-white focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
           >
             <option value="simple">Simple Product</option>
             <option value="grouped">Grouped Product (product variants)</option>
           </select>
         </div>
+
+        <div>
+          <label className="block text-sm font-medium text-slate-300 mb-2">
+            Product Tags <span className="text-xs text-slate-500 font-normal">(Comma-separated)</span>
+          </label>
+          <input
+            type="text"
+            name="productTags"
+            value={formData.productTags}
+            onChange={handleChange}
+            placeholder="tag1, tag2, tag3"
+            className="w-full px-3 py-2.5 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+          />
+        </div>
       </div>
 
-      {/* ✅ Row 3: GTIN & Manufacturer Part Number */}
+      {/* ✅ Row 3: GTIN & Manufacturer Part Number (2 Columns) */}
       <div className="grid md:grid-cols-2 gap-4">
         <div>
           <label className="block text-sm font-medium text-slate-300 mb-2">GTIN</label>
@@ -1824,7 +1977,7 @@ const uploadImagesToProductDirect = async (productId: string, files: File[]): Pr
             value={formData.gtin}
             onChange={handleChange}
             placeholder="Global Trade Item Number"
-            className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+            className="w-full px-3 py-2.5 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
           />
         </div>
 
@@ -1836,134 +1989,123 @@ const uploadImagesToProductDirect = async (productId: string, files: File[]): Pr
             value={formData.manufacturerPartNumber}
             onChange={handleChange}
             placeholder="MPN"
-            className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+            className="w-full px-3 py-2.5 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
           />
         </div>
-      </div>
-
-      {/* Product Tags */}
-      <div>
-        <label className="block text-sm font-medium text-slate-300 mb-2">Product Tags</label>
-        <input
-          type="text"
-          name="productTags"
-          value={formData.productTags}
-          onChange={handleChange}
-          placeholder="tag1, tag2, tag3"
-          className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
-        />
-        <p className="text-xs text-slate-400 mt-1">Comma-separated tags</p>
       </div>
     </div>
   </div>
 
-  {/* Publishing Section */}
-<div className="space-y-4">
+  {/* ✅ Publishing Section - SAME AS ADD PAGE */}
+  <div className="space-y-4">
+    <h3 className="text-lg font-semibold text-white border-b border-slate-800 pb-2">Publishing</h3>
 
-  <div className="space-y-3"> 
-    {/* ✅ FINAL PERFECT: Show on Homepage + Display Order */}
-<div className="space-y-4">
-  <h3 className="text-lg font-semibold text-white border-b border-slate-800 pb-2">Publishing</h3>
+    <div className="space-y-3">
+      {/* ✅ 3 Checkboxes in 3 Columns - Styled Boxes */}
+      <div className="grid md:grid-cols-3 gap-4">
+        {/* Column 1 - Published */}
+        <label className="flex items-center gap-2 w-full px-3 py-2.5 bg-slate-800/50 border border-slate-700 rounded-xl cursor-pointer hover:border-violet-500 transition-all">
+          <input
+            type="checkbox"
+            name="published"
+            checked={formData.published}
+            onChange={handleChange}
+            className="rounded bg-slate-800/50 border-slate-700 text-violet-500 focus:ring-violet-500 focus:ring-offset-slate-900"
+          />
+          <span className="text-sm text-slate-300">Published</span>
+        </label>
 
-  <div className="space-y-3">
-    <label className="flex items-center gap-2">
-      <input
-        type="checkbox"
-        name="published"
-        checked={formData.published}
-        onChange={handleChange}
-        className="rounded bg-slate-800/50 border-slate-700 text-violet-500 focus:ring-violet-500 focus:ring-offset-slate-900"
-      />
-      <span className="text-sm text-slate-300">Published</span>
-    </label>
+        {/* Column 2 - Visible individually */}
+        <label className="flex items-center gap-2 w-full px-3 py-2.5 bg-slate-800/50 border border-slate-700 rounded-xl cursor-pointer hover:border-violet-500 transition-all">
+          <input
+            type="checkbox"
+            name="visibleIndividually"
+            checked={formData.visibleIndividually}
+            onChange={handleChange}
+            className="rounded bg-slate-800/50 border-slate-700 text-violet-500 focus:ring-violet-500 focus:ring-offset-slate-900 flex-shrink-0"
+          />
+          <span className="text-sm text-slate-300">
+            Visible individually <span className="text-xs text-slate-500">(catalog)</span>
+          </span>
+        </label>
 
-    <label className="flex items-center gap-2">
-      <input
-        type="checkbox"
-        name="visibleIndividually"
-        checked={formData.visibleIndividually}
-        onChange={handleChange}
-        className="rounded bg-slate-800/50 border-slate-700 text-violet-500 focus:ring-violet-500 focus:ring-offset-slate-900"
-      />
-      <span className="text-sm text-slate-300">Visible individually</span>
-      <span className="text-xs text-slate-400">(can be accessed from catalog)</span>
-    </label>
+        {/* Column 3 - Allow customer reviews */}
+        <label className="flex items-center gap-2 w-full px-3 py-2.5 bg-slate-800/50 border border-slate-700 rounded-xl cursor-pointer hover:border-violet-500 transition-all">
+          <input
+            type="checkbox"
+            name="allowCustomerReviews"
+            checked={formData.allowCustomerReviews}
+            onChange={handleChange}
+            className="rounded bg-slate-800/50 border-slate-700 text-violet-500 focus:ring-violet-500 focus:ring-offset-slate-900"
+          />
+          <span className="text-sm text-slate-300">Allow customer reviews</span>
+        </label>
+      </div>
 
-    <label className="flex items-center gap-2">
-      <input
-        type="checkbox"
-        name="allowCustomerReviews"
-        checked={formData.allowCustomerReviews}
-        onChange={handleChange}
-        className="rounded bg-slate-800/50 border-slate-700 text-violet-500 focus:ring-violet-500 focus:ring-offset-slate-900"
-      />
-      <span className="text-sm text-slate-300">Allow customer reviews</span>
-    </label>
-
-    {/* ✅ FINAL: Show on Homepage (NO LABEL) + Display Order (WITH LABEL) */}
-    <div className="grid md:grid-cols-2 gap-4">
-      {/* Left Column - Show on Homepage checkbox (NO LABEL, just empty space) */}
-      <div className="pt-6">
-        <label className="flex items-center gap-2 w-full px-3 py-3 bg-slate-800/50 border border-slate-700 rounded-xl cursor-pointer hover:border-violet-500 transition-all">
+      {/* ✅ Show on Homepage + Display Order - Smart Layout */}
+      <div className="grid md:grid-cols-2 gap-4">
+        {/* Column 1 - Show on Homepage checkbox */}
+        <label className="flex items-center gap-2 w-full px-3 py-2.5  bg-slate-800/50 border border-slate-700 rounded-xl cursor-pointer hover:border-violet-500 transition-all">
           <input
             type="checkbox"
             name="showOnHomepage"
             checked={formData.showOnHomepage}
             onChange={handleChange}
-            className="rounded bg-slate-800/50 border-slate-700 text-violet-500 focus:ring-violet-500 focus:ring-offset-slate-900"
+            className="rounded bg-slate-800/50 h-8 border-slate-700 text-violet-500 focus:ring-violet-500 focus:ring-offset-slate-900"
           />
           <span className="text-sm text-slate-300">Show on home page</span>
         </label>
-      </div>
 
-      {/* Right Column - Display Order (WITH LABEL) */}
+        {/* Column 2 - Display Order (always visible with same height) */}
+        <div className="flex items-center gap-3 w-full px-3 py-2.5 bg-slate-800/50 border border-slate-700 rounded-xl">
+          {formData.showOnHomepage ? (
+            <>
+              {/* Left: Label */}
+              <span className="text-sm font-medium text-slate-300 whitespace-nowrap">Display Order</span>
+              
+              {/* Right: Input */}
+              <input
+                type="number"
+                name="displayOrder"
+                value={formData.displayOrder}
+                onChange={handleChange}
+                placeholder="1"
+                className="flex-1 px-3 py-1 bg-slate-900/50 border border-slate-600 rounded-lg text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+              />
+            </>
+          ) : (
+            /* Placeholder to maintain height when unchecked */
+            <span className="text-sm text-slate-500 italic">Enable "Show on home page" to set order</span>
+          )}
+        </div>
+      </div>
+    </div>
+
+    {/* Available Dates */}
+    <div className="grid md:grid-cols-2 gap-4">
       <div>
-        {formData.showOnHomepage && (
-          <>
-            <label className="block text-sm font-medium text-slate-300 mb-2">Display Order</label>
-            <input
-              type="number"
-              name="displayOrder"
-              value={formData.displayOrder}
-              onChange={handleChange}
-              placeholder="1"
-              className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-400 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
-            />
-          </>
-        )}
+        <label className="block text-sm font-medium text-slate-300 mb-2">Available Start Date/Time</label>
+        <input
+          type="datetime-local"
+          name="availableStartDate"
+          value={formData.availableStartDate || ''}
+          onChange={handleChange}
+          className="w-full px-3 py-2.5 bg-slate-800/50 border border-slate-700 rounded-xl text-white focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+        />
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-slate-300 mb-2">Available End Date/Time</label>
+        <input
+          type="datetime-local"
+          name="availableEndDate"
+          value={formData.availableEndDate || ''}
+          onChange={handleChange}
+          className="w-full px-3 py-2.5 bg-slate-800/50 border border-slate-700 rounded-xl text-white focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+        />
       </div>
     </div>
   </div>
-</div>
-
-  </div>
-
-  {/* Available Dates */}
-  <div className="grid md:grid-cols-2 gap-4">
-    <div>
-      <label className="block text-sm font-medium text-slate-300 mb-2">Available Start Date/Time</label>
-      <input
-        type="datetime-local"
-        name="availableStartDate"
-        value={formData.availableStartDate || ''}
-        onChange={handleChange}
-        className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
-      />
-    </div>
-
-    <div>
-      <label className="block text-sm font-medium text-slate-300 mb-2">Available End Date/Time</label>
-      <input
-        type="datetime-local"
-        name="availableEndDate"
-        value={formData.availableEndDate || ''}
-        onChange={handleChange}
-        className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
-      />
-    </div>
-  </div>
-</div>
-
 
   {/* Admin Comment */}
   <div className="space-y-4">
@@ -1975,9 +2117,168 @@ const uploadImagesToProductDirect = async (productId: string, files: File[]): Pr
         onChange={handleChange}
         placeholder="Internal notes (not visible to customers)"
         rows={3}
-        className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+        className="w-full px-3 py-2.5 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
       />
     </div>
+  </div>
+</TabsContent>
+
+{/* ✅ ADD NEW TAB: GROUPED PRODUCTS */}
+<TabsContent value="grouped-products" className="space-y-4 mt-6">
+  <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-lg p-6">
+    <h3 className="text-lg font-semibold text-white mb-6 flex items-center gap-2">
+      <Package className="w-5 h-5 text-violet-400" />
+      Product Type & Dependencies
+    </h3>
+{/* Grouped Product Settings (Show only when productType is 'grouped') */}
+    {formData.productType === 'grouped' && (
+      <div className="space-y-6 mt-6 p-6 bg-slate-900/30 rounded-lg border border-violet-500/20">
+        <div className="flex items-center gap-2 mb-4">
+          <ShoppingCart className="w-5 h-5 text-violet-400" />
+          <h4 className="text-md font-semibold text-white">Grouped Product Configuration</h4>
+        </div>
+
+        {/* Require Other Products Checkbox */}
+        <div className="flex items-start gap-3">
+          <input
+            type="checkbox"
+            id="requireOtherProducts"
+            name="requireOtherProducts"
+            checked={formData.requireOtherProducts}
+            onChange={handleChange}
+            className="mt-1 w-4 h-4 rounded border-slate-600 bg-slate-900 text-violet-500 focus:ring-violet-500 focus:ring-offset-slate-900"
+          />
+          <div>
+            <label htmlFor="requireOtherProducts" className="text-sm font-medium text-slate-200 cursor-pointer">
+              Require Other Products
+            </label>
+            <p className="text-xs text-slate-400 mt-1">
+              Enable this to make specific products mandatory when purchasing this grouped product
+            </p>
+          </div>
+        </div>
+
+        {/* Product Selection (Show only when requireOtherProducts is enabled) */}
+        {formData.requireOtherProducts && (
+          <>
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-3">
+                Select Required Products *
+              </label>
+              
+              {/* React Select Multi-select */}
+              <Select
+                isMulti
+                options={simpleProducts.map(p => ({
+                  value: p.id,
+                  label: `${p.name} (${p.sku}) - ₹${p.price}`,
+                  data: p
+                }))}
+                value={simpleProducts
+                  .filter(p => selectedGroupedProducts.includes(p.id))
+                  .map(p => ({
+                    value: p.id,
+                    label: `${p.name} (${p.sku}) - £${p.price}`,
+                    data: p
+                  }))}
+                onChange={handleGroupedProductsChange}
+                className="react-select-container"
+                classNamePrefix="react-select"
+                placeholder="Search and select products..."
+                styles={{
+                  control: (base) => ({
+                    ...base,
+                    background: 'rgba(15, 23, 42, 0.5)',
+                    borderColor: 'rgba(100, 116, 139, 0.5)',
+                    minHeight: '42px',
+                    '&:hover': {
+                      borderColor: 'rgba(139, 92, 246, 0.5)'
+                    }
+                  }),
+                  menu: (base) => ({
+                    ...base,
+                    background: 'rgb(30, 41, 59)',
+                    border: '1px solid rgba(100, 116, 139, 0.5)'
+                  }),
+                  option: (base, state) => ({
+                    ...base,
+                    background: state.isFocused 
+                      ? 'rgba(139, 92, 246, 0.2)' 
+                      : 'transparent',
+                    color: 'rgb(226, 232, 240)',
+                    '&:hover': {
+                      background: 'rgba(139, 92, 246, 0.3)'
+                    }
+                  }),
+                  multiValue: (base) => ({
+                    ...base,
+                    background: 'rgba(139, 92, 246, 0.2)',
+                    borderRadius: '6px'
+                  }),
+                  multiValueLabel: (base) => ({
+                    ...base,
+                    color: 'rgb(226, 232, 240)'
+                  }),
+                  multiValueRemove: (base) => ({
+                    ...base,
+                    color: 'rgb(226, 232, 240)',
+                    '&:hover': {
+                      background: 'rgba(239, 68, 68, 0.3)',
+                      color: 'rgb(248, 113, 113)'
+                    }
+                  })
+                }}
+              />
+
+              <p className="mt-2 text-xs text-slate-400">
+                Selected: {selectedGroupedProducts.length} product(s)
+              </p>
+            </div>
+
+            {/* Selected Products Display */}
+            {selectedGroupedProducts.length > 0 && (
+              <div className="mt-4 p-4 bg-slate-900/50 rounded-lg border border-slate-700/50">
+                <h5 className="text-sm font-medium text-slate-300 mb-3">Selected Products:</h5>
+                <div className="space-y-2">
+                  {selectedGroupedProducts.map(productId => {
+                    const product = simpleProducts.find(p => p.id === productId);
+                    return product ? (
+                      <div key={productId} className="flex items-center justify-between p-2 bg-slate-800/50 rounded">
+                        <div className="text-sm">
+                          <span className="text-white font-medium">{product.name}</span>
+                          <span className="text-slate-400 ml-2">({product.sku})</span>
+                        </div>
+                        <span className="text-violet-400 font-medium">£{product.price}</span>
+                      </div>
+                    ) : null;
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Automatically Add Products */}
+            <div className="flex items-start gap-3 pt-4 border-t border-slate-700/50">
+              <input
+                type="checkbox"
+                id="automaticallyAddProducts"
+                name="automaticallyAddProducts"
+                checked={formData.automaticallyAddProducts}
+                onChange={handleChange}
+                className="mt-1 w-4 h-4 rounded border-slate-600 bg-slate-900 text-violet-500 focus:ring-violet-500 focus:ring-offset-slate-900"
+              />
+              <div>
+                <label htmlFor="automaticallyAddProducts" className="text-sm font-medium text-slate-200 cursor-pointer">
+                  Automatically Add Required Products to Cart
+                </label>
+                <p className="text-xs text-slate-400 mt-1">
+                  When enabled, required products will be automatically added when customer adds this product to cart
+                </p>
+              </div>
+            </div>
+          </>
+        )}
+      </div>
+    )}
   </div>
 </TabsContent>
 
@@ -2035,51 +2336,59 @@ const uploadImagesToProductDirect = async (productId: string, files: File[]): Pr
                     </div>
                   </div>
 
-                  <div className="space-y-3">
-                    <label className="flex items-center gap-2">
-                      <input
-                        type="checkbox"
-                        name="disableBuyButton"
-                        checked={formData.disableBuyButton}
-                        onChange={handleChange}
-                        className="rounded bg-slate-800/50 border-slate-700 text-violet-500 focus:ring-violet-500 focus:ring-offset-slate-900"
-                      />
-                      <span className="text-sm text-slate-300">Disable buy button</span>
-                    </label>
+<div className="space-y-3">
+  {/* ✅ First Row: 3 Checkboxes in 3 Columns */}
+  <div className="grid md:grid-cols-3 gap-4">
+    {/* Column 1 - Disable buy button */}
+    <label className="flex items-center gap-2 w-full px-3 py-2.5 bg-slate-800/50 border border-slate-700 rounded-xl cursor-pointer hover:border-violet-500 transition-all">
+      <input
+        type="checkbox"
+        name="disableBuyButton"
+        checked={formData.disableBuyButton}
+        onChange={handleChange}
+        className="rounded bg-slate-800/50 border-slate-700 text-violet-500 focus:ring-violet-500 focus:ring-offset-slate-900"
+      />
+      <span className="text-sm text-slate-300">Disable buy button</span>
+    </label>
 
-                    <label className="flex items-center gap-2">
-                      <input
-                        type="checkbox"
-                        name="disableWishlistButton"
-                        checked={formData.disableWishlistButton}
-                        onChange={handleChange}
-                        className="rounded bg-slate-800/50 border-slate-700 text-violet-500 focus:ring-violet-500 focus:ring-offset-slate-900"
-                      />
-                      <span className="text-sm text-slate-300">Disable wishlist button</span>
-                    </label>
+    {/* Column 2 - Disable wishlist button */}
+    <label className="flex items-center gap-2 w-full px-3 py-2.5 bg-slate-800/50 border border-slate-700 rounded-xl cursor-pointer hover:border-violet-500 transition-all">
+      <input
+        type="checkbox"
+        name="disableWishlistButton"
+        checked={formData.disableWishlistButton}
+        onChange={handleChange}
+        className="rounded bg-slate-800/50 border-slate-700 text-violet-500 focus:ring-violet-500 focus:ring-offset-slate-900"
+      />
+      <span className="text-sm text-slate-300">Disable wishlist button</span>
+    </label>
 
-                    <label className="flex items-center gap-2">
-                      <input
-                        type="checkbox"
-                        name="callForPrice"
-                        checked={formData.callForPrice}
-                        onChange={handleChange}
-                        className="rounded bg-slate-800/50 border-slate-700 text-violet-500 focus:ring-violet-500 focus:ring-offset-slate-900"
-                      />
-                      <span className="text-sm text-slate-300">Call for price</span>
-                    </label>
+    {/* Column 3 - Call for price */}
+    <label className="flex items-center gap-2 w-full px-3 py-2.5 bg-slate-800/50 border border-slate-700 rounded-xl cursor-pointer hover:border-violet-500 transition-all">
+      <input
+        type="checkbox"
+        name="callForPrice"
+        checked={formData.callForPrice}
+        onChange={handleChange}
+        className="rounded bg-slate-800/50 border-slate-700 text-violet-500 focus:ring-violet-500 focus:ring-offset-slate-900"
+      />
+      <span className="text-sm text-slate-300">Call for price</span>
+    </label>
+  </div>
 
-                    <label className="flex items-center gap-2">
-                      <input
-                        type="checkbox"
-                        name="customerEntersPrice"
-                        checked={formData.customerEntersPrice}
-                        onChange={handleChange}
-                        className="rounded bg-slate-800/50 border-slate-700 text-violet-500 focus:ring-violet-500 focus:ring-offset-slate-900"
-                      />
-                      <span className="text-sm text-slate-300">Customer enters price</span>
-                    </label>
-                  </div>
+  {/* ✅ Second Row: Customer enters price (full width) */}
+  <label className="flex items-center gap-2 w-full px-3 py-2.5 bg-slate-800/50 border border-slate-700 rounded-xl cursor-pointer hover:border-violet-500 transition-all">
+    <input
+      type="checkbox"
+      name="customerEntersPrice"
+      checked={formData.customerEntersPrice}
+      onChange={handleChange}
+      className="rounded bg-slate-800/50 border-slate-700 text-violet-500 focus:ring-violet-500 focus:ring-offset-slate-900"
+    />
+    <span className="text-sm text-slate-300">Customer enters price</span>
+  </label>
+</div>
+
 
                   {formData.customerEntersPrice && (
                     <div className="grid md:grid-cols-2 gap-4 bg-slate-800/30 border border-slate-700 p-4 rounded-xl">

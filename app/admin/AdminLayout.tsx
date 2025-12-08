@@ -1,9 +1,11 @@
 "use client";
 
-import { ReactNode, useState, useEffect } from "react";
+import { ReactNode, useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { useToast } from "@/components/CustomToast";
 import { usePathname, useRouter } from "next/navigation";
+import ChangePasswordModal from "@/components/ChangePasswordModal";
+
 import {
   FolderKanban,
   LayoutDashboard,
@@ -37,6 +39,8 @@ import {
   PackageOpen,
   Receipt,
   Clock,
+  LockKeyhole,
+  User,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTheme } from "@/context/theme-provider";
@@ -110,6 +114,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const toast = useToast();
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
   const { theme, setTheme } = useTheme();
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -120,6 +125,9 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
   const [userName, setUserName] = useState<string>('');
   const [userInitial, setUserInitial] = useState<string>('A');
   const [isAnimating, setIsAnimating] = useState(false);
+  
+  const [changePwdOpen, setChangePwdOpen] = useState(false);
+  const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
 
   // Token expiry countdown state
   const [timeRemaining, setTimeRemaining] = useState<{
@@ -169,35 +177,49 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
     setTimeout(() => setIsAnimating(false), 600);
   };
 
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setProfileDropdownOpen(false);
+      }
+    };
+
+    if (profileDropdownOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [profileDropdownOpen]);
+
   // ✅ Token refresh check - attempt refresh if expiring soon
   useEffect(() => {
     if (!authService.isAuthenticated()) return;
 
-const checkAndRefresh = async () => {
-  if (authService.isTokenExpiringSoon(10)) {
-    console.log("⚠️ Token expiring soon, refreshing...");
-    
-    const refreshed = await authService.refreshToken();
-    
-    if (refreshed) {
-      // ✅ Detailed success message
-      toast.success("🔄 Session Extended -> Your session has been automatically renewed for 1 hour", {
-        position: "top-center",
-        autoClose: 5000,      
-      });
-      
-      console.log("✅ Token refreshed successfully at", new Date().toLocaleTimeString());
-    } else {
-      // ❌ Failure message
-      toast.error("⏰ Session Expired -> Please login again to continue", {
-        position: "top-center",
-        autoClose: 5000,   
-      });      
-      router.replace("/login");
-    }
-  }
-};
-
+    const checkAndRefresh = async () => {
+      if (authService.isTokenExpiringSoon(10)) {
+        console.log("⚠️ Token expiring soon, refreshing...");
+        
+        const refreshed = await authService.refreshToken();
+        
+        if (refreshed) {
+          toast.success("🔄 Session Extended -> Your session has been automatically renewed for 1 hour", {
+            position: "top-center",
+            autoClose: 5000,      
+          });
+          
+          console.log("✅ Token refreshed successfully at", new Date().toLocaleTimeString());
+        } else {
+          toast.error("⏰ Session Expired -> Please login again to continue", {
+            position: "top-center",
+            autoClose: 5000,   
+          });      
+          router.replace("/login");
+        }
+      }
+    };
 
     checkAndRefresh();
     const interval = setInterval(checkAndRefresh, 2 * 60 * 1000);
@@ -302,7 +324,6 @@ const checkAndRefresh = async () => {
     return () => clearInterval(interval);
   }, [router]);
 
-  // ✅ Sidebar expanded when: button clicked OR (collapsed AND hovering)
   const isSidebarExpanded = !sidebarCollapsed || (sidebarCollapsed && isHovering);
   const sidebarWidth = sidebarCollapsed ? 'w-16' : 'w-64';
 
@@ -331,7 +352,6 @@ const checkAndRefresh = async () => {
           className={cn(
             "hidden lg:flex fixed h-full bg-slate-900/80 dark:bg-gray-900/90 backdrop-blur-xl border-r border-slate-800 dark:border-gray-800 flex-col transition-all duration-300 z-50",
             sidebarWidth,
-            // ✅ When hovering on collapsed sidebar, show as overlay
             sidebarCollapsed && isHovering && "!w-64 shadow-2xl"
           )}
         >
@@ -399,7 +419,7 @@ const checkAndRefresh = async () => {
                         )}
                       >
                         <div className="ml-4 mt-1 space-y-1 border-l-2 border-slate-800 dark:border-gray-800 pl-2 transition-colors duration-150">
-                          {item.children?.map((child, index) => {
+                          {item.children?.map((child) => {
                             const ChildIcon = child.icon;
                             const isChildActive = child.href ? isActiveRoute(child.href, pathname) : false;
 
@@ -586,7 +606,7 @@ const checkAndRefresh = async () => {
                       )}
                     >
                       <div className="ml-6 mt-1 space-y-1 border-l-2 border-slate-800 dark:border-gray-800 pl-3 transition-colors duration-150">
-                        {item.children?.map((child, index) => {
+                        {item.children?.map((child) => {
                           const ChildIcon = child.icon;
                           const isChildActive = child.href ? isActiveRoute(child.href, pathname) : false;
 
@@ -780,17 +800,63 @@ const checkAndRefresh = async () => {
                     )}
                   </button>
 
-                  <div className="hidden lg:flex items-center gap-2.5 pl-3 ml-3 border-l border-slate-800 dark:border-gray-800 transition-colors duration-150">
-                    <div className="w-9 h-9 rounded-full bg-gradient-to-br from-violet-500 to-cyan-500 dark:from-violet-600 dark:to-cyan-600 flex items-center justify-center text-white font-bold text-sm transition-all duration-150 shadow-lg dark:shadow-violet-500/30">
-                      {userInitial}
-                    </div>
-                    <div>
-                      <p className="text-sm font-semibold text-white leading-tight transition-colors duration-150">{userName}</p>
-                      <div className="flex items-center gap-1.5 mt-0.5">
-                        <div className="w-1.5 h-1.5 bg-green-400 dark:bg-green-500 rounded-full transition-colors duration-150"></div>
-                        <p className="text-xs text-slate-400 dark:text-gray-500 transition-colors duration-150">Online</p>
+                  {/* Profile Dropdown */}
+                  <div className="hidden lg:block relative" ref={dropdownRef}>
+                    <button
+                      onClick={() => setProfileDropdownOpen(!profileDropdownOpen)}
+                      className="flex items-center gap-2.5 pl-3 ml-3 border-l border-slate-800 dark:border-gray-800 transition-colors duration-150 hover:opacity-80"
+                    >
+                      <div className="w-9 h-9 rounded-full bg-gradient-to-br from-violet-500 to-cyan-500 dark:from-violet-600 dark:to-cyan-600 flex items-center justify-center text-white font-bold text-sm transition-all duration-150 shadow-lg dark:shadow-violet-500/30">
+                        {userInitial}
                       </div>
-                    </div>
+                      <div className="text-left">
+                        <p className="text-sm font-semibold text-white leading-tight transition-colors duration-150">{userName}</p>
+                        <div className="flex items-center gap-1.5 mt-0.5">
+                          <div className="w-1.5 h-1.5 bg-green-400 dark:bg-green-500 rounded-full transition-colors duration-150"></div>
+                          <p className="text-xs text-slate-400 dark:text-gray-500 transition-colors duration-150">Online</p>
+                        </div>
+                      </div>
+                      <ChevronDown 
+                        className={cn(
+                          "h-4 w-4 text-slate-400 transition-transform duration-200",
+                          profileDropdownOpen && "rotate-180"
+                        )} 
+                      />
+                    </button>
+
+                    {/* Dropdown Menu */}
+                    {profileDropdownOpen && (
+                      <div className="absolute right-0 mt-2 w-56 bg-slate-900 dark:bg-gray-900 border border-slate-800 dark:border-gray-800 rounded-xl shadow-2xl shadow-black/50 overflow-hidden z-50">
+                        <div className="p-3 border-b border-slate-800 dark:border-gray-800">
+                          <p className="text-sm font-semibold text-white">{userName}</p>
+                          <p className="text-xs text-slate-400 dark:text-gray-500 mt-0.5">{userEmail}</p>
+                        </div>
+
+                        <div className="p-2">
+                          <button
+                            onClick={() => {
+                              setProfileDropdownOpen(false);
+                              setChangePwdOpen(true);
+                            }}
+                            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-300 hover:text-white hover:bg-slate-800/70 dark:hover:bg-gray-800/70 transition-all duration-150 group"
+                          >
+                            <LockKeyhole className="h-4 w-4 text-violet-400 group-hover:scale-110 transition-transform" />
+                            <span className="text-sm font-medium">Change Password</span>
+                          </button>
+
+                          <button
+                            onClick={() => {
+                              setProfileDropdownOpen(false);
+                              handleLogout();
+                            }}
+                            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-300 hover:text-red-400 dark:hover:text-red-500 hover:bg-red-500/10 transition-all duration-150 group mt-1"
+                          >
+                            <LogOut className="h-4 w-4 group-hover:scale-110 transition-transform" />
+                            <span className="text-sm font-medium">Logout</span>
+                          </button>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -804,6 +870,12 @@ const checkAndRefresh = async () => {
           </main>
         </div>
       </div>
+
+      {/* Change Password Modal */}
+      <ChangePasswordModal
+        open={changePwdOpen}
+        onClose={() => setChangePwdOpen(false)}
+      />
 
       <style jsx global>{`
         @keyframes blob {

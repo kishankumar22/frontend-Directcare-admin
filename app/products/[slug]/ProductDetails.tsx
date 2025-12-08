@@ -1,4 +1,3 @@
-// app/products/[slug]/ProductDetails.tsx
 "use client";
 
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
@@ -9,7 +8,7 @@ import RatingReviews from "@/components/product/RatingReviews";
 import { 
   ShoppingCart, Heart, Star, Minus, Plus, ChevronLeft, ChevronRight,
   X, Truck, RotateCcw, ShieldCheck, Pause, Play, Package, Bike,
-  Users, BadgePercent, Check, AlertCircle, Tag, Info, Share2, Layers
+  Users, BadgePercent, Check, AlertCircle, Tag, Info, Share2, Layers, Cpu
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -162,19 +161,22 @@ export default function ProductDetails({ product }: ProductDetailsProps) {
     product.variants?.find(v => v.isDefault) || product.variants?.[0] || null
   );
 
-  // ✅ Selected options (for multi-step selection)
+  // ✅ Selected options
   const [selectedOption1, setSelectedOption1] = useState<string | null>(
     selectedVariant?.option1Value || null
   );
   const [selectedOption2, setSelectedOption2] = useState<string | null>(
     selectedVariant?.option2Value || null
   );
+  const [selectedOption3, setSelectedOption3] = useState<string | null>(
+    selectedVariant?.option3Value || null
+  );
 
   // Discount & coupon states
   const [couponCode, setCouponCode] = useState("");
   const [appliedCoupon, setAppliedCoupon] = useState<AssignedDiscount | null>(null);
   
-  // ✅ CRITICAL: Dynamic price, SKU, stock based on variant
+  // ✅ Dynamic price, SKU, stock
   const currentPrice = useMemo(() => {
     return selectedVariant ? selectedVariant.price : product.price;
   }, [selectedVariant, product.price]);
@@ -190,6 +192,17 @@ export default function ProductDetails({ product }: ProductDetailsProps) {
   const [finalPrice, setFinalPrice] = useState<number>(currentPrice);
   const [discountAmount, setDiscountAmount] = useState<number>(0);
 
+  // ✅ Dynamic Product Title (Amazon Style)
+  const dynamicTitle = useMemo(() => {
+    const parts = [product.name];
+    
+    if (selectedOption1) parts.push(selectedOption1);
+    if (selectedOption2) parts.push(selectedOption2);
+    if (selectedOption3) parts.push(selectedOption3);
+    
+    return parts.join(' - ');
+  }, [product.name, selectedOption1, selectedOption2, selectedOption3]);
+
   // Extract unique variant option values
   const option1Values = useMemo(() => {
     if (!product.variants) return [];
@@ -204,30 +217,44 @@ export default function ProductDetails({ product }: ProductDetailsProps) {
     return [...new Set(filtered.map(v => v.option2Value).filter(Boolean))];
   }, [product.variants, selectedOption1]);
 
+  const option3Values = useMemo(() => {
+    if (!product.variants) return [];
+    const filtered = product.variants.filter(v => 
+      (!selectedOption1 || v.option1Value === selectedOption1) &&
+      (!selectedOption2 || v.option2Value === selectedOption2)
+    );
+    return [...new Set(filtered.map(v => v.option3Value).filter(Boolean))];
+  }, [product.variants, selectedOption1, selectedOption2]);
+
   // Get option names
   const option1Name = useMemo(() => {
-    return product.variants?.find(v => v.option1Name)?.option1Name || "Storage";
+    return product.variants?.find(v => v.option1Name)?.option1Name || "variant1";
   }, [product.variants]);
 
   const option2Name = useMemo(() => {
-    return product.variants?.find(v => v.option2Name)?.option2Name || "Color";
+    return product.variants?.find(v => v.option2Name)?.option2Name || "variant2";
   }, [product.variants]);
 
-  // ✅ Update selected variant when options change
+  const option3Name = useMemo(() => {
+    return product.variants?.find(v => v.option3Name)?.option3Name || "variant3";
+  }, [product.variants]);
+
+  // Update selected variant when options change
   useEffect(() => {
     if (!product.variants) return;
     
     const matchedVariant = product.variants.find(v => 
       v.option1Value === selectedOption1 &&
-      v.option2Value === selectedOption2
+      v.option2Value === selectedOption2 &&
+      (!selectedOption3 || v.option3Value === selectedOption3)
     );
 
     if (matchedVariant) {
       setSelectedVariant(matchedVariant);
     }
-  }, [selectedOption1, selectedOption2, product.variants]);
+  }, [selectedOption1, selectedOption2, selectedOption3, product.variants]);
 
-  // ✅ Recalculate discount when variant OR price changes
+  // Recalculate discount
   useEffect(() => {
     const d = calculateDiscount(currentPrice, product);
     setFinalPrice(d.final);
@@ -281,7 +308,6 @@ export default function ProductDetails({ product }: ProductDetailsProps) {
     }
   };
 
-  // Memoized calculations
   const discountPercentFromOldPrice = useMemo(() => {
     if (!product.oldPrice || product.oldPrice <= currentPrice) return 0;
     return Math.round(((product.oldPrice - currentPrice) / product.oldPrice) * 100);
@@ -320,9 +346,7 @@ export default function ProductDetails({ product }: ProductDetailsProps) {
     addToCart({
       id: selected?.id ?? product.id,
       productId: product.id,
-      name: selected
-        ? `${product.name} - ${selected.option1Value || selected.name}`
-        : product.name,
+      name: dynamicTitle,
       price: finalPrice,
       priceBeforeDiscount: currentPrice,
       finalPrice: finalPrice,
@@ -343,10 +367,10 @@ export default function ProductDetails({ product }: ProductDetailsProps) {
       productData: JSON.parse(JSON.stringify(product)),
     });
 
-    toast.success(`${quantity} × ${product.name} added to cart! 🛒`);
+    toast.success(`${quantity} × ${dynamicTitle} added to cart! 🛒`);
   }, [
     addToCart, quantity, product, selectedVariant, finalPrice,
-    discountAmount, appliedCoupon, getImageUrl, toast, currentPrice, currentSKU
+    discountAmount, appliedCoupon, getImageUrl, toast, currentPrice, currentSKU, dynamicTitle
   ]);
 
   const handleMouseMove = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
@@ -397,7 +421,7 @@ export default function ProductDetails({ product }: ProductDetailsProps) {
 
       <main className="max-w-7xl mx-auto px-4 py-6">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-          {/* LEFT: Image Gallery - COMPACT */}
+          {/* LEFT: Image Gallery */}
           <div className="flex flex-col sm:flex-row gap-3">
             {/* Thumbnails */}
             <div className="flex sm:flex-col flex-row gap-2 sm:w-20 w-full overflow-x-auto">
@@ -427,7 +451,7 @@ export default function ProductDetails({ product }: ProductDetailsProps) {
               ))}
             </div>
 
-            {/* Main Image - COMPACT */}
+            {/* Main Image */}
             <div className="flex-1">
               <Card className="overflow-hidden">
                 <CardContent className="p-0 relative">
@@ -443,7 +467,7 @@ export default function ProductDetails({ product }: ProductDetailsProps) {
                           ? getImageUrl(selectedVariant.imageUrl) 
                           : getImageUrl(product.images[selectedImage]?.imageUrl)
                       }
-                      alt={product.name}
+                      alt={dynamicTitle}
                       fill
                       className={`object-contain p-6 transition-transform duration-300 ${
                         isZooming ? 'scale-150' : 'scale-100'
@@ -488,10 +512,35 @@ export default function ProductDetails({ product }: ProductDetailsProps) {
                   </div>
                 </CardContent>
               </Card>
+
+              {/* ✅ Trust Badges - Below Image */}
+              <div className="grid grid-cols-3 gap-2 mt-3">
+                <Card className="border-[#445D41]/20">
+                  <CardContent className="p-2 text-center">
+                    <Truck className="h-5 w-5 mx-auto mb-1 text-[#445D41]" />
+                    <p className="text-xs font-bold text-gray-900">Free Shipping</p>
+                    <p className="text-xs text-gray-600">Over £35</p>
+                  </CardContent>
+                </Card>
+                <Card className="border-[#445D41]/20">
+                  <CardContent className="p-2 text-center">
+                    <RotateCcw className="h-5 w-5 mx-auto mb-1 text-[#445D41]" />
+                    <p className="text-xs font-bold text-gray-900">Easy Returns</p>
+                    <p className="text-xs text-gray-600">30 Days</p>
+                  </CardContent>
+                </Card>
+                <Card className="border-[#445D41]/20">
+                  <CardContent className="p-2 text-center">
+                    <ShieldCheck className="h-5 w-5 mx-auto mb-1 text-[#445D41]" />
+                    <p className="text-xs font-bold text-gray-900">Secure</p>
+                    <p className="text-xs text-gray-600">SSL</p>
+                  </CardContent>
+                </Card>
+              </div>
             </div>
           </div>
 
-          {/* RIGHT: Product Info - OPTIMIZED */}
+          {/* RIGHT: Product Info */}
           <div className="space-y-4">
             {/* Badges Row */}
             <div className="flex flex-wrap items-center gap-2">
@@ -510,9 +559,9 @@ export default function ProductDetails({ product }: ProductDetailsProps) {
               )}
             </div>
 
-            {/* Title */}
+            {/* ✅ DYNAMIC TITLE (Amazon Style) */}
             <h1 className="text-2xl font-bold text-gray-900 leading-tight">
-              {product.name}
+              {dynamicTitle}
             </h1>
 
             {/* Brand */}
@@ -522,7 +571,7 @@ export default function ProductDetails({ product }: ProductDetailsProps) {
               </p>
             )}
 
-            {/* Rating - COMPACT */}
+            {/* Rating */}
             <div className="flex items-center gap-3 pb-3 border-b">
               <div className="flex items-center gap-1">
                 {[1, 2, 3, 4, 5].map((star) => (
@@ -540,14 +589,16 @@ export default function ProductDetails({ product }: ProductDetailsProps) {
               <span className="text-xs text-gray-600">({product.reviewCount || 0} reviews)</span>
             </div>
 
-            {/* ✅ SELECTED VARIANT INFO BOX - Like Screenshot */}
+            {/* ✅ SELECTED VARIANT INFO BOX */}
             {selectedVariant && (
               <div className="bg-blue-50 border-2 border-blue-300 rounded-lg p-3">
                 <div className="flex items-start gap-2">
                   <Info className="h-5 w-5 text-blue-600 mt-0.5 flex-shrink-0" />
                   <div className="flex-1">
                     <p className="text-sm font-bold text-blue-900">
-                      Selected: {selectedOption1}{selectedOption2 ? ` - ${selectedOption2}` : ''}
+                      Selected: {selectedOption1}
+                      {selectedOption2 && ` - ${selectedOption2}`}
+                      {selectedOption3 && ` - ${selectedOption3}`}
                     </p>
                     <p className="text-xs text-blue-700 mt-1">SKU: {currentSKU}</p>
                     <p className="text-xs text-blue-700">Stock: {currentStock} units</p>
@@ -556,7 +607,7 @@ export default function ProductDetails({ product }: ProductDetailsProps) {
               </div>
             )}
 
-            {/* ✅ VARIANT SELECTION - COMPACT */}
+            {/* ✅ VARIANT SELECTION */}
             {product.variants && product.variants.length > 0 && (
               <div className="space-y-3">
                 {/* Option 1 */}
@@ -572,6 +623,7 @@ export default function ProductDetails({ product }: ProductDetailsProps) {
                           onClick={() => {
                             setSelectedOption1(val as string);
                             setSelectedOption2(null);
+                            setSelectedOption3(null);
                           }}
                           className={`px-3 py-2 rounded-lg border-2 text-sm font-medium transition-all ${
                             selectedOption1 === val
@@ -596,9 +648,36 @@ export default function ProductDetails({ product }: ProductDetailsProps) {
                       {option2Values.map((val) => (
                         <button
                           key={val}
-                          onClick={() => setSelectedOption2(val as string)}
+                          onClick={() => {
+                            setSelectedOption2(val as string);
+                            setSelectedOption3(null);
+                          }}
                           className={`px-3 py-2 rounded-lg border-2 text-sm font-medium transition-all ${
                             selectedOption2 === val
+                              ? 'bg-[#445D41] text-white border-[#445D41]'
+                              : 'border-gray-300 hover:border-[#445D41]'
+                          }`}
+                        >
+                          {val}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Option 3 */}
+                {option3Values.length > 0 && selectedOption1 && selectedOption2 && (
+                  <div>
+                    <label className=" text-sm font-bold text-gray-900 mb-2 flex items-center gap-2">
+                      {option3Name}:
+                    </label>
+                    <div className="flex flex-wrap gap-2">
+                      {option3Values.map((val) => (
+                        <button
+                          key={val}
+                          onClick={() => setSelectedOption3(val as string)}
+                          className={`px-3 py-2 rounded-lg border-2 text-sm font-medium transition-all ${
+                            selectedOption3 === val
                               ? 'bg-[#445D41] text-white border-[#445D41]'
                               : 'border-gray-300 hover:border-[#445D41]'
                           }`}
@@ -612,10 +691,9 @@ export default function ProductDetails({ product }: ProductDetailsProps) {
               </div>
             )}
 
-            {/* ✅ PRICE CARD - DYNAMIC */}
+            {/* PRICE CARD */}
             <Card>
               <CardContent className="p-4">
-                {/* Price Display */}
                 <div className="flex items-baseline gap-2 mb-2">
                   <span className="text-3xl font-bold text-[#445D41]">
                     £{(finalPrice * quantity).toFixed(2)}
@@ -628,7 +706,6 @@ export default function ProductDetails({ product }: ProductDetailsProps) {
                   )}
                 </div>
 
-                {/* Short desc */}
                 {product.shortDescription && (
                   <div 
                     className="text-sm text-gray-700 mb-3 line-clamp-2" 
@@ -636,7 +713,7 @@ export default function ProductDetails({ product }: ProductDetailsProps) {
                   />
                 )}
 
-                {/* Quantity - COMPACT */}
+                {/* Quantity */}
                 <div className="mb-3">
                   <label className="block text-sm font-bold mb-2">Quantity:</label>
                   <div className="flex items-center gap-3">
@@ -665,7 +742,7 @@ export default function ProductDetails({ product }: ProductDetailsProps) {
                   </div>
                 </div>
 
-                {/* Action Buttons - COMPACT */}
+                {/* Action Buttons */}
                 <div className="space-y-2">
                   <Button 
                     onClick={handleAddToCart} 
@@ -691,35 +768,10 @@ export default function ProductDetails({ product }: ProductDetailsProps) {
                 </div>
               </CardContent>
             </Card>
-
-            {/* Trust Badges - COMPACT */}
-            <div className="grid grid-cols-3 gap-2">
-              <Card>
-                <CardContent className="p-3 text-center">
-                  <Truck className="h-6 w-6 mx-auto mb-1 text-[#445D41]" />
-                  <p className="text-xs font-bold">Free Shipping</p>
-                  <p className="text-xs text-gray-600">Over £35</p>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardContent className="p-3 text-center">
-                  <RotateCcw className="h-6 w-6 mx-auto mb-1 text-[#445D41]" />
-                  <p className="text-xs font-bold">Easy Returns</p>
-                  <p className="text-xs text-gray-600">30 Days</p>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardContent className="p-3 text-center">
-                  <ShieldCheck className="h-6 w-6 mx-auto mb-1 text-[#445D41]" />
-                  <p className="text-xs font-bold">Secure</p>
-                  <p className="text-xs text-gray-600">SSL</p>
-                </CardContent>
-              </Card>
-            </div>
           </div>
         </div>
 
-        {/* TABS - Rest remains same */}
+        {/* TABS */}
         <Card className="mb-8">
           <CardContent className="p-0">
             <div className="flex overflow-x-auto border-b">

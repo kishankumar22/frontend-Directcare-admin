@@ -42,8 +42,7 @@ export interface Discount {
   updatedBy?: string | null;
 }
 
-// ✅ NEW: Usage History Interface
-// lib/services/discounts.ts - Update interface
+
 
 // Add these fields to your DiscountUsageHistory interface
 export interface DiscountUsageHistory {

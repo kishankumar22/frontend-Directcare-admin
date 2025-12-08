@@ -1,4 +1,5 @@
 "use client";
+import Select from 'react-select';
 
 import { useState, useRef, useEffect, JSX } from "react";
 import { useRouter } from "next/navigation";
@@ -6,8 +7,8 @@ import { useRouter } from "next/navigation";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   ArrowLeft, Save, Upload, X, Info, Search, Image, Package,
-  Tag, BarChart3, Globe,  Truck, Gift, Calendar,
-  Users, PoundSterling, Link as LinkIcon, ShoppingCart, Video,
+  Tag,  Globe,  Truck,
+ PoundSterling, Link as LinkIcon, ShoppingCart, Video,
   Play,
   Plus
 } from "lucide-react";
@@ -16,6 +17,14 @@ import { apiClient } from "../../../../lib/api"; // Import your axios client
 import { ProductDescriptionEditor } from "@/app/admin/products/SelfHostedEditor";
 import { useToast } from "@/components/CustomToast";
 import  { API_BASE_URL,API_ENDPOINTS } from "@/lib/api-config";
+// ✅ ADD THIS INTERFACE
+interface SimpleProduct {
+  id: string;
+  name: string;
+  sku: string;
+  price: number;
+  stockQuantity: number;
+}
 
 // API response interfaces को properly define करें
 interface BrandApiResponse {
@@ -125,12 +134,6 @@ interface BrandData {
 
 
 
-interface ManufacturerApiResponse {
-  success: boolean;
-  message: string;
-
-  errors: null;
-}
 // ===== ADD THESE INTERFACES =====
 interface VATRateData {
   id: string;
@@ -193,36 +196,56 @@ const [dropdownsData, setDropdownsData] = useState<DropdownsData>({
   categories: [],
   vatRates: []  // ✅ Add this
 });
+// ✅ ADD THESE TWO STATES
+const [simpleProducts, setSimpleProducts] = useState<SimpleProduct[]>([]);
+const [selectedGroupedProducts, setSelectedGroupedProducts] = useState<string[]>([]);
 
 // Updated combined useEffect with manufacturers API
 useEffect(() => {
   const fetchAllData = async () => {
     try {
-      console.log('🔄 Fetching all data (dropdowns + products )...');
-      // Fetch all data in parallel including manufacturers
-      const [brandsResponse, categoriesResponse, productsResponse  , vatRatesResponse ] = await Promise.all([
+      console.log('🔄 Fetching all data (dropdowns + products)...');
+      
+      // ✅ ADD simpleProductsResponse to Promise.all
+      const [brandsResponse, categoriesResponse, productsResponse, vatRatesResponse, simpleProductsResponse] = await Promise.all([
         apiClient.get<BrandApiResponse>(`${API_ENDPOINTS.brands}?includeUnpublished=false`),
         apiClient.get<CategoryApiResponse>(`${API_ENDPOINTS.categories}?includeInactive=true&includeSubCategories=true`),
         apiClient.get<ProductsApiResponse>(`${API_ENDPOINTS.products}`),
-      apiClient.get<VATRateApiResponse>(API_ENDPOINTS.vatrates)  // ✅ Add this
+        apiClient.get<VATRateApiResponse>(API_ENDPOINTS.vatrates),
+        apiClient.get(`${API_ENDPOINTS.products}/simple`)  // ✅ ADD THIS LINE
       ]);
 
-      // Extract dropdown data with proper typing
+      // Extract dropdown data
       const brandsData = (brandsResponse.data as BrandApiResponse)?.data || [];
       const categoriesData = (categoriesResponse.data as CategoryApiResponse)?.data || [];
-     const vatRatesData = (vatRatesResponse.data as VATRateApiResponse)?.data || [];  // ✅ Add
+      const vatRatesData = (vatRatesResponse.data as VATRateApiResponse)?.data || [];
 
-      // Set dropdown data including manufacturers
+      // Set dropdown data
       setDropdownsData({
         brands: brandsData,
         categories: categoriesData,
-         vatRates: vatRatesData  // ✅ Add
+        vatRates: vatRatesData
       });
 
-      // Extract and transform products data
+      // ✅ ADD: Process Simple Products
+      if (simpleProductsResponse.data && !simpleProductsResponse.error) {
+        const simpleApiResponse = simpleProductsResponse.data as any;
+        if (simpleApiResponse.success && Array.isArray(simpleApiResponse.data)) {
+          const simpleProductsList = simpleApiResponse.data.map((p: any) => ({
+            id: p.id,
+            name: p.name,
+            sku: p.sku,
+            price: p.price || 0,
+            stockQuantity: p.stockQuantity || 0
+          }));
+          setSimpleProducts(simpleProductsList);
+          console.log('✅ Loaded simple products:', simpleProductsList.length);
+        }
+      }
+
+      // Process Available Products for Related/Cross-sell
       if (productsResponse.data && !productsResponse.error) {
         const apiResponse = productsResponse.data as ProductsApiResponse;
-        
         if (apiResponse.success && apiResponse.data.items) {
           const transformedProducts = apiResponse.data.items.map(product => ({
             id: product.id,
@@ -230,30 +253,19 @@ useEffect(() => {
             sku: product.sku,
             price: `₹${product.price.toFixed(2)}`
           }));
-          
           setAvailableProducts(transformedProducts);
         }
-      } else {
-        setAvailableProducts([]);
       }
-
-      console.log('✅ All data loaded:', {
-        brandsCount: brandsData.length,
-        categoriesCount: categoriesData.length,
-     
-        productsCount: productsResponse.data ? (productsResponse.data as ProductsApiResponse).data.items.length : 0
-      });
 
     } catch (error) {
       console.error('❌ Error fetching data:', error);
-      
- 
       setAvailableProducts([]);
     }
   };
 
   fetchAllData();
 }, []);
+
 
 
 
@@ -515,6 +527,15 @@ const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
       return;
     }
 
+    // ✅ Grouped Product Validation
+    if (formData.productType === 'grouped' && formData.requireOtherProducts) {
+      if (!formData.requiredProductIds || formData.requiredProductIds.trim() === '') {
+        toast.error('⚠️ Please select at least one product for grouped product.');
+        target.removeAttribute('data-submitting');
+        return;
+      }
+    }
+
     console.log('🚀 Starting product submission...');
 
     const loadingId = toast.info(
@@ -582,6 +603,16 @@ const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
       visibleIndividually: formData.visibleIndividually ?? true,
       showOnHomepage: formData.showOnHomepage ?? false,
 
+      // ✅ Product Type & Grouped Product Configuration
+      productType: formData.productType || 'simple',
+      requireOtherProducts: formData.productType === 'grouped' ? formData.requireOtherProducts : false,
+      requiredProductIds: formData.productType === 'grouped' && formData.requireOtherProducts && formData.requiredProductIds?.trim()
+        ? formData.requiredProductIds.trim()
+        : null,
+      automaticallyAddProducts: formData.productType === 'grouped' && formData.requireOtherProducts 
+        ? formData.automaticallyAddProducts 
+        : false,
+
       // Pricing
       price: parseFloat(formData.price.toString()) || 0,
 
@@ -618,11 +649,6 @@ const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
     // Gender
     if (formData.gender?.trim()) {
       productData.gender = formData.gender.trim();
-    }
-
-    // Product Type
-    if (formData.productType) {
-      productData.productType = formData.productType;
     }
 
     // Pack
@@ -664,7 +690,6 @@ const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
     if (formData.allowedQuantities?.trim()) productData.allowedQuantities = formData.allowedQuantities.trim();
 
     // Backorder
-    // if (formData.allowBackorder) productData.allowBackorder = true;
     if (formData.allowBackInStockSubscriptions) productData.allowBackInStockSubscriptions = true;
     if (formData.backorders) productData.backorderMode = formData.backorders;
 
@@ -938,6 +963,46 @@ const handleChange = (
       ? (e.target as HTMLInputElement).checked
       : value,
   }));
+  // ⭐ PRODUCT TYPE HANDLING
+if (name === "productType") {
+  setFormData((prev) => ({
+    ...prev,
+    productType: value,
+    // Reset grouped product fields when switching to simple
+    ...(value === 'simple' && {
+      requireOtherProducts: false,
+      requiredProductIds: '',
+      automaticallyAddProducts: false
+    })
+  }));
+  
+  // Clear selected products when switching to simple
+  if (value === 'simple') {
+    setSelectedGroupedProducts([]);
+  }
+  return;
+}
+
+// ⭐ REQUIRE OTHER PRODUCTS HANDLER
+if (name === "requireOtherProducts") {
+  const checked = (e.target as HTMLInputElement).checked;
+  setFormData((prev) => ({
+    ...prev,
+    requireOtherProducts: checked,
+    // Clear related fields when disabling
+    ...(!checked && {
+      requiredProductIds: '',
+      automaticallyAddProducts: false
+    })
+  }));
+  
+  // Clear selections when disabling
+  if (!checked) {
+    setSelectedGroupedProducts([]);
+  }
+  return;
+}
+
 
   // ⭐ AUTO-GENERATE SLUG — ONLY FOR ‘name’ FIELD
   if (name === "name") {
@@ -988,6 +1053,17 @@ const addCrossSellProduct = (productId: string) => {
     p.sku.toLowerCase().includes(searchTermCross.toLowerCase())
   );
 
+// ✅ ADD THIS NEW HANDLER FUNCTION
+const handleGroupedProductsChange = (selectedOptions: any) => {
+  const selectedIds = selectedOptions.map((option: any) => option.value);
+  setSelectedGroupedProducts(selectedIds);
+  
+  // Update formData with comma-separated IDs
+  setFormData(prev => ({
+    ...prev,
+    requiredProductIds: selectedIds.join(',')
+  }));
+};
 
 
   // Product Attribute handlers (matching backend ProductAttributeCreateDto)
@@ -1402,6 +1478,17 @@ const uploadVariantImages = async (productResponse: any) => {
                     <Info className="h-4 w-4" />
                     Info
                   </TabsTrigger>
+                  {/* ✅ ADD THIS CONDITIONAL TAB */}
+{formData.productType === 'grouped' && (
+  <TabsTrigger 
+    value="grouped-products" 
+    className="flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-slate-400 hover:text-violet-400 border-b-2 border-transparent data-[state=active]:border-violet-500 data-[state=active]:text-violet-400 data-[state=active]:bg-slate-800/50 whitespace-nowrap transition-all rounded-t-lg"
+  >
+    <Package className="h-4 w-4" />
+    Grouped Products
+  </TabsTrigger>
+)}
+
                   <TabsTrigger value="prices" className="flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-slate-400 hover:text-violet-400 border-b-2 border-transparent data-[state=active]:border-violet-500 data-[state=active]:text-violet-400 data-[state=active]:bg-slate-800/50 whitespace-nowrap transition-all rounded-t-lg">
                     <PoundSterling className="h-4 w-4" />
                     Prices
@@ -1440,287 +1527,473 @@ const uploadVariantImages = async (productResponse: any) => {
               </div>
 
               {/* Product Info Tab */}
-              <TabsContent value="product-info" className="space-y-2 mt-2">
-                {/* Basic Info Section */}
-                <div className="space-y-2">
-                  <h3 className="text-lg font-semibold text-white border-b border-slate-800 pb-2">Basic Info</h3>
+<TabsContent value="product-info" className="space-y-2 mt-2">
+  {/* Basic Info Section */}
+  <div className="space-y-2">
+    <h3 className="text-lg font-semibold text-white border-b border-slate-800 pb-2">Basic Info</h3>
 
-                  <div className="grid gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-slate-300 mb-2">
-                        Product Name <span className="text-red-500">*</span>
-                      </label>
-                      <input
-                        type="text"
-                        name="name"
-                        value={formData.name}
-                        onChange={handleChange}
-                        placeholder="Enter product name"
-                        className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
-                        required
-                      />
-                    </div>
+    <div className="grid gap-4">
+      <div>
+        <label className="block text-sm font-medium text-slate-300 mb-2">
+          Product Name <span className="text-red-500">*</span>
+        </label>
+        <input
+          type="text"
+          name="name"
+          value={formData.name}
+          onChange={handleChange}
+          placeholder="Enter product name"
+          className="w-full px-3 py-2.5 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+          required
+        />
+      </div>
 
-{/* SHORT DESCRIPTION (Max 250 chars) */}
-<ProductDescriptionEditor
-  label="Short Description"
-  value={formData.shortDescription}
-  onChange={(value) => {
-    const plainText = value.replace(/<[^>]*>/g, "").trim();
+      {/* SHORT DESCRIPTION (Max 250 chars) */}
+      <ProductDescriptionEditor
+        label="Short Description"
+        value={formData.shortDescription}
+        onChange={(value) => {
+          const plainText = value.replace(/<[^>]*>/g, "").trim();
 
-    if (plainText.length > 250) {
-      alert("You can not enter more than 350 characters in short description");
-      return;
-    }
+          if (plainText.length > 250) {
+            alert("You can not enter more than 250 characters in short description");
+            return;
+          }
 
-    setFormData({ ...formData, shortDescription: value });
-  }}
-  placeholder="Brief product description (shown in product lists)"
-  height={200}
-/>
+          setFormData({ ...formData, shortDescription: value });
+        }}
+        placeholder="Brief product description (shown in product lists)"
+        height={200}
+      />
 
-{/* FULL DESCRIPTION (Max 2000 chars) */}
-<ProductDescriptionEditor
-  label="Full Description"
-  value={formData.fullDescription}
-  onChange={(value) => {
-    const plainText = value.replace(/<[^>]*>/g, "").trim();
+      {/* FULL DESCRIPTION (Max 2000 chars) */}
+      <ProductDescriptionEditor
+        label="Full Description"
+        value={formData.fullDescription}
+        onChange={(value) => {
+          const plainText = value.replace(/<[^>]*>/g, "").trim();
 
-    if (plainText.length > 2000) {
-      alert("You can not enter more than 2000 characters in full description");
-      return;
-    }
+          if (plainText.length > 2000) {
+            alert("You can not enter more than 2000 characters in full description");
+            return;
+          }
 
-    setFormData({ ...formData, fullDescription: value });
-  }}
-  placeholder="Detailed product description with features and specifications"
-  height={350}
-  required
-  showHelpText="Rich text formatting is supported"
-/>
+          setFormData({ ...formData, fullDescription: value });
+        }}
+        placeholder="Detailed product description with features and specifications"
+        height={350}
+        required
+        showHelpText="Rich text formatting is supported"
+      />
 
-               <div className="grid md:grid-cols-3 gap-4">
-                      <div>
-                        <label className="block text-sm font-medium text-slate-300 mb-2">
-                          SKU <span className="text-red-500">*</span>
-                        </label>
-                        <input
-                          type="text"
-                          name="sku"
-                          value={formData.sku}
-                          onChange={handleChange}
-                          placeholder="e.g., PROD-001"
-                          className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
-                          required
-                        />
-                      </div>
+      <div className="grid md:grid-cols-3 gap-4">
+        <div>
+          <label className="block text-sm font-medium text-slate-300 mb-2">
+            SKU <span className="text-red-500">*</span>
+          </label>
+          <input
+            type="text"
+            name="sku"
+            value={formData.sku}
+            onChange={handleChange}
+            placeholder="e.g., PROD-001"
+            className="w-full px-3 py-2.5 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+            required
+          />
+        </div>
 
-                      <div>
-                        <label className="block text-sm font-medium text-slate-300 mb-2">Brand</label>
-                        <select
-                          name="brand"
-                          value={formData.brand}
-                          onChange={handleChange}
-                          className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
-                        >
-                          <option value="">Select brand</option>
-                          {dropdownsData.brands.map((brand) => (
-                            <option key={brand.id} value={brand.id}>
-                              {brand.name}
-                            </option>
-                          ))}
-                        </select>
-                        <p className="text-xs text-slate-400 mt-1">
-                          {dropdownsData.brands.length} brands loaded
-                        </p>
-                      </div>
+        <div>
+          <label className="flex items-center justify-between text-sm font-medium text-slate-300 mb-2">
+            <span>Brand</span>
+            <span className="text-xs text-emerald-400 font-normal">
+              {dropdownsData.brands.length} loaded
+            </span>
+          </label>
+          <select
+            name="brand"
+            value={formData.brand}
+            onChange={handleChange}
+            className="w-full px-3 py-2.5 bg-slate-800/50 border border-slate-700 rounded-xl text-white focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+          >
+            <option value="">Select brand</option>
+            {dropdownsData.brands.map((brand) => (
+              <option key={brand.id} value={brand.id}>
+                {brand.name}
+              </option>
+            ))}
+          </select>
+        </div>
 
-                 <div>
-  <label className="block text-sm font-medium text-slate-300 mb-2">Categories</label>
-  
-  {/* Custom select with overlay */}
-  <div className="relative">
-    <select
-      name="categories"
-      value={formData.categories}
-      onChange={handleChange}
-      className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-transparent focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all appearance-none cursor-pointer"
-    >
-      {renderCategoryOptions(dropdownsData.categories)}
-    </select>
-    
-    {/* Clean text overlay */}
-    <div className="absolute inset-0 px-3 py-2 pointer-events-none flex items-center justify-between">
-      <span className={`truncate text-sm ${formData.categoryName && formData.categoryName !== 'All' ? 'text-white' : 'text-slate-400'}`}>
-        {formData.categoryName || 'Select category'}
-      </span>
-      
-      {/* Dropdown arrow */}
-      <svg className="w-4 h-4 text-slate-400 flex-shrink-0 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-      </svg>
+        <div>
+          <label className="flex items-center justify-between text-sm font-medium text-slate-300 mb-2">
+            <span>Categories</span>
+            <span className="text-xs text-emerald-400 font-normal">
+              {dropdownsData.categories.length} loaded
+            </span>
+          </label>
+          
+          {/* Custom select with overlay */}
+          <div className="relative">
+            <select
+              name="categories"
+              value={formData.categories}
+              onChange={handleChange}
+              className="w-full px-3 py-2.5 bg-slate-800/50 border border-slate-700 rounded-xl text-transparent focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all appearance-none cursor-pointer"
+            >
+              {renderCategoryOptions(dropdownsData.categories)}
+            </select>
+            
+            {/* Clean text overlay */}
+            <div className="absolute inset-0 px-3 py-2.5 pointer-events-none flex items-center justify-between">
+              <span className={`truncate text-sm ${formData.categoryName && formData.categoryName !== 'All' ? 'text-white' : 'text-slate-500'}`}>
+                {formData.categoryName || 'Select category'}
+              </span>
+              
+              {/* Dropdown arrow */}
+              <svg className="w-4 h-4 text-slate-400 flex-shrink-0 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="grid md:grid-cols-2 gap-4">
+        {/* Product Type - Left Column */}
+        <div>
+          <label className="block text-sm font-medium text-slate-300 mb-2">
+            Product Type
+          </label>
+          <select
+            name="productType"
+            value={formData.productType}
+            onChange={handleChange}
+            className="w-full px-3 py-2.5 bg-slate-800/50 border border-slate-700 rounded-xl text-white focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+          >
+            <option value="simple">Simple Product</option>
+            <option value="grouped">Grouped Product (product variants)</option>
+          </select>
+        </div>
+
+        {/* Product Tags - Right Column */}
+        <div>
+          <label className="block text-sm font-medium text-slate-300 mb-2">
+            Product Tags <span className="text-xs text-slate-500 font-normal">(Comma-separated)</span>
+          </label>
+          <input
+            type="text"
+            name="productTags"
+            value={formData.productTags}
+            onChange={handleChange}
+            placeholder="tag1, tag2, tag3"
+            className="w-full px-3 py-2.5 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+          />
+        </div>
+      </div>
+
+      <div className="grid md:grid-cols-2 gap-4">
+        <div>
+          <label className="block text-sm font-medium text-slate-300 mb-2">GTIN</label>
+          <input
+            type="text"
+            name="gtin"
+            value={formData.gtin}
+            onChange={handleChange}
+            placeholder="Global Trade Item Number"
+            className="w-full px-3 py-2.5 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-slate-300 mb-2">Manufacturer Part Number</label>
+          <input
+            type="text"
+            name="manufacturerPartNumber"
+            value={formData.manufacturerPartNumber}
+            onChange={handleChange}
+            placeholder="MPN"
+            className="w-full px-3 py-2.5 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+          />
+        </div>
+      </div>
     </div>
   </div>
-  
-  <p className="text-xs text-slate-400 mt-1">
-    {dropdownsData.categories.length} categories loaded (includes subcategories)
-  </p>
- </div>
-                    </div>
 
-                    <div className="grid md:grid-cols-2 gap-4">
- 
+  {/* ✅ Publishing Section - PERFECTLY SYNCED */}
+  <div className="space-y-4">
+    <h3 className="text-lg font-semibold text-white border-b border-slate-800 pb-2">Publishing</h3>
 
-    <label className="block text-sm font-medium text-slate-300 mb-2">Product Type</label>
-    <select
-      name="productType"
-      value={formData.productType}
-      onChange={handleChange}
-      className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
-    >
-      <option value="simple">Simple Product</option>
-      <option value="grouped">Grouped Product (product variants)</option>
-    </select>
-          
-                      <label className="block text-sm font-medium text-slate-300 mb-2">Product Tags</label>
-                      <input
-                        type="text"
-                        name="productTags"
-                        value={formData.productTags}
-                        onChange={handleChange}
-                        placeholder="tag1, tag2, tag3"
-                        className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
-                      />
-                      <p className="text-xs text-slate-400 mt-1">Comma-separated tags</p>
-                    
+    <div className="space-y-3">
+      {/* ✅ 3 Checkboxes in 3 Columns - SAME HEIGHT */}
+      <div className="grid md:grid-cols-3 gap-4">
+        {/* Column 1 - Published */}
+        <label className="flex items-center gap-2 w-full px-3 py-3 bg-slate-800/50 border border-slate-700 rounded-xl cursor-pointer hover:border-violet-500 transition-all">
+          <input
+            type="checkbox"
+            name="published"
+            checked={formData.published}
+            onChange={handleChange}
+            className="rounded bg-slate-800/50 border-slate-700 text-violet-500 focus:ring-violet-500 focus:ring-offset-slate-900"
+          />
+          <span className="text-sm text-slate-300">Published</span>
+        </label>
 
+        {/* Column 2 - Visible individually - INLINE */}
+        <label className="flex items-center gap-2 w-full px-3 py-3 bg-slate-800/50 border border-slate-700 rounded-xl cursor-pointer hover:border-violet-500 transition-all">
+          <input
+            type="checkbox"
+            name="visibleIndividually"
+            checked={formData.visibleIndividually}
+            onChange={handleChange}
+            className="rounded bg-slate-800/50 border-slate-700 text-violet-500 focus:ring-violet-500 focus:ring-offset-slate-900 flex-shrink-0"
+          />
+          <span className="text-sm text-slate-300">
+            Visible individually <span className="text-xs text-slate-500">(catalog)</span>
+          </span>
+        </label>
 
+        {/* Column 3 - Allow customer reviews */}
+        <label className="flex items-center gap-2 w-full px-3 py-3 bg-slate-800/50 border border-slate-700 rounded-xl cursor-pointer hover:border-violet-500 transition-all">
+          <input
+            type="checkbox"
+            name="allowCustomerReviews"
+            checked={formData.allowCustomerReviews}
+            onChange={handleChange}
+            className="rounded bg-slate-800/50 border-slate-700 text-violet-500 focus:ring-violet-500 focus:ring-offset-slate-900"
+          />
+          <span className="text-sm text-slate-300">Allow customer reviews</span>
+        </label>
+      </div>
 
-                         </div>
+      {/* ✅ Show on Homepage + Display Order - FIXED HEIGHT */}
+      <div className="grid md:grid-cols-2 gap-4">
+        {/* Column 1 - Show on Homepage checkbox */}
+        <label className="flex items-center gap-2 w-full px-3 py-2.5 bg-slate-800/50 border border-slate-700 rounded-xl cursor-pointer hover:border-violet-500 transition-all">
+          <input
+            type="checkbox"
+            name="showOnHomepage"
+            checked={formData.showOnHomepage}
+            onChange={handleChange}
+            className="rounded bg-slate-800/50 h-8 border-slate-700 text-violet-500 focus:ring-violet-500 focus:ring-offset-slate-900"
+          />
+          <span className="text-sm text-slate-300">Show on home page</span>
+        </label>
 
+        {/* Column 2 - Display Order (always visible with same height) */}
+        <div className="flex items-center gap-3 w-full px-3 py-2.5 bg-slate-800/50 border border-slate-700 rounded-xl">
+          {formData.showOnHomepage ? (
+            <>
+              {/* Left: Label */}
+              <span className="text-sm font-medium text-slate-300 whitespace-nowrap">Display Order</span>
+              
+              {/* Right: Input */}
+              <input
+                type="number"
+                name="displayOrder"
+                value={formData.displayOrder}
+                onChange={handleChange}
+                placeholder="1"
+                className="flex-1 px-3 py-1 bg-slate-900/50 border border-slate-600 rounded-lg text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+              />
+            </>
+          ) : (
+            /* Placeholder to maintain height when unchecked */
+            <span className="text-sm text-slate-500 italic">Enable "Show on home page" to set order</span>
+          )}
+        </div>
+      </div>
+    </div>
 
-                    <div className="grid md:grid-cols-3 gap-4">
-                      <div>
-                        <label className="block text-sm font-medium text-slate-300 mb-2">GTIN</label>
-                        <input
-                          type="text"
-                          name="gtin"
-                          value={formData.gtin}
-                          onChange={handleChange}
-                          placeholder="Global Trade Item Number"
-                          className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
-                        />
-                      </div>
+    {/* Available Dates */}
+    <div className="grid md:grid-cols-2 gap-4">
+      <div>
+        <label className="block text-sm font-medium text-slate-300 mb-2">Available Start Date/Time</label>
+        <input
+          type="datetime-local"
+          name="availableStartDate"
+          value={formData.availableStartDate || ''}
+          onChange={handleChange}
+          className="w-full px-3 py-2.5 bg-slate-800/50 border border-slate-700 rounded-xl text-white focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+        />
+      </div>
 
-                      <div>
-                        <label className="block text-sm font-medium text-slate-300 mb-2">Manufacturer Part Number</label>
-                        <input
-                          type="text"
-                          name="manufacturerPartNumber"
-                          value={formData.manufacturerPartNumber}
-                          onChange={handleChange}
-                          placeholder="MPN"
-                          className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
-                        />
-                      </div>
+      <div>
+        <label className="block text-sm font-medium text-slate-300 mb-2">Available End Date/Time</label>
+        <input
+          type="datetime-local"
+          name="availableEndDate"
+          value={formData.availableEndDate || ''}
+          onChange={handleChange}
+          className="w-full px-3 py-2.5 bg-slate-800/50 border border-slate-700 rounded-xl text-white focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+        />
+      </div>
+    </div>
+  </div>
 
-                      <div>
-                        <label className="block text-sm font-medium text-slate-300 mb-2">Display Order</label>
-                        <input
-                          type="number"
-                          name="displayOrder"
-                          value={formData.displayOrder}
-                          onChange={handleChange}
-                          placeholder="1"
-                          className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
-                        />
-                      </div>
-                    </div>
+  {/* Admin Comment */}
+  <div className="space-y-4">
+    <h3 className="text-lg font-semibold text-white border-b border-slate-800 pb-2">Admin Comment</h3>
+    <div>
+      <textarea
+        name="adminComment"
+        value={formData.adminComment}
+        onChange={handleChange}
+        placeholder="Internal notes (not visible to customers)"
+        rows={3}
+        className="w-full px-3 py-2.5 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+      />
+    </div>
+  </div>
+</TabsContent>
 
-           
-                  </div>
+{/* ✅ ADD THIS COMPLETE TAB CONTENT */}
+<TabsContent value="grouped-products" className="space-y-2 mt-2">
+  <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6">
+    <h3 className="text-lg font-semibold text-white border-b border-slate-800 pb-3 mb-4">
+      Product Type & Dependencies
+    </h3>
+    
+    {formData.productType === 'grouped' && (
+      <div className="space-y-6">
+        {/* Require Other Products Checkbox */}
+        <div className="bg-slate-900/50 border border-slate-700 rounded-xl p-4">
+          <label className="flex items-start gap-3 cursor-pointer">
+            <input
+              type="checkbox"
+              name="requireOtherProducts"
+              checked={formData.requireOtherProducts}
+              onChange={handleChange}
+              className="mt-1 rounded bg-slate-800/50 border-slate-700 text-violet-500 focus:ring-violet-500 focus:ring-offset-slate-900"
+            />
+            <div className="flex-1">
+              <span className="text-sm font-medium text-white">Require other products</span>
+              <p className="text-xs text-slate-400 mt-1">
+                Enable this to make the grouped product require other simple products
+              </p>
+            </div>
+          </label>
+        </div>
+
+        {/* Product Selection - Show only when checkbox is enabled */}
+        {formData.requireOtherProducts && (
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-white mb-2">
+                Select Products <span className="text-red-500">*</span>
+              </label>
+              <p className="text-xs text-slate-400 mb-3">
+                Choose one or more simple products to bundle in this grouped product
+              </p>
+              
+              <Select
+                isMulti
+                options={simpleProducts.map(product => ({
+                  value: product.id,
+                  label: `${product.name} (SKU: ${product.sku}) - £${product.price.toFixed(2)}`
+                }))}
+                value={selectedGroupedProducts.map(id => {
+                  const product = simpleProducts.find(p => p.id === id);
+                  return product ? {
+                    value: product.id,
+                    label: `${product.name} (SKU: ${product.sku}) - £${product.price.toFixed(2)}`
+                  } : null;
+                }).filter(Boolean)}
+                onChange={handleGroupedProductsChange}
+                className="react-select-container"
+                classNamePrefix="react-select"
+                placeholder="Search and select products..."
+                styles={{
+                  control: (base) => ({
+                    ...base,
+                    backgroundColor: '#1e293b',
+                    borderColor: '#475569',
+                    minHeight: '42px',
+                    '&:hover': { borderColor: '#8b5cf6' }
+                  }),
+                  menu: (base) => ({
+                    ...base,
+                    backgroundColor: '#1e293b',
+                    border: '1px solid #475569'
+                  }),
+                  option: (base, state) => ({
+                    ...base,
+                    backgroundColor: state.isFocused ? '#8b5cf6' : '#1e293b',
+                    color: state.isFocused ? 'white' : '#cbd5e1',
+                    cursor: 'pointer',
+                    '&:active': { backgroundColor: '#7c3aed' }
+                  }),
+                  multiValue: (base) => ({
+                    ...base,
+                    backgroundColor: '#8b5cf6',
+                  }),
+                  multiValueLabel: (base) => ({
+                    ...base,
+                    color: 'white'
+                  }),
+                  multiValueRemove: (base) => ({
+                    ...base,
+                    color: 'white',
+                    '&:hover': {
+                      backgroundColor: '#7c3aed',
+                      color: 'white'
+                    }
+                  }),
+                  placeholder: (base) => ({
+                    ...base,
+                    color: '#64748b'
+                  }),
+                  input: (base) => ({
+                    ...base,
+                    color: 'white'
+                  })
+                }}
+              />
+              
+              {selectedGroupedProducts.length > 0 && (
+                <p className="text-xs text-violet-400 mt-2">
+                  ✅ {selectedGroupedProducts.length} product(s) selected
+                </p>
+              )}
+            </div>
+
+            {/* Automatically Add Products Checkbox */}
+            <div className="bg-slate-900/50 border border-slate-700 rounded-xl p-4">
+              <label className="flex items-start gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  name="automaticallyAddProducts"
+                  checked={formData.automaticallyAddProducts}
+                  onChange={handleChange}
+                  className="mt-1 rounded bg-slate-800/50 border-slate-700 text-violet-500 focus:ring-violet-500 focus:ring-offset-slate-900"
+                />
+                <div className="flex-1">
+                  <span className="text-sm font-medium text-white">Automatically add these products to the cart</span>
+                  <p className="text-xs text-slate-400 mt-1">
+                    When enabled, the selected products will be added to cart automatically
+                  </p>
                 </div>
+              </label>
+            </div>
 
-                {/* Publishing Section */}
-                <div className="space-y-4">
-                  <h3 className="text-lg font-semibold text-white border-b border-slate-800 pb-2">Publishing</h3>
-
-                  <div className="space-y-3">
-                    <label className="flex items-center gap-2">
-                      <input
-                        type="checkbox"
-                        name="published"
-                        checked={formData.published}
-                        onChange={handleChange}
-                        className="rounded bg-slate-800/50 border-slate-700 text-violet-500 focus:ring-violet-500 focus:ring-offset-slate-900"
-                      />
-                      <span className="text-sm text-slate-300">Published</span>
-                    </label>
-
-                    <label className="flex items-center gap-2">
-                      <input
-                        type="checkbox"
-                        name="visibleIndividually"
-                        checked={formData.visibleIndividually}
-                        onChange={handleChange}
-                        className="rounded bg-slate-800/50 border-slate-700 text-violet-500 focus:ring-violet-500 focus:ring-offset-slate-900"
-                      />
-                      <span className="text-sm text-slate-300">Visible individually</span>
-                      <span className="text-xs text-slate-400">(can be accessed from catalog)</span>
-                    </label>
-
-                    <label className="flex items-center gap-2">
-                      <input
-                        type="checkbox"
-                        name="showOnHomepage"
-                        checked={formData.showOnHomepage}
-                        onChange={handleChange}
-                        className="rounded bg-slate-800/50 border-slate-700 text-violet-500 focus:ring-violet-500 focus:ring-offset-slate-900"
-                      />
-                      <span className="text-sm text-slate-300">Show on home page</span>
-                    </label>
-                  </div>
-
-                  <div className="grid md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-slate-300 mb-2">Available Start Date/Time</label>
-                      <input
-                        type="datetime-local"
-                        name="availableStartDate"
-                        value={formData.availableStartDate}
-                        onChange={handleChange}
-                        className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-slate-300 mb-2">Available End Date/Time</label>
-                      <input
-                        type="datetime-local"
-                        name="availableEndDate"
-                        value={formData.availableEndDate}
-                        onChange={handleChange}
-                        className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                {/* Admin Comment */}
-                <div className="space-y-4">
-                  <h3 className="text-lg font-semibold text-white border-b border-slate-800 pb-2">Admin Comment</h3>
-                  <div>
-                    <textarea
-                      name="adminComment"
-                      value={formData.adminComment}
-                      onChange={handleChange}
-                      placeholder="Internal notes (not visible to customers)"
-                      rows={3}
-                      className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
-                    />
-                  </div>
-                </div>
-              </TabsContent>
+            {/* Info Box */}
+            <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl p-4">
+              <h4 className="font-semibold text-sm text-blue-400 mb-2 flex items-center gap-2">
+                <Info className="h-4 w-4" />
+                Grouped Product Information
+              </h4>
+              <ul className="text-sm text-slate-300 space-y-1.5">
+                <li>• Grouped products are collections of simple products</li>
+                <li>• Customers can see and purchase individual products from the group</li>
+                <li>• Each product maintains its own price and inventory</li>
+                <li>• Useful for product bundles or related item sets</li>
+              </ul>
+            </div>
+          </div>
+        )}
+      </div>
+    )}
+  </div>
+</TabsContent>
 
               {/* Prices Tab */}
               <TabsContent value="prices" className="space-y-2 mt-2">
@@ -1774,51 +2047,59 @@ const uploadVariantImages = async (productResponse: any) => {
                     </div>
                   </div>
 
-                  <div className="space-y-3">
-                    <label className="flex items-center gap-2">
-                      <input
-                        type="checkbox"
-                        name="disableBuyButton"
-                        checked={formData.disableBuyButton}
-                        onChange={handleChange}
-                        className="rounded bg-slate-800/50 border-slate-700 text-violet-500 focus:ring-violet-500 focus:ring-offset-slate-900"
-                      />
-                      <span className="text-sm text-slate-300">Disable buy button</span>
-                    </label>
+<div className="space-y-3">
+  {/* ✅ First Row: 3 Checkboxes in 3 Columns */}
+  <div className="grid md:grid-cols-3 gap-4">
+    {/* Column 1 - Disable buy button */}
+    <label className="flex items-center gap-2 w-full px-3 py-2.5 bg-slate-800/50 border border-slate-700 rounded-xl cursor-pointer hover:border-violet-500 transition-all">
+      <input
+        type="checkbox"
+        name="disableBuyButton"
+        checked={formData.disableBuyButton}
+        onChange={handleChange}
+        className="rounded bg-slate-800/50 border-slate-700 text-violet-500 focus:ring-violet-500 focus:ring-offset-slate-900"
+      />
+      <span className="text-sm text-slate-300">Disable buy button</span>
+    </label>
 
-                    <label className="flex items-center gap-2">
-                      <input
-                        type="checkbox"
-                        name="disableWishlistButton"
-                        checked={formData.disableWishlistButton}
-                        onChange={handleChange}
-                        className="rounded bg-slate-800/50 border-slate-700 text-violet-500 focus:ring-violet-500 focus:ring-offset-slate-900"
-                      />
-                      <span className="text-sm text-slate-300">Disable wishlist button</span>
-                    </label>
+    {/* Column 2 - Disable wishlist button */}
+    <label className="flex items-center gap-2 w-full px-3 py-2.5 bg-slate-800/50 border border-slate-700 rounded-xl cursor-pointer hover:border-violet-500 transition-all">
+      <input
+        type="checkbox"
+        name="disableWishlistButton"
+        checked={formData.disableWishlistButton}
+        onChange={handleChange}
+        className="rounded bg-slate-800/50 border-slate-700 text-violet-500 focus:ring-violet-500 focus:ring-offset-slate-900"
+      />
+      <span className="text-sm text-slate-300">Disable wishlist button</span>
+    </label>
 
-                    <label className="flex items-center gap-2">
-                      <input
-                        type="checkbox"
-                        name="callForPrice"
-                        checked={formData.callForPrice}
-                        onChange={handleChange}
-                        className="rounded bg-slate-800/50 border-slate-700 text-violet-500 focus:ring-violet-500 focus:ring-offset-slate-900"
-                      />
-                      <span className="text-sm text-slate-300">Call for price</span>
-                    </label>
+    {/* Column 3 - Call for price */}
+    <label className="flex items-center gap-2 w-full px-3 py-2.5 bg-slate-800/50 border border-slate-700 rounded-xl cursor-pointer hover:border-violet-500 transition-all">
+      <input
+        type="checkbox"
+        name="callForPrice"
+        checked={formData.callForPrice}
+        onChange={handleChange}
+        className="rounded bg-slate-800/50 border-slate-700 text-violet-500 focus:ring-violet-500 focus:ring-offset-slate-900"
+      />
+      <span className="text-sm text-slate-300">Call for price</span>
+    </label>
+  </div>
 
-                    <label className="flex items-center gap-2">
-                      <input
-                        type="checkbox"
-                        name="customerEntersPrice"
-                        checked={formData.customerEntersPrice}
-                        onChange={handleChange}
-                        className="rounded bg-slate-800/50 border-slate-700 text-violet-500 focus:ring-violet-500 focus:ring-offset-slate-900"
-                      />
-                      <span className="text-sm text-slate-300">Customer enters price</span>
-                    </label>
-                  </div>
+  {/* ✅ Second Row: Customer enters price (single column) */}
+  <label className="flex items-center gap-2 w-full px-3 py-2.5 bg-slate-800/50 border border-slate-700 rounded-xl cursor-pointer hover:border-violet-500 transition-all">
+    <input
+      type="checkbox"
+      name="customerEntersPrice"
+      checked={formData.customerEntersPrice}
+      onChange={handleChange}
+      className="rounded bg-slate-800/50 border-slate-700 text-violet-500 focus:ring-violet-500 focus:ring-offset-slate-900"
+    />
+    <span className="text-sm text-slate-300">Customer enters price</span>
+  </label>
+</div>
+
 
                   {formData.customerEntersPrice && (
                     <div className="grid md:grid-cols-2 gap-4 bg-slate-800/30 border border-slate-700 p-4 rounded-xl">
