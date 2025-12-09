@@ -49,7 +49,7 @@ interface Product {
   averageRating: number;
   reviewCount: number;
   tags: string;
-  taxExempt?: boolean;
+  vatExempt?: boolean;
 gender?: string; // optional if you want "Unisex" logic later
 
 }
@@ -569,7 +569,7 @@ export default function ProductsClient({
                     </Badge>
                   )}
                   {/* VAT Relief */}
-{product.taxExempt && (
+{product.vatExempt && (
   <div className="absolute top-3 right-3 bg-green-600 text-white px-2 py-1 rounded-md shadow flex items-center gap-1 text-[10px] font-semibold">
     <BadgePercent className="h-3 w-3" />
     VAT Relief
@@ -582,8 +582,12 @@ export default function ProductsClient({
                   )}
                  {/* Unisex Icon */}
 <div className="absolute top-3 left-3 bg-white/90 px-2 py-1 rounded-full shadow flex items-center gap-1">
-  <Users className="h-4 w-4 text-gray-700" />
-  <span className="text-[10px] font-semibold text-gray-700">Unisex</span>
+  <img 
+  src="/icons/unisex.svg" 
+  alt="Unisex"
+  className="h-4 w-4 object-contain"
+  loading="lazy"
+/>Unisex
 </div>
 
 
@@ -635,7 +639,7 @@ export default function ProductsClient({
     </span>
   )}
 
-  {product.taxExempt && (
+  {product.vatExempt && (
     <span className="text-xs font-semibold text-green-700 bg-green-100 px-2 py-0.5 rounded">
       (0% VAT)
     </span>

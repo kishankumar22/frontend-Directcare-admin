@@ -80,7 +80,7 @@ export default function CategorySlider({
       ? category.imageUrl.startsWith("http")
         ? category.imageUrl
         : `${baseUrl}${category.imageUrl}`
-      : "/no-image.png"   // ✅ fallback image
+      : "/placeholder-image.png" // fallback if no image
   }
   alt={category.name}
   className="w-16 h-16 md:w-20 md:h-20 mx-auto object-contain mb-3"

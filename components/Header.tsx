@@ -7,6 +7,9 @@ import { Menu, Search, Heart, ShoppingCart, User, X, ChevronDown, ChevronRight, 
 import MegaMenu from "./MegaMenu";
 import { useToast } from "@/components/CustomToast";
 import { useCart } from "@/context/CartContext";
+import { useRouter } from "next/navigation";
+import { useAuth } from "@/context/AuthContext";
+
 
 interface Category {
   id: string;
@@ -33,6 +36,18 @@ export default function Header({
   const scrollDirection = useRef<"up" | "down" | null>(null);
   const toast = useToast();
   const { cartCount , isInitialized} = useCart();
+
+  const router = useRouter();
+const { isAuthenticated } = useAuth();
+
+const handleAccountClick = () => {
+  if (isAuthenticated) {
+    router.push("/account/profile");
+  } else {
+    router.push("/account");
+  }
+};
+
 
   const mobileTopMessages = [
     {
@@ -62,6 +77,12 @@ export default function Header({
   ];
 
   const [currentMsg, setCurrentMsg] = useState(0);
+  const [isClient, setIsClient] = useState(false);
+
+useEffect(() => {
+  setIsClient(true);
+}, []);
+
 
   useEffect(() => {
     const t = setInterval(() => {
@@ -154,9 +175,10 @@ export default function Header({
         }`}
       >
         {/* Mobile Slider */}
-        <div className="md:hidden py-2 px-4 overflow-hidden">
+        {isClient && (
+        <div className="lg:hidden py-2 px-4 overflow-hidden">
           <div
-            key={currentMsg}
+            // key={currentMsg}
             className="flex items-center justify-center gap-3 py-1 transition-all duration-500 ease-out"
           >
             <span className="text-white text-xl flex-shrink-0">
@@ -172,9 +194,11 @@ export default function Header({
             </div>
           </div>
         </div>
+        )}
+
 
         {/* Desktop Grid */}
-        <div className="hidden md:block">
+        <div className="hidden lg:block">
           <div className="max-w-7xl mx-auto grid grid-cols-2 md:grid-cols-4 text-center py-2 px-4 gap-4">
             <a href="/delivery/next-day" className="flex items-center gap-3 cursor-pointer hover:bg-[#334a2c] py-2 px-3 rounded transition">
               <span className="text-white flex-shrink-0"><Truck size={20} /></span>
@@ -221,7 +245,7 @@ export default function Header({
               <Menu size={24} />
             </button>
             <Link href="/" className="flex items-center">
-              <Image src="/logo/logo.png" alt="Direct Care Logo" width={150} height={50} priority className="object-contain md:w-[240px] md:h-[80px]" />
+              <Image src="/logo/logo.png" alt="Direct Care Logo" width={150} height={50} className="object-contain md:w-[240px] md:h-[80px]" />
             </Link>
           </div>
 
@@ -233,13 +257,23 @@ export default function Header({
             >
               <Heart size={22} />
             </button>
-            <button className="relative text-gray-700 hover:text-green-800 transition">
-              <ShoppingCart size={22} />
-              <span className="absolute -top-1 -right-2 bg-[#445D41] text-white text-[10px] rounded-full px-1.5">0</span>
-            </button>
-            <button className="text-gray-700 hover:text-green-800 transition">
-              <User size={22} />
-            </button>
+           <button
+  className="relative text-gray-700 hover:text-green-800 transition"
+  onClick={() => router.push("/cart")}
+>
+  <ShoppingCart size={22} />
+
+  {isInitialized && (
+    <span className="absolute -top-1 -right-2 bg-[#445D41] text-white text-[10px] rounded-full px-1.5">
+      {cartCount}
+    </span>
+  )}
+</button>
+
+            <button onClick={handleAccountClick} className="text-gray-700 hover:text-green-800 transition">
+  <User size={22} />
+</button>
+
           </div>
 
           {/* Search - Desktop */}
@@ -276,9 +310,10 @@ export default function Header({
       )}
     </button>
   </Link>
-            <button className="hover:text-green-800 transition">
-              <User size={22} />
-            </button>
+           <button onClick={handleAccountClick} className="hover:text-green-800 transition">
+  <User size={22} />
+</button>
+
           </div>
         </div>
 

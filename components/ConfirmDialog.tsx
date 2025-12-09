@@ -15,7 +15,6 @@ interface ConfirmDialogProps {
   iconColor?: string;
   confirmButtonStyle?: string;
   isLoading?: boolean;
-   confirmButtonClass?: string; // ✅ ADD THIS
 }
 
 const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
@@ -27,7 +26,6 @@ const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
   confirmText = "Confirm",
   cancelText = "Cancel",
   icon: Icon = AlertCircle,
-  
   iconColor = "text-red-400",
   confirmButtonStyle = "bg-gradient-to-r from-red-500 to-rose-500 hover:shadow-lg hover:shadow-red-500/50",
   isLoading = false

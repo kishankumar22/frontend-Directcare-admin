@@ -38,9 +38,9 @@ export default function CommentForm({ blogPostId }: CommentFormProps) {
   }, []);
 
   function generateChallenge() {
-    const a = Math.floor(Math.random() * 10) + 5;
-    const b = Math.floor(Math.random() * 10) + 3;
-    const c = Math.floor(Math.random() * 5) + 2;
+    const a = Math.floor(Math.random() * 5) + 2;
+    const b = Math.floor(Math.random() * 8) + 2;
+    const c = Math.floor(Math.random() * 6) + 1;
 
     const exp = `(${a} × ${b}) - ${c}`;
     const ans = a * b - c;

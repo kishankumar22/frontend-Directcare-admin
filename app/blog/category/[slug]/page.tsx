@@ -17,8 +17,9 @@ async function fetchJSON(url: string) {
   if (!res.ok) throw new Error(`Failed to fetch ${url}: ${res.status}`);
   return res.json();
 }
-export default async function BlogCategoryPage({ params }: { params: Promise<{ slug: string }> }) {
-  const { slug } = await params;
+
+export default async function BlogCategoryPage({ params }: { params: { slug: string } }) {
+  const { slug } = params;
 
   const postsUrl = `${API_BASE}/api/BlogPosts?includeUnpublished=false&onlyHomePage=false`;
   const categoriesUrl = `${API_BASE}/api/BlogCategories?includeInactive=false&includeSubCategories=true`;

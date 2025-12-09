@@ -880,7 +880,7 @@ export default function DiscountsPage() {
                       </span>
                       {discount.maximumDiscountAmount && (
                         <p className="text-xs text-slate-400">
-                          max ₹{discount.maximumDiscountAmount}
+                          max£{discount.maximumDiscountAmount}
                         </p>
                       )}
                     </td>
@@ -1527,7 +1527,7 @@ export default function DiscountsPage() {
                     </div>
                     <p className="text-white font-semibold text-xl">{formatDiscountValue(viewingDiscount)}</p>
                     {viewingDiscount.maximumDiscountAmount && (
-                      <p className="text-xs text-slate-400">Max: ₹{viewingDiscount.maximumDiscountAmount}</p>
+                      <p className="text-xs text-slate-400">Max:£{viewingDiscount.maximumDiscountAmount}</p>
                     )}
                   </div>
 
@@ -1816,7 +1816,7 @@ export default function DiscountsPage() {
                     {formatDiscountValue(selectedDiscountHistory)}
                   </p>
                   {selectedDiscountHistory.maximumDiscountAmount && (
-                    <p className="text-xs text-slate-400">Max: ₹{selectedDiscountHistory.maximumDiscountAmount}</p>
+                    <p className="text-xs text-slate-400">Max:£{selectedDiscountHistory.maximumDiscountAmount}</p>
                   )}
                 </div>
 
@@ -1880,7 +1880,7 @@ export default function DiscountsPage() {
                     <span className="text-xs text-slate-400">Total Saved</span>
                   </div>
                   <p className="text-xl font-bold text-white">
-                    ₹{calculateFilteredStats().totalRevenue.toFixed(2)}
+                   £{calculateFilteredStats().totalRevenue.toFixed(2)}
                   </p>
                 </div>
 
@@ -1902,7 +1902,7 @@ export default function DiscountsPage() {
                     <span className="text-xs text-slate-400">Avg Save</span>
                   </div>
                   <p className="text-xl font-bold text-white">
-                    ₹{calculateFilteredStats().averageDiscount.toFixed(2)}
+                   £{calculateFilteredStats().averageDiscount.toFixed(2)}
                   </p>
                 </div>
 
@@ -1984,7 +1984,7 @@ export default function DiscountsPage() {
                           </td>
                           <td className="py-3 px-3 text-center">
                             <span className="inline-flex items-center gap-1 px-3 py-1 bg-green-500/10 border border-green-500/30 text-green-400 rounded-lg text-sm font-semibold">
-                              ₹{history.discountAmount.toFixed(2)}
+                             £{history.discountAmount.toFixed(2)}
                             </span>
                           </td>
                           <td className="py-3 px-3 text-center">

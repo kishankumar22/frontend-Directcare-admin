@@ -3,10 +3,14 @@
 import { useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useAuth } from "@/context/AuthContext";
+
 
 function formatCurrency(n = 0) {
   return `£${n.toFixed(2)}`;
 }
+  
+
 
 export default function OrderSuccessPage() {
   const searchParams = useSearchParams();
@@ -14,6 +18,8 @@ export default function OrderSuccessPage() {
 
   const [order, setOrder] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const { accessToken, isAuthenticated } = useAuth();
+
 
   useEffect(() => {
     if (!orderId) {
@@ -28,10 +34,11 @@ export default function OrderSuccessPage() {
       `${process.env.NEXT_PUBLIC_API_URL}/api/Orders/${orderId}`,
       {
         method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": ""
-        }
+       headers: {
+  "Content-Type": "application/json",
+  ...(isAuthenticated && { Authorization: `Bearer ${accessToken}` })
+}
+
       }
     );
 
@@ -147,9 +154,9 @@ export default function OrderSuccessPage() {
                 <span>{formatCurrency(payment.amount)}</span>
               </div>
               <div className="flex justify-between">
-                <span>Payment Intent ID:</span>
+                <span>TransactionId:</span>
                 <span className="font-mono text-xs">
-                  {payment.paymentIntentId}
+                  {payment.transactionId}
                 </span>
               </div>
               <div className="flex justify-between">

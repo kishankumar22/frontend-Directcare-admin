@@ -2021,7 +2021,7 @@ const uploadImagesToProductDirect = async (productId: string, files: File[]): Pr
                 isMulti
                 options={simpleProducts.map(p => ({
                   value: p.id,
-                  label: `${p.name} (${p.sku}) - ₹${p.price}`,
+                  label: `${p.name} (${p.sku}) -£${p.price}`,
                   data: p
                 }))}
                 value={simpleProducts

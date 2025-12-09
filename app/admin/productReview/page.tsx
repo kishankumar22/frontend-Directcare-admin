@@ -1921,7 +1921,7 @@ const handleExportReviews = (type: string) => {
       placeholder="Search or select product..."
       value={
         formData.productId 
-          ? `${products.find(p => p.id === formData.productId)?.name || ''} ${products.find(p => p.id === formData.productId)?.price ? `- ₹${products.find(p => p.id === formData.productId)?.price}` : ''}`
+          ? `${products.find(p => p.id === formData.productId)?.name || ''} ${products.find(p => p.id === formData.productId)?.price ? `-£${products.find(p => p.id === formData.productId)?.price}` : ''}`
           : productSearch
       }
       onChange={(e) => {

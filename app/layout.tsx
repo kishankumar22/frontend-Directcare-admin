@@ -4,6 +4,7 @@ import "./globals.css";
 import { ToastProvider } from "@/components/CustomToast";
 import ConditionalLayout from "./ConditionalLayout";
 import { CartProvider } from "@/context/CartContext";  // <-- IMPORT THIS
+import { AuthProvider } from "@/context/AuthContext";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -44,11 +45,13 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     <html lang="en" suppressHydrationWarning>
       <body className={inter.className} suppressHydrationWarning>
         <ToastProvider>
+          <AuthProvider>
           <CartProvider>            
             <ConditionalLayout categories={categories}>
               {children}
             </ConditionalLayout>
           </CartProvider>
+          </AuthProvider>
         </ToastProvider>
       </body>
     </html>

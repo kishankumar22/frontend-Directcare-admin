@@ -94,7 +94,7 @@ export default async function BlogPage() {
 
               {/* TEXT */}
               <div className="flex flex-col overflow-hidden">
-                <h3 className="text-xs font-semibold text-gray-900 leading-tight truncate group-hover:text-blue-600">
+                <h3 className="text-xs font-semibold text-gray-900 leading-tight truncate group-hover:text-green-900">
                   {cat.name}
                 </h3>
                 <p className="text-[10px] text-gray-500">
@@ -120,17 +120,18 @@ export default async function BlogPage() {
               className="bg-gray-50 border rounded-xl shadow-sm hover:shadow-lg transition p-4 flex flex-col hover:-translate-y-1"
             >
               {/* IMAGE */}
-              <div className="w-full h-40 rounded-lg overflow-hidden mb-4">
-                <img
-                  src={
-                    absoluteUrl(post.thumbnailImageUrl) ??
-                    absoluteUrl(post.featuredImageUrl) ??
-                    '/placeholder-article.png'
-                  }
-                  alt={post.title}
-                  className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
-                />
-              </div>
+              <div className="w-full h-48 bg-white rounded-lg overflow-hidden mb-4 flex items-center justify-center">
+  <img
+    src={
+      absoluteUrl(post.thumbnailImageUrl) ??
+      absoluteUrl(post.featuredImageUrl) ??
+      '/placeholder-article.png'
+    }
+    alt={post.title}
+    className="max-h-full max-w-full object-contain"
+  />
+</div>
+
 
               {/* CATEGORY LABEL */}
               <span className="text-xs bg-blue-50 text-blue-600 font-medium px-2 py-1 rounded w-fit mb-3">
@@ -139,7 +140,7 @@ export default async function BlogPage() {
 
               {/* TITLE */}
               <h3 className="text-md font-semibold text-gray-900 mb-2 line-clamp-2">
-                <Link href={`/blog/${post.slug}`} className="hover:text-blue-600">
+                <Link href={`/blog/${post.slug}`} className="hover:text-green-900">
                   {post.title}
                 </Link>
               </h3>

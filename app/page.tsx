@@ -39,15 +39,6 @@ interface Product {
   images?: { imageUrl: string }[];
 }
 
-interface Category {
-  id: string;
-  name: string;
-  slug: string;
-  imageUrl: string;
-  productCount: number;
-  sortOrder: number;
-  subCategories?: Category[];
-}
 
 interface Brand {
   id: string;
@@ -197,18 +188,18 @@ export default async function Home() {
           <p className="text-center text-gray-500">No brands available.</p>
         ) : (
           <>
-            <div className="hidden md:grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-8">
+            <div className="hidden md:grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-8">
               {brands.map((brand: Brand) => (
                 <Link key={brand.id} href={`/brand/${brand.slug}`}>
-                  <Card className="group p-8 text-center rounded-2xl border-4 border-gray-200 shadow-sm hover:shadow-xl transition-all duration-300 hover:-translate-y-1 bg-white ">
-                    <div className="w-42 h-32 mx-auto flex items-center justify-center bg-gray-50 rounded-2xl shadow-inner mb-5 transition-all duration-300 group-hover:bg-gray-100">
+                  <Card className="group p-4 text-center rounded-2xl border-4 transition-all duration-300 hover:-translate-y-1 ">
+                    <div className="w-32 h-36 mx-auto flex items-center justify-center transition-all duration-300 ">
                       <img
                         src={brand.logoUrl.startsWith("http") ? brand.logoUrl : `${baseUrl}${brand.logoUrl}`}
                         alt={brand.name}
-                        className="w-44 h-24 object-contain transition-transform duration-300 group-hover:scale-110"
+                        className="w-32 h-36 object-contain transition-transform duration-300 group-hover:scale-110"
                       />
                     </div>
-                    <h3 className="font-semibold text-xl text-gray-800 group-hover:text-[#445D41] transition-colors duration-300">
+                    <h3 className="font-semibold text-sm text-gray-800 group-hover:text-[#445D41] transition-colors duration-300">
                       {brand.name}
                     </h3>
                   </Card>

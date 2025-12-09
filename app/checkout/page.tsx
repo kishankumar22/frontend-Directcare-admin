@@ -1,4 +1,4 @@
-// app/checkout/page.tsx
+// app/checkout/page.tsx ka wokig codehai
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -11,7 +11,12 @@ import {
 } from "@stripe/react-stripe-js";
 import { useCart } from "@/context/CartContext";
 import Link from "next/link";
+import { useAuth } from "@/context/AuthContext";
 import { useRouter } from "next/navigation";
+import EmptyCart from "@/components/cart/EmptyCart";
+
+
+
 
 // ---------- Types ----------
 type PostcodeSuggestion = {
@@ -100,6 +105,10 @@ function CheckoutPayment({
   onPaymentSuccess: (orderResponse: any) => void;
   onError: (err: any) => void;
 }) {
+   const { isAuthenticated, accessToken, user } = useAuth(); 
+
+
+
   const stripe = useStripe();
   const elements = useElements();
   const [processing, setProcessing] = useState(false);
@@ -107,27 +116,46 @@ function CheckoutPayment({
 
 
   // 1️⃣ Create ORDER First
-  async function createOrder() {
-    const resp = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/Orders`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": "" // guest → empty allowed
-      },
-      body: JSON.stringify(orderPayload),
-    });
+async function createOrder() {
+  const resp = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/Orders`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...(isAuthenticated && { Authorization: `Bearer ${accessToken}` }),
+    },
+    body: JSON.stringify(orderPayload),
+  });
 
-    const json = await resp.json();
-    console.log("ORDER CREATED:", json);
+  const status = resp.status;
+  const raw = await resp.text();
 
-    if (!json?.data?.id) throw new Error("Order creation failed!");
+  alert("ORDER RAW RESPONSE:\nSTATUS: " + status + "\nBODY:\n" + raw);
 
-    return {
-      orderId: json.data.id,
-      orderTotal: json.data.totalAmount,
-      customerEmail: json.data.customerEmail,
-    };
+  let json: any;
+  try {
+    json = JSON.parse(raw);
+  } catch (e) {
+    throw new Error("❌ JSON parse error:\n" + raw);
   }
+
+  if (!resp.ok) {
+    console.error("ORDER FAILED JSON:", json);
+    throw new Error("Order creation failed! status=" + status);
+  }
+
+  if (!json?.data?.id) {
+    console.error("ORDER FAILED JSON:", json);
+    throw new Error("Order creation failed! missing id");
+  }
+
+  return {
+    orderId: json.data.id,
+    orderTotal: json.data.totalAmount,
+    customerEmail: json.data.customerEmail,
+  };
+}
+
+
 
   // 2️⃣ Create Payment Intent with orderId
   async function createPaymentIntent(orderId: string, amount: number, customerEmail: string) {
@@ -256,7 +284,7 @@ alert("CONFIRM RAW RESPONSE: " + rawConfirm);
         disabled={!stripe || processing}
         className="w-full bg-[#445D41] text-white py-3 rounded disabled:opacity-50"
       >
-        {processing ? "Processing…" : `Pay £${orderPayload.orderTotal}`}
+        {processing ? "Processing…" : `Pay £${orderPayload.orderTotal.toFixed(2)}`}
       </button>
     </div>
   );
@@ -271,6 +299,11 @@ const ErrorText = ({ error }: { error?: string }) => {
 export default function CheckoutPage() {
   const router = useRouter();
   const { cart, cartTotal, cartCount, updateCart, updateQuantity } = useCart();
+
+  const { user, accessToken, isAuthenticated } = useAuth();
+
+
+
 
   // Billing fields
   const [billingFirstName, setBillingFirstName] = useState("");
@@ -324,16 +357,17 @@ export default function CheckoutPage() {
   }, [cart]);
 
   // --- NEW: prefill billing email from localStorage (Continue as Guest) ---
-  useEffect(() => {
-    try {
-      const savedEmail = localStorage.getItem("guestEmail");
-      if (savedEmail) {
-        setBillingEmail(savedEmail);
-      }
-    } catch (err) {
-      // ignore
-    }
-  }, []);
+ useEffect(() => {
+  if (isAuthenticated && user?.email) {
+    setBillingEmail(user.email);
+  } else {
+    const savedEmail = localStorage.getItem("guestEmail");
+    if (savedEmail) setBillingEmail(savedEmail);
+  }
+}, [isAuthenticated, user]);
+
+
+
 
   // Debounced autocomplete using the single API you provided
  const doAutocomplete = useCallback(async (q: string) => {
@@ -482,9 +516,9 @@ export default function CheckoutPage() {
 
     return {
       customerEmail: billingEmail,
-      customerPhone: billingPhone,
-      isGuestOrder: true,
-      userId: null,
+      customerPhone: `+44${billingPhone}`,
+      isGuestOrder: !isAuthenticated,
+      userId: isAuthenticated ? user?.id : null,
       billingFirstName,
       billingLastName,
       billingCompany,
@@ -510,34 +544,119 @@ export default function CheckoutPage() {
     };
   };
 
-  const handleProceedToPayment = () => {
-   setError(null);
-setFieldErrors({});
+  
 
-const errors: any = {};
 
-if (!billingEmail.trim()) {
-  errors.billingEmail = "Email is required";
-} else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(billingEmail)) {
-  errors.billingEmail = "Enter a valid email address";
+const handleProceedToPayment = async () => {
+  setError(null);
+  setFieldErrors({});
+
+  const errors: any = {};
+
+  if (!billingEmail.trim()) {
+    errors.billingEmail = "Email is required";
+  } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(billingEmail)) {
+    errors.billingEmail = "Enter a valid email address";
+  }
+
+  if (!billingFirstName.trim()) errors.billingFirstName = "First name is required";
+  if (!billingLastName.trim()) errors.billingLastName = "Last name is required";
+  if (!billingPhone.trim()) errors.billingPhone = "Phone number is required";
+  if (!billingAddress1.trim()) errors.billingAddress1 = "Address line 1 is required";
+  if (!billingPostalCode.trim()) errors.billingPostalCode = "Postcode is required";
+
+  if (Object.keys(errors).length > 0) {
+    setFieldErrors(errors);
+    return;
+  }
+
+ const subscriptionMap: Record<string, string> = {};
+
+for (const item of cart) {
+  if (item.type === "subscription") {
+    try {
+      console.log("Sending subscription payload:", {
+        productId: item.productId ?? item.id,
+        productVariantId: item.variantId ?? null,
+        quantity: item.quantity,
+        frequency: item.frequency,
+      });
+
+      const resp = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/Subscriptions`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(isAuthenticated && { Authorization: `Bearer ${accessToken}` }),
+        },
+        body: JSON.stringify({
+          productId: item.productId ?? item.id,
+          productVariantId: item.variantId ?? null,
+          quantity: item.quantity,
+          frequency: item.frequency,
+          shippingFirstName: shippingSameAsBilling ? billingFirstName : shippingFirstName,
+          shippingLastName: shippingSameAsBilling ? billingLastName : shippingLastName,
+          shippingAddressLine1: shippingSameAsBilling ? billingAddress1 : shippingAddress1,
+          shippingAddressLine2: shippingSameAsBilling ? billingAddress2 : shippingAddress2,
+          shippingCity: shippingSameAsBilling ? billingCity : shippingCity,
+          shippingState: shippingSameAsBilling ? billingState : shippingState,
+          shippingPostalCode: shippingSameAsBilling ? billingPostalCode : shippingPostalCode,
+          shippingCountry: shippingSameAsBilling ? billingCountry : shippingCountry,
+        }),
+      });
+
+      console.log("STATUS:", resp.status);
+
+      if (!resp.ok) {
+        console.log("❌ Subscription FAILED:", await resp.text());
+        alert("Subscription FAILED! Check console.");
+        continue;
+      }
+
+      const json = await resp.json();
+      console.log("Subscription CREATED:", json);
+      alert("Subscription Response:\n" + JSON.stringify(json, null, 2));
+
+      if (json?.data?.id) {
+        subscriptionMap[item.id] = json.data.id;
+      }
+
+    } catch (err) {
+      console.log("Catch ERROR:", err);
+      alert("Catch Error - Check Console");
+      setError("Subscription setup failed. Try again.");
+      return;
+    }
+  }
 }
 
-if (!billingFirstName.trim()) errors.billingFirstName = "First name is required";
-if (!billingLastName.trim()) errors.billingLastName = "Last name is required";
-if (!billingPhone.trim()) errors.billingPhone = "Phone number is required";
-if (!billingAddress1.trim()) errors.billingAddress1 = "Address line 1 is required";
-if (!billingPostalCode.trim()) errors.billingPostalCode = "Postcode is required";
-
-if (Object.keys(errors).length > 0) {
-  setFieldErrors(errors);
-  return;
-}
+console.log("subscriptionMap:", subscriptionMap);
+alert("SUB MAP:\n" + JSON.stringify(subscriptionMap, null, 2));
 
 
-    const payload = buildOrderPayload();
-    setOrderPayload(payload);
-    setShowPayment(true);
+  // ⭐ Now build payload including subscriptionId per orderItem
+  const payload = {
+    ...buildOrderPayload(),
+    orderItems: cart.map((c) => ({
+      productId: c.productId ?? c.id,
+      productVariantId: c.variantId ?? null,
+      quantity: c.quantity,
+      unitPrice: c.finalPrice ?? c.price,
+   subscriptionId: subscriptionMap[c.id] ?? null,
+    frequency: c.frequency, // <--- ADD THIS (important)
+
+// <--- MOST IMPORTANT
+    })),
   };
+
+  
+  console.log("FINAL PAYLOAD:", payload);
+alert("PAYLOAD BEFORE PAYMENT:\n" + JSON.stringify(payload, null, 2));
+
+
+  setOrderPayload(payload);
+  setShowPayment(true);
+};
+
 
   // NEW: place COD order directly (no stripe)
   const handlePlaceOrderCOD = async () => {
@@ -550,15 +669,18 @@ if (Object.keys(errors).length > 0) {
     try {
       const resp = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/Orders`, {
         method: "POST",
-        headers: { "Content-Type": "application/json",
-            "Authorization": ""   // <--- ADD THIS
-         },
+        headers: {
+  "Content-Type": "application/json",
+  ...(isAuthenticated && { Authorization: `Bearer ${accessToken}` })
+},
+
         body: JSON.stringify({
           ...orderPayload,
           paymentMethod: "cod",
           paymentIntentId: null,
-           isGuestOrder: true,
-           userId: null
+          isGuestOrder: !isAuthenticated,
+userId: isAuthenticated ? user?.id : null,
+
           
           
         }),
@@ -601,12 +723,9 @@ alert("CARD ORDER ID: " + createdOrder?.data?.id);
   };
 
   if (!cart || cart.length === 0) {
-    return (
-      <div className="p-10 text-center text-gray-600">
-        Your cart is empty. <Link href="/products" className="text-blue-600">Continue shopping</Link>
-      </div>
-    );
-  }
+  return <EmptyCart />;
+}
+
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-8">
@@ -617,9 +736,9 @@ alert("CARD ORDER ID: " + createdOrder?.data?.id);
         <div className="lg:col-span-2 space-y-6">
           <div className="bg-white p-6 rounded shadow">
             <h2 className="text-lg font-semibold mb-3">Billing details</h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-             
-   <div className="col-span-2">
+           <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 lg:gap-4">
+           
+   <div className="flex flex-col space-y-1 col-span-2">
   <label className="text-sm font-medium text-gray-700">Email *</label>
   <input
     value={billingEmail}
@@ -629,7 +748,7 @@ alert("CARD ORDER ID: " + createdOrder?.data?.id);
   <ErrorText error={fieldErrors.billingEmail} />
 </div>
                
-          <div>
+          <div className="flex flex-col space-y-1 col-span-2">
   <label className="text-sm font-medium text-gray-700">First name *</label>
   <input
     value={billingFirstName}
@@ -639,7 +758,7 @@ alert("CARD ORDER ID: " + createdOrder?.data?.id);
   <ErrorText error={fieldErrors.billingFirstName} />
 </div>
 
-<div>
+<div className="flex flex-col space-y-1 col-span-2">
   <label className="text-sm font-medium text-gray-700">Last name *</label>
   <input
     value={billingLastName}
@@ -650,7 +769,7 @@ alert("CARD ORDER ID: " + createdOrder?.data?.id);
 </div>
 
 {/* Phone */}
-<div className="col-span-2">
+<div className="flex flex-col space-y-1 col-span-2">
   <label className="text-sm font-medium text-gray-700">Phone (UK) *</label>
 
   <div className="flex">
@@ -679,7 +798,8 @@ alert("CARD ORDER ID: " + createdOrder?.data?.id);
 
 
 {/* Company */}
-<div className="col-span-2">
+<div className="flex flex-col space-y-1 col-span-2">
+
   <label className="text-sm font-medium text-gray-700">Company (optional)</label>
   <input
     value={billingCompany}
@@ -712,7 +832,8 @@ alert("CARD ORDER ID: " + createdOrder?.data?.id);
               )}
             </div>
 
-            <div className="col-span-2">
+            <div className="flex flex-col space-y-1 col-span-2">
+
   <label className="text-sm font-medium text-gray-700">Address line 1 *</label>
   <input
     value={billingAddress1}
@@ -724,7 +845,7 @@ alert("CARD ORDER ID: " + createdOrder?.data?.id);
 
 
 {/* Billing Address Line 2 */}
-<div className="col-span-2">
+<div className="flex flex-col space-y-1 col-span-2">
   <label className="text-sm font-medium text-gray-700">Address line 2 (optional)</label>
   <input
     value={billingAddress2}
@@ -732,7 +853,8 @@ alert("CARD ORDER ID: " + createdOrder?.data?.id);
     className="w-full border border-gray-300 p-2 rounded focus:ring-2 focus:ring-[#445D41]/20 focus:border-[#445D41] transition-all"
   />
 </div>
-           <div>
+         <div className="flex flex-col space-y-1 col-span-2">
+
   <label className="text-sm font-medium text-gray-700">Postcode *</label>
   <input
     value={billingPostalCode}
@@ -743,7 +865,8 @@ alert("CARD ORDER ID: " + createdOrder?.data?.id);
 </div>
 
         {/* City */}
-<div>
+<div className="flex flex-col space-y-1">
+
   <label className="text-sm font-medium text-gray-700">City</label>
   <input
     value={billingCity}
@@ -753,7 +876,7 @@ alert("CARD ORDER ID: " + createdOrder?.data?.id);
 </div>
 
 {/* Country */}
-<div className="col-span-2">
+<div className="flex flex-col space-y-1 col-span-2">
   <label className="text-sm font-medium text-gray-700">Country / State</label>
   <input
     value={billingState}
@@ -775,9 +898,9 @@ alert("CARD ORDER ID: " + createdOrder?.data?.id);
             </div>
 
             {!shippingSameAsBilling ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                {/* First name */}
-<div>
+<div className="flex flex-col space-y-1 col-span-2">
   <label className="text-sm font-medium text-gray-700">First name</label>
   <input
     value={shippingFirstName}
@@ -787,7 +910,7 @@ alert("CARD ORDER ID: " + createdOrder?.data?.id);
 </div>
 
 {/* Last name */}
-<div>
+<div className="flex flex-col space-y-1 col-span-2">
   <label className="text-sm font-medium text-gray-700">Last name</label>
   <input
     value={shippingLastName}
@@ -797,7 +920,7 @@ alert("CARD ORDER ID: " + createdOrder?.data?.id);
 </div>
 
 {/* Company */}
-<div className="col-span-2">
+<div className="flex flex-col space-y-1 col-span-2">
   <label className="text-sm font-medium text-gray-700">Company (optional)</label>
   <input
     value={shippingCompany}
@@ -807,7 +930,7 @@ alert("CARD ORDER ID: " + createdOrder?.data?.id);
 </div>
 
 {/* Address 1 */}
-<div className="col-span-2">
+<div className="flex flex-col space-y-1 col-span-2">
   <label className="text-sm font-medium text-gray-700">Address line 1 *</label>
   <input
     value={shippingAddress1}
@@ -817,7 +940,7 @@ alert("CARD ORDER ID: " + createdOrder?.data?.id);
 </div>
 
 {/* Address 2 */}
-<div className="col-span-2">
+<div className="flex flex-col space-y-1 col-span-2">
   <label className="text-sm font-medium text-gray-700">Address line 2</label>
   <input
     value={shippingAddress2}
@@ -827,7 +950,8 @@ alert("CARD ORDER ID: " + createdOrder?.data?.id);
 </div>
 
 {/* Postcode */}
-<div>
+<div className="flex flex-col space-y-1 col-span-2">
+
   <label className="text-sm font-medium text-gray-700">Postcode</label>
   <input
     value={shippingPostalCode}
@@ -837,7 +961,8 @@ alert("CARD ORDER ID: " + createdOrder?.data?.id);
 </div>
 
 {/* City */}
-<div>
+<div className="flex flex-col space-y-1">
+
   <label className="text-sm font-medium text-gray-700">City</label>
   <input
     value={shippingCity}
@@ -847,7 +972,7 @@ alert("CARD ORDER ID: " + createdOrder?.data?.id);
 </div>
 
 {/* Country */}
-<div className="col-span-2">
+<div className="flex flex-col space-y-1 col-span-2">
   <label className="text-sm font-medium text-gray-700">Country / State</label>
   <input
     value={shippingState}
@@ -871,20 +996,32 @@ alert("CARD ORDER ID: " + createdOrder?.data?.id);
         </div>
 
         {/* RIGHT: Summary + coupon */}
-        <aside className="lg:col-span-1">
-          <div className="bg-white p-4 rounded shadow sticky top-6 min-h-[600px] flex flex-col">
+       <aside className="lg:col-span-1 mt-6 lg:mt-0">
+          <div className="bg-white p-4 rounded shadow lg:sticky lg:top-6 lg:min-h-[600px] flex flex-col">
             <h3 className="text-lg font-semibold mb-3">Order summary ({cartCount} items)</h3>
 
-            <div className="space-y-3 max-h-80 flex-grow-[0.3] overflow-auto mb-4">
+            <div className="space-y-3 mb-4 overflow-visible">
               {cart.map((it) => (
-                <div key={it.id + (it.variantId || "")} className="flex items-center gap-3">
-                  <img src={it.image} alt={it.name} className="w-14 h-14 object-cover rounded" />
+                <div key={it.id + (it.variantId || "")} className="flex gap-[2.75rem] items-start">
+                  <img src={it.image} alt={"Image not available"} className="w-14 h-14 object-cover rounded" />
                   <div className="flex-1">
                     <div className="font-medium text-sm">{it.name}</div>
-                    <div className="text-xs text-gray-500">
-                      {it.variantOptions?.option1 ?? ""} {it.variantOptions?.option2 ? ` • ${it.variantOptions.option2}` : ""}
-                    </div>
-                    <div className="text-sm mt-1">{formatCurrency((it.finalPrice ?? it.price) * it.quantity)}</div>
+                   {it.type === "subscription" && (
+  <p className="text-xs font-semibold text-indigo-600 mt-1">
+    Subscription • Every{" "}
+    {it.frequency && !isNaN(Number(it.frequency))
+      ? `${it.frequency} `
+      : ""}
+    {it.frequencyPeriod} • {it.subscriptionTotalCycles} cycles
+  </p>
+)}
+                     <div className="text-xs text-gray-600">Qty: {it.quantity}</div>   {/* ← NEW */}
+                   <div className="text-xs text-gray-500">
+  {it.variantOptions?.option1 ?? ""}
+  {it.variantOptions?.option2 ? ` • ${it.variantOptions.option2}` : ""}
+  {it.variantOptions?.option3 ? ` • ${it.variantOptions.option3}` : ""}
+</div>
+                    <div className="text-sm font-semibold mt-1">{formatCurrency((it.finalPrice ?? it.price) * it.quantity)}</div>
                     {it.discountAmount ? <div className="text-xs text-green-600">Saved £{(it.discountAmount).toFixed(2)}</div> : null}
                   </div>
                 </div>
@@ -896,9 +1033,9 @@ alert("CARD ORDER ID: " + createdOrder?.data?.id);
               {!appliedCoupon ? (
                 <>
                   <label className="text-sm font-semibold mb-2 block">Apply coupon</label>
-                  <div className="flex gap-2">
+                 <div className="flex flex-col sm:flex-row gap-2">
                     <input value={couponInput} onChange={(e)=>setCouponInput(e.target.value)} placeholder="Coupon code" className="flex-1 border p-2 rounded" />
-                    <button onClick={applyCoupon} className="bg-[#445D41] text-white px-3 py-2 rounded">Apply</button>
+                    <button onClick={applyCoupon} className="bg-[#445D41] text-white px-3 py-2 rounded w-full sm:w-auto">Apply</button>
                   </div>
                 </>
               ) : (
@@ -949,11 +1086,26 @@ alert("CARD ORDER ID: " + createdOrder?.data?.id);
                       <StripeWrapper>
                         <div className="space-y-3">
                           <div className="text-sm mb-1">Pay with card</div>
-                          <CheckoutPayment
-                            orderPayload={{ ...orderPayload, orderTotal: cartTotal, customerEmail: billingEmail, customerPhone: `+44${billingPhone}`, billingFirstName, billingLastName,billingCompany, billingAddressLine1: billingAddress1,billingAddressLine2: billingAddress2, billingCity, billingPostalCode, billingCountry }}
-                            onPaymentSuccess={onPaymentSuccess}
-                            onError={onPaymentError}
-                          />
+                         <CheckoutPayment
+  orderPayload={{
+    ...orderPayload,
+    orderTotal: cartTotal,
+    customerEmail: billingEmail,
+    customerPhone: `+44${billingPhone}`,
+    billingFirstName,
+    billingLastName,
+    billingCompany,
+    billingAddressLine1: billingAddress1,
+    billingAddressLine2: billingAddress2,
+    billingCity,
+    billingPostalCode,
+    billingCountry,
+  
+  }}
+  onPaymentSuccess={onPaymentSuccess}
+  onError={onPaymentError}
+/>
+
                           <div className="text-xs text-gray-500">You will be charged securely via Stripe.</div>
                         </div>
                       </StripeWrapper>

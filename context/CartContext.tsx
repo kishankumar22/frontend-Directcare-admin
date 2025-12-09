@@ -23,22 +23,30 @@ export interface CartItem {
 
   sku?: string;
   variantId?: string | null;
+slug?: string;
 
   variantOptions?: {
     option1?: string | null;
     option2?: string | null;
     option3?: string | null;
   };
+   // ⭐ NEW fields
+  type?: "one-time" | "subscription";
+ frequency?: number | string | null;
+  frequencyPeriod?: string | null;
+  subscriptionTotalCycles?: number | null;
 
   // ⭐ FULL PRODUCT DATA REQUIRED FOR CART COUPON LOGIC
   productData?: any; // store product JSON here
-}
+  maxStock?: number;
+  
 
+}
 // ================== CONTEXT TYPE ==================
 interface CartContextType {
   cart: CartItem[];
   addToCart: (item: CartItem) => void;
-  removeFromCart: (id: string) => void;
+   removeFromCart: (id: string, type?: string) => void; // <-- FIXED HERE
   updateQuantity: (id: string, qty: number) => void;
   updateCart: (updatedItems: CartItem[]) => void; // ⭐ NEW
   clearCart: () => void;
@@ -77,44 +85,110 @@ export const CartProvider = ({ children }: { children: React.ReactNode }) => {
 
   // ================== ADD TO CART ==================
   const addToCart = (item: CartItem) => {
-    setCart((prev) => {
-      const existing = prev.find(
+  setCart((prev) => {
+
+    // ===================== SUBSCRIPTION MERGE LOGIC =====================
+    if (item.type === "subscription") {
+      const existingSub = prev.find(
         (p) =>
-          p.id === item.id && // same product or variant
-          p.variantId === item.variantId
+          p.productId === item.productId &&
+          p.variantId === item.variantId &&
+          p.type === "subscription"
       );
 
-      if (existing) {
+      if (existingSub) {
         return prev.map((p) =>
-          p.id === item.id && p.variantId === item.variantId
-            ? { ...p, quantity: p.quantity + item.quantity }
+          p.productId === item.productId &&
+          p.variantId === item.variantId &&
+          p.type === "subscription"
+            ? {
+                ...p,
+                quantity: item.quantity, // update quantity
+                frequency: item.frequency,
+                frequencyPeriod: item.frequencyPeriod,
+                subscriptionTotalCycles: item.subscriptionTotalCycles,
+              }
             : p
         );
       }
+    }
 
-      return [
-        ...prev,
-        {
-          ...item,
-          priceBeforeDiscount: item.priceBeforeDiscount ?? item.price, // essential
-          finalPrice: item.finalPrice ?? item.price, // default
-          discountAmount: item.discountAmount ?? 0,
-        },
-      ];
-    });
-  };
+    // ===================== NORMAL PRODUCT MERGE LOGIC =====================
+    const existing = prev.find(
+      (p) =>
+        p.id === item.id &&
+        (p.variantId ?? "") === (item.variantId ?? "") &&
+        (p.type ?? "one-time") === (item.type ?? "one-time")
+    );
+
+    if (existing) {
+      return prev.map((p) =>
+        p.id === item.id &&
+        (p.variantId ?? "") === (item.variantId ?? "") &&
+        (p.type ?? "one-time") === (item.type ?? "one-time")
+          ? { ...p, quantity: p.quantity + item.quantity }
+          : p
+      );
+    }
+
+    // ===================== ADD NEW ITEM =====================
+    return [
+      ...prev,
+      {
+        ...item,
+        priceBeforeDiscount: item.priceBeforeDiscount ?? item.price,
+        finalPrice: item.finalPrice ?? item.price,
+        discountAmount: item.discountAmount ?? 0,
+        type: item.type ?? "one-time",
+      },
+    ];
+  });
+};
+
 
   // ================== REMOVE ITEM ==================
-  const removeFromCart = (id: string) => {
-    setCart((prev) => prev.filter((p) => p.id !== id));
-  };
+  const removeFromCart = (id: string, type?: string) => {
+  setCart((prev) => prev.filter((p) => !(p.id === id && p.type === type)));
+};
+
 
   // ================== UPDATE QUANTITY ==================
-  const updateQuantity = (id: string, qty: number) => {
-    setCart((prev) =>
-      prev.map((p) => (p.id === id ? { ...p, quantity: qty } : p))
-    );
-  };
+  // ================== UPDATE QUANTITY (FINAL PERFECT VERSION) ==================
+// ================== UPDATE QUANTITY (FINAL PERFECT VERSION) ==================
+const updateQuantity = (id: string, qty: number) => {
+  setCart((prev) =>
+    prev.map((p) => {
+      if (p.id !== id) return p;
+
+      const product = p.productData;
+      const variantStock = p.variantId
+        ? product?.variants?.find((v: any) => v.id === p.variantId)?.stockQuantity
+        : product?.stockQuantity;
+
+    const maxStock =
+  p.maxStock ??
+  variantStock ??
+  product?.stockQuantity ??
+  9999;
+
+
+
+
+      // 🔥 Allow qty === 0 (typing ke time)
+      if (qty === 0) {
+        return { ...p, quantity: 0 };
+      }
+
+      // 🔥 Only fix on exceeding user input
+      if (qty > maxStock) {
+        return { ...p, quantity: maxStock };
+      }
+
+      return { ...p, quantity: qty };
+    })
+  );
+};
+
 
   // ================== UPDATE CART (COUPON APPLY) ==================
   const updateCart = (updatedItems: CartItem[]) => {
