@@ -963,7 +963,7 @@ export default function SubscriptionsPage() {
                     setCancellingSubscription(null);
                     setCancelReason("");
                   }}
-                  className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-all"
+                  className="p-2 text-slate-400 hover:text-white hover:bg-red-600 rounded-lg transition-all"
                 >
                   <X className="h-5 w-5" />
                 </button>
@@ -1044,7 +1044,7 @@ export default function SubscriptionsPage() {
                   </div>
                   <button
                     onClick={() => setViewingSubscription(null)}
-                    className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-all"
+                    className="p-2 text-slate-400 hover:text-white hover:bg-red-600 rounded-lg transition-all"
                   >
                     <X className="h-5 w-5" />
                   </button>

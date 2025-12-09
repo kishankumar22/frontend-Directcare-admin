@@ -793,7 +793,7 @@ const getDateRangeLabel = () => {
                   setPostFilter("all");
                   setPostSearchTerm("");
                 }}
-                className="absolute right-3 top-1/2 -translate-y-1/2 p-1 hover:bg-slate-700 rounded transition-all"
+                className="absolute right-3 top-1/2 -translate-y-1/2 p-1 hover:bg-red-700 rounded transition-all"
               >
                 <X className="h-3.5 w-3.5 text-slate-400 hover:text-white" />
               </button>
@@ -1301,7 +1301,7 @@ const getDateRangeLabel = () => {
                       setReplyingTo(null);
                       setReplyText("");
                     }}
-                    className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-all"
+                    className="p-2 text-slate-400 hover:text-white hover:bg-red-600 rounded-lg transition-all"
                   >
                     <X className="h-5 w-5" />
                   </button>
@@ -1341,7 +1341,7 @@ const getDateRangeLabel = () => {
                 <button
                   onClick={handleReply}
                   disabled={!replyText.trim() || actionLoading === replyingTo.id}
-                  className="px-4 py-2 bg-gradient-to-r from-blue-600 to-cyan-600 text-white rounded-lg hover:shadow-lg hover:shadow-blue-500/50 transition-all font-medium text-sm disabled:opacity-50 flex items-center gap-2"
+                  className="px-4 py-2 bg-gradient-to-r from-blue-600 to-cyan-600 text-white rounded-lg hover:shadow-lg  hover:shadow-blue-500/50 transition-all font-medium text-sm disabled:opacity-50 flex items-center gap-2"
                 >
                   {actionLoading === replyingTo.id ? (
                     <>
@@ -1374,7 +1374,7 @@ const getDateRangeLabel = () => {
                   </div>
                   <button
                     onClick={() => setViewingComment(null)}
-                    className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-all"
+                    className="p-2 text-slate-400 hover:text-white hover:bg-red-600 rounded-lg transition-all"
                   >
                     <X className="h-5 w-5" />
                   </button>

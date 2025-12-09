@@ -864,7 +864,7 @@ const handleUpdate = async (e: React.FormEvent) => {
                 <button
                   onClick={() => { setShowCreateModal(false); setEditingRate(null); resetForm(); }}
                   disabled={isSubmitting}
-                  className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-all disabled:opacity-50"
+                  className="p-2 text-slate-400 hover:text-white hover:bg-red-600 rounded-lg transition-all disabled:opacity-50"
                 >
                   <X className="w-5 h-5" />
                 </button>
@@ -1141,7 +1141,7 @@ const handleUpdate = async (e: React.FormEvent) => {
                 </div>
                 <button
                   onClick={() => setViewingRate(null)}
-                  className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-all"
+                  className="p-2 text-slate-400 hover:text-white hover:bg-red-600 rounded-lg transition-all"
                 >
                   <X className="w-5 h-5" />
                 </button>

@@ -1150,7 +1150,7 @@ const getFlattenedCategories = () => {
                 </div>
                 <button
                   onClick={() => setViewingBlogCategory(null)}
-                  className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-all flex-shrink-0"
+                  className="p-2 text-slate-400 hover:text-white hover:bg-red-600 rounded-lg transition-all flex-shrink-0"
                 >
                   <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -1319,7 +1319,7 @@ const getFlattenedCategories = () => {
                     setShowModal(false);
                     resetForm();
                   }}
-                  className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-all"
+                  className="p-2 text-slate-400 hover:text-white hover:bg-red-600 rounded-lg transition-all"
                 >
                   <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />

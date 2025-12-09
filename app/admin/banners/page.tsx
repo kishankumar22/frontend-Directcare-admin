@@ -704,7 +704,7 @@ const handleDelete = async (id: string) => {
                     setShowModal(false);
                     resetForm();
                   }}
-                  className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-all"
+                  className="p-2 text-slate-400 hover:text-white hover:bg-red-600 rounded-lg transition-all"
                 >
                   ✕
                 </button>
@@ -996,7 +996,7 @@ const handleDelete = async (id: string) => {
                 </div>
                 <button
                   onClick={() => setViewingBanner(null)}
-                  className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-all"
+                  className="p-2 text-slate-400 hover:text-white hover:bg-red-600 rounded-lg transition-all"
                 >
                   ✕
                 </button>
@@ -1120,7 +1120,7 @@ const handleDelete = async (id: string) => {
                 </button>
                 <button
                   onClick={() => setViewingBanner(null)}
-                  className="px-4 py-2 bg-slate-800 text-white rounded-lg hover:bg-slate-700 transition-all font-medium text-sm"
+                  className="px-4 py-2 bg-slate-800 text-white rounded-lg hover:bg-red-600 transition-all font-medium text-sm"
                 >
                   Close
                 </button>

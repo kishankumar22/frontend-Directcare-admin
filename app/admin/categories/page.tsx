@@ -1077,7 +1077,7 @@ export default function CategoriesPage() {
                     setShowModal(false);
                     resetForm();
                   }}
-                  className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-all"
+                  className="p-2 text-slate-400 hover:text-white focus:ring-4 focus:ring-red-300 outline-none border hover:bg-red-700 rounded-lg transition-all"
                 >
                   ✕
                 </button>
@@ -1453,7 +1453,7 @@ export default function CategoriesPage() {
                 </div>
                 <button
                   onClick={() => setViewingCategory(null)}
-                  className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-all"
+                  className="p-2 text-slate-400 hover:text-white hover:bg-red-600 rounded-lg transition-all"
                 >
                   ✕
                 </button>

@@ -7,21 +7,7 @@ import { useToast } from "@/components/CustomToast";
 import { API_BASE_URL, API_ENDPOINTS } from "@/lib/api-config";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import { apiClient } from "@/lib/api";
-
-interface ProductImage {
-  id: string;
-  imageUrl: string;
-  altText: string;
-  sortOrder: number;
-  isMain: boolean;
-}
-interface ProductAttribute {
-  id: string;
-  name: string;
-  value: string;
-  displayName: string;
-  sortOrder: number;
-}
+import { Category, ProductAttribute, ProductImage, RelatedProduct } from "@/lib/services";
 
 interface ProductVariant {
   id: string;
@@ -38,20 +24,8 @@ interface ProductVariant {
   isDefault: boolean;
 }
 
-interface SpecificationAttribute {
-  id: string;
-  name: string;
-  value: string;
-  displayOrder: number;
-}
 
-interface RelatedProduct {
-  id: string;
-  name: string;
-  price: number;
-  image?: string;
-  sku: string;
-}
+
 
 interface Product {
   id: string;
@@ -142,11 +116,6 @@ interface Product {
   crossSellProducts?: RelatedProduct[];
 }
 
-interface Category {
-  id: string;
-  name: string;
-  productCount: number;
-}
 
 export default function ProductsPage() {
   const toast = useToast();
@@ -600,38 +569,6 @@ const handleDelete = async (id: string) => {
   }), [products]);
 
 
-// ✅ SUPER ROBUST: Parse specification attributes with case-insensitive handling
-const parseSpecifications = (specString: string | undefined): SpecificationAttribute[] => {
-  if (!specString || specString.trim() === '' || specString === '[]') {
-    return [];
-  }
-  
-  try {
-    // Parse the JSON string
-    const parsed = JSON.parse(specString);
-    
-    // Handle if it's not an array
-    if (!Array.isArray(parsed)) {
-      console.warn('Specifications is not an array:', parsed);
-      return [];
-    }
-    
-    // Map with case-insensitive property access
-    return parsed
-      .filter((spec: any) => spec && typeof spec === 'object') // Filter out invalid entries
-      .map((spec: any) => ({
-        id: spec.Id || spec.id || spec.ID || '',
-        name: spec.Name || spec.name || spec.NAME || '',
-        value: spec.Value || spec.value || spec.VALUE || '',
-        displayOrder: spec.DisplayOrder || spec.displayOrder || spec.display_order || 0
-      }))
-      .filter((spec) => spec.name && spec.value); // Only include valid specs with name and value
-    
-  } catch (error) {
-    console.error('Error parsing specifications:', error, 'Input:', specString);
-    return [];
-  }
-};
 
 
 
@@ -1220,7 +1157,7 @@ const parseSpecifications = (specString: string | undefined): SpecificationAttri
           </div>
           <button
             onClick={() => setViewingProduct(null)}
-            className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-all"
+            className="p-2 text-slate-400 hover:text-white hover:bg-red-800 rounded-lg transition-all"
           >
             <X className="h-5 w-5" />
           </button>
@@ -1599,62 +1536,7 @@ const parseSpecifications = (specString: string | undefined): SpecificationAttri
             </div>
           )}
 
-          {/* Specification Attributes */}
-{/* Specification Attributes - ✅ ENHANCED WITH DEFAULT MESSAGE */}
-{/* Specification Attributes - ✅ FIXED WITH CASE HANDLING */}
-<div className="bg-slate-800/30 rounded-xl p-6 border border-slate-700 hover:border-teal-500/50 hover:bg-slate-800/40 transition-all group">
-  <h4 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
-    <Info className="w-5 h-5 text-teal-400 group-hover:scale-110 group-hover:rotate-12 transition-all" />
-    Specifications
-    {viewingProduct.specificationAttributes && parseSpecifications(viewingProduct.specificationAttributes).length > 0 && (
-      <span className="text-xs text-slate-500 ml-1">
-        ({parseSpecifications(viewingProduct.specificationAttributes).length})
-      </span>
-    )}
-  </h4>
-  
-  {/* Check if specifications exist */}
-  {(() => {
-    const specs = parseSpecifications(viewingProduct.specificationAttributes);
-    
-    if (!specs || specs.length === 0) {
-      return (
-        <div className="text-center py-8">
-          <div className="w-16 h-16 rounded-full bg-teal-500/10 flex items-center justify-center mx-auto mb-4">
-            <Info className="w-8 h-8 text-teal-400/50" />
-          </div>
-          <p className="text-slate-500 text-sm font-medium mb-1">No specifications available</p>
-          <p className="text-slate-600 text-xs">Product specifications have not been configured yet</p>
-        </div>
-      );
-    }
-    
-    return (
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        {specs
-          .sort((a, b) => (a.displayOrder || 0) - (b.displayOrder || 0))
-          .map((spec, idx) => (
-            <div 
-              key={spec.id || `spec-${idx}-${spec.name}`} 
-              className="flex justify-between items-center p-3 bg-slate-900/50 rounded-lg border border-slate-700/50 hover:border-teal-500/50 hover:bg-slate-800/70 hover:scale-[1.02] transition-all group/spec cursor-pointer"
-            >
-              <div className="flex items-center gap-2 flex-1 min-w-0">
-                <div className="w-6 h-6 bg-teal-500/20 rounded flex items-center justify-center flex-shrink-0 group-hover/spec:bg-teal-500/30 transition-all">
-                  <span className="text-xs text-teal-400 font-bold">{spec.displayOrder || '0'}</span>
-                </div>
-                <span className="text-slate-400 text-sm group-hover/spec:text-slate-300 transition-colors font-medium truncate">
-                  {spec.name}
-                </span>
-              </div>
-              <span className="text-white font-semibold text-sm group-hover/spec:text-teal-400 transition-colors ml-3">
-                {spec.value}
-              </span>
-            </div>
-          ))}
-      </div>
-    );
-  })()}
-</div>
+
 
 
           {/* Product Attributes */}

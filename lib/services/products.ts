@@ -5,38 +5,126 @@ import { API_ENDPOINTS } from '../api-config';
 // ==========================================
 // INTERFACES
 // ==========================================
-
-export interface ProductImage {
+export interface Category {
   id: string;
-  imageUrl: string;
-  altText: string;
-  sortOrder: number;
-  isMain: boolean;
+  name: string;
+  productCount: number;
 }
 
+ export interface ProductImage {
+  id: string;
+  imageUrl: string;  // This should be 'imageUrl', not 'url'
+  altText: string;
+  sortOrder: number;  // This should be 'sortOrder', not 'displayOrder'
+  isMain: boolean;
+  fileName?: string;
+  fileSize?: number;
+  file?: File; // For storing actual file during upload
+}
 export interface ProductAttribute {
   id: string;
   name: string;
   value: string;
-  displayName: string;
-  sortOrder: number;
+  displayOrder: number;
+  sortOrder?:number
+  displayName?:string
 }
 
+// ===== ADD THESE INTERFACES =====
+export interface VATRateData {
+  id: string;
+  name: string;
+  rate: number;
+  isActive?: boolean;
+  displayOrder?: number;
+}
+
+ export interface VATRateApiResponse {
+  success: boolean;
+  message: string;
+  data: VATRateData[];
+  errors: null;
+}
 export interface ProductVariant {
   id: string;
   name: string;
   sku: string;
-  price: number;
-  compareAtPrice?: number;
-  weight?: number;
+  price: number | null;
+  compareAtPrice: number | null;
+  weight: number | null;
   stockQuantity: number;
-  option1?: string;
-  option2?: string;
-  option3?: string;
-  imageUrl?: string;
+  trackInventory: boolean;
+  option1Name: string | null;
+  option1Value: string | null;
+  option2Name: string | null;
+  option2Value: string | null;
+  option3Name?: string | null;
+  option3Value?: string | null;
+  imageUrl: string | null;
   isDefault: boolean;
+  displayOrder: number;
+  isActive: boolean;
+  imageFile?: File; // For storing the actual file
+}
+export interface ProductsApiResponse {
+  success: boolean;
+  message: string;
+  data: {
+    items: ProductItem[];
+    totalCount: number;
+    page: number;
+    pageSize: number;
+    totalPages: number;
+    hasPrevious: boolean;
+    hasNext: boolean;
+  };
+  errors: null;
 }
 
+export interface CategoryApiResponse {
+  success: boolean;
+  message: string;
+  data: CategoryData[];
+  errors: null;
+}
+
+export interface RelatedProduct {
+  id: string;
+  name: string;
+  price: number;
+  image?: string;
+  sku: string;
+}
+
+// ✅ Update DropdownsData interface
+export interface DropdownsData {
+  brands: BrandData[];
+  categories: CategoryData[];
+  vatRates: VATRateData[];  // ✅ Add this
+}
+
+export interface ProductItem {
+  id: string;
+  name: string;
+  sku: string;
+  price: number;
+  oldPrice?: number;
+  description?: string;
+  shortDescription?: string;
+}
+
+ export interface CategoryData {
+  id: string;
+  name: string;
+  description?: string;
+  slug?: string;
+  imageUrl?: string;
+  isActive?: boolean;
+  sortOrder?: number;
+  parentCategoryId?: string | null;
+  parentCategoryName?: string | null;
+  subCategories?: CategoryData[];
+}
 export interface Product {
   id: string;
   name: string;
@@ -142,6 +230,36 @@ export interface Product {
   images?: ProductImage[];
   attributes?: ProductAttribute[];
   variants?: ProductVariant[];
+ 
+  // Populated related products
+  relatedProducts?: RelatedProduct[];
+  crossSellProducts?: RelatedProduct[];
+}
+// API response interfaces को properly define करें
+export interface BrandApiResponse {
+  success: boolean;
+  message: string;
+  data: BrandData[];
+  errors: null;
+}
+export interface BrandData {
+  id: string;
+  name: string;
+  description?: string;
+  slug?: string;
+  logoUrl?: string;
+  isPublished?: boolean;
+  showOnHomepage?: boolean;
+  displayOrder?: number;
+}
+
+
+export interface SimpleProduct {
+  id: string;
+  name: string;
+  sku: string;
+  price: number;
+  stockQuantity: number;
 }
 
 export interface CreateProductDto {

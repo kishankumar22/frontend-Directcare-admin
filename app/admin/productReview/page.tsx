@@ -1609,7 +1609,7 @@ const handleExportReviews = (type: string) => {
                       setReplyingTo(null);
                       setReplyText("");
                     }}
-                    className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-all"
+                    className="p-2 text-slate-400 hover:text-white hover:bg-red-600 rounded-lg transition-all"
                   >
                     <X className="h-5 w-5" />
                   </button>
@@ -1691,7 +1691,7 @@ const handleExportReviews = (type: string) => {
                   </div>
                   <button
                     onClick={() => setViewingReview(null)}
-                    className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-all"
+                    className="p-2 text-slate-400 hover:text-white hover:bg-red-600 rounded-lg transition-all"
                   >
                     <X className="h-5 w-5" />
                   </button>

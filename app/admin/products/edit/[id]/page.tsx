@@ -18,160 +18,10 @@ import { ProductDescriptionEditor } from "@/app/admin/products/SelfHostedEditor"
 import  {useToast } from "@/components/CustomToast";
 import { API_BASE_URL, API_ENDPOINTS } from "@/lib/api-config";
 import { cn } from "@/lib/utils";
+import { ProductAttribute, ProductVariant, DropdownsData, SimpleProduct, ProductImage, CategoryData, BrandApiResponse, CategoryApiResponse, ProductsApiResponse, VATRateApiResponse } from '@/lib/services';
 
 
-// Dynamic API response interfaces
-interface BrandData {
-  id: string;
-  name: string;
-  description?: string;
-  slug?: string;
-  logoUrl?: string;
-  isPublished?: boolean;
-  showOnHomepage?: boolean;
-  displayOrder?: number;
-}
-interface SimpleProduct {
-  id: string;
-  name: string;
-  sku: string;
-  price: number;
-  stockQuantity: number;
-}
-interface CategoryData {
-  id: string;
-  name: string;
-  description?: string;
-  slug?: string;
-  imageUrl?: string;
-  isActive?: boolean;
-  sortOrder?: number;
-  parentCategoryId?: string | null;
-  parentCategoryName?: string | null;
-  subCategories?: CategoryData[];
-}
 
-// Product Variant interface matching backend ProductVariantDto/CreateDto
-// ✅ UPDATED: ProductVariant interface matching API response
-interface ProductVariant {
-  id: string;
-  name: string;
-  sku: string;
-  price: number | null;
-  compareAtPrice: number | null;
-  weight: number | null;
-  stockQuantity: number;
-  trackInventory: boolean;
-  option1Name: string | null;
-  option1Value: string | null;
-  option2Name: string | null;
-  option2Value: string | null;
-  option3Name?: string | null;
-  option3Value?: string | null;
-  imageUrl: string | null;
-  isDefault: boolean;
-  displayOrder: number;
-  isActive: boolean;
-  imageFile?: File;
-}
-
-// Product Attribute interface matching backend ProductAttributeDto/CreateDto
-interface ProductAttribute {
-  id: string;
-  name: string;
-  value: string;
-  displayOrder: number;
-}
-interface BrandApiResponse {
-  success: boolean;
-  message: string;
-  data: BrandData[];
-  errors: null;
-}
-
-interface CategoryApiResponse {
-  success: boolean;
-  message: string;
-  data: CategoryData[];
-  errors: null;
-}
-
-// ===== ADD THESE INTERFACES AT THE TOP (after existing interfaces) =====
-
-// VAT Rate Interface
-interface VATRateData {
-  id: string;
-  name: string;
-  rate: number;
-  isActive?: boolean;
-  displayOrder?: number;
-}
-
-// VAT Rate API Response
-interface VATRateApiResponse {
-  success: boolean;
-  message: string;
-  data: VATRateData[];
-  errors: null;
-}
-
-// ✅ UPDATED: DropdownsData Interface
-interface DropdownsData {
-  brands: BrandData[];
-  categories: CategoryData[];
-  vatRates: VATRateData[];  // ✅ Add this line
-}
-
-
-// ✅ Add these interfaces after existing ones
-interface ProductApiImage {
-  id: string;
-  imageUrl: string;
-  altText: string;
-  sortOrder: number;
-  isMain: boolean;
-}
-
-interface ProductImage {
-  id: string;
-  imageUrl: string;  // Change from 'url' to 'imageUrl'
-  altText: string;
-  sortOrder: number; // Change from 'displayOrder' to 'sortOrder'  
-  isMain: boolean;
-  fileName?: string;
-  fileSize?: number;
-  file?: File;
-}
-interface ProductItem {
-  id: string;
-  name: string;
-  sku: string;
-  price: number;
-  oldPrice?: number;
-  description?: string;
-  shortDescription?: string;
-}
-
-interface ProductsApiResponse {
-  success: boolean;
-  message: string;
-  data: {
-    items: ProductItem[];
-    totalCount: number;
-    page: number;
-    pageSize: number;
-    totalPages: number;
-    hasPrevious: boolean;
-    hasNext: boolean;
-  };
-  errors: null;
-}
-
-interface DropdownsData {
-  brands: BrandData[];
-  categories: CategoryData[];
- 
-}
 
 export default function EditProductPage({ params }: { params: Promise<{ id: string }> }) {
   const router = useRouter();
@@ -1660,7 +1510,7 @@ const removeImage = async (imageId: string) => {
   }
 };
 // ✅ ADD this new function:
-const uploadImagesToProductDirect = async (productId: string, files: File[]): Promise<ProductApiImage[]> => {
+const uploadImagesToProductDirect = async (productId: string, files: File[]): Promise<ProductImage[]> => {
   const uploadPromises = files.map(async (file, index) => {
     try {
       const uploadFormData = new FormData();

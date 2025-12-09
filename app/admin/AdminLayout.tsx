@@ -41,6 +41,7 @@ import {
   Clock,
   LockKeyhole,
   User,
+  Mail,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTheme } from "@/context/theme-provider";
@@ -90,6 +91,7 @@ const navigation: NavigationItem[] = [
       { name: 'Discounts', href: '/admin/discounts', icon: Percent },
       { name: 'Subscriptions', href: '/admin/subscriptions', icon: PackageOpen },
       { name: 'VAT Rates', href: '/admin/vatRates', icon: Receipt },
+      {name: "NewsLetter", href: "/admin/newsletter", icon: Mail }
     ],
   },  
   {

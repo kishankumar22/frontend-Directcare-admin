@@ -1055,7 +1055,7 @@ export default function DiscountsPage() {
                     setShowModal(false);
                     resetForm();
                   }}
-                  className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-all"
+                  className="p-2 text-slate-400 hover:text-white hover:bg-red-600 rounded-lg transition-all"
                 >
                   ✕
                 </button>
@@ -1490,7 +1490,7 @@ export default function DiscountsPage() {
                 </div>
                 <button
                   onClick={() => setViewingDiscount(null)}
-                  className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-all"
+                  className="p-2 text-slate-400 hover:text-white hover:bg-red-600 rounded-lg transition-all"
                 >
                   ✕
                 </button>
@@ -1706,7 +1706,7 @@ export default function DiscountsPage() {
                     setUsageHistory([]);
                     clearDateFilters();
                   }}
-                  className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-all"
+                  className="p-2 text-slate-400 hover:text-white hover:bg-red-600 rounded-lg transition-all"
                 >
                   ✕
                 </button>

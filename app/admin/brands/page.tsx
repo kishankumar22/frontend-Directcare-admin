@@ -809,7 +809,7 @@ if (formData.metaKeywords && !/^([a-zA-Z0-9\s]+)(\s*,\s*[a-zA-Z0-9\s]+)*$/.test(
                     setShowModal(false);
                     resetForm();
                   }}
-                  className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-all"
+                  className="p-2 text-slate-400 hover:text-white hover:bg-red-800 rounded-lg transition-all"
                 >
                   ✕
                 </button>
@@ -1134,7 +1134,7 @@ if (formData.metaKeywords && !/^([a-zA-Z0-9\s]+)(\s*,\s*[a-zA-Z0-9\s]+)*$/.test(
                 </div>
                 <button
                   onClick={() => setViewingBrand(null)}
-                  className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-all"
+                  className="p-2 text-slate-400 hover:text-white hover:bg-red-800 rounded-lg transition-all"
                 >
                   ✕
                 </button>
