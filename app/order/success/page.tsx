@@ -4,13 +4,12 @@ import { useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useAuth } from "@/context/AuthContext";
+import { useCart } from "@/context/CartContext";
 
 
 function formatCurrency(n = 0) {
   return `£${n.toFixed(2)}`;
 }
-  
-
 
 export default function OrderSuccessPage() {
   const searchParams = useSearchParams();
@@ -19,7 +18,10 @@ export default function OrderSuccessPage() {
   const [order, setOrder] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const { accessToken, isAuthenticated } = useAuth();
-
+const { clearCart } = useCart();
+useEffect(() => {
+  if (order) clearCart();
+}, [order]);
 
   useEffect(() => {
     if (!orderId) {
@@ -139,6 +141,59 @@ export default function OrderSuccessPage() {
             </div>
           </div>
         </section>
+        {/* DELIVERY INFO / CLICK & COLLECT BLOCK */}
+<section className="mb-8">
+  <h2 className="text-lg font-semibold mb-2">Delivery Details</h2>
+
+  <div className="border p-4 rounded bg-gray-50 space-y-2">
+    <div className="flex justify-between">
+      <span>Delivery Method:</span>
+      <span className="font-medium">{order.deliveryMethod}</span>
+    </div>
+
+    {order.deliveryMethod === "ClickAndCollect" && (
+      <>
+        <div className="flex justify-between">
+          <span>Collection Status:</span>
+          <span className="font-medium">{order.collectionStatus}</span>
+        </div>
+
+        {order.collectionExpiryDate && (
+          <div className="flex justify-between">
+            <span>Collect Before:</span>
+            <span className="font-medium">
+              {new Date(order.collectionExpiryDate).toLocaleString()}
+            </span>
+          </div>
+        )}
+
+        {order.readyForCollectionAt && (
+          <div className="flex justify-between">
+            <span>Ready For Collection At:</span>
+            <span>{new Date(order.readyForCollectionAt).toLocaleString()}</span>
+          </div>
+        )}
+
+        {order.collectedAt && (
+          <div className="flex justify-between">
+            <span>Collected At:</span>
+            <span>{new Date(order.collectedAt).toLocaleString()}</span>
+          </div>
+        )}
+
+        <div className="flex justify-between">
+          <span>Click & Collect Fee:</span>
+          <span className="font-medium">{formatCurrency(order.clickAndCollectFee)}</span>
+        </div>
+
+        <div className="text-sm text-gray-600 mt-3">
+          You will receive an email when your order is ready for pickup.
+        </div>
+      </>
+    )}
+  </div>
+</section>
+
 
         {/* PAYMENT DETAILS */}
         {payment && (
@@ -199,6 +254,12 @@ export default function OrderSuccessPage() {
               <span>Shipping:</span>
               <span>{formatCurrency(order.shippingAmount)}</span>
             </div>
+            {order.deliveryMethod === "ClickAndCollect" && (
+  <div className="flex justify-between">
+    <span>Click & Collect Fee:</span>
+    <span>{formatCurrency(order.clickAndCollectFee)}</span>
+  </div>
+)}
             <div className="flex justify-between">
               <span>Discount:</span>
               <span>-{formatCurrency(order.discountAmount)}</span>

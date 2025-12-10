@@ -82,72 +82,13 @@
   background: rgba(100, 116, 139, 0.5);
 }
 
-@keyframes bounce-subtle {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-3px); }
+/* Remove number input arrows */
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
 }
 
-.animate-bounce-subtle {
-  animation: bounce-subtle 2s ease-in-out infinite;
-}
-
-/* Smooth scrollbar for toast container */
-.toast-container::-webkit-scrollbar {
-  width: 0;
-  display: none;
-}
-/* Ultra-smooth animations with GPU acceleration */
-@keyframes slideProgress {
-  from { transform: translateX(-100%) translateZ(0); }
-  to { transform: translateX(0) translateZ(0); }
-}
-
-.toast-progress {
-  will-change: width;
-  backface-visibility: hidden;
-  -webkit-backface-visibility: hidden;
-  transform: translateZ(0);
-  -webkit-transform: translateZ(0);
-}
-
-/* Smooth toast appearance */
-@keyframes toastSlideIn {
-  from {
-    transform: translateY(-10px) translateZ(0);
-    opacity: 0;
-  }
-  to {
-    transform: translateY(0) translateZ(0);
-    opacity: 1;
-  }
-}
-
-/* Remove jank from animations */
-* {
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-}
-
-
-/* globals.css mein add karo */
-
-/* Date Input Calendar Icon White */
-input[type="date"]::-webkit-calendar-picker-indicator {
-  filter: invert(1);
-  cursor: pointer;
-}
-
-/* Firefox ke liye */
-input[type="date"]::-moz-calendar-picker-indicator {
-  filter: invert(1);
-  cursor: pointer;
-}
-
-/* Hover effect */
-input[type="date"]:hover::-webkit-calendar-picker-indicator {
-  filter: invert(1) brightness(1.2);
-}
-
-input[type="date"]:hover::-moz-calendar-picker-indicator {
-  filter: invert(1) brightness(1.2);
+input[type="number"] {
+  -moz-appearance: textfield; /* Firefox */
 }

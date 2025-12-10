@@ -6,6 +6,7 @@ import ConditionalLayout from "./ConditionalLayout";
 import { CartProvider } from "@/context/CartContext";  // <-- IMPORT THIS
 import { AuthProvider } from "@/context/AuthContext";
 
+
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
@@ -45,13 +46,13 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     <html lang="en" suppressHydrationWarning>
       <body className={inter.className} suppressHydrationWarning>
         <ToastProvider>
-          <AuthProvider>
-          <CartProvider>            
+           <AuthProvider>                       {/* ⬅ WRAPPED HERE */}
+          <CartProvider>                {/* ✅ FIX */}
             <ConditionalLayout categories={categories}>
               {children}
             </ConditionalLayout>
           </CartProvider>
-          </AuthProvider>
+           </AuthProvider>                       {/* ⬅ WRAPPED HERE */}
         </ToastProvider>
       </body>
     </html>

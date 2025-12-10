@@ -6,6 +6,8 @@ import HomeBannerSlider from "@/components/HomeBannerSlider";
 import FeaturedProductsSlider from "@/components/FeaturedProductsSlider";
 import TopBrandsSlider from "@/components/TopBrandsSlider";
 import CategorySlider from "@/components/CategorySlider";
+import NewsletterWrapper from "@/components/NewsletterWrapper";
+
 import {
   ShoppingCart,
   Star,
@@ -25,7 +27,26 @@ const features = [
 ];
 
 // ✅ Types
+interface Product {
+  id: string;
+  name: string;
+  slug: string; // ✅ IMPORTANT: Need slug for routing
+  price: number;
+  oldPrice?: number | null;
+  averageRating?: number;
+  reviewCount?: number;
+  images?: { imageUrl: string }[];
+}
 
+interface Category {
+  id: string;
+  name: string;
+  slug: string;
+  imageUrl: string;
+  productCount: number;
+  sortOrder: number;
+  subCategories?: Category[];
+}
 
 interface Brand {
   id: string;
@@ -117,6 +138,9 @@ export default async function Home() {
   ]);
 
  return (
+  <>
+    {/* 🔥 Newsletter Popup (client side) */}
+    <NewsletterWrapper />
   <div className="min-h-screen bg-gradient-to-b from-white to-gray-50 overflow-x-hidden">
 
     {/* ===== HERO SLIDER ===== */}
@@ -146,7 +170,7 @@ export default async function Home() {
     </section>
 
     {/* ===== PROMO BANNER ===== */}
-  {/* <section className="w-full py-8 bg-white">
+  <section className="w-full py-8 bg-white">
   <Link href="/offers/daily-nutrition">
     <img
       src="/offer/Brand-Offer.png"
@@ -154,7 +178,7 @@ export default async function Home() {
       className="w-full h-auto object-cover block cursor-pointer"
     />
   </Link>
-</section> */}
+</section>
 
     {/* ===== FEATURED PRODUCTS ===== */}
     <section className="w-full bg-gray-50 py-8">
@@ -163,41 +187,23 @@ export default async function Home() {
       </div>
     </section>
 
-    {/* ===== TOP BRANDS ===== */}
-    <section className="w-full bg-gray-100 py-8">
-      <div className="max-w-7xl mx-auto px-4">
-        <div className="text-center mb-6 md:mb-8">
-          <h2 className="text-2xl md:text-3xl font-bold mb-1">Top Brands</h2>
-          <p className="text-gray-600 text-sm md:text-base">Explore popular brands you can trust</p>
-        </div>
+   {/* ===== TOP BRANDS ===== */}
+<section className="w-full bg-gray-100 py-10">
+  <div className="max-w-7xl mx-auto px-4">
+    <div className="text-center mb-8">
+      <h2 className="text-2xl md:text-3xl font-bold mb-1">Top Brands</h2>
+      <p className="text-gray-600 text-sm md:text-base">
+        Explore popular brands you can trust
+      </p>
+    </div>
 
-        {brands.length === 0 ? (
-          <p className="text-center text-gray-500">No brands available.</p>
-        ) : (
-          <>
-            <div className="hidden md:grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-8">
-              {brands.map((brand: Brand) => (
-                <Link key={brand.id} href={`/brand/${brand.slug}`}>
-                  <Card className="group p-4 text-center rounded-2xl border-4 transition-all duration-300 hover:-translate-y-1 ">
-                    <div className="w-32 h-36 mx-auto flex items-center justify-center transition-all duration-300 ">
-                      <img
-                        src={brand.logoUrl.startsWith("http") ? brand.logoUrl : `${baseUrl}${brand.logoUrl}`}
-                        alt={brand.name}
-                        className="w-32 h-36 object-contain transition-transform duration-300 group-hover:scale-110"
-                      />
-                    </div>
-                    <h3 className="font-semibold text-sm text-gray-800 group-hover:text-[#445D41] transition-colors duration-300">
-                      {brand.name}
-                    </h3>
-                  </Card>
-                </Link>
-              ))}
-            </div>
-            <TopBrandsSlider brands={brands} baseUrl={baseUrl} />
-          </>
-        )}
-      </div>
-    </section>
+    {brands.length === 0 ? (
+      <p className="text-center text-gray-500">No brands available.</p>
+    ) : (
+      <TopBrandsSlider brands={brands} baseUrl={baseUrl} />
+    )}
+  </div>
+</section>
 
     {/* ===== CATEGORIES ===== */}
     <section className="w-full bg-white py-8">
@@ -220,6 +226,7 @@ export default async function Home() {
    
 
   </div>
+   </>
 );
 
 }

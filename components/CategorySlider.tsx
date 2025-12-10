@@ -31,14 +31,14 @@ export default function CategorySlider({
       {/* ✅ Arrows */}
       <button
         id="catPrev"
-        className="absolute left-0 top-[40%] -translate-y-1/2 z-30 bg-white p-2 md:p-3 shadow-md rounded-full border"
+        className="absolute left-[-15px] top-[40%] -translate-y-1/2 z-30 bg-white p-2 md:p-3 shadow-md rounded-full border"
       >
         <ChevronLeft className="w-4 h-4 md:w-5 md:h-5" />
       </button>
 
       <button
         id="catNext"
-        className="absolute right-0 top-[40%] -translate-y-1/2 z-30 bg-white p-2 md:p-3 shadow-md rounded-full border"
+        className="absolute right-[-15px] top-[40%] -translate-y-1/2 z-30 bg-white p-2 md:p-3 shadow-md rounded-full border"
       >
         <ChevronRight className="w-4 h-4 md:w-5 md:h-5" />
       </button>
@@ -72,26 +72,38 @@ export default function CategorySlider({
         {categories.map((category: Category) => (
           <SwiperSlide key={category.id}>
             <Link href={`/category/${category.slug}`}>
-              <Card className="shadow-md hover:shadow-xl transition rounded-xl p-4 md:p-6 text-center bg-white">
-                <CardContent className="p-0">
-                  <img
-  src={
-    category.imageUrl
-      ? category.imageUrl.startsWith("http")
-        ? category.imageUrl
-        : `${baseUrl}${category.imageUrl}`
-      : "/placeholder-image.png" // fallback if no image
-  }
-  alt={category.name}
-  className="w-16 h-16 md:w-20 md:h-20 mx-auto object-contain mb-3"
-/>
+          <Card
+  className="w-full h-[200px] md:h-[230px] bg-white rounded-2xl 
+             shadow-[0_4px_20px_rgba(0,0,0,0.08)] 
+             hover:shadow-[0_6px_25px_rgba(0,0,0,0.12)]
+             transition-all duration-300 flex flex-col items-center justify-between py-6"
+>
+  <CardContent className="p-0 w-full flex flex-col items-center justify-between h-full">
 
-                 <h3 className="font-semibold text-sm md:text-base line-clamp-2 min-h-[40px] md:min-h-[48px]">
-  {category.name}
-</h3>
+    {/* FIXED PERFECT IMAGE BOX */}
+    <div className="w-[120px] h-[120px] md:w-[140px] md:h-[140px] 
+                    flex items-center justify-center overflow-hidden">
+      <img
+        src={
+          category.imageUrl.startsWith("http")
+            ? category.imageUrl
+            : `${baseUrl}${category.imageUrl}`
+        }
+        alt={category.name}
+        className="h-full w-auto object-contain"
+        style={{ objectPosition: "center" }}
+      />
+    </div>
 
-                </CardContent>
-              </Card>
+    {/* TITLE */}
+    <h3 className="font-semibold text-gray-900 text-sm md:text-base text-center pb-2">
+      {category.name}
+    </h3>
+
+  </CardContent>
+</Card>
+
+
             </Link>
           </SwiperSlide>
         ))}

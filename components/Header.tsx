@@ -91,7 +91,7 @@ export default function Header({
   const [openParents, setOpenParents] = useState<Record<string, boolean>>({});
   const [openChildren, setOpenChildren] = useState<Record<string, boolean>>({});
 
-  // ⭐ ULTRA SMOOTH SCROLL - Transform based
+  // ⭐ SMOOTH SCROLL
   useEffect(() => {
     let rafId: number;
     
@@ -164,227 +164,221 @@ export default function Header({
     setOpenChildren((s) => ({ ...s, [id]: !s[id] }));
 
   return (
-    <>
-      {/* ⭐ BODY SPACER - Prevents content jump */}
-      <div className="h-[120px]" />
-
-      {/* ⭐ FIXED HEADER WRAPPER - Transform based animation */}
-      <div 
-        className="fixed top-0 left-0 right-0 z-50 transition-transform duration-300 ease-in-out"
-        style={{
-          transform: hideTopBar ? 'translateY(-52px)' : 'translateY(0)',
-          willChange: 'transform',
-        }}
-      >
-        {/* ⭐ TOP BAR - Always rendered, just translated */}
-        <div className="bg-[#445D41] text-white w-full h-[52px]">
-          {/* Mobile Slider */}
-          {isClient && (
-            <div className="lg:hidden h-full flex items-center px-4">
-              <div className="flex items-center justify-center gap-3 w-full">
-                <span className="text-white text-xl flex-shrink-0">
-                  {mobileTopMessages[currentMsg].icon}
+    <header 
+      className="fixed top-0 left-0 right-0 z-50 transition-transform duration-300 ease-in-out"
+      style={{
+        transform: hideTopBar ? 'translateY(-52px)' : 'translateY(0)',
+        willChange: 'transform',
+      }}
+    >
+      {/* ⭐ TOP BAR */}
+      <div className="bg-[#445D41] text-white w-full h-[52px]">
+        {/* Mobile Slider */}
+        {isClient && (
+          <div className="lg:hidden h-full flex items-center px-4">
+            <div className="flex items-center justify-center gap-3 w-full">
+              <span className="text-white text-xl flex-shrink-0">
+                {mobileTopMessages[currentMsg].icon}
+              </span>
+              <div className="flex flex-col text-left leading-tight">
+                <span className="font-bold text-[13px] tracking-wide text-white">
+                  {mobileTopMessages[currentMsg].title}
                 </span>
-                <div className="flex flex-col text-left leading-tight">
-                  <span className="font-bold text-[13px] tracking-wide text-white">
-                    {mobileTopMessages[currentMsg].title}
-                  </span>
-                  <span className="text-[11px] text-white opacity-90">
-                    {mobileTopMessages[currentMsg].subtitle}
-                  </span>
-                </div>
+                <span className="text-[11px] text-white opacity-90">
+                  {mobileTopMessages[currentMsg].subtitle}
+                </span>
               </div>
             </div>
-          )}
+          </div>
+        )}
 
-          {/* Desktop Grid */}
-          <div className="hidden lg:block h-full">
-            <div className="max-w-7xl mx-auto grid grid-cols-4 text-center h-full items-center px-4 gap-4">
-              <a 
-                href="/delivery/next-day" 
-                className="flex items-center gap-3 cursor-pointer hover:bg-[#334a2c] py-2 px-3 rounded transition-colors duration-200"
-              >
-                <span className="text-white flex-shrink-0">
-                  <Truck size={20} />
-                </span>
-                <div className="text-left leading-tight">
-                  <h4 className="font-bold text-[13px] tracking-wide">NEXT DAY DELIVERY</h4>
-                  <p className="text-[11px] opacity-90">GET IT JUST FOR £4.49</p>
-                </div>
-              </a>
-              <a 
-                href="/delivery/standard" 
-                className="flex items-center gap-3 cursor-pointer hover:bg-[#334a2c] py-2 px-3 rounded transition-colors duration-200"
-              >
-                <span className="text-white flex-shrink-0">
-                  <Truck size={20} />
-                </span>
-                <div className="text-left leading-tight">
-                  <h4 className="font-bold text-[13px] tracking-wide">STANDARD DELIVERY</h4>
-                  <p className="text-[11px] opacity-90">FREE SHIPPING OVER £35</p>
-                </div>
-              </a>
-              <a 
-                href="/delivery/click-and-collect" 
-                className="flex items-center gap-3 cursor-pointer hover:bg-[#334a2c] py-2 px-3 rounded transition-colors duration-200"
-              >
-                <span className="text-white flex-shrink-0">
-                  <Package size={20} />
-                </span>
-                <div className="text-left leading-tight">
-                  <h4 className="font-bold text-[13px] tracking-wide">CLICK & COLLECT</h4>
-                  <p className="text-[11px] opacity-90">FREE ON ORDERS OVER £30</p>
-                </div>
-              </a>
-              <a 
-                href="/delivery/special" 
-                className="flex items-center gap-3 cursor-pointer hover:bg-[#334a2c] py-2 px-3 rounded transition-colors duration-200"
-              >
-                <span className="text-white flex-shrink-0">
-                  <Bike size={20} />
-                </span>
-                <div className="text-left leading-tight">
-                  <h4 className="font-bold text-[13px] tracking-wide">SPECIAL DELIVERY 1PM</h4>
-                  <p className="text-[11px] opacity-90">ROYAL MAIL SPECIAL DELIVERY FOR £18.99</p>
-                </div>
-              </a>
-            </div>
+        {/* Desktop Grid */}
+        <div className="hidden lg:block h-full">
+          <div className="max-w-7xl mx-auto grid grid-cols-4 text-center h-full items-center px-4 gap-4">
+            <a 
+              href="/delivery/next-day" 
+              className="flex items-center gap-3 cursor-pointer hover:bg-[#334a2c] py-2 px-3 rounded transition-colors duration-200"
+            >
+              <span className="text-white flex-shrink-0">
+                <Truck size={20} />
+              </span>
+              <div className="text-left leading-tight">
+                <h4 className="font-bold text-[13px] tracking-wide">NEXT DAY DELIVERY</h4>
+                <p className="text-[11px] opacity-90">GET IT JUST FOR £4.49</p>
+              </div>
+            </a>
+            <a 
+              href="/delivery/standard" 
+              className="flex items-center gap-3 cursor-pointer hover:bg-[#334a2c] py-2 px-3 rounded transition-colors duration-200"
+            >
+              <span className="text-white flex-shrink-0">
+                <Truck size={20} />
+              </span>
+              <div className="text-left leading-tight">
+                <h4 className="font-bold text-[13px] tracking-wide">STANDARD DELIVERY</h4>
+                <p className="text-[11px] opacity-90">FREE SHIPPING OVER £35</p>
+              </div>
+            </a>
+            <a 
+              href="/delivery/click-and-collect" 
+              className="flex items-center gap-3 cursor-pointer hover:bg-[#334a2c] py-2 px-3 rounded transition-colors duration-200"
+            >
+              <span className="text-white flex-shrink-0">
+                <Package size={20} />
+              </span>
+              <div className="text-left leading-tight">
+                <h4 className="font-bold text-[13px] tracking-wide">CLICK & COLLECT</h4>
+                <p className="text-[11px] opacity-90">FREE ON ORDERS OVER £30</p>
+              </div>
+            </a>
+            <a 
+              href="/delivery/special" 
+              className="flex items-center gap-3 cursor-pointer hover:bg-[#334a2c] py-2 px-3 rounded transition-colors duration-200"
+            >
+              <span className="text-white flex-shrink-0">
+                <Bike size={20} />
+              </span>
+              <div className="text-left leading-tight">
+                <h4 className="font-bold text-[13px] tracking-wide">SPECIAL DELIVERY 1PM</h4>
+                <p className="text-[11px] opacity-90">ROYAL MAIL SPECIAL DELIVERY FOR £18.99</p>
+              </div>
+            </a>
           </div>
         </div>
+      </div>
 
-        {/* ⭐ MAIN HEADER - White background */}
-        <div className="bg-white shadow-md">
-          <div className="flex items-center justify-between h-16 px-4 sm:px-6 lg:px-20">
-            {/* Logo */}
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => setMenuOpen(true)}
-                aria-label="Open menu"
-                className="md:hidden mr-2 text-gray-700 hover:text-green-800"
-              >
-                <Menu size={24} />
+      {/* ⭐ MAIN HEADER */}
+      <div className="bg-white shadow-md">
+        <div className="flex items-center justify-between h-16 px-4 sm:px-6 lg:px-20">
+          {/* Logo */}
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setMenuOpen(true)}
+              aria-label="Open menu"
+              className="md:hidden mr-2 text-gray-700 hover:text-green-800"
+            >
+              <Menu size={24} />
+            </button>
+            <Link href="/" className="flex items-center">
+              <Image 
+                src="/logo/logo.png" 
+                alt="Direct Care Logo" 
+                width={150} 
+                height={50} 
+                className="object-contain md:w-[240px] md:h-[80px]" 
+                priority
+              />
+            </Link>
+          </div>
+
+          {/* Mobile Icons */}
+          <div className="flex items-center gap-4 md:hidden">
+            <button
+              className="text-gray-700 hover:text-green-800 transition"
+              onClick={() => toast.success("Thank you for liking this item!")}
+            >
+              <Heart size={22} />
+            </button>
+            <button
+              className="relative text-gray-700 hover:text-green-800 transition"
+              onClick={() => router.push("/cart")}
+            >
+              <ShoppingCart size={22} />
+              {isInitialized && cartCount > 0 && (
+                <span className="absolute -top-1 -right-2 bg-[#445D41] text-white text-[10px] rounded-full px-1.5">
+                  {cartCount}
+                </span>
+              )}
+            </button>
+            <button onClick={handleAccountClick} className="text-gray-700 hover:text-green-800 transition">
+              <User size={22} />
+            </button>
+          </div>
+
+          {/* Search - Desktop */}
+          <form onSubmit={handleSearch} className="hidden md:flex flex-1 px-4 md:px-6">
+            <div className="relative max-w-[40rem] mx-auto w-full">
+              <input
+                type="text"
+                placeholder="Search..."
+                value={searchValue}
+                onChange={(e) => setSearchValue(e.target.value)}
+                className="w-full border border-[#445D41] rounded-md px-4 py-2 pr-12 outline-none focus:ring-0 focus:border-[#445D41] text-sm"
+              />
+              <button type="submit" className="absolute right-1 top-1/2 -translate-y-1/2 bg-[#445D41] hover:bg-green-700 text-white px-3 py-1.5 rounded text-sm">
+                <Search size={16} />
               </button>
-              <Link href="/" className="flex items-center">
-                <Image 
-                  src="/logo/logo.png" 
-                  alt="Direct Care Logo" 
-                  width={150} 
-                  height={50} 
-                  className="object-contain md:w-[240px] md:h-[80px]" 
-                  priority
-                />
-              </Link>
             </div>
+          </form>
 
-            {/* Mobile Icons */}
-            <div className="flex items-center gap-4 md:hidden">
-              <button
-                className="text-gray-700 hover:text-green-800 transition"
-                onClick={() => toast.success("Thank you for liking this item!")}
-              >
-                <Heart size={22} />
-              </button>
-              <button
-                className="relative text-gray-700 hover:text-green-800 transition"
-                onClick={() => router.push("/cart")}
-              >
+          {/* Desktop Icons */}
+          <div className="hidden md:flex items-center gap-5 text-gray-700">
+            <button
+              className="hover:text-green-800 transition"
+              onClick={() => toast.success("Thank you for liking this item!")}
+            >
+              <Heart size={22} />
+            </button>
+            <Link href="/cart">
+              <button className="hover:text-green-800 transition relative">
                 <ShoppingCart size={22} />
                 {isInitialized && cartCount > 0 && (
-                  <span className="absolute -top-1 -right-2 bg-[#445D41] text-white text-[10px] rounded-full px-1.5">
+                  <span className="absolute -top-1 -right-2 bg-[#445D41] text-white text-xs rounded-full px-1.5">
                     {cartCount}
                   </span>
                 )}
               </button>
-              <button onClick={handleAccountClick} className="text-gray-700 hover:text-green-800 transition">
-                <User size={22} />
-              </button>
-            </div>
+            </Link>
+            <button onClick={handleAccountClick} className="hover:text-green-800 transition">
+              <User size={22} />
+            </button>
+          </div>
+        </div>
 
-            {/* Search - Desktop */}
-            <form onSubmit={handleSearch} className="hidden md:flex flex-1 px-4 md:px-6">
-              <div className="relative max-w-[40rem] mx-auto w-full">
-                <input
-                  type="text"
-                  placeholder="Search..."
-                  value={searchValue}
-                  onChange={(e) => setSearchValue(e.target.value)}
-                  className="w-full border border-[#445D41] rounded-md px-4 py-2 pr-12 outline-none focus:ring-0 focus:border-[#445D41] text-sm"
-                />
-                <button type="submit" className="absolute right-1 top-1/2 -translate-y-1/2 bg-[#445D41] hover:bg-green-700 text-white px-3 py-1.5 rounded text-sm">
-                  <Search size={16} />
-                </button>
-              </div>
-            </form>
-
-            {/* Desktop Icons */}
-            <div className="hidden md:flex items-center gap-5 text-gray-700">
-              <button
-                className="hover:text-green-800 transition"
-                onClick={() => toast.success("Thank you for liking this item!")}
+        {/* ✅ DESKTOP CATEGORIES */}
+        <div className="hidden md:block relative" onMouseLeave={closeMenu}>
+          <nav className="flex items-center justify-center h-12 border-y-2 text-sm font-bold border-[#445d41] text-black px-4 gap-8">
+            {categories.map((cat) => (
+              <div
+                key={cat.id}
+                className="relative"
+                onMouseEnter={() => {
+                  if (cat.subCategories && cat.subCategories.length > 0) {
+                    openMenu(cat);
+                  } else {
+                    closeMenu();
+                  }
+                }}
               >
-                <Heart size={22} />
-              </button>
-              <Link href="/cart">
-                <button className="hover:text-green-800 transition relative">
-                  <ShoppingCart size={22} />
-                  {isInitialized && cartCount > 0 && (
-                    <span className="absolute -top-1 -right-2 bg-[#445D41] text-white text-xs rounded-full px-1.5">
-                      {cartCount}
-                    </span>
-                  )}
-                </button>
-              </Link>
-              <button onClick={handleAccountClick} className="hover:text-green-800 transition">
-                <User size={22} />
-              </button>
-            </div>
-          </div>
-
-          {/* ✅ DESKTOP CATEGORIES */}
-          <div className="hidden md:block relative" onMouseLeave={closeMenu}>
-            <nav className="flex items-center justify-center h-12 border-y-2 text-sm font-bold border-[#445d41] text-black px-4 gap-8">
-              {categories.map((cat) => (
-                <div
-                  key={cat.id}
-                  className="relative"
-                  onMouseEnter={() => {
-                    if (cat.subCategories && cat.subCategories.length > 0) {
-                      openMenu(cat);
-                    } else {
-                      closeMenu();
-                    }
-                  }}
+                <Link
+                  href={`/category/${cat.slug}`}
+                  className={`flex items-center gap-1 cursor-pointer py-2 transition-colors ${
+                    activeCategory?.id === cat.id ? "text-[#445D41]" : "hover:text-[#445D41]"
+                  }`}
                 >
-                  <Link
-                    href={`/category/${cat.slug}`}
-                    className={`flex items-center gap-1 cursor-pointer py-2 transition-colors ${
-                      activeCategory?.id === cat.id ? "text-[#445D41]" : "hover:text-[#445D41]"
-                    }`}
-                  >
-                    {cat.name}
-                    {cat.subCategories && cat.subCategories.length > 0 && (
-                      <ChevronDown
-                        size={16}
-                        className={`transition-transform duration-300 ease-in-out ${
-                          activeCategory?.id === cat.id && hovered ? "rotate-180" : "rotate-0"
-                        }`}
-                      />
-                    )}
-                  </Link>
-                </div>
-              ))}
-            </nav>
+                  {cat.name}
+                  {cat.subCategories && cat.subCategories.length > 0 && (
+                    <ChevronDown
+                      size={16}
+                      className={`transition-transform duration-300 ease-in-out ${
+                        activeCategory?.id === cat.id && hovered ? "rotate-180" : "rotate-0"
+                      }`}
+                    />
+                  )}
+                </Link>
+              </div>
+            ))}
+          </nav>
 
-            {/* Mega Menu */}
-            {hovered &&
-              activeCategory &&
-              activeCategory.subCategories &&
-              activeCategory.subCategories.length > 0 && (
-                <div className="absolute left-0 right-0 top-full z-50" onMouseEnter={() => setHovered(true)}>
-                  <MegaMenu activeMainCategory={activeCategory} />
-                </div>
-              )}
-          </div>
+          {/* Mega Menu */}
+          {hovered &&
+            activeCategory &&
+            activeCategory.subCategories &&
+            activeCategory.subCategories.length > 0 && (
+              <div className="absolute left-0 right-0 top-full z-50" onMouseEnter={() => setHovered(true)}>
+                <MegaMenu activeMainCategory={activeCategory} />
+              </div>
+            )}
         </div>
       </div>
 
@@ -524,6 +518,6 @@ export default function Header({
           </div>
         </aside>
       </div>
-    </>
+    </header>
   );
 }

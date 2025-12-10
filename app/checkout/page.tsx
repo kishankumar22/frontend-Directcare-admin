@@ -317,7 +317,8 @@ export default function CheckoutPage() {
   const [billingState, setBillingState] = useState("");
   const [billingPostalCode, setBillingPostalCode] = useState("");
   const [billingCountry, setBillingCountry] = useState("United Kingdom");
-
+  //delivery methods
+const [deliveryMethod, setDeliveryMethod] = useState<"HomeDelivery" | "ClickAndCollect">("HomeDelivery");
   // Shipping fields
   const [shippingSameAsBilling, setShippingSameAsBilling] = useState(true);
   const [shippingFirstName, setShippingFirstName] = useState("");
@@ -515,6 +516,7 @@ export default function CheckoutPage() {
     }));
 
     return {
+      deliveryMethod,  // ADD THIS LINE
       customerEmail: billingEmail,
       customerPhone: `+44${billingPhone}`,
       isGuestOrder: !isAuthenticated,
@@ -562,6 +564,10 @@ const handleProceedToPayment = async () => {
   if (!billingFirstName.trim()) errors.billingFirstName = "First name is required";
   if (!billingLastName.trim()) errors.billingLastName = "Last name is required";
   if (!billingPhone.trim()) errors.billingPhone = "Phone number is required";
+  if (deliveryMethod === "HomeDelivery") {
+  if (!billingAddress1.trim()) errors.billingAddress1 = "Address line 1 is required";
+  if (!billingPostalCode.trim()) errors.billingPostalCode = "Postcode is required";
+}
   if (!billingAddress1.trim()) errors.billingAddress1 = "Address line 1 is required";
   if (!billingPostalCode.trim()) errors.billingPostalCode = "Postcode is required";
 
@@ -884,109 +890,143 @@ alert("CARD ORDER ID: " + createdOrder?.data?.id);
     className="w-full border border-gray-300 p-2 rounded focus:ring-2 focus:ring-[#445D41]/20 focus:border-[#445D41] transition-all"
   />
 </div>     
-            </div>
-
           </div>
+        </div>
+          {/* DELIVERY METHOD SELECTOR */}
+<div className="bg-white p-6 rounded shadow mb-6">
+  <h2 className="text-lg font-semibold mb-3">Delivery method</h2>
 
+  <div className="flex flex-col gap-2">
+    <label className="flex items-center gap-2">
+      <input
+        type="radio"
+        name="deliveryMethod"
+        checked={deliveryMethod === "HomeDelivery"}
+        onChange={() => setDeliveryMethod("HomeDelivery")}
+      />
+      <span>Home Delivery</span>
+    </label>
+
+    <label className="flex items-center gap-2">
+      <input
+        type="radio"
+        name="deliveryMethod"
+        checked={deliveryMethod === "ClickAndCollect"}
+        onChange={() => setDeliveryMethod("ClickAndCollect")}
+      />
+      <span>Click & Collect (Collect from store)</span>
+    </label>
+  </div>
+</div>
           {/* Shipping */}
-          <div className="bg-white p-6 rounded shadow">
-            <h2 className="text-lg font-semibold mb-3">Shipping details</h2>
+<div className="bg-white p-6 rounded shadow">
+  <h2 className="text-lg font-semibold mb-3">Shipping details</h2>
 
-            <div className="flex items-center gap-3 mb-3">
-              <input id="same" checked={shippingSameAsBilling} onChange={(e)=>setShippingSameAsBilling(e.target.checked)} type="checkbox" />
-              <label htmlFor="same">Shipping same as billing</label>
-            </div>
+  {/* If Click & Collect → hide full shipping */}
+  {deliveryMethod === "ClickAndCollect" ? (
+    <div className="text-sm text-gray-600">
+      Click & Collect selected — shipping information is not required.
+    </div>
+  ) : (
+    <>
+      <div className="flex items-center gap-3 mb-3">
+        <input
+          id="same"
+          checked={shippingSameAsBilling}
+          onChange={(e) => setShippingSameAsBilling(e.target.checked)}
+          type="checkbox"
+        />
+        <label htmlFor="same">Shipping same as billing</label>
+      </div>
 
-            {!shippingSameAsBilling ? (
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-               {/* First name */}
-<div className="flex flex-col space-y-1 col-span-2">
-  <label className="text-sm font-medium text-gray-700">First name</label>
-  <input
-    value={shippingFirstName}
-    onChange={(e) => setShippingFirstName(e.target.value)}
-    className="w-full border border-gray-300 p-2 rounded focus:ring-2 focus:ring-[#445D41]/20 focus:border-[#445D41] transition-all"
-  />
-</div>
-
-{/* Last name */}
-<div className="flex flex-col space-y-1 col-span-2">
-  <label className="text-sm font-medium text-gray-700">Last name</label>
-  <input
-    value={shippingLastName}
-    onChange={(e) => setShippingLastName(e.target.value)}
-    className="w-full border border-gray-300 p-2 rounded focus:ring-2 focus:ring-[#445D41]/20 focus:border-[#445D41] transition-all"
-  />
-</div>
-
-{/* Company */}
-<div className="flex flex-col space-y-1 col-span-2">
-  <label className="text-sm font-medium text-gray-700">Company (optional)</label>
-  <input
-    value={shippingCompany}
-    onChange={(e) => setShippingCompany(e.target.value)}
-    className="w-full border border-gray-300 p-2 rounded focus:ring-2 focus:ring-[#445D41]/20 focus:border-[#445D41] transition-all"
-  />
-</div>
-
-{/* Address 1 */}
-<div className="flex flex-col space-y-1 col-span-2">
-  <label className="text-sm font-medium text-gray-700">Address line 1 *</label>
-  <input
-    value={shippingAddress1}
-    onChange={(e) => setShippingAddress1(e.target.value)}
-    className="w-full border border-gray-300 p-2 rounded focus:ring-2 focus:ring-[#445D41]/20 focus:border-[#445D41] transition-all"
-  />
-</div>
-
-{/* Address 2 */}
-<div className="flex flex-col space-y-1 col-span-2">
-  <label className="text-sm font-medium text-gray-700">Address line 2</label>
-  <input
-    value={shippingAddress2}
-    onChange={(e) => setShippingAddress2(e.target.value)}
-    className="w-full border border-gray-300 p-2 rounded focus:ring-2 focus:ring-[#445D41]/20 focus:border-[#445D41] transition-all"
-  />
-</div>
-
-{/* Postcode */}
-<div className="flex flex-col space-y-1 col-span-2">
-
-  <label className="text-sm font-medium text-gray-700">Postcode</label>
-  <input
-    value={shippingPostalCode}
-    onChange={(e) => setShippingPostalCode(e.target.value)}
-    className="w-full border border-gray-300 p-2 rounded focus:ring-2 focus:ring-[#445D41]/20 focus:border-[#445D41] transition-all"
-  />
-</div>
-
-{/* City */}
-<div className="flex flex-col space-y-1">
-
-  <label className="text-sm font-medium text-gray-700">City</label>
-  <input
-    value={shippingCity}
-    onChange={(e) => setShippingCity(e.target.value)}
-    className="w-full border border-gray-300 p-2 rounded focus:ring-2 focus:ring-[#445D41]/20 focus:border-[#445D41] transition-all"
-  />
-</div>
-
-{/* Country */}
-<div className="flex flex-col space-y-1 col-span-2">
-  <label className="text-sm font-medium text-gray-700">Country / State</label>
-  <input
-    value={shippingState}
-    onChange={(e) => setShippingState(e.target.value)}
-    className="w-full border border-gray-300 p-2 rounded focus:ring-2 focus:ring-[#445D41]/20 focus:border-[#445D41] transition-all"
-  />
-</div>
-
-               
-                       </div>
-            ) : (
-              <div className="text-sm text-gray-600">Shipping will use billing address.</div>
-            )}
+      {!shippingSameAsBilling ? (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          {/* First name */}
+          <div className="flex flex-col space-y-1 col-span-2">
+            <label className="text-sm font-medium text-gray-700">First name</label>
+            <input
+              value={shippingFirstName}
+              onChange={(e) => setShippingFirstName(e.target.value)}
+              className="w-full border border-gray-300 p-2 rounded focus:ring-2 focus:ring-[#445D41]/20 focus:border-[#445D41] transition-all"
+            />
           </div>
+
+          {/* Last name */}
+          <div className="flex flex-col space-y-1 col-span-2">
+            <label className="text-sm font-medium text-gray-700">Last name</label>
+            <input
+              value={shippingLastName}
+              onChange={(e) => setShippingLastName(e.target.value)}
+              className="w-full border border-gray-300 p-2 rounded focus:ring-2 focus:ring-[#445D41]/20 focus:border-[#445D41] transition-all"
+            />
+          </div>
+
+          {/* Company */}
+          <div className="flex flex-col space-y-1 col-span-2">
+            <label className="text-sm font-medium text-gray-700">Company (optional)</label>
+            <input
+              value={shippingCompany}
+              onChange={(e) => setShippingCompany(e.target.value)}
+              className="w-full border border-gray-300 p-2 rounded focus:ring-2 focus:ring-[#445D41]/20 focus:border-[#445D41] transition-all"
+            />
+          </div>
+
+          {/* Address 1 */}
+          <div className="flex flex-col space-y-1 col-span-2">
+            <label className="text-sm font-medium text-gray-700">Address line 1 *</label>
+            <input
+              value={shippingAddress1}
+              onChange={(e) => setShippingAddress1(e.target.value)}
+              className="w-full border border-gray-300 p-2 rounded focus:ring-2 focus:ring-[#445D41]/20 focus:border-[#445D41] transition-all"
+            />
+          </div>
+
+          {/* Address 2 */}
+          <div className="flex flex-col space-y-1 col-span-2">
+            <label className="text-sm font-medium text-gray-700">Address line 2</label>
+            <input
+              value={shippingAddress2}
+              onChange={(e) => setShippingAddress2(e.target.value)}
+              className="w-full border border-gray-300 p-2 rounded focus:ring-2 focus:ring-[#445D41]/20 focus:border-[#445D41] transition-all"
+            />
+          </div>
+
+          {/* Postcode */}
+          <div className="flex flex-col space-y-1 col-span-2">
+            <label className="text-sm font-medium text-gray-700">Postcode</label>
+            <input
+              value={shippingPostalCode}
+              onChange={(e) => setShippingPostalCode(e.target.value)}
+              className="w-full border border-gray-300 p-2 rounded focus:ring-2 focus:ring-[#445D41]/20 focus:border-[#445D41] transition-all"
+            />
+          </div>
+
+          {/* City */}
+          <div className="flex flex-col space-y-1">
+            <label className="text-sm font-medium text-gray-700">City</label>
+            <input
+              value={shippingCity}
+              onChange={(e) => setShippingCity(e.target.value)}
+              className="w-full border border-gray-300 p-2 rounded focus:ring-2 focus:ring-[#445D41]/20 focus:border-[#445D41] transition-all"
+            />
+          </div>
+
+          {/* Country / State */}
+          <div className="flex flex-col space-y-1 col-span-2">
+            <label className="text-sm font-medium text-gray-700">Country / State</label>
+            <input
+              value={shippingState}
+              onChange={(e) => setShippingState(e.target.value)}
+              className="w-full border border-gray-300 p-2 rounded focus:ring-2 focus:ring-[#445D41]/20 focus:border-[#445D41] transition-all"
+            />
+          </div>
+        </div>
+      ) : (
+        <div className="text-sm text-gray-600">Shipping will use billing address.</div>
+      )}
+    </>
+  )}
+</div>
 
           {/* Order notes */}
           <div className="bg-white p-4 rounded shadow">

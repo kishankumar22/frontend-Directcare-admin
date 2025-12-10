@@ -77,13 +77,13 @@ async function getProduct(slug: string): Promise<Product | null> {
   }
 }
 
+// ⭐ FIX: params is now Promise
 export async function generateMetadata({ 
   params 
 }: { 
-  params: { slug: string } 
-})
- {
-  const { slug } = await params;
+  params: Promise<{ slug: string }> // ✅ Changed to Promise
+}) {
+  const { slug } = await params; // ✅ Already has await (good!)
   const product = await getProduct(slug);
 
   if (!product) {
@@ -156,13 +156,13 @@ export async function generateStaticParams() {
   return [];
 }
 
+// ⭐ FIX: params is now Promise
 export default async function ProductDetailPage({ 
   params 
 }: { 
-  params: { slug: string } 
-})
- {
-  const { slug } = await params;
+  params: Promise<{ slug: string }> // ✅ Changed to Promise
+}) {
+  const { slug } = await params; // ✅ Already has await (good!)
   const product = await getProduct(slug);
 
   if (!product) {

@@ -1,4 +1,3 @@
-// app/category/[slug]/page.tsx
 import { Suspense } from "react";
 import { Loader2 } from "lucide-react";
 import CategoryClient from "./CategoryClient";
@@ -22,7 +21,7 @@ async function getCategoryBySlug(slug: string) {
   return category || null;
 }
 
-// Get products by category slug
+// Get products by category slug (simple /products fetch for now)
 async function getProducts(params: SearchParams = {}) {
   const {
     page = "1",
@@ -41,14 +40,14 @@ async function getProducts(params: SearchParams = {}) {
   return data;
 }
 
-// ⭐ FIXED: Await params
+// ⭐ FIX: params is now Promise
 export async function generateMetadata({ 
   params 
 }: { 
-  params: Promise<{ slug: string }> 
+  params: Promise<{ slug: string }> // ✅ Changed to Promise
 }) {
-  const resolvedParams = await params;
-  const category = await getCategoryBySlug(resolvedParams.slug);
+  const { slug } = await params; // ✅ Added await
+  const category = await getCategoryBySlug(slug);
 
   return {
     title: category?.metaTitle || category?.name || "Category",
@@ -64,20 +63,19 @@ function Loading() {
   );
 }
 
-// ⭐ FIXED: Await params and searchParams
+// ⭐ FIX: Both params and searchParams are Promise
 export default async function CategoryPage({
   params,
   searchParams,
 }: {
-  params: Promise<{ slug: string }>;
-  searchParams: Promise<SearchParams>;
+  params: Promise<{ slug: string }>; // ✅ Changed to Promise
+  searchParams: Promise<SearchParams>; // ✅ Changed to Promise
 }) {
-  // ⭐ Await both params and searchParams
-  const resolvedParams = await params;
-  const resolvedSearchParams = await searchParams;
+  const { slug } = await params; // ✅ Added await
+  const searchParamsResolved = await searchParams; // ✅ Added await
 
-  const category = await getCategoryBySlug(resolvedParams.slug);
-  const productsRes = await getProducts(resolvedSearchParams);
+  const category = await getCategoryBySlug(slug);
+  const productsRes = await getProducts(searchParamsResolved);
 
   const brandsRes = await fetch(
     `${process.env.NEXT_PUBLIC_API_URL}/api/Brands?includeUnpublished=false`,
@@ -93,9 +91,9 @@ export default async function CategoryPage({
         currentPage={productsRes.data.page}
         pageSize={productsRes.data.pageSize}
         totalPages={productsRes.data.totalPages}
-        initialSearchTerm={resolvedSearchParams.searchTerm || ""}
-        initialSortBy={resolvedSearchParams.sortBy || "name"}
-        initialSortDirection={resolvedSearchParams.sortDirection || "asc"}
+        initialSearchTerm={searchParamsResolved.searchTerm || ""}
+        initialSortBy={searchParamsResolved.sortBy || "name"}
+        initialSortDirection={searchParamsResolved.sortDirection || "asc"}
         brands={brandsRes.data}
       />
     </Suspense>

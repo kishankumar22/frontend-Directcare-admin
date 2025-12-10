@@ -1,10 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { Card } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Swiper, SwiperSlide } from "swiper/react";
 import { Autoplay, Navigation, Pagination } from "swiper/modules";
-
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
 import "swiper/css";
@@ -27,54 +26,74 @@ export default function TopBrandsSlider({
   baseUrl: string;
 }) {
   return (
-    <div className="md:hidden relative">
+    <div className="relative">
 
-      {/* ✅ Mobile Arrows */}
+      {/* Arrows */}
       <button
         id="brandPrev"
-        className="absolute left-0 top-[40%] -translate-y-1/2 z-30 bg-white p-2 shadow-md rounded-full border"
+        className="absolute left-[-15px] top-[40%] -translate-y-1/2 z-30 bg-white p-2 md:p-3 shadow-md rounded-full border hover:bg-gray-100"
       >
-        <ChevronLeft className="w-4 h-4" />
+        <ChevronLeft className="w-4 h-4 md:w-5 md:h-5" />
       </button>
 
       <button
         id="brandNext"
-        className="absolute right-0 top-[40%] -translate-y-1/2 z-30 bg-white p-2 shadow-md rounded-full border"
+        className="absolute right-[-15px] top-[40%] -translate-y-1/2 z-30 bg-white p-2 md:p-3 shadow-md rounded-full border hover:bg-gray-100"
       >
-        <ChevronRight className="w-4 h-4" />
+        <ChevronRight className="w-4 h-4 md:w-5 md:h-5" />
       </button>
 
+      {/* Swiper */}
       <Swiper
-        modules={[Autoplay, Navigation, Pagination]}
-        spaceBetween={14}
-        slidesPerView={2}    // ✅ Mobile = exactly 2 cards per row
-        autoplay={{ delay: 2200 }}
-        navigation={{
-          prevEl: "#brandPrev",
-          nextEl: "#brandNext",
+        modules={[Navigation, Pagination, Autoplay]}
+        spaceBetween={20}
+        slidesPerView={2}
+        breakpoints={{
+          640: { slidesPerView: 3 },
+          768: { slidesPerView: 4 },
+          1024: { slidesPerView: 5 },
         }}
-        pagination={{
-          clickable: true,
-          dynamicBullets: true,
-        }}
+        autoplay={{ delay: 2200, disableOnInteraction: false }}
+        navigation={{ prevEl: "#brandPrev", nextEl: "#brandNext" }}
+        pagination={{ clickable: true, dynamicBullets: true }}
         loop={true}
-        className="pb-10"
+        className="pb-12"
       >
         {brands.map((brand: Brand) => (
           <SwiperSlide key={brand.id}>
             <Link href={`/brand/${brand.slug}`}>
-              <Card className="p-5 text-center shadow-md hover:shadow-xl transition rounded-xl bg-white">
-                <img
-                  src={
-                    brand.logoUrl.startsWith("http")
-                      ? brand.logoUrl
-                      : `${baseUrl}${brand.logoUrl}`
-                  }
-                  alt={brand.name}
-                  className="w-20 h-20 mx-auto object-contain mb-3"
-                />
-                <h3 className="font-semibold text-sm">{brand.name}</h3>
-              </Card>
+<Card
+  className="w-full h-[200px] md:h-[230px] bg-white rounded-2xl 
+             shadow-[0_4px_20px_rgba(0,0,0,0.08)] 
+             hover:shadow-[0_6px_25px_rgba(0,0,0,0.12)]
+             transition-all duration-300 flex flex-col items-center justify-between py-6"
+>
+  <CardContent className="p-0 w-full flex flex-col items-center justify-between h-full">
+
+    {/* BIG LOGO LIKE DIRECT CARE */}
+ {/* FIXED IMAGE WRAPPER */}
+<div className="w-[120px] h-[120px] md:w-[140px] md:h-[140px] flex items-center justify-center overflow-hidden">
+  <img
+    src={
+      brand.logoUrl.startsWith("http")
+        ? brand.logoUrl
+        : `${baseUrl}${brand.logoUrl}`
+    }
+    alt={brand.name}
+    className="w-auto h-full object-contain"
+  style={{ objectPosition: "center" }}
+  />
+</div>
+
+    {/* BRAND NAME EXACT STYLE */}
+    <h3 className="font-semibold text-gray-900 text-sm md:text-base text-center pb-2">
+      {brand.name}
+    </h3>
+
+  </CardContent>
+</Card>
+
+
             </Link>
           </SwiperSlide>
         ))}

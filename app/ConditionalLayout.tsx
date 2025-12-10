@@ -37,11 +37,12 @@ export default function ConditionalLayout({
     return <>{children}</>;
   }
 
-  // ✅ Main site par Header + Footer dikhega
+  // ✅ Main site par Header + Footer dikhega with proper spacing
   return (
     <>
       <Header ssrCategories={categories} />
-      <main>{children}</main>
+      {/* ⭐ Added pt-[120px] for fixed header height */}
+      <main className="pt-[150px]">{children}</main>
       <Footer />
     </>
   );

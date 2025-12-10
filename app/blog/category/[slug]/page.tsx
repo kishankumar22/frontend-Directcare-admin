@@ -3,7 +3,7 @@ import Link from "next/link";
 
 const API_BASE =
   process.env.API_BASE_URL ||
-  process.env.NEXT_PUBLIC_API_BASE_URL ||
+  process.env.NEXT_PUBLIC_API_URL ||
   "https://testapi.knowledgemarkg.com";
 
 function absoluteUrl(path?: string | null) {
@@ -18,8 +18,48 @@ async function fetchJSON(url: string) {
   return res.json();
 }
 
-export default async function BlogCategoryPage({ params }: { params: { slug: string } }) {
-  const { slug } = params;
+// ⭐ ADD: generateMetadata for SEO
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ slug: string }>; // ✅ Promise type
+}) {
+  const { slug } = await params;
+
+  try {
+    const categoriesUrl = `${API_BASE}/api/BlogCategories?includeInactive=false&includeSubCategories=true`;
+    const categoriesResp = await fetchJSON(categoriesUrl);
+    const categories = categoriesResp?.data ?? [];
+    const category = categories.find((c: any) => c.slug === slug);
+
+    if (!category) {
+      return {
+        title: "Category not found",
+        description: "This blog category does not exist.",
+      };
+    }
+
+    return {
+      title: category.metaTitle || `${category.name} - Blog Category`,
+      description:
+        category.metaDescription ||
+        `Browse articles in the ${category.name} category.`,
+    };
+  } catch {
+    return {
+      title: "Category",
+      description: "Blog category page",
+    };
+  }
+}
+
+// ⭐ FIX: params is now Promise in Next.js 15
+export default async function BlogCategoryPage({ 
+  params 
+}: { 
+  params: Promise<{ slug: string }> // ✅ Changed to Promise
+}) {
+  const { slug } = await params; // ✅ Added await
 
   const postsUrl = `${API_BASE}/api/BlogPosts?includeUnpublished=false&onlyHomePage=false`;
   const categoriesUrl = `${API_BASE}/api/BlogCategories?includeInactive=false&includeSubCategories=true`;
@@ -33,6 +73,23 @@ export default async function BlogCategoryPage({ params }: { params: { slug: str
   const categories = categoriesResp?.data ?? [];
 
   const category = categories.find((c: any) => c.slug === slug);
+
+  // If category not found
+  if (!category) {
+    return (
+      <main className="min-h-screen bg-gray-50 p-6">
+        <div className="max-w-4xl mx-auto">
+          <h1 className="text-2xl font-semibold">Category not found</h1>
+          <p className="text-gray-600 mt-2">
+            This category may have been removed or renamed.
+          </p>
+          <Link href="/blog" className="text-blue-600 hover:underline mt-4 inline-block">
+            ← Back to Blog
+          </Link>
+        </div>
+      </main>
+    );
+  }
 
   // Filter posts by categoryId
   let filtered = allPosts.filter((p: any) => p.blogCategoryId === category?.id);
@@ -70,9 +127,6 @@ export default async function BlogCategoryPage({ params }: { params: { slug: str
           <p className="text-gray-600 max-w-2xl mb-6">{category.metaDescription}</p>
         )}
 
-        {/* Category Image (optional) */}
-      
-
         {/* Posts List */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {filtered.map((post: any) => (
@@ -104,7 +158,7 @@ export default async function BlogCategoryPage({ params }: { params: { slug: str
                     <span
                       key={l.name}
                       className="text-xs px-2 py-1 rounded"
-                      style={{ background: l.color, color: "#111" }}
+                      style={{ background: l.color, color: "#fff" }}
                     >
                       {l.name}
                     </span>

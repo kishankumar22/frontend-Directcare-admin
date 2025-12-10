@@ -58,7 +58,10 @@ export default function Footer() {
               <ChevronDown className={`${open.services ? "rotate-180" : "rotate-0"} md:hidden`} />
             </button>
             <ul className={`text-sm opacity-90 mt-3 space-y-2 ${open.services ? "block" : "hidden md:block"}`}>
-              <li><Link href="#">Offers</Link></li>
+           <li>
+  <Link href="/offers">Offers</Link>
+</li>
+
               <li><Link href="#">Shop By Brand</Link></li>
               <li><Link href="#">Shop By Category</Link></li>
               <li><Link href="#">Popular Products</Link></li>
