@@ -6,9 +6,6 @@ import HomeBannerSlider from "@/components/HomeBannerSlider";
 import FeaturedProductsSlider from "@/components/FeaturedProductsSlider";
 import TopBrandsSlider from "@/components/TopBrandsSlider";
 import CategorySlider from "@/components/CategorySlider";
-
-
-
 import {
   ShoppingCart,
   Star,
@@ -28,16 +25,6 @@ const features = [
 ];
 
 // ✅ Types
-interface Product {
-  id: string;
-  name: string;
-  slug: string; // ✅ IMPORTANT: Need slug for routing
-  price: number;
-  oldPrice?: number | null;
-  averageRating?: number;
-  reviewCount?: number;
-  images?: { imageUrl: string }[];
-}
 
 
 interface Brand {

@@ -6,15 +6,14 @@ import { Search, Copy, Check, ChevronDown, ChevronUp, Star, X, ShoppingCart, Gif
 import { categoriesService } from "@/lib/services/categories";
 import { brandsService } from "@/lib/services/brands";
 import { productsService, Product as ServiceProduct } from "@/lib/services/products";
-import { discountsService, Discount as ServiceDiscount } from "@/lib/services/discounts"; // ⭐ Import from service
+import { discountsService, Discount as ServiceDiscount } from "@/lib/services/discounts";
 import Link from "next/link";
 import Image from "next/image";
 import { API_BASE_URL } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/CustomToast";
 import { useCart } from "../../context/CartContext";
-
-// ⭐ REMOVED Local Discount Interface - Using ServiceDiscount instead
+import { useRouter } from "next/navigation";
 
 // Extended Product interface
 interface Product extends ServiceProduct {
@@ -44,11 +43,12 @@ interface Brand {
 export default function OffersPage() {
   const toast = useToast();
   const { addToCart } = useCart();
+  const router = useRouter();
   
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [brands, setBrands] = useState<Brand[]>([]);
-  const [allDiscounts, setAllDiscounts] = useState<ServiceDiscount[]>([]); // ⭐ Using ServiceDiscount
+  const [allDiscounts, setAllDiscounts] = useState<ServiceDiscount[]>([]);
   const [loading, setLoading] = useState(true);
   
   // Filter States
@@ -59,15 +59,16 @@ export default function OffersPage() {
   const [sortBy, setSortBy] = useState<string>("default");
   const [copiedCode, setCopiedCode] = useState<string>("");
 
-  // ⭐ DYNAMIC PRICE RANGE - Calculated from actual products
+  // Dynamic price range
   const { minPrice, maxPrice } = useMemo(() => {
     if (products.length === 0) {
       return { minPrice: 0, maxPrice: 10000 };
     }
     
     const prices = products.map(p => p.price);
-    const min = Math.floor(Math.min(...prices));
-    const max = Math.ceil(Math.max(...prices));
+    const min = 0;
+    const actualMax = Math.ceil(Math.max(...prices));
+    const max = actualMax > 10000 ? actualMax + 100 : 10000;
     
     return { 
       minPrice: min, 
@@ -75,10 +76,8 @@ export default function OffersPage() {
     };
   }, [products]);
 
-  // Price range state - initialized with dynamic values
   const [priceRange, setPriceRange] = useState({ min: 0, max: 10000 });
 
-  // Update price range when products load
   useEffect(() => {
     if (products.length > 0) {
       setPriceRange({ min: minPrice, max: maxPrice });
@@ -94,6 +93,11 @@ export default function OffersPage() {
   useEffect(() => {
     fetchAllData();
   }, []);
+
+  // ⭐ Check if product has variants
+  const hasVariants = (product: Product) => {
+    return product.variants && product.variants.length > 0;
+  };
 
   // Handle Add to Cart
   const handleAddToCart = useCallback((product: Product, e: React.MouseEvent) => {
@@ -144,6 +148,13 @@ export default function OffersPage() {
     toast.success(`${product.name} added to cart! 🛒`);
   }, [addToCart, toast]);
 
+  // ⭐ Handle Select Options - Navigate to product page
+  const handleSelectOptions = (product: Product, e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    router.push(`/products/${product.slug}`);
+  };
+
   const fetchAllData = async () => {
     setLoading(true);
     try {
@@ -157,7 +168,6 @@ export default function OffersPage() {
         discountsService.getAll({ includeInactive: false })
       ]);
 
-      // Filter products that have active discounts
       const productsWithOffers = (productsRes.data?.data?.items || []).filter((product: any) => {
         return product.assignedDiscounts && product.assignedDiscounts.length > 0;
       }) as Product[];
@@ -172,7 +182,6 @@ export default function OffersPage() {
         setBrands(brandsRes.data.data);
       }
 
-      // ⭐ FIXED: Get all active discounts with proper type handling
       if (discountsRes.data?.data) {
         const activeDiscounts = discountsRes.data.data.filter((discount: ServiceDiscount) => {
           const now = new Date();
@@ -191,21 +200,17 @@ export default function OffersPage() {
     }
   };
 
-  // Separate offers by type
   const orderTotalOffers = allDiscounts.filter(d => d.discountType === "AssignedToOrderTotal");
   const shippingOffers = allDiscounts.filter(d => d.discountType === "AssignedToShipping");
 
-  // Get category count
   const getCategoryCount = (categoryId: string) => {
     return products.filter(product => product.categoryId === categoryId).length;
   };
 
-  // Get brand count
   const getBrandCount = (brandId: string) => {
     return products.filter(product => product.brandId === brandId).length;
   };
 
-  // Toggle category filter
   const toggleCategory = (categoryId: string) => {
     setSelectedCategories(prev => 
       prev.includes(categoryId) 
@@ -214,7 +219,6 @@ export default function OffersPage() {
     );
   };
 
-  // Toggle brand filter
   const toggleBrand = (brandId: string) => {
     setSelectedBrands(prev => 
       prev.includes(brandId) 
@@ -223,7 +227,6 @@ export default function OffersPage() {
     );
   };
 
-  // Clear all filters
   const clearAllFilters = () => {
     setSelectedCategories([]);
     setSelectedBrands([]);
@@ -232,7 +235,6 @@ export default function OffersPage() {
     setSearchTerm("");
   };
 
-  // Check if any filters are active
   const hasActiveFilters = selectedCategories.length > 0 || 
                           selectedBrands.length > 0 || 
                           priceRange.max < maxPrice || 
@@ -240,7 +242,6 @@ export default function OffersPage() {
                           selectedRating > 0 ||
                           searchTerm.length > 0;
 
-  // Get highest discount percentage
   const getHighestDiscount = (product: Product) => {
     if (!product.assignedDiscounts || product.assignedDiscounts.length === 0) return 0;
     
@@ -249,14 +250,12 @@ export default function OffersPage() {
     ));
   };
 
-  // Copy coupon code
   const copyCouponCode = (code: string) => {
     navigator.clipboard.writeText(code);
     setCopiedCode(code);
     setTimeout(() => setCopiedCode(""), 2000);
   };
 
-  // Filter and sort products
   const filteredProducts = products.filter((product) => {
     const matchesSearch = product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          product.shortDescription?.toLowerCase().includes(searchTerm.toLowerCase());
@@ -288,7 +287,6 @@ export default function OffersPage() {
     }
   });
 
-  // Render star rating
   const renderStars = (count: number, filled: boolean = false) => {
     return Array.from({ length: count }).map((_, i) => (
       <Star 
@@ -327,6 +325,7 @@ export default function OffersPage() {
           {/* Sidebar */}
           <aside className="lg:col-span-1">
             <div className="bg-white rounded-lg border border-gray-200 overflow-hidden sticky top-4">
+       
               {/* Categories Section */}
               <div className="border-b border-gray-200">
                 <button
@@ -359,7 +358,7 @@ export default function OffersPage() {
                               onChange={() => toggleCategory(category.id)}
                               className="w-4 h-4 text-green-600 border-gray-300 rounded focus:ring-green-500"
                             />
-                            <span className="text-sm text-gray-700 group-hover:text-gray-900">
+                            <span className="text-sm text-black group-hover:text-gray-900">
                               {category.name}
                             </span>
                           </div>
@@ -405,7 +404,7 @@ export default function OffersPage() {
                               onChange={() => toggleBrand(brand.id)}
                               className="w-4 h-4 text-green-600 border-gray-300 rounded focus:ring-green-500"
                             />
-                            <span className="text-sm text-gray-700 group-hover:text-gray-900">
+                            <span className="text-sm text-black group-hover:text-gray-900">
                               {brand.name}
                             </span>
                           </div>
@@ -419,7 +418,7 @@ export default function OffersPage() {
                 )}
               </div>
 
-              {/* ⭐ DYNAMIC Price Filter */}
+              {/* Price Filter */}
               <div className="border-b border-gray-200">
                 <button
                   onClick={() => setPriceOpen(!priceOpen)}
@@ -439,18 +438,18 @@ export default function OffersPage() {
                       type="range"
                       min={minPrice}
                       max={maxPrice}
-                      step="10"
+                      step={1}
                       value={priceRange.max}
                       onChange={(e) => setPriceRange({ ...priceRange, max: Number(e.target.value) })}
-                      className="w-full accent-green-600"
+                      className="w-full accent-green-600 cursor-pointer"
                     />
                     <div className="flex items-center justify-between mt-2 text-sm text-gray-600">
                       <span>£{minPrice}</span>
-                      <span>£{priceRange.max}</span>
+                      <span className="font-semibold text-gray-900">£{priceRange.max}</span>
                     </div>
                     {maxPrice > 1000 && (
-                      <p className="text-xs text-gray-500 mt-2">
-                        Range: £{minPrice} - £{maxPrice}
+                      <p className="text-xs text-gray-500 mt-2 text-center">
+                        Max: £{maxPrice}
                       </p>
                     )}
                   </div>
@@ -495,123 +494,136 @@ export default function OffersPage() {
 
           {/* Main Content */}
           <main className="lg:col-span-3">
-            {/* Order Total & Shipping Offers Banner */}
-            {(orderTotalOffers.length > 0 || shippingOffers.length > 0) && (
-              <div className="bg-gradient-to-r from-green-50 to-blue-50 border border-green-200 rounded-lg p-5 mb-6">
-                <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                  <Gift className="h-5 w-5 text-green-600" />
-                  Special Checkout Offers
-                </h2>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  {/* Order Total Offers */}
-                  {orderTotalOffers.map(offer => (
-                    <div key={offer.id} className="bg-white rounded-lg p-4 border border-gray-200 hover:shadow-md transition-shadow">
-                      <div className="flex items-start gap-3">
-                        <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center flex-shrink-0">
-                          <span className="text-xl">💰</span>
-                        </div>
-                        <div className="flex-1">
-                          <p className="font-semibold text-gray-900 mb-1">{offer.name}</p>
-                          {offer.adminComment && (
-                            <div 
-                              className="text-sm text-gray-600 prose-sm"
-                              dangerouslySetInnerHTML={{ __html: offer.adminComment }}
-                            />
-                          )}
-                          {offer.requiresCouponCode && offer.couponCode && (
-                            <div className="mt-2 flex items-center gap-2">
-                              <span className="text-xs text-gray-500">Code:</span>
-                              <code className="bg-green-100 text-green-700 px-2 py-1 rounded text-sm font-mono">
-                                {offer.couponCode}
-                              </code>
-                             <button
-  disabled={!offer.couponCode}
-  onClick={() => copyCouponCode(offer.couponCode!)}
->
-                                {copiedCode === offer.couponCode ? (
-                                  <Check className="h-4 w-4" />
-                                ) : (
-                                  <Copy className="h-4 w-4" />
-                                )}
-                              </button>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                  
-                  {/* Shipping Offers */}
-                  {shippingOffers.map(offer => (
-                    <div key={offer.id} className="bg-white rounded-lg p-4 border border-gray-200 hover:shadow-md transition-shadow">
-                      <div className="flex items-start gap-3">
-                        <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
-                          <TruckIcon className="h-5 w-5 text-blue-600" />
-                        </div>
-                        <div className="flex-1">
-                          <p className="font-semibold text-gray-900 mb-1">{offer.name}</p>
-                          {offer.adminComment && (
-                            <div 
-                              className="text-sm text-gray-600 prose-sm"
-                              dangerouslySetInnerHTML={{ __html: offer.adminComment }}
-                            />
-                          )}
-                          {offer.requiresCouponCode && offer.couponCode && (
-                            <div className="mt-2 flex items-center gap-2">
-                              <span className="text-xs text-gray-500">Code:</span>
-                              <code className="bg-blue-100 text-blue-700 px-2 py-1 rounded text-sm font-mono">
-                                {offer.couponCode}
-                              </code>
-                            <button
-  disabled={!offer.couponCode}
-  onClick={() => copyCouponCode(offer.couponCode!)}
->
-                                {copiedCode === offer.couponCode ? (
-                                  <Check className="h-4 w-4" />
-                                ) : (
-                                  <Copy className="h-4 w-4" />
-                                )}
-                              </button>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
+            {/* ⭐ Offers Title with Green Color */}
+            <div className="mb-2">
+              <h1 className="text-xl font-bold text-green-700">Offers</h1>
+            </div>
 
-            {/* Compact Info Section */}
-            <div className="bg-white rounded-lg border border-gray-200 p-5 mb-6 max-h-80 overflow-y-auto">
+   
+
+            {/* Comprehensive Info Section */}
+            <div className="bg-white rounded-lg border border-gray-200 p-5 mb-6 max-h-60 overflow-y-auto">
               <h1 className="text-xl font-bold text-gray-900 mb-3">
                 Shop Direct Care Offers on Everyday Health & Personal Care
               </h1>
               
-              <p className="text-gray-700 text-sm mb-3 leading-relaxed">
-                Save on health care, wellness, incontinence, personal hygiene, skincare, baby essentials, and everyday medical items without compromising on quality.
+              <p className="text-black text-sm mb-4 leading-relaxed">
+                Shop Direct Care Offers to save on adult health care, wellness, incontinence, personal hygiene, skincare, baby essentials, 
+                and everyday medical and personal care items, without compromising on how carefully you choose and use each product. This page 
+                groups discounted items from across the site so you can restock familiar products or try new options, while still checking 
+                ingredients, formats, and suitability in the same way as full‑price lines.
               </p>
 
-              <h2 className="text-base font-semibold text-gray-900 mb-2">
+              <h2 className="text-base font-semibold text-green-700 mb-2 mt-4">
                 What the Offers category covers
               </h2>
               
-              <ul className="list-disc pl-5 mb-3 space-y-1 text-gray-700 text-sm">
+              <p className="text-black text-sm mb-2">
+                Offers can appear across multiple Direct Care categories, including:
+              </p>
+              
+              <ul className="list-disc pl-5 mb-4 space-y-1 text-black text-sm">
                 <li>Everyday health and wellness products</li>
-                <li>Personal care and hygiene items</li>
+                <li>Personal care and hygiene items for adults and families</li>
                 <li>Incontinence and continence‑care products</li>
                 <li>Skincare, haircare, and body‑care products</li>
-                <li>Selected baby and child‑care products</li>
+                <li>Selected baby and child‑care products were age‑suitable</li>
               </ul>
 
-              <h2 className="text-base font-semibold text-gray-900 mb-2">Safety and Suitability</h2>
-              <ul className="list-disc pl-5 space-y-1 text-gray-700 text-sm">
-                <li>Read labels fully including warnings</li>
-                <li>Check age limits and medical advice</li>
-                <li>Do not exceed recommended dose</li>
-                <li>Seek professional advice if unsure</li>
+              <p className="text-black text-sm mb-4 leading-relaxed">
+                Even when pricing is reduced, the nature, indications, ingredients, and usage instructions of each product remain the same 
+                as in its main category. Always review the product page and label before use, just as you would for non‑offer items.
+              </p>
+
+              <h2 className="text-base font-semibold text-green-700 mb-2 mt-4">
+                Clearance Sale
+              </h2>
+              
+              <p className="text-black text-sm mb-2">
+                Clearance Sale items are usually limited‑quantity or end‑of‑line products that are being sold down.
+              </p>
+              
+              <ul className="list-disc pl-5 mb-4 space-y-1 text-black text-sm">
+                <li>Check expiry dates carefully on medicines, medical devices, nutritional supplements, and skincare before purchase and again before use</li>
+                <li>Do not use any product past its expiry date, especially medicines, medical nutrition, eye products, or items applied to broken or sensitive skin</li>
+                <li>If you have known allergies or skin sensitivities, review ingredient lists even if you have used a similar product before, as formulations and ranges can change</li>
               </ul>
+
+              <h2 className="text-base font-semibold text-green-700 mb-2 mt-4">
+                Monthly Sale and Deals
+              </h2>
+              
+              <p className="text-black text-sm mb-2">
+                Monthly Sale and Deals items are time‑limited promotions on current‑range products.
+              </p>
+              
+              <ul className="list-disc pl-5 mb-4 space-y-1 text-black text-sm">
+                <li>Treat these products exactly as you would the same item at full price: read the product description, check the label, and confirm that the format, strength, and age suitability match your needs</li>
+                <li>Avoid taking more than one medicine containing the same active ingredient just because it is on offer; track total daily doses across all products</li>
+                <li>For skincare, hygiene, and personal‑care items, perform any usual patch tests and follow use‑frequency guidance, even when buying as part of a promotion</li>
+              </ul>
+
+              <h2 className="text-base font-semibold text-green-700 mb-2 mt-4">
+                Value Packs & Bundles
+              </h2>
+              
+              <p className="text-black text-sm mb-2">
+                Value Packs & Bundles group multiple units or related products, such as:
+              </p>
+              
+              <ul className="list-disc pl-5 mb-2 space-y-1 text-black text-sm">
+                <li>Multipacks of the same item for regular use (for example, personal hygiene items, incontinence products, or skincare you use daily)</li>
+                <li>Complementary products commonly used together (for example, a wash and a moisturiser from the same range, or matched sizes of liners and pads)</li>
+              </ul>
+
+              <p className="text-black text-sm mb-2 mt-2">
+                When buying value packs and bundles:
+              </p>
+              
+              <ul className="list-disc pl-5 mb-4 space-y-1 text-black text-sm">
+                <li>Confirm that all items in the pack are suitable for the same user (adult only, or adult and child where clearly labelled), and that none duplicate medicines you are already taking</li>
+                <li>Check storage instructions, especially for products with shorter shelf‑lives or specific temperature requirements</li>
+                <li>Ensure you have space and conditions to store larger quantities safely, away from children and pets</li>
+              </ul>
+
+              <h2 className="text-base font-semibold text-green-700 mb-2 mt-4">
+                Safety and suitability across Offers
+              </h2>
+              
+              <p className="text-black text-sm mb-2">
+                Offers never change the way a health or personal care product should be used. For all discounted items:
+              </p>
+              
+              <ul className="list-disc pl-5 mb-4 space-y-1 text-black text-sm">
+                <li>Read labels fully before first use, including indications, directions, warnings, and ingredient lists</li>
+                <li>Check age limits, pregnancy or breastfeeding advice, and warnings for long‑term conditions such as heart, liver, or kidney disease, diabetes, asthma, or high blood pressure</li>
+                <li>If a product is a medicine, medical device, or specialist nutrition, do not exceed the recommended dose, frequency, or duration of use</li>
+                <li>Stop using any product and seek advice if you experience unexpected side effects such as rash, irritation, breathing difficulty, swelling, or a marked worsening of symptoms</li>
+              </ul>
+
+              <h2 className="text-base font-semibold text-green-700 mb-2 mt-4">
+                When to seek professional advice
+              </h2>
+              
+              <p className="text-black text-sm mb-2">
+                Even when buying from the Offers section, speak to a pharmacist, GP, or another healthcare professional if:
+              </p>
+              
+              <ul className="list-disc pl-5 mb-4 space-y-1 text-black text-sm">
+                <li>You are unsure whether a discounted product is appropriate for your condition, other medicines, or medical history</li>
+                <li>Symptoms are severe, unusual, or persist longer than expected for minor, self‑limiting conditions</li>
+                <li>You are buying on behalf of an older adult, someone with multiple conditions, or someone who may not be able to report side effects clearly</li>
+              </ul>
+
+              <h2 className="text-base font-semibold text-green-700 mb-2 mt-2">
+                Shop Direct Care Offers Safely
+              </h2>
+              
+              <p className="text-black text-sm leading-relaxed">
+                Use the Offers section to restock trusted products or try new options across Direct Care categories, while keeping your focus 
+                on format, ingredients, suitability, and safe use. Always treat reduced‑price items with the same care and attention you give 
+                to full‑price health and personal care products, and ask a healthcare professional for guidance whenever you are unsure.
+              </p>
             </div>
 
             {/* Search, Sort, and Clear Filters Bar */}
@@ -706,11 +718,12 @@ export default function OffersPage() {
                   const mainImage = product.images?.find(img => img.isMain) || product.images?.[0];
                   const discount = getHighestDiscount(product);
                   const activeDiscount = product.assignedDiscounts?.[0];
+                  const productHasVariants = hasVariants(product);
                   
                   return (
                     <div
                       key={product.id}
-                      className="bg-white rounded-lg border border-gray-200 overflow-hidden hover:shadow-lg transition-shadow group relative"
+                      className="bg-white rounded-lg border border-gray-200 overflow-hidden hover:shadow-lg transition-shadow group relative flex flex-col"
                     >
                       {/* Discount Badge */}
                       {discount > 0 && (
@@ -734,7 +747,8 @@ export default function OffersPage() {
                               src={`${API_BASE_URL}${mainImage.imageUrl}`}
                               alt={mainImage.altText || product.name}
                               fill
-                              className="object-cover group-hover:scale-105 transition-transform duration-300"
+                              className="object-contain group-hover:scale-105 transition-transform duration-300"
+                              sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
                             />
                           ) : (
                             <div className="w-full h-full flex items-center justify-center text-gray-300">
@@ -745,15 +759,15 @@ export default function OffersPage() {
                       </Link>
 
                       {/* Content */}
-                      <div className="p-4">
+                      <div className="p-4 flex flex-col flex-1">
                         <Link href={`/products/${product.slug}`}>
-                          <h3 className="font-semibold text-gray-900 mb-2 line-clamp-2 min-h-[3rem] hover:text-green-700 transition-colors cursor-pointer">
+                          <h3 className="font-semibold text-gray-900 mb-2 line-clamp-2 h-12 hover:text-green-700 transition-colors cursor-pointer">
                             {product.name}
                           </h3>
                         </Link>
 
-                        {/* Price */}
-                        <div className="mb-3">
+                        {/* Price and Coupon Code in same row */}
+                        <div className="mb-3 flex items-center justify-between gap-2">
                           <div className="flex items-center gap-2">
                             <span className="text-lg font-bold text-gray-900">
                               £{product.price.toFixed(2)}
@@ -764,60 +778,156 @@ export default function OffersPage() {
                               </span>
                             )}
                           </div>
-                        </div>
 
-                        {/* Coupon Code */}
-                        {activeDiscount?.requiresCouponCode && activeDiscount.couponCode && (
-                          <div className="mb-3">
-                            <p className="text-xs text-gray-500 mb-1">Use Code:</p>
-                            <div className="flex items-center gap-2 bg-green-50 border border-green-200 rounded px-3 py-2">
-                              <span className="flex-1 font-mono font-bold text-green-700 text-sm">
+                          {/* Coupon Code */}
+                          {activeDiscount?.requiresCouponCode && activeDiscount.couponCode && (
+                            <button
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                copyCouponCode(activeDiscount.couponCode);
+                              }}
+                              title={`Click to copy: ${activeDiscount.couponCode}`}
+                              className="flex items-center gap-2 bg-green-50 border border-green-200 rounded px-3 py-1.5 hover:bg-green-100 transition-colors group/coupon flex-shrink-0"
+                            >
+                              <span className="font-mono font-bold text-green-700 text-xs">
                                 {activeDiscount.couponCode}
                               </span>
-                              <button
-                                onClick={(e) => {
-                                  e.preventDefault();
-                                  e.stopPropagation();
-                                  copyCouponCode(activeDiscount.couponCode);
-                                }}
-                                className="text-green-700 hover:text-green-800"
-                              >
-                                {copiedCode === activeDiscount.couponCode ? (
-                                  <Check className="h-4 w-4" />
-                                ) : (
-                                  <Copy className="h-4 w-4" />
-                                )}
-                              </button>
-                            </div>
-                          </div>
-                        )}
+                              {copiedCode === activeDiscount.couponCode ? (
+                                <Check className="h-3.5 w-3.5 text-green-700" />
+                              ) : (
+                                <Copy className="h-3.5 w-3.5 text-green-700 group-hover/coupon:text-green-800" />
+                              )}
+                            </button>
+                          )}
+                        </div>
 
                         {/* Rating */}
-                        {product.averageRating && product.averageRating > 0 && (
-                          <div className="flex items-center gap-1 mb-3">
-                            {renderStars(Math.round(product.averageRating), true)}
-                            {renderStars(5 - Math.round(product.averageRating), false)}
-                            <span className="text-xs text-gray-500 ml-1">
-                              ({product.averageRating.toFixed(1)})
-                            </span>
-                          </div>
-                        )}
+                        <div className="mb-3 h-6">
+                          {product.averageRating && product.averageRating > 0 ? (
+                            <div className="flex items-center gap-1">
+                              {renderStars(Math.round(product.averageRating), true)}
+                              {renderStars(5 - Math.round(product.averageRating), false)}
+                              <span className="text-xs text-gray-500 ml-1">
+                                ({product.averageRating.toFixed(1)})
+                              </span>
+                            </div>
+                          ) : (
+                            <div className="h-full"></div>
+                          )}
+                        </div>
 
-                        {/* Add to Cart Button */}
-                        <Button
-                          onClick={(e) => handleAddToCart(product, e)}
-                          className="w-full bg-green-700 hover:bg-green-800 text-white transition-colors"
-                          disabled={product.stockQuantity === 0}
-                        >
-                          <ShoppingCart className="mr-2 h-4 w-4" />
-                          {product.stockQuantity > 0 ? "Add to Cart" : "Out of Stock"}
-                        </Button>
+                        {/* ⭐ Conditional Button - Select Options OR Add to Cart */}
+                        <div className="mt-auto">
+                          {productHasVariants ? (
+                            // Select Options Button for products with variants
+                            <Button
+                              onClick={(e) => handleSelectOptions(product, e)}
+                              className="w-full bg-green-700 hover:bg-green-800 text-white transition-colors"
+                            >
+                              Select Options
+                            </Button>
+                          ) : (
+                            // Add to Cart Button for simple products
+                            <Button
+                              onClick={(e) => handleAddToCart(product, e)}
+                              className="w-full bg-green-700 hover:bg-green-800 text-white transition-colors"
+                              disabled={product.stockQuantity === 0}
+                            >
+                              <ShoppingCart className="mr-2 h-4 w-4" />
+                              {product.stockQuantity > 0 ? "Add to Cart" : "Out of Stock"}
+                            </Button>
+                          )}
+                        </div>
                       </div>
                     </div>
                   );
                 })}
               </div>
             )}
+                     {/* Order Total & Shipping Offers Banner */}
+            {(orderTotalOffers.length > 0 || shippingOffers.length > 0) && (
+              <div className="bg-gradient-to-r from-green-50 to-blue-50 border border-green-200 rounded-lg p-5 mb-6 mt-4">
+                <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                  <Gift className="h-5 w-5 text-green-600" />
+                  Special Checkout Offers
+                </h2>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {orderTotalOffers.map(offer => (
+                    <div key={offer.id} className="bg-white rounded-lg p-4 border border-gray-200 hover:shadow-md transition-shadow">
+                      <div className="flex items-start gap-3">
+                        <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center flex-shrink-0">
+                          <span className="text-xl">💰</span>
+                        </div>
+                        <div className="flex-1">
+                          <p className="font-semibold text-gray-900 mb-1">{offer.name}</p>
+                          {offer.adminComment && (
+                            <div 
+                              className="text-sm text-gray-600 prose-sm line-clamp-2"
+                              dangerouslySetInnerHTML={{ __html: offer.adminComment }}
+                            />
+                          )}
+                          {offer.requiresCouponCode && offer.couponCode && (
+                            <div className="mt-2 flex items-center gap-2">
+                              <code className="bg-green-100 text-green-700 px-2 py-1 rounded text-xs font-mono flex-1 truncate">
+                                {offer.couponCode}
+                              </code>
+                              <button
+                                onClick={() => copyCouponCode(offer.couponCode!)}
+                                className="text-green-600 hover:text-green-700"
+                              >
+                                {copiedCode === offer.couponCode ? (
+                                  <Check className="h-4 w-4" />
+                                ) : (
+                                  <Copy className="h-4 w-4" />
+                                )}
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                  
+                  {shippingOffers.map(offer => (
+                    <div key={offer.id} className="bg-white rounded-lg p-4 border border-gray-200 hover:shadow-md transition-shadow">
+                      <div className="flex items-start gap-3">
+                        <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
+                          <TruckIcon className="h-5 w-5 text-blue-600" />
+                        </div>
+                        <div className="flex-1">
+                          <p className="font-semibold text-gray-900 mb-1">{offer.name}</p>
+                          {offer.adminComment && (
+                            <div 
+                              className="text-sm text-gray-600 prose-sm line-clamp-2"
+                              dangerouslySetInnerHTML={{ __html: offer.adminComment }}
+                            />
+                          )}
+                          {offer.requiresCouponCode && offer.couponCode && (
+                            <div className="mt-2 flex items-center gap-2">
+                              <code className="bg-blue-100 text-blue-700 px-2 py-1 rounded text-xs font-mono flex-1 truncate">
+                                {offer.couponCode}
+                              </code>
+                              <button
+                                onClick={() => copyCouponCode(offer.couponCode!)}
+                                className="text-blue-600 hover:text-blue-700"
+                              >
+                                {copiedCode === offer.couponCode ? (
+                                  <Check className="h-4 w-4" />
+                                ) : (
+                                  <Copy className="h-4 w-4" />
+                                )}
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}  
           </main>
         </div>
       </div>

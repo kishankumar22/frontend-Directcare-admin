@@ -1974,22 +1974,24 @@ const uploadImagesToProductDirect = async (productId: string, files: File[]): Pr
 </TabsContent>
 
 {/* ✅ ADD NEW TAB: GROUPED PRODUCTS */}
-<TabsContent value="grouped-products" className="space-y-4 mt-6">
-  <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-lg p-6">
-    <h3 className="text-lg font-semibold text-white mb-6 flex items-center gap-2">
+<TabsContent value="grouped-products" className="space-y-2 mt-2">
+  <div className="space-y-4">
+    {/* ⭐ Consistent Header Style */}
+    <h3 className="text-lg font-semibold text-white border-b border-slate-800 pb-2 flex items-center gap-2">
       <Package className="w-5 h-5 text-violet-400" />
       Product Type & Dependencies
     </h3>
-{/* Grouped Product Settings (Show only when productType is 'grouped') */}
+
+    {/* Grouped Product Settings (Show only when productType is 'grouped') */}
     {formData.productType === 'grouped' && (
-      <div className="space-y-6 mt-6 p-6 bg-slate-900/30 rounded-lg border border-violet-500/20">
-        <div className="flex items-center gap-2 mb-4">
+      <div className="space-y-4 bg-slate-800/30 border border-slate-700 p-4 rounded-xl">
+        <div className="flex items-center gap-2 pb-3 border-b border-slate-700/50">
           <ShoppingCart className="w-5 h-5 text-violet-400" />
           <h4 className="text-md font-semibold text-white">Grouped Product Configuration</h4>
         </div>
 
         {/* Require Other Products Checkbox */}
-        <div className="flex items-start gap-3">
+        <label className="flex items-center gap-3 cursor-pointer">
           <input
             type="checkbox"
             id="requireOtherProducts"
@@ -1999,21 +2001,21 @@ const uploadImagesToProductDirect = async (productId: string, files: File[]): Pr
             className="mt-1 w-4 h-4 rounded border-slate-600 bg-slate-900 text-violet-500 focus:ring-violet-500 focus:ring-offset-slate-900"
           />
           <div>
-            <label htmlFor="requireOtherProducts" className="text-sm font-medium text-slate-200 cursor-pointer">
+            <span className="text-sm font-medium text-slate-200">
               Require Other Products
-            </label>
+            </span>
             <p className="text-xs text-slate-400 mt-1">
               Enable this to make specific products mandatory when purchasing this grouped product
             </p>
           </div>
-        </div>
+        </label>
 
         {/* Product Selection (Show only when requireOtherProducts is enabled) */}
         {formData.requireOtherProducts && (
-          <>
+          <div className="space-y-4 pt-4 border-t border-slate-700/50">
             <div>
-              <label className="block text-sm font-medium text-slate-300 mb-3">
-                Select Required Products *
+              <label className="block text-sm font-medium text-slate-300 mb-2">
+                Select Required Products <span className="text-red-500">*</span>
               </label>
               
               {/* React Select Multi-select */}
@@ -2021,7 +2023,7 @@ const uploadImagesToProductDirect = async (productId: string, files: File[]): Pr
                 isMulti
                 options={simpleProducts.map(p => ({
                   value: p.id,
-                  label: `${p.name} (${p.sku}) -£${p.price}`,
+                  label: `${p.name} (${p.sku}) - £${p.price}`,
                   data: p
                 }))}
                 value={simpleProducts
@@ -2041,6 +2043,7 @@ const uploadImagesToProductDirect = async (productId: string, files: File[]): Pr
                     background: 'rgba(15, 23, 42, 0.5)',
                     borderColor: 'rgba(100, 116, 139, 0.5)',
                     minHeight: '42px',
+                    borderRadius: '12px',
                     '&:hover': {
                       borderColor: 'rgba(139, 92, 246, 0.5)'
                     }
@@ -2048,7 +2051,9 @@ const uploadImagesToProductDirect = async (productId: string, files: File[]): Pr
                   menu: (base) => ({
                     ...base,
                     background: 'rgb(30, 41, 59)',
-                    border: '1px solid rgba(100, 116, 139, 0.5)'
+                    border: '1px solid rgba(100, 116, 139, 0.5)',
+                    borderRadius: '12px',
+                    overflow: 'hidden'
                   }),
                   option: (base, state) => ({
                     ...base,
@@ -2087,13 +2092,13 @@ const uploadImagesToProductDirect = async (productId: string, files: File[]): Pr
 
             {/* Selected Products Display */}
             {selectedGroupedProducts.length > 0 && (
-              <div className="mt-4 p-4 bg-slate-900/50 rounded-lg border border-slate-700/50">
+              <div className="p-4 bg-slate-900/50 rounded-xl border border-slate-700/50">
                 <h5 className="text-sm font-medium text-slate-300 mb-3">Selected Products:</h5>
                 <div className="space-y-2">
                   {selectedGroupedProducts.map(productId => {
                     const product = simpleProducts.find(p => p.id === productId);
                     return product ? (
-                      <div key={productId} className="flex items-center justify-between p-2 bg-slate-800/50 rounded">
+                      <div key={productId} className="flex items-center justify-between p-3 bg-slate-800/50 rounded-lg hover:bg-slate-800/70 transition-colors">
                         <div className="text-sm">
                           <span className="text-white font-medium">{product.name}</span>
                           <span className="text-slate-400 ml-2">({product.sku})</span>
@@ -2107,7 +2112,7 @@ const uploadImagesToProductDirect = async (productId: string, files: File[]): Pr
             )}
 
             {/* Automatically Add Products */}
-            <div className="flex items-start gap-3 pt-4 border-t border-slate-700/50">
+            <label className="flex items-center gap-3 pt-4 border-t border-slate-700/50 cursor-pointer">
               <input
                 type="checkbox"
                 id="automaticallyAddProducts"
@@ -2117,311 +2122,306 @@ const uploadImagesToProductDirect = async (productId: string, files: File[]): Pr
                 className="mt-1 w-4 h-4 rounded border-slate-600 bg-slate-900 text-violet-500 focus:ring-violet-500 focus:ring-offset-slate-900"
               />
               <div>
-                <label htmlFor="automaticallyAddProducts" className="text-sm font-medium text-slate-200 cursor-pointer">
+                <span className="text-sm font-medium text-slate-200">
                   Automatically Add Required Products to Cart
-                </label>
+                </span>
                 <p className="text-xs text-slate-400 mt-1">
                   When enabled, required products will be automatically added when customer adds this product to cart
                 </p>
               </div>
-            </div>
-          </>
+            </label>
+          </div>
         )}
       </div>
     )}
   </div>
 </TabsContent>
 
+{/* Prices Tab - Updated for consistency */}
+<TabsContent value="prices" className="space-y-2 mt-2">
+  {/* Price Section */}
+  <div className="space-y-4">
+    <h3 className="text-lg font-semibold text-white border-b border-slate-800 pb-2">Price</h3>
 
+    <div className="grid md:grid-cols-3 gap-4">
+      <div>
+        <label className="block text-sm font-medium text-slate-300 mb-2">
+          Price (£)<span className="text-red-500">*</span>
+        </label>
+        <input
+          type="number"
+          name="price"
+          value={formData.price}
+          onChange={handleChange}
+          placeholder="0.00"
+          step="0.01"
+          className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+          required
+        />
+      </div>
 
-              {/* Prices Tab */}
-              <TabsContent value="prices" className="space-y-2 mt-2">
-                {/* Price Section */}
-                <div className="space-y-4">
-                  <h3 className="text-lg font-semibold text-white border-b border-slate-800 pb-2">Price</h3>
+      <div>
+        <label className="block text-sm font-medium text-slate-300 mb-2">Old Price (£)</label>
+        <input
+          type="number"
+          name="oldPrice"
+          value={formData.oldPrice}
+          onChange={handleChange}
+          placeholder="0.00"
+          step="0.01"
+          className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+        />
+        <p className="text-xs text-slate-400 mt-1">Shows as strikethrough</p>
+      </div>
 
-                  <div className="grid md:grid-cols-3 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-slate-300 mb-2">
-                        Price (£)<span className="text-red-500">*</span>
-                      </label>
-                      <input
-                        type="number"
-                        name="price"
-                        value={formData.price}
-                        onChange={handleChange}
-                        placeholder="0.00"
-                        step="0.01"
-                        className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
-                        required
-                      />
-                    </div>
+      <div>
+        <label className="block text-sm font-medium text-slate-300 mb-2">Product Cost (£)</label>
+        <input
+          type="number"
+          name="cost"
+          value={formData.cost}
+          onChange={handleChange}
+          placeholder="0.00"
+          step="0.01"
+          className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+        />
+        <p className="text-xs text-slate-400 mt-1">For profit calculation</p>
+      </div>
+    </div>
 
-                    <div>
-                      <label className="block text-sm font-medium text-slate-300 mb-2">Old Price (£)</label>
-                      <input
-                        type="number"
-                        name="oldPrice"
-                        value={formData.oldPrice}
-                        onChange={handleChange}
-                        placeholder="0.00"
-                        step="0.01"
-                        className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
-                      />
-                      <p className="text-xs text-slate-400 mt-1">Shows as strikethrough</p>
-                    </div>
+    <div className="space-y-3">
+      {/* ✅ First Row: 3 Checkboxes in 3 Columns */}
+      <div className="grid md:grid-cols-3 gap-4">
+        {/* Column 1 - Disable buy button */}
+        <label className="flex items-center gap-2 w-full px-3 py-2.5 bg-slate-800/50 border border-slate-700 rounded-xl cursor-pointer hover:border-violet-500 transition-all">
+          <input
+            type="checkbox"
+            name="disableBuyButton"
+            checked={formData.disableBuyButton}
+            onChange={handleChange}
+            className="rounded bg-slate-800/50 border-slate-700 text-violet-500 focus:ring-violet-500 focus:ring-offset-slate-900"
+          />
+          <span className="text-sm text-slate-300">Disable buy button</span>
+        </label>
 
-                    <div>
-                      <label className="block text-sm font-medium text-slate-300 mb-2">Product Cost (£)</label>
-                      <input
-                        type="number"
-                        name="cost"
-                        value={formData.cost}
-                        onChange={handleChange}
-                        placeholder="0.00"
-                        step="0.01"
-                        className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
-                      />
-                      <p className="text-xs text-slate-400 mt-1">For profit calculation</p>
-                    </div>
-                  </div>
+        {/* Column 2 - Disable wishlist button */}
+        <label className="flex items-center gap-2 w-full px-3 py-2.5 bg-slate-800/50 border border-slate-700 rounded-xl cursor-pointer hover:border-violet-500 transition-all">
+          <input
+            type="checkbox"
+            name="disableWishlistButton"
+            checked={formData.disableWishlistButton}
+            onChange={handleChange}
+            className="rounded bg-slate-800/50 border-slate-700 text-violet-500 focus:ring-violet-500 focus:ring-offset-slate-900"
+          />
+          <span className="text-sm text-slate-300">Disable wishlist button</span>
+        </label>
 
-<div className="space-y-3">
-  {/* ✅ First Row: 3 Checkboxes in 3 Columns */}
-  <div className="grid md:grid-cols-3 gap-4">
-    {/* Column 1 - Disable buy button */}
-    <label className="flex items-center gap-2 w-full px-3 py-2.5 bg-slate-800/50 border border-slate-700 rounded-xl cursor-pointer hover:border-violet-500 transition-all">
-      <input
-        type="checkbox"
-        name="disableBuyButton"
-        checked={formData.disableBuyButton}
-        onChange={handleChange}
-        className="rounded bg-slate-800/50 border-slate-700 text-violet-500 focus:ring-violet-500 focus:ring-offset-slate-900"
-      />
-      <span className="text-sm text-slate-300">Disable buy button</span>
-    </label>
+        {/* Column 3 - Call for price */}
+        <label className="flex items-center gap-2 w-full px-3 py-2.5 bg-slate-800/50 border border-slate-700 rounded-xl cursor-pointer hover:border-violet-500 transition-all">
+          <input
+            type="checkbox"
+            name="callForPrice"
+            checked={formData.callForPrice}
+            onChange={handleChange}
+            className="rounded bg-slate-800/50 border-slate-700 text-violet-500 focus:ring-violet-500 focus:ring-offset-slate-900"
+          />
+          <span className="text-sm text-slate-300">Call for price</span>
+        </label>
+      </div>
 
-    {/* Column 2 - Disable wishlist button */}
-    <label className="flex items-center gap-2 w-full px-3 py-2.5 bg-slate-800/50 border border-slate-700 rounded-xl cursor-pointer hover:border-violet-500 transition-all">
-      <input
-        type="checkbox"
-        name="disableWishlistButton"
-        checked={formData.disableWishlistButton}
-        onChange={handleChange}
-        className="rounded bg-slate-800/50 border-slate-700 text-violet-500 focus:ring-violet-500 focus:ring-offset-slate-900"
-      />
-      <span className="text-sm text-slate-300">Disable wishlist button</span>
-    </label>
+      {/* ✅ Second Row: Customer enters price (full width) */}
+      <label className="flex items-center gap-2 w-full px-3 py-2.5 bg-slate-800/50 border border-slate-700 rounded-xl cursor-pointer hover:border-violet-500 transition-all">
+        <input
+          type="checkbox"
+          name="customerEntersPrice"
+          checked={formData.customerEntersPrice}
+          onChange={handleChange}
+          className="rounded bg-slate-800/50 border-slate-700 text-violet-500 focus:ring-violet-500 focus:ring-offset-slate-900"
+        />
+        <span className="text-sm text-slate-300">Customer enters price</span>
+      </label>
+    </div>
 
-    {/* Column 3 - Call for price */}
-    <label className="flex items-center gap-2 w-full px-3 py-2.5 bg-slate-800/50 border border-slate-700 rounded-xl cursor-pointer hover:border-violet-500 transition-all">
-      <input
-        type="checkbox"
-        name="callForPrice"
-        checked={formData.callForPrice}
-        onChange={handleChange}
-        className="rounded bg-slate-800/50 border-slate-700 text-violet-500 focus:ring-violet-500 focus:ring-offset-slate-900"
-      />
-      <span className="text-sm text-slate-300">Call for price</span>
-    </label>
+    {formData.customerEntersPrice && (
+      <div className="grid md:grid-cols-2 gap-4 bg-slate-800/30 border border-slate-700 p-4 rounded-xl">
+        <div>
+          <label className="block text-sm font-medium text-slate-300 mb-2">Minimum Amount</label>
+          <input
+            type="number"
+            name="minimumCustomerEnteredPrice"
+            value={formData.minimumCustomerEnteredPrice}
+            onChange={handleChange}
+            placeholder="0.00"
+            step="0.01"
+            className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-slate-300 mb-2">Maximum Amount</label>
+          <input
+            type="number"
+            name="maximumCustomerEnteredPrice"
+            value={formData.maximumCustomerEnteredPrice}
+            onChange={handleChange}
+            placeholder="0.00"
+            step="0.01"
+            className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+          />
+        </div>
+      </div>
+    )}
   </div>
 
-  {/* ✅ Second Row: Customer enters price (full width) */}
-  <label className="flex items-center gap-2 w-full px-3 py-2.5 bg-slate-800/50 border border-slate-700 rounded-xl cursor-pointer hover:border-violet-500 transition-all">
-    <input
-      type="checkbox"
-      name="customerEntersPrice"
-      checked={formData.customerEntersPrice}
-      onChange={handleChange}
-      className="rounded bg-slate-800/50 border-slate-700 text-violet-500 focus:ring-violet-500 focus:ring-offset-slate-900"
-    />
-    <span className="text-sm text-slate-300">Customer enters price</span>
-  </label>
-</div>
+  {/* Mark as New Section */}
+  <div className="space-y-4">
+    <h3 className="text-lg font-semibold text-white border-b border-slate-800 pb-2">Mark as New</h3>
 
-
-                  {formData.customerEntersPrice && (
-                    <div className="grid md:grid-cols-2 gap-4 bg-slate-800/30 border border-slate-700 p-4 rounded-xl">
-                      <div>
-                        <label className="block text-sm font-medium text-slate-300 mb-2">Minimum Amount</label>
-                        <input
-                          type="number"
-                          name="minimumCustomerEnteredPrice"
-                          value={formData.minimumCustomerEnteredPrice}
-                          onChange={handleChange}
-                          placeholder="0.00"
-                          step="0.01"
-                          className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-sm font-medium text-slate-300 mb-2">Maximum Amount</label>
-                        <input
-                          type="number"
-                          name="maximumCustomerEnteredPrice"
-                          value={formData.maximumCustomerEnteredPrice}
-                          onChange={handleChange}
-                          placeholder="0.00"
-                          step="0.01"
-                          className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
-                        />
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                {/* Mark as New Section */}
-                <div className="space-y-4">
-                  <h3 className="text-lg font-semibold text-white border-b border-slate-800 pb-2">Mark as New</h3>
-
-                  <label className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      name="markAsNew"
-                      checked={formData.markAsNew}
-                      onChange={handleChange}
-                      className="rounded bg-slate-800/50 border-slate-700 text-violet-500 focus:ring-violet-500 focus:ring-offset-slate-900"
-                    />
-                    <span className="text-sm text-slate-300">Mark as new product</span>
-                  </label>
-
-                  {formData.markAsNew && (
-                    <div className="grid md:grid-cols-2 gap-4 bg-slate-800/30 border border-slate-700 p-4 rounded-xl">
-                      <div>
-                        <label className="block text-sm font-medium text-slate-300 mb-2">Start Date</label>
-                        <input
-                          type="datetime-local"
-                          name="markAsNewStartDate"
-                          value={formData.markAsNewStartDate}
-                          onChange={handleChange}
-                          className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-sm font-medium text-slate-300 mb-2">End Date</label>
-                        <input
-                          type="datetime-local"
-                          name="markAsNewEndDate"
-                          value={formData.markAsNewEndDate}
-                          onChange={handleChange}
-                          className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
-                        />
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                {/* Tax Section */}
-{/* ===== TAX SECTION ===== */}
-<div className="space-y-4">
-  <h3 className="text-lg font-semibold text-white border-b border-slate-800 pb-2">
-    VAT / Tax Settings
-  </h3>
-
-  {/* VAT Exempt Checkbox */}
-  <label className="flex items-center gap-2 cursor-pointer">
-    <input
-      type="checkbox"
-      name="vatExempt"
-      checked={formData.vatExempt}
-      onChange={handleChange}
-      className="rounded bg-slate-800/50 border-slate-700 text-violet-500 focus:ring-violet-500 focus:ring-offset-slate-900"
-    />
-    <span className="text-sm text-slate-300">VAT Exempt (No tax applied)</span>
-  </label>
-
-  {/* VAT Rate Dropdown - Only show if NOT exempt */}
-{!formData.vatExempt && (
-  <div className="relative">
-    <label className="block text-sm font-medium text-slate-300 mb-2">
-      VAT Rate <span className="text-red-400">*</span>
+    <label className="flex items-center gap-2 cursor-pointer">
+      <input
+        type="checkbox"
+        name="markAsNew"
+        checked={formData.markAsNew}
+        onChange={handleChange}
+        className="rounded bg-slate-800/50 border-slate-700 text-violet-500 focus:ring-violet-500 focus:ring-offset-slate-900"
+      />
+      <span className="text-sm text-slate-300">Mark as new product</span>
     </label>
 
-    {/* Search Input */}
-    <input
-      type="text"
-      placeholder="Search or select VAT rate..."
-      value={
-        formData.vatRateId 
-          ? `${dropdownsData.vatRates.find(v => v.id === formData.vatRateId)?.name} (${dropdownsData.vatRates.find(v => v.id === formData.vatRateId)?.rate}%)`
-          : vatSearch
-      }
-      onChange={(e) => {
-        setVatSearch(e.target.value);
-        setShowVatDropdown(true);
-        if (!e.target.value) {
-          setFormData({ ...formData, vatRateId: '' });
-        }
-      }}
-      onFocus={() => setShowVatDropdown(true)}
-      className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
-    />
+    {formData.markAsNew && (
+      <div className="grid md:grid-cols-2 gap-4 bg-slate-800/30 border border-slate-700 p-4 rounded-xl">
+        <div>
+          <label className="block text-sm font-medium text-slate-300 mb-2">Start Date</label>
+          <input
+            type="datetime-local"
+            name="markAsNewStartDate"
+            value={formData.markAsNewStartDate}
+            onChange={handleChange}
+            className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+          />
+        </div>
 
-    {/* Dropdown List */}
-    {showVatDropdown && (
-      <div className="absolute z-50 w-full mt-1 bg-slate-900 border border-slate-700 rounded-xl shadow-lg max-h-60 overflow-auto">
-        {filteredVATRates.length > 0 ? (
-          filteredVATRates.map((vat) => (
-            <button
-              key={vat.id}
-              type="button"
-              onClick={() => {
-                setFormData({ ...formData, vatRateId: vat.id });
-                setVatSearch('');
-                setShowVatDropdown(false);
-              }}
-              className={`w-full text-left px-4 py-2 hover:bg-violet-500/20 transition-colors ${
-                formData.vatRateId === vat.id ? 'bg-violet-500/30 text-violet-300' : 'text-white'
-              }`}
-            >
-              {vat.name} ({vat.rate}%)
-            </button>
-          ))
-        ) : (
-          <div className="px-4 py-2 text-slate-400 text-sm">
-            No VAT rates found
+        <div>
+          <label className="block text-sm font-medium text-slate-300 mb-2">End Date</label>
+          <input
+            type="datetime-local"
+            name="markAsNewEndDate"
+            value={formData.markAsNewEndDate}
+            onChange={handleChange}
+            className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+          />
+        </div>
+      </div>
+    )}
+  </div>
+
+  {/* Tax Section */}
+  <div className="space-y-4">
+    <h3 className="text-lg font-semibold text-white border-b border-slate-800 pb-2">
+      VAT / Tax Settings
+    </h3>
+
+    {/* VAT Exempt Checkbox */}
+    <label className="flex items-center gap-2 cursor-pointer">
+      <input
+        type="checkbox"
+        name="vatExempt"
+        checked={formData.vatExempt}
+        onChange={handleChange}
+        className="rounded bg-slate-800/50 border-slate-700 text-violet-500 focus:ring-violet-500 focus:ring-offset-slate-900"
+      />
+      <span className="text-sm text-slate-300">VAT Exempt (No tax applied)</span>
+    </label>
+
+    {/* VAT Rate Dropdown - Only show if NOT exempt */}
+    {!formData.vatExempt && (
+      <div className="relative">
+        <label className="block text-sm font-medium text-slate-300 mb-2">
+          VAT Rate <span className="text-red-400">*</span>
+        </label>
+
+        {/* Search Input */}
+        <input
+          type="text"
+          placeholder="Search or select VAT rate..."
+          value={
+            formData.vatRateId 
+              ? `${dropdownsData.vatRates.find(v => v.id === formData.vatRateId)?.name} (${dropdownsData.vatRates.find(v => v.id === formData.vatRateId)?.rate}%)`
+              : vatSearch
+          }
+          onChange={(e) => {
+            setVatSearch(e.target.value);
+            setShowVatDropdown(true);
+            if (!e.target.value) {
+              setFormData({ ...formData, vatRateId: '' });
+            }
+          }}
+          onFocus={() => setShowVatDropdown(true)}
+          className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+        />
+
+        {/* Dropdown List */}
+        {showVatDropdown && (
+          <div className="absolute z-50 w-full mt-1 bg-slate-900 border border-slate-700 rounded-xl shadow-lg max-h-60 overflow-auto">
+            {filteredVATRates.length > 0 ? (
+              filteredVATRates.map((vat) => (
+                <button
+                  key={vat.id}
+                  type="button"
+                  onClick={() => {
+                    setFormData({ ...formData, vatRateId: vat.id });
+                    setVatSearch('');
+                    setShowVatDropdown(false);
+                  }}
+                  className={`w-full text-left px-4 py-2 hover:bg-violet-500/20 transition-colors ${
+                    formData.vatRateId === vat.id ? 'bg-violet-500/30 text-violet-300' : 'text-white'
+                  }`}
+                >
+                  {vat.name} ({vat.rate}%)
+                </button>
+              ))
+            ) : (
+              <div className="px-4 py-2 text-slate-400 text-sm">
+                No VAT rates found
+              </div>
+            )}
           </div>
+        )}
+
+        {/* Close dropdown when clicking outside */}
+        {showVatDropdown && (
+          <div
+            className="fixed inset-0 z-40"
+            onClick={() => setShowVatDropdown(false)}
+          />
+        )}
+
+        {/* Selected Info */}
+        {formData.vatRateId && (
+          <p className="text-xs text-slate-400 mt-1">
+            Selected: {dropdownsData.vatRates.find(v => v.id === formData.vatRateId)?.name} 
+            ({dropdownsData.vatRates.find(v => v.id === formData.vatRateId)?.rate}%)
+          </p>
         )}
       </div>
     )}
 
-    {/* Close dropdown when clicking outside */}
-    {showVatDropdown && (
-      <div
-        className="fixed inset-0 z-40"
-        onClick={() => setShowVatDropdown(false)}
+    {/* Telecommunications checkbox */}
+    <label className="flex items-center gap-2 cursor-pointer">
+      <input
+        type="checkbox"
+        name="telecommunicationsBroadcastingElectronicServices"
+        checked={formData.telecommunicationsBroadcastingElectronicServices}
+        onChange={handleChange}
+        className="rounded bg-slate-800/50 border-slate-700 text-violet-500 focus:ring-violet-500 focus:ring-offset-slate-900"
       />
-    )}
-
-    {/* Selected Info */}
-    {formData.vatRateId && (
-      <p className="text-xs text-slate-400 mt-1">
-        Selected: {dropdownsData.vatRates.find(v => v.id === formData.vatRateId)?.name} 
-        ({dropdownsData.vatRates.find(v => v.id === formData.vatRateId)?.rate}%)
-      </p>
-    )}
+      <span className="text-sm text-slate-300">
+        Telecommunications / Broadcasting / Electronic Services
+      </span>
+    </label>
   </div>
-)}
+</TabsContent>
 
-
-  {/* Telecommunications checkbox */}
-  <label className="flex items-center gap-2 cursor-pointer">
-    <input
-      type="checkbox"
-      name="telecommunicationsBroadcastingElectronicServices"
-      checked={formData.telecommunicationsBroadcastingElectronicServices}
-      onChange={handleChange}
-      className="rounded bg-slate-800/50 border-slate-700 text-violet-500 focus:ring-violet-500 focus:ring-offset-slate-900"
-    />
-    <span className="text-sm text-slate-300">
-      Telecommunications / Broadcasting / Electronic Services
-    </span>
-  </label>
-</div>
-
-              </TabsContent>
 
               {/* Inventory Tab */}
               <TabsContent value="inventory" className="space-y-2 mt-2">

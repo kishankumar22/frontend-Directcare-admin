@@ -1693,37 +1693,36 @@ const uploadVariantImages = async (productResponse: any) => {
 
 {/* ✅ ADD THIS COMPLETE TAB CONTENT */}
 <TabsContent value="grouped-products" className="space-y-2 mt-2">
-  <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6">
-    <h3 className="text-lg font-semibold text-white border-b border-slate-800 pb-3 mb-4">
+  <div className="space-y-4">
+    {/* ⭐ Header */}
+    <h3 className="text-lg font-semibold text-white border-b border-slate-800 pb-2">
       Product Type & Dependencies
     </h3>
     
     {formData.productType === 'grouped' && (
-      <div className="space-y-6">
-        {/* Require Other Products Checkbox */}
-        <div className="bg-slate-900/50 border border-slate-700 rounded-xl p-4">
-          <label className="flex items-start gap-3 cursor-pointer">
-            <input
-              type="checkbox"
-              name="requireOtherProducts"
-              checked={formData.requireOtherProducts}
-              onChange={handleChange}
-              className="mt-1 rounded bg-slate-800/50 border-slate-700 text-violet-500 focus:ring-violet-500 focus:ring-offset-slate-900"
-            />
-            <div className="flex-1">
-              <span className="text-sm font-medium text-white">Require other products</span>
-              <p className="text-xs text-slate-400 mt-1">
-                Enable this to make the grouped product require other simple products
-              </p>
-            </div>
-          </label>
-        </div>
+      <div className="space-y-4">
+        {/* ✅ Require Other Products Checkbox - Centered */}
+        <label className="flex items-center gap-3 cursor-pointer px-3 py-2.5 bg-slate-800/50 border border-slate-700 rounded-xl hover:border-violet-500 transition-all">
+          <input
+            type="checkbox"
+            name="requireOtherProducts"
+            checked={formData.requireOtherProducts}
+            onChange={handleChange}
+            className="rounded bg-slate-800/50 border-slate-700 text-violet-500 focus:ring-violet-500 focus:ring-offset-slate-900"
+          />
+          <div className="flex-1">
+            <span className="text-sm font-medium text-slate-200">Require other products</span>
+            <p className="text-xs text-slate-400 mt-1">
+              Enable this to make the grouped product require other simple products
+            </p>
+          </div>
+        </label>
 
-        {/* Product Selection - Show only when checkbox is enabled */}
+        {/* Product Selection */}
         {formData.requireOtherProducts && (
-          <div className="space-y-4">
+          <div className="space-y-4 bg-slate-800/30 border border-slate-700 p-4 rounded-xl">
             <div>
-              <label className="block text-sm font-medium text-white mb-2">
+              <label className="block text-sm font-medium text-slate-300 mb-2">
                 Select Products <span className="text-red-500">*</span>
               </label>
               <p className="text-xs text-slate-400 mb-3">
@@ -1750,37 +1749,47 @@ const uploadVariantImages = async (productResponse: any) => {
                 styles={{
                   control: (base) => ({
                     ...base,
-                    backgroundColor: '#1e293b',
-                    borderColor: '#475569',
+                    background: 'rgba(15, 23, 42, 0.5)',
+                    borderColor: 'rgba(100, 116, 139, 0.5)',
                     minHeight: '42px',
-                    '&:hover': { borderColor: '#8b5cf6' }
+                    borderRadius: '12px',
+                    '&:hover': { 
+                      borderColor: 'rgba(139, 92, 246, 0.5)' 
+                    }
                   }),
                   menu: (base) => ({
                     ...base,
-                    backgroundColor: '#1e293b',
-                    border: '1px solid #475569'
+                    background: 'rgb(30, 41, 59)',
+                    border: '1px solid rgba(100, 116, 139, 0.5)',
+                    borderRadius: '12px',
+                    overflow: 'hidden'
                   }),
                   option: (base, state) => ({
                     ...base,
-                    backgroundColor: state.isFocused ? '#8b5cf6' : '#1e293b',
-                    color: state.isFocused ? 'white' : '#cbd5e1',
+                    background: state.isFocused 
+                      ? 'rgba(139, 92, 246, 0.2)' 
+                      : 'transparent',
+                    color: 'rgb(226, 232, 240)',
                     cursor: 'pointer',
-                    '&:active': { backgroundColor: '#7c3aed' }
+                    '&:hover': {
+                      background: 'rgba(139, 92, 246, 0.3)'
+                    }
                   }),
                   multiValue: (base) => ({
                     ...base,
-                    backgroundColor: '#8b5cf6',
+                    background: 'rgba(139, 92, 246, 0.2)',
+                    borderRadius: '6px'
                   }),
                   multiValueLabel: (base) => ({
                     ...base,
-                    color: 'white'
+                    color: 'rgb(226, 232, 240)'
                   }),
                   multiValueRemove: (base) => ({
                     ...base,
-                    color: 'white',
+                    color: 'rgb(226, 232, 240)',
                     '&:hover': {
-                      backgroundColor: '#7c3aed',
-                      color: 'white'
+                      background: 'rgba(239, 68, 68, 0.3)',
+                      color: 'rgb(248, 113, 113)'
                     }
                   }),
                   placeholder: (base) => ({
@@ -1795,24 +1804,29 @@ const uploadVariantImages = async (productResponse: any) => {
               />
               
               {selectedGroupedProducts.length > 0 && (
-                <p className="text-xs text-violet-400 mt-2">
-                  ✅ {selectedGroupedProducts.length} product(s) selected
+                <p className="text-xs text-violet-400 mt-2 flex items-center gap-1">
+                  <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                  </svg>
+                  {selectedGroupedProducts.length} product(s) selected
                 </p>
               )}
             </div>
 
-            {/* Automatically Add Products Checkbox */}
-            <div className="bg-slate-900/50 border border-slate-700 rounded-xl p-4">
-              <label className="flex items-start gap-3 cursor-pointer">
+            {/* ✅ Automatically Add Products Checkbox - Centered */}
+            <div className="pt-4 border-t border-slate-700/50">
+              <label className="flex items-center gap-3 cursor-pointer">
                 <input
                   type="checkbox"
                   name="automaticallyAddProducts"
                   checked={formData.automaticallyAddProducts}
                   onChange={handleChange}
-                  className="mt-1 rounded bg-slate-800/50 border-slate-700 text-violet-500 focus:ring-violet-500 focus:ring-offset-slate-900"
+                  className="rounded bg-slate-800/50 border-slate-700 text-violet-500 focus:ring-violet-500 focus:ring-offset-slate-900"
                 />
                 <div className="flex-1">
-                  <span className="text-sm font-medium text-white">Automatically add these products to the cart</span>
+                  <span className="text-sm font-medium text-slate-200">
+                    Automatically add these products to the cart
+                  </span>
                   <p className="text-xs text-slate-400 mt-1">
                     When enabled, the selected products will be added to cart automatically
                   </p>
@@ -1823,14 +1837,28 @@ const uploadVariantImages = async (productResponse: any) => {
             {/* Info Box */}
             <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl p-4">
               <h4 className="font-semibold text-sm text-blue-400 mb-2 flex items-center gap-2">
-                <Info className="h-4 w-4" />
+                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                </svg>
                 Grouped Product Information
               </h4>
-              <ul className="text-sm text-slate-300 space-y-1.5">
-                <li>• Grouped products are collections of simple products</li>
-                <li>• Customers can see and purchase individual products from the group</li>
-                <li>• Each product maintains its own price and inventory</li>
-                <li>• Useful for product bundles or related item sets</li>
+              <ul className="text-xs text-slate-300 space-y-1.5 pl-1">
+                <li className="flex items-start gap-2">
+                  <span className="text-violet-400 mt-0.5">•</span>
+                  <span>Grouped products are collections of simple products</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-violet-400 mt-0.5">•</span>
+                  <span>Customers can see and purchase individual products from the group</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-violet-400 mt-0.5">•</span>
+                  <span>Each product maintains its own price and inventory</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-violet-400 mt-0.5">•</span>
+                  <span>Useful for product bundles or related item sets</span>
+                </li>
               </ul>
             </div>
           </div>
@@ -1839,6 +1867,7 @@ const uploadVariantImages = async (productResponse: any) => {
     )}
   </div>
 </TabsContent>
+
 
               {/* Prices Tab */}
               <TabsContent value="prices" className="space-y-2 mt-2">
