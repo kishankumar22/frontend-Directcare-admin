@@ -5,11 +5,7 @@ import { API_ENDPOINTS } from '../api-config';
 // ==========================================
 // INTERFACES
 // ==========================================
-export interface Category {
-  id: string;
-  name: string;
-  productCount: number;
-}
+
 
  export interface ProductImage {
   id: string;
@@ -81,7 +77,7 @@ export interface ProductsApiResponse {
   errors: null;
 }
 
-export interface CategoryApiResponse {
+ interface CategoryApiResponse {
   success: boolean;
   message: string;
   data: CategoryData[];

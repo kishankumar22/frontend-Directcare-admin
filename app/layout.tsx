@@ -3,9 +3,8 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import { ToastProvider } from "@/components/CustomToast";
 import ConditionalLayout from "./ConditionalLayout";
-import { CartProvider } from "@/context/CartContext";  // <-- IMPORT THIS
+import { CartProvider } from "@/context/CartContext";
 import { AuthProvider } from "@/context/AuthContext";
-
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -23,17 +22,13 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   try {
     const res = await fetch(
       `${process.env.NEXT_PUBLIC_API_URL}/api/Categories?includeInactive=false&includeSubCategories=true`,
-      { cache: "no-store" }
+      {
+        next: { revalidate: 600 }, // ⭐ FIXED — NO MORE DYNAMIC SERVER ERROR
+      }
     );
 
     if (res.ok) {
-      let json = null;
-      try {
-        json = await res.json();
-      } catch (err) {
-        console.error("❌ JSON parse failed:", err);
-      }
-
+      const json = await res.json();
       if (json?.success && Array.isArray(json.data)) {
         categories = json.data.filter((c: any) => !c.parentCategoryId);
       }
@@ -46,13 +41,13 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     <html lang="en" suppressHydrationWarning>
       <body className={inter.className} suppressHydrationWarning>
         <ToastProvider>
-           <AuthProvider>                       {/* ⬅ WRAPPED HERE */}
-          <CartProvider>                {/* ✅ FIX */}
-            <ConditionalLayout categories={categories}>
-              {children}
-            </ConditionalLayout>
-          </CartProvider>
-           </AuthProvider>                       {/* ⬅ WRAPPED HERE */}
+          <AuthProvider>
+            <CartProvider>
+              <ConditionalLayout categories={categories}>
+                {children}
+              </ConditionalLayout>
+            </CartProvider>
+          </AuthProvider>
         </ToastProvider>
       </body>
     </html>

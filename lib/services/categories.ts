@@ -74,7 +74,7 @@ uploadImage: async (file: File, params?: Record<string, any>) => {
     formData
   );
 },
-  // ---- Image Delete ----
+
   // Make sure deleteBlogCategoryImage endpoint exists and is correct for categories
  deleteImage: (imageUrl: string) =>
   apiClient.delete<void>(API_ENDPOINTS.deleteBlogCategoryImage, { params: { imageUrl } }),

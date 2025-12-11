@@ -23,10 +23,6 @@ interface ProductVariant {
   imageUrl?: string;
   isDefault: boolean;
 }
-
-
-
-
 interface Product {
   id: string;
   name: string;

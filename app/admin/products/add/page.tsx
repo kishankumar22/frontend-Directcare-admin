@@ -1,6 +1,4 @@
 "use client";
-import Select from 'react-select';
-
 import { useState, useRef, useEffect, JSX } from "react";
 import { useRouter } from "next/navigation";
 
@@ -10,7 +8,8 @@ import {
   Tag,  Globe,  Truck,
  PoundSterling, Link as LinkIcon, ShoppingCart, Video,
   Play,
-  Plus
+  Plus,
+  Settings
 } from "lucide-react";
 import Link from "next/link";
 import { apiClient } from "../../../../lib/api"; // Import your axios client
@@ -18,19 +17,20 @@ import { ProductDescriptionEditor } from "@/app/admin/products/SelfHostedEditor"
 import { useToast } from "@/components/CustomToast";
 import  { API_BASE_URL,API_ENDPOINTS } from "@/lib/api-config";
 import { BrandApiResponse, CategoryApiResponse, CategoryData, DropdownsData, ProductAttribute, ProductImage, ProductItem, ProductsApiResponse, ProductVariant, SimpleProduct, VATRateApiResponse, VATRateData } from '@/lib/services';
+import { GroupedProductModal } from '../GroupedProductModal';
 
 
 
 export default function AddProductPage() {
   const router = useRouter();
-     const toast = useToast();
+  const toast = useToast();
   const [searchTerm, setSearchTerm] = useState('');
   const [searchTermCross, setSearchTermCross] = useState('');
-  const [attributes, setAttributes] = useState<Array<{id: string, name: string, values: string[]}>>([]);
   const [productAttributes, setProductAttributes] = useState<ProductAttribute[]>([]);
   const [productVariants, setProductVariants] = useState<ProductVariant[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const variantImageInputRef = useRef<HTMLInputElement>(null);
+
+  
 // Add this to your component state
 const [availableProducts, setAvailableProducts] = useState<Array<{id: string, name: string, sku: string, price: string}>>([]);
 const [uploadingImages, setUploadingImages] = useState(false);
@@ -41,6 +41,8 @@ const [dropdownsData, setDropdownsData] = useState<DropdownsData>({
   categories: [],
   vatRates: []  // ✅ Add this
 });
+ // ✅ ADD THIS STATE FOR MODAL
+  const [isGroupedModalOpen, setIsGroupedModalOpen] = useState(false);
 // ✅ ADD THESE TWO STATES
 const [simpleProducts, setSimpleProducts] = useState<SimpleProduct[]>([]);
 const [selectedGroupedProducts, setSelectedGroupedProducts] = useState<string[]>([]);
@@ -114,143 +116,158 @@ useEffect(() => {
 
 
 
-  const [formData, setFormData] = useState({
-    // Basic Info
-    name: '',
-    shortDescription: '',
-    fullDescription: '',
-    sku: '',
-    categories: '', // Will store category ID
-    brand: '', // Will store brand ID
- 
-    published: true,
-    productType: 'simple',
-    visibleIndividually: true,
-    gender: '',
-    customerRoles: 'all',
-    limitedToStores: false,
-    vendorId: '',
-    requireOtherProducts: false,
-    requiredProductIds: '',
-    automaticallyAddProducts: false,
-    showOnHomepage: false,
-    displayOrder: '1',
-    productTags: '',
-    gtin: '',
-    manufacturerPartNumber: '',
-    adminComment: '',
+ const [formData, setFormData] = useState({
+  // ===== BASIC INFO =====
+  name: '',
+  shortDescription: '',
+  fullDescription: '',
+  sku: '',
+  categories: '', // Will store category ID
+  brand: '', // Will store brand ID
+  
+  published: true,
+  productType: 'simple',
+  visibleIndividually: true,
+  gender: '',
+  customerRoles: 'all',
+  limitedToStores: false,
+  vendorId: '',
+  requireOtherProducts: false,
+  requiredProductIds: '',
+  automaticallyAddProducts: false,
+  showOnHomepage: false,
+  displayOrder: '1',
+  productTags: '',
+  gtin: '',
+  manufacturerPartNumber: '',
+  adminComment: '',
+  categoryName: '', // For clean category name display
 
-    // Related Products
-    relatedProducts: [] as string[],
-    crossSellProducts: [] as string[],
+  // ===== RELATED PRODUCTS =====
+  relatedProducts: [] as string[],
+  crossSellProducts: [] as string[],
 
-    // New fields for additional tabs
-    productImages: [] as ProductImage[],  // Use proper interface
-    videoUrls: [] as string[],
-    specifications: [] as Array<{id: string, name: string, value: string, displayOrder: number}>,
+  // ===== MEDIA =====
+  productImages: [] as ProductImage[],
+  videoUrls: [] as string[],
+  specifications: [] as Array<{id: string, name: string, value: string, displayOrder: number}>,
 
-    // Pricing
-    price: '',
-    oldPrice: '',
-    cost: '',
-    disableBuyButton: false,
-    disableWishlistButton: false,
-    availableForPreOrder: false,
-    preOrderAvailabilityStartDate: '',
-    callForPrice: false,
-    customerEntersPrice: false,
-    minimumCustomerEnteredPrice: '',
-    maximumCustomerEnteredPrice: '',
-    basepriceEnabled: false,
-    basepriceAmount: '',
-    basepriceUnit: '',
-    basepriceBaseAmount: '',
-    basepriceBaseUnit: '',
-    markAsNew: false,
-    markAsNewStartDate: '',
-    markAsNewEndDate: '',
+  // ===== PRICING =====
+  price: '',
+  oldPrice: '',
+  cost: '',
+  disableBuyButton: false,
+  disableWishlistButton: false,
+  availableForPreOrder: false,
+  preOrderAvailabilityStartDate: '',
+  callForPrice: false,
+  customerEntersPrice: false,
+  minimumCustomerEnteredPrice: '',
+  maximumCustomerEnteredPrice: '',
+  
+  // Base Price
+  basepriceEnabled: false,
+  basepriceAmount: '',
+  basepriceUnit: '',
+  basepriceBaseAmount: '',
+  basepriceBaseUnit: '',
+  
+  // Mark as New
+  markAsNew: false,
+  markAsNewStartDate: '',
+  markAsNewEndDate: '',
 
-    // Discounts
-    hasDiscountsApplied: false,
-    availableStartDate: '',
-    availableEndDate: '',
+  // ===== DISCOUNTS / AVAILABILITY =====
+  hasDiscountsApplied: false,
+  availableStartDate: '',
+  availableEndDate: '',
 
-    // Tax
-      vatExempt: false,  // ✅ Changed from taxExempt
-    vatRateId: '',     // ✅ Changed from taxCategoryId
-    telecommunicationsBroadcastingElectronicServices: false,
-   subscriptionDiscountPercentage: '',  // ✅ NEW
-   allowedSubscriptionFrequencies: '',  // ✅ NEW
-   subscriptionDescription: '',         // ✅ NEW
-    // SEO
-    metaTitle: '',
-    metaKeywords: '',
-    metaDescription: '',
-    searchEngineFriendlyPageName: '',
+  // ===== TAX =====
+  vatExempt: false,
+  vatRateId: '',
+  telecommunicationsBroadcastingElectronicServices: false,
 
-    isRecurring: false,
-recurringCycleLength: '',
-recurringCyclePeriod: 'days',
-recurringTotalCycles: '',
+  // ===== RECURRING / SUBSCRIPTION =====
+  isRecurring: false,
+  recurringCycleLength: '',
+  recurringCyclePeriod: 'days',
+  recurringTotalCycles: '',
+  subscriptionDiscountPercentage: '',
+  allowedSubscriptionFrequencies: '',
+  subscriptionDescription: '',
 
-isPack: false,
-packSize: '',
+  // ===== PACK PRODUCT =====
+  isPack: false,
+  packSize: '',
 
-    // Inventory
-    manageInventory: 'track',
-    stockQuantity: '',
-    displayStockAvailability: true,
-    displayStockQuantity: false,
-    minStockQuantity: '',
-    lowStockActivity: 'nothing',
-    notifyAdminForQuantityBelow: '',
-    backorders: 'no-backorders',
-    allowBackInStockSubscriptions: false,
-    productAvailabilityRange: '',
-    minCartQuantity: '1',
-    maxCartQuantity: '10000',
-    allowedQuantities: '',
-    allowAddingOnlyExistingAttributeCombinations: false,
-    notReturnable: false,
+  // ===== INVENTORY ===== ✅ UPDATED
+  manageInventory: 'track',
+  stockQuantity: '',
+  displayStockAvailability: true,
+  displayStockQuantity: false,
+  minStockQuantity: '',
+  lowStockActivity: 'nothing',
+  
+  // ✅ NOTIFICATION FIELDS - UPDATED
+  notifyAdminForQuantityBelow: true,  // ✅ Backend boolean (always true)
+  notifyQuantityBelow: '1',           // ✅ User input threshold
+  
+  // ✅ BACKORDER FIELDS - UPDATED
+  allowBackorder: false,              // ✅ Checkbox
+  backorderMode: 'no-backorders',     // ✅ Dropdown (conditional)
+  backorders: 'no-backorders',        // ✅ Keep for backward compatibility
+  
+  allowBackInStockSubscriptions: false,
+  productAvailabilityRange: '',
+  
+  // Cart Limits
+  minCartQuantity: '1',
+  maxCartQuantity: '10',
+  allowedQuantities: '',
+  allowAddingOnlyExistingAttributeCombinations: false,
+  notReturnable: false,
 
-    // Shipping
-    isShipEnabled: true,
-    isFreeShipping: false,
-    shipSeparately: false,
-    additionalShippingCharge: '',
-    deliveryDateId: '',
-    weight: '',
-    length: '',
-    width: '',
-    height: '',
+  // ===== SHIPPING =====
+  isShipEnabled: true,
+  isFreeShipping: false,
+  shipSeparately: false,
+  additionalShippingCharge: '',
+  deliveryDateId: '',
+  weight: '',
+  length: '',
+  width: '',
+  height: '',
 
-    // Gift Cards
-    isGiftCard: false,
-    giftCardType: 'virtual',
-    overriddenGiftCardAmount: '',
+  // ===== GIFT CARDS =====
+  isGiftCard: false,
+  giftCardType: 'virtual',
+  overriddenGiftCardAmount: '',
 
-    // Downloadable Product
-    isDownload: false,
-    downloadId: '',
-    unlimitedDownloads: true,
-    maxNumberOfDownloads: '',
-    downloadExpirationDays: '',
-    downloadActivationType: 'when-order-is-paid',
-    hasUserAgreement: false,
-    userAgreementText: '',
-    hasSampleDownload: false,
-    sampleDownloadId: '',
-    categoryName: '', // Add this for clean category name
+  // ===== DOWNLOADABLE PRODUCT =====
+  isDownload: false,
+  downloadId: '',
+  unlimitedDownloads: true,
+  maxNumberOfDownloads: '',
+  downloadExpirationDays: '',
+  downloadActivationType: 'when-order-is-paid',
+  hasUserAgreement: false,
+  userAgreementText: '',
+  hasSampleDownload: false,
+  sampleDownloadId: '',
 
+  // ===== RENTAL PRODUCT =====
+  isRental: false,
+  rentalPriceLength: '',
+  rentalPricePeriod: 'days',
 
-    // Rental Product
-    isRental: false,
-    rentalPriceLength: '',
-    rentalPricePeriod: 'days',
+  // ===== REVIEWS =====
+  allowCustomerReviews: true,
+   metaTitle: '',
+  metaKeywords: '',
+  metaDescription: '',
+  searchEngineFriendlyPageName: '',
+});
 
-    // Reviews
-    allowCustomerReviews: true,
-  });
 
 
 // ✅ Extract YouTube Video ID from URL
@@ -412,7 +429,7 @@ const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
         sortOrder: attr.displayOrder || 1
       }));
 
-    // ✅ Prepare variants array WITHOUT imageUrl (will upload separately)
+    // ✅ Prepare variants array
     const variantsArray = productVariants.map(variant => ({
       name: variant.name,
       sku: variant.sku,
@@ -427,7 +444,7 @@ const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
       option2Value: variant.option2Value || null,
       option3Name: variant.option3Name || null,
       option3Value: variant.option3Value || null,
-      imageUrl: null, // ✅ Don't send preview URLs
+      imageUrl: null,
       isDefault: variant.isDefault || false,
       displayOrder: variant.displayOrder || 0,
       isActive: variant.isActive ?? true
@@ -461,9 +478,36 @@ const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
       // Pricing
       price: parseFloat(formData.price.toString()) || 0,
 
-      // Stock
+      // ✅ INVENTORY - FIXED SECTION
       stockQuantity: parseInt(formData.stockQuantity.toString()) || 0,
       trackQuantity: formData.manageInventory === 'track',
+      manageInventoryMethod: formData.manageInventory,
+      minStockQuantity: parseInt(formData.minStockQuantity.toString()) || 0,
+      
+      // ✅ NOTIFICATION - FIXED (Boolean + Threshold)
+      notifyAdminForQuantityBelow: formData.notifyAdminForQuantityBelow ?? false,
+      notifyQuantityBelow: formData.notifyAdminForQuantityBelow 
+        ? parseInt(formData.notifyQuantityBelow.toString()) || 1 
+        : null,
+      
+      // Display Settings
+      displayStockAvailability: formData.displayStockAvailability,
+      displayStockQuantity: formData.displayStockQuantity,
+      
+      // ✅ BACKORDER - FIXED
+      allowBackorder: formData.allowBackorder ?? false,
+      backorderMode: formData.backorderMode || 'no-backorders',
+      allowBackInStockSubscriptions: formData.allowBackInStockSubscriptions,
+      
+      // Cart Quantities
+      orderMinimumQuantity: parseInt(formData.minCartQuantity.toString()) || 1,
+      orderMaximumQuantity: parseInt(formData.maxCartQuantity.toString()) || 10000,
+      allowedQuantities: formData.allowedQuantities?.trim() || null,
+      
+      // Other Inventory
+      lowStockActivity: formData.lowStockActivity || null,
+      productAvailabilityRange: formData.productAvailabilityRange || null,
+      notReturnable: formData.notReturnable ?? false,
 
       // Relationships
       categoryId: categoryId || null,
@@ -525,25 +569,6 @@ const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
       productData.additionalShippingCharge = parseFloat(formData.additionalShippingCharge.toString());
     }
     if (formData.deliveryDateId?.trim()) productData.deliveryDateId = formData.deliveryDateId.trim();
-
-    // Inventory Management
-    if (formData.manageInventory) productData.manageInventoryMethod = formData.manageInventory;
-    if (formData.minStockQuantity) productData.minStockQuantity = parseInt(formData.minStockQuantity.toString());
-    if (formData.displayStockQuantity) productData.displayStockQuantity = true;
-    if (formData.displayStockAvailability) productData.displayStockAvailability = true;
-    if (formData.notifyAdminForQuantityBelow) productData.notifyAdminForQuantityBelow = true;
-    if (formData.allowedQuantities?.trim()) productData.allowedQuantities = formData.allowedQuantities.trim();
-
-    // Backorder
-    if (formData.allowBackInStockSubscriptions) productData.allowBackInStockSubscriptions = true;
-    if (formData.backorders) productData.backorderMode = formData.backorders;
-
-    // Cart Quantities
-    if (formData.minCartQuantity) productData.orderMinimumQuantity = parseInt(formData.minCartQuantity.toString());
-    if (formData.maxCartQuantity) productData.orderMaximumQuantity = parseInt(formData.maxCartQuantity.toString());
-
-    // Not Returnable
-    if (formData.notReturnable) productData.notReturnable = true;
 
     // SEO
     if (formData.metaTitle?.trim()) productData.metaTitle = formData.metaTitle.trim();
@@ -785,8 +810,9 @@ const handleChange = (
   e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
 ) => {
   const { name, value, type } = e.target;
+  const checked = type === 'checkbox' ? (e.target as HTMLInputElement).checked : false;
 
-  // ⭐ CATEGORY HANDLING
+  // ⭐ 1. CATEGORY SELECTION - Special handling
   if (name === "categories") {
     const selectElement = e.target as HTMLSelectElement;
     const selectedOption = selectElement.options[selectElement.selectedIndex];
@@ -794,71 +820,303 @@ const handleChange = (
     setFormData((prev) => ({
       ...prev,
       categories: value,
-      categoryName:
-        selectedOption.dataset.categoryName ||
-        selectedOption.text.replace(/📁\s*/, ""),
+      categoryName: selectedOption.dataset.categoryName || 
+                    selectedOption.dataset.displayName || 
+                    selectedOption.text.replace(/📁\s*/, "").trim(),
     }));
     return;
   }
 
-  // ⭐ LIVE TYPING → USER-TYPED VALUE SET
-  setFormData((prev) => ({
-    ...prev,
-    [name]: type === "checkbox"
-      ? (e.target as HTMLInputElement).checked
-      : value,
-  }));
-  // ⭐ PRODUCT TYPE HANDLING
-if (name === "productType") {
-  setFormData((prev) => ({
-    ...prev,
-    productType: value,
-    // Reset grouped product fields when switching to simple
-    ...(value === 'simple' && {
-      requireOtherProducts: false,
-      requiredProductIds: '',
-      automaticallyAddProducts: false
-    })
-  }));
-  
-  // Clear selected products when switching to simple
-  if (value === 'simple') {
-    setSelectedGroupedProducts([]);
-  }
-  return;
-}
+  // ⭐ 2. SEO SLUG - Auto-generate with debounce
+  if (name === "searchEngineFriendlyPageName") {
+    setFormData((prev) => ({
+      ...prev,
+      searchEngineFriendlyPageName: value,
+    }));
 
-// ⭐ REQUIRE OTHER PRODUCTS HANDLER
-if (name === "requireOtherProducts") {
-  const checked = (e.target as HTMLInputElement).checked;
-  setFormData((prev) => ({
-    ...prev,
-    requireOtherProducts: checked,
-    // Clear related fields when disabling
-    ...(!checked && {
-      requiredProductIds: '',
-      automaticallyAddProducts: false
-    })
-  }));
-  
-  // Clear selections when disabling
-  if (!checked) {
-    setSelectedGroupedProducts([]);
-  }
-  return;
-}
-
-
-  // ⭐ AUTO-GENERATE SLUG — ONLY FOR ‘name’ FIELD
-  if (name === "name") {
     clearTimeout(slugTimer);
+    slugTimer = setTimeout(() => {
+      setFormData((prev) => ({
+        ...prev,
+        searchEngineFriendlyPageName: generateSeoName(prev.searchEngineFriendlyPageName),
+      }));
+    }, 1500);
+    return;
+  }
 
+  // ⭐ 3. PRODUCT NAME - Auto-generate slug
+  if (name === "name") {
+    setFormData((prev) => ({
+      ...prev,
+      name: value,
+    }));
+
+    clearTimeout(slugTimer);
     slugTimer = setTimeout(() => {
       setFormData((prev) => ({
         ...prev,
         searchEngineFriendlyPageName: generateSeoName(value),
       }));
-    }, 1000); // 1 second delay after user stops typing
+    }, 1000);
+    return;
+  }
+
+  // ⭐ 4. PRODUCT TYPE - Handle grouped/simple switching
+  if (name === "productType") {
+    if (value === 'grouped') {
+      setIsGroupedModalOpen(true);
+    }
+    
+    setFormData((prev) => ({
+      ...prev,
+      productType: value,
+      // Reset grouped product fields when switching to simple
+      ...(value === 'simple' && {
+        requireOtherProducts: false,
+        requiredProductIds: '',
+        automaticallyAddProducts: false
+      }),
+      // Auto-enable requireOtherProducts when grouped
+      ...(value === 'grouped' && {
+        requireOtherProducts: true
+      })
+    }));
+    
+    // Clear selected products when switching to simple
+    if (value === 'simple') {
+      setSelectedGroupedProducts([]);
+    }
+    return;
+  }
+
+  // ⭐ 5. REQUIRE OTHER PRODUCTS - Handle grouped product checkbox
+  if (name === "requireOtherProducts") {
+    setFormData((prev) => ({
+      ...prev,
+      requireOtherProducts: checked,
+      // Clear related fields when disabling
+      ...(!checked && {
+        requiredProductIds: '',
+        automaticallyAddProducts: false
+      })
+    }));
+
+    // Clear selections when disabling
+    if (!checked) {
+      setSelectedGroupedProducts([]);
+    }
+    return;
+  }
+
+  // ⭐ 6. SHIPPING ENABLED - Master switch
+  if (name === "isShipEnabled") {
+    setFormData((prev) => ({
+      ...prev,
+      isShipEnabled: checked,
+      // Reset shipping fields when disabled
+      isFreeShipping: checked ? prev.isFreeShipping : false,
+      additionalShippingCharge: checked ? prev.additionalShippingCharge : '',
+      shipSeparately: checked ? prev.shipSeparately : false,
+      weight: checked ? prev.weight : '',
+      length: checked ? prev.length : '',
+      width: checked ? prev.width : '',
+      height: checked ? prev.height : '',
+      deliveryDateId: checked ? prev.deliveryDateId : '',
+    }));
+    return;
+  }
+
+  // ⭐ 7. FREE SHIPPING - Auto reset additional charge
+  if (name === "isFreeShipping") {
+    setFormData((prev) => ({
+      ...prev,
+      isFreeShipping: checked,
+      additionalShippingCharge: checked ? '' : prev.additionalShippingCharge,
+    }));
+    return;
+  }
+
+  // ⭐ 8. RECURRING PRODUCT - Reset fields when disabled
+  if (name === "isRecurring") {
+    setFormData((prev) => ({
+      ...prev,
+      isRecurring: checked,
+      ...(!checked && {
+        recurringCycleLength: '',
+        recurringCyclePeriod: 'days',
+        recurringTotalCycles: '',
+        subscriptionDiscountPercentage: '',
+        allowedSubscriptionFrequencies: '',
+        subscriptionDescription: '',
+      })
+    }));
+    return;
+  }
+
+  // ⭐ 9. PACK PRODUCT - Reset pack size when disabled
+  if (name === "isPack") {
+    setFormData((prev) => ({
+      ...prev,
+      isPack: checked,
+      packSize: checked ? prev.packSize : '',
+    }));
+    return;
+  }
+
+  // ⭐ 10. MARK AS NEW - Reset dates when disabled
+  if (name === "markAsNew") {
+    setFormData((prev) => ({
+      ...prev,
+      markAsNew: checked,
+      markAsNewStartDate: checked ? prev.markAsNewStartDate : '',
+      markAsNewEndDate: checked ? prev.markAsNewEndDate : '',
+    }));
+    return;
+  }
+
+  // ⭐ 11. CUSTOMER ENTERS PRICE - Reset min/max when disabled
+  if (name === "customerEntersPrice") {
+    setFormData((prev) => ({
+      ...prev,
+      customerEntersPrice: checked,
+      minimumCustomerEnteredPrice: checked ? prev.minimumCustomerEnteredPrice : '',
+      maximumCustomerEnteredPrice: checked ? prev.maximumCustomerEnteredPrice : '',
+    }));
+    return;
+  }
+
+  // ⭐ 12. BASE PRICE ENABLED - Reset base price fields
+  if (name === "basepriceEnabled") {
+    setFormData((prev) => ({
+      ...prev,
+      basepriceEnabled: checked,
+      ...(!checked && {
+        basepriceAmount: '',
+        basepriceUnit: '',
+        basepriceBaseAmount: '',
+        basepriceBaseUnit: '',
+      })
+    }));
+    return;
+  }
+
+  // ⭐ 13. NOTIFY ADMIN - Conditional threshold input
+  if (name === "notifyAdminForQuantityBelow") {
+    setFormData((prev) => ({
+      ...prev,
+      notifyAdminForQuantityBelow: checked,
+      notifyQuantityBelow: checked ? prev.notifyQuantityBelow : '1', // Reset to default
+    }));
+    return;
+  }
+
+  // ⭐ 14. ALLOW BACKORDER - Conditional backorder mode
+  if (name === "allowBackorder") {
+    setFormData((prev) => ({
+      ...prev,
+      allowBackorder: checked,
+      backorderMode: checked ? "allow-qty-below-zero" : "no-backorders",
+    }));
+    return;
+  }
+
+  // ⭐ 15. AVAILABLE FOR PRE-ORDER - Reset pre-order date
+  if (name === "availableForPreOrder") {
+    setFormData((prev) => ({
+      ...prev,
+      availableForPreOrder: checked,
+      preOrderAvailabilityStartDate: checked ? prev.preOrderAvailabilityStartDate : '',
+    }));
+    return;
+  }
+
+  // ⭐ 16. GIFT CARD - Reset gift card fields
+  if (name === "isGiftCard") {
+    setFormData((prev) => ({
+      ...prev,
+      isGiftCard: checked,
+      ...(!checked && {
+        giftCardType: 'virtual',
+        overriddenGiftCardAmount: '',
+      })
+    }));
+    return;
+  }
+
+  // ⭐ 17. DOWNLOADABLE PRODUCT - Reset download fields
+  if (name === "isDownload") {
+    setFormData((prev) => ({
+      ...prev,
+      isDownload: checked,
+      ...(!checked && {
+        downloadId: '',
+        unlimitedDownloads: true,
+        maxNumberOfDownloads: '',
+        downloadExpirationDays: '',
+        downloadActivationType: 'when-order-is-paid',
+        hasUserAgreement: false,
+        userAgreementText: '',
+        hasSampleDownload: false,
+        sampleDownloadId: '',
+      })
+    }));
+    return;
+  }
+
+  // ⭐ 18. RENTAL PRODUCT - Reset rental fields
+  if (name === "isRental") {
+    setFormData((prev) => ({
+      ...prev,
+      isRental: checked,
+      ...(!checked && {
+        rentalPriceLength: '',
+        rentalPricePeriod: 'days',
+      })
+    }));
+    return;
+  }
+
+  // ⭐ 19. HAS USER AGREEMENT - Reset agreement text
+  if (name === "hasUserAgreement") {
+    setFormData((prev) => ({
+      ...prev,
+      hasUserAgreement: checked,
+      userAgreementText: checked ? prev.userAgreementText : '',
+    }));
+    return;
+  }
+
+  // ⭐ 20. HAS SAMPLE DOWNLOAD - Reset sample download ID
+  if (name === "hasSampleDownload") {
+    setFormData((prev) => ({
+      ...prev,
+      hasSampleDownload: checked,
+      sampleDownloadId: checked ? prev.sampleDownloadId : '',
+    }));
+    return;
+  }
+
+  // ⭐ 21. UNLIMITED DOWNLOADS - Reset max downloads
+  if (name === "unlimitedDownloads") {
+    setFormData((prev) => ({
+      ...prev,
+      unlimitedDownloads: checked,
+      maxNumberOfDownloads: checked ? '' : prev.maxNumberOfDownloads,
+    }));
+    return;
+  }
+
+  // ⭐ 22. DEFAULT HANDLER - All other fields
+  if (type === 'checkbox') {
+    setFormData((prev) => ({
+      ...prev,
+      [name]: checked,
+    }));
+  } else {
+    setFormData((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
   }
 };
 
@@ -1323,18 +1581,7 @@ const uploadVariantImages = async (productResponse: any) => {
                     <Info className="h-4 w-4" />
                     Info
                   </TabsTrigger>
-                  {/* ✅ ADD THIS CONDITIONAL TAB */}
-{formData.productType === 'grouped' && (
-  <TabsTrigger 
-    value="grouped-products" 
-    className="flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-slate-400 hover:text-violet-400 border-b-2 border-transparent data-[state=active]:border-violet-500 data-[state=active]:text-violet-400 data-[state=active]:bg-slate-800/50 whitespace-nowrap transition-all rounded-t-lg"
-  >
-    <Package className="h-4 w-4" />
-    Grouped Products
-  </TabsTrigger>
-)}
-
-                  <TabsTrigger value="prices" className="flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-slate-400 hover:text-violet-400 border-b-2 border-transparent data-[state=active]:border-violet-500 data-[state=active]:text-violet-400 data-[state=active]:bg-slate-800/50 whitespace-nowrap transition-all rounded-t-lg">
+                    <TabsTrigger value="prices" className="flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-slate-400 hover:text-violet-400 border-b-2 border-transparent data-[state=active]:border-violet-500 data-[state=active]:text-violet-400 data-[state=active]:bg-slate-800/50 whitespace-nowrap transition-all rounded-t-lg">
                     <PoundSterling className="h-4 w-4" />
                     Prices
                   </TabsTrigger>
@@ -1503,38 +1750,71 @@ const uploadVariantImages = async (productResponse: any) => {
         </div>
       </div>
 
-      <div className="grid md:grid-cols-2 gap-4">
-        {/* Product Type - Left Column */}
-        <div>
-          <label className="block text-sm font-medium text-slate-300 mb-2">
-            Product Type
-          </label>
-          <select
-            name="productType"
-            value={formData.productType}
-            onChange={handleChange}
-            className="w-full px-3 py-2.5 bg-slate-800/50 border border-slate-700 rounded-xl text-white focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
-          >
-            <option value="simple">Simple Product</option>
-            <option value="grouped">Grouped Product (product variants)</option>
-          </select>
-        </div>
+{/* ✅ UPDATED Product Type Row with Edit Button */}
+<div className="grid md:grid-cols-2 gap-4">
+  <div>
+    <label className="block text-sm font-medium text-slate-300 mb-2">
+      Product Type
+    </label>
+    
+    <div className="space-y-2">
+      <div className="flex items-center gap-2">
+        {/* Select Dropdown */}
+        <select
+          name="productType"
+          value={formData.productType}
+          onChange={handleChange}
+          className="flex-1 px-3 py-2.5 bg-slate-800/50 border border-slate-700 rounded-xl text-white focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+        >
+          <option value="simple">Simple Product</option>
+          <option value="grouped">Grouped Product</option>
+        </select>
 
-        {/* Product Tags - Right Column */}
-        <div>
-          <label className="block text-sm font-medium text-slate-300 mb-2">
-            Product Tags <span className="text-xs text-slate-500 font-normal">(Comma-separated)</span>
-          </label>
-          <input
-            type="text"
-            name="productTags"
-            value={formData.productTags}
-            onChange={handleChange}
-            placeholder="tag1, tag2, tag3"
-            className="w-full px-3 py-2.5 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
-          />
-        </div>
+        {/* ✅ Edit Button + Product Count Inline */}
+        {formData.productType === 'grouped' && (
+          <div className="flex items-center gap-2">
+            {/* Product Count Badge */}
+            {selectedGroupedProducts.length > 0 && (
+              <div className="flex items-center gap-1.5 px-3 py-2 bg-violet-500/10 border border-violet-500/30 rounded-lg">
+                <div className="w-1.5 h-1.5 bg-violet-400 rounded-full animate-pulse"></div>
+                <span className="text-xs font-medium text-violet-400">
+                  {selectedGroupedProducts.length} linked
+                </span>
+              </div>
+            )}
+            
+            {/* Edit Button */}
+            <button
+              type="button"
+              onClick={() => setIsGroupedModalOpen(true)}
+              className="p-2.5 bg-violet-500/10 hover:bg-violet-500/20 border border-violet-500/30 hover:border-violet-500/50 text-violet-400 rounded-xl transition-all"
+              title="Configure grouped product"
+            >
+              <Settings className="w-5 h-5" />
+            </button>
+          </div>
+        )}
       </div>
+    </div>
+  </div>
+
+  {/* Product Tags */}
+  <div>
+    <label className="block text-sm font-medium text-slate-300 mb-2">
+      Product Tags <span className="text-xs text-slate-500 font-normal">(Comma-separated)</span>
+    </label>
+    <input
+      type="text"
+      name="productTags"
+      value={formData.productTags}
+      onChange={handleChange}
+      placeholder="tag1, tag2, tag3"
+      className="w-full px-3 py-2.5 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+    />
+  </div>
+</div>
+
+
 
       <div className="grid md:grid-cols-2 gap-4">
         <div>
@@ -1690,184 +1970,6 @@ const uploadVariantImages = async (productResponse: any) => {
     </div>
   </div>
 </TabsContent>
-
-{/* ✅ ADD THIS COMPLETE TAB CONTENT */}
-<TabsContent value="grouped-products" className="space-y-2 mt-2">
-  <div className="space-y-4">
-    {/* ⭐ Header */}
-    <h3 className="text-lg font-semibold text-white border-b border-slate-800 pb-2">
-      Product Type & Dependencies
-    </h3>
-    
-    {formData.productType === 'grouped' && (
-      <div className="space-y-4">
-        {/* ✅ Require Other Products Checkbox - Centered */}
-        <label className="flex items-center gap-3 cursor-pointer px-3 py-2.5 bg-slate-800/50 border border-slate-700 rounded-xl hover:border-violet-500 transition-all">
-          <input
-            type="checkbox"
-            name="requireOtherProducts"
-            checked={formData.requireOtherProducts}
-            onChange={handleChange}
-            className="rounded bg-slate-800/50 border-slate-700 text-violet-500 focus:ring-violet-500 focus:ring-offset-slate-900"
-          />
-          <div className="flex-1">
-            <span className="text-sm font-medium text-slate-200">Require other products</span>
-            <p className="text-xs text-slate-400 mt-1">
-              Enable this to make the grouped product require other simple products
-            </p>
-          </div>
-        </label>
-
-        {/* Product Selection */}
-        {formData.requireOtherProducts && (
-          <div className="space-y-4 bg-slate-800/30 border border-slate-700 p-4 rounded-xl">
-            <div>
-              <label className="block text-sm font-medium text-slate-300 mb-2">
-                Select Products <span className="text-red-500">*</span>
-              </label>
-              <p className="text-xs text-slate-400 mb-3">
-                Choose one or more simple products to bundle in this grouped product
-              </p>
-              
-              <Select
-                isMulti
-                options={simpleProducts.map(product => ({
-                  value: product.id,
-                  label: `${product.name} (SKU: ${product.sku}) - £${product.price.toFixed(2)}`
-                }))}
-                value={selectedGroupedProducts.map(id => {
-                  const product = simpleProducts.find(p => p.id === id);
-                  return product ? {
-                    value: product.id,
-                    label: `${product.name} (SKU: ${product.sku}) - £${product.price.toFixed(2)}`
-                  } : null;
-                }).filter(Boolean)}
-                onChange={handleGroupedProductsChange}
-                className="react-select-container"
-                classNamePrefix="react-select"
-                placeholder="Search and select products..."
-                styles={{
-                  control: (base) => ({
-                    ...base,
-                    background: 'rgba(15, 23, 42, 0.5)',
-                    borderColor: 'rgba(100, 116, 139, 0.5)',
-                    minHeight: '42px',
-                    borderRadius: '12px',
-                    '&:hover': { 
-                      borderColor: 'rgba(139, 92, 246, 0.5)' 
-                    }
-                  }),
-                  menu: (base) => ({
-                    ...base,
-                    background: 'rgb(30, 41, 59)',
-                    border: '1px solid rgba(100, 116, 139, 0.5)',
-                    borderRadius: '12px',
-                    overflow: 'hidden'
-                  }),
-                  option: (base, state) => ({
-                    ...base,
-                    background: state.isFocused 
-                      ? 'rgba(139, 92, 246, 0.2)' 
-                      : 'transparent',
-                    color: 'rgb(226, 232, 240)',
-                    cursor: 'pointer',
-                    '&:hover': {
-                      background: 'rgba(139, 92, 246, 0.3)'
-                    }
-                  }),
-                  multiValue: (base) => ({
-                    ...base,
-                    background: 'rgba(139, 92, 246, 0.2)',
-                    borderRadius: '6px'
-                  }),
-                  multiValueLabel: (base) => ({
-                    ...base,
-                    color: 'rgb(226, 232, 240)'
-                  }),
-                  multiValueRemove: (base) => ({
-                    ...base,
-                    color: 'rgb(226, 232, 240)',
-                    '&:hover': {
-                      background: 'rgba(239, 68, 68, 0.3)',
-                      color: 'rgb(248, 113, 113)'
-                    }
-                  }),
-                  placeholder: (base) => ({
-                    ...base,
-                    color: '#64748b'
-                  }),
-                  input: (base) => ({
-                    ...base,
-                    color: 'white'
-                  })
-                }}
-              />
-              
-              {selectedGroupedProducts.length > 0 && (
-                <p className="text-xs text-violet-400 mt-2 flex items-center gap-1">
-                  <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                  </svg>
-                  {selectedGroupedProducts.length} product(s) selected
-                </p>
-              )}
-            </div>
-
-            {/* ✅ Automatically Add Products Checkbox - Centered */}
-            <div className="pt-4 border-t border-slate-700/50">
-              <label className="flex items-center gap-3 cursor-pointer">
-                <input
-                  type="checkbox"
-                  name="automaticallyAddProducts"
-                  checked={formData.automaticallyAddProducts}
-                  onChange={handleChange}
-                  className="rounded bg-slate-800/50 border-slate-700 text-violet-500 focus:ring-violet-500 focus:ring-offset-slate-900"
-                />
-                <div className="flex-1">
-                  <span className="text-sm font-medium text-slate-200">
-                    Automatically add these products to the cart
-                  </span>
-                  <p className="text-xs text-slate-400 mt-1">
-                    When enabled, the selected products will be added to cart automatically
-                  </p>
-                </div>
-              </label>
-            </div>
-
-            {/* Info Box */}
-            <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl p-4">
-              <h4 className="font-semibold text-sm text-blue-400 mb-2 flex items-center gap-2">
-                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-                </svg>
-                Grouped Product Information
-              </h4>
-              <ul className="text-xs text-slate-300 space-y-1.5 pl-1">
-                <li className="flex items-start gap-2">
-                  <span className="text-violet-400 mt-0.5">•</span>
-                  <span>Grouped products are collections of simple products</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <span className="text-violet-400 mt-0.5">•</span>
-                  <span>Customers can see and purchase individual products from the group</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <span className="text-violet-400 mt-0.5">•</span>
-                  <span>Each product maintains its own price and inventory</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <span className="text-violet-400 mt-0.5">•</span>
-                  <span>Useful for product bundles or related item sets</span>
-                </li>
-              </ul>
-            </div>
-          </div>
-        )}
-      </div>
-    )}
-  </div>
-</TabsContent>
-
 
               {/* Prices Tab */}
               <TabsContent value="prices" className="space-y-2 mt-2">
@@ -2187,221 +2289,319 @@ const uploadVariantImages = async (productResponse: any) => {
               </TabsContent>
 
               {/* Inventory Tab */}
-              <TabsContent value="inventory" className="space-y-2 mt-2">
-                {/* Inventory Method Section */}
-                <div className="space-y-4">
-                  <h3 className="text-lg font-semibold text-white border-b border-slate-800 pb-2">Inventory Method</h3>
+<TabsContent value="inventory" className="space-y-2 mt-2">
+  {/* Inventory Method Section */}
+  <div className="space-y-4">
+    <h3 className="text-lg font-semibold text-white border-b border-slate-800 pb-2">Inventory Method</h3>
 
-                  <div>
-                    <label className="block text-sm font-medium text-slate-300 mb-2">Inventory Method</label>
-                    <select
-                      name="manageInventory"
-                      value={formData.manageInventory}
-                      onChange={handleChange}
-                      className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
-                    >
-                      <option value="dont-track">Don't track inventory</option>
-                      <option value="track">Track inventory</option>
-                      <option value="track-by-attributes">Track inventory by product attributes</option>
-                    </select>
-                    <p className="text-xs text-slate-400 mt-1">
-                      Choose how you want to manage inventory for this product
-                    </p>
-                  </div>
-                </div>
+    <div>
+      <label className="block text-sm font-medium text-slate-300 mb-2">Inventory Method</label>
+      <select
+        name="manageInventory"
+        value={formData.manageInventory}
+        onChange={handleChange}
+        className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+      >
+        <option value="dont-track">Don't track inventory</option>
+        <option value="track">Track inventory</option>
+        <option value="track-by-attributes">Track inventory by product attributes</option>
+      </select>
+      <p className="text-xs text-slate-400 mt-1">
+        Choose how you want to manage inventory for this product
+      </p>
+    </div>
+  </div>
 
-                {/* Inventory Settings */}
-                {formData.manageInventory === 'track' && (
-                  <>
-                    <div className="space-y-4">
-                      <h3 className="text-lg font-semibold text-white border-b border-slate-800 pb-2">Stock Quantity</h3>
+  {/* Inventory Settings */}
+  {formData.manageInventory === 'track' && (
+    <>
+      <div className="space-y-4">
+        <h3 className="text-lg font-semibold text-white border-b border-slate-800 pb-2">Stock Quantity</h3>
 
-                      <div className="grid md:grid-cols-2 gap-4">
-                        <div>
-                          <label className="block text-sm font-medium text-slate-300 mb-2">
-                            Stock Quantity <span className="text-red-500">*</span>
-                          </label>
-                          <input
-                            type="number"
-                            name="stockQuantity"
-                            value={formData.stockQuantity}
-                            onChange={handleChange}
-                            placeholder="0"
-                            className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
-                            required
-                          />
-                        </div>
+        <div className="grid md:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-slate-300 mb-2">
+              Stock Quantity <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="number"
+              name="stockQuantity"
+              value={formData.stockQuantity}
+              onChange={handleChange}
+              placeholder="0"
+              min="0"
+              className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+              required
+            />
+          </div>
 
-                        <div>
-                          <label className="block text-sm font-medium text-slate-300 mb-2">Minimum Stock Quantity</label>
-                          <input
-                            type="number"
-                            name="minStockQuantity"
-                            value={formData.minStockQuantity}
-                            onChange={handleChange}
-                            placeholder="0"
-                            className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
-                          />
-                        </div>
-                      </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-300 mb-2">Minimum Stock Quantity</label>
+            <input
+              type="number"
+              name="minStockQuantity"
+              value={formData.minStockQuantity}
+              onChange={handleChange}
+              placeholder="0"
+              min="0"
+              className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+            />
+          </div>
+        </div>
 
-                      <div className="grid md:grid-cols-2 gap-4">
-                        <div>
-                          <label className="block text-sm font-medium text-slate-300 mb-2">Low Stock Activity</label>
-                          <select
-                            name="lowStockActivity"
-                            value={formData.lowStockActivity}
-                            onChange={handleChange}
-                            className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
-                          >
-                            <option value="nothing">Nothing</option>
-                            <option value="disable-buy">Disable buy button</option>
-                            <option value="unpublish">Unpublish product</option>
-                          </select>
-                        </div>
+        <div className="grid md:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-slate-300 mb-2">Low Stock Activity</label>
+            <select
+              name="lowStockActivity"
+              value={formData.lowStockActivity}
+              onChange={handleChange}
+              className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+            >
+              <option value="nothing">Nothing</option>
+              <option value="disable-buy">Disable buy button</option>
+              <option value="unpublish">Unpublish product</option>
+            </select>
+            <p className="text-xs text-slate-400 mt-1">
+              Action to take when stock falls below minimum
+            </p>
+          </div>
 
-                        <div>
-                          <label className="block text-sm font-medium text-slate-300 mb-2">Notify Admin for Quantity Below</label>
-                          <input
-                            type="number"
-                            name="notifyAdminForQuantityBelow"
-                            value={formData.notifyAdminForQuantityBelow}
-                            onChange={handleChange}
-                            placeholder="1"
-                            className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
-                          />
-                        </div>
-                      </div>
+          {/* ✅ PLACEHOLDER DIV - Keep grid balanced */}
+          <div></div>
+        </div>
 
-                      <div>
-                        <label className="block text-sm font-medium text-slate-300 mb-2">Backorders</label>
-                        <select
-                          name="backorders"
-                          value={formData.backorders}
-                          onChange={handleChange}
-                          className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
-                        >
-                          <option value="no-backorders">No backorders</option>
-                          <option value="allow-qty-below-zero">Allow qty below 0</option>
-                          <option value="allow-qty-below-zero-and-notify">Allow qty below 0 and notify customer</option>
-                        </select>
-                      </div>
+        {/* ✅ ADMIN NOTIFICATION SECTION - CONDITIONAL */}
+        <div className="space-y-3 p-4 bg-slate-800/30 rounded-xl border border-slate-700">
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input
+              type="checkbox"
+              name="notifyAdminForQuantityBelow"
+              checked={formData.notifyAdminForQuantityBelow}
+              onChange={(e) => {
+                const isChecked = e.target.checked;
+                setFormData(prev => ({
+                  ...prev,
+                  notifyAdminForQuantityBelow: isChecked,
+                  notifyQuantityBelow: isChecked ? prev.notifyQuantityBelow : '1' // Reset to default
+                }));
+              }}
+              className="rounded bg-slate-800/50 border-slate-700 text-violet-500 focus:ring-violet-500 focus:ring-offset-slate-900"
+            />
+            <div>
+              <span className="text-sm font-medium text-slate-300">Enable Low Stock Notifications</span>
+              <p className="text-xs text-slate-400 mt-0.5">
+                {formData.notifyAdminForQuantityBelow 
+                  ? "Admin will receive email alerts for low stock" 
+                  : "No email notifications will be sent"}
+              </p>
+            </div>
+          </label>
 
-                      <div className="space-y-3">
-                        <label className="flex items-center gap-2">
-                          <input
-                            type="checkbox"
-                            name="displayStockAvailability"
-                            checked={formData.displayStockAvailability}
-                            onChange={handleChange}
-                            className="rounded bg-slate-800/50 border-slate-700 text-violet-500 focus:ring-violet-500 focus:ring-offset-slate-900"
-                          />
-                          <span className="text-sm text-slate-300">Display stock availability</span>
-                        </label>
+          {/* ✅ Conditional Threshold Input */}
+          {formData.notifyAdminForQuantityBelow && (
+            <div className="ml-6 pt-2 border-t border-slate-700">
+              <label className="block text-sm font-medium text-slate-300 mb-2">
+                Notify When Quantity Below
+              </label>
+              <input
+                type="number"
+                name="notifyQuantityBelow"
+                value={formData.notifyQuantityBelow}
+                onChange={handleChange}
+                placeholder="1"
+                min="0"
+                className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+              />
+              <p className="text-xs text-slate-400 mt-1">
+                Email will be sent when stock reaches this quantity
+              </p>
+            </div>
+          )}
+        </div>
 
-                        <label className="flex items-center gap-2">
-                          <input
-                            type="checkbox"
-                            name="displayStockQuantity"
-                            checked={formData.displayStockQuantity}
-                            onChange={handleChange}
-                            className="rounded bg-slate-800/50 border-slate-700 text-violet-500 focus:ring-violet-500 focus:ring-offset-slate-900"
-                          />
-                          <span className="text-sm text-slate-300">Display stock quantity</span>
-                        </label>
+        {/* ✅ BACKORDER SECTION */}
+        <div className="space-y-3 p-4 bg-slate-800/30 rounded-xl border border-slate-700">
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input
+              type="checkbox"
+              name="allowBackorder"
+              checked={formData.allowBackorder}
+              onChange={(e) => {
+                const isChecked = e.target.checked;
+                setFormData(prev => ({
+                  ...prev,
+                  allowBackorder: isChecked,
+                  backorderMode: isChecked ? "allow-qty-below-zero" : "no-backorders"
+                }));
+              }}
+              className="rounded bg-slate-800/50 border-slate-700 text-violet-500 focus:ring-violet-500 focus:ring-offset-slate-900"
+            />
+            <div>
+              <span className="text-sm font-medium text-slate-300">Allow Backorders</span>
+              <p className="text-xs text-slate-400 mt-0.5">
+                {formData.allowBackorder 
+                  ? "Customers can order when out of stock" 
+                  : "Orders blocked when stock is 0"}
+              </p>
+            </div>
+          </label>
 
-                        <label className="flex items-center gap-2">
-                          <input
-                            type="checkbox"
-                            name="allowBackInStockSubscriptions"
-                            checked={formData.allowBackInStockSubscriptions}
-                            onChange={handleChange}
-                            className="rounded bg-slate-800/50 border-slate-700 text-violet-500 focus:ring-violet-500 focus:ring-offset-slate-900"
-                          />
-                          <span className="text-sm text-slate-300">Allow back in stock subscriptions</span>
-                        </label>
-                      </div>
-                    </div>
+          {/* Conditional Dropdown */}
+          {formData.allowBackorder && (
+            <div className="ml-6 pt-2 border-t border-slate-700">
+              <label className="block text-sm font-medium text-slate-300 mb-2">
+                Backorder Mode
+              </label>
+              <select
+                name="backorderMode"
+                value={formData.backorderMode}
+                onChange={handleChange}
+                className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+              >
+                <option value="allow-qty-below-zero">Allow quantity below 0 (silent)</option>
+                <option value="allow-qty-below-zero-and-notify">Allow quantity below 0 & notify customer</option>
+              </select>
+              <p className="text-xs text-slate-400 mt-1">
+                {formData.backorderMode === "allow-qty-below-zero-and-notify" 
+                  ? "Customer will see 'Backordered' message" 
+                  : "No special message shown to customer"}
+              </p>
+            </div>
+          )}
+        </div>
 
-                    <div className="space-y-4">
-                      <h3 className="text-lg font-semibold text-white border-b border-slate-800 pb-2">Multiple Warehouses</h3>
+        {/* Display Options */}
+        <div className="space-y-3">
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input
+              type="checkbox"
+              name="displayStockAvailability"
+              checked={formData.displayStockAvailability}
+              onChange={handleChange}
+              className="rounded bg-slate-800/50 border-slate-700 text-violet-500 focus:ring-violet-500 focus:ring-offset-slate-900"
+            />
+            <span className="text-sm text-slate-300">Display stock availability (In Stock/Out of Stock)</span>
+          </label>
 
-                      <div>
-                        <label className="block text-sm font-medium text-slate-300 mb-2">Product Availability Range</label>
-                        <select
-                          name="productAvailabilityRange"
-                          value={formData.productAvailabilityRange}
-                          onChange={handleChange}
-                          className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
-                        >
-                          <option value="">None</option>
-                          <option value="1-2-days">1-2 days</option>
-                          <option value="3-5-days">3-5 days</option>
-                          <option value="1-week">1 week</option>
-                          <option value="2-weeks">2 weeks</option>
-                        </select>
-                      </div>
-                    </div>
-                  </>
-                )}
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input
+              type="checkbox"
+              name="displayStockQuantity"
+              checked={formData.displayStockQuantity}
+              onChange={handleChange}
+              className="rounded bg-slate-800/50 border-slate-700 text-violet-500 focus:ring-violet-500 focus:ring-offset-slate-900"
+            />
+            <span className="text-sm text-slate-300">Display exact stock quantity (e.g., "25 items available")</span>
+          </label>
 
-                {/* Cart Settings */}
-                <div className="space-y-4">
-                  <h3 className="text-lg font-semibold text-white border-b border-slate-800 pb-2">Cart Settings</h3>
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input
+              type="checkbox"
+              name="allowBackInStockSubscriptions"
+              checked={formData.allowBackInStockSubscriptions}
+              onChange={handleChange}
+              className="rounded bg-slate-800/50 border-slate-700 text-violet-500 focus:ring-violet-500 focus:ring-offset-slate-900"
+            />
+            <span className="text-sm text-slate-300">Allow "Notify me when available" subscriptions</span>
+          </label>
+        </div>
+      </div>
 
-                  <div className="grid md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-slate-300 mb-2">Minimum Cart Quantity</label>
-                      <input
-                        type="number"
-                        name="minCartQuantity"
-                        value={formData.minCartQuantity}
-                        onChange={handleChange}
-                        placeholder="1"
-                        className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
-                      />
-                    </div>
+      {/* Multiple Warehouses Section */}
+      <div className="space-y-4">
+        <h3 className="text-lg font-semibold text-white border-b border-slate-800 pb-2">
+          Delivery Time Estimate
+        </h3>
 
-                    <div>
-                      <label className="block text-sm font-medium text-slate-300 mb-2">Maximum Cart Quantity</label>
-                      <input
-                        type="number"
-                        name="maxCartQuantity"
-                        value={formData.maxCartQuantity}
-                        onChange={handleChange}
-                        placeholder="10000"
-                        className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
-                      />
-                    </div>
-                  </div>
+        <div>
+          <label className="block text-sm font-medium text-slate-300 mb-2">Product Availability Range</label>
+          <select
+            name="productAvailabilityRange"
+            value={formData.productAvailabilityRange}
+            onChange={handleChange}
+            className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+          >
+            <option value="">None</option>
+            <option value="1-2-days">Ships in 1-2 days</option>
+            <option value="3-5-days">Ships in 3-5 days</option>
+            <option value="1-week">Ships in 1 week</option>
+            <option value="2-weeks">Ships in 2 weeks</option>
+          </select>
+          <p className="text-xs text-slate-400 mt-1">
+            Displayed to customers on product page
+          </p>
+        </div>
+      </div>
+    </>
+  )}
 
-                  <div>
-                    <label className="block text-sm font-medium text-slate-300 mb-2">Allowed Quantities</label>
-                    <input
-                      type="text"
-                      name="allowedQuantities"
-                      value={formData.allowedQuantities}
-                      onChange={handleChange}
-                      placeholder="e.g., 1, 5, 10, 20"
-                      className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
-                    />
-                    <p className="text-xs text-slate-400 mt-1">
-                      Comma-separated list of quantities. Leave empty to allow any quantity.
-                    </p>
-                  </div>
+  {/* Cart Settings */}
+  <div className="space-y-4">
+    <h3 className="text-lg font-semibold text-white border-b border-slate-800 pb-2">Cart Settings</h3>
 
-                  <label className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      name="notReturnable"
-                      checked={formData.notReturnable}
-                      onChange={handleChange}
-                      className="rounded bg-slate-800/50 border-slate-700 text-violet-500 focus:ring-violet-500 focus:ring-offset-slate-900"
-                    />
-                    <span className="text-sm text-slate-300">Not returnable</span>
-                  </label>
-                </div>
-              </TabsContent>
+    <div className="grid md:grid-cols-2 gap-4">
+      <div>
+        <label className="block text-sm font-medium text-slate-300 mb-2">Minimum Cart Quantity</label>
+        <input
+          type="number"
+          name="minCartQuantity"
+          value={formData.minCartQuantity}
+          onChange={handleChange}
+          placeholder="1"
+          min="1"
+          className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+        />
+        <p className="text-xs text-slate-400 mt-1">
+          Customer must order at least this quantity
+        </p>
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-slate-300 mb-2">Maximum Cart Quantity</label>
+        <input
+          type="number"
+          name="maxCartQuantity"
+          value={formData.maxCartQuantity}
+          onChange={handleChange}
+          placeholder="10000"
+          min="1"
+          className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+        />
+        <p className="text-xs text-slate-400 mt-1">
+          Maximum quantity per order
+        </p>
+      </div>
+    </div>
+
+    <div>
+      <label className="block text-sm font-medium text-slate-300 mb-2">Allowed Quantities</label>
+      <input
+        type="text"
+        name="allowedQuantities"
+        value={formData.allowedQuantities}
+        onChange={handleChange}
+        placeholder="e.g., 1, 5, 10, 20"
+        className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+      />
+      <p className="text-xs text-slate-400 mt-1">
+        Restrict to specific quantities only (comma-separated). Leave empty to allow any quantity.
+      </p>
+    </div>
+
+    <label className="flex items-center gap-2 cursor-pointer">
+      <input
+        type="checkbox"
+        name="notReturnable"
+        checked={formData.notReturnable}
+        onChange={handleChange}
+        className="rounded bg-slate-800/50 border-slate-700 text-violet-500 focus:ring-violet-500 focus:ring-offset-slate-900"
+      />
+      <span className="text-sm text-slate-300">Not returnable (no refunds/returns allowed)</span>
+    </label>
+  </div>
+</TabsContent>
+
 
               {/* Shipping Tab */}
               <TabsContent value="shipping" className="space-y-2 mt-2">
@@ -3797,7 +3997,20 @@ const uploadVariantImages = async (productResponse: any) => {
           </div>
         </div>
       </div>
-
+<GroupedProductModal
+        isOpen={isGroupedModalOpen}
+        onClose={() => setIsGroupedModalOpen(false)}
+        simpleProducts={simpleProducts}
+        selectedGroupedProducts={selectedGroupedProducts}
+        automaticallyAddProducts={formData.automaticallyAddProducts}
+        onProductsChange={handleGroupedProductsChange}
+        onAutoAddChange={(checked) => {
+          setFormData(prev => ({
+            ...prev,
+            automaticallyAddProducts: checked
+          }));
+        }}
+      />
     </div>
   );
 }

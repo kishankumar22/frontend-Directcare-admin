@@ -34,7 +34,7 @@ export interface BlogPost {
   comments?: BlogComment[];
 }
 
-export interface ApiResponse<T> {
+ interface ApiResponse<T> {
   success: boolean;
   message: string;
   data: T;

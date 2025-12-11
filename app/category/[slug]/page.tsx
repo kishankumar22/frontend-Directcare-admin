@@ -10,18 +10,18 @@ interface SearchParams {
   pageSize?: string;
 }
 
-// Get Category by slug
+// Get Category by slug (STATIC cache)
 async function getCategoryBySlug(slug: string) {
   const res = await fetch(
     `${process.env.NEXT_PUBLIC_API_URL}/api/Categories?includeInactive=false&includeSubCategories=true`,
-    { cache: "no-store" }
+    { next: { revalidate: 600 } } // 10 min cache
   );
+
   const json = await res.json();
-  const category = json.data.find((c: any) => c.slug === slug);
-  return category || null;
+  return json.data.find((c: any) => c.slug === slug) || null;
 }
 
-// Get products by category slug (simple /products fetch for now)
+// Products — always dynamic
 async function getProducts(params: SearchParams = {}) {
   const {
     page = "1",
@@ -36,17 +36,17 @@ async function getProducts(params: SearchParams = {}) {
     { cache: "no-store" }
   );
 
-  const data = await res.json();
-  return data;
+  return res.json();
 }
 
-// ⭐ FIX: params is now Promise
-export async function generateMetadata({ 
-  params 
-}: { 
-  params: Promise<{ slug: string }> // ✅ Changed to Promise
+// ⭐ MUST USE Promise params (your project requires this)
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ slug: string }>;
 }) {
-  const { slug } = await params; // ✅ Added await
+  const { slug } = await params;
+
   const category = await getCategoryBySlug(slug);
 
   return {
@@ -63,23 +63,24 @@ function Loading() {
   );
 }
 
-// ⭐ FIX: Both params and searchParams are Promise
+// ⭐ MUST USE Promise types for params + searchParams
 export default async function CategoryPage({
   params,
   searchParams,
 }: {
-  params: Promise<{ slug: string }>; // ✅ Changed to Promise
-  searchParams: Promise<SearchParams>; // ✅ Changed to Promise
+  params: Promise<{ slug: string }>;
+  searchParams: Promise<SearchParams>;
 }) {
-  const { slug } = await params; // ✅ Added await
-  const searchParamsResolved = await searchParams; // ✅ Added await
+  const { slug } = await params;
+  const searchParamsResolved = await searchParams;
 
   const category = await getCategoryBySlug(slug);
   const productsRes = await getProducts(searchParamsResolved);
 
+  // Brands — static
   const brandsRes = await fetch(
     `${process.env.NEXT_PUBLIC_API_URL}/api/Brands?includeUnpublished=false`,
-    { cache: "no-store" }
+    { next: { revalidate: 600 } }
   ).then((res) => res.json());
 
   return (

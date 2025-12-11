@@ -42,7 +42,7 @@ export interface CreateBlogCategoryDto {
 }
 
 // --- Generic ApiResponse ---
-export interface ApiResponse<T> {
+interface ApiResponse<T> {
   success: boolean;
   message: string;
   data: T;

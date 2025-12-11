@@ -2,6 +2,8 @@
 import { Suspense } from 'react';
 import ProductsClient from './ProductsClient';
 import { Loader2 } from 'lucide-react';
+import { apiClient } from '@/lib/api';
+import { API_ENDPOINTS } from '@/lib/api-config';
 
 // ✅ Types
 interface ProductImage {
@@ -94,7 +96,7 @@ async function getAllProducts(params: SearchParams = {}): Promise<ApiResponse> {
     }
 
     const res = await fetch(
-      `${process.env.NEXT_PUBLIC_API_URL}/api/Products?${queryParams.toString()}`,
+      `${API_ENDPOINTS.products}?${queryParams.toString()}`,
       {
         cache: 'no-store',
         next: { revalidate: 0 },

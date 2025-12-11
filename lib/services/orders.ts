@@ -114,7 +114,7 @@ export interface OrdersListResponse {
 }
 
 // ✅ API Response wrapper
-export interface ApiResponse<T> {
+ interface ApiResponse<T> {
   success: boolean;
   message: string;
   data: T;
