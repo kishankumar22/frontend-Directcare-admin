@@ -725,6 +725,11 @@ const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
       target.removeAttribute('data-submitting');
       return;
     }
+    const nameRegex = /^[A-Za-z0-9\s\-.,()'/]+$/;
+if (!nameRegex.test(formData.name)) {
+    toast.error("⚠️ Invalid product name. Special characters like @, #, $, % are not allowed.");
+}
+
 
     // ✅ Grouped Product Validation
     if (formData.productType === 'grouped' && formData.requireOtherProducts) {
@@ -1886,14 +1891,19 @@ const uploadImagesToProductDirect = async (productId: string, files: File[]): Pr
           Product Name <span className="text-red-500">*</span>
         </label>
         <input
-          type="text"
-          name="name"
-          value={formData.name}
-          onChange={handleChange}
-          placeholder="Enter product name"
-          className="w-full px-3 py-2.5 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
-          required
-        />
+  type="text"
+  name="name"
+  value={formData.name}
+  onChange={handleChange}
+  placeholder="Enter product name"
+  className="w-full px-3 py-2.5 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+  required
+  minLength={3}
+  maxLength={150}
+  pattern="^[A-Za-z0-9\s\-.,()'/]+$"
+  title="Product name must be 3–150 characters and cannot contain emojis or special characters like @, #, $, %."
+/>
+
       </div>
 
       {/* Short Description Editor */}

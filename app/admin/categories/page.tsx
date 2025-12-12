@@ -18,19 +18,17 @@ export default function CategoriesPage() {
   const [selectedImageUrl, setSelectedImageUrl] = useState<string | null>(null);
   const [viewingCategory, setViewingCategory] = useState<Category | null>(null);
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [levelFilter, setLevelFilter] = useState<string>("all");
   
-  // ✨ NEW - Track expanded categories for subcategory visibility
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
-
+  const [selectedParentId, setSelectedParentId] = useState<string>("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
 
-  // Pagination states
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(25);
   
-  // Delete confirmation states
   const [deleteConfirm, setDeleteConfirm] = useState<{
     id: string;
     name: string;
@@ -63,7 +61,6 @@ export default function CategoriesPage() {
     parentCategoryId: ""
   });
 
-  // ✨ NEW - Toggle category expansion
   const toggleCategoryExpansion = (categoryId: string) => {
     setExpandedCategories(prev => {
       const newSet = new Set(prev);
@@ -126,6 +123,71 @@ export default function CategoriesPage() {
     });
   };
 
+  const findCategoryById = (id: string, categories: Category[]): Category | null => {
+    for (const cat of categories) {
+      if (cat.id === id) return cat;
+      if (cat.subCategories && cat.subCategories.length > 0) {
+        const found = findCategoryById(id, cat.subCategories);
+        if (found) return found;
+      }
+    }
+    return null;
+  };
+
+  const getCategoryLevel = (category: Category, allCategories: Category[]): number => {
+    let level = 0;
+    let currentId = category.parentCategoryId;
+    
+    while (currentId) {
+      level++;
+      const parent = findCategoryById(currentId, allCategories);
+      if (!parent) break;
+      currentId = parent.parentCategoryId;
+    }
+    
+    return level;
+  };
+
+  const isDescendantOf = (
+    category: Category, 
+    ancestorId: string, 
+    allCategories: Category[]
+  ): boolean => {
+    let currentId = category.parentCategoryId;
+    
+    while (currentId) {
+      if (currentId === ancestorId) return true;
+      const parent = findCategoryById(currentId, allCategories);
+      if (!parent) break;
+      currentId = parent.parentCategoryId;
+    }
+    
+    return false;
+  };
+
+  const getAvailableParents = (
+    categories: Category[], 
+    currentCategoryId?: string
+  ): Category[] => {
+    const availableParents: Category[] = [];
+    
+    const addIfValid = (cat: Category, level: number) => {
+      if (currentCategoryId && cat.id === currentCategoryId) return;
+      if (currentCategoryId && isDescendantOf(cat, currentCategoryId, categories)) return;
+      
+      if (level < 2) {
+        availableParents.push({ ...cat, level } as any);
+      }
+      
+      if (cat.subCategories && cat.subCategories.length > 0) {
+        cat.subCategories.forEach(subCat => addIfValid(subCat, level + 1));
+      }
+    };
+    
+    categories.forEach(cat => addIfValid(cat, 0));
+    return availableParents;
+  };
+
   useEffect(() => {
     const handleFocus = () => {
       fetchCategories();
@@ -139,6 +201,36 @@ export default function CategoriesPage() {
     const previewUrl = URL.createObjectURL(file);
     setImagePreview(previewUrl);
     toast.success("Image selected! Click Create/Update to upload.");
+  };
+
+  const handleAddSubcategory = (parentId: string, parentName: string) => {
+    const parent = findCategoryById(parentId, categories);
+    if (!parent) {
+      toast.error('Parent category not found');
+      return;
+    }
+    
+    const parentLevel = getCategoryLevel(parent, categories);
+    
+    if (parentLevel >= 2) {
+      toast.error('🚫 Maximum 3 levels allowed! Cannot create subcategory here.');
+      return;
+    }
+    
+    setSelectedParentId(parentId);
+    setEditingCategory(null);
+    setFormData({
+      name: "",
+      description: "",
+      imageUrl: "",
+      isActive: true,
+      sortOrder: 1,
+      metaTitle: "",
+      metaDescription: "",
+      metaKeywords: "",
+      parentCategoryId: parentId
+    });
+    setShowModal(true);
   };
 
   const handleDeleteImage = async (categoryId: string, imageUrl: string) => {
@@ -177,7 +269,18 @@ export default function CategoriesPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Validation
+    if (formData.parentCategoryId) {
+      const parent = findCategoryById(formData.parentCategoryId, categories);
+      if (parent) {
+        const parentLevel = getCategoryLevel(parent, categories);
+        
+        if (parentLevel >= 2) {
+          toast.error('🚫 Cannot create category: Maximum 3 levels allowed!');
+          return;
+        }
+      }
+    }
+
     if (!formData.name.trim()) {
       toast.error("Category name is required");
       return;
@@ -190,6 +293,7 @@ export default function CategoriesPage() {
       toast.error("Category name must be less than 100 characters");
       return;
     }
+
     const isDuplicateName = categories.some(
       cat =>
         cat.name.toLowerCase().trim() === formData.name.toLowerCase().trim() &&
@@ -199,6 +303,7 @@ export default function CategoriesPage() {
       toast.error("A category with this name already exists!");
       return;
     }
+
     if (!formData.description.trim()) {
       toast.error("Description is required");
       return;
@@ -223,6 +328,7 @@ export default function CategoriesPage() {
       toast.error("Meta keywords must be less than 255 characters");
       return;
     }
+
     if (imageFile) {
       const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
       const maxSize = 10 * 1024 * 1024;
@@ -235,6 +341,7 @@ export default function CategoriesPage() {
         return;
       }
     }
+
     if (isSubmitting) return;
     setIsSubmitting(true);
 
@@ -393,34 +500,519 @@ export default function CategoriesPage() {
 
   const clearFilters = () => {
     setStatusFilter("all");
+    setLevelFilter("all");
     setSearchTerm("");
     setCurrentPage(1);
+    setExpandedCategories(new Set());
   };
 
-  const hasActiveFilters = statusFilter !== "all" || searchTerm.trim() !== "";
+  // CategoryRow Component
+  type CategoryRowProps = {
+    category: Category;
+    level: number;
+    allCategories: Category[];
+    expandedCategories: Set<string>;
+    onToggleExpand: (id: string) => void;
+    onEdit: (cat: Category) => void;
+    onDelete: (id: string, name: string) => void;
+    onView: (cat: Category) => void;
+    onAddSubcategory: (parentId: string, parentName: string) => void;
+    getImageUrl: (url?: string) => string;
+    setImageDeleteConfirm: (data: any) => void;
+  };
 
-  const filteredCategories = categories.filter(category => {
-    const matchesSearch = category.name.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus = statusFilter === "all" || 
-                         (statusFilter === "active" && category.isActive) ||
-                         (statusFilter === "inactive" && !category.isActive);
-    return matchesSearch && matchesStatus;
-  });
+  const CategoryRow: React.FC<CategoryRowProps> = ({
+    category,
+    level,
+    allCategories,
+    expandedCategories,
+    onToggleExpand,
+    onEdit,
+    onDelete,
+    onView,
+    onAddSubcategory,
+    getImageUrl,
+    setImageDeleteConfirm,
+  }) => {
+    const hasChildren = category.subCategories && category.subCategories.length > 0;
+    const isExpanded = expandedCategories.has(category.id);
+    const isInactive = !category.isActive;
+    const indent = level * 32;
 
-  // ✨ NEW - Flatten categories for display with proper hierarchy
-  const getFlattenedCategories = () => {
-    const flattened: Array<Category & { level: number; parentId?: string }> = [];
+    const MAX_LEVEL = 2;
+    const canAddSubcategory = level < MAX_LEVEL;
+
+    const levelColors = [
+      "from-violet-500 to-cyan-500",
+      "from-cyan-500 to-blue-500",
+      "from-blue-500 to-indigo-500",
+    ];
+    const colorClass = levelColors[Math.min(level, 2)] || "from-gray-500 to-gray-600";
+
+    return (
+      <tr
+        className={`border-b border-slate-800 transition-all ${
+          level === 0 ? "bg-slate-800/10" : ""
+        } ${
+          isInactive
+            ? "opacity-50 hover:opacity-60 grayscale-30"
+            : "hover:bg-slate-800/30"
+        }`}
+      >
+        <td className="py-4 px-4">
+          <div className="flex items-center gap-3" style={{ paddingLeft: `${indent}px` }}>
+            {hasChildren ? (
+              <button
+                onClick={() => onToggleExpand(category.id)}
+                className={`p-1.5 rounded-lg transition-all shrink-0 ${
+                  isInactive
+                    ? "hover:bg-slate-700/30 cursor-not-allowed"
+                    : "hover:bg-slate-700/50"
+                }`}
+                disabled={isInactive}
+                title={
+                  isInactive
+                    ? "Inactive category"
+                    : isExpanded
+                    ? "Collapse"
+                    : "Expand"
+                }
+              >
+                {isExpanded ? (
+                  <ChevronDown
+                    className={`h-4 w-4 ${
+                      isInactive ? "text-slate-600" : "text-violet-400"
+                    }`}
+                  />
+                ) : (
+                  <ChevronRightIcon
+                    className={`h-4 w-4 ${
+                      isInactive ? "text-slate-600" : "text-slate-400"
+                    }`}
+                  />
+                )}
+              </button>
+            ) : (
+              <div className="w-7 shrink-0"></div>
+            )}
+
+            {level > 0 && (
+              <div className="flex items-center shrink-0 -ml-4 mr-1" style={{ width: "28px", height: "40px" }}>
+                <div className="relative w-full h-full">
+                  <div
+                    className={`absolute left-3 top-0 w-px h-1/2 bg-gradient-to-b ${
+                      isInactive
+                        ? "from-slate-600/30 to-slate-600/40"
+                        : "from-cyan-500/40 to-cyan-500/60"
+                    }`}
+                  ></div>
+                  <div
+                    className={`absolute left-3 top-1/2 w-3 h-px bg-gradient-to-r ${
+                      isInactive
+                        ? "from-slate-600/40 to-slate-600/30"
+                        : "from-cyan-500/60 to-cyan-500/40"
+                    }`}
+                  ></div>
+                  <div
+                    className={`absolute left-6 top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full ${
+                      isInactive ? "bg-slate-600/40" : "bg-cyan-400/60"
+                    }`}
+                  ></div>
+                </div>
+              </div>
+            )}
+
+            {category.imageUrl ? (
+              <div
+                className={`w-10 h-10 rounded-lg overflow-hidden border cursor-pointer transition-all shrink-0 relative ${
+                  isInactive
+                    ? "border-slate-700/50 hover:ring-1 hover:ring-slate-600"
+                    : "border-slate-700 hover:ring-2 hover:ring-violet-500"
+                }`}
+                onClick={() => !isInactive && onView(category)}
+              >
+                <img
+                  src={getImageUrl(category.imageUrl)}
+                  alt={category.name}
+                  className={`w-full h-full object-cover ${isInactive ? "grayscale" : ""}`}
+                  onError={(e) => {
+                    e.currentTarget.style.display = "none";
+                  }}
+                />
+                {isInactive && (
+                  <div className="absolute inset-0 bg-slate-900/60 flex items-center justify-center">
+                    <svg className="h-5 w-5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 715.636 5.636m12.728 12.728L5.636 5.636" />
+                    </svg>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div
+                className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${
+                  isInactive
+                    ? "bg-slate-700/50"
+                    : `bg-gradient-to-br ${colorClass}`
+                }`}
+              >
+                <FolderTree
+                  className={`h-5 w-5 ${
+                    isInactive ? "text-slate-500" : "text-white"
+                  }`}
+                />
+              </div>
+            )}
+
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2 flex-wrap">
+                <p
+                  className={`font-medium cursor-pointer transition-colors ${
+                    isInactive
+                      ? "text-slate-500 hover:text-slate-400"
+                      : "text-white hover:text-violet-400"
+                  }`}
+                  onClick={() => onView(category)}
+                >
+                  {category.name}
+                </p>
+
+                <span
+                  className={`shrink-0 px-2 py-0.5 rounded-md text-xs font-medium border ${
+                    isInactive
+                      ? "bg-slate-700/50 text-slate-600 border-slate-600/50"
+                      : "bg-slate-700/50 text-slate-400 border-slate-600/50"
+                  }`}
+                >
+                  L{level + 1}
+                </span>
+
+                {hasChildren && (
+                  <span
+                    className={`shrink-0 px-2 py-0.5 rounded-md text-xs font-medium border ${
+                      isInactive
+                        ? "bg-slate-700/50 text-slate-500 border-slate-600/50"
+                        : "bg-violet-500/10 text-violet-400 border-violet-500/20"
+                    }`}
+                  >
+                    {category.subCategories?.length} sub
+                  </span>
+                )}
+
+                {isInactive && (
+                  <span className="shrink-0 px-2 py-0.5 bg-amber-500/10 text-amber-500 rounded-md text-xs font-medium border border-amber-500/20 flex items-center gap-1">
+                    <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 715.636 5.636m12.728 12.728L5.636 5.636" />
+                    </svg>
+                    Archived
+                  </span>
+                )}
+              </div>
+
+              <div className="flex items-center gap-2 mt-1">
+                {category.parentCategoryName ? (
+                  <div className="flex items-center gap-1.5">
+                    <svg className={`h-3 w-3 ${isInactive ? "text-slate-600" : "text-slate-500"}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
+                    </svg>
+                    <span className={`text-xs ${isInactive ? "text-slate-600" : "text-slate-400"}`}>
+                      in
+                    </span>
+                    <span className={`text-xs font-medium ${isInactive ? "text-slate-600" : "text-cyan-400"}`}>
+                      {category.parentCategoryName}
+                    </span>
+                    <span className={`text-xs ${isInactive ? "text-slate-700" : "text-slate-600"}`}>•</span>
+                    <span className={`text-xs ${isInactive ? "text-slate-600" : "text-slate-500"}`}>
+                      {category.slug}
+                    </span>
+                  </div>
+                ) : (
+                  <span className={`text-xs ${isInactive ? "text-slate-600" : "text-slate-500"}`}>
+                    {category.slug}
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+        </td>
+
+        <td className="py-4 px-4 text-center">
+          <span
+            className={`inline-flex items-center px-3 py-1 rounded-lg text-sm font-medium ${
+              isInactive
+                ? "bg-slate-700/30 text-slate-600"
+                : category.productCount > 0
+                ? "bg-cyan-500/10 text-cyan-400"
+                : "bg-slate-700/30 text-slate-500"
+            }`}
+          >
+            {category.productCount}
+          </span>
+        </td>
+
+        <td className="py-4 px-4 text-center">
+          <span
+            className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-medium ${
+              category.isActive
+                ? "bg-green-500/10 text-green-400 border border-green-500/20"
+                : "bg-red-500/10 text-red-400 border border-red-500/20"
+            }`}
+          >
+            <span
+              className={`w-1.5 h-1.5 rounded-full ${
+                category.isActive ? "bg-green-400" : "bg-red-400"
+              }`}
+            ></span>
+            {category.isActive ? "Active" : "Inactive"}
+          </span>
+        </td>
+
+        <td className="py-4 px-4 text-center">
+          <span
+            className={`font-mono text-sm ${
+              isInactive ? "text-slate-600" : "text-slate-300"
+            }`}
+          >
+            {category.sortOrder}
+          </span>
+        </td>
+
+        <td className="py-4 px-4 text-sm">
+          {category.createdAt ? (
+            <div className="flex flex-col">
+              <span
+                className={`font-medium ${
+                  isInactive ? "text-slate-600" : "text-slate-300"
+                }`}
+              >
+                {new Date(category.createdAt).toLocaleDateString("en-GB", {
+                  day: "2-digit",
+                  month: "short",
+                  year: "numeric",
+                })}
+              </span>
+              <span
+                className={`text-xs ${
+                  isInactive ? "text-slate-700" : "text-slate-500"
+                }`}
+              >
+                {new Date(category.createdAt).toLocaleTimeString("en-GB", {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                })}
+              </span>
+            </div>
+          ) : (
+            "-"
+          )}
+        </td>
+
+        <td className="py-4 px-4 text-sm">
+          {category.updatedAt ? (
+            <div className="flex flex-col">
+              <span
+                className={`font-medium ${
+                  isInactive ? "text-slate-600" : "text-slate-300"
+                }`}
+              >
+                {new Date(category.updatedAt).toLocaleDateString("en-GB", {
+                  day: "2-digit",
+                  month: "short",
+                  year: "numeric",
+                })}
+              </span>
+              <span
+                className={`text-xs ${
+                  isInactive ? "text-slate-700" : "text-slate-500"
+                }`}
+              >
+                {new Date(category.updatedAt).toLocaleTimeString("en-GB", {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                })}
+              </span>
+            </div>
+          ) : (
+            "-"
+          )}
+        </td>
+
+        <td className="py-4 px-4">
+          {category.updatedBy ? (
+            <div className="flex items-center gap-2">
+              <div
+                className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold text-white shrink-0 ${
+                  isInactive
+                    ? "bg-slate-600"
+                    : "bg-gradient-to-br from-violet-500 to-cyan-500"
+                }`}
+              >
+                {category.updatedBy.charAt(0).toUpperCase()}
+              </div>
+              <span
+                className={`text-sm truncate max-w-[150px] ${
+                  isInactive ? "text-slate-600" : "text-slate-300"
+                }`}
+                title={category.updatedBy}
+              >
+                {category.updatedBy}
+              </span>
+            </div>
+          ) : (
+            <span className="text-slate-500 text-sm">-</span>
+          )}
+        </td>
+
+        <td className="py-4 px-4">
+          <div className="flex items-center justify-center gap-2">
+            <button
+              onClick={() => canAddSubcategory && onAddSubcategory(category.id, category.name)}
+              disabled={!canAddSubcategory || isInactive}
+              className={`p-2 rounded-lg transition-all relative z-10 ${
+                canAddSubcategory && !isInactive
+                  ? "text-green-400 hover:bg-green-500/10"
+                  : "text-slate-600 cursor-not-allowed opacity-50"
+              }`}
+              style={{ opacity: 1 }}
+              title={
+                !canAddSubcategory
+                  ? "🚫 Maximum 3 levels reached"
+                  : isInactive
+                  ? "Cannot add to inactive category"
+                  : `Add subcategory to ${category.name}`
+              }
+            >
+              <Plus className="h-4 w-4" />
+            </button>
+
+            <button
+              onClick={() => onView(category)}
+              className="p-2 text-violet-400 hover:bg-violet-500/10 rounded-lg transition-all relative z-10"
+              style={{ opacity: 1 }}
+              title={isInactive ? "View archived category" : "View details"}
+            >
+              <Eye className="h-4 w-4" />
+            </button>
+
+            <button
+              onClick={() => onEdit(category)}
+              className="p-2 text-cyan-400 hover:bg-cyan-500/10 rounded-lg transition-all relative z-10"
+              style={{ opacity: 1 }}
+              title={isInactive ? "Edit archived category" : "Edit category"}
+            >
+              <Edit className="h-4 w-4" />
+            </button>
+
+            <button
+              onClick={() => !isInactive && onDelete(category.id, category.name)}
+              disabled={isInactive}
+              className={`p-2 rounded-lg transition-all relative z-10 ${
+                isInactive
+                  ? "text-slate-600 cursor-not-allowed"
+                  : "text-red-400 hover:bg-red-500/10"
+              }`}
+              style={{ opacity: 1 }}
+              title={
+                isInactive
+                  ? "Delete disabled for archived categories"
+                  : "Delete category"
+              }
+            >
+              <Trash2 className="h-4 w-4" />
+            </button>
+          </div>
+        </td>
+      </tr>
+    );
+  };
+
+  // ✅ FIXED - Only ONE filteredCategories definition
+  const hasActiveFilters = 
+    statusFilter !== "all" || 
+    levelFilter !== "all" || 
+    searchTerm.trim() !== "";
+
+  // ✅ Smart search in hierarchy
+  const searchInHierarchy = (
+    category: Category, 
+    searchTerm: string,
+    statusFilter: string,
+    levelFilter: string
+  ): boolean => {
+    const nameMatch = category.name.toLowerCase().includes(searchTerm.toLowerCase());
+    const statusMatch = statusFilter === "all" || 
+                       (statusFilter === "active" && category.isActive) ||
+                       (statusFilter === "inactive" && !category.isActive);
     
-    filteredCategories.forEach(category => {
-      // Add parent category
-      flattened.push({ ...category, level: 0 });
+    const categoryLevel = getCategoryLevel(category, categories);
+    const levelMatch = levelFilter === "all" ||
+                      levelFilter === `level${categoryLevel + 1}`;
+    
+    if (nameMatch && statusMatch && levelMatch) {
+      return true;
+    }
+    
+    if (category.subCategories && category.subCategories.length > 0) {
+      return category.subCategories.some(child => 
+        searchInHierarchy(child, searchTerm, statusFilter, levelFilter)
+      );
+    }
+    
+    return false;
+  };
+
+  // ✅ SINGLE filteredCategories definition
+  const filteredCategories = categories.filter(category => 
+    searchInHierarchy(category, searchTerm, statusFilter, levelFilter)
+  );
+
+  // ✅ Auto-expand parents when children match search
+  useEffect(() => {
+    if (searchTerm.trim() === "" && levelFilter === "all") {
+      return;
+    }
+    
+    const expandedIds = new Set<string>();
+    
+    const findMatchingPaths = (cat: Category, ancestors: string[] = []) => {
+      const nameMatch = cat.name.toLowerCase().includes(searchTerm.toLowerCase());
+      const categoryLevel = getCategoryLevel(cat, categories);
+      const levelMatch = levelFilter === "all" || levelFilter === `level${categoryLevel + 1}`;
       
-      // Add subcategories if parent is expanded
-      if (expandedCategories.has(category.id) && category.subCategories && category.subCategories.length > 0) {
-        category.subCategories.forEach(subCat => {
-          flattened.push({ ...subCat, level: 1, parentId: category.id });
+      if (nameMatch && levelMatch) {
+        ancestors.forEach(id => expandedIds.add(id));
+      }
+      
+      if (cat.subCategories && cat.subCategories.length > 0) {
+        cat.subCategories.forEach(child => 
+          findMatchingPaths(child, [...ancestors, cat.id])
+        );
+      }
+    };
+    
+    categories.forEach(cat => findMatchingPaths(cat));
+    setExpandedCategories(expandedIds);
+  }, [searchTerm, levelFilter, categories]);
+
+  // ✅ Flatten categories for display
+  const getFlattenedCategories = (): (Category & { level: number })[] => {
+    const flattened: Array<Category & { level: number }> = [];
+    
+    const addCategoryAndChildren = (category: Category, level: number) => {
+      flattened.push({ ...category, level });
+      
+      if (
+        expandedCategories.has(category.id) && 
+        category.subCategories && 
+        category.subCategories.length > 0
+      ) {
+        category.subCategories.forEach((subCat) => {
+          addCategoryAndChildren(subCat, level + 1);
         });
       }
+    };
+    
+    filteredCategories.forEach((rootCategory) => {
+      addCategoryAndChildren(rootCategory, 0);
     });
     
     return flattened;
@@ -431,7 +1023,6 @@ export default function CategoriesPage() {
   const startIndex = (currentPage - 1) * itemsPerPage;
   const endIndex = startIndex + itemsPerPage;
   
-  // ✨ UPDATED - Use flattened data for display
   const currentData = getFlattenedCategories().slice(startIndex, endIndex);
 
   const goToPage = (page: number) => {
@@ -473,7 +1064,7 @@ export default function CategoriesPage() {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm, statusFilter]);
+  }, [searchTerm, statusFilter, levelFilter]);
 
   if (loading) {
     return (
@@ -510,555 +1101,271 @@ export default function CategoriesPage() {
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-6 hover:border-violet-500/50 transition-all">
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-xl bg-violet-500/10 flex items-center justify-center">
+        <div className="bg-gradient-to-br from-violet-500/10 to-violet-600/5 backdrop-blur-sm border border-violet-500/20 rounded-2xl p-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-slate-400 text-sm font-medium">Total Categories</p>
+              <p className="text-3xl font-bold text-white mt-2">{stats.totalCategories}</p>
+            </div>
+            <div className="w-12 h-12 bg-violet-500/20 rounded-xl flex items-center justify-center">
               <FolderTree className="h-6 w-6 text-violet-400" />
             </div>
-            <div className="flex-1">
-              <p className="text-slate-400 text-sm font-medium mb-1">Total Categories</p>
-              <p className="text-white text-2xl font-bold">{stats.totalCategories}</p>
-            </div>
           </div>
         </div>
 
-        <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-6 hover:border-cyan-500/50 transition-all">
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-xl bg-cyan-500/10 flex items-center justify-center">
+        <div className="bg-gradient-to-br from-cyan-500/10 to-cyan-600/5 backdrop-blur-sm border border-cyan-500/20 rounded-2xl p-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-slate-400 text-sm font-medium">Subcategories</p>
+              <p className="text-3xl font-bold text-white mt-2">{stats.totalSubCategories}</p>
+            </div>
+            <div className="w-12 h-12 bg-cyan-500/20 rounded-xl flex items-center justify-center">
               <FolderTree className="h-6 w-6 text-cyan-400" />
             </div>
-            <div className="flex-1">
-              <p className="text-slate-400 text-sm font-medium mb-1">Subcategories</p>
-              <p className="text-white text-2xl font-bold">{stats.totalSubCategories}</p>
+          </div>
+        </div>
+
+        <div className="bg-gradient-to-br from-pink-500/10 to-pink-600/5 backdrop-blur-sm border border-pink-500/20 rounded-2xl p-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-slate-400 text-sm font-medium">Total Products</p>
+              <p className="text-3xl font-bold text-white mt-2">{stats.totalProducts}</p>
+            </div>
+            <div className="w-12 h-12 bg-pink-500/20 rounded-xl flex items-center justify-center">
+              <Search className="h-6 w-6 text-pink-400" />
             </div>
           </div>
         </div>
 
-        <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-6 hover:border-pink-500/50 transition-all">
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-xl bg-pink-500/10 flex items-center justify-center">
-              <svg className="h-6 w-6 text-pink-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-              </svg>
+        <div className="bg-gradient-to-br from-green-500/10 to-green-600/5 backdrop-blur-sm border border-green-500/20 rounded-2xl p-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-slate-400 text-sm font-medium">Active Categories</p>
+              <p className="text-3xl font-bold text-white mt-2">{stats.activeCategories}</p>
             </div>
-            <div className="flex-1">
-              <p className="text-slate-400 text-sm font-medium mb-1">Total Products</p>
-              <p className="text-white text-2xl font-bold">{stats.totalProducts}</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-6 hover:border-green-500/50 transition-all">
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-xl bg-green-500/10 flex items-center justify-center">
+            <div className="w-12 h-12 bg-green-500/20 rounded-xl flex items-center justify-center">
               <CheckCircle className="h-6 w-6 text-green-400" />
             </div>
-            <div className="flex-1">
-              <p className="text-slate-400 text-sm font-medium mb-1">Active Categories</p>
-              <p className="text-white text-2xl font-bold">{stats.activeCategories}</p>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Items Per Page Selector */}
-      <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-2xl p-2">
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <span className="text-sm text-slate-400">Show</span>
-            <select
-              value={itemsPerPage}
-              onChange={(e) => handleItemsPerPageChange(Number(e.target.value))}
-              className="px-3 py-2 bg-slate-800/50 border border-slate-600 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all"
-            >
-              <option value={25}>25</option>
-              <option value={50}>50</option>
-              <option value={75}>75</option>
-              <option value={100}>100</option>
-            </select>
-            <span className="text-sm text-slate-400">entries per page</span>
-          </div>
-          
-          <div className="text-sm text-slate-400">
-            Showing {startIndex + 1} to {Math.min(endIndex, totalItems)} of {totalItems} entries
           </div>
         </div>
       </div>
 
       {/* Search and Filters */}
-      <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-2xl p-2">
-        <div className="flex flex-wrap items-center gap-4">
-          <div className="relative flex-1 min-w-80">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-500" />
-            <input
-              type="search"
-              placeholder="Search categories..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-11 pr-4 py-3 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
-            />
+      <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-6">
+        <div className="flex flex-col md:flex-row gap-4">
+          {/* Search Input */}
+          <div className="flex-1">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
+              <input
+                type="text"
+                placeholder="Search categories (all levels)..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full pl-10 pr-4 py-3 bg-slate-900/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all"
+              />
+            </div>
           </div>
 
-          <div className="flex items-center gap-3">
-            <Filter className="h-4 w-4 text-slate-400" />
-            
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className={`px-3 py-3 bg-slate-800/50 border rounded-xl text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all min-w-32 ${
-                statusFilter !== "all" 
-                  ? "border-blue-500 bg-blue-500/10 ring-2 ring-blue-500/50" 
-                  : "border-slate-600"
-              }`}
-            >
-              <option value="all">All Status</option>
-              <option value="active">Active</option>
-              <option value="inactive">Inactive</option>
-            </select>
-
-            {hasActiveFilters && (
-              <button
-                onClick={clearFilters}
-                className="px-3 py-3 bg-red-500/10 border border-red-500/50 text-red-400 rounded-xl hover:bg-red-500/20 transition-all text-sm font-medium flex items-center gap-2 whitespace-nowrap"
+          {/* Level Filter */}
+          <div className="w-full md:w-48">
+            <div className="relative">
+              <Filter className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400 pointer-events-none" />
+              <select
+                value={levelFilter}
+                onChange={(e) => setLevelFilter(e.target.value)}
+                className="w-full pl-10 pr-4 py-3 bg-slate-900/50 border border-slate-700 rounded-xl text-white appearance-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all"
               >
-                <FilterX className="h-4 w-4" />
-                Clear
-              </button>
+                <option value="all">All Levels</option>
+                <option value="level1">Level 1 (Root)</option>
+                <option value="level2">Level 2 (Sub)</option>
+                <option value="level3">Level 3 (Sub-sub)</option>
+              </select>
+              <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400 pointer-events-none" />
+            </div>
+          </div>
+
+          {/* Status Filter */}
+          <div className="w-full md:w-48">
+            <div className="relative">
+              <Filter className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400 pointer-events-none" />
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                className="w-full pl-10 pr-4 py-3 bg-slate-900/50 border border-slate-700 rounded-xl text-white appearance-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all"
+              >
+                <option value="all">All Status</option>
+                <option value="active">Active Only</option>
+                <option value="inactive">Inactive Only</option>
+              </select>
+              <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400 pointer-events-none" />
+            </div>
+          </div>
+
+          {/* Clear Filters Button */}
+          {hasActiveFilters && (
+            <button
+              onClick={clearFilters}
+              className="px-4 py-3 bg-slate-900/50 border border-slate-700 rounded-xl text-slate-400 hover:text-white hover:border-violet-500 transition-all flex items-center gap-2"
+              title="Clear all filters"
+            >
+              <FilterX className="h-5 w-5" />
+              Clear
+            </button>
+          )}
+        </div>
+        
+        {/* Active Filters Display */}
+        {hasActiveFilters && (
+          <div className="flex flex-wrap gap-2 mt-4">
+            {searchTerm && (
+              <span className="px-3 py-1.5 bg-violet-500/10 border border-violet-500/30 rounded-lg text-violet-400 text-sm flex items-center gap-2">
+                <Search className="h-4 w-4" />
+                "{searchTerm}"
+                <button onClick={() => setSearchTerm("")} className="hover:text-violet-300">×</button>
+              </span>
+            )}
+            {levelFilter !== "all" && (
+              <span className="px-3 py-1.5 bg-cyan-500/10 border border-cyan-500/30 rounded-lg text-cyan-400 text-sm flex items-center gap-2">
+                <Filter className="h-4 w-4" />
+                {levelFilter === "level1" ? "Level 1" : levelFilter === "level2" ? "Level 2" : "Level 3"}
+                <button onClick={() => setLevelFilter("all")} className="hover:text-cyan-300">×</button>
+              </span>
+            )}
+            {statusFilter !== "all" && (
+              <span className="px-3 py-1.5 bg-pink-500/10 border border-pink-500/30 rounded-lg text-pink-400 text-sm flex items-center gap-2">
+                <Filter className="h-4 w-4" />
+                {statusFilter === "active" ? "Active" : "Inactive"}
+                <button onClick={() => setStatusFilter("all")} className="hover:text-pink-300">×</button>
+              </span>
             )}
           </div>
-
-          <div className="text-sm text-slate-400 whitespace-nowrap ml-auto">
-            {totalItems} categor{totalItems !== 1 ? 'ies' : 'y'}
-          </div>
-        </div>
+        )}
       </div>
 
-      {/* ✨ UPDATED Categories List with Subcategory Support */}
-{/* ✨ UPDATED Categories List - NO Parent Category Column */}
-<div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-2xl p-2">
-  {currentData.length === 0 ? (
-    <div className="text-center py-12">
-      <FolderTree className="h-16 w-16 text-slate-600 mx-auto mb-4" />
-      <p className="text-slate-400">No categories found</p>
-    </div>
-  ) : (
-    <div className="overflow-x-auto">
-      <table className="w-full">
-        <thead>
-          <tr className="border-b border-slate-800">
-            {/* ✨ Only Category Name column - no Parent Category */}
-            <th className="text-left py-3 px-4 text-slate-400 font-medium text-sm">Category Name</th>
-            <th className="text-center py-3 px-4 text-slate-400 font-medium text-sm">Products</th>
-            <th className="text-center py-3 px-4 text-slate-400 font-medium text-sm">Status</th>
-            <th className="text-center py-3 px-4 text-slate-400 font-medium text-sm">Order</th>
-            <th className="text-left py-3 px-4 text-slate-400 font-medium text-sm">Created At</th>
-            <th className="text-left py-3 px-4 text-slate-400 font-medium text-sm">Updated At</th>
-            <th className="text-left py-3 px-4 text-slate-400 font-medium text-sm">Updated By</th>
-            <th className="text-center py-3 px-4 text-slate-400 font-medium text-sm">Actions</th>
-          </tr>
-        </thead>
-<tbody>
-  {currentData.map((category) => {
-    const hasSubcategories = category.level === 0 && category.subCategories && category.subCategories.length > 0;
-    const isExpanded = expandedCategories.has(category.id);
-    const isSubcategory = category.level === 1;
-    const isInactive = !category.isActive; // ✨ Check inactive state
-    const parentCategory = isSubcategory 
-      ? categories.find(c => c.id === (category.parentCategoryId || category.parentId))
-      : null;
-    
-    return (
-      <tr 
-        key={category.id} 
-        className={`border-b border-slate-800 transition-all ${
-          isSubcategory ? 'bg-slate-800/10' : ''
-        } ${
-          // ✨ INACTIVE ROW STYLING
-          isInactive 
-            ? 'opacity-50 hover:opacity-60 grayscale-[30%]' 
-            : 'hover:bg-slate-800/30'
-        }`}
-      >
-        {/* Category Name Column */}
-        <td className="py-4 px-4">
-          <div className="flex items-center gap-3">
-            {/* Expand/Collapse button */}
-            {hasSubcategories && (
-              <button
-                onClick={() => toggleCategoryExpansion(category.id)}
-                className={`p-1.5 rounded-lg transition-all shrink-0 ${
-                  isInactive 
-                    ? 'hover:bg-slate-700/30 cursor-not-allowed' 
-                    : 'hover:bg-slate-700/50'
-                }`}
-                disabled={isInactive} // ✨ Disable expansion for inactive
-                title={isInactive ? "Inactive category" : (isExpanded ? "Collapse" : "Expand")}
-              >
-                {isExpanded ? (
-                  <ChevronDown className={`h-4 w-4 ${isInactive ? 'text-slate-600' : 'text-violet-400'}`} />
-                ) : (
-                  <ChevronRightIcon className={`h-4 w-4 ${isInactive ? 'text-slate-600' : 'text-slate-400'}`} />
-                )}
-              </button>
-            )}
-            
-            {!hasSubcategories && !isSubcategory && (
-              <div className="w-7 shrink-0"></div>
-            )}
-            
-            {/* Tree connector for subcategories */}
-            {isSubcategory && (
-              <div className="flex items-center shrink-0" style={{ width: '28px', height: '40px' }}>
-                <div className="relative w-full h-full">
-                  <div className={`absolute left-3 top-0 w-px h-1/2 bg-gradient-to-b ${
-                    isInactive 
-                      ? 'from-slate-600/30 to-slate-600/40' 
-                      : 'from-cyan-500/40 to-cyan-500/60'
-                  }`}></div>
-                  <div className={`absolute left-3 top-1/2 w-3 h-px bg-gradient-to-r ${
-                    isInactive 
-                      ? 'from-slate-600/40 to-slate-600/30' 
-                      : 'from-cyan-500/60 to-cyan-500/40'
-                  }`}></div>
-                  <div className={`absolute left-6 top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full ${
-                    isInactive ? 'bg-slate-600/40' : 'bg-cyan-400/60'
-                  }`}></div>
-                </div>
-              </div>
-            )}
-            
-            {/* ✨ INACTIVE IMAGE TREATMENT */}
-            {category.imageUrl ? (
-              <div
-                className={`w-10 h-10 rounded-lg overflow-hidden border cursor-pointer transition-all shrink-0 relative ${
-                  isInactive 
-                    ? 'border-slate-700/50 hover:ring-1 hover:ring-slate-600' 
-                    : 'border-slate-700 hover:ring-2 hover:ring-violet-500'
-                }`}
-                onClick={() => !isInactive && setSelectedImageUrl(getImageUrl(category.imageUrl))}
-              >
-                <img
-                  src={getImageUrl(category.imageUrl)}
-                  alt={category.name}
-                  className={`w-full h-full object-cover ${
-                    isInactive ? 'grayscale' : '' // ✨ Grayscale for inactive
-                  }`}
-                  onError={(e) => {
-                    e.currentTarget.onerror = null;
-                    e.currentTarget.style.display = 'none';
-                    const fallbackDiv = document.createElement('div');
-                    fallbackDiv.className = `w-full h-full bg-gradient-to-br ${
-                      isInactive 
-                        ? 'from-slate-600 to-slate-700' 
-                        : 'from-violet-500 to-pink-500'
-                    } flex items-center justify-center`;
-                    fallbackDiv.innerHTML = '<svg class="h-5 w-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" /></svg>';
-                    e.currentTarget.parentNode?.appendChild(fallbackDiv);
-                  }}
-                />
-                {/* ✨ Inactive overlay icon */}
-                {isInactive && (
-                  <div className="absolute inset-0 bg-slate-900/60 flex items-center justify-center">
-                    <svg className="h-5 w-5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
-                    </svg>
-                  </div>
-                )}
-              </div>
-            ) : (
-              <div className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${
-                isInactive 
-                  ? 'bg-slate-700/50' 
-                  : (isSubcategory 
-                      ? 'bg-gradient-to-br from-cyan-500/70 to-blue-500/70' 
-                      : 'bg-gradient-to-br from-violet-500 to-pink-500')
-              }`}>
-                <FolderTree className={`h-5 w-5 ${isInactive ? 'text-slate-500' : 'text-white'}`} />
-              </div>
-            )}
-            
-            {/* Category Name + Parent Badge */}
-            <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-2 flex-wrap">
-                <p
-                  className={`font-medium cursor-pointer transition-colors ${
-                    isInactive 
-                      ? 'text-slate-500 hover:text-slate-400' 
-                      : (isSubcategory 
-                          ? 'text-cyan-300 hover:text-cyan-200' 
-                          : 'text-white hover:text-violet-400')
-                  }`}
-                  onClick={() => setViewingCategory(category)}
-                >
-                  {category.name}
-                </p>
-                
-                {/* Subcategory count badge */}
-                {hasSubcategories && (
-                  <span className={`shrink-0 px-2 py-0.5 rounded-md text-xs font-medium border ${
-                    isInactive 
-                      ? 'bg-slate-700/50 text-slate-500 border-slate-600/50' 
-                      : 'bg-violet-500/10 text-violet-400 border-violet-500/20'
-                  }`}>
-                    {category.subCategories?.length} sub
-                  </span>
-                )}
-                
-                {/* ✨ INACTIVE BADGE (NEW) */}
-                {isInactive && (
-                  <span className="shrink-0 px-2 py-0.5 bg-amber-500/10 text-amber-500 rounded-md text-xs font-medium border border-amber-500/20 flex items-center gap-1">
-                    <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
-                    </svg>
-                    Archived
-                  </span>
-                )}
-              </div>
-              
-              {/* Parent badge/slug */}
-              <div className="flex items-center gap-2 mt-1">
-                {isSubcategory && parentCategory ? (
-                  <div className="flex items-center gap-1.5">
-                    <svg className={`h-3 w-3 ${isInactive ? 'text-slate-600' : 'text-slate-500'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
-                    </svg>
-                    <span className={`text-xs ${isInactive ? 'text-slate-600' : 'text-slate-400'}`}>in</span>
-                    <span className={`text-xs font-medium ${isInactive ? 'text-slate-600' : 'text-cyan-400'}`}>{parentCategory.name}</span>
-                    <span className={`text-xs ${isInactive ? 'text-slate-700' : 'text-slate-600'}`}>•</span>
-                    <span className={`text-xs ${isInactive ? 'text-slate-600' : 'text-slate-500'}`}>{category.slug}</span>
-                  </div>
-                ) : (
-                  <span className={`text-xs ${isInactive ? 'text-slate-600' : 'text-slate-500'}`}>{category.slug}</span>
-                )}
-              </div>
-            </div>
-          </div>
-        </td>
-        
-        {/* Products Count */}
-        <td className="py-4 px-4 text-center">
-          <span className={`inline-flex items-center px-3 py-1 rounded-lg text-sm font-medium ${
-            isInactive 
-              ? 'bg-slate-700/30 text-slate-600' 
-              : (category.productCount > 0 
-                  ? 'bg-cyan-500/10 text-cyan-400' 
-                  : 'bg-slate-700/30 text-slate-500')
-          }`}>
-            {category.productCount}
-          </span>
-        </td>
-        
-        {/* Status - Already styled */}
-        <td className="py-4 px-4 text-center">
-          <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-medium ${
-            category.isActive
-              ? 'bg-green-500/10 text-green-400 border border-green-500/20'
-              : 'bg-red-500/10 text-red-400 border border-red-500/20'
-          }`}>
-            <span className={`w-1.5 h-1.5 rounded-full ${
-              category.isActive ? 'bg-green-400' : 'bg-red-400'
-            }`}></span>
-            {category.isActive ? 'Active' : 'Inactive'}
-          </span>
-        </td>
-        
-        {/* Sort Order */}
-        <td className="py-4 px-4 text-center">
-          <span className={`font-mono text-sm ${isInactive ? 'text-slate-600' : 'text-slate-300'}`}>
-            {category.sortOrder}
-          </span>
-        </td>
-        
-        {/* Created At */}
-        <td className="py-4 px-4 text-sm">
-          {category.createdAt ? (
-            <div className="flex flex-col">
-              <span className={`font-medium ${isInactive ? 'text-slate-600' : 'text-slate-300'}`}>
-                {new Date(category.createdAt).toLocaleDateString('en-GB', {
-                  day: '2-digit',
-                  month: 'short',
-                  year: 'numeric'
-                })}
-              </span>
-              <span className={`text-xs ${isInactive ? 'text-slate-700' : 'text-slate-500'}`}>
-                {new Date(category.createdAt).toLocaleTimeString('en-GB', {
-                  hour: '2-digit',
-                  minute: '2-digit'
-                })}
-              </span>
-            </div>
-          ) : '-'}
-        </td>
-        
-        {/* Updated At */}
-        <td className="py-4 px-4 text-sm">
-          {category.updatedAt ? (
-            <div className="flex flex-col">
-              <span className={`font-medium ${isInactive ? 'text-slate-600' : 'text-slate-300'}`}>
-                {new Date(category.updatedAt).toLocaleDateString('en-GB', {
-                  day: '2-digit',
-                  month: 'short',
-                  year: 'numeric'
-                })}
-              </span>
-              <span className={`text-xs ${isInactive ? 'text-slate-700' : 'text-slate-500'}`}>
-                {new Date(category.updatedAt).toLocaleTimeString('en-GB', {
-                  hour: '2-digit',
-                  minute: '2-digit'
-                })}
-              </span>
-            </div>
-          ) : '-'}
-        </td>
-        
-        {/* Updated By */}
-        <td className="py-4 px-4">
-          {category.updatedBy ? (
-            <div className="flex items-center gap-2">
-              <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold text-white shrink-0 ${
-                isInactive 
-                  ? 'bg-slate-600' 
-                  : 'bg-gradient-to-br from-violet-500 to-cyan-500'
-              }`}>
-                {category.updatedBy.charAt(0).toUpperCase()}
-              </div>
-              <span className={`text-sm truncate max-w-[150px] ${isInactive ? 'text-slate-600' : 'text-slate-300'}`} title={category.updatedBy}>
-                {category.updatedBy}
-              </span>
-            </div>
-          ) : (
-            <span className="text-slate-500 text-sm">—</span>
-          )}
-        </td>
-        
-      
-{/* ✨ FIXED Actions Column - Consistent colors */}
-<td className="py-4 px-4">
-  <div className="flex items-center justify-center gap-2">
-    {/* View Button - FORCE normal colors even in inactive row */}
-    <button
-      onClick={() => setViewingCategory(category)}
-      className="p-2 text-violet-400 hover:bg-violet-500/10 rounded-lg transition-all relative z-10"
-      style={{ opacity: 1 }} 
-      title={isInactive ? "View archived category" : "View details"}
-    >
-      <Eye className="h-4 w-4" />
-    </button>
-
-    {/* Edit Button - FORCE normal colors even in inactive row */}
-    <button
-      onClick={() => handleEdit(category)}
-      className="p-2 text-cyan-400 hover:bg-cyan-500/10 rounded-lg transition-all relative z-10"
-      style={{ opacity: 1 }}  
-      title={isInactive ? "Edit archived category" : "Edit category"}
-    >
-      <Edit className="h-4 w-4" />
-    </button>
-
-    {/* Delete Button - Disabled for inactive */}
-    <button
-      onClick={() => !isInactive && setDeleteConfirm({ 
-        id: category.id, 
-        name: category.name 
-      })}
-      disabled={isInactive}
-      className={`p-2 rounded-lg transition-all relative z-10 ${
-        isInactive 
-          ? 'text-slate-600 cursor-not-allowed' 
-          : 'text-red-400 hover:bg-red-500/10'
-      }`}
-      style={{ opacity: 1 }}  
-      title={isInactive ? "Delete disabled for archived categories" : "Delete category"}
-    >
-      <Trash2 className="h-4 w-4" />
-    </button>
-  </div>
-</td>
-
-      </tr>
-    );
-  })}
-</tbody>
-
-      </table>
-    </div>
-  )}
-</div>
-
-
-      {/* Pagination */}
-      {totalPages > 1 && (
-        <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-2xl p-4">
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-            <div className="text-sm text-slate-400">
-              Page {currentPage} of {totalPages}
-            </div>
-            
-            <div className="flex items-center gap-2">
-              <button
-                onClick={goToFirstPage}
-                disabled={currentPage === 1}
-                className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                title="First Page"
-              >
-                <ChevronsLeft className="h-4 w-4" />
-              </button>
-
-              <button
-                onClick={goToPreviousPage}
-                disabled={currentPage === 1}
-                className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                title="Previous Page"
-              >
-                <ChevronLeft className="h-4 w-4" />
-              </button>
-
-              <div className="flex items-center gap-1">
-                {getPageNumbers().map((page) => (
-                  <button
-                    key={page}
-                    onClick={() => goToPage(page)}
-                    className={`px-3 py-2 text-sm rounded-lg transition-all ${
-                      currentPage === page
-                        ? 'bg-violet-500 text-white font-semibold'
-                        : 'text-slate-400 hover:text-white hover:bg-slate-800'
-                    }`}
-                  >
-                    {page}
-                  </button>
-                ))}
-              </div>
-
-              <button
-                onClick={goToNextPage}
-                disabled={currentPage === totalPages}
-                className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                title="Next Page"
-              >
-                <ChevronRight className="h-4 w-4" />
-              </button>
-
-              <button
-                onClick={goToLastPage}
-                disabled={currentPage === totalPages}
-                className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                title="Last Page"
-              >
-                <ChevronsRight className="h-4 w-4" />
-              </button>
-            </div>
-            
-            <div className="text-sm text-slate-400">
-              Total: {totalItems} items
-            </div>
-          </div>
+      {/* Categories Table */}
+      <div className="bg-slate-800/30 backdrop-blur-sm border border-slate-700/50 rounded-2xl overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead className="bg-slate-800/50 border-b border-slate-700">
+              <tr>
+                <th className="py-4 px-4 text-left text-sm font-semibold text-slate-300">Category Name</th>
+                <th className="py-4 px-4 text-center text-sm font-semibold text-slate-300">Products</th>
+                <th className="py-4 px-4 text-center text-sm font-semibold text-slate-300">Status</th>
+                <th className="py-4 px-4 text-center text-sm font-semibold text-slate-300">Order</th>
+                <th className="py-4 px-4 text-left text-sm font-semibold text-slate-300">Created At</th>
+                <th className="py-4 px-4 text-left text-sm font-semibold text-slate-300">Updated At</th>
+                <th className="py-4 px-4 text-left text-sm font-semibold text-slate-300">Updated By</th>
+                <th className="py-4 px-4 text-center text-sm font-semibold text-slate-300">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {currentData.length === 0 ? (
+                <tr>
+                  <td colSpan={8} className="py-12 text-center">
+                    <div className="flex flex-col items-center gap-3">
+                      <AlertCircle className="h-12 w-12 text-slate-600" />
+                      <p className="text-slate-400 text-lg">No categories found</p>
+                      <p className="text-slate-500 text-sm">Try adjusting your filters or create a new category</p>
+                    </div>
+                  </td>
+                </tr>
+              ) : (
+                currentData.map((category) => (
+                  <CategoryRow
+                    key={category.id}
+                    category={category}
+                    level={category.level}
+                    allCategories={categories}
+                    expandedCategories={expandedCategories}
+                    onToggleExpand={toggleCategoryExpansion}
+                    onEdit={handleEdit}
+                    onDelete={(id, name) => setDeleteConfirm({ id, name })}
+                    onView={setViewingCategory}
+                    onAddSubcategory={handleAddSubcategory}
+                    getImageUrl={getImageUrl}
+                    setImageDeleteConfirm={setImageDeleteConfirm}
+                  />
+                ))
+              )}
+            </tbody>
+          </table>
         </div>
-      )}
 
-      {/* Rest of your modals remain the same */}
-      
-      {/* Create/Edit Modal - UPDATED WITH BRAND-STYLE UPLOAD */}
-      {showModal && (
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <div className="border-t border-slate-700 bg-slate-800/30 px-6 py-4">
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+              <div className="flex items-center gap-2">
+                <span className="text-slate-400 text-sm">Show</span>
+                <select
+                  value={itemsPerPage}
+                  onChange={(e) => handleItemsPerPageChange(Number(e.target.value))}
+                  className="px-3 py-1.5 bg-slate-900/50 border border-slate-700 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
+                >
+                  <option value={10}>10</option>
+                  <option value={25}>25</option>
+                  <option value={50}>50</option>
+                  <option value={100}>100</option>
+                </select>
+                <span className="text-slate-400 text-sm">
+                  of {totalItems} categories
+                </span>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={goToFirstPage}
+                  disabled={currentPage === 1}
+                  className="p-2 rounded-lg bg-slate-900/50 border border-slate-700 text-slate-400 hover:text-white hover:border-violet-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                >
+                  <ChevronsLeft className="h-4 w-4" />
+                </button>
+                <button
+                  onClick={goToPreviousPage}
+                  disabled={currentPage === 1}
+                  className="p-2 rounded-lg bg-slate-900/50 border border-slate-700 text-slate-400 hover:text-white hover:border-violet-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </button>
+
+                <div className="flex gap-1">
+                  {getPageNumbers().map((pageNum) => (
+                    <button
+                      key={pageNum}
+                      onClick={() => goToPage(pageNum)}
+                      className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
+                        currentPage === pageNum
+                          ? "bg-gradient-to-r from-violet-500 to-cyan-500 text-white"
+                          : "bg-slate-900/50 border border-slate-700 text-slate-400 hover:text-white hover:border-violet-500"
+                      }`}
+                    >
+                      {pageNum}
+                    </button>
+                  ))}
+                </div>
+
+                <button
+                  onClick={goToNextPage}
+                  disabled={currentPage === totalPages}
+                  className="p-2 rounded-lg bg-slate-900/50 border border-slate-700 text-slate-400 hover:text-white hover:border-violet-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </button>
+                <button
+                  onClick={goToLastPage}
+                  disabled={currentPage === totalPages}
+                  className="p-2 rounded-lg bg-slate-900/50 border border-slate-700 text-slate-400 hover:text-white hover:border-violet-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                >
+                  <ChevronsRight className="h-4 w-4" />
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Modals remain the same - I can provide them if needed */}{showModal && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-50 flex items-center justify-center p-4 animate-fadeIn">
           <div className="bg-gradient-to-br from-slate-900 via-slate-900 to-slate-800 border border-violet-500/20 rounded-3xl max-w-5xl w-full max-h-[90vh] overflow-hidden shadow-2xl shadow-violet-500/10">
             <div className="p-2 border-b border-violet-500/20 bg-gradient-to-r from-violet-500/10 to-cyan-500/10">
@@ -1606,46 +1913,19 @@ export default function CategoriesPage() {
         </div>
       )}
 
-      {/* Image Preview Modal, Delete Confirmation, etc. - keep as is */}
       
-      {/* Image Preview Modal */}
-      {selectedImageUrl && (
-        <div
-          className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[60] flex items-center justify-center p-4"
-          onClick={() => setSelectedImageUrl(null)}
-        >
-          <div className="relative max-w-4xl max-h-[90vh]">
-            <img
-              src={selectedImageUrl}
-              alt="Full size preview"
-              className="max-w-full max-h-[90vh] object-contain rounded-lg"
-            />
-            <button
-              onClick={() => setSelectedImageUrl(null)}
-              className="absolute top-4 right-4 p-2 bg-slate-900/80 text-white rounded-lg hover:bg-slate-800 transition-all"
-            >
-              ✕
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Category Delete Confirmation Dialog */}
+      {/* Delete Confirmation Dialog */}
       <ConfirmDialog
         isOpen={!!deleteConfirm}
         onClose={() => setDeleteConfirm(null)}
         onConfirm={() => deleteConfirm && handleDelete(deleteConfirm.id)}
         title="Delete Category"
-        message={`Are you sure you want to delete "${deleteConfirm?.name}"? This action cannot be undone and may affect related products.`}
-        confirmText="Delete Category"
-        cancelText="Cancel"
-        icon={AlertCircle}
-        iconColor="text-red-400"
-        confirmButtonStyle="bg-gradient-to-r from-red-500 to-rose-500 hover:shadow-lg hover:shadow-red-500/50"
+        message={`Are you sure you want to delete "${deleteConfirm?.name}"? This action cannot be undone.`}
+        confirmText="Delete"
         isLoading={isDeleting}
       />
 
-      {/* Image Delete Confirmation Dialog */}
+      {/* Image Delete Confirmation */}
       <ConfirmDialog
         isOpen={!!imageDeleteConfirm}
         onClose={() => setImageDeleteConfirm(null)}
@@ -1655,16 +1935,11 @@ export default function CategoriesPage() {
           }
         }}
         title="Delete Image"
-        message={`Are you sure you want to delete the image for "${imageDeleteConfirm?.categoryName}"? This action cannot be undone.`}
+        message={`Are you sure you want to delete the image for "${imageDeleteConfirm?.categoryName}"?`}
         confirmText="Delete Image"
-        cancelText="Cancel"
-        icon={AlertCircle}
-        iconColor="text-red-400"
-        confirmButtonStyle="bg-gradient-to-r from-red-500 to-rose-500 hover:shadow-lg hover:shadow-red-500/50"
         isLoading={isDeletingImage}
       />
 
-     
     </div>
   );
 }

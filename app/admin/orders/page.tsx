@@ -27,6 +27,14 @@ import {
   Clock,
   CheckCircle,
   Edit,
+  MoreVertical,
+  XCircle,
+  RefreshCw,
+  CheckCircle2,
+  AlertCircle,
+  CreditCard,
+  PackageCheck,
+  PackageX,
 } from 'lucide-react';
 import {
   orderService,
@@ -37,6 +45,8 @@ import {
 } from '../../../lib/services/orders';
 import { useToast } from '@/components/CustomToast';
 import React from 'react';
+import OrderActionsModal from './OrderActionsModal';
+
 
 interface Address {
   firstName: string;
@@ -51,6 +61,96 @@ interface Address {
   phoneNumber?: string;
 }
 
+// ✅ Payment Status Helper
+// ✅ Payment Status Enum
+enum PaymentStatus {
+  Pending = 1,
+  Processing = 2,
+  Completed = 3,
+  Failed = 4,
+  Refunded = 5,
+  PartiallyRefunded = 6,
+}
+
+// ✅ Payment Status Helper - FIXED: Changed parameter from string to number
+const getPaymentStatusInfo = (status: number) => {
+  const statusMap: Record<
+    number,
+    { label: string; color: string; bgColor: string; icon: React.ReactNode }
+  > = {
+    [PaymentStatus.Pending]: {
+      label: 'Pending',
+      color: 'text-yellow-400',
+      bgColor: 'bg-yellow-500/10',
+      icon: <Clock className="w-3 h-3" />,
+    },
+    [PaymentStatus.Processing]: {
+      label: 'Processing',
+      color: 'text-blue-400',
+      bgColor: 'bg-blue-500/10',
+      icon: <RefreshCw className="w-3 h-3 animate-spin" />,
+    },
+    [PaymentStatus.Completed]: {
+      label: 'Paid',
+      color: 'text-green-400',
+      bgColor: 'bg-green-500/10',
+      icon: <CheckCircle2 className="w-3 h-3" />,
+    },
+    [PaymentStatus.Failed]: {
+      label: 'Failed',
+      color: 'text-red-400',
+      bgColor: 'bg-red-500/10',
+      icon: <XCircle className="w-3 h-3" />,
+    },
+    [PaymentStatus.Refunded]: {
+      label: 'Refunded',
+      color: 'text-purple-400',
+      bgColor: 'bg-purple-500/10',
+      icon: <RefreshCw className="w-3 h-3" />,
+    },
+    [PaymentStatus.PartiallyRefunded]: {
+      label: 'Partially Refunded',
+      color: 'text-purple-400',
+      bgColor: 'bg-purple-500/10',
+      icon: <RefreshCw className="w-3 h-3" />,
+    },
+  };
+  return statusMap[status] || statusMap[PaymentStatus.Pending];
+};
+
+
+// ✅ Get Available Actions based on Order Status
+const getAvailableActions = (order: Order) => {
+  const actions: string[] = [];
+
+  switch (order.status) {
+    case 1: // Pending
+      actions.push('update-status', 'cancel-order');
+      break;
+    case 2: // Processing
+      if (order.deliveryMethod === 'ClickAndCollect') {
+        actions.push('mark-ready', 'update-status', 'cancel-order');
+      } else {
+        actions.push('create-shipment', 'update-status', 'cancel-order');
+      }
+      break;
+    case 3: // Shipped
+      actions.push('mark-delivered', 'update-status');
+      break;
+    case 7: // Ready for Collection
+      actions.push('mark-collected', 'update-status', 'cancel-order');
+      break;
+    case 4: // Delivered
+    case 8: // Collected
+      // No actions for completed orders
+      break;
+    default:
+      actions.push('update-status');
+  }
+
+  return actions;
+};
+
 export default function OrdersListPage() {
   const router = useRouter();
   const toast = useToast();
@@ -62,18 +162,35 @@ export default function OrdersListPage() {
   const [totalCount, setTotalCount] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
 
+  // ✅ Bulk Selection
+  const [selectedOrders, setSelectedOrders] = useState<string[]>([]);
+
   // Filters
   const [filters, setFilters] = useState({
     searchTerm: '',
     status: '',
     fromDate: '',
     toDate: '',
+    deliveryMethod: '', // ✅ New filter
+    paymentStatus: '', // ✅ New filter
   });
 
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showExportMenu, setShowExportMenu] = useState(false);
   const [viewingOrder, setViewingOrder] = useState<Order | null>(null);
+  const [actionMenuOrder, setActionMenuOrder] = useState<string | null>(null);
   const datePickerRef = useRef<HTMLDivElement>(null);
+
+  // ✅ Order Actions Modal
+  const [modalState, setModalState] = useState<{
+    isOpen: boolean;
+    order: Order | null;
+    action: string;
+  }>({
+    isOpen: false,
+    order: null,
+    action: '',
+  });
 
   // Close date picker on outside click
   useEffect(() => {
@@ -99,8 +216,25 @@ export default function OrdersListPage() {
         searchTerm: filters.searchTerm || undefined,
       });
 
-      if (response?.data) {
-        setOrders(response.data.items || []);
+   if (response?.data) {
+  let filteredOrders = response.data.items || [];
+
+  // ✅ Client-side filters for delivery method and payment status
+  if (filters.deliveryMethod) {
+    filteredOrders = filteredOrders.filter(
+      (o) => o.deliveryMethod === filters.deliveryMethod
+    );
+  }
+  // ✅ FIXED: Filter by payment status using payments array
+  if (filters.paymentStatus) {
+    filteredOrders = filteredOrders.filter((o) => {
+      const firstPayment = o.payments && o.payments.length > 0 ? o.payments[0] : null;
+      return firstPayment && firstPayment.status === Number(filters.paymentStatus);
+    });
+  }
+
+
+        setOrders(filteredOrders);
         setTotalCount(response.data.totalCount || 0);
         setTotalPages(response.data.totalPages || 0);
       }
@@ -110,17 +244,104 @@ export default function OrdersListPage() {
     } finally {
       setLoading(false);
     }
-  }, [currentPage, itemsPerPage, filters]);
+  }, [currentPage, itemsPerPage, filters, toast]);
 
   useEffect(() => {
     fetchOrders();
   }, [fetchOrders]);
 
+  // ✅ Bulk Selection Handlers
+  const toggleSelectAll = () => {
+    if (selectedOrders.length === orders.length) {
+      setSelectedOrders([]);
+    } else {
+      setSelectedOrders(orders.map((o) => o.id));
+    }
+  };
+
+  const toggleSelectOrder = (orderId: string) => {
+    setSelectedOrders((prev) =>
+      prev.includes(orderId) ? prev.filter((id) => id !== orderId) : [...prev, orderId]
+    );
+  };
+
+  // ✅ Bulk Export Selected
+  const handleBulkExport = () => {
+    const ordersToExport = orders.filter((o) => selectedOrders.includes(o.id));
+    
+    if (ordersToExport.length === 0) {
+      toast.warning('Please select orders to export');
+      return;
+    }
+
+    const csvHeaders = [
+      'Order Number',
+      'Customer Name',
+      'Email',
+      'Phone',
+      'Items',
+      'Subtotal',
+      'Tax',
+      'Shipping',
+      'Discount',
+      'Total',
+      'Status',
+      'Delivery Method',
+      'Payment Status',
+      'Order Date',
+    ];
+
+ const csvData = ordersToExport.map((order) => {
+  // ✅ FIXED: Get payment status from payments array
+  const firstPayment = order.payments && order.payments.length > 0 ? order.payments[0] : null;
+  const paymentStatusLabel = firstPayment
+    ? getPaymentStatusInfo(firstPayment.status).label
+    : 'N/A';
+
+  return [
+    order.orderNumber,
+    order.customerName,
+    order.customerEmail,
+    `'${order.customerPhone}`,
+    order.orderItems.length,
+    order.subtotalAmount,
+    order.taxAmount,
+    order.shippingAmount,
+    order.discountAmount,
+    order.totalAmount,
+    getOrderStatusInfo(order.status).label,
+    order.deliveryMethod === 'ClickAndCollect' ? 'Click & Collect' : 'Home Delivery',
+    paymentStatusLabel,
+    formatDate(order.orderDate),
+  ];
+});
+
+
+    const csvContent = [
+      csvHeaders.join(','),
+      ...csvData.map((row) => row.map((cell) => `"${cell}"`).join(',')),
+    ].join('\n');
+
+    const BOM = '\uFEFF';
+    const blob = new Blob([BOM + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `selected_orders_${new Date().toISOString().split('T')[0]}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+
+    toast.success(`${ordersToExport.length} orders exported successfully`);
+    setSelectedOrders([]);
+  };
+
   // Export functionality
   const handleExport = async (exportAll: boolean = false) => {
     try {
       let ordersToExport: Order[] = [];
-      
+
       if (exportAll) {
         setLoading(true);
         const response = await orderService.getAllOrders({ page: 1, pageSize: 10000 });
@@ -147,23 +368,35 @@ export default function OrdersListPage() {
         'Discount',
         'Total',
         'Status',
+        'Delivery Method',
+        'Payment Status',
         'Order Date',
       ];
 
-      const csvData = ordersToExport.map((order) => [
-        order.orderNumber,
-        order.customerName,
-        order.customerEmail,
-        `'${order.customerPhone}`,
-        order.orderItems.length,
-        order.subtotalAmount,
-        order.taxAmount,
-        order.shippingAmount,
-        order.discountAmount,
-        order.totalAmount,
-        getOrderStatusInfo(order.status).label,
-        formatDate(order.orderDate),
-      ]);
+   const csvData = ordersToExport.map((order) => {
+  // ✅ FIXED: Get payment status from payments array
+  const firstPayment = order.payments && order.payments.length > 0 ? order.payments[0] : null;
+  const paymentStatusLabel = firstPayment
+    ? getPaymentStatusInfo(firstPayment.status).label
+    : 'N/A';
+
+  return [
+    order.orderNumber,
+    order.customerName,
+    order.customerEmail,
+    `'${order.customerPhone}`,
+    order.orderItems.length,
+    order.subtotalAmount,
+    order.taxAmount,
+    order.shippingAmount,
+    order.discountAmount,
+    order.totalAmount,
+    getOrderStatusInfo(order.status).label,
+    order.deliveryMethod === 'ClickAndCollect' ? 'Click & Collect' : 'Home Delivery',
+    paymentStatusLabel,
+    formatDate(order.orderDate),
+  ];
+});
 
       const csvContent = [
         csvHeaders.join(','),
@@ -228,12 +461,19 @@ export default function OrdersListPage() {
       status: '',
       fromDate: '',
       toDate: '',
+      deliveryMethod: '',
+      paymentStatus: '',
     });
     setCurrentPage(1);
   };
 
   const hasActiveFilters =
-    filters.searchTerm || filters.status || filters.fromDate || filters.toDate;
+    filters.searchTerm ||
+    filters.status ||
+    filters.fromDate ||
+    filters.toDate ||
+    filters.deliveryMethod ||
+    filters.paymentStatus;
 
   const getDateRangeLabel = () => {
     if (!filters.fromDate && !filters.toDate) return 'Select Date Range';
@@ -269,10 +509,25 @@ export default function OrdersListPage() {
     );
   };
 
+  // ✅ Handle Action Modal
+  const openActionModal = (order: Order, action: string) => {
+    setModalState({ isOpen: true, order, action });
+    setActionMenuOrder(null);
+  };
+
+  const closeActionModal = () => {
+    setModalState({ isOpen: false, order: null, action: '' });
+  };
+
+  const handleActionSuccess = () => {
+    closeActionModal();
+    fetchOrders(); // Refresh orders list
+  };
+
   // Calculate stats
   const pendingCount = orders.filter((o) => o.status === 1).length;
   const processingCount = orders.filter((o) => o.status === 2).length;
-  const completedCount = orders.filter((o) => o.status === 4).length;
+  const completedCount = orders.filter((o) => o.status === 4 || o.status === 8).length;
 
   if (loading) {
     return (
@@ -295,50 +550,64 @@ export default function OrdersListPage() {
           </h1>
           <p className="text-slate-400 text-sm mt-1">Manage and track customer orders</p>
         </div>
-        <div className="relative">
-          <button
-            onClick={() => setShowExportMenu(!showExportMenu)}
-            className="px-4 py-2 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-lg hover:shadow-lg hover:shadow-green-500/50 transition-all flex items-center gap-2 font-medium text-sm"
-          >
-            <Download className="w-4 h-4" />
-            Export
-            <ChevronDown className="w-3 h-3" />
-          </button>
-          {showExportMenu && (
-            <>
-              <div className="fixed inset-0 z-10" onClick={() => setShowExportMenu(false)} />
-              <div className="absolute right-0 mt-2 w-56 bg-slate-800 border border-slate-700 rounded-lg shadow-2xl z-20 overflow-hidden">
-                <button
-                  onClick={() => {
-                    handleExport(false);
-                    setShowExportMenu(false);
-                  }}
-                  disabled={orders.length === 0}
-                  className="w-full px-4 py-2.5 text-left text-white hover:bg-slate-700 transition-all flex items-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed border-b border-slate-700"
-                >
-                  <FileSpreadsheet className="w-4 h-4 text-green-400" />
-                  <div>
-                    <p className="text-sm font-medium">Export Current Page</p>
-                    <p className="text-xs text-slate-400">{orders.length} orders</p>
-                  </div>
-                </button>
-                <button
-                  onClick={() => {
-                    handleExport(true);
-                    setShowExportMenu(false);
-                  }}
-                  disabled={totalCount === 0}
-                  className="w-full px-4 py-2.5 text-left text-white hover:bg-slate-700 transition-all flex items-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <FileSpreadsheet className="w-4 h-4 text-cyan-400" />
-                  <div>
-                    <p className="text-sm font-medium">Export All</p>
-                    <p className="text-xs text-slate-400">{totalCount} orders</p>
-                  </div>
-                </button>
-              </div>
-            </>
+        <div className="flex items-center gap-2">
+          {/* ✅ Bulk Export Button */}
+          {selectedOrders.length > 0 && (
+            <button
+              onClick={handleBulkExport}
+              className="px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg hover:shadow-lg hover:shadow-blue-500/50 transition-all flex items-center gap-2 font-medium text-sm"
+            >
+              <Download className="w-4 h-4" />
+              Export ({selectedOrders.length})
+            </button>
           )}
+
+          {/* Export Menu */}
+          <div className="relative">
+            <button
+              onClick={() => setShowExportMenu(!showExportMenu)}
+              className="px-4 py-2 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-lg hover:shadow-lg hover:shadow-green-500/50 transition-all flex items-center gap-2 font-medium text-sm"
+            >
+              <Download className="w-4 h-4" />
+              Export
+              <ChevronDown className="w-3 h-3" />
+            </button>
+            {showExportMenu && (
+              <>
+                <div className="fixed inset-0 z-10" onClick={() => setShowExportMenu(false)} />
+                <div className="absolute right-0 mt-2 w-56 bg-slate-800 border border-slate-700 rounded-lg shadow-2xl z-20 overflow-hidden">
+                  <button
+                    onClick={() => {
+                      handleExport(false);
+                      setShowExportMenu(false);
+                    }}
+                    disabled={orders.length === 0}
+                    className="w-full px-4 py-2.5 text-left text-white hover:bg-slate-700 transition-all flex items-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed border-b border-slate-700"
+                  >
+                    <FileSpreadsheet className="w-4 h-4 text-green-400" />
+                    <div>
+                      <p className="text-sm font-medium">Export Current Page</p>
+                      <p className="text-xs text-slate-400">{orders.length} orders</p>
+                    </div>
+                  </button>
+                  <button
+                    onClick={() => {
+                      handleExport(true);
+                      setShowExportMenu(false);
+                    }}
+                    disabled={totalCount === 0}
+                    className="w-full px-4 py-2.5 text-left text-white hover:bg-slate-700 transition-all flex items-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <FileSpreadsheet className="w-4 h-4 text-cyan-400" />
+                    <div>
+                      <p className="text-sm font-medium">Export All</p>
+                      <p className="text-xs text-slate-400">{totalCount} orders</p>
+                    </div>
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
         </div>
       </div>
 
@@ -453,6 +722,46 @@ export default function OrdersListPage() {
             <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400 pointer-events-none" />
           </div>
 
+          {/* ✅ Delivery Method Filter */}
+          <div className="relative">
+            <select
+              value={filters.deliveryMethod}
+              onChange={(e) => setFilters({ ...filters, deliveryMethod: e.target.value })}
+              className={`pl-9 pr-8 py-2 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/50 transition-all appearance-none cursor-pointer min-w-[140px] ${
+                filters.deliveryMethod
+                  ? 'bg-cyan-500/20 border-2 border-cyan-500/50'
+                  : 'bg-slate-800/50 border border-slate-700'
+              }`}
+            >
+              <option value="">All Delivery</option>
+              <option value="HomeDelivery">Home Delivery</option>
+              <option value="ClickAndCollect">Click & Collect</option>
+            </select>
+            <Truck className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
+            <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400 pointer-events-none" />
+          </div>
+
+          {/* ✅ Payment Status Filter */}
+          <div className="relative">
+            <select
+              value={filters.paymentStatus}
+              onChange={(e) => setFilters({ ...filters, paymentStatus: e.target.value })}
+              className={`pl-9 pr-8 py-2 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/50 transition-all appearance-none cursor-pointer min-w-[140px] ${
+                filters.paymentStatus
+                  ? 'bg-green-500/20 border-2 border-green-500/50'
+                  : 'bg-slate-800/50 border border-slate-700'
+              }`}
+            >
+              <option value="">All Payments</option>
+              <option value="Completed">Paid</option>
+              <option value="Pending">Pending</option>
+              <option value="Failed">Failed</option>
+              <option value="Refunded">Refunded</option>
+            </select>
+            <CreditCard className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
+            <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400 pointer-events-none" />
+          </div>
+
           {/* Date Range */}
           <div className="relative" ref={datePickerRef}>
             <button
@@ -486,7 +795,6 @@ export default function OrdersListPage() {
               <>
                 <div className="fixed inset-0 z-[100]" onClick={() => setShowDatePicker(false)} />
                 <div className="absolute top-full left-0 mt-2 bg-slate-800/95 backdrop-blur-sm border border-slate-700 rounded-xl shadow-2xl p-2 z-[110] min-w-[220px]">
-                  {/* From Date */}
                   <div className="mb-3">
                     <label className="block text-blue-400 text-xs font-semibold mb-2">
                       From Date
@@ -500,7 +808,6 @@ export default function OrdersListPage() {
                     />
                   </div>
 
-                  {/* To Date */}
                   <div className="mb-3">
                     <label className="block text-blue-400 text-xs font-semibold mb-2">
                       To Date
@@ -515,7 +822,6 @@ export default function OrdersListPage() {
                     />
                   </div>
 
-                  {/* Quick Filter Buttons */}
                   <div className="flex gap-2 pt-2 border-t border-slate-700">
                     <button
                       onClick={() => {
@@ -572,6 +878,11 @@ export default function OrdersListPage() {
           <span className="text-slate-400">
             Showing <span className="text-white font-semibold">{orders.length}</span> of{' '}
             <span className="text-white font-semibold">{totalCount}</span> orders
+            {selectedOrders.length > 0 && (
+              <span className="ml-2 text-blue-400">
+                ({selectedOrders.length} selected)
+              </span>
+            )}
           </span>
           {hasActiveFilters && (
             <span className="text-violet-400 flex items-center gap-1">
@@ -594,6 +905,15 @@ export default function OrdersListPage() {
             <table className="w-full">
               <thead className="sticky top-0 bg-slate-800/95 backdrop-blur-sm z-10">
                 <tr className="border-b border-slate-700">
+                  {/* ✅ Bulk Select Checkbox */}
+                  <th className="py-3 px-3">
+                    <input
+                      type="checkbox"
+                      checked={selectedOrders.length === orders.length && orders.length > 0}
+                      onChange={toggleSelectAll}
+                      className="rounded bg-slate-700 border-slate-600 text-violet-500 focus:ring-violet-500 cursor-pointer"
+                    />
+                  </th>
                   <th className="text-left py-3 px-3 text-slate-300 font-semibold text-xs">
                     Order ID
                   </th>
@@ -612,6 +932,10 @@ export default function OrdersListPage() {
                   <th className="text-center py-3 px-3 text-slate-300 font-semibold text-xs">
                     Status
                   </th>
+                  {/* ✅ Payment Status Column */}
+                  <th className="text-center py-3 px-3 text-slate-300 font-semibold text-xs">
+                    Payment
+                  </th>
                   <th className="text-center py-3 px-3 text-slate-300 font-semibold text-xs">
                     Delivery
                   </th>
@@ -620,14 +944,34 @@ export default function OrdersListPage() {
                   </th>
                 </tr>
               </thead>
-              <tbody>
-                {orders.map((order) => {
-                  const statusInfo = getOrderStatusInfo(order.status);
+             <tbody>
+  {orders.map((order) => {
+    const statusInfo = getOrderStatusInfo(order.status);
+    
+    // ✅ FIXED: Get payment status from payments array
+    const firstPayment = order.payments && order.payments.length > 0 
+      ? order.payments[0] 
+      : null;
+    const paymentInfo = firstPayment
+      ? getPaymentStatusInfo(firstPayment.status)
+      : null;
+    
+    const availableActions = getAvailableActions(order);
+
                   return (
                     <tr
                       key={order.id}
                       className="border-b border-slate-800 hover:bg-slate-800/30 transition-colors"
                     >
+                      {/* ✅ Checkbox */}
+                      <td className="py-3 px-3">
+                        <input
+                          type="checkbox"
+                          checked={selectedOrders.includes(order.id)}
+                          onChange={() => toggleSelectOrder(order.id)}
+                          className="rounded bg-slate-700 border-slate-600 text-violet-500 focus:ring-violet-500 cursor-pointer"
+                        />
+                      </td>
                       <td className="py-3 px-3">
                         <p className="text-white font-semibold text-xs">{order.orderNumber}</p>
                       </td>
@@ -670,30 +1014,126 @@ export default function OrdersListPage() {
                           {statusInfo.label}
                         </span>
                       </td>
+                      {/* ✅ Payment Status */}
+                      <td className="py-3 px-3 text-center">
+                        {paymentInfo ? (
+                          <span
+                            className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium ${paymentInfo.bgColor} ${paymentInfo.color} border ${paymentInfo.bgColor.replace('/10', '/20')}`}
+                          >
+                            {paymentInfo.icon}
+                            {paymentInfo.label}
+                          </span>
+                        ) : (
+                          <span className="text-slate-500 text-xs">N/A</span>
+                        )}
+                      </td>
                       <td className="py-3 px-3 text-center">
                         {getDeliveryMethodBadge(order.deliveryMethod)}
                       </td>
-<td className="py-3 px-3">
-  <div className="flex items-center justify-center gap-1.5">
-    {/* Quick Preview */}
-    <button
-      onClick={() => setViewingOrder(order)}
-      className="p-1.5 text-violet-400 hover:bg-violet-500/10 border border-violet-500/20 rounded-lg transition-all"
-      aria-label="Quick View"
-    >
-      <Eye className="h-4 w-4" />
-    </button>
+                      {/* ✅ Dynamic Actions */}
+                      <td className="py-3 px-3">
+                        <div className="flex items-center justify-center gap-1.5">
+                          {/* Quick Preview */}
+                          <button
+                            onClick={() => setViewingOrder(order)}
+                            className="p-1.5 text-violet-400 hover:bg-violet-500/10 border border-violet-500/20 rounded-lg transition-all"
+                            title="Quick View"
+                          >
+                            <Eye className="h-4 w-4" />
+                          </button>
 
-    {/* Manage/Edit Order */}
-    <button
-      onClick={() => router.push(`/admin/orders/${order.id}`)}
-      className="p-1.5 text-cyan-400 hover:bg-cyan-500/10 border border-cyan-500/20 rounded-lg transition-all"
-      aria-label="Manage Order"
-    >
-      <Edit className="h-4 w-4" />
-    </button>
-  </div>
-</td>
+                          {/* Manage/Edit Order */}
+                          <button
+                            onClick={() => router.push(`/admin/orders/${order.id}`)}
+                            className="p-1.5 text-cyan-400 hover:bg-cyan-500/10 border border-cyan-500/20 rounded-lg transition-all"
+                            title="Manage Order"
+                          >
+                            <Edit className="h-4 w-4" />
+                          </button>
+
+                          {/* ✅ Quick Actions Menu */}
+                          {availableActions.length > 0 && (
+                            <div className="relative">
+                              <button
+                                onClick={() =>
+                                  setActionMenuOrder(
+                                    actionMenuOrder === order.id ? null : order.id
+                                  )
+                                }
+                                className="p-1.5 text-slate-400 hover:bg-slate-700/50 border border-slate-600 rounded-lg transition-all"
+                                title="Quick Actions"
+                              >
+                                <MoreVertical className="h-4 w-4" />
+                              </button>
+
+                              {actionMenuOrder === order.id && (
+                                <>
+                                  <div
+                                    className="fixed inset-0 z-20"
+                                    onClick={() => setActionMenuOrder(null)}
+                                  />
+                                  <div className="absolute right-0 mt-1 w-48 bg-slate-800 border border-slate-700 rounded-lg shadow-2xl z-30 overflow-hidden">
+                                    {availableActions.includes('mark-ready') && (
+                                      <button
+                                        onClick={() => openActionModal(order, 'mark-ready')}
+                                        className="w-full px-3 py-2 text-left text-white hover:bg-slate-700 transition-all flex items-center gap-2 text-xs border-b border-slate-700"
+                                      >
+                                        <PackageCheck className="w-3.5 h-3.5 text-cyan-400" />
+                                        Mark Ready
+                                      </button>
+                                    )}
+                                    {availableActions.includes('mark-collected') && (
+                                      <button
+                                        onClick={() => openActionModal(order, 'mark-collected')}
+                                        className="w-full px-3 py-2 text-left text-white hover:bg-slate-700 transition-all flex items-center gap-2 text-xs border-b border-slate-700"
+                                      >
+                                        <CheckCircle2 className="w-3.5 h-3.5 text-green-400" />
+                                        Mark Collected
+                                      </button>
+                                    )}
+                                    {availableActions.includes('create-shipment') && (
+                                      <button
+                                        onClick={() => openActionModal(order, 'create-shipment')}
+                                        className="w-full px-3 py-2 text-left text-white hover:bg-slate-700 transition-all flex items-center gap-2 text-xs border-b border-slate-700"
+                                      >
+                                        <Truck className="w-3.5 h-3.5 text-purple-400" />
+                                        Create Shipment
+                                      </button>
+                                    )}
+                                    {availableActions.includes('mark-delivered') && (
+                                      <button
+                                        onClick={() => openActionModal(order, 'mark-delivered')}
+                                        className="w-full px-3 py-2 text-left text-white hover:bg-slate-700 transition-all flex items-center gap-2 text-xs border-b border-slate-700"
+                                      >
+                                        <CheckCircle className="w-3.5 h-3.5 text-green-400" />
+                                        Mark Delivered
+                                      </button>
+                                    )}
+                                    {availableActions.includes('update-status') && (
+                                      <button
+                                        onClick={() => openActionModal(order, 'update-status')}
+                                        className="w-full px-3 py-2 text-left text-white hover:bg-slate-700 transition-all flex items-center gap-2 text-xs border-b border-slate-700"
+                                      >
+                                        <RefreshCw className="w-3.5 h-3.5 text-blue-400" />
+                                        Update Status
+                                      </button>
+                                    )}
+                                    {availableActions.includes('cancel-order') && (
+                                      <button
+                                        onClick={() => openActionModal(order, 'cancel-order')}
+                                        className="w-full px-3 py-2 text-left text-white hover:bg-slate-700 transition-all flex items-center gap-2 text-xs"
+                                      >
+                                        <PackageX className="w-3.5 h-3.5 text-red-400" />
+                                        Cancel Order
+                                      </button>
+                                    )}
+                                  </div>
+                                </>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      </td>
                     </tr>
                   );
                 })}
@@ -772,8 +1212,8 @@ export default function OrdersListPage() {
                 </div>
                 <button
                   onClick={() => setViewingOrder(null)}
-                  className="p-2 text-slate-400 hover:text-white  hover:bg-red-600 rounded-lg transition-all"
-                  title='close modal'
+                  className="p-2 text-slate-400 hover:text-white hover:bg-red-600 rounded-lg transition-all"
+                  title="close modal"
                 >
                   <X className="h-5 w-5" />
                 </button>
@@ -876,11 +1316,30 @@ export default function OrdersListPage() {
           </div>
         </div>
       )}
+
+      {/* ✅ Order Actions Modal */}
+      {modalState.isOpen && modalState.order && (
+        <OrderActionsModal
+          isOpen={modalState.isOpen}
+          onClose={closeActionModal}
+          order={modalState.order}
+          action={modalState.action}
+          onSuccess={handleActionSuccess}
+        />
+      )}
     </div>
   );
 }
 
-const InfoCard = ({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) => (
+const InfoCard = ({
+  icon,
+  label,
+  value,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: string;
+}) => (
   <div className="bg-slate-800/30 rounded-lg p-3 border border-slate-700">
     <div className="flex items-center gap-2">
       {icon}
@@ -905,7 +1364,9 @@ const SummaryRow = ({
 }) => (
   <div className={`flex justify-between ${bold ? 'text-base' : 'text-sm'}`}>
     <span className={`${bold ? 'font-bold text-white' : 'text-slate-400'}`}>{label}</span>
-    <span className={`${bold ? 'font-bold text-white' : highlight ? 'text-pink-400' : 'text-white'}`}>
+    <span
+      className={`${bold ? 'font-bold text-white' : highlight ? 'text-pink-400' : 'text-white'}`}
+    >
       {value}
     </span>
   </div>

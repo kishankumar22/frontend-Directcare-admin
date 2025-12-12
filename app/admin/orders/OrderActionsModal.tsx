@@ -23,6 +23,66 @@ interface OrderActionsModalProps {
   onSuccess: () => void;
 }
 
+// ✅ Order status enum
+enum OrderStatus {
+  PENDING = 1,
+  PROCESSING = 2,
+  SHIPPED = 3,
+  DELIVERED = 4,
+  CANCELLED = 5,
+  REFUNDED = 6,
+  READY_FOR_COLLECTION = 7,
+  COLLECTED = 8,
+}
+
+// ✅ Status labels mapping
+const STATUS_LABELS: Record<number, string> = {
+  [OrderStatus.PENDING]: 'Pending',
+  [OrderStatus.PROCESSING]: 'Processing',
+  [OrderStatus.SHIPPED]: 'Shipped',
+  [OrderStatus.DELIVERED]: 'Delivered',
+  [OrderStatus.CANCELLED]: 'Cancelled',
+  [OrderStatus.REFUNDED]: 'Refunded',
+  [OrderStatus.READY_FOR_COLLECTION]: 'Ready for Collection',
+  [OrderStatus.COLLECTED]: 'Collected',
+};
+
+// ✅ Valid status transitions based on current status
+const VALID_STATUS_TRANSITIONS: Record<number, number[]> = {
+  [OrderStatus.PENDING]: [
+    OrderStatus.PROCESSING,
+    OrderStatus.CANCELLED,
+  ],
+  [OrderStatus.PROCESSING]: [
+    OrderStatus.SHIPPED,
+    OrderStatus.READY_FOR_COLLECTION,
+    OrderStatus.CANCELLED,
+  ],
+  [OrderStatus.SHIPPED]: [
+    OrderStatus.DELIVERED,
+    OrderStatus.CANCELLED,
+  ],
+  [OrderStatus.DELIVERED]: [
+    OrderStatus.REFUNDED,
+  ],
+  [OrderStatus.CANCELLED]: [
+    OrderStatus.REFUNDED,
+  ],
+  [OrderStatus.REFUNDED]: [],
+  [OrderStatus.READY_FOR_COLLECTION]: [
+    OrderStatus.COLLECTED,
+    OrderStatus.CANCELLED,
+  ],
+  [OrderStatus.COLLECTED]: [
+    OrderStatus.REFUNDED,
+  ],
+};
+
+// ✅ Get available status options based on current status
+const getAvailableStatuses = (currentStatus: number): number[] => {
+  return VALID_STATUS_TRANSITIONS[currentStatus] || [];
+};
+
 export default function OrderActionsModal({
   isOpen,
   onClose,
@@ -73,6 +133,9 @@ export default function OrderActionsModal({
     initiateRefund: true,
     cancelledBy: '',
   });
+
+  // ✅ Get available statuses dynamically
+  const availableStatuses = getAvailableStatuses(order.status);
 
   // ✅ Initialize shipment items when modal opens for create-shipment action
   useEffect(() => {
@@ -313,27 +376,40 @@ export default function OrderActionsModal({
               </div>
             </div>
 
+            {/* ✅ Current Status Display */}
+            <div className="p-3 bg-slate-900/50 border border-slate-700 rounded-lg">
+              <p className="text-xs text-slate-400 mb-1">Current Status</p>
+              <p className="text-white font-medium">{STATUS_LABELS[order.status]}</p>
+            </div>
+
             <div>
               <label className="block text-sm font-medium text-slate-300 mb-2">
                 New Status <span className="text-red-500">*</span>
               </label>
-              <select
-                value={statusData.newStatus}
-                onChange={(e) =>
-                  setStatusData({ ...statusData, newStatus: Number(e.target.value) })
-                }
-                className="w-full px-3 py-2.5 bg-slate-800/50 border border-slate-700 rounded-xl text-white focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
-                required
-              >
-                <option value={1}>Pending</option>
-                <option value={2}>Processing</option>
-                <option value={3}>Shipped</option>
-                <option value={4}>Delivered</option>
-                <option value={5}>Cancelled</option>
-                <option value={6}>Refunded</option>
-                <option value={7}>Ready for Collection</option>
-                <option value={8}>Collected</option>
-              </select>
+              {/* ✅ Conditionally show only valid statuses */}
+              {availableStatuses.length > 0 ? (
+                <select
+                  value={statusData.newStatus}
+                  onChange={(e) =>
+                    setStatusData({ ...statusData, newStatus: Number(e.target.value) })
+                  }
+                  className="w-full px-3 py-2.5 bg-slate-800/50 border border-slate-700 rounded-xl text-white focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+                  required
+                >
+                  <option value={order.status}>Select new status</option>
+                  {availableStatuses.map((status) => (
+                    <option key={status} value={status}>
+                      {STATUS_LABELS[status]}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-lg">
+                  <p className="text-sm text-amber-400">
+                    No valid status transitions available from current status.
+                  </p>
+                </div>
+              )}
             </div>
 
             <div>
@@ -654,7 +730,7 @@ export default function OrderActionsModal({
           collectedData.collectorIDNumber
         );
       case 'update-status':
-        return statusData.newStatus > 0;
+        return statusData.newStatus > 0 && statusData.newStatus !== order.status && availableStatuses.includes(statusData.newStatus);
       case 'create-shipment':
         return (
           shipmentData.trackingNumber &&
