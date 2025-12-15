@@ -2,6 +2,47 @@
 
 import { apiClient } from '../api';
 import { API_ENDPOINTS } from '../api-config';
+import React from 'react';
+
+// ==================== ENUMS & TYPES ====================
+
+/**
+ * ✅ Order Status Enum (matches backend exactly)
+ * Backend enum starts from 0
+ */
+export enum OrderStatus {
+  Pending = 0,
+  Confirmed = 1,
+  Processing = 2,
+  Shipped = 3,
+  PartiallyShipped = 4,
+  Delivered = 5,
+  Cancelled = 6,
+  Returned = 7,
+  Refunded = 8
+}
+
+/**
+ * ✅ Collection Status (backend returns strings)
+ */
+export type CollectionStatus = 'Pending' | 'Ready' | 'Collected' | 'Expired';
+
+/**
+ * ✅ Delivery Method
+ */
+export type DeliveryMethod = 'HomeDelivery' | 'ClickAndCollect';
+
+/**
+ * ✅ Payment Status Enum (starts from 1)
+ */
+export enum PaymentStatus {
+  Pending = 1,
+  Processing = 2,
+  Completed = 3,
+  Failed = 4,
+  Refunded = 5,
+  PartiallyRefunded = 6,
+}
 
 // ==================== INTERFACES ====================
 
@@ -36,7 +77,7 @@ export interface Payment {
   paymentMethod: string;
   amount: number;
   currency: string;
-  status: number;
+  status: PaymentStatus; // ✅ Use enum
   transactionId?: string;
   gatewayTransactionId?: string;
   processedAt?: string;
@@ -67,7 +108,7 @@ export interface Shipment {
 export interface Order {
   id: string;
   orderNumber: string;
-  status: number;
+  status: OrderStatus; // ✅ Use enum (0-8)
   orderDate: string;
   estimatedDispatchDate?: string;
   dispatchedAt?: string;
@@ -88,9 +129,9 @@ export interface Order {
   shippingAddress: Address;
   userId?: string;
   customerName: string;
-  deliveryMethod: string;
+  deliveryMethod: DeliveryMethod; // ✅ Use type
   clickAndCollectFee?: number;
-  collectionStatus?: string;
+  collectionStatus?: CollectionStatus; // ✅ Use type (string)
   readyForCollectionAt?: string;
   collectedAt?: string;
   collectedBy?: string;
@@ -114,14 +155,15 @@ export interface OrdersListResponse {
 }
 
 // ✅ API Response wrapper
- interface ApiResponse<T> {
+interface ApiResponse<T> {
   success: boolean;
   message: string;
   data: T;
   errors?: string[];
 }
 
-// Request DTOs
+// ==================== REQUEST DTOs ====================
+
 export interface MarkCollectedRequest {
   orderId: string;
   collectedBy: string;
@@ -141,18 +183,18 @@ export interface CreateShipmentRequest {
   carrier: string;
   shippingMethod: string;
   notes?: string;
-  shipmentItems: {
+  shipmentItems?: { // ✅ Made optional (null = full shipment)
     orderItemId: string;
     quantity: number;
-  }[];
+  }[] | null;
 }
 
 export interface MarkDeliveredRequest {
   orderId: string;
-  shipmentId: string;
-  deliveredAt: string;
+  shipmentId?: string; // ✅ Optional
+  deliveredAt?: string; // ✅ Optional (defaults to now)
   deliveryNotes?: string;
-  receivedBy?: string;
+  receivedBy?: string; // ✅ Optional
 }
 
 export interface CancelOrderRequest {
@@ -163,7 +205,7 @@ export interface CancelOrderRequest {
   cancelledBy: string;
 }
 
-// ==================== SERVICE METHODS ====================
+// ==================== SERVICE CLASS ====================
 
 class OrderService {
   /**
@@ -333,34 +375,80 @@ export const orderService = new OrderService();
 // ==================== HELPER FUNCTIONS ====================
 
 /**
- * Get status label and color
+ * ✅ Get Order Status Info (FIXED - 0 to 8)
  */
 export const getOrderStatusInfo = (status: number) => {
   const statusMap: Record<number, { label: string; color: string; bgColor: string }> = {
-    1: { label: 'Pending', color: 'text-yellow-400', bgColor: 'bg-yellow-500/10' },
-    2: { label: 'Processing', color: 'text-blue-400', bgColor: 'bg-blue-500/10' },
+    0: { label: 'Pending', color: 'text-yellow-400', bgColor: 'bg-yellow-500/10' },
+    1: { label: 'Confirmed', color: 'text-blue-400', bgColor: 'bg-blue-500/10' },
+    2: { label: 'Processing', color: 'text-indigo-400', bgColor: 'bg-indigo-500/10' },
     3: { label: 'Shipped', color: 'text-purple-400', bgColor: 'bg-purple-500/10' },
-    4: { label: 'Delivered', color: 'text-green-400', bgColor: 'bg-green-500/10' },
-    5: { label: 'Cancelled', color: 'text-red-400', bgColor: 'bg-red-500/10' },
-    6: { label: 'Refunded', color: 'text-orange-400', bgColor: 'bg-orange-500/10' },
-    7: { label: 'Ready for Collection', color: 'text-cyan-400', bgColor: 'bg-cyan-500/10' },
-    8: { label: 'Collected', color: 'text-emerald-400', bgColor: 'bg-emerald-500/10' },
+    4: { label: 'Partially Shipped', color: 'text-purple-300', bgColor: 'bg-purple-400/10' },
+    5: { label: 'Delivered', color: 'text-green-400', bgColor: 'bg-green-500/10' },
+    6: { label: 'Cancelled', color: 'text-red-400', bgColor: 'bg-red-500/10' },
+    7: { label: 'Returned', color: 'text-orange-400', bgColor: 'bg-orange-500/10' },
+    8: { label: 'Refunded', color: 'text-pink-400', bgColor: 'bg-pink-500/10' },
   };
   return statusMap[status] || { label: 'Unknown', color: 'text-gray-400', bgColor: 'bg-gray-500/10' };
 };
 
 /**
- * Get payment status label
+ * ✅ Get Collection Status Info (for Click & Collect)
  */
-export const getPaymentStatusLabel = (status: number) => {
-  const statusMap: Record<number, string> = {
-    1: 'Pending',
-    2: 'Processing',
-    3: 'Completed',
-    4: 'Failed',
-    5: 'Refunded',
+export const getCollectionStatusInfo = (status: CollectionStatus) => {
+  const statusMap: Record<CollectionStatus, { label: string; color: string; bgColor: string }> = {
+    'Pending': { label: 'Pending Collection', color: 'text-yellow-400', bgColor: 'bg-yellow-500/10' },
+    'Ready': { label: 'Ready for Pickup', color: 'text-green-400', bgColor: 'bg-green-500/10' },
+    'Collected': { label: 'Collected', color: 'text-emerald-400', bgColor: 'bg-emerald-500/10' },
+    'Expired': { label: 'Expired', color: 'text-red-400', bgColor: 'bg-red-500/10' },
   };
-  return statusMap[status] || 'Unknown';
+  return statusMap[status] || statusMap['Pending'];
+};
+
+/**
+ * ✅ Get Payment Status Info with Icons
+ */
+export const getPaymentStatusInfo = (status: PaymentStatus) => {
+  const statusMap: Record<PaymentStatus, { label: string; color: string; bgColor: string }> = {
+    [PaymentStatus.Pending]: { 
+      label: 'Pending', 
+      color: 'text-yellow-400', 
+      bgColor: 'bg-yellow-500/10' 
+    },
+    [PaymentStatus.Processing]: { 
+      label: 'Processing', 
+      color: 'text-blue-400', 
+      bgColor: 'bg-blue-500/10' 
+    },
+    [PaymentStatus.Completed]: { 
+      label: 'Paid', 
+      color: 'text-green-400', 
+      bgColor: 'bg-green-500/10' 
+    },
+    [PaymentStatus.Failed]: { 
+      label: 'Failed', 
+      color: 'text-red-400', 
+      bgColor: 'bg-red-500/10' 
+    },
+    [PaymentStatus.Refunded]: { 
+      label: 'Refunded', 
+      color: 'text-purple-400', 
+      bgColor: 'bg-purple-500/10' 
+    },
+    [PaymentStatus.PartiallyRefunded]: { 
+      label: 'Partially Refunded', 
+      color: 'text-purple-400', 
+      bgColor: 'bg-purple-500/10' 
+    },
+  };
+  return statusMap[status] || statusMap[PaymentStatus.Pending];
+};
+
+/**
+ * Get payment status label (legacy support)
+ */
+export const getPaymentStatusLabel = (status: number): string => {
+  return getPaymentStatusInfo(status as PaymentStatus).label;
 };
 
 /**

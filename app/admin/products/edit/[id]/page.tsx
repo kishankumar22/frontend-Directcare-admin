@@ -7,7 +7,8 @@ import {
   ArrowLeft, Save, Upload, X, Info, Search, Image, Package,
   Tag, BarChart3, Globe, Settings, Truck, Gift, Calendar,
   Users, PoundSterling, Shield, FileText, Link as LinkIcon, ShoppingCart, Video,
-  Play
+  Play,
+  ChevronDown
 } from "lucide-react";
 import Link from "next/link";
 import { apiClient } from "@/lib/api"; // Import your axios client
@@ -18,6 +19,113 @@ import { API_BASE_URL, API_ENDPOINTS } from "@/lib/api-config";
 import { cn } from "@/lib/utils";
 import { ProductAttribute, ProductVariant, DropdownsData, SimpleProduct, ProductImage, CategoryData, BrandApiResponse, CategoryApiResponse, ProductsApiResponse, VATRateApiResponse } from '@/lib/services';
 import { GroupedProductModal } from '../../GroupedProductModal';
+import { MultiBrandSelector } from "../../MultiBrandSelector";
+import React from "react";
+
+interface EditLockStatus {
+  isLocked: boolean;
+  lockedBy?: string;
+  lockedByEmail?: string;
+  expiresAt?: string;
+}
+
+
+const AdminCommentInfo: React.FC = () => {
+  return (
+    <div className="mt-2 p-3 bg-blue-500/10 border border-blue-500/30 rounded-lg">
+      <div className="flex items-start gap-2">
+        <Info className="w-4 h-4 text-blue-400 flex-shrink-0 mt-0.5" />
+        <div className="text-xs text-blue-300">
+          <p className="font-medium mb-1">📝 Comment History Tracking</p>
+          <p className="text-blue-400/80">
+            All changes are automatically tracked in the database. 
+            Contact your administrator to view full comment history.
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+
+// Add this component at the top of your page
+interface EditLockBannerProps {
+  isLocked: boolean;
+  lockedBy?: string;
+  lockedByEmail?: string;
+  expiresAt?: string;
+}
+// Add this in your Inventory section
+const LowStockAlert: React.FC<{
+  stockQuantity: number;
+  notifyQuantityBelow: number;
+  enabled: boolean;
+}> = ({ stockQuantity, notifyQuantityBelow, enabled }) => {
+  if (!enabled || stockQuantity > notifyQuantityBelow) return null;
+
+  return (
+    <div className="mt-3 p-3 bg-red-500/10 border border-red-500/30 rounded-xl flex items-center gap-2">
+      <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
+      <span className="text-sm text-red-400 font-medium">
+        ⚠️ Low Stock Alert: Only {stockQuantity} units left (Threshold: {notifyQuantityBelow})
+      </span>
+    </div>
+  );
+};
+// Add this below stock quantity field
+const BackInStockSubscribers: React.FC<{ productId: string }> = ({ productId }) => {
+  const [count, setCount] = useState(0);
+
+useEffect(() => {
+  apiClient.get(`${API_ENDPOINTS.products}/${productId}/back-in-stock-subscriptions/count`)
+    .then(response => {
+      // ✅ Add type assertion to fix TypeScript error
+      const apiResponse = response.data as any;
+      if (apiResponse?.success) {
+        setCount(apiResponse.data);
+      }
+    });
+}, [productId]);
+
+  if (count === 0) return null;
+
+  return (
+    <div className="mt-3 p-3 bg-blue-500/10 border border-blue-500/30 rounded-xl">
+      <span className="text-sm text-blue-400">
+        📧 {count} customer{count > 1 ? 's' : ''} waiting for restock notification
+      </span>
+    </div>
+  );
+};
+
+const EditLockBanner: React.FC<EditLockBannerProps> = ({
+  isLocked,
+  lockedBy,
+  lockedByEmail,
+  expiresAt
+}) => {
+  if (!isLocked) return null;
+
+  return (
+    <div className="mb-6 p-4 bg-amber-500/10 border-2 border-amber-500/30 rounded-xl flex items-start gap-3">
+      <div className="w-10 h-10 rounded-full bg-amber-500/20 flex items-center justify-center flex-shrink-0">
+        <Shield className="w-5 h-5 text-amber-400" />
+      </div>
+      <div className="flex-1">
+        <h3 className="text-amber-400 font-semibold mb-1">Product Being Edited</h3>
+        <p className="text-sm text-slate-300">
+          <strong>{lockedBy}</strong> ({lockedByEmail}) is currently editing this product.
+        </p>
+        {expiresAt && (
+          <p className="text-xs text-slate-400 mt-1">
+            Lock expires: {new Date(expiresAt).toLocaleString()}
+          </p>
+        )}
+      </div>
+    </div>
+  );
+};
+
 
 export default function EditProductPage({ params }: { params: Promise<{ id: string }> }) {
   const router = useRouter();
@@ -45,6 +153,11 @@ const [vatSearch, setVatSearch] = useState('');
   });
 // Add this state with your other useState declarations
 const [isGroupedModalOpen, setIsGroupedModalOpen] = useState(false);
+// Add these with your other useState declarations
+const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
+const [categorySearchTerm, setCategorySearchTerm] = useState("");
+const categoryDropdownRef = useRef<HTMLDivElement>(null);
+
   // Add these states after existing states
 const [simpleProducts, setSimpleProducts] = useState<SimpleProduct[]>([]);
 const [selectedGroupedProducts, setSelectedGroupedProducts] = useState<string[]>([]);
@@ -67,11 +180,30 @@ const getYouTubeVideoId = (url: string): string | null => {
   
   return null;
 };
+
+
 // Filter VAT rates based on search
 const filteredVATRates = dropdownsData.vatRates.filter(vat =>
   vat.name.toLowerCase().includes(vatSearch.toLowerCase()) ||
   vat.rate.toString().includes(vatSearch)
 )
+// Add this useEffect for category dropdown outside click
+useEffect(() => {
+  const handleClickOutside = (event: MouseEvent) => {
+    if (categoryDropdownRef.current && !categoryDropdownRef.current.contains(event.target as Node)) {
+      setShowCategoryDropdown(false);
+      setCategorySearchTerm("");
+    }
+  };
+
+  if (showCategoryDropdown) {
+    document.addEventListener('mousedown', handleClickOutside);
+  }
+
+  return () => {
+    document.removeEventListener('mousedown', handleClickOutside);
+  };
+}, [showCategoryDropdown]);
 
   // Available products for related/cross-sell (from API)
   const [availableProducts, setAvailableProducts] = useState<Array<{id: string, name: string, sku: string, price: string}>>([]);
@@ -81,7 +213,8 @@ const [formData, setFormData] = useState({
   shortDescription: '',
   fullDescription: '',
   sku: '',
-  brand: '',
+    brand: '', // ✅ ADD THIS LINE (backward compatibility)
+  brandIds: [] as string[],  // ✅ NEW - Add this line
   categories: '',
   gender: '',
   published: true,
@@ -279,12 +412,97 @@ const renderCategoryOptions = (categories: CategoryData[]): JSX.Element[] => {
   
   return options;
 };
-  // Combined useEffect to fetch all data
 useEffect(() => {
   const fetchAllData = async () => {
     try {
       console.log('🔄 Fetching all data...');
 
+      // 🔒 STEP 1: Try to acquire lock FIRST
+      let lockAcquired = false;
+      try {
+        const lockResponse = await apiClient.post(
+          `${API_ENDPOINTS.products}/${productId}/lock`,
+          null,
+          {
+            params: {
+              durationMinutes: 15
+            }
+          }
+        );
+        
+        // ✅ Add type assertion to fix TypeScript error
+        const lockApiResponse = lockResponse?.data as any;
+        
+        console.log('🔒 Lock Response:', lockApiResponse);
+        
+        if (lockApiResponse?.success) {
+          lockAcquired = true;
+          const lockData = lockApiResponse.data;
+          
+          console.log('✅ Lock acquired successfully!');
+          console.log('📌 Locked by:', lockData?.lockedBy);
+          console.log('📧 Email:', lockData?.lockedByEmail);
+          console.log('⏰ Expires at:', lockData?.expiresAt);
+          
+          // ✅ Show SUCCESS toast notification
+          toast.success(
+            `🔒 ${lockApiResponse.message || 'Product edit lock acquired successfully'}`,
+            {
+              autoClose: 5000,
+              closeButton: true,
+              position: 'top-right'
+            }
+          );
+          
+          // ✅ Lock acquired - NO warning banner (you're the editor)
+          setEditLock({
+            isLocked: false,
+            lockedBy: undefined,
+            lockedByEmail: undefined,
+            expiresAt: undefined
+          });
+        }
+      } catch (lockError: any) {
+        console.error('⚠️ Failed to acquire lock:', lockError);
+        
+        // ✅ Add type assertion for error response
+        const errorResponse = lockError?.response?.data as any;
+        
+        if (errorResponse?.data) {
+          const existingLock = errorResponse.data;
+          
+          console.log('🔒 Product is locked by another user!');
+          console.log('👤 Locked by:', existingLock.lockedBy);
+          console.log('📧 Email:', existingLock.lockedByEmail);
+          console.log('⏰ Expires at:', existingLock.expiresAt);
+          
+          // ✅ Show WARNING banner with REAL user email
+          setEditLock({
+            isLocked: true,
+            lockedBy: existingLock.lockedBy || existingLock.lockedByEmail || 'Another User',
+            lockedByEmail: existingLock.lockedByEmail || existingLock.lockedBy || '',
+            expiresAt: existingLock.expiresAt
+          });
+          
+          // ✅ Show toast notification with real user
+          toast.warning(
+            `⚠️ ${existingLock.lockedByEmail || existingLock.lockedBy || 'Another user'} is currently editing this product!`,
+            {
+              autoClose: 8000,
+              closeButton: true,
+              position: 'top-right'
+            }
+          );
+        } else {
+          console.warn('⚠️ Could not acquire lock:', errorResponse?.message);
+          toast.error(errorResponse?.message || 'Could not acquire edit lock', {
+            autoClose: 5000,
+            closeButton: true
+          });
+        }
+      }
+
+      // 🔄 STEP 2: Fetch all data in parallel
       const [
         brandsResponse,
         categoriesResponse,
@@ -293,23 +511,23 @@ useEffect(() => {
         vatRatesResponse,
         simpleProductsResponse
       ] = await Promise.all([
-        apiClient.get<BrandApiResponse>(`${API_ENDPOINTS.brands}?includeUnpublished=false`),
-        apiClient.get<CategoryApiResponse>(`${API_ENDPOINTS.categories}?includeInactive=true&includeSubCategories=true`),
-        apiClient.get<ProductsApiResponse>(`${API_ENDPOINTS.products}`),
+        apiClient.get(`${API_ENDPOINTS.brands}?includeUnpublished=false`),
+        apiClient.get(`${API_ENDPOINTS.categories}?includeInactive=true&includeSubCategories=true`),
+        apiClient.get(API_ENDPOINTS.products),
         apiClient.get(`${API_ENDPOINTS.products}/${productId}`),
-        apiClient.get<VATRateApiResponse>(API_ENDPOINTS.vatrates),
+        apiClient.get(API_ENDPOINTS.vatrates),
         apiClient.get(`${API_ENDPOINTS.products}/simple`)
       ]);
 
-      // Process Brands
-      const brandsData = (brandsResponse.data as BrandApiResponse)?.data || [];
-      
-      // Process Categories
-      const categoriesData = (categoriesResponse.data as CategoryApiResponse)?.data || [];
-      
-      // Process VAT Rates
-      const vatRatesData = (vatRatesResponse.data as VATRateApiResponse)?.data || [];
-      
+      // ✅ Process Brands
+      const brandsData = (brandsResponse?.data as any)?.data || [];
+
+      // ✅ Process Categories
+      const categoriesData = (categoriesResponse?.data as any)?.data || [];
+
+      // ✅ Process VAT Rates
+      const vatRatesData = (vatRatesResponse?.data as any)?.data || [];
+
       // Set dropdown data
       setDropdownsData({
         brands: brandsData,
@@ -318,10 +536,9 @@ useEffect(() => {
       });
 
       // ✅ Process Simple Products
-      if (simpleProductsResponse.data && !simpleProductsResponse.error) {
+      if (simpleProductsResponse?.data) {
         const simpleApiResponse = simpleProductsResponse.data as any;
-        
-        if (simpleApiResponse.success && Array.isArray(simpleApiResponse.data)) {
+        if (simpleApiResponse?.success && Array.isArray(simpleApiResponse.data)) {
           const simpleProductsList = simpleApiResponse.data.map((p: any) => ({
             id: p.id || '',
             name: p.name || '',
@@ -334,42 +551,34 @@ useEffect(() => {
         }
       }
 
-      // Process Available Products for Related/Cross-sell
-      if (productsResponse.data && !productsResponse.error) {
-        const apiResponse = productsResponse.data as ProductsApiResponse;
-
-        if (apiResponse.success && apiResponse.data.items) {
-          const transformedProducts = apiResponse.data.items.map(product => ({
+      // ✅ Process Available Products for Related/Cross-sell
+      if (productsResponse?.data) {
+        const apiResponse = productsResponse.data as any;
+        if (apiResponse?.success && apiResponse?.data?.items) {
+          const transformedProducts = apiResponse.data.items.map((product: any) => ({
             id: product.id,
             name: product.name,
             sku: product.sku,
-            price: `₹${product.price.toFixed(2)}`
+            price: product.price.toFixed(2)
           }));
-
           setAvailableProducts(transformedProducts);
         }
       }
 
-      // Process Current Product Data
-      if (productResponse.data && !productResponse.error) {
+      // ✅ Process Current Product Data
+      if (productResponse?.data) {
         const productApiResponse = productResponse.data as any;
-
-        if (productApiResponse.success && productApiResponse.data) {
+        if (productApiResponse?.success && productApiResponse?.data) {
           const product = productApiResponse.data;
 
           // Helper: Get category display name
           const getCategoryDisplayName = (categoryId: string, categories: CategoryData[]): string => {
             if (!categoryId) return '';
-
             for (const cat of categories) {
-              if (cat.id === categoryId) {
-                return cat.name;
-              }
+              if (cat.id === categoryId) return cat.name;
               if (cat.subCategories) {
                 for (const sub of cat.subCategories) {
-                  if (sub.id === categoryId) {
-                    return `${cat.name} >> ${sub.name}`;
-                  }
+                  if (sub.id === categoryId) return `${cat.name} > ${sub.name}`;
                 }
               }
             }
@@ -394,31 +603,67 @@ useEffect(() => {
           };
 
           const categoryDisplayName = getCategoryDisplayName(product.categoryId || '', categoriesData);
-
           console.log('📦 Product data received:', product);
 
-          // ✅ Load grouped products if exists
+          // Load grouped products if exists
           if (product.requiredProductIds) {
             let groupedIds: string[] = [];
-            
             if (typeof product.requiredProductIds === 'string') {
               groupedIds = product.requiredProductIds.split(',').filter((id: string) => id.trim());
             } else if (Array.isArray(product.requiredProductIds)) {
               groupedIds = product.requiredProductIds;
             }
-            
             setSelectedGroupedProducts(groupedIds);
-            console.log('✅ Loaded grouped products:', groupedIds);
+            console.log('🔗 Loaded grouped products:', groupedIds);
           }
+
+          // ✅ Process Brand IDs - Multiple Brands Support
+// ✅ Process Brand IDs - NEW FORMAT (Backend sends brands array)
+let brandIds: string[] = [];
+
+// Check if backend sent brands array (new format with isPrimary, displayOrder)
+if (product.brands && Array.isArray(product.brands) && product.brands.length > 0) {
+  // Sort by isPrimary first, then displayOrder
+  const sortedBrands = [...product.brands].sort((a: any, b: any) => {
+    // Primary brand always first
+    if (a.isPrimary && !b.isPrimary) return -1;
+    if (!a.isPrimary && b.isPrimary) return 1;
+    // Then sort by displayOrder
+    return (a.displayOrder || 0) - (b.displayOrder || 0);
+  });
+  
+  // Extract brand IDs
+  brandIds = sortedBrands.map((b: any) => b.id || b.brandId).filter(Boolean);
+  console.log('🏷️ Loaded brands from API (new format):', brandIds);
+  console.log('📌 Primary brand:', brandIds[0]);
+}
+// Legacy: Check brandIds string or array (old format)
+else if (product.brandIds) {
+  if (typeof product.brandIds === 'string') {
+    brandIds = product.brandIds.split(',').map((id: string) => id.trim()).filter(Boolean);
+  } else if (Array.isArray(product.brandIds)) {
+    brandIds = product.brandIds.filter(Boolean);
+  }
+  console.log('🏷️ Loaded brands (legacy format):', brandIds);
+} 
+// Legacy: Single brand fallback (oldest format)
+else if (product.brandId) {
+  brandIds = [product.brandId];
+  console.log('🏷️ Loaded single brand (legacy):', brandIds);
+}
+
+console.log('🏷️ Final brandIds array:', brandIds);
+
 
           // ✅ COMPLETE FORM DATA POPULATION
           setFormData({
-            // ===== BASIC INFO =====
+            // BASIC INFO
             name: product.name || '',
             shortDescription: product.shortDescription || '',
             fullDescription: product.description || '',
             sku: product.sku || '',
-            brand: product.brandId || '',
+           brand: brandIds[0] || '', // Primary brand (backward compatibility)
+          brandIds: brandIds,
             categories: product.categoryId || '',
             categoryName: categoryDisplayName,
             isPack: product.isPack ?? false,
@@ -438,14 +683,13 @@ useEffect(() => {
             limitedToStores: false,
             vendorId: '',
             
-            // ✅ GROUPED PRODUCT FIELDS
+            // GROUPED PRODUCT FIELDS
             requireOtherProducts: product.requireOtherProducts ?? false,
             requiredProductIds: product.requiredProductIds || '',
             automaticallyAddProducts: product.automaticallyAddProducts ?? false,
-            
             gender: product.gender || '',
 
-            // ===== PRICING =====
+            // PRICING
             price: product.price?.toString() || '',
             oldPrice: product.oldPrice?.toString() || product.compareAtPrice?.toString() || '',
             cost: product.costPrice?.toString() || '',
@@ -456,66 +700,57 @@ useEffect(() => {
             minimumCustomerEnteredPrice: product.minimumCustomerEnteredPrice?.toString() || '',
             maximumCustomerEnteredPrice: product.maximumCustomerEnteredPrice?.toString() || '',
 
-            // ===== BASE PRICE =====
+            // BASE PRICE
             basepriceEnabled: product.basepriceEnabled ?? false,
             basepriceAmount: product.basepriceAmount?.toString() || '',
             basepriceUnit: product.basepriceUnit || '',
             basepriceBaseAmount: product.basepriceBaseAmount?.toString() || '',
             basepriceBaseUnit: product.basepriceBaseUnit || '',
 
-            // ===== PROMOTIONS =====
+            // PROMOTIONS
             markAsNew: !!(product.markAsNewStartDate || product.markAsNewEndDate),
             markAsNewStartDate: formatDateTimeForInput(product.markAsNewStartDate),
             markAsNewEndDate: formatDateTimeForInput(product.markAsNewEndDate),
 
-            // ===== AVAILABILITY =====
+            // AVAILABILITY
             availableForPreOrder: product.availableForPreOrder ?? false,
             preOrderAvailabilityStartDate: formatDateTimeForInput(product.preOrderAvailabilityStartDate),
             availableStartDate: formatDateTimeForInput(product.availableStartDate),
             availableEndDate: formatDateTimeForInput(product.availableEndDate),
             hasDiscountsApplied: product.hasDiscountsApplied ?? false,
 
-            // ===== TAX =====
+            // TAX
             vatExempt: product.vatExempt ?? false,
             vatRateId: product.vatRateId || '',
             telecommunicationsBroadcastingElectronicServices: product.telecommunicationsBroadcastingElectronicServices ?? false,
 
-            // ===== SEO =====
+            // SEO
             metaTitle: product.metaTitle || '',
             metaKeywords: product.metaKeywords || '',
             metaDescription: product.metaDescription || '',
             searchEngineFriendlyPageName: product.searchEngineFriendlyPageName || '',
 
-            // ===== INVENTORY ===== ✅ COMPLETELY UPDATED
+            // INVENTORY
             stockQuantity: product.stockQuantity?.toString() || '0',
             manageInventory: product.trackQuantity ? 'track' : 'dont-track',
             minStockQuantity: product.minStockQuantity?.toString() || '0',
             lowStockActivity: product.lowStockActivity || 'nothing',
-            
-            // ✅ NOTIFICATION FIELDS - FIXED
-            notifyAdminForQuantityBelow: product.notifyAdminForQuantityBelow ?? false,  // Boolean from backend
-            notifyQuantityBelow: product.notifyQuantityBelow?.toString() || '1',        // Threshold value
-            
-            // Display Settings
+            notifyAdminForQuantityBelow: product.notifyAdminForQuantityBelow ?? false,
+            notifyQuantityBelow: product.notifyQuantityBelow?.toString() || '1',
             displayStockAvailability: product.displayStockAvailability ?? true,
             displayStockQuantity: product.displayStockQuantity ?? false,
-            
-            // ✅ BACKORDER FIELDS - FIXED
-            allowBackorder: product.allowBackorder ?? false,                            // Boolean
-            backorderMode: product.backorderMode || 'no-backorders',                    // Mode string
-            backorders: product.backorderMode || 'no-backorders',                       // For backward compatibility
-            
+            allowBackorder: product.allowBackorder ?? false,
+            backorderMode: product.backorderMode || 'no-backorders',
+            backorders: product.backorderMode || 'no-backorders',
             allowBackInStockSubscriptions: product.allowBackInStockSubscriptions ?? false,
             productAvailabilityRange: product.productAvailabilityRange || '',
-            
-            // Cart quantities
             minCartQuantity: product.orderMinimumQuantity?.toString() || '1',
             maxCartQuantity: product.orderMaximumQuantity?.toString() || '10000',
             allowedQuantities: product.allowedQuantities || '',
             allowAddingOnlyExistingAttributeCombinations: false,
             notReturnable: product.notReturnable ?? false,
 
-            // ===== SHIPPING =====
+            // SHIPPING
             isShipEnabled: product.requiresShipping ?? true,
             isFreeShipping: product.isFreeShipping ?? false,
             shipSeparately: product.shipSeparately ?? false,
@@ -525,12 +760,12 @@ useEffect(() => {
             width: product.width?.toString() || '',
             height: product.height?.toString() || '',
 
-            // ===== GIFT CARDS =====
+            // GIFT CARDS
             isGiftCard: product.isGiftCard ?? false,
             giftCardType: product.giftCardType || 'virtual',
             overriddenGiftCardAmount: product.overriddenGiftCardAmount ?? false,
 
-            // ===== DOWNLOADABLE =====
+            // DOWNLOADABLE
             isDownload: product.isDownload ?? false,
             downloadId: product.downloadId || '',
             unlimitedDownloads: product.unlimitedDownloads ?? true,
@@ -542,7 +777,7 @@ useEffect(() => {
             hasSampleDownload: product.hasSampleDownload ?? false,
             sampleDownloadId: product.sampleDownloadId || '',
 
-            // ===== RECURRING =====
+            // RECURRING
             isRecurring: product.isRecurring ?? false,
             recurringCycleLength: product.recurringCycleLength?.toString() || '',
             recurringCyclePeriod: product.recurringCyclePeriod || 'days',
@@ -551,31 +786,29 @@ useEffect(() => {
             allowedSubscriptionFrequencies: product.allowedSubscriptionFrequencies || '',
             subscriptionDescription: product.subscriptionDescription || '',
 
-            // ===== RENTAL =====
+            // RENTAL
             isRental: product.isRental ?? false,
             rentalPriceLength: product.rentalPriceLength?.toString() || '',
             rentalPricePeriod: product.rentalPricePeriod || 'days',
 
-            // ===== RELATED PRODUCTS =====
-            relatedProducts: typeof product.relatedProductIds === 'string'
+            // RELATED PRODUCTS
+            relatedProducts: typeof product.relatedProductIds === 'string' 
               ? product.relatedProductIds.split(',').filter((id: string) => id.trim())
-              : Array.isArray(product.relatedProductIds)
-              ? product.relatedProductIds
+              : Array.isArray(product.relatedProductIds) 
+              ? product.relatedProductIds 
               : [],
-
             crossSellProducts: typeof product.crossSellProductIds === 'string'
               ? product.crossSellProductIds.split(',').filter((id: string) => id.trim())
               : Array.isArray(product.crossSellProductIds)
               ? product.crossSellProductIds
               : [],
 
-            // ===== MEDIA =====
+            // MEDIA
             videoUrls: typeof product.videoUrls === 'string'
               ? product.videoUrls.split(',').filter((url: string) => url.trim())
               : Array.isArray(product.videoUrls)
               ? product.videoUrls
               : [],
-
             productImages: product.images?.map((img: any) => ({
               id: img.id || Date.now().toString(),
               imageUrl: img.imageUrl || '',
@@ -589,17 +822,17 @@ useEffect(() => {
               fileName: img.imageUrl ? img.imageUrl.split('/').pop() : undefined,
               fileSize: undefined,
               file: undefined
-            })) || [],
+            })) || []
           });
 
           console.log('✅ Form populated successfully');
 
-          // ===== LOAD ATTRIBUTES =====
+          // LOAD ATTRIBUTES
           if (product.attributes && Array.isArray(product.attributes)) {
             const loadedAttributes = product.attributes
               .filter((attr: any) => attr.name && attr.value)
               .map((attr: any) => ({
-                id: attr.id || Date.now().toString() + Math.random(),
+                id: attr.id || `${Date.now()}-${Math.random()}`,
                 name: attr.name || '',
                 value: attr.value || '',
                 displayOrder: attr.displayOrder || attr.sortOrder || 0
@@ -610,10 +843,10 @@ useEffect(() => {
             setProductAttributes([]);
           }
 
-          // ===== LOAD VARIANTS =====
+          // LOAD VARIANTS
           if (product.variants && Array.isArray(product.variants)) {
             const loadedVariants = product.variants.map((variant: any) => ({
-              id: variant.id || Date.now().toString() + Math.random(),
+              id: variant.id || `${Date.now()}-${Math.random()}`,
               name: variant.name || '',
               sku: variant.sku || '',
               price: variant.price !== null && variant.price !== undefined ? variant.price : null,
@@ -642,11 +875,7 @@ useEffect(() => {
 
     } catch (error: any) {
       console.error('❌ Error fetching data:', error);
-      
-      const errorMessage = error?.response?.data?.message 
-        || error?.message 
-        || 'Failed to load product data';
-      
+      const errorMessage = error?.response?.data?.message || error?.message || 'Failed to load product data';
       toast.error(errorMessage);
     }
   };
@@ -654,7 +883,16 @@ useEffect(() => {
   if (productId) {
     fetchAllData();
   }
+
+  // 🔓 CLEANUP: Release lock when page unmounts
+  return () => {
+    console.log('🔓 Releasing lock...');
+    apiClient.delete(`${API_ENDPOINTS.products}/${productId}/lock`)
+      .then(() => console.log('✅ Lock released successfully'))
+      .catch((err) => console.log('⚠️ Lock already released:', err?.response?.data?.message));
+  };
 }, [productId]);
+
 
 
 
@@ -725,11 +963,13 @@ const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
       target.removeAttribute('data-submitting');
       return;
     }
+    
     const nameRegex = /^[A-Za-z0-9\s\-.,()'/]+$/;
-if (!nameRegex.test(formData.name)) {
-    toast.error("⚠️ Invalid product name. Special characters like @, #, $, % are not allowed.");
-}
-
+    if (!nameRegex.test(formData.name)) {
+      toast.error("⚠️ Invalid product name. Special characters like @, #, $, % are not allowed.");
+      target.removeAttribute('data-submitting');
+      return;
+    }
 
     // ✅ Grouped Product Validation
     if (formData.productType === 'grouped' && formData.requireOtherProducts) {
@@ -742,6 +982,7 @@ if (!nameRegex.test(formData.name)) {
 
     const guidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+    // ✅ Process Category ID
     let categoryId: string | null = null;
     if (formData.categories && formData.categories.trim()) {
       const trimmedCategory = formData.categories.trim();
@@ -750,13 +991,33 @@ if (!nameRegex.test(formData.name)) {
       }
     }
 
-    let brandId: string | null = null;
-    if (formData.brand && formData.brand.trim()) {
-      const trimmedBrand = formData.brand.trim();
-      if (guidRegex.test(trimmedBrand)) {
-        brandId = trimmedBrand;
-      }
-    }
+let brandIdsArray: string[] = [];
+
+if (formData.brandIds && Array.isArray(formData.brandIds) && formData.brandIds.length > 0) {
+  // Filter valid GUIDs only
+  const guidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  brandIdsArray = formData.brandIds.filter(id => {
+    if (!id || typeof id !== 'string') return false;
+    return guidRegex.test(id.trim());
+  });
+  
+  console.log('✅ Sending brands:', brandIdsArray);
+  console.log('✅ Primary brand (first):', brandIdsArray[0]);
+} 
+// Fallback to single brand
+else if (formData.brand && formData.brand.trim()) {
+  const trimmedBrand = formData.brand.trim();
+  if (guidRegex.test(trimmedBrand)) {
+    brandIdsArray = [trimmedBrand];
+  }
+}
+
+// ✅ Validate at least one brand
+if (brandIdsArray.length === 0) {
+  toast.error('⚠️ Please select at least one brand');
+  target.removeAttribute('data-submitting');
+  return;
+}
 
     // Prepare product attributes array
     const attributesArray = productAttributes
@@ -869,14 +1130,14 @@ if (!nameRegex.test(formData.name)) {
         : null,
       deliveryDateId: formData.deliveryDateId || null,
 
-      // ===== INVENTORY ===== ✅ COMPLETELY FIXED
+      // ===== INVENTORY =====
       stockQuantity: parseInt(formData.stockQuantity) || 0,
       trackQuantity: formData.manageInventory === 'track',
       manageInventoryMethod: formData.manageInventory,
       minStockQuantity: parseInt(formData.minStockQuantity) || 0,
       lowStockActivity: formData.lowStockActivity || null,
       
-      // ✅ NOTIFICATION - FIXED (Boolean + Threshold)
+      // Notification
       notifyAdminForQuantityBelow: formData.notifyAdminForQuantityBelow ?? false,
       notifyQuantityBelow: formData.notifyAdminForQuantityBelow 
         ? parseInt(formData.notifyQuantityBelow) || 1 
@@ -886,7 +1147,7 @@ if (!nameRegex.test(formData.name)) {
       displayStockAvailability: formData.displayStockAvailability,
       displayStockQuantity: formData.displayStockQuantity,
       
-      // ✅ BACKORDER - FIXED
+      // Backorder
       allowBackorder: formData.allowBackorder ?? false,
       backorderMode: formData.backorderMode || 'no-backorders',
       allowBackInStockSubscriptions: formData.allowBackInStockSubscriptions,
@@ -896,7 +1157,7 @@ if (!nameRegex.test(formData.name)) {
       
       // Cart Quantities
       orderMinimumQuantity: parseInt(formData.minCartQuantity) || 1,
-      orderMaximumQuantity: parseInt(formData.maxCartQuantity) || 10,
+      orderMaximumQuantity: parseInt(formData.maxCartQuantity) || 10000,
       allowedQuantities: formData.allowedQuantities?.trim() || null,
       
       // Not Returnable
@@ -908,9 +1169,12 @@ if (!nameRegex.test(formData.name)) {
         packSize: formData.packSize.trim() || null,
       }),
       
-      // ===== CATEGORIES & BRAND =====
+      // ===== CATEGORIES =====
       ...(categoryId && { categoryId }),
-      ...(brandId && { brandId }),
+      
+      // ===== BRANDS ===== ✅ CRITICAL - SEND AS ARRAY
+      brandIds: brandIdsArray, // ✅ Array of GUID strings (NOT comma-separated string)
+      brandId: brandIdsArray[0] || null, // Primary brand (backward compatibility)
  
       // ===== RECURRING / SUBSCRIPTION PRODUCT =====
       isRecurring: formData.isRecurring,
@@ -1026,7 +1290,11 @@ if (!nameRegex.test(formData.name)) {
       )
     );
 
+    // ✅ Debug logs
     console.log('📦 Sending product data:', cleanProductData);
+    console.log('🏷️ Brand IDs (array):', brandIdsArray);
+    console.log('🏷️ Brand IDs type:', typeof cleanProductData.brandIds);
+    console.log('🏷️ Is Array?', Array.isArray(cleanProductData.brandIds));
 
     const response = await apiClient.put(`${API_ENDPOINTS.products}/${productId}`, cleanProductData);
 
@@ -1074,7 +1342,7 @@ if (!nameRegex.test(formData.name)) {
     }
 
     toast.error(errorMessage, {
-      autoClose: 4000,
+      autoClose: 8000,
       closeButton: true,
       draggable: true,
     });
@@ -1640,6 +1908,14 @@ const handleVariantImageUpload = async (variantId: string, file: File) => {
 
 
 
+const [editLock, setEditLock] = useState<EditLockStatus>({
+  isLocked: false,
+  lockedBy: undefined,
+  lockedByEmail: undefined,
+  expiresAt: undefined
+});
+
+
 
 // ✅ REPLACE existing handleImageUpload function:
 const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1829,6 +2105,18 @@ const uploadImagesToProductDirect = async (productId: string, files: File[]): Pr
           </div>
         </div>
       </div>
+    {/* ✅ ADD THIS: Edit Lock Warning Banner */}
+{/* ✅ Edit Lock Warning Banner */}
+{/* ✅ Edit Lock Warning Banner */}
+{editLock.isLocked && (
+  <EditLockBanner 
+    isLocked={editLock.isLocked}
+    lockedBy={editLock.lockedBy}
+    lockedByEmail={editLock.lockedByEmail}
+    expiresAt={editLock.expiresAt}
+  />
+)}
+
 
       {/* Main Content */}
       <div className="w-full">
@@ -1881,6 +2169,7 @@ const uploadImagesToProductDirect = async (productId: string, files: File[]): Pr
               {/* Product Info Tab */}
 <TabsContent value="product-info" className="space-y-2 mt-2">
   {/* Basic Info Section */}
+  
   <div className="space-y-2">
     <h3 className="text-lg font-semibold text-white border-b border-slate-800 pb-2">Basic Info</h3>
 
@@ -1966,58 +2255,168 @@ const uploadImagesToProductDirect = async (productId: string, files: File[]): Pr
           />
         </div>
 
-        <div>
-          <label className="flex items-center justify-between text-sm font-medium text-slate-300 mb-2">
-            <span>Brand</span>
-            <span className="text-xs text-emerald-400 font-normal">
-              {dropdownsData.brands.length} loaded
-            </span>
-          </label>
-          <select
-            name="brand"
-            value={formData.brand}
-            onChange={handleChange}
-            className="w-full px-3 py-2.5 bg-slate-800/50 border border-slate-700 rounded-xl text-white focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
-          >
-            <option value="">Select brand</option>
-            {dropdownsData.brands.map((brand) => (
-              <option key={brand.id} value={brand.id}>
-                {brand.name}
-              </option>
-            ))}
-          </select>
-        </div>
+<div>
+  <label className="block text-sm font-medium text-slate-300 mb-2">
+    Brands 
+    <span className="text-xs text-emerald-400 ml-2">
+      ({dropdownsData.brands.length} loaded)
+    </span>
+  </label>
+  
+  <MultiBrandSelector
+    selectedBrands={formData.brandIds || []}
+    availableBrands={dropdownsData.brands || []}
+    onChange={(brands) => {
+      console.log('🏷️ Brands changed:', brands);
+      setFormData(prev => ({ 
+        ...prev, 
+        brandIds: brands,
+        brand: brands[0] || ''
+      }));
+    }}
+  />
+</div>
+{/* Categories - Searchable Dropdown (Product Filter Style) */}
+<div>
+  <label className="flex items-center justify-between text-sm font-medium text-slate-300 mb-2">
+    <span>Categories</span>
+    <span className="text-xs text-emerald-400 font-normal">
+      {dropdownsData.categories.length} loaded
+    </span>
+  </label>
+  
+  <div className="relative" ref={categoryDropdownRef}>
+    <div className="relative">
+      <input
+        type="text"
+        value={showCategoryDropdown ? categorySearchTerm : (formData.categoryName || '')}
+        onChange={(e) => {
+          setCategorySearchTerm(e.target.value);
+          if (!showCategoryDropdown) setShowCategoryDropdown(true);
+        }}
+        onFocus={() => {
+          setShowCategoryDropdown(true);
+          setCategorySearchTerm("");
+        }}
+        placeholder="Search categories..."
+        className={`w-full px-4 py-2.5 pl-10 pr-10 bg-slate-800/50 border rounded-xl text-white text-sm placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all ${
+          formData.categories && formData.categories !== 'all'
+            ? "border-violet-500 bg-violet-500/10 ring-2 ring-violet-500/50"
+            : "border-slate-700 hover:border-slate-600"
+        }`}
+      />
+      
+      {/* Left Icon */}
+      <svg className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+      </svg>
+      
+      {/* Right Icon - Clear or Chevron */}
+      {formData.categories && formData.categories !== 'all' ? (
+        <button
+          onClick={() => {
+            setFormData(prev => ({
+              ...prev,
+              categories: 'all',
+              categoryName: ''
+            }));
+            setCategorySearchTerm("");
+          }}
+          className="absolute right-3 top-1/2 -translate-y-1/2 p-1 hover:bg-slate-700 rounded transition-all"
+        >
+          <X className="h-3.5 w-3.5 text-slate-400 hover:text-white" />
+        </button>
+      ) : (
+        <ChevronDown
+          className={`absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none transition-transform ${
+            showCategoryDropdown ? "rotate-180" : ""
+          }`}
+        />
+      )}
+    </div>
 
-        <div>
-          <label className="flex items-center justify-between text-sm font-medium text-slate-300 mb-2">
-            <span>Categories</span>
-            <span className="text-xs text-emerald-400 font-normal">
-              {dropdownsData.categories.length} loaded
-            </span>
-          </label>
-          
-          <div className="relative">
-            <select
-              name="categories"
-              value={formData.categories}
-              onChange={handleChange}
-              className="w-full px-3 py-2.5 bg-slate-800/50 border border-slate-700 rounded-xl text-transparent focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all appearance-none cursor-pointer"
-            >
-              {renderCategoryOptions(dropdownsData.categories)}
-            </select>
-            
-            {/* Clean text overlay */}
-            <div className="absolute inset-0 px-3 py-2.5 pointer-events-none flex items-center justify-between">
-              <span className={`truncate text-sm ${formData.categoryName && formData.categoryName !== 'All' ? 'text-white' : 'text-slate-500'}`}>
-                {formData.categoryName || 'Select category'}
-              </span>
-              
-              <svg className="w-4 h-4 text-slate-400 flex-shrink-0 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-              </svg>
-            </div>
+    {/* Dropdown Menu */}
+    {showCategoryDropdown && (
+      <div className="absolute top-full left-0 right-0 mt-2 bg-slate-800 border border-slate-600 rounded-xl shadow-xl max-h-64 overflow-y-auto z-50">
+        {/* All Categories Option */}
+        <button
+          onClick={() => {
+            setFormData(prev => ({
+              ...prev,
+              categories: 'all',
+              categoryName: ''
+            }));
+            setShowCategoryDropdown(false);
+            setCategorySearchTerm("");
+          }}
+          className={`w-full px-4 py-2.5 text-left hover:bg-slate-700 transition-all ${
+            (!formData.categories || formData.categories === 'all') ? "bg-violet-500/10 text-violet-400" : "text-white"
+          }`}
+        >
+          <div className="flex items-center gap-2">
+            <svg className="h-4 w-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+            </svg>
+            <span className="text-sm">All Categories</span>
           </div>
-        </div>
+        </button>
+
+        {/* Category List */}
+        {(() => {
+          const renderCategories = (categories: any[], level = 0) => {
+            return categories
+              .filter(cat => 
+                cat.name.toLowerCase().includes(categorySearchTerm.toLowerCase())
+              )
+              .map(category => (
+                <React.Fragment key={category.id}>
+                  <button
+                    onClick={() => {
+                      setFormData(prev => ({
+                        ...prev,
+                        categories: category.id,
+                        categoryName: category.name
+                      }));
+                      setShowCategoryDropdown(false);
+                      setCategorySearchTerm("");
+                    }}
+                    className={`w-full px-4 py-2.5 text-left hover:bg-slate-700 transition-all border-t border-slate-700 ${
+                      formData.categories === category.id ? "bg-violet-500/10 text-violet-400" : "text-white"
+                    }`}
+                    style={{ paddingLeft: `${16 + level * 20}px` }}
+                  >
+                    <div className="flex items-center gap-2">
+                      <svg className="h-4 w-4 flex-shrink-0 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+                      </svg>
+                      <span className="text-sm truncate">
+                        {level > 0 && '└─ '}
+                        {category.name}
+                      </span>
+                    </div>
+                  </button>
+                  {category.children && category.children.length > 0 && 
+                    renderCategories(category.children, level + 1)
+                  }
+                </React.Fragment>
+              ));
+          };
+
+          const filteredCategories = renderCategories(dropdownsData.categories);
+          
+          return filteredCategories.length > 0 ? (
+            filteredCategories
+          ) : (
+            <div className="px-4 py-3 text-center text-slate-500 text-sm">
+              No categories found for "{categorySearchTerm}"
+            </div>
+          );
+        })()}
+      </div>
+    )}
+  </div>
+</div>
+
       </div>
 
       {/* ✅ Row 2: Product Type & Product Tags (2 Columns) */}
@@ -2222,20 +2621,31 @@ const uploadImagesToProductDirect = async (productId: string, files: File[]): Pr
     </div>
   </div>
 
-  {/* Admin Comment */}
-  <div className="space-y-4">
-    <h3 className="text-lg font-semibold text-white border-b border-slate-800 pb-2">Admin Comment</h3>
-    <div>
-      <textarea
-        name="adminComment"
-        value={formData.adminComment}
-        onChange={handleChange}
-        placeholder="Internal notes (not visible to customers)"
-        rows={3}
-        className="w-full px-3 py-2.5 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
-      />
-    </div>
+
+{/* Admin Comment */}
+<div className="space-y-4">
+  <h3 className="text-lg font-semibold text-white border-b border-slate-800 pb-2">
+    Admin Comment
+  </h3>
+  
+  <div>
+    <label className="block text-sm text-slate-400 mb-2">
+      Internal Notes (Not visible to customers)
+    </label>
+    <textarea
+      name="adminComment"
+      value={formData.adminComment}
+      onChange={handleChange}
+      placeholder="Add internal notes about this product..."
+      rows={4}
+      className="w-full px-3 py-2.5 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all resize-none"
+    />
   </div>
+
+  <AdminCommentInfo />
+</div>
+
+
 </TabsContent>
 
 {/* ✅ ADD NEW TAB: GROUPED PRODUCTS */}
@@ -2613,6 +3023,13 @@ const uploadImagesToProductDirect = async (productId: string, files: File[]): Pr
               className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
               required
             />
+            <LowStockAlert
+      stockQuantity={parseInt(formData.stockQuantity) || 0}
+      notifyQuantityBelow={parseInt(formData.notifyQuantityBelow) || 0}
+      enabled={formData.notifyAdminForQuantityBelow}
+    />
+        
+    <BackInStockSubscribers productId={productId} />
           </div>
 
           <div>
