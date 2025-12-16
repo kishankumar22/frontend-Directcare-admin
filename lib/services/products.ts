@@ -42,6 +42,7 @@ export interface VATRateData {
   errors: null;
 }
 export interface ProductVariant {
+  gtin?: string | null;
   id: string;
   name: string;
   sku: string;

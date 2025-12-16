@@ -3,16 +3,23 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { X, ChevronDown, ChevronUp } from 'lucide-react';
 
+interface Brand {
+  id: string;
+  name: string;
+}
+
 interface MultiBrandSelectorProps {
-  selectedBrands: string[];
-  availableBrands: Array<{ id: string; name: string }>;
-  onChange: (brands: string[]) => void;
+  selectedBrands: string[]; // Array of brand IDs
+  availableBrands: Brand[]; // All brands from API
+  onChange: (brands: string[]) => void; // Callback when selection changes
+  placeholder?: string; // Optional placeholder text
 }
 
 export const MultiBrandSelector: React.FC<MultiBrandSelectorProps> = ({
   selectedBrands,
   availableBrands,
-  onChange
+  onChange,
+  placeholder = 'Click to select brands...'
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [isOpen, setIsOpen] = useState(false);
@@ -51,6 +58,7 @@ export const MultiBrandSelector: React.FC<MultiBrandSelectorProps> = ({
     };
   }, [isOpen]);
 
+  // Toggle brand selection (add/remove)
   const handleToggleBrand = (brandId: string) => {
     if (selectedBrands.includes(brandId)) {
       onChange(selectedBrands.filter(id => id !== brandId));
@@ -59,36 +67,43 @@ export const MultiBrandSelector: React.FC<MultiBrandSelectorProps> = ({
     }
   };
 
+  // Set brand as primary (move to first position)
   const handleSetPrimary = (brandId: string) => {
     if (!selectedBrands.includes(brandId)) {
+      // Add and make primary
       onChange([brandId, ...selectedBrands]);
     } else {
+      // Move to first position
       const otherBrands = selectedBrands.filter(id => id !== brandId);
       onChange([brandId, ...otherBrands]);
     }
   };
 
-  const handleRemoveBrand = (brandId: string) => {
+  // Remove specific brand
+  const handleRemoveBrand = (brandId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
     onChange(selectedBrands.filter(id => id !== brandId));
   };
 
+  // Filter brands based on search
   const filteredBrands = availableBrands.filter(brand =>
     brand?.name?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
+  // Get primary brand (first in array)
   const primaryBrandId = selectedBrands[0];
 
   return (
     <div className="relative" ref={dropdownRef}>
-      {/* Compact Selected Brands Summary */}
+      {/* Selected Brands Display */}
       <div 
-        className="p-2.5 bg-slate-800/50 border border-slate-700 rounded-lg cursor-pointer hover:border-violet-500 transition-colors"
+        className="p-2.5 bg-slate-800/50 border border-slate-700 rounded-xl cursor-pointer hover:border-violet-500 transition-colors"
         onClick={() => setIsOpen(!isOpen)}
       >
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2 flex-1 flex-wrap">
             {selectedBrands.length === 0 ? (
-              <span className="text-sm text-slate-400">Click to select brands...</span>
+              <span className="text-sm text-slate-400">{placeholder}</span>
             ) : (
               <>
                 <span className="text-xs text-slate-400 font-medium">
@@ -101,19 +116,19 @@ export const MultiBrandSelector: React.FC<MultiBrandSelectorProps> = ({
                   return (
                     <div
                       key={brandId}
-                      className={`flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium ${
+                      className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium ${
                         index === 0 
-                          ? 'bg-violet-500 text-white' 
-                          : 'bg-slate-700 text-slate-300'
+                          ? 'bg-violet-500/20 text-violet-300 border border-violet-500/30' 
+                          : 'bg-slate-700/50 text-slate-300 border border-slate-600'
                       }`}
                       onClick={(e) => e.stopPropagation()}
                     >
-                      {index === 0 && <span className="text-[9px]">★</span>}
-                      <span>{brand.name}</span>
+                      {index === 0 && <span className="text-[10px] font-bold">★</span>}
+                      <span className="max-w-[120px] truncate">{brand.name}</span>
                       <button
                         type="button"
-                        onClick={() => handleRemoveBrand(brandId)}
-                        className="hover:text-red-300 transition-colors"
+                        onClick={(e) => handleRemoveBrand(brandId, e)}
+                        className="hover:text-red-400 transition-colors"
                       >
                         <X className="w-3 h-3" />
                       </button>
@@ -121,7 +136,7 @@ export const MultiBrandSelector: React.FC<MultiBrandSelectorProps> = ({
                   );
                 })}
                 {selectedBrands.length > 3 && (
-                  <span className="text-xs text-slate-400">
+                  <span className="text-xs text-slate-400 font-medium">
                     +{selectedBrands.length - 3} more
                   </span>
                 )}
@@ -136,27 +151,37 @@ export const MultiBrandSelector: React.FC<MultiBrandSelectorProps> = ({
         </div>
       </div>
 
-      {/* ✅ Dropdown - Absolute Position Overlay */}
+      {/* Dropdown */}
       {isOpen && (
-        <div className="absolute top-full left-0 right-0 mt-2 border border-slate-700 rounded-lg bg-slate-800/95 backdrop-blur-sm shadow-2xl z-50">
+        <div className="absolute top-full left-0 right-0 mt-2 border border-slate-700 rounded-xl bg-slate-800 shadow-2xl shadow-black/50 z-50 overflow-hidden">
           {/* Search Input */}
-          <div className="p-2 border-b border-slate-700">
+          <div className="p-3 border-b border-slate-700">
             <input
               type="text"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               placeholder="🔍 Search brands..."
-              className="w-full px-3 py-1.5 bg-slate-900/50 border border-slate-700 rounded text-sm text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-violet-500 transition-all outline-none"
+              className="w-full px-3 py-2 bg-slate-900/50 border border-slate-600 rounded-lg text-sm text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-violet-500 transition-all outline-none"
               onClick={(e) => e.stopPropagation()}
               autoFocus
             />
           </div>
 
-          {/* ✅ Fixed Height List - Max 250px */}
-          <div className="max-h-[250px] overflow-y-auto">
+          {/* Brands List - Fixed Height with Scroll */}
+          <div className="max-h-[280px] overflow-y-auto scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-slate-800">
             {filteredBrands.length === 0 ? (
-              <div className="text-center py-4 text-sm text-slate-400">
-                {searchTerm ? 'No brands found' : 'No brands available'}
+              <div className="text-center py-8 text-sm text-slate-400">
+                {searchTerm ? (
+                  <>
+                    <div className="text-2xl mb-2">🔍</div>
+                    <div>No brands found matching "{searchTerm}"</div>
+                  </>
+                ) : (
+                  <>
+                    <div className="text-2xl mb-2">📦</div>
+                    <div>No brands available</div>
+                  </>
+                )}
               </div>
             ) : (
               filteredBrands.map(brand => {
@@ -168,12 +193,12 @@ export const MultiBrandSelector: React.FC<MultiBrandSelectorProps> = ({
                 return (
                   <div
                     key={brand.id}
-                    className={`flex items-center justify-between px-3 py-2 border-b border-slate-700 last:border-b-0 hover:bg-slate-700/50 transition-colors ${
+                    className={`flex items-center justify-between px-4 py-2.5 border-b border-slate-700 last:border-b-0 hover:bg-slate-700/50 transition-colors ${
                       isPrimary ? 'bg-violet-500/10' : ''
                     }`}
                   >
-                    {/* Checkbox + Name */}
-                    <label className="flex items-center gap-2 flex-1 cursor-pointer">
+                    {/* Checkbox + Brand Name */}
+                    <label className="flex items-center gap-3 flex-1 cursor-pointer">
                       <input
                         type="checkbox"
                         checked={isSelected}
@@ -184,7 +209,7 @@ export const MultiBrandSelector: React.FC<MultiBrandSelectorProps> = ({
                         {brand.name}
                       </span>
                       {isPrimary && (
-                        <span className="px-1.5 py-0.5 text-[9px] font-bold bg-violet-500 text-white rounded uppercase">
+                        <span className="px-2 py-0.5 text-[9px] font-bold bg-violet-500 text-white rounded uppercase">
                           PRIMARY
                         </span>
                       )}
@@ -195,15 +220,15 @@ export const MultiBrandSelector: React.FC<MultiBrandSelectorProps> = ({
                       <button
                         type="button"
                         onClick={() => handleSetPrimary(brand.id)}
-                        className="ml-2 px-2 py-1 text-xs bg-slate-700 hover:bg-violet-500 text-slate-300 hover:text-white rounded transition-colors"
-                        title="Set as primary"
+                        className="ml-2 px-3 py-1 text-xs bg-slate-700 hover:bg-violet-500 text-slate-300 hover:text-white rounded-lg transition-colors font-medium"
+                        title="Set as primary brand"
                       >
                         ★ Set Primary
                       </button>
                     )}
                     
                     {isPrimary && (
-                      <div className="ml-2 px-2 py-1 text-xs bg-violet-500/20 text-violet-300 rounded">
+                      <div className="ml-2 px-3 py-1 text-xs bg-violet-500/20 text-violet-300 rounded-lg font-medium">
                         ★ Primary
                       </div>
                     )}
@@ -213,23 +238,37 @@ export const MultiBrandSelector: React.FC<MultiBrandSelectorProps> = ({
             )}
           </div>
 
-          {/* ✅ Footer with helper text */}
-          <div className="p-2 border-t border-slate-700 bg-slate-900/50">
-            <div className="flex items-center justify-between text-xs text-slate-500">
-              <span>💡 Click outside or press Esc to close</span>
+          {/* Footer */}
+          <div className="p-3 border-t border-slate-700 bg-slate-900/50">
+            <div className="flex items-center justify-between text-xs">
+              <div className="text-slate-500">
+                {selectedBrands.length > 0 ? (
+                  <span>
+                    <span className="text-violet-400 font-medium">{selectedBrands.length}</span> brand
+                    {selectedBrands.length !== 1 ? 's' : ''} selected
+                  </span>
+                ) : (
+                  <span>💡 Press Esc or click outside to close</span>
+                )}
+              </div>
               {selectedBrands.length > 0 && (
                 <button
                   type="button"
-                  onClick={() => {
+                  onClick={(e) => {
+                    e.stopPropagation();
                     onChange([]);
-                    setIsOpen(false);
                   }}
-                  className="text-red-400 hover:text-red-300 transition-colors"
+                  className="text-red-400 hover:text-red-300 transition-colors font-medium"
                 >
                   Clear All
                 </button>
               )}
             </div>
+            {selectedBrands.length > 1 && (
+              <div className="text-[10px] text-slate-500 mt-1.5">
+                ★ First brand is the primary brand
+              </div>
+            )}
           </div>
         </div>
       )}

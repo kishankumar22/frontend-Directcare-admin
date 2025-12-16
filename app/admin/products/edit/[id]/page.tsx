@@ -21,6 +21,8 @@ import { ProductAttribute, ProductVariant, DropdownsData, SimpleProduct, Product
 import { GroupedProductModal } from '../../GroupedProductModal';
 import { MultiBrandSelector } from "../../MultiBrandSelector";
 import React from "react";
+import { BackInStockSubscribers, LowStockAlert,AdminCommentHistoryModal, EditLockBanner } from "../../productModals";
+// ✅ ADD THIS INTERFACE
 
 interface EditLockStatus {
   isLocked: boolean;
@@ -30,101 +32,8 @@ interface EditLockStatus {
 }
 
 
-const AdminCommentInfo: React.FC = () => {
-  return (
-    <div className="mt-2 p-3 bg-blue-500/10 border border-blue-500/30 rounded-lg">
-      <div className="flex items-start gap-2">
-        <Info className="w-4 h-4 text-blue-400 flex-shrink-0 mt-0.5" />
-        <div className="text-xs text-blue-300">
-          <p className="font-medium mb-1">📝 Comment History Tracking</p>
-          <p className="text-blue-400/80">
-            All changes are automatically tracked in the database. 
-            Contact your administrator to view full comment history.
-          </p>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-
-// Add this component at the top of your page
-interface EditLockBannerProps {
-  isLocked: boolean;
-  lockedBy?: string;
-  lockedByEmail?: string;
-  expiresAt?: string;
-}
-// Add this in your Inventory section
-const LowStockAlert: React.FC<{
-  stockQuantity: number;
-  notifyQuantityBelow: number;
-  enabled: boolean;
-}> = ({ stockQuantity, notifyQuantityBelow, enabled }) => {
-  if (!enabled || stockQuantity > notifyQuantityBelow) return null;
-
-  return (
-    <div className="mt-3 p-3 bg-red-500/10 border border-red-500/30 rounded-xl flex items-center gap-2">
-      <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
-      <span className="text-sm text-red-400 font-medium">
-        ⚠️ Low Stock Alert: Only {stockQuantity} units left (Threshold: {notifyQuantityBelow})
-      </span>
-    </div>
-  );
-};
-// Add this below stock quantity field
-const BackInStockSubscribers: React.FC<{ productId: string }> = ({ productId }) => {
-  const [count, setCount] = useState(0);
-
-useEffect(() => {
-  apiClient.get(`${API_ENDPOINTS.products}/${productId}/back-in-stock-subscriptions/count`)
-    .then(response => {
-      // ✅ Add type assertion to fix TypeScript error
-      const apiResponse = response.data as any;
-      if (apiResponse?.success) {
-        setCount(apiResponse.data);
-      }
-    });
-}, [productId]);
-
-  if (count === 0) return null;
-
-  return (
-    <div className="mt-3 p-3 bg-blue-500/10 border border-blue-500/30 rounded-xl">
-      <span className="text-sm text-blue-400">
-        📧 {count} customer{count > 1 ? 's' : ''} waiting for restock notification
-      </span>
-    </div>
-  );
-};
-
-const EditLockBanner: React.FC<EditLockBannerProps> = ({
-  isLocked,
-  lockedBy,
-  lockedByEmail,
-  expiresAt
-}) => {
-  if (!isLocked) return null;
-
-  return (
-    <div className="mb-6 p-4 bg-amber-500/10 border-2 border-amber-500/30 rounded-xl flex items-start gap-3">
-      <div className="w-10 h-10 rounded-full bg-amber-500/20 flex items-center justify-center flex-shrink-0">
-        <Shield className="w-5 h-5 text-amber-400" />
-      </div>
-      <div className="flex-1">
-        <h3 className="text-amber-400 font-semibold mb-1">Product Being Edited</h3>
-        <p className="text-sm text-slate-300">
-          <strong>{lockedBy}</strong> ({lockedByEmail}) is currently editing this product.
-        </p>
-        {expiresAt && (
-          <p className="text-xs text-slate-400 mt-1">
-            Lock expires: {new Date(expiresAt).toLocaleString()}
-          </p>
-        )}
-      </div>
-    </div>
-  );
-};
+// ================================
+// 2. UPDATED COMPONENT - MODAL WITH TABLE
 
 
 export default function EditProductPage({ params }: { params: Promise<{ id: string }> }) {
@@ -144,6 +53,7 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
 const [isDeletingImage, setIsDeletingImage] = useState(false);
 const [uploadingImages, setUploadingImages] = useState(false);
 const [vatSearch, setVatSearch] = useState('');
+const [loading, setLoading] = useState(true);
   // Dynamic dropdown data from API
   const [showVatDropdown, setShowVatDropdown] = useState(false);
   const [dropdownsData, setDropdownsData] = useState<DropdownsData>({
@@ -207,19 +117,20 @@ useEffect(() => {
 
   // Available products for related/cross-sell (from API)
   const [availableProducts, setAvailableProducts] = useState<Array<{id: string, name: string, sku: string, price: string}>>([]);
-const [formData, setFormData] = useState({
+const [formData, setFormData] = useState({ 
   // ===== BASIC INFO =====
   name: '',
   shortDescription: '',
   fullDescription: '',
   sku: '',
-    brand: '', // ✅ ADD THIS LINE (backward compatibility)
-  brandIds: [] as string[],  // ✅ NEW - Add this line
-  categories: '',
-  gender: '',
+  categories: '', // Will store category ID
+  brand: '', // For backward compatibility (primary brand)
+  brandIds: [] as string[], // ✅ Multiple brands array
+  
   published: true,
-  productType: 'simple',  
+  productType: 'simple',
   visibleIndividually: true,
+  gender: '',
   customerRoles: 'all',
   limitedToStores: false,
   vendorId: '',
@@ -232,64 +143,66 @@ const [formData, setFormData] = useState({
   gtin: '',
   manufacturerPartNumber: '',
   adminComment: '',
-  allowCustomerReviews: false,
-  categoryName: '',
-  deliveryDateId: '',
-  
+  categoryName: '', // For clean category name display
+
   // ===== RELATED PRODUCTS =====
   relatedProducts: [] as string[],
   crossSellProducts: [] as string[],
-  
+
   // ===== MEDIA =====
   productImages: [] as ProductImage[],
   videoUrls: [] as string[],
-  
-  // ===== PACK PRODUCT =====
-  isPack: false,
-  packSize: '', 
-  
+  specifications: [] as Array<{id: string, name: string, value: string, displayOrder: number}>, // ✅ ADD THIS LINE
+
   // ===== PRICING =====
   price: '',
   oldPrice: '',
   cost: '',
   disableBuyButton: false,
   disableWishlistButton: false,
+  availableForPreOrder: false,
+  preOrderAvailabilityStartDate: '',
   callForPrice: false,
   customerEntersPrice: false,
   minimumCustomerEnteredPrice: '',
   maximumCustomerEnteredPrice: '',
   
-  // ===== BASE PRICE =====
+  // Base Price
   basepriceEnabled: false,
   basepriceAmount: '',
   basepriceUnit: '',
   basepriceBaseAmount: '',
   basepriceBaseUnit: '',
   
-  // ===== PROMOTIONS =====
+  // Mark as New
   markAsNew: false,
   markAsNewStartDate: '',
   markAsNewEndDate: '',
-  
-  // ===== AVAILABILITY =====
-  availableForPreOrder: false,
-  preOrderAvailabilityStartDate: '',
+
+  // ===== DISCOUNTS / AVAILABILITY =====
+  hasDiscountsApplied: false,
   availableStartDate: '',
   availableEndDate: '',
-  hasDiscountsApplied: false,
-  
+
   // ===== TAX =====
   vatExempt: false,
   vatRateId: '',
   telecommunicationsBroadcastingElectronicServices: false,
-  
-  // ===== SEO =====
-  metaTitle: '',
-  metaKeywords: '',
-  metaDescription: '',
-  searchEngineFriendlyPageName: '',
-  
-  // ===== INVENTORY ===== ✅ UPDATED SECTION
+
+  // ===== RECURRING / SUBSCRIPTION =====
+  isRecurring: false,
+  recurringCycleLength: '',
+  recurringCyclePeriod: 'days',
+  recurringTotalCycles: '',
+  subscriptionDiscountPercentage: '',
+  allowedSubscriptionFrequencies: '',
+  subscriptionDescription: '',
+
+  // ===== PACK PRODUCT =====
+  isPack: false,
+  packSize: '',
+
+  // ===== INVENTORY ===== ✅ UPDATED
   manageInventory: 'track',
   stockQuantity: '',
   displayStockAvailability: true,
@@ -297,40 +210,41 @@ const [formData, setFormData] = useState({
   minStockQuantity: '',
   lowStockActivity: 'nothing',
   
-  // ✅ NOTIFICATION FIELDS - UPDATED
-  notifyAdminForQuantityBelow: false,  // ✅ Changed to boolean (checkbox)
-  notifyQuantityBelow: '1',            // ✅ NEW - Threshold value
+  // ✅ NOTIFICATION FIELDS
+  notifyAdminForQuantityBelow: true,
+  notifyQuantityBelow: '1',
   
-  // ✅ BACKORDER FIELDS - UPDATED
-  allowBackorder: false,               // ✅ Checkbox state
-  backorderMode: 'no-backorders',      // ✅ NEW - Dropdown value
-  backorders: 'no-backorders',         // ✅ Kept for backward compatibility
+  // ✅ BACKORDER FIELDS
+  allowBackorder: false,
+  backorderMode: 'no-backorders',
+  backorders: 'no-backorders',
   
   allowBackInStockSubscriptions: false,
   productAvailabilityRange: '',
   
-  // Cart Settings
+  // Cart Limits
   minCartQuantity: '1',
-  maxCartQuantity: '10000',
+  maxCartQuantity: '10',
   allowedQuantities: '',
   allowAddingOnlyExistingAttributeCombinations: false,
   notReturnable: false,
-  
+
   // ===== SHIPPING =====
   isShipEnabled: true,
   isFreeShipping: false,
   shipSeparately: false,
   additionalShippingCharge: '',
+  deliveryDateId: '',
   weight: '',
   length: '',
   width: '',
   height: '',
-  
+
   // ===== GIFT CARDS =====
   isGiftCard: false,
   giftCardType: 'virtual',
-  overriddenGiftCardAmount: false,
-  
+  overriddenGiftCardAmount: '',
+
   // ===== DOWNLOADABLE PRODUCT =====
   isDownload: false,
   downloadId: '',
@@ -342,21 +256,22 @@ const [formData, setFormData] = useState({
   userAgreementText: '',
   hasSampleDownload: false,
   sampleDownloadId: '',
-  
-  // ===== RECURRING PRODUCT / SUBSCRIPTION =====
-  isRecurring: false,
-  recurringCycleLength: '',
-  recurringCyclePeriod: 'days',
-  recurringTotalCycles: '',
-  subscriptionDiscountPercentage: '',
-  allowedSubscriptionFrequencies: '',
-  subscriptionDescription: '',
-  
+
   // ===== RENTAL PRODUCT =====
   isRental: false,
   rentalPriceLength: '',
   rentalPricePeriod: 'days',
+
+  // ===== REVIEWS =====
+  allowCustomerReviews: true,
+  
+  // ===== SEO =====
+  metaTitle: '',
+  metaKeywords: '',
+  metaDescription: '',
+  searchEngineFriendlyPageName: '',
 });
+
 
 
 // Clean renderCategoryOptions - no symbols, just clean hierarchy
@@ -412,121 +327,34 @@ const renderCategoryOptions = (categories: CategoryData[]): JSX.Element[] => {
   
   return options;
 };
+
+
 useEffect(() => {
   const fetchAllData = async () => {
+    if (!productId) {
+      toast.error('❌ Product ID not found');
+      router.push('/admin/products');
+      return;
+    }
+
     try {
-      console.log('🔄 Fetching all data...');
+      console.log('🔄 ==================== FETCHING PRODUCT DATA ====================');
+      console.log('🆔 Product ID:', productId);
+      setLoading(true);
 
-      // 🔒 STEP 1: Try to acquire lock FIRST
-      let lockAcquired = false;
-      try {
-        const lockResponse = await apiClient.post(
-          `${API_ENDPOINTS.products}/${productId}/lock`,
-          null,
-          {
-            params: {
-              durationMinutes: 15
-            }
-          }
-        );
-        
-        // ✅ Add type assertion to fix TypeScript error
-        const lockApiResponse = lockResponse?.data as any;
-        
-        console.log('🔒 Lock Response:', lockApiResponse);
-        
-        if (lockApiResponse?.success) {
-          lockAcquired = true;
-          const lockData = lockApiResponse.data;
-          
-          console.log('✅ Lock acquired successfully!');
-          console.log('📌 Locked by:', lockData?.lockedBy);
-          console.log('📧 Email:', lockData?.lockedByEmail);
-          console.log('⏰ Expires at:', lockData?.expiresAt);
-          
-          // ✅ Show SUCCESS toast notification
-          toast.success(
-            `🔒 ${lockApiResponse.message || 'Product edit lock acquired successfully'}`,
-            {
-              autoClose: 5000,
-              closeButton: true,
-              position: 'top-right'
-            }
-          );
-          
-          // ✅ Lock acquired - NO warning banner (you're the editor)
-          setEditLock({
-            isLocked: false,
-            lockedBy: undefined,
-            lockedByEmail: undefined,
-            expiresAt: undefined
-          });
-        }
-      } catch (lockError: any) {
-        console.error('⚠️ Failed to acquire lock:', lockError);
-        
-        // ✅ Add type assertion for error response
-        const errorResponse = lockError?.response?.data as any;
-        
-        if (errorResponse?.data) {
-          const existingLock = errorResponse.data;
-          
-          console.log('🔒 Product is locked by another user!');
-          console.log('👤 Locked by:', existingLock.lockedBy);
-          console.log('📧 Email:', existingLock.lockedByEmail);
-          console.log('⏰ Expires at:', existingLock.expiresAt);
-          
-          // ✅ Show WARNING banner with REAL user email
-          setEditLock({
-            isLocked: true,
-            lockedBy: existingLock.lockedBy || existingLock.lockedByEmail || 'Another User',
-            lockedByEmail: existingLock.lockedByEmail || existingLock.lockedBy || '',
-            expiresAt: existingLock.expiresAt
-          });
-          
-          // ✅ Show toast notification with real user
-          toast.warning(
-            `⚠️ ${existingLock.lockedByEmail || existingLock.lockedBy || 'Another user'} is currently editing this product!`,
-            {
-              autoClose: 8000,
-              closeButton: true,
-              position: 'top-right'
-            }
-          );
-        } else {
-          console.warn('⚠️ Could not acquire lock:', errorResponse?.message);
-          toast.error(errorResponse?.message || 'Could not acquire edit lock', {
-            autoClose: 5000,
-            closeButton: true
-          });
-        }
-      }
-
-      // 🔄 STEP 2: Fetch all data in parallel
-      const [
-        brandsResponse,
-        categoriesResponse,
-        productsResponse,
-        productResponse,
-        vatRatesResponse,
-        simpleProductsResponse
-      ] = await Promise.all([
-        apiClient.get(`${API_ENDPOINTS.brands}?includeUnpublished=false`),
-        apiClient.get(`${API_ENDPOINTS.categories}?includeInactive=true&includeSubCategories=true`),
-        apiClient.get(API_ENDPOINTS.products),
-        apiClient.get(`${API_ENDPOINTS.products}/${productId}`),
-        apiClient.get(API_ENDPOINTS.vatrates),
-        apiClient.get(`${API_ENDPOINTS.products}/simple`)
+      // ✅ Fetch all required data in parallel
+      const [productResponse, brandsResponse, categoriesResponse, vatRatesResponse, allProductsResponse] = await Promise.all([
+        apiClient.get<any>(`${API_ENDPOINTS.products}/${productId}`),
+        apiClient.get<BrandApiResponse>(`${API_ENDPOINTS.brands}?includeUnpublished=false`),
+        apiClient.get<CategoryApiResponse>(`${API_ENDPOINTS.categories}?includeInactive=true&includeSubCategories=true`),
+        apiClient.get<VATRateApiResponse>(API_ENDPOINTS.vatrates),
+        apiClient.get<ProductsApiResponse>(`${API_ENDPOINTS.products}`)
       ]);
 
-      // ✅ Process Brands
-      const brandsData = (brandsResponse?.data as any)?.data || [];
-
-      // ✅ Process Categories
-      const categoriesData = (categoriesResponse?.data as any)?.data || [];
-
-      // ✅ Process VAT Rates
-      const vatRatesData = (vatRatesResponse?.data as any)?.data || [];
+      // ✅ Extract dropdown data
+      const brandsData = (brandsResponse.data as BrandApiResponse)?.data || [];
+      const categoriesData = (categoriesResponse.data as CategoryApiResponse)?.data || [];
+      const vatRatesData = (vatRatesResponse.data as VATRateApiResponse)?.data || [];
 
       // Set dropdown data
       setDropdownsData({
@@ -535,364 +363,1157 @@ useEffect(() => {
         vatRates: vatRatesData
       });
 
-      // ✅ Process Simple Products
-      if (simpleProductsResponse?.data) {
-        const simpleApiResponse = simpleProductsResponse.data as any;
-        if (simpleApiResponse?.success && Array.isArray(simpleApiResponse.data)) {
-          const simpleProductsList = simpleApiResponse.data.map((p: any) => ({
-            id: p.id || '',
-            name: p.name || '',
-            sku: p.sku || '',
-            price: p.price || 0,
-            stockQuantity: p.stockQuantity || 0
-          }));
-          setSimpleProducts(simpleProductsList);
-          console.log('✅ Loaded simple products:', simpleProductsList.length);
-        }
-      }
+      console.log('✅ Dropdowns loaded:', {
+        brands: brandsData.length,
+        categories: categoriesData.length,
+        vatRates: vatRatesData.length
+      });
 
       // ✅ Process Available Products for Related/Cross-sell
-      if (productsResponse?.data) {
-        const apiResponse = productsResponse.data as any;
-        if (apiResponse?.success && apiResponse?.data?.items) {
-          const transformedProducts = apiResponse.data.items.map((product: any) => ({
+      if (allProductsResponse.data && !allProductsResponse.error) {
+        const apiResponse = allProductsResponse.data as ProductsApiResponse;
+        if (apiResponse.success && apiResponse.data.items) {
+          const transformedProducts = apiResponse.data.items.map(product => ({
             id: product.id,
             name: product.name,
             sku: product.sku,
-            price: product.price.toFixed(2)
+            price: `₹${product.price.toFixed(2)}`
           }));
           setAvailableProducts(transformedProducts);
+          console.log('✅ Available products loaded:', transformedProducts.length);
         }
       }
 
-      // ✅ Process Current Product Data
-      if (productResponse?.data) {
-        const productApiResponse = productResponse.data as any;
-        if (productApiResponse?.success && productApiResponse?.data) {
-          const product = productApiResponse.data;
+      // ✅ Extract product data
+      const productData = productResponse.data?.data || productResponse.data;
+      console.log('📥 Product data loaded:', productData);
 
-          // Helper: Get category display name
-          const getCategoryDisplayName = (categoryId: string, categories: CategoryData[]): string => {
-            if (!categoryId) return '';
-            for (const cat of categories) {
-              if (cat.id === categoryId) return cat.name;
-              if (cat.subCategories) {
-                for (const sub of cat.subCategories) {
-                  if (sub.id === categoryId) return `${cat.name} > ${sub.name}`;
-                }
-              }
-            }
-            return '';
-          };
+      // ✅ BRANDS - Handle both legacy and new format
+      let brandIdsArray: string[] = [];
+      
+      // New format: brands array exists
+      if (productData.brands && Array.isArray(productData.brands) && productData.brands.length > 0) {
+        brandIdsArray = productData.brands
+          .sort((a: any, b: any) => a.displayOrder - b.displayOrder)
+          .map((b: any) => b.brandId);
+        console.log('✅ Loaded brands from brands array:', brandIdsArray);
+        console.log('🏷️ Brands details:', productData.brands);
+      }
+      // Legacy format: single brandId
+      else if (productData.brandId) {
+        brandIdsArray = [productData.brandId];
+        console.log('✅ Loaded single brand (legacy):', brandIdsArray);
+      }
 
-          // Helper: Format date for datetime-local input
-          const formatDateTimeForInput = (dateString: string | null | undefined): string => {
-            if (!dateString) return '';
-            try {
-              const date = new Date(dateString);
-              if (isNaN(date.getTime())) return '';
-              const year = date.getFullYear();
-              const month = String(date.getMonth() + 1).padStart(2, '0');
-              const day = String(date.getDate()).padStart(2, '0');
-              const hours = String(date.getHours()).padStart(2, '0');
-              const minutes = String(date.getMinutes()).padStart(2, '0');
-              return `${year}-${month}-${day}T${hours}:${minutes}`;
-            } catch {
-              return '';
-            }
-          };
-
-          const categoryDisplayName = getCategoryDisplayName(product.categoryId || '', categoriesData);
-          console.log('📦 Product data received:', product);
-
-          // Load grouped products if exists
-          if (product.requiredProductIds) {
-            let groupedIds: string[] = [];
-            if (typeof product.requiredProductIds === 'string') {
-              groupedIds = product.requiredProductIds.split(',').filter((id: string) => id.trim());
-            } else if (Array.isArray(product.requiredProductIds)) {
-              groupedIds = product.requiredProductIds;
-            }
-            setSelectedGroupedProducts(groupedIds);
-            console.log('🔗 Loaded grouped products:', groupedIds);
-          }
-
-          // ✅ Process Brand IDs - Multiple Brands Support
-// ✅ Process Brand IDs - NEW FORMAT (Backend sends brands array)
-let brandIds: string[] = [];
-
-// Check if backend sent brands array (new format with isPrimary, displayOrder)
-if (product.brands && Array.isArray(product.brands) && product.brands.length > 0) {
-  // Sort by isPrimary first, then displayOrder
-  const sortedBrands = [...product.brands].sort((a: any, b: any) => {
-    // Primary brand always first
-    if (a.isPrimary && !b.isPrimary) return -1;
-    if (!a.isPrimary && b.isPrimary) return 1;
-    // Then sort by displayOrder
-    return (a.displayOrder || 0) - (b.displayOrder || 0);
-  });
-  
-  // Extract brand IDs
-  brandIds = sortedBrands.map((b: any) => b.id || b.brandId).filter(Boolean);
-  console.log('🏷️ Loaded brands from API (new format):', brandIds);
-  console.log('📌 Primary brand:', brandIds[0]);
-}
-// Legacy: Check brandIds string or array (old format)
-else if (product.brandIds) {
-  if (typeof product.brandIds === 'string') {
-    brandIds = product.brandIds.split(',').map((id: string) => id.trim()).filter(Boolean);
-  } else if (Array.isArray(product.brandIds)) {
-    brandIds = product.brandIds.filter(Boolean);
-  }
-  console.log('🏷️ Loaded brands (legacy format):', brandIds);
-} 
-// Legacy: Single brand fallback (oldest format)
-else if (product.brandId) {
-  brandIds = [product.brandId];
-  console.log('🏷️ Loaded single brand (legacy):', brandIds);
-}
-
-console.log('🏷️ Final brandIds array:', brandIds);
-
-
-          // ✅ COMPLETE FORM DATA POPULATION
-          setFormData({
-            // BASIC INFO
-            name: product.name || '',
-            shortDescription: product.shortDescription || '',
-            fullDescription: product.description || '',
-            sku: product.sku || '',
-           brand: brandIds[0] || '', // Primary brand (backward compatibility)
-          brandIds: brandIds,
-            categories: product.categoryId || '',
-            categoryName: categoryDisplayName,
-            isPack: product.isPack ?? false,
-            packSize: product.packSize || '',
-            published: product.isPublished ?? true,
-            productType: product.productType || 'simple',
-            visibleIndividually: product.visibleIndividually ?? true,
-            showOnHomepage: product.showOnHomepage ?? false,
-            displayOrder: product.displayOrder?.toString() || '1',
-            productTags: product.tags || '',
-            gtin: product.gtin || '',
-            manufacturerPartNumber: product.manufacturerPartNumber || '',
-            adminComment: product.adminComment || '',
-            deliveryDateId: product.deliveryDateId || '',
-            allowCustomerReviews: product.allowCustomerReviews ?? false,
-            customerRoles: 'all',
-            limitedToStores: false,
-            vendorId: '',
-            
-            // GROUPED PRODUCT FIELDS
-            requireOtherProducts: product.requireOtherProducts ?? false,
-            requiredProductIds: product.requiredProductIds || '',
-            automaticallyAddProducts: product.automaticallyAddProducts ?? false,
-            gender: product.gender || '',
-
-            // PRICING
-            price: product.price?.toString() || '',
-            oldPrice: product.oldPrice?.toString() || product.compareAtPrice?.toString() || '',
-            cost: product.costPrice?.toString() || '',
-            disableBuyButton: product.disableBuyButton ?? false,
-            disableWishlistButton: product.disableWishlistButton ?? false,
-            callForPrice: product.callForPrice ?? false,
-            customerEntersPrice: product.customerEntersPrice ?? false,
-            minimumCustomerEnteredPrice: product.minimumCustomerEnteredPrice?.toString() || '',
-            maximumCustomerEnteredPrice: product.maximumCustomerEnteredPrice?.toString() || '',
-
-            // BASE PRICE
-            basepriceEnabled: product.basepriceEnabled ?? false,
-            basepriceAmount: product.basepriceAmount?.toString() || '',
-            basepriceUnit: product.basepriceUnit || '',
-            basepriceBaseAmount: product.basepriceBaseAmount?.toString() || '',
-            basepriceBaseUnit: product.basepriceBaseUnit || '',
-
-            // PROMOTIONS
-            markAsNew: !!(product.markAsNewStartDate || product.markAsNewEndDate),
-            markAsNewStartDate: formatDateTimeForInput(product.markAsNewStartDate),
-            markAsNewEndDate: formatDateTimeForInput(product.markAsNewEndDate),
-
-            // AVAILABILITY
-            availableForPreOrder: product.availableForPreOrder ?? false,
-            preOrderAvailabilityStartDate: formatDateTimeForInput(product.preOrderAvailabilityStartDate),
-            availableStartDate: formatDateTimeForInput(product.availableStartDate),
-            availableEndDate: formatDateTimeForInput(product.availableEndDate),
-            hasDiscountsApplied: product.hasDiscountsApplied ?? false,
-
-            // TAX
-            vatExempt: product.vatExempt ?? false,
-            vatRateId: product.vatRateId || '',
-            telecommunicationsBroadcastingElectronicServices: product.telecommunicationsBroadcastingElectronicServices ?? false,
-
-            // SEO
-            metaTitle: product.metaTitle || '',
-            metaKeywords: product.metaKeywords || '',
-            metaDescription: product.metaDescription || '',
-            searchEngineFriendlyPageName: product.searchEngineFriendlyPageName || '',
-
-            // INVENTORY
-            stockQuantity: product.stockQuantity?.toString() || '0',
-            manageInventory: product.trackQuantity ? 'track' : 'dont-track',
-            minStockQuantity: product.minStockQuantity?.toString() || '0',
-            lowStockActivity: product.lowStockActivity || 'nothing',
-            notifyAdminForQuantityBelow: product.notifyAdminForQuantityBelow ?? false,
-            notifyQuantityBelow: product.notifyQuantityBelow?.toString() || '1',
-            displayStockAvailability: product.displayStockAvailability ?? true,
-            displayStockQuantity: product.displayStockQuantity ?? false,
-            allowBackorder: product.allowBackorder ?? false,
-            backorderMode: product.backorderMode || 'no-backorders',
-            backorders: product.backorderMode || 'no-backorders',
-            allowBackInStockSubscriptions: product.allowBackInStockSubscriptions ?? false,
-            productAvailabilityRange: product.productAvailabilityRange || '',
-            minCartQuantity: product.orderMinimumQuantity?.toString() || '1',
-            maxCartQuantity: product.orderMaximumQuantity?.toString() || '10000',
-            allowedQuantities: product.allowedQuantities || '',
-            allowAddingOnlyExistingAttributeCombinations: false,
-            notReturnable: product.notReturnable ?? false,
-
-            // SHIPPING
-            isShipEnabled: product.requiresShipping ?? true,
-            isFreeShipping: product.isFreeShipping ?? false,
-            shipSeparately: product.shipSeparately ?? false,
-            additionalShippingCharge: product.additionalShippingCharge?.toString() || '',
-            weight: product.weight?.toString() || '',
-            length: product.length?.toString() || '',
-            width: product.width?.toString() || '',
-            height: product.height?.toString() || '',
-
-            // GIFT CARDS
-            isGiftCard: product.isGiftCard ?? false,
-            giftCardType: product.giftCardType || 'virtual',
-            overriddenGiftCardAmount: product.overriddenGiftCardAmount ?? false,
-
-            // DOWNLOADABLE
-            isDownload: product.isDownload ?? false,
-            downloadId: product.downloadId || '',
-            unlimitedDownloads: product.unlimitedDownloads ?? true,
-            maxNumberOfDownloads: product.maxNumberOfDownloads?.toString() || '',
-            downloadExpirationDays: product.downloadExpirationDays?.toString() || '',
-            downloadActivationType: product.downloadActivationType || 'when-order-is-paid',
-            hasUserAgreement: product.hasUserAgreement ?? false,
-            userAgreementText: product.userAgreementText || '',
-            hasSampleDownload: product.hasSampleDownload ?? false,
-            sampleDownloadId: product.sampleDownloadId || '',
-
-            // RECURRING
-            isRecurring: product.isRecurring ?? false,
-            recurringCycleLength: product.recurringCycleLength?.toString() || '',
-            recurringCyclePeriod: product.recurringCyclePeriod || 'days',
-            recurringTotalCycles: product.recurringTotalCycles?.toString() || '',
-            subscriptionDiscountPercentage: product.subscriptionDiscountPercentage?.toString() || '',
-            allowedSubscriptionFrequencies: product.allowedSubscriptionFrequencies || '',
-            subscriptionDescription: product.subscriptionDescription || '',
-
-            // RENTAL
-            isRental: product.isRental ?? false,
-            rentalPriceLength: product.rentalPriceLength?.toString() || '',
-            rentalPricePeriod: product.rentalPricePeriod || 'days',
-
-            // RELATED PRODUCTS
-            relatedProducts: typeof product.relatedProductIds === 'string' 
-              ? product.relatedProductIds.split(',').filter((id: string) => id.trim())
-              : Array.isArray(product.relatedProductIds) 
-              ? product.relatedProductIds 
-              : [],
-            crossSellProducts: typeof product.crossSellProductIds === 'string'
-              ? product.crossSellProductIds.split(',').filter((id: string) => id.trim())
-              : Array.isArray(product.crossSellProductIds)
-              ? product.crossSellProductIds
-              : [],
-
-            // MEDIA
-            videoUrls: typeof product.videoUrls === 'string'
-              ? product.videoUrls.split(',').filter((url: string) => url.trim())
-              : Array.isArray(product.videoUrls)
-              ? product.videoUrls
-              : [],
-            productImages: product.images?.map((img: any) => ({
-              id: img.id || Date.now().toString(),
-              imageUrl: img.imageUrl || '',
-              url: img.imageUrl || '',
-              preview: img.imageUrl || '',
-              altText: img.altText || '',
-              alt: img.altText || '',
-              sortOrder: img.sortOrder || 1,
-              displayOrder: img.sortOrder || 1,
-              isMain: img.isMain || false,
-              fileName: img.imageUrl ? img.imageUrl.split('/').pop() : undefined,
-              fileSize: undefined,
-              file: undefined
-            })) || []
-          });
-
-          console.log('✅ Form populated successfully');
-
-          // LOAD ATTRIBUTES
-          if (product.attributes && Array.isArray(product.attributes)) {
-            const loadedAttributes = product.attributes
-              .filter((attr: any) => attr.name && attr.value)
-              .map((attr: any) => ({
-                id: attr.id || `${Date.now()}-${Math.random()}`,
-                name: attr.name || '',
-                value: attr.value || '',
-                displayOrder: attr.displayOrder || attr.sortOrder || 0
-              }));
-            setProductAttributes(loadedAttributes);
-            console.log('✅ Loaded attributes:', loadedAttributes);
-          } else {
-            setProductAttributes([]);
-          }
-
-          // LOAD VARIANTS
-          if (product.variants && Array.isArray(product.variants)) {
-            const loadedVariants = product.variants.map((variant: any) => ({
-              id: variant.id || `${Date.now()}-${Math.random()}`,
-              name: variant.name || '',
-              sku: variant.sku || '',
-              price: variant.price !== null && variant.price !== undefined ? variant.price : null,
-              compareAtPrice: variant.compareAtPrice || null,
-              weight: variant.weight || null,
-              stockQuantity: variant.stockQuantity || 0,
-              trackInventory: variant.trackInventory ?? true,
-              option1Name: variant.option1Name || null,
-              option1Value: variant.option1Value || null,
-              option2Name: variant.option2Name || null,
-              option2Value: variant.option2Value || null,
-              option3Name: variant.option3Name || null,
-              option3Value: variant.option3Value || null,
-              imageUrl: variant.imageUrl || null,
-              isDefault: variant.isDefault || false,
-              displayOrder: variant.displayOrder || 0,
-              isActive: variant.isActive ?? true
-            }));
-            setProductVariants(loadedVariants);
-            console.log('✅ Loaded variants:', loadedVariants);
-          } else {
-            setProductVariants([]);
-          }
+      // ✅ Parse Related Products
+      let relatedProductsArray: string[] = [];
+      if (productData.relatedProductIds) {
+        if (typeof productData.relatedProductIds === 'string') {
+          relatedProductsArray = productData.relatedProductIds
+            .split(',')
+            .map((id: string) => id.trim())
+            .filter((id: string) => id.length > 0);
+        } else if (Array.isArray(productData.relatedProductIds)) {
+          relatedProductsArray = productData.relatedProductIds;
         }
       }
+      console.log('🔗 Related products:', relatedProductsArray);
+
+      // ✅ Parse Cross-Sell Products
+      let crossSellProductsArray: string[] = [];
+      if (productData.crossSellProductIds) {
+        if (typeof productData.crossSellProductIds === 'string') {
+          crossSellProductsArray = productData.crossSellProductIds
+            .split(',')
+            .map((id: string) => id.trim())
+            .filter((id: string) => id.length > 0);
+        } else if (Array.isArray(productData.crossSellProductIds)) {
+          crossSellProductsArray = productData.crossSellProductIds;
+        }
+      }
+      console.log('🛒 Cross-sell products:', crossSellProductsArray);
+
+      // ✅ Parse Video URLs
+      let videoUrlsArray: string[] = [];
+      if (productData.videoUrls) {
+        if (typeof productData.videoUrls === 'string') {
+          videoUrlsArray = productData.videoUrls
+            .split(',')
+            .map((url: string) => url.trim())
+            .filter((url: string) => url.length > 0);
+        } else if (Array.isArray(productData.videoUrls)) {
+          videoUrlsArray = productData.videoUrls;
+        }
+      }
+      console.log('🎥 Video URLs:', videoUrlsArray);
+
+      // ✅ Parse Dates
+      const parseDate = (dateString: string | null | undefined): string => {
+        if (!dateString) return '';
+        try {
+          const date = new Date(dateString);
+          return date.toISOString().split('T')[0]; // YYYY-MM-DD format
+        } catch {
+          return '';
+        }
+      };
+
+      // ✅ SET FORM DATA - COMPLETE WITH ALL FIELDS
+      setFormData({
+        // BASIC INFO
+        name: productData.name || '',
+        sku: productData.sku || '',
+        shortDescription: productData.shortDescription || '',
+        fullDescription: productData.description || '',
+        gtin: productData.gtin || '',
+        manufacturerPartNumber: productData.manufacturerPartNumber || '',
+        adminComment: productData.adminComment || '',
+        gender: productData.gender || '',
+        
+        // CATEGORY
+        categories: productData.categoryId || '',
+        categoryName: productData.categoryName || '',
+        
+        // ✅ BRANDS
+        brand: brandIdsArray[0] || '',
+        brandIds: brandIdsArray,
+        
+        // STATUS
+        published: productData.isPublished ?? true,
+        productType: productData.productType || 'simple',
+        visibleIndividually: productData.visibleIndividually ?? true,
+        showOnHomepage: productData.showOnHomepage ?? false,
+        displayOrder: productData.displayOrder?.toString() || '1',
+        customerRoles: productData.customerRoles || 'all',
+        limitedToStores: productData.limitedToStores ?? false,
+        vendorId: '',
+        
+        // GROUPED PRODUCT
+        requireOtherProducts: productData.requireOtherProducts ?? false,
+        requiredProductIds: productData.requiredProductIds || '',
+        automaticallyAddProducts: productData.automaticallyAddProducts ?? false,
+        
+        // PRICING
+        price: productData.price?.toString() || '',
+        oldPrice: productData.oldPrice?.toString() || productData.compareAtPrice?.toString() || '',
+        cost: productData.costPrice?.toString() || '',
+        disableBuyButton: productData.disableBuyButton ?? false,
+        disableWishlistButton: productData.disableWishlistButton ?? false,
+        callForPrice: productData.callForPrice ?? false,
+        customerEntersPrice: productData.customerEntersPrice ?? false,
+        minimumCustomerEnteredPrice: productData.minimumCustomerEnteredPrice?.toString() || '',
+        maximumCustomerEnteredPrice: productData.maximumCustomerEnteredPrice?.toString() || '',
+        
+        // BASE PRICE
+        basepriceEnabled: productData.basepriceEnabled ?? false,
+        basepriceAmount: productData.basepriceAmount?.toString() || '',
+        basepriceUnit: productData.basepriceUnit || '',
+        basepriceBaseAmount: productData.basepriceBaseAmount?.toString() || '',
+        basepriceBaseUnit: productData.basepriceBaseUnit || '',
+        
+        // MARK AS NEW
+        markAsNew: productData.markAsNew ?? false,
+        markAsNewStartDate: parseDate(productData.markAsNewStartDate),
+        markAsNewEndDate: parseDate(productData.markAsNewEndDate),
+        
+        // AVAILABILITY
+        availableForPreOrder: productData.availableForPreOrder ?? false,
+        preOrderAvailabilityStartDate: parseDate(productData.preOrderAvailabilityStartDate),
+        availableStartDate: parseDate(productData.availableStartDate),
+        availableEndDate: parseDate(productData.availableEndDate),
+        hasDiscountsApplied: false,
+        
+        // TAX
+        vatExempt: productData.vatExempt ?? false,
+        vatRateId: productData.vatRateId || '',
+        telecommunicationsBroadcastingElectronicServices: productData.telecommunicationsBroadcastingElectronicServices ?? false,
+        
+        // INVENTORY
+        stockQuantity: productData.stockQuantity?.toString() || '0',
+        manageInventory: productData.manageInventoryMethod || 'track',
+        displayStockAvailability: productData.displayStockAvailability ?? true,
+        displayStockQuantity: productData.displayStockQuantity ?? false,
+        minStockQuantity: productData.minStockQuantity?.toString() || '0',
+        lowStockActivity: productData.lowStockActivity || 'nothing',
+        notifyAdminForQuantityBelow: productData.notifyAdminForQuantityBelow ?? true,
+        notifyQuantityBelow: productData.notifyQuantityBelow?.toString() || '1',
+        allowBackorder: productData.allowBackorder ?? false,
+        backorderMode: productData.backorderMode || 'no-backorders',
+        backorders: productData.backorderMode || 'no-backorders',
+        allowBackInStockSubscriptions: productData.allowBackInStockSubscriptions ?? false,
+        productAvailabilityRange: productData.productAvailabilityRange || '',
+        minCartQuantity: productData.orderMinimumQuantity?.toString() || '1',
+        maxCartQuantity: productData.orderMaximumQuantity?.toString() || '10',
+        allowedQuantities: productData.allowedQuantities || '',
+        allowAddingOnlyExistingAttributeCombinations: false,
+        notReturnable: productData.notReturnable ?? false,
+        
+        // SHIPPING
+        isShipEnabled: productData.requiresShipping ?? true,
+        isFreeShipping: productData.isFreeShipping ?? false,
+        shipSeparately: productData.shipSeparately ?? false,
+        additionalShippingCharge: productData.additionalShippingCharge?.toString() || '',
+        deliveryDateId: productData.deliveryDateId || '',
+        weight: productData.weight?.toString() || '',
+        length: productData.length?.toString() || '',
+        width: productData.width?.toString() || '',
+        height: productData.height?.toString() || '',
+        
+        // PACK
+        isPack: productData.isPack ?? false,
+        packSize: productData.packSize?.toString() || '',
+        
+        // RECURRING/SUBSCRIPTION
+        isRecurring: productData.isRecurring ?? false,
+        recurringCycleLength: productData.recurringCycleLength?.toString() || '',
+        recurringCyclePeriod: productData.recurringCyclePeriod || 'days',
+        recurringTotalCycles: productData.recurringTotalCycles?.toString() || '',
+        subscriptionDiscountPercentage: productData.subscriptionDiscountPercentage?.toString() || '',
+        allowedSubscriptionFrequencies: productData.allowedSubscriptionFrequencies || '',
+        subscriptionDescription: productData.subscriptionDescription || '',
+        
+        // RENTAL
+        isRental: productData.isRental ?? false,
+        rentalPriceLength: productData.rentalPriceLength?.toString() || '',
+        rentalPricePeriod: productData.rentalPricePeriod || 'days',
+        
+        // GIFT CARD - ✅ FIXED
+        isGiftCard: productData.isGiftCard ?? false,
+        giftCardType: productData.giftCardType || 'virtual',
+        overriddenGiftCardAmount: productData.overriddenGiftCardAmount?.toString() || '', // ✅ Uncommented
+        
+        // DOWNLOADABLE
+        isDownload: productData.isDownload ?? false,
+        downloadId: productData.downloadId || '',
+        unlimitedDownloads: productData.unlimitedDownloads ?? true,
+        maxNumberOfDownloads: productData.maxNumberOfDownloads?.toString() || '',
+        downloadExpirationDays: productData.downloadExpirationDays?.toString() || '',
+        downloadActivationType: productData.downloadActivationType || 'when-order-is-paid',
+        hasUserAgreement: productData.hasUserAgreement ?? false,
+        userAgreementText: productData.userAgreementText || '',
+        hasSampleDownload: productData.hasSampleDownload ?? false,
+        sampleDownloadId: productData.sampleDownloadId || '',
+        
+        // SEO
+        metaTitle: productData.metaTitle || '',
+        metaDescription: productData.metaDescription || '',
+        metaKeywords: productData.metaKeywords || '',
+        searchEngineFriendlyPageName: productData.searchEngineFriendlyPageName || productData.slug || '',
+        
+        // REVIEWS
+        allowCustomerReviews: productData.allowCustomerReviews ?? true,
+        
+        // TAGS
+        productTags: productData.tags || '',
+        
+        // RELATED PRODUCTS
+        relatedProducts: relatedProductsArray,
+        crossSellProducts: crossSellProductsArray,
+        
+        // MEDIA
+        productImages: [], // Will be set below
+        videoUrls: videoUrlsArray,
+        specifications: [] // For future use
+      });
+
+      console.log('✅ Form data populated');
+
+      // ✅ Load Product Attributes
+      if (productData.attributes && Array.isArray(productData.attributes)) {
+        const attrs = productData.attributes.map((attr: any) => ({
+          id: attr.id || Date.now().toString(),
+          name: attr.name || '',
+          value: attr.value || '',
+          displayOrder: attr.displayOrder || attr.sortOrder || 0
+        }));
+        setProductAttributes(attrs);
+        console.log('✅ Attributes loaded:', attrs.length);
+      }
+
+      // ✅ Load Product Variants
+      if (productData.variants && Array.isArray(productData.variants)) {
+        const vars = productData.variants.map((variant: any) => ({
+          id: variant.id || Date.now().toString(),
+          name: variant.name || '',
+          sku: variant.sku || '',
+          price: variant.price || 0,
+          compareAtPrice: variant.compareAtPrice || variant.oldPrice || null,
+          weight: variant.weight || null,
+          stockQuantity: variant.stockQuantity || 0,
+          trackInventory: variant.trackInventory ?? true,
+          option1Name: variant.option1Name || null,
+          option1Value: variant.option1Value || null,
+          option2Name: variant.option2Name || null,
+          option2Value: variant.option2Value || null,
+          option3Name: variant.option3Name || null,
+          option3Value: variant.option3Value || null,
+          imageUrl: variant.imageUrl || null,
+          imageFile: null, // ✅ Added for edit page compatibility
+          isDefault: variant.isDefault ?? false,
+          displayOrder: variant.displayOrder || 0,
+          isActive: variant.isActive ?? true,
+          gtin: variant.gtin || null
+        }));
+        setProductVariants(vars);
+        console.log('✅ Variants loaded:', vars.length);
+      }
+
+      // ✅ Load Product Images
+      if (productData.images && Array.isArray(productData.images)) {
+        const imgs = productData.images
+          .sort((a: any, b: any) => (a.sortOrder || 0) - (b.sortOrder || 0))
+          .map((img: any) => ({
+            id: img.id,
+            imageUrl: img.imageUrl,
+            altText: img.altText || '',
+            sortOrder: img.sortOrder || 0,
+            isMain: img.isMain || false,
+            fileName: img.fileName || '',
+            fileSize: img.fileSize || 0
+          }));
+        
+        setFormData(prev => ({
+          ...prev,
+          productImages: imgs
+        }));
+        console.log('✅ Images loaded:', imgs.length);
+      }
+
+      setLoading(false);
+      console.log('✅ ==================== PRODUCT DATA LOADED SUCCESSFULLY ====================');
 
     } catch (error: any) {
-      console.error('❌ Error fetching data:', error);
-      const errorMessage = error?.response?.data?.message || error?.message || 'Failed to load product data';
-      toast.error(errorMessage);
+      console.error('❌ ==================== ERROR FETCHING PRODUCT ====================');
+      console.error('Error:', error);
+      console.error('Response:', error.response?.data);
+      
+      const errorMessage = error.response?.data?.message 
+        || error.message 
+        || 'Failed to load product data';
+      
+      toast.error(`❌ ${errorMessage}`);
+      setLoading(false);
+      
+      setTimeout(() => {
+        router.push('/admin/products');
+      }, 2000);
     }
   };
 
-  if (productId) {
-    fetchAllData();
+  fetchAllData();
+}, [productId, router]);
+
+
+const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
+  e.preventDefault();
+  const target = e.target as HTMLElement;
+
+  if (target.hasAttribute('data-submitting')) {
+    toast.info('⏳ Already submitting... Please wait!');
+    return;
   }
 
-  // 🔓 CLEANUP: Release lock when page unmounts
-  return () => {
-    console.log('🔓 Releasing lock...');
-    apiClient.delete(`${API_ENDPOINTS.products}/${productId}/lock`)
-      .then(() => console.log('✅ Lock released successfully'))
-      .catch((err) => console.log('⚠️ Lock already released:', err?.response?.data?.message));
-  };
-}, [productId]);
+  target.setAttribute('data-submitting', 'true');
 
+  try {
+    console.log('🚀 ==================== PRODUCT UPDATE START ====================');
+    console.log('📋 Mode:', isDraft ? 'DRAFT' : 'UPDATE');
+    console.log('🆔 Product ID:', productId);
+
+    // ✅ Validation
+    if (!formData.name || !formData.sku) {
+      toast.error('⚠️ Please fill in required fields: Product Name and SKU.');
+      target.removeAttribute('data-submitting');
+      return;
+    }
+
+    // ✅ Helper function for SAFE number parsing
+    const parseNumber = (value: any, fieldName: string = ''): number | null => {
+      if (value === null || value === undefined || value === '') {
+        return null;
+      }
+
+      const cleaned = String(value).trim().replace(/[^\d.-]/g, '');
+      const parsed = parseFloat(cleaned);
+      
+      if (isNaN(parsed)) {
+        console.warn(`⚠️ Invalid number for ${fieldName}:`, value);
+        return null;
+      }
+
+      return parsed;
+    };
+
+    // ✅ Parse and validate REQUIRED price
+    const parsedPrice = parseNumber(formData.price, 'price');
+    if (parsedPrice === null || parsedPrice < 0) {
+      toast.error('⚠️ Please enter a valid product price (must be 0 or greater).');
+      target.removeAttribute('data-submitting');
+      return;
+    }
+
+    // ✅ Parse OPTIONAL prices
+    const parsedOldPrice = parseNumber(formData.oldPrice, 'oldPrice');
+    const parsedCost = parseNumber(formData.cost, 'cost');
+
+    if (parsedOldPrice !== null && parsedOldPrice < 0) {
+      toast.error('⚠️ Old price must be 0 or greater.');
+      target.removeAttribute('data-submitting');
+      return;
+    }
+
+    if (parsedCost !== null && parsedCost < 0) {
+      toast.error('⚠️ Cost price must be 0 or greater.');
+      target.removeAttribute('data-submitting');
+      return;
+    }
+
+    console.log('💰 Parsed Prices:', {
+      price: parsedPrice,
+      oldPrice: parsedOldPrice,
+      cost: parsedCost
+    });
+
+    const nameRegex = /^[A-Za-z0-9\s\-.,()'/]+$/;
+    if (!nameRegex.test(formData.name)) {
+      toast.error("⚠️ Invalid product name. Special characters like @, #, $, % are not allowed.");
+      target.removeAttribute('data-submitting');
+      return;
+    }
+
+    if (formData.productType === 'grouped' && formData.requireOtherProducts) {
+      if (!formData.requiredProductIds || !formData.requiredProductIds.trim()) {
+        toast.error('⚠️ Please select at least one product for grouped product.');
+        target.removeAttribute('data-submitting');
+        return;
+      }
+    }
+
+    const guidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+    // ✅ Process Category ID
+    let categoryId: string | null = null;
+    if (formData.categories && formData.categories.trim()) {
+      const trimmedCategory = formData.categories.trim();
+      if (guidRegex.test(trimmedCategory)) {
+        categoryId = trimmedCategory;
+      }
+    }
+
+    // ✅ Process Multiple Brands
+    let brandIdsArray: string[] = [];
+
+    if (formData.brandIds && Array.isArray(formData.brandIds) && formData.brandIds.length > 0) {
+      brandIdsArray = formData.brandIds.filter(id => {
+        if (!id || typeof id !== 'string') return false;
+        return guidRegex.test(id.trim());
+      });
+    } 
+    else if (formData.brand && formData.brand.trim()) {
+      const trimmedBrand = formData.brand.trim();
+      if (guidRegex.test(trimmedBrand)) {
+        brandIdsArray = [trimmedBrand];
+      }
+    }
+
+    if (brandIdsArray.length === 0) {
+      toast.error('❌ Please select at least one brand');
+      target.removeAttribute('data-submitting');
+      return;
+    }
+
+    const brandsArray = brandIdsArray.map((brandId, index) => ({
+      brandId: brandId,
+      isPrimary: index === 0,
+      displayOrder: index + 1
+    }));
+
+    // ✅ Prepare attributes
+    const attributesArray = productAttributes
+      ?.filter(attr => attr.name && attr.value)
+      .map(attr => ({
+        id: attr.id || undefined,
+        name: attr.name,
+        value: attr.value,
+        displayOrder: attr.displayOrder || 0
+      }));
+
+    // ✅ Prepare variants
+    const variantsArray = productVariants?.map(variant => {
+      const imageUrl = variant.imageUrl?.startsWith('blob:') ? null : variant.imageUrl;
+      
+      return {
+        name: variant.name || '',
+        sku: variant.sku || '',
+        price: typeof variant.price === 'number' ? variant.price : (parseNumber(variant.price, 'variant.price') ?? 0),
+        compareAtPrice: typeof variant.compareAtPrice === 'number' ? variant.compareAtPrice : parseNumber(variant.compareAtPrice, 'variant.compareAtPrice'),
+        oldPrice: typeof variant.compareAtPrice === 'number' ? variant.compareAtPrice : parseNumber(variant.compareAtPrice, 'variant.oldPrice'),
+        weight: typeof variant.weight === 'number' ? variant.weight : parseNumber(variant.weight, 'variant.weight'),
+        stockQuantity: typeof variant.stockQuantity === 'number' ? variant.stockQuantity : (parseInt(String(variant.stockQuantity)) || 0),
+        trackInventory: variant.trackInventory ?? true,
+        option1Name: variant.option1Name || null,
+        option1Value: variant.option1Value || null,
+        option2Name: variant.option2Name || null,
+        option2Value: variant.option2Value || null,
+        option3Name: variant.option3Name || null,
+        option3Value: variant.option3Value || null,
+        imageUrl: imageUrl,
+        isDefault: variant.isDefault ?? false,
+        displayOrder: variant.displayOrder ?? 0,
+        isActive: variant.isActive ?? true,
+        gtin: variant.gtin || null,
+        barcode: variant.sku || null
+      };
+    });
+
+    // ✅ PRODUCT DATA WITH PROPER NUMBER TYPES
+    const productData: any = {
+      name: formData.name.trim(),
+      description: formData.fullDescription || formData.shortDescription || `${formData.name} - Product description`,
+      shortDescription: formData.shortDescription?.trim() || '',
+      sku: formData.sku.trim(),
+      gtin: formData.gtin?.trim() || null,
+      manufacturerPartNumber: formData.manufacturerPartNumber?.trim() || null,
+      
+      status: isDraft ? "Draft" : "Active",
+      isPublished: isDraft ? false : (formData.published ?? true),
+      
+      productType: formData.productType || 'simple',
+      visibleIndividually: formData.visibleIndividually ?? true,
+      customerRoles: formData.customerRoles || 'all',
+      limitedToStores: formData.limitedToStores ?? false,
+      vendorId: null,
+      requireOtherProducts: formData.productType === 'grouped' ? formData.requireOtherProducts : false,
+      requiredProductIds: formData.productType === 'grouped' && formData.requireOtherProducts && formData.requiredProductIds?.trim()
+        ? formData.requiredProductIds.trim()
+        : null,
+      automaticallyAddProducts: formData.productType === 'grouped' && formData.requireOtherProducts 
+        ? formData.automaticallyAddProducts 
+        : false,
+      showOnHomepage: formData.showOnHomepage ?? false,
+      displayOrder: parseInt(formData.displayOrder) || 0,
+      adminComment: formData.adminComment?.trim() || null,
+      isPack: formData.isPack ?? false,
+      gender: formData.gender?.trim() || null,
+      
+      brandId: brandIdsArray[0],
+      brandIds: brandIdsArray,
+      brands: brandsArray,
+      
+      vendor: null,
+      tags: formData.productTags?.trim() || null,
+      
+      // ✅ CRITICAL FIX: Send as NUMBERS (not strings)
+      price: parsedPrice,
+      oldPrice: parsedOldPrice,
+      compareAtPrice: parsedOldPrice,
+      costPrice: parsedCost,
+      
+      disableBuyButton: formData.disableBuyButton ?? false,
+      disableWishlistButton: formData.disableWishlistButton ?? false,
+      availableForPreOrder: formData.availableForPreOrder ?? false,
+      preOrderAvailabilityStartDate: formData.availableForPreOrder && formData.preOrderAvailabilityStartDate 
+        ? new Date(formData.preOrderAvailabilityStartDate).toISOString() 
+        : null,
+      callForPrice: formData.callForPrice ?? false,
+      customerEntersPrice: formData.customerEntersPrice ?? false,
+      minimumCustomerEnteredPrice: parseNumber(formData.minimumCustomerEnteredPrice, 'minimumCustomerEnteredPrice'),
+      maximumCustomerEnteredPrice: parseNumber(formData.maximumCustomerEnteredPrice, 'maximumCustomerEnteredPrice'),
+      
+      basepriceEnabled: formData.basepriceEnabled ?? false,
+      basepriceAmount: parseNumber(formData.basepriceAmount, 'basepriceAmount'),
+      basepriceUnit: formData.basepriceEnabled ? (formData.basepriceUnit || null) : null,
+      basepriceBaseAmount: parseNumber(formData.basepriceBaseAmount, 'basepriceBaseAmount'),
+      basepriceBaseUnit: formData.basepriceEnabled ? (formData.basepriceBaseUnit || null) : null,
+      
+      markAsNew: formData.markAsNew ?? false,
+      markAsNewStartDate: formData.markAsNew && formData.markAsNewStartDate 
+        ? new Date(formData.markAsNewStartDate).toISOString() 
+        : null,
+      markAsNewEndDate: formData.markAsNew && formData.markAsNewEndDate 
+        ? new Date(formData.markAsNewEndDate).toISOString() 
+        : null,
+      availableStartDate: formData.availableStartDate && formData.availableStartDate.trim() 
+        ? new Date(formData.availableStartDate).toISOString() 
+        : null,
+      availableEndDate: formData.availableEndDate && formData.availableEndDate.trim() 
+        ? new Date(formData.availableEndDate).toISOString() 
+        : null,
+      
+      vatExempt: formData.vatExempt ?? false,
+      vatRateId: formData.vatRateId || null,
+      telecommunicationsBroadcastingElectronicServices: formData.telecommunicationsBroadcastingElectronicServices ?? false,
+      
+      trackQuantity: formData.manageInventory === 'track',
+      manageInventoryMethod: formData.manageInventory || 'track',
+      stockQuantity: parseInt(formData.stockQuantity) || 0,
+      displayStockAvailability: formData.displayStockAvailability ?? true,
+      displayStockQuantity: formData.displayStockQuantity ?? false,
+      minStockQuantity: parseInt(formData.minStockQuantity) || 0,
+      lowStockThreshold: parseInt(formData.minStockQuantity) || 0,
+      notifyAdminForQuantityBelow: formData.notifyAdminForQuantityBelow ?? false,
+      notifyQuantityBelow: formData.notifyAdminForQuantityBelow 
+        ? parseInt(formData.notifyQuantityBelow) || 0 
+        : null,
+      allowBackorder: formData.allowBackorder ?? false,
+      backorderMode: formData.backorderMode || 'no-backorders',
+      orderMinimumQuantity: parseInt(formData.minCartQuantity) || 0,
+      orderMaximumQuantity: parseInt(formData.maxCartQuantity) || 0,
+      allowedQuantities: formData.allowedQuantities?.trim() || null,
+      notReturnable: formData.notReturnable ?? false,
+      
+      requiresShipping: formData.isShipEnabled ?? true,
+      isFreeShipping: formData.isFreeShipping ?? false,
+      shipSeparately: formData.shipSeparately ?? false,
+      additionalShippingCharge: parseNumber(formData.additionalShippingCharge, 'additionalShippingCharge'),
+      deliveryDateId: formData.deliveryDateId || null,
+      estimatedDispatchDays: 0,
+      dispatchTimeNote: null,
+      weight: parseNumber(formData.weight, 'weight') || 0,
+      length: parseNumber(formData.length, 'length'),
+      width: parseNumber(formData.width, 'width'),
+      height: parseNumber(formData.height, 'height'),
+      weightUnit: 'kg',
+      dimensionUnit: 'cm',
+      
+      isRecurring: formData.isRecurring ?? false,
+      recurringCycleLength: formData.isRecurring ? parseInt(formData.recurringCycleLength) || 0 : null,
+      recurringCyclePeriod: formData.isRecurring ? (formData.recurringCyclePeriod || 'days') : null,
+      recurringTotalCycles: formData.isRecurring && formData.recurringTotalCycles 
+        ? parseInt(formData.recurringTotalCycles) 
+        : null,
+      subscriptionDiscountPercentage: parseNumber(formData.subscriptionDiscountPercentage, 'subscriptionDiscountPercentage'),
+      allowedSubscriptionFrequencies: formData.allowedSubscriptionFrequencies?.trim() || null,
+      subscriptionDescription: formData.subscriptionDescription?.trim() || null,
+      
+      isRental: formData.isRental ?? false,
+      rentalPriceLength: formData.isRental ? parseInt(formData.rentalPriceLength) || 0 : null,
+      rentalPricePeriod: formData.isRental ? (formData.rentalPricePeriod || 'days') : null,
+      
+      metaTitle: formData.metaTitle?.trim() || null,
+      metaDescription: formData.metaDescription?.trim() || null,
+      metaKeywords: formData.metaKeywords?.trim() || null,
+      searchEngineFriendlyPageName: formData.searchEngineFriendlyPageName?.trim() || null,
+      
+      allowCustomerReviews: formData.allowCustomerReviews ?? false,
+      
+      videoUrls: formData.videoUrls && formData.videoUrls.length > 0 
+        ? formData.videoUrls.join(',') 
+        : null,
+      
+      attributes: attributesArray && attributesArray.length > 0 ? attributesArray : [],
+      variants: variantsArray && variantsArray.length > 0 ? variantsArray : [],
+      
+      relatedProductIds: Array.isArray(formData.relatedProducts) && formData.relatedProducts.length > 0 
+        ? formData.relatedProducts.join(',') 
+        : null,
+      crossSellProductIds: Array.isArray(formData.crossSellProducts) && formData.crossSellProducts.length > 0 
+        ? formData.crossSellProducts.join(',') 
+        : null,
+      
+      categoryId: categoryId
+    };
+
+    // ✅ Clean up - IMPORTANT: Keep 0 values!
+    const cleanProductData = Object.fromEntries(
+      Object.entries(productData).filter(([key, value]) => {
+        if (value === false || value === 0) return true;
+        if (Array.isArray(value)) return true;
+        return value !== null && value !== undefined && value !== '';
+      })
+    );
+
+    console.log('📦 ==================== FINAL PAYLOAD ====================');
+    console.log(JSON.stringify(cleanProductData, null, 2));
+    console.log('💰 Price Types Check:', {
+      price: { value: cleanProductData.price, type: typeof cleanProductData.price },
+      oldPrice: { value: cleanProductData.oldPrice, type: typeof cleanProductData.oldPrice },
+      costPrice: { value: cleanProductData.costPrice, type: typeof cleanProductData.costPrice }
+    });
+    console.log('📦 ==================== END PAYLOAD ====================');
+
+    // ✅ FIXED: Send PUT request with better error handling
+    const response = await apiClient.put(`/api/Products/${productId}`, cleanProductData);
+
+    console.log('✅ ==================== RESPONSE RECEIVED ====================');
+    console.log('Response status:', response?.status);
+    console.log('Response data:', response?.data);
+    console.log('✅ ==================== END RESPONSE ====================');
+
+    // ✅ FIXED: Better response checking
+    if (!response) {
+      throw new Error('No response received from server');
+    }
+
+ if (typeof response.status === 'number' && response.status >= 200 && response.status < 300) {
+  const apiResponse = response.data as any;
+
+  if (apiResponse?.success !== false) {
+    toast.success(
+      isDraft ? '💾 Product saved as draft!' : '✅ Product updated successfully!',
+      { autoClose: 3000 }
+    );
+
+    setTimeout(() => {
+      router.push('/admin/products');
+    }, 800);
+  } else {
+    throw new Error(apiResponse?.message || 'Update failed - success=false');
+  }
+} else {
+  throw new Error(`Server returned status ${response.status ?? 'unknown'}`);
+}
+
+
+  } catch (error: any) {
+    // console.error('❌ ==================== ERROR UPDATING PRODUCT ====================');
+    // console.error('Error object:', error);
+    // console.error('Error message:', error.message);
+    // console.error('Error response:', error.response);
+    // console.error('❌ Error response data:', error.response?.data);
+    // console.error('❌ Error response status:', error.response?.status);
+
+    let errorMessage = 'Failed to update product';
+
+    if (error.response?.data) {
+      const errorData = error.response.data;
+      const status = error.response.status;
+      
+      if (status === 400 && errorData?.errors) {
+        let details = '\n';
+        for (const [field, messages] of Object.entries(errorData.errors)) {
+          const fieldName = field.replace(/\$/g, '').replace(/\./g, ' ').trim();
+          const msg = Array.isArray(messages) ? messages.join(', ') : messages;
+          details += `• ${fieldName}: ${msg}\n`;
+        }
+        errorMessage = `⚠️ Validation Failed:${details}`;
+      } 
+      else if (errorData?.message) {
+        errorMessage = errorData.message;
+      } 
+      else if (errorData?.title) {
+        errorMessage = errorData.title;
+      }
+      else if (typeof errorData === 'string') {
+        errorMessage = errorData;
+      }
+    } else if (error.code === 'ERR_NETWORK') {
+      errorMessage = '❌ Network error. Please check your internet connection.';
+    } else if (error.message) {
+      errorMessage = error.message;
+    }
+
+    toast.error(errorMessage, {
+      autoClose: 10000,
+    });
+
+  } finally {
+    target.removeAttribute('data-submitting');
+  }
+};
+
+// ✅ COMPLETE FIXED handleChange - ADD PRICE FIELD HANDLING
+const handleChange = (
+  e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
+) => {
+  const { name, value, type } = e.target;
+  const checked = type === "checkbox" ? (e.target as HTMLInputElement).checked : false;
+
+  // ================================
+  // ✅ NEW: PRICE FIELDS - Clean input on change
+  // ================================
+  if (name === 'price' || name === 'oldPrice' || name === 'cost') {
+    // Allow only numbers and one decimal point
+    const cleanedValue = value.replace(/[^\d.]/g, '');
+    const parts = cleanedValue.split('.');
+    
+    // Ensure only one decimal point
+    const finalValue = parts.length > 2 
+      ? parts[0] + '.' + parts.slice(1).join('') 
+      : cleanedValue;
+    
+    setFormData(prev => ({
+      ...prev,
+      [name]: finalValue
+    }));
+    return;
+  }
+
+  // ================================
+  // ✅ NEW: OTHER NUMBER FIELDS - Clean input
+  // ================================
+  if (
+    name === 'weight' || 
+    name === 'length' || 
+    name === 'width' || 
+    name === 'height' ||
+    name === 'stockQuantity' ||
+    name === 'minStockQuantity' ||
+    name === 'notifyQuantityBelow' ||
+    name === 'minCartQuantity' ||
+    name === 'maxCartQuantity' ||
+    name === 'additionalShippingCharge' ||
+    name === 'minimumCustomerEnteredPrice' ||
+    name === 'maximumCustomerEnteredPrice' ||
+    name === 'basepriceAmount' ||
+    name === 'basepriceBaseAmount' ||
+    name === 'subscriptionDiscountPercentage'
+  ) {
+    // Allow only numbers and one decimal point
+    const cleanedValue = value.replace(/[^\d.]/g, '');
+    setFormData(prev => ({
+      ...prev,
+      [name]: cleanedValue
+    }));
+    return;
+  }
+
+  // ================================
+  // 1. CATEGORY SELECTION
+  // ================================
+  if (name === "categories") {
+    const select = e.target as HTMLSelectElement;
+    const opt = select.options[select.selectedIndex];
+
+    const displayName =
+      opt.dataset.categoryName ||
+      opt.dataset.displayName ||
+      opt.text.replace(/^[\s\u00A0]*└──\s*/, "").replace(/📁\s*/, "");
+
+    setFormData(prev => ({
+      ...prev,
+      categories: value,
+      categoryName: displayName
+    }));
+    return;
+  }
+
+  // ================================
+  // 2. SEO FRIENDLY PAGE NAME (with debounce)
+  // ================================
+  if (name === "searchEngineFriendlyPageName") {
+    setFormData(prev => ({ ...prev, searchEngineFriendlyPageName: value }));
+
+    clearTimeout(seoTimer);
+    seoTimer = setTimeout(() => {
+      setFormData(prev => ({
+        ...prev,
+        searchEngineFriendlyPageName: generateSeoName(prev.searchEngineFriendlyPageName)
+      }));
+    }, 1500);
+    return;
+  }
+
+  // ================================
+  // 3. PRODUCT NAME - Auto-generate SEO slug
+  // ================================
+  if (name === "name") {
+    setFormData(prev => ({ ...prev, name: value }));
+
+    clearTimeout(seoTimer);
+    seoTimer = setTimeout(() => {
+      setFormData(prev => ({
+        ...prev,
+        searchEngineFriendlyPageName: generateSeoName(value)
+      }));
+    }, 1000);
+    return;
+  }
+
+  // ================================
+  // 4. PRODUCT TYPE - Grouped/Simple
+  // ================================
+  if (name === "productType") {
+    if (value === 'grouped') {
+      setIsGroupedModalOpen(true);
+    }
+    
+    setFormData(prev => ({
+      ...prev,
+      productType: value,
+      ...(value === 'simple' && {
+        requireOtherProducts: false,
+        requiredProductIds: '',
+        automaticallyAddProducts: false
+      }),
+      ...(value === 'grouped' && {
+        requireOtherProducts: true
+      })
+    }));
+    
+    if (value === 'simple') {
+      setSelectedGroupedProducts([]);
+    }
+    return;
+  }
+
+  // ================================
+  // 5. REQUIRE OTHER PRODUCTS
+  // ================================
+  if (name === "requireOtherProducts") {
+    setFormData(prev => ({
+      ...prev,
+      requireOtherProducts: checked,
+      ...(!checked && {
+        requiredProductIds: '',
+        automaticallyAddProducts: false
+      })
+    }));
+    
+    if (!checked) {
+      setSelectedGroupedProducts([]);
+    }
+    return;
+  }
+
+  // ================================
+  // 6. SHIPPING ENABLED - Master Switch
+  // ================================
+  if (name === "isShipEnabled") {
+    setFormData(prev => ({
+      ...prev,
+      isShipEnabled: checked,
+      isFreeShipping: checked ? prev.isFreeShipping : false,
+      additionalShippingCharge: checked ? prev.additionalShippingCharge : "",
+      shipSeparately: checked ? prev.shipSeparately : false,
+      weight: checked ? prev.weight : "",
+      length: checked ? prev.length : "",
+      width: checked ? prev.width : "",
+      height: checked ? prev.height : "",
+      deliveryDateId: checked ? prev.deliveryDateId : ""
+    }));
+    return;
+  }
+
+  // ================================
+  // 7. FREE SHIPPING (Auto reset charge)
+  // ================================
+  if (name === "isFreeShipping") {
+    setFormData(prev => ({
+      ...prev,
+      isFreeShipping: checked,
+      additionalShippingCharge: checked ? "" : prev.additionalShippingCharge
+    }));
+    return;
+  }
+
+  // ================================
+  // 8. RECURRING / SUBSCRIPTION PRODUCT
+  // ================================
+  if (name === "isRecurring") {
+    setFormData(prev => ({
+      ...prev,
+      isRecurring: checked,
+      ...(!checked && {
+        recurringCycleLength: "",
+        recurringCyclePeriod: "days",
+        recurringTotalCycles: "",
+        subscriptionDiscountPercentage: "",
+        allowedSubscriptionFrequencies: "",
+        subscriptionDescription: ""
+      })
+    }));
+    return;
+  }
+
+  // ================================
+  // 9. PACK / BUNDLE PRODUCT
+  // ================================
+  if (name === "isPack") {
+    setFormData(prev => ({
+      ...prev,
+      isPack: checked,
+      packSize: checked ? prev.packSize : ""
+    }));
+    return;
+  }
+
+  // ================================
+  // 10. MARK AS NEW (with date reset)
+  // ================================
+  if (name === "markAsNew") {
+    setFormData(prev => ({
+      ...prev,
+      markAsNew: checked,
+      markAsNewStartDate: checked ? prev.markAsNewStartDate : "",
+      markAsNewEndDate: checked ? prev.markAsNewEndDate : ""
+    }));
+    return;
+  }
+
+  // ================================
+  // 11. CUSTOMER ENTERS PRICE
+  // ================================
+  if (name === "customerEntersPrice") {
+    setFormData(prev => ({
+      ...prev,
+      customerEntersPrice: checked,
+      minimumCustomerEnteredPrice: checked ? prev.minimumCustomerEnteredPrice : "",
+      maximumCustomerEnteredPrice: checked ? prev.maximumCustomerEnteredPrice : ""
+    }));
+    return;
+  }
+
+  // ================================
+  // 12. BASE PRICE ENABLED
+  // ================================
+  if (name === "basepriceEnabled") {
+    setFormData(prev => ({
+      ...prev,
+      basepriceEnabled: checked,
+      ...(!checked && {
+        basepriceAmount: "",
+        basepriceUnit: "",
+        basepriceBaseAmount: "",
+        basepriceBaseUnit: ""
+      })
+    }));
+    return;
+  }
+
+  // ================================
+  // 13. NOTIFY ADMIN - Low Stock
+  // ================================
+  if (name === "notifyAdminForQuantityBelow") {
+    setFormData(prev => ({
+      ...prev,
+      notifyAdminForQuantityBelow: checked,
+      notifyQuantityBelow: checked ? prev.notifyQuantityBelow : "1"
+    }));
+    return;
+  }
+
+  // ================================
+  // 14. ALLOW BACKORDER
+  // ================================
+  if (name === "allowBackorder") {
+    setFormData(prev => ({
+      ...prev,
+      allowBackorder: checked,
+      backorderMode: checked ? "allow-qty-below-zero" : "no-backorders"
+    }));
+    return;
+  }
+
+  // ================================
+  // 15. AVAILABLE FOR PRE-ORDER
+  // ================================
+  if (name === "availableForPreOrder") {
+    setFormData(prev => ({
+      ...prev,
+      availableForPreOrder: checked,
+      preOrderAvailabilityStartDate: checked ? prev.preOrderAvailabilityStartDate : ""
+    }));
+    return;
+  }
+
+  // ================================
+  // 16. GIFT CARD
+  // ================================
+  if (name === "isGiftCard") {
+    setFormData(prev => ({
+      ...prev,
+      isGiftCard: checked,
+      ...(!checked && {
+        giftCardType: "virtual",
+        overriddenGiftCardAmount: ""
+      })
+    }));
+    return;
+  }
+
+  // ================================
+  // 17. DOWNLOADABLE PRODUCT
+  // ================================
+  if (name === "isDownload") {
+    setFormData(prev => ({
+      ...prev,
+      isDownload: checked,
+      ...(!checked && {
+        downloadId: "",
+        unlimitedDownloads: true,
+        maxNumberOfDownloads: "",
+        downloadExpirationDays: "",
+        downloadActivationType: "when-order-is-paid",
+        hasUserAgreement: false,
+        userAgreementText: "",
+        hasSampleDownload: false,
+        sampleDownloadId: ""
+      })
+    }));
+    return;
+  }
+
+  // ================================
+  // 18. RENTAL PRODUCT
+  // ================================
+  if (name === "isRental") {
+    setFormData(prev => ({
+      ...prev,
+      isRental: checked,
+      ...(!checked && {
+        rentalPriceLength: "",
+        rentalPricePeriod: "days"
+      })
+    }));
+    return;
+  }
+
+  // ================================
+  // 19. HAS USER AGREEMENT
+  // ================================
+  if (name === "hasUserAgreement") {
+    setFormData(prev => ({
+      ...prev,
+      hasUserAgreement: checked,
+      userAgreementText: checked ? prev.userAgreementText : ""
+    }));
+    return;
+  }
+
+  // ================================
+  // 20. HAS SAMPLE DOWNLOAD
+  // ================================
+  if (name === "hasSampleDownload") {
+    setFormData(prev => ({
+      ...prev,
+      hasSampleDownload: checked,
+      sampleDownloadId: checked ? prev.sampleDownloadId : ""
+    }));
+    return;
+  }
+
+  // ================================
+  // 21. UNLIMITED DOWNLOADS
+  // ================================
+  if (name === "unlimitedDownloads") {
+    setFormData(prev => ({
+      ...prev,
+      unlimitedDownloads: checked,
+      maxNumberOfDownloads: checked ? "" : prev.maxNumberOfDownloads
+    }));
+    return;
+  }
+
+  // ================================
+  // 22. GENERIC CHECKBOXES
+  // ================================
+  if (type === "checkbox") {
+    setFormData(prev => ({
+      ...prev,
+      [name]: checked
+    }));
+    return;
+  }
+
+  // ================================
+  // 23. DEFAULT: Text, Number, Select, Textarea
+  // ================================
+  setFormData(prev => ({
+    ...prev,
+    [name]: value
+  }));
+};
 
 
 
@@ -946,413 +1567,6 @@ const removeProductVariant = (id: string) => {
 };
 
 
-const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
-  e.preventDefault();
-
-  const target = e.target as HTMLElement;
-  if (target.hasAttribute('data-submitting')) {
-    toast.info('⏳ Already submitting... Please wait!');
-    return;
-  }
-  target.setAttribute('data-submitting', 'true');
-
-  try {
-    // ✅ Basic Validation
-    if (!formData.name || !formData.sku || !formData.price || !formData.stockQuantity) {
-      toast.error('⚠️ Please fill in required fields: Product Name, SKU, Price, and Stock Quantity.');
-      target.removeAttribute('data-submitting');
-      return;
-    }
-    
-    const nameRegex = /^[A-Za-z0-9\s\-.,()'/]+$/;
-    if (!nameRegex.test(formData.name)) {
-      toast.error("⚠️ Invalid product name. Special characters like @, #, $, % are not allowed.");
-      target.removeAttribute('data-submitting');
-      return;
-    }
-
-    // ✅ Grouped Product Validation
-    if (formData.productType === 'grouped' && formData.requireOtherProducts) {
-      if (!formData.requiredProductIds || formData.requiredProductIds.trim() === '') {
-        toast.error('⚠️ Please select at least one product for grouped product.');
-        target.removeAttribute('data-submitting');
-        return;
-      }
-    }
-
-    const guidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
-    // ✅ Process Category ID
-    let categoryId: string | null = null;
-    if (formData.categories && formData.categories.trim()) {
-      const trimmedCategory = formData.categories.trim();
-      if (guidRegex.test(trimmedCategory)) {
-        categoryId = trimmedCategory;
-      }
-    }
-
-let brandIdsArray: string[] = [];
-
-if (formData.brandIds && Array.isArray(formData.brandIds) && formData.brandIds.length > 0) {
-  // Filter valid GUIDs only
-  const guidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-  brandIdsArray = formData.brandIds.filter(id => {
-    if (!id || typeof id !== 'string') return false;
-    return guidRegex.test(id.trim());
-  });
-  
-  console.log('✅ Sending brands:', brandIdsArray);
-  console.log('✅ Primary brand (first):', brandIdsArray[0]);
-} 
-// Fallback to single brand
-else if (formData.brand && formData.brand.trim()) {
-  const trimmedBrand = formData.brand.trim();
-  if (guidRegex.test(trimmedBrand)) {
-    brandIdsArray = [trimmedBrand];
-  }
-}
-
-// ✅ Validate at least one brand
-if (brandIdsArray.length === 0) {
-  toast.error('⚠️ Please select at least one brand');
-  target.removeAttribute('data-submitting');
-  return;
-}
-
-    // Prepare product attributes array
-    const attributesArray = productAttributes
-      ?.filter(attr => attr.name && attr.value)
-      .map(attr => ({
-        id: attr.id,
-        name: attr.name,
-        value: attr.value,
-        displayOrder: attr.displayOrder
-      })) || [];
-
-    // ✅ Prepare variants array for submission
-    const variantsArray = productVariants?.map(variant => {
-      // Don't send blob URLs to backend
-      const imageUrl = variant.imageUrl?.startsWith('blob:') 
-        ? null 
-        : variant.imageUrl;
-
-      return {
-        id: variant.id,
-        name: variant.name,
-        sku: variant.sku,
-        price: variant.price,
-        compareAtPrice: variant.compareAtPrice,
-        weight: variant.weight,
-        stockQuantity: variant.stockQuantity,
-        trackInventory: variant.trackInventory ?? true,
-        option1Name: variant.option1Name || null,
-        option1Value: variant.option1Value || null,
-        option2Name: variant.option2Name || null,
-        option2Value: variant.option2Value || null,
-        option3Name: variant.option3Name || null,
-        option3Value: variant.option3Value || null,
-        imageUrl: imageUrl,
-        isDefault: variant.isDefault,
-        displayOrder: variant.displayOrder || 0,
-        isActive: variant.isActive ?? true
-      };
-    }) || [];
-
-    console.log('📦 Variants being sent:', variantsArray);
-
-    const productData: any = {
-      id: productId,
-      
-      // ===== BASIC INFO =====
-      name: formData.name.trim(),
-      description: formData.fullDescription || formData.shortDescription || formData.name || 'Product description',
-      shortDescription: formData.shortDescription?.trim() || '',
-      sku: formData.sku.trim(),
-      gtin: formData.gtin?.trim() || null,
-      manufacturerPartNumber: formData.manufacturerPartNumber?.trim() || null,
-      displayOrder: parseInt(formData.displayOrder) || 1,
-      adminComment: formData.adminComment?.trim() || null,
-
-      // Gender Field
-      ...(formData.gender?.trim() && { gender: formData.gender.trim() }),
-      
-      // ===== PRODUCT TYPE & GROUPED CONFIGURATION =====
-      productType: formData.productType || 'simple',
-      requireOtherProducts: formData.productType === 'grouped' ? formData.requireOtherProducts : false,
-      requiredProductIds: formData.productType === 'grouped' && formData.requireOtherProducts && formData.requiredProductIds?.trim()
-        ? formData.requiredProductIds.trim()
-        : null,
-      automaticallyAddProducts: formData.productType === 'grouped' && formData.requireOtherProducts 
-        ? formData.automaticallyAddProducts 
-        : false,
-
-      // ===== PRICING =====
-      price: parseFloat(formData.price) || 0,
-      oldPrice: formData.oldPrice ? parseFloat(formData.oldPrice) : null,
-      compareAtPrice: formData.oldPrice ? parseFloat(formData.oldPrice) : null,
-      costPrice: formData.cost ? parseFloat(formData.cost) : null,
-
-      // Buy/Wishlist Buttons
-      disableBuyButton: formData.disableBuyButton,
-      disableWishlistButton: formData.disableWishlistButton,
-
-      // Call for Price
-      callForPrice: formData.callForPrice,
-      customerEntersPrice: formData.customerEntersPrice,
-      minimumCustomerEnteredPrice: formData.customerEntersPrice && formData.minimumCustomerEnteredPrice 
-        ? parseFloat(formData.minimumCustomerEnteredPrice) 
-        : null,
-      maximumCustomerEnteredPrice: formData.customerEntersPrice && formData.maximumCustomerEnteredPrice 
-        ? parseFloat(formData.maximumCustomerEnteredPrice) 
-        : null,
-
-      // ===== BASE PRICE =====
-      basepriceEnabled: formData.basepriceEnabled,
-      ...(formData.basepriceEnabled && {
-        basepriceAmount: formData.basepriceAmount ? parseFloat(formData.basepriceAmount) : null,
-        basepriceUnit: formData.basepriceUnit || null,
-        basepriceBaseAmount: formData.basepriceBaseAmount ? parseFloat(formData.basepriceBaseAmount) : null,
-        basepriceBaseUnit: formData.basepriceBaseUnit || null,
-      }),
-
-      // ===== DIMENSIONS & WEIGHT =====
-      weight: parseFloat(formData.weight) || 0,
-      length: formData.length ? parseFloat(formData.length) : null,
-      width: formData.width ? parseFloat(formData.width) : null,
-      height: formData.height ? parseFloat(formData.height) : null,
-
-      // ===== SHIPPING =====
-      requiresShipping: formData.isShipEnabled,
-      isFreeShipping: formData.isFreeShipping,
-      shipSeparately: formData.shipSeparately,
-      additionalShippingCharge: formData.additionalShippingCharge 
-        ? parseFloat(formData.additionalShippingCharge) 
-        : null,
-      deliveryDateId: formData.deliveryDateId || null,
-
-      // ===== INVENTORY =====
-      stockQuantity: parseInt(formData.stockQuantity) || 0,
-      trackQuantity: formData.manageInventory === 'track',
-      manageInventoryMethod: formData.manageInventory,
-      minStockQuantity: parseInt(formData.minStockQuantity) || 0,
-      lowStockActivity: formData.lowStockActivity || null,
-      
-      // Notification
-      notifyAdminForQuantityBelow: formData.notifyAdminForQuantityBelow ?? false,
-      notifyQuantityBelow: formData.notifyAdminForQuantityBelow 
-        ? parseInt(formData.notifyQuantityBelow) || 1 
-        : null,
-      
-      // Display Settings
-      displayStockAvailability: formData.displayStockAvailability,
-      displayStockQuantity: formData.displayStockQuantity,
-      
-      // Backorder
-      allowBackorder: formData.allowBackorder ?? false,
-      backorderMode: formData.backorderMode || 'no-backorders',
-      allowBackInStockSubscriptions: formData.allowBackInStockSubscriptions,
-      
-      // Product Availability
-      productAvailabilityRange: formData.productAvailabilityRange || null,
-      
-      // Cart Quantities
-      orderMinimumQuantity: parseInt(formData.minCartQuantity) || 1,
-      orderMaximumQuantity: parseInt(formData.maxCartQuantity) || 10000,
-      allowedQuantities: formData.allowedQuantities?.trim() || null,
-      
-      // Not Returnable
-      notReturnable: formData.notReturnable,
-      
-      // ===== PACK PRODUCT =====
-      isPack: formData.isPack,
-      ...(formData.isPack && {
-        packSize: formData.packSize.trim() || null,
-      }),
-      
-      // ===== CATEGORIES =====
-      ...(categoryId && { categoryId }),
-      
-      // ===== BRANDS ===== ✅ CRITICAL - SEND AS ARRAY
-      brandIds: brandIdsArray, // ✅ Array of GUID strings (NOT comma-separated string)
-      brandId: brandIdsArray[0] || null, // Primary brand (backward compatibility)
- 
-      // ===== RECURRING / SUBSCRIPTION PRODUCT =====
-      isRecurring: formData.isRecurring,
-      recurringCycleLength: formData.isRecurring 
-        ? parseInt(formData.recurringCycleLength) || 1 
-        : null,
-      recurringCyclePeriod: formData.isRecurring 
-        ? formData.recurringCyclePeriod || 'days' 
-        : null,
-      recurringTotalCycles: formData.isRecurring && formData.recurringTotalCycles
-        ? parseInt(formData.recurringTotalCycles)
-        : null,
-      subscriptionDiscountPercentage: formData.subscriptionDiscountPercentage 
-        ? parseFloat(formData.subscriptionDiscountPercentage) 
-        : null,
-      allowedSubscriptionFrequencies: formData.allowedSubscriptionFrequencies?.trim() || null,
-      subscriptionDescription: formData.subscriptionDescription?.trim() || null,
-      
-      // ===== PROMOTIONS =====
-      markAsNew: formData.markAsNew,
-      
-      // ===== AVAILABILITY DATES =====
-      availableForPreOrder: formData.availableForPreOrder,
-      ...(formData.availableForPreOrder && formData.preOrderAvailabilityStartDate && {
-        preOrderAvailabilityStartDate: new Date(formData.preOrderAvailabilityStartDate).toISOString(),
-      }),
-      availableStartDate: formData.availableStartDate && formData.availableStartDate.trim()
-        ? new Date(formData.availableStartDate).toISOString() 
-        : null,
-      availableEndDate: formData.availableEndDate && formData.availableEndDate.trim()
-        ? new Date(formData.availableEndDate).toISOString() 
-        : null,
-      markAsNewStartDate: formData.markAsNew && formData.markAsNewStartDate 
-        ? new Date(formData.markAsNewStartDate).toISOString() 
-        : null,
-      markAsNewEndDate: formData.markAsNew && formData.markAsNewEndDate 
-        ? new Date(formData.markAsNewEndDate).toISOString() 
-        : null,
-
-      // ===== GIFT CARDS =====
-      isGiftCard: formData.isGiftCard,
-      ...(formData.isGiftCard && {
-        giftCardType: formData.giftCardType || 'virtual',
-        overriddenGiftCardAmount: formData.overriddenGiftCardAmount,
-      }),
-
-      // ===== DOWNLOADABLE PRODUCT =====
-      isDownload: formData.isDownload,
-      ...(formData.isDownload && {
-        downloadId: formData.downloadId || null,
-        unlimitedDownloads: formData.unlimitedDownloads,
-        maxNumberOfDownloads: formData.unlimitedDownloads ? null : (parseInt(formData.maxNumberOfDownloads) || null),
-        downloadExpirationDays: formData.downloadExpirationDays ? parseInt(formData.downloadExpirationDays) : null,
-        downloadActivationType: formData.downloadActivationType || 'when-order-is-paid',
-        hasUserAgreement: formData.hasUserAgreement,
-        userAgreementText: formData.hasUserAgreement ? (formData.userAgreementText || null) : null,
-        hasSampleDownload: formData.hasSampleDownload,
-        sampleDownloadId: formData.hasSampleDownload ? (formData.sampleDownloadId || null) : null,
-      }),
-
-      // ===== RENTAL PRODUCT =====
-      isRental: formData.isRental,
-      ...(formData.isRental && {
-        rentalPriceLength: parseInt(formData.rentalPriceLength) || null,
-        rentalPricePeriod: formData.rentalPricePeriod || 'days',
-      }),
-
-      // ===== ATTRIBUTES & VARIANTS =====
-      ...(attributesArray.length > 0 && { attributes: attributesArray }),
-      ...(variantsArray.length > 0 && { variants: variantsArray }),
-
-      // ===== PUBLISHING =====
-      isPublished: isDraft ? false : formData.published,
-      status: isDraft ? 1 : (formData.published ? 2 : 1),
-      visibleIndividually: formData.visibleIndividually,
-      showOnHomepage: formData.showOnHomepage || false,
-
-      // ===== CUSTOMER REVIEWS =====
-      allowCustomerReviews: formData.allowCustomerReviews,
-      approvedRatingSum: 0,
-      approvedTotalReviews: 0,
-
-      // ===== TAX =====
-      vatExempt: formData.vatExempt,
-      vatRateId: formData.vatRateId || null,
-      telecommunicationsBroadcastingElectronicServices: formData.telecommunicationsBroadcastingElectronicServices,
-
-      // ===== SEO =====
-      metaTitle: formData.metaTitle?.trim() || null,
-      metaDescription: formData.metaDescription?.trim() || null,
-      metaKeywords: formData.metaKeywords?.trim() || null,
-      searchEngineFriendlyPageName: formData.searchEngineFriendlyPageName?.trim() || null,
-
-      // ===== RELATED PRODUCTS =====
-      tags: formData.productTags?.trim() || null,
-      relatedProductIds: Array.isArray(formData.relatedProducts) && formData.relatedProducts.length > 0 
-        ? formData.relatedProducts.join(',') 
-        : null,
-      crossSellProductIds: Array.isArray(formData.crossSellProducts) && formData.crossSellProducts.length > 0 
-        ? formData.crossSellProducts.join(',') 
-        : null,
-
-      // ===== VIDEOS =====
-      videoUrls: formData.videoUrls && formData.videoUrls.length > 0 
-        ? formData.videoUrls.join(',') 
-        : null,
-    };
-
-    // ✅ Clean up null/undefined values but keep false and 0
-    const cleanProductData = Object.fromEntries(
-      Object.entries(productData).filter(([_, value]) => 
-        value !== null && value !== undefined && value !== ''
-      )
-    );
-
-    // ✅ Debug logs
-    console.log('📦 Sending product data:', cleanProductData);
-    console.log('🏷️ Brand IDs (array):', brandIdsArray);
-    console.log('🏷️ Brand IDs type:', typeof cleanProductData.brandIds);
-    console.log('🏷️ Is Array?', Array.isArray(cleanProductData.brandIds));
-
-    const response = await apiClient.put(`${API_ENDPOINTS.products}/${productId}`, cleanProductData);
-
-    if (response?.data) {
-      const message = isDraft 
-        ? '💾 Product saved as draft successfully!' 
-        : '✅ Product updated successfully!';
-
-      toast.success(message, {
-        autoClose: 5000,
-        closeButton: true,
-        draggable: true,
-      });
-
-      setTimeout(() => {
-        router.push('/admin/products');
-      }, 800);
-    } else if (response?.error) {
-      throw new Error(response.error);
-    }
-
-  } catch (error: any) {
-    console.error('❌ Error submitting form:', error);
-
-    let errorMessage = 'Failed to update product';
-
-    if (error.response?.data) {
-      const errorData = error.response.data;
-
-      if (errorData?.errors) {
-        let details = '';
-        for (const [field, messages] of Object.entries(errorData.errors)) {
-          const fieldName = field.replace('$', '').replace('.', ' ').trim();
-          const msg = Array.isArray(messages) ? messages.join(', ') : messages;
-          details += `• ${fieldName}: ${msg}\n`;
-        }
-        errorMessage = `Validation Failed:\n${details}`;
-      } else if (errorData?.message) {
-        errorMessage = errorData.message;
-      } else if (errorData?.title) {
-        errorMessage = errorData.title;
-      }
-    } else if (error.message) {
-      errorMessage = error.message;
-    }
-
-    toast.error(errorMessage, {
-      autoClose: 8000,
-      closeButton: true,
-      draggable: true,
-    });
-
-  } finally {
-    target.removeAttribute('data-submitting');
-  }
-};
-
-
 // Slug generator for SEO-friendly names
 const generateSeoName = (text: string) => {
   return text
@@ -1365,343 +1579,7 @@ const generateSeoName = (text: string) => {
 };
 
 
-// ✅ COMPLETE FIXED handleChange
-const handleChange = (
-  e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
-) => {
-  const { name, value, type } = e.target;
-  const checked = type === "checkbox" ? (e.target as HTMLInputElement).checked : false;
 
-  // ================================
-  // 1. CATEGORY SELECTION
-  // ================================
-  if (name === "categories") {
-    const select = e.target as HTMLSelectElement;
-    const opt = select.options[select.selectedIndex];
-
-    const displayName =
-      opt.dataset.categoryName ||
-      opt.dataset.displayName ||
-      opt.text.replace(/^[\s\u00A0]*└──\s*/, "").replace(/📁\s*/, "");
-
-    setFormData(prev => ({
-      ...prev,
-      categories: value,
-      categoryName: displayName
-    }));
-    return;
-  }
-
-  // ================================
-  // 2. SEO FRIENDLY PAGE NAME (with debounce)
-  // ================================
-  if (name === "searchEngineFriendlyPageName") {
-    setFormData(prev => ({ ...prev, searchEngineFriendlyPageName: value }));
-
-    clearTimeout(seoTimer);
-    seoTimer = setTimeout(() => {
-      setFormData(prev => ({
-        ...prev,
-        searchEngineFriendlyPageName: generateSeoName(prev.searchEngineFriendlyPageName)
-      }));
-    }, 1500);
-    return;
-  }
-
-  // ================================
-  // 3. PRODUCT TYPE - Grouped/Simple
-  // ================================
-  if (name === "productType") {
-    if (value === 'grouped') {
-      setIsGroupedModalOpen(true);
-    }
-    
-    setFormData(prev => ({
-      ...prev,
-      productType: value,
-      ...(value === 'simple' && {
-        requireOtherProducts: false,
-        requiredProductIds: '',
-        automaticallyAddProducts: false
-      }),
-      ...(value === 'grouped' && {
-        requireOtherProducts: true
-      })
-    }));
-    
-    if (value === 'simple') {
-      setSelectedGroupedProducts([]);
-    }
-    return;
-  }
-
-  // ================================
-  // 4. REQUIRE OTHER PRODUCTS
-  // ================================
-  if (name === "requireOtherProducts") {
-    setFormData(prev => ({
-      ...prev,
-      requireOtherProducts: checked,
-      ...(!checked && {
-        requiredProductIds: '',
-        automaticallyAddProducts: false
-      })
-    }));
-    
-    if (!checked) {
-      setSelectedGroupedProducts([]);
-    }
-    return;
-  }
-
-  // ================================
-  // 5. SHIPPING ENABLED - Master Switch
-  // ================================
-  if (name === "isShipEnabled") {
-    setFormData(prev => ({
-      ...prev,
-      isShipEnabled: checked,
-      isFreeShipping: checked ? prev.isFreeShipping : false,
-      additionalShippingCharge: checked ? prev.additionalShippingCharge : "",
-      shipSeparately: checked ? prev.shipSeparately : false,
-      weight: checked ? prev.weight : "",
-      length: checked ? prev.length : "",
-      width: checked ? prev.width : "",
-      height: checked ? prev.height : "",
-      deliveryDateId: checked ? prev.deliveryDateId : ""
-    }));
-    return;
-  }
-
-  // ================================
-  // 6. FREE SHIPPING (Auto reset charge)
-  // ================================
-  if (name === "isFreeShipping") {
-    setFormData(prev => ({
-      ...prev,
-      isFreeShipping: checked,
-      additionalShippingCharge: checked ? "" : prev.additionalShippingCharge
-    }));
-    return;
-  }
-
-  // ================================
-  // 7. RECURRING / SUBSCRIPTION PRODUCT
-  // ================================
-  if (name === "isRecurring") {
-    setFormData(prev => ({
-      ...prev,
-      isRecurring: checked,
-      ...(!checked && {
-        recurringCycleLength: "",
-        recurringCyclePeriod: "days",
-        recurringTotalCycles: "",
-        subscriptionDiscountPercentage: "",
-        allowedSubscriptionFrequencies: "",
-        subscriptionDescription: ""
-      })
-    }));
-    return;
-  }
-
-  // ================================
-  // 8. PACK / BUNDLE PRODUCT
-  // ================================
-  if (name === "isPack") {
-    setFormData(prev => ({
-      ...prev,
-      isPack: checked,
-      packSize: checked ? prev.packSize : ""
-    }));
-    return;
-  }
-
-  // ================================
-  // 9. MARK AS NEW (with date reset)
-  // ================================
-  if (name === "markAsNew") {
-    setFormData(prev => ({
-      ...prev,
-      markAsNew: checked,
-      markAsNewStartDate: checked ? prev.markAsNewStartDate : "",
-      markAsNewEndDate: checked ? prev.markAsNewEndDate : ""
-    }));
-    return;
-  }
-
-  // ================================
-  // 10. CUSTOMER ENTERS PRICE ✅ NEW
-  // ================================
-  if (name === "customerEntersPrice") {
-    setFormData(prev => ({
-      ...prev,
-      customerEntersPrice: checked,
-      minimumCustomerEnteredPrice: checked ? prev.minimumCustomerEnteredPrice : "",
-      maximumCustomerEnteredPrice: checked ? prev.maximumCustomerEnteredPrice : ""
-    }));
-    return;
-  }
-
-  // ================================
-  // 11. BASE PRICE ENABLED ✅ NEW
-  // ================================
-  if (name === "basepriceEnabled") {
-    setFormData(prev => ({
-      ...prev,
-      basepriceEnabled: checked,
-      ...(!checked && {
-        basepriceAmount: "",
-        basepriceUnit: "",
-        basepriceBaseAmount: "",
-        basepriceBaseUnit: ""
-      })
-    }));
-    return;
-  }
-
-  // ================================
-  // 12. NOTIFY ADMIN - Low Stock ✅ NEW
-  // ================================
-  if (name === "notifyAdminForQuantityBelow") {
-    setFormData(prev => ({
-      ...prev,
-      notifyAdminForQuantityBelow: checked,
-      notifyQuantityBelow: checked ? prev.notifyQuantityBelow : "1"
-    }));
-    return;
-  }
-
-  // ================================
-  // 13. ALLOW BACKORDER ✅ NEW
-  // ================================
-  if (name === "allowBackorder") {
-    setFormData(prev => ({
-      ...prev,
-      allowBackorder: checked,
-      backorderMode: checked ? "allow-qty-below-zero" : "no-backorders"
-    }));
-    return;
-  }
-
-  // ================================
-  // 14. AVAILABLE FOR PRE-ORDER ✅ NEW
-  // ================================
-  if (name === "availableForPreOrder") {
-    setFormData(prev => ({
-      ...prev,
-      availableForPreOrder: checked,
-      preOrderAvailabilityStartDate: checked ? prev.preOrderAvailabilityStartDate : ""
-    }));
-    return;
-  }
-
-  // ================================
-  // 15. GIFT CARD ✅ NEW
-  // ================================
-  if (name === "isGiftCard") {
-    setFormData(prev => ({
-      ...prev,
-      isGiftCard: checked,
-      ...(!checked && {
-        giftCardType: "virtual",
-        overriddenGiftCardAmount: false
-      })
-    }));
-    return;
-  }
-
-  // ================================
-  // 16. DOWNLOADABLE PRODUCT ✅ NEW
-  // ================================
-  if (name === "isDownload") {
-    setFormData(prev => ({
-      ...prev,
-      isDownload: checked,
-      ...(!checked && {
-        downloadId: "",
-        unlimitedDownloads: true,
-        maxNumberOfDownloads: "",
-        downloadExpirationDays: "",
-        downloadActivationType: "when-order-is-paid",
-        hasUserAgreement: false,
-        userAgreementText: "",
-        hasSampleDownload: false,
-        sampleDownloadId: ""
-      })
-    }));
-    return;
-  }
-
-  // ================================
-  // 17. RENTAL PRODUCT ✅ NEW
-  // ================================
-  if (name === "isRental") {
-    setFormData(prev => ({
-      ...prev,
-      isRental: checked,
-      ...(!checked && {
-        rentalPriceLength: "",
-        rentalPricePeriod: "days"
-      })
-    }));
-    return;
-  }
-
-  // ================================
-  // 18. HAS USER AGREEMENT ✅ NEW
-  // ================================
-  if (name === "hasUserAgreement") {
-    setFormData(prev => ({
-      ...prev,
-      hasUserAgreement: checked,
-      userAgreementText: checked ? prev.userAgreementText : ""
-    }));
-    return;
-  }
-
-  // ================================
-  // 19. HAS SAMPLE DOWNLOAD ✅ NEW
-  // ================================
-  if (name === "hasSampleDownload") {
-    setFormData(prev => ({
-      ...prev,
-      hasSampleDownload: checked,
-      sampleDownloadId: checked ? prev.sampleDownloadId : ""
-    }));
-    return;
-  }
-
-  // ================================
-  // 20. UNLIMITED DOWNLOADS ✅ NEW
-  // ================================
-  if (name === "unlimitedDownloads") {
-    setFormData(prev => ({
-      ...prev,
-      unlimitedDownloads: checked,
-      maxNumberOfDownloads: checked ? "" : prev.maxNumberOfDownloads
-    }));
-    return;
-  }
-
-  // ================================
-  // 21. GENERIC CHECKBOXES
-  // ================================
-  if (type === "checkbox") {
-    setFormData(prev => ({
-      ...prev,
-      [name]: checked
-    }));
-    return;
-  }
-
-  // ================================
-  // 22. DEFAULT: Text, Number, Select, Textarea
-  // ================================
-  setFormData(prev => ({
-    ...prev,
-    [name]: value
-  }));
-};
 
 
 // ✅ ADD: New handler function
@@ -2060,6 +1938,17 @@ const uploadImagesToProductDirect = async (productId: string, files: File[]): Pr
   return results.filter(result => result !== null);
 };
 
+// Add this before your main JSX return
+if (loading) {
+  return (
+    <div className="flex items-center justify-center min-h-screen bg-slate-950">
+      <div className="text-center">
+        <div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-violet-500 mx-auto mb-4"></div>
+        <p className="text-slate-400 text-lg">Loading product data...</p>
+      </div>
+    </div>
+  );
+}
 
   return (
     <div className="space-y-2">
@@ -2255,27 +2144,35 @@ const uploadImagesToProductDirect = async (productId: string, files: File[]): Pr
           />
         </div>
 
+{/* ✅ Multiple Brands Selector - EDIT PAGE */}
+{/* ✅ Multiple Brands Selector */}
 <div>
-  <label className="block text-sm font-medium text-slate-300 mb-2">
-    Brands 
-    <span className="text-xs text-emerald-400 ml-2">
-      ({dropdownsData.brands.length} loaded)
+  <label className="flex items-center justify-between text-sm font-medium text-slate-300 mb-2">
+    <span>Brands</span>
+    <span className="text-xs text-emerald-400 font-normal">
+      {dropdownsData.brands.length} available
     </span>
   </label>
-  
-  <MultiBrandSelector
-    selectedBrands={formData.brandIds || []}
-    availableBrands={dropdownsData.brands || []}
-    onChange={(brands) => {
-      console.log('🏷️ Brands changed:', brands);
+  <MultiBrandSelector 
+    selectedBrands={formData.brandIds}
+    availableBrands={dropdownsData.brands}
+    onChange={(brandIds: string[]) => {
+      console.log('🏷️ Brands updated:', brandIds);
       setFormData(prev => ({ 
         ...prev, 
-        brandIds: brands,
-        brand: brands[0] || ''
+        brandIds: brandIds,
+        brand: brandIds[0] || ''
       }));
     }}
+    placeholder="Select one or more brands..."
   />
+  <p className="text-xs text-slate-400 mt-2 flex items-center gap-1">
+    <span>★</span>
+    <span>First selected brand will be the primary brand</span>
+  </p>
 </div>
+
+
 {/* Categories - Searchable Dropdown (Product Filter Style) */}
 <div>
   <label className="flex items-center justify-between text-sm font-medium text-slate-300 mb-2">
@@ -2641,8 +2538,7 @@ const uploadImagesToProductDirect = async (productId: string, files: File[]): Pr
       className="w-full px-3 py-2.5 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all resize-none"
     />
   </div>
-
-  <AdminCommentInfo />
+<AdminCommentHistoryModal productId={productId} />
 </div>
 
 

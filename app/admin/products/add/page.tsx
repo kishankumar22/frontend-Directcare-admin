@@ -18,6 +18,7 @@ import { useToast } from "@/components/CustomToast";
 import  { API_BASE_URL,API_ENDPOINTS } from "@/lib/api-config";
 import { BrandApiResponse, CategoryApiResponse, CategoryData, DropdownsData, ProductAttribute, ProductImage, ProductItem, ProductsApiResponse, ProductVariant, SimpleProduct, VATRateApiResponse, VATRateData } from '@/lib/services';
 import { GroupedProductModal } from '../GroupedProductModal';
+import { MultiBrandSelector } from "../MultiBrandSelector";
 
 
 
@@ -123,7 +124,8 @@ useEffect(() => {
   fullDescription: '',
   sku: '',
   categories: '', // Will store category ID
-  brand: '', // Will store brand ID
+    brand: '', // For backward compatibility (primary brand)
+  brandIds: [] as string[], // ✅ NEW - Multiple brands array
   
   published: true,
   productType: 'simple',
@@ -382,18 +384,23 @@ const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
   target.setAttribute('data-submitting', 'true');
 
   try {
+    console.log('🚀 ==================== PRODUCT SUBMISSION START ====================');
+    console.log('📋 Form Mode:', isDraft ? 'DRAFT' : 'PUBLISH');
+
     // ✅ Basic Validation
     if (!formData.name || !formData.sku) {
       toast.warning('⚠️ Please fill in required fields: Product Name and SKU');
       target.removeAttribute('data-submitting');
       return;
     }
+
     const nameRegex = /^[A-Za-z0-9\s\-.,()'/]+$/;
     if (!nameRegex.test(formData.name)) {
-    toast.error("⚠️ Invalid product name. Special characters like @, #, $, % are not allowed.");
-    target.removeAttribute('data-submitting');
-    return;
-}
+      toast.error("⚠️ Invalid product name. Special characters like @, #, $, % are not allowed.");
+      target.removeAttribute('data-submitting');
+      return;
+    }
+
     // ✅ Grouped Product Validation
     if (formData.productType === 'grouped' && formData.requireOtherProducts) {
       if (!formData.requiredProductIds || formData.requiredProductIds.trim() === '') {
@@ -403,25 +410,58 @@ const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
       }
     }
 
-    console.log('🚀 Starting product submission...');
-
     const loadingId = toast.info(
       isDraft ? '💾 Saving as draft...' : '🔄 Creating product...', 
-      { autoClose: 0 }
+  
     );
 
     // ✅ GUID validation
     const guidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+    // ✅ Process Category
     let categoryId: string | null = null;
     if (formData.categories && formData.categories.trim() && guidRegex.test(formData.categories.trim())) {
       categoryId = formData.categories.trim();
     }
+    console.log('📁 Category ID:', categoryId || 'None');
 
-    let brandId: string | null = null;
-    if (formData.brand && formData.brand.trim() && guidRegex.test(formData.brand.trim())) {
-      brandId = formData.brand.trim();
+    // ✅ Process Multiple Brands - NEW IMPLEMENTATION
+    let brandIdsArray: string[] = [];
+
+    // Check if brandIds array exists (new multi-brand format)
+    if (formData.brandIds && Array.isArray(formData.brandIds) && formData.brandIds.length > 0) {
+      brandIdsArray = formData.brandIds.filter(id => {
+        if (!id || typeof id !== 'string') return false;
+        return guidRegex.test(id.trim());
+      });
+      console.log('✅ Using brandIds array (new format):', brandIdsArray);
+    } 
+    // Fallback to single brand (legacy format)
+    else if (formData.brand && formData.brand.trim()) {
+      const trimmedBrand = formData.brand.trim();
+      if (guidRegex.test(trimmedBrand)) {
+        brandIdsArray = [trimmedBrand];
+        console.log('✅ Using single brand (legacy):', brandIdsArray);
+      }
     }
+
+    // Validate: At least one brand required
+    if (brandIdsArray.length === 0) {
+      toast.error('❌ Please select at least one brand');
+      target.removeAttribute('data-submitting');
+      toast.dismiss(loadingId);
+      return;
+    }
+
+    // ✅ BUILD BRANDS ARRAY - Required by backend
+    const brandsArray = brandIdsArray.map((brandId, index) => ({
+      brandId: brandId,
+      isPrimary: index === 0,      // First brand is primary
+      displayOrder: index + 1      // 1-based ordering
+    }));
+
+    console.log('🏷️ Final brands array:', brandsArray);
+    console.log('🏷️ Primary brand:', brandIdsArray[0]);
 
     // ✅ Prepare attributes array
     const attributesArray = productAttributes
@@ -433,6 +473,8 @@ const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
         displayName: attr.name,
         sortOrder: attr.displayOrder || 1
       }));
+    
+    console.log('📝 Attributes count:', attributesArray.length);
 
     // ✅ Prepare variants array
     const variantsArray = productVariants.map(variant => ({
@@ -455,11 +497,13 @@ const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
       isActive: variant.isActive ?? true
     }));
 
-    // ✅ COMPLETE PRODUCT DATA
+    console.log('🎨 Variants count:', variantsArray.length);
+
+    // ✅ COMPLETE PRODUCT DATA WITH BRANDS
     const productData: any = {
       // Basic Info
       name: formData.name.trim(),
-      description: formData.fullDescription || formData.shortDescription || formData.name || 'Product description',
+      description: formData.fullDescription || formData.shortDescription || `${formData.name} - Product description`,
       shortDescription: formData.shortDescription?.trim() || '',
       sku: formData.sku.trim(),
       displayOrder: parseInt(formData.displayOrder.toString()) || 1,
@@ -470,7 +514,7 @@ const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
       visibleIndividually: formData.visibleIndividually ?? true,
       showOnHomepage: formData.showOnHomepage ?? false,
 
-      // ✅ Product Type & Grouped Product Configuration
+      // Product Type & Grouped Product Configuration
       productType: formData.productType || 'simple',
       requireOtherProducts: formData.productType === 'grouped' ? formData.requireOtherProducts : false,
       requiredProductIds: formData.productType === 'grouped' && formData.requireOtherProducts && formData.requiredProductIds?.trim()
@@ -483,13 +527,18 @@ const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
       // Pricing
       price: parseFloat(formData.price.toString()) || 0,
 
-      // ✅ INVENTORY - FIXED SECTION
+      // ✅ BRANDS - Complete format with all 3 fields
+      brandId: brandIdsArray[0],     // Primary brand (legacy support)
+      brandIds: brandIdsArray,       // Array of GUIDs (new format)
+      brands: brandsArray,           // ✅ Objects array (REQUIRED by backend)
+
+      // INVENTORY
       stockQuantity: parseInt(formData.stockQuantity.toString()) || 0,
       trackQuantity: formData.manageInventory === 'track',
       manageInventoryMethod: formData.manageInventory,
       minStockQuantity: parseInt(formData.minStockQuantity.toString()) || 0,
       
-      // ✅ NOTIFICATION - FIXED (Boolean + Threshold)
+      // NOTIFICATION
       notifyAdminForQuantityBelow: formData.notifyAdminForQuantityBelow ?? false,
       notifyQuantityBelow: formData.notifyAdminForQuantityBelow 
         ? parseInt(formData.notifyQuantityBelow.toString()) || 1 
@@ -499,7 +548,7 @@ const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
       displayStockAvailability: formData.displayStockAvailability,
       displayStockQuantity: formData.displayStockQuantity,
       
-      // ✅ BACKORDER - FIXED
+      // BACKORDER
       allowBackorder: formData.allowBackorder ?? false,
       backorderMode: formData.backorderMode || 'no-backorders',
       allowBackInStockSubscriptions: formData.allowBackInStockSubscriptions,
@@ -516,10 +565,13 @@ const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
 
       // Relationships
       categoryId: categoryId || null,
-      brandId: brandId || null,
+
+      // Attributes & Variants
+      attributes: attributesArray.length > 0 ? attributesArray : [],
+      variants: variantsArray.length > 0 ? variantsArray : [],
     };
 
-    // ✅ Optional fields
+    // ✅ Add optional fields
     if (formData.gtin?.trim()) productData.gtin = formData.gtin.trim();
     if (formData.manufacturerPartNumber?.trim()) productData.manufacturerPartNumber = formData.manufacturerPartNumber.trim();
     if (formData.adminComment?.trim()) productData.adminComment = formData.adminComment.trim();
@@ -529,51 +581,14 @@ const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
     if (formData.oldPrice) productData.compareAtPrice = parseFloat(formData.oldPrice.toString());
     if (formData.cost) productData.costPrice = parseFloat(formData.cost.toString());
 
-    // Customer Enters Price
-    if (formData.customerEntersPrice) {
-      productData.customerEntersPrice = true;
-      if (formData.minimumCustomerEnteredPrice) {
-        productData.minimumCustomerEnteredPrice = parseFloat(formData.minimumCustomerEnteredPrice.toString());
-      }
-      if (formData.maximumCustomerEnteredPrice) {
-        productData.maximumCustomerEnteredPrice = parseFloat(formData.maximumCustomerEnteredPrice.toString());
-      }
-    }
-
-    // Gender
-    if (formData.gender?.trim()) {
-      productData.gender = formData.gender.trim();
-    }
-
-    // Pack
-    if (formData.isPack) {
-      productData.isPack = true;
-      if (formData.packSize?.trim()) {
-        productData.packSize = formData.packSize.trim();
-      }
-    }
-
-    // VAT / Tax
-    if (formData.vatExempt) productData.vatExempt = true;
-    if (formData.vatRateId?.trim()) productData.vatRateId = formData.vatRateId.trim();
-    if (formData.telecommunicationsBroadcastingElectronicServices) {
-      productData.telecommunicationsBroadcastingElectronicServices = true;
-    }
-
-    // Dimensions & Weight
-    if (formData.weight) productData.weight = parseFloat(formData.weight.toString());
-    if (formData.length) productData.length = parseFloat(formData.length.toString());
-    if (formData.width) productData.width = parseFloat(formData.width.toString());
-    if (formData.height) productData.height = parseFloat(formData.height.toString());
-
     // Shipping
     if (formData.isShipEnabled) productData.requiresShipping = true;
     if (formData.isFreeShipping) productData.isFreeShipping = true;
     if (formData.shipSeparately) productData.shipSeparately = true;
-    if (formData.additionalShippingCharge) {
-      productData.additionalShippingCharge = parseFloat(formData.additionalShippingCharge.toString());
-    }
-    if (formData.deliveryDateId?.trim()) productData.deliveryDateId = formData.deliveryDateId.trim();
+    if (formData.weight) productData.weight = parseFloat(formData.weight.toString());
+    if (formData.length) productData.length = parseFloat(formData.length.toString());
+    if (formData.width) productData.width = parseFloat(formData.width.toString());
+    if (formData.height) productData.height = parseFloat(formData.height.toString());
 
     // SEO
     if (formData.metaTitle?.trim()) productData.metaTitle = formData.metaTitle.trim();
@@ -581,65 +596,6 @@ const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
     if (formData.metaKeywords?.trim()) productData.metaKeywords = formData.metaKeywords.trim();
     if (formData.searchEngineFriendlyPageName?.trim()) {
       productData.searchEngineFriendlyPageName = formData.searchEngineFriendlyPageName.trim();
-    }
-
-    // Attributes & Variants
-    if (attributesArray.length > 0) productData.attributes = attributesArray;
-    if (variantsArray.length > 0) productData.variants = variantsArray;
-
-    // Pricing Options
-    if (formData.disableBuyButton) productData.disableBuyButton = true;
-    productData.disableWishlistButton = Boolean(formData.disableWishlistButton);
-    if (formData.callForPrice) productData.callForPrice = true;
-
-    // Mark as New
-    if (formData.markAsNew) {
-      productData.markAsNew = true;
-      if (formData.markAsNewStartDate) {
-        productData.markAsNewStartDate = new Date(formData.markAsNewStartDate).toISOString();
-      }
-      if (formData.markAsNewEndDate) {
-        productData.markAsNewEndDate = new Date(formData.markAsNewEndDate).toISOString();
-      }
-    }
-
-    // Recurring Product
-    if (formData.isRecurring) {
-      productData.isRecurring = true;
-      productData.recurringCycleLength = parseInt(formData.recurringCycleLength) || 1;
-      productData.recurringCyclePeriod = formData.recurringCyclePeriod || 'days';
-      if (formData.recurringTotalCycles) {
-        productData.recurringTotalCycles = parseInt(formData.recurringTotalCycles);
-      }
-      
-      // Subscription Fields
-      if (formData.subscriptionDiscountPercentage) {
-        productData.subscriptionDiscountPercentage = parseFloat(formData.subscriptionDiscountPercentage);
-      }
-      if (formData.allowedSubscriptionFrequencies?.trim()) {
-        productData.allowedSubscriptionFrequencies = formData.allowedSubscriptionFrequencies.trim();
-      }
-      if (formData.subscriptionDescription?.trim()) {
-        productData.subscriptionDescription = formData.subscriptionDescription.trim();
-      }
-    } else {
-      productData.isRecurring = false;
-    }
-
-    // Pre-order
-    if (formData.availableForPreOrder) {
-      productData.availableForPreOrder = true;
-      if (formData.preOrderAvailabilityStartDate) {
-        productData.preOrderAvailabilityStartDate = new Date(formData.preOrderAvailabilityStartDate).toISOString();
-      }
-    }
-
-    // Availability Dates
-    if (formData.availableStartDate) {
-      productData.availableStartDate = new Date(formData.availableStartDate).toISOString();
-    }
-    if (formData.availableEndDate) {
-      productData.availableEndDate = new Date(formData.availableEndDate).toISOString();
     }
 
     // Related Products
@@ -650,20 +606,20 @@ const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
       productData.crossSellProductIds = formData.crossSellProducts.join(',');
     }
 
-    // Videos
-    if (formData.videoUrls && formData.videoUrls.length > 0) {
-      productData.videoUrls = formData.videoUrls.join(',');
-    }
-
     // Tags
     if (formData.productTags?.trim()) productData.tags = formData.productTags.trim();
 
     // Reviews
     if (formData.allowCustomerReviews) productData.allowCustomerReviews = true;
 
-    console.log('📦 Product data to send:', productData);
+    console.log('📦 ==================== FINAL PAYLOAD ====================');
+    console.log(JSON.stringify(productData, null, 2));
+    console.log('🏷️ brandId (primary):', productData.brandId);
+    console.log('🏷️ brandIds (array):', productData.brandIds);
+    console.log('🏷️ brands (objects):', productData.brands);
+    console.log('📦 ==================== END PAYLOAD ====================');
 
-    // ✅ Create Product
+    // ✅ Create Product with endpoint fallback
     let response: any = undefined;
     const endpoints = ['/api/Products', '/Products', '/api/Product'];
     
@@ -671,7 +627,8 @@ const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
       try {
         console.log(`🔄 Trying POST ${endpoint}...`);
         response = await apiClient.post(endpoint, productData);
-        console.log(`✅ Success with ${endpoint}`, response);
+        console.log(`✅ Success with ${endpoint}`);
+        console.log('📥 Response:', response.data);
         break;
       } catch (error: any) {
         console.log(`❌ Failed with ${endpoint}:`, error.response?.status, error.response?.data);
@@ -740,6 +697,8 @@ const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
       }
     }
 
+    console.log('✅ ==================== PRODUCT SUBMISSION SUCCESS ====================');
+
     // ✅ Success message
     toast.success(
       isDraft 
@@ -754,7 +713,8 @@ const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
     }, 1000);
 
   } catch (error: any) {
-    console.error('❌ Error submitting form:', error);
+    console.error('❌ ==================== ERROR SUBMITTING FORM ====================');
+    console.error('Error object:', error);
     
     if (error.response) {
       const errorData = error.response.data;
@@ -767,33 +727,46 @@ const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
       });
       
       if (status === 400 && errorData?.errors) {
-        let errorMessage = '⚠️ Please fix the following errors:\n';
+        let errorMessage = '⚠️ Validation Errors:\n';
         for (const [field, messages] of Object.entries(errorData.errors)) {
           const fieldName = field.replace('$', '').replace('.', ' ').trim();
-          errorMessage += `\n• ${fieldName}: ${Array.isArray(messages) ? messages.join(', ') : messages}`;
+          const msg = Array.isArray(messages) ? messages.join(', ') : messages;
+          errorMessage += `\n• ${fieldName}: ${msg}`;
+          console.error(`❌ ${fieldName}:`, msg);
         }
-        toast.warning(errorMessage, { autoClose: 8000 });
+        toast.warning(errorMessage, { autoClose: 10000 });
       } else if (status === 400) {
-        toast.error(errorData?.message || errorData?.title || 'Bad request. Please check your data.');
+        const msg = errorData?.message || errorData?.title || 'Bad request. Please check your data.';
+        console.error('❌ 400 Error:', msg);
+        toast.error(msg);
       } else if (status === 401) {
+        console.error('❌ 401: Unauthorized');
         toast.error('🔒 Session expired. Please login again.');
         setTimeout(() => {
           router.push('/login');
         }, 2000);
       } else if (status === 404) {
+        console.error('❌ 404: Endpoint not found');
         toast.error('❌ API endpoint not found. Please check the server configuration.');
       } else {
+        console.error(`❌ ${status}:`, errorData?.message || error.response.statusText);
         toast.error(`Error ${status}: ${errorData?.message || error.response.statusText}`);
       }
     } else if (error.request) {
+      console.error('❌ Network error - No response from server');
+      console.error('Request:', error.request);
       toast.error('🌐 Network error: No response from server.');
     } else {
+      console.error('❌ Error:', error.message);
       toast.error(`❌ Error: ${error.message}`);
     }
+
+    console.error('❌ ==================== END ERROR LOG ====================');
   } finally {
     target.removeAttribute('data-submitting');
   }
 };
+
 
 
 // Global timer for delayed slug generation
@@ -810,7 +783,7 @@ const generateSeoName = (text: string) => {
     .replace(/^-+|-+$/g, "");
 };
 
-// ⭐ FINAL handleChange for ADD PAGE
+// ⭐ FINAL handleChange for ADD PAGE (WITH BRANDS SUPPORT)
 const handleChange = (
   e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
 ) => {
@@ -875,19 +848,16 @@ const handleChange = (
     setFormData((prev) => ({
       ...prev,
       productType: value,
-      // Reset grouped product fields when switching to simple
       ...(value === 'simple' && {
         requireOtherProducts: false,
         requiredProductIds: '',
         automaticallyAddProducts: false
       }),
-      // Auto-enable requireOtherProducts when grouped
       ...(value === 'grouped' && {
         requireOtherProducts: true
       })
     }));
     
-    // Clear selected products when switching to simple
     if (value === 'simple') {
       setSelectedGroupedProducts([]);
     }
@@ -899,14 +869,12 @@ const handleChange = (
     setFormData((prev) => ({
       ...prev,
       requireOtherProducts: checked,
-      // Clear related fields when disabling
       ...(!checked && {
         requiredProductIds: '',
         automaticallyAddProducts: false
       })
     }));
 
-    // Clear selections when disabling
     if (!checked) {
       setSelectedGroupedProducts([]);
     }
@@ -918,7 +886,6 @@ const handleChange = (
     setFormData((prev) => ({
       ...prev,
       isShipEnabled: checked,
-      // Reset shipping fields when disabled
       isFreeShipping: checked ? prev.isFreeShipping : false,
       additionalShippingCharge: checked ? prev.additionalShippingCharge : '',
       shipSeparately: checked ? prev.shipSeparately : false,
@@ -1010,7 +977,7 @@ const handleChange = (
     setFormData((prev) => ({
       ...prev,
       notifyAdminForQuantityBelow: checked,
-      notifyQuantityBelow: checked ? prev.notifyQuantityBelow : '1', // Reset to default
+      notifyQuantityBelow: checked ? prev.notifyQuantityBelow : '1',
     }));
     return;
   }
@@ -1124,6 +1091,7 @@ const handleChange = (
     }));
   }
 };
+
 
   const addRelatedProduct = (productId: string) => {
     if (!formData.relatedProducts.includes(productId)) {
@@ -1704,27 +1672,35 @@ const uploadVariantImages = async (productResponse: any) => {
           />
         </div>
 
-        <div>
-          <label className="flex items-center justify-between text-sm font-medium text-slate-300 mb-2">
-            <span>Brand</span>
-            <span className="text-xs text-emerald-400 font-normal">
-              {dropdownsData.brands.length} loaded
-            </span>
-          </label>
-          <select
-            name="brand"
-            value={formData.brand}
-            onChange={handleChange}
-            className="w-full px-3 py-2.5 bg-slate-800/50 border border-slate-700 rounded-xl text-white focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
-          >
-            <option value="">Select brand</option>
-            {dropdownsData.brands.map((brand) => (
-              <option key={brand.id} value={brand.id}>
-                {brand.name}
-              </option>
-            ))}
-          </select>
-        </div>
+   {/* ✅ Multiple Brands Selector - ADD PAGE */}
+<div>
+  <label className="flex items-center justify-between text-sm font-medium text-slate-300 mb-2">
+    <span>Brands</span>
+    <span className="text-xs text-emerald-400 font-normal">
+      ({dropdownsData.brands.length} available)
+    </span>
+  </label>
+  
+  <MultiBrandSelector
+    selectedBrands={formData.brandIds}
+    availableBrands={dropdownsData.brands}
+    onChange={(brandIds) => {
+      setFormData(prev => ({
+        ...prev,
+        brandIds: brandIds,
+        brand: brandIds[0] || '', // Set first as primary
+      }));
+    }}
+    placeholder="Select one or more brands..."
+  />
+
+  {/* Info Text */}
+  <p className="text-xs text-slate-400 mt-2 flex items-center gap-1">
+    <span>💡</span>
+    <span>First selected brand will be the primary brand</span>
+  </p>
+</div>
+
 
         <div>
           <label className="flex items-center justify-between text-sm font-medium text-slate-300 mb-2">
