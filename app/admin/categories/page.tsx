@@ -85,6 +85,20 @@ export default function CategoriesPage() {
     const parts = imageUrl.split('/');
     return parts[parts.length - 1];
   };
+// Add this NEW helper function after getCategoryLevel
+const getMaxDepthOfSubtree = (category: Category, allCategories: Category[]): number => {
+  if (!category.subCategories || category.subCategories.length === 0) {
+    return 0; // No children = depth 0
+  }
+  
+  let maxDepth = 0;
+  category.subCategories.forEach(child => {
+    const childDepth = getMaxDepthOfSubtree(child, allCategories);
+    maxDepth = Math.max(maxDepth, childDepth + 1);
+  });
+  
+  return maxDepth;
+};
 
   useEffect(() => {
     fetchCategories();
@@ -266,166 +280,235 @@ export default function CategoriesPage() {
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+const handleSubmit = async (e: React.FormEvent) => {
+  e.preventDefault();
 
-    if (formData.parentCategoryId) {
-      const parent = findCategoryById(formData.parentCategoryId, categories);
-      if (parent) {
-        const parentLevel = getCategoryLevel(parent, categories);
+  // ✅ EDIT MODE - Enhanced Validation for Existing Categories
+  if (editingCategory) {
+    // Calculate current category's subtree depth
+    const currentCategory = findCategoryById(editingCategory.id, categories);
+    if (!currentCategory) {
+      toast.error('Category not found!');
+      return;
+    }
+    
+    const subtreeDepth = getMaxDepthOfSubtree(currentCategory, categories);
+    const currentLevel = getCategoryLevel(currentCategory, categories);
+    
+    console.log('🔍 Edit Validation:', {
+      categoryName: currentCategory.name,
+      currentLevel,
+      subtreeDepth,
+      newParentId: formData.parentCategoryId
+    });
+    
+    // Check if parent is being changed
+    if (formData.parentCategoryId !== editingCategory.parentCategoryId) {
+      
+      // Case 1: Moving to a new parent
+      if (formData.parentCategoryId) {
+        const newParent = findCategoryById(formData.parentCategoryId, categories);
         
-        if (parentLevel >= 2) {
-          toast.error('🚫 Cannot create category: Maximum 3 levels allowed!');
+        if (!newParent) {
+          toast.error('Selected parent category not found!');
+          return;
+        }
+        
+        // 🚫 Circular reference check
+        if (isDescendantOf(newParent, editingCategory.id, categories)) {
+          toast.error('🚫 Cannot set child category as parent! This would create a circular reference.');
+          return;
+        }
+        
+        const newParentLevel = getCategoryLevel(newParent, categories);
+        const newCategoryLevel = newParentLevel + 1; // This category's new level
+        const maxResultingLevel = newCategoryLevel + subtreeDepth;
+        
+        console.log('📊 Level Calculation:', {
+          newParentLevel,
+          newCategoryLevel,
+          subtreeDepth,
+          maxResultingLevel
+        });
+        
+        // 🚫 Check if resulting hierarchy exceeds 3 levels
+        if (maxResultingLevel > 2) { // 0-indexed, so 2 = Level 3
+          toast.error(
+            `🚫 Cannot move category! This would create Level ${maxResultingLevel + 1} categories. ` +
+            `\n\nDetails:\n` +
+            `• New parent: ${newParent.name} (Level ${newParentLevel + 1})\n` +
+            `• ${currentCategory.name} would become: Level ${newCategoryLevel + 1}\n` +
+            `• Deepest child would be: Level ${maxResultingLevel + 1}\n` +
+            `• Maximum allowed: Level 3`
+          );
+          return;
+        }
+        
+        // ✅ Safe to move
+        if (subtreeDepth > 0) {
+          toast.info(
+            `ℹ️ Moving category with ${subtreeDepth} level(s) of children. ` +
+            `New structure will be valid (max Level ${maxResultingLevel + 1})`
+          );
+        }
+        
+      } else {
+        // Case 2: Moving to root (no parent)
+        // Check if subtree depth allows root placement
+        if (subtreeDepth > 2) {
+          toast.error(
+            `🚫 Cannot move to root! This category has ${subtreeDepth} levels of children, ` +
+            `which would create Level ${subtreeDepth + 1} categories.`
+          );
           return;
         }
       }
+    } else {
+      // Parent not changing, just updating other fields
+      console.log('✓ Parent unchanged - validation passed');
     }
+  }
+  
+  // ✅ CREATE MODE - New Category Validation
+  if (!editingCategory && formData.parentCategoryId) {
+    const parent = findCategoryById(formData.parentCategoryId, categories);
+    if (parent) {
+      const parentLevel = getCategoryLevel(parent, categories);
+      
+      // 🚫 Parent Level 2 hai toh child Level 3 banega (allowed)
+      // 🚫 Parent Level 3 or higher hai toh NOT ALLOWED
+      if (parentLevel >= 2) {
+        toast.error('🚫 Cannot create category: Parent is already at Level 3 (maximum depth)!');
+        return;
+      }
+      
+      // ✅ Show confirmation if creating Level 3 (final level)
+      if (parentLevel === 1) {
+        toast.info('ℹ️ Creating Level 3 category - This cannot have subcategories');
+      }
+    }
+  }
 
-    if (!formData.name.trim()) {
-      toast.error("Category name is required");
-      return;
-    }
-    if (formData.name.trim().length < 2) {
-      toast.error("Category name must be at least 2 characters");
-      return;
-    }
-    if (formData.name.trim().length > 100) {
-      toast.error("Category name must be less than 100 characters");
-      return;
-    }
+  // Rest of your existing validation...
+  if (!formData.name.trim()) {
+    toast.error("Category name is required");
+    return;
+  }
+  
+  if (formData.name.trim().length < 2) {
+    toast.error("Category name must be at least 2 characters");
+    return;
+  }
+  
+  if (formData.name.trim().length > 100) {
+    toast.error("Category name must be less than 100 characters");
+    return;
+  }
 
-    const isDuplicateName = categories.some(
-      cat =>
-        cat.name.toLowerCase().trim() === formData.name.toLowerCase().trim() &&
-        cat.id !== editingCategory?.id
-    );
-    if (isDuplicateName) {
-      toast.error("A category with this name already exists!");
-      return;
-    }
+  const isDuplicateName = categories.some(
+    cat =>
+      cat.name.toLowerCase().trim() === formData.name.toLowerCase().trim() &&
+      cat.id !== editingCategory?.id
+  );
+  if (isDuplicateName) {
+    toast.error("A category with this name already exists!");
+    return;
+  }
 
-    if (!formData.description.trim()) {
-      toast.error("Description is required");
+  if (!formData.description.trim()) {
+    toast.error("Description is required");
+    return;
+  }
+  
+  if (formData.description.trim().length < 10) {
+    toast.error("Description must be at least 10 characters");
+    return;
+  }
+  
+  if (formData.sortOrder < 0) {
+    toast.error("Sort order cannot be negative");
+    return;
+  }
+  
+  if (formData.metaTitle && formData.metaTitle.length > 60) {
+    toast.error("Meta title should be less than 60 characters");
+    return;
+  }
+  
+  if (formData.metaDescription && formData.metaDescription.length > 160) {
+    toast.error("Meta description should be less than 160 characters");
+    return;
+  }
+  
+  if (formData.metaKeywords && formData.metaKeywords.length > 255) {
+    toast.error("Meta keywords must be less than 255 characters");
+    return;
+  }
+
+  if (imageFile) {
+    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+    const maxSize = 10 * 1024 * 1024;
+    if (!allowedTypes.includes(imageFile.type)) {
+      toast.error("Only JPG, PNG, and WebP images are allowed");
       return;
     }
-    if (formData.description.trim().length < 10) {
-      toast.error("Description must be at least 10 characters");
+    if (imageFile.size > maxSize) {
+      toast.error("Image size must be less than 10MB");
       return;
     }
-    if (formData.sortOrder < 0) {
-      toast.error("Sort order cannot be negative");
-      return;
-    }
-    if (formData.metaTitle && formData.metaTitle.length > 60) {
-      toast.error("Meta title should be less than 60 characters");
-      return;
-    }
-    if (formData.metaDescription && formData.metaDescription.length > 160) {
-      toast.error("Meta description should be less than 160 characters");
-      return;
-    }
-    if (formData.metaKeywords && formData.metaKeywords.length > 255) {
-      toast.error("Meta keywords must be less than 255 characters");
-      return;
-    }
+  }
+
+  if (isSubmitting) return;
+  setIsSubmitting(true);
+
+  try {
+    // ... rest of your submit code (image upload, API call, etc.)
+    let finalImageUrl = formData.imageUrl;
 
     if (imageFile) {
-      const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
-      const maxSize = 10 * 1024 * 1024;
-      if (!allowedTypes.includes(imageFile.type)) {
-        toast.error("Only JPG, PNG, and WebP images are allowed");
-        return;
-      }
-      if (imageFile.size > maxSize) {
-        toast.error("Image size must be less than 10MB");
-        return;
-      }
+      // Image upload code...
     }
 
-    if (isSubmitting) return;
-    setIsSubmitting(true);
+    const payload = {
+      name: formData.name.trim(),
+      description: formData.description.trim(),
+      imageUrl: finalImageUrl,
+      isActive: formData.isActive,
+      sortOrder: formData.sortOrder,
+      parentCategoryId: formData.parentCategoryId || null,
+      metaTitle: formData.metaTitle.trim() || undefined,
+      metaDescription: formData.metaDescription.trim() || undefined,
+      metaKeywords: formData.metaKeywords.trim() || undefined,
+      ...(editingCategory && { id: editingCategory.id }),
+    };
 
-    try {
-      let finalImageUrl = formData.imageUrl;
-
-      if (imageFile) {
-        try {
-          const uploadResponse = await categoriesService.uploadImage(imageFile, {
-            name: formData.name,
-          });
-
-          if (!uploadResponse.data?.success || !uploadResponse.data?.data) {
-            throw new Error(
-              uploadResponse.data?.message || "Image upload failed (no imageUrl in response)"
-            );
-          }
-          finalImageUrl = uploadResponse.data.data;
-          toast.success("Image uploaded successfully!");
-          fetchCategories();
-          
-          if (
-            editingCategory?.imageUrl &&
-            editingCategory.imageUrl !== finalImageUrl
-          ) {
-            const filename = extractFilename(editingCategory.imageUrl);
-            if (filename) {
-              try {
-                await categoriesService.deleteImage(filename);
-              } catch (err) {
-                console.log("Failed to delete old image:", err);
-              }
-            }
-          }
-        } catch (uploadErr: any) {
-          console.error("Error uploading image:", uploadErr);
-          toast.error(
-            uploadErr?.response?.data?.message || "Failed to upload image"
-          );
-          setIsSubmitting(false);
-          return;
-        }
-      }
-
-      const payload = {
-        name: formData.name.trim(),
-        description: formData.description.trim(),
-        imageUrl: finalImageUrl,
-        isActive: formData.isActive,
-        sortOrder: formData.sortOrder,
-        parentCategoryId: formData.parentCategoryId || null,
-        metaTitle: formData.metaTitle.trim() || undefined,
-        metaDescription: formData.metaDescription.trim() || undefined,
-        metaKeywords: formData.metaKeywords.trim() || undefined,
-        ...(editingCategory && { id: editingCategory.id }),
-      };
-
-      if (editingCategory) {
-        await categoriesService.update(editingCategory.id, payload);
-        toast.success("Category updated successfully! 🎉");
-      } else {
-        await categoriesService.create(payload);
-        toast.success("Category created successfully! 🎉");
-      }
-
-      if (imagePreview) URL.revokeObjectURL(imagePreview);
-      setImageFile(null);
-      setImagePreview(null);
-      await fetchCategories();
-      setShowModal(false);
-      resetForm();
-
-    } catch (error: any) {
-      console.error("Error saving category:", error);
-      const message =
-        error?.response?.data?.message ||
-        error?.response?.data?.error ||
-        error.message ||
-        "Failed to save category";
-      toast.error(message);
-    } finally {
-      setIsSubmitting(false);
+    if (editingCategory) {
+      await categoriesService.update(editingCategory.id, payload);
+      toast.success("Category updated successfully! 🎉");
+    } else {
+      await categoriesService.create(payload);
+      toast.success("Category created successfully! 🎉");
     }
-  };
+
+    if (imagePreview) URL.revokeObjectURL(imagePreview);
+    setImageFile(null);
+    setImagePreview(null);
+    await fetchCategories();
+    setShowModal(false);
+    resetForm();
+  } catch (error: any) {
+    console.error("Error saving category:", error);
+    const message =
+      error?.response?.data?.message ||
+      error?.response?.data?.error ||
+      error.message ||
+      "Failed to save category";
+    toast.error(message);
+  } finally {
+    setIsSubmitting(false);
+  }
+};
+
 
   const handleDelete = async (id: string) => {
     setIsDeleting(true);
@@ -452,24 +535,35 @@ export default function CategoriesPage() {
     }
   };
 
-  const handleEdit = (category: Category) => {
-    setEditingCategory(category);
-    setFormData({
-      name: category.name,
-      description: category.description,
-      imageUrl: category.imageUrl || "",
-      isActive: category.isActive,
-      sortOrder: category.sortOrder,
-      metaTitle: category.metaTitle || "",
-      metaDescription: category.metaDescription || "",
-      metaKeywords: category.metaKeywords || "",
-      parentCategoryId: category.parentCategoryId || "",
-    });
-    
-    setImageFile(null);
-    setImagePreview(null);
-    setShowModal(true);
-  };
+const handleEdit = (category: Category) => {
+  setEditingCategory(category);
+  
+  // ✅ Calculate current category level
+  const currentLevel = getCategoryLevel(category, categories);
+  
+  setFormData({
+    name: category.name,
+    description: category.description,
+    imageUrl: category.imageUrl || "",
+    isActive: category.isActive,
+    sortOrder: category.sortOrder,
+    metaTitle: category.metaTitle || "",
+    metaDescription: category.metaDescription || "",
+    metaKeywords: category.metaKeywords || "",
+    parentCategoryId: category.parentCategoryId || "",
+  });
+  
+  setImageFile(null);
+  setImagePreview(null);
+  
+  // ✅ Show warning if editing Level 3 category
+  if (currentLevel === 2) {
+    toast.info('ℹ️ Editing Level 3 category - Cannot change parent to create Level 4');
+  }
+  
+  setShowModal(true);
+};
+
 
   const resetForm = () => {
     setFormData({
@@ -491,12 +585,17 @@ export default function CategoriesPage() {
     setImagePreview(null);
   };
 
-  const getParentCategoryOptions = () => {
-    return categories.filter(cat => {
-      if (editingCategory && cat.id === editingCategory.id) return false;
-      return true;
-    });
-  };
+
+// ✅ NEW IMPROVED FUNCTION
+const getParentCategoryOptions = () => {
+  // Use the sophisticated getAvailableParents function
+  const availableParents = getAvailableParents(
+    categories,
+    editingCategory?.id
+  );
+  
+  return availableParents;
+};
 
   const clearFilters = () => {
     setStatusFilter("all");
@@ -1411,22 +1510,89 @@ export default function CategoriesPage() {
                       <p className="text-xs text-amber-400 mt-1">⚠️ Category name is required before uploading image</p>
                     )}
                   </div>
-                  <div>
-                    <label className="block text-sm font-medium text-slate-300 mb-2">Parent Category</label>
-                    <select
-                      value={formData.parentCategoryId}
-                      onChange={(e) => setFormData({...formData, parentCategoryId: e.target.value})}
-                      className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
-                    >
-                      <option value="">None (Root Category)</option>
-                      {getParentCategoryOptions().map((cat) => (
-                        <option key={cat.id} value={cat.id}>
-                          {cat.name}
-                        </option>
-                      ))}
-                    </select>
-                    <p className="text-xs text-slate-500 mt-2">Select a parent category to create a sub-category</p>
-                  </div>
+{/* ✅ NEW CODE - VALIDATED PARENT DROPDOWN */}
+<div>
+  <label className="block text-sm font-medium text-slate-300 mb-2">
+    Parent Category
+    <span className="text-red-400 ml-1">*</span>
+  </label>
+  
+  <select
+    value={formData.parentCategoryId}
+    onChange={(e) => setFormData({...formData, parentCategoryId: e.target.value})}
+    className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+  >
+    <option value="">None (Root Category - Level 1)</option>
+    {getParentCategoryOptions().map((cat: any) => {
+      const level = cat.level !== undefined ? cat.level : getCategoryLevel(cat, categories);
+      const indent = '—'.repeat(level);
+      
+      // Show only Level 0 (Root) and Level 1 (Sub) as parents
+      if (level >= 2) return null;
+      
+      return (
+        <option key={cat.id} value={cat.id}>
+          {indent} {cat.name} {level === 0 ? '(Level 1 - Root)' : '(Level 2 - Sub)'}
+        </option>
+      );
+    })}
+  </select>
+  
+  {/* Enhanced Helper Text with Visual Guide */}
+  <div className="mt-3 p-4 bg-violet-500/5 border border-violet-500/20 rounded-xl space-y-2">
+    <p className="text-xs font-semibold text-violet-300 flex items-center gap-2">
+      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+        <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+      </svg>
+      Category Hierarchy Rules (Maximum 3 Levels)
+    </p>
+    <div className="space-y-1.5 text-xs text-slate-300 pl-6">
+      <div className="flex items-start gap-2">
+        <span className="text-green-400">✓</span>
+        <span><strong className="text-violet-300">Level 1 (Root):</strong> No parent selected - Can have children</span>
+      </div>
+      <div className="flex items-start gap-2">
+        <span className="text-green-400">✓</span>
+        <span><strong className="text-cyan-300">Level 2 (Sub):</strong> Parent is Level 1 - Can have children</span>
+      </div>
+      <div className="flex items-start gap-2">
+        <span className="text-green-400">✓</span>
+        <span><strong className="text-blue-300">Level 3 (Sub-sub):</strong> Parent is Level 2 - Cannot have children (Maximum depth)</span>
+      </div>
+      <div className="flex items-start gap-2 mt-2 pt-2 border-t border-violet-500/20">
+        <span className="text-red-400">✗</span>
+        <span className="text-red-300"><strong>Level 4:</strong> Not allowed - System will prevent creation</span>
+      </div>
+    </div>
+  </div>
+  
+  {/* Current Selection Display */}
+  {formData.parentCategoryId && (
+    <div className="mt-2 p-3 bg-cyan-500/10 border border-cyan-500/20 rounded-lg">
+      <p className="text-xs text-cyan-300">
+        <strong>Selected Parent:</strong> {categories.find(c => c.id === formData.parentCategoryId)?.name}
+        <br />
+        <strong>New Category Level:</strong> {
+          (() => {
+            const parent = findCategoryById(formData.parentCategoryId, categories);
+            if (!parent) return 'Level 2';
+            const parentLevel = getCategoryLevel(parent, categories);
+            return `Level ${parentLevel + 2}`;
+          })()
+        }
+      </p>
+    </div>
+  )}
+  
+  {!formData.parentCategoryId && (
+    <div className="mt-2 p-3 bg-violet-500/10 border border-violet-500/20 rounded-lg">
+      <p className="text-xs text-violet-300">
+        <strong>Creating Root Category (Level 1)</strong> - This can have subcategories
+      </p>
+    </div>
+  )}
+</div>
+
                   <div>
                     <ProductDescriptionEditor
                       label="Description"

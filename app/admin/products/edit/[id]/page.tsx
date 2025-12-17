@@ -54,6 +54,8 @@ const [isDeletingImage, setIsDeletingImage] = useState(false);
 const [uploadingImages, setUploadingImages] = useState(false);
 const [vatSearch, setVatSearch] = useState('');
 const [loading, setLoading] = useState(true);
+
+
   // Dynamic dropdown data from API
   const [showVatDropdown, setShowVatDropdown] = useState(false);
   const [dropdownsData, setDropdownsData] = useState<DropdownsData>({
@@ -105,6 +107,7 @@ useEffect(() => {
       setCategorySearchTerm("");
     }
   };
+// Close dropdown when clicking outside
 
   if (showCategoryDropdown) {
     document.addEventListener('mousedown', handleClickOutside);
@@ -272,62 +275,25 @@ const [formData, setFormData] = useState({
   searchEngineFriendlyPageName: '',
 });
 
-
-
-// Clean renderCategoryOptions - no symbols, just clean hierarchy
-const renderCategoryOptions = (categories: CategoryData[]): JSX.Element[] => {
-  const options: JSX.Element[] = [];
-  
-  categories.forEach((category) => {
-    // Add parent category (clean, no symbols)
-    options.push(
-      <option 
-        key={category.id} 
-        value={category.id}
-        data-category-name={category.name} // Store clean name
-        data-display-name={category.name}
-        className="font-semibold bg-slate-700 text-violet-300"
-        style={{ 
-          fontWeight: 'bold',
-          backgroundColor: '#374151',
-          color: '#c4b5fd',
-          paddingLeft: '8px'
-        }}
-      >
-        {category.name}
-      </option>
-    );
-    
-    // Add subcategories with >> format (clean display)
-    if (category.subCategories && category.subCategories.length > 0) {
-      category.subCategories.forEach((subCategory) => {
-        const hierarchicalName = `${category.name} >> ${subCategory.name}`;
-        options.push(
-          <option 
-            key={subCategory.id} 
-            value={subCategory.id}
-            data-category-name={hierarchicalName} // Store clean hierarchical name
-            data-parent-name={category.name}
-            data-sub-name={subCategory.name}
-            data-display-name={hierarchicalName}
-            className="bg-slate-600 text-slate-300"
-            style={{ 
-              backgroundColor: '#4b5563',
-              color: '#d1d5db',
-              paddingLeft: '24px',
-              fontStyle: 'italic'
-            }}
-          >
-            {hierarchicalName}
-          </option>
-        );
+useEffect(() => {
+  const loadProductData = async () => {
+    try {
+      const response = await fetch(`/api/products/${productId}`);
+      const data = await response.json();
+      
+      // Set form data including category name for display
+      setFormData({
+        ...data,
+        categories: data.categoryId || 'all',
+        categoryName: data.categoryName || data.category?.name || ''
       });
+    } catch (error) {
+      console.error('Error loading product:', error);
     }
-  });
+  };
   
-  return options;
-};
-
+  loadProductData();
+}, [productId]);
 
 useEffect(() => {
   const fetchAllData = async () => {
@@ -2174,6 +2140,7 @@ if (loading) {
 
 
 {/* Categories - Searchable Dropdown (Product Filter Style) */}
+{/* Categories - Searchable Dropdown (Same as Add Page) */}
 <div>
   <label className="flex items-center justify-between text-sm font-medium text-slate-300 mb-2">
     <span>Categories</span>
@@ -2211,7 +2178,9 @@ if (loading) {
       {/* Right Icon - Clear or Chevron */}
       {formData.categories && formData.categories !== 'all' ? (
         <button
-          onClick={() => {
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
             setFormData(prev => ({
               ...prev,
               categories: 'all',
@@ -2237,6 +2206,7 @@ if (loading) {
       <div className="absolute top-full left-0 right-0 mt-2 bg-slate-800 border border-slate-600 rounded-xl shadow-xl max-h-64 overflow-y-auto z-50">
         {/* All Categories Option */}
         <button
+          type="button"
           onClick={() => {
             setFormData(prev => ({
               ...prev,
@@ -2254,49 +2224,89 @@ if (loading) {
             <svg className="h-4 w-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
             </svg>
-            <span className="text-sm">All Categories</span>
+            <span className="text-sm font-medium">All Categories</span>
           </div>
         </button>
 
-        {/* Category List */}
+        {/* Category List with Hierarchy */}
         {(() => {
-          const renderCategories = (categories: any[], level = 0) => {
+          const renderCategories = (categories: any[], level = 0, parentNames: string[] = []) => {
             return categories
-              .filter(cat => 
-                cat.name.toLowerCase().includes(categorySearchTerm.toLowerCase())
-              )
-              .map(category => (
-                <React.Fragment key={category.id}>
-                  <button
-                    onClick={() => {
-                      setFormData(prev => ({
-                        ...prev,
-                        categories: category.id,
-                        categoryName: category.name
-                      }));
-                      setShowCategoryDropdown(false);
-                      setCategorySearchTerm("");
-                    }}
-                    className={`w-full px-4 py-2.5 text-left hover:bg-slate-700 transition-all border-t border-slate-700 ${
-                      formData.categories === category.id ? "bg-violet-500/10 text-violet-400" : "text-white"
-                    }`}
-                    style={{ paddingLeft: `${16 + level * 20}px` }}
-                  >
-                    <div className="flex items-center gap-2">
-                      <svg className="h-4 w-4 flex-shrink-0 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
-                      </svg>
-                      <span className="text-sm truncate">
-                        {level > 0 && '└─ '}
-                        {category.name}
-                      </span>
-                    </div>
-                  </button>
-                  {category.children && category.children.length > 0 && 
-                    renderCategories(category.children, level + 1)
-                  }
-                </React.Fragment>
-              ));
+              .filter(cat => {
+                // Search in category name and full path
+                const fullPath = level === 0 
+                  ? cat.name 
+                  : level === 1 
+                    ? `${parentNames[0]} > ${cat.name}`
+                    : `${parentNames[0]} > ${parentNames[1]} >> ${cat.name}`;
+                
+                return fullPath.toLowerCase().includes(categorySearchTerm.toLowerCase()) ||
+                       cat.name.toLowerCase().includes(categorySearchTerm.toLowerCase());
+              })
+              .map(category => {
+                // Build display name with hierarchy
+                let displayName = category.name;
+                let icon = '📁';
+                let textColor = 'text-violet-300';
+                
+                if (level === 1) {
+                  displayName = `${parentNames[0]} > ${category.name}`;
+                  icon = '📂';
+                  textColor = 'text-cyan-300';
+                } else if (level === 2) {
+                  displayName = `${parentNames[0]} > ${parentNames[1]} >> ${category.name}`;
+                  icon = '📄';
+                  textColor = 'text-green-300';
+                }
+                
+                return (
+                  <React.Fragment key={category.id}>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setFormData(prev => ({
+                          ...prev,
+                          categories: category.id,
+                          categoryName: displayName
+                        }));
+                        setShowCategoryDropdown(false);
+                        setCategorySearchTerm("");
+                      }}
+                      className={`w-full px-4 py-2.5 text-left hover:bg-slate-700 transition-all border-t border-slate-700/50 ${
+                        formData.categories === category.id 
+                          ? "bg-violet-500/20 border-l-4 border-l-violet-500" 
+                          : ""
+                      }`}
+                      style={{ paddingLeft: `${16 + level * 20}px` }}
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2 flex-1 min-w-0">
+                          <span className="flex-shrink-0">{icon}</span>
+                          <span className={`text-sm truncate ${
+                            formData.categories === category.id 
+                              ? 'text-white font-medium' 
+                              : textColor
+                          } ${level > 0 ? 'italic' : 'font-semibold'}`}>
+                            {displayName}
+                          </span>
+                        </div>
+                        
+                        {/* Checkmark for selected */}
+                        {formData.categories === category.id && (
+                          <svg className="h-4 w-4 text-violet-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                          </svg>
+                        )}
+                      </div>
+                    </button>
+                    
+                    {/* Render subcategories recursively */}
+                    {category.subCategories && category.subCategories.length > 0 && 
+                      renderCategories(category.subCategories, level + 1, [...parentNames, category.name])
+                    }
+                  </React.Fragment>
+                );
+              });
           };
 
           const filteredCategories = renderCategories(dropdownsData.categories);
@@ -2304,15 +2314,36 @@ if (loading) {
           return filteredCategories.length > 0 ? (
             filteredCategories
           ) : (
-            <div className="px-4 py-3 text-center text-slate-500 text-sm">
-              No categories found for "{categorySearchTerm}"
+            <div className="px-4 py-8 text-center">
+              <svg className="w-12 h-12 mx-auto mb-2 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+              <p className="text-slate-500 text-sm">No categories found</p>
+              <p className="text-slate-600 text-xs mt-1">
+                {categorySearchTerm ? `for "${categorySearchTerm}"` : 'Try a different search'}
+              </p>
             </div>
           );
         })()}
       </div>
     )}
   </div>
+  
+  {/* Selected Category Info - Optional */}
+  {formData.categories && formData.categories !== 'all' && (
+    <div className="mt-2 p-2.5 bg-violet-500/10 border border-violet-500/20 rounded-lg">
+      <p className="text-xs text-violet-300 flex items-center gap-2">
+        <svg className="w-4 h-4 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+        </svg>
+        <span className="truncate">
+          <strong>Selected:</strong> {formData.categoryName}
+        </span>
+      </p>
+    </div>
+  )}
 </div>
+
 
       </div>
 
