@@ -275,25 +275,6 @@ const [formData, setFormData] = useState({
   searchEngineFriendlyPageName: '',
 });
 
-useEffect(() => {
-  const loadProductData = async () => {
-    try {
-      const response = await fetch(`/api/products/${productId}`);
-      const data = await response.json();
-      
-      // Set form data including category name for display
-      setFormData({
-        ...data,
-        categories: data.categoryId || 'all',
-        categoryName: data.categoryName || data.category?.name || ''
-      });
-    } catch (error) {
-      console.error('Error loading product:', error);
-    }
-  };
-  
-  loadProductData();
-}, [productId]);
 
 useEffect(() => {
   const fetchAllData = async () => {
@@ -306,27 +287,42 @@ useEffect(() => {
     try {
       console.log('🔄 ==================== FETCHING PRODUCT DATA ====================');
       console.log('🆔 Product ID:', productId);
+      console.log('🌐 API Base URL:', API_BASE_URL);
+      console.log('📍 Products Endpoint:', API_ENDPOINTS.products);
+      console.log('🔗 Full URL:', `${API_BASE_URL}${API_ENDPOINTS.products}/${productId}`);
+      
       setLoading(true);
 
-      // ✅ Fetch all required data in parallel
-      const [productResponse, brandsResponse, categoriesResponse, vatRatesResponse, allProductsResponse] = await Promise.all([
-        apiClient.get<any>(`${API_ENDPOINTS.products}/${productId}`),
+      // ✅ Fetch product data directly (no health check)
+      console.log('🔍 Fetching product data...');
+      const productResponse = await apiClient.get<any>(`${API_ENDPOINTS.products}/${productId}`);
+      console.log('✅ Product response received:', productResponse.status);
+
+      // ✅ Fetch other data (can fail silently)
+      const [brandsResponse, categoriesResponse, vatRatesResponse, allProductsResponse] = await Promise.allSettled([
         apiClient.get<BrandApiResponse>(`${API_ENDPOINTS.brands}?includeUnpublished=false`),
         apiClient.get<CategoryApiResponse>(`${API_ENDPOINTS.categories}?includeInactive=true&includeSubCategories=true`),
         apiClient.get<VATRateApiResponse>(API_ENDPOINTS.vatrates),
-        apiClient.get<ProductsApiResponse>(`${API_ENDPOINTS.products}`)
+        apiClient.get<ProductsApiResponse>(API_ENDPOINTS.products)
       ]);
 
-      // ✅ Extract dropdown data
-      const brandsData = (brandsResponse.data as BrandApiResponse)?.data || [];
-      const categoriesData = (categoriesResponse.data as CategoryApiResponse)?.data || [];
-      const vatRatesData = (vatRatesResponse.data as VATRateApiResponse)?.data || [];
+      // ✅ Extract data safely
+      const brandsData = brandsResponse.status === 'fulfilled' 
+        ? ((brandsResponse.value.data as BrandApiResponse)?.data || [])
+        : [];
+      
+      const categoriesData = categoriesResponse.status === 'fulfilled'
+        ? ((categoriesResponse.value.data as CategoryApiResponse)?.data || [])
+        : [];
+      
+      const vatRatesData = vatRatesResponse.status === 'fulfilled'
+        ? ((vatRatesResponse.value.data as VATRateApiResponse)?.data || [])
+        : [];
 
-      // Set dropdown data
       setDropdownsData({
-        brands: brandsData,
-        categories: categoriesData,
-        vatRates: vatRatesData
+        brands: Array.isArray(brandsData) ? brandsData : [],
+        categories: Array.isArray(categoriesData) ? categoriesData : [],
+        vatRates: Array.isArray(vatRatesData) ? vatRatesData : []
       });
 
       console.log('✅ Dropdowns loaded:', {
@@ -335,15 +331,15 @@ useEffect(() => {
         vatRates: vatRatesData.length
       });
 
-      // ✅ Process Available Products for Related/Cross-sell
-      if (allProductsResponse.data && !allProductsResponse.error) {
-        const apiResponse = allProductsResponse.data as ProductsApiResponse;
-        if (apiResponse.success && apiResponse.data.items) {
+      // ✅ Process available products
+      if (allProductsResponse.status === 'fulfilled' && allProductsResponse.value.data) {
+        const apiResponse = allProductsResponse.value.data as ProductsApiResponse;
+        if (apiResponse.success && apiResponse.data?.items) {
           const transformedProducts = apiResponse.data.items.map(product => ({
             id: product.id,
             name: product.name,
             sku: product.sku,
-            price: `₹${product.price.toFixed(2)}`
+            price: product.price.toFixed(2)
           }));
           setAvailableProducts(transformedProducts);
           console.log('✅ Available products loaded:', transformedProducts.length);
@@ -352,81 +348,66 @@ useEffect(() => {
 
       // ✅ Extract product data
       const productData = productResponse.data?.data || productResponse.data;
-      console.log('📥 Product data loaded:', productData);
-
-      // ✅ BRANDS - Handle both legacy and new format
-      let brandIdsArray: string[] = [];
       
-      // New format: brands array exists
+      if (!productData) {
+        throw new Error('Product data is empty');
+      }
+      
+      console.log('📥 Product loaded:', productData.name || productData.id);
+
+      // ... rest of your data parsing (keep as is)
+      // BRANDS, dates, arrays parsing
+      let brandIdsArray: string[] = [];
       if (productData.brands && Array.isArray(productData.brands) && productData.brands.length > 0) {
         brandIdsArray = productData.brands
-          .sort((a: any, b: any) => a.displayOrder - b.displayOrder)
-          .map((b: any) => b.brandId);
-        console.log('✅ Loaded brands from brands array:', brandIdsArray);
-        console.log('🏷️ Brands details:', productData.brands);
-      }
-      // Legacy format: single brandId
-      else if (productData.brandId) {
+          .sort((a: any, b: any) => (a.displayOrder || 0) - (b.displayOrder || 0))
+          .map((b: any) => b.brandId)
+          .filter(Boolean);
+      } else if (productData.brandId) {
         brandIdsArray = [productData.brandId];
-        console.log('✅ Loaded single brand (legacy):', brandIdsArray);
       }
 
-      // ✅ Parse Related Products
+      // Parse arrays
       let relatedProductsArray: string[] = [];
       if (productData.relatedProductIds) {
         if (typeof productData.relatedProductIds === 'string') {
-          relatedProductsArray = productData.relatedProductIds
-            .split(',')
-            .map((id: string) => id.trim())
-            .filter((id: string) => id.length > 0);
+          relatedProductsArray = productData.relatedProductIds.split(',').map((id: string) => id.trim()).filter(Boolean);
         } else if (Array.isArray(productData.relatedProductIds)) {
           relatedProductsArray = productData.relatedProductIds;
         }
       }
-      console.log('🔗 Related products:', relatedProductsArray);
 
-      // ✅ Parse Cross-Sell Products
       let crossSellProductsArray: string[] = [];
       if (productData.crossSellProductIds) {
         if (typeof productData.crossSellProductIds === 'string') {
-          crossSellProductsArray = productData.crossSellProductIds
-            .split(',')
-            .map((id: string) => id.trim())
-            .filter((id: string) => id.length > 0);
+          crossSellProductsArray = productData.crossSellProductIds.split(',').map((id: string) => id.trim()).filter(Boolean);
         } else if (Array.isArray(productData.crossSellProductIds)) {
           crossSellProductsArray = productData.crossSellProductIds;
         }
       }
-      console.log('🛒 Cross-sell products:', crossSellProductsArray);
 
-      // ✅ Parse Video URLs
       let videoUrlsArray: string[] = [];
       if (productData.videoUrls) {
         if (typeof productData.videoUrls === 'string') {
-          videoUrlsArray = productData.videoUrls
-            .split(',')
-            .map((url: string) => url.trim())
-            .filter((url: string) => url.length > 0);
+          videoUrlsArray = productData.videoUrls.split(',').map((url: string) => url.trim()).filter(Boolean);
         } else if (Array.isArray(productData.videoUrls)) {
           videoUrlsArray = productData.videoUrls;
         }
       }
-      console.log('🎥 Video URLs:', videoUrlsArray);
 
-      // ✅ Parse Dates
       const parseDate = (dateString: string | null | undefined): string => {
         if (!dateString) return '';
         try {
           const date = new Date(dateString);
-          return date.toISOString().split('T')[0]; // YYYY-MM-DD format
+          if (isNaN(date.getTime())) return '';
+          return date.toISOString().split('T')[0];
         } catch {
           return '';
         }
       };
 
-      // ✅ SET FORM DATA - COMPLETE WITH ALL FIELDS
+      // SET FORM DATA (keep your complete existing formData code)
       setFormData({
-        // BASIC INFO
         name: productData.name || '',
         sku: productData.sku || '',
         shortDescription: productData.shortDescription || '',
@@ -435,16 +416,10 @@ useEffect(() => {
         manufacturerPartNumber: productData.manufacturerPartNumber || '',
         adminComment: productData.adminComment || '',
         gender: productData.gender || '',
-        
-        // CATEGORY
         categories: productData.categoryId || '',
         categoryName: productData.categoryName || '',
-        
-        // ✅ BRANDS
         brand: brandIdsArray[0] || '',
         brandIds: brandIdsArray,
-        
-        // STATUS
         published: productData.isPublished ?? true,
         productType: productData.productType || 'simple',
         visibleIndividually: productData.visibleIndividually ?? true,
@@ -453,13 +428,9 @@ useEffect(() => {
         customerRoles: productData.customerRoles || 'all',
         limitedToStores: productData.limitedToStores ?? false,
         vendorId: '',
-        
-        // GROUPED PRODUCT
         requireOtherProducts: productData.requireOtherProducts ?? false,
         requiredProductIds: productData.requiredProductIds || '',
         automaticallyAddProducts: productData.automaticallyAddProducts ?? false,
-        
-        // PRICING
         price: productData.price?.toString() || '',
         oldPrice: productData.oldPrice?.toString() || productData.compareAtPrice?.toString() || '',
         cost: productData.costPrice?.toString() || '',
@@ -469,32 +440,22 @@ useEffect(() => {
         customerEntersPrice: productData.customerEntersPrice ?? false,
         minimumCustomerEnteredPrice: productData.minimumCustomerEnteredPrice?.toString() || '',
         maximumCustomerEnteredPrice: productData.maximumCustomerEnteredPrice?.toString() || '',
-        
-        // BASE PRICE
         basepriceEnabled: productData.basepriceEnabled ?? false,
         basepriceAmount: productData.basepriceAmount?.toString() || '',
         basepriceUnit: productData.basepriceUnit || '',
         basepriceBaseAmount: productData.basepriceBaseAmount?.toString() || '',
         basepriceBaseUnit: productData.basepriceBaseUnit || '',
-        
-        // MARK AS NEW
         markAsNew: productData.markAsNew ?? false,
         markAsNewStartDate: parseDate(productData.markAsNewStartDate),
         markAsNewEndDate: parseDate(productData.markAsNewEndDate),
-        
-        // AVAILABILITY
         availableForPreOrder: productData.availableForPreOrder ?? false,
         preOrderAvailabilityStartDate: parseDate(productData.preOrderAvailabilityStartDate),
         availableStartDate: parseDate(productData.availableStartDate),
         availableEndDate: parseDate(productData.availableEndDate),
         hasDiscountsApplied: false,
-        
-        // TAX
         vatExempt: productData.vatExempt ?? false,
         vatRateId: productData.vatRateId || '',
         telecommunicationsBroadcastingElectronicServices: productData.telecommunicationsBroadcastingElectronicServices ?? false,
-        
-        // INVENTORY
         stockQuantity: productData.stockQuantity?.toString() || '0',
         manageInventory: productData.manageInventoryMethod || 'track',
         displayStockAvailability: productData.displayStockAvailability ?? true,
@@ -513,8 +474,6 @@ useEffect(() => {
         allowedQuantities: productData.allowedQuantities || '',
         allowAddingOnlyExistingAttributeCombinations: false,
         notReturnable: productData.notReturnable ?? false,
-        
-        // SHIPPING
         isShipEnabled: productData.requiresShipping ?? true,
         isFreeShipping: productData.isFreeShipping ?? false,
         shipSeparately: productData.shipSeparately ?? false,
@@ -524,12 +483,8 @@ useEffect(() => {
         length: productData.length?.toString() || '',
         width: productData.width?.toString() || '',
         height: productData.height?.toString() || '',
-        
-        // PACK
         isPack: productData.isPack ?? false,
         packSize: productData.packSize?.toString() || '',
-        
-        // RECURRING/SUBSCRIPTION
         isRecurring: productData.isRecurring ?? false,
         recurringCycleLength: productData.recurringCycleLength?.toString() || '',
         recurringCyclePeriod: productData.recurringCyclePeriod || 'days',
@@ -537,18 +492,12 @@ useEffect(() => {
         subscriptionDiscountPercentage: productData.subscriptionDiscountPercentage?.toString() || '',
         allowedSubscriptionFrequencies: productData.allowedSubscriptionFrequencies || '',
         subscriptionDescription: productData.subscriptionDescription || '',
-        
-        // RENTAL
         isRental: productData.isRental ?? false,
         rentalPriceLength: productData.rentalPriceLength?.toString() || '',
         rentalPricePeriod: productData.rentalPricePeriod || 'days',
-        
-        // GIFT CARD - ✅ FIXED
         isGiftCard: productData.isGiftCard ?? false,
         giftCardType: productData.giftCardType || 'virtual',
-        overriddenGiftCardAmount: productData.overriddenGiftCardAmount?.toString() || '', // ✅ Uncommented
-        
-        // DOWNLOADABLE
+        overriddenGiftCardAmount: productData.overriddenGiftCardAmount?.toString() || '',
         isDownload: productData.isDownload ?? false,
         downloadId: productData.downloadId || '',
         unlimitedDownloads: productData.unlimitedDownloads ?? true,
@@ -559,35 +508,25 @@ useEffect(() => {
         userAgreementText: productData.userAgreementText || '',
         hasSampleDownload: productData.hasSampleDownload ?? false,
         sampleDownloadId: productData.sampleDownloadId || '',
-        
-        // SEO
         metaTitle: productData.metaTitle || '',
         metaDescription: productData.metaDescription || '',
         metaKeywords: productData.metaKeywords || '',
         searchEngineFriendlyPageName: productData.searchEngineFriendlyPageName || productData.slug || '',
-        
-        // REVIEWS
         allowCustomerReviews: productData.allowCustomerReviews ?? true,
-        
-        // TAGS
         productTags: productData.tags || '',
-        
-        // RELATED PRODUCTS
         relatedProducts: relatedProductsArray,
         crossSellProducts: crossSellProductsArray,
-        
-        // MEDIA
-        productImages: [], // Will be set below
+        productImages: [],
         videoUrls: videoUrlsArray,
-        specifications: [] // For future use
+        specifications: []
       });
 
       console.log('✅ Form data populated');
 
-      // ✅ Load Product Attributes
+      // Load attributes
       if (productData.attributes && Array.isArray(productData.attributes)) {
         const attrs = productData.attributes.map((attr: any) => ({
-          id: attr.id || Date.now().toString(),
+          id: attr.id || `attr-${Date.now()}-${Math.random()}`,
           name: attr.name || '',
           value: attr.value || '',
           displayOrder: attr.displayOrder || attr.sortOrder || 0
@@ -596,10 +535,10 @@ useEffect(() => {
         console.log('✅ Attributes loaded:', attrs.length);
       }
 
-      // ✅ Load Product Variants
+      // Load variants
       if (productData.variants && Array.isArray(productData.variants)) {
         const vars = productData.variants.map((variant: any) => ({
-          id: variant.id || Date.now().toString(),
+          id: variant.id || `var-${Date.now()}-${Math.random()}`,
           name: variant.name || '',
           sku: variant.sku || '',
           price: variant.price || 0,
@@ -614,7 +553,7 @@ useEffect(() => {
           option3Name: variant.option3Name || null,
           option3Value: variant.option3Value || null,
           imageUrl: variant.imageUrl || null,
-          imageFile: null, // ✅ Added for edit page compatibility
+          imageFile: null,
           isDefault: variant.isDefault ?? false,
           displayOrder: variant.displayOrder || 0,
           isActive: variant.isActive ?? true,
@@ -624,7 +563,7 @@ useEffect(() => {
         console.log('✅ Variants loaded:', vars.length);
       }
 
-      // ✅ Load Product Images
+      // Load images
       if (productData.images && Array.isArray(productData.images)) {
         const imgs = productData.images
           .sort((a: any, b: any) => (a.sortOrder || 0) - (b.sortOrder || 0))
@@ -637,11 +576,7 @@ useEffect(() => {
             fileName: img.fileName || '',
             fileSize: img.fileSize || 0
           }));
-        
-        setFormData(prev => ({
-          ...prev,
-          productImages: imgs
-        }));
+        setFormData(prev => ({ ...prev, productImages: imgs }));
         console.log('✅ Images loaded:', imgs.length);
       }
 
@@ -650,14 +585,25 @@ useEffect(() => {
 
     } catch (error: any) {
       console.error('❌ ==================== ERROR FETCHING PRODUCT ====================');
-      console.error('Error:', error);
-      console.error('Response:', error.response?.data);
+      console.error('❌ Error:', error);
+      console.error('❌ Message:', error.message);
       
-      const errorMessage = error.response?.data?.message 
-        || error.message 
-        || 'Failed to load product data';
+      if (error.response) {
+        console.error('❌ Status:', error.response.status);
+        console.error('❌ Data:', error.response.data);
+      }
       
-      toast.error(`❌ ${errorMessage}`);
+      let errorMessage = 'Failed to load product';
+      
+      if (error.response?.status === 404) {
+        errorMessage = '⚠️ Product Not Found (404)';
+      } else if (error.response?.status === 500) {
+        errorMessage = '⚠️ Server Error (500)';
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
+      toast.error(errorMessage, { autoClose: 8000 });
       setLoading(false);
       
       setTimeout(() => {
@@ -667,7 +613,9 @@ useEffect(() => {
   };
 
   fetchAllData();
-}, [productId, router]);
+}, [productId, router, toast]);
+
+
 
 
 const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
