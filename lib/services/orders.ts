@@ -2,28 +2,25 @@
 
 import { apiClient } from '../api';
 import { API_ENDPOINTS } from '../api-config';
-import React from 'react';
 
 // ==================== ENUMS & TYPES ====================
 
 /**
- * ✅ Order Status Enum (matches backend exactly)
- * Backend enum starts from 0
+ * ✅ Order Status (Backend returns strings now)
  */
-export enum OrderStatus {
-  Pending = 0,
-  Confirmed = 1,
-  Processing = 2,
-  Shipped = 3,
-  PartiallyShipped = 4,
-  Delivered = 5,
-  Cancelled = 6,
-  Returned = 7,
-  Refunded = 8
-}
+export type OrderStatus = 
+  | 'Pending'
+  | 'Confirmed'
+  | 'Processing'
+  | 'Shipped'
+  | 'Delivered'
+  | 'Cancelled'
+  | 'Refunded'
+  | 'PartiallyShipped'
+  | 'Returned';
 
 /**
- * ✅ Collection Status (backend returns strings)
+ * ✅ Collection Status
  */
 export type CollectionStatus = 'Pending' | 'Ready' | 'Collected' | 'Expired';
 
@@ -33,16 +30,16 @@ export type CollectionStatus = 'Pending' | 'Ready' | 'Collected' | 'Expired';
 export type DeliveryMethod = 'HomeDelivery' | 'ClickAndCollect';
 
 /**
- * ✅ Payment Status Enum (starts from 1)
+ * ✅ Payment Status (Backend returns strings)
  */
-export enum PaymentStatus {
-  Pending = 1,
-  Processing = 2,
-  Completed = 3,
-  Failed = 4,
-  Refunded = 5,
-  PartiallyRefunded = 6,
-}
+export type PaymentStatus = 
+  | 'Pending'
+  | 'Processing'
+  | 'Completed'
+  | 'Captured'
+  | 'Failed'
+  | 'Refunded'
+  | 'PartiallyRefunded';
 
 // ==================== INTERFACES ====================
 
@@ -77,7 +74,7 @@ export interface Payment {
   paymentMethod: string;
   amount: number;
   currency: string;
-  status: PaymentStatus; // ✅ Use enum
+  status: PaymentStatus;
   transactionId?: string;
   gatewayTransactionId?: string;
   processedAt?: string;
@@ -108,7 +105,7 @@ export interface Shipment {
 export interface Order {
   id: string;
   orderNumber: string;
-  status: OrderStatus; // ✅ Use enum (0-8)
+  status: OrderStatus;
   orderDate: string;
   estimatedDispatchDate?: string;
   dispatchedAt?: string;
@@ -129,9 +126,9 @@ export interface Order {
   shippingAddress: Address;
   userId?: string;
   customerName: string;
-  deliveryMethod: DeliveryMethod; // ✅ Use type
+  deliveryMethod: DeliveryMethod;
   clickAndCollectFee?: number;
-  collectionStatus?: CollectionStatus; // ✅ Use type (string)
+  collectionStatus?: CollectionStatus;
   readyForCollectionAt?: string;
   collectedAt?: string;
   collectedBy?: string;
@@ -154,7 +151,6 @@ export interface OrdersListResponse {
   hasNext: boolean;
 }
 
-// ✅ API Response wrapper
 interface ApiResponse<T> {
   success: boolean;
   message: string;
@@ -173,7 +169,7 @@ export interface MarkCollectedRequest {
 
 export interface UpdateStatusRequest {
   orderId: string;
-  newStatus: number;
+  newStatus: OrderStatus;
   adminNotes?: string;
 }
 
@@ -183,7 +179,7 @@ export interface CreateShipmentRequest {
   carrier: string;
   shippingMethod: string;
   notes?: string;
-  shipmentItems?: { // ✅ Made optional (null = full shipment)
+  shipmentItems?: {
     orderItemId: string;
     quantity: number;
   }[] | null;
@@ -191,10 +187,10 @@ export interface CreateShipmentRequest {
 
 export interface MarkDeliveredRequest {
   orderId: string;
-  shipmentId?: string; // ✅ Optional
-  deliveredAt?: string; // ✅ Optional (defaults to now)
+  shipmentId?: string;
+  deliveredAt?: string;
   deliveryNotes?: string;
-  receivedBy?: string; // ✅ Optional
+  receivedBy?: string;
 }
 
 export interface CancelOrderRequest {
@@ -208,13 +204,10 @@ export interface CancelOrderRequest {
 // ==================== SERVICE CLASS ====================
 
 class OrderService {
-  /**
-   * Get all orders with filters
-   */
   async getAllOrders(params?: {
     page?: number;
     pageSize?: number;
-    status?: number;
+    status?: string;
     fromDate?: string;
     toDate?: string;
     searchTerm?: string;
@@ -230,9 +223,6 @@ class OrderService {
     }
   }
 
-  /**
-   * Get order by ID
-   */
   async getOrderById(orderId: string) {
     try {
       const response = await apiClient.get<ApiResponse<Order>>(
@@ -244,9 +234,6 @@ class OrderService {
     }
   }
 
-  /**
-   * Track order by order number
-   */
   async trackOrder(orderNumber: string, email?: string) {
     try {
       const response = await apiClient.get<ApiResponse<Order>>(
@@ -259,9 +246,6 @@ class OrderService {
     }
   }
 
-  /**
-   * Get click and collect orders
-   */
   async getClickAndCollectOrders(params?: {
     pageNumber?: number;
     pageSize?: number;
@@ -280,9 +264,6 @@ class OrderService {
     }
   }
 
-  /**
-   * Mark order as ready for collection
-   */
   async markReady(orderId: string) {
     try {
       const response = await apiClient.post<ApiResponse<Order>>(
@@ -294,9 +275,6 @@ class OrderService {
     }
   }
 
-  /**
-   * Mark order as collected
-   */
   async markCollected(data: MarkCollectedRequest) {
     try {
       const response = await apiClient.post<ApiResponse<Order>>(
@@ -309,9 +287,6 @@ class OrderService {
     }
   }
 
-  /**
-   * Update order status
-   */
   async updateStatus(data: UpdateStatusRequest) {
     try {
       const response = await apiClient.put<ApiResponse<Order>>(
@@ -324,9 +299,6 @@ class OrderService {
     }
   }
 
-  /**
-   * Create shipment
-   */
   async createShipment(data: CreateShipmentRequest) {
     try {
       const response = await apiClient.post<ApiResponse<Shipment>>(
@@ -339,9 +311,6 @@ class OrderService {
     }
   }
 
-  /**
-   * Mark order as delivered
-   */
   async markDelivered(data: MarkDeliveredRequest) {
     try {
       const response = await apiClient.post<ApiResponse<Order>>(
@@ -354,9 +323,6 @@ class OrderService {
     }
   }
 
-  /**
-   * Cancel order
-   */
   async cancelOrder(data: CancelOrderRequest) {
     try {
       const response = await apiClient.post<ApiResponse<Order>>(
@@ -375,25 +341,25 @@ export const orderService = new OrderService();
 // ==================== HELPER FUNCTIONS ====================
 
 /**
- * ✅ Get Order Status Info (FIXED - 0 to 8)
+ * ✅ Get Order Status Info (String-based)
  */
-export const getOrderStatusInfo = (status: number) => {
-  const statusMap: Record<number, { label: string; color: string; bgColor: string }> = {
-    0: { label: 'Pending', color: 'text-yellow-400', bgColor: 'bg-yellow-500/10' },
-    1: { label: 'Confirmed', color: 'text-blue-400', bgColor: 'bg-blue-500/10' },
-    2: { label: 'Processing', color: 'text-indigo-400', bgColor: 'bg-indigo-500/10' },
-    3: { label: 'Shipped', color: 'text-purple-400', bgColor: 'bg-purple-500/10' },
-    4: { label: 'Partially Shipped', color: 'text-purple-300', bgColor: 'bg-purple-400/10' },
-    5: { label: 'Delivered', color: 'text-green-400', bgColor: 'bg-green-500/10' },
-    6: { label: 'Cancelled', color: 'text-red-400', bgColor: 'bg-red-500/10' },
-    7: { label: 'Returned', color: 'text-orange-400', bgColor: 'bg-orange-500/10' },
-    8: { label: 'Refunded', color: 'text-pink-400', bgColor: 'bg-pink-500/10' },
+export const getOrderStatusInfo = (status: OrderStatus) => {
+  const statusMap: Record<OrderStatus, { label: string; color: string; bgColor: string }> = {
+    'Pending': { label: 'Pending', color: 'text-yellow-400', bgColor: 'bg-yellow-500/10' },
+    'Confirmed': { label: 'Confirmed', color: 'text-blue-400', bgColor: 'bg-blue-500/10' },
+    'Processing': { label: 'Processing', color: 'text-indigo-400', bgColor: 'bg-indigo-500/10' },
+    'Shipped': { label: 'Shipped', color: 'text-purple-400', bgColor: 'bg-purple-500/10' },
+    'PartiallyShipped': { label: 'Partially Shipped', color: 'text-purple-300', bgColor: 'bg-purple-400/10' },
+    'Delivered': { label: 'Delivered', color: 'text-green-400', bgColor: 'bg-green-500/10' },
+    'Cancelled': { label: 'Cancelled', color: 'text-red-400', bgColor: 'bg-red-500/10' },
+    'Returned': { label: 'Returned', color: 'text-orange-400', bgColor: 'bg-orange-500/10' },
+    'Refunded': { label: 'Refunded', color: 'text-pink-400', bgColor: 'bg-pink-500/10' },
   };
   return statusMap[status] || { label: 'Unknown', color: 'text-gray-400', bgColor: 'bg-gray-500/10' };
 };
 
 /**
- * ✅ Get Collection Status Info (for Click & Collect)
+ * ✅ Get Collection Status Info
  */
 export const getCollectionStatusInfo = (status: CollectionStatus) => {
   const statusMap: Record<CollectionStatus, { label: string; color: string; bgColor: string }> = {
@@ -406,49 +372,19 @@ export const getCollectionStatusInfo = (status: CollectionStatus) => {
 };
 
 /**
- * ✅ Get Payment Status Info with Icons
+ * ✅ Get Payment Status Info
  */
 export const getPaymentStatusInfo = (status: PaymentStatus) => {
   const statusMap: Record<PaymentStatus, { label: string; color: string; bgColor: string }> = {
-    [PaymentStatus.Pending]: { 
-      label: 'Pending', 
-      color: 'text-yellow-400', 
-      bgColor: 'bg-yellow-500/10' 
-    },
-    [PaymentStatus.Processing]: { 
-      label: 'Processing', 
-      color: 'text-blue-400', 
-      bgColor: 'bg-blue-500/10' 
-    },
-    [PaymentStatus.Completed]: { 
-      label: 'Paid', 
-      color: 'text-green-400', 
-      bgColor: 'bg-green-500/10' 
-    },
-    [PaymentStatus.Failed]: { 
-      label: 'Failed', 
-      color: 'text-red-400', 
-      bgColor: 'bg-red-500/10' 
-    },
-    [PaymentStatus.Refunded]: { 
-      label: 'Refunded', 
-      color: 'text-purple-400', 
-      bgColor: 'bg-purple-500/10' 
-    },
-    [PaymentStatus.PartiallyRefunded]: { 
-      label: 'Partially Refunded', 
-      color: 'text-purple-400', 
-      bgColor: 'bg-purple-500/10' 
-    },
+    'Pending': { label: 'Pending', color: 'text-yellow-400', bgColor: 'bg-yellow-500/10' },
+    'Processing': { label: 'Processing', color: 'text-blue-400', bgColor: 'bg-blue-500/10' },
+    'Completed': { label: 'Paid', color: 'text-green-400', bgColor: 'bg-green-500/10' },
+    'Captured': { label: 'Captured', color: 'text-green-400', bgColor: 'bg-green-500/10' },
+    'Failed': { label: 'Failed', color: 'text-red-400', bgColor: 'bg-red-500/10' },
+    'Refunded': { label: 'Refunded', color: 'text-purple-400', bgColor: 'bg-purple-500/10' },
+    'PartiallyRefunded': { label: 'Partially Refunded', color: 'text-purple-400', bgColor: 'bg-purple-500/10' },
   };
-  return statusMap[status] || statusMap[PaymentStatus.Pending];
-};
-
-/**
- * Get payment status label (legacy support)
- */
-export const getPaymentStatusLabel = (status: number): string => {
-  return getPaymentStatusInfo(status as PaymentStatus).label;
+  return statusMap[status] || statusMap['Pending'];
 };
 
 /**

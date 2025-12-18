@@ -39,14 +39,16 @@ import {
 import {
   orderService,
   Order,
+  OrderStatus,
+  PaymentStatus,
   getOrderStatusInfo,
+  getPaymentStatusInfo,
   formatCurrency,
   formatDate,
 } from '../../../lib/services/orders';
 import { useToast } from '@/components/CustomToast';
 import React from 'react';
 import OrderActionsModal from './OrderActionsModal';
-
 
 interface Address {
   firstName: string;
@@ -61,91 +63,49 @@ interface Address {
   phoneNumber?: string;
 }
 
-// ✅ Payment Status Helper
-// ✅ Payment Status Enum
-enum PaymentStatus {
-  Pending = 1,
-  Processing = 2,
-  Completed = 3,
-  Failed = 4,
-  Refunded = 5,
-  PartiallyRefunded = 6,
-}
-
-// ✅ Payment Status Helper - FIXED: Changed parameter from string to number
-const getPaymentStatusInfo = (status: number) => {
-  const statusMap: Record<
-    number,
-    { label: string; color: string; bgColor: string; icon: React.ReactNode }
-  > = {
-    [PaymentStatus.Pending]: {
-      label: 'Pending',
-      color: 'text-yellow-400',
-      bgColor: 'bg-yellow-500/10',
-      icon: <Clock className="w-3 h-3" />,
-    },
-    [PaymentStatus.Processing]: {
-      label: 'Processing',
-      color: 'text-blue-400',
-      bgColor: 'bg-blue-500/10',
-      icon: <RefreshCw className="w-3 h-3 animate-spin" />,
-    },
-    [PaymentStatus.Completed]: {
-      label: 'Paid',
-      color: 'text-green-400',
-      bgColor: 'bg-green-500/10',
-      icon: <CheckCircle2 className="w-3 h-3" />,
-    },
-    [PaymentStatus.Failed]: {
-      label: 'Failed',
-      color: 'text-red-400',
-      bgColor: 'bg-red-500/10',
-      icon: <XCircle className="w-3 h-3" />,
-    },
-    [PaymentStatus.Refunded]: {
-      label: 'Refunded',
-      color: 'text-purple-400',
-      bgColor: 'bg-purple-500/10',
-      icon: <RefreshCw className="w-3 h-3" />,
-    },
-    [PaymentStatus.PartiallyRefunded]: {
-      label: 'Partially Refunded',
-      color: 'text-purple-400',
-      bgColor: 'bg-purple-500/10',
-      icon: <RefreshCw className="w-3 h-3" />,
-    },
-  };
-  return statusMap[status] || statusMap[PaymentStatus.Pending];
-};
-
-
-// ✅ Get Available Actions based on Order Status
+// ✅ Get Available Actions based on Order Status (String-based)
 const getAvailableActions = (order: Order) => {
   const actions: string[] = [];
 
   switch (order.status) {
-    case 1: // Pending
+    case 'Pending':
       actions.push('update-status', 'cancel-order');
       break;
-    case 2: // Processing
+    case 'Confirmed':
       if (order.deliveryMethod === 'ClickAndCollect') {
         actions.push('mark-ready', 'update-status', 'cancel-order');
       } else {
         actions.push('create-shipment', 'update-status', 'cancel-order');
       }
       break;
-    case 3: // Shipped
+    case 'Processing':
+      if (order.deliveryMethod === 'ClickAndCollect') {
+        actions.push('mark-ready', 'update-status', 'cancel-order');
+      } else {
+        actions.push('create-shipment', 'update-status', 'cancel-order');
+      }
+      break;
+    case 'Shipped':
       actions.push('mark-delivered', 'update-status');
       break;
-    case 7: // Ready for Collection
-      actions.push('mark-collected', 'update-status', 'cancel-order');
+    case 'PartiallyShipped':
+      actions.push('mark-delivered', 'update-status');
       break;
-    case 4: // Delivered
-    case 8: // Collected
-      // No actions for completed orders
+    case 'Delivered':
+    case 'Cancelled':
+    case 'Refunded':
+    case 'Returned':
+      // No actions for completed/cancelled orders
       break;
     default:
       actions.push('update-status');
+  }
+
+  // ✅ Click & Collect specific actions
+  if (order.deliveryMethod === 'ClickAndCollect' && order.collectionStatus) {
+    if (order.collectionStatus === 'Ready') {
+      actions.push('mark-collected');
+    }
   }
 
   return actions;
@@ -171,8 +131,8 @@ export default function OrdersListPage() {
     status: '',
     fromDate: '',
     toDate: '',
-    deliveryMethod: '', // ✅ New filter
-    paymentStatus: '', // ✅ New filter
+    deliveryMethod: '',
+    paymentStatus: '',
   });
 
   const [showDatePicker, setShowDatePicker] = useState(false);
@@ -210,29 +170,29 @@ export default function OrdersListPage() {
       const response = await orderService.getAllOrders({
         page: currentPage,
         pageSize: itemsPerPage,
-        status: filters.status ? Number(filters.status) : undefined,
+        status: filters.status || undefined,
         fromDate: filters.fromDate || undefined,
         toDate: filters.toDate || undefined,
         searchTerm: filters.searchTerm || undefined,
       });
 
-   if (response?.data) {
-  let filteredOrders = response.data.items || [];
+      if (response?.data) {
+        let filteredOrders = response.data.items || [];
 
-  // ✅ Client-side filters for delivery method and payment status
-  if (filters.deliveryMethod) {
-    filteredOrders = filteredOrders.filter(
-      (o) => o.deliveryMethod === filters.deliveryMethod
-    );
-  }
-  // ✅ FIXED: Filter by payment status using payments array
-  if (filters.paymentStatus) {
-    filteredOrders = filteredOrders.filter((o) => {
-      const firstPayment = o.payments && o.payments.length > 0 ? o.payments[0] : null;
-      return firstPayment && firstPayment.status === Number(filters.paymentStatus);
-    });
-  }
+        // ✅ Client-side filters
+        if (filters.deliveryMethod) {
+          filteredOrders = filteredOrders.filter(
+            (o) => o.deliveryMethod === filters.deliveryMethod
+          );
+        }
 
+        // ✅ Filter by payment status
+        if (filters.paymentStatus) {
+          filteredOrders = filteredOrders.filter((o) => {
+            const firstPayment = o.payments && o.payments.length > 0 ? o.payments[0] : null;
+            return firstPayment && firstPayment.status === filters.paymentStatus;
+          });
+        }
 
         setOrders(filteredOrders);
         setTotalCount(response.data.totalCount || 0);
@@ -291,31 +251,29 @@ export default function OrdersListPage() {
       'Order Date',
     ];
 
- const csvData = ordersToExport.map((order) => {
-  // ✅ FIXED: Get payment status from payments array
-  const firstPayment = order.payments && order.payments.length > 0 ? order.payments[0] : null;
-  const paymentStatusLabel = firstPayment
-    ? getPaymentStatusInfo(firstPayment.status).label
-    : 'N/A';
+    const csvData = ordersToExport.map((order) => {
+      const firstPayment = order.payments && order.payments.length > 0 ? order.payments[0] : null;
+      const paymentStatusLabel = firstPayment
+        ? getPaymentStatusInfo(firstPayment.status).label
+        : 'N/A';
 
-  return [
-    order.orderNumber,
-    order.customerName,
-    order.customerEmail,
-    `'${order.customerPhone}`,
-    order.orderItems.length,
-    order.subtotalAmount,
-    order.taxAmount,
-    order.shippingAmount,
-    order.discountAmount,
-    order.totalAmount,
-    getOrderStatusInfo(order.status).label,
-    order.deliveryMethod === 'ClickAndCollect' ? 'Click & Collect' : 'Home Delivery',
-    paymentStatusLabel,
-    formatDate(order.orderDate),
-  ];
-});
-
+      return [
+        order.orderNumber,
+        order.customerName,
+        order.customerEmail,
+        `'${order.customerPhone}`,
+        order.orderItems.length,
+        order.subtotalAmount,
+        order.taxAmount,
+        order.shippingAmount,
+        order.discountAmount,
+        order.totalAmount,
+        getOrderStatusInfo(order.status).label,
+        order.deliveryMethod === 'ClickAndCollect' ? 'Click & Collect' : 'Home Delivery',
+        paymentStatusLabel,
+        formatDate(order.orderDate),
+      ];
+    });
 
     const csvContent = [
       csvHeaders.join(','),
@@ -373,30 +331,29 @@ export default function OrdersListPage() {
         'Order Date',
       ];
 
-   const csvData = ordersToExport.map((order) => {
-  // ✅ FIXED: Get payment status from payments array
-  const firstPayment = order.payments && order.payments.length > 0 ? order.payments[0] : null;
-  const paymentStatusLabel = firstPayment
-    ? getPaymentStatusInfo(firstPayment.status).label
-    : 'N/A';
+      const csvData = ordersToExport.map((order) => {
+        const firstPayment = order.payments && order.payments.length > 0 ? order.payments[0] : null;
+        const paymentStatusLabel = firstPayment
+          ? getPaymentStatusInfo(firstPayment.status).label
+          : 'N/A';
 
-  return [
-    order.orderNumber,
-    order.customerName,
-    order.customerEmail,
-    `'${order.customerPhone}`,
-    order.orderItems.length,
-    order.subtotalAmount,
-    order.taxAmount,
-    order.shippingAmount,
-    order.discountAmount,
-    order.totalAmount,
-    getOrderStatusInfo(order.status).label,
-    order.deliveryMethod === 'ClickAndCollect' ? 'Click & Collect' : 'Home Delivery',
-    paymentStatusLabel,
-    formatDate(order.orderDate),
-  ];
-});
+        return [
+          order.orderNumber,
+          order.customerName,
+          order.customerEmail,
+          `'${order.customerPhone}`,
+          order.orderItems.length,
+          order.subtotalAmount,
+          order.taxAmount,
+          order.shippingAmount,
+          order.discountAmount,
+          order.totalAmount,
+          getOrderStatusInfo(order.status).label,
+          order.deliveryMethod === 'ClickAndCollect' ? 'Click & Collect' : 'Home Delivery',
+          paymentStatusLabel,
+          formatDate(order.orderDate),
+        ];
+      });
 
       const csvContent = [
         csvHeaders.join(','),
@@ -521,13 +478,13 @@ export default function OrdersListPage() {
 
   const handleActionSuccess = () => {
     closeActionModal();
-    fetchOrders(); // Refresh orders list
+    fetchOrders();
   };
 
-  // Calculate stats
-  const pendingCount = orders.filter((o) => o.status === 1).length;
-  const processingCount = orders.filter((o) => o.status === 2).length;
-  const completedCount = orders.filter((o) => o.status === 4 || o.status === 8).length;
+  // ✅ Calculate stats (String-based)
+  const pendingCount = orders.filter((o) => o.status === 'Pending').length;
+  const processingCount = orders.filter((o) => o.status === 'Processing' || o.status === 'Confirmed').length;
+  const completedCount = orders.filter((o) => o.status === 'Delivered').length;
 
   if (loading) {
     return (
@@ -709,14 +666,15 @@ export default function OrdersListPage() {
               }`}
             >
               <option value="">All Status</option>
-              <option value="1">Pending</option>
-              <option value="2">Processing</option>
-              <option value="3">Shipped</option>
-              <option value="4">Delivered</option>
-              <option value="5">Cancelled</option>
-              <option value="6">Refunded</option>
-              <option value="7">Ready for Collection</option>
-              <option value="8">Collected</option>
+              <option value="Pending">Pending</option>
+              <option value="Confirmed">Confirmed</option>
+              <option value="Processing">Processing</option>
+              <option value="Shipped">Shipped</option>
+              <option value="PartiallyShipped">Partially Shipped</option>
+              <option value="Delivered">Delivered</option>
+              <option value="Cancelled">Cancelled</option>
+              <option value="Returned">Returned</option>
+              <option value="Refunded">Refunded</option>
             </select>
             <Filter className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
             <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400 pointer-events-none" />
@@ -754,6 +712,7 @@ export default function OrdersListPage() {
             >
               <option value="">All Payments</option>
               <option value="Completed">Paid</option>
+              <option value="Captured">Captured</option>
               <option value="Pending">Pending</option>
               <option value="Failed">Failed</option>
               <option value="Refunded">Refunded</option>
@@ -944,19 +903,19 @@ export default function OrdersListPage() {
                   </th>
                 </tr>
               </thead>
-             <tbody>
-  {orders.map((order) => {
-    const statusInfo = getOrderStatusInfo(order.status);
-    
-    // ✅ FIXED: Get payment status from payments array
-    const firstPayment = order.payments && order.payments.length > 0 
-      ? order.payments[0] 
-      : null;
-    const paymentInfo = firstPayment
-      ? getPaymentStatusInfo(firstPayment.status)
-      : null;
-    
-    const availableActions = getAvailableActions(order);
+              <tbody>
+                {orders.map((order) => {
+                  const statusInfo = getOrderStatusInfo(order.status);
+                  
+                  // ✅ Get payment status from payments array
+                  const firstPayment = order.payments && order.payments.length > 0 
+                    ? order.payments[0] 
+                    : null;
+                  const paymentInfo = firstPayment
+                    ? getPaymentStatusInfo(firstPayment.status)
+                    : null;
+                  
+                  const availableActions = getAvailableActions(order);
 
                   return (
                     <tr
@@ -1020,7 +979,6 @@ export default function OrdersListPage() {
                           <span
                             className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium ${paymentInfo.bgColor} ${paymentInfo.color} border ${paymentInfo.bgColor.replace('/10', '/20')}`}
                           >
-                            {paymentInfo.icon}
                             {paymentInfo.label}
                           </span>
                         ) : (

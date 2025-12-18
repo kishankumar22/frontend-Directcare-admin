@@ -355,7 +355,7 @@ useEffect(() => {
       
       console.log('📥 Product loaded:', productData.name || productData.id);
 
-      // ... rest of your data parsing (keep as is)
+      
       // BRANDS, dates, arrays parsing
       let brandIdsArray: string[] = [];
       if (productData.brands && Array.isArray(productData.brands) && productData.brands.length > 0) {
@@ -613,7 +613,7 @@ useEffect(() => {
   };
 
   fetchAllData();
-}, [productId, router, toast]);
+}, [productId]);
 
 
 
@@ -1608,65 +1608,123 @@ const updateProductVariant = (id: string, field: keyof ProductVariant, value: an
 
 // UPDATED - Upload variant image immediately in Edit mode
 const handleVariantImageUpload = async (variantId: string, file: File) => {
+  /* =======================
+     BASIC VALIDATIONS
+  ======================= */
+
   if (!productId) {
-    toast.error("Product ID not found");
+    toast.error('❌ Product ID not found');
     return;
   }
 
-  // ✅ Check if variant has valid database ID (GUID format)
-  const guidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-  
+  if (!variantId) {
+    toast.error('❌ Invalid variant');
+    return;
+  }
+
+  if (!file) {
+    toast.warning('⚠️ No image selected');
+    return;
+  }
+
+  // ✅ GUID validation (variant must be saved)
+  const guidRegex =
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
   if (!guidRegex.test(variantId)) {
-    toast.error("⚠️ Please save the product first, then upload variant images");
+    toast.error('⚠️ Please save the product first, then upload variant images');
+    return;
+  }
+
+  // ✅ File validations
+  const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
+  const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
+
+  if (!ALLOWED_TYPES.includes(file.type)) {
+    toast.warning('⚠️ Unsupported image format (JPG, PNG, WebP only)');
+    return;
+  }
+
+  if (file.size > MAX_FILE_SIZE) {
+    toast.warning('⚠️ Image size must be under 5MB');
+    return;
+  }
+
+  const token = localStorage.getItem('authToken');
+  if (!token) {
+    toast.error('❌ Authentication required');
     return;
   }
 
   try {
-    // ✅ Show preview immediately
+    /* =======================
+       PREVIEW (OPTIMISTIC UI)
+    ======================= */
+
     const previewUrl = URL.createObjectURL(file);
-    setProductVariants(productVariants.map(variant => {
-      if (variant.id === variantId) {
-        return {
-          ...variant,
-          imageUrl: previewUrl, // Temporary preview
-          imageFile: file // Store file for later
-        };
-      }
-      return variant;
-    }));
+
+    setProductVariants(prev =>
+      prev.map(variant =>
+        variant.id === variantId
+          ? { ...variant, imageUrl: previewUrl, imageFile: file }
+          : variant
+      )
+    );
+
+    /* =======================
+       UPLOAD
+    ======================= */
 
     const formData = new FormData();
-    formData.append("image", file); // ✅ Parameter name matches API
-
-    const token = localStorage.getItem("authToken");
+    formData.append('image', file); // API param name
 
     const uploadResponse = await fetch(
       `${API_BASE_URL}/api/Products/variants/${variantId}/image`,
       {
-        method: "POST",
+        method: 'POST',
         headers: {
-          ...(token && { Authorization: `Bearer ${token}` }),
+          Authorization: `Bearer ${token}`,
+          // ❌ Do not set Content-Type manually
         },
         body: formData,
       }
     );
 
-    if (uploadResponse.ok) {
-      const result = await uploadResponse.json();
-      
-      console.log("✅ Upload response:", result);
+    if (!uploadResponse.ok) {
+      let errorMessage = `Upload failed (HTTP ${uploadResponse.status})`;
 
-      // ✅ Get the real image URL from response
-      const uploadedImageUrl = result.imageUrl || result.data?.imageUrl || result.data || null;
+      try {
+        const errorJson = await uploadResponse.json();
+        errorMessage = errorJson.message || errorMessage;
+      } catch {
+        const errorText = await uploadResponse.text();
+        if (errorText) errorMessage = errorText.substring(0, 200);
+      }
 
-      // ✅ Update variant with real image URL
-      setProductVariants(productVariants.map(variant => {
+      throw new Error(errorMessage);
+    }
+
+    const result = await uploadResponse.json();
+    console.log('✅ Upload response:', result);
+
+    const uploadedImageUrl =
+      result?.imageUrl || result?.data?.imageUrl || result?.data || null;
+
+    if (!uploadedImageUrl) {
+      throw new Error('Invalid server response');
+    }
+
+    /* =======================
+       FINAL STATE UPDATE
+    ======================= */
+
+    setProductVariants(prev =>
+      prev.map(variant => {
         if (variant.id === variantId) {
-          // Revoke preview URL to free memory
           if (variant.imageUrl?.startsWith('blob:')) {
             URL.revokeObjectURL(variant.imageUrl);
           }
-          
+
           return {
             ...variant,
             imageUrl: uploadedImageUrl,
@@ -1674,29 +1732,29 @@ const handleVariantImageUpload = async (variantId: string, file: File) => {
           };
         }
         return variant;
-      }));
+      })
+    );
 
-      toast.success("✅ Variant image uploaded successfully!");
-    } else {
-      const errorText = await uploadResponse.text();
-      console.error("❌ Upload error:", errorText);
-      
-      // ✅ Revert preview on error
-      setProductVariants(productVariants.map(variant => {
+    toast.success('✅ Variant image uploaded successfully');
+
+  } catch (error: any) {
+    console.error('❌ Error uploading variant image:', error);
+
+    // 🔄 Revert preview on failure
+    setProductVariants(prev =>
+      prev.map(variant => {
         if (variant.id === variantId && variant.imageUrl?.startsWith('blob:')) {
           URL.revokeObjectURL(variant.imageUrl);
           return { ...variant, imageUrl: null, imageFile: undefined };
         }
         return variant;
-      }));
-      
-      throw new Error(`Upload failed: ${errorText}`);
-    }
-  } catch (error: any) {
-    console.error("❌ Error uploading variant image:", error);
+      })
+    );
+
     toast.error(`Failed to upload variant image: ${error.message}`);
   }
 };
+
 
 
 
@@ -1813,56 +1871,144 @@ const removeImage = async (imageId: string) => {
   }
 };
 // ✅ ADD this new function:
-const uploadImagesToProductDirect = async (productId: string, files: File[]): Promise<ProductImage[]> => {
+const uploadImagesToProductDirect = async (
+  productId: string,
+  files: File[]
+): Promise<ProductImage[]> => {
+
+  /* =======================
+     BASIC VALIDATIONS
+  ======================= */
+
+  if (!productId) {
+    toast.error('❌ Invalid product ID');
+    return [];
+  }
+
+  if (!Array.isArray(files) || files.length === 0) {
+    toast.warning('⚠️ No files selected');
+    return [];
+  }
+
+  const token = localStorage.getItem('authToken');
+  if (!token) {
+    toast.error('❌ Authentication required');
+    return [];
+  }
+
+  const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
+  const MAX_IMAGES = 10;
+  const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
+
   const uploadPromises = files.map(async (file, index) => {
     try {
+      /* =======================
+         FILE VALIDATIONS
+      ======================= */
+
+      if (!ALLOWED_TYPES.includes(file.type)) {
+        toast.warning(`⚠️ ${file.name} format not supported`);
+        return null;
+      }
+
+      if (file.size > MAX_FILE_SIZE) {
+        toast.warning(`⚠️ ${file.name} exceeds 5MB`);
+        return null;
+      }
+
+      if (formData.productImages.length + index >= MAX_IMAGES) {
+        toast.warning(`⚠️ Maximum ${MAX_IMAGES} images allowed`);
+        return null;
+      }
+
+      /* =======================
+         FORM DATA
+      ======================= */
+
       const uploadFormData = new FormData();
       uploadFormData.append('images', file);
-      uploadFormData.append('altText', file.name.replace(/\.[^/.]+$/, ""));
-      uploadFormData.append('sortOrder', (formData.productImages.length + index + 1).toString());
-      uploadFormData.append('isMain', (formData.productImages.length === 0 && index === 0).toString());
+      uploadFormData.append(
+        'altText',
+        file.name.replace(/\.[^/.]+$/, '')
+      );
+      uploadFormData.append(
+        'sortOrder',
+        (formData.productImages.length + index + 1).toString()
+      );
+      uploadFormData.append(
+        'isMain',
+        (formData.productImages.length === 0 && index === 0).toString()
+      );
 
-      const token = localStorage.getItem('authToken');
+      /* =======================
+         API REQUEST
+      ======================= */
+
       const uploadResponse = await fetch(
-        `${API_BASE_URL}/api/Products/${productId}/images?name=${encodeURIComponent(formData.name)}`,
+        `${API_BASE_URL}/api/Products/${productId}/images?name=${encodeURIComponent(
+          formData.name
+        )}`,
         {
           method: 'POST',
           headers: {
-            ...(token && { 'Authorization': `Bearer ${token}` }),
+            Authorization: `Bearer ${token}`,
+            // ❌ Do not set Content-Type
           },
           body: uploadFormData,
         }
       );
 
-      if (uploadResponse.ok) {
-        const result = await uploadResponse.json();
-        if (result && result.success && result.data) {
-          return Array.isArray(result.data) ? result.data[0] : result.data;
+      if (!uploadResponse.ok) {
+        let errorMessage = `Upload failed (HTTP ${uploadResponse.status})`;
+
+        try {
+          const errorJson = await uploadResponse.json();
+          errorMessage = errorJson.message || errorMessage;
+        } catch {
+          const errorText = await uploadResponse.text();
+          if (errorText) errorMessage = errorText.substring(0, 200);
         }
+
+        throw new Error(errorMessage);
       }
-      throw new Error(`Upload failed for ${file.name}`);
+
+      const result = await uploadResponse.json();
+
+      if (!result?.success || !result.data) {
+        throw new Error('Invalid server response');
+      }
+
+      return Array.isArray(result.data)
+        ? result.data[0]
+        : result.data;
+
     } catch (error: any) {
-      console.error(`Error uploading ${file.name}:`, error);
+      console.error(`❌ Error uploading ${file.name}:`, error);
       toast.error(`Failed to upload ${file.name}`);
       return null;
     }
   });
 
+  /* =======================
+     FINAL RESULT
+  ======================= */
+
   const results = await Promise.all(uploadPromises);
-  return results.filter(result => result !== null);
+  return results.filter(Boolean) as ProductImage[];
 };
 
+
 // Add this before your main JSX return
-if (loading) {
-  return (
-    <div className="flex items-center justify-center min-h-screen bg-slate-950">
-      <div className="text-center">
-        <div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-violet-500 mx-auto mb-4"></div>
-        <p className="text-slate-400 text-lg">Loading product data...</p>
-      </div>
-    </div>
-  );
-}
+// if (loading) {
+//   return (
+//     <div className="flex items-center justify-center min-h-screen bg-slate-950">
+//       <div className="text-center">
+//         <div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-violet-500 mx-auto mb-4"></div>
+//         <p className="text-slate-400 text-lg">Loading product data...</p>
+//       </div>
+//     </div>
+//   );
+// }
 
   return (
     <div className="space-y-2">
@@ -1908,9 +2054,7 @@ if (loading) {
           </div>
         </div>
       </div>
-    {/* ✅ ADD THIS: Edit Lock Warning Banner */}
-{/* ✅ Edit Lock Warning Banner */}
-{/* ✅ Edit Lock Warning Banner */}
+
 {editLock.isLocked && (
   <EditLockBanner 
     isLocked={editLock.isLocked}
@@ -4190,173 +4334,204 @@ if (loading) {
   </div>
 </TabsContent>
 
-
-              {/* SEO Tab */}
-              <TabsContent value="seo" className="space-y-2 mt-2">
-                <div className="space-y-4">
-                  <h3 className="text-lg font-semibold text-white border-b border-slate-800 pb-2">Search Engine Optimization</h3>
-                  <p className="text-sm text-slate-400">
-                    Optimize your product for search engines to improve visibility
-                  </p>
-
-                  <div>
-                    <label className="block text-sm font-medium text-slate-300 mb-2">Meta Title</label>
-                    <input
-                      type="text"
-                      name="metaTitle"
-                      value={formData.metaTitle}
-                      onChange={handleChange}
-                      placeholder="SEO-optimized title for search engines"
-                      className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
-                    />
-                    <p className="text-xs text-slate-400 mt-1">Recommended: 50-60 characters</p>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-slate-300 mb-2">Meta Description</label>
-                    <textarea
-                      name="metaDescription"
-                      value={formData.metaDescription}
-                      onChange={handleChange}
-                      placeholder="Brief description for search engine results"
-                      rows={4}
-                      className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
-                    />
-                    <p className="text-xs text-slate-400 mt-1">Recommended: 150-160 characters</p>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-slate-300 mb-2">Meta Keywords</label>
-                    <input
-                      type="text"
-                      name="metaKeywords"
-                      value={formData.metaKeywords}
-                      onChange={handleChange}
-                      placeholder="keyword1, keyword2, keyword3"
-                      className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
-                    />
-                    <p className="text-xs text-slate-400 mt-1">Comma-separated keywords</p>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-slate-300 mb-2">Search Engine Friendly Page Name</label>
-                    <input
-                      type="text"
-                      name="searchEngineFriendlyPageName"
-                      value={formData.searchEngineFriendlyPageName}
-                      onChange={handleChange}
-                      placeholder="product-url-slug"
-                      className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
-                    />
-                    <p className="text-xs text-slate-400 mt-1">Leave empty to auto-generate from product name</p>
-                  </div>
-
-                  <div className="bg-violet-500/10 border border-violet-500/30 rounded-xl p-4">
-                    <h4 className="font-semibold text-sm text-violet-400 mb-2">SEO Tips</h4>
-                    <ul className="text-sm text-slate-300 space-y-1">
-                      <li>• Use descriptive, keyword-rich titles and descriptions</li>
-                      <li>• Keep meta titles under 60 characters</li>
-                      <li>• Keep meta descriptions under 160 characters</li>
-                      <li>• Use hyphens in URL slugs (e.g., wireless-headphones)</li>
-                    </ul>
-                  </div>
-                </div>
-              </TabsContent>
-
-{/* ✅ MERGED Media Tab (Pictures + Videos) */}
-<TabsContent value="media" className="space-y-6 mt-2">
-  {/* ========== PICTURES SECTION ========== */}
-  <div className="space-y-4">
-    <h3 className="text-lg font-semibold text-white border-b border-slate-800 pb-2">Product Images</h3>
-    <p className="text-sm text-slate-400">
-      Upload additional images or manage existing ones. Images are uploaded immediately.
+<TabsContent value="seo" className="space-y-2 mt-2">
+  <div className="space-y-3">
+    <h3 className="text-sm font-semibold text-white border-b border-slate-800 pb-1">Search Engine Optimization</h3>
+    <p className="text-[10px] text-slate-400">
+      Optimize your product for search engines to improve visibility
     </p>
 
-    {/* Image Upload Area */}
-    <div className={`border-2 border-dashed rounded-xl p-8 bg-slate-800/20 transition-all ${
-      uploadingImages 
-        ? 'border-violet-500/50 bg-violet-500/5' 
-        : 'border-slate-700 hover:border-violet-500/50'
-    }`}>
-      <div className="text-center">
-        {uploadingImages ? (
-          <div className="space-y-4">
-            <div className="w-16 h-16 border-4 border-violet-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
-            <div>
-              <h3 className="text-lg font-semibold text-white mb-2">Uploading Images...</h3>
-              <p className="text-sm text-slate-400">Please wait while we upload your images</p>
-            </div>
-          </div>
-        ) : (
-          <div>
-            <Upload className="mx-auto h-16 w-16 text-slate-500 mb-4" />
-            <h3 className="text-lg font-semibold text-white mb-2">Add More Images</h3>
-            <p className="text-sm text-slate-400 mb-4">
-              {!formData.name.trim() 
-                ? 'Please enter product name before uploading images'
-                : 'Images will be uploaded immediately to the product'
-              }
-            </p>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              multiple
-              onChange={handleImageUpload}
-              disabled={!formData.name.trim() || uploadingImages}
-              className="hidden"
-            />
-            <button
-              type="button"
-              onClick={() => {
-                if (!formData.name.trim()) {
-                  toast.warning('Please enter product name first');
-                  return;
-                }
-                fileInputRef.current?.click();
-              }}
-              disabled={uploadingImages}
-              className={`px-6 py-2.5 rounded-xl text-sm font-medium transition-all ${
-                !formData.name.trim() || uploadingImages
-                  ? 'bg-slate-700/50 text-slate-500 cursor-not-allowed'
-                  : 'bg-slate-800/50 border border-slate-700 text-slate-300 hover:bg-slate-800'
-              }`}
-            >
-              {uploadingImages ? 'Processing...' : 'Browse Files'}
-            </button>
-            <p className="text-xs text-slate-400 mt-3">
-              Supported: JPG, PNG, WebP • Max 5MB each • Up to 10 images
-            </p>
-          </div>
-        )}
+    {/* Meta Title */}
+    <div>
+      <div className="flex items-center justify-between mb-1.5">
+        <label className="text-xs font-medium text-slate-300">Meta Title</label>
+        <span className={`text-[10px] font-medium ${
+          formData.metaTitle.length > 60 
+            ? 'text-red-400' 
+            : formData.metaTitle.length > 50 
+            ? 'text-yellow-400' 
+            : 'text-slate-500'
+        }`}>
+          {formData.metaTitle.length}/60
+        </span>
       </div>
+      <input
+        type="text"
+        name="metaTitle"
+        value={formData.metaTitle}
+        onChange={handleChange}
+        maxLength={60}
+        placeholder="SEO-optimized title for search engines"
+        className={`w-full px-2.5 py-1.5 bg-slate-800/50 border rounded-lg text-sm text-white placeholder-slate-500 focus:ring-1 focus:ring-violet-500 focus:border-transparent transition-all ${
+          formData.metaTitle.length > 60 
+            ? 'border-red-500/50' 
+            : formData.metaTitle.length > 50 
+            ? 'border-yellow-500/50' 
+            : 'border-slate-700'
+        }`}
+      />
+      <p className="text-[10px] text-slate-400 mt-0.5">Recommended: 50-60 characters</p>
     </div>
 
-    {/* Image Preview Grid */}
-    {formData.productImages.length > 0 ? (
-      <div className="space-y-4">
-        <h4 className="text-sm font-medium text-slate-300">
-          Current Images ({formData.productImages.length})
+    {/* Meta Description */}
+    <div>
+      <div className="flex items-center justify-between mb-1.5">
+        <label className="text-xs font-medium text-slate-300">Meta Description</label>
+        <span className={`text-[10px] font-medium ${
+          formData.metaDescription.length > 160 
+            ? 'text-red-400' 
+            : formData.metaDescription.length > 150 
+            ? 'text-yellow-400' 
+            : 'text-slate-500'
+        }`}>
+          {formData.metaDescription.length}/160
+        </span>
+      </div>
+      <textarea
+        name="metaDescription"
+        value={formData.metaDescription}
+        onChange={handleChange}
+        maxLength={160}
+        placeholder="Brief description for search engine results"
+        rows={3}
+        className={`w-full px-2.5 py-1.5 bg-slate-800/50 border rounded-lg text-sm text-white placeholder-slate-500 focus:ring-1 focus:ring-violet-500 focus:border-transparent transition-all resize-none ${
+          formData.metaDescription.length > 160 
+            ? 'border-red-500/50' 
+            : formData.metaDescription.length > 150 
+            ? 'border-yellow-500/50' 
+            : 'border-slate-700'
+        }`}
+      />
+      <p className="text-[10px] text-slate-400 mt-0.5">Recommended: 150-160 characters</p>
+    </div>
+
+    {/* Meta Keywords */}
+    <div>
+      <div className="flex items-center justify-between mb-1.5">
+        <label className="text-xs font-medium text-slate-300">Meta Keywords</label>
+        <span className="text-[10px] text-slate-500">
+          {formData.metaKeywords.split(',').filter(k => k.trim()).length} keywords
+        </span>
+      </div>
+      <input
+        type="text"
+        name="metaKeywords"
+        value={formData.metaKeywords}
+        onChange={handleChange}
+        placeholder="keyword1, keyword2, keyword3"
+        className="w-full px-2.5 py-1.5 bg-slate-800/50 border border-slate-700 rounded-lg text-sm text-white placeholder-slate-500 focus:ring-1 focus:ring-violet-500 focus:border-transparent transition-all"
+      />
+      <p className="text-[10px] text-slate-400 mt-0.5">Comma-separated keywords</p>
+    </div>
+
+    {/* SEO Friendly URL */}
+    <div>
+      <div className="flex items-center justify-between mb-1.5">
+        <label className="text-xs font-medium text-slate-300">URL Slug</label>
+        <span className="text-[10px] text-slate-500">
+          {formData.searchEngineFriendlyPageName.length} chars
+        </span>
+      </div>
+      <input
+        type="text"
+        name="searchEngineFriendlyPageName"
+        value={formData.searchEngineFriendlyPageName}
+        onChange={handleChange}
+        placeholder="product-url-slug"
+        className="w-full px-2.5 py-1.5 bg-slate-800/50 border border-slate-700 rounded-lg text-sm text-white placeholder-slate-500 focus:ring-1 focus:ring-violet-500 focus:border-transparent transition-all"
+      />
+      <p className="text-[10px] text-slate-400 mt-0.5">Leave empty to auto-generate from product name</p>
+    </div>
+
+    {/* SEO Tips - Compact */}
+    <div className="bg-violet-500/10 border border-violet-500/30 rounded-lg p-2.5">
+      <h4 className="font-semibold text-xs text-violet-400 mb-1">SEO Tips</h4>
+      <ul className="text-[10px] text-slate-300 space-y-0.5">
+        <li>• Use descriptive, keyword-rich titles and descriptions</li>
+        <li>• Keep meta titles under 60 characters</li>
+        <li>• Keep meta descriptions under 160 characters</li>
+        <li>• Use hyphens in URL slugs (e.g., wireless-headphones)</li>
+      </ul>
+    </div>
+  </div>
+</TabsContent>
+
+
+{/* ✅ MERGED Media Tab (Pictures + Videos) */}
+<TabsContent value="media" className="space-y-3 mt-2">
+  {/* ========== PICTURES SECTION ========== */}
+  <div className="space-y-2">
+    <h3 className="text-sm font-semibold text-white border-b border-slate-800 pb-1">Product Images</h3>
+    <p className="text-[10px] text-slate-400">
+      Upload and manage product images. Supported: JPG, PNG, WebP • Max 5MB • Up to 10 images
+    </p>
+
+    {/* Direct Upload Button - Compact */}
+    <input
+      ref={fileInputRef}
+      type="file"
+      accept="image/*"
+      multiple
+      onChange={handleImageUpload}
+      disabled={!formData.name.trim() || uploadingImages}
+      className="hidden"
+    />
+
+    {uploadingImages ? (
+      <div className="flex items-center justify-center gap-2 py-4 border-2 border-dashed border-violet-500/50 rounded-lg bg-violet-500/5">
+        <div className="w-5 h-5 border-2 border-violet-500 border-t-transparent rounded-full animate-spin"></div>
+        <p className="text-xs text-white">Uploading images...</p>
+      </div>
+    ) : (
+      <button
+        type="button"
+        onClick={() => {
+          if (!formData.name.trim()) {
+            toast.warning('Please enter product name first');
+            return;
+          }
+          fileInputRef.current?.click();
+        }}
+        disabled={uploadingImages}
+        className={`w-full py-2.5 rounded-lg text-xs font-medium transition-all flex items-center justify-center gap-2 ${
+          !formData.name.trim() || uploadingImages
+            ? 'bg-slate-700/50 text-slate-500 cursor-not-allowed border-2 border-dashed border-slate-600'
+            : 'bg-slate-800/50 border-2 border-dashed border-slate-700 text-slate-300 hover:bg-slate-800 hover:border-violet-500/50'
+        }`}
+      >
+        <Upload className="h-4 w-4" />
+        Add More Images
+      </button>
+    )}
+
+    {/* Image Grid - Compact */}
+    {formData.productImages.length > 0 && (
+      <div className="space-y-1.5">
+        <h4 className="text-[10px] font-medium text-slate-400">
+          {formData.productImages.length} {formData.productImages.length === 1 ? 'Image' : 'Images'}
         </h4>
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-          {formData.productImages.map((image, index) => (
-            <div key={image.id} className="bg-slate-800/30 border border-slate-700 rounded-xl p-3 space-y-3 relative">
-              {/* Main Image Badge */}
+        <div className="grid grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-1.5">
+          {formData.productImages.map((image) => (
+            <div key={image.id} className="bg-slate-800/30 border border-slate-700 rounded p-1 space-y-1 relative group">
+              {/* Main Badge */}
               {image.isMain && (
-                <div className="absolute top-2 left-2 px-2 py-1 bg-violet-500 text-white text-xs font-medium rounded-lg z-10">
+                <div className="absolute top-0.5 left-0.5 px-1 py-0.5 bg-violet-500 text-white text-[8px] font-medium rounded z-10">
                   Main
                 </div>
               )}
               
-              <div className="aspect-square bg-slate-700/50 rounded-lg flex items-center justify-center overflow-hidden relative">
+              {/* Image */}
+              <div className="aspect-square bg-slate-700/50 rounded overflow-hidden relative">
                 {image.imageUrl ? (
                   <img 
                     src={image.imageUrl.startsWith('http') ? image.imageUrl : `${API_BASE_URL}${image.imageUrl}`} 
-                    alt={image.altText || 'Product image'} 
+                    alt={image.altText || 'Product'} 
                     className="w-full h-full object-cover" 
                   />
                 ) : (
-                  <Image className="h-12 w-12 text-slate-500" />
+                  <div className="w-full h-full flex items-center justify-center">
+                    <Image className="h-5 w-5 text-slate-500" />
+                  </div>
                 )}
                 
                 {/* Delete Button */}
@@ -4364,25 +4539,26 @@ if (loading) {
                   type="button"
                   onClick={() => removeImage(image.id)}
                   disabled={isDeletingImage}
-                  className={`absolute top-2 right-2 p-1.5 rounded-lg transition-all z-10 ${
+                  className={`absolute top-0 right-0 p-0.5 rounded-bl transition-all opacity-0 group-hover:opacity-100 ${
                     isDeletingImage 
-                      ? 'bg-slate-500/90 text-slate-300 cursor-not-allowed'
-                      : 'bg-red-500/90 text-white hover:bg-red-600'
+                      ? 'bg-slate-500/90 cursor-not-allowed'
+                      : 'bg-red-500/90 hover:bg-red-600'
                   }`}
-                  title={isDeletingImage ? 'Deleting...' : 'Delete Image'}
+                  title="Delete"
                 >
                   {isDeletingImage ? (
-                    <div className="w-3 h-3 border border-slate-300 border-t-transparent rounded-full animate-spin"></div>
+                    <div className="w-2 h-2 border border-white border-t-transparent rounded-full animate-spin"></div>
                   ) : (
-                    <X className="h-3 w-3" />
+                    <X className="h-2.5 w-2.5 text-white" />
                   )}
                 </button>
               </div>
               
-              <div className="space-y-2">
+              {/* Compact Controls */}
+              <div className="space-y-0.5">
                 <input
                   type="text"
-                  placeholder="Alt text"
+                  placeholder="Alt"
                   value={image.altText}
                   onChange={(e) => {
                     setFormData({
@@ -4392,12 +4568,12 @@ if (loading) {
                       )
                     });
                   }}
-                  className="w-full px-2 py-1.5 text-xs bg-slate-800/50 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+                  className="w-full px-1 py-0.5 text-[9px] bg-slate-800/50 border border-slate-700 rounded text-white placeholder-slate-500 focus:ring-1 focus:ring-violet-500 focus:border-transparent"
                 />
-                <div className="flex items-center gap-1">
+                <div className="flex items-center gap-0.5">
                   <input
                     type="number"
-                    placeholder="Order"
+                    placeholder="#"
                     value={image.sortOrder}
                     onChange={(e) => {
                       setFormData({
@@ -4407,9 +4583,9 @@ if (loading) {
                         )
                       });
                     }}
-                    className="flex-1 px-2 py-1.5 text-xs bg-slate-800/50 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+                    className="flex-1 w-8 px-1 py-0.5 text-[9px] bg-slate-800/50 border border-slate-700 rounded text-white placeholder-slate-500 focus:ring-1 focus:ring-violet-500 focus:border-transparent"
                   />
-                  <label className="flex items-center gap-1">
+                  <label className="flex items-center gap-0.5 cursor-pointer">
                     <input
                       type="checkbox"
                       checked={image.isMain}
@@ -4422,116 +4598,80 @@ if (loading) {
                           )
                         });
                       }}
-                      className="w-3 h-3 text-violet-500"
+                      className="w-2 h-2 text-violet-500"
                     />
-                    <span className="text-xs text-slate-400">Main</span>
+                    <span className="text-[8px] text-slate-400">M</span>
                   </label>
                 </div>
                 
-                {/* File Info */}
-                {image.fileName && (
-                  <div className="text-xs text-slate-500">
-                    <div>{image.fileName}</div>
-                    {!image.file && (
-                      <div className="text-xs text-green-400">✓ Saved</div>
-                    )}
-                  </div>
+                {/* Status */}
+                {!image.file && image.imageUrl && (
+                  <div className="text-[8px] text-green-400">✓</div>
                 )}
               </div>
             </div>
           ))}
         </div>
       </div>
-    ) : (
-      <div className="text-center py-8 border border-slate-700 rounded-xl bg-slate-800/20">
-        <Image className="mx-auto h-12 w-12 text-slate-600 mb-2" />
-        <p className="text-sm text-slate-400">No images uploaded yet</p>
-      </div>
     )}
-
-    {/* Images Info Box */}
-    <div className="bg-violet-500/10 border border-violet-500/30 rounded-xl p-4">
-      <h4 className="font-semibold text-sm text-violet-400 mb-2">Image Upload Information</h4>
-      <ul className="text-sm text-slate-300 space-y-1">
-        <li>• Images are uploaded immediately to the product</li>
-        <li>• Delete images instantly using the delete button</li>
-        <li>• Changes to alt text and main image are saved when you update the product</li>
-        <li>• Supported formats: JPG, PNG, WebP (max 5MB each)</li>
-      </ul>
-    </div>
   </div>
 
   {/* ========== DIVIDER ========== */}
-  <div className="border-t-2 border-slate-800"></div>
+  <div className="border-t border-slate-800"></div>
 
   {/* ========== VIDEOS SECTION ========== */}
-  <div className="space-y-4">
-    {/* Header */}
-    <div>
-      <h3 className="text-lg font-semibold text-white border-b border-slate-800 pb-2">
-        Product Videos
-      </h3>
-      <p className="text-sm text-slate-400 mt-2">
-        Add video URLs (YouTube, Vimeo, etc.) to showcase your product
-      </p>
-    </div>
+  <div className="space-y-2">
+    <h3 className="text-sm font-semibold text-white border-b border-slate-800 pb-1">Product Videos</h3>
+    <p className="text-[10px] text-slate-400">
+      Add video URLs (YouTube, Vimeo, etc.) to showcase your product
+    </p>
 
-    {/* Video Grid Preview */}
-    {formData.videoUrls.length > 0 ? (
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+    {/* Video Grid - Compact */}
+    {formData.videoUrls.length > 0 && (
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-1.5">
         {formData.videoUrls.map((url, index) => (
           <div 
             key={index}
-            className="group relative bg-slate-800/30 rounded-xl border border-slate-700 overflow-hidden hover:border-violet-500/50 transition-all"
+            className="group bg-slate-800/30 rounded border border-slate-700 overflow-hidden hover:border-violet-500/50 transition-all"
           >
-            {/* Video Thumbnail Preview */}
+            {/* Thumbnail */}
             <div className="relative aspect-video bg-slate-900 flex items-center justify-center">
               {url && url.includes('youtube.com') ? (
                 <>
-                  {/* YouTube Thumbnail */}
                   <img
-                    src={`https://img.youtube.com/vi/${getYouTubeVideoId(url)}/maxresdefault.jpg`}
+                    src={`https://img.youtube.com/vi/${getYouTubeVideoId(url)}/hqdefault.jpg`}
                     alt={`Video ${index + 1}`}
                     className="w-full h-full object-cover"
                     onError={(e) => {
                       const target = e.target as HTMLImageElement;
-                      target.src = `https://img.youtube.com/vi/${getYouTubeVideoId(url)}/hqdefault.jpg`;
+                      target.src = `https://img.youtube.com/vi/${getYouTubeVideoId(url)}/default.jpg`;
                     }}
                   />
-                  {/* Play Button Overlay */}
-                  <div className="absolute inset-0 bg-black/40 flex items-center justify-center group-hover:bg-black/60 transition-all">
-                    <div className="w-14 h-14 rounded-full bg-red-500 flex items-center justify-center group-hover:scale-110 transition-transform">
-                      <Play className="w-6 h-6 text-white fill-white ml-1" />
+                  <div className="absolute inset-0 bg-black/30 flex items-center justify-center group-hover:bg-black/50 transition-all">
+                    <div className="w-8 h-8 rounded-full bg-red-500 flex items-center justify-center group-hover:scale-110 transition-transform">
+                      <Play className="w-3 h-3 text-white fill-white ml-0.5" />
                     </div>
                   </div>
                 </>
               ) : (
-                /* Placeholder for non-YouTube videos */
-                <div className="flex flex-col items-center justify-center gap-2">
-                  <Video className="w-12 h-12 text-slate-600" />
-                  <span className="text-xs text-slate-500">Video Preview</span>
-                </div>
+                <Video className="w-6 h-6 text-slate-600" />
               )}
             </div>
 
-            {/* Video Info Footer */}
-            <div className="p-3 bg-slate-900/50">
-              <div className="flex items-start gap-2 mb-2">
-                <Video className="w-4 h-4 text-slate-400 flex-shrink-0 mt-0.5" />
-                <input
-                  type="text"
-                  value={url}
-                  onChange={(e) => {
-                    const newUrls = [...formData.videoUrls];
-                    newUrls[index] = e.target.value;
-                    setFormData({ ...formData, videoUrls: newUrls });
-                  }}
-                  placeholder="https://youtube.com/watch?v=..."
-                  className="flex-1 px-2 py-1 bg-slate-800/50 border border-slate-700 rounded text-xs text-white placeholder-slate-500 focus:ring-1 focus:ring-violet-500 focus:border-transparent transition-all"
-                />
-              </div>
+            {/* URL Input - Compact */}
+            <div className="p-1 bg-slate-900/50 space-y-1">
+              <input
+                type="text"
+                value={url}
+                onChange={(e) => {
+                  const newUrls = [...formData.videoUrls];
+                  newUrls[index] = e.target.value;
+                  setFormData({ ...formData, videoUrls: newUrls });
+                }}
+                placeholder="https://youtube.com/..."
+                className="w-full px-1.5 py-0.5 bg-slate-800/50 border border-slate-700 rounded text-[9px] text-white placeholder-slate-500 focus:ring-1 focus:ring-violet-500 focus:border-transparent"
+              />
               
-              {/* Remove Button */}
               <button
                 type="button"
                 onClick={() => {
@@ -4540,27 +4680,18 @@ if (loading) {
                     videoUrls: formData.videoUrls.filter((_, i) => i !== index)
                   });
                 }}
-                className="w-full px-3 py-1.5 bg-red-500/10 border border-red-500/30 text-red-400 hover:bg-red-500/20 rounded-lg transition-all text-xs font-medium flex items-center justify-center gap-1.5"
+                className="w-full px-1.5 py-0.5 bg-red-500/10 border border-red-500/30 text-red-400 hover:bg-red-500/20 rounded transition-all text-[9px] font-medium flex items-center justify-center gap-0.5"
               >
-                <X className="w-3 h-3" />
-                Remove Video
+                <X className="w-2 h-2" />
+                Remove
               </button>
             </div>
           </div>
         ))}
       </div>
-    ) : (
-      /* Empty State */
-      <div className="text-center py-12 border-2 border-dashed border-slate-700 rounded-xl bg-slate-800/20">
-        <Video className="mx-auto h-16 w-16 text-slate-600 mb-4" />
-        <h3 className="text-lg font-semibold text-white mb-2">No Videos Added</h3>
-        <p className="text-slate-400 mb-4">
-          Click "Add Video URL" to embed product videos
-        </p>
-      </div>
     )}
 
-    {/* Add Video Button */}
+    {/* Add Video Button - Inline Style */}
     <button
       type="button"
       onClick={() => {
@@ -4569,25 +4700,15 @@ if (loading) {
           videoUrls: [...formData.videoUrls, '']
         });
       }}
-      className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-xl text-slate-300 hover:bg-slate-800 hover:border-violet-500/50 transition-all text-sm font-medium flex items-center justify-center gap-2"
+      className="w-full py-2.5 bg-slate-800/50 border-2 border-dashed border-slate-700 rounded-lg text-slate-300 hover:bg-slate-800 hover:border-violet-500/50 transition-all text-xs font-medium flex items-center justify-center gap-2"
     >
       <Video className="h-4 w-4" />
       Add Video URL
     </button>
-
-    {/* Supported Platforms Info */}
-    <div className="bg-cyan-500/10 border border-cyan-500/30 rounded-xl p-4">
-      <h4 className="font-semibold text-sm text-cyan-400 mb-2">
-        Supported Video Platforms
-      </h4>
-      <ul className="text-sm text-slate-300 space-y-1">
-        <li>• YouTube (https://youtube.com/watch?v=...)</li>
-        <li>• Vimeo (https://vimeo.com/...)</li>
-        <li>• Direct video URLs (.mp4, .webm)</li>
-      </ul>
-    </div>
   </div>
 </TabsContent>
+
+
 
 
             </Tabs>

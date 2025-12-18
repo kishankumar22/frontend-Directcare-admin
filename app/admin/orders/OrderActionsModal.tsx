@@ -2,11 +2,12 @@
 
 'use client';
 
-import { useState, FormEvent, useEffect } from 'react';
-import { X, Loader2, Package, Truck, CheckCircle, XCircle, Clock } from 'lucide-react';
+import { useState, FormEvent, useEffect, JSX } from 'react';
+import { X, Loader2, Package, Truck, CheckCircle, XCircle, Clock, MapPin } from 'lucide-react';
 import {
   orderService,
   Order,
+  OrderStatus,
   MarkCollectedRequest,
   UpdateStatusRequest,
   CreateShipmentRequest,
@@ -23,64 +24,78 @@ interface OrderActionsModalProps {
   onSuccess: () => void;
 }
 
-// ✅ Order status enum
-enum OrderStatus {
-  PENDING = 1,
-  PROCESSING = 2,
-  SHIPPED = 3,
-  DELIVERED = 4,
-  CANCELLED = 5,
-  REFUNDED = 6,
-  READY_FOR_COLLECTION = 7,
-  COLLECTED = 8,
-}
+// ✅ Valid status transitions based on current status AND delivery method
+const getValidStatusTransitions = (currentStatus: OrderStatus, deliveryMethod: string): OrderStatus[] => {
+  const baseTransitions: Record<OrderStatus, OrderStatus[]> = {
+    'Pending': ['Confirmed', 'Cancelled'],
+    'Confirmed': deliveryMethod === 'ClickAndCollect' 
+      ? ['Processing', 'Cancelled']
+      : ['Processing', 'Shipped', 'Cancelled'],
+    'Processing': deliveryMethod === 'ClickAndCollect'
+      ? ['Cancelled'] // Click & Collect will go to Ready via mark-ready action
+      : ['Shipped', 'PartiallyShipped', 'Cancelled'],
+    'Shipped': ['Delivered', 'PartiallyShipped', 'Cancelled'],
+    'PartiallyShipped': ['Delivered', 'Cancelled'],
+    'Delivered': ['Returned', 'Refunded'],
+    'Cancelled': ['Refunded'],
+    'Returned': ['Refunded'],
+    'Refunded': [],
+  };
 
-// ✅ Status labels mapping
-const STATUS_LABELS: Record<number, string> = {
-  [OrderStatus.PENDING]: 'Pending',
-  [OrderStatus.PROCESSING]: 'Processing',
-  [OrderStatus.SHIPPED]: 'Shipped',
-  [OrderStatus.DELIVERED]: 'Delivered',
-  [OrderStatus.CANCELLED]: 'Cancelled',
-  [OrderStatus.REFUNDED]: 'Refunded',
-  [OrderStatus.READY_FOR_COLLECTION]: 'Ready for Collection',
-  [OrderStatus.COLLECTED]: 'Collected',
+  return baseTransitions[currentStatus] || [];
 };
 
-// ✅ Valid status transitions based on current status
-const VALID_STATUS_TRANSITIONS: Record<number, number[]> = {
-  [OrderStatus.PENDING]: [
-    OrderStatus.PROCESSING,
-    OrderStatus.CANCELLED,
-  ],
-  [OrderStatus.PROCESSING]: [
-    OrderStatus.SHIPPED,
-    OrderStatus.READY_FOR_COLLECTION,
-    OrderStatus.CANCELLED,
-  ],
-  [OrderStatus.SHIPPED]: [
-    OrderStatus.DELIVERED,
-    OrderStatus.CANCELLED,
-  ],
-  [OrderStatus.DELIVERED]: [
-    OrderStatus.REFUNDED,
-  ],
-  [OrderStatus.CANCELLED]: [
-    OrderStatus.REFUNDED,
-  ],
-  [OrderStatus.REFUNDED]: [],
-  [OrderStatus.READY_FOR_COLLECTION]: [
-    OrderStatus.COLLECTED,
-    OrderStatus.CANCELLED,
-  ],
-  [OrderStatus.COLLECTED]: [
-    OrderStatus.REFUNDED,
-  ],
-};
+// ✅ Status display info
+const getStatusDisplayInfo = (status: OrderStatus) => {
+  const statusMap: Record<OrderStatus, { label: string; color: string; icon: JSX.Element }> = {
+    'Pending': { 
+      label: 'Pending', 
+      color: 'text-yellow-400', 
+      icon: <Clock className="w-4 h-4" /> 
+    },
+    'Confirmed': { 
+      label: 'Confirmed', 
+      color: 'text-blue-400', 
+      icon: <CheckCircle className="w-4 h-4" /> 
+    },
+    'Processing': { 
+      label: 'Processing', 
+      color: 'text-cyan-400', 
+      icon: <Package className="w-4 h-4" /> 
+    },
+    'Shipped': { 
+      label: 'Shipped', 
+      color: 'text-purple-400', 
+      icon: <Truck className="w-4 h-4" /> 
+    },
+    'PartiallyShipped': { 
+      label: 'Partially Shipped', 
+      color: 'text-indigo-400', 
+      icon: <Truck className="w-4 h-4" /> 
+    },
+    'Delivered': { 
+      label: 'Delivered', 
+      color: 'text-green-400', 
+      icon: <CheckCircle className="w-4 h-4" /> 
+    },
+    'Cancelled': { 
+      label: 'Cancelled', 
+      color: 'text-red-400', 
+      icon: <XCircle className="w-4 h-4" /> 
+    },
+    'Returned': { 
+      label: 'Returned', 
+      color: 'text-orange-400', 
+      icon: <Package className="w-4 h-4" /> 
+    },
+    'Refunded': { 
+      label: 'Refunded', 
+      color: 'text-pink-400', 
+      icon: <XCircle className="w-4 h-4" /> 
+    },
+  };
 
-// ✅ Get available status options based on current status
-const getAvailableStatuses = (currentStatus: number): number[] => {
-  return VALID_STATUS_TRANSITIONS[currentStatus] || [];
+  return statusMap[status] || statusMap['Pending'];
 };
 
 export default function OrderActionsModal({
@@ -96,7 +111,7 @@ export default function OrderActionsModal({
   // Mark Ready - no form needed
   const [readyConfirmed, setReadyConfirmed] = useState(false);
 
-  // Mark Collected
+  // Mark Collected (Click & Collect only)
   const [collectedData, setCollectedData] = useState({
     collectedBy: '',
     collectorIDType: '',
@@ -104,12 +119,15 @@ export default function OrderActionsModal({
   });
 
   // Update Status
-  const [statusData, setStatusData] = useState({
+  const [statusData, setStatusData] = useState<{
+    newStatus: OrderStatus;
+    adminNotes: string;
+  }>({
     newStatus: order.status,
     adminNotes: '',
   });
 
-  // Create Shipment
+  // Create Shipment (Home Delivery only)
   const [shipmentData, setShipmentData] = useState({
     trackingNumber: '',
     carrier: '',
@@ -120,7 +138,7 @@ export default function OrderActionsModal({
 
   // Mark Delivered
   const [deliveredData, setDeliveredData] = useState({
-    shipmentId: order.shipments[0]?.id || '',
+    shipmentId: order.shipments && order.shipments.length > 0 ? order.shipments[0].id : '',
     deliveredAt: new Date().toISOString().slice(0, 16),
     deliveryNotes: '',
     receivedBy: '',
@@ -134,8 +152,8 @@ export default function OrderActionsModal({
     cancelledBy: '',
   });
 
-  // ✅ Get available statuses dynamically
-  const availableStatuses = getAvailableStatuses(order.status);
+  // ✅ Get available statuses dynamically based on delivery method
+  const availableStatuses = getValidStatusTransitions(order.status, order.deliveryMethod);
 
   // ✅ Initialize shipment items when modal opens for create-shipment action
   useEffect(() => {
@@ -164,7 +182,7 @@ export default function OrderActionsModal({
         adminNotes: '',
       });
       setDeliveredData({
-        shipmentId: order.shipments[0]?.id || '',
+        shipmentId: order.shipments && order.shipments.length > 0 ? order.shipments[0].id : '',
         deliveredAt: new Date().toISOString().slice(0, 16),
         deliveryNotes: '',
         receivedBy: '',
@@ -185,11 +203,21 @@ export default function OrderActionsModal({
     try {
       switch (action) {
         case 'mark-ready':
+          // ✅ Only for Click & Collect
+          if (order.deliveryMethod !== 'ClickAndCollect') {
+            toast.error('This action is only available for Click & Collect orders');
+            return;
+          }
           await orderService.markReady(order.id);
           toast.success('Order marked as ready for collection');
           break;
 
         case 'mark-collected':
+          // ✅ Only for Click & Collect
+          if (order.deliveryMethod !== 'ClickAndCollect') {
+            toast.error('This action is only available for Click & Collect orders');
+            return;
+          }
           const collectedRequest: MarkCollectedRequest = {
             orderId: order.id,
             collectedBy: collectedData.collectedBy,
@@ -211,6 +239,11 @@ export default function OrderActionsModal({
           break;
 
         case 'create-shipment':
+          // ✅ Only for Home Delivery
+          if (order.deliveryMethod !== 'HomeDelivery') {
+            toast.error('This action is only available for Home Delivery orders');
+            return;
+          }
           const shipmentRequest: CreateShipmentRequest = {
             orderId: order.id,
             trackingNumber: shipmentData.trackingNumber,
@@ -224,6 +257,11 @@ export default function OrderActionsModal({
           break;
 
         case 'mark-delivered':
+          // ✅ Only for Home Delivery with shipments
+          if (order.deliveryMethod !== 'HomeDelivery') {
+            toast.error('This action is only available for Home Delivery orders');
+            return;
+          }
           const deliveredRequest: MarkDeliveredRequest = {
             orderId: order.id,
             shipmentId: deliveredData.shipmentId,
@@ -273,10 +311,21 @@ export default function OrderActionsModal({
   const renderModalContent = () => {
     switch (action) {
       case 'mark-ready':
+        // ✅ Only for Click & Collect
+        if (order.deliveryMethod !== 'ClickAndCollect') {
+          return (
+            <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-lg">
+              <p className="text-sm text-red-400">
+                This action is only available for Click & Collect orders.
+              </p>
+            </div>
+          );
+        }
+
         return (
           <div className="space-y-4">
             <div className="flex items-center gap-3 p-4 bg-cyan-500/10 border border-cyan-500/20 rounded-lg">
-              <Package className="h-6 w-6 text-cyan-400" />
+              <MapPin className="h-6 w-6 text-cyan-400" />
               <div>
                 <p className="text-white font-medium">Mark Order as Ready for Collection</p>
                 <p className="text-sm text-slate-400">
@@ -301,6 +350,17 @@ export default function OrderActionsModal({
         );
 
       case 'mark-collected':
+        // ✅ Only for Click & Collect
+        if (order.deliveryMethod !== 'ClickAndCollect') {
+          return (
+            <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-lg">
+              <p className="text-sm text-red-400">
+                This action is only available for Click & Collect orders.
+              </p>
+            </div>
+          );
+        }
+
         return (
           <div className="space-y-4">
             <div className="flex items-center gap-3 p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-lg">
@@ -378,20 +438,42 @@ export default function OrderActionsModal({
 
             {/* ✅ Current Status Display */}
             <div className="p-3 bg-slate-900/50 border border-slate-700 rounded-lg">
-              <p className="text-xs text-slate-400 mb-1">Current Status</p>
-              <p className="text-white font-medium">{STATUS_LABELS[order.status]}</p>
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs text-slate-400 mb-1">Current Status</p>
+                  <div className="flex items-center gap-2">
+                    {getStatusDisplayInfo(order.status).icon}
+                    <p className={`font-medium ${getStatusDisplayInfo(order.status).color}`}>
+                      {getStatusDisplayInfo(order.status).label}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-1 text-xs text-slate-400">
+                  {order.deliveryMethod === 'ClickAndCollect' ? (
+                    <>
+                      <MapPin className="w-3 h-3" />
+                      Click & Collect
+                    </>
+                  ) : (
+                    <>
+                      <Truck className="w-3 h-3" />
+                      Home Delivery
+                    </>
+                  )}
+                </div>
+              </div>
             </div>
 
             <div>
               <label className="block text-sm font-medium text-slate-300 mb-2">
                 New Status <span className="text-red-500">*</span>
               </label>
-              {/* ✅ Conditionally show only valid statuses */}
+              {/* ✅ Conditionally show only valid statuses based on delivery method */}
               {availableStatuses.length > 0 ? (
                 <select
                   value={statusData.newStatus}
                   onChange={(e) =>
-                    setStatusData({ ...statusData, newStatus: Number(e.target.value) })
+                    setStatusData({ ...statusData, newStatus: e.target.value as OrderStatus })
                   }
                   className="w-full px-3 py-2.5 bg-slate-800/50 border border-slate-700 rounded-xl text-white focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
                   required
@@ -399,7 +481,7 @@ export default function OrderActionsModal({
                   <option value={order.status}>Select new status</option>
                   {availableStatuses.map((status) => (
                     <option key={status} value={status}>
-                      {STATUS_LABELS[status]}
+                      {getStatusDisplayInfo(status).label}
                     </option>
                   ))}
                 </select>
@@ -411,6 +493,15 @@ export default function OrderActionsModal({
                 </div>
               )}
             </div>
+
+            {/* ✅ Show info about delivery method restrictions */}
+            {order.deliveryMethod === 'ClickAndCollect' && (
+              <div className="p-3 bg-cyan-500/10 border border-cyan-500/20 rounded-lg">
+                <p className="text-xs text-cyan-400">
+                  <strong>Note:</strong> For Click & Collect orders, use "Mark Ready" action to prepare order for collection.
+                </p>
+              </div>
+            )}
 
             <div>
               <label className="block text-sm font-medium text-slate-300 mb-2">
@@ -428,6 +519,17 @@ export default function OrderActionsModal({
         );
 
       case 'create-shipment':
+        // ✅ Only for Home Delivery
+        if (order.deliveryMethod !== 'HomeDelivery') {
+          return (
+            <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-lg">
+              <p className="text-sm text-red-400">
+                This action is only available for Home Delivery orders. Click & Collect orders don't require shipments.
+              </p>
+            </div>
+          );
+        }
+
         return (
           <div className="space-y-4">
             <div className="flex items-center gap-3 p-4 bg-purple-500/10 border border-purple-500/20 rounded-lg">
@@ -537,6 +639,17 @@ export default function OrderActionsModal({
         );
 
       case 'mark-delivered':
+        // ✅ Only for Home Delivery
+        if (order.deliveryMethod !== 'HomeDelivery') {
+          return (
+            <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-lg">
+              <p className="text-sm text-red-400">
+                This action is only available for Home Delivery orders. For Click & Collect, use "Mark Collected" instead.
+              </p>
+            </div>
+          );
+        }
+
         return (
           <div className="space-y-4">
             <div className="flex items-center gap-3 p-4 bg-green-500/10 border border-green-500/20 rounded-lg">
@@ -547,7 +660,7 @@ export default function OrderActionsModal({
               </div>
             </div>
 
-            {order.shipments.length > 0 ? (
+            {order.shipments && order.shipments.length > 0 ? (
               <>
                 <div>
                   <label className="block text-sm font-medium text-slate-300 mb-2">
@@ -722,17 +835,22 @@ export default function OrderActionsModal({
   const isFormValid = () => {
     switch (action) {
       case 'mark-ready':
-        return readyConfirmed;
+        return readyConfirmed && order.deliveryMethod === 'ClickAndCollect';
       case 'mark-collected':
         return (
+          order.deliveryMethod === 'ClickAndCollect' &&
           collectedData.collectedBy &&
           collectedData.collectorIDType &&
           collectedData.collectorIDNumber
         );
       case 'update-status':
-        return statusData.newStatus > 0 && statusData.newStatus !== order.status && availableStatuses.includes(statusData.newStatus);
+        return (
+          statusData.newStatus !== order.status &&
+          availableStatuses.includes(statusData.newStatus)
+        );
       case 'create-shipment':
         return (
+          order.deliveryMethod === 'HomeDelivery' &&
           shipmentData.trackingNumber &&
           shipmentData.carrier &&
           shipmentData.shippingMethod &&
@@ -740,8 +858,10 @@ export default function OrderActionsModal({
         );
       case 'mark-delivered':
         return (
+          order.deliveryMethod === 'HomeDelivery' &&
           deliveredData.shipmentId &&
           deliveredData.deliveredAt &&
+          order.shipments &&
           order.shipments.length > 0
         );
       case 'cancel-order':
@@ -758,7 +878,12 @@ export default function OrderActionsModal({
       <div className="bg-slate-800 border border-slate-700 rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden shadow-2xl">
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-slate-700">
-          <h2 className="text-xl font-semibold text-white">{getModalTitle()}</h2>
+          <div>
+            <h2 className="text-xl font-semibold text-white">{getModalTitle()}</h2>
+            <p className="text-xs text-slate-400 mt-1">
+              Order #{order.orderNumber} • {order.deliveryMethod === 'ClickAndCollect' ? 'Click & Collect' : 'Home Delivery'}
+            </p>
+          </div>
           <button
             onClick={onClose}
             className="p-2 hover:bg-slate-700 rounded-lg transition-colors"

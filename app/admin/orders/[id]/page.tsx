@@ -24,122 +24,269 @@ import {
   PackageCheck,
   IdCard,
   AlertTriangle,
+  PackageX,
+  CheckCircle2,
 } from 'lucide-react';
 import {
   orderService,
   Order,
-  getOrderStatusInfo,
   formatCurrency,
   formatDate,
 } from '@/lib/services/orders';
 import { useToast } from '@/components/CustomToast';
 import OrderActionsModal from '../OrderActionsModal';
 
-// ✅ Payment Status Enum (matching backend)
-enum PaymentStatus {
-  Pending = 1,
-  Processing = 2,
-  Completed = 3,
-  Failed = 4,
-  Refunded = 5,
-  PartiallyRefunded = 6,
-}
+// ✅ Collection Status Types
+type CollectionStatus = 'Pending' | 'Ready' | 'Collected' | 'Expired';
+type OrderStatus = Order['status'];
+type PaymentStatus = Order['payments'][0]['status'];
 
-// ✅ Collection Status Enum
-enum CollectionStatus {
-  Pending = 1,
-  Ready = 2,
-  Collected = 3,
-  Expired = 4,
-}
-
-// ✅ Helper: Check if collection is ready (handles string or number)
-const isCollectionReady = (status: string | number | undefined): boolean => {
-  if (!status) return false;
-  
-  if (typeof status === 'string') {
-    return status === 'Ready' || status === 'Collected';
-  }
-  
-  return status === CollectionStatus.Ready || status === CollectionStatus.Collected;
-};
-
-// ✅ Payment Status Helper with icons
-const getPaymentStatusInfo = (status: number) => {
+// ✅ Get Order Status Info - LOCAL with icons
+const getOrderStatusInfo = (status: OrderStatus) => {
   const statusMap: Record<
-    number,
+    OrderStatus,
     { label: string; color: string; bgColor: string; icon: JSX.Element }
   > = {
-    [PaymentStatus.Pending]: {
+    'Pending': {
       label: 'Pending',
       color: 'text-yellow-400',
       bgColor: 'bg-yellow-500/10',
-      icon: <Clock className="h-4 w-4" />,
+      icon: <Clock className="h-3 w-3" />,
     },
-    [PaymentStatus.Processing]: {
+    'Confirmed': {
+      label: 'Confirmed',
+      color: 'text-blue-400',
+      bgColor: 'bg-blue-500/10',
+      icon: <CheckCircle className="h-3 w-3" />,
+    },
+    'Processing': {
+      label: 'Processing',
+      color: 'text-indigo-400',
+      bgColor: 'bg-indigo-500/10',
+      icon: <RefreshCw className="h-3 w-3 animate-spin" />,
+    },
+    'Shipped': {
+      label: 'Shipped',
+      color: 'text-purple-400',
+      bgColor: 'bg-purple-500/10',
+      icon: <Truck className="h-3 w-3" />,
+    },
+    'PartiallyShipped': {
+      label: 'Partially Shipped',
+      color: 'text-purple-300',
+      bgColor: 'bg-purple-400/10',
+      icon: <Truck className="h-3 w-3" />,
+    },
+    'Delivered': {
+      label: 'Delivered',
+      color: 'text-green-400',
+      bgColor: 'bg-green-500/10',
+      icon: <CheckCircle className="h-3 w-3" />,
+    },
+    'Cancelled': {
+      label: 'Cancelled',
+      color: 'text-red-400',
+      bgColor: 'bg-red-500/10',
+      icon: <XCircle className="h-3 w-3" />,
+    },
+    'Returned': {
+      label: 'Returned',
+      color: 'text-orange-400',
+      bgColor: 'bg-orange-500/10',
+      icon: <Package className="h-3 w-3" />,
+    },
+    'Refunded': {
+      label: 'Refunded',
+      color: 'text-pink-400',
+      bgColor: 'bg-pink-500/10',
+      icon: <RefreshCw className="h-3 w-3" />,
+    },
+  };
+  return (
+    statusMap[status] || {
+      label: 'Unknown',
+      color: 'text-gray-400',
+      bgColor: 'bg-gray-500/10',
+      icon: <AlertCircle className="h-3 w-3" />,
+    }
+  );
+};
+
+// ✅ Get Payment Status Info - LOCAL with icons
+const getPaymentStatusInfo = (status: PaymentStatus) => {
+  const statusMap: Record<
+    PaymentStatus,
+    { label: string; color: string; bgColor: string; icon: JSX.Element }
+  > = {
+    'Pending': {
+      label: 'Pending',
+      color: 'text-yellow-400',
+      bgColor: 'bg-yellow-500/10',
+      icon: <Clock className="h-3 w-3" />,
+    },
+    'Processing': {
       label: 'Processing',
       color: 'text-blue-400',
       bgColor: 'bg-blue-500/10',
-      icon: <RefreshCw className="h-4 w-4 animate-spin" />,
+      icon: <RefreshCw className="h-3 w-3 animate-spin" />,
     },
-    [PaymentStatus.Completed]: {
+    'Completed': {
       label: 'Paid',
       color: 'text-green-400',
       bgColor: 'bg-green-500/10',
-      icon: <CheckCircle className="h-4 w-4" />,
+      icon: <CheckCircle className="h-3 w-3" />,
     },
-    [PaymentStatus.Failed]: {
+    'Captured': {
+      label: 'Captured',
+      color: 'text-green-400',
+      bgColor: 'bg-green-500/10',
+      icon: <CheckCircle2 className="h-3 w-3" />,
+    },
+    'Failed': {
       label: 'Failed',
       color: 'text-red-400',
       bgColor: 'bg-red-500/10',
-      icon: <XCircle className="h-4 w-4" />,
+      icon: <XCircle className="h-3 w-3" />,
     },
-    [PaymentStatus.Refunded]: {
+    'Refunded': {
       label: 'Refunded',
       color: 'text-purple-400',
       bgColor: 'bg-purple-500/10',
-      icon: <RefreshCw className="h-4 w-4" />,
+      icon: <RefreshCw className="h-3 w-3" />,
     },
-    [PaymentStatus.PartiallyRefunded]: {
+    'PartiallyRefunded': {
       label: 'Partially Refunded',
       color: 'text-purple-400',
       bgColor: 'bg-purple-500/10',
-      icon: <RefreshCw className="h-4 w-4" />,
+      icon: <RefreshCw className="h-3 w-3" />,
     },
   };
-  return statusMap[status] || statusMap[PaymentStatus.Pending];
-};
-
-// ✅ Collection Status Helper - FIXED: Support both string and number
-const getCollectionStatusInfo = (status: number | string) => {
-  // Convert string to number if needed
-  const numericStatus = typeof status === 'string' 
-    ? ({ 'Pending': 1, 'Ready': 2, 'Collected': 3, 'Expired': 4 }[status] || 1)
-    : status;
-    
-  const statusMap: Record<number, { label: string; color: string; bgColor: string }> = {
-    [CollectionStatus.Pending]: {
+  return (
+    statusMap[status] || {
       label: 'Pending',
       color: 'text-yellow-400',
       bgColor: 'bg-yellow-500/10',
+      icon: <Clock className="h-3 w-3" />,
+    }
+  );
+};
+
+// ✅ Collection Status Helper with icon
+const getCollectionStatusInfo = (status: CollectionStatus | undefined) => {
+  const statusMap: Record<
+    CollectionStatus,
+    { label: string; color: string; bgColor: string; icon: JSX.Element }
+  > = {
+    'Pending': {
+      label: 'Pending',
+      color: 'text-yellow-400',
+      bgColor: 'bg-yellow-500/10',
+      icon: <Clock className="h-3 w-3" />,
     },
-    [CollectionStatus.Ready]: {
+    'Ready': {
       label: 'Ready for Collection',
       color: 'text-cyan-400',
       bgColor: 'bg-cyan-500/10',
+      icon: <PackageCheck className="h-3 w-3" />,
     },
-    [CollectionStatus.Collected]: {
+    'Collected': {
       label: 'Collected',
       color: 'text-green-400',
       bgColor: 'bg-green-500/10',
+      icon: <CheckCircle2 className="h-3 w-3" />,
     },
-    [CollectionStatus.Expired]: {
+    'Expired': {
       label: 'Expired',
       color: 'text-red-400',
       bgColor: 'bg-red-500/10',
+      icon: <AlertTriangle className="h-3 w-3" />,
     },
   };
-  return statusMap[numericStatus] || statusMap[CollectionStatus.Pending];
+  return status ? statusMap[status] : null;
+};
+
+// ✅ Get Available Actions based on Order Status & Delivery Method
+const getAvailableActions = (order: Order) => {
+  const actions: Array<{
+    label: string;
+    action: string;
+    icon: JSX.Element;
+    color: string;
+  }> = [];
+
+  const status = order.status;
+  const deliveryMethod = order.deliveryMethod;
+
+  // ✅ Click & Collect Flow
+  if (deliveryMethod === 'ClickAndCollect') {
+    if (status === 'Processing' && order.collectionStatus !== 'Ready') {
+      actions.push({
+        label: 'Mark Ready',
+        action: 'mark-ready',
+        icon: <PackageCheck className="h-4 w-4" />,
+        color: 'bg-cyan-600 hover:bg-cyan-700',
+      });
+    }
+
+    if (order.collectionStatus === 'Ready' && status !== 'Delivered') {
+      actions.push({
+        label: 'Mark Collected',
+        action: 'mark-collected',
+        icon: <CheckCircle2 className="h-4 w-4" />,
+        color: 'bg-emerald-600 hover:bg-emerald-700',
+      });
+    }
+  }
+
+  // ✅ Home Delivery Flow
+  if (deliveryMethod === 'HomeDelivery') {
+    if (
+      (status === 'Confirmed' || status === 'Processing') &&
+      (!order.shipments || order.shipments.length === 0)
+    ) {
+      actions.push({
+        label: 'Create Shipment',
+        action: 'create-shipment',
+        icon: <Truck className="h-4 w-4" />,
+        color: 'bg-purple-600 hover:bg-purple-700',
+      });
+    }
+
+    if (
+      (status === 'Shipped' || status === 'PartiallyShipped') &&
+      order.shipments &&
+      order.shipments.length > 0
+    ) {
+      actions.push({
+        label: 'Mark Delivered',
+        action: 'mark-delivered',
+        icon: <CheckCircle className="h-4 w-4" />,
+        color: 'bg-green-600 hover:bg-green-700',
+      });
+    }
+  }
+
+  // ✅ Update Status - Available for most statuses
+  if (!['Delivered', 'Cancelled', 'Refunded', 'Returned'].includes(status)) {
+    actions.push({
+      label: 'Update Status',
+      action: 'update-status',
+      icon: <Edit className="h-4 w-4" />,
+      color: 'bg-blue-600 hover:bg-blue-700',
+    });
+  }
+
+  // ✅ Cancel Order
+  if (!['Delivered', 'Cancelled', 'Refunded', 'Returned'].includes(status)) {
+    actions.push({
+      label: 'Cancel Order',
+      action: 'cancel-order',
+      icon: <PackageX className="h-4 w-4" />,
+      color: 'bg-red-600 hover:bg-red-700',
+    });
+  }
+
+  return actions;
 };
 
 export default function OrderDetailPage() {
@@ -153,7 +300,6 @@ export default function OrderDetailPage() {
   const [actionModalOpen, setActionModalOpen] = useState(false);
   const [selectedAction, setSelectedAction] = useState('');
 
-  // Fetch order details
   useEffect(() => {
     if (orderId) {
       fetchOrderDetails();
@@ -184,89 +330,6 @@ export default function OrderDetailPage() {
     setActionModalOpen(false);
     fetchOrderDetails();
     toast.success('Action completed successfully!');
-  };
-
-  // ✅ Enhanced Action Buttons Logic - FIXED
-  const getActionButtons = () => {
-    if (!order) return null;
-
-    const buttons = [];
-    const currentStatus = order.status;
-
-    // ✅ Click & Collect Flow
-    if (order.deliveryMethod === 'ClickAndCollect') {
-      const ready = isCollectionReady(order.collectionStatus);
-      
-      // Mark Ready (Processing → Ready for Collection)
-      if (currentStatus === 2 && !ready) {
-        buttons.push({
-          label: 'Mark Ready',
-          action: 'mark-ready',
-          icon: <PackageCheck className="h-4 w-4" />,
-          color: 'bg-cyan-600 hover:bg-cyan-700',
-        });
-      }
-
-      // Mark Collected (Ready → Collected)
-      if (currentStatus === 7 || ready) {
-        buttons.push({
-          label: 'Mark Collected',
-          action: 'mark-collected',
-          icon: <CheckCircle className="h-4 w-4" />,
-          color: 'bg-emerald-600 hover:bg-emerald-700',
-        });
-      }
-    }
-
-    // ✅ Home Delivery Flow
-    if (order.deliveryMethod === 'HomeDelivery') {
-      // Create Shipment (Pending/Processing → Shipped)
-      if ((currentStatus === 1 || currentStatus === 2) && order.shipments.length === 0) {
-        buttons.push({
-          label: 'Create Shipment',
-          action: 'create-shipment',
-          icon: <Truck className="h-4 w-4" />,
-          color: 'bg-purple-600 hover:bg-purple-700',
-        });
-      }
-
-      // Mark Delivered (Shipped → Delivered)
-      if (currentStatus === 3 && order.shipments.length > 0) {
-        buttons.push({
-          label: 'Mark Delivered',
-          action: 'mark-delivered',
-          icon: <CheckCircle className="h-4 w-4" />,
-          color: 'bg-green-600 hover:bg-green-700',
-        });
-      }
-    }
-
-    // ✅ Update Status - Available except for Cancelled/Refunded
-    if (currentStatus !== 5 && currentStatus !== 6) {
-      buttons.push({
-        label: 'Update Status',
-        action: 'update-status',
-        icon: <Edit className="h-4 w-4" />,
-        color: 'bg-blue-600 hover:bg-blue-700',
-      });
-    }
-
-    // ✅ Cancel Order - Not available for Delivered/Collected/Cancelled/Refunded
-    if (
-      currentStatus !== 4 &&
-      currentStatus !== 5 &&
-      currentStatus !== 6 &&
-      currentStatus !== 8
-    ) {
-      buttons.push({
-        label: 'Cancel Order',
-        action: 'cancel-order',
-        icon: <XCircle className="h-4 w-4" />,
-        color: 'bg-red-600 hover:bg-red-700',
-      });
-    }
-
-    return buttons;
   };
 
   // ✅ Check if collection is expired
@@ -305,20 +368,18 @@ export default function OrderDetailPage() {
   }
 
   const statusInfo = getOrderStatusInfo(order.status);
-  
-  // ✅ FIXED: Get payment status from payments array (not order.payment)
   const firstPayment = order.payments && order.payments.length > 0 ? order.payments[0] : null;
-  const paymentStatus = firstPayment ? getPaymentStatusInfo(firstPayment.status) : null;
-  
+  const paymentStatusInfo = firstPayment ? getPaymentStatusInfo(firstPayment.status) : null;
   const collectionStatusInfo = order.collectionStatus
-    ? getCollectionStatusInfo(order.collectionStatus)
+    ? getCollectionStatusInfo(order.collectionStatus as CollectionStatus)
     : null;
+  const availableActions = getAvailableActions(order);
 
   return (
-    <div className="space-y-4 pb-6">
+    <div className="space-y-3 pb-6">
       {/* Header */}
-      <div className="flex items-center justify-between flex-wrap gap-4">
-        <div className="flex items-center gap-4">
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <div className="flex items-center gap-3">
           <button
             onClick={() => router.push('/admin/orders')}
             className="p-2 hover:bg-slate-800 rounded-lg transition-colors"
@@ -335,73 +396,72 @@ export default function OrderDetailPage() {
 
         {/* Status Badges */}
         <div className="flex items-center gap-2 flex-wrap">
-          {/* Order Status */}
           <span
-            className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium border ${statusInfo.bgColor} ${statusInfo.color} ${statusInfo.bgColor.replace('/10', '/20')}`}
+            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border ${statusInfo.bgColor} ${statusInfo.color} ${statusInfo.bgColor.replace('/10', '/20')}`}
           >
-            <Clock className="h-4 w-4" />
+            {statusInfo.icon}
             {statusInfo.label}
           </span>
 
-          {/* ✅ Payment Status */}
-          {paymentStatus && (
+          {paymentStatusInfo && (
             <span
-              className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium border ${paymentStatus.bgColor} ${paymentStatus.color} ${paymentStatus.bgColor.replace('/10', '/20')}`}
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border ${paymentStatusInfo.bgColor} ${paymentStatusInfo.color} ${paymentStatusInfo.bgColor.replace('/10', '/20')}`}
             >
-              {paymentStatus.icon}
-              {paymentStatus.label}
+              {paymentStatusInfo.icon}
+              {paymentStatusInfo.label}
             </span>
           )}
 
-          {/* ✅ Collection Status (for Click & Collect) */}
           {order.deliveryMethod === 'ClickAndCollect' && collectionStatusInfo && (
             <span
-              className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium border ${collectionStatusInfo.bgColor} ${collectionStatusInfo.color} ${collectionStatusInfo.bgColor.replace('/10', '/20')}`}
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border ${collectionStatusInfo.bgColor} ${collectionStatusInfo.color} ${collectionStatusInfo.bgColor.replace('/10', '/20')}`}
             >
-              <MapPin className="h-4 w-4" />
+              {collectionStatusInfo.icon}
               {collectionStatusInfo.label}
             </span>
           )}
         </div>
       </div>
 
-      {/* ✅ Collection Expiry Warning - FIXED */}
+      {/* Collection Expiry Warning */}
       {order.deliveryMethod === 'ClickAndCollect' &&
         order.collectionExpiryDate &&
         isCollectionExpired() &&
-        !isCollectionReady(order.collectionStatus) && (
-          <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-4 flex items-center gap-3">
+        order.collectionStatus !== 'Collected' && (
+          <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-3 flex items-center gap-3">
             <AlertTriangle className="h-5 w-5 text-red-400 flex-shrink-0" />
             <div>
-              <p className="text-red-400 font-semibold">Collection Expired</p>
-              <p className="text-red-400/80 text-sm">
-                This order expired on {formatDate(order.collectionExpiryDate)}
+              <p className="text-red-400 font-semibold text-sm">Collection Expired</p>
+              <p className="text-red-400/80 text-xs">
+                Expired on {formatDate(order.collectionExpiryDate)}
               </p>
             </div>
           </div>
         )}
 
       {/* Action Buttons */}
-      <div className="bg-slate-900/50 border border-slate-800 rounded-lg p-4">
-        <div className="flex flex-wrap gap-3">
-          {getActionButtons()?.map((btn, index) => (
-            <button
-              key={index}
-              onClick={() => handleAction(btn.action)}
-              className={`px-4 py-2 ${btn.color} text-white rounded-lg transition-all flex items-center gap-2 text-sm font-medium shadow-lg`}
-            >
-              {btn.icon}
-              {btn.label}
-            </button>
-          ))}
+      {availableActions.length > 0 && (
+        <div className="bg-slate-900/50 border border-slate-800 rounded-lg p-3">
+          <div className="flex flex-wrap gap-2">
+            {availableActions.map((btn, index) => (
+              <button
+                key={index}
+                onClick={() => handleAction(btn.action)}
+                className={`px-4 py-2 ${btn.color} text-white rounded-lg transition-all flex items-center gap-2 text-sm font-medium shadow-lg hover:shadow-xl`}
+              >
+                {btn.icon}
+                {btn.label}
+              </button>
+            ))}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Order Info Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
         {/* Customer Information */}
         <div className="bg-slate-900/50 border border-slate-800 rounded-lg p-4">
-          <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
+          <h3 className="text-lg font-bold text-white mb-3 flex items-center gap-2">
             <User className="h-5 w-5 text-violet-400" />
             Customer Information
           </h3>
@@ -412,14 +472,14 @@ export default function OrderDetailPage() {
             </div>
             <div>
               <p className="text-xs text-slate-400 mb-1">Email</p>
-              <p className="text-white font-medium flex items-center gap-2">
+              <p className="text-white font-medium flex items-center gap-2 text-sm">
                 <Mail className="h-4 w-4 text-cyan-400" />
                 {order.customerEmail}
               </p>
             </div>
             <div>
               <p className="text-xs text-slate-400 mb-1">Phone</p>
-              <p className="text-white font-medium flex items-center gap-2">
+              <p className="text-white font-medium flex items-center gap-2 text-sm">
                 <Phone className="h-4 w-4 text-green-400" />
                 {order.customerPhone || 'N/A'}
               </p>
@@ -441,7 +501,7 @@ export default function OrderDetailPage() {
 
         {/* Order Summary */}
         <div className="bg-slate-900/50 border border-slate-800 rounded-lg p-4">
-          <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
+          <h3 className="text-lg font-bold text-white mb-3 flex items-center gap-2">
             <PoundSterling className="h-5 w-5 text-green-400" />
             Order Summary
           </h3>
@@ -464,7 +524,6 @@ export default function OrderDetailPage() {
                 {formatCurrency(order.shippingAmount, order.currency)}
               </span>
             </div>
-            {/* ✅ Click & Collect Fee */}
             {order.clickAndCollectFee && order.clickAndCollectFee > 0 && (
               <div className="flex justify-between">
                 <span className="text-slate-400">Click & Collect Fee</span>
@@ -490,7 +549,7 @@ export default function OrderDetailPage() {
           </div>
 
           {/* Delivery Method */}
-          <div className="mt-4 pt-4 border-t border-slate-700">
+          <div className="mt-3 pt-3 border-t border-slate-700">
             <p className="text-xs text-slate-400 mb-2">Delivery Method</p>
             {order.deliveryMethod === 'ClickAndCollect' ? (
               <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-cyan-500/10 text-cyan-400 text-sm border border-cyan-500/20">
@@ -508,21 +567,20 @@ export default function OrderDetailPage() {
 
         {/* Order Dates */}
         <div className="bg-slate-900/50 border border-slate-800 rounded-lg p-4">
-          <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
+          <h3 className="text-lg font-bold text-white mb-3 flex items-center gap-2">
             <Calendar className="h-5 w-5 text-orange-400" />
             Important Dates
           </h3>
           <div className="space-y-3">
             <div>
               <p className="text-xs text-slate-400 mb-1">Order Date</p>
-              <p className="text-white font-medium">{formatDate(order.orderDate)}</p>
+              <p className="text-white font-medium text-sm">{formatDate(order.orderDate)}</p>
             </div>
-            {/* ✅ Collection Expiry Date */}
             {order.deliveryMethod === 'ClickAndCollect' && order.collectionExpiryDate && (
               <div>
                 <p className="text-xs text-slate-400 mb-1">Collection Expires</p>
                 <p
-                  className={`font-medium ${
+                  className={`font-medium text-sm ${
                     isCollectionExpired() ? 'text-red-400' : 'text-white'
                   }`}
                 >
@@ -533,19 +591,21 @@ export default function OrderDetailPage() {
             {order.estimatedDispatchDate && (
               <div>
                 <p className="text-xs text-slate-400 mb-1">Estimated Dispatch</p>
-                <p className="text-white font-medium">{formatDate(order.estimatedDispatchDate)}</p>
+                <p className="text-white font-medium text-sm">
+                  {formatDate(order.estimatedDispatchDate)}
+                </p>
               </div>
             )}
             {order.dispatchedAt && (
               <div>
                 <p className="text-xs text-slate-400 mb-1">Dispatched At</p>
-                <p className="text-white font-medium">{formatDate(order.dispatchedAt)}</p>
+                <p className="text-white font-medium text-sm">{formatDate(order.dispatchedAt)}</p>
               </div>
             )}
             {order.readyForCollectionAt && (
               <div>
                 <p className="text-xs text-slate-400 mb-1">Ready for Collection</p>
-                <p className="text-white font-medium">
+                <p className="text-white font-medium text-sm">
                   {formatDate(order.readyForCollectionAt)}
                 </p>
               </div>
@@ -553,21 +613,21 @@ export default function OrderDetailPage() {
             {order.collectedAt && (
               <div>
                 <p className="text-xs text-slate-400 mb-1">Collected At</p>
-                <p className="text-white font-medium">{formatDate(order.collectedAt)}</p>
+                <p className="text-white font-medium text-sm">{formatDate(order.collectedAt)}</p>
               </div>
             )}
           </div>
         </div>
       </div>
 
-      {/* ✅ Collection Information (for Click & Collect) */}
+      {/* Collection Information */}
       {order.deliveryMethod === 'ClickAndCollect' && order.collectedBy && (
         <div className="bg-slate-900/50 border border-slate-800 rounded-lg p-4">
-          <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
+          <h3 className="text-lg font-bold text-white mb-3 flex items-center gap-2">
             <IdCard className="h-5 w-5 text-cyan-400" />
             Collection Information
           </h3>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
             <div>
               <p className="text-xs text-slate-400 mb-1">Collected By</p>
               <p className="text-white font-medium">{order.collectedBy}</p>
@@ -586,7 +646,7 @@ export default function OrderDetailPage() {
 
       {/* Order Items */}
       <div className="bg-slate-900/50 border border-slate-800 rounded-lg p-4">
-        <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
+        <h3 className="text-lg font-bold text-white mb-3 flex items-center gap-2">
           <Package className="h-5 w-5 text-cyan-400" />
           Order Items ({order.orderItems.length})
         </h3>
@@ -597,14 +657,14 @@ export default function OrderDetailPage() {
               className="flex items-center justify-between p-3 bg-slate-800/50 rounded-lg border border-slate-700"
             >
               <div className="flex-1">
-                <p className="text-white font-medium">{item.productName}</p>
+                <p className="text-white font-medium text-sm">{item.productName}</p>
                 <p className="text-xs text-slate-400 mt-1">SKU: {item.productSku}</p>
                 {item.variantName && (
                   <p className="text-xs text-cyan-400 mt-1">{item.variantName}</p>
                 )}
               </div>
               <div className="text-right">
-                <p className="text-white font-semibold">
+                <p className="text-white font-semibold text-sm">
                   {item.quantity} × {formatCurrency(item.unitPrice, order.currency)}
                 </p>
                 <p className="text-green-400 font-bold text-lg">
@@ -617,10 +677,10 @@ export default function OrderDetailPage() {
       </div>
 
       {/* Addresses */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
         {/* Billing Address */}
         <div className="bg-slate-900/50 border border-slate-800 rounded-lg p-4">
-          <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
+          <h3 className="text-lg font-bold text-white mb-3 flex items-center gap-2">
             <MapPin className="h-5 w-5 text-blue-400" />
             Billing Address
           </h3>
@@ -645,7 +705,7 @@ export default function OrderDetailPage() {
 
         {/* Shipping Address */}
         <div className="bg-slate-900/50 border border-slate-800 rounded-lg p-4">
-          <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
+          <h3 className="text-lg font-bold text-white mb-3 flex items-center gap-2">
             <Truck className="h-5 w-5 text-purple-400" />
             Shipping Address
           </h3>
@@ -669,16 +729,16 @@ export default function OrderDetailPage() {
         </div>
       </div>
 
-      {/* ✅ Payments with Refund Info */}
-      {order.payments.length > 0 && (
+      {/* Payments */}
+      {order.payments && order.payments.length > 0 && (
         <div className="bg-slate-900/50 border border-slate-800 rounded-lg p-4">
-          <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
+          <h3 className="text-lg font-bold text-white mb-3 flex items-center gap-2">
             <CreditCard className="h-5 w-5 text-violet-400" />
             Payments ({order.payments.length})
           </h3>
           <div className="space-y-3">
             {order.payments.map((payment) => {
-              const paymentStatusInfo = getPaymentStatusInfo(payment.status);
+              const paymentInfo = getPaymentStatusInfo(payment.status);
               return (
                 <div
                   key={payment.id}
@@ -686,7 +746,9 @@ export default function OrderDetailPage() {
                 >
                   <div className="flex items-center justify-between mb-2">
                     <div>
-                      <p className="text-white font-medium capitalize">{payment.paymentMethod}</p>
+                      <p className="text-white font-medium capitalize text-sm">
+                        {payment.paymentMethod}
+                      </p>
                       <p className="text-xs text-slate-400 mt-1">
                         Transaction ID: {payment.transactionId || 'N/A'}
                       </p>
@@ -701,38 +763,13 @@ export default function OrderDetailPage() {
                         {formatCurrency(payment.amount, payment.currency)}
                       </p>
                       <span
-                        className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium mt-1 border ${paymentStatusInfo.bgColor} ${paymentStatusInfo.color} ${paymentStatusInfo.bgColor.replace('/10', '/20')}`}
+                        className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium mt-1 border ${paymentInfo.bgColor} ${paymentInfo.color} ${paymentInfo.bgColor.replace('/10', '/20')}`}
                       >
-                        {paymentStatusInfo.icon}
-                        {paymentStatusInfo.label}
+                        {paymentInfo.icon}
+                        {paymentInfo.label}
                       </span>
                     </div>
                   </div>
-
-                  {/* ✅ Refund Information */}
-                  {/* {payment.refundId && (
-                    <div className="mt-3 pt-3 border-t border-slate-700">
-                      <div className="flex items-center justify-between text-sm">
-                        <div>
-                          <p className="text-purple-400 font-medium flex items-center gap-1">
-                            <RefreshCw className="h-3 w-3" />
-                            Refund Details
-                          </p>
-                          <p className="text-xs text-slate-400 mt-1">
-                            Refund ID: {payment.refundId}
-                          </p>
-                          {payment.refundedAt && (
-                            <p className="text-xs text-slate-400 mt-1">
-                              Refunded: {formatDate(payment.refundedAt)}
-                            </p>
-                          )}
-                        </div>
-                        <p className="text-purple-400 font-bold">
-                          {formatCurrency(payment.refundAmount || 0, payment.currency)}
-                        </p>
-                      </div>
-                    </div>
-                  )} */}
                 </div>
               );
             })}
@@ -741,9 +778,9 @@ export default function OrderDetailPage() {
       )}
 
       {/* Shipments */}
-      {order.shipments.length > 0 && (
+      {order.shipments && order.shipments.length > 0 && (
         <div className="bg-slate-900/50 border border-slate-800 rounded-lg p-4">
-          <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
+          <h3 className="text-lg font-bold text-white mb-3 flex items-center gap-2">
             <Truck className="h-5 w-5 text-purple-400" />
             Shipments ({order.shipments.length})
           </h3>
@@ -754,7 +791,7 @@ export default function OrderDetailPage() {
                 className="p-3 bg-slate-800/50 rounded-lg border border-slate-700"
               >
                 <div className="flex items-center justify-between mb-2">
-                  <p className="text-white font-medium">
+                  <p className="text-white font-medium text-sm">
                     Tracking: {shipment.trackingNumber || 'N/A'}
                   </p>
                   <span className="inline-block px-2 py-1 rounded-lg text-xs font-medium bg-blue-500/10 text-blue-400 border border-blue-500/20">
@@ -765,11 +802,15 @@ export default function OrderDetailPage() {
                   <p>Method: {shipment.shippingMethod || 'N/A'}</p>
                   {shipment.shippedAt && <p>Shipped: {formatDate(shipment.shippedAt)}</p>}
                   {shipment.deliveredAt && <p>Delivered: {formatDate(shipment.deliveredAt)}</p>}
-                  {shipment.notes && <p className="mt-2 text-slate-300">Notes: {shipment.notes}</p>}
+                  {shipment.notes && (
+                    <p className="mt-2 text-slate-300">Notes: {shipment.notes}</p>
+                  )}
                 </div>
-                {shipment.shipmentItems.length > 0 && (
+                {shipment.shipmentItems && shipment.shipmentItems.length > 0 && (
                   <div className="mt-3 pt-3 border-t border-slate-700">
-                    <p className="text-xs text-slate-400 mb-2">Items in Shipment:</p>
+                    <p className="text-xs text-slate-400 mb-2">
+                      Items in Shipment: {shipment.shipmentItems.length}
+                    </p>
                     <div className="space-y-1">
                       {shipment.shipmentItems.map((item) => (
                         <p key={item.id} className="text-xs text-white">
