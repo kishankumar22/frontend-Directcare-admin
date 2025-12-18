@@ -27,10 +27,6 @@ import { BackInStockSubscribers, LowStockAlert,AdminCommentHistoryModal } from "
 
 
 
-// ================================
-// 2. UPDATED COMPONENT - MODAL WITH TABLE
-
-
 export default function EditProductPage({ params }: { params: Promise<{ id: string }> }) {
   const router = useRouter();
       const toast = useToast();
@@ -618,6 +614,11 @@ useEffect(() => {
   fetchAllData();
 }, [productId]);
 
+ // ==================== IMMEDIATE REDIRECT HANDLER ====================
+const handleModalClose = () => {
+  setIsLockModalOpen(false);
+  router.push("/admin/products");
+};
 
 // ==================== FIXED: ACQUIRE PRODUCT LOCK ====================
 const acquireProductLock = async (productId: string): Promise<boolean> => {
@@ -662,7 +663,7 @@ const acquireProductLock = async (productId: string): Promise<boolean> => {
       setTimeout(() => {
         setIsLockModalOpen(false);
         router.push("/admin/products");
-      }, 1000);
+      }, 5000);
 
       return false;
     }
@@ -2312,19 +2313,20 @@ const uploadImagesToProductDirect = async (
       {dropdownsData.brands.length} available
     </span>
   </label>
-  <MultiBrandSelector 
-    selectedBrands={formData.brandIds}
-    availableBrands={dropdownsData.brands}
-    onChange={(brandIds: string[]) => {
-      // console.log('🏷️ Brands updated:', brandIds);
-      setFormData(prev => ({ 
-        ...prev, 
-        brandIds: brandIds,
-        brand: brandIds[0] || ''
-      }));
-    }}
-    placeholder="Select one or more brands..."
-  />
+<MultiBrandSelector 
+  selectedBrands={formData.brandIds}
+  availableBrands={dropdownsData.brands}
+  onChange={(brandIds: string[]) => {
+    setFormData(prev => ({ 
+      ...prev, 
+      brandIds: brandIds,
+      brand: brandIds[0] || ''
+    }));
+  }}
+  placeholder="Select one brand..."
+  maxSelection={1} // ✅ Only 1 brand allowed
+/>
+
   <p className="text-xs text-slate-400 mt-2 flex items-center gap-1">
     <span>★</span>
     <span>First selected brand will be the primary brand</span>
@@ -4842,36 +4844,117 @@ const uploadImagesToProductDirect = async (
 />
 
 {/* Custom Product Lock Modal */}
+{/* ==================== IMPROVED PRODUCT LOCK MODAL ==================== */}
 {isLockModalOpen && (
-  <div className="fixed inset-0 z-50 flex items-center justify-center">
-    {/* Backdrop */}
-    <div className="absolute inset-0 bg-black bg-opacity-60" />
-
-    {/* Modal Box */}
-    <div className="relative bg-white rounded-xl shadow-2xl max-w-md w-full mx-4 p-8 animate-fadeIn">
-      <div className="text-center">
-        {/* Big Lock Emoji as Icon */}
-        <div className="text-6xl mb-4">🔒</div>
-
-        <h2 className="text-2xl font-bold text-gray-900 mb-4">
-          Product Locked!
-        </h2>
-
-        <p className="text-gray-700 text-base leading-relaxed mb-6 whitespace-pre-line">
+  <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+    {/* Backdrop - Click करने पर redirect */}
+    <div 
+      className="absolute inset-0 bg-black/70 backdrop-blur-sm" 
+      onClick={handleModalClose}
+    />
+    
+    {/* Modal Content */}
+    <div className="relative bg-gradient-to-br from-slate-900 to-slate-800 border-2 border-red-500/30 rounded-2xl shadow-2xl max-w-md w-full p-8 animate-fadeIn">
+      
+      {/* Close Button (X) - Immediate Redirect */}
+      <button
+        onClick={handleModalClose}
+        className="absolute top-4 right-4 p-2 text-slate-400 hover:text-white hover:bg-red-500/20 rounded-lg transition-all group"
+        title="Close and go back"
+      >
+        <X className="w-5 h-5" />
+      </button>
+      
+      {/* Lock Icon */}
+      <div className="flex justify-center mb-6">
+        <div className="w-20 h-20 rounded-full bg-red-500/10 border-2 border-red-500/30 flex items-center justify-center animate-pulse">
+          <svg className="w-10 h-10 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+          </svg>
+        </div>
+      </div>
+      
+      {/* Title */}
+      <h2 className="text-2xl font-bold text-center mb-4 bg-gradient-to-r from-red-400 to-orange-400 bg-clip-text text-transparent">
+        Product Locked
+      </h2>
+      
+      {/* Backend Message */}
+      <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-4 mb-6">
+        <p className="text-slate-300 text-center text-sm leading-relaxed whitespace-pre-line">
           {lockModalMessage}
         </p>
-
-        <p className="text-sm text-gray-500">
-          💡 Please wait for the lock to expire or contact the user.
-        </p>
-
-        <p className="mt-6 text-sm text-gray-400 animate-pulse">
-          Redirecting in 3 seconds...
+      </div>
+      
+      {/* Info Box */}
+      <div className="flex items-start gap-3 mb-6 text-slate-400 text-xs bg-amber-500/5 border border-amber-500/20 rounded-lg p-3">
+        <svg className="w-5 h-5 text-amber-400 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+          <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+        </svg>
+        <p className="leading-relaxed">
+          Please wait for the lock to expire or contact the user currently editing this product.
         </p>
       </div>
+      
+      {/* Action Buttons */}
+      <div className="flex gap-3">
+        {/* Go Back Button - Immediate Redirect */}
+        <button
+          onClick={handleModalClose}
+          className="flex-1 px-4 py-3 bg-gradient-to-r from-violet-500 to-cyan-500 hover:from-violet-600 hover:to-cyan-600 text-white rounded-xl font-medium transition-all transform hover:scale-105 flex items-center justify-center gap-2 group"
+        >
+          <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
+          Go Back
+        </button>
+        
+        {/* Refresh Button */}
+        <button
+          onClick={() => {
+            setIsLockModalOpen(false);
+            window.location.reload();
+          }}
+          className="px-4 py-3 bg-slate-700 hover:bg-slate-600 text-white rounded-xl font-medium transition-all flex items-center justify-center gap-2"
+          title="Try again"
+        >
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+          </svg>
+        </button>
+      </div>
+      
+      {/* Auto Redirect Timer */}
+      <p className="text-center text-slate-500 text-xs mt-4 animate-pulse">
+        Auto-redirecting in 3 seconds...
+      </p>
+       <style jsx>{`
+      @keyframes modalFadeIn {
+        from {
+          opacity: 0;
+          transform: scale(0.95) translateY(-10px);
+        }
+        to {
+          opacity: 1;
+          transform: scale(1) translateY(0);
+        }
+      }
+
+      .modal-animate {
+        animation: modalFadeIn 0.3s ease-out forwards;
+      }
+
+      @keyframes iconPulse {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.6; }
+      }
+
+      .icon-pulse {
+        animation: iconPulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+      }
+    `}</style>
     </div>
   </div>
 )}
+  
 
     </div>
   );

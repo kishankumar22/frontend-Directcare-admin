@@ -1898,18 +1898,22 @@ const uploadVariantImages = async (productResponse: any) => {
     </span>
   </label>
   
-  <MultiBrandSelector
-    selectedBrands={formData.brandIds}
-    availableBrands={dropdownsData.brands}
-    onChange={(brandIds) => {
-      setFormData(prev => ({
-        ...prev,
-        brandIds: brandIds,
-        brand: brandIds[0] || '', // Set first as primary
-      }));
-    }}
-    placeholder="Select one or more brands..."
-  />
+{/* // Add Product Page */}
+<MultiBrandSelector
+  selectedBrands={formData.brandIds}
+  availableBrands={dropdownsData.brands}
+  onChange={(brandIds) => {
+    console.log('🔄 Brand selection changed:', brandIds);
+    setFormData(prev => ({
+      ...prev,
+      brandIds: brandIds,
+      brand: brandIds[0] || '',
+    }));
+  }}
+  placeholder="Select one brand..."
+  maxSelection={1}
+/>
+
 
   {/* Info Text */}
   <p className="text-xs text-slate-400 mt-2 flex items-center gap-1">
