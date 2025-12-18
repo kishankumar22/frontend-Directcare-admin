@@ -2,7 +2,6 @@
 import { Suspense } from 'react';
 import ProductsClient from './ProductsClient';
 import { Loader2 } from 'lucide-react';
-import { apiClient } from '@/lib/api';
 import { API_ENDPOINTS } from '@/lib/api-config';
 
 // ✅ Types
@@ -96,7 +95,7 @@ async function getAllProducts(params: SearchParams = {}): Promise<ApiResponse> {
     }
 
     const res = await fetch(
-      `${API_ENDPOINTS.products}?${queryParams.toString()}`,
+      `https://testapi.knowledgemarkg.com/api/Products?page=1&pageSize=10&sortDirection=asc?${queryParams.toString()}`,
       {
         cache: 'no-store',
         next: { revalidate: 0 },

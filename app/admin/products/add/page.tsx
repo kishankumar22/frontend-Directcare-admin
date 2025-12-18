@@ -3875,24 +3875,31 @@ const uploadVariantImages = async (productResponse: any) => {
 
 
 {/* SEO Tab - Compact with Validation */}
-<TabsContent value="seo" className="space-y-2 mt-2">
-  <div className="space-y-3">
-    <h3 className="text-sm font-semibold text-white border-b border-slate-800 pb-1">Search Engine Optimization</h3>
-    <p className="text-[10px] text-slate-400">
-      Optimize your product for search engines to improve visibility
-    </p>
+{/* SEO Tab - Compact and Synced with Variants */}
+<TabsContent value="seo" className="space-y-4 mt-2">
+  <div className="space-y-4 bg-slate-800/30 border border-slate-700 rounded-xl p-4">
+    <div className="flex items-center justify-between">
+      <div>
+        <h3 className="text-lg font-semibold text-white">Search Engine Optimization</h3>
+        <p className="text-sm text-slate-400">
+          Optimize your product for search engines to improve visibility
+        </p>
+      </div>
+    </div>
 
     {/* Meta Title */}
     <div>
       <div className="flex items-center justify-between mb-1.5">
-        <label className="text-xs font-medium text-slate-300">Meta Title</label>
-        <span className={`text-[10px] font-medium ${
-          formData.metaTitle.length > 60 
-            ? 'text-red-400' 
-            : formData.metaTitle.length > 50 
-            ? 'text-yellow-400' 
-            : 'text-slate-500'
-        }`}>
+        <label className="text-sm font-medium text-slate-300">Meta Title</label>
+        <span
+          className={`text-xs font-medium ${
+            formData.metaTitle.length > 60
+              ? 'text-red-400'
+              : formData.metaTitle.length > 50
+              ? 'text-yellow-400'
+              : 'text-slate-500'
+          }`}
+        >
           {formData.metaTitle.length}/60
         </span>
       </div>
@@ -3903,28 +3910,30 @@ const uploadVariantImages = async (productResponse: any) => {
         onChange={handleChange}
         maxLength={60}
         placeholder="SEO-optimized title for search engines"
-        className={`w-full px-2.5 py-1.5 bg-slate-800/50 border rounded-lg text-sm text-white placeholder-slate-500 focus:ring-1 focus:ring-violet-500 focus:border-transparent transition-all ${
-          formData.metaTitle.length > 60 
-            ? 'border-red-500/50' 
-            : formData.metaTitle.length > 50 
-            ? 'border-yellow-500/50' 
+        className={`w-full px-4 py-2.5 bg-slate-900 border rounded-lg text-sm text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all ${
+          formData.metaTitle.length > 60
+            ? 'border-red-500/50'
+            : formData.metaTitle.length > 50
+            ? 'border-yellow-500/50'
             : 'border-slate-700'
         }`}
       />
-      <p className="text-[10px] text-slate-400 mt-0.5">Recommended: 50-60 characters</p>
+      <p className="text-xs text-slate-400 mt-1">Recommended: 50-60 characters</p>
     </div>
 
     {/* Meta Description */}
     <div>
       <div className="flex items-center justify-between mb-1.5">
-        <label className="text-xs font-medium text-slate-300">Meta Description</label>
-        <span className={`text-[10px] font-medium ${
-          formData.metaDescription.length > 160 
-            ? 'text-red-400' 
-            : formData.metaDescription.length > 150 
-            ? 'text-yellow-400' 
-            : 'text-slate-500'
-        }`}>
+        <label className="text-sm font-medium text-slate-300">Meta Description</label>
+        <span
+          className={`text-xs font-medium ${
+            formData.metaDescription.length > 160
+              ? 'text-red-400'
+              : formData.metaDescription.length > 150
+              ? 'text-yellow-400'
+              : 'text-slate-500'
+          }`}
+        >
           {formData.metaDescription.length}/160
         </span>
       </div>
@@ -3935,23 +3944,23 @@ const uploadVariantImages = async (productResponse: any) => {
         maxLength={160}
         placeholder="Brief description for search engine results"
         rows={3}
-        className={`w-full px-2.5 py-1.5 bg-slate-800/50 border rounded-lg text-sm text-white placeholder-slate-500 focus:ring-1 focus:ring-violet-500 focus:border-transparent transition-all resize-none ${
-          formData.metaDescription.length > 160 
-            ? 'border-red-500/50' 
-            : formData.metaDescription.length > 150 
-            ? 'border-yellow-500/50' 
+        className={`w-full px-4 py-2.5 bg-slate-900 border rounded-lg text-sm text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all resize-none ${
+          formData.metaDescription.length > 160
+            ? 'border-red-500/50'
+            : formData.metaDescription.length > 150
+            ? 'border-yellow-500/50'
             : 'border-slate-700'
         }`}
       />
-      <p className="text-[10px] text-slate-400 mt-0.5">Recommended: 150-160 characters</p>
+      <p className="text-xs text-slate-400 mt-1">Recommended: 150-160 characters</p>
     </div>
 
     {/* Meta Keywords */}
     <div>
       <div className="flex items-center justify-between mb-1.5">
-        <label className="text-xs font-medium text-slate-300">Meta Keywords</label>
-        <span className="text-[10px] text-slate-500">
-          {formData.metaKeywords.split(',').filter(k => k.trim()).length} keywords
+        <label className="text-sm font-medium text-slate-300">Meta Keywords</label>
+        <span className="text-xs text-slate-500">
+          {formData.metaKeywords.split(',').filter((k) => k.trim()).length} keywords
         </span>
       </div>
       <input
@@ -3960,16 +3969,16 @@ const uploadVariantImages = async (productResponse: any) => {
         value={formData.metaKeywords}
         onChange={handleChange}
         placeholder="keyword1, keyword2, keyword3"
-        className="w-full px-2.5 py-1.5 bg-slate-800/50 border border-slate-700 rounded-lg text-sm text-white placeholder-slate-500 focus:ring-1 focus:ring-violet-500 focus:border-transparent transition-all"
+        className="w-full px-4 py-2.5 bg-slate-900 border border-slate-700 rounded-lg text-sm text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
       />
-      <p className="text-[10px] text-slate-400 mt-0.5">Comma-separated keywords</p>
+      <p className="text-xs text-slate-400 mt-1">Comma-separated keywords</p>
     </div>
 
     {/* SEO Friendly URL */}
     <div>
       <div className="flex items-center justify-between mb-1.5">
-        <label className="text-xs font-medium text-slate-300">URL Slug</label>
-        <span className="text-[10px] text-slate-500">
+        <label className="text-sm font-medium text-slate-300">URL Slug</label>
+        <span className="text-xs text-slate-500">
           {formData.searchEngineFriendlyPageName.length} chars
         </span>
       </div>
@@ -3979,15 +3988,17 @@ const uploadVariantImages = async (productResponse: any) => {
         value={formData.searchEngineFriendlyPageName}
         onChange={handleChange}
         placeholder="product-url-slug"
-        className="w-full px-2.5 py-1.5 bg-slate-800/50 border border-slate-700 rounded-lg text-sm text-white placeholder-slate-500 focus:ring-1 focus:ring-violet-500 focus:border-transparent transition-all"
+        className="w-full px-4 py-2.5 bg-slate-900 border border-slate-700 rounded-lg text-sm text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
       />
-      <p className="text-[10px] text-slate-400 mt-0.5">Leave empty to auto-generate from product name</p>
+      <p className="text-xs text-slate-400 mt-1">
+        Leave empty to auto-generate from product name
+      </p>
     </div>
 
-    {/* SEO Tips - Compact */}
-    <div className="bg-violet-500/10 border border-violet-500/30 rounded-lg p-2.5">
-      <h4 className="font-semibold text-xs text-violet-400 mb-1">SEO Tips</h4>
-      <ul className="text-[10px] text-slate-300 space-y-0.5">
+    {/* SEO Tips - Synced Card Style */}
+    <div className="bg-violet-500/10 border border-violet-500/30 rounded-lg p-4">
+      <h4 className="font-semibold text-sm text-violet-400 mb-1.5">SEO Tips</h4>
+      <ul className="text-xs text-slate-300 space-y-1">
         <li>• Use descriptive, keyword-rich titles and descriptions</li>
         <li>• Keep meta titles under 60 characters</li>
         <li>• Keep meta descriptions under 160 characters</li>
@@ -3997,16 +4008,20 @@ const uploadVariantImages = async (productResponse: any) => {
   </div>
 </TabsContent>
 
-{/* Media Tab - Compact Design */}
-<TabsContent value="media" className="space-y-2 mt-2">
+{/* Media Tab - Synced with Variants */}
+<TabsContent value="media" className="space-y-4 mt-2">
   {/* ========== PICTURES SECTION ========== */}
-  <div className="space-y-2">
-    <h3 className="text-sm font-semibold text-white border-b border-slate-800 pb-1">Product Images</h3>
-    <p className="text-[10px] text-slate-400">
-      Upload and manage product images. Supported: JPG, PNG, WebP • Max 2MB • Up to 10 images
-    </p>
+  <div className="space-y-4 bg-slate-800/30 border border-slate-700 rounded-xl p-4">
+    <div className="flex items-center justify-between">
+      <div>
+        <h3 className="text-lg font-semibold text-white">Product Images</h3>
+        <p className="text-sm text-slate-400">
+          Upload and manage product images. Supported: JPG, PNG, WebP • Max 2MB • Up to 10 images
+        </p>
+      </div>
+    </div>
 
-    {/* Direct Upload Button - Compact */}
+    {/* Direct Upload Button */}
     <input
       ref={fileInputRef}
       type="file"
@@ -4036,7 +4051,7 @@ const uploadVariantImages = async (productResponse: any) => {
         className={`w-full py-2.5 rounded-lg text-xs font-medium transition-all flex items-center justify-center gap-2 ${
           !formData.name.trim() || uploadingImages
             ? 'bg-slate-700/50 text-slate-500 cursor-not-allowed border-2 border-dashed border-slate-600'
-            : 'bg-slate-800/50 border-2 border-dashed border-slate-700 text-slate-300 hover:bg-slate-800 hover:border-violet-500/50'
+            : 'bg-slate-900 border-2 border-dashed border-slate-700 text-slate-300 hover:bg-slate-800 hover:border-violet-500/50'
         }`}
       >
         <Upload className="h-4 w-4" />
@@ -4045,39 +4060,42 @@ const uploadVariantImages = async (productResponse: any) => {
     )}
 
     {!formData.name.trim() && (
-      <p className="text-[10px] text-amber-400">⚠️ Product name is required for image upload</p>
+      <p className="text-xs text-amber-400">⚠️ Product name is required for image upload</p>
     )}
 
-    {/* Image Grid - Compact */}
+    {/* Image Grid */}
     {formData.productImages.length > 0 && (
-      <div className="space-y-1.5">
-        <h4 className="text-[10px] font-medium text-slate-400">
+      <div className="space-y-2">
+        <h4 className="text-xs font-medium text-slate-400">
           {formData.productImages.length}/10 Images
         </h4>
-        <div className="grid grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-1.5">
+        <div className="grid grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-2">
           {formData.productImages.map((image, index) => (
-            <div key={image.id} className="bg-slate-800/30 border border-slate-700 rounded p-1 space-y-1 relative group">
+            <div
+              key={image.id}
+              className="bg-slate-800/30 border border-slate-700 rounded p-2 space-y-1 relative group"
+            >
               {/* Main Badge */}
               {index === 0 && (
-                <div className="absolute top-0.5 left-0.5 px-1 py-0.5 bg-violet-500 text-white text-[8px] font-medium rounded z-10">
+                <div className="absolute top-1 left-1 px-1.5 py-0.5 bg-violet-500 text-white text-[10px] font-medium rounded z-10">
                   Main
                 </div>
               )}
-              
+
               {/* Image */}
               <div className="aspect-square bg-slate-700/50 rounded overflow-hidden relative">
                 {image.imageUrl ? (
-                  <img 
-                    src={image.imageUrl} 
-                    alt={image.altText || 'Product'} 
-                    className="w-full h-full object-cover" 
+                  <img
+                    src={image.imageUrl}
+                    alt={image.altText || 'Product'}
+                    className="w-full h-full object-cover"
                   />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center">
                     <Image className="h-5 w-5 text-slate-500" />
                   </div>
                 )}
-                
+
                 {/* Delete Button */}
                 <button
                   type="button"
@@ -4087,30 +4105,30 @@ const uploadVariantImages = async (productResponse: any) => {
                     }
                     removeImage(image.id);
                   }}
-                  className="absolute top-0 right-0 p-0.5 rounded-bl transition-all opacity-0 group-hover:opacity-100 bg-red-500/90 hover:bg-red-600"
+                  className="absolute top-0 right-0 p-1 rounded-bl transition-all opacity-0 group-hover:opacity-100 bg-red-500/90 hover:bg-red-600"
                   title="Delete"
                 >
-                  <X className="h-2.5 w-2.5 text-white" />
+                  <X className="h-3 w-3 text-white" />
                 </button>
               </div>
-              
-              {/* Compact Controls */}
-              <div className="space-y-0.5">
+
+              {/* Controls */}
+              <div className="space-y-1">
                 <input
                   type="text"
-                  placeholder="Alt"
+                  placeholder="Alt text"
                   value={image.altText}
                   onChange={(e) => {
                     setFormData({
                       ...formData,
-                      productImages: formData.productImages.map(img =>
-                        img.id === image.id ? { ...img, altText: e.target.value } : img
-                      )
+                      productImages: formData.productImages.map((img) =>
+                        img.id === image.id ? { ...img, altText: e.target.value } : img,
+                      ),
                     });
                   }}
-                  className="w-full px-1 py-0.5 text-[9px] bg-slate-800/50 border border-slate-700 rounded text-white placeholder-slate-500 focus:ring-1 focus:ring-violet-500 focus:border-transparent"
+                  className="w-full px-2 py-1 text-[11px] bg-slate-800/50 border border-slate-700 rounded text-white placeholder-slate-500 focus:ring-1 focus:ring-violet-500 focus:border-transparent"
                 />
-                <div className="flex items-center gap-0.5">
+                <div className="flex items-center gap-1">
                   <input
                     type="number"
                     placeholder="#"
@@ -4118,35 +4136,39 @@ const uploadVariantImages = async (productResponse: any) => {
                     onChange={(e) => {
                       setFormData({
                         ...formData,
-                        productImages: formData.productImages.map(img =>
-                          img.id === image.id ? { ...img, sortOrder: parseInt(e.target.value) || 1 } : img
-                        )
+                        productImages: formData.productImages.map((img) =>
+                          img.id === image.id
+                            ? { ...img, sortOrder: parseInt(e.target.value) || 1 }
+                            : img,
+                        ),
                       });
                     }}
-                    className="flex-1 w-8 px-1 py-0.5 text-[9px] bg-slate-800/50 border border-slate-700 rounded text-white placeholder-slate-500 focus:ring-1 focus:ring-violet-500 focus:border-transparent"
+                    className="w-12 px-2 py-1 text-[11px] bg-slate-800/50 border border-slate-700 rounded text-white placeholder-slate-500 focus:ring-1 focus:ring-violet-500 focus:border-transparent"
                   />
-                  <label className="flex items-center gap-0.5 cursor-pointer">
+                  <label className="flex items-center gap-1 cursor-pointer">
                     <input
                       type="checkbox"
                       checked={image.isMain}
                       onChange={(e) => {
                         setFormData({
                           ...formData,
-                          productImages: formData.productImages.map(img =>
-                            img.id === image.id ? { ...img, isMain: e.target.checked } : 
-                            e.target.checked ? { ...img, isMain: false } : img
-                          )
+                          productImages: formData.productImages.map((img) =>
+                            img.id === image.id
+                              ? { ...img, isMain: e.target.checked }
+                              : e.target.checked
+                              ? { ...img, isMain: false }
+                              : img,
+                          ),
                         });
                       }}
-                      className="w-2 h-2 text-violet-500"
+                      className="w-3 h-3 text-violet-500 rounded border-slate-700 bg-slate-900 focus:ring-1 focus:ring-violet-500"
                     />
-                    <span className="text-[8px] text-slate-400">M</span>
+                    <span className="text-[10px] text-slate-400">Main</span>
                   </label>
                 </div>
-                
-                {/* File Size */}
+
                 {image.fileSize && (
-                  <div className="text-[8px] text-slate-500">
+                  <div className="text-[10px] text-slate-500">
                     {(image.fileSize / 1024 / 1024).toFixed(1)} MB
                   </div>
                 )}
@@ -4156,25 +4178,24 @@ const uploadVariantImages = async (productResponse: any) => {
         </div>
       </div>
     )}
-
-
   </div>
 
-  {/* ========== DIVIDER ========== */}
-  <div className="border-t border-slate-800"></div>
-
   {/* ========== VIDEOS SECTION ========== */}
-  <div className="space-y-2">
-    <h3 className="text-sm font-semibold text-white border-b border-slate-800 pb-1">Product Videos</h3>
-    <p className="text-[10px] text-slate-400">
-      Add video URLs (YouTube, Vimeo, etc.) to showcase your product
-    </p>
+  <div className="space-y-4 bg-slate-800/30 border border-slate-700 rounded-xl p-4">
+    <div className="flex items-center justify-between">
+      <div>
+        <h3 className="text-lg font-semibold text-white">Product Videos</h3>
+        <p className="text-sm text-slate-400">
+          Add video URLs (YouTube, Vimeo, etc.) to showcase your product
+        </p>
+      </div>
+    </div>
 
-    {/* Video Grid - Compact */}
+    {/* Video Grid */}
     {formData.videoUrls.length > 0 && (
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-1.5">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
         {formData.videoUrls.map((url, index) => (
-          <div 
+          <div
             key={index}
             className="group bg-slate-800/30 rounded border border-slate-700 overflow-hidden hover:border-violet-500/50 transition-all"
           >
@@ -4188,7 +4209,9 @@ const uploadVariantImages = async (productResponse: any) => {
                     className="w-full h-full object-cover"
                     onError={(e) => {
                       const target = e.target as HTMLImageElement;
-                      target.src = `https://img.youtube.com/vi/${getYouTubeVideoId(url)}/default.jpg`;
+                      target.src = `https://img.youtube.com/vi/${getYouTubeVideoId(
+                        url,
+                      )}/default.jpg`;
                     }}
                   />
                   <div className="absolute inset-0 bg-black/30 flex items-center justify-center group-hover:bg-black/50 transition-all">
@@ -4200,15 +4223,15 @@ const uploadVariantImages = async (productResponse: any) => {
               ) : (
                 <Video className="w-6 h-6 text-slate-600" />
               )}
-              
+
               {/* Video Number */}
-              <div className="absolute top-1 left-1 px-1.5 py-0.5 bg-black/70 backdrop-blur-sm rounded text-[9px] font-semibold text-white">
+              <div className="absolute top-1 left-1 px-1.5 py-0.5 bg-black/70 backdrop-blur-sm rounded text-[10px] font-semibold text-white">
                 #{index + 1}
               </div>
             </div>
 
-            {/* URL Input - Compact */}
-            <div className="p-1 bg-slate-900/50 space-y-1">
+            {/* URL Input + Remove */}
+            <div className="p-2 bg-slate-900/50 space-y-1">
               <input
                 type="text"
                 value={url}
@@ -4218,20 +4241,20 @@ const uploadVariantImages = async (productResponse: any) => {
                   setFormData({ ...formData, videoUrls: newUrls });
                 }}
                 placeholder="https://youtube.com/..."
-                className="w-full px-1.5 py-0.5 bg-slate-800/50 border border-slate-700 rounded text-[9px] text-white placeholder-slate-500 focus:ring-1 focus:ring-violet-500 focus:border-transparent"
+                className="w-full px-2 py-1 bg-slate-800/50 border border-slate-700 rounded text-xs text-white placeholder-slate-500 focus:ring-1 focus:ring-violet-500 focus:border-transparent"
               />
-              
+
               <button
                 type="button"
                 onClick={() => {
                   setFormData({
                     ...formData,
-                    videoUrls: formData.videoUrls.filter((_, i) => i !== index)
+                    videoUrls: formData.videoUrls.filter((_, i) => i !== index),
                   });
                 }}
-                className="w-full px-1.5 py-0.5 bg-red-500/10 border border-red-500/30 text-red-400 hover:bg-red-500/20 rounded transition-all text-[9px] font-medium flex items-center justify-center gap-0.5"
+                className="w-full px-2 py-1 bg-red-500/10 border border-red-500/30 text-red-400 hover:bg-red-500/20 rounded transition-all text-xs font-medium flex items-center justify-center gap-1"
               >
-                <X className="w-2 h-2" />
+                <X className="w-3 h-3" />
                 Remove
               </button>
             </div>
@@ -4240,24 +4263,23 @@ const uploadVariantImages = async (productResponse: any) => {
       </div>
     )}
 
-    {/* Add Video Button - Inline Style */}
+    {/* Add Video Button */}
     <button
       type="button"
       onClick={() => {
         setFormData({
           ...formData,
-          videoUrls: [...formData.videoUrls, '']
+          videoUrls: [...formData.videoUrls, ''],
         });
       }}
-      className="w-full py-2.5 bg-slate-800/50 border-2 border-dashed border-slate-700 rounded-lg text-slate-300 hover:bg-slate-800 hover:border-violet-500/50 transition-all text-xs font-medium flex items-center justify-center gap-2"
+      className="w-full py-2.5 bg-slate-900 border-2 border-dashed border-slate-700 rounded-lg text-slate-300 hover:bg-slate-800 hover:border-violet-500/50 transition-all text-xs font-medium flex items-center justify-center gap-2"
     >
       <Video className="h-4 w-4" />
       Add Video URL
     </button>
-
-
   </div>
 </TabsContent>
+
 
 
 

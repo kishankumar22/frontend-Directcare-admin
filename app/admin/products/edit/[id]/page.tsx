@@ -21,15 +21,10 @@ import { ProductAttribute, ProductVariant, DropdownsData, SimpleProduct, Product
 import { GroupedProductModal } from '../../GroupedProductModal';
 import { MultiBrandSelector } from "../../MultiBrandSelector";
 import React from "react";
-import { BackInStockSubscribers, LowStockAlert,AdminCommentHistoryModal, EditLockBanner } from "../../productModals";
+import { BackInStockSubscribers, LowStockAlert,AdminCommentHistoryModal } from "../../productModals";
 // ✅ ADD THIS INTERFACE
 
-interface EditLockStatus {
-  isLocked: boolean;
-  lockedBy?: string;
-  lockedByEmail?: string;
-  expiresAt?: string;
-}
+
 
 
 // ================================
@@ -274,6 +269,14 @@ const [formData, setFormData] = useState({
   metaDescription: '',
   searchEngineFriendlyPageName: '',
 });
+const [productLock, setProductLock] = useState<{
+  isLocked: boolean;
+  lockedBy: string | null;
+  expiresAt: string | null;
+} | null>(null);
+
+const [isLockModalOpen, setIsLockModalOpen] = useState(false);
+const [lockModalMessage, setLockModalMessage] = useState("");
 
 
 useEffect(() => {
@@ -285,18 +288,18 @@ useEffect(() => {
     }
 
     try {
-      console.log('🔄 ==================== FETCHING PRODUCT DATA ====================');
-      console.log('🆔 Product ID:', productId);
-      console.log('🌐 API Base URL:', API_BASE_URL);
-      console.log('📍 Products Endpoint:', API_ENDPOINTS.products);
-      console.log('🔗 Full URL:', `${API_BASE_URL}${API_ENDPOINTS.products}/${productId}`);
+      // console.log('🔄 ==================== FETCHING PRODUCT DATA ====================');
+      // console.log('🆔 Product ID:', productId);
+      // console.log('🌐 API Base URL:', API_BASE_URL);
+      // console.log('📍 Products Endpoint:', API_ENDPOINTS.products);
+      // console.log('🔗 Full URL:', `${API_BASE_URL}${API_ENDPOINTS.products}/${productId}`);
       
       setLoading(true);
 
       // ✅ Fetch product data directly (no health check)
       console.log('🔍 Fetching product data...');
       const productResponse = await apiClient.get<any>(`${API_ENDPOINTS.products}/${productId}`);
-      console.log('✅ Product response received:', productResponse.status);
+      // console.log('✅ Product response received:', productResponse.status);
 
       // ✅ Fetch other data (can fail silently)
       const [brandsResponse, categoriesResponse, vatRatesResponse, allProductsResponse] = await Promise.allSettled([
@@ -325,11 +328,11 @@ useEffect(() => {
         vatRates: Array.isArray(vatRatesData) ? vatRatesData : []
       });
 
-      console.log('✅ Dropdowns loaded:', {
-        brands: brandsData.length,
-        categories: categoriesData.length,
-        vatRates: vatRatesData.length
-      });
+      // console.log('✅ Dropdowns loaded:', {
+      //   brands: brandsData.length,
+      //   categories: categoriesData.length,
+      //   vatRates: vatRatesData.length
+      // });
 
       // ✅ Process available products
       if (allProductsResponse.status === 'fulfilled' && allProductsResponse.value.data) {
@@ -342,7 +345,7 @@ useEffect(() => {
             price: product.price.toFixed(2)
           }));
           setAvailableProducts(transformedProducts);
-          console.log('✅ Available products loaded:', transformedProducts.length);
+          // console.log('✅ Available products loaded:', transformedProducts.length);
         }
       }
 
@@ -353,7 +356,7 @@ useEffect(() => {
         throw new Error('Product data is empty');
       }
       
-      console.log('📥 Product loaded:', productData.name || productData.id);
+      // console.log('📥 Product loaded:', productData.name || productData.id);
 
       
       // BRANDS, dates, arrays parsing
@@ -521,7 +524,7 @@ useEffect(() => {
         specifications: []
       });
 
-      console.log('✅ Form data populated');
+      // console.log('✅ Form data populated');
 
       // Load attributes
       if (productData.attributes && Array.isArray(productData.attributes)) {
@@ -532,7 +535,7 @@ useEffect(() => {
           displayOrder: attr.displayOrder || attr.sortOrder || 0
         }));
         setProductAttributes(attrs);
-        console.log('✅ Attributes loaded:', attrs.length);
+        // console.log('✅ Attributes loaded:', attrs.length);
       }
 
       // Load variants
@@ -560,7 +563,7 @@ useEffect(() => {
           gtin: variant.gtin || null
         }));
         setProductVariants(vars);
-        console.log('✅ Variants loaded:', vars.length);
+        // console.log('✅ Variants loaded:', vars.length);
       }
 
       // Load images
@@ -577,16 +580,16 @@ useEffect(() => {
             fileSize: img.fileSize || 0
           }));
         setFormData(prev => ({ ...prev, productImages: imgs }));
-        console.log('✅ Images loaded:', imgs.length);
+        // console.log('✅ Images loaded:', imgs.length);
       }
 
       setLoading(false);
-      console.log('✅ ==================== PRODUCT DATA LOADED SUCCESSFULLY ====================');
+      // console.log('✅ ==================== PRODUCT DATA LOADED SUCCESSFULLY ====================');
 
     } catch (error: any) {
-      console.error('❌ ==================== ERROR FETCHING PRODUCT ====================');
-      console.error('❌ Error:', error);
-      console.error('❌ Message:', error.message);
+      // console.error('❌ ==================== ERROR FETCHING PRODUCT ====================');
+      // console.error('❌ Error:', error);
+      // console.error('❌ Message:', error.message);
       
       if (error.response) {
         console.error('❌ Status:', error.response.status);
@@ -616,8 +619,117 @@ useEffect(() => {
 }, [productId]);
 
 
+// ==================== FIXED: ACQUIRE PRODUCT LOCK ====================
+const acquireProductLock = async (productId: string): Promise<boolean> => {
+  try {
+    const response = await apiClient.post<any>(
+      `${API_ENDPOINTS.products}/${productId}/lock?durationMinutes=15`,
+      {}
+    );
+
+    // ✅ Success - Lock मिल गया
+    if (response.data?.success && response.data?.data) {
+      const lockData = response.data.data;
+      setProductLock({
+        isLocked: lockData.isLocked,
+        lockedBy: lockData.lockedBy,
+        expiresAt: lockData.expiresAt,
+      });
+
+      const backendMessage = response.data?.message || "Product edit lock acquired successfully";
+      const expiryTime = new Date(lockData.expiresAt).toLocaleString('en-IN', { 
+        timeZone: 'Asia/Kolkata',
+        dateStyle: 'medium',
+        timeStyle: 'short'
+      });
+
+      toast.success(
+        `${backendMessage}\n\n🔐 Locked by: ${lockData.lockedBy}\n⏰ Expires at: ${expiryTime}`,
+        { autoClose: 4000 }
+      );
+
+      return true;
+    } 
+    // ❌ Lock नहीं मिला - कोई और edit कर रहा है
+    else {
+      const backendMessage = response.data?.message || "Product is currently being edited by another user.";
+
+      // Modal खोलो
+      setLockModalMessage(backendMessage);
+      setIsLockModalOpen(true);
+
+      // 3 सेकंड बाद modal बंद और redirect
+      setTimeout(() => {
+        setIsLockModalOpen(false);
+        router.push("/admin/products");
+      }, 1000);
+
+      return false;
+    }
+
+  } catch (error: any) {
+    console.error("Failed to acquire product lock:", error);
+    const errorMsg = error.response?.data?.message || error.message || "Failed to acquire edit lock";
+    toast.error(`Lock Error: ${errorMsg}`, { autoClose: 5000 });
+    return false;
+  }
+};
+
+// ========== 2. RELEASE PRODUCT LOCK FUNCTION ==========
+const releaseProductLock = async (productId: string): Promise<boolean> => {
+  try {
+    const response = await apiClient.delete<any>(
+      `${API_ENDPOINTS.products}/${productId}/lock`
+    );
+
+    if (response.data?.success) {
+      setProductLock(null);
+      console.log("✅ Product lock released successfully");
+      // toast.info("🔓 Product lock released successfully");
+      return true;
+    }
+    return false;
+  } catch (error: any) {
+    console.error("❌ Failed to release product lock:", error);
+    // Silently fail on unlock errors (lock will auto-expire)
+    return false;
+  }
+};
 
 
+// ========== 3. HANDLE CANCEL FUNCTION ==========
+const handleCancel = async () => {
+  // Release lock before navigating away
+  await releaseProductLock(productId);
+  router.push("/admin/products");
+};
+
+
+
+// 1. Acquire lock on component mount
+useEffect(() => {
+  if (!productId) return;
+
+  // Acquire lock when user opens edit page
+  acquireProductLock(productId);
+
+  // Cleanup: Release lock on unmount (when user leaves page)
+  return () => {
+    releaseProductLock(productId);
+  };
+}, [productId]);
+// 2. Auto-refresh lock every 10 minutes ⚠️ ADD THIS
+useEffect(() => {
+  if (!productId) return;
+
+  const refreshInterval = setInterval(() => {
+    console.log("🔄 Refreshing product lock...");
+    acquireProductLock(productId);
+  }, 10 * 60 * 1000); // 10 minutes
+
+  return () => clearInterval(refreshInterval);
+}, [productId]);
+// ==================== FORM SUBMISSION HANDLER ====================
 const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
   e.preventDefault();
   const target = e.target as HTMLElement;
@@ -628,11 +740,11 @@ const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
   }
 
   target.setAttribute('data-submitting', 'true');
-
+    
   try {
-    console.log('🚀 ==================== PRODUCT UPDATE START ====================');
-    console.log('📋 Mode:', isDraft ? 'DRAFT' : 'UPDATE');
-    console.log('🆔 Product ID:', productId);
+    // console.log('🚀 ==================== PRODUCT UPDATE START ====================');
+    // console.log('📋 Mode:', isDraft ? 'DRAFT' : 'UPDATE');
+    // console.log('🆔 Product ID:', productId);
 
     // ✅ Validation
     if (!formData.name || !formData.sku) {
@@ -682,11 +794,7 @@ const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
       return;
     }
 
-    console.log('💰 Parsed Prices:', {
-      price: parsedPrice,
-      oldPrice: parsedOldPrice,
-      cost: parsedCost
-    });
+   
 
     const nameRegex = /^[A-Za-z0-9\s\-.,()'/]+$/;
     if (!nameRegex.test(formData.name)) {
@@ -937,22 +1045,22 @@ const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
       })
     );
 
-    console.log('📦 ==================== FINAL PAYLOAD ====================');
-    console.log(JSON.stringify(cleanProductData, null, 2));
-    console.log('💰 Price Types Check:', {
-      price: { value: cleanProductData.price, type: typeof cleanProductData.price },
-      oldPrice: { value: cleanProductData.oldPrice, type: typeof cleanProductData.oldPrice },
-      costPrice: { value: cleanProductData.costPrice, type: typeof cleanProductData.costPrice }
-    });
-    console.log('📦 ==================== END PAYLOAD ====================');
+    // console.log('📦 ==================== FINAL PAYLOAD ====================');
+    // console.log(JSON.stringify(cleanProductData, null, 2));
+    // console.log('💰 Price Types Check:', {
+    //   price: { value: cleanProductData.price, type: typeof cleanProductData.price },
+    //   oldPrice: { value: cleanProductData.oldPrice, type: typeof cleanProductData.oldPrice },
+    //   costPrice: { value: cleanProductData.costPrice, type: typeof cleanProductData.costPrice }
+    // });
+    // console.log('📦 ==================== END PAYLOAD ====================');
 
     // ✅ FIXED: Send PUT request with better error handling
     const response = await apiClient.put(`/api/Products/${productId}`, cleanProductData);
 
-    console.log('✅ ==================== RESPONSE RECEIVED ====================');
-    console.log('Response status:', response?.status);
-    console.log('Response data:', response?.data);
-    console.log('✅ ==================== END RESPONSE ====================');
+    // console.log('✅ ==================== RESPONSE RECEIVED ====================');
+    // console.log('Response status:', response?.status);
+    // console.log('Response data:', response?.data);
+    // console.log('✅ ==================== END RESPONSE ====================');
 
     // ✅ FIXED: Better response checking
     if (!response) {
@@ -967,7 +1075,8 @@ const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
       isDraft ? '💾 Product saved as draft!' : '✅ Product updated successfully!',
       { autoClose: 3000 }
     );
-
+      // ✅ RELEASE LOCK AFTER SUCCESSFUL SAVE
+        await releaseProductLock(productId);
     setTimeout(() => {
       router.push('/admin/products');
     }, 800);
@@ -1025,6 +1134,10 @@ const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
     target.removeAttribute('data-submitting');
   }
 };
+
+
+
+
 
 // ✅ COMPLETE FIXED handleChange - ADD PRICE FIELD HANDLING
 const handleChange = (
@@ -1758,12 +1871,6 @@ const handleVariantImageUpload = async (variantId: string, file: File) => {
 
 
 
-const [editLock, setEditLock] = useState<EditLockStatus>({
-  isLocked: false,
-  lockedBy: undefined,
-  lockedByEmail: undefined,
-  expiresAt: undefined
-});
 
 
 
@@ -2029,12 +2136,13 @@ const uploadImagesToProductDirect = async (
             </div>
           </div>
           <div className="flex items-center gap-3">
-            <button
-              onClick={() => router.push('/admin/products')}
-              className="px-5 py-2.5 bg-slate-800/50 border border-slate-700 rounded-xl text-slate-300 hover:bg-slate-800 hover:border-slate-600 transition-all text-sm font-medium"
-            >
-              Cancel
-            </button>
+           <button
+  onClick={handleCancel}
+  className="px-5 py-2.5 bg-slate-800/50 border border-slate-700 rounded-xl text-slate-300 hover:bg-slate-800 hover:border-slate-600 transition-all text-sm font-medium"
+>
+  Cancel
+</button>
+
             <button
               type="button"
               onClick={(e) => handleSubmit(e, true)}
@@ -2055,14 +2163,7 @@ const uploadImagesToProductDirect = async (
         </div>
       </div>
 
-{editLock.isLocked && (
-  <EditLockBanner 
-    isLocked={editLock.isLocked}
-    lockedBy={editLock.lockedBy}
-    lockedByEmail={editLock.lockedByEmail}
-    expiresAt={editLock.expiresAt}
-  />
-)}
+
 
 
       {/* Main Content */}
@@ -2215,7 +2316,7 @@ const uploadImagesToProductDirect = async (
     selectedBrands={formData.brandIds}
     availableBrands={dropdownsData.brands}
     onChange={(brandIds: string[]) => {
-      console.log('🏷️ Brands updated:', brandIds);
+      // console.log('🏷️ Brands updated:', brandIds);
       setFormData(prev => ({ 
         ...prev, 
         brandIds: brandIds,
@@ -4334,24 +4435,29 @@ const uploadImagesToProductDirect = async (
   </div>
 </TabsContent>
 
+{/* SEO Tab - Synced with Variants */}
 <TabsContent value="seo" className="space-y-2 mt-2">
-  <div className="space-y-3">
-    <h3 className="text-sm font-semibold text-white border-b border-slate-800 pb-1">Search Engine Optimization</h3>
-    <p className="text-[10px] text-slate-400">
-      Optimize your product for search engines to improve visibility
-    </p>
+  <div className="space-y-4 bg-slate-800/30 border border-slate-700 rounded-xl p-4">
+    <div>
+      <h3 className="text-lg font-semibold text-white">Search Engine Optimization</h3>
+      <p className="text-sm text-slate-400">
+        Optimize your product for search engines to improve visibility
+      </p>
+    </div>
 
     {/* Meta Title */}
     <div>
       <div className="flex items-center justify-between mb-1.5">
-        <label className="text-xs font-medium text-slate-300">Meta Title</label>
-        <span className={`text-[10px] font-medium ${
-          formData.metaTitle.length > 60 
-            ? 'text-red-400' 
-            : formData.metaTitle.length > 50 
-            ? 'text-yellow-400' 
-            : 'text-slate-500'
-        }`}>
+        <label className="text-sm font-medium text-slate-300">Meta Title</label>
+        <span
+          className={`text-xs font-medium ${
+            formData.metaTitle.length > 60
+              ? 'text-red-400'
+              : formData.metaTitle.length > 50
+              ? 'text-yellow-400'
+              : 'text-slate-500'
+          }`}
+        >
           {formData.metaTitle.length}/60
         </span>
       </div>
@@ -4362,28 +4468,30 @@ const uploadImagesToProductDirect = async (
         onChange={handleChange}
         maxLength={60}
         placeholder="SEO-optimized title for search engines"
-        className={`w-full px-2.5 py-1.5 bg-slate-800/50 border rounded-lg text-sm text-white placeholder-slate-500 focus:ring-1 focus:ring-violet-500 focus:border-transparent transition-all ${
-          formData.metaTitle.length > 60 
-            ? 'border-red-500/50' 
-            : formData.metaTitle.length > 50 
-            ? 'border-yellow-500/50' 
+        className={`w-full px-4 py-2.5 bg-slate-900/70 border rounded-lg text-sm text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all ${
+          formData.metaTitle.length > 60
+            ? 'border-red-500/50'
+            : formData.metaTitle.length > 50
+            ? 'border-yellow-500/50'
             : 'border-slate-700'
         }`}
       />
-      <p className="text-[10px] text-slate-400 mt-0.5">Recommended: 50-60 characters</p>
+      <p className="text-xs text-slate-400 mt-1">Recommended: 50-60 characters</p>
     </div>
 
     {/* Meta Description */}
     <div>
       <div className="flex items-center justify-between mb-1.5">
-        <label className="text-xs font-medium text-slate-300">Meta Description</label>
-        <span className={`text-[10px] font-medium ${
-          formData.metaDescription.length > 160 
-            ? 'text-red-400' 
-            : formData.metaDescription.length > 150 
-            ? 'text-yellow-400' 
-            : 'text-slate-500'
-        }`}>
+        <label className="text-sm font-medium text-slate-300">Meta Description</label>
+        <span
+          className={`text-xs font-medium ${
+            formData.metaDescription.length > 160
+              ? 'text-red-400'
+              : formData.metaDescription.length > 150
+              ? 'text-yellow-400'
+              : 'text-slate-500'
+          }`}
+        >
           {formData.metaDescription.length}/160
         </span>
       </div>
@@ -4394,23 +4502,23 @@ const uploadImagesToProductDirect = async (
         maxLength={160}
         placeholder="Brief description for search engine results"
         rows={3}
-        className={`w-full px-2.5 py-1.5 bg-slate-800/50 border rounded-lg text-sm text-white placeholder-slate-500 focus:ring-1 focus:ring-violet-500 focus:border-transparent transition-all resize-none ${
-          formData.metaDescription.length > 160 
-            ? 'border-red-500/50' 
-            : formData.metaDescription.length > 150 
-            ? 'border-yellow-500/50' 
+        className={`w-full px-4 py-2.5 bg-slate-900/70 border rounded-lg text-sm text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all resize-none ${
+          formData.metaDescription.length > 160
+            ? 'border-red-500/50'
+            : formData.metaDescription.length > 150
+            ? 'border-yellow-500/50'
             : 'border-slate-700'
         }`}
       />
-      <p className="text-[10px] text-slate-400 mt-0.5">Recommended: 150-160 characters</p>
+      <p className="text-xs text-slate-400 mt-1">Recommended: 150-160 characters</p>
     </div>
 
     {/* Meta Keywords */}
     <div>
       <div className="flex items-center justify-between mb-1.5">
-        <label className="text-xs font-medium text-slate-300">Meta Keywords</label>
-        <span className="text-[10px] text-slate-500">
-          {formData.metaKeywords.split(',').filter(k => k.trim()).length} keywords
+        <label className="text-sm font-medium text-slate-300">Meta Keywords</label>
+        <span className="text-xs text-slate-500">
+          {formData.metaKeywords.split(',').filter((k) => k.trim()).length} keywords
         </span>
       </div>
       <input
@@ -4419,16 +4527,16 @@ const uploadImagesToProductDirect = async (
         value={formData.metaKeywords}
         onChange={handleChange}
         placeholder="keyword1, keyword2, keyword3"
-        className="w-full px-2.5 py-1.5 bg-slate-800/50 border border-slate-700 rounded-lg text-sm text-white placeholder-slate-500 focus:ring-1 focus:ring-violet-500 focus:border-transparent transition-all"
+        className="w-full px-4 py-2.5 bg-slate-900/70 border border-slate-700 rounded-lg text-sm text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
       />
-      <p className="text-[10px] text-slate-400 mt-0.5">Comma-separated keywords</p>
+      <p className="text-xs text-slate-400 mt-1">Comma-separated keywords</p>
     </div>
 
     {/* SEO Friendly URL */}
     <div>
       <div className="flex items-center justify-between mb-1.5">
-        <label className="text-xs font-medium text-slate-300">URL Slug</label>
-        <span className="text-[10px] text-slate-500">
+        <label className="text-sm font-medium text-slate-300">URL Slug</label>
+        <span className="text-xs text-slate-500">
           {formData.searchEngineFriendlyPageName.length} chars
         </span>
       </div>
@@ -4438,15 +4546,17 @@ const uploadImagesToProductDirect = async (
         value={formData.searchEngineFriendlyPageName}
         onChange={handleChange}
         placeholder="product-url-slug"
-        className="w-full px-2.5 py-1.5 bg-slate-800/50 border border-slate-700 rounded-lg text-sm text-white placeholder-slate-500 focus:ring-1 focus:ring-violet-500 focus:border-transparent transition-all"
+        className="w-full px-4 py-2.5 bg-slate-900/70 border border-slate-700 rounded-lg text-sm text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
       />
-      <p className="text-[10px] text-slate-400 mt-0.5">Leave empty to auto-generate from product name</p>
+      <p className="text-xs text-slate-400 mt-1">
+        Leave empty to auto-generate from product name
+      </p>
     </div>
 
-    {/* SEO Tips - Compact */}
-    <div className="bg-violet-500/10 border border-violet-500/30 rounded-lg p-2.5">
-      <h4 className="font-semibold text-xs text-violet-400 mb-1">SEO Tips</h4>
-      <ul className="text-[10px] text-slate-300 space-y-0.5">
+    {/* SEO Tips */}
+    <div className="bg-violet-500/10 border border-violet-500/30 rounded-lg p-4">
+      <h4 className="font-semibold text-sm text-violet-400 mb-1.5">SEO Tips</h4>
+      <ul className="text-xs text-slate-300 space-y-1">
         <li>• Use descriptive, keyword-rich titles and descriptions</li>
         <li>• Keep meta titles under 60 characters</li>
         <li>• Keep meta descriptions under 160 characters</li>
@@ -4456,17 +4566,17 @@ const uploadImagesToProductDirect = async (
   </div>
 </TabsContent>
 
-
-{/* ✅ MERGED Media Tab (Pictures + Videos) */}
+{/* Media Tab - Synced with Variants */}
 <TabsContent value="media" className="space-y-3 mt-2">
   {/* ========== PICTURES SECTION ========== */}
-  <div className="space-y-2">
-    <h3 className="text-sm font-semibold text-white border-b border-slate-800 pb-1">Product Images</h3>
-    <p className="text-[10px] text-slate-400">
-      Upload and manage product images. Supported: JPG, PNG, WebP • Max 5MB • Up to 10 images
-    </p>
+  <div className="space-y-3 bg-slate-800/30 border border-slate-700 rounded-xl p-4">
+    <div>
+      <h3 className="text-lg font-semibold text-white">Product Images</h3>
+      <p className="text-sm text-slate-400">
+        Upload and manage product images. Supported: JPG, PNG, WebP • Max 5MB • Up to 10 images
+      </p>
+    </div>
 
-    {/* Direct Upload Button - Compact */}
     <input
       ref={fileInputRef}
       type="file"
@@ -4496,7 +4606,7 @@ const uploadImagesToProductDirect = async (
         className={`w-full py-2.5 rounded-lg text-xs font-medium transition-all flex items-center justify-center gap-2 ${
           !formData.name.trim() || uploadingImages
             ? 'bg-slate-700/50 text-slate-500 cursor-not-allowed border-2 border-dashed border-slate-600'
-            : 'bg-slate-800/50 border-2 border-dashed border-slate-700 text-slate-300 hover:bg-slate-800 hover:border-violet-500/50'
+            : 'bg-slate-900/70 border-2 border-dashed border-slate-700 text-slate-300 hover:bg-slate-800 hover:border-violet-500/50'
         }`}
       >
         <Upload className="h-4 w-4" />
@@ -4504,43 +4614,43 @@ const uploadImagesToProductDirect = async (
       </button>
     )}
 
-    {/* Image Grid - Compact */}
     {formData.productImages.length > 0 && (
-      <div className="space-y-1.5">
-        <h4 className="text-[10px] font-medium text-slate-400">
-          {formData.productImages.length} {formData.productImages.length === 1 ? 'Image' : 'Images'}
+      <div className="space-y-2">
+        <h4 className="text-xs font-medium text-slate-400">
+          {formData.productImages.length}{' '}
+          {formData.productImages.length === 1 ? 'Image' : 'Images'}
         </h4>
-        <div className="grid grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-1.5">
+        <div className="grid grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-2">
           {formData.productImages.map((image) => (
-            <div key={image.id} className="bg-slate-800/30 border border-slate-700 rounded p-1 space-y-1 relative group">
-              {/* Main Badge */}
+            <div
+              key={image.id}
+              className="bg-slate-800/30 border border-slate-700 rounded p-2 space-y-1 relative group"
+            >
               {image.isMain && (
-                <div className="absolute top-0.5 left-0.5 px-1 py-0.5 bg-violet-500 text-white text-[8px] font-medium rounded z-10">
+                <div className="absolute top-1 left-1 px-1.5 py-0.5 bg-violet-500 text-white text-[10px] font-medium rounded z-10">
                   Main
                 </div>
               )}
-              
-              {/* Image */}
+
               <div className="aspect-square bg-slate-700/50 rounded overflow-hidden relative">
                 {image.imageUrl ? (
-                  <img 
-                    src={image.imageUrl.startsWith('http') ? image.imageUrl : `${API_BASE_URL}${image.imageUrl}`} 
-                    alt={image.altText || 'Product'} 
-                    className="w-full h-full object-cover" 
+                  <img
+                    src={image.imageUrl.startsWith('http') ? image.imageUrl : `${API_BASE_URL}${image.imageUrl}`}
+                    alt={image.altText || 'Product'}
+                    className="w-full h-full object-cover"
                   />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center">
                     <Image className="h-5 w-5 text-slate-500" />
                   </div>
                 )}
-                
-                {/* Delete Button */}
+
                 <button
                   type="button"
                   onClick={() => removeImage(image.id)}
                   disabled={isDeletingImage}
-                  className={`absolute top-0 right-0 p-0.5 rounded-bl transition-all opacity-0 group-hover:opacity-100 ${
-                    isDeletingImage 
+                  className={`absolute top-0 right-0 p-1 rounded-bl transition-all opacity-0 group-hover:opacity-100 ${
+                    isDeletingImage
                       ? 'bg-slate-500/90 cursor-not-allowed'
                       : 'bg-red-500/90 hover:bg-red-600'
                   }`}
@@ -4549,13 +4659,12 @@ const uploadImagesToProductDirect = async (
                   {isDeletingImage ? (
                     <div className="w-2 h-2 border border-white border-t-transparent rounded-full animate-spin"></div>
                   ) : (
-                    <X className="h-2.5 w-2.5 text-white" />
+                    <X className="h-3 w-3 text-white" />
                   )}
                 </button>
               </div>
-              
-              {/* Compact Controls */}
-              <div className="space-y-0.5">
+
+              <div className="space-y-1">
                 <input
                   type="text"
                   placeholder="Alt"
@@ -4563,14 +4672,14 @@ const uploadImagesToProductDirect = async (
                   onChange={(e) => {
                     setFormData({
                       ...formData,
-                      productImages: formData.productImages.map(img =>
-                        img.id === image.id ? { ...img, altText: e.target.value } : img
-                      )
+                      productImages: formData.productImages.map((img) =>
+                        img.id === image.id ? { ...img, altText: e.target.value } : img,
+                      ),
                     });
                   }}
-                  className="w-full px-1 py-0.5 text-[9px] bg-slate-800/50 border border-slate-700 rounded text-white placeholder-slate-500 focus:ring-1 focus:ring-violet-500 focus:border-transparent"
+                  className="w-full px-2 py-1 text-[11px] bg-slate-800/50 border border-slate-700 rounded text-white placeholder-slate-500 focus:ring-1 focus:ring-violet-500 focus:border-transparent"
                 />
-                <div className="flex items-center gap-0.5">
+                <div className="flex items-center gap-1">
                   <input
                     type="number"
                     placeholder="#"
@@ -4578,35 +4687,38 @@ const uploadImagesToProductDirect = async (
                     onChange={(e) => {
                       setFormData({
                         ...formData,
-                        productImages: formData.productImages.map(img =>
-                          img.id === image.id ? { ...img, sortOrder: parseInt(e.target.value) || 1 } : img
-                        )
+                        productImages: formData.productImages.map((img) =>
+                          img.id === image.id
+                            ? { ...img, sortOrder: parseInt(e.target.value) || 1 }
+                            : img,
+                        ),
                       });
                     }}
-                    className="flex-1 w-8 px-1 py-0.5 text-[9px] bg-slate-800/50 border border-slate-700 rounded text-white placeholder-slate-500 focus:ring-1 focus:ring-violet-500 focus:border-transparent"
+                    className="w-12 px-2 py-1 text-[11px] bg-slate-800/50 border border-slate-700 rounded text-white placeholder-slate-500 focus:ring-1 focus:ring-violet-500 focus:border-transparent"
                   />
-                  <label className="flex items-center gap-0.5 cursor-pointer">
+                  <label className="flex items-center gap-1 cursor-pointer">
                     <input
                       type="checkbox"
                       checked={image.isMain}
                       onChange={(e) => {
                         setFormData({
                           ...formData,
-                          productImages: formData.productImages.map(img =>
-                            img.id === image.id ? { ...img, isMain: e.target.checked } : 
-                            e.target.checked ? { ...img, isMain: false } : img
-                          )
+                          productImages: formData.productImages.map((img) =>
+                            img.id === image.id
+                              ? { ...img, isMain: e.target.checked }
+                              : e.target.checked
+                              ? { ...img, isMain: false }
+                              : img,
+                          ),
                         });
                       }}
-                      className="w-2 h-2 text-violet-500"
+                      className="w-3 h-3 text-violet-500 rounded border-slate-700 bg-slate-900 focus:ring-1 focus:ring-violet-500"
                     />
-                    <span className="text-[8px] text-slate-400">M</span>
+                    <span className="text-[10px] text-slate-400">Main</span>
                   </label>
                 </div>
-                
-                {/* Status */}
                 {!image.file && image.imageUrl && (
-                  <div className="text-[8px] text-green-400">✓</div>
+                  <div className="text-[10px] text-green-400">✓</div>
                 )}
               </div>
             </div>
@@ -4616,25 +4728,24 @@ const uploadImagesToProductDirect = async (
     )}
   </div>
 
-  {/* ========== DIVIDER ========== */}
-  <div className="border-t border-slate-800"></div>
+  <div className="border-t border-slate-800" />
 
   {/* ========== VIDEOS SECTION ========== */}
-  <div className="space-y-2">
-    <h3 className="text-sm font-semibold text-white border-b border-slate-800 pb-1">Product Videos</h3>
-    <p className="text-[10px] text-slate-400">
-      Add video URLs (YouTube, Vimeo, etc.) to showcase your product
-    </p>
+  <div className="space-y-3 bg-slate-800/30 border border-slate-700 rounded-xl p-4">
+    <div>
+      <h3 className="text-lg font-semibold text-white">Product Videos</h3>
+      <p className="text-sm text-slate-400">
+        Add video URLs (YouTube, Vimeo, etc.) to showcase your product
+      </p>
+    </div>
 
-    {/* Video Grid - Compact */}
     {formData.videoUrls.length > 0 && (
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-1.5">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
         {formData.videoUrls.map((url, index) => (
-          <div 
+          <div
             key={index}
             className="group bg-slate-800/30 rounded border border-slate-700 overflow-hidden hover:border-violet-500/50 transition-all"
           >
-            {/* Thumbnail */}
             <div className="relative aspect-video bg-slate-900 flex items-center justify-center">
               {url && url.includes('youtube.com') ? (
                 <>
@@ -4644,7 +4755,9 @@ const uploadImagesToProductDirect = async (
                     className="w-full h-full object-cover"
                     onError={(e) => {
                       const target = e.target as HTMLImageElement;
-                      target.src = `https://img.youtube.com/vi/${getYouTubeVideoId(url)}/default.jpg`;
+                      target.src = `https://img.youtube.com/vi/${getYouTubeVideoId(
+                        url,
+                      )}/default.jpg`;
                     }}
                   />
                   <div className="absolute inset-0 bg-black/30 flex items-center justify-center group-hover:bg-black/50 transition-all">
@@ -4658,8 +4771,7 @@ const uploadImagesToProductDirect = async (
               )}
             </div>
 
-            {/* URL Input - Compact */}
-            <div className="p-1 bg-slate-900/50 space-y-1">
+            <div className="p-2 bg-slate-900/50 space-y-1">
               <input
                 type="text"
                 value={url}
@@ -4669,20 +4781,20 @@ const uploadImagesToProductDirect = async (
                   setFormData({ ...formData, videoUrls: newUrls });
                 }}
                 placeholder="https://youtube.com/..."
-                className="w-full px-1.5 py-0.5 bg-slate-800/50 border border-slate-700 rounded text-[9px] text-white placeholder-slate-500 focus:ring-1 focus:ring-violet-500 focus:border-transparent"
+                className="w-full px-2 py-1 bg-slate-800/50 border border-slate-700 rounded text-xs text-white placeholder-slate-500 focus:ring-1 focus:ring-violet-500 focus:border-transparent"
               />
-              
+
               <button
                 type="button"
                 onClick={() => {
                   setFormData({
                     ...formData,
-                    videoUrls: formData.videoUrls.filter((_, i) => i !== index)
+                    videoUrls: formData.videoUrls.filter((_, i) => i !== index),
                   });
                 }}
-                className="w-full px-1.5 py-0.5 bg-red-500/10 border border-red-500/30 text-red-400 hover:bg-red-500/20 rounded transition-all text-[9px] font-medium flex items-center justify-center gap-0.5"
+                className="w-full px-2 py-1 bg-red-500/10 border border-red-500/30 text-red-400 hover:bg-red-500/20 rounded transition-all text-xs font-medium flex items-center justify-center gap-1"
               >
-                <X className="w-2 h-2" />
+                <X className="w-3 h-3" />
                 Remove
               </button>
             </div>
@@ -4691,23 +4803,21 @@ const uploadImagesToProductDirect = async (
       </div>
     )}
 
-    {/* Add Video Button - Inline Style */}
     <button
       type="button"
       onClick={() => {
         setFormData({
           ...formData,
-          videoUrls: [...formData.videoUrls, '']
+          videoUrls: [...formData.videoUrls, ''],
         });
       }}
-      className="w-full py-2.5 bg-slate-800/50 border-2 border-dashed border-slate-700 rounded-lg text-slate-300 hover:bg-slate-800 hover:border-violet-500/50 transition-all text-xs font-medium flex items-center justify-center gap-2"
+      className="w-full py-2.5 bg-slate-900/70 border-2 border-dashed border-slate-700 rounded-lg text-slate-300 hover:bg-slate-800 hover:border-violet-500/50 transition-all text-xs font-medium flex items-center justify-center gap-2"
     >
       <Video className="h-4 w-4" />
       Add Video URL
     </button>
   </div>
 </TabsContent>
-
 
 
 
@@ -4730,6 +4840,38 @@ const uploadImagesToProductDirect = async (
     }));
   }}
 />
+
+{/* Custom Product Lock Modal */}
+{isLockModalOpen && (
+  <div className="fixed inset-0 z-50 flex items-center justify-center">
+    {/* Backdrop */}
+    <div className="absolute inset-0 bg-black bg-opacity-60" />
+
+    {/* Modal Box */}
+    <div className="relative bg-white rounded-xl shadow-2xl max-w-md w-full mx-4 p-8 animate-fadeIn">
+      <div className="text-center">
+        {/* Big Lock Emoji as Icon */}
+        <div className="text-6xl mb-4">🔒</div>
+
+        <h2 className="text-2xl font-bold text-gray-900 mb-4">
+          Product Locked!
+        </h2>
+
+        <p className="text-gray-700 text-base leading-relaxed mb-6 whitespace-pre-line">
+          {lockModalMessage}
+        </p>
+
+        <p className="text-sm text-gray-500">
+          💡 Please wait for the lock to expire or contact the user.
+        </p>
+
+        <p className="mt-6 text-sm text-gray-400 animate-pulse">
+          Redirecting in 3 seconds...
+        </p>
+      </div>
+    </div>
+  </div>
+)}
 
     </div>
   );

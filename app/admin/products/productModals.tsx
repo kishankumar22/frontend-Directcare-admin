@@ -1,7 +1,7 @@
 // app/admin/products/ProductModals.tsx
 "use client";
 import React, { useState, useEffect } from 'react';
-import { X, Shield } from 'lucide-react';
+import { X, Shield, CheckCircle } from 'lucide-react';
 import { apiClient } from '@/lib/api';
 import { API_ENDPOINTS } from '@/lib/api-config';
 
@@ -22,12 +22,6 @@ interface AdminCommentHistoryModalProps {
   productId: string;
 }
 
-interface EditLockBannerProps {
-  isLocked: boolean;
-  lockedBy?: string;
-  lockedByEmail?: string;
-  expiresAt?: string;
-}
 
 interface LowStockAlertProps {
   stockQuantity: number;
@@ -406,36 +400,7 @@ export const AdminCommentHistoryModal: React.FC<AdminCommentHistoryModalProps> =
 };
 
 
-// ========================================
-// 2. EDIT LOCK BANNER
-// ========================================
-export const EditLockBanner: React.FC<EditLockBannerProps> = ({
-  isLocked,
-  lockedBy,
-  lockedByEmail,
-  expiresAt
-}) => {
-  if (!isLocked) return null;
 
-  return (
-    <div className="mb-6 p-4 bg-amber-500/10 border-2 border-amber-500/30 rounded-xl flex items-start gap-3">
-      <div className="w-10 h-10 rounded-full bg-amber-500/20 flex items-center justify-center flex-shrink-0">
-        <Shield className="w-5 h-5 text-amber-400" />
-      </div>
-      <div className="flex-1">
-        <h3 className="text-amber-400 font-semibold mb-1">Product Being Edited</h3>
-        <p className="text-sm text-slate-300">
-          <strong>{lockedBy}</strong> ({lockedByEmail}) is currently editing this product.
-        </p>
-        {expiresAt && (
-          <p className="text-xs text-slate-400 mt-1">
-            Lock expires: {new Date(expiresAt).toLocaleString()}
-          </p>
-        )}
-      </div>
-    </div>
-  );
-};
 
 // ========================================
 // 3. LOW STOCK ALERT
