@@ -22,10 +22,6 @@ import { GroupedProductModal } from '../../GroupedProductModal';
 import { MultiBrandSelector } from "../../MultiBrandSelector";
 import React from "react";
 import { BackInStockSubscribers, LowStockAlert,AdminCommentHistoryModal } from "../../productModals";
-// ✅ ADD THIS INTERFACE
-
-
-
 
 export default function EditProductPage({ params }: { params: Promise<{ id: string }> }) {
   const router = useRouter();
@@ -273,7 +269,7 @@ const [productLock, setProductLock] = useState<{
 
 const [isLockModalOpen, setIsLockModalOpen] = useState(false);
 const [lockModalMessage, setLockModalMessage] = useState("");
-
+const [isAcquiringLock, setIsAcquiringLock] = useState(true); // ⚡ ADD THIS
 
 useEffect(() => {
   const fetchAllData = async () => {
@@ -284,25 +280,25 @@ useEffect(() => {
     }
 
     try {
-      // console.log('🔄 ==================== FETCHING PRODUCT DATA ====================');
-      // console.log('🆔 Product ID:', productId);
-      // console.log('🌐 API Base URL:', API_BASE_URL);
-      // console.log('📍 Products Endpoint:', API_ENDPOINTS.products);
-      // console.log('🔗 Full URL:', `${API_BASE_URL}${API_ENDPOINTS.products}/${productId}`);
-      
+      console.log('🔍 Fetching product data...');
       setLoading(true);
 
-      // ✅ Fetch product data directly (no health check)
-      console.log('🔍 Fetching product data...');
+      // ✅ Fetch product data first
       const productResponse = await apiClient.get<any>(`${API_ENDPOINTS.products}/${productId}`);
-      // console.log('✅ Product response received:', productResponse.status);
 
-      // ✅ Fetch other data (can fail silently)
-      const [brandsResponse, categoriesResponse, vatRatesResponse, allProductsResponse] = await Promise.allSettled([
+      // ✅ Fetch all other data in parallel with separate simple products endpoint
+      const [
+        brandsResponse, 
+        categoriesResponse, 
+        vatRatesResponse, 
+        allProductsResponse,
+        simpleProductsResponse  // ✅ NEW: Separate endpoint
+      ] = await Promise.allSettled([
         apiClient.get<BrandApiResponse>(`${API_ENDPOINTS.brands}?includeUnpublished=false`),
         apiClient.get<CategoryApiResponse>(`${API_ENDPOINTS.categories}?includeInactive=true&includeSubCategories=true`),
         apiClient.get<VATRateApiResponse>(API_ENDPOINTS.vatrates),
-        apiClient.get<ProductsApiResponse>(API_ENDPOINTS.products)
+        apiClient.get<ProductsApiResponse>(API_ENDPOINTS.products),
+        apiClient.get(`${API_ENDPOINTS.products}/simple`)  // ✅ ADD THIS
       ]);
 
       // ✅ Extract data safely
@@ -324,24 +320,88 @@ useEffect(() => {
         vatRates: Array.isArray(vatRatesData) ? vatRatesData : []
       });
 
-      // console.log('✅ Dropdowns loaded:', {
-      //   brands: brandsData.length,
-      //   categories: categoriesData.length,
-      //   vatRates: vatRatesData.length
-      // });
+      console.log('✅ Dropdowns loaded:', {
+        brands: brandsData.length,
+        categories: categoriesData.length,
+        vatRates: vatRatesData.length
+      });
 
-      // ✅ Process available products
+      // ✅ Process ALL products for related/cross-sell
       if (allProductsResponse.status === 'fulfilled' && allProductsResponse.value.data) {
         const apiResponse = allProductsResponse.value.data as ProductsApiResponse;
+        
         if (apiResponse.success && apiResponse.data?.items) {
-          const transformedProducts = apiResponse.data.items.map(product => ({
+          // For related/cross-sell dropdown (all products)
+          const transformedProducts = apiResponse.data.items.map((product: any) => ({
             id: product.id,
             name: product.name,
             sku: product.sku,
-            price: product.price.toFixed(2)
+            price: `₹${product.price.toFixed(2)}`
           }));
+          
           setAvailableProducts(transformedProducts);
-          // console.log('✅ Available products loaded:', transformedProducts.length);
+          console.log('✅ Available products loaded:', transformedProducts.length);
+        } else {
+          setAvailableProducts([]);
+        }
+      } else {
+        console.warn('⚠️ Failed to fetch all products');
+        setAvailableProducts([]);
+      }
+
+      // ✅ NEW: Process SIMPLE products from separate endpoint
+      if (simpleProductsResponse.status === 'fulfilled' && simpleProductsResponse.value.data) {
+        const simpleData = simpleProductsResponse.value.data as any;
+        
+        console.log('📦 Simple products response:', simpleData);
+        
+        if (!simpleData.error && simpleData.success && Array.isArray(simpleData.data)) {
+          // Filter out current product
+          const simpleProductsList = simpleData.data
+            .filter((p: any) => p.id !== productId)
+            .map((p: any) => ({
+              id: p.id,
+              name: p.name,
+              sku: p.sku,
+              price: typeof p.price === 'number' ? p.price.toFixed(2) : '0.00',
+              stockQuantity: p.stockQuantity || 0
+            }));
+
+          setSimpleProducts(simpleProductsList);
+          console.log('✅ Simple products loaded from endpoint:', simpleProductsList.length);
+        } else {
+          console.warn('⚠️ Simple products endpoint returned no data');
+          setSimpleProducts([]);
+        }
+      } else {
+        console.warn('⚠️ Failed to fetch simple products, falling back to filtering');
+        
+        // ✅ FALLBACK: Filter from all products if separate endpoint fails
+        if (allProductsResponse.status === 'fulfilled' && allProductsResponse.value.data) {
+          const apiResponse = allProductsResponse.value.data as ProductsApiResponse;
+          
+          if (apiResponse.success && apiResponse.data?.items) {
+            const simpleProductsList = apiResponse.data.items
+              .filter((product: any) => 
+                product.productType === 'simple' && 
+                product.isPublished === true &&
+                product.id !== productId
+              )
+              .map((product: any) => ({
+                id: product.id,
+                name: product.name,
+                sku: product.sku,
+                price: typeof product.price === 'number' ? product.price.toFixed(2) : '0.00',
+                stockQuantity: product.stockQuantity || 0
+              }));
+
+            setSimpleProducts(simpleProductsList);
+            console.log('✅ Simple products loaded (fallback):', simpleProductsList.length);
+          } else {
+            setSimpleProducts([]);
+          }
+        } else {
+          setSimpleProducts([]);
         }
       }
 
@@ -352,10 +412,9 @@ useEffect(() => {
         throw new Error('Product data is empty');
       }
       
-      // console.log('📥 Product loaded:', productData.name || productData.id);
+      console.log('📥 Product loaded:', productData.name || productData.id);
 
-      
-      // BRANDS, dates, arrays parsing
+      // ✅ Parse BRANDS
       let brandIdsArray: string[] = [];
       if (productData.brands && Array.isArray(productData.brands) && productData.brands.length > 0) {
         brandIdsArray = productData.brands
@@ -366,34 +425,63 @@ useEffect(() => {
         brandIdsArray = [productData.brandId];
       }
 
-      // Parse arrays
+      // ✅ Parse RELATED PRODUCTS
       let relatedProductsArray: string[] = [];
       if (productData.relatedProductIds) {
         if (typeof productData.relatedProductIds === 'string') {
-          relatedProductsArray = productData.relatedProductIds.split(',').map((id: string) => id.trim()).filter(Boolean);
+          relatedProductsArray = productData.relatedProductIds
+            .split(',')
+            .map((id: string) => id.trim())
+            .filter(Boolean);
         } else if (Array.isArray(productData.relatedProductIds)) {
           relatedProductsArray = productData.relatedProductIds;
         }
       }
 
+      // ✅ Parse CROSS-SELL PRODUCTS
       let crossSellProductsArray: string[] = [];
       if (productData.crossSellProductIds) {
         if (typeof productData.crossSellProductIds === 'string') {
-          crossSellProductsArray = productData.crossSellProductIds.split(',').map((id: string) => id.trim()).filter(Boolean);
+          crossSellProductsArray = productData.crossSellProductIds
+            .split(',')
+            .map((id: string) => id.trim())
+            .filter(Boolean);
         } else if (Array.isArray(productData.crossSellProductIds)) {
           crossSellProductsArray = productData.crossSellProductIds;
         }
       }
 
+      // ✅ Parse VIDEO URLs
       let videoUrlsArray: string[] = [];
       if (productData.videoUrls) {
         if (typeof productData.videoUrls === 'string') {
-          videoUrlsArray = productData.videoUrls.split(',').map((url: string) => url.trim()).filter(Boolean);
+          videoUrlsArray = productData.videoUrls
+            .split(',')
+            .map((url: string) => url.trim())
+            .filter(Boolean);
         } else if (Array.isArray(productData.videoUrls)) {
           videoUrlsArray = productData.videoUrls;
         }
       }
 
+      // ✅ Parse GROUPED PRODUCT IDs
+      if (productData.requiredProductIds) {
+        let groupedProductIds: string[] = [];
+        
+        if (typeof productData.requiredProductIds === 'string') {
+          groupedProductIds = productData.requiredProductIds
+            .split(',')
+            .map((id: string) => id.trim())
+            .filter(Boolean);
+        } else if (Array.isArray(productData.requiredProductIds)) {
+          groupedProductIds = productData.requiredProductIds;
+        }
+        
+        setSelectedGroupedProducts(groupedProductIds);
+        console.log('✅ Grouped product IDs loaded:', groupedProductIds.length, groupedProductIds);
+      }
+
+      // ✅ Date parser
       const parseDate = (dateString: string | null | undefined): string => {
         if (!dateString) return '';
         try {
@@ -405,7 +493,7 @@ useEffect(() => {
         }
       };
 
-      // SET FORM DATA (keep your complete existing formData code)
+      // ✅ SET FORM DATA (keep your complete existing formData)
       setFormData({
         name: productData.name || '',
         sku: productData.sku || '',
@@ -520,9 +608,9 @@ useEffect(() => {
         specifications: []
       });
 
-      // console.log('✅ Form data populated');
+      console.log('✅ Form data populated');
 
-      // Load attributes
+      // ✅ Load attributes
       if (productData.attributes && Array.isArray(productData.attributes)) {
         const attrs = productData.attributes.map((attr: any) => ({
           id: attr.id || `attr-${Date.now()}-${Math.random()}`,
@@ -531,10 +619,10 @@ useEffect(() => {
           displayOrder: attr.displayOrder || attr.sortOrder || 0
         }));
         setProductAttributes(attrs);
-        // console.log('✅ Attributes loaded:', attrs.length);
+        console.log('✅ Attributes loaded:', attrs.length);
       }
 
-      // Load variants
+      // ✅ Load variants
       if (productData.variants && Array.isArray(productData.variants)) {
         const vars = productData.variants.map((variant: any) => ({
           id: variant.id || `var-${Date.now()}-${Math.random()}`,
@@ -559,10 +647,10 @@ useEffect(() => {
           gtin: variant.gtin || null
         }));
         setProductVariants(vars);
-        // console.log('✅ Variants loaded:', vars.length);
+        console.log('✅ Variants loaded:', vars.length);
       }
 
-      // Load images
+      // ✅ Load images
       if (productData.images && Array.isArray(productData.images)) {
         const imgs = productData.images
           .sort((a: any, b: any) => (a.sortOrder || 0) - (b.sortOrder || 0))
@@ -576,16 +664,16 @@ useEffect(() => {
             fileSize: img.fileSize || 0
           }));
         setFormData(prev => ({ ...prev, productImages: imgs }));
-        // console.log('✅ Images loaded:', imgs.length);
+        console.log('✅ Images loaded:', imgs.length);
       }
 
       setLoading(false);
-      // console.log('✅ ==================== PRODUCT DATA LOADED SUCCESSFULLY ====================');
+      console.log('✅ ==================== PRODUCT DATA LOADED SUCCESSFULLY ====================');
 
     } catch (error: any) {
-      // console.error('❌ ==================== ERROR FETCHING PRODUCT ====================');
-      // console.error('❌ Error:', error);
-      // console.error('❌ Message:', error.message);
+      console.error('❌ ==================== ERROR FETCHING PRODUCT ====================');
+      console.error('❌ Error:', error);
+      console.error('❌ Message:', error.message);
       
       if (error.response) {
         console.error('❌ Status:', error.response.status);
@@ -613,8 +701,7 @@ useEffect(() => {
 
   fetchAllData();
 }, [productId]);
-
- // ==================== IMMEDIATE REDIRECT HANDLER ====================
+// ==================== IMMEDIATE REDIRECT HANDLER ====================
 const handleModalClose = () => {
   setIsLockModalOpen(false);
   router.push("/admin/products");
@@ -623,18 +710,28 @@ const handleModalClose = () => {
 // ==================== FIXED: ACQUIRE PRODUCT LOCK ====================
 const acquireProductLock = async (productId: string): Promise<boolean> => {
   try {
+    console.log('🔒 [LOCK] Attempting to acquire lock...');
+    setIsAcquiringLock(true);
+    
     const response = await apiClient.post<any>(
       `${API_ENDPOINTS.products}/${productId}/lock?durationMinutes=15`,
       {}
     );
 
-    // ✅ Success - Lock मिल गया
+    console.log('📥 [LOCK] Response received:', response.data);
+
     if (response.data?.success && response.data?.data) {
       const lockData = response.data.data;
+      
       setProductLock({
         isLocked: lockData.isLocked,
         lockedBy: lockData.lockedBy,
         expiresAt: lockData.expiresAt,
+      });
+
+      console.log('✅ [LOCK] Lock acquired successfully:', {
+        lockedBy: lockData.lockedBy,
+        expiresAt: lockData.expiresAt
       });
 
       const backendMessage = response.data?.message || "Product edit lock acquired successfully";
@@ -649,29 +746,31 @@ const acquireProductLock = async (productId: string): Promise<boolean> => {
         { autoClose: 4000 }
       );
 
+      setIsAcquiringLock(false);
       return true;
     } 
-    // ❌ Lock नहीं मिला - कोई और edit कर रहा है
     else {
+      console.log('❌ [LOCK] Lock denied - Product already locked');
       const backendMessage = response.data?.message || "Product is currently being edited by another user.";
-
-      // Modal खोलो
+      
       setLockModalMessage(backendMessage);
       setIsLockModalOpen(true);
-
-      // 3 सेकंड बाद modal बंद और redirect
+      
       setTimeout(() => {
         setIsLockModalOpen(false);
         router.push("/admin/products");
       }, 5000);
 
+      setIsAcquiringLock(false);
       return false;
     }
 
   } catch (error: any) {
-    console.error("Failed to acquire product lock:", error);
+    console.error('❌ [LOCK] Error acquiring lock:', error);
     const errorMsg = error.response?.data?.message || error.message || "Failed to acquire edit lock";
     toast.error(`Lock Error: ${errorMsg}`, { autoClose: 5000 });
+    
+    setIsAcquiringLock(false);
     return false;
   }
 };
@@ -735,24 +834,67 @@ const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
   e.preventDefault();
   const target = e.target as HTMLElement;
 
+  console.log('🚀 [SUBMIT] Starting submission...');
+  console.log('📊 [SUBMIT] Current state:', {
+    isAcquiringLock,
+    hasLock: productLock?.isLocked,
+    lockedBy: productLock?.lockedBy,
+    expiresAt: productLock?.expiresAt
+  });
+
+  // ⚡ CHECK 1: Already submitting?
   if (target.hasAttribute('data-submitting')) {
+    console.warn('⚠️ [SUBMIT] Already submitting - blocked');
     toast.info('⏳ Already submitting... Please wait!');
     return;
   }
 
+  // ⚡ CHECK 2: Lock still being acquired?
+  if (isAcquiringLock) {
+    console.warn('⚠️ [SUBMIT] Lock still being acquired - blocked');
+    toast.warning('⏳ Acquiring edit lock... Please wait a moment.');
+    return;
+  }
+
+  // ⚡ CHECK 3: Do we have a valid lock?
+  if (!productLock || !productLock.isLocked) {
+    console.error('❌ [SUBMIT] No valid lock - blocked');
+    toast.error('❌ Cannot save: Product edit lock not acquired. Please try again.');
+    return;
+  }
+
+  // ⚡ CHECK 4: Is lock expired?
+  if (productLock.expiresAt) {
+    const expiryTime = new Date(productLock.expiresAt).getTime();
+    const currentTime = new Date().getTime();
+    
+    console.log('⏰ [SUBMIT] Lock expiry check:', {
+      expiresAt: new Date(expiryTime).toISOString(),
+      currentTime: new Date(currentTime).toISOString(),
+      isExpired: currentTime >= expiryTime
+    });
+    
+    if (currentTime >= expiryTime) {
+      console.warn('⚠️ [SUBMIT] Lock expired - refreshing');
+      toast.error('❌ Your edit lock has expired. Refreshing...');
+      await acquireProductLock(productId);
+      return;
+    }
+  }
+
+  console.log('✅ [SUBMIT] All checks passed - proceeding with submission');
   target.setAttribute('data-submitting', 'true');
     
   try {
-    // console.log('🚀 ==================== PRODUCT UPDATE START ====================');
-    // console.log('📋 Mode:', isDraft ? 'DRAFT' : 'UPDATE');
-    // console.log('🆔 Product ID:', productId);
-
     // ✅ Validation
     if (!formData.name || !formData.sku) {
+      console.error('❌ [VALIDATION] Missing required fields');
       toast.error('⚠️ Please fill in required fields: Product Name and SKU.');
       target.removeAttribute('data-submitting');
       return;
     }
+
+    console.log('✅ [VALIDATION] Basic validation passed');
 
     // ✅ Helper function for SAFE number parsing
     const parseNumber = (value: any, fieldName: string = ''): number | null => {
@@ -774,6 +916,7 @@ const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
     // ✅ Parse and validate REQUIRED price
     const parsedPrice = parseNumber(formData.price, 'price');
     if (parsedPrice === null || parsedPrice < 0) {
+      console.error('❌ [VALIDATION] Invalid price');
       toast.error('⚠️ Please enter a valid product price (must be 0 or greater).');
       target.removeAttribute('data-submitting');
       return;
@@ -794,8 +937,6 @@ const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
       target.removeAttribute('data-submitting');
       return;
     }
-
-   
 
     const nameRegex = /^[A-Za-z0-9\s\-.,()'/]+$/;
     if (!nameRegex.test(formData.name)) {
@@ -850,6 +991,8 @@ const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
       isPrimary: index === 0,
       displayOrder: index + 1
     }));
+
+    console.log('✅ [VALIDATION] All validations passed');
 
     // ✅ Prepare attributes
     const attributesArray = productAttributes
@@ -926,7 +1069,6 @@ const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
       vendor: null,
       tags: formData.productTags?.trim() || null,
       
-      // ✅ CRITICAL FIX: Send as NUMBERS (not strings)
       price: parsedPrice,
       oldPrice: parsedOldPrice,
       compareAtPrice: parsedOldPrice,
@@ -1037,7 +1179,7 @@ const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
       categoryId: categoryId
     };
 
-    // ✅ Clean up - IMPORTANT: Keep 0 values!
+    // ✅ Clean up
     const cleanProductData = Object.fromEntries(
       Object.entries(productData).filter(([key, value]) => {
         if (value === false || value === 0) return true;
@@ -1046,95 +1188,76 @@ const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
       })
     );
 
-    // console.log('📦 ==================== FINAL PAYLOAD ====================');
-    // console.log(JSON.stringify(cleanProductData, null, 2));
-    // console.log('💰 Price Types Check:', {
-    //   price: { value: cleanProductData.price, type: typeof cleanProductData.price },
-    //   oldPrice: { value: cleanProductData.oldPrice, type: typeof cleanProductData.oldPrice },
-    //   costPrice: { value: cleanProductData.costPrice, type: typeof cleanProductData.costPrice }
-    // });
-    // console.log('📦 ==================== END PAYLOAD ====================');
+    console.log('📦 [PAYLOAD] Sending product data:', {
+      name: cleanProductData.name,
+      sku: cleanProductData.sku,
+      price: cleanProductData.price,
+      brandIds: cleanProductData.brandIds
+    });
 
-    // ✅ FIXED: Send PUT request with better error handling
-    const response = await apiClient.put(`/api/Products/${productId}`, cleanProductData);
+     console.log('📤 [API] Sending PUT request to:', `/api/Products/${productId}`);
+    
+    // ✅ FIXED: Use custom API client format
+    const response = await apiClient.put<any>(`/api/Products/${productId}`, cleanProductData);
 
-    // console.log('✅ ==================== RESPONSE RECEIVED ====================');
-    // console.log('Response status:', response?.status);
-    // console.log('Response data:', response?.data);
-    // console.log('✅ ==================== END RESPONSE ====================');
+    console.log('📥 [API] Response received:', response);
 
-    // ✅ FIXED: Better response checking
-    if (!response) {
+    // ✅ Check for errors first
+    if (response.error) {
+      console.error('❌ [ERROR] API returned error:', response.error);
+      throw new Error(response.error);
+    }
+
+    // ✅ Check if response has data
+    if (response.data) {
+      const apiResponse = response.data;
+      
+      console.log('🔍 [RESPONSE] Checking success flag:', apiResponse.success);
+      
+      // Backend success check
+      if (apiResponse.success === true || apiResponse.success === undefined) {
+        console.log('✅ [SUCCESS] Product updated successfully');
+        
+        toast.success(
+          isDraft ? '✅ Product saved as draft!' : '✅ Product updated successfully!',
+          { autoClose: 3000 }
+        );
+
+        // ✅ RELEASE LOCK
+        console.log('🔓 [LOCK] Releasing lock...');
+        await releaseProductLock(productId);
+
+        setTimeout(() => {
+          console.log('🔄 [REDIRECT] Redirecting to products list');
+          router.push('/admin/products');
+        }, 800);
+      } else if (apiResponse.success === false) {
+        console.error('❌ [ERROR] Backend returned success: false');
+        throw new Error(apiResponse.message || 'Update failed');
+      }
+    } else {
+      console.error('❌ [ERROR] No response data received');
       throw new Error('No response received from server');
     }
 
- if (typeof response.status === 'number' && response.status >= 200 && response.status < 300) {
-  const apiResponse = response.data as any;
-
-  if (apiResponse?.success !== false) {
-    toast.success(
-      isDraft ? '💾 Product saved as draft!' : '✅ Product updated successfully!',
-      { autoClose: 3000 }
-    );
-      // ✅ RELEASE LOCK AFTER SUCCESSFUL SAVE
-        await releaseProductLock(productId);
-    setTimeout(() => {
-      router.push('/admin/products');
-    }, 800);
-  } else {
-    throw new Error(apiResponse?.message || 'Update failed - success=false');
-  }
-} else {
-  throw new Error(`Server returned status ${response.status ?? 'unknown'}`);
-}
-
-
   } catch (error: any) {
-    // console.error('❌ ==================== ERROR UPDATING PRODUCT ====================');
-    // console.error('Error object:', error);
-    // console.error('Error message:', error.message);
-    // console.error('Error response:', error.response);
-    // console.error('❌ Error response data:', error.response?.data);
-    // console.error('❌ Error response status:', error.response?.status);
-
+    console.error('❌ [ERROR] Submission failed:', error);
+    
     let errorMessage = 'Failed to update product';
-
-    if (error.response?.data) {
-      const errorData = error.response.data;
-      const status = error.response.status;
-      
-      if (status === 400 && errorData?.errors) {
-        let details = '\n';
-        for (const [field, messages] of Object.entries(errorData.errors)) {
-          const fieldName = field.replace(/\$/g, '').replace(/\./g, ' ').trim();
-          const msg = Array.isArray(messages) ? messages.join(', ') : messages;
-          details += `• ${fieldName}: ${msg}\n`;
-        }
-        errorMessage = `⚠️ Validation Failed:${details}`;
-      } 
-      else if (errorData?.message) {
-        errorMessage = errorData.message;
-      } 
-      else if (errorData?.title) {
-        errorMessage = errorData.title;
-      }
-      else if (typeof errorData === 'string') {
-        errorMessage = errorData;
-      }
-    } else if (error.code === 'ERR_NETWORK') {
-      errorMessage = '❌ Network error. Please check your internet connection.';
-    } else if (error.message) {
+    
+    // Use error message from custom API client
+    if (error.message) {
       errorMessage = error.message;
     }
 
-    toast.error(errorMessage, {
-      autoClose: 10000,
-    });
-
+    toast.error(errorMessage, { autoClose: 10000 });
+    
   } finally {
     target.removeAttribute('data-submitting');
+    console.log('🏁 [SUBMIT] Submission process completed');
   }
 };
+
 
 
 
@@ -1751,7 +1874,7 @@ const handleVariantImageUpload = async (variantId: string, file: File) => {
   }
 
   // ✅ File validations
-  const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
+  const MAX_FILE_SIZE = 1 * 1024 * 1024; // 5MB
   const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 
   if (!ALLOWED_TYPES.includes(file.type)) {
@@ -1876,6 +1999,17 @@ const handleVariantImageUpload = async (variantId: string, file: File) => {
 
 
 // ✅ REPLACE existing handleImageUpload function:
+const ALLOWED_TYPES = [
+  "image/webp",
+  "image/jpeg",
+  "image/jpg"
+];
+
+const MAX_SIZE = 500 * 1024;     // 500 KB hard limit
+const WARN_SIZE = 300 * 1024;    // 300 KB recommended
+const MIN_WIDTH = 800;
+const MIN_HEIGHT = 800;
+
 const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
   const files = e.target.files;
   if (!files || files.length === 0) return;
@@ -1890,13 +2024,84 @@ const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     return;
   }
 
+  const validatedFiles: File[] = [];
+
+  for (const file of Array.from(files)) {
+    /* ================= FORMAT & MIME ================= */
+    if (!ALLOWED_TYPES.includes(file.type)) {
+      toast.error(`❌ ${file.name}: Only WebP, AVIF or JPG images allowed`);
+      continue;
+    }
+
+    /* ================= FILE SIZE ================= */
+    if (file.size > MAX_SIZE) {
+      toast.error(`❌ ${file.name}: Image size must be under 500 KB`);
+      continue;
+    }
+
+    if (file.size > WARN_SIZE) {
+      toast.warning(`⚠️ ${file.name}: Image is large, may affect page speed`);
+    }
+
+    /* ================= FILENAME SAFETY ================= */
+    if (!/^[a-zA-Z0-9\-_.]+$/.test(file.name)) {
+      toast.error(`❌ ${file.name}: Invalid characters in filename`);
+      continue;
+    }
+
+    /* ================= DIMENSION & RATIO ================= */
+    const isValidImage = await new Promise<boolean>((resolve) => {
+      const img = new window.Image();
+
+      img.src = URL.createObjectURL(file);
+
+      img.onload = () => {
+        URL.revokeObjectURL(img.src);
+
+        if (img.width < MIN_WIDTH || img.height < MIN_HEIGHT) {
+          toast.error(
+            `❌ ${file.name}: Minimum resolution is ${MIN_WIDTH}x${MIN_HEIGHT}`
+          );
+          resolve(false);
+          return;
+        }
+
+        const ratio = img.width / img.height;
+        if (Math.abs(ratio - 1) > 0.1) {
+          toast.warning(`⚠️ ${file.name}: Square (1:1) images are recommended`);
+        }
+
+        resolve(true);
+      };
+
+      img.onerror = () => {
+        toast.error(`❌ ${file.name}: Invalid image file`);
+        resolve(false);
+      };
+    });
+
+    if (!isValidImage) continue;
+
+    /* ================= DUPLICATE CHECK ================= */
+    const alreadyExists = formData.productImages.some(
+      img => img.fileName === file.name
+    );
+
+    if (alreadyExists) {
+      toast.warning(`⚠️ ${file.name}: Image already added`);
+      continue;
+    }
+
+    validatedFiles.push(file);
+  }
+
+  if (validatedFiles.length === 0) return;
+
   setUploadingImages(true);
 
   try {
-    // Since we have productId, upload directly to the product
-    const uploadedImages = await uploadImagesToProductDirect(productId, Array.from(files));
-    
-    // Add uploaded images to existing images
+    const uploadedImages = await uploadImagesToProductDirect(productId, validatedFiles);
+
     const newImages = uploadedImages.map(img => ({
       id: img.id,
       imageUrl: img.imageUrl,
@@ -1913,19 +2118,20 @@ const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
       productImages: [...prev.productImages, ...newImages]
     }));
 
-    toast.success(`${uploadedImages.length} image(s) uploaded successfully! 📷`);
+    toast.success(`✅ ${uploadedImages.length} image(s) uploaded successfully`);
 
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
 
-  } catch (error: any) {
-    console.error('Error processing images:', error);
-    toast.error('Failed to process images. Please try again.');
+  } catch (error) {
+    console.error("Image upload failed", error);
+    toast.error("Failed to upload images. Please try again.");
   } finally {
     setUploadingImages(false);
   }
 };
+
 
 
 
@@ -2152,21 +2358,44 @@ const uploadImagesToProductDirect = async (
               <div className="w-2 h-2 bg-orange-400 rounded-full animate-pulse"></div>
               Save as Draft
             </button>
-            <button
-              type="button"
-              onClick={(e) => handleSubmit(e, false)}
-              className="px-5 py-2.5 bg-gradient-to-r from-violet-500 to-cyan-500 text-white rounded-xl hover:shadow-lg hover:shadow-violet-500/50 transition-all text-sm flex items-center gap-2 font-semibold"
-            >
-              <Save className="h-4 w-4" />
-              Update Product
-            </button>
+      
+{/* Update Product Button */}
+<button
+  type="button"
+  onClick={(e) => handleSubmit(e, false)}
+  disabled={isAcquiringLock || !productLock?.isLocked || loading}
+  className={cn(
+    "px-5 py-2.5 rounded-xl text-sm flex items-center gap-2 font-semibold transition-all",
+    (isAcquiringLock || !productLock?.isLocked || loading)
+      ? "bg-slate-700 text-slate-500 cursor-not-allowed opacity-50"
+      : "bg-gradient-to-r from-violet-500 to-cyan-500 text-white hover:shadow-lg hover:shadow-violet-500/50"
+  )}
+>
+  {isAcquiringLock ? (
+    <>
+      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+      <span>Acquiring Lock...</span>
+    </>
+  ) : !productLock?.isLocked ? (
+    <>
+      <X className="h-4 w-4" />
+      <span>No Edit Lock</span>
+    </>
+  ) : loading ? (
+    <>
+      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+      <span>Loading...</span>
+    </>
+  ) : (
+    <>
+      <Save className="h-4 w-4" />
+      <span>Update Product</span>
+    </>
+  )}
+</button>
           </div>
         </div>
       </div>
-
-
-
-
       {/* Main Content */}
       <div className="w-full">
         {/* Main Form */}
@@ -2264,6 +2493,12 @@ const uploadImagesToProductDirect = async (
         placeholder="Enter product short description..."
         height={250}
       />
+   <p className="mt-2 text-xs text-slate-400 leading-relaxed">
+  Short summary of the product (max 350 characters).  
+  This appears on category listings, search results, and previews.  
+  Focus on key features, benefits, and what makes the product unique.
+</p>
+ 
 
       {/* Full Description Editor */}
       <ProductDescriptionEditor
@@ -2286,6 +2521,12 @@ const uploadImagesToProductDirect = async (
         height={400}
         required
       />
+<p className="mt-2 text-xs text-slate-400 leading-relaxed">
+  Detailed product description (up to 2000 characters).  
+  Use headings, bullet points, specifications, usage instructions, 
+  and benefits to help customers understand the product in depth.  
+  This content is shown on the product detail page and improves SEO.
+</p>
 
       {/* ✅ Row 1: SKU, Brand, Categories (3 Columns) */}
       <div className="grid md:grid-cols-3 gap-4">
@@ -2327,10 +2568,10 @@ const uploadImagesToProductDirect = async (
   maxSelection={1} // ✅ Only 1 brand allowed
 />
 
-  <p className="text-xs text-slate-400 mt-2 flex items-center gap-1">
+  {/* <p className="text-xs text-slate-400 mt-2 flex items-center gap-1">
     <span>★</span>
     <span>First selected brand will be the primary brand</span>
-  </p>
+  </p> */}
 </div>
 
 
@@ -2525,7 +2766,7 @@ const uploadImagesToProductDirect = async (
   </div>
   
   {/* Selected Category Info - Optional */}
-  {formData.categories && formData.categories !== 'all' && (
+  {/* {formData.categories && formData.categories !== 'all' && (
     <div className="mt-2 p-2.5 bg-violet-500/10 border border-violet-500/20 rounded-lg">
       <p className="text-xs text-violet-300 flex items-center gap-2">
         <svg className="w-4 h-4 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
@@ -2536,7 +2777,7 @@ const uploadImagesToProductDirect = async (
         </span>
       </p>
     </div>
-  )}
+  )} */}
 </div>
 
 
@@ -4574,9 +4815,11 @@ const uploadImagesToProductDirect = async (
   <div className="space-y-3 bg-slate-800/30 border border-slate-700 rounded-xl p-4">
     <div>
       <h3 className="text-lg font-semibold text-white">Product Images</h3>
-      <p className="text-sm text-slate-400">
-        Upload and manage product images. Supported: JPG, PNG, WebP • Max 5MB • Up to 10 images
-      </p>
+    <p className="text-sm text-slate-400">
+  Upload product images (WebP or JPG). Recommended size under 300 KB, maximum 500 KB per image. 
+  Minimum resolution 800×800 (square preferred). You can upload up to 10 images.
+</p>
+
     </div>
 
     <input
@@ -4843,7 +5086,7 @@ const uploadImagesToProductDirect = async (
   }}
 />
 
-{/* Custom Product Lock Modal */}
+
 {/* ==================== IMPROVED PRODUCT LOCK MODAL ==================== */}
 {isLockModalOpen && (
   <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -4908,7 +5151,7 @@ const uploadImagesToProductDirect = async (
         </button>
         
         {/* Refresh Button */}
-        <button
+        {/* <button
           onClick={() => {
             setIsLockModalOpen(false);
             window.location.reload();
@@ -4919,13 +5162,13 @@ const uploadImagesToProductDirect = async (
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
           </svg>
-        </button>
+        </button> */}
       </div>
       
       {/* Auto Redirect Timer */}
-      <p className="text-center text-slate-500 text-xs mt-4 animate-pulse">
+      {/* <p className="text-center text-slate-500 text-xs mt-4 animate-pulse">
         Auto-redirecting in 3 seconds...
-      </p>
+      </p> */}
        <style jsx>{`
       @keyframes modalFadeIn {
         from {

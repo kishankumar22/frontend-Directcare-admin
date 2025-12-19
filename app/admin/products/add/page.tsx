@@ -1852,6 +1852,11 @@ const uploadVariantImages = async (productResponse: any) => {
         placeholder="Brief product description (shown in product lists)"
         height={200}
       />
+<p className="mt-2 text-xs text-slate-400 leading-relaxed">
+  Short summary of the product (max 350 characters).  
+  This appears on category listings, search results, and previews.  
+  Focus on key features, benefits, and what makes the product unique.
+</p>
 
       {/* FULL DESCRIPTION (Max 2000 chars) */}
       <ProductDescriptionEditor
@@ -1872,6 +1877,12 @@ const uploadVariantImages = async (productResponse: any) => {
         required
         showHelpText="Rich text formatting is supported"
       />
+<p className="mt-2 text-xs text-slate-400 leading-relaxed">
+  Detailed product description (up to 2000 characters).  
+  Use headings, bullet points, specifications, usage instructions, 
+  and benefits to help customers understand the product in depth.  
+  This content is shown on the product detail page and improves SEO.
+</p>
 
       <div className="grid md:grid-cols-3 gap-4">
         <div>
@@ -1916,10 +1927,10 @@ const uploadVariantImages = async (productResponse: any) => {
 
 
   {/* Info Text */}
-  <p className="text-xs text-slate-400 mt-2 flex items-center gap-1">
+  {/* <p className="text-xs text-slate-400 mt-2 flex items-center gap-1">
     <span>💡</span>
     <span>First selected brand will be the primary brand</span>
-  </p>
+  </p> */}
 </div>
 
 
@@ -2042,7 +2053,7 @@ const uploadVariantImages = async (productResponse: any) => {
   </div>
   
   {/* Selected Category Info */}
-  {formData.categories && formData.categories !== '' && (
+  {/* {formData.categories && formData.categories !== '' && (
     <div className="mt-2 p-2 bg-violet-500/10 border border-violet-500/20 rounded-lg">
       <p className="text-xs text-violet-300 flex items-center gap-2">
         <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
@@ -2051,7 +2062,7 @@ const uploadVariantImages = async (productResponse: any) => {
         Selected: <strong>{formData.categoryName}</strong>
       </p>
     </div>
-  )}
+  )} */}
 </div>
 
       </div>
