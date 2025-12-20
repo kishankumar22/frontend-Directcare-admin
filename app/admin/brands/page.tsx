@@ -128,7 +128,7 @@ export default function BrandsPage() {
   // ✅ Service-based Submit (Upload + Create/Update)
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // ...all your validation logic remains same...
+
     
 //  🔥 BRAND FORM VALIDATION (SEO Optimized)
 if (!formData.name.trim()) {

@@ -10,6 +10,28 @@ import {
   Play,
   ChevronDown
 } from "lucide-react";
+
+// ==================== TYPE DEFINITIONS ====================
+interface LockResponse {
+  success: boolean;
+  message: string;
+  data: {
+    id: string;
+    productId: string;
+    lockedBy: string;
+    lockedByEmail: string;
+    lockedAt: string;
+    expiresAt: string;
+    isLocked: boolean;
+  };
+}
+
+interface ApiErrorResponse {
+  success: boolean;
+  message: string;
+  data: any;
+}
+
 import Link from "next/link";
 import { apiClient } from "@/lib/api"; // Import your axios client
 import { ProductDescriptionEditor } from "@/app/admin/products/SelfHostedEditor";
@@ -707,19 +729,22 @@ const handleModalClose = () => {
   router.push("/admin/products");
 };
 
-// ==================== FIXED: ACQUIRE PRODUCT LOCK ====================
+
+// ==================== ACQUIRE PRODUCT LOCK ====================
 const acquireProductLock = async (productId: string): Promise<boolean> => {
   try {
-    console.log('🔒 [LOCK] Attempting to acquire lock...');
+    console.log('🔒 LOCK: Attempting to acquire lock...');
     setIsAcquiringLock(true);
     
-    const response = await apiClient.post<any>(
+    // Generic type parameter approach - No need to import AxiosResponse
+    const response = await apiClient.post<LockResponse>(
       `${API_ENDPOINTS.products}/${productId}/lock?durationMinutes=15`,
       {}
     );
-
-    console.log('📥 [LOCK] Response received:', response.data);
-
+    
+    console.log('🔒 LOCK: Response received:', response);
+    
+    // ✅ SUCCESS - Lock acquired
     if (response.data?.success && response.data?.data) {
       const lockData = response.data.data;
       
@@ -728,46 +753,58 @@ const acquireProductLock = async (productId: string): Promise<boolean> => {
         lockedBy: lockData.lockedBy,
         expiresAt: lockData.expiresAt,
       });
-
-      console.log('✅ [LOCK] Lock acquired successfully:', {
+      
+      console.log('✅ LOCK: Lock acquired successfully', {
         lockedBy: lockData.lockedBy,
         expiresAt: lockData.expiresAt
       });
-
-      const backendMessage = response.data?.message || "Product edit lock acquired successfully";
-      const expiryTime = new Date(lockData.expiresAt).toLocaleString('en-IN', { 
+      
+      const backendMessage = response.data?.message || 'Product edit lock acquired successfully';
+      const expiryTime = new Date(lockData.expiresAt).toLocaleString('en-IN', {
         timeZone: 'Asia/Kolkata',
         dateStyle: 'medium',
         timeStyle: 'short'
       });
-
+      
       toast.success(
-        `${backendMessage}\n\n🔐 Locked by: ${lockData.lockedBy}\n⏰ Expires at: ${expiryTime}`,
+        `${backendMessage}\n\nLocked by: ${lockData.lockedBy}\nExpires at: ${expiryTime}`,
         { autoClose: 4000 }
       );
-
+      
       setIsAcquiringLock(false);
       return true;
-    } 
-    else {
-      console.log('❌ [LOCK] Lock denied - Product already locked');
-      const backendMessage = response.data?.message || "Product is currently being edited by another user.";
+    }
+    
+    // ❌ FAILED - Unexpected response
+    console.warn('⚠️ LOCK: Unexpected response format');
+    setIsAcquiringLock(false);
+    return false;
+    
+  } catch (error: any) {
+    console.error('❌ LOCK: Error acquiring lock', error);
+    
+    // 🔴 409 CONFLICT - Product locked by another user
+    if (error.response?.status === 409) {
+      const errorData = error.response?.data as ApiErrorResponse;
+      const backendMessage = errorData?.message || 
+        'Product is currently being edited by another user.';
       
+      console.log('🔴 409 CONFLICT:', backendMessage);
+      
+      // Show modal with backend message
       setLockModalMessage(backendMessage);
       setIsLockModalOpen(true);
       
-      setTimeout(() => {
-        setIsLockModalOpen(false);
-        router.push("/admin/products");
-      }, 5000);
-
       setIsAcquiringLock(false);
       return false;
     }
-
-  } catch (error: any) {
-    console.error('❌ [LOCK] Error acquiring lock:', error);
-    const errorMsg = error.response?.data?.message || error.message || "Failed to acquire edit lock";
+    
+    // 🔴 OTHER ERRORS (500, network, etc.)
+    const errorData = error.response?.data as ApiErrorResponse | undefined;
+    const errorMsg = errorData?.message || 
+                     error.message || 
+                     'Failed to acquire edit lock';
+    
     toast.error(`Lock Error: ${errorMsg}`, { autoClose: 5000 });
     
     setIsAcquiringLock(false);
@@ -775,23 +812,21 @@ const acquireProductLock = async (productId: string): Promise<boolean> => {
   }
 };
 
-// ========== 2. RELEASE PRODUCT LOCK FUNCTION ==========
+// ==================== RELEASE PRODUCT LOCK ====================
 const releaseProductLock = async (productId: string): Promise<boolean> => {
   try {
-    const response = await apiClient.delete<any>(
+    const response = await apiClient.delete<{ success: boolean; message: string; data: boolean }>(
       `${API_ENDPOINTS.products}/${productId}/lock`
     );
 
     if (response.data?.success) {
       setProductLock(null);
       console.log("✅ Product lock released successfully");
-      // toast.info("🔓 Product lock released successfully");
       return true;
     }
     return false;
   } catch (error: any) {
     console.error("❌ Failed to release product lock:", error);
-    // Silently fail on unlock errors (lock will auto-expire)
     return false;
   }
 };

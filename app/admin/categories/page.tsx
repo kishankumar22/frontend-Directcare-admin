@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Plus, Edit, Trash2, Search, FolderTree, Eye, Upload, Filter, FilterX, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, AlertCircle, CheckCircle, ChevronDown, ChevronRight as ChevronRightIcon } from "lucide-react";
+import { Plus, Edit, Trash2, Search, FolderTree, Eye, Upload, Filter, FilterX, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, AlertCircle, CheckCircle, ChevronDown, ChevronRight as ChevronRightIcon, X } from "lucide-react";
 import { ProductDescriptionEditor } from "../products/SelfHostedEditor";
 import { useToast } from "@/components/CustomToast";
 import ConfirmDialog from "@/components/ConfirmDialog";
@@ -72,19 +72,19 @@ export default function CategoriesPage() {
       return newSet;
     });
   };
+const extractFilename = (imageUrl: string) => {
+  if (!imageUrl) return "";
+  const parts = imageUrl.split('/');
+  return parts[parts.length - 1];
+};
 
-  const getImageUrl = (imageUrl?: string) => {
-    if (!imageUrl) return "";
-    if (imageUrl.startsWith("http")) return imageUrl;
-    const cleanUrl = imageUrl.split('?')[0];
-    return `${API_BASE_URL}${cleanUrl}`;
-  };
+const getImageUrl = (imageUrl?: string) => {
+  if (!imageUrl) return "";
+  if (imageUrl.startsWith("http")) return imageUrl;
+  const cleanUrl = imageUrl.split('?')[0];
+  return `${API_BASE_URL}${cleanUrl}`;
+};
 
-  const extractFilename = (imageUrl: string) => {
-    if (!imageUrl) return "";
-    const parts = imageUrl.split('/');
-    return parts[parts.length - 1];
-  };
 // Add this NEW helper function after getCategoryLevel
 const getMaxDepthOfSubtree = (category: Category, allCategories: Category[]): number => {
   if (!category.subCategories || category.subCategories.length === 0) {
@@ -210,12 +210,12 @@ const getMaxDepthOfSubtree = (category: Category, allCategories: Category[]): nu
     return () => window.removeEventListener('focus', handleFocus);
   }, []);
 
-  const handleImageFileChange = (file: File) => {
-    setImageFile(file);
-    const previewUrl = URL.createObjectURL(file);
-    setImagePreview(previewUrl);
-    toast.success("Image selected! Click Create/Update to upload.");
-  };
+const handleImageFileChange = (file: File) => {
+  setImageFile(file);
+  const previewUrl = URL.createObjectURL(file);
+  setImagePreview(previewUrl);
+  toast.success("Image selected! Click Create/Update to upload.");
+};
 
   const handleAddSubcategory = (parentId: string, parentName: string) => {
     const parent = findCategoryById(parentId, categories);
@@ -247,164 +247,57 @@ const getMaxDepthOfSubtree = (category: Category, allCategories: Category[]): nu
     setShowModal(true);
   };
 
-  const handleDeleteImage = async (categoryId: string, imageUrl: string) => {
-    setIsDeletingImage(true);
-    try {
-      const filename = extractFilename(imageUrl);
-      await categoriesService.deleteImage(filename);
-      toast.success("Image deleted successfully! 🗑️");
+const handleDeleteImage = async (categoryId: string, imageUrl: string) => {
+  setIsDeletingImage(true);
+  try {
+    const filename = extractFilename(imageUrl);
+    await categoriesService.deleteImage(filename);
+    toast.success("✅ Image deleted successfully! 🗑️");
 
-      setCategories(prev =>
-        prev.map(c =>
-          c.id === categoryId ? { ...c, imageUrl: "" } : c
-        )
-      );
-      if (editingCategory?.id === categoryId) {
-        setFormData(prev => ({ ...prev, imageUrl: "" }));
-      }
-      if (viewingCategory?.id === categoryId) {
-        setViewingCategory(prev =>
-          prev ? { ...prev, imageUrl: "" } : null
-        );
-      }
-    } catch (error: any) {
-      console.error("Error deleting image:", error);
-      if (error.response?.status === 401) {
-        toast.error("Please login again");
-      } else {
-        toast.error(error.response?.data?.message || "Failed to delete image");
-      }
-    } finally {
-      setIsDeletingImage(false);
-      setImageDeleteConfirm(null);
+    setCategories(prev =>
+      prev.map(c =>
+        c.id === categoryId ? { ...c, imageUrl: "" } : c
+      )
+    );
+    if (editingCategory?.id === categoryId) {
+      setFormData(prev => ({ ...prev, imageUrl: "" }));
     }
-  };
+    if (viewingCategory?.id === categoryId) {
+      setViewingCategory(prev =>
+        prev ? { ...prev, imageUrl: "" } : null
+      );
+    }
+  } catch (error: any) {
+    console.error("❌ Error deleting image:", error);
+    if (error.response?.status === 401) {
+      toast.error("Please login again");
+    } else {
+      toast.error(error.response?.data?.message || "Failed to delete image");
+    }
+  } finally {
+    setIsDeletingImage(false);
+    setImageDeleteConfirm(null);
+  }
+};
+
 
 const handleSubmit = async (e: React.FormEvent) => {
   e.preventDefault();
 
-  // ✅ EDIT MODE - Enhanced Validation for Existing Categories
-  if (editingCategory) {
-    // Calculate current category's subtree depth
-    const currentCategory = findCategoryById(editingCategory.id, categories);
-    if (!currentCategory) {
-      toast.error('Category not found!');
-      return;
-    }
-    
-    const subtreeDepth = getMaxDepthOfSubtree(currentCategory, categories);
-    const currentLevel = getCategoryLevel(currentCategory, categories);
-    
-    console.log('🔍 Edit Validation:', {
-      categoryName: currentCategory.name,
-      currentLevel,
-      subtreeDepth,
-      newParentId: formData.parentCategoryId
-    });
-    
-    // Check if parent is being changed
-    if (formData.parentCategoryId !== editingCategory.parentCategoryId) {
-      
-      // Case 1: Moving to a new parent
-      if (formData.parentCategoryId) {
-        const newParent = findCategoryById(formData.parentCategoryId, categories);
-        
-        if (!newParent) {
-          toast.error('Selected parent category not found!');
-          return;
-        }
-        
-        // 🚫 Circular reference check
-        if (isDescendantOf(newParent, editingCategory.id, categories)) {
-          toast.error('🚫 Cannot set child category as parent! This would create a circular reference.');
-          return;
-        }
-        
-        const newParentLevel = getCategoryLevel(newParent, categories);
-        const newCategoryLevel = newParentLevel + 1; // This category's new level
-        const maxResultingLevel = newCategoryLevel + subtreeDepth;
-        
-        console.log('📊 Level Calculation:', {
-          newParentLevel,
-          newCategoryLevel,
-          subtreeDepth,
-          maxResultingLevel
-        });
-        
-        // 🚫 Check if resulting hierarchy exceeds 3 levels
-        if (maxResultingLevel > 2) { // 0-indexed, so 2 = Level 3
-          toast.error(
-            `🚫 Cannot move category! This would create Level ${maxResultingLevel + 1} categories. ` +
-            `\n\nDetails:\n` +
-            `• New parent: ${newParent.name} (Level ${newParentLevel + 1})\n` +
-            `• ${currentCategory.name} would become: Level ${newCategoryLevel + 1}\n` +
-            `• Deepest child would be: Level ${maxResultingLevel + 1}\n` +
-            `• Maximum allowed: Level 3`
-          );
-          return;
-        }
-        
-        // ✅ Safe to move
-        if (subtreeDepth > 0) {
-          toast.info(
-            `ℹ️ Moving category with ${subtreeDepth} level(s) of children. ` +
-            `New structure will be valid (max Level ${maxResultingLevel + 1})`
-          );
-        }
-        
-      } else {
-        // Case 2: Moving to root (no parent)
-        // Check if subtree depth allows root placement
-        if (subtreeDepth > 2) {
-          toast.error(
-            `🚫 Cannot move to root! This category has ${subtreeDepth} levels of children, ` +
-            `which would create Level ${subtreeDepth + 1} categories.`
-          );
-          return;
-        }
-      }
-    } else {
-      // Parent not changing, just updating other fields
-      console.log('✓ Parent unchanged - validation passed');
-    }
-  }
-  
-  // ✅ CREATE MODE - New Category Validation
-  if (!editingCategory && formData.parentCategoryId) {
-    const parent = findCategoryById(formData.parentCategoryId, categories);
-    if (parent) {
-      const parentLevel = getCategoryLevel(parent, categories);
-      
-      // 🚫 Parent Level 2 hai toh child Level 3 banega (allowed)
-      // 🚫 Parent Level 3 or higher hai toh NOT ALLOWED
-      if (parentLevel >= 2) {
-        toast.error('🚫 Cannot create category: Parent is already at Level 3 (maximum depth)!');
-        return;
-      }
-      
-      // ✅ Show confirmation if creating Level 3 (final level)
-      if (parentLevel === 1) {
-        toast.info('ℹ️ Creating Level 3 category - This cannot have subcategories');
-      }
-    }
-  }
-
-  // Rest of your existing validation...
+  // ✅ Validation
   if (!formData.name.trim()) {
     toast.error("Category name is required");
     return;
   }
-  
   if (formData.name.trim().length < 2) {
     toast.error("Category name must be at least 2 characters");
     return;
   }
-  
   if (formData.name.trim().length > 100) {
     toast.error("Category name must be less than 100 characters");
     return;
   }
-
+  
   const isDuplicateName = categories.some(
     cat =>
       cat.name.toLowerCase().trim() === formData.name.toLowerCase().trim() &&
@@ -414,40 +307,36 @@ const handleSubmit = async (e: React.FormEvent) => {
     toast.error("A category with this name already exists!");
     return;
   }
-
+  
   if (!formData.description.trim()) {
     toast.error("Description is required");
     return;
   }
-  
   if (formData.description.trim().length < 10) {
     toast.error("Description must be at least 10 characters");
     return;
   }
-  
   if (formData.sortOrder < 0) {
     toast.error("Sort order cannot be negative");
     return;
   }
-  
   if (formData.metaTitle && formData.metaTitle.length > 60) {
     toast.error("Meta title should be less than 60 characters");
     return;
   }
-  
   if (formData.metaDescription && formData.metaDescription.length > 160) {
     toast.error("Meta description should be less than 160 characters");
     return;
   }
-  
   if (formData.metaKeywords && formData.metaKeywords.length > 255) {
     toast.error("Meta keywords must be less than 255 characters");
     return;
   }
-
+  
+  // ✅ Image validation
   if (imageFile) {
     const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
-    const maxSize = 10 * 1024 * 1024;
+    const maxSize = 10 * 1024 * 1024; // 10MB
     if (!allowedTypes.includes(imageFile.type)) {
       toast.error("Only JPG, PNG, and WebP images are allowed");
       return;
@@ -457,18 +346,55 @@ const handleSubmit = async (e: React.FormEvent) => {
       return;
     }
   }
-
+  
   if (isSubmitting) return;
   setIsSubmitting(true);
 
   try {
-    // ... rest of your submit code (image upload, API call, etc.)
     let finalImageUrl = formData.imageUrl;
 
+    // ⚡ IMAGE UPLOAD LOGIC
     if (imageFile) {
-      // Image upload code...
+      try {
+        const uploadResponse = await categoriesService.uploadImage(imageFile, {
+          name: formData.name,
+        });
+
+        if (!uploadResponse.data?.success || !uploadResponse.data?.data) {
+          throw new Error(
+            uploadResponse.data?.message || "Image upload failed (no imageUrl in response)"
+          );
+        }
+
+        finalImageUrl = uploadResponse.data.data;
+        toast.success("✅ Image uploaded successfully!");
+        fetchCategories();
+        
+        // Delete old image if exists (in edit mode)
+        if (
+          editingCategory?.imageUrl &&
+          editingCategory.imageUrl !== finalImageUrl
+        ) {
+          const filename = extractFilename(editingCategory.imageUrl);
+          if (filename) {
+            try {
+              await categoriesService.deleteImage(filename);
+            } catch (err) {
+              console.log("Failed to delete old image:", err);
+            }
+          }
+        }
+      } catch (uploadErr: any) {
+        console.error("❌ Error uploading image:", uploadErr);
+        toast.error(
+          uploadErr?.response?.data?.message || "Failed to upload image"
+        );
+        setIsSubmitting(false);
+        return;
+      }
     }
 
+    // ✅ Prepare payload
     const payload = {
       name: formData.name.trim(),
       description: formData.description.trim(),
@@ -482,22 +408,25 @@ const handleSubmit = async (e: React.FormEvent) => {
       ...(editingCategory && { id: editingCategory.id }),
     };
 
+    // ✅ Save category
     if (editingCategory) {
       await categoriesService.update(editingCategory.id, payload);
-      toast.success("Category updated successfully! 🎉");
+      toast.success("✅ Category updated successfully! 🎉");
     } else {
       await categoriesService.create(payload);
-      toast.success("Category created successfully! 🎉");
+      toast.success("✅ Category created successfully! 🎉");
     }
 
+    // ✅ Cleanup
     if (imagePreview) URL.revokeObjectURL(imagePreview);
     setImageFile(null);
     setImagePreview(null);
     await fetchCategories();
     setShowModal(false);
     resetForm();
+
   } catch (error: any) {
-    console.error("Error saving category:", error);
+    console.error("❌ Error saving category:", error);
     const message =
       error?.response?.data?.message ||
       error?.response?.data?.error ||
@@ -721,46 +650,48 @@ const getParentCategoryOptions = () => {
               </div>
             )}
 
-            {category.imageUrl ? (
-              <div
-                className={`w-10 h-10 rounded-lg overflow-hidden border cursor-pointer transition-all shrink-0 relative ${
-                  isInactive
-                    ? "border-slate-700/50 hover:ring-1 hover:ring-slate-600"
-                    : "border-slate-700 hover:ring-2 hover:ring-violet-500"
-                }`}
-                onClick={() => !isInactive && onView(category)}
-              >
-                <img
-                  src={getImageUrl(category.imageUrl)}
-                  alt={category.name}
-                  className={`w-full h-full object-cover ${isInactive ? "grayscale" : ""}`}
-                  onError={(e) => {
-                    e.currentTarget.style.display = "none";
-                  }}
-                />
-                {isInactive && (
-                  <div className="absolute inset-0 bg-slate-900/60 flex items-center justify-center">
-                    <svg className="h-5 w-5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 715.636 5.636m12.728 12.728L5.636 5.636" />
-                    </svg>
-                  </div>
-                )}
-              </div>
-            ) : (
-              <div
-                className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${
-                  isInactive
-                    ? "bg-slate-700/50"
-                    : `bg-gradient-to-br ${colorClass}`
-                }`}
-              >
-                <FolderTree
-                  className={`h-5 w-5 ${
-                    isInactive ? "text-slate-500" : "text-white"
-                  }`}
-                />
-              </div>
-            )}
+{category.imageUrl ? (
+  <div
+    className={`w-10 h-10 rounded-lg overflow-hidden border cursor-pointer transition-all shrink-0 relative ${
+      isInactive 
+        ? 'border-slate-700/50 hover:ring-1 hover:ring-slate-600' 
+        : 'border-slate-700 hover:ring-2 hover:ring-violet-500'
+    }`}
+    onClick={(e) => {
+      e.stopPropagation(); // ⚡ IMPORTANT: Prevent parent row click
+      if (!isInactive) {
+        setSelectedImageUrl(getImageUrl(category.imageUrl));
+      }
+    }}
+  >
+    <img
+      src={getImageUrl(category.imageUrl)}
+      alt={category.name}
+      className={`w-full h-full object-cover ${isInactive ? 'grayscale' : ''}`}
+      onError={(e) => {
+        e.currentTarget.style.display = 'none';
+      }}
+    />
+    
+    {/* Inactive overlay icon */}
+    {isInactive && (
+      <div className="absolute inset-0 bg-slate-900/60 flex items-center justify-center">
+        <svg className="h-5 w-5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 715.636 5.636m12.728 12.728L5.636 5.636" />
+        </svg>
+      </div>
+    )}
+  </div>
+) : (
+  <div className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${
+    isInactive 
+      ? 'bg-slate-700/50' 
+      : 'bg-gradient-to-br from-violet-500 to-pink-500'
+  }`}>
+    <FolderTree className={`h-5 w-5 ${isInactive ? 'text-slate-500' : 'text-white'}`} />
+  </div>
+)}
+
 
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2 flex-wrap">
@@ -1609,8 +1540,7 @@ const getParentCategoryOptions = () => {
                 </div>
               </div>
 
-              {/* UPDATED: Category Image Section with Brand-Style Upload */}
-{/* UPDATED Category Image Section */}
+{/* Category Image Section */}
 <div className="bg-slate-800/30 p-6 rounded-2xl border border-slate-700/50">
   <h3 className="text-lg font-semibold text-white mb-3 flex items-center gap-2">
     <span className="w-8 h-8 rounded-lg bg-gradient-to-br from-cyan-500 to-blue-500 flex items-center justify-center text-sm">
@@ -1776,6 +1706,7 @@ const getParentCategoryOptions = () => {
     )}
   </div>
 </div>
+
 
 
               <div className="bg-slate-800/30 p-2 rounded-2xl border border-slate-700/50">
@@ -2090,6 +2021,28 @@ const getParentCategoryOptions = () => {
         confirmText="Delete"
         isLoading={isDeleting}
       />
+{/* ==================== IMAGE VIEWER MODAL (MISSING) ==================== */}
+{selectedImageUrl && (
+  <div
+    className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[60] flex items-center justify-center p-4"
+    onClick={() => setSelectedImageUrl(null)}
+  >
+    <div className="relative max-w-4xl max-h-[90vh]">
+      <img
+        src={selectedImageUrl}
+        alt="Full size preview"
+        className="max-w-full max-h-[90vh] object-contain rounded-lg"
+        onClick={(e) => e.stopPropagation()} // Prevent closing when clicking image
+      />
+      <button
+        onClick={() => setSelectedImageUrl(null)}
+        className="absolute top-4 right-4 p-2 bg-slate-900/80 text-white rounded-lg hover:bg-slate-800 transition-all"
+      >
+        <X className="h-5 w-5" />
+      </button>
+    </div>
+  </div>
+)}
 
       {/* Image Delete Confirmation */}
       <ConfirmDialog
