@@ -165,10 +165,8 @@ useEffect(() => {
   disableWishlistButton: false,
   availableForPreOrder: false,
   preOrderAvailabilityStartDate: '',
-  callForPrice: false,
-  customerEntersPrice: false,
-  minimumCustomerEnteredPrice: '',
-  maximumCustomerEnteredPrice: '',
+
+
   
   // Base Price
   basepriceEnabled: false,
@@ -190,7 +188,7 @@ useEffect(() => {
   // ===== TAX =====
   vatExempt: false,
   vatRateId: '',
-  telecommunicationsBroadcastingElectronicServices: false,
+
 
   // ===== RECURRING / SUBSCRIPTION =====
   isRecurring: false,
@@ -1063,16 +1061,6 @@ const handleChange = (
     return;
   }
 
-  // ⭐ 11. CUSTOMER ENTERS PRICE - Reset min/max when disabled
-  if (name === "customerEntersPrice") {
-    setFormData((prev) => ({
-      ...prev,
-      customerEntersPrice: checked,
-      minimumCustomerEnteredPrice: checked ? prev.minimumCustomerEnteredPrice : '',
-      maximumCustomerEnteredPrice: checked ? prev.maximumCustomerEnteredPrice : '',
-    }));
-    return;
-  }
 
   // ⭐ 12. BASE PRICE ENABLED - Reset base price fields
   if (name === "basepriceEnabled") {
@@ -2367,62 +2355,13 @@ const uploadVariantImages = async (productResponse: any) => {
       <span className="text-sm text-slate-300">Disable wishlist button</span>
     </label>
 
-    {/* Column 3 - Call for price */}
-    <label className="flex items-center gap-2 w-full px-3 py-2.5 bg-slate-800/50 border border-slate-700 rounded-xl cursor-pointer hover:border-violet-500 transition-all">
-      <input
-        type="checkbox"
-        name="callForPrice"
-        checked={formData.callForPrice}
-        onChange={handleChange}
-        className="rounded bg-slate-800/50 border-slate-700 text-violet-500 focus:ring-violet-500 focus:ring-offset-slate-900"
-      />
-      <span className="text-sm text-slate-300">Call for price</span>
-    </label>
+
   </div>
 
-  {/* ✅ Second Row: Customer enters price (single column) */}
-  <label className="flex items-center gap-2 w-full px-3 py-2.5 bg-slate-800/50 border border-slate-700 rounded-xl cursor-pointer hover:border-violet-500 transition-all">
-    <input
-      type="checkbox"
-      name="customerEntersPrice"
-      checked={formData.customerEntersPrice}
-      onChange={handleChange}
-      className="rounded bg-slate-800/50 border-slate-700 text-violet-500 focus:ring-violet-500 focus:ring-offset-slate-900"
-    />
-    <span className="text-sm text-slate-300">Customer enters price</span>
-  </label>
+
 </div>
 
 
-                  {formData.customerEntersPrice && (
-                    <div className="grid md:grid-cols-2 gap-4 bg-slate-800/30 border border-slate-700 p-4 rounded-xl">
-                      <div>
-                        <label className="block text-sm font-medium text-slate-300 mb-2">Minimum Amount</label>
-                        <input
-                          type="number"
-                          name="minimumCustomerEnteredPrice"
-                          value={formData.minimumCustomerEnteredPrice}
-                          onChange={handleChange}
-                          placeholder="0.00"
-                          step="0.01"
-                          className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-sm font-medium text-slate-300 mb-2">Maximum Amount</label>
-                        <input
-                          type="number"
-                          name="maximumCustomerEnteredPrice"
-                          value={formData.maximumCustomerEnteredPrice}
-                          onChange={handleChange}
-                          placeholder="0.00"
-                          step="0.01"
-                          className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
-                        />
-                      </div>
-                    </div>
-                  )}
                 </div>
 
                 {/* Pre-order Section */}
@@ -2588,19 +2527,6 @@ const uploadVariantImages = async (productResponse: any) => {
     </div>
   )}
 
-  {/* Telecommunications checkbox */}
-  <label className="flex items-center gap-2 cursor-pointer">
-    <input
-      type="checkbox"
-      name="telecommunicationsBroadcastingElectronicServices"
-      checked={formData.telecommunicationsBroadcastingElectronicServices}
-      onChange={handleChange}
-      className="rounded bg-slate-800/50 border-slate-700 text-violet-500 focus:ring-violet-500 focus:ring-offset-slate-900"
-    />
-    <span className="text-sm text-slate-300">
-      Telecommunications / Broadcasting / Electronic Services
-    </span>
-  </label>
 </div>
 
               </TabsContent>

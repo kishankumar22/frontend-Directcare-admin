@@ -9,15 +9,21 @@ import { ProductDescriptionEditor } from "../products/SelfHostedEditor";
 import { useToast } from "@/components/CustomToast";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import { Discount, DiscountLimitationType, discountsService, DiscountType } from "@/lib/services/discounts";
-import { Category } from "@/lib/services/categories";
-import { blogCategoriesService, Product } from "@/lib/services";
+import { categoriesService, Category } from "@/lib/services/categories";
+import {  Product } from "@/lib/services";
 import { DiscountUsageHistory } from "@/lib/services/discounts";
 
 interface SelectOption {
   value: string;
   label: string;
 }
-
+interface CategoryNode {
+  id: string;
+  name: string;
+  parentId?: string | null;
+  children?: CategoryNode[];
+  subCategories?: CategoryNode[];  // ⭐ YE ADD KARO
+}
 interface FormData {
   name: string;
   isActive: boolean;
@@ -40,6 +46,113 @@ interface FormData {
   assignedCategoryIds: string[];
   assignedManufacturerIds: string[];
 }
+// DELETE OLD flattenCategories FUNCTION
+const formatCategoryLabel = (path: string[]): string => {
+  if (path.length <= 2) return path.join(" > ");
+  const head = path.slice(0, -1).join(" > ");
+  const tail = path[path.length - 1];
+  return `${head} >> ${tail}`;
+};
+
+// ADD THESE 3 NEW FUNCTIONS:
+
+/**
+ * Build tree from flat array with parentId
+ */
+// buildCategoryTree function me (line ~35 ke baad):
+const buildCategoryTree = (flatCategories: CategoryNode[]): CategoryNode[] => {
+  if (!Array.isArray(flatCategories) || flatCategories.length === 0) return [];
+
+  const map: { [key: string]: CategoryNode } = {};
+  const roots: CategoryNode[] = [];
+
+  // Create nodes - normalize subCategories to children
+  flatCategories.forEach((cat) => {
+    map[cat.id] = { 
+      ...cat, 
+      children: cat.children || cat.subCategories || []  // ⭐ YE CHANGE KARO
+    };
+  });
+
+  // Link children to parents
+  flatCategories.forEach((cat) => {
+    if (cat.parentId && map[cat.parentId]) {
+      map[cat.parentId].children!.push(map[cat.id]);
+    } else {
+      roots.push(map[cat.id]);
+    }
+  });
+
+  return roots;
+};
+
+/**
+ * Flatten tree to options with path labels
+ */
+const flattenCategoryTree = (nodes: CategoryNode[]): SelectOption[] => {
+  const result: SelectOption[] = [];
+
+  const walk = (node: CategoryNode, path: string[] = []) => {
+    const currentPath = [...path, node.name];
+result.push({
+  value: node.id,
+  label: formatCategoryLabel(currentPath),
+});
+
+    
+    if (node.children && node.children.length > 0) {
+      node.children.forEach((child) => walk(child, currentPath));
+    }
+  };
+
+  nodes.forEach((node) => walk(node));
+  return result;
+};
+// Category normalize helper – ye har level pe subCategories ko children bana dega
+const normalizeCategory = (cat: any): CategoryNode => ({
+  id: cat.id,
+  name: cat.name,
+  parentId: cat.parentCategoryId ?? null,
+  children: (cat.subCategories || cat.children || []).map(normalizeCategory),
+});
+
+/**
+ * Smart processor: auto-detects structure
+ */
+// processCategoryData me change karo (line ~80 ke aaspaas):
+const processCategoryData = (categories: any[]): SelectOption[] => {
+  if (!Array.isArray(categories) || categories.length === 0) {
+    return [];
+  }
+
+  console.log("Processing categories:", categories);
+
+  const hasSubTree = categories.some(
+    (cat) =>
+      (cat.subCategories && cat.subCategories.length) ||
+      (cat.children && cat.children.length)
+  );
+
+  if (hasSubTree) {
+    // ⭐ Pure tree ko deep normalize karo
+    const normalizedTree = categories.map(normalizeCategory);
+    return flattenCategoryTree(normalizedTree);
+  }
+
+  const hasParentId = categories.some(
+    (cat) => cat.parentId !== undefined && cat.parentId !== null
+  );
+
+  if (hasParentId) {
+    const tree = buildCategoryTree(categories as CategoryNode[]);
+    return flattenCategoryTree(tree);
+  }
+
+  return categories.map((cat) => ({
+    value: cat.id,
+    label: cat.name,
+  }));
+};
 
 // ✅ COMPLETE REACT-SELECT STYLES
 const customSelectStyles = {
@@ -215,6 +328,7 @@ export default function DiscountsPage() {
     fetchDropdownData();
   }, []);
 
+
   // ✅ FETCH DROPDOWN DATA
   const fetchDropdownData = async () => {
     try {
@@ -225,13 +339,16 @@ export default function DiscountsPage() {
       }
 
       const [categoriesRes, productsRes] = await Promise.all([
-        blogCategoriesService.getAll(),
+        categoriesService.getAll(),
         apiClient.get(API_ENDPOINTS.products, { headers })
       ]);
 
       if (categoriesRes?.data) {
         const c = categoriesRes.data as any;
         if (c.success && Array.isArray(c.data)) {
+         // fetchDropdownData function me console.log ko expand karo:
+console.log("DISCOUNT CATEGORIES RAW:", JSON.stringify(c.data, null, 2));
+
           setCategories(c.data);
         }
       }
@@ -314,12 +431,8 @@ export default function DiscountsPage() {
     return diffDays;
   };
 
-  // ✅ CONVERT DATA TO SELECT OPTIONS
-  const categoryOptions: SelectOption[] = categories.map(cat => ({
-    value: cat.id,
-    label: cat.name
-  }));
-
+// NEW - full nested path + sari categories
+const categoryOptions: SelectOption[] = processCategoryData(categories as any);
   const productOptions: SelectOption[] = products.map(product => ({
     value: product.id,
     label: product.name
@@ -329,9 +442,7 @@ export default function DiscountsPage() {
   const fetchDiscounts = async () => {
     setLoading(true);
     try {
-      const response = await discountsService.getAll({
-        params: { includeInactive: true }
-      });
+      const response = await discountsService.getAll({ params: { includeInactive: true } });
       const discountsData = response.data?.data || [];
       setDiscounts(discountsData);
     } catch (error) {
@@ -341,7 +452,6 @@ export default function DiscountsPage() {
       setLoading(false);
     }
   };
-
   // ✅ HANDLE SUBMIT
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -1373,34 +1483,45 @@ export default function DiscountsPage() {
                   )}
                   
                   {/* ✅ CATEGORIES MULTI-SELECT */}
-                  {formData.discountType === "AssignedToCategories" && (
-                    <div>
-                      <label className="block text-sm font-medium text-slate-300 mb-2">
-                        Select Categories *
-                        <span className="text-xs text-slate-400 ml-2">(Choose which categories this discount applies to)</span>
-                      </label>
-                      <Select
-                        isMulti
-                        options={categoryOptions}
-                        value={categoryOptions.filter(opt => formData.assignedCategoryIds.includes(opt.value))}
-                        onChange={(selectedOptions) => {
-                          const ids = selectedOptions ? selectedOptions.map(opt => opt.value) : [];
-                          setFormData({...formData, assignedCategoryIds: ids});
-                        }}
-                        placeholder="Search and select categories..."
-                        isSearchable
-                        closeMenuOnSelect={false}
-                        styles={customSelectStyles}
-                        className="react-select-container"
-                        classNamePrefix="react-select"
-                        noOptionsMessage={() => "No categories found"}
-                        loadingMessage={() => "Loading categories..."}
-                      />
-                      <p className="text-xs text-slate-400 mt-1">
-                        {formData.assignedCategoryIds.length} categor{formData.assignedCategoryIds.length !== 1 ? 'ies' : 'y'} selected
-                      </p>
-                    </div>
-                  )}
+        {formData.discountType === "AssignedToCategories" && (
+  <div>
+    <label className="block text-sm font-medium text-slate-300 mb-2">
+      Select Categories
+      <span className="text-xs text-slate-400 ml-2">
+        Choose which categories this discount applies to
+      </span>
+    </label>
+
+    <Select
+      isMulti
+      options={categoryOptions}
+      value={categoryOptions.filter(opt =>
+        formData.assignedCategoryIds.includes(opt.value)
+      )}
+      onChange={(selectedOptions) => {
+        const ids = selectedOptions ? selectedOptions.map(opt => opt.value) : [];
+        setFormData({ ...formData, assignedCategoryIds: ids });
+      }}
+      placeholder="Search and select categories..."
+      isSearchable
+      closeMenuOnSelect={false}
+      styles={customSelectStyles}
+      className="react-select-container"
+      classNamePrefix="react-select"
+      noOptionsMessage={() => "No categories found"}
+      loadingMessage={() => "Loading categories..."}
+    />
+
+    <p className="text-xs text-slate-400 mt-1">
+      {formData.assignedCategoryIds.length
+        ? `${formData.assignedCategoryIds.length} categor${
+            formData.assignedCategoryIds.length !== 1 ? "ies" : "y"
+          } selected`
+        : "No categories selected"}
+    </p>
+  </div>
+)}
+
                   
 
                   {/* Settings Checkboxes */}

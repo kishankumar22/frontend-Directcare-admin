@@ -174,10 +174,7 @@ const [formData, setFormData] = useState({
   disableWishlistButton: false,
   availableForPreOrder: false,
   preOrderAvailabilityStartDate: '',
-  callForPrice: false,
-  customerEntersPrice: false,
-  minimumCustomerEnteredPrice: '',
-  maximumCustomerEnteredPrice: '',
+
   
   // Base Price
   basepriceEnabled: false,
@@ -199,7 +196,7 @@ const [formData, setFormData] = useState({
   // ===== TAX =====
   vatExempt: false,
   vatRateId: '',
-  telecommunicationsBroadcastingElectronicServices: false,
+
 
   // ===== RECURRING / SUBSCRIPTION =====
   isRecurring: false,
@@ -545,10 +542,7 @@ useEffect(() => {
         cost: productData.costPrice?.toString() || '',
         disableBuyButton: productData.disableBuyButton ?? false,
         disableWishlistButton: productData.disableWishlistButton ?? false,
-        callForPrice: productData.callForPrice ?? false,
-        customerEntersPrice: productData.customerEntersPrice ?? false,
-        minimumCustomerEnteredPrice: productData.minimumCustomerEnteredPrice?.toString() || '',
-        maximumCustomerEnteredPrice: productData.maximumCustomerEnteredPrice?.toString() || '',
+
         basepriceEnabled: productData.basepriceEnabled ?? false,
         basepriceAmount: productData.basepriceAmount?.toString() || '',
         basepriceUnit: productData.basepriceUnit || '',
@@ -564,7 +558,6 @@ useEffect(() => {
         hasDiscountsApplied: false,
         vatExempt: productData.vatExempt ?? false,
         vatRateId: productData.vatRateId || '',
-        telecommunicationsBroadcastingElectronicServices: productData.telecommunicationsBroadcastingElectronicServices ?? false,
         stockQuantity: productData.stockQuantity?.toString() || '0',
         manageInventory: productData.manageInventoryMethod || 'track',
         displayStockAvailability: productData.displayStockAvailability ?? true,
@@ -735,79 +728,64 @@ const acquireProductLock = async (productId: string): Promise<boolean> => {
   try {
     console.log('🔒 LOCK: Attempting to acquire lock...');
     setIsAcquiringLock(true);
-    
-    // Generic type parameter approach - No need to import AxiosResponse
+
     const response = await apiClient.post<LockResponse>(
       `${API_ENDPOINTS.products}/${productId}/lock?durationMinutes=15`,
       {}
     );
-    
-    console.log('🔒 LOCK: Response received:', response);
-    
-    // ✅ SUCCESS - Lock acquired
-    if (response.data?.success && response.data?.data) {
+
+    console.log('🔒 LOCK: Response received:', response.data);
+
+    if (response.data?.success === true && response.data?.data) {
       const lockData = response.data.data;
-      
+
       setProductLock({
         isLocked: lockData.isLocked,
         lockedBy: lockData.lockedBy,
         expiresAt: lockData.expiresAt,
       });
-      
-      console.log('✅ LOCK: Lock acquired successfully', {
-        lockedBy: lockData.lockedBy,
-        expiresAt: lockData.expiresAt
-      });
-      
-      const backendMessage = response.data?.message || 'Product edit lock acquired successfully';
+
       const expiryTime = new Date(lockData.expiresAt).toLocaleString('en-IN', {
         timeZone: 'Asia/Kolkata',
         dateStyle: 'medium',
         timeStyle: 'short'
       });
-      
-      toast.success(
-        `${backendMessage}\n\nLocked by: ${lockData.lockedBy}\nExpires at: ${expiryTime}`,
-        { autoClose: 4000 }
-      );
-      
+
+      // ✅ SUCCESS: सिर्फ एक simple success toast
+      toast.success(`Lock acquired\nExpires: ${expiryTime} (IST)`);
+
       setIsAcquiringLock(false);
       return true;
     }
-    
-    // ❌ FAILED - Unexpected response
-    console.warn('⚠️ LOCK: Unexpected response format');
-    setIsAcquiringLock(false);
-    return false;
-    
+
+    // success false → backend ने reject किया
+    const fallbackMsg = response.data?.message || 'Failed to acquire lock';
+    throw new Error(fallbackMsg);
+
   } catch (error: any) {
-    console.error('❌ LOCK: Error acquiring lock', error);
-    
-    // 🔴 409 CONFLICT - Product locked by another user
-    if (error.response?.status === 409) {
-      const errorData = error.response?.data as ApiErrorResponse;
-      const backendMessage = errorData?.message || 
-        'Product is currently being edited by another user.';
-      
-      console.log('🔴 409 CONFLICT:', backendMessage);
-      
-      // Show modal with backend message
-      setLockModalMessage(backendMessage);
-      setIsLockModalOpen(true);
-      
-      setIsAcquiringLock(false);
-      return false;
-    }
-    
-    // 🔴 OTHER ERRORS (500, network, etc.)
-    const errorData = error.response?.data as ApiErrorResponse | undefined;
-    const errorMsg = errorData?.message || 
-                     error.message || 
-                     'Failed to acquire edit lock';
-    
-    toast.error(`Lock Error: ${errorMsg}`, { autoClose: 5000 });
-    
     setIsAcquiringLock(false);
+
+    let displayMessage = 'Product could not be locked for editing.';
+
+    if (error.response?.data?.message) {
+      displayMessage = error.response.data.message;
+    } else if (error.message) {
+      displayMessage = error.message;
+    }
+
+    // 🔒 LOCK FAIL: Modal + सिर्फ एक warning toast (simple & clean)
+    setLockModalMessage(displayMessage);
+    setIsLockModalOpen(true);
+
+    toast.warning(displayMessage, {
+  
+    });
+
+    // Auto redirect
+    setTimeout(() => {
+      router.push('/admin/products');
+    }, 3500);
+
     return false;
   }
 };
@@ -815,31 +793,44 @@ const acquireProductLock = async (productId: string): Promise<boolean> => {
 // ==================== RELEASE PRODUCT LOCK ====================
 const releaseProductLock = async (productId: string): Promise<boolean> => {
   try {
-    const response = await apiClient.delete<{ success: boolean; message: string; data: boolean }>(
+    const response = await apiClient.delete<any>(
       `${API_ENDPOINTS.products}/${productId}/lock`
     );
 
-    if (response.data?.success) {
+    if (response.data?.success === true) {
       setProductLock(null);
-      console.log("✅ Product lock released successfully");
+      // ✅ RELEASE SUCCESS: सिर्फ एक success toast
+      toast.success('Product lock released successfully', {
+   
+      });
       return true;
     }
+
+    // success false but not error (rare)
+    toast.warning(response.data?.message || 'Could not release lock');
     return false;
+
   } catch (error: any) {
-    console.error("❌ Failed to release product lock:", error);
+    let errorMessage = 'Failed to release lock';
+
+    if (error.response?.data?.message) {
+      errorMessage = error.response.data.message; // e.g. "You cannot release a lock held by another user..."
+    } else if (error.message) {
+      errorMessage = error.message;
+    }
+
+    // ❌ RELEASE FAIL: सिर्फ एक error toast
+    toast.error(errorMessage);
+
     return false;
   }
 };
-
-
 // ========== 3. HANDLE CANCEL FUNCTION ==========
 const handleCancel = async () => {
   // Release lock before navigating away
   await releaseProductLock(productId);
   router.push("/admin/products");
 };
-
-
 
 // 1. Acquire lock on component mount
 useEffect(() => {
@@ -1115,10 +1106,8 @@ const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
       preOrderAvailabilityStartDate: formData.availableForPreOrder && formData.preOrderAvailabilityStartDate 
         ? new Date(formData.preOrderAvailabilityStartDate).toISOString() 
         : null,
-      callForPrice: formData.callForPrice ?? false,
-      customerEntersPrice: formData.customerEntersPrice ?? false,
-      minimumCustomerEnteredPrice: parseNumber(formData.minimumCustomerEnteredPrice, 'minimumCustomerEnteredPrice'),
-      maximumCustomerEnteredPrice: parseNumber(formData.maximumCustomerEnteredPrice, 'maximumCustomerEnteredPrice'),
+
+
       
       basepriceEnabled: formData.basepriceEnabled ?? false,
       basepriceAmount: parseNumber(formData.basepriceAmount, 'basepriceAmount'),
@@ -1142,7 +1131,7 @@ const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
       
       vatExempt: formData.vatExempt ?? false,
       vatRateId: formData.vatRateId || null,
-      telecommunicationsBroadcastingElectronicServices: formData.telecommunicationsBroadcastingElectronicServices ?? false,
+   
       
       trackQuantity: formData.manageInventory === 'track',
       manageInventoryMethod: formData.manageInventory || 'track',
@@ -1292,11 +1281,6 @@ const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
     console.log('🏁 [SUBMIT] Submission process completed');
   }
 };
-
-
-
-
-
 
 // ✅ COMPLETE FIXED handleChange - ADD PRICE FIELD HANDLING
 const handleChange = (
@@ -1527,18 +1511,7 @@ const handleChange = (
     return;
   }
 
-  // ================================
-  // 11. CUSTOMER ENTERS PRICE
-  // ================================
-  if (name === "customerEntersPrice") {
-    setFormData(prev => ({
-      ...prev,
-      customerEntersPrice: checked,
-      minimumCustomerEnteredPrice: checked ? prev.minimumCustomerEnteredPrice : "",
-      maximumCustomerEnteredPrice: checked ? prev.maximumCustomerEnteredPrice : ""
-    }));
-    return;
-  }
+
 
   // ================================
   // 12. BASE PRICE ENABLED
@@ -2508,60 +2481,83 @@ const uploadImagesToProductDirect = async (
 
       </div>
 
-      {/* Short Description Editor */}
-      <ProductDescriptionEditor
-        label="Short Description"
-        value={formData.shortDescription}
-        onChange={(content) => {
-          const plainText = content.replace(/<[^>]*>/g, "").trim();
 
-          if (plainText.length > 350) {
-            alert("You can not enter more than 350 characters");
-            return;
-          }
+<div className="space-y-4">
+  {/* Short Description Editor */}
+  <div>
+    <div className="flex items-center justify-between gap-3 mb-2">
+      <label className="text-sm font-medium text-slate-300">
+        Short Description
+      </label>
+      <div className="flex items-center gap-2 px-3 py-1 bg-cyan-500/10 border border-cyan-500/20 rounded-lg">
+        <svg className="w-3.5 h-3.5 text-cyan-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+          <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+        </svg>
+        <span className="text-xs text-cyan-300 whitespace-nowrap">
+          Max 350 chars • Listings & Search
+        </span>
+      </div>
+    </div>
+    
+    <ProductDescriptionEditor
+      value={formData.shortDescription}
+      onChange={(content) => {
+        const plainText = content.replace(/<[^>]*>/g, "").trim();
 
-          setFormData((prev) => ({
-            ...prev,
-            shortDescription: content,
-          }));
-        }}
-        placeholder="Enter product short description..."
-        height={250}
-      />
-   <p className="mt-2 text-xs text-slate-400 leading-relaxed">
-  Short summary of the product (max 350 characters).  
-  This appears on category listings, search results, and previews.  
-  Focus on key features, benefits, and what makes the product unique.
-</p>
+        if (plainText.length > 350) {
+          alert("You can not enter more than 350 characters");
+          return;
+        }
+
+        setFormData((prev) => ({
+          ...prev,
+          shortDescription: content,
+        }));
+      }}
+      placeholder="Enter product short description..."
+      height={250}
+    />
+  </div>
+
+  {/* Full Description Editor */}
+  <div>
+    <div className="flex items-center justify-between gap-3 mb-2">
+      <label className="text-sm font-medium text-slate-300">
+        Full Description
+      </label>
+      <div className="flex items-center gap-2 px-3 py-1 bg-violet-500/10 border border-violet-500/20 rounded-lg">
+        <svg className="w-3.5 h-3.5 text-violet-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+          <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+        </svg>
+        <span className="text-xs text-violet-300 whitespace-nowrap">
+          Max 2000 chars • Detail Page & SEO
+        </span>
+      </div>
+    </div>
+    
+    <ProductDescriptionEditor
+      value={formData.fullDescription}
+      onChange={(content) => {
+        const plainText = content.replace(/<[^>]*>/g, "").trim();
+
+        if (plainText.length > 2000) {
+          alert("You can not enter more than 2000 characters");
+          return;
+        }
+
+        setFormData((prev) => ({
+          ...prev,
+          fullDescription: content,
+        }));
+      }}
+      placeholder="Enter detailed product description..."
+      height={400}
+      required
+    />
+  </div>
+</div>
+
  
-
-      {/* Full Description Editor */}
-      <ProductDescriptionEditor
-        label="Full Description"
-        value={formData.fullDescription}
-        onChange={(content) => {
-          const plainText = content.replace(/<[^>]*>/g, "").trim();
-
-          if (plainText.length > 2000) {
-            alert("You can not enter more than 2000 characters");
-            return;
-          }
-
-          setFormData((prev) => ({
-            ...prev,
-            fullDescription: content,
-          }));
-        }}
-        placeholder="Enter detailed product description..."
-        height={400}
-        required
-      />
-<p className="mt-2 text-xs text-slate-400 leading-relaxed">
-  Detailed product description (up to 2000 characters).  
-  Use headings, bullet points, specifications, usage instructions, 
-  and benefits to help customers understand the product in depth.  
-  This content is shown on the product detail page and improves SEO.
-</p>
 
       {/* ✅ Row 1: SKU, Brand, Categories (3 Columns) */}
       <div className="grid md:grid-cols-3 gap-4">
@@ -3127,60 +3123,11 @@ const uploadImagesToProductDirect = async (
           <span className="text-sm text-slate-300">Disable wishlist button</span>
         </label>
 
-        <label className="flex items-center gap-2 w-full px-3 py-2.5 bg-slate-800/50 border border-slate-700 rounded-xl cursor-pointer hover:border-violet-500 transition-all">
-          <input
-            type="checkbox"
-            name="callForPrice"
-            checked={formData.callForPrice}
-            onChange={handleChange}
-            className="rounded bg-slate-800/50 border-slate-700 text-violet-500 focus:ring-violet-500 focus:ring-offset-slate-900"
-          />
-          <span className="text-sm text-slate-300">Call for price</span>
-        </label>
       </div>
 
-      {/* Second Row: Customer enters price (full width) */}
-      <label className="flex items-center gap-2 w-full px-3 py-2.5 bg-slate-800/50 border border-slate-700 rounded-xl cursor-pointer hover:border-violet-500 transition-all">
-        <input
-          type="checkbox"
-          name="customerEntersPrice"
-          checked={formData.customerEntersPrice}
-          onChange={handleChange}
-          className="rounded bg-slate-800/50 border-slate-700 text-violet-500 focus:ring-violet-500 focus:ring-offset-slate-900"
-        />
-        <span className="text-sm text-slate-300">Customer enters price</span>
-      </label>
+
     </div>
 
-    {formData.customerEntersPrice && (
-      <div className="grid md:grid-cols-2 gap-4 bg-slate-800/30 border border-slate-700 p-4 rounded-xl">
-        <div>
-          <label className="block text-sm font-medium text-slate-300 mb-2">Minimum Amount</label>
-          <input
-            type="number"
-            name="minimumCustomerEnteredPrice"
-            value={formData.minimumCustomerEnteredPrice}
-            onChange={handleChange}
-            placeholder="0.00"
-            step="0.01"
-            className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
-          />
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-slate-300 mb-2">Maximum Amount</label>
-          <input
-            type="number"
-            name="maximumCustomerEnteredPrice"
-            value={formData.maximumCustomerEnteredPrice}
-            onChange={handleChange}
-            placeholder="0.00"
-            step="0.01"
-            className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
-          />
-        </div>
-      </div>
-    )}
   </div>
 
   {/* ✅ PRE-ORDER SECTION - NEW (Above Mark as New) */}
@@ -3358,19 +3305,8 @@ const uploadImagesToProductDirect = async (
       </div>
     )}
 
-    {/* Telecommunications checkbox */}
-    <label className="flex items-center gap-2 cursor-pointer">
-      <input
-        type="checkbox"
-        name="telecommunicationsBroadcastingElectronicServices"
-        checked={formData.telecommunicationsBroadcastingElectronicServices}
-        onChange={handleChange}
-        className="rounded bg-slate-800/50 border-slate-700 text-violet-500 focus:ring-violet-500 focus:ring-offset-slate-900"
-      />
-      <span className="text-sm text-slate-300">
-        Telecommunications / Broadcasting / Electronic Services
-      </span>
-    </label>
+
+
   </div>
 </TabsContent>
 

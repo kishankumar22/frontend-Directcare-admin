@@ -45,9 +45,11 @@ export interface CategoryApiResponse { success: boolean; message?: string; data:
 
 export const categoriesService = {
   // Get all categories (optionally allow config for params, headers)
-  getAll: (config: any = {}) =>
-    apiClient.get<CategoryApiResponse>(API_ENDPOINTS.categories, config),
-
+getAll: (config: any = {}) =>
+    apiClient.get<CategoryApiResponse>(
+      `${API_ENDPOINTS.categories}?includeInactive=true&includeSubCategories=true`,
+      config
+    ),
   // Get category by ID
   getById: (id: string, config: any = {}) =>
     apiClient.get<Category>(`${API_ENDPOINTS.categories}/${id}`, config),
