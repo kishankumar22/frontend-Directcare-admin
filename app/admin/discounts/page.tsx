@@ -391,22 +391,7 @@ console.log("DISCOUNT CATEGORIES RAW:", JSON.stringify(c.data, null, 2));
     await fetchUsageHistory(discount.id);
   };
 
-  // ✅ CALCULATE HISTORY STATS
-  const calculateHistoryStats = () => {
-    if (!usageHistory.length) return {
-      totalUsage: 0,
-      totalRevenue: 0,
-      uniqueCustomers: 0,
-      averageDiscount: 0
-    };
 
-    const totalUsage = usageHistory.length;
-    const totalRevenue = usageHistory.reduce((sum, h) => sum + h.discountAmount, 0);
-    const uniqueCustomers = new Set(usageHistory.map(h => h.customerEmail)).size;
-    const averageDiscount = totalRevenue / totalUsage;
-
-    return { totalUsage, totalRevenue, uniqueCustomers, averageDiscount };
-  };
 
   // ✅ CALCULATE REMAINING USES
   const calculateRemainingUses = (discount: Discount) => {
@@ -1795,7 +1780,7 @@ const categoryOptions: SelectOption[] = processCategoryData(categories as any);
         </div>
       )}
 
-      {/* ... ALL YOUR EXISTING CODE ... */}
+
 
       {/* ✅ ENHANCED USAGE HISTORY MODAL - COMPACT VERSION */}
   {usageHistoryModal && selectedDiscountHistory && (
@@ -1957,25 +1942,23 @@ const categoryOptions: SelectOption[] = processCategoryData(categories as any);
                   )}
                 </div>
 
-                {/* Remaining Uses */}
-                <div className="bg-gradient-to-br from-green-500/10 to-emerald-500/10 border border-green-500/20 rounded-xl p-3">
-                  <div className="flex items-center gap-2 mb-1">
-                    <Target className="w-4 h-4 text-green-400" />
-                    <span className="text-xs text-slate-400">Remaining</span>
-                  </div>
-                  <p className="text-xl font-bold text-white flex items-center gap-1">
-                    {selectedDiscountHistory.discountLimitation === "Unlimited" ? (
-                      <InfinityIcon className="w-6 h-6" />
-                    ) : (
-                      <>
-                        {Math.max(0, (selectedDiscountHistory.limitationTimes || 0) - usageHistory.length)}
-                      </>
-                    )}
-                  </p>
-                  <p className="text-xs text-slate-400">
-                    {selectedDiscountHistory.discountLimitation === "Unlimited" ? "Unlimited" : "uses left"}
-                  </p>
-                </div>
+  {/* Remaining Uses */}
+<div className="bg-gradient-to-br from-green-500/10 to-emerald-500/10 border border-green-500/20 rounded-xl p-3">
+  <div className="flex items-center gap-2 mb-1">
+    <Target className="w-4 h-4 text-green-400" />
+    <span className="text-xs text-slate-400">Remaining</span>
+  </div>
+  <p className="text-xl font-bold text-white flex items-center gap-1">
+    {selectedDiscountHistory.discountLimitation === 'Unlimited' ? (
+      <InfinityIcon className="w-6 h-6" />
+    ) : (
+      calculateRemainingUses(selectedDiscountHistory)
+    )}
+  </p>
+  <p className="text-xs text-slate-400">
+    {selectedDiscountHistory.discountLimitation === 'Unlimited' ? 'Unlimited uses' : 'left'}
+  </p>
+</div>
 
                 {/* Days Until Expiry */}
                 <div className="bg-gradient-to-br from-orange-500/10 to-amber-500/10 border border-orange-500/20 rounded-xl p-3">

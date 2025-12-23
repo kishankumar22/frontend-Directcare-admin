@@ -232,9 +232,9 @@ useEffect(() => {
 
   // ===== SHIPPING =====
   isShipEnabled: true,
-  isFreeShipping: false,
+
   shipSeparately: false,
-  additionalShippingCharge: '',
+
   deliveryDateId: '',
   weight: '',
   length: '',
@@ -698,7 +698,7 @@ const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
 
     // Shipping
     if (formData.isShipEnabled) productData.requiresShipping = true;
-    if (formData.isFreeShipping) productData.isFreeShipping = true;
+
     if (formData.shipSeparately) productData.shipSeparately = true;
     if (formData.weight) productData.weight = parseFloat(formData.weight.toString());
     if (formData.length) productData.length = parseFloat(formData.length.toString());
@@ -1001,8 +1001,8 @@ const handleChange = (
     setFormData((prev) => ({
       ...prev,
       isShipEnabled: checked,
-      isFreeShipping: checked ? prev.isFreeShipping : false,
-      additionalShippingCharge: checked ? prev.additionalShippingCharge : '',
+
+
       shipSeparately: checked ? prev.shipSeparately : false,
       weight: checked ? prev.weight : '',
       length: checked ? prev.length : '',
@@ -1013,15 +1013,7 @@ const handleChange = (
     return;
   }
 
-  // ⭐ 7. FREE SHIPPING - Auto reset additional charge
-  if (name === "isFreeShipping") {
-    setFormData((prev) => ({
-      ...prev,
-      isFreeShipping: checked,
-      additionalShippingCharge: checked ? '' : prev.additionalShippingCharge,
-    }));
-    return;
-  }
+
 
   // ⭐ 8. RECURRING PRODUCT - Reset fields when disabled
   if (name === "isRecurring") {
@@ -1823,54 +1815,104 @@ const uploadVariantImages = async (productResponse: any) => {
 
       </div>
 
-      {/* SHORT DESCRIPTION (Max 250 chars) */}
-      <ProductDescriptionEditor
-        label="Short Description"
-        value={formData.shortDescription}
-        onChange={(value) => {
-          const plainText = value.replace(/<[^>]*>/g, "").trim();
+      <div className="space-y-4">
 
-          if (plainText.length > 250) {
-            alert("You can not enter more than 250 characters in short description");
-            return;
-          }
+  {/* ================= SHORT DESCRIPTION ================= */}
+  <div>
+    <div className="flex items-center justify-between gap-3 mb-2">
+      <label className="text-sm font-medium text-slate-300">
+        Short Description
+      </label>
 
-          setFormData({ ...formData, shortDescription: value });
-        }}
-        placeholder="Brief product description (shown in product lists)"
-        height={200}
-      />
-<p className="mt-2 text-xs text-slate-400 leading-relaxed">
-  Short summary of the product (max 350 characters).  
-  This appears on category listings, search results, and previews.  
-  Focus on key features, benefits, and what makes the product unique.
-</p>
+   <div className="flex items-center gap-2 px-3 py-1 bg-red-500/10 border border-red-500/20 rounded-lg">
+  <svg
+    className="w-3.5 h-3.5 text-red-400 flex-shrink-0"
+    fill="currentColor"
+    viewBox="0 0 20 20"
+  >
+    <path
+      fillRule="evenodd"
+      d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
+      clipRule="evenodd"
+    />
+  </svg>
 
-      {/* FULL DESCRIPTION (Max 2000 chars) */}
-      <ProductDescriptionEditor
-        label="Full Description"
-        value={formData.fullDescription}
-        onChange={(value) => {
-          const plainText = value.replace(/<[^>]*>/g, "").trim();
+  <span className="text-xs text-red-300 whitespace-nowrap">
+    Max 350 chars • Search Results & Product Cards
+  </span>
+</div>
 
-          if (plainText.length > 2000) {
-            alert("You can not enter more than 2000 characters in full description");
-            return;
-          }
+    </div>
 
-          setFormData({ ...formData, fullDescription: value });
-        }}
-        placeholder="Detailed product description with features and specifications"
-        height={350}
-        required
-        showHelpText="Rich text formatting is supported"
-      />
-<p className="mt-2 text-xs text-slate-400 leading-relaxed">
-  Detailed product description (up to 2000 characters).  
-  Use headings, bullet points, specifications, usage instructions, 
-  and benefits to help customers understand the product in depth.  
-  This content is shown on the product detail page and improves SEO.
-</p>
+    <ProductDescriptionEditor
+      value={formData.shortDescription}
+      onChange={(content) => {
+        const plainText = content.replace(/<[^>]*>/g, "").trim();
+
+        if (plainText.length > 350) {
+          alert("You can not enter more than 350 characters");
+          return;
+        }
+
+        setFormData((prev) => ({
+          ...prev,
+          shortDescription: content,
+        }));
+      }}
+      placeholder="Enter product short description..."
+      height={250}
+    />
+  </div>
+
+  {/* ================= FULL DESCRIPTION ================= */}
+  <div>
+    <div className="flex items-center justify-between gap-3 mb-2">
+      <label className="text-sm font-medium text-slate-300">
+        Full Description <span className="text-red-500">*</span>
+      </label>
+
+  <div className="flex items-center gap-2 px-3 py-1 bg-red-500/10 border border-red-500/20 rounded-lg">
+  <svg
+    className="w-3.5 h-3.5 text-red-400 flex-shrink-0"
+    fill="currentColor"
+    viewBox="0 0 20 20"
+  >
+    <path
+      fillRule="evenodd"
+      d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
+      clipRule="evenodd"
+    />
+  </svg>
+
+  <span className="text-xs text-red-300 whitespace-nowrap">
+    Max 2000 chars • Used on Product Detail Page, SEO & Buyer Decision
+  </span>
+</div>
+
+    </div>
+
+    <ProductDescriptionEditor
+      value={formData.fullDescription}
+      onChange={(content) => {
+        const plainText = content.replace(/<[^>]*>/g, "").trim();
+
+        if (plainText.length > 2000) {
+          alert("You can not enter more than 2000 characters");
+          return;
+        }
+
+        setFormData((prev) => ({
+          ...prev,
+          fullDescription: content,
+        }));
+      }}
+      placeholder="Enter detailed product description..."
+      height={400}
+    />
+  </div>
+
+</div>
+
 
       <div className="grid md:grid-cols-3 gap-4">
         <div>
@@ -2075,30 +2117,35 @@ const uploadVariantImages = async (productResponse: any) => {
           <option value="grouped">Grouped Product</option>
         </select>
 
-        {/* ✅ Edit Button + Product Count Inline */}
-        {formData.productType === 'grouped' && (
-          <div className="flex items-center gap-2">
-            {/* Product Count Badge */}
-            {selectedGroupedProducts.length > 0 && (
-              <div className="flex items-center gap-1.5 px-3 py-2 bg-violet-500/10 border border-violet-500/30 rounded-lg">
-                <div className="w-1.5 h-1.5 bg-violet-400 rounded-full animate-pulse"></div>
-                <span className="text-xs font-medium text-violet-400">
-                  {selectedGroupedProducts.length} linked
-                </span>
-              </div>
-            )}
-            
-            {/* Edit Button */}
-            <button
-              type="button"
-              onClick={() => setIsGroupedModalOpen(true)}
-              className="p-2.5 bg-violet-500/10 hover:bg-violet-500/20 border border-violet-500/30 hover:border-violet-500/50 text-violet-400 rounded-xl transition-all"
-              title="Configure grouped product"
-            >
-              <Settings className="w-5 h-5" />
-            </button>
-          </div>
-        )}
+{/* ✅ Edit Button with Linked Count INSIDE */}
+{formData.productType === "grouped" && (
+  <button
+    type="button"
+    onClick={() => setIsGroupedModalOpen(true)}
+    title="Configure grouped product"
+    className="flex items-center gap-2 px-3 py-2.5 
+               bg-violet-500/10 hover:bg-violet-500/20 
+               border border-violet-500/30 hover:border-violet-500/50 
+               text-violet-400 rounded-xl transition-all"
+  >
+    {/* Linked Count */}
+    {selectedGroupedProducts.length > 0 && (
+      <div className="flex items-center gap-1.5">
+        <span className="w-1.5 h-1.5 bg-violet-400 rounded-full animate-pulse" />
+        <span className="text-xs font-medium">
+          {selectedGroupedProducts.length} linked
+        </span>
+      </div>
+    )}
+
+    {/* Divider */}
+    <span className="h-4 w-px bg-violet-500/30" />
+
+    {/* Settings Icon */}
+    <Settings className="w-5 h-5" />
+  </button>
+)}
+
       </div>
     </div>
   </div>
@@ -2867,16 +2914,7 @@ const uploadVariantImages = async (productResponse: any) => {
                 <div className="space-y-4 bg-slate-800/30 border border-slate-700 p-4 rounded-xl">
                   {/* Free Shipping */}
                   <div className="space-y-3">
-                    <label className="flex items-center gap-2">
-                      <input
-                        type="checkbox"
-                        name="isFreeShipping"
-                        checked={formData.isFreeShipping}
-                        onChange={handleChange}
-                        className="rounded bg-slate-800/50 border-slate-700 text-violet-500 focus:ring-violet-500 focus:ring-offset-slate-900"
-                      />
-                      <span className="text-sm text-slate-300">Free shipping</span>
-                    </label>
+              
 
                     {/* Ship Separately */}
                     <label className="flex items-center gap-2">
@@ -2891,24 +2929,7 @@ const uploadVariantImages = async (productResponse: any) => {
                     </label>
                   </div>
 
-                  {/* Additional Shipping Charge */}
-{/* Additional Shipping Charge - ONLY when Free Shipping is OFF */}
-{!formData.isFreeShipping && (
-  <div>
-    <label className="block text-sm font-medium text-slate-300 mb-2">
-      Additional Shipping Charge (£)
-    </label>
-    <input
-      type="number"
-      name="additionalShippingCharge"
-      value={formData.additionalShippingCharge}
-      onChange={handleChange}
-      placeholder="0.00"
-      step="0.01"
-      className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
-    />
-  </div>
-)}
+
 
 
                   {/* Delivery Date */}
@@ -3357,13 +3378,18 @@ const uploadVariantImages = async (productResponse: any) => {
                   </div>
 
                   {productAttributes.length === 0 ? (
-                    <div className="bg-slate-800/30 border border-slate-700 rounded-xl p-8 text-center">
-                      <Tag className="h-12 w-12 text-slate-600 mx-auto mb-4" />
-                      <h3 className="text-lg font-semibold text-white mb-2">No Product Attributes Yet</h3>
-                      <p className="text-slate-400 mb-4">
-                        Click "Add Attribute" to add custom product information
-                      </p>
-                    </div>
+                   <div className="bg-slate-800/30 border border-slate-700 rounded-xl p-4 text-center">
+  <Tag className="h-8 w-8 text-slate-600 mx-auto mb-2" />
+
+  <h3 className="text-sm font-medium text-white mb-1">
+    No Product Attributes Yet
+  </h3>
+
+  <p className="text-xs text-slate-400">
+    Click “Add Attribute” to add product information
+  </p>
+</div>
+
                   ) : (
                     <div className="space-y-3">
                       {productAttributes.map((attr, index) => (
@@ -3815,35 +3841,42 @@ const uploadVariantImages = async (productResponse: any) => {
 </TabsContent>
 
 
-{/* SEO Tab - Compact with Validation */}
-{/* SEO Tab - Compact and Synced with Variants */}
+{/* ================= SEO TAB ================= */}
 <TabsContent value="seo" className="space-y-4 mt-2">
   <div className="space-y-4 bg-slate-800/30 border border-slate-700 rounded-xl p-4">
-    <div className="flex items-center justify-between">
+
+    {/* ===== Header ===== */}
+    <div className="flex items-start justify-between">
       <div>
-        <h3 className="text-lg font-semibold text-white">Search Engine Optimization</h3>
-        <p className="text-sm text-slate-400">
+        <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+          <span className="w-2 h-2 rounded-full bg-violet-400"></span>
+          Search Engine Optimization
+        </h3>
+        <p className="text-sm text-slate-400 mt-0.5">
           Optimize your product for search engines to improve visibility
         </p>
       </div>
     </div>
 
-    {/* Meta Title */}
+    {/* ===== Meta Title ===== */}
     <div>
       <div className="flex items-center justify-between mb-1.5">
-        <label className="text-sm font-medium text-slate-300">Meta Title</label>
+        <label className="text-sm font-medium text-slate-300">
+          Meta Title
+        </label>
         <span
           className={`text-xs font-medium ${
             formData.metaTitle.length > 60
-              ? 'text-red-400'
+              ? "text-red-400"
               : formData.metaTitle.length > 50
-              ? 'text-yellow-400'
-              : 'text-slate-500'
+              ? "text-yellow-400"
+              : "text-slate-500"
           }`}
         >
           {formData.metaTitle.length}/60
         </span>
       </div>
+
       <input
         type="text"
         name="metaTitle"
@@ -3853,57 +3886,78 @@ const uploadVariantImages = async (productResponse: any) => {
         placeholder="SEO-optimized title for search engines"
         className={`w-full px-4 py-2.5 bg-slate-900 border rounded-lg text-sm text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all ${
           formData.metaTitle.length > 60
-            ? 'border-red-500/50'
+            ? "border-red-500/50"
             : formData.metaTitle.length > 50
-            ? 'border-yellow-500/50'
-            : 'border-slate-700'
+            ? "border-yellow-500/50"
+            : "border-slate-700"
         }`}
       />
-      <p className="text-xs text-slate-400 mt-1">Recommended: 50-60 characters</p>
+
+      <p className="mt-1 text-xs text-slate-300 flex items-center gap-2">
+        <span className="px-2 py-0.5 rounded-md bg-cyan-500/10 border border-cyan-500/30 text-cyan-400">
+          Recommended
+        </span>
+        50–60 characters for best SEO
+      </p>
     </div>
 
-    {/* Meta Description */}
+    {/* ===== Meta Description ===== */}
     <div>
       <div className="flex items-center justify-between mb-1.5">
-        <label className="text-sm font-medium text-slate-300">Meta Description</label>
+        <label className="text-sm font-medium text-slate-300">
+          Meta Description
+        </label>
         <span
           className={`text-xs font-medium ${
             formData.metaDescription.length > 160
-              ? 'text-red-400'
+              ? "text-red-400"
               : formData.metaDescription.length > 150
-              ? 'text-yellow-400'
-              : 'text-slate-500'
+              ? "text-yellow-400"
+              : "text-slate-500"
           }`}
         >
           {formData.metaDescription.length}/160
         </span>
       </div>
+
       <textarea
         name="metaDescription"
         value={formData.metaDescription}
         onChange={handleChange}
         maxLength={160}
-        placeholder="Brief description for search engine results"
         rows={3}
+        placeholder="Brief description for search engine results"
         className={`w-full px-4 py-2.5 bg-slate-900 border rounded-lg text-sm text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all resize-none ${
           formData.metaDescription.length > 160
-            ? 'border-red-500/50'
+            ? "border-red-500/50"
             : formData.metaDescription.length > 150
-            ? 'border-yellow-500/50'
-            : 'border-slate-700'
+            ? "border-yellow-500/50"
+            : "border-slate-700"
         }`}
       />
-      <p className="text-xs text-slate-400 mt-1">Recommended: 150-160 characters</p>
+
+      <p className="mt-1 text-xs text-slate-300 flex items-center gap-2">
+        <span className="px-2 py-0.5 rounded-md bg-cyan-500/10 border border-cyan-500/30 text-cyan-400">
+          Recommended
+        </span>
+        150–160 characters for Google snippets
+      </p>
     </div>
 
-    {/* Meta Keywords */}
+    {/* ===== Meta Keywords ===== */}
     <div>
       <div className="flex items-center justify-between mb-1.5">
-        <label className="text-sm font-medium text-slate-300">Meta Keywords</label>
+        <label className="text-sm font-medium text-slate-300">
+          Meta Keywords
+        </label>
         <span className="text-xs text-slate-500">
-          {formData.metaKeywords.split(',').filter((k) => k.trim()).length} keywords
+          {formData.metaKeywords
+            .split(",")
+            .filter((k) => k.trim()).length}{" "}
+          keywords
         </span>
       </div>
+
       <input
         type="text"
         name="metaKeywords"
@@ -3912,17 +3966,24 @@ const uploadVariantImages = async (productResponse: any) => {
         placeholder="keyword1, keyword2, keyword3"
         className="w-full px-4 py-2.5 bg-slate-900 border border-slate-700 rounded-lg text-sm text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
       />
-      <p className="text-xs text-slate-400 mt-1">Comma-separated keywords</p>
+
+      <p className="mt-1 text-xs text-slate-400 flex items-center gap-2">
+        <span className="w-1.5 h-1.5 rounded-full bg-slate-500"></span>
+        Comma-separated keywords (optional)
+      </p>
     </div>
 
-    {/* SEO Friendly URL */}
+    {/* ===== URL Slug ===== */}
     <div>
       <div className="flex items-center justify-between mb-1.5">
-        <label className="text-sm font-medium text-slate-300">URL Slug</label>
+        <label className="text-sm font-medium text-slate-300">
+          URL Slug
+        </label>
         <span className="text-xs text-slate-500">
           {formData.searchEngineFriendlyPageName.length} chars
         </span>
       </div>
+
       <input
         type="text"
         name="searchEngineFriendlyPageName"
@@ -3931,21 +3992,30 @@ const uploadVariantImages = async (productResponse: any) => {
         placeholder="product-url-slug"
         className="w-full px-4 py-2.5 bg-slate-900 border border-slate-700 rounded-lg text-sm text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
       />
-      <p className="text-xs text-slate-400 mt-1">
+
+      <p className="mt-1 text-xs text-slate-300 flex items-center gap-2">
+        <span className="px-2 py-0.5 rounded-md bg-amber-500/10 border border-amber-500/30 text-amber-400">
+          Tip
+        </span>
         Leave empty to auto-generate from product name
       </p>
     </div>
 
-    {/* SEO Tips - Synced Card Style */}
-    <div className="bg-violet-500/10 border border-violet-500/30 rounded-lg p-4">
-      <h4 className="font-semibold text-sm text-violet-400 mb-1.5">SEO Tips</h4>
-      <ul className="text-xs text-slate-300 space-y-1">
-        <li>• Use descriptive, keyword-rich titles and descriptions</li>
+    {/* ===== SEO Tips ===== */}
+    <div className="bg-gradient-to-br from-violet-500/10 to-transparent border border-violet-500/30 rounded-lg p-4">
+      <h4 className="font-semibold text-sm text-violet-400 mb-2 flex items-center gap-2">
+        <span className="w-2 h-2 rounded-full bg-violet-400"></span>
+        SEO Tips
+      </h4>
+
+      <ul className="text-xs text-slate-300 space-y-1.5">
+        <li>• Use descriptive, keyword-rich titles</li>
         <li>• Keep meta titles under 60 characters</li>
         <li>• Keep meta descriptions under 160 characters</li>
         <li>• Use hyphens in URL slugs (e.g., wireless-headphones)</li>
       </ul>
     </div>
+
   </div>
 </TabsContent>
 
@@ -3956,8 +4026,8 @@ const uploadVariantImages = async (productResponse: any) => {
     <div className="flex items-center justify-between">
       <div>
         <h3 className="text-lg font-semibold text-white">Product Images</h3>
-        <p className="text-sm text-slate-400">
-          Upload and manage product images. Supported: JPG, PNG, WebP • Max 2MB • Up to 10 images
+        <p className="text-sm text-red-500">
+          Upload and manage product images. Supported: JPG, PNG, WebP • Max 300KB To 500KB • Up to 10 images
         </p>
       </div>
     </div>

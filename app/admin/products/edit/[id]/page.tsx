@@ -26,11 +26,6 @@ interface LockResponse {
   };
 }
 
-interface ApiErrorResponse {
-  success: boolean;
-  message: string;
-  data: any;
-}
 
 import Link from "next/link";
 import { apiClient } from "@/lib/api"; // Import your axios client
@@ -240,9 +235,8 @@ const [formData, setFormData] = useState({
 
   // ===== SHIPPING =====
   isShipEnabled: true,
-  isFreeShipping: false,
+
   shipSeparately: false,
-  additionalShippingCharge: '',
   deliveryDateId: '',
   weight: '',
   length: '',
@@ -289,6 +283,8 @@ const [productLock, setProductLock] = useState<{
 const [isLockModalOpen, setIsLockModalOpen] = useState(false);
 const [lockModalMessage, setLockModalMessage] = useState("");
 const [isAcquiringLock, setIsAcquiringLock] = useState(true); // ⚡ ADD THIS
+const lockAcquiredRef = useRef(false);
+const refreshIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
 useEffect(() => {
   const fetchAllData = async () => {
@@ -577,9 +573,9 @@ useEffect(() => {
         allowAddingOnlyExistingAttributeCombinations: false,
         notReturnable: productData.notReturnable ?? false,
         isShipEnabled: productData.requiresShipping ?? true,
-        isFreeShipping: productData.isFreeShipping ?? false,
+
         shipSeparately: productData.shipSeparately ?? false,
-        additionalShippingCharge: productData.additionalShippingCharge?.toString() || '',
+
         deliveryDateId: productData.deliveryDateId || '',
         weight: productData.weight?.toString() || '',
         length: productData.length?.toString() || '',
@@ -716,26 +712,27 @@ useEffect(() => {
 
   fetchAllData();
 }, [productId]);
-// ==================== IMMEDIATE REDIRECT HANDLER ====================
-const handleModalClose = () => {
-  setIsLockModalOpen(false);
-  router.push("/admin/products");
-};
-
-
-// ==================== ACQUIRE PRODUCT LOCK ====================
-const acquireProductLock = async (productId: string): Promise<boolean> => {
+// ==================== ACQUIRE PRODUCT LOCK (COMPLETE CODE) ====================
+const acquireProductLock = async (
+  productId: string, 
+  isRefresh: boolean = false
+): Promise<boolean> => {
   try {
-    console.log('🔒 LOCK: Attempting to acquire lock...');
-    setIsAcquiringLock(true);
+    if (!isRefresh) {
+      console.log('🔒 LOCK: Attempting to acquire lock...');
+      setIsAcquiringLock(true);
+    } else {
+      console.log('🔄 Refreshing product lock...');
+    }
 
     const response = await apiClient.post<LockResponse>(
       `${API_ENDPOINTS.products}/${productId}/lock?durationMinutes=15`,
       {}
     );
 
-    console.log('🔒 LOCK: Response received:', response.data);
+    console.log('🔒 LOCK: Response received:', response);
 
+    // ✅ SUCCESS - Lock acquired
     if (response.data?.success === true && response.data?.data) {
       const lockData = response.data.data;
 
@@ -745,25 +742,102 @@ const acquireProductLock = async (productId: string): Promise<boolean> => {
         expiresAt: lockData.expiresAt,
       });
 
-      const expiryTime = new Date(lockData.expiresAt).toLocaleString('en-IN', {
-        timeZone: 'Asia/Kolkata',
-        dateStyle: 'medium',
-        timeStyle: 'short'
-      });
+      lockAcquiredRef.current = true;
 
-      // ✅ SUCCESS: सिर्फ एक simple success toast
-      toast.success(`Lock acquired\nExpires: ${expiryTime} (IST)`);
+      // Toast only on initial acquire, not on refresh
+      if (!isRefresh) {
+        const expiryTime = new Date(lockData.expiresAt).toLocaleString('en-IN', {
+          timeZone: 'Asia/Kolkata',
+          dateStyle: 'medium',
+          timeStyle: 'short'
+        });
+        toast.success(`Lock acquired\nExpires: ${expiryTime} (IST)`);
+      }
 
       setIsAcquiringLock(false);
       return true;
     }
 
-    // success false → backend ने reject किया
-    const fallbackMsg = response.data?.message || 'Failed to acquire lock';
-    throw new Error(fallbackMsg);
+    // ✅ 409 CONFLICT - Already locked (by you or someone else)
+    if (response.status === 409) {
+      const errorMessage = response.data?.message || response.error || 'Product is already locked';
+      
+      console.warn('⚠️ Lock conflict (409):', errorMessage);
+
+      // Extract email from error message
+      const emailMatch = errorMessage.match(/([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/);
+      const lockedByEmail = emailMatch ? emailMatch[0] : '';
+
+      // Extract expiry time from error message
+      const expiryMatch = errorMessage.match(/(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})/);
+      const expiryTimeStr = expiryMatch ? expiryMatch[0] : '';
+
+      // Check if it's locked by current user
+      const currentUserEmail = localStorage.getItem('userEmail'); // Adjust based on your auth
+      const isLockedByMe = lockedByEmail === currentUserEmail;
+
+      if (isLockedByMe && !isRefresh) {
+        // ✅ Locked by same user (probably another tab/window)
+        console.log('✅ Product already locked by you');
+        
+        lockAcquiredRef.current = true; // Mark as acquired
+        
+        setProductLock({
+          isLocked: true,
+          lockedBy: lockedByEmail,
+          expiresAt: expiryTimeStr || new Date(Date.now() + 15 * 60 * 1000).toISOString(),
+        });
+
+        toast.info(
+          `Already editing in another tab\nYou can continue editing here`,
+          { autoClose: 4000 }
+        );
+
+        setIsAcquiringLock(false);
+        return true; // Allow editing
+      } else if (!isLockedByMe && !isRefresh) {
+        // ❌ Locked by different user
+        // console.error('❌ Product locked by another user:', lockedByEmail);
+
+        let displayMessage = `Product is being edited by ${lockedByEmail}`;
+        
+        if (expiryTimeStr) {
+          const expiryDate = new Date(expiryTimeStr + ' UTC');
+          const expiryIST = expiryDate.toLocaleString('en-IN', {
+            timeZone: 'Asia/Kolkata',
+            dateStyle: 'medium',
+            timeStyle: 'short'
+          });
+          displayMessage += `\n\nLock expires: ${expiryIST} (IST)`;
+        }
+
+        setLockModalMessage(displayMessage);
+        setIsLockModalOpen(true);
+        
+        toast.error(displayMessage, { autoClose: 5000 });
+
+        // Redirect after delay
+        setTimeout(() => {
+          router.push('/admin/products');
+        }, 3500);
+
+        setIsAcquiringLock(false);
+        return false;
+      } else if (isRefresh) {
+        // ⚠️ 409 on refresh - this is fine, lock is still active
+        console.log('⚠️ 409 on refresh - lock still active');
+        lockAcquiredRef.current = true;
+        setIsAcquiringLock(false);
+        return true;
+      }
+    }
+
+    // ❌ Other errors
+    throw new Error(response.data?.message || 'Failed to acquire lock');
 
   } catch (error: any) {
     setIsAcquiringLock(false);
+    lockAcquiredRef.current = false;
 
     let displayMessage = 'Product could not be locked for editing.';
 
@@ -773,40 +847,54 @@ const acquireProductLock = async (productId: string): Promise<boolean> => {
       displayMessage = error.message;
     }
 
-    // 🔒 LOCK FAIL: Modal + सिर्फ एक warning toast (simple & clean)
-    setLockModalMessage(displayMessage);
-    setIsLockModalOpen(true);
+    // Show error only on initial acquire, not on refresh
+    if (!isRefresh) {
+      console.error('🔒 LOCK ERROR DETAILS:', {
+        message: error.message,
+        code: error.code,
+        response: error.response?.data,
+        status: error.response?.status
+      });
 
-    toast.warning(displayMessage, {
-  
-    });
+      setLockModalMessage(displayMessage);
+      setIsLockModalOpen(true);
+      toast.warning(displayMessage);
 
-    // Auto redirect
-    setTimeout(() => {
-      router.push('/admin/products');
-    }, 3500);
+      // Auto redirect
+      setTimeout(() => {
+        router.push('/admin/products');
+      }, 3500);
+    } else {
+      console.warn('🔄 Lock refresh failed:', displayMessage);
+    }
 
     return false;
   }
 };
 
+
+
 // ==================== RELEASE PRODUCT LOCK ====================
 const releaseProductLock = async (productId: string): Promise<boolean> => {
+  if (!lockAcquiredRef.current) {
+    console.log('🔓 No lock to release');
+    return true;
+  }
+
   try {
+    console.log('🔓 Releasing product lock...');
+    
     const response = await apiClient.delete<any>(
       `${API_ENDPOINTS.products}/${productId}/lock`
     );
 
     if (response.data?.success === true) {
       setProductLock(null);
-      // ✅ RELEASE SUCCESS: सिर्फ एक success toast
-      toast.success('Product lock released successfully', {
-   
-      });
+      lockAcquiredRef.current = false;
+      toast.success('Product lock released successfully');
       return true;
     }
 
-    // success false but not error (rare)
     toast.warning(response.data?.message || 'Could not release lock');
     return false;
 
@@ -814,46 +902,63 @@ const releaseProductLock = async (productId: string): Promise<boolean> => {
     let errorMessage = 'Failed to release lock';
 
     if (error.response?.data?.message) {
-      errorMessage = error.response.data.message; // e.g. "You cannot release a lock held by another user..."
+      errorMessage = error.response.data.message;
     } else if (error.message) {
       errorMessage = error.message;
     }
 
-    // ❌ RELEASE FAIL: सिर्फ एक error toast
     toast.error(errorMessage);
-
+    lockAcquiredRef.current = false;
     return false;
   }
 };
-// ========== 3. HANDLE CANCEL FUNCTION ==========
+
+// ==================== HANDLERS ====================
 const handleCancel = async () => {
-  // Release lock before navigating away
   await releaseProductLock(productId);
   router.push("/admin/products");
 };
 
-// 1. Acquire lock on component mount
+const handleModalClose = () => {
+  setIsLockModalOpen(false);
+  router.push("/admin/products");
+};
+
+// ==================== ✅ SINGLE CONSOLIDATED useEffect ====================
 useEffect(() => {
   if (!productId) return;
 
-  // Acquire lock when user opens edit page
-  acquireProductLock(productId);
-
-  // Cleanup: Release lock on unmount (when user leaves page)
-  return () => {
-    releaseProductLock(productId);
+  // 1️⃣ Acquire lock on mount (only once)
+  const initializeLock = async () => {
+    if (lockAcquiredRef.current) {
+      console.log("🔒 Lock already acquired, skipping...");
+      return;
+    }
+    await acquireProductLock(productId, false);  // isRefresh = false
   };
-}, [productId]);
-// 2. Auto-refresh lock every 10 minutes ⚠️ ADD THIS
-useEffect(() => {
-  if (!productId) return;
 
-  const refreshInterval = setInterval(() => {
-    console.log("🔄 Refreshing product lock...");
-    acquireProductLock(productId);
+  initializeLock();
+
+  // 2️⃣ Setup refresh interval (10 minutes)
+  refreshIntervalRef.current = setInterval(() => {
+    if (!lockAcquiredRef.current) {
+      console.log("⏭️ Skipping refresh - no active lock");
+      return;
+    }
+    acquireProductLock(productId, true);  // isRefresh = true
   }, 10 * 60 * 1000); // 10 minutes
 
-  return () => clearInterval(refreshInterval);
+  // 3️⃣ Cleanup on unmount
+  return () => {
+    console.log("🧹 Cleanup: Releasing lock and clearing interval");
+    
+    if (refreshIntervalRef.current) {
+      clearInterval(refreshIntervalRef.current);
+      refreshIntervalRef.current = null;
+    }
+
+    releaseProductLock(productId);
+  };
 }, [productId]);
 // ==================== FORM SUBMISSION HANDLER ====================
 const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
@@ -884,7 +989,7 @@ const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
 
   // ⚡ CHECK 3: Do we have a valid lock?
   if (!productLock || !productLock.isLocked) {
-    console.error('❌ [SUBMIT] No valid lock - blocked');
+    // console.error('❌ [SUBMIT] No valid lock - blocked');
     toast.error('❌ Cannot save: Product edit lock not acquired. Please try again.');
     return;
   }
@@ -1152,9 +1257,9 @@ const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
       notReturnable: formData.notReturnable ?? false,
       
       requiresShipping: formData.isShipEnabled ?? true,
-      isFreeShipping: formData.isFreeShipping ?? false,
+  
       shipSeparately: formData.shipSeparately ?? false,
-      additionalShippingCharge: parseNumber(formData.additionalShippingCharge, 'additionalShippingCharge'),
+
       deliveryDateId: formData.deliveryDateId || null,
       estimatedDispatchDays: 0,
       dispatchTimeNote: null,
@@ -1442,9 +1547,7 @@ const handleChange = (
   if (name === "isShipEnabled") {
     setFormData(prev => ({
       ...prev,
-      isShipEnabled: checked,
-      isFreeShipping: checked ? prev.isFreeShipping : false,
-      additionalShippingCharge: checked ? prev.additionalShippingCharge : "",
+      isShipEnabled: checked,  
       shipSeparately: checked ? prev.shipSeparately : false,
       weight: checked ? prev.weight : "",
       length: checked ? prev.length : "",
@@ -1458,14 +1561,7 @@ const handleChange = (
   // ================================
   // 7. FREE SHIPPING (Auto reset charge)
   // ================================
-  if (name === "isFreeShipping") {
-    setFormData(prev => ({
-      ...prev,
-      isFreeShipping: checked,
-      additionalShippingCharge: checked ? "" : prev.additionalShippingCharge
-    }));
-    return;
-  }
+
 
   // ================================
   // 8. RECURRING / SUBSCRIPTION PRODUCT
@@ -2489,14 +2585,24 @@ const uploadImagesToProductDirect = async (
       <label className="text-sm font-medium text-slate-300">
         Short Description
       </label>
-      <div className="flex items-center gap-2 px-3 py-1 bg-cyan-500/10 border border-cyan-500/20 rounded-lg">
-        <svg className="w-3.5 h-3.5 text-cyan-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-          <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-        </svg>
-        <span className="text-xs text-cyan-300 whitespace-nowrap">
-          Max 350 chars • Listings & Search
-        </span>
-      </div>
+ <div className="flex items-center gap-2 px-3 py-1 bg-red-500/10 border border-red-500/20 rounded-lg">
+  <svg
+    className="w-3.5 h-3.5 text-red-400 flex-shrink-0"
+    fill="currentColor"
+    viewBox="0 0 20 20"
+  >
+    <path
+      fillRule="evenodd"
+      d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
+      clipRule="evenodd"
+    />
+  </svg>
+
+  <span className="text-xs text-red-300 whitespace-nowrap">
+    Max 350 chars • Search Results & Product Cards
+  </span>
+</div>
+
     </div>
     
     <ProductDescriptionEditor
@@ -2521,19 +2627,31 @@ const uploadImagesToProductDirect = async (
 
   {/* Full Description Editor */}
   <div>
-    <div className="flex items-center justify-between gap-3 mb-2">
-      <label className="text-sm font-medium text-slate-300">
-        Full Description
-      </label>
-      <div className="flex items-center gap-2 px-3 py-1 bg-violet-500/10 border border-violet-500/20 rounded-lg">
-        <svg className="w-3.5 h-3.5 text-violet-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-          <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-        </svg>
-        <span className="text-xs text-violet-300 whitespace-nowrap">
-          Max 2000 chars • Detail Page & SEO
-        </span>
-      </div>
-    </div>
+<div className="flex items-center justify-between gap-3 mb-2">
+  <label className="text-sm font-medium text-slate-300">
+    Full Description <span className="text-red-500">*</span>
+  </label>
+
+<div className="flex items-center gap-2 px-3 py-1 bg-red-500/10 border border-red-500/20 rounded-lg">
+  <svg
+    className="w-3.5 h-3.5 text-red-400 flex-shrink-0"
+    fill="currentColor"
+    viewBox="0 0 20 20"
+  >
+    <path
+      fillRule="evenodd"
+      d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
+      clipRule="evenodd"
+    />
+  </svg>
+
+  <span className="text-xs text-red-300 whitespace-nowrap">
+    Max 2000 chars • Used on Product Detail Page, SEO & Buyer Decision
+  </span>
+</div>
+
+</div>
+
     
     <ProductDescriptionEditor
       value={formData.fullDescription}
@@ -2552,7 +2670,7 @@ const uploadImagesToProductDirect = async (
       }}
       placeholder="Enter detailed product description..."
       height={400}
-      required
+
     />
   </div>
 </div>
@@ -2831,30 +2949,35 @@ const uploadImagesToProductDirect = async (
         <option value="grouped">Grouped Product</option>
       </select>
 
-      {/* ✅ Inline Badge + Edit Button (like screenshot) */}
-      {formData.productType === 'grouped' && (
-        <>
-          {/* Product Count Badge - Inline */}
-          {selectedGroupedProducts.length > 0 && (
-            <div className="flex items-center gap-1.5 px-3 py-2 bg-violet-500/10 border border-violet-500/30 rounded-xl">
-              <div className="w-1.5 h-1.5 bg-violet-400 rounded-full"></div>
-              <span className="text-xs font-medium text-violet-300">
-                {selectedGroupedProducts.length} linked
-              </span>
-            </div>
-          )}
-          
-          {/* Settings/Edit Button */}
-          <button
-            type="button"
-            onClick={() => setIsGroupedModalOpen(true)}
-            className="p-2.5 bg-violet-500/10 hover:bg-violet-500/20 border border-violet-500/30 hover:border-violet-500/50 text-violet-400 rounded-xl transition-all"
-            title="Edit grouped product configuration"
-          >
-            <Settings className="w-5 h-5" />
-          </button>
-        </>
-      )}
+{/* ✅ Merged Linked Count + Settings Button (Edit Page Style) */}
+{formData.productType === "grouped" && (
+  <button
+    type="button"
+    onClick={() => setIsGroupedModalOpen(true)}
+    title="Edit grouped product configuration"
+    className="flex items-center gap-2 px-3 py-2.5
+               bg-violet-500/10 hover:bg-violet-500/20
+               border border-violet-500/30 hover:border-violet-500/50
+               text-violet-400 rounded-xl transition-all"
+  >
+    {/* Linked Count */}
+    {selectedGroupedProducts.length > 0 && (
+      <div className="flex items-center gap-1.5">
+        <span className="w-1.5 h-1.5 bg-violet-400 rounded-full" />
+        <span className="text-xs font-medium text-violet-300">
+          {selectedGroupedProducts.length} linked
+        </span>
+      </div>
+    )}
+
+    {/* Divider */}
+    <span className="h-4 w-px bg-violet-500/30" />
+
+    {/* Settings Icon */}
+    <Settings className="w-5 h-5" />
+  </button>
+)}
+
     </div>
   </div>
 
@@ -3043,10 +3166,6 @@ const uploadImagesToProductDirect = async (
 </TabsContent>
 
 {/* ✅ ADD NEW TAB: GROUPED PRODUCTS */}
-
-
-{/* Prices Tab - Updated for consistency */}
-{/* Prices Tab - Updated with Pre-Order Section */}
 <TabsContent value="prices" className="space-y-2 mt-2">
   {/* Price Section */}
   <div className="space-y-4">
@@ -3642,16 +3761,6 @@ const uploadImagesToProductDirect = async (
         {/* Free Shipping */}
 {/* Free Shipping */}
 <div className="space-y-3">
-  <label className="flex items-center gap-2">
-    <input
-      type="checkbox"
-      name="isFreeShipping"
-      checked={formData.isFreeShipping}
-      onChange={handleChange}
-      className="rounded bg-slate-800/50 border-slate-700 text-violet-500 focus:ring-violet-500 focus:ring-offset-slate-900"
-    />
-    <span className="text-sm text-slate-300">Free shipping</span>
-  </label>
 
   {/* Ship Separately */}
   <label className="flex items-center gap-2">
@@ -3666,41 +3775,6 @@ const uploadImagesToProductDirect = async (
   </label>
 </div>
 
-{/* Additional Shipping Charge - Hide when Free Shipping is ON */}
-<div
-  className={cn(
-    "transition-all duration-500 ease-out overflow-hidden",
-    formData.isFreeShipping
-      ? "max-h-0 opacity-0 -mt-2 pb-0"
-      : "max-h-32 opacity-100 mt-4 pb-2"
-  )}
->
-  <div className="space-y-2">
-    <label className="block text-sm font-medium text-slate-300">
-      Additional Shipping Charge (£)
-    </label>
-    <input
-      type="number"
-      name="additionalShippingCharge"
-      value={formData.additionalShippingCharge}
-      onChange={handleChange}
-      placeholder="0.00"
-      step="0.01"
-      disabled={formData.isFreeShipping}
-      className={cn(
-        "w-full px-3 py-2 bg-slate-800/50 border rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all",
-        formData.isFreeShipping
-          ? "border-slate-700/50 opacity-60 cursor-not-allowed"
-          : "border-slate-700"
-      )}
-    />
-    {/* {formData.isFreeShipping && (
-      <p className="text-xs text-emerald-400 mt-1 animate-fadeIn">
-        Free shipping enabled — no additional charge applied
-      </p>
-    )} */}
-  </div>
-</div>
 
     
 
@@ -4154,13 +4228,18 @@ const uploadImagesToProductDirect = async (
                   </div>
 
                   {productAttributes.length === 0 ? (
-                    <div className="bg-slate-800/30 border border-slate-700 rounded-xl p-8 text-center">
-                      <Tag className="h-12 w-12 text-slate-600 mx-auto mb-4" />
-                      <h3 className="text-lg font-semibold text-white mb-2">No Product Attributes Yet</h3>
-                      <p className="text-slate-400 mb-4">
-                        Click "Add Attribute" to add custom product information
-                      </p>
-                    </div>
+                   <div className="bg-slate-800/30 border border-slate-700 rounded-xl p-4 text-center">
+  <Tag className="h-8 w-8 text-slate-600 mx-auto mb-2" />
+
+  <h3 className="text-sm font-medium text-white mb-1">
+    No Product Attributes Yet
+  </h3>
+
+  <p className="text-xs text-slate-400">
+    Click “Add Attribute” to add product information
+  </p>
+</div>
+
                   ) : (
                     <div className="space-y-3">
                       {productAttributes.map((attr, index) => (
@@ -4652,29 +4731,37 @@ const uploadImagesToProductDirect = async (
 {/* SEO Tab - Synced with Variants */}
 <TabsContent value="seo" className="space-y-2 mt-2">
   <div className="space-y-4 bg-slate-800/30 border border-slate-700 rounded-xl p-4">
+
+    {/* ===== Header ===== */}
     <div>
-      <h3 className="text-lg font-semibold text-white">Search Engine Optimization</h3>
-      <p className="text-sm text-slate-400">
+      <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+        <span className="w-2 h-2 rounded-full bg-violet-400"></span>
+        Search Engine Optimization
+      </h3>
+      <p className="text-sm text-slate-400 mt-0.5">
         Optimize your product for search engines to improve visibility
       </p>
     </div>
 
-    {/* Meta Title */}
+    {/* ===== Meta Title ===== */}
     <div>
       <div className="flex items-center justify-between mb-1.5">
-        <label className="text-sm font-medium text-slate-300">Meta Title</label>
+        <label className="text-sm font-medium text-slate-300">
+          Meta Title
+        </label>
         <span
           className={`text-xs font-medium ${
             formData.metaTitle.length > 60
-              ? 'text-red-400'
+              ? "text-red-400"
               : formData.metaTitle.length > 50
-              ? 'text-yellow-400'
-              : 'text-slate-500'
+              ? "text-yellow-400"
+              : "text-slate-500"
           }`}
         >
           {formData.metaTitle.length}/60
         </span>
       </div>
+
       <input
         type="text"
         name="metaTitle"
@@ -4684,57 +4771,78 @@ const uploadImagesToProductDirect = async (
         placeholder="SEO-optimized title for search engines"
         className={`w-full px-4 py-2.5 bg-slate-900/70 border rounded-lg text-sm text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all ${
           formData.metaTitle.length > 60
-            ? 'border-red-500/50'
+            ? "border-red-500/50"
             : formData.metaTitle.length > 50
-            ? 'border-yellow-500/50'
-            : 'border-slate-700'
+            ? "border-yellow-500/50"
+            : "border-slate-700"
         }`}
       />
-      <p className="text-xs text-slate-400 mt-1">Recommended: 50-60 characters</p>
+
+      <p className="mt-1 text-xs text-slate-300 flex items-center gap-2">
+        <span className="px-2 py-0.5 rounded-md bg-cyan-500/10 border border-cyan-500/30 text-cyan-400">
+          Recommended
+        </span>
+        50–60 characters for best SEO
+      </p>
     </div>
 
-    {/* Meta Description */}
+    {/* ===== Meta Description ===== */}
     <div>
       <div className="flex items-center justify-between mb-1.5">
-        <label className="text-sm font-medium text-slate-300">Meta Description</label>
+        <label className="text-sm font-medium text-slate-300">
+          Meta Description
+        </label>
         <span
           className={`text-xs font-medium ${
             formData.metaDescription.length > 160
-              ? 'text-red-400'
+              ? "text-red-400"
               : formData.metaDescription.length > 150
-              ? 'text-yellow-400'
-              : 'text-slate-500'
+              ? "text-yellow-400"
+              : "text-slate-500"
           }`}
         >
           {formData.metaDescription.length}/160
         </span>
       </div>
+
       <textarea
         name="metaDescription"
         value={formData.metaDescription}
         onChange={handleChange}
         maxLength={160}
-        placeholder="Brief description for search engine results"
         rows={3}
+        placeholder="Brief description for search engine results"
         className={`w-full px-4 py-2.5 bg-slate-900/70 border rounded-lg text-sm text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all resize-none ${
           formData.metaDescription.length > 160
-            ? 'border-red-500/50'
+            ? "border-red-500/50"
             : formData.metaDescription.length > 150
-            ? 'border-yellow-500/50'
-            : 'border-slate-700'
+            ? "border-yellow-500/50"
+            : "border-slate-700"
         }`}
       />
-      <p className="text-xs text-slate-400 mt-1">Recommended: 150-160 characters</p>
+
+      <p className="mt-1 text-xs text-slate-300 flex items-center gap-2">
+        <span className="px-2 py-0.5 rounded-md bg-cyan-500/10 border border-cyan-500/30 text-cyan-400">
+          Recommended
+        </span>
+        150–160 characters for Google snippets
+      </p>
     </div>
 
-    {/* Meta Keywords */}
+    {/* ===== Meta Keywords ===== */}
     <div>
       <div className="flex items-center justify-between mb-1.5">
-        <label className="text-sm font-medium text-slate-300">Meta Keywords</label>
+        <label className="text-sm font-medium text-slate-300">
+          Meta Keywords
+        </label>
         <span className="text-xs text-slate-500">
-          {formData.metaKeywords.split(',').filter((k) => k.trim()).length} keywords
+          {formData.metaKeywords
+            .split(",")
+            .filter((k) => k.trim()).length}{" "}
+          keywords
         </span>
       </div>
+
       <input
         type="text"
         name="metaKeywords"
@@ -4743,17 +4851,24 @@ const uploadImagesToProductDirect = async (
         placeholder="keyword1, keyword2, keyword3"
         className="w-full px-4 py-2.5 bg-slate-900/70 border border-slate-700 rounded-lg text-sm text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
       />
-      <p className="text-xs text-slate-400 mt-1">Comma-separated keywords</p>
+
+      <p className="mt-1 text-xs text-slate-400 flex items-center gap-2">
+        <span className="w-1.5 h-1.5 rounded-full bg-slate-500"></span>
+        Comma-separated keywords (optional)
+      </p>
     </div>
 
-    {/* SEO Friendly URL */}
+    {/* ===== URL Slug ===== */}
     <div>
       <div className="flex items-center justify-between mb-1.5">
-        <label className="text-sm font-medium text-slate-300">URL Slug</label>
+        <label className="text-sm font-medium text-slate-300">
+          URL Slug
+        </label>
         <span className="text-xs text-slate-500">
           {formData.searchEngineFriendlyPageName.length} chars
         </span>
       </div>
+
       <input
         type="text"
         name="searchEngineFriendlyPageName"
@@ -4762,21 +4877,30 @@ const uploadImagesToProductDirect = async (
         placeholder="product-url-slug"
         className="w-full px-4 py-2.5 bg-slate-900/70 border border-slate-700 rounded-lg text-sm text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
       />
-      <p className="text-xs text-slate-400 mt-1">
+
+      <p className="mt-1 text-xs text-slate-300 flex items-center gap-2">
+        <span className="px-2 py-0.5 rounded-md bg-amber-500/10 border border-amber-500/30 text-amber-400">
+          Tip
+        </span>
         Leave empty to auto-generate from product name
       </p>
     </div>
 
-    {/* SEO Tips */}
-    <div className="bg-violet-500/10 border border-violet-500/30 rounded-lg p-4">
-      <h4 className="font-semibold text-sm text-violet-400 mb-1.5">SEO Tips</h4>
-      <ul className="text-xs text-slate-300 space-y-1">
+    {/* ===== SEO Tips ===== */}
+    <div className="bg-gradient-to-br from-violet-500/10 to-transparent border border-violet-500/30 rounded-lg p-4">
+      <h4 className="font-semibold text-sm text-violet-400 mb-2 flex items-center gap-2">
+        <span className="w-2 h-2 rounded-full bg-violet-400"></span>
+        SEO Tips
+      </h4>
+
+      <ul className="text-xs text-slate-300 space-y-1.5">
         <li>• Use descriptive, keyword-rich titles and descriptions</li>
         <li>• Keep meta titles under 60 characters</li>
         <li>• Keep meta descriptions under 160 characters</li>
         <li>• Use hyphens in URL slugs (e.g., wireless-headphones)</li>
       </ul>
     </div>
+
   </div>
 </TabsContent>
 
@@ -4786,7 +4910,7 @@ const uploadImagesToProductDirect = async (
   <div className="space-y-3 bg-slate-800/30 border border-slate-700 rounded-xl p-4">
     <div>
       <h3 className="text-lg font-semibold text-white">Product Images</h3>
-    <p className="text-sm text-slate-400">
+    <p className="text-sm text-red-400">
   Upload product images (WebP or JPG). Recommended size under 300 KB, maximum 500 KB per image. 
   Minimum resolution 800×800 (square preferred). You can upload up to 10 images.
 </p>

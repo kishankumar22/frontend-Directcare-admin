@@ -130,11 +130,31 @@ export default function BrandsPage() {
     e.preventDefault();
 
     
-//  🔥 BRAND FORM VALIDATION (SEO Optimized)
-if (!formData.name.trim()) {
+// 🔥 BRAND FORM VALIDATION (SEO Optimized)
+const brandName = formData.name.trim();
+
+// Required
+if (!brandName) {
   toast.error("Brand name is required");
   return;
 }
+
+// Length check
+if (brandName.length < 2 || brandName.length > 80) {
+  toast.error("Brand name must be between 2 and 80 characters");
+  return;
+}
+
+// Allowed characters
+const brandRegex = /^[A-Za-z0-9\s&.\-]+$/;
+
+if (!brandRegex.test(brandName)) {
+  toast.error(
+    "Brand name can contain only letters, numbers, spaces, &, . and -"
+  );
+  return;
+}
+
 
 if (formData.name.trim().length < 2) {
   toast.error("Brand name must be at least 2 characters");

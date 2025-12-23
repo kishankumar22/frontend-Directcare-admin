@@ -285,10 +285,30 @@ const handleSubmit = async (e: React.FormEvent) => {
   e.preventDefault();
 
   // ✅ Validation
-  if (!formData.name.trim()) {
-    toast.error("Category name is required");
-    return;
-  }
+const name = formData.name.trim();
+
+// Required check
+if (!name) {
+  toast.error("Category name is required");
+  return;
+}
+
+// Length validation
+if (name.length < 3 || name.length > 100) {
+  toast.error("Category name must be between 3 and 100 characters");
+  return;
+}
+
+// Character validation (industry-safe)
+const nameRegex = /^[A-Za-z0-9\s\-&/]+$/;
+
+if (!nameRegex.test(name)) {
+  toast.error(
+    "Category name can contain only letters, numbers, spaces, -, &, /"
+  );
+  return;
+}
+
   if (formData.name.trim().length < 2) {
     toast.error("Category name must be at least 2 characters");
     return;
@@ -1181,97 +1201,99 @@ const getParentCategoryOptions = () => {
       </div>
 
       {/* Search and Filters */}
-      <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-6">
-        <div className="flex flex-col md:flex-row gap-4">
-          {/* Search Input */}
-          <div className="flex-1">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
-              <input
-                type="text"
-                placeholder="Search categories (all levels)..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-3 bg-slate-900/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all"
-              />
-            </div>
-          </div>
+<div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-4">
+  <div className="flex flex-col md:flex-row gap-3">
 
-          {/* Level Filter */}
-          <div className="w-full md:w-48">
-            <div className="relative">
-              <Filter className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400 pointer-events-none" />
-              <select
-                value={levelFilter}
-                onChange={(e) => setLevelFilter(e.target.value)}
-                className="w-full pl-10 pr-4 py-3 bg-slate-900/50 border border-slate-700 rounded-xl text-white appearance-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all"
-              >
-                <option value="all">All Levels</option>
-                <option value="level1">Level 1 (Root)</option>
-                <option value="level2">Level 2 (Sub)</option>
-                <option value="level3">Level 3 (Sub-sub)</option>
-              </select>
-              <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400 pointer-events-none" />
-            </div>
-          </div>
-
-          {/* Status Filter */}
-          <div className="w-full md:w-48">
-            <div className="relative">
-              <Filter className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400 pointer-events-none" />
-              <select
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
-                className="w-full pl-10 pr-4 py-3 bg-slate-900/50 border border-slate-700 rounded-xl text-white appearance-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all"
-              >
-                <option value="all">All Status</option>
-                <option value="active">Active Only</option>
-                <option value="inactive">Inactive Only</option>
-              </select>
-              <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400 pointer-events-none" />
-            </div>
-          </div>
-
-          {/* Clear Filters Button */}
-          {hasActiveFilters && (
-            <button
-              onClick={clearFilters}
-              className="px-4 py-3 bg-slate-900/50 border border-slate-700 rounded-xl text-slate-400 hover:text-white hover:border-violet-500 transition-all flex items-center gap-2"
-              title="Clear all filters"
-            >
-              <FilterX className="h-5 w-5" />
-              Clear
-            </button>
-          )}
-        </div>
-        
-        {/* Active Filters Display */}
-        {hasActiveFilters && (
-          <div className="flex flex-wrap gap-2 mt-4">
-            {searchTerm && (
-              <span className="px-3 py-1.5 bg-violet-500/10 border border-violet-500/30 rounded-lg text-violet-400 text-sm flex items-center gap-2">
-                <Search className="h-4 w-4" />
-                "{searchTerm}"
-                <button onClick={() => setSearchTerm("")} className="hover:text-violet-300">×</button>
-              </span>
-            )}
-            {levelFilter !== "all" && (
-              <span className="px-3 py-1.5 bg-cyan-500/10 border border-cyan-500/30 rounded-lg text-cyan-400 text-sm flex items-center gap-2">
-                <Filter className="h-4 w-4" />
-                {levelFilter === "level1" ? "Level 1" : levelFilter === "level2" ? "Level 2" : "Level 3"}
-                <button onClick={() => setLevelFilter("all")} className="hover:text-cyan-300">×</button>
-              </span>
-            )}
-            {statusFilter !== "all" && (
-              <span className="px-3 py-1.5 bg-pink-500/10 border border-pink-500/30 rounded-lg text-pink-400 text-sm flex items-center gap-2">
-                <Filter className="h-4 w-4" />
-                {statusFilter === "active" ? "Active" : "Inactive"}
-                <button onClick={() => setStatusFilter("all")} className="hover:text-pink-300">×</button>
-              </span>
-            )}
-          </div>
-        )}
+    {/* Search Input */}
+    <div className="flex-1">
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4.5 w-4.5 text-slate-400" />
+        <input
+          type="text"
+          placeholder="Search categories (all levels)..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          className="w-full pl-9 pr-4 py-2.5 bg-slate-900/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all"
+        />
       </div>
+    </div>
+
+    {/* Level Filter */}
+    <div className="w-full md:w-44">
+      <div className="relative">
+        <Filter className="absolute left-3 top-1/2 -translate-y-1/2 h-4.5 w-4.5 text-slate-400 pointer-events-none" />
+        <select
+          value={levelFilter}
+          onChange={(e) => setLevelFilter(e.target.value)}
+          className="w-full pl-9 pr-4 py-2.5 bg-slate-900/50 border border-slate-700 rounded-xl text-white appearance-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all"
+        >
+          <option value="all">All Levels</option>
+          <option value="level1">Level 1 (Root)</option>
+          <option value="level2">Level 2 (Sub)</option>
+          <option value="level3">Level 3 (Sub-sub)</option>
+        </select>
+        <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-4.5 w-4.5 text-slate-400 pointer-events-none" />
+      </div>
+    </div>
+
+    {/* Status Filter */}
+    <div className="w-full md:w-44">
+      <div className="relative">
+        <Filter className="absolute left-3 top-1/2 -translate-y-1/2 h-4.5 w-4.5 text-slate-400 pointer-events-none" />
+        <select
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value)}
+          className="w-full pl-9 pr-4 py-2.5 bg-slate-900/50 border border-slate-700 rounded-xl text-white appearance-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all"
+        >
+          <option value="all">All Status</option>
+          <option value="active">Active Only</option>
+          <option value="inactive">Inactive Only</option>
+        </select>
+        <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-4.5 w-4.5 text-slate-400 pointer-events-none" />
+      </div>
+    </div>
+
+    {/* Clear Filters */}
+    {hasActiveFilters && (
+      <button
+        onClick={clearFilters}
+        className="px-3 py-2.5 bg-slate-900/50 border border-slate-700 rounded-xl text-slate-400 hover:text-white hover:border-violet-500 transition-all flex items-center gap-2"
+        title="Clear all filters"
+      >
+        <FilterX className="h-4.5 w-4.5" />
+        Clear
+      </button>
+    )}
+  </div>
+
+  {/* Active Filters */}
+  {hasActiveFilters && (
+    <div className="flex flex-wrap gap-2 mt-3">
+      {searchTerm && (
+        <span className="px-2.5 py-1 bg-violet-500/10 border border-violet-500/30 rounded-lg text-violet-400 text-xs flex items-center gap-2">
+          <Search className="h-3.5 w-3.5" />
+          "{searchTerm}"
+          <button onClick={() => setSearchTerm("")} className="hover:text-violet-300">×</button>
+        </span>
+      )}
+      {levelFilter !== "all" && (
+        <span className="px-2.5 py-1 bg-cyan-500/10 border border-cyan-500/30 rounded-lg text-cyan-400 text-xs flex items-center gap-2">
+          <Filter className="h-3.5 w-3.5" />
+          {levelFilter === "level1" ? "Level 1" : levelFilter === "level2" ? "Level 2" : "Level 3"}
+          <button onClick={() => setLevelFilter("all")} className="hover:text-cyan-300">×</button>
+        </span>
+      )}
+      {statusFilter !== "all" && (
+        <span className="px-2.5 py-1 bg-pink-500/10 border border-pink-500/30 rounded-lg text-pink-400 text-xs flex items-center gap-2">
+          <Filter className="h-3.5 w-3.5" />
+          {statusFilter === "active" ? "Active" : "Inactive"}
+          <button onClick={() => setStatusFilter("all")} className="hover:text-pink-300">×</button>
+        </span>
+      )}
+    </div>
+  )}
+</div>
+
 
       {/* Categories Table */}
       <div className="bg-slate-800/30 backdrop-blur-sm border border-slate-700/50 rounded-2xl overflow-hidden">

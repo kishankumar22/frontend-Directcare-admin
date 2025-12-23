@@ -1,7 +1,5 @@
 import Link from "next/link";
 import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import HomeBannerSlider from "@/components/HomeBannerSlider";
 import FeaturedProductsSlider from "@/components/FeaturedProductsSlider";
 import TopBrandsSlider from "@/components/TopBrandsSlider";
@@ -9,8 +7,7 @@ import CategorySlider from "@/components/CategorySlider";
 import NewsletterWrapper from "@/components/NewsletterWrapper";
 
 import {
-  ShoppingCart,
-  Star,
+
   TrendingUp,
   Zap,
   Gift,

@@ -1,24 +1,26 @@
 import type { NextConfig } from 'next';
 
+const isDev = process.env.NODE_ENV === 'development';
+
 const nextConfig: NextConfig = {
+  // ✅ Strict Mode: OFF in dev (prevents double calls), ON in production
+  reactStrictMode: !isDev,  // false in dev, true in production
+  
   eslint: {    
-    ignoreDuringBuilds: true, // ✅ skip linting on build
+    ignoreDuringBuilds: true,
   },
+  
   typescript: {
     ignoreBuildErrors: false,
   },
   
   // ✅ OPTIMIZED IMAGE CONFIG
   images: {
-    // ❌ DEPRECATED: Remove 'domains'
-    // domains: ['localhost', '127.0.0.1', 'api.directcare.com', 'testapi.knowledgemarkg.com'],
-    
-    // ✅ USE: remotePatterns (Modern approach)
     remotePatterns: [
       {
         protocol: 'http',
         hostname: 'localhost',
-        port: '', // optional
+        port: '',
         pathname: '/**',
       },
       {
@@ -34,55 +36,30 @@ const nextConfig: NextConfig = {
       {
         protocol: 'https',
         hostname: 'testapi.knowledgemarkg.com',
-        pathname: '/**', // ✅ Only allow images path
+        pathname: '/**',
       },
     ],
 
-    // ✅ IMAGE OPTIMIZATION SETTINGS
-    formats: ['image/webp', 'image/avif'], // Modern formats for smaller sizes
-    deviceSizes: [640, 750, 828, 1080, 1200, 1920, 2048, 3840], // Device breakpoints
-    imageSizes: [16, 32, 48, 64, 96, 128, 256, 384], // Icon sizes
+    formats: ['image/webp', 'image/avif'],
+    deviceSizes: [640, 750, 828, 1080, 1200, 1920, 2048, 3840],
+    imageSizes: [16, 32, 48, 64, 96, 128, 256, 384],
+    minimumCacheTTL: 60,
     
-    // ✅ CACHING
-    minimumCacheTTL: 60, // Cache images for 60 seconds minimum
-    
-    // ✅ SECURITY
     dangerouslyAllowSVG: true,
     contentDispositionType: 'attachment',
     contentSecurityPolicy: "default-src 'self'; script-src 'none'; sandbox;",
-    
-    // ✅ PERFORMANCE (Uncomment in production if API is slow)
-    // unoptimized: false, // Set true to disable optimization (faster but larger images)
-    
-    // ✅ LOADER (Use default or custom)
-    // loader: 'default', // or 'custom', 'imgix', 'cloudinary', 'akamai'
   },
 
-  // ✅ DISABLE ROUTER CACHE
-  experimental: {
-    staleTimes: {
-      dynamic: 0,  // No cache for dynamic routes
-      static: 0,   // No cache for static routes
-    },
-  },
-
-  // ✅ COMPRESSION (Enable gzip/brotli)
+  // ✅ COMPRESSION
   compress: true,
 
   // ✅ PRODUCTION OPTIMIZATIONS
-  productionBrowserSourceMaps: false, // Disable source maps in production
-  poweredByHeader: false, // Remove X-Powered-By header for security
+  productionBrowserSourceMaps: false,
+  poweredByHeader: false,
   
-  // ✅ REDIRECTS/REWRITES (Optional)
+  // ✅ REDIRECTS
   async redirects() {
-    return [
-      // Example: Redirect old product URLs
-      // {
-      //   source: '/product/:slug',
-      //   destination: '/products/:slug',
-      //   permanent: true,
-      // },
-    ];
+    return [];
   },
 
   // ✅ HEADERS (Security & Performance)
@@ -107,10 +84,14 @@ const nextConfig: NextConfig = {
             key: 'Referrer-Policy',
             value: 'origin-when-cross-origin'
           },
+          {
+            key: 'Cache-Control',
+            value: 'no-store, no-cache, must-revalidate',
+          },
         ],
       },
       {
-        // Cache images for 1 year
+        // Cache static images for 1 year
         source: '/images/:path*',
         headers: [
           {
