@@ -83,16 +83,19 @@ export default function CategorySlider({
     {/* FIXED PERFECT IMAGE BOX */}
     <div className="w-[120px] h-[120px] md:w-[140px] md:h-[140px] 
                     flex items-center justify-center overflow-hidden">
-      <img
-        src={
-          category.imageUrl.startsWith("http")
-            ? category.imageUrl
-            : `${baseUrl}${category.imageUrl}`
-        }
-        alt={category.name}
-        className="h-full w-auto object-contain"
-        style={{ objectPosition: "center" }}
-      />
+<img
+  src={
+    category?.imageUrl
+      ? category.imageUrl.startsWith("http")
+        ? category.imageUrl
+        : `${baseUrl}${category.imageUrl}`
+      : "/images/placeholder-category.png"
+  }
+  alt={category?.name || "Category"}
+  className="h-full w-auto object-contain"
+  style={{ objectPosition: "center" }}
+/>
+
     </div>
 
     {/* TITLE */}

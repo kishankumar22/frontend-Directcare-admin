@@ -1,5 +1,16 @@
-import { apiClient } from '../api';
+import { apiClient } from '../api'; 
 import { API_ENDPOINTS } from '../api-config';
+
+
+// --- Banner Type Enum ---
+export type BannerType = 
+  | "Homepage" 
+  | "Offer" 
+  | "Promotional" 
+  | "Category" 
+  | "Seasonal" 
+  | "FlashSale";
+
 
 // --- Banner Interfaces ---
 export interface Banner {
@@ -8,6 +19,11 @@ export interface Banner {
   imageUrl: string;
   link: string;
   description: string;
+  bannerType: string; // or BannerType if you want strict typing
+  offerCode?: string | null;
+  discountPercentage?: number | null;
+  offerText?: string | null;
+  buttonText?: string | null;
   isActive: boolean;
   displayOrder: number;
   startDate: string;
@@ -18,16 +34,23 @@ export interface Banner {
   updatedBy: string | null;
 }
 
+
 export interface CreateBannerDto {
   title: string;
   imageUrl: string;
   link?: string;
   description?: string;
+  bannerType: string; // or BannerType for strict typing
+  offerCode?: string | null;
+  discountPercentage?: number | null;
+  offerText?: string | null;
+  buttonText?: string | null;
   isActive: boolean;
   displayOrder: number;
   startDate?: string | null;
   endDate?: string | null;
 }
+
 
 export interface BannerApiResponse {
   success?: boolean;
@@ -36,6 +59,7 @@ export interface BannerApiResponse {
   errors?: string[] | null;
 }
 
+
 export interface BannerStats {
   totalBanners: number;
   activeBanners: number;
@@ -43,27 +67,33 @@ export interface BannerStats {
   upcomingBanners: number;
 }
 
+
 // --- Main Service ---
 export const bannersService = {
   // Get all banners (with optional includeInactive param)
   getAll: (config: any = {}) =>
     apiClient.get<BannerApiResponse>(API_ENDPOINTS.banners, config),
 
+
   // Get banner by ID
   getById: (id: string, config: any = {}) =>
     apiClient.get<Banner>(`${API_ENDPOINTS.banners}/${id}`, config),
+
 
   // Create new banner
   create: (data: CreateBannerDto, config: any = {}) =>
     apiClient.post<Banner>(API_ENDPOINTS.banners, data, config),
 
+
   // Update banner by ID
   update: (id: string, data: Partial<CreateBannerDto>, config: any = {}) =>
     apiClient.put<Banner>(`${API_ENDPOINTS.banners}/${id}`, data, config),
 
+
   // Delete banner by ID
   delete: (id: string) =>
     apiClient.delete<void>(`${API_ENDPOINTS.banners}/${id}`),
+
 
   // ---- Banner Image Upload (with title in params) ----
   uploadImage: async (file: File, params?: Record<string, any>) => {
@@ -75,6 +105,7 @@ export const bannersService = {
       formData
     );
   },
+
 
   // ---- Banner Image Delete ----
   deleteImage: (imageUrl: string) =>

@@ -391,6 +391,41 @@ console.log("DISCOUNT CATEGORIES RAW:", JSON.stringify(c.data, null, 2));
     await fetchUsageHistory(discount.id);
   };
 
+// ✅ IMPLEMENTED CORRECTLY (Line ~390)
+const handleDiscountTypeChange = (newType: DiscountType) => {
+  const hasAssignments = 
+    formData.assignedProductIds.length > 0 ||
+    formData.assignedCategoryIds.length > 0;
+
+  if (hasAssignments && newType !== formData.discountType) {
+    const productCount = formData.assignedProductIds.length;
+    const categoryCount = formData.assignedCategoryIds.length;
+    
+    let warningMessage = "⚠️ Discount type changed! Cleared: ";
+    const cleared = [];
+    
+    if (productCount > 0) cleared.push(`${productCount} product${productCount > 1 ? 's' : ''}`);
+    if (categoryCount > 0) cleared.push(`${categoryCount} ${categoryCount > 1 ? 'categories' : 'category'}`);
+    
+    warningMessage += cleared.join(", ");
+    
+    toast.warning(warningMessage);
+
+    setFormData({
+      ...formData,
+      discountType: newType,
+      assignedProductIds: [],
+      assignedCategoryIds: [],
+    });
+  } else {
+    setFormData({
+      ...formData,
+      discountType: newType
+    });
+  }
+};
+
+
 
 
   // ✅ CALCULATE REMAINING USES
@@ -554,9 +589,11 @@ const categoryOptions: SelectOption[] = processCategoryData(categories as any);
     const labels: Record<DiscountType, string> = {
       "AssignedToOrderTotal": "Order Total",
       "AssignedToProducts": "Products",
-      "AssignedToCategories": "Categories", 
-      "AssignedToManufacturers": "Manufacturers",
-      "AssignedToShipping": "Shipping"
+      "AssignedToCategories": "Categories",
+
+      "AssignedToShipping": "Shipping",
+      AssignedToManufacturers: "",
+      AssignedToOrderSubTotal: ""
     };
     return labels[type];
   };
@@ -566,8 +603,10 @@ const categoryOptions: SelectOption[] = processCategoryData(categories as any);
       "AssignedToOrderTotal": "💰",
       "AssignedToProducts": "📦",
       "AssignedToCategories": "📂",
-      "AssignedToManufacturers": "🏭",
-      "AssignedToShipping": "🚚"
+
+      "AssignedToShipping": "🚚",
+      AssignedToManufacturers: "",
+      AssignedToOrderSubTotal: ""
     };
     return icons[type];
   };
@@ -1176,21 +1215,38 @@ const categoryOptions: SelectOption[] = processCategoryData(categories as any);
                       className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
                     />
                   </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-slate-300 mb-2">Discount Type *</label>
-                    <select
-                      required
-                      value={formData.discountType}
-                      onChange={(e) => setFormData({...formData, discountType: e.target.value as DiscountType})}
-                      className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
-                    >
-                      <option value="AssignedToOrderTotal">	Assigned to order total</option>
-                      <option value="AssignedToProducts">Assigned to products</option>
-                      <option value="AssignedToCategories">Assigned to categories</option>              
-                      <option value="AssignedToShipping">Assigned to shipping</option>
-                    </select>
-                  </div>
+<div>
+  <label className="block text-sm font-medium text-slate-300 mb-2">
+    Discount Type *
+  </label>
+  <select
+    required
+    value={formData.discountType}
+    onChange={(e) => handleDiscountTypeChange(e.target.value as DiscountType)}
+    className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+  >
+    <option value="AssignedToOrderTotal">Assigned to order total</option>
+    <option value="AssignedToProducts">Assigned to products</option>
+    <option value="AssignedToCategories">Assigned to categories</option>
+    <option value="AssignedToShipping">Assigned to shipping</option>
+  </select>
+  
+  {/* ✅ Optional: Show current assignments count (no warning) */}
+  {(formData.assignedProductIds.length > 0 || 
+    formData.assignedCategoryIds.length > 0 || 
+    formData.assignedManufacturerIds.length > 0) && (
+    <div className="mt-2 flex items-center gap-2 text-xs text-slate-400">
+      <span className="px-2 py-1 bg-slate-700/50 rounded">
+        {formData.assignedProductIds.length} products
+      </span>
+      <span className="px-2 py-1 bg-slate-700/50 rounded">
+        {formData.assignedCategoryIds.length} categories
+      </span>
+    </div>
+  )}
+</div>
+
+
                 </div>
 
                 <div className="mt-4">
@@ -1582,566 +1638,681 @@ const categoryOptions: SelectOption[] = processCategoryData(categories as any);
         </div>
       )}
 
-      {/* ✅ VIEW DETAILS MODAL */}
-      {viewingDiscount && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-50 flex items-center justify-center p-4">
-          <div className="bg-gradient-to-br from-slate-900 via-slate-900 to-slate-800 border border-violet-500/20 rounded-3xl max-w-4xl w-full max-h-[90vh] overflow-hidden shadow-2xl shadow-violet-500/10">
-            <div className="p-2 border-b border-violet-500/20 bg-gradient-to-r from-violet-500/10 to-cyan-500/10">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h2 className="text-2xl font-bold bg-gradient-to-r from-violet-400 via-cyan-400 to-pink-400 bg-clip-text text-transparent">
-                    Discount Details
-                  </h2>
-                  <p className="text-slate-400 text-sm mt-1">View discount information</p>
-                </div>
-                <button
-                  onClick={() => setViewingDiscount(null)}
-                  className="p-2 text-slate-400 hover:text-white hover:bg-red-600 rounded-lg transition-all"
-                >
-                  ✕
-                </button>
+{/* View Discount Modal - COMPLETE WITH ALL FIELDS */}
+{viewingDiscount && (
+  <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-50 flex items-center justify-center p-4">
+    <div className="bg-gradient-to-br from-slate-900 via-slate-900 to-slate-800 border border-violet-500/20 rounded-3xl max-w-5xl w-full max-h-[90vh] overflow-hidden shadow-2xl shadow-violet-500/10">
+      <div className="p-4 border-b border-violet-500/20 bg-gradient-to-r from-violet-500/10 to-cyan-500/10">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-2xl font-bold bg-gradient-to-r from-violet-400 via-cyan-400 to-pink-400 bg-clip-text text-transparent">
+              Discount Details
+            </h2>
+            <p className="text-slate-300 text-xs mt-1 font-medium"
+            title={viewingDiscount.id}>View discount information</p>
+          </div>
+          <button
+            onClick={() => setViewingDiscount(null)}
+            className="p-2 text-slate-400 hover:text-white hover:bg-red-600 rounded-lg transition-all"
+          >
+            ✕
+          </button>
+        </div>
+      </div>
+
+      <div className="p-4 overflow-y-auto max-h-[calc(90vh-180px)]">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          {/* Left Column - Basic Information */}
+          <div className="space-y-4">
+            {/* Discount Name */}
+            <div className="bg-slate-800/30 p-4 rounded-xl border border-slate-700/50">
+              <div className="flex items-start justify-between gap-3">
+                <span className="text-sm text-slate-300 font-semibold whitespace-nowrap pt-1 flex items-center gap-2">
+                  <Gift className="w-4 h-4" />
+                  Name:
+                </span>
+                <p className="text-base font-bold text-white text-right flex-1">{viewingDiscount.name}</p>
               </div>
             </div>
 
-            <div className="p-2 overflow-y-auto max-h-[calc(90vh-120px)]">
-              <div className="space-y-4">
-                {/* Basic Info */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="p-4 bg-slate-800/50 rounded-xl">
-                    <div className="flex items-center gap-2 text-slate-400 text-sm mb-1">
-                      <Gift className="w-4 h-4" />
-                      <span>Discount Name</span>
-                    </div>
-                    <p className="text-white font-semibold text-lg">{viewingDiscount.name}</p>
-                  </div>
+            {/* Discount Type, Status & Limitation */}
+            <div className="bg-slate-800/30 p-4 rounded-xl border border-slate-700/50 space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-slate-300 font-semibold flex items-center gap-2">
+                  <Target className="w-4 h-4" />
+                  Discount Type:
+                </span>
+                <span className={`inline-flex items-center px-3 py-1.5 rounded-lg text-sm font-bold ${
+                  viewingDiscount.discountType === 'AssignedToProducts' ? 'bg-blue-500/10 text-blue-400' :
+                  viewingDiscount.discountType === 'AssignedToCategories' ? 'bg-green-500/10 text-green-400' :
+                  viewingDiscount.discountType === 'AssignedToManufacturers' ? 'bg-purple-500/10 text-purple-400' :
+                  viewingDiscount.discountType === 'AssignedToOrderTotal' ? 'bg-orange-500/10 text-orange-400' :
+                  viewingDiscount.discountType === 'AssignedToOrderSubTotal' ? 'bg-pink-500/10 text-pink-400' :
+                  'bg-cyan-500/10 text-cyan-400'
+                }`}>
+                  {getDiscountTypeIcon(viewingDiscount.discountType)}
+                  {getDiscountTypeLabel(viewingDiscount.discountType)}
+                </span>
+              </div>
 
-                  <div className="p-4 bg-slate-800/50 rounded-xl">
-                    <div className="flex items-center gap-2 text-slate-400 text-sm mb-1">
-                      <Target className="w-4 h-4" />
-                      <span>Type</span>
-                    </div>
-                    <p className="text-white font-semibold flex items-center gap-2">
-                      <span className="text-lg">{getDiscountTypeIcon(viewingDiscount.discountType)}</span>
-                      {getDiscountTypeLabel(viewingDiscount.discountType)}
-                    </p>
-                  </div>
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-slate-300 font-semibold">Status:</span>
+                {isDiscountActive(viewingDiscount) ? (
+                  <span className="px-3 py-1.5 bg-green-500/10 text-green-400 rounded-lg text-sm font-bold flex items-center gap-1.5">
+                    <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+                    Active Now
+                  </span>
+                ) : viewingDiscount.isActive ? (
+                  <span className="px-3 py-1.5 bg-orange-500/10 text-orange-400 rounded-lg text-sm font-bold flex items-center gap-1.5">
+                    <div className="w-2 h-2 bg-orange-400 rounded-full"></div>
+                    Scheduled
+                  </span>
+                ) : (
+                  <span className="px-3 py-1.5 bg-red-500/10 text-red-400 rounded-lg text-sm font-bold flex items-center gap-1.5">
+                    <div className="w-2 h-2 bg-red-400 rounded-full"></div>
+                    Inactive
+                  </span>
+                )}
+              </div>
 
-                  <div className="p-4 bg-slate-800/50 rounded-xl">
-                    <div className="flex items-center gap-2 text-slate-400 text-sm mb-1">
-                      <Percent className="w-4 h-4" />
-                      <span>Discount Value</span>
-                    </div>
-                    <p className="text-white font-semibold text-xl">{formatDiscountValue(viewingDiscount)}</p>
-                    {viewingDiscount.maximumDiscountAmount && (
-                      <p className="text-xs text-slate-400">Max:£{viewingDiscount.maximumDiscountAmount}</p>
-                    )}
-                  </div>
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-slate-300 font-semibold">Limitation:</span>
+                <span className="text-white font-bold">{viewingDiscount.discountLimitation}</span>
+              </div>
 
-                  <div className="p-4 bg-slate-800/50 rounded-xl">
-                    <div className="flex items-center gap-2 text-slate-400 text-sm mb-1">
-                      <AlertCircle className="w-4 h-4" />
-                      <span>Status</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      {isDiscountActive(viewingDiscount) ? (
-                        <span className="px-2 py-1 bg-green-500/10 text-green-400 rounded-lg text-sm font-medium flex items-center gap-1">
-                          <div className="w-2 h-2 bg-green-400 rounded-full"></div>
-                          Active Now
-                        </span>
-                      ) : viewingDiscount.isActive ? (
-                        <span className="px-2 py-1 bg-orange-500/10 text-orange-400 rounded-lg text-sm font-medium flex items-center gap-1">
-                          <div className="w-2 h-2 bg-orange-400 rounded-full"></div>
-                          Scheduled
-                        </span>
-                      ) : (
-                        <span className="px-2 py-1 bg-red-500/10 text-red-400 rounded-lg text-sm font-medium flex items-center gap-1">
-                          <div className="w-2 h-2 bg-red-400 rounded-full"></div>
-                          Inactive
-                        </span>
-                      )}
-                    </div>
-                  </div>
+              {viewingDiscount.limitationTimes && (
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-slate-300 font-semibold">Limitation Times:</span>
+                  <span className="text-white font-bold">{viewingDiscount.limitationTimes}</span>
                 </div>
+              )}
+            </div>
 
-                {/* Period & Usage */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="p-4 bg-slate-800/50 rounded-xl">
-                    <div className="flex items-center gap-2 text-slate-400 text-sm mb-1">
-                      <Calendar className="w-4 h-4" />
-                      <span>Valid Period</span>
-                    </div>
-                    <p className="text-white font-medium">
-                      {new Date(viewingDiscount.startDate).toLocaleDateString()}
-                    </p>
-                    <p className="text-slate-400 text-sm">to</p>
-                    <p className="text-white font-medium">
-                      {new Date(viewingDiscount.endDate).toLocaleDateString()}
-                    </p>
-                  </div>
+            {/* Discount Value Details */}
+            <div className="bg-slate-800/30 p-4 rounded-xl border border-slate-700/50 space-y-3">
+              <h3 className="text-sm font-bold text-white mb-2 flex items-center gap-2">
+                <Percent className="w-4 h-4" />
+                Discount Value
+              </h3>
+              
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-slate-300 font-semibold">Use Percentage:</span>
+                <span className={`px-2 py-1 rounded text-xs font-bold ${
+                  viewingDiscount.usePercentage ? 'bg-green-500/10 text-green-400' : 'bg-blue-500/10 text-blue-400'
+                }`}>
+                  {viewingDiscount.usePercentage ? 'Yes' : 'No'}
+                </span>
+              </div>
 
-                  <div className="p-4 bg-slate-800/50 rounded-xl">
-                    <div className="flex items-center gap-2 text-slate-400 text-sm mb-1">
-                      <span>Usage Limitation</span>
-                    </div>
-                    <p className="text-white font-medium">{viewingDiscount.discountLimitation}</p>
-                    {viewingDiscount.limitationTimes && (
-                      <p className="text-slate-400 text-sm">{viewingDiscount.limitationTimes} times</p>
-                    )}
-                  </div>
+              {viewingDiscount.usePercentage ? (
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-slate-300 font-semibold">Discount Percentage:</span>
+                  <span className="text-green-400 font-extrabold text-2xl">{viewingDiscount.discountPercentage}%</span>
                 </div>
+              ) : (
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-slate-300 font-semibold">Discount Amount:</span>
+                  <span className="text-blue-400 font-extrabold text-2xl">£{viewingDiscount.discountAmount}</span>
+                </div>
+              )}
 
-                {/* Coupon Code */}
-                {viewingDiscount.requiresCouponCode && viewingDiscount.couponCode && (
-                  <div className="p-4 bg-slate-800/50 rounded-xl">
-                    <div className="flex items-center gap-2 text-slate-400 text-sm mb-1">
-                      <span>Coupon Code</span>
-                    </div>
-                    <p className="text-green-400 font-mono text-lg bg-green-400/10 px-3 py-2 rounded-lg inline-block">
+              {viewingDiscount.maximumDiscountAmount && (
+                <div className="flex items-center justify-between pt-2 border-t border-slate-700/50">
+                  <span className="text-sm text-slate-300 font-semibold">Maximum Discount:</span>
+                  <span className="text-orange-400 font-bold text-lg">£{viewingDiscount.maximumDiscountAmount}</span>
+                </div>
+              )}
+            </div>
+
+            {/* Coupon Code */}
+            <div className="bg-slate-800/30 p-4 rounded-xl border border-slate-700/50 space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-slate-300 font-semibold">Requires Coupon Code:</span>
+                <span className={`px-2 py-1 rounded text-xs font-bold ${
+                  viewingDiscount.requiresCouponCode ? 'bg-green-500/10 text-green-400' : 'bg-slate-500/10 text-slate-400'
+                }`}>
+                  {viewingDiscount.requiresCouponCode ? 'Yes' : 'No'}
+                </span>
+              </div>
+
+              {viewingDiscount.requiresCouponCode && viewingDiscount.couponCode && (
+                <div className="pt-2 border-t border-slate-700/50">
+                  <p className="text-xs text-slate-300 font-semibold mb-2">Coupon Code:</p>
+                  <div className="bg-gradient-to-r from-green-500/10 to-emerald-500/10 border border-green-500/30 rounded-lg p-3">
+                    <p className="text-green-400 font-mono font-bold text-xl text-center tracking-wider">
                       {viewingDiscount.couponCode}
                     </p>
                   </div>
-                )}
-
-                {/* Assignment Info */}
-                {(viewingDiscount.assignedProductIds || viewingDiscount.assignedCategoryIds || viewingDiscount.assignedManufacturerIds) && (
-                  <div className="p-4 bg-slate-800/50 rounded-xl">
-                    <div className="flex items-center gap-2 text-slate-400 text-sm mb-3">
-                      <span>Assignment Details</span>
-                    </div>
-                    
-                    {viewingDiscount.assignedProductIds && (
-                      <div className="mb-3">
-                        <p className="text-white font-medium mb-1">Assigned Products:</p>
-                        <div className="flex flex-wrap gap-2">
-                          {viewingDiscount.assignedProductIds.split(',').map(productId => {
-                            const product = products.find(p => p.id === productId.trim());
-                            return (
-                              <span key={productId} className="px-2 py-1 bg-blue-500/10 text-blue-400 rounded text-sm">
-                                {product ? product.name : productId}
-                              </span>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    )}
-                    
-                    {viewingDiscount.assignedCategoryIds && (
-                      <div className="mb-3">
-                        <p className="text-white font-medium mb-1">Assigned Categories:</p>
-                        <div className="flex flex-wrap gap-2">
-                          {viewingDiscount.assignedCategoryIds.split(',').map(categoryId => {
-                            const category = categories.find(c => c.id === categoryId.trim());
-                            return (
-                              <span key={categoryId} className="px-2 py-1 bg-green-500/10 text-green-400 rounded text-sm">
-                                {category ? category.name : categoryId}
-                              </span>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    )}
-
-                  </div>
-                )}
-
-                {/* Admin Comment */}
-                {viewingDiscount.adminComment && (
-                  <div className="p-4 bg-slate-800/50 rounded-xl">
-                    <div className="flex items-center gap-2 text-slate-400 text-sm mb-2">
-                      <span>Admin Comment</span>
-                    </div>
-                    <div
-                      className="prose prose-invert max-w-none text-slate-200"
-                      dangerouslySetInnerHTML={{
-                        __html: viewingDiscount.adminComment || "No comment available",
-                      }}
-                    />
-                  </div>
-                )}
-
-                {/* Action buttons */}
-                <div className="flex justify-end gap-3 pt-4 border-t border-slate-700/50">
-                  <button
-                    onClick={() => handleEdit(viewingDiscount)}
-                    className="px-4 py-2 bg-cyan-500 text-white rounded-lg hover:bg-cyan-600 transition-all font-medium text-sm"
-                  >
-                    Edit Discount
-                  </button>
-                  <button
-                    onClick={() => setViewingDiscount(null)}
-                    className="px-4 py-2 bg-slate-800 text-white rounded-lg hover:bg-slate-700 transition-all font-medium text-sm"
-                  >
-                    Close
-                  </button>
                 </div>
-              </div>
+              )}
             </div>
-          </div>
-        </div>
-      )}
 
-
-
-      {/* ✅ ENHANCED USAGE HISTORY MODAL - COMPACT VERSION */}
-  {usageHistoryModal && selectedDiscountHistory && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-gradient-to-br from-slate-900 via-slate-900 to-slate-800 border border-violet-500/20 rounded-3xl max-w-6xl w-full max-h-[92vh] overflow-hidden shadow-2xl">
-            
-            {/* Compact Header */}
-            <div className="p-4 border-b border-violet-500/20 bg-gradient-to-r from-violet-500/10 to-cyan-500/10">
+            {/* Additional Options */}
+            <div className="bg-slate-800/30 p-4 rounded-xl border border-slate-700/50 space-y-3">
+              <h3 className="text-sm font-bold text-white mb-2">Additional Options</h3>
+              
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-violet-500 to-pink-500 flex items-center justify-center text-lg">
-                    {getDiscountTypeIcon(selectedDiscountHistory.discountType)}
-                  </div>
-                  <div>
-                    <h2 className="text-xl font-bold text-white">
-                      {selectedDiscountHistory.name}
-                    </h2>
-                    {selectedDiscountHistory.couponCode && (
-                      <span className="text-green-400 font-mono text-sm">
-                        {selectedDiscountHistory.couponCode}
-                      </span>
-                    )}
-                  </div>
-                </div>
-                <button
-                  onClick={() => {
-                    setUsageHistoryModal(false);
-                    setSelectedDiscountHistory(null);
-                    setUsageHistory([]);
-                    clearDateFilters();
-                  }}
-                  className="p-2 text-slate-400 hover:text-white hover:bg-red-600 rounded-lg transition-all"
-                >
-                  ✕
-                </button>
-              </div>
-            </div>
-
-            {/* ✅ DATE RANGE FILTER SECTION */}
-            <div className="p-4 border-b border-slate-800 bg-slate-900/30">
-              <div className="flex flex-wrap items-center gap-3">
-                <div className="flex items-center gap-2">
-                  <CalendarRange className="w-4 h-4 text-slate-400" />
-                  <span className="text-sm font-medium text-slate-300">Filter by Date:</span>
-                </div>
-
-                {/* Quick Presets */}
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => setQuickDateRange('today')}
-                    className={`px-3 py-1.5 text-xs rounded-lg transition-all font-medium ${
-                      dateRangeFilter.startDate === new Date().toISOString().split('T')[0] &&
-                      dateRangeFilter.endDate === new Date().toISOString().split('T')[0]
-                        ? 'bg-violet-500 text-white'
-                        : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
-                    }`}
-                  >
-                    Today
-                  </button>
-                  <button
-                    onClick={() => setQuickDateRange('week')}
-                    className="px-3 py-1.5 text-xs bg-slate-800 text-slate-300 hover:bg-slate-700 rounded-lg transition-all font-medium"
-                  >
-                    Last 7 Days
-                  </button>
-                  <button
-                    onClick={() => setQuickDateRange('month')}
-                    className="px-3 py-1.5 text-xs bg-slate-800 text-slate-300 hover:bg-slate-700 rounded-lg transition-all font-medium"
-                  >
-                    Last 30 Days
-                  </button>
-                  <button
-                    onClick={() => setQuickDateRange('all')}
-                    className={`px-3 py-1.5 text-xs rounded-lg transition-all font-medium ${
-                      !hasDateFilters
-                        ? 'bg-blue-500 text-white'
-                        : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
-                    }`}
-                  >
-                    All Time
-                  </button>
-                </div>
-
-                {/* Custom Date Inputs */}
-                <div className="flex items-center gap-2 ml-auto">
-                  <div className="flex items-center gap-2">
-                    <label className="text-xs text-slate-400">From:</label>
-                    <input
-                      type="date"
-                      value={dateRangeFilter.startDate}
-                      onChange={(e) => setDateRangeFilter({...dateRangeFilter, startDate: e.target.value})}
-                      className="px-3 py-1.5 bg-slate-800 border border-slate-600 rounded-lg text-white text-xs focus:outline-none focus:ring-2 focus:ring-violet-500"
-                    />
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <label className="text-xs text-slate-400">To:</label>
-                    <input
-                      type="date"
-                      value={dateRangeFilter.endDate}
-                      onChange={(e) => setDateRangeFilter({...dateRangeFilter, endDate: e.target.value})}
-                      className="px-3 py-1.5 bg-slate-800 border border-slate-600 rounded-lg text-white text-xs focus:outline-none focus:ring-2 focus:ring-violet-500"
-                    />
-                  </div>
-                  {hasDateFilters && (
-                    <button
-                      onClick={clearDateFilters}
-                      className="p-1.5 text-red-400 hover:bg-red-500/10 rounded-lg transition-all"
-                      title="Clear Date Filter"
-                    >
-                      <FilterX className="w-4 h-4" />
-                    </button>
-                  )}
-                </div>
+                <span className="text-sm text-slate-300 font-semibold">Is Cumulative:</span>
+                <span className={`px-2 py-1 rounded text-xs font-bold ${
+                  viewingDiscount.isCumulative ? 'bg-green-500/10 text-green-400' : 'bg-red-500/10 text-red-400'
+                }`}>
+                  {viewingDiscount.isCumulative ? 'Yes' : 'No'}
+                </span>
               </div>
 
-              {/* Filter Info */}
-              {hasDateFilters && (
-                <div className="mt-2 px-3 py-1.5 bg-blue-500/10 border border-blue-500/30 rounded-lg">
-                  <p className="text-xs text-blue-400">
-                    Showing {getFilteredUsageHistory().length} of {usageHistory.length} transactions
-                    {dateRangeFilter.startDate && ` from ${new Date(dateRangeFilter.startDate).toLocaleDateString('en-IN')}`}
-                    {dateRangeFilter.endDate && ` to ${new Date(dateRangeFilter.endDate).toLocaleDateString('en-IN')}`}
-                  </p>
-                </div>
-              )}
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-slate-300 font-semibold">Applied to Sub-Orders:</span>
+                <span className={`px-2 py-1 rounded text-xs font-bold ${
+                  viewingDiscount.appliedToSubOrders ? 'bg-green-500/10 text-green-400' : 'bg-red-500/10 text-red-400'
+                }`}>
+                  {viewingDiscount.appliedToSubOrders ? 'Yes' : 'No'}
+                </span>
+              </div>
             </div>
+          </div>
 
-            {/* Compact Stats Grid - Using Filtered Data */}
-            <div className="p-4 border-b border-slate-800">
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                
-                {/* Discount Value */}
-                <div className="bg-gradient-to-br from-violet-500/10 to-purple-500/10 border border-violet-500/20 rounded-xl p-3">
-                  <div className="flex items-center gap-2 mb-1">
-                    <Percent className="w-4 h-4 text-violet-400" />
-                    <span className="text-xs text-slate-400">Value</span>
-                  </div>
-                  <p className="text-xl font-bold text-white">
-                    {formatDiscountValue(selectedDiscountHistory)}
-                  </p>
-                  {selectedDiscountHistory.maximumDiscountAmount && (
-                    <p className="text-xs text-slate-400">Max:£{selectedDiscountHistory.maximumDiscountAmount}</p>
-                  )}
+          {/* Right Column - Schedule & Assignments */}
+          <div className="space-y-4">
+            {/* Valid Period */}
+            <div className="bg-slate-800/30 p-5 rounded-xl border border-slate-700/50">
+              <h3 className="text-base font-bold text-white mb-4 flex items-center gap-2">
+                <Calendar className="h-5 w-5 text-violet-400" />
+                Valid Period
+              </h3>
+              <div className="space-y-3">
+                <div className="flex items-center justify-between py-1">
+                  <span className="text-sm text-slate-300 font-semibold">Start Date:</span>
+                  <span className="text-slate-100 text-sm font-medium">
+                    {new Date(viewingDiscount.startDate).toLocaleString()}
+                  </span>
                 </div>
 
-                {/* Times Used - FILTERED */}
-                <div className="bg-gradient-to-br from-blue-500/10 to-cyan-500/10 border border-blue-500/20 rounded-xl p-3">
-                  <div className="flex items-center gap-2 mb-1">
-                    <TrendingUp className="w-4 h-4 text-blue-400" />
-                    <span className="text-xs text-slate-400">Used</span>
-                  </div>
-                  <p className="text-xl font-bold text-white">
-                    {calculateFilteredStats().totalUsage}
-                  </p>
-                  {selectedDiscountHistory.limitationTimes && (
-                    <p className="text-xs text-slate-400">
-                      of {selectedDiscountHistory.limitationTimes}
-                    </p>
-                  )}
-                </div>
-
-  {/* Remaining Uses */}
-<div className="bg-gradient-to-br from-green-500/10 to-emerald-500/10 border border-green-500/20 rounded-xl p-3">
-  <div className="flex items-center gap-2 mb-1">
-    <Target className="w-4 h-4 text-green-400" />
-    <span className="text-xs text-slate-400">Remaining</span>
-  </div>
-  <p className="text-xl font-bold text-white flex items-center gap-1">
-    {selectedDiscountHistory.discountLimitation === 'Unlimited' ? (
-      <InfinityIcon className="w-6 h-6" />
-    ) : (
-      calculateRemainingUses(selectedDiscountHistory)
-    )}
-  </p>
-  <p className="text-xs text-slate-400">
-    {selectedDiscountHistory.discountLimitation === 'Unlimited' ? 'Unlimited uses' : 'left'}
-  </p>
-</div>
-
-                {/* Days Until Expiry */}
-                <div className="bg-gradient-to-br from-orange-500/10 to-amber-500/10 border border-orange-500/20 rounded-xl p-3">
-                  <div className="flex items-center gap-2 mb-1">
-                    <Clock className="w-4 h-4 text-orange-400" />
-                    <span className="text-xs text-slate-400">Expires In</span>
-                  </div>
-                  <p className="text-xl font-bold text-white">
-                    {(() => {
-                      const days = calculateDaysUntilExpiry(selectedDiscountHistory);
-                      return days < 0 ? "Expired" : days === 0 ? "Today" : `${days}d`;
-                    })()}
-                  </p>
-                  <p className="text-xs text-slate-400">
-                    {new Date(selectedDiscountHistory.endDate).toLocaleDateString()}
-                  </p>
-                </div>
-
-                {/* Total Savings - FILTERED */}
-                <div className="bg-gradient-to-br from-pink-500/10 to-rose-500/10 border border-pink-500/20 rounded-xl p-3">
-                  <div className="flex items-center gap-2 mb-1">
-                    <Gift className="w-4 h-4 text-pink-400" />
-                    <span className="text-xs text-slate-400">Total Saved</span>
-                  </div>
-                  <p className="text-xl font-bold text-white">
-                   £{calculateFilteredStats().totalRevenue.toFixed(2)}
-                  </p>
-                </div>
-
-                {/* Unique Customers - FILTERED */}
-                <div className="bg-gradient-to-br from-cyan-500/10 to-blue-500/10 border border-cyan-500/20 rounded-xl p-3">
-                  <div className="flex items-center gap-2 mb-1">
-                    <Users className="w-4 h-4 text-cyan-400" />
-                    <span className="text-xs text-slate-400">Customers</span>
-                  </div>
-                  <p className="text-xl font-bold text-white">
-                    {calculateFilteredStats().uniqueCustomers}
-                  </p>
-                </div>
-
-                {/* Average Discount - FILTERED */}
-                <div className="bg-gradient-to-br from-indigo-500/10 to-purple-500/10 border border-indigo-500/20 rounded-xl p-3">
-                  <div className="flex items-center gap-2 mb-1">
-                    <TrendingUp className="w-4 h-4 text-indigo-400" />
-                    <span className="text-xs text-slate-400">Avg Save</span>
-                  </div>
-                  <p className="text-xl font-bold text-white">
-                   £{calculateFilteredStats().averageDiscount.toFixed(2)}
-                  </p>
-                </div>
-
-                {/* Limitation Type */}
-                <div className="bg-gradient-to-br from-amber-500/10 to-yellow-500/10 border border-amber-500/20 rounded-xl p-3">
-                  <div className="flex items-center gap-2 mb-1">
-                    <AlertCircle className="w-4 h-4 text-amber-400" />
-                    <span className="text-xs text-slate-400">Type</span>
-                  </div>
-                  <p className="text-sm font-semibold text-white">
-                    {selectedDiscountHistory.discountLimitation === "Unlimited" 
-                      ? "Unlimited" 
-                      : selectedDiscountHistory.discountLimitation === "NTimesOnly"
-                      ? "Limited Total"
-                      : "Per Customer"}
-                  </p>
+                <div className="flex items-center justify-between py-1">
+                  <span className="text-sm text-slate-300 font-semibold">End Date:</span>
+                  <span className="text-slate-100 text-sm font-medium">
+                    {new Date(viewingDiscount.endDate).toLocaleString()}
+                  </span>
                 </div>
               </div>
             </div>
 
-            {/* Compact Usage History Table - FILTERED DATA */}
-            <div className="p-4 overflow-y-auto max-h-[calc(92vh-480px)]">
-              {loadingHistory ? (
-                <div className="flex items-center justify-center py-12">
-                  <div className="text-center">
-                    <div className="w-12 h-12 border-4 border-violet-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-                    <p className="text-slate-400">Loading history...</p>
-                  </div>
-                </div>
-              ) : getFilteredUsageHistory().length === 0 ? (
-                <div className="text-center py-12">
-                  <History className="h-16 w-16 text-slate-600 mx-auto mb-4" />
-                  <p className="text-slate-400 text-lg mb-2">
-                    {hasDateFilters ? "No transactions in selected date range" : "No Usage History"}
-                  </p>
-                  <p className="text-slate-500 text-sm">
-                    {hasDateFilters 
-                      ? "Try adjusting your date filters" 
-                      : "This discount hasn't been used yet"}
-                  </p>
-                </div>
-              ) : (
-                <div className="bg-slate-900/50 border border-slate-800 rounded-xl overflow-hidden">
-                  <table className="w-full">
-                    <thead>
-                      <tr className="border-b border-slate-800 bg-slate-800/30">
-                        <th className="text-left py-3 px-3 text-slate-400 font-medium text-xs">Order</th>
-                        <th className="text-left py-3 px-3 text-slate-400 font-medium text-xs">Customer</th>
-                        <th className="text-center py-3 px-3 text-slate-400 font-medium text-xs">Discount</th>
-                        <th className="text-center py-3 px-3 text-slate-400 font-medium text-xs">Date</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {getFilteredUsageHistory().map((history, index) => (
-                        <tr
-                          key={history.id}
-                          className="border-b border-slate-800 hover:bg-slate-800/30 transition-colors"
-                        >
-                          <td className="py-3 px-3">
-                            <div className="flex items-center gap-2">
-                              <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center text-white text-xs font-bold">
-                                #{index + 1}
-                              </div>
-                              <div className="min-w-0">
-                                <p className="text-white font-medium text-sm truncate">
-                                  {history.orderNumber}
-                                </p>
-                                <p className="text-xs text-slate-500 truncate">
-                                  {history.orderId.substring(0, 8)}...
-                                </p>
-                              </div>
-                            </div>
-                          </td>
-                          <td className="py-3 px-3">
-                            <div className="flex items-center gap-2">
-                              <Users className="w-4 h-4 text-slate-500 flex-shrink-0" />
-                              <span className="text-white text-sm truncate">{history.customerEmail}</span>
-                            </div>
-                          </td>
-                          <td className="py-3 px-3 text-center">
-                            <span className="inline-flex items-center gap-1 px-3 py-1 bg-green-500/10 border border-green-500/30 text-green-400 rounded-lg text-sm font-semibold">
-                             £{history.discountAmount.toFixed(2)}
+            {/* Assignment Details */}
+            {(viewingDiscount.assignedProductIds || viewingDiscount.assignedCategoryIds || viewingDiscount.assignedManufacturerIds) && (
+              <div className="bg-slate-800/30 p-5 rounded-xl border border-slate-700/50">
+                <h3 className="text-base font-bold text-white mb-4 flex items-center gap-2">
+                  <span className="text-xl">🎯</span>
+                  Assignments
+                </h3>
+                <div className="space-y-4">
+                  {viewingDiscount.assignedProductIds && (
+                    <div>
+                      <p className="text-sm text-slate-300 font-semibold mb-2">Assigned Products:</p>
+                      <div className="flex flex-wrap gap-2">
+                        {viewingDiscount.assignedProductIds.split(',').map((productId, index) => {
+                          const product = products.find(p => p.id === productId.trim());
+                          return (
+                            <span key={index} className="px-3 py-1.5 bg-blue-500/10 text-blue-400 rounded-lg text-xs font-semibold border border-blue-500/20">
+                              {product ? product.name : `Product ${index + 1}`}
                             </span>
-                          </td>
-                          <td className="py-3 px-3 text-center">
-                            <div className="flex flex-col items-center">
-                              <span className="text-white text-sm font-medium">
-                                {new Date(history.usedAt).toLocaleDateString('en-IN', { 
-                                  day: '2-digit', 
-                                  month: 'short',
-                                  year: 'numeric'
-                                })}
-                              </span>
-                              <span className="text-xs text-slate-500">
-                                {new Date(history.usedAt).toLocaleTimeString('en-IN', { 
-                                  hour: '2-digit', 
-                                  minute: '2-digit' 
-                                })}
-                              </span>
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                  
+                  {viewingDiscount.assignedCategoryIds && (
+                    <div>
+                      <p className="text-sm text-slate-300 font-semibold mb-2">Assigned Categories:</p>
+                      <div className="flex flex-wrap gap-2">
+                        {viewingDiscount.assignedCategoryIds.split(',').map((categoryId, index) => {
+                          const category = categories.find(c => c.id === categoryId.trim());
+                          return (
+                            <span key={index} className="px-3 py-1.5 bg-green-500/10 text-green-400 rounded-lg text-xs font-semibold border border-green-500/20">
+                              {category ? category.name : `Category ${index + 1}`}
+                            </span>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
 
-            {/* Compact Footer */}
-            <div className="p-4 border-t border-slate-700/50 bg-slate-900/50">
-              <div className="flex justify-between items-center">
-                <div className="text-sm text-slate-400">
-                  {hasDateFilters 
-                    ? `Filtered: ${getFilteredUsageHistory().length} of ${usageHistory.length} transactions`
-                    : `Showing ${usageHistory.length} transaction${usageHistory.length !== 1 ? 's' : ''}`
-                  }
                 </div>
-                <button
-                  onClick={() => {
-                    setUsageHistoryModal(false);
-                    setSelectedDiscountHistory(null);
-                    setUsageHistory([]);
-                    clearDateFilters();
+              </div>
+            )}
+
+            {/* Admin Comment */}
+            {viewingDiscount.adminComment && (
+              <div className="bg-slate-800/30 p-5 rounded-xl border border-slate-700/50">
+                <h3 className="text-base font-bold text-white mb-3">Admin Comment</h3>
+                <div
+                  className="prose prose-invert max-w-none text-slate-200 text-sm leading-relaxed"
+                  dangerouslySetInnerHTML={{
+                    __html: viewingDiscount.adminComment || "No comment available",
                   }}
-                  className="px-5 py-2 bg-gradient-to-r from-slate-700 to-slate-600 text-white rounded-xl hover:from-slate-600 hover:to-slate-500 transition-all font-medium text-sm"
-                >
-                  Close
-                </button>
+                />
+              </div>
+            )}
+
+            {/* Audit Information */}
+            <div className="bg-slate-800/30 p-5 rounded-xl border border-slate-700/50">
+              <h3 className="text-base font-bold text-white mb-4 flex items-center gap-2">
+                <AlertCircle className="h-5 w-5 text-violet-400" />
+                Audit Information
+              </h3>
+              <div className="space-y-3">
+                <div className="flex items-center justify-between py-1">
+                  <span className="text-sm text-slate-300 font-semibold">Created At:</span>
+                  <span className="text-slate-100 text-sm font-medium">
+                    {viewingDiscount.createdAt ? new Date(viewingDiscount.createdAt).toLocaleString() : 'N/A'}
+                  </span>
+                </div>
+
+                <div className="flex items-center justify-between py-1">
+                  <span className="text-sm text-slate-300 font-semibold">Updated At:</span>
+                  <span className="text-slate-100 text-sm font-medium">
+                    {viewingDiscount.updatedAt ? new Date(viewingDiscount.updatedAt).toLocaleString() : 'Never updated'}
+                  </span>
+                </div>
+
+                <div className="border-t border-slate-700/50 my-3"></div>
+
+                <div className="py-1">
+                  <div className="flex items-start justify-between gap-2">
+                    <span className="text-sm text-slate-300 font-semibold whitespace-nowrap">Created By:</span>
+                    <span className="text-slate-100 text-sm font-medium text-right break-all">
+                      {viewingDiscount.createdBy || 'Unknown'}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="py-1">
+                  <div className="flex items-start justify-between gap-2">
+                    <span className="text-sm text-slate-300 font-semibold whitespace-nowrap">Updated By:</span>
+                    <span className="text-slate-100 text-sm font-medium text-right break-all">
+                      {viewingDiscount.updatedBy || 'Never updated'}
+                    </span>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
         </div>
-      )}
+      </div>
 
+      {/* Footer Buttons */}
+      <div className="flex justify-end gap-3 px-6 py-4 border-t border-slate-700/50 bg-slate-900/50">
+        <button
+          onClick={() => {
+            setViewingDiscount(null);
+            handleEdit(viewingDiscount);
+          }}
+          className="px-6 py-3 bg-cyan-500 text-white rounded-lg hover:bg-cyan-600 transition-all font-bold text-sm flex items-center gap-2 hover:shadow-lg hover:shadow-cyan-500/40"
+        >
+          <Edit className="h-4 w-4" />
+          Edit Discount
+        </button>
+        <button
+          onClick={() => setViewingDiscount(null)}
+          className="px-6 py-3 bg-slate-800 text-white rounded-lg hover:bg-slate-700 transition-all font-bold text-sm"
+        >
+          Close
+        </button>
+      </div>
+    </div>
+  </div>
+)}
+
+
+
+ {/* ✅ ULTRA COMPACT USAGE HISTORY MODAL - INLINE LAYOUT */}
+{usageHistoryModal && selectedDiscountHistory && (
+  <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div className="bg-gradient-to-br from-slate-900 via-slate-900 to-slate-800 border border-violet-500/20 rounded-3xl max-w-5xl w-full max-h-[97vh] overflow-hidden shadow-2xl">
+      
+      {/* Compact Header - Inline */}
+      <div className="p-3 border-b border-violet-500/20 bg-gradient-to-r from-violet-500/10 to-cyan-500/10">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-violet-500 to-pink-500 flex items-center justify-center text-base">
+              {getDiscountTypeIcon(selectedDiscountHistory.discountType)}
+            </div>
+            <div>
+              <h2 className="text-lg font-bold text-white leading-tight">
+                {selectedDiscountHistory.name}
+              </h2>
+              {selectedDiscountHistory.couponCode && (
+                <span className="text-green-400 font-mono text-xs">
+                  {selectedDiscountHistory.couponCode}
+                </span>
+              )}
+            </div>
+          </div>
+          <button
+            onClick={() => {
+              setUsageHistoryModal(false);
+              setSelectedDiscountHistory(null);
+              setUsageHistory([]);
+              clearDateFilters();
+            }}
+            className="p-1.5 text-slate-400 hover:text-white hover:bg-red-600 rounded-lg transition-all"
+          >
+            ✕
+          </button>
+        </div>
+      </div>
+
+      {/* ✅ COMPACT DATE FILTER - INLINE */}
+      <div className="p-3 border-b border-slate-800 bg-slate-900/30">
+        <div className="flex flex-wrap items-center gap-2 text-xs">
+          <CalendarRange className="w-3.5 h-3.5 text-slate-400" />
+          <span className="text-slate-300 font-medium">Filter:</span>
+
+          {/* Quick Presets - Compact */}
+          <button
+            onClick={() => setQuickDateRange('today')}
+            className={`px-2 py-1 rounded-md font-medium transition-all ${
+              dateRangeFilter.startDate === new Date().toISOString().split('T')[0] &&
+              dateRangeFilter.endDate === new Date().toISOString().split('T')[0]
+                ? 'bg-violet-500 text-white'
+                : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+            }`}
+          >
+            Today
+          </button>
+          <button
+            onClick={() => setQuickDateRange('week')}
+            className="px-2 py-1 bg-slate-800 text-slate-300 hover:bg-slate-700 rounded-md font-medium transition-all"
+          >
+            7D
+          </button>
+          <button
+            onClick={() => setQuickDateRange('month')}
+            className="px-2 py-1 bg-slate-800 text-slate-300 hover:bg-slate-700 rounded-md font-medium transition-all"
+          >
+            30D
+          </button>
+          <button
+            onClick={() => setQuickDateRange('all')}
+            className={`px-2 py-1 rounded-md font-medium transition-all ${
+              !hasDateFilters
+                ? 'bg-blue-500 text-white'
+                : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+            }`}
+          >
+            All
+          </button>
+
+          <span className="text-slate-600 mx-1">|</span>
+
+          {/* Custom Dates - Ultra Compact */}
+          <input
+            type="date"
+            value={dateRangeFilter.startDate}
+            onChange={(e) => setDateRangeFilter({...dateRangeFilter, startDate: e.target.value})}
+            className="px-2 py-1 bg-slate-800 border border-slate-600 rounded-md text-white text-xs focus:outline-none focus:ring-1 focus:ring-violet-500 w-32"
+          />
+          <span className="text-slate-500">→</span>
+          <input
+            type="date"
+            value={dateRangeFilter.endDate}
+            onChange={(e) => setDateRangeFilter({...dateRangeFilter, endDate: e.target.value})}
+            className="px-2 py-1 bg-slate-800 border border-slate-600 rounded-md text-white text-xs focus:outline-none focus:ring-1 focus:ring-violet-500 w-32"
+          />
+          
+          {hasDateFilters && (
+            <>
+              <button
+                onClick={clearDateFilters}
+                className="p-1 text-red-400 hover:bg-red-500/10 rounded-md transition-all"
+                title="Clear Filter"
+              >
+                <FilterX className="w-3.5 h-3.5" />
+              </button>
+              <span className="text-blue-400 ml-auto">
+                {getFilteredUsageHistory().length}/{usageHistory.length} shown
+              </span>
+            </>
+          )}
+        </div>
+      </div>
+
+      {/* ✅ ULTRA COMPACT STATS - INLINE LAYOUT */}
+      <div className="p-3 border-b border-slate-800">
+        <div className="grid grid-cols-4 gap-2">
+          {/* Value */}
+          <div className="bg-gradient-to-br from-violet-500/10 to-purple-500/10 border border-violet-500/20 rounded-lg p-2">
+            <div className="flex items-center justify-between mb-0.5">
+              <Percent className="w-3.5 h-3.5 text-violet-400" />
+              <span className="text-[10px] text-slate-400">Value</span>
+            </div>
+            <p className="text-lg font-bold text-white leading-tight">
+              {formatDiscountValue(selectedDiscountHistory)}
+            </p>
+            {selectedDiscountHistory.maximumDiscountAmount && (
+              <p className="text-[10px] text-slate-400">Max £{selectedDiscountHistory.maximumDiscountAmount}</p>
+            )}
+          </div>
+
+          {/* Times Used */}
+          <div className="bg-gradient-to-br from-blue-500/10 to-cyan-500/10 border border-blue-500/20 rounded-lg p-2">
+            <div className="flex items-center justify-between mb-0.5">
+              <TrendingUp className="w-3.5 h-3.5 text-blue-400" />
+              <span className="text-[10px] text-slate-400">Used</span>
+            </div>
+            <p className="text-lg font-bold text-white leading-tight">
+              {calculateFilteredStats().totalUsage}
+            </p>
+            {selectedDiscountHistory.limitationTimes && (
+              <p className="text-[10px] text-slate-400">
+                / {selectedDiscountHistory.limitationTimes}
+              </p>
+            )}
+          </div>
+
+          {/* Remaining */}
+          <div className="bg-gradient-to-br from-green-500/10 to-emerald-500/10 border border-green-500/20 rounded-lg p-2">
+            <div className="flex items-center justify-between mb-0.5">
+              <Target className="w-3.5 h-3.5 text-green-400" />
+              <span className="text-[10px] text-slate-400">Left</span>
+            </div>
+            <p className="text-lg font-bold text-white leading-tight flex items-center gap-1">
+              {selectedDiscountHistory.discountLimitation === 'Unlimited' ? (
+                <InfinityIcon className="w-5 h-5" />
+              ) : (
+                calculateRemainingUses(selectedDiscountHistory)
+              )}
+            </p>
+          </div>
+
+          {/* Expires */}
+          <div className="bg-gradient-to-br from-orange-500/10 to-amber-500/10 border border-orange-500/20 rounded-lg p-2">
+            <div className="flex items-center justify-between mb-0.5">
+              <Clock className="w-3.5 h-3.5 text-orange-400" />
+              <span className="text-[10px] text-slate-400">Expires</span>
+            </div>
+            <p className="text-lg font-bold text-white leading-tight">
+              {(() => {
+                const days = calculateDaysUntilExpiry(selectedDiscountHistory);
+                return days < 0 ? "Expired" : days === 0 ? "Today" : `${days}d`;
+              })()}
+            </p>
+            <p className="text-[10px] text-slate-400">
+              {new Date(selectedDiscountHistory.endDate).toLocaleDateString('en-IN', {day: '2-digit', month: 'short'})}
+            </p>
+          </div>
+
+          {/* Total Saved */}
+          <div className="bg-gradient-to-br from-pink-500/10 to-rose-500/10 border border-pink-500/20 rounded-lg p-2">
+            <div className="flex items-center justify-between mb-0.5">
+              <Gift className="w-3.5 h-3.5 text-pink-400" />
+              <span className="text-[10px] text-slate-400">Saved</span>
+            </div>
+            <p className="text-lg font-bold text-white leading-tight">
+              £{calculateFilteredStats().totalRevenue.toFixed(2)}
+            </p>
+          </div>
+
+          {/* Customers */}
+          <div className="bg-gradient-to-br from-cyan-500/10 to-blue-500/10 border border-cyan-500/20 rounded-lg p-2">
+            <div className="flex items-center justify-between mb-0.5">
+              <Users className="w-3.5 h-3.5 text-cyan-400" />
+              <span className="text-[10px] text-slate-400">Users</span>
+            </div>
+            <p className="text-lg font-bold text-white leading-tight">
+              {calculateFilteredStats().uniqueCustomers}
+            </p>
+          </div>
+
+          {/* Avg Discount */}
+          <div className="bg-gradient-to-br from-indigo-500/10 to-purple-500/10 border border-indigo-500/20 rounded-lg p-2">
+            <div className="flex items-center justify-between mb-0.5">
+              <TrendingUp className="w-3.5 h-3.5 text-indigo-400" />
+              <span className="text-[10px] text-slate-400">Avg</span>
+            </div>
+            <p className="text-lg font-bold text-white leading-tight">
+              £{calculateFilteredStats().averageDiscount.toFixed(2)}
+            </p>
+          </div>
+
+          {/* Type */}
+          <div className="bg-gradient-to-br from-amber-500/10 to-yellow-500/10 border border-amber-500/20 rounded-lg p-2">
+            <div className="flex items-center justify-between mb-0.5">
+              <AlertCircle className="w-3.5 h-3.5 text-amber-400" />
+              <span className="text-[10px] text-slate-400">Type</span>
+            </div>
+            <p className="text-xs font-semibold text-white leading-tight">
+              {selectedDiscountHistory.discountLimitation === "Unlimited" 
+                ? "∞" 
+                : selectedDiscountHistory.discountLimitation === "NTimesOnly"
+                ? "Limited"
+                : "Per User"}
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* ✅ COMPACT TABLE */}
+      <div className="p-3 overflow-y-auto max-h-[calc(92vh-380px)]">
+        {loadingHistory ? (
+          <div className="flex items-center justify-center py-8">
+            <div className="text-center">
+              <div className="w-10 h-10 border-3 border-violet-500 border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
+              <p className="text-slate-400 text-sm">Loading...</p>
+            </div>
+          </div>
+        ) : getFilteredUsageHistory().length === 0 ? (
+          <div className="text-center py-10">
+            <History className="h-12 w-12 text-slate-600 mx-auto mb-3" />
+            <p className="text-slate-400 mb-1">
+              {hasDateFilters ? "No transactions in range" : "No usage yet"}
+            </p>
+            <p className="text-slate-500 text-xs">
+              {hasDateFilters ? "Try adjusting filters" : "Discount hasn't been used"}
+            </p>
+          </div>
+        ) : (
+          <div className="bg-slate-900/50 border border-slate-800 rounded-lg overflow-hidden">
+            <table className="w-full">
+              <thead>
+                <tr className="border-b border-slate-800 bg-slate-800/30">
+                  <th className="text-left py-2 px-3 text-slate-400 font-medium text-xs">#</th>
+                  <th className="text-left py-2 px-3 text-slate-400 font-medium text-xs">Order</th>
+                  <th className="text-left py-2 px-3 text-slate-400 font-medium text-xs">Customer</th>
+                  <th className="text-center py-2 px-3 text-slate-400 font-medium text-xs">Saved</th>
+                  <th className="text-center py-2 px-3 text-slate-400 font-medium text-xs">Date</th>
+                </tr>
+              </thead>
+              <tbody>
+                {getFilteredUsageHistory().map((history, index) => (
+                  <tr
+                    key={history.id}
+                    className="border-b border-slate-800 hover:bg-slate-800/30 transition-colors"
+                  >
+                    {/* Index */}
+                    <td className="py-2 px-3">
+                      <div className="w-6 h-6 rounded-md bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center text-white text-xs font-bold">
+                        {index + 1}
+                      </div>
+                    </td>
+
+                    {/* Order */}
+                    <td className="py-2 px-3">
+                      <div className="flex flex-col">
+                        <span className="text-white font-medium text-xs">
+                          {history.orderNumber}
+                        </span>
+                        <span className="text-[10px] text-slate-500">
+                          {history.orderId.substring(0, 8)}...
+                        </span>
+                      </div>
+                    </td>
+
+                    {/* Customer */}
+                    <td className="py-2 px-3">
+                      <div className="flex items-center gap-1.5">
+                        <Users className="w-3 h-3 text-slate-500 flex-shrink-0" />
+                        <span className="text-white text-xs truncate max-w-[200px]">
+                          {history.customerEmail}
+                        </span>
+                      </div>
+                    </td>
+
+                    {/* Discount */}
+                    <td className="py-2 px-3 text-center">
+                      <span className="inline-flex items-center px-2 py-0.5 bg-green-500/10 border border-green-500/30 text-green-400 rounded text-xs font-semibold">
+                        £{history.discountAmount.toFixed(2)}
+                      </span>
+                    </td>
+
+                    {/* Date */}
+                    <td className="py-2 px-3 text-center">
+                      <div className="flex flex-col">
+                        <span className="text-white text-xs font-medium">
+                          {new Date(history.usedAt).toLocaleDateString('en-IN', { 
+                            day: '2-digit', 
+                            month: 'short'
+                          })}
+                        </span>
+                        <span className="text-[10px] text-slate-500">
+                          {new Date(history.usedAt).toLocaleTimeString('en-IN', { 
+                            hour: '2-digit', 
+                            minute: '2-digit',
+                            hour12: true
+                          })}
+                        </span>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {/* Compact Footer */}
+      <div className="p-3 border-t border-slate-700/50 bg-slate-900/50 flex justify-between items-center">
+        <span className="text-xs text-slate-400">
+          {hasDateFilters 
+            ? `${getFilteredUsageHistory().length}/${usageHistory.length} shown`
+            : `${usageHistory.length} total`
+          }
+        </span>
+        <button
+          onClick={() => {
+            setUsageHistoryModal(false);
+            setSelectedDiscountHistory(null);
+            setUsageHistory([]);
+            clearDateFilters();
+          }}
+          className="px-4 py-1.5 bg-gradient-to-r from-slate-700 to-slate-600 text-white rounded-lg hover:from-slate-600 hover:to-slate-500 transition-all font-medium text-xs"
+        >
+          Close
+        </button>
+      </div>
+    </div>
+  </div>
+)}
 
       {/* ✅ DELETE CONFIRMATION DIALOG */}
       <ConfirmDialog

@@ -1417,7 +1417,8 @@ const getParentCategoryOptions = () => {
         )}
       </div>
 
-      {/* Modals remain the same - I can provide them if needed */}{showModal && (
+      {/* Modals remain the same - I can provide them if needed */}
+      {showModal && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-50 flex items-center justify-center p-4 animate-fadeIn">
           <div className="bg-gradient-to-br from-slate-900 via-slate-900 to-slate-800 border border-violet-500/20 rounded-3xl max-w-5xl w-full max-h-[90vh] overflow-hidden shadow-2xl shadow-violet-500/10">
             <div className="p-2 border-b border-violet-500/20 bg-gradient-to-r from-violet-500/10 to-cyan-500/10">

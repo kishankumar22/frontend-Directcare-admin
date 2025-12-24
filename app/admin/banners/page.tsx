@@ -1,15 +1,13 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Plus, Edit, Trash2, Search, CheckCircle, Image as ImageIcon, Eye, Upload, Filter, FilterX, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, AlertCircle, Calendar, ExternalLink } from "lucide-react";
+import { Plus, Edit, Trash2, Search, CheckCircle, Image as ImageIcon, Eye, Upload, Filter, FilterX, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, AlertCircle, Calendar, ExternalLink, Tag } from "lucide-react";
 import { API_ENDPOINTS, API_BASE_URL } from "@/lib/api-config";
 import { apiClient } from "@/lib/api";
 import { useToast } from "@/components/CustomToast";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import { ProductDescriptionEditor } from "../products/SelfHostedEditor";
 import { Banner, bannersService, BannerStats } from "@/lib/services";
-
-
 
 export default function ManageBanners() {
   const toast = useToast();
@@ -21,6 +19,7 @@ export default function ManageBanners() {
   const [selectedImageUrl, setSelectedImageUrl] = useState<string | null>(null);
   const [viewingBanner, setViewingBanner] = useState<Banner | null>(null);
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [bannerTypeFilter, setBannerTypeFilter] = useState<string>("all");
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
 
@@ -65,6 +64,11 @@ export default function ManageBanners() {
     imageUrl: "",
     link: "",
     description: "",
+    bannerType: "Homepage",
+    offerCode: "",
+    discountPercentage: 0,
+    offerText: "",
+    buttonText: "",
     isActive: true,
     displayOrder: 1,
     startDate: "",
@@ -90,7 +94,6 @@ export default function ManageBanners() {
     return parts.pop() || "";
   };
 
-  // ✅ NO AUTO-FILL FOR LINK
   const handleImageFileChange = (file: File) => {
     setImageFile(file);
     
@@ -100,105 +103,109 @@ export default function ManageBanners() {
     toast.success("Image selected! Old image will be replaced on save.");
   };
 
-const fetchBanners = async () => {
-  try {
-    setLoading(true);
-    const response = await bannersService.getAll({
-      params: { includeInactive: true }
-    });
-    const bannersData = response.data?.data && Array.isArray(response.data.data)
-      ? response.data.data
-      : [];
-    setBanners(bannersData);
-    calculateStats(bannersData);
-  } catch (error) {
-    console.error("Error fetching banners:", error);
-    toast.error("Failed to fetch banners");
-    setBanners([]);
-  } finally {
-    setLoading(false);
-  }
-};
+  const fetchBanners = async () => {
+    try {
+      setLoading(true);
+      const response = await bannersService.getAll({
+        params: { includeInactive: true }
+      });
+      const bannersData = response.data?.data && Array.isArray(response.data.data)
+        ? response.data.data
+        : [];
+      setBanners(bannersData);
+      calculateStats(bannersData);
+    } catch (error) {
+      console.error("Error fetching banners:", error);
+      toast.error("Failed to fetch banners");
+      setBanners([]);
+    } finally {
+      setLoading(false);
+    }
+  };
 
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!formData.title.trim()) {
+      toast.error("Banner title is required");
+      return;
+    }
+    if (!formData.bannerType) {
+      toast.error("Banner type is required");
+      return;
+    }
+    if (!editingBanner && !imageFile) {
+      toast.error("Banner image is required");
+      return;
+    }
 
-  // ✅ UPDATED - Handle Submit with Auto-Delete Old Image
- const handleSubmit = async (e: React.FormEvent) => {
-  e.preventDefault();
-  
-  if (!formData.title.trim()) {
-    toast.error("Banner title is required");
-    return;
-  }
-  if (!editingBanner && !imageFile) {
-    toast.error("Banner image is required");
-    return;
-  }
+    try {
+      let finalImageUrl = formData.imageUrl;
 
-  try {
-    let finalImageUrl = formData.imageUrl;
+      if (imageFile) {
+        try {
+          const uploadResponse = await bannersService.uploadImage(imageFile, {
+            title: formData.title
+          });
+          if (!uploadResponse.data?.success || !uploadResponse.data?.data) {
+            throw new Error(uploadResponse.data?.message || "Image upload failed");
+          }
+          finalImageUrl = uploadResponse.data.data;
+          toast.success("Image uploaded successfully!");
 
-    // Upload new image if file selected
-    if (imageFile) {
-      try {
-        const uploadResponse = await bannersService.uploadImage(imageFile, {
-          title: formData.title
-        });
-        if (!uploadResponse.data?.success || !uploadResponse.data?.data) {
-          throw new Error(uploadResponse.data?.message || "Image upload failed");
-        }
-        finalImageUrl = uploadResponse.data.data;
-        toast.success("Image uploaded successfully!");
-
-        // Delete old image if updating
-        if (editingBanner?.imageUrl && editingBanner.imageUrl !== finalImageUrl) {
-          const filename = extractFilename(editingBanner.imageUrl);
-          if (filename) {
-            try {
-              await bannersService.deleteImage(filename);
-            } catch (err) {
-              console.log("Failed to delete old image:", err);
+          if (editingBanner?.imageUrl && editingBanner.imageUrl !== finalImageUrl) {
+            const filename = extractFilename(editingBanner.imageUrl);
+            if (filename) {
+              try {
+                await bannersService.deleteImage(filename);
+              } catch (err) {
+                console.log("Failed to delete old image:", err);
+              }
             }
           }
+        } catch (uploadErr: any) {
+          console.error("Error uploading image:", uploadErr);
+          toast.error(uploadErr?.response?.data?.message || "Failed to upload image");
+          return;
         }
-      } catch (uploadErr: any) {
-        console.error("Error uploading image:", uploadErr);
-        toast.error(uploadErr?.response?.data?.message || "Failed to upload image");
-        return;
       }
+
+      const payload = {
+        title: formData.title.trim(),
+        imageUrl: finalImageUrl,
+        link: formData.link || "",
+        description: formData.description || "",
+        bannerType: formData.bannerType,
+        offerCode: formData.offerCode || null,
+        discountPercentage: formData.discountPercentage || null,
+        offerText: formData.offerText || null,
+        buttonText: formData.buttonText || null,
+        isActive: Boolean(formData.isActive),
+        displayOrder: Number(formData.displayOrder) || 0,
+        startDate: formData.startDate || null,
+        endDate: formData.endDate || null,
+        ...(editingBanner && { id: editingBanner.id }),
+      };
+
+      if (editingBanner) {
+        await bannersService.update(editingBanner.id, payload);
+        toast.success("Banner updated successfully!");
+      } else {
+        await bannersService.create(payload);
+        toast.success("Banner created successfully!");
+      }
+
+      if (imagePreview) URL.revokeObjectURL(imagePreview);
+      setImageFile(null);
+      setImagePreview(null);
+      await fetchBanners();
+      setShowModal(false);
+      resetForm();
+    } catch (error: any) {
+      console.error("Error:", error);
+      toast.error(error?.response?.data?.message || "Failed to save banner");
     }
-
-    const payload = {
-      title: formData.title.trim(),
-      imageUrl: finalImageUrl,
-      link: formData.link || "",
-      description: formData.description || "",
-      isActive: Boolean(formData.isActive),
-      displayOrder: Number(formData.displayOrder) || 0,
-      startDate: formData.startDate || null,
-      endDate: formData.endDate || null,
-      ...(editingBanner && { id: editingBanner.id }),
-    };
-
-    if (editingBanner) {
-      await bannersService.update(editingBanner.id, payload);
-      toast.success("Banner updated successfully!");
-    } else {
-      await bannersService.create(payload);
-      toast.success("Banner created successfully!");
-    }
-
-    if (imagePreview) URL.revokeObjectURL(imagePreview);
-    setImageFile(null);
-    setImagePreview(null);
-    await fetchBanners();
-    setShowModal(false);
-    resetForm();
-  } catch (error: any) {
-    console.error("Error:", error);
-    toast.error(error?.response?.data?.message || "Failed to save banner");
-  }
-};
-
+  };
 
   useEffect(() => {
     fetchBanners();
@@ -210,7 +217,12 @@ const fetchBanners = async () => {
       title: banner.title,
       imageUrl: banner.imageUrl || "",
       link: banner.link || "",
-      description: banner.description,
+      description: banner.description || "",
+      bannerType: banner.bannerType || "Homepage",
+      offerCode: banner.offerCode || "",
+      discountPercentage: banner.discountPercentage || 0,
+      offerText: banner.offerText || "",
+      buttonText: banner.buttonText || "",
       isActive: banner.isActive,
       displayOrder: banner.displayOrder,
       startDate: banner.startDate ? banner.startDate.slice(0, 16) : "",
@@ -223,25 +235,24 @@ const fetchBanners = async () => {
     setShowModal(true);
   };
 
-const handleDelete = async (id: string) => {
-  setIsDeleting(true);
-  try {
-    const response = await bannersService.delete(id);
-    if (!response.error && (response.status === 200 || response.status === 204)) {
-      toast.success("Banner deleted successfully! 🗑️");
-      await fetchBanners();
-    } else {
-      toast.error(response.error || "Failed to delete banner");
+  const handleDelete = async (id: string) => {
+    setIsDeleting(true);
+    try {
+      const response = await bannersService.delete(id);
+      if (!response.error && (response.status === 200 || response.status === 204)) {
+        toast.success("Banner deleted successfully! 🗑️");
+        await fetchBanners();
+      } else {
+        toast.error(response.error || "Failed to delete banner");
+      }
+    } catch (error: any) {
+      console.error("Error deleting banner:", error);
+      toast.error(error?.response?.data?.message || "Failed to delete banner");
+    } finally {
+      setIsDeleting(false);
+      setDeleteConfirm(null);
     }
-  } catch (error: any) {
-    console.error("Error deleting banner:", error);
-    toast.error(error?.response?.data?.message || "Failed to delete banner");
-  } finally {
-    setIsDeleting(false);
-    setDeleteConfirm(null);
-  }
-};
-
+  };
 
   const resetForm = () => {
     setFormData({
@@ -249,6 +260,11 @@ const handleDelete = async (id: string) => {
       imageUrl: "",
       link: "",
       description: "",
+      bannerType: "Homepage",
+      offerCode: "",
+      discountPercentage: 0,
+      offerText: "",
+      buttonText: "",
       isActive: true,
       displayOrder: 0,
       startDate: "",
@@ -265,11 +281,12 @@ const handleDelete = async (id: string) => {
 
   const clearFilters = () => {
     setStatusFilter("all");
+    setBannerTypeFilter("all");
     setSearchTerm("");
     setCurrentPage(1);
   };
 
-  const hasActiveFilters = statusFilter !== "all" || searchTerm.trim() !== "";
+  const hasActiveFilters = statusFilter !== "all" || bannerTypeFilter !== "all" || searchTerm.trim() !== "";
 
   const filteredBanners = banners.filter(banner => {
     const matchesSearch = banner.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -279,7 +296,9 @@ const handleDelete = async (id: string) => {
                          (statusFilter === "active" && banner.isActive) ||
                          (statusFilter === "inactive" && !banner.isActive);
 
-    return matchesSearch && matchesStatus;
+    const matchesBannerType = bannerTypeFilter === "all" || banner.bannerType === bannerTypeFilter;
+
+    return matchesSearch && matchesStatus && matchesBannerType;
   });
 
   const totalItems = filteredBanners.length;
@@ -327,7 +346,7 @@ const handleDelete = async (id: string) => {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm, statusFilter]);
+  }, [searchTerm, statusFilter, bannerTypeFilter]);
 
   if (loading) {
     return (
@@ -468,6 +487,24 @@ const handleDelete = async (id: string) => {
               <option value="inactive">Inactive</option>
             </select>
 
+            <select
+              value={bannerTypeFilter}
+              onChange={(e) => setBannerTypeFilter(e.target.value)}
+              className={`px-3 py-3 bg-slate-800/50 border rounded-xl text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all min-w-40 ${
+                bannerTypeFilter !== "all" 
+                  ? "border-violet-500 bg-violet-500/10 ring-2 ring-violet-500/50" 
+                  : "border-slate-600"
+              }`}
+            >
+              <option value="all">All Types</option>
+              <option value="Homepage">Homepage</option>
+              <option value="Offer">Offer</option>
+              <option value="Promotional">Promotional</option>
+              <option value="Category">Category</option>
+              <option value="Seasonal">Seasonal</option>
+              <option value="FlashSale">Flash Sale</option>
+            </select>
+
             {hasActiveFilters && (
               <button
                 onClick={clearFilters}
@@ -500,12 +537,12 @@ const handleDelete = async (id: string) => {
               <thead>
                 <tr className="border-b border-slate-800">
                   <th className="text-left py-3 px-4 text-slate-400 font-medium text-sm">Banner</th>
+                  <th className="text-center py-3 px-4 text-slate-400 font-medium text-sm">Type</th>
                   <th className="text-center py-3 px-4 text-slate-400 font-medium text-sm">Status</th>
                   <th className="text-center py-3 px-4 text-slate-400 font-medium text-sm">Order</th>
                   <th className="text-left py-3 px-4 text-slate-400 font-medium text-sm">Start Date</th>
                   <th className="text-left py-3 px-4 text-slate-400 font-medium text-sm">End Date</th>
                   <th className="text-left py-3 px-4 text-slate-400 font-medium text-sm">Created At</th>
-                  <th className="text-left py-3 px-4 text-slate-400 font-medium text-sm">Updated By</th>
                   <th className="text-center py-3 px-4 text-slate-400 font-medium text-sm">Actions</th>
                 </tr>
               </thead>
@@ -561,6 +598,18 @@ const handleDelete = async (id: string) => {
                       </div>
                     </td>
                     <td className="py-4 px-4 text-center">
+                      <span className={`px-2 py-1 rounded-lg text-xs font-medium ${
+                        banner.bannerType === 'Offer' ? 'bg-green-500/10 text-green-400' :
+                        banner.bannerType === 'FlashSale' ? 'bg-red-500/10 text-red-400' :
+                        banner.bannerType === 'Seasonal' ? 'bg-orange-500/10 text-orange-400' :
+                        banner.bannerType === 'Category' ? 'bg-blue-500/10 text-blue-400' :
+                        banner.bannerType === 'Promotional' ? 'bg-purple-500/10 text-purple-400' :
+                        'bg-cyan-500/10 text-cyan-400'
+                      }`}>
+                        {banner.bannerType || 'Homepage'}
+                      </span>
+                    </td>
+                    <td className="py-4 px-4 text-center">
                       <span className={`px-3 py-1 rounded-lg text-xs font-medium ${
                         banner.isActive
                           ? 'bg-green-500/10 text-green-400'
@@ -578,9 +627,6 @@ const handleDelete = async (id: string) => {
                     </td>
                     <td className="py-4 px-4 text-slate-300 text-sm">
                       {banner.createdAt ? new Date(banner.createdAt).toLocaleString() : '-'}
-                    </td>
-                    <td className="py-4 px-4 text-slate-300 text-sm">
-                      {banner.updatedBy}
                     </td>
                     <td className="py-4 px-4">
                       <div className="flex items-center justify-center gap-2">
@@ -719,6 +765,7 @@ const handleDelete = async (id: string) => {
                   <span>Basic Information</span>
                 </h3>
                 <div className="space-y-4">
+                  {/* Row 1: Title & Banner Type */}
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm font-medium text-slate-300 mb-2">Banner Title *</label>
@@ -731,6 +778,27 @@ const handleDelete = async (id: string) => {
                         className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
                       />
                     </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-slate-300 mb-2">Banner Type *</label>
+                      <select
+                        required
+                        value={formData.bannerType}
+                        onChange={(e) => setFormData({...formData, bannerType: e.target.value})}
+                        className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all"
+                      >
+                        <option value="Homepage">Homepage</option>
+                        <option value="Offer">Offer</option>
+                        <option value="Promotional">Promotional</option>
+                        <option value="Category">Category</option>
+                        <option value="Seasonal">Seasonal</option>
+                        <option value="FlashSale">Flash Sale</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* Row 2: Display Order & Link */}
+                  <div className="grid grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm font-medium text-slate-300 mb-2">Display Order</label>
                       <input
@@ -742,22 +810,85 @@ const handleDelete = async (id: string) => {
                         className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
                       />
                     </div>
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-slate-300 mb-2">Banner Link URL (Optional)</label>
-                    <input
-                      type="url"
-                      value={formData.link}
-                      onChange={(e) => setFormData({...formData, link: e.target.value})}
-                      placeholder="https://example.com/your-custom-link"
-                      className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
-                    />
-                    <p className="text-xs text-slate-500 mt-1">
-                      💡 Enter your custom link URL (independent from image)
-                    </p>
+
+                    <div>
+                      <label className="block text-sm font-medium text-slate-300 mb-2">Banner Link URL (Optional)</label>
+                      <input
+                        type="url"
+                        value={formData.link}
+                        onChange={(e) => setFormData({...formData, link: e.target.value})}
+                        placeholder="https://example.com/your-link"
+                        className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+                      />
+                    </div>
                   </div>
 
+                  {/* Conditional Fields - Offer/Promotional/FlashSale/Seasonal */}
+                  {(formData.bannerType === "Offer" || 
+                    formData.bannerType === "FlashSale" || 
+                    formData.bannerType === "Promotional" || 
+                    formData.bannerType === "Category" ||
+                    formData.bannerType === "Seasonal") && (
+                    <>
+                      {/* Row 3: Offer Code & Discount % */}
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-sm font-medium text-slate-300 mb-2">
+                            Offer Code {(formData.bannerType === "Offer" || formData.bannerType === "FlashSale") && "*"}
+                          </label>
+                          <input
+                            type="text"
+                            value={formData.offerCode}
+                            onChange={(e) => setFormData({...formData, offerCode: e.target.value})}
+                            placeholder="SUMMER2025"
+                            className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-slate-300 mb-2">
+                            Discount % {(formData.bannerType === "Offer" || formData.bannerType === "FlashSale") && "*"}
+                          </label>
+                          <input
+                            type="number"
+                            value={formData.discountPercentage || ''}
+                            onChange={(e) => setFormData({...formData, discountPercentage: Number(e.target.value)})}
+                            placeholder="20"
+                            min="0"
+                            max="100"
+                            className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Row 4: Offer Text & Button Text */}
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-sm font-medium text-slate-300 mb-2">Offer Text</label>
+                          <input
+                            type="text"
+                            value={formData.offerText}
+                            onChange={(e) => setFormData({...formData, offerText: e.target.value})}
+                            placeholder="Get 50% Off on Summer Collection!"
+                            className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-slate-300 mb-2">Button Text</label>
+                          <input
+                            type="text"
+                            value={formData.buttonText}
+                            onChange={(e) => setFormData({...formData, buttonText: e.target.value})}
+                            placeholder="Shop Now"
+                            className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all"
+                          />
+                        </div>
+                      </div>
+                    </>
+                  )}
+
+                  {/* Description */}
                   <div>
                     <ProductDescriptionEditor
                       label="Description"
@@ -776,12 +907,10 @@ const handleDelete = async (id: string) => {
                 </div>
               </div>
 
-              {/* ✅ Banner Image Section - Delete Button Removed */}
+              {/* Banner Image Section */}
               <div className="bg-slate-800/30 p-6 rounded-2xl border border-slate-700/50">
                 <h3 className="text-lg font-semibold text-white mb-3 flex items-center gap-2">
-                  <span className="w-8 h-8 rounded-lg bg-gradient-to-br from-cyan-500 to-blue-500 flex items-center justify-center text-sm">
-                    2
-                  </span>
+                  <span className="w-8 h-8 rounded-lg bg-gradient-to-br from-cyan-500 to-blue-500 flex items-center justify-center text-sm">2</span>
                   <span>Banner Image *</span>
                 </h3>
 
@@ -866,11 +995,7 @@ const handleDelete = async (id: string) => {
                                 : "text-slate-500 group-hover:text-violet-400"
                             }`}
                           />
-                          <p
-                            className={`mb-2 text-sm ${
-                              !formData.title ? "text-slate-600" : "text-slate-500"
-                            }`}
-                          >
+                          <p className={`mb-2 text-sm ${!formData.title ? "text-slate-600" : "text-slate-500"}`}>
                             {!formData.title ? (
                               "Enter title first"
                             ) : (
@@ -982,153 +1107,245 @@ const handleDelete = async (id: string) => {
         </div>
       )}
 
-      {/* View Details Modal - Delete Button Removed */}
-      {viewingBanner && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-50 flex items-center justify-center p-4">
-          <div className="bg-gradient-to-br from-slate-900 via-slate-900 to-slate-800 border border-violet-500/20 rounded-3xl max-w-4xl w-full max-h-[90vh] overflow-hidden shadow-2xl shadow-violet-500/10">
-            <div className="p-2 border-b border-violet-500/20 bg-gradient-to-r from-violet-500/10 to-cyan-500/10">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h2 className="text-2xl font-bold bg-gradient-to-r from-violet-400 via-cyan-400 to-pink-400 bg-clip-text text-transparent">
-                    Banner Details
-                  </h2>
-                  <p className="text-slate-400 text-sm mt-1">ID: {viewingBanner.id}</p>
-                </div>
-                <button
-                  onClick={() => setViewingBanner(null)}
-                  className="p-2 text-slate-400 hover:text-white hover:bg-red-600 rounded-lg transition-all"
-                >
-                  ✕
-                </button>
+{/* View Details Modal - FINAL OPTIMIZED */}
+{viewingBanner && (
+  <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-50 flex items-center justify-center p-4">
+    <div className="bg-gradient-to-br from-slate-900 via-slate-900 to-slate-800 border border-violet-500/20 rounded-3xl max-w-5xl w-full max-h-[90vh] overflow-hidden shadow-2xl shadow-violet-500/10">
+      <div className="p-4 border-b border-violet-500/20 bg-gradient-to-r from-violet-500/10 to-cyan-500/10">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-2xl font-bold bg-gradient-to-r from-violet-400 via-cyan-400 to-pink-400 bg-clip-text text-transparent">
+              Banner Details
+            </h2>
+            <p className="text-slate-300 text-xs mt-1 font-medium">ID: {viewingBanner.id}</p>
+          </div>
+          <button
+            onClick={() => setViewingBanner(null)}
+            className="p-2 text-slate-400 hover:text-white hover:bg-red-600 rounded-lg transition-all"
+          >
+            ✕
+          </button>
+        </div>
+      </div>
+      
+      <div className="p-4 overflow-y-auto max-h-[calc(90vh-180px)]">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          {/* Left Column - Basic Information */}
+          <div className="space-y-4">
+            {/* Title */}
+            <div className="bg-slate-800/30 p-4 rounded-xl border border-slate-700/50">
+              <div className="flex items-start justify-between gap-3">
+                <span className="text-sm text-slate-300 font-semibold whitespace-nowrap pt-1">Title:</span>
+                <p className="text-base font-bold text-white text-right flex-1">{viewingBanner.title || 'Untitled'}</p>
               </div>
             </div>
 
-            <div className="p-2 overflow-y-auto max-h-[calc(90vh-120px)]">
-              {viewingBanner.imageUrl && (
-                <div className="flex justify-center mb-6">
-                  <div className="relative max-w-md w-full">
-                    <div className="rounded-xl overflow-hidden border-2 border-violet-500/20 cursor-pointer hover:border-violet-500/50 transition-all">
-                      <img
-                        src={getImageUrl(viewingBanner.imageUrl)}
-                        alt={viewingBanner.title}
-                        className="w-full h-auto object-cover hover:scale-105 transition-transform"
-                        onClick={() => setSelectedImageUrl(getImageUrl(viewingBanner.imageUrl))}
-                      />
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <div className="bg-slate-800/30 p-2 rounded-xl border border-slate-700/50">
-                  <h3 className="text-lg font-bold text-white mb-3 flex items-center gap-2">
-                    <span className="w-8 h-8 rounded-lg bg-gradient-to-br from-violet-500 to-cyan-500 flex items-center justify-center text-sm">ℹ</span>
-                    Basic Information
-                  </h3>
-                  <div className="space-y-3">
-                    <div className="bg-slate-900/50 p-3 rounded-lg">
-                      <p className="text-xs text-slate-400 mb-1">Title</p>
-                      <p className="text-lg font-bold text-white">{viewingBanner.title || 'Untitled'}</p>
-                    </div>
-                    <div className="bg-slate-900/50 p-3 rounded-lg">
-                      <p className="text-xs text-slate-400 mb-1">Description</p>
-                      <div
-                        className="prose prose-invert max-w-none text-white text-sm"
-                        dangerouslySetInnerHTML={{
-                          __html: viewingBanner.description || "No description",
-                        }}
-                      />
-                    </div>
-                    <div className="bg-slate-900/50 p-3 rounded-lg">
-                      <p className="text-xs text-slate-400 mb-1">Image Path</p>
-                      <p className="text-white text-xs font-mono break-all">{viewingBanner.imageUrl || 'No image'}</p>
-                    </div>
-                    {viewingBanner.link && (
-                      <div className="bg-slate-900/50 p-3 rounded-lg">
-                        <p className="text-xs text-slate-400 mb-1">Link URL</p>
-                        <a
-                          href={viewingBanner.link}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-violet-400 hover:text-violet-300 text-xs flex items-center gap-1 break-all"
-                        >
-                          {viewingBanner.link}
-                          <ExternalLink className="h-3 w-3 flex-shrink-0" />
-                        </a>
-                      </div>
-                    )}
-                    <div className="grid grid-cols-2 gap-3">
-                      <div className="bg-slate-900/50 p-3 rounded-lg">
-                        <p className="text-xs text-slate-400 mb-1">Status</p>
-                        <span className={`px-2 py-1 rounded text-xs font-semibold ${
-                          viewingBanner.isActive ? 'bg-green-500/10 text-green-400' : 'bg-red-500/10 text-red-400'
-                        }`}>
-                          {viewingBanner.isActive ? 'Active' : 'Inactive'}
-                        </span>
-                      </div>
-                      <div className="bg-slate-900/50 p-3 rounded-lg">
-                        <p className="text-xs text-slate-400 mb-1">Display Order</p>
-                        <p className="text-white font-semibold">{viewingBanner.displayOrder || 0}</p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="bg-slate-800/30 p-2 rounded-xl border border-slate-700/50">
-                  <h3 className="text-lg font-bold text-white mb-3 flex items-center gap-2">
-                    <Calendar className="h-5 w-5 text-violet-400" />
-                    Schedule & Activity
-                  </h3>
-                  <div className="space-y-3">
-                    <div className="bg-slate-900/50 p-3 rounded-lg">
-                      <p className="text-xs text-slate-400 mb-1">Start Date</p>
-                      <p className="text-white text-sm">{viewingBanner.startDate ? new Date(viewingBanner.startDate).toLocaleString() : 'Not set'}</p>
-                    </div>
-                    <div className="bg-slate-900/50 p-3 rounded-lg">
-                      <p className="text-xs text-slate-400 mb-1">End Date</p>
-                      <p className="text-white text-sm">{viewingBanner.endDate ? new Date(viewingBanner.endDate).toLocaleString() : 'Not set'}</p>
-                    </div>
-                    <div className="bg-slate-900/50 p-3 rounded-lg">
-                      <p className="text-xs text-slate-400 mb-1">Created At</p>
-                      <p className="text-white text-sm">{viewingBanner.createdAt ? new Date(viewingBanner.createdAt).toLocaleString() : 'N/A'}</p>
-                    </div>
-                    <div className="bg-slate-900/50 p-3 rounded-lg">
-                      <p className="text-xs text-slate-400 mb-1">Updated At</p>
-                      <p className="text-white text-sm">{viewingBanner.updatedAt ? new Date(viewingBanner.updatedAt).toLocaleString() : 'Never updated'}</p>
-                    </div>
-                    <div className="bg-slate-900/50 p-3 rounded-lg">
-                      <p className="text-xs text-slate-400 mb-1">Created By</p>
-                      <p className="text-white text-sm">{viewingBanner.createdBy || 'Unknown'}</p>
-                    </div>
-                    <div className="bg-slate-900/50 p-3 rounded-lg">
-                      <p className="text-xs text-slate-400 mb-1">Updated By</p>
-                      <p className="text-white text-sm">{viewingBanner.updatedBy || 'Never updated'}</p>
-                    </div>
-                  </div>
-                </div>
+            {/* Banner Type, Status & Display Order */}
+            <div className="bg-slate-800/30 p-4 rounded-xl border border-slate-700/50 space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-slate-300 font-semibold">Banner Type:</span>
+                <span className={`inline-flex items-center px-3 py-1.5 rounded-lg text-sm font-bold ${
+                  viewingBanner.bannerType === 'Offer' ? 'bg-green-500/10 text-green-400' :
+                  viewingBanner.bannerType === 'FlashSale' ? 'bg-red-500/10 text-red-400' :
+                  viewingBanner.bannerType === 'Seasonal' ? 'bg-orange-500/10 text-orange-400' :
+                  viewingBanner.bannerType === 'Category' ? 'bg-blue-500/10 text-blue-400' :
+                  viewingBanner.bannerType === 'Promotional' ? 'bg-purple-500/10 text-purple-400' :
+                  'bg-cyan-500/10 text-cyan-400'
+                }`}>
+                  <Tag className="h-4 w-4 mr-1.5" />
+                  {viewingBanner.bannerType || 'Homepage'}
+                </span>
               </div>
 
-              <div className="flex justify-end gap-3 pt-6 border-t border-slate-700/50 mt-6">
-                <button
-                  onClick={() => {
-                    setViewingBanner(null);
-                    handleEdit(viewingBanner);
-                  }}
-                  className="px-4 py-2 bg-cyan-500 text-white rounded-lg hover:bg-cyan-600 transition-all font-medium text-sm"
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-slate-300 font-semibold">Status:</span>
+                <span className={`inline-flex px-3 py-1.5 rounded text-sm font-bold ${
+                  viewingBanner.isActive ? 'bg-green-500/10 text-green-400' : 'bg-red-500/10 text-red-400'
+                }`}>
+                  {viewingBanner.isActive ? 'Active' : 'Inactive'}
+                </span>
+              </div>
+
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-slate-300 font-semibold">Display Order:</span>
+                <span className="text-white font-bold text-lg">{viewingBanner.displayOrder || 0}</span>
+              </div>
+            </div>
+
+            {/* Description */}
+            <div className="bg-slate-800/30 p-4 rounded-xl border border-slate-700/50">
+              <p className="text-sm text-slate-300 font-semibold mb-2">Description:</p>
+              <div
+                className="prose prose-invert max-w-none text-slate-200 text-sm leading-relaxed"
+                dangerouslySetInnerHTML={{
+                  __html: viewingBanner.description || "No description",
+                }}
+              />
+            </div>
+
+            {/* Link URL */}
+            {viewingBanner.link && (
+              <div className="bg-slate-800/30 p-4 rounded-xl border border-slate-700/50">
+                <p className="text-sm text-slate-300 font-semibold mb-2">Link URL:</p>
+                <a
+                  href={viewingBanner.link}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-violet-400 hover:text-violet-300 text-sm flex items-center gap-1 break-all font-medium"
                 >
-                  Edit Banner
-                </button>
-                <button
-                  onClick={() => setViewingBanner(null)}
-                  className="px-4 py-2 bg-slate-800 text-white rounded-lg hover:bg-red-600 transition-all font-medium text-sm"
-                >
-                  Close
-                </button>
+                  {viewingBanner.link}
+                  <ExternalLink className="h-3 w-3 flex-shrink-0" />
+                </a>
+              </div>
+            )}
+
+            {/* Banner Image */}
+            {viewingBanner.imageUrl && (
+              <div className="bg-slate-800/30 p-4 rounded-xl border border-slate-700/50">
+                <p className="text-sm text-slate-300 font-semibold mb-3">Banner Image:</p>
+                <div className="rounded-lg overflow-hidden border-2 border-violet-500/20 cursor-pointer hover:border-violet-500/50 transition-all">
+                  <img
+                    src={getImageUrl(viewingBanner.imageUrl)}
+                    alt={viewingBanner.title}
+                    className="w-full h-auto object-cover hover:scale-105 transition-transform"
+                    onClick={() => setSelectedImageUrl(getImageUrl(viewingBanner.imageUrl))}
+                  />
+                </div>
+                <p className="text-[10px] text-slate-400 mt-2 font-mono break-all">
+                  {viewingBanner.imageUrl}
+                </p>
+              </div>
+            )}
+          </div>
+
+          {/* Right Column - Offer Details + Schedule */}
+          <div className="space-y-4">
+            {/* Offer Details - LARGER */}
+            {(viewingBanner.offerCode || viewingBanner.discountPercentage || viewingBanner.offerText || viewingBanner.buttonText) && (
+              <div className="bg-slate-800/30 p-5 rounded-xl border border-slate-700/50">
+                <h3 className="text-base font-bold text-white mb-4 flex items-center gap-2">
+                  <span className="text-2xl">🎁</span>
+                  Offer Details
+                </h3>
+                <div className="space-y-4">
+                  {viewingBanner.offerCode && (
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-slate-300 font-semibold">Offer Code:</span>
+                      <span className="text-white font-mono font-bold text-lg bg-gradient-to-r from-violet-400 to-cyan-400 bg-clip-text text-transparent">
+                        {viewingBanner.offerCode}
+                      </span>
+                    </div>
+                  )}
+
+                  {viewingBanner.discountPercentage && (
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-slate-300 font-semibold">Discount:</span>
+                      <span className="text-green-400 font-extrabold text-2xl">{viewingBanner.discountPercentage}% OFF</span>
+                    </div>
+                  )}
+
+                  {viewingBanner.offerText && (
+                    <div className="pt-2 border-t border-slate-700/50">
+                      <p className="text-sm text-slate-300 font-semibold mb-2">Offer Text:</p>
+                      <p className="text-slate-100 text-sm leading-relaxed">{viewingBanner.offerText}</p>
+                    </div>
+                  )}
+
+                  {viewingBanner.buttonText && (
+                    <div className="flex items-center justify-between pt-2">
+                      <span className="text-sm text-slate-300 font-semibold">Button Text:</span>
+                      <span className="text-white font-bold text-base">{viewingBanner.buttonText}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Schedule & Activity - LARGER */}
+            <div className="bg-slate-800/30 p-5 rounded-xl border border-slate-700/50">
+              <h3 className="text-base font-bold text-white mb-4 flex items-center gap-2">
+                <Calendar className="h-5 w-5 text-violet-400" />
+                Schedule & Activity
+              </h3>
+              <div className="space-y-3">
+                <div className="flex items-center justify-between py-1">
+                  <span className="text-sm text-slate-300 font-semibold">Start Date:</span>
+                  <span className="text-slate-100 text-sm font-medium">
+                    {viewingBanner.startDate ? new Date(viewingBanner.startDate).toLocaleString() : 'Not set'}
+                  </span>
+                </div>
+
+                <div className="flex items-center justify-between py-1">
+                  <span className="text-sm text-slate-300 font-semibold">End Date:</span>
+                  <span className="text-slate-100 text-sm font-medium">
+                    {viewingBanner.endDate ? new Date(viewingBanner.endDate).toLocaleString() : 'Not set'}
+                  </span>
+                </div>
+
+                <div className="border-t border-slate-700/50 my-3"></div>
+
+                <div className="flex items-center justify-between py-1">
+                  <span className="text-sm text-slate-300 font-semibold">Created At:</span>
+                  <span className="text-slate-100 text-sm font-medium">
+                    {viewingBanner.createdAt ? new Date(viewingBanner.createdAt).toLocaleString() : 'N/A'}
+                  </span>
+                </div>
+
+                <div className="flex items-center justify-between py-1">
+                  <span className="text-sm text-slate-300 font-semibold">Updated At:</span>
+                  <span className="text-slate-100 text-sm font-medium">
+                    {viewingBanner.updatedAt ? new Date(viewingBanner.updatedAt).toLocaleString() : 'Never updated'}
+                  </span>
+                </div>
+
+                <div className="border-t border-slate-700/50 my-3"></div>
+
+                <div className="py-1">
+                  <div className="flex items-start justify-between gap-2">
+                    <span className="text-sm text-slate-300 font-semibold whitespace-nowrap">Created By:</span>
+                    <span className="text-slate-100 text-sm font-medium text-right break-all">
+                      {viewingBanner.createdBy || 'Unknown'}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="py-1">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-slate-300 font-semibold">Updated By:</span>
+                    <span className="text-slate-100 text-sm font-medium">
+                      {viewingBanner.updatedBy || 'Never updated'}
+                    </span>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
         </div>
-      )}
+      </div>
+
+      {/* Footer Buttons */}
+      <div className="flex justify-end gap-3 px-6 py-4 border-t border-slate-700/50 bg-slate-900/50">
+        <button
+          onClick={() => {
+            setViewingBanner(null);
+            handleEdit(viewingBanner);
+          }}
+          className="px-6 py-3 bg-cyan-500 text-white rounded-lg hover:bg-cyan-600 transition-all font-bold text-sm flex items-center gap-2 hover:shadow-lg hover:shadow-cyan-500/40"
+        >
+          <Edit className="h-4 w-4" />
+          Edit Banner
+        </button>
+        <button
+          onClick={() => setViewingBanner(null)}
+          className="px-6 py-3 bg-slate-800 text-white rounded-lg hover:bg-slate-700 transition-all font-bold text-sm"
+        >
+          Close
+        </button>
+      </div>
+    </div>
+  </div>
+)}
+
 
       {/* Banner Delete Confirmation */}
       <ConfirmDialog
@@ -1147,10 +1364,7 @@ const handleDelete = async (id: string) => {
 
       {/* Image Preview Modal */}
       {selectedImageUrl && (
-        <div
-          className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[60] flex items-center justify-center p-4"
-          onClick={() => setSelectedImageUrl(null)}
-        >
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[60] flex items-center justify-center p-4" onClick={() => setSelectedImageUrl(null)}>
           <div className="relative max-w-6xl max-h-[90vh]">
             <img
               src={selectedImageUrl}
