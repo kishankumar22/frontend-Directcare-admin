@@ -11,14 +11,14 @@ import {
   Plus,
   Settings
 } from "lucide-react";
-import Link from "next/link";
-import { apiClient } from "../../../../lib/api"; // Import your axios client
+import Link from "next/link"
 import { ProductDescriptionEditor } from "@/app/admin/products/SelfHostedEditor";
 import { useToast } from "@/components/CustomToast";
 import  { API_BASE_URL,API_ENDPOINTS } from "@/lib/api-config";
-import { BrandApiResponse, CategoryApiResponse, CategoryData, DropdownsData, ProductAttribute, ProductImage, ProductItem, ProductsApiResponse, ProductVariant, SimpleProduct, VATRateApiResponse, VATRateData } from '@/lib/services';
+import {  BrandApiResponse, brandsService, categoriesService, CategoryApiResponse, CategoryData, DropdownsData, ProductAttribute, ProductImage, ProductItem, ProductsApiResponse, productsService, ProductVariant, SimpleProduct,  VATRateData } from '@/lib/services';
 import { GroupedProductModal } from '../GroupedProductModal';
 import { MultiBrandSelector } from "../MultiBrandSelector";
+import { VATRateApiResponse, vatratesService } from "@/lib/services/vatrates";
 
 
 
@@ -57,59 +57,75 @@ useEffect(() => {
     try {
       console.log('🔄 Fetching all data (dropdowns + products)...');
       
-      // ✅ ADD simpleProductsResponse to Promise.all
-      const [brandsResponse, categoriesResponse, productsResponse, vatRatesResponse, simpleProductsResponse] = await Promise.all([
-        apiClient.get<BrandApiResponse>(`${API_ENDPOINTS.brands}?includeUnpublished=false`),
-        apiClient.get<CategoryApiResponse>(`${API_ENDPOINTS.categories}?includeInactive=true&includeSubCategories=true`),
-        apiClient.get<ProductsApiResponse>(`${API_ENDPOINTS.products}`),
-        apiClient.get<VATRateApiResponse>(API_ENDPOINTS.vatrates),
-        apiClient.get(`${API_ENDPOINTS.products}/simple`)  // ✅ ADD THIS LINE
+      const [
+        brandsResponse, 
+        categoriesResponse, 
+        vatRatesResponse,
+        allProductsResponse,
+        simpleProductsResponse
+      ] = await Promise.all([
+        // Direct API calls (unchanged)
+        brandsService.getAll({ includeInactive: true }),
+        categoriesService.getAll({ includeInactive: true, includeSubCategories: true }),
+        vatratesService.getAll(),
+        
+        // ✅ SERVICE-BASED (changed)
+        productsService.getAll({ pageSize: 100 }),
+        productsService.getAll({ productType: 'simple', pageSize: 100 })
       ]);
 
-      // Extract dropdown data
+      console.log('✅ All data fetched');
+
+      // ==================== DROPDOWNS (unchanged) ====================
       const brandsData = (brandsResponse.data as BrandApiResponse)?.data || [];
       const categoriesData = (categoriesResponse.data as CategoryApiResponse)?.data || [];
       const vatRatesData = (vatRatesResponse.data as VATRateApiResponse)?.data || [];
 
-      // Set dropdown data
       setDropdownsData({
         brands: brandsData,
         categories: categoriesData,
         vatRates: vatRatesData
       });
 
-      // ✅ ADD: Process Simple Products
-      if (simpleProductsResponse.data && !simpleProductsResponse.error) {
-        const simpleApiResponse = simpleProductsResponse.data as any;
-        if (simpleApiResponse.success && Array.isArray(simpleApiResponse.data)) {
-          const simpleProductsList = simpleApiResponse.data.map((p: any) => ({
-            id: p.id,
-            name: p.name,
-            sku: p.sku,
-            price: p.price || 0,
-            stockQuantity: p.stockQuantity || 0
-          }));
-          setSimpleProducts(simpleProductsList);
-          console.log('✅ Loaded simple products:', simpleProductsList.length);
-        }
+      console.log('📊 Dropdowns:', {
+        brands: brandsData.length,
+        categories: categoriesData.length,
+        vat: vatRatesData.length
+      });
+
+      // ==================== SIMPLE PRODUCTS (service-based) ====================
+      const extractProducts = (response: any): any[] => {
+        const data = response?.data?.data || response?.data || {};
+        return data.items || (Array.isArray(data) ? data : []);
+      };
+
+      const simpleItems = extractProducts(simpleProductsResponse);
+      if (simpleItems.length > 0) {
+        setSimpleProducts(simpleItems.map((p: any) => ({
+          id: p.id,
+          name: p.name,
+          sku: p.sku,
+          price: p.price || 0,
+          stockQuantity: p.stockQuantity || 0
+        })));
+        console.log('✅ Simple products:', simpleItems.length);
       }
 
-      // Process Available Products for Related/Cross-sell
-      if (productsResponse.data && !productsResponse.error) {
-        const apiResponse = productsResponse.data as ProductsApiResponse;
-        if (apiResponse.success && apiResponse.data.items) {
-          const transformedProducts = apiResponse.data.items.map(product => ({
-            id: product.id,
-            name: product.name,
-            sku: product.sku,
-            price: `₹${product.price.toFixed(2)}`
-          }));
-          setAvailableProducts(transformedProducts);
-        }
+      // ==================== ALL PRODUCTS (service-based) ====================
+      const allItems = extractProducts(allProductsResponse);
+      if (allItems.length > 0) {
+        setAvailableProducts(allItems.map((p: any) => ({
+          id: p.id,
+          name: p.name,
+          sku: p.sku,
+          price: `₹${(p.price || 0).toFixed(2)}`
+        })));
+        console.log('✅ Available products:', allItems.length);
       }
 
     } catch (error) {
       console.error('❌ Error fetching data:', error);
+      toast.error('Failed to load data');
       setAvailableProducts([]);
     }
   };
@@ -151,6 +167,14 @@ useEffect(() => {
   // ===== RELATED PRODUCTS =====
   relatedProducts: [] as string[],
   crossSellProducts: [] as string[],
+    // ✅ ADD THESE NEW BUNDLE DISCOUNT FIELDS
+  groupBundleDiscountType: 'None' as 'None' | 'Percentage' | 'FixedAmount' | 'SpecialPrice',
+  groupBundleDiscountPercentage: 0,
+  groupBundleDiscountAmount: 0,
+  groupBundleSpecialPrice: 0,
+  groupBundleSavingsMessage: '',
+  showIndividualPrices: true,
+  applyDiscountToAllItems: false,
 
   // ===== MEDIA =====
   productImages: [] as ProductImage[],
@@ -305,104 +329,6 @@ const filteredVATRates = dropdownsData.vatRates.filter(vat =>
       relatedProducts: formData.relatedProducts.filter(id => id !== productId)
     });
   };
-// Updated helper function to render hierarchical category options
-const renderCategoryOptions = (categories: CategoryData[]): JSX.Element[] => {
-  const options: JSX.Element[] = [];
-  
-  // Add "All" option first
-  options.push(
-    <option 
-      key="all" 
-      value=""
-      data-category-name="All"
-      className="bg-slate-700 text-slate-300"
-      style={{ 
-        backgroundColor: '#374151',
-        color: '#d1d5db',
-        paddingLeft: '8px'
-      }}
-    >
-      All
-    </option>
-  );
-  
-  // Recursive function to render categories and all their subcategories
-  const renderCategory = (
-    category: CategoryData, 
-    level: number = 0, 
-    parentPath: string = "",
-    parentNames: string[] = []
-  ) => {
-    // Build the display text with progressive separators
-    let displayText = category.name;
-    
-    if (level === 1) {
-      // Level 2: Single arrow (>)
-      displayText = `${parentNames[0]} > ${category.name}`;
-    } else if (level === 2) {
-      // Level 3: First single, then double arrow (> >>)
-      displayText = `${parentNames[0]} > ${parentNames[1]} >> ${category.name}`;
-    }
-    
-    // Visual indicators based on level
-    const indent = level * 8; // 8px per level
-    
-    // Style based on level
-    let bgColor = '#374151'; // Level 1 (slate-700)
-    let textColor = '#c4b5fd'; // violet-300
-    let fontWeight = 'bold';
-    
-    if (level === 1) {
-      bgColor = '#4b5563'; // Level 2 (slate-600)
-      textColor = '#93c5fd'; // cyan-300
-      fontWeight = 'normal';
-    } else if (level === 2) {
-      bgColor = '#525761'; // Level 3 (slate-500)
-      textColor = '#86efac'; // green-300
-      fontWeight = 'normal';
-    }
-    
-    // Add current category
-    options.push(
-      <option 
-        key={category.id} 
-        value={category.id}
-        data-category-name={displayText}
-        data-category-level={level + 1}
-        data-parent-path={parentPath}
-        className={`bg-slate-${700 - level * 100} text-slate-300`}
-        style={{ 
-          fontWeight: level === 0 ? 'bold' : 'normal',
-          backgroundColor: bgColor,
-          color: textColor,
-          paddingLeft: `${8 + indent}px`,
-          fontStyle: level > 0 ? 'italic' : 'normal'
-        }}
-      >
-        {displayText}
-      </option>
-    );
-    
-    // Recursively add subcategories
-    if (category.subCategories && category.subCategories.length > 0) {
-      category.subCategories.forEach((subCategory) => {
-        renderCategory(
-          subCategory, 
-          level + 1, 
-          displayText,
-          [...parentNames, category.name]
-        );
-      });
-    }
-  };
-  
-  // Render all root categories
-  categories.forEach((category) => {
-    renderCategory(category, 0, "", []);
-  });
-  
-  return options;
-};
 
 // Flatten categories for search
 const flattenCategories = (categories: CategoryData[]): Array<{
@@ -488,6 +414,104 @@ useEffect(() => {
   return () => document.removeEventListener('mousedown', handleClickOutside);
 }, []);
 
+// ==================== SKU VALIDATION (COMPLETE - SERVICE-BASED) ====================
+const [skuError, setSkuError] = useState<string>('');
+const [checkingSku, setCheckingSku] = useState<boolean>(false);
+
+const checkSkuExists = async (sku: string): Promise<boolean> => {
+  // Validation
+  if (!sku || sku.length < 2) {
+    setSkuError('');
+    return false;
+  }
+
+  setCheckingSku(true);
+
+  try {
+    console.log('🔍 Checking SKU:', sku);
+
+    // ✅ USE SERVICE with search filter
+    const response = await productsService.getAll({ 
+      search: sku,
+      pageSize: 100 // Get enough results
+    });
+
+    console.log('📥 Response:', response);
+
+    // ✅ SAFE DATA EXTRACTION
+    let products: any[] = [];
+
+    try {
+      // Try different response structures
+      if (response.data) {
+        // Structure 1: response.data.data.items (most common)
+        if (typeof response.data === 'object' && 'data' in response.data) {
+          const nestedData = (response.data as any).data;
+          if (nestedData && typeof nestedData === 'object') {
+            if ('items' in nestedData && Array.isArray(nestedData.items)) {
+              products = nestedData.items;
+            } else if (Array.isArray(nestedData)) {
+              products = nestedData;
+            }
+          }
+        }
+        // Structure 2: response.data (direct array)
+        else if (Array.isArray(response.data)) {
+          products = response.data;
+        }
+      }
+    } catch (parseError) {
+      console.error('❌ Error parsing products:', parseError);
+      products = [];
+    }
+
+    console.log('📦 Found products:', products.length);
+
+    // ✅ SAFE SKU CHECK
+    const exists = products.some((p: any) => {
+      if (!p || typeof p !== 'object' || !p.sku) return false;
+      return p.sku.toLowerCase() === sku.toLowerCase();
+    });
+
+    if (exists) {
+      setSkuError('⚠️ SKU already exists');
+      console.warn('❌ SKU conflict:', sku);
+      return true;
+    } else {
+      setSkuError('');
+      console.log('✅ SKU available:', sku);
+      return false;
+    }
+  } catch (error: any) {
+    console.error('❌ SKU check error:', error);
+    
+    // Don't show error to user, just log it
+    setSkuError('');
+    
+    // On error, allow submission (don't block user)
+    return false;
+  } finally {
+    setCheckingSku(false);
+  }
+};
+
+// ==================== DEBOUNCED SKU CHECK ====================
+useEffect(() => {
+  const timer = setTimeout(() => {
+    if (formData.sku && formData.sku.length >= 2) {
+      checkSkuExists(formData.sku);
+    } else {
+      setSkuError('');
+      setCheckingSku(false);
+    }
+  }, 800); // Check after 800ms of typing
+
+  return () => {
+    clearTimeout(timer);
+  };
+}, [formData.sku]);
+
+
 const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
   e.preventDefault();
 
@@ -502,13 +526,14 @@ const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
     console.log('🚀 ==================== PRODUCT SUBMISSION START ====================');
     console.log('📋 Form Mode:', isDraft ? 'DRAFT' : 'PUBLISH');
 
-    // ✅ Basic Validation
+    // ✅ 1. BASIC VALIDATION
     if (!formData.name || !formData.sku) {
       toast.warning('⚠️ Please fill in required fields: Product Name and SKU');
       target.removeAttribute('data-submitting');
       return;
     }
 
+    // ✅ 2. NAME VALIDATION
     const nameRegex = /^[A-Za-z0-9\s\-.,()'/]+$/;
     if (!nameRegex.test(formData.name)) {
       toast.error("⚠️ Invalid product name. Special characters like @, #, $, % are not allowed.");
@@ -516,7 +541,38 @@ const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
       return;
     }
 
-    // ✅ Grouped Product Validation
+    // ✅ 3. SKU VALIDATION
+    if (formData.sku.length < 2) {
+      toast.error('⚠️ SKU must be at least 2 characters long.');
+      target.removeAttribute('data-submitting');
+      return;
+    }
+    
+    const skuExists = await checkSkuExists(formData.sku);
+    if (skuExists) {
+      toast.error('❌ SKU already exists. Please use a unique SKU.');
+      target.removeAttribute('data-submitting');
+      return;
+    }
+
+    // ✅ 4. PRICE VALIDATION
+    if (formData.price && parseFloat(formData.price.toString()) < 0) {
+      toast.error('⚠️ Price cannot be negative.');
+      target.removeAttribute('data-submitting');
+      return;
+    }
+
+    // ✅ 5. STOCK VALIDATION
+    if (formData.manageInventory === 'track') {
+      const stock = parseInt(formData.stockQuantity.toString());
+      if (isNaN(stock) || stock < 0) {
+        toast.error('⚠️ Stock quantity must be a valid non-negative number.');
+        target.removeAttribute('data-submitting');
+        return;
+      }
+    }
+
+    // ✅ 6. GROUPED PRODUCT VALIDATION
     if (formData.productType === 'grouped' && formData.requireOtherProducts) {
       if (!formData.requiredProductIds || formData.requiredProductIds.trim() === '') {
         toast.error('⚠️ Please select at least one product for grouped product.');
@@ -525,9 +581,51 @@ const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
       }
     }
 
+    // ✅ 7. BUNDLE DISCOUNT VALIDATION
+    if (formData.productType === 'grouped' && formData.groupBundleDiscountType !== 'None') {
+      if (formData.groupBundleDiscountType === 'Percentage') {
+        const percentage = formData.groupBundleDiscountPercentage;
+        if (percentage < 0 || percentage > 100) {
+          toast.error('❌ Discount percentage must be between 0 and 100');
+          target.removeAttribute('data-submitting');
+          return;
+        }
+      }
+      
+      if (formData.groupBundleDiscountType === 'FixedAmount') {
+        const amount = formData.groupBundleDiscountAmount;
+        if (amount < 0) {
+          toast.error('❌ Discount amount cannot be negative');
+          target.removeAttribute('data-submitting');
+          return;
+        }
+      }
+      
+      if (formData.groupBundleDiscountType === 'SpecialPrice') {
+        const specialPrice = formData.groupBundleSpecialPrice;
+        if (specialPrice < 0) {
+          toast.error('❌ Special price cannot be negative');
+          target.removeAttribute('data-submitting');
+          return;
+        }
+      }
+    }
+
+    // ✅ 8. VARIANT VALIDATION
+    if (productVariants.length > 0) {
+      const invalidVariants = productVariants.filter(v => 
+        !v.name || !v.sku || !v.price || parseFloat(v.price.toString()) < 0
+      );
+      
+      if (invalidVariants.length > 0) {
+        toast.error('⚠️ All variants must have name, SKU, and valid price.');
+        target.removeAttribute('data-submitting');
+        return;
+      }
+    }
+
     const loadingId = toast.info(
       isDraft ? '💾 Saving as draft...' : '🔄 Creating product...', 
-  
     );
 
     // ✅ GUID validation
@@ -614,7 +712,7 @@ const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
 
     console.log('🎨 Variants count:', variantsArray.length);
 
-    // ✅ COMPLETE PRODUCT DATA WITH BRANDS
+    // ✅ COMPLETE PRODUCT DATA WITH BRANDS AND BUNDLE DISCOUNT
     const productData: any = {
       // Basic Info
       name: formData.name.trim(),
@@ -629,7 +727,7 @@ const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
       visibleIndividually: formData.visibleIndividually ?? true,
       showOnHomepage: formData.showOnHomepage ?? false,
 
-      // Product Type & Grouped Product Configuration
+      // ✅ Product Type & Grouped Product Configuration
       productType: formData.productType || 'simple',
       requireOtherProducts: formData.productType === 'grouped' ? formData.requireOtherProducts : false,
       requiredProductIds: formData.productType === 'grouped' && formData.requireOtherProducts && formData.requiredProductIds?.trim()
@@ -637,6 +735,35 @@ const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
         : null,
       automaticallyAddProducts: formData.productType === 'grouped' && formData.requireOtherProducts 
         ? formData.automaticallyAddProducts 
+        : false,
+
+      // ✅ BUNDLE DISCOUNT FIELDS (NEW)
+      groupBundleDiscountType: formData.productType === 'grouped' 
+        ? formData.groupBundleDiscountType 
+        : 'None',
+      
+      groupBundleDiscountPercentage: formData.productType === 'grouped' && formData.groupBundleDiscountType === 'Percentage'
+        ? formData.groupBundleDiscountPercentage
+        : null,
+      
+      groupBundleDiscountAmount: formData.productType === 'grouped' && formData.groupBundleDiscountType === 'FixedAmount'
+        ? formData.groupBundleDiscountAmount
+        : null,
+      
+      groupBundleSpecialPrice: formData.productType === 'grouped' && formData.groupBundleDiscountType === 'SpecialPrice'
+        ? formData.groupBundleSpecialPrice
+        : null,
+      
+      groupBundleSavingsMessage: formData.productType === 'grouped' && formData.groupBundleDiscountType !== 'None'
+        ? formData.groupBundleSavingsMessage?.trim() || null
+        : null,
+      
+      showIndividualPrices: formData.productType === 'grouped' 
+        ? formData.showIndividualPrices 
+        : true,
+      
+      applyDiscountToAllItems: formData.productType === 'grouped' && formData.groupBundleDiscountType !== 'None'
+        ? formData.applyDiscountToAllItems 
         : false,
 
       // Pricing
@@ -690,20 +817,109 @@ const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
     if (formData.gtin?.trim()) productData.gtin = formData.gtin.trim();
     if (formData.manufacturerPartNumber?.trim()) productData.manufacturerPartNumber = formData.manufacturerPartNumber.trim();
     if (formData.adminComment?.trim()) productData.adminComment = formData.adminComment.trim();
+    if (formData.gender?.trim()) productData.gender = formData.gender.trim();
 
     // Pricing - Optional
     if (formData.oldPrice) productData.oldPrice = parseFloat(formData.oldPrice.toString());
     if (formData.oldPrice) productData.compareAtPrice = parseFloat(formData.oldPrice.toString());
     if (formData.cost) productData.costPrice = parseFloat(formData.cost.toString());
 
-    // Shipping
-    if (formData.isShipEnabled) productData.requiresShipping = true;
+    // Buttons
+    if (formData.disableBuyButton) productData.disableBuyButton = true;
+    if (formData.disableWishlistButton) productData.disableWishlistButton = true;
 
-    if (formData.shipSeparately) productData.shipSeparately = true;
-    if (formData.weight) productData.weight = parseFloat(formData.weight.toString());
-    if (formData.length) productData.length = parseFloat(formData.length.toString());
-    if (formData.width) productData.width = parseFloat(formData.width.toString());
-    if (formData.height) productData.height = parseFloat(formData.height.toString());
+    // Base Price
+    if (formData.basepriceEnabled) {
+      productData.basepriceEnabled = true;
+      if (formData.basepriceAmount) productData.basepriceAmount = parseFloat(formData.basepriceAmount.toString());
+      if (formData.basepriceUnit) productData.basepriceUnit = formData.basepriceUnit;
+      if (formData.basepriceBaseAmount) productData.basepriceBaseAmount = parseFloat(formData.basepriceBaseAmount.toString());
+      if (formData.basepriceBaseUnit) productData.basepriceBaseUnit = formData.basepriceBaseUnit;
+    }
+
+    // Mark as New
+    if (formData.markAsNew) {
+      productData.markAsNew = true;
+      if (formData.markAsNewStartDate) productData.markAsNewStartDate = formData.markAsNewStartDate;
+      if (formData.markAsNewEndDate) productData.markAsNewEndDate = formData.markAsNewEndDate;
+    }
+
+    // Pre-order
+    if (formData.availableForPreOrder) {
+      productData.availableForPreOrder = true;
+      if (formData.preOrderAvailabilityStartDate) {
+        productData.preOrderAvailabilityStartDate = formData.preOrderAvailabilityStartDate;
+      }
+    }
+
+    // Availability Dates
+    if (formData.availableStartDate) productData.availableStartDate = formData.availableStartDate;
+    if (formData.availableEndDate) productData.availableEndDate = formData.availableEndDate;
+
+    // VAT
+    if (formData.vatExempt) productData.vatExempt = true;
+    if (formData.vatRateId) productData.vatRateId = formData.vatRateId;
+
+    // Shipping
+    if (formData.isShipEnabled) {
+      productData.requiresShipping = true;
+      if (formData.shipSeparately) productData.shipSeparately = true;
+      if (formData.weight) productData.weight = parseFloat(formData.weight.toString());
+      if (formData.length) productData.length = parseFloat(formData.length.toString());
+      if (formData.width) productData.width = parseFloat(formData.width.toString());
+      if (formData.height) productData.height = parseFloat(formData.height.toString());
+    }
+
+    // Pack Product
+    if (formData.isPack) {
+      productData.isPack = true;
+      if (formData.packSize) productData.packSize = parseInt(formData.packSize.toString());
+    }
+
+    // Recurring/Subscription
+    if (formData.isRecurring) {
+      productData.isRecurring = true;
+      if (formData.recurringCycleLength) productData.recurringCycleLength = parseInt(formData.recurringCycleLength.toString());
+      if (formData.recurringCyclePeriod) productData.recurringCyclePeriod = formData.recurringCyclePeriod;
+      if (formData.recurringTotalCycles) productData.recurringTotalCycles = parseInt(formData.recurringTotalCycles.toString());
+      if (formData.subscriptionDiscountPercentage) productData.subscriptionDiscountPercentage = parseFloat(formData.subscriptionDiscountPercentage.toString());
+      if (formData.allowedSubscriptionFrequencies) productData.allowedSubscriptionFrequencies = formData.allowedSubscriptionFrequencies;
+      if (formData.subscriptionDescription) productData.subscriptionDescription = formData.subscriptionDescription;
+    }
+
+    // Rental
+    if (formData.isRental) {
+      productData.isRental = true;
+      if (formData.rentalPriceLength) productData.rentalPriceLength = parseInt(formData.rentalPriceLength.toString());
+      if (formData.rentalPricePeriod) productData.rentalPricePeriod = formData.rentalPricePeriod;
+    }
+
+    // Gift Card
+    if (formData.isGiftCard) {
+      productData.isGiftCard = true;
+      if (formData.giftCardType) productData.giftCardType = formData.giftCardType;
+      if (formData.overriddenGiftCardAmount) productData.overriddenGiftCardAmount = parseFloat(formData.overriddenGiftCardAmount.toString());
+    }
+
+    // Downloadable
+    if (formData.isDownload) {
+      productData.isDownload = true;
+      if (formData.downloadId) productData.downloadId = formData.downloadId;
+      productData.unlimitedDownloads = formData.unlimitedDownloads;
+      if (!formData.unlimitedDownloads && formData.maxNumberOfDownloads) {
+        productData.maxNumberOfDownloads = parseInt(formData.maxNumberOfDownloads.toString());
+      }
+      if (formData.downloadExpirationDays) productData.downloadExpirationDays = parseInt(formData.downloadExpirationDays.toString());
+      if (formData.downloadActivationType) productData.downloadActivationType = formData.downloadActivationType;
+      if (formData.hasUserAgreement) {
+        productData.hasUserAgreement = true;
+        if (formData.userAgreementText) productData.userAgreementText = formData.userAgreementText;
+      }
+      if (formData.hasSampleDownload && formData.sampleDownloadId) {
+        productData.hasSampleDownload = true;
+        productData.sampleDownloadId = formData.sampleDownloadId;
+      }
+    }
 
     // SEO
     if (formData.metaTitle?.trim()) productData.metaTitle = formData.metaTitle.trim();
@@ -724,6 +940,11 @@ const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
     // Tags
     if (formData.productTags?.trim()) productData.tags = formData.productTags.trim();
 
+    // Videos
+    if (Array.isArray(formData.videoUrls) && formData.videoUrls.length > 0) {
+      productData.videoUrls = formData.videoUrls.join(',');
+    }
+
     // Reviews
     if (formData.allowCustomerReviews) productData.allowCustomerReviews = true;
 
@@ -732,51 +953,42 @@ const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
     console.log('🏷️ brandId (primary):', productData.brandId);
     console.log('🏷️ brandIds (array):', productData.brandIds);
     console.log('🏷️ brands (objects):', productData.brands);
+    console.log('🎁 Bundle Discount:', {
+      type: productData.groupBundleDiscountType,
+      percentage: productData.groupBundleDiscountPercentage,
+      amount: productData.groupBundleDiscountAmount,
+      specialPrice: productData.groupBundleSpecialPrice
+    });
     console.log('📦 ==================== END PAYLOAD ====================');
-
-    // ✅ Create Product with endpoint fallback
-    let response: any = undefined;
-    const endpoints = ['/api/Products', '/Products', '/api/Product'];
+    // ==================== EXTRACT PRODUCT ID (FIXED) ====================
+    console.log('🚀 Creating product using service...');
     
-    for (const endpoint of endpoints) {
-      try {
-        console.log(`🔄 Trying POST ${endpoint}...`);
-        response = await apiClient.post(endpoint, productData);
-        console.log(`✅ Success with ${endpoint}`);
-        console.log('📥 Response:', response.data);
-        break;
-      } catch (error: any) {
-        console.log(`❌ Failed with ${endpoint}:`, error.response?.status, error.response?.data);
-        if (endpoints.indexOf(endpoint) === endpoints.length - 1) {
-          throw error;
-        }
-      }
-    }
+    const response = await productsService.create(productData);
+
+    console.log('✅ Product created successfully');
+    console.log('📥 Response:', response);
 
     toast.dismiss(loadingId);
 
-    // ✅ Extract Product ID from response
-    let productId: string | null = null;
+    // ✅ TYPE-SAFE PRODUCT ID EXTRACTION
+    const productId: string | null = 
+      (response.data as any)?.data?.id ||   // Standard: response.data.data.id
+      (response.data as any)?.id ||         // Alternative: response.data.id  
+      (response as any)?.id ||              // Fallback: response.id
+      null;
 
-    if (response) {
-      if (response.data?.data?.id) {
-        productId = response.data.data.id;
-      } else if (response.data?.id) {
-        productId = response.data.id;
-      } else if (response.id) {
-        productId = response.id;
-      }
-    }
-
-    console.log('🆔 Final Product ID:', productId);
+    console.log('🆔 Extracted Product ID:', productId);
 
     if (!productId) {
+      console.error('❌ Failed to extract product ID from response');
       toast.error('❌ Product created but ID not found. Cannot upload images.');
       router.push('/admin/products');
       return;
     }
 
-    // ✅ Upload Product Images
+    console.log('✅ Product ID confirmed:', productId);
+
+    // ==================== UPLOAD PRODUCT IMAGES (SERVICE-BASED) ====================
     if (formData.productImages && formData.productImages.length > 0) {
       const imagesToUpload = formData.productImages.filter(img => img.file);
       
@@ -787,16 +999,16 @@ const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
           const uploadedImages = await uploadImagesToProduct(productId, imagesToUpload);
           
           if (uploadedImages && uploadedImages.length > 0) {
-            console.log('✅ Product images uploaded:', uploadedImages);
+            console.log('✅ Product images uploaded:', uploadedImages.length);
           }
         } catch (imageError) {
           console.error('❌ Error uploading product images:', imageError);
-          toast.warning('⚠️ Product created but images failed to upload.');
+          toast.warning('⚠️ Product created but some images failed to upload.');
         }
       }
     }
 
-    // ✅ Upload Variant Images
+    // ==================== UPLOAD VARIANT IMAGES (SERVICE-BASED) ====================
     if (productVariants.length > 0) {
       const variantsWithImages = productVariants.filter(v => v.imageFile);
       
@@ -804,7 +1016,16 @@ const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
         console.log(`🖼️ Uploading ${variantsWithImages.length} variant images...`);
         
         try {
-          await uploadVariantImages(response.data?.data || response.data);
+          // Extract created variants from response
+          const createdVariants = (response.data as any)?.data?.variants || 
+                                 (response.data as any)?.variants ||
+                                 [];
+          
+          if (createdVariants.length > 0) {
+            await uploadVariantImages({ variants: createdVariants });
+          } else {
+            console.warn('⚠️ No variants found in response');
+          }
         } catch (variantError) {
           console.error('❌ Error uploading variant images:', variantError);
           toast.warning('⚠️ Some variant images failed to upload.');
@@ -881,6 +1102,7 @@ const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
     target.removeAttribute('data-submitting');
   }
 };
+
 
 
 
@@ -1259,6 +1481,7 @@ const handleGroupedProductsChange = (selectedOptions: any) => {
       attr.id === id ? { ...attr, [field]: value } : attr
     ));
   };
+ 
 
   // Product Variant handlers (matching backend ProductVariantCreateDto)
 // ✅ STEP 2: Replace existing addProductVariant function
@@ -1421,26 +1644,20 @@ const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
 };
 
 
-// ✅ FIXED: Complete function based on API response
-const uploadImagesToProduct = async (
-  productId: string,
-  images: ProductImage[]
-) => {
+// ==================== UPLOAD IMAGES TO PRODUCT (SERVICE-BASED) ====================
+const uploadImagesToProduct = async (productId: string, images: ProductImage[]) => {
   console.log(`📤 Uploading ${images.length} images to product ${productId}...`);
 
   try {
-    /* =======================
-       BASIC VALIDATIONS
-    ======================= */
-
+    // BASIC VALIDATIONS
     if (!productId) {
-      toast.error('❌ Invalid product ID');
-      return [];
+      toast.error('Invalid product ID');
+      return;
     }
 
     if (!Array.isArray(images) || images.length === 0) {
-      toast.warning('⚠️ No images selected');
-      return [];
+      toast.warning('No images selected');
+      return;
     }
 
     const MAX_IMAGES = 10;
@@ -1455,21 +1672,21 @@ const uploadImagesToProduct = async (
 
       const file = image.file;
 
-      // ✅ File type validation
+      // File type validation
       if (!ALLOWED_TYPES.includes(file.type)) {
-        toast.warning(`⚠️ ${file.name} format not supported`);
+        toast.warning(`${file.name}: format not supported`);
         return;
       }
 
-      // ✅ File size validation
+      // File size validation
       if (file.size > MAX_FILE_SIZE) {
-        toast.warning(`⚠️ ${file.name} exceeds 5MB`);
+        toast.warning(`${file.name}: exceeds 5MB`);
         return;
       }
 
-      // ✅ Max image limit
+      // Max image limit
       if (validImageCount >= MAX_IMAGES) {
-        toast.warning(`⚠️ Maximum ${MAX_IMAGES} images allowed`);
+        toast.warning(`Maximum ${MAX_IMAGES} images allowed`);
         return;
       }
 
@@ -1478,69 +1695,23 @@ const uploadImagesToProduct = async (
     });
 
     if (validImageCount === 0) {
-      toast.warning('⚠️ No valid images to upload');
-      return [];
+      toast.warning('No valid images to upload');
+      return;
     }
 
-    console.log(`📷 Uploading ${validImageCount} images in batch...`);
+    console.log(`✅ Uploading ${validImageCount} images in batch...`);
 
-    /* =======================
-       AUTH VALIDATION
-    ======================= */
+    // ✅ USE SERVICE
+    const response = await productsService.addImages(productId, uploadFormData);
 
-    const token = localStorage.getItem('authToken');
+    console.log('📥 Upload response:', response);
 
-    if (!token) {
-      toast.error('❌ Authentication required');
-      return [];
+    if (!response?.data?.success || !Array.isArray(response.data.data)) {
+      throw new Error(response?.data?.message || 'Invalid server response');
     }
 
-    /* =======================
-       API REQUEST
-    ======================= */
-
-    const uploadResponse = await fetch(
-      `${API_BASE_URL}/api/Products/${productId}/images`,
-      {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          // ❌ Do NOT set Content-Type manually
-        },
-        body: uploadFormData,
-      }
-    );
-
-    console.log(`📡 Upload response status: ${uploadResponse.status}`);
-
-    /* =======================
-       RESPONSE HANDLING
-    ======================= */
-
-    if (!uploadResponse.ok) {
-      let errorMessage = `Upload failed (HTTP ${uploadResponse.status})`;
-
-      try {
-        const errorJson = await uploadResponse.json();
-        errorMessage = errorJson.message || errorMessage;
-      } catch {
-        const errorText = await uploadResponse.text();
-        if (errorText) errorMessage = errorText.substring(0, 200);
-      }
-
-      throw new Error(errorMessage);
-    }
-
-    const result = await uploadResponse.json();
-    console.log('✅ Upload response:', result);
-
-    if (!result?.success || !Array.isArray(result.data)) {
-      throw new Error(result?.message || 'Invalid server response');
-    }
-
-    toast.success(`✅ ${result.data.length} image(s) uploaded successfully`);
-    return result.data;
-
+    toast.success(`${response.data.data.length} images uploaded successfully`);
+    return response.data.data;
   } catch (error: any) {
     console.error('❌ Error in uploadImagesToProduct:', error);
     toast.error(`Failed to upload images: ${error.message}`);
@@ -1552,134 +1723,97 @@ const uploadImagesToProduct = async (
 
 
 
-// ✅ NEW: Function to upload variant images after product is created
+// ==================== UPLOAD VARIANT IMAGES (SERVICE-BASED) ====================
 const uploadVariantImages = async (productResponse: any) => {
-  console.log('🖼️ Checking for variant images to upload...');
+  console.log('📤 Checking for variant images to upload...');
 
   try {
-    /* =======================
-       BASIC VALIDATIONS
-    ======================= */
-
+    // BASIC VALIDATIONS
     const createdVariants = productResponse?.variants;
 
     if (!Array.isArray(createdVariants) || createdVariants.length === 0) {
-      console.log('⚠️ No variants found in product response');
+      console.log('ℹ️ No variants found in product response');
       return;
     }
 
     if (!Array.isArray(productVariants) || productVariants.length === 0) {
-      console.log('⚠️ No local variants available');
-      return;
-    }
-
-    const token = localStorage.getItem('authToken');
-    if (!token) {
-      toast.error('❌ Authentication required');
+      console.log('ℹ️ No local variants available');
       return;
     }
 
     const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
     const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 
-    console.log(`Found ${createdVariants.length} variants in response`);
+    console.log(`✅ Found ${createdVariants.length} variants in response`);
 
-    /* =======================
-       UPLOAD PROCESS
-    ======================= */
-
+    // UPLOAD PROCESS
     const uploadPromises = productVariants.map(async (localVariant) => {
       if (!localVariant) return null;
 
-      // 🔍 Match created variant
+      // Match created variant
       const createdVariant = createdVariants.find(
-        (cv: any) =>
-          cv.sku === localVariant.sku ||
-          cv.name === localVariant.name
+        (cv: any) => cv.sku === localVariant.sku || cv.name === localVariant.name
       );
 
       if (!createdVariant?.id) {
-        console.warn(`⚠️ Variant not matched: ${localVariant.name}`);
+        console.warn('⚠️ Variant not matched:', localVariant.name);
         return null;
       }
 
-      // 📁 Image validation
+      // Image validation
       const file = localVariant.imageFile;
       if (!file) {
-        console.log(`ℹ️ No image for variant ${localVariant.name}`);
+        console.log(`ℹ️ No image for variant: ${localVariant.name}`);
         return null;
       }
 
       if (!ALLOWED_TYPES.includes(file.type)) {
-        toast.warning(`⚠️ ${file.name} has unsupported format`);
+        toast.warning(`${file.name} has unsupported format`);
         return null;
       }
 
       if (file.size > MAX_FILE_SIZE) {
-        toast.warning(`⚠️ ${file.name} exceeds 5MB`);
+        toast.warning(`${file.name} exceeds 5MB`);
         return null;
       }
 
-      console.log(`📤 Uploading image for variant ${localVariant.name}`);
+      console.log(`📤 Uploading image for variant: ${localVariant.name}`);
 
       try {
         const formData = new FormData();
         formData.append('image', file);
 
-        const uploadResponse = await fetch(
-          `${API_BASE_URL}/api/Products/variants/${createdVariant.id}/image`,
-          {
-            method: 'POST',
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-            body: formData,
-          }
-        );
+        // ✅ USE SERVICE
+        const response = await productsService.addVariantImage(createdVariant.id, formData);
 
-        if (!uploadResponse.ok) {
-          let errorMessage = `Upload failed (HTTP ${uploadResponse.status})`;
-
-          try {
-            const errorJson = await uploadResponse.json();
-            errorMessage = errorJson.message || errorMessage;
-          } catch {
-            const errorText = await uploadResponse.text();
-            if (errorText) errorMessage = errorText.substring(0, 200);
-          }
-
-          console.error(`❌ Variant upload failed: ${errorMessage}`);
+        if (response.error) {
+          console.error(`❌ Variant upload failed for ${localVariant.name}:`, response.error);
           return null;
         }
 
-        const result = await uploadResponse.json();
         console.log(`✅ Variant image uploaded: ${localVariant.name}`);
-        return result;
-
+        return response.data;
       } catch (error: any) {
-        console.error(`❌ Error uploading image for ${localVariant.name}`, error);
+        console.error(`❌ Error uploading image for ${localVariant.name}:`, error);
         return null;
       }
     });
 
-    /* =======================
-       FINAL RESULT
-    ======================= */
-
+    // FINAL RESULT
     const results = await Promise.all(uploadPromises);
     const successfulUploads = results.filter(Boolean);
 
     console.log(`✅ ${successfulUploads.length} variant images uploaded`);
 
     if (successfulUploads.length > 0) {
-      toast.success(`✅ ${successfulUploads.length} variant image(s) uploaded 📷`);
+      toast.success(`${successfulUploads.length} variant images uploaded`);
     }
-
   } catch (error) {
     console.error('❌ Error uploading variant images:', error);
     toast.error('Failed to upload variant images');
   }
 };
+
 
   const handleBrowseClick = () => {
     fileInputRef.current?.click();
@@ -1915,20 +2049,47 @@ const uploadVariantImages = async (productResponse: any) => {
 
 
       <div className="grid md:grid-cols-3 gap-4">
-        <div>
-          <label className="block text-sm font-medium text-slate-300 mb-2">
-            SKU <span className="text-red-500">*</span>
-          </label>
-          <input
-            type="text"
-            name="sku"
-            value={formData.sku}
-            onChange={handleChange}
-            placeholder="e.g., PROD-001"
-            className="w-full px-3 py-2.5 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
-            required
-          />
-        </div>
+ <div>
+  <label className="block text-sm font-medium text-slate-300 mb-2">
+    SKU <span className="text-red-500">*</span>
+  </label>
+  <div className="relative">
+    <input
+      type="text"
+      name="sku"
+      value={formData.sku}
+      onChange={handleChange}
+      placeholder="e.g., PROD-001"
+      className={`w-full px-3 py-2.5 pr-10 bg-slate-800/50 border rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 transition-all ${
+        skuError ? 'border-red-500' : 'border-slate-700'
+      }`}
+      required
+    />
+    
+    {/* Checking Spinner */}
+    {checkingSku && (
+      <div className="absolute right-3 top-1/2 -translate-y-1/2">
+        <svg className="animate-spin h-4 w-4 text-violet-400" fill="none" viewBox="0 0 24 24">
+          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+        </svg>
+      </div>
+    )}
+    
+    {/* Error Icon */}
+    {skuError && !checkingSku && (
+      <div className="absolute right-3 top-1/2 -translate-y-1/2">
+        <svg className="h-5 w-5 text-red-500" fill="currentColor" viewBox="0 0 20 20">
+          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+        </svg>
+      </div>
+    )}
+  </div>
+  
+  {/* Error Message */}
+  {skuError && <p className="text-xs text-red-400 mt-1.5">{skuError}</p>}
+</div>
+
 
    {/* ✅ Multiple Brands Selector - ADD PAGE */}
 <div>
@@ -4299,19 +4460,50 @@ const uploadVariantImages = async (productResponse: any) => {
         </div>
       </div>
 <GroupedProductModal
-        isOpen={isGroupedModalOpen}
-        onClose={() => setIsGroupedModalOpen(false)}
-        simpleProducts={simpleProducts}
-        selectedGroupedProducts={selectedGroupedProducts}
-        automaticallyAddProducts={formData.automaticallyAddProducts}
-        onProductsChange={handleGroupedProductsChange}
-        onAutoAddChange={(checked) => {
-          setFormData(prev => ({
-            ...prev,
-            automaticallyAddProducts: checked
-          }));
-        }}
-      />
+  isOpen={isGroupedModalOpen}
+  onClose={() => setIsGroupedModalOpen(false)}
+  simpleProducts={simpleProducts}
+  selectedGroupedProducts={selectedGroupedProducts}
+  automaticallyAddProducts={formData.automaticallyAddProducts}
+  
+  // ✅ ADD THESE NEW PROPS
+  bundleDiscountType={formData.groupBundleDiscountType}
+  bundleDiscountPercentage={formData.groupBundleDiscountPercentage}
+  bundleDiscountAmount={formData.groupBundleDiscountAmount}
+  bundleSpecialPrice={formData.groupBundleSpecialPrice}
+  bundleSavingsMessage={formData.groupBundleSavingsMessage}
+  showIndividualPrices={formData.showIndividualPrices}
+  applyDiscountToAllItems={formData.applyDiscountToAllItems}
+  
+  onProductsChange={handleGroupedProductsChange}
+  onAutoAddChange={(checked) => {
+    setFormData(prev => ({
+      ...prev,
+      automaticallyAddProducts: checked
+    }));
+  }}
+  
+  // ✅ ADD THESE NEW HANDLERS
+  onBundleDiscountChange={(discount) => {
+    setFormData(prev => ({
+      ...prev,
+      groupBundleDiscountType: discount.type,
+      groupBundleDiscountPercentage: discount.percentage || 0,
+      groupBundleDiscountAmount: discount.amount || 0,
+      groupBundleSpecialPrice: discount.specialPrice || 0,
+      groupBundleSavingsMessage: discount.savingsMessage || ''
+    }));
+  }}
+  
+  onDisplaySettingsChange={(settings) => {
+    setFormData(prev => ({
+      ...prev,
+      showIndividualPrices: settings.showIndividualPrices,
+      applyDiscountToAllItems: settings.applyDiscountToAllItems
+    }));
+  }}
+/>
+
     </div>
   );
 }

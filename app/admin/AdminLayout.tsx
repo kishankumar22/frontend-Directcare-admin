@@ -46,6 +46,7 @@ import {
 import { cn } from "@/lib/utils";
 import { useTheme } from "@/context/theme-provider";
 import { authService } from "@/lib/services/auth";
+import PendingTakeoverNotifications from "./products/PendingTakeoverNotifications";
 
 interface NavigationItem {
   name: string;
@@ -763,10 +764,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
                     </div>
                   )}
 
-                  <button className="relative p-2 text-slate-400 dark:text-gray-500 hover:text-white hover:bg-slate-800 dark:hover:bg-gray-800/70 rounded-lg transition-all duration-150">
-                    <Bell className="h-5 w-5" />
-                    <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-violet-500 dark:bg-violet-600 rounded-full ring-2 ring-slate-900 dark:ring-gray-950 transition-all duration-150"></span>
-                  </button>
+                  <PendingTakeoverNotifications />
 
                   <button
                     onClick={handleThemeToggle}

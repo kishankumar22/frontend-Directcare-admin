@@ -8,37 +8,28 @@ import {
   Tag, BarChart3, Globe, Settings, Truck, Gift, Calendar,
   Users, PoundSterling, Shield, FileText, Link as LinkIcon, ShoppingCart, Video,
   Play,
-  ChevronDown
+  ChevronDown,
+  Clock,
+  Send,
+  Bell
 } from "lucide-react";
-
-// ==================== TYPE DEFINITIONS ====================
-interface LockResponse {
-  success: boolean;
-  message: string;
-  data: {
-    id: string;
-    productId: string;
-    lockedBy: string;
-    lockedByEmail: string;
-    lockedAt: string;
-    expiresAt: string;
-    isLocked: boolean;
-  };
-}
 
 
 import Link from "next/link";
-import { apiClient } from "@/lib/api"; // Import your axios client
 import { ProductDescriptionEditor } from "@/app/admin/products/SelfHostedEditor";
 // import { ProductDescriptionEditor, RichTextEditor } from "../../RichTextEditor";
 import  {useToast } from "@/components/CustomToast";
 import { API_BASE_URL, API_ENDPOINTS } from "@/lib/api-config";
 import { cn } from "@/lib/utils";
-import { ProductAttribute, ProductVariant, DropdownsData, SimpleProduct, ProductImage, CategoryData, BrandApiResponse, CategoryApiResponse, ProductsApiResponse, VATRateApiResponse } from '@/lib/services';
+import { ProductAttribute, ProductVariant, DropdownsData, SimpleProduct, ProductImage, CategoryData, BrandApiResponse, CategoryApiResponse,  productsService, brandsService, categoriesService } from '@/lib/services';
 import { GroupedProductModal } from '../../GroupedProductModal';
 import { MultiBrandSelector } from "../../MultiBrandSelector";
 import React from "react";
 import { BackInStockSubscribers, LowStockAlert,AdminCommentHistoryModal } from "../../productModals";
+import { VATRateApiResponse, vatratesService } from "@/lib/services/vatrates";
+import productLockService from "@/lib/services/productLockService";
+import { signalRService } from "@/lib/services/signalRService";
+import TakeoverRequestModal from "../../TakeoverRequestModal";
 
 export default function EditProductPage({ params }: { params: Promise<{ id: string }> }) {
   const router = useRouter();
@@ -58,7 +49,9 @@ const [isDeletingImage, setIsDeletingImage] = useState(false);
 const [uploadingImages, setUploadingImages] = useState(false);
 const [vatSearch, setVatSearch] = useState('');
 const [loading, setLoading] = useState(true);
-
+// Add states (after existing useState declarations)
+const [takeoverRequest, setTakeoverRequest] = useState<any>(null);
+const [hasPendingTakeover, setHasPendingTakeover] = useState(false);
 
   // Dynamic dropdown data from API
   const [showVatDropdown, setShowVatDropdown] = useState(false);
@@ -155,6 +148,14 @@ const [formData, setFormData] = useState({
   // ===== RELATED PRODUCTS =====
   relatedProducts: [] as string[],
   crossSellProducts: [] as string[],
+   // ✅ ADD THESE NEW BUNDLE DISCOUNT FIELDS
+  groupBundleDiscountType: 'None' as 'None' | 'Percentage' | 'FixedAmount' | 'SpecialPrice',
+  groupBundleDiscountPercentage: 0,
+  groupBundleDiscountAmount: 0,
+  groupBundleSpecialPrice: 0,
+  groupBundleSavingsMessage: '',
+  showIndividualPrices: true,
+  applyDiscountToAllItems: false,
 
   // ===== MEDIA =====
   productImages: [] as ProductImage[],
@@ -285,6 +286,12 @@ const [lockModalMessage, setLockModalMessage] = useState("");
 const [isAcquiringLock, setIsAcquiringLock] = useState(true); // ⚡ ADD THIS
 const lockAcquiredRef = useRef(false);
 const refreshIntervalRef = useRef<NodeJS.Timeout | null>(null);
+// ==================== TAKEOVER REQUEST STATE (ADD THIS) ====================
+const [isTakeoverModalOpen, setIsTakeoverModalOpen] = useState(false);
+const [takeoverRequestMessage, setTakeoverRequestMessage] = useState('');
+const [takeoverExpiryMinutes, setTakeoverExpiryMinutes] = useState(10);
+const [isSubmittingTakeover, setIsSubmittingTakeover] = useState(false);
+const [lockedByEmail, setLockedByEmail] = useState('');
 
 useEffect(() => {
   const fetchAllData = async () => {
@@ -298,25 +305,25 @@ useEffect(() => {
       console.log('🔍 Fetching product data...');
       setLoading(true);
 
-      // ✅ Fetch product data first
-      const productResponse = await apiClient.get<any>(`${API_ENDPOINTS.products}/${productId}`);
+      // ✅ Fetch product data first (SERVICE-BASED)
+      const productResponse = await productsService.getById(productId);
 
-      // ✅ Fetch all other data in parallel with separate simple products endpoint
+      // ✅ Fetch all other data in parallel (ALL SERVICE-BASED)
       const [
         brandsResponse, 
         categoriesResponse, 
         vatRatesResponse, 
         allProductsResponse,
-        simpleProductsResponse  // ✅ NEW: Separate endpoint
+        simpleProductsResponse
       ] = await Promise.allSettled([
-        apiClient.get<BrandApiResponse>(`${API_ENDPOINTS.brands}?includeUnpublished=false`),
-        apiClient.get<CategoryApiResponse>(`${API_ENDPOINTS.categories}?includeInactive=true&includeSubCategories=true`),
-        apiClient.get<VATRateApiResponse>(API_ENDPOINTS.vatrates),
-        apiClient.get<ProductsApiResponse>(API_ENDPOINTS.products),
-        apiClient.get(`${API_ENDPOINTS.products}/simple`)  // ✅ ADD THIS
+        brandsService.getAll({ includeInactive: true }),
+        categoriesService.getAll({ includeInactive: true, includeSubCategories: true }),
+        vatratesService.getAll(),
+        productsService.getAll({ pageSize: 100 }),
+        productsService.getAll({ productType: 'simple', pageSize: 100 })
       ]);
 
-      // ✅ Extract data safely
+      // ✅ Extract data safely with proper type handling
       const brandsData = brandsResponse.status === 'fulfilled' 
         ? ((brandsResponse.value.data as BrandApiResponse)?.data || [])
         : [];
@@ -341,17 +348,22 @@ useEffect(() => {
         vatRates: vatRatesData.length
       });
 
+      // ✅ Helper function to extract products from service response
+      const extractProducts = (response: any): any[] => {
+        const data = response?.data?.data || response?.data || {};
+        return data.items || (Array.isArray(data) ? data : []);
+      };
+
       // ✅ Process ALL products for related/cross-sell
-      if (allProductsResponse.status === 'fulfilled' && allProductsResponse.value.data) {
-        const apiResponse = allProductsResponse.value.data as ProductsApiResponse;
+      if (allProductsResponse.status === 'fulfilled') {
+        const allItems = extractProducts(allProductsResponse.value);
         
-        if (apiResponse.success && apiResponse.data?.items) {
-          // For related/cross-sell dropdown (all products)
-          const transformedProducts = apiResponse.data.items.map((product: any) => ({
+        if (allItems.length > 0) {
+          const transformedProducts = allItems.map((product: any) => ({
             id: product.id,
             name: product.name,
             sku: product.sku,
-            price: `₹${product.price.toFixed(2)}`
+            price: `₹${(product.price || 0).toFixed(2)}`
           }));
           
           setAvailableProducts(transformedProducts);
@@ -364,15 +376,13 @@ useEffect(() => {
         setAvailableProducts([]);
       }
 
-      // ✅ NEW: Process SIMPLE products from separate endpoint
-      if (simpleProductsResponse.status === 'fulfilled' && simpleProductsResponse.value.data) {
-        const simpleData = simpleProductsResponse.value.data as any;
+      // ✅ Process SIMPLE products from service
+      if (simpleProductsResponse.status === 'fulfilled') {
+        const simpleItems = extractProducts(simpleProductsResponse.value);
         
-        console.log('📦 Simple products response:', simpleData);
-        
-        if (!simpleData.error && simpleData.success && Array.isArray(simpleData.data)) {
+        if (simpleItems.length > 0) {
           // Filter out current product
-          const simpleProductsList = simpleData.data
+          const simpleProductsList = simpleItems
             .filter((p: any) => p.id !== productId)
             .map((p: any) => ({
               id: p.id,
@@ -383,7 +393,7 @@ useEffect(() => {
             }));
 
           setSimpleProducts(simpleProductsList);
-          console.log('✅ Simple products loaded from endpoint:', simpleProductsList.length);
+          console.log('✅ Simple products loaded:', simpleProductsList.length);
         } else {
           console.warn('⚠️ Simple products endpoint returned no data');
           setSimpleProducts([]);
@@ -392,36 +402,32 @@ useEffect(() => {
         console.warn('⚠️ Failed to fetch simple products, falling back to filtering');
         
         // ✅ FALLBACK: Filter from all products if separate endpoint fails
-        if (allProductsResponse.status === 'fulfilled' && allProductsResponse.value.data) {
-          const apiResponse = allProductsResponse.value.data as ProductsApiResponse;
+        if (allProductsResponse.status === 'fulfilled') {
+          const allItems = extractProducts(allProductsResponse.value);
           
-          if (apiResponse.success && apiResponse.data?.items) {
-            const simpleProductsList = apiResponse.data.items
-              .filter((product: any) => 
-                product.productType === 'simple' && 
-                product.isPublished === true &&
-                product.id !== productId
-              )
-              .map((product: any) => ({
-                id: product.id,
-                name: product.name,
-                sku: product.sku,
-                price: typeof product.price === 'number' ? product.price.toFixed(2) : '0.00',
-                stockQuantity: product.stockQuantity || 0
-              }));
+          const simpleProductsList = allItems
+            .filter((product: any) => 
+              product.productType === 'simple' && 
+              product.isPublished === true &&
+              product.id !== productId
+            )
+            .map((product: any) => ({
+              id: product.id,
+              name: product.name,
+              sku: product.sku,
+              price: typeof product.price === 'number' ? product.price.toFixed(2) : '0.00',
+              stockQuantity: product.stockQuantity || 0
+            }));
 
-            setSimpleProducts(simpleProductsList);
-            console.log('✅ Simple products loaded (fallback):', simpleProductsList.length);
-          } else {
-            setSimpleProducts([]);
-          }
+          setSimpleProducts(simpleProductsList);
+          console.log('✅ Simple products loaded (fallback):', simpleProductsList.length);
         } else {
           setSimpleProducts([]);
         }
       }
 
-      // ✅ Extract product data
-      const productData = productResponse.data?.data || productResponse.data;
+      // ✅ Extract product data from service response
+      const productData = (productResponse.data as any)?.data || productResponse.data;
       
       if (!productData) {
         throw new Error('Product data is empty');
@@ -508,8 +514,9 @@ useEffect(() => {
         }
       };
 
-      // ✅ SET FORM DATA (keep your complete existing formData)
+      // ✅ SET FORM DATA (WITH BUNDLE DISCOUNT FIELDS)
       setFormData({
+        // ===== BASIC INFO =====
         name: productData.name || '',
         sku: productData.sku || '',
         shortDescription: productData.shortDescription || '',
@@ -530,59 +537,93 @@ useEffect(() => {
         customerRoles: productData.customerRoles || 'all',
         limitedToStores: productData.limitedToStores ?? false,
         vendorId: '',
+        
+        // ===== GROUPED PRODUCT FIELDS =====
         requireOtherProducts: productData.requireOtherProducts ?? false,
         requiredProductIds: productData.requiredProductIds || '',
         automaticallyAddProducts: productData.automaticallyAddProducts ?? false,
+        
+        // ✅ NEW: BUNDLE DISCOUNT FIELDS
+        groupBundleDiscountType: productData.groupBundleDiscountType || 'None',
+        groupBundleDiscountPercentage: productData.groupBundleDiscountPercentage || 0,
+        groupBundleDiscountAmount: productData.groupBundleDiscountAmount || 0,
+        groupBundleSpecialPrice: productData.groupBundleSpecialPrice || 0,
+        groupBundleSavingsMessage: productData.groupBundleSavingsMessage || '',
+        showIndividualPrices: productData.showIndividualPrices ?? true,
+        applyDiscountToAllItems: productData.applyDiscountToAllItems ?? false,
+        
+        // ===== PRICING =====
         price: productData.price?.toString() || '',
         oldPrice: productData.oldPrice?.toString() || productData.compareAtPrice?.toString() || '',
         cost: productData.costPrice?.toString() || '',
         disableBuyButton: productData.disableBuyButton ?? false,
         disableWishlistButton: productData.disableWishlistButton ?? false,
 
+        // ===== BASE PRICE =====
         basepriceEnabled: productData.basepriceEnabled ?? false,
         basepriceAmount: productData.basepriceAmount?.toString() || '',
         basepriceUnit: productData.basepriceUnit || '',
         basepriceBaseAmount: productData.basepriceBaseAmount?.toString() || '',
         basepriceBaseUnit: productData.basepriceBaseUnit || '',
+        
+        // ===== MARK AS NEW =====
         markAsNew: productData.markAsNew ?? false,
         markAsNewStartDate: parseDate(productData.markAsNewStartDate),
         markAsNewEndDate: parseDate(productData.markAsNewEndDate),
+        
+        // ===== PRE-ORDER =====
         availableForPreOrder: productData.availableForPreOrder ?? false,
         preOrderAvailabilityStartDate: parseDate(productData.preOrderAvailabilityStartDate),
+        
+        // ===== AVAILABILITY =====
         availableStartDate: parseDate(productData.availableStartDate),
         availableEndDate: parseDate(productData.availableEndDate),
         hasDiscountsApplied: false,
+        
+        // ===== TAX =====
         vatExempt: productData.vatExempt ?? false,
         vatRateId: productData.vatRateId || '',
+        
+        // ===== INVENTORY =====
         stockQuantity: productData.stockQuantity?.toString() || '0',
         manageInventory: productData.manageInventoryMethod || 'track',
         displayStockAvailability: productData.displayStockAvailability ?? true,
         displayStockQuantity: productData.displayStockQuantity ?? false,
         minStockQuantity: productData.minStockQuantity?.toString() || '0',
         lowStockActivity: productData.lowStockActivity || 'nothing',
+        
+        // ===== NOTIFICATIONS =====
         notifyAdminForQuantityBelow: productData.notifyAdminForQuantityBelow ?? true,
         notifyQuantityBelow: productData.notifyQuantityBelow?.toString() || '1',
+        
+        // ===== BACKORDER =====
         allowBackorder: productData.allowBackorder ?? false,
         backorderMode: productData.backorderMode || 'no-backorders',
         backorders: productData.backorderMode || 'no-backorders',
         allowBackInStockSubscriptions: productData.allowBackInStockSubscriptions ?? false,
         productAvailabilityRange: productData.productAvailabilityRange || '',
+        
+        // ===== CART LIMITS =====
         minCartQuantity: productData.orderMinimumQuantity?.toString() || '1',
         maxCartQuantity: productData.orderMaximumQuantity?.toString() || '10',
         allowedQuantities: productData.allowedQuantities || '',
         allowAddingOnlyExistingAttributeCombinations: false,
         notReturnable: productData.notReturnable ?? false,
+
+        // ===== SHIPPING =====
         isShipEnabled: productData.requiresShipping ?? true,
-
         shipSeparately: productData.shipSeparately ?? false,
-
         deliveryDateId: productData.deliveryDateId || '',
         weight: productData.weight?.toString() || '',
         length: productData.length?.toString() || '',
         width: productData.width?.toString() || '',
         height: productData.height?.toString() || '',
+        
+        // ===== PACK PRODUCT =====
         isPack: productData.isPack ?? false,
         packSize: productData.packSize?.toString() || '',
+        
+        // ===== RECURRING/SUBSCRIPTION =====
         isRecurring: productData.isRecurring ?? false,
         recurringCycleLength: productData.recurringCycleLength?.toString() || '',
         recurringCyclePeriod: productData.recurringCyclePeriod || 'days',
@@ -590,12 +631,18 @@ useEffect(() => {
         subscriptionDiscountPercentage: productData.subscriptionDiscountPercentage?.toString() || '',
         allowedSubscriptionFrequencies: productData.allowedSubscriptionFrequencies || '',
         subscriptionDescription: productData.subscriptionDescription || '',
+        
+        // ===== RENTAL =====
         isRental: productData.isRental ?? false,
         rentalPriceLength: productData.rentalPriceLength?.toString() || '',
         rentalPricePeriod: productData.rentalPricePeriod || 'days',
+        
+        // ===== GIFT CARD =====
         isGiftCard: productData.isGiftCard ?? false,
         giftCardType: productData.giftCardType || 'virtual',
         overriddenGiftCardAmount: productData.overriddenGiftCardAmount?.toString() || '',
+        
+        // ===== DOWNLOADABLE =====
         isDownload: productData.isDownload ?? false,
         downloadId: productData.downloadId || '',
         unlimitedDownloads: productData.unlimitedDownloads ?? true,
@@ -606,20 +653,34 @@ useEffect(() => {
         userAgreementText: productData.userAgreementText || '',
         hasSampleDownload: productData.hasSampleDownload ?? false,
         sampleDownloadId: productData.sampleDownloadId || '',
+        
+        // ===== SEO =====
         metaTitle: productData.metaTitle || '',
         metaDescription: productData.metaDescription || '',
         metaKeywords: productData.metaKeywords || '',
         searchEngineFriendlyPageName: productData.searchEngineFriendlyPageName || productData.slug || '',
+        
+        // ===== REVIEWS =====
         allowCustomerReviews: productData.allowCustomerReviews ?? true,
+        
+        // ===== TAGS & RELATED =====
         productTags: productData.tags || '',
         relatedProducts: relatedProductsArray,
         crossSellProducts: crossSellProductsArray,
+        
+        // ===== MEDIA =====
         productImages: [],
         videoUrls: videoUrlsArray,
         specifications: []
       });
 
       console.log('✅ Form data populated');
+      console.log('🎁 Bundle discount loaded:', {
+        type: productData.groupBundleDiscountType || 'None',
+        percentage: productData.groupBundleDiscountPercentage || 0,
+        amount: productData.groupBundleDiscountAmount || 0,
+        specialPrice: productData.groupBundleSpecialPrice || 0
+      });
 
       // ✅ Load attributes
       if (productData.attributes && Array.isArray(productData.attributes)) {
@@ -712,7 +773,221 @@ useEffect(() => {
 
   fetchAllData();
 }, [productId]);
-// ==================== ACQUIRE PRODUCT LOCK (COMPLETE CODE) ====================
+
+// ==================== SIGNALR CONNECTION ====================
+useEffect(() => {
+  console.log('🔍 SignalR Init');
+  
+  // Get userId
+  let userId = localStorage.getItem('userId');
+  const userEmail = localStorage.getItem('userEmail');
+  
+  // If no userId, try to extract from user object
+  if (!userId) {
+    const userStr = localStorage.getItem('user');
+    if (userStr) {
+      try {
+        const user = JSON.parse(userStr);
+        userId = user.id;
+        if (userId) {
+          localStorage.setItem('userId', userId);
+          console.log('✅ userId extracted from user object');
+        }
+      } catch (e) {
+        console.error('Error parsing user:', e);
+      }
+    }
+  }
+
+  console.log('User ID:', userId || '❌ Not found');
+  console.log('Email:', userEmail || '❌ Not found');
+  console.log('Product ID:', productId);
+
+  if (!userId) {
+    console.error('❌ Cannot start SignalR - no userId');
+    return;
+  }
+
+  // Start connection
+  let mounted = true;
+  
+  const init = async () => {
+    const connected = await signalRService.startConnection(userId!);
+    
+    if (!mounted) return;
+    
+    if (connected) {
+      console.log('✅ SignalR ready');
+    } else {
+      console.error('❌ SignalR failed');
+    }
+  };
+
+  init();
+
+  // Listen for takeover requests
+  const handleTakeover = (data: any) => {
+    console.log('🔔 Takeover handler called');
+    console.log('Data:', data);
+    console.log('Match product?', data.productId === productId);
+    console.log('Match editor?', data.currentEditorEmail === userEmail);
+
+    if (data.productId !== productId) {
+      console.log('⏭️ Different product');
+      return;
+    }
+
+    if (data.currentEditorEmail !== userEmail) {
+      console.log('⏭️ Not for me');
+      return;
+    }
+
+    console.log('✅ Opening modal...');
+    setTakeoverRequest(data);
+    setIsTakeoverModalOpen(true);
+    setHasPendingTakeover(true);
+  };
+
+  signalRService.on('takeoverRequest', handleTakeover);
+
+  // Cleanup
+  return () => {
+    mounted = false;
+    signalRService.off('takeoverRequest', handleTakeover);
+  };
+}, [productId]);
+
+
+
+// Add handler for modal close
+const handleTakeoverModalClose = () => {
+  setIsTakeoverModalOpen(false);
+};
+
+// Add handler for action complete
+const handleTakeoverActionComplete = () => {
+  setHasPendingTakeover(false);
+  setTakeoverRequest(null);
+};
+
+// Add handler to reopen modal
+const handleReopenTakeoverModal = () => {
+  if (takeoverRequest) {
+    setIsTakeoverModalOpen(true);
+  }
+};
+// ✅ States
+const [skuError, setSkuError] = useState('');
+const [checkingSku, setCheckingSku] = useState(false);
+
+// ✅ SERVICE-BASED SKU CHECK FUNCTION
+const checkSkuExists = async (sku: string): Promise<boolean> => {
+  // Validation
+  if (!sku || sku.length < 2) {
+    setSkuError('');
+    return false;
+  }
+  
+  setCheckingSku(true);
+  try {
+    console.log('🔍 Checking SKU:', sku);
+    
+    // ✅ USE SERVICE with search filter
+    const response = await productsService.getAll({ 
+      search: sku, 
+      pageSize: 100 
+    });
+    
+    console.log('📦 Response:', response);
+    
+    // ✅ SAFE DATA EXTRACTION
+    let products: any[] = [];
+    
+    try {
+      // Try different response structures
+      if (response.data) {
+        // Structure 1: response.data.data.items (most common)
+        if (typeof response.data === 'object' && 'data' in response.data) {
+          const nestedData = (response.data as any).data;
+          
+          if (nestedData && typeof nestedData === 'object') {
+            if ('items' in nestedData && Array.isArray(nestedData.items)) {
+              products = nestedData.items;
+            } else if (Array.isArray(nestedData)) {
+              products = nestedData;
+            }
+          }
+        }
+        // Structure 2: response.data direct array
+        else if (Array.isArray(response.data)) {
+          products = response.data;
+        }
+      }
+    } catch (parseError) {
+      console.error('Error parsing products:', parseError);
+      products = [];
+    }
+    
+    console.log('✅ Found products:', products.length);
+    
+    // ✅ SAFE SKU CHECK - Exclude current product for EDIT page
+    const exists = products.some((p: any) => {
+      if (!p || typeof p !== 'object' || !p.sku) return false;
+      
+      // ✅ EDIT PAGE: Exclude current product
+      if (p.id === productId) return false;
+      
+      return p.sku.toLowerCase() === sku.toLowerCase();
+    });
+    
+    if (exists) {
+      setSkuError('❌ SKU already exists');
+      console.warn('⚠️ SKU conflict:', sku);
+      return true;
+    } else {
+      setSkuError('');
+      console.log('✅ SKU available:', sku);
+      return false;
+    }
+    
+  } catch (error: any) {
+    console.error('❌ SKU check error:', error);
+    // Don't show error to user, just log it
+    setSkuError(''); // On error, allow submission (don't block user)
+    return false;
+  } finally {
+    setCheckingSku(false);
+  }
+};
+
+// ✅ DEBOUNCED SKU CHECK
+useEffect(() => {
+  const timer = setTimeout(() => {
+    if (formData.sku && formData.sku.length >= 2) {
+      checkSkuExists(formData.sku);
+    } else {
+      setSkuError('');
+      setCheckingSku(false);
+    }
+  }, 800); // Check after 800ms of typing
+  
+  return () => clearTimeout(timer);
+}, [formData.sku]);
+
+
+
+// ✅ Real-time check
+useEffect(() => {
+  const timer = setTimeout(() => {
+    if (formData.sku) {
+      checkSkuExists(formData.sku);
+    }
+  }, 800);
+  
+  return () => clearTimeout(timer);
+}, [formData.sku]);
+
+// ==================== ACQUIRE PRODUCT LOCK (UPDATED WITH TAKEOVER INFO) ====================
 const acquireProductLock = async (
   productId: string, 
   isRefresh: boolean = false
@@ -725,16 +1000,12 @@ const acquireProductLock = async (
       console.log('🔄 Refreshing product lock...');
     }
 
-    const response = await apiClient.post<LockResponse>(
-      `${API_ENDPOINTS.products}/${productId}/lock?durationMinutes=15`,
-      {}
-    );
+    const response = await productLockService.acquireLock(productId, 15);
 
     console.log('🔒 LOCK: Response received:', response);
 
-    // ✅ SUCCESS - Lock acquired
-    if (response.data?.success === true && response.data?.data) {
-      const lockData = response.data.data;
+    if (response.success && response.data) {
+      const lockData = response.data;
 
       setProductLock({
         isLocked: lockData.isLocked,
@@ -744,126 +1015,104 @@ const acquireProductLock = async (
 
       lockAcquiredRef.current = true;
 
-      // Toast only on initial acquire, not on refresh
       if (!isRefresh) {
         const expiryTime = new Date(lockData.expiresAt).toLocaleString('en-IN', {
           timeZone: 'Asia/Kolkata',
           dateStyle: 'medium',
           timeStyle: 'short'
         });
-        toast.success(`Lock acquired\nExpires: ${expiryTime} (IST)`);
+        toast.success(`🔒 Lock acquired\nExpires: ${expiryTime} (IST)`);
       }
 
       setIsAcquiringLock(false);
       return true;
     }
 
-    // ✅ 409 CONFLICT - Already locked (by you or someone else)
-    if (response.status === 409) {
-      const errorMessage = response.data?.message || response.error || 'Product is already locked';
-      
-      console.warn('⚠️ Lock conflict (409):', errorMessage);
+    throw new Error(response.message || 'Failed to acquire lock');
 
-      // Extract email from error message
-      const emailMatch = errorMessage.match(/([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/);
-      const lockedByEmail = emailMatch ? emailMatch[0] : '';
+  } catch (error: any) {
+    setIsAcquiringLock(false);
 
-      // Extract expiry time from error message
-      const expiryMatch = errorMessage.match(/(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})/);
-      const expiryTimeStr = expiryMatch ? expiryMatch[0] : '';
+    // ✅ Handle 409 Conflict
+    if (error.status === 409) {
+      const lockedByEmail = error.lockedByEmail || 'Unknown User';
+      const expiresAt = error.expiresAt;
 
-      // Check if it's locked by current user
-      const currentUserEmail = localStorage.getItem('userEmail'); // Adjust based on your auth
+      console.warn('⚠️ Lock conflict (409):', error.message);
+
+      const currentUserEmail = localStorage.getItem('userEmail') || '';
       const isLockedByMe = lockedByEmail === currentUserEmail;
 
       if (isLockedByMe && !isRefresh) {
-        // ✅ Locked by same user (probably another tab/window)
         console.log('✅ Product already locked by you');
         
-        lockAcquiredRef.current = true; // Mark as acquired
+        lockAcquiredRef.current = true;
         
         setProductLock({
           isLocked: true,
-          lockedBy: lockedByEmail,
-          expiresAt: expiryTimeStr || new Date(Date.now() + 15 * 60 * 1000).toISOString(),
+          lockedBy: error.lockedBy || '',
+          expiresAt: expiresAt || new Date(Date.now() + 15 * 60 * 1000).toISOString(),
         });
 
-        toast.info(
-          `Already editing in another tab\nYou can continue editing here`,
-          { autoClose: 4000 }
-        );
+        toast.info(`Already editing in another tab\nYou can continue editing here`);
 
         setIsAcquiringLock(false);
-        return true; // Allow editing
-      } else if (!isLockedByMe && !isRefresh) {
-        // ❌ Locked by different user
-        // console.error('❌ Product locked by another user:', lockedByEmail);
+        return true;
+      } 
+      
+      if (!isLockedByMe && !isRefresh) {
+        // ❌ Locked by different user - Store info for takeover
+        const expiryIST = expiresAt 
+          ? new Date(expiresAt).toLocaleString('en-IN', {
+              timeZone: 'Asia/Kolkata',
+              dateStyle: 'medium',
+              timeStyle: 'short'
+            })
+          : 'Unknown';
 
-        let displayMessage = `Product is being edited by ${lockedByEmail}`;
-        
-        if (expiryTimeStr) {
-          const expiryDate = new Date(expiryTimeStr + ' UTC');
-          const expiryIST = expiryDate.toLocaleString('en-IN', {
-            timeZone: 'Asia/Kolkata',
-            dateStyle: 'medium',
-            timeStyle: 'short'
-          });
-          displayMessage += `\n\nLock expires: ${expiryIST} (IST)`;
-        }
+        const displayMessage = `Product is currently being edited by ${lockedByEmail}. Lock expires at ${expiryIST} (IST).`;
+
+        // ✅ Store for takeover modal
+        setLockedByEmail(lockedByEmail);
+        setProductLock({
+          isLocked: true,
+          lockedBy: error.lockedBy || '',
+          expiresAt: expiresAt || '',
+        });
 
         setLockModalMessage(displayMessage);
         setIsLockModalOpen(true);
-        
-        toast.error(displayMessage, { autoClose: 5000 });
 
-        // Redirect after delay
-        setTimeout(() => {
-          router.push('/admin/products');
-        }, 3500);
-
-        setIsAcquiringLock(false);
+        lockAcquiredRef.current = false;
         return false;
-      } else if (isRefresh) {
-        // ⚠️ 409 on refresh - this is fine, lock is still active
+      }
+
+      if (isRefresh) {
         console.log('⚠️ 409 on refresh - lock still active');
         lockAcquiredRef.current = true;
-        setIsAcquiringLock(false);
         return true;
       }
     }
 
     // ❌ Other errors
-    throw new Error(response.data?.message || 'Failed to acquire lock');
-
-  } catch (error: any) {
-    setIsAcquiringLock(false);
     lockAcquiredRef.current = false;
 
-    let displayMessage = 'Product could not be locked for editing.';
+    const displayMessage = error.message || 'Product could not be locked for editing.';
 
-    if (error.response?.data?.message) {
-      displayMessage = error.response.data.message;
-    } else if (error.message) {
-      displayMessage = error.message;
-    }
-
-    // Show error only on initial acquire, not on refresh
     if (!isRefresh) {
       console.error('🔒 LOCK ERROR DETAILS:', {
         message: error.message,
-        code: error.code,
-        response: error.response?.data,
-        status: error.response?.status
+        status: error.status,
+        error: error
       });
 
       setLockModalMessage(displayMessage);
       setIsLockModalOpen(true);
-      toast.warning(displayMessage);
+      toast.error(displayMessage);
 
-      // Auto redirect
-      setTimeout(() => {
-        router.push('/admin/products');
-      }, 3500);
+      // setTimeout(() => {
+      //   router.push('/admin/products');
+      // }, 3500);
     } else {
       console.warn('🔄 Lock refresh failed:', displayMessage);
     }
@@ -872,9 +1121,57 @@ const acquireProductLock = async (
   }
 };
 
+// ==================== HANDLE TAKEOVER REQUEST (ADD THIS NEW FUNCTION) ====================
+const handleTakeoverRequest = async () => {
+  if (!productId) return;
 
+  setIsSubmittingTakeover(true);
 
-// ==================== RELEASE PRODUCT LOCK ====================
+  try {
+    const response = await productLockService.requestTakeover(
+      productId,
+      {
+        requestMessage: takeoverRequestMessage.trim() || 'I need urgent access to this product',
+        expiryMinutes: takeoverExpiryMinutes
+      }
+    );
+
+    if (response.success) {
+      toast.success('✅ Takeover request sent successfully!');
+      setIsTakeoverModalOpen(false);
+      setIsLockModalOpen(false);
+      
+      // Reset form
+      setTakeoverRequestMessage('');
+      setTakeoverExpiryMinutes(10);
+
+      // Show success message and redirect
+      setTimeout(() => {
+        toast.info('The editor will be notified. Redirecting...');
+        setTimeout(() => {
+          router.push('/admin/products');
+        }, 2000);
+      }, 1000);
+    }
+  } catch (error: any) {
+    toast.error(error.message || 'Failed to send takeover request');
+  } finally {
+    setIsSubmittingTakeover(false);
+  }
+};
+
+// ==================== TAKEOVER MODAL HANDLERS ====================
+const openTakeoverModal = () => {
+  setIsTakeoverModalOpen(true);
+};
+
+const closeTakeoverModal = () => {
+  setIsTakeoverModalOpen(false);
+  setTakeoverRequestMessage('');
+  setTakeoverExpiryMinutes(10);
+};
+
+// ==================== RELEASE PRODUCT LOCK (USING SERVICE) ====================
 const releaseProductLock = async (productId: string): Promise<boolean> => {
   if (!lockAcquiredRef.current) {
     console.log('🔓 No lock to release');
@@ -884,30 +1181,33 @@ const releaseProductLock = async (productId: string): Promise<boolean> => {
   try {
     console.log('🔓 Releasing product lock...');
     
-    const response = await apiClient.delete<any>(
-      `${API_ENDPOINTS.products}/${productId}/lock`
-    );
+    // ✅ USE LOCK SERVICE (not productsService)
+    const response = await productLockService.releaseLock(productId);
 
-    if (response.data?.success === true) {
+    console.log('🔓 LOCK: Release response:', response);
+
+    if (response.success) {
       setProductLock(null);
       lockAcquiredRef.current = false;
-      toast.success('Product lock released successfully');
+      console.log('✅ Product lock released successfully');
+      // Don't show toast on unmount (cleanup)
+      // toast.success('Product lock released');
       return true;
     }
 
-    toast.warning(response.data?.message || 'Could not release lock');
+    console.warn('⚠️ Lock release warning:', response.message);
     return false;
 
   } catch (error: any) {
-    let errorMessage = 'Failed to release lock';
+    console.error('❌ Failed to release lock:', error);
 
-    if (error.response?.data?.message) {
-      errorMessage = error.response.data.message;
-    } else if (error.message) {
-      errorMessage = error.message;
+    const errorMessage = error.message || 'Failed to release lock';
+
+    // Only show toast if not during unmount/cleanup
+    if (!document.hidden) {
+      toast.error(errorMessage);
     }
 
-    toast.error(errorMessage);
     lockAcquiredRef.current = false;
     return false;
   }
@@ -989,7 +1289,6 @@ const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
 
   // ⚡ CHECK 3: Do we have a valid lock?
   if (!productLock || !productLock.isLocked) {
-    // console.error('❌ [SUBMIT] No valid lock - blocked');
     toast.error('❌ Cannot save: Product edit lock not acquired. Please try again.');
     return;
   }
@@ -1017,7 +1316,10 @@ const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
   target.setAttribute('data-submitting', 'true');
     
   try {
-    // ✅ Validation
+    // ==========================================
+    // ✅ VALIDATION - BASIC FIELDS
+    // ==========================================
+    
     if (!formData.name || !formData.sku) {
       console.error('❌ [VALIDATION] Missing required fields');
       toast.error('⚠️ Please fill in required fields: Product Name and SKU.');
@@ -1025,9 +1327,40 @@ const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
       return;
     }
 
+    // ==========================================
+    // ✅ SKU VALIDATION USING SERVICE
+    // ==========================================
+    
+    try {
+      console.log('🔍 [SKU CHECK] Checking SKU uniqueness...');
+     const allProducts = await productsService.getAll();
+
+const items = allProducts.data?.data?.items ?? [];
+
+const skuExists = items.some(
+  (p: any) =>
+    p.sku?.toLowerCase() === formData.sku.toLowerCase() &&
+    p.id !== productId
+);
+
+      
+      if (skuExists) {
+        console.error('❌ [SKU CHECK] SKU already exists');
+        toast.error('❌ SKU already exists. Please use a unique SKU.');
+        target.removeAttribute('data-submitting');
+        return;
+      }
+      console.log('✅ [SKU CHECK] SKU is unique');
+    } catch (error) {
+      console.warn('⚠️ [SKU CHECK] Could not check SKU uniqueness:', error);
+    }
+
     console.log('✅ [VALIDATION] Basic validation passed');
 
-    // ✅ Helper function for SAFE number parsing
+    // ==========================================
+    // ✅ HELPER FUNCTION - SAFE NUMBER PARSING
+    // ==========================================
+    
     const parseNumber = (value: any, fieldName: string = ''): number | null => {
       if (value === null || value === undefined || value === '') {
         return null;
@@ -1044,7 +1377,10 @@ const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
       return parsed;
     };
 
-    // ✅ Parse and validate REQUIRED price
+    // ==========================================
+    // ✅ PRICE VALIDATION
+    // ==========================================
+    
     const parsedPrice = parseNumber(formData.price, 'price');
     if (parsedPrice === null || parsedPrice < 0) {
       console.error('❌ [VALIDATION] Invalid price');
@@ -1053,7 +1389,6 @@ const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
       return;
     }
 
-    // ✅ Parse OPTIONAL prices
     const parsedOldPrice = parseNumber(formData.oldPrice, 'oldPrice');
     const parsedCost = parseNumber(formData.cost, 'cost');
 
@@ -1069,6 +1404,10 @@ const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
       return;
     }
 
+    // ==========================================
+    // ✅ NAME VALIDATION
+    // ==========================================
+    
     const nameRegex = /^[A-Za-z0-9\s\-.,()'/]+$/;
     if (!nameRegex.test(formData.name)) {
       toast.error("⚠️ Invalid product name. Special characters like @, #, $, % are not allowed.");
@@ -1076,6 +1415,10 @@ const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
       return;
     }
 
+    // ==========================================
+    // ✅ GROUPED PRODUCT VALIDATION
+    // ==========================================
+    
     if (formData.productType === 'grouped' && formData.requireOtherProducts) {
       if (!formData.requiredProductIds || !formData.requiredProductIds.trim()) {
         toast.error('⚠️ Please select at least one product for grouped product.');
@@ -1086,7 +1429,10 @@ const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
 
     const guidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-    // ✅ Process Category ID
+    // ==========================================
+    // ✅ PROCESS CATEGORY ID
+    // ==========================================
+    
     let categoryId: string | null = null;
     if (formData.categories && formData.categories.trim()) {
       const trimmedCategory = formData.categories.trim();
@@ -1095,7 +1441,10 @@ const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
       }
     }
 
-    // ✅ Process Multiple Brands
+    // ==========================================
+    // ✅ PROCESS MULTIPLE BRANDS
+    // ==========================================
+    
     let brandIdsArray: string[] = [];
 
     if (formData.brandIds && Array.isArray(formData.brandIds) && formData.brandIds.length > 0) {
@@ -1125,7 +1474,10 @@ const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
 
     console.log('✅ [VALIDATION] All validations passed');
 
-    // ✅ Prepare attributes
+    // ==========================================
+    // ✅ PREPARE ATTRIBUTES
+    // ==========================================
+    
     const attributesArray = productAttributes
       ?.filter(attr => attr.name && attr.value)
       .map(attr => ({
@@ -1135,7 +1487,10 @@ const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
         displayOrder: attr.displayOrder || 0
       }));
 
-    // ✅ Prepare variants
+    // ==========================================
+    // ✅ PREPARE VARIANTS
+    // ==========================================
+    
     const variantsArray = productVariants?.map(variant => {
       const imageUrl = variant.imageUrl?.startsWith('blob:') ? null : variant.imageUrl;
       
@@ -1163,8 +1518,12 @@ const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
       };
     });
 
-    // ✅ PRODUCT DATA WITH PROPER NUMBER TYPES
+    // ==========================================
+    // ✅ BUILD PRODUCT DATA OBJECT
+    // ==========================================
+    
     const productData: any = {
+      // Basic Info
       name: formData.name.trim(),
       description: formData.fullDescription || formData.shortDescription || `${formData.name} - Product description`,
       shortDescription: formData.shortDescription?.trim() || '',
@@ -1172,14 +1531,16 @@ const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
       gtin: formData.gtin?.trim() || null,
       manufacturerPartNumber: formData.manufacturerPartNumber?.trim() || null,
       
+      // Status & Visibility
       status: isDraft ? "Draft" : "Active",
       isPublished: isDraft ? false : (formData.published ?? true),
-      
       productType: formData.productType || 'simple',
       visibleIndividually: formData.visibleIndividually ?? true,
       customerRoles: formData.customerRoles || 'all',
       limitedToStores: formData.limitedToStores ?? false,
       vendorId: null,
+      
+      // Grouped Product Fields
       requireOtherProducts: formData.productType === 'grouped' ? formData.requireOtherProducts : false,
       requiredProductIds: formData.productType === 'grouped' && formData.requireOtherProducts && formData.requiredProductIds?.trim()
         ? formData.requiredProductIds.trim()
@@ -1187,39 +1548,68 @@ const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
       automaticallyAddProducts: formData.productType === 'grouped' && formData.requireOtherProducts 
         ? formData.automaticallyAddProducts 
         : false,
+      
+      // Bundle Discount Fields
+      groupBundleDiscountType: formData.productType === 'grouped' 
+        ? (formData.groupBundleDiscountType || 'None') 
+        : 'None',
+      groupBundleDiscountPercentage: formData.productType === 'grouped' && formData.groupBundleDiscountType === 'Percentage'
+        ? (parseNumber(formData.groupBundleDiscountPercentage, 'groupBundleDiscountPercentage') ?? 0)
+        : null,
+      groupBundleDiscountAmount: formData.productType === 'grouped' && formData.groupBundleDiscountType === 'FixedAmount'
+        ? (parseNumber(formData.groupBundleDiscountAmount, 'groupBundleDiscountAmount') ?? 0)
+        : null,
+      groupBundleSpecialPrice: formData.productType === 'grouped' && formData.groupBundleDiscountType === 'SpecialPrice'
+        ? (parseNumber(formData.groupBundleSpecialPrice, 'groupBundleSpecialPrice') ?? 0)
+        : null,
+      groupBundleSavingsMessage: formData.productType === 'grouped' && formData.groupBundleDiscountType !== 'None'
+        ? (formData.groupBundleSavingsMessage?.trim() || null)
+        : null,
+      showIndividualPrices: formData.productType === 'grouped' 
+        ? (formData.showIndividualPrices ?? true) 
+        : true,
+      applyDiscountToAllItems: formData.productType === 'grouped' && formData.groupBundleDiscountType !== 'None'
+        ? (formData.applyDiscountToAllItems ?? false)
+        : false,
+      
+      // Display Settings
       showOnHomepage: formData.showOnHomepage ?? false,
       displayOrder: parseInt(formData.displayOrder) || 0,
       adminComment: formData.adminComment?.trim() || null,
       isPack: formData.isPack ?? false,
       gender: formData.gender?.trim() || null,
       
+      // Brand Info
       brandId: brandIdsArray[0],
       brandIds: brandIdsArray,
       brands: brandsArray,
       
+      // Additional Fields
       vendor: null,
       tags: formData.productTags?.trim() || null,
       
+      // Pricing
       price: parsedPrice,
       oldPrice: parsedOldPrice,
       compareAtPrice: parsedOldPrice,
       costPrice: parsedCost,
       
+      // Purchase Options
       disableBuyButton: formData.disableBuyButton ?? false,
       disableWishlistButton: formData.disableWishlistButton ?? false,
       availableForPreOrder: formData.availableForPreOrder ?? false,
       preOrderAvailabilityStartDate: formData.availableForPreOrder && formData.preOrderAvailabilityStartDate 
         ? new Date(formData.preOrderAvailabilityStartDate).toISOString() 
         : null,
-
-
       
+      // Base Price
       basepriceEnabled: formData.basepriceEnabled ?? false,
       basepriceAmount: parseNumber(formData.basepriceAmount, 'basepriceAmount'),
       basepriceUnit: formData.basepriceEnabled ? (formData.basepriceUnit || null) : null,
       basepriceBaseAmount: parseNumber(formData.basepriceBaseAmount, 'basepriceBaseAmount'),
       basepriceBaseUnit: formData.basepriceEnabled ? (formData.basepriceBaseUnit || null) : null,
       
+      // Mark as New
       markAsNew: formData.markAsNew ?? false,
       markAsNewStartDate: formData.markAsNew && formData.markAsNewStartDate 
         ? new Date(formData.markAsNewStartDate).toISOString() 
@@ -1227,6 +1617,8 @@ const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
       markAsNewEndDate: formData.markAsNew && formData.markAsNewEndDate 
         ? new Date(formData.markAsNewEndDate).toISOString() 
         : null,
+      
+      // Availability Dates
       availableStartDate: formData.availableStartDate && formData.availableStartDate.trim() 
         ? new Date(formData.availableStartDate).toISOString() 
         : null,
@@ -1234,10 +1626,11 @@ const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
         ? new Date(formData.availableEndDate).toISOString() 
         : null,
       
+      // Tax
       vatExempt: formData.vatExempt ?? false,
       vatRateId: formData.vatRateId || null,
-   
       
+      // Inventory
       trackQuantity: formData.manageInventory === 'track',
       manageInventoryMethod: formData.manageInventory || 'track',
       stockQuantity: parseInt(formData.stockQuantity) || 0,
@@ -1251,15 +1644,16 @@ const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
         : null,
       allowBackorder: formData.allowBackorder ?? false,
       backorderMode: formData.backorderMode || 'no-backorders',
+      
+      // Order Quantities
       orderMinimumQuantity: parseInt(formData.minCartQuantity) || 0,
       orderMaximumQuantity: parseInt(formData.maxCartQuantity) || 0,
       allowedQuantities: formData.allowedQuantities?.trim() || null,
       notReturnable: formData.notReturnable ?? false,
       
+      // Shipping & Dimensions
       requiresShipping: formData.isShipEnabled ?? true,
-  
       shipSeparately: formData.shipSeparately ?? false,
-
       deliveryDateId: formData.deliveryDateId || null,
       estimatedDispatchDays: 0,
       dispatchTimeNote: null,
@@ -1270,6 +1664,7 @@ const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
       weightUnit: 'kg',
       dimensionUnit: 'cm',
       
+      // Recurring/Subscription
       isRecurring: formData.isRecurring ?? false,
       recurringCycleLength: formData.isRecurring ? parseInt(formData.recurringCycleLength) || 0 : null,
       recurringCyclePeriod: formData.isRecurring ? (formData.recurringCyclePeriod || 'days') : null,
@@ -1280,24 +1675,30 @@ const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
       allowedSubscriptionFrequencies: formData.allowedSubscriptionFrequencies?.trim() || null,
       subscriptionDescription: formData.subscriptionDescription?.trim() || null,
       
+      // Rental
       isRental: formData.isRental ?? false,
       rentalPriceLength: formData.isRental ? parseInt(formData.rentalPriceLength) || 0 : null,
       rentalPricePeriod: formData.isRental ? (formData.rentalPricePeriod || 'days') : null,
       
+      // SEO
       metaTitle: formData.metaTitle?.trim() || null,
       metaDescription: formData.metaDescription?.trim() || null,
       metaKeywords: formData.metaKeywords?.trim() || null,
       searchEngineFriendlyPageName: formData.searchEngineFriendlyPageName?.trim() || null,
       
+      // Reviews
       allowCustomerReviews: formData.allowCustomerReviews ?? false,
       
+      // Media
       videoUrls: formData.videoUrls && formData.videoUrls.length > 0 
         ? formData.videoUrls.join(',') 
         : null,
       
+      // Attributes & Variants
       attributes: attributesArray && attributesArray.length > 0 ? attributesArray : [],
       variants: variantsArray && variantsArray.length > 0 ? variantsArray : [],
       
+      // Related Products
       relatedProductIds: Array.isArray(formData.relatedProducts) && formData.relatedProducts.length > 0 
         ? formData.relatedProducts.join(',') 
         : null,
@@ -1305,10 +1706,14 @@ const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
         ? formData.crossSellProducts.join(',') 
         : null,
       
+      // Category
       categoryId: categoryId
     };
 
-    // ✅ Clean up
+    // ==========================================
+    // ✅ CLEAN UP EMPTY VALUES
+    // ==========================================
+    
     const cleanProductData = Object.fromEntries(
       Object.entries(productData).filter(([key, value]) => {
         if (value === false || value === 0) return true;
@@ -1317,33 +1722,45 @@ const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
       })
     );
 
-    console.log('📦 [PAYLOAD] Sending product data:', {
-      name: cleanProductData.name,
-      sku: cleanProductData.sku,
-      price: cleanProductData.price,
-      brandIds: cleanProductData.brandIds
+    console.log('📦 ==================== FINAL PAYLOAD ====================');
+    console.log(JSON.stringify(cleanProductData, null, 2));
+    console.log('🏷️ brandId (primary):', productData.brandId);
+    console.log('🏷️ brandIds (array):', productData.brandIds);
+    console.log('🏷️ brands (objects):', productData.brands);
+    console.log('🎁 Bundle Discount:', {
+      type: productData.groupBundleDiscountType,
+      percentage: productData.groupBundleDiscountPercentage,
+      amount: productData.groupBundleDiscountAmount,
+      specialPrice: productData.groupBundleSpecialPrice,
+      message: productData.groupBundleSavingsMessage,
+      showIndividualPrices: productData.showIndividualPrices,
+      applyDiscountToAllItems: productData.applyDiscountToAllItems
     });
+    console.log('📦 ==================== END PAYLOAD ====================');
 
-     console.log('📤 [API] Sending PUT request to:', `/api/Products/${productId}`);
+    // ==========================================
+    // ✅ UPDATE PRODUCT USING SERVICE
+    // ==========================================
     
-    // ✅ FIXED: Use custom API client format
-    const response = await apiClient.put<any>(`/api/Products/${productId}`, cleanProductData);
+    console.log('📤 [API] Updating product using service...');
+    const response = await productsService.update(productId, cleanProductData);
 
     console.log('📥 [API] Response received:', response);
 
-    // ✅ Check for errors first
+    // ==========================================
+    // ✅ HANDLE RESPONSE
+    // ==========================================
+    
     if (response.error) {
       console.error('❌ [ERROR] API returned error:', response.error);
       throw new Error(response.error);
     }
 
-    // ✅ Check if response has data
     if (response.data) {
       const apiResponse = response.data;
       
       console.log('🔍 [RESPONSE] Checking success flag:', apiResponse.success);
       
-      // Backend success check
       if (apiResponse.success === true || apiResponse.success === undefined) {
         console.log('✅ [SUCCESS] Product updated successfully');
         
@@ -1352,9 +1769,17 @@ const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
           { autoClose: 3000 }
         );
 
-        // ✅ RELEASE LOCK
-        console.log('🔓 [LOCK] Releasing lock...');
-        await releaseProductLock(productId);
+        // ==========================================
+        // ✅ RELEASE LOCK USING SERVICE
+        // ==========================================
+        
+        console.log('🔓 [LOCK] Releasing lock using service...');
+        try {
+         await productLockService.releaseLock(productId);
+          console.log('✅ [LOCK] Lock released successfully');
+        } catch (lockError) {
+          console.warn('⚠️ [LOCK] Failed to release lock:', lockError);
+        }
 
         setTimeout(() => {
           console.log('🔄 [REDIRECT] Redirecting to products list');
@@ -1369,12 +1794,19 @@ const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
       throw new Error('No response received from server');
     }
 
-  } catch (error: any) {
+  } 
+  catch (error: any) {
+    console.error('❌ ==================== ERROR ====================');
     console.error('❌ [ERROR] Submission failed:', error);
+    console.error('❌ [ERROR] Error details:', {
+      message: error.message,
+      response: error.response?.data,
+      status: error.response?.status
+    });
+    console.error('❌ ==================== END ERROR ====================');
     
     let errorMessage = 'Failed to update product';
     
-    // Use error message from custom API client
     if (error.message) {
       errorMessage = error.message;
     }
@@ -1386,6 +1818,8 @@ const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
     console.log('🏁 [SUBMIT] Submission process completed');
   }
 };
+
+
 
 // ✅ COMPLETE FIXED handleChange - ADD PRICE FIELD HANDLING
 const handleChange = (
@@ -1772,14 +2206,15 @@ const handleChange = (
 
 
 
-// ✅ Delete Product Attribute
+// ==================== DELETE ATTRIBUTE (USING SERVICE) ====================
 const deleteProductAttribute = async (productId: string, attributeId: string) => {
   try {
-    const response = await apiClient.delete(
-      `/api/Products/${productId}/attributes/${attributeId}`
-    );
+    console.log('🗑️ Deleting attribute:', attributeId);
     
-    if (response?.data) {
+    // ✅ USE SERVICE
+    const response = await productsService.deleteAttribute(productId, attributeId);
+    
+    if (response?.data?.success === true) {
       toast.success('✅ Attribute deleted successfully!');
       // Remove from local state
       setProductAttributes(productAttributes.filter(attr => attr.id !== attributeId));
@@ -1790,14 +2225,15 @@ const deleteProductAttribute = async (productId: string, attributeId: string) =>
   }
 };
 
-// ✅ Delete Product Variant
+// ==================== DELETE VARIANT (USING SERVICE) ====================
 const deleteProductVariant = async (productId: string, variantId: string) => {
   try {
-    const response = await apiClient.delete(
-      `/api/Products/${productId}/variants/${variantId}`
-    );
+    console.log('🗑️ Deleting variant:', variantId);
     
-    if (response?.data) {
+    // ✅ USE SERVICE
+    const response = await productsService.deleteVariant(productId, variantId);
+    
+    if (response?.data?.success === true) {
       toast.success('✅ Variant deleted successfully!');
       // Remove from local state
       setProductVariants(productVariants.filter(v => v.id !== variantId));
@@ -1947,7 +2383,9 @@ const updateProductVariant = (id: string, field: keyof ProductVariant, value: an
   ));
 };
 
-// UPDATED - Upload variant image immediately in Edit mode
+
+// ==================== UPLOAD VARIANT IMAGE (USING SERVICE) ====================
+// ==================== UPLOAD VARIANT IMAGE (FIXED VERSION) ====================
 const handleVariantImageUpload = async (variantId: string, file: File) => {
   /* =======================
      BASIC VALIDATIONS
@@ -1978,7 +2416,7 @@ const handleVariantImageUpload = async (variantId: string, file: File) => {
   }
 
   // ✅ File validations
-  const MAX_FILE_SIZE = 1 * 1024 * 1024; // 5MB
+  const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
   const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 
   if (!ALLOWED_TYPES.includes(file.type)) {
@@ -1991,17 +2429,12 @@ const handleVariantImageUpload = async (variantId: string, file: File) => {
     return;
   }
 
-  const token = localStorage.getItem('authToken');
-  if (!token) {
-    toast.error('❌ Authentication required');
-    return;
-  }
-
   try {
     /* =======================
        PREVIEW (OPTIMISTIC UI)
     ======================= */
 
+    console.log('🖼️ Creating preview for variant:', variantId);
     const previewUrl = URL.createObjectURL(file);
 
     setProductVariants(prev =>
@@ -2013,62 +2446,70 @@ const handleVariantImageUpload = async (variantId: string, file: File) => {
     );
 
     /* =======================
-       UPLOAD
+       UPLOAD USING SERVICE
     ======================= */
 
+    console.log('📤 Uploading variant image using service...');
     const formData = new FormData();
-    formData.append('image', file); // API param name
+    formData.append('image', file);
 
-    const uploadResponse = await fetch(
-      `${API_BASE_URL}/api/Products/variants/${variantId}/image`,
-      {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          // ❌ Do not set Content-Type manually
-        },
-        body: formData,
-      }
-    );
+    // ✅ USE SERVICE
+    const response = await productsService.addVariantImage(variantId, formData);
 
-    if (!uploadResponse.ok) {
-      let errorMessage = `Upload failed (HTTP ${uploadResponse.status})`;
+    console.log('✅ Upload response:', response);
 
-      try {
-        const errorJson = await uploadResponse.json();
-        errorMessage = errorJson.message || errorMessage;
-      } catch {
-        const errorText = await uploadResponse.text();
-        if (errorText) errorMessage = errorText.substring(0, 200);
-      }
-
-      throw new Error(errorMessage);
+    // ✅ CORRECT: Check response structure
+    if (response.error) {
+      throw new Error(response.error);
     }
 
-    const result = await uploadResponse.json();
-    console.log('✅ Upload response:', result);
+    if (!response.data) {
+      throw new Error('No response data received');
+    }
 
-    const uploadedImageUrl =
-      result?.imageUrl || result?.data?.imageUrl || result?.data || null;
+    // ✅ FIXED: Extract image URL correctly from nested structure
+    let uploadedImageUrl: string | null = null;
+
+    // Try different response structures
+    if (response.data.success !== false) {
+      // Structure 1: response.data.data.imageUrl
+      if (response.data.data && typeof response.data.data === 'object' && 'imageUrl' in response.data.data) {
+        uploadedImageUrl = (response.data.data as any).imageUrl;
+      }
+      // Structure 2: response.data.imageUrl (direct)
+      else if ('imageUrl' in response.data) {
+        uploadedImageUrl = (response.data as any).imageUrl;
+      }
+      // Structure 3: response.data.data is string (direct URL)
+      else if (response.data.data && typeof response.data.data === 'string') {
+        uploadedImageUrl = response.data.data;
+      }
+    } else {
+      throw new Error(response.data.message || 'Upload failed');
+    }
 
     if (!uploadedImageUrl) {
-      throw new Error('Invalid server response');
+      console.error('❌ Could not extract image URL from response:', response);
+      throw new Error('Invalid server response - no image URL returned');
     }
 
     /* =======================
        FINAL STATE UPDATE
     ======================= */
 
+    console.log('✅ Updating variant with uploaded image URL:', uploadedImageUrl);
+    
     setProductVariants(prev =>
       prev.map(variant => {
         if (variant.id === variantId) {
+          // Revoke old blob URL to prevent memory leak
           if (variant.imageUrl?.startsWith('blob:')) {
             URL.revokeObjectURL(variant.imageUrl);
           }
 
           return {
             ...variant,
-            imageUrl: uploadedImageUrl,
+            imageUrl: uploadedImageUrl!,
             imageFile: undefined,
           };
         }
@@ -2092,12 +2533,10 @@ const handleVariantImageUpload = async (variantId: string, file: File) => {
       })
     );
 
-    toast.error(`Failed to upload variant image: ${error.message}`);
+    const errorMessage = error.response?.data?.message || error.message || 'Upload failed';
+    toast.error(`Failed to upload variant image: ${errorMessage}`);
   }
 };
-
-
-
 
 
 
@@ -2447,12 +2886,38 @@ const uploadImagesToProductDirect = async (
             </div>
           </div>
           <div className="flex items-center gap-3">
+            {/* Takeover Request Alert Button (Show if pending) */}
+  {hasPendingTakeover && (
+    <button
+      onClick={handleReopenTakeoverModal}
+      className="relative px-4 py-2.5 bg-gradient-to-r from-orange-500/20 to-red-500/20 border-2 border-orange-500/50 rounded-xl text-orange-300 hover:bg-orange-500/30 transition-all text-sm font-semibold flex items-center gap-2 animate-pulse-slow"
+    >
+      <Bell className="w-4 h-4" />
+      <span>Takeover Request</span>
+      <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full ring-2 ring-slate-900"></span>
+    </button>
+  )}
            <button
   onClick={handleCancel}
   className="px-5 py-2.5 bg-slate-800/50 border border-slate-700 rounded-xl text-slate-300 hover:bg-slate-800 hover:border-slate-600 transition-all text-sm font-medium"
 >
   Cancel
 </button>
+{/* SignalR Connection Status Indicator */}
+<div className="flex items-center gap-2 px-3 py-1.5 bg-slate-800/50 border border-slate-700 rounded-lg">
+  {signalRService.isConnected() ? (
+    <>
+      <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+      <span className="text-xs text-slate-400">Live</span>
+    </>
+  ) : (
+    <>
+      <div className="w-2 h-2 bg-red-400 rounded-full"></div>
+      <span className="text-xs text-slate-400">Offline</span>
+    </>
+  )}
+</div>
+
 
             <button
               type="button"
@@ -2679,23 +3144,50 @@ const uploadImagesToProductDirect = async (
 
       {/* ✅ Row 1: SKU, Brand, Categories (3 Columns) */}
       <div className="grid md:grid-cols-3 gap-4">
-        <div>
-          <label className="block text-sm font-medium text-slate-300 mb-2">
-            SKU <span className="text-red-500">*</span>
-          </label>
-          <input
-            type="text"
-            name="sku"
-            value={formData.sku}
-            onChange={handleChange}
-            placeholder="e.g., PROD-001"
-            className="w-full px-3 py-2.5 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
-            required
-          />
-        </div>
+    <div>
+  <label className="block text-sm font-medium text-slate-300 mb-2">
+    SKU <span className="text-red-500">*</span>
+  </label>
+  <div className="relative">
+    <input
+      type="text"
+      name="sku"
+      value={formData.sku}
+      onChange={handleChange}
+      placeholder="e.g., PROD-001"
+      className={`w-full px-3 py-2.5 pr-10 bg-slate-800/50 border rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 transition-all ${
+        skuError ? 'border-red-500' : 'border-slate-700'
+      }`}
+      required
+    />
+    
+    {/* Checking Spinner */}
+    {checkingSku && (
+      <div className="absolute right-3 top-1/2 -translate-y-1/2">
+        <svg className="animate-spin h-4 w-4 text-violet-400" fill="none" viewBox="0 0 24 24">
+          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+        </svg>
+      </div>
+    )}
+    
+    {/* Error Icon */}
+    {skuError && !checkingSku && (
+      <div className="absolute right-3 top-1/2 -translate-y-1/2">
+        <svg className="h-5 w-5 text-red-500" fill="currentColor" viewBox="0 0 20 20">
+          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+        </svg>
+      </div>
+    )}
+  </div>
+  
+  {/* Error Message */}
+  {skuError && <p className="text-xs text-red-400 mt-1.5">{skuError}</p>}
+</div>
+
 
 {/* ✅ Multiple Brands Selector - EDIT PAGE */}
-{/* ✅ Multiple Brands Selector */}
+
 <div>
   <label className="flex items-center justify-between text-sm font-medium text-slate-300 mb-2">
     <span>Brands</span>
@@ -5172,6 +5664,17 @@ const uploadImagesToProductDirect = async (
   simpleProducts={simpleProducts}
   selectedGroupedProducts={selectedGroupedProducts}
   automaticallyAddProducts={formData.automaticallyAddProducts}
+  
+  // ✅ NEW: Bundle Discount Props
+  bundleDiscountType={formData.groupBundleDiscountType}
+  bundleDiscountPercentage={formData.groupBundleDiscountPercentage}
+  bundleDiscountAmount={formData.groupBundleDiscountAmount}
+  bundleSpecialPrice={formData.groupBundleSpecialPrice}
+  bundleSavingsMessage={formData.groupBundleSavingsMessage}
+  showIndividualPrices={formData.showIndividualPrices}
+  applyDiscountToAllItems={formData.applyDiscountToAllItems}
+  
+  // Existing handlers
   onProductsChange={handleGroupedProductsChange}
   onAutoAddChange={(checked) => {
     setFormData(prev => ({
@@ -5179,22 +5682,41 @@ const uploadImagesToProductDirect = async (
       automaticallyAddProducts: checked
     }));
   }}
+  
+  // ✅ NEW: Bundle Discount Handler
+  onBundleDiscountChange={(discount) => {
+    setFormData(prev => ({
+      ...prev,
+      groupBundleDiscountType: discount.type,
+      groupBundleDiscountPercentage: discount.percentage || 0,
+      groupBundleDiscountAmount: discount.amount || 0,
+      groupBundleSpecialPrice: discount.specialPrice || 0,
+      groupBundleSavingsMessage: discount.savingsMessage || ''
+    }));
+  }}
+  
+  // ✅ NEW: Display Settings Handler
+  onDisplaySettingsChange={(settings) => {
+    setFormData(prev => ({
+      ...prev,
+      showIndividualPrices: settings.showIndividualPrices,
+      applyDiscountToAllItems: settings.applyDiscountToAllItems
+    }));
+  }}
 />
 
 
-{/* ==================== IMPROVED PRODUCT LOCK MODAL ==================== */}
+
+{/* ==================== PRODUCT LOCK MODAL (FIXED SYNTAX) ==================== */}
 {isLockModalOpen && (
   <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-    {/* Backdrop - Click करने पर redirect */}
     <div 
       className="absolute inset-0 bg-black/70 backdrop-blur-sm" 
       onClick={handleModalClose}
     />
     
-    {/* Modal Content */}
-    <div className="relative bg-gradient-to-br from-slate-900 to-slate-800 border-2 border-red-500/30 rounded-2xl shadow-2xl max-w-md w-full p-8 animate-fadeIn">
+    <div className="relative bg-gradient-to-br from-slate-900 to-slate-800 border-2 border-red-500/30 rounded-2xl shadow-2xl max-w-md w-full p-8 animate-fade-in">
       
-      {/* Close Button (X) - Immediate Redirect */}
       <button
         onClick={handleModalClose}
         className="absolute top-4 right-4 p-2 text-slate-400 hover:text-white hover:bg-red-500/20 rounded-lg transition-all group"
@@ -5203,96 +5725,196 @@ const uploadImagesToProductDirect = async (
         <X className="w-5 h-5" />
       </button>
       
-      {/* Lock Icon */}
       <div className="flex justify-center mb-6">
-        <div className="w-20 h-20 rounded-full bg-red-500/10 border-2 border-red-500/30 flex items-center justify-center animate-pulse">
+        <div className="w-20 h-20 rounded-full bg-red-500/10 border-2 border-red-500/30 flex items-center justify-center animate-pulse-slow">
           <svg className="w-10 h-10 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
           </svg>
         </div>
       </div>
       
-      {/* Title */}
       <h2 className="text-2xl font-bold text-center mb-4 bg-gradient-to-r from-red-400 to-orange-400 bg-clip-text text-transparent">
         Product Locked
       </h2>
       
-      {/* Backend Message */}
       <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-4 mb-6">
         <p className="text-slate-300 text-center text-sm leading-relaxed whitespace-pre-line">
           {lockModalMessage}
         </p>
       </div>
       
-      {/* Info Box */}
       <div className="flex items-start gap-3 mb-6 text-slate-400 text-xs bg-amber-500/5 border border-amber-500/20 rounded-lg p-3">
-        <svg className="w-5 h-5 text-amber-400 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
-          <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-        </svg>
+        <Info className="w-5 h-5 text-amber-400 flex-shrink-0 mt-0.5" />
         <p className="leading-relaxed">
-          Please wait for the lock to expire or contact the user currently editing this product.
+          Please wait for the lock to expire or request takeover from the current editor.
         </p>
       </div>
       
-      {/* Action Buttons */}
       <div className="flex gap-3">
-        {/* Go Back Button - Immediate Redirect */}
         <button
           onClick={handleModalClose}
-          className="flex-1 px-4 py-3 bg-gradient-to-r from-violet-500 to-cyan-500 hover:from-violet-600 hover:to-cyan-600 text-white rounded-xl font-medium transition-all transform hover:scale-105 flex items-center justify-center gap-2 group"
+          className="flex-1 px-4 py-3 bg-slate-700 hover:bg-slate-600 text-white rounded-xl font-medium transition-all flex items-center justify-center gap-2 group"
         >
           <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
           Go Back
         </button>
         
-        {/* Refresh Button */}
-        {/* <button
-          onClick={() => {
-            setIsLockModalOpen(false);
-            window.location.reload();
-          }}
-          className="px-4 py-3 bg-slate-700 hover:bg-slate-600 text-white rounded-xl font-medium transition-all flex items-center justify-center gap-2"
-          title="Try again"
+        <button
+          onClick={openTakeoverModal}
+          className="flex-1 px-4 py-3 bg-gradient-to-r from-violet-500 to-cyan-500 hover:from-violet-600 hover:to-cyan-600 text-white rounded-xl font-medium transition-all transform hover:scale-105 flex items-center justify-center gap-2 group"
         >
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-          </svg>
-        </button> */}
+          <Send className="w-4 h-4" />
+          Request Takeover
+        </button>
       </div>
-      
-      {/* Auto Redirect Timer */}
-      {/* <p className="text-center text-slate-500 text-xs mt-4 animate-pulse">
-        Auto-redirecting in 3 seconds...
-      </p> */}
-       <style jsx>{`
-      @keyframes modalFadeIn {
-        from {
-          opacity: 0;
-          transform: scale(0.95) translateY(-10px);
-        }
-        to {
-          opacity: 1;
-          transform: scale(1) translateY(0);
-        }
-      }
-
-      .modal-animate {
-        animation: modalFadeIn 0.3s ease-out forwards;
-      }
-
-      @keyframes iconPulse {
-        0%, 100% { opacity: 1; }
-        50% { opacity: 0.6; }
-      }
-
-      .icon-pulse {
-        animation: iconPulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-      }
-    `}</style>
     </div>
   </div>
 )}
+
+{/* ==================== IMPROVED TAKEOVER MODAL (BETTER COLORS) ==================== */}
+{isTakeoverModalOpen && (
+  <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+    {/* Backdrop - Same as lock modal */}
+    <div 
+      className="absolute inset-0 bg-black/70 backdrop-blur-sm" 
+      onClick={closeTakeoverModal}
+    />
+    
+    {/* Modal - Lighter background like lock modal */}
+    <div className="relative bg-gradient-to-br from-slate-800 to-slate-900 border-2 border-violet-400/40 rounded-2xl shadow-2xl max-w-md w-full p-6 animate-fade-in">
+      
+      {/* Close Button */}
+      <button
+        onClick={closeTakeoverModal}
+        className="absolute top-3 right-3 p-1.5 text-slate-300 hover:text-white hover:bg-violet-500/30 rounded-lg transition-all"
+        title="Close"
+      >
+        <X className="w-4 h-4" />
+      </button>
+      
+      {/* Icon - Brighter */}
+      <div className="flex justify-center mb-4">
+        <div className="w-16 h-16 rounded-full bg-gradient-to-br from-violet-500/30 to-cyan-500/30 border-2 border-violet-400/50 flex items-center justify-center">
+          <Send className="w-8 h-8 text-violet-300" />
+        </div>
+      </div>
+      
+      {/* Title - Brighter gradient */}
+      <h2 className="text-xl font-bold text-center mb-1 bg-gradient-to-r from-violet-300 to-cyan-300 bg-clip-text text-transparent">
+        Request Product Takeover
+      </h2>
+      
+      {/* Subtitle - Brighter */}
+      <p className="text-center text-slate-300 text-xs mb-4">
+        Send request to <span className="text-white font-semibold">{lockedByEmail}</span>
+      </p>
+      
+      <div className="space-y-4">
+        {/* Request Message */}
+        <div>
+          <label className="block text-xs font-medium text-slate-200 mb-1.5">
+            Message <span className="text-slate-400">(Optional)</span>
+          </label>
+          <textarea
+            value={takeoverRequestMessage}
+            onChange={(e) => setTakeoverRequestMessage(e.target.value)}
+            placeholder="Why do you need urgent access?"
+            className="w-full bg-slate-700/50 border border-slate-600 rounded-lg px-3 py-2 text-sm text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-violet-400/60 focus:border-violet-400/60 transition-all resize-none"
+            rows={3}
+            maxLength={500}
+          />
+          <div className="flex justify-between items-center mt-1">
+            <p className="text-[10px] text-slate-400">
+              Be specific about urgency
+            </p>
+            <p className="text-[10px] text-slate-400">
+              {takeoverRequestMessage.length}/500
+            </p>
+          </div>
+        </div>
+
+        {/* Expiry Time */}
+        <div>
+          <label className="block text-xs font-medium text-slate-200 mb-1.5 flex items-center gap-1.5">
+            <Clock className="w-3.5 h-3.5" />
+            Request Expiry
+          </label>
+          <div className="grid grid-cols-3 gap-2">
+            {[5, 10, 15].map((minutes) => (
+              <button
+                key={minutes}
+                type="button"
+                onClick={() => setTakeoverExpiryMinutes(minutes)}
+                className={cn(
+                  "px-3 py-2 rounded-lg text-sm font-semibold transition-all",
+                  takeoverExpiryMinutes === minutes
+                    ? "bg-gradient-to-r from-violet-500 to-cyan-500 text-white shadow-lg shadow-violet-500/30 scale-105"
+                    : "bg-slate-700/60 border border-slate-600 text-slate-300 hover:bg-slate-600 hover:text-white hover:border-slate-500"
+                )}
+              >
+                {minutes}m
+              </button>
+            ))}
+          </div>
+          <p className="text-[10px] text-slate-400 mt-1">
+            Expires if not responded within time
+          </p>
+        </div>
+
+        {/* Info Alert - Brighter */}
+        <div className="flex items-start gap-2 bg-cyan-500/10 border border-cyan-400/30 rounded-lg p-2.5">
+          <Info className="w-4 h-4 text-cyan-300 flex-shrink-0 mt-0.5" />
+          <p className="text-[10px] text-slate-300 leading-relaxed">
+            Editor will receive real-time notification and can approve or reject.
+          </p>
+        </div>
+      </div>
+
+      {/* Action Buttons */}
+      <div className="flex gap-2 mt-4">
+        <button
+          onClick={closeTakeoverModal}
+          className="flex-1 px-3 py-2 bg-slate-600 hover:bg-slate-500 text-white text-sm rounded-lg font-medium transition-all"
+          disabled={isSubmittingTakeover}
+        >
+          Cancel
+        </button>
+        
+        <button
+          onClick={handleTakeoverRequest}
+          disabled={isSubmittingTakeover}
+          className="flex-1 px-3 py-2 bg-gradient-to-r from-violet-500 to-cyan-500 hover:from-violet-600 hover:to-cyan-600 text-white text-sm rounded-lg font-semibold transition-all transform hover:scale-105 flex items-center justify-center gap-1.5 shadow-lg shadow-violet-500/30 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
+        >
+          {isSubmittingTakeover ? (
+            <>
+              <svg className="animate-spin h-3.5 w-3.5" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              </svg>
+              Sending...
+            </>
+          ) : (
+            <>
+              <Send className="w-3.5 h-3.5" />
+              Send Request
+            </>
+          )}
+        </button>
+      </div>
+    </div>
+  </div>
+)}
+
+
   
+{/* Takeover Request Modal */}
+<TakeoverRequestModal
+  productId={productId}
+  isOpen={isTakeoverModalOpen}
+  onClose={handleTakeoverModalClose}
+  request={takeoverRequest}
+  onActionComplete={handleTakeoverActionComplete}
+/>
 
     </div>
   );

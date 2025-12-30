@@ -26,7 +26,7 @@ export interface CreateBrandDto {
   description: string;
 }
 
- interface BrandApiResponse {
+ export interface BrandApiResponse {
   success: boolean;
   message?: string;
   data: Brand[];
