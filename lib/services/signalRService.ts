@@ -1,4 +1,4 @@
-// lib/services/signalRService.ts
+// lib/services/signalRService.ts - COMPLETE REPLACEMENT
 import * as signalR from '@microsoft/signalr';
 
 class SignalRService {
@@ -14,7 +14,6 @@ class SignalRService {
     try {
       console.log('==================== SIGNALR START ====================');
       
-      // Get config
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://testapi.knowledgemarkg.com';
       const token = localStorage.getItem('authToken') || localStorage.getItem('accessToken');
       
@@ -30,17 +29,64 @@ class SignalRService {
       const hubUrl = `${apiUrl}/hubs/productLock`;
       console.log('🔗 Hub:', hubUrl);
 
+      // Test hub endpoint first
+      console.log('🧪 Testing hub endpoint...');
+      try {
+        const testResponse = await fetch(`${hubUrl}/negotiate`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        });
+        
+        console.log('🧪 Negotiate response:', testResponse.status, testResponse.statusText);
+        
+        if (!testResponse.ok) {
+          const errorText = await testResponse.text();
+          console.error('❌ Negotiate failed:', errorText);
+          
+          if (testResponse.status === 401) {
+            console.error('💡 Authentication failed - token might be invalid');
+          } else if (testResponse.status === 404) {
+            console.error('💡 Hub not found - check backend');
+          } else if (testResponse.status === 500) {
+            console.error('💡 Server error - check backend logs');
+          }
+          
+          return false;
+        } else {
+          const negotiateData = await testResponse.json();
+          console.log('✅ Negotiate successful:', negotiateData);
+        }
+      } catch (negotiateError: any) {
+        console.error('❌ Negotiate error:', negotiateError.message);
+        if (negotiateError.message.includes('CORS')) {
+          console.error('💡 CORS issue - backend must allow:', window.location.origin);
+        }
+        return false;
+      }
+
+      console.log('🔨 Building connection...');
+
       this.connection = new signalR.HubConnectionBuilder()
         .withUrl(hubUrl, {
-          accessTokenFactory: () => localStorage.getItem('authToken') || localStorage.getItem('accessToken') || '',
+          accessTokenFactory: () => {
+            const currentToken = localStorage.getItem('authToken') || localStorage.getItem('accessToken');
+            console.log('🔑 Token factory called');
+            return currentToken || '';
+          },
+          transport: signalR.HttpTransportType.WebSockets | signalR.HttpTransportType.LongPolling,
+          skipNegotiation: false,
         })
-        .withAutomaticReconnect()
-        .configureLogging(signalR.LogLevel.Information)
+        .withAutomaticReconnect([0, 2000, 5000, 10000])
+        .configureLogging(signalR.LogLevel.Debug) // More verbose
         .build();
 
       // Setup events BEFORE starting
       this.connection.on('ReceiveTakeoverRequest', (data) => {
-        console.log('🔔 TAKEOVER REQUEST RECEIVED:', data);
+        console.log('🔔 ==================== TAKEOVER REQUEST RECEIVED ====================');
+        console.log('📦 Data:', data);
         this.emit('takeoverRequest', data);
       });
 
@@ -54,33 +100,56 @@ class SignalRService {
         this.emit('takeoverRejected', data);
       });
 
-      this.connection.onreconnecting(() => console.warn('⚠️ Reconnecting...'));
-      this.connection.onreconnected((id) => console.log('✅ Reconnected:', id));
-      this.connection.onclose((err) => console.error('❌ Closed:', err));
+      this.connection.onreconnecting((error) => {
+        console.warn('⚠️ Reconnecting...', error?.message);
+      });
 
-      // Start
-      await this.connection.start();
+      this.connection.onreconnected((connectionId) => {
+        console.log('✅ Reconnected, ID:', connectionId);
+      });
 
-      console.log('✅ CONNECTED!');
-      console.log('🆔 ID:', this.connection.connectionId);
-      console.log('===================================================');
+      this.connection.onclose((error) => {
+        console.error('❌ Connection closed:', error?.message);
+      });
+
+      console.log('🚀 Starting connection...');
+      
+      // Add timeout
+      const startPromise = this.connection.start();
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('Connection timeout after 10 seconds')), 10000);
+      });
+
+      await Promise.race([startPromise, timeoutPromise]);
+
+      console.log('==================== ✅ CONNECTED! ====================');
+      console.log('🆔 Connection ID:', this.connection.connectionId);
+      console.log('📡 State:', signalR.HubConnectionState[this.connection.state]);
+      console.log('====================================================');
 
       return true;
 
     } catch (error: any) {
-      console.error('==================== ERROR ====================');
-      console.error('Type:', error.constructor.name);
+      console.error('==================== ❌ CONNECTION ERROR ====================');
+      console.error('Type:', error.constructor?.name || 'Unknown');
       console.error('Message:', error.message);
+      console.error('Stack:', error.stack);
       
-      if (error.message.includes('401') || error.message.includes('403')) {
-        console.error('💡 Auth failed - check token');
+      // Specific error guidance
+      if (error.message.includes('timeout')) {
+        console.error('💡 Connection timeout - check if backend SignalR hub is running');
+      } else if (error.message.includes('401') || error.message.includes('403')) {
+        console.error('💡 Auth failed - check token validity');
       } else if (error.message.includes('negotiate')) {
-        console.error('💡 Hub not found - check backend');
+        console.error('💡 Hub not found at:', `${process.env.NEXT_PUBLIC_API_URL}/hubs/productLock`);
       } else if (error.message.includes('CORS')) {
-        console.error('💡 CORS issue - check backend CORS config');
+        console.error('💡 CORS - backend must allow origin:', window.location.origin);
+      } else if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
+        console.error('💡 Network error - cannot reach backend');
       }
       
-      console.error('================================================');
+      console.error('============================================================');
+
       this.connection = null;
       return false;
     }
@@ -88,7 +157,12 @@ class SignalRService {
 
   async stopConnection() {
     if (this.connection) {
-      await this.connection.stop();
+      try {
+        await this.connection.stop();
+        console.log('🔌 SignalR disconnected');
+      } catch (error) {
+        console.error('Error stopping:', error);
+      }
       this.connection = null;
       this.listeners.clear();
     }

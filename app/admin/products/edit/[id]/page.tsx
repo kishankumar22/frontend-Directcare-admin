@@ -39,7 +39,285 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
   const { id: productId } = use(params);
   const [searchTerm, setSearchTerm] = useState('');
   const [searchTermCross, setSearchTermCross] = useState('');
+  const [pendingTakeoverRequests, setPendingTakeoverRequests] = useState<any[]>([]);
+const [showNotifications, setShowNotifications] = useState(false);
+// Add this function to manually check for pending requests
+const checkPendingTakeoverRequests = async () => {
+  try {
+    const response = await productLockService.getPendingTakeoverRequests();
+    
+    if (response.success && response.data) {
+      // Filter only for current product
+      const forThisProduct = response.data.filter(
+        (req: any) => req.productId === productId
+      );
+      
+      setPendingTakeoverRequests(forThisProduct);
+      
+      // Auto-open modal if there's a new request
+      if (forThisProduct.length > 0 && !isTakeoverModalOpen) {
+        const latestRequest = forThisProduct[0];
+        setTakeoverRequest(latestRequest);
+        setIsTakeoverModalOpen(true);
+        setHasPendingTakeover(true);
+      }
+    }
+  } catch (error) {
+    console.error('Failed to check requests:', error);
+  }
+};
 
+// Polling: Check every 30 seconds (since SignalR not working)
+useEffect(() => {
+  if (!productId) return;
+  
+  // Initial check
+  checkPendingTakeoverRequests();
+  
+  // Poll every 30 seconds
+  const pollInterval = setInterval(() => {
+    checkPendingTakeoverRequests();
+  }, 30000); // 30 seconds
+  
+  return () => clearInterval(pollInterval);
+}, [productId]);
+// ⭐ AUTO-SYNC USER DATA FROM TOKEN (Add this)
+// ==================== AUTO-SYNC USER DATA ====================
+useEffect(() => {
+  const syncUserData = () => {
+    // Check if already synced
+    const existingUserId = localStorage.getItem('userId');
+    if (existingUserId) {
+      console.log('✅ userId already exists:', existingUserId);
+      return;
+    }
+
+    console.log('🔍 Extracting userId from token...');
+
+    // Get token
+    const token = localStorage.getItem('accessToken') || localStorage.getItem('authToken');
+    if (!token) {
+      console.error('❌ No token found');
+      return;
+    }
+
+    try {
+      // Decode JWT
+      const parts = token.split('.');
+      if (parts.length !== 3) {
+        console.error('❌ Invalid token format');
+        return;
+      }
+
+      const payload = JSON.parse(atob(parts[1]));
+      console.log('📦 Token payload:', payload);
+
+      // Try all possible userId claim names
+      const possibleUserIdKeys = [
+        'sub',
+        'userId',
+        'user_id',
+        'id',
+        'nameid',
+        'http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier',
+        'http://schemas.microsoft.com/ws/2008/06/identity/claims/nameidentifier'
+      ];
+
+      let extractedUserId = null;
+
+      for (const key of possibleUserIdKeys) {
+        if (payload[key]) {
+          extractedUserId = payload[key];
+          console.log(`✅ Found userId in claim: ${key} = ${extractedUserId}`);
+          break;
+        }
+      }
+
+      if (extractedUserId) {
+        localStorage.setItem('userId', extractedUserId);
+        localStorage.setItem('authToken', token);
+        console.log('✅ userId stored:', extractedUserId);
+        
+        // Force re-render to trigger SignalR connection
+        window.location.reload();
+      } else {
+        console.error('❌ userId not found in token claims');
+        console.log('Available claims:', Object.keys(payload));
+      }
+
+    } catch (error) {
+      console.error('❌ Error extracting userId:', error);
+    }
+  };
+
+  syncUserData();
+}, []); // Run once on mount
+
+// ==================== SIGNALR CONNECTION ====================
+useEffect(() => {
+  console.log('🔍 SignalR Init');
+  
+  // Get userId
+  let userId = localStorage.getItem('userId');
+  const userEmail = localStorage.getItem('userEmail');
+  
+  // If no userId, try to extract from user object
+  if (!userId) {
+    const userStr = localStorage.getItem('user');
+    if (userStr) {
+      try {
+        const user = JSON.parse(userStr);
+        userId = user.id;
+        if (userId) {
+          localStorage.setItem('userId', userId);
+          console.log('✅ userId extracted from user object');
+        }
+      } catch (e) {
+        console.error('Error parsing user:', e);
+      }
+    }
+  }
+
+  console.log('User ID:', userId || '❌ Not found');
+  console.log('Email:', userEmail || '❌ Not found');
+  console.log('Product ID:', productId);
+
+  if (!userId) {
+    console.error('❌ Cannot start SignalR - no userId');
+    console.error('💡 Will retry after token sync...');
+    return;
+  }
+
+  // Start connection
+  let mounted = true;
+  
+  const init = async () => {
+    console.log('🔌 Starting SignalR connection...');
+    const connected = await signalRService.startConnection(userId!);
+    
+    if (!mounted) return;
+    
+    if (connected) {
+      console.log('✅ SignalR connected successfully');
+      console.log('   Connection ID:', signalRService.getConnectionId());
+      console.log('   State:', signalRService.getConnectionState());
+    } else {
+      console.error('❌ SignalR connection failed');
+    }
+  };
+
+  init();
+
+  // Listen for takeover requests
+  const handleTakeover = (data: any) => {
+    console.log('🔔 ==================== TAKEOVER REQUEST ====================');
+    console.log('📦 Received data:', data);
+    console.log('🔍 Validation:');
+    console.log('   Current product:', productId);
+    console.log('   Request product:', data.productId);
+    console.log('   Match:', data.productId === productId ? '✅' : '❌');
+    console.log('   Current editor:', data.currentEditorEmail);
+    console.log('   My email:', userEmail);
+    console.log('   Is for me:', data.currentEditorEmail === userEmail ? '✅' : '❌');
+
+    if (data.productId !== productId) {
+      console.log('⏭️ Ignoring: Different product');
+      return;
+    }
+
+    if (data.currentEditorEmail !== userEmail) {
+      console.log('⏭️ Ignoring: Not for me');
+      return;
+    }
+
+    console.log('✅ All checks passed - Opening modal...');
+    setTakeoverRequest(data);
+    setIsTakeoverModalOpen(true);
+    setHasPendingTakeover(true);
+
+    // Play notification sound
+    try {
+      const audio = new Audio('/notification.mp3');
+      audio.play().catch((e) => console.log('🔇 Audio blocked:', e.message));
+    } catch (e) {
+      console.log('🔇 Audio not available');
+    }
+
+    console.log('🎯 Modal state updated');
+    console.log('================================================================');
+  };
+
+  signalRService.on('takeoverRequest', handleTakeover);
+
+  // Cleanup
+  return () => {
+    mounted = false;
+    console.log('🧹 Cleanup: Removing SignalR listener');
+    signalRService.off('takeoverRequest', handleTakeover);
+  };
+}, [productId]);
+
+  useEffect(() => {
+    const syncUserData = () => {
+      const userId = localStorage.getItem('userId');
+      const authToken = localStorage.getItem('authToken');
+      
+      // If already synced, skip
+      if (userId && authToken) {
+        console.log('✅ User data already synced');
+        return;
+      }
+      
+      // Try to get from accessToken
+      const accessToken = localStorage.getItem('accessToken');
+      if (!accessToken) {
+        console.warn('⚠️ No access token - redirect to login');
+        router.push('/login');
+        return;
+      }
+      
+      try {
+        // Decode JWT token
+        const parts = accessToken.split('.');
+        if (parts.length !== 3) throw new Error('Invalid token');
+        
+        const payload = JSON.parse(atob(parts[1]));
+        console.log('🔍 Syncing user data from token...');
+        
+        // Extract userId
+        const extractedUserId = payload.sub || 
+                                payload.userId || 
+                                payload.id ||
+                                payload['http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier'];
+        
+        // Extract email
+        const extractedEmail = payload.email || 
+                               payload['http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress'];
+        
+        if (extractedUserId) {
+          localStorage.setItem('userId', extractedUserId);
+          localStorage.setItem('authToken', accessToken);
+          if (extractedEmail) localStorage.setItem('userEmail', extractedEmail);
+          
+          console.log('✅ User data synced:', {
+            userId: extractedUserId,
+            email: extractedEmail
+          });
+        } else {
+          console.error('❌ userId not found in token - please re-login');
+          toast.error('Session invalid. Please login again.');
+          setTimeout(() => router.push('/login'), 2000);
+        }
+        
+      } catch (error) {
+        console.error('❌ Error syncing user data:', error);
+        toast.error('Session error. Please login again.');
+        setTimeout(() => router.push('/login'), 2000);
+      }
+    };
+    
+    syncUserData();
+  }, []);
   const fileInputRef = useRef<HTMLInputElement>(null);
   // Helper function to format datetime for React inputs
   const [productAttributes, setProductAttributes] = useState<ProductAttribute[]>([]);
@@ -2903,6 +3181,97 @@ const uploadImagesToProductDirect = async (
 >
   Cancel
 </button>
+{/* BELL ICON - Pending Takeover Requests */}
+<div className="relative">
+  <button
+    type="button"
+    onClick={() => {
+      checkPendingTakeoverRequests();
+      setShowNotifications(!showNotifications);
+    }}
+    className="relative p-2 text-slate-300 hover:text-white hover:bg-slate-700 rounded-lg transition-all"
+    title="Check Takeover Requests"
+  >
+    <Bell className="w-5 h-5" />
+    
+    {/* Badge - Red dot if pending requests */}
+    {pendingTakeoverRequests.length > 0 && (
+      <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full animate-pulse" />
+    )}
+  </button>
+  
+  {/* Dropdown - Show pending requests */}
+  {showNotifications && (
+      <div className="absolute right-0 top-full mt-2 w-80 bg-slate-800 border border-slate-700 rounded-xl shadow-2xl ">
+      <div className="p-3 border-b border-slate-700">
+        <h3 className="text-sm font-semibold text-white flex items-center gap-2">
+          <Bell className="w-4 h-4 text-violet-400" />
+          Takeover Requests
+        </h3>
+      </div>
+      
+      <div className="max-h-96 overflow-y-auto">
+        {pendingTakeoverRequests.length === 0 ? (
+          <div className="p-6 text-center">
+            <p className="text-sm text-slate-400">No pending requests</p>
+          </div>
+        ) : (
+          pendingTakeoverRequests.map((request) => (
+            <div
+              key={request.id}
+              className="p-4 border-b z-[999] border-slate-700 hover:bg-slate-700/30 transition-all"
+            >
+              <div className="flex items-start justify-between mb-2">
+                <div>
+                  <p className="text-sm font-semibold text-white">
+                    {request.requestedByEmail}
+                  </p>
+                  <p className="text-xs text-slate-400">
+                    {new Date(request.requestedAt).toLocaleString()}
+                  </p>
+                </div>
+                <span className="px-2 py-1 bg-orange-500/20 border border-orange-500/30 rounded text-xs text-orange-400">
+                  Pending
+                </span>
+              </div>
+              
+              {request.requestMessage && (
+                <p className="text-xs text-slate-300 mb-3 line-clamp-2">
+                  {request.requestMessage}
+                </p>
+              )}
+              
+              <button
+                onClick={() => {
+                  setTakeoverRequest(request);
+                  setIsTakeoverModalOpen(true);
+                  setShowNotifications(false);
+                }}
+                className="w-full px-3 py-2 bg-gradient-to-r from-violet-500 to-cyan-500 hover:from-violet-600 hover:to-cyan-600 text-white text-xs rounded-lg font-medium transition-all"
+              >
+                View & Respond
+              </button>
+            </div>
+          ))
+        )}
+      </div>
+      
+      <div className="p-3 border-t border-slate-700">
+        <button
+          onClick={checkPendingTakeoverRequests}
+          className="w-full px-3 py-2 bg-slate-700 hover:bg-slate-600 text-white text-xs rounded-lg font-medium transition-all flex items-center justify-center gap-2"
+        >
+          <svg className="w-3 h-3 animate-spin" fill="none" viewBox="0 0 24 24">
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+          </svg>
+          Refresh
+        </button>
+      </div>
+    </div>
+  )}
+</div>
+
 {/* SignalR Connection Status Indicator */}
 <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-800/50 border border-slate-700 rounded-lg">
   {signalRService.isConnected() ? (
