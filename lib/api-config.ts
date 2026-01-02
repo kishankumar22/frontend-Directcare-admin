@@ -37,6 +37,8 @@ export const API_ENDPOINTS = {
   // Orders
   orders: '/api/Orders',
 
+  shipping: "/api/Shipping", // Add this line
+
   // Image Management
   imageManagement: '/api/ImageManagement',
 

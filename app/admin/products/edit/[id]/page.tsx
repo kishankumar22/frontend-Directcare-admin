@@ -1264,6 +1264,134 @@ useEffect(() => {
   
   return () => clearTimeout(timer);
 }, [formData.sku]);
+// ==========================================
+// 🔒 UPDATED: LOCK INITIALIZATION WITH STATUS CHECK
+// ==========================================
+
+const initializeLock = async () => {
+  if (lockAcquiredRef.current) {
+    console.log('Lock already acquired, skipping...');
+    return;
+  }
+
+  // ✅ STEP 1: First check lock status (no side effects)
+  try {
+    console.log('🔍 Checking lock status...');
+    const statusResponse = await productLockService.getLockStatus(productId);
+    
+    if (statusResponse.success && statusResponse.data) {
+      const status = statusResponse.data;
+      
+      console.log('📊 Lock Status:', {
+        isLocked: status.isLocked,
+        lockedBy: status.lockedBy,
+        lockedByEmail: status.lockedByEmail,
+        hasPendingTakeover: status.hasPendingTakeoverRequest,
+        canRequestTakeover: status.canRequestTakeover
+      });
+
+      // Get current user info
+      const currentUserId = localStorage.getItem('userId');
+      const currentUserEmail = localStorage.getItem('userEmail');
+
+      // ✅ CASE 1: Product is locked by someone else
+      if (status.isLocked && status.lockedBy && status.lockedBy !== currentUserId) {
+        console.log('🔒 Product locked by another user');
+        
+        const expiresAt = status.expiresAt || '';
+        const expiryIST = expiresAt 
+          ? new Date(expiresAt).toLocaleString('en-IN', {
+              timeZone: 'Asia/Kolkata',
+              dateStyle: 'medium',
+              timeStyle: 'short'
+            })
+          : 'Unknown';
+
+        const displayMessage = `Product is currently being edited by ${status.lockedByEmail || 'another user'}.\n\nLock expires at ${expiryIST} IST.\n\n${status.canRequestTakeover ? 'You can request takeover from the current editor.' : status.cannotRequestReason || ''}`;
+
+        // Store lock info
+        setLockedByEmail(status.lockedByEmail || 'Unknown User');
+        setProductLock({
+          isLocked: true,
+          lockedBy: status.lockedBy,
+          expiresAt: expiresAt,
+        });
+        
+        // Show modal
+        setLockModalMessage(displayMessage);
+        setIsLockModalOpen(true);
+        setIsAcquiringLock(false);
+        
+        lockAcquiredRef.current = false;
+        return; // ❌ Don't try to acquire lock
+      }
+
+      // ✅ CASE 2: Product is locked by ME (same user, maybe different tab)
+      if (status.isLocked && status.lockedBy === currentUserId) {
+        console.log('✅ Product already locked by you');
+        
+        setProductLock({
+          isLocked: true,
+          lockedBy: status.lockedBy,
+          expiresAt: status.expiresAt || new Date(Date.now() + 15 * 60 * 1000).toISOString(),
+        });
+        
+        lockAcquiredRef.current = true;
+        setIsAcquiringLock(false);
+        
+        toast.info('✅ Already editing in another tab - you can continue editing here');
+        return; // ✅ No need to acquire again
+      }
+
+      // ✅ CASE 3: Product is NOT locked - Proceed to acquire
+      if (!status.isLocked) {
+        console.log('🆓 Product is free - acquiring lock...');
+        // Fall through to acquire lock below
+      }
+    }
+  } catch (statusError: any) {
+    console.warn('⚠️ Lock status check failed, trying to acquire directly...', statusError);
+    // If status check fails, try to acquire anyway
+  }
+
+  // ✅ STEP 2: Try to acquire lock
+  await acquireProductLock(productId, false);
+};
+// ==========================================
+// 🔒 LOCK INITIALIZATION & REFRESH
+// ==========================================
+
+useEffect(() => {
+  if (!productId) return;
+
+  // 1️⃣ Initialize lock on mount (with status check)
+  initializeLock();
+
+  // 2️⃣ Setup refresh interval (10 minutes)
+  refreshIntervalRef.current = setInterval(() => {
+    if (!lockAcquiredRef.current) {
+      console.log('⏭️ Skipping refresh - no active lock');
+      return;
+    }
+    
+    // Refresh lock silently
+    acquireProductLock(productId, true); // isRefresh = true
+  }, 10 * 60 * 1000); // 10 minutes
+
+  // 3️⃣ Cleanup on unmount
+  return () => {
+    console.log('🧹 Cleanup: Releasing lock and clearing interval');
+    
+    if (refreshIntervalRef.current) {
+      clearInterval(refreshIntervalRef.current);
+      refreshIntervalRef.current = null;
+    }
+    
+    releaseProductLock(productId);
+  };
+}, [productId]);
+
+
 
 // ==================== ACQUIRE PRODUCT LOCK (UPDATED WITH TAKEOVER INFO) ====================
 const acquireProductLock = async (
@@ -6204,7 +6332,7 @@ const uploadImagesToProductDirect = async (
 
         {/* Expiry Time */}
         <div>
-          <label className="block text-xs font-medium text-slate-200 mb-1.5 flex items-center gap-1.5">
+          <label className="text-xs font-medium text-slate-200 mb-1.5 flex items-center gap-1.5">
             <Clock className="w-3.5 h-3.5" />
             Request Expiry
           </label>

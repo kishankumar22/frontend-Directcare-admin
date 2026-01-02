@@ -1168,475 +1168,467 @@ const categoryOptions: SelectOption[] = processCategoryData(categories as any);
           </div>
         </div>
       )}
+{/* ✅ COMPLETE CREATE/EDIT MODAL */}
+{showModal && (
+  <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-50 flex items-center justify-center p-4">
+    <div className="bg-gradient-to-br from-slate-900 via-slate-900 to-slate-800 border border-violet-500/20 rounded-3xl max-w-6xl w-full max-h-[90vh] overflow-hidden shadow-2xl shadow-violet-500/10">
+      <div className="p-2 border-b border-violet-500/20 bg-gradient-to-r from-violet-500/10 to-cyan-500/10">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-3xl font-bold bg-gradient-to-r from-violet-400 via-cyan-400 to-pink-400 bg-clip-text text-transparent">
+              {editingDiscount ? 'Edit Discount' : 'Create New Discount'}
+            </h2>
+            <p className="text-slate-400 text-sm mt-1">
+              {editingDiscount ? 'Update discount information' : 'Add a new discount to your store'}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              setShowModal(false);
+              resetForm();
+            }}
+            className="p-2 text-slate-400 hover:text-white hover:bg-red-600 rounded-lg transition-all"
+          >
+            ✕
+          </button>
+        </div>
+      </div>
+      
+      <form onSubmit={handleSubmit} className="p-2 space-y-2 overflow-y-auto max-h-[calc(90vh-120px)]">
+        {/* Basic Information */}
+        <div className="bg-slate-800/30 p-2 rounded-2xl border border-slate-700/50">
+          <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+            <span className="w-8 h-8 rounded-lg bg-gradient-to-br from-violet-500 to-purple-500 flex items-center justify-center text-sm">1</span>
+            <span>Basic Information</span>
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-2">Discount Name *</label>
+              <input
+                type="text"
+                required
+                value={formData.name}
+                onChange={(e) => setFormData({...formData, name: e.target.value})}
+                placeholder="Enter discount name"
+                className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-2">
+                Discount Type *
+              </label>
+              <select
+                required
+                value={formData.discountType}
+                onChange={(e) => handleDiscountTypeChange(e.target.value as DiscountType)}
+                className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+              >
+                <option value="AssignedToOrderTotal">Assigned to order total</option>
+                <option value="AssignedToProducts">Assigned to products</option>
+                <option value="AssignedToCategories">Assigned to categories</option>
+                <option value="AssignedToShipping">Assigned to shipping</option>
+              </select>
+              
+              {/* ✅ Optional: Show current assignments count (no warning) */}
+              {(formData.assignedProductIds.length > 0 || 
+                formData.assignedCategoryIds.length > 0 || 
+                formData.assignedManufacturerIds.length > 0) && (
+                <div className="mt-2 flex items-center gap-2 text-xs text-slate-400">
+                  <span className="px-2 py-1 bg-slate-700/50 rounded">
+                    {formData.assignedProductIds.length} products
+                  </span>
+                  <span className="px-2 py-1 bg-slate-700/50 rounded">
+                    {formData.assignedCategoryIds.length} categories
+                  </span>
+                </div>
+              )}
+            </div>
+          </div>
 
-      {/* ✅ COMPLETE CREATE/EDIT MODAL */}
-      {showModal && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-50 flex items-center justify-center p-4">
-          <div className="bg-gradient-to-br from-slate-900 via-slate-900 to-slate-800 border border-violet-500/20 rounded-3xl max-w-6xl w-full max-h-[90vh] overflow-hidden shadow-2xl shadow-violet-500/10">
-            <div className="p-2 border-b border-violet-500/20 bg-gradient-to-r from-violet-500/10 to-cyan-500/10">
-              <div className="flex items-center justify-between">
+          {/* ✅ Assignment & Settings Section moved here - Discount Type के नीचे */}
+          <div className="mt-6">
+            <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+              <span className="w-8 h-8 rounded-lg bg-gradient-to-br from-purple-500 to-violet-500 flex items-center justify-center text-sm">2</span>
+              <span>Assignment & Settings</span>
+            </h3>
+            <div className="space-y-4">
+              
+              {/* ✅ PRODUCTS MULTI-SELECT */}
+              {formData.discountType === "AssignedToProducts" && (
                 <div>
-                  <h2 className="text-3xl font-bold bg-gradient-to-r from-violet-400 via-cyan-400 to-pink-400 bg-clip-text text-transparent">
-                    {editingDiscount ? 'Edit Discount' : 'Create New Discount'}
-                  </h2>
-                  <p className="text-slate-400 text-sm mt-1">
-                    {editingDiscount ? 'Update discount information' : 'Add a new discount to your store'}
+                  <label className="block text-sm font-medium text-slate-300 mb-2">
+                    Select Products *
+                    <span className="text-xs text-slate-400 ml-2">(Choose which products this discount applies to)</span>
+                  </label>
+                  <Select
+                    isMulti
+                    options={productOptions}
+                    value={productOptions.filter(opt => formData.assignedProductIds.includes(opt.value))}
+                    onChange={(selectedOptions) => {
+                      const ids = selectedOptions ? selectedOptions.map(opt => opt.value) : [];
+                      setFormData({...formData, assignedProductIds: ids});
+                    }}
+                    placeholder="Search and select products..."
+                    isSearchable
+                    closeMenuOnSelect={false}
+                    styles={customSelectStyles}
+                    className="react-select-container"
+                    classNamePrefix="react-select"
+                    noOptionsMessage={() => "No products found"}
+                    loadingMessage={() => "Loading products..."}
+                  />
+                  <p className="text-xs text-slate-400 mt-1">
+                    {formData.assignedProductIds.length} product{formData.assignedProductIds.length !== 1 ? 's' : ''} selected
                   </p>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowModal(false);
-                    resetForm();
-                  }}
-                  className="p-2 text-slate-400 hover:text-white hover:bg-red-600 rounded-lg transition-all"
-                >
-                  ✕
-                </button>
-              </div>
-            </div>
-            
-            <form onSubmit={handleSubmit} className="p-2 space-y-2 overflow-y-auto max-h-[calc(90vh-120px)]">
-              {/* Basic Information */}
-              <div className="bg-slate-800/30 p-2 rounded-2xl border border-slate-700/50">
-                <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-                  <span className="w-8 h-8 rounded-lg bg-gradient-to-br from-violet-500 to-purple-500 flex items-center justify-center text-sm">1</span>
-                  <span>Basic Information</span>
-                </h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-slate-300 mb-2">Discount Name *</label>
-                    <input
-                      type="text"
-                      required
-                      value={formData.name}
-                      onChange={(e) => setFormData({...formData, name: e.target.value})}
-                      placeholder="Enter discount name"
-                      className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
-                    />
-                  </div>
-<div>
-  <label className="block text-sm font-medium text-slate-300 mb-2">
-    Discount Type *
-  </label>
-  <select
-    required
-    value={formData.discountType}
-    onChange={(e) => handleDiscountTypeChange(e.target.value as DiscountType)}
-    className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
-  >
-    <option value="AssignedToOrderTotal">Assigned to order total</option>
-    <option value="AssignedToProducts">Assigned to products</option>
-    <option value="AssignedToCategories">Assigned to categories</option>
-    <option value="AssignedToShipping">Assigned to shipping</option>
-  </select>
-  
-  {/* ✅ Optional: Show current assignments count (no warning) */}
-  {(formData.assignedProductIds.length > 0 || 
-    formData.assignedCategoryIds.length > 0 || 
-    formData.assignedManufacturerIds.length > 0) && (
-    <div className="mt-2 flex items-center gap-2 text-xs text-slate-400">
-      <span className="px-2 py-1 bg-slate-700/50 rounded">
-        {formData.assignedProductIds.length} products
-      </span>
-      <span className="px-2 py-1 bg-slate-700/50 rounded">
-        {formData.assignedCategoryIds.length} categories
-      </span>
-    </div>
-  )}
-</div>
+              )}
+              
+              {/* ✅ CATEGORIES MULTI-SELECT */}
+              {formData.discountType === "AssignedToCategories" && (
+                <div>
+                  <label className="block text-sm font-medium text-slate-300 mb-2">
+                    Select Categories
+                    <span className="text-xs text-slate-400 ml-2">
+                      Choose which categories this discount applies to
+                    </span>
+                  </label>
 
-
-                </div>
-
-                <div className="mt-4">
-                  <label className="block text-sm font-medium text-slate-300 mb-2">Admin Comment</label>
-                  <ProductDescriptionEditor
-                    value={formData.adminComment}
-                    onChange={(content) => setFormData({...formData, adminComment: content})}
-                    placeholder="Add internal notes about this discount..."
-                    height={250}
-                    required={false}
+                  <Select
+                    isMulti
+                    options={categoryOptions}
+                    value={categoryOptions.filter(opt =>
+                      formData.assignedCategoryIds.includes(opt.value)
+                    )}
+                    onChange={(selectedOptions) => {
+                      const ids = selectedOptions ? selectedOptions.map(opt => opt.value) : [];
+                      setFormData({ ...formData, assignedCategoryIds: ids });
+                    }}
+                    placeholder="Search and select categories..."
+                    isSearchable
+                    closeMenuOnSelect={false}
+                    styles={customSelectStyles}
+                    className="react-select-container"
+                    classNamePrefix="react-select"
+                    noOptionsMessage={() => "No categories found"}
+                    loadingMessage={() => "Loading categories..."}
                   />
+
+                  <p className="text-xs text-slate-400 mt-1">
+                    {formData.assignedCategoryIds.length
+                      ? `${formData.assignedCategoryIds.length} categor${
+                          formData.assignedCategoryIds.length !== 1 ? "ies" : "y"
+                        } selected`
+                      : "No categories selected"}
+                  </p>
                 </div>
-              </div>
+              )}
 
-              {/* Discount Value */}
-              <div className="bg-slate-800/30 p-2 rounded-2xl border border-slate-700/50">
-                <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-                  <span className="w-8 h-8 rounded-lg bg-gradient-to-br from-green-500 to-emerald-500 flex items-center justify-center text-sm">2</span>
-                  <span>Discount Value</span>
-                </h3>
-                
-                <div className="flex gap-4 mb-4">
-                  <label className="flex items-center gap-3 p-3 bg-slate-900/50 border border-slate-600 rounded-xl cursor-pointer hover:border-violet-500 transition-all">
-                    <input
-                      type="radio"
-                      name="discountType"
-                      checked={formData.usePercentage}
-                      onChange={() => setFormData({...formData, usePercentage: true})}
-                      className="w-5 h-5 text-violet-500 focus:ring-2 focus:ring-violet-500"
-                    />
-                    <div>
-                      <p className="text-white font-medium">Percentage</p>
-                      <p className="text-slate-400 text-xs">Discount by percentage</p>
-                    </div>
-                  </label>
-                  <label className="flex items-center gap-3 p-3 bg-slate-900/50 border border-slate-600 rounded-xl cursor-pointer hover:border-violet-500 transition-all">
-                    <input
-                      type="radio"
-                      name="discountType"
-                      checked={!formData.usePercentage}
-                      onChange={() => setFormData({...formData, usePercentage: false})}
-                      className="w-5 h-5 text-violet-500 focus:ring-2 focus:ring-violet-500"
-                    />
-                    <div>
-                      <p className="text-white font-medium">Fixed Amount</p>
-                      <p className="text-slate-400 text-xs">Discount by fixed amount</p>
-                    </div>
-                  </label>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  {formData.usePercentage ? (
-                    <div>
-                      <label className="block text-sm font-medium text-slate-300 mb-2">Discount Percentage *</label>
-                      <div className="relative">
-                        <input
-                          type="number"
-                          required
-                          min="0"
-                          max="100"
-                          step="0.01"
-                          value={formData.discountPercentage}
-                          onChange={(e) => setFormData({...formData, discountPercentage: parseFloat(e.target.value) || 0})}
-                          placeholder="0.00"
-                          className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all pr-12"
-                        />
-                        <span className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400">%</span>
-                      </div>
-                    </div>
-                  ) : (
-                    <div>
-                      <label className="block text-sm font-medium text-slate-300 mb-2">Discount Amount *</label>
-                      <div className="relative">
-                        <input
-                          type="number"
-                          required
-                          min="0"
-                          step="0.01"
-                          value={formData.discountAmount}
-                          onChange={(e) => setFormData({...formData, discountAmount: parseFloat(e.target.value) || 0})}
-                          placeholder="0.00"
-                          className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all pl-12"
-                        />
-                        <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"> £</span>
-                      </div>
-                    </div>
-                  )}
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-slate-300 mb-2">Maximum Discount Amount</label>
-                    <div className="relative">
-                      <input
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        value={formData.maximumDiscountAmount || ''}
-                        onChange={(e) => setFormData({...formData, maximumDiscountAmount: e.target.value ? parseFloat(e.target.value) : null})}
-                        placeholder="No limit"
-                        className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all pl-12"
-                      />
-                      <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">£</span>
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-slate-300 mb-2">Maximum Discounted Quantity</label>
-                    <input
-                      type="number"
-                      min="0"
-                      value={formData.maximumDiscountedQuantity || ''}
-                      onChange={(e) => setFormData({...formData, maximumDiscountedQuantity: e.target.value ? parseInt(e.target.value) : null})}
-                      placeholder="No limit"
-                      className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Date Range */}
-<div className="bg-slate-800/30 p-2 rounded-2xl border border-slate-700/50">
-  <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-    <span className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center text-sm">3</span>
-    <span>Valid Period</span>
-  </h3>
-  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-    
-    {/* START DATE & TIME */}
-    <div>
-      <label className="block text-sm font-medium text-slate-300 mb-2">Start Date & Time *</label>
-      <input
-        type="datetime-local"
-        required
-        value={formData.startDate}
-        onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
-        className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
-      />
-    </div>
-
-    {/* END DATE & TIME */}
-    <div>
-      <label className="block text-sm font-medium text-slate-300 mb-2">End Date & Time *</label>
-      <input
-        type="datetime-local"
-        required
-        value={formData.endDate}
-        onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
-        className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
-      />
-    </div>
-  </div>
-</div>
-              {/* Coupon Code */}
-              <div className="bg-slate-800/30 p-2 rounded-2xl border border-slate-700/50">
-                <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-                  <span className="w-8 h-8 rounded-lg bg-gradient-to-br from-orange-500 to-amber-500 flex items-center justify-center text-sm">4</span>
-                  <span>Coupon Settings</span>
-                </h3>
-                
-                <div className="mb-4">
+              {/* Settings Checkboxes */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
                   <label className="flex items-center gap-3 p-3 bg-slate-900/50 border border-slate-600 rounded-xl cursor-pointer hover:border-violet-500 transition-all">
                     <input
                       type="checkbox"
-                      checked={formData.requiresCouponCode}
-                      onChange={(e) => setFormData({...formData, requiresCouponCode: e.target.checked})}
+                      checked={formData.isActive}
+                      onChange={(e) => setFormData({...formData, isActive: e.target.checked})}
                       className="w-5 h-5 rounded border-slate-600 text-violet-500 focus:ring-2 focus:ring-violet-500"
                     />
                     <div>
-                      <p className="text-white font-medium">Requires Coupon Code</p>
-                      <p className="text-slate-400 text-xs">Customers must enter a coupon code to get this discount</p>
+                      <p className="text-white font-medium">Active</p>
+                      <p className="text-slate-400 text-xs">Enable this discount</p>
                     </div>
                   </label>
                 </div>
-
-                {formData.requiresCouponCode && (
-                  <div>
-                    <label className="block text-sm font-medium text-slate-300 mb-2">Coupon Code *</label>
+                <div>
+                  <label className="flex items-center gap-3 p-3 bg-slate-900/50 border border-slate-600 rounded-xl cursor-pointer hover:border-violet-500 transition-all">
                     <input
-                      type="text"
-                      required={formData.requiresCouponCode}
-                      value={formData.couponCode}
-                      onChange={(e) => setFormData({...formData, couponCode: e.target.value.toUpperCase()})}
-                      placeholder="Enter coupon code"
-                      className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all font-mono"
+                      type="checkbox"
+                      checked={formData.isCumulative}
+                      onChange={(e) => setFormData({...formData, isCumulative: e.target.checked})}
+                      className="w-5 h-5 rounded border-slate-600 text-violet-500 focus:ring-2 focus:ring-violet-500"
                     />
-                  </div>
-                )}
-              </div>
-
-              {/* Usage Limitations */}
-{/* ✅ FIXED Usage Limitations Section */}
-<div className="bg-slate-800/30 p-2 rounded-2xl border border-slate-700/50">
-  <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-    <span className="w-8 h-8 rounded-lg bg-gradient-to-br from-red-500 to-rose-500 flex items-center justify-center text-sm">5</span>
-    <span>Usage Limitations</span>
-  </h3>
-  
-  <div className="mb-4">
-    <label className="block text-sm font-medium text-slate-300 mb-2">Limitation Type</label>
-    <select
-      value={formData.discountLimitation}
-      onChange={(e) => setFormData({...formData, discountLimitation: e.target.value as DiscountLimitationType})}
-      className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
-    >
-      <option value="Unlimited">Unlimited</option>
-      <option value="NTimesOnly">Limited number of uses total</option>
-      <option value="NTimesPerCustomer">Limited number of uses per customer</option>
-    </select>
-  </div>
-
-  {/* ✅ FIXED: Now properly checks against "Unlimited" */}
-  {formData.discountLimitation !== "Unlimited" && (
-    <div>
-      <label className="block text-sm font-medium text-slate-300 mb-2">
-        Number of Uses *
-        <span className="text-xs text-slate-400 ml-2">
-          {formData.discountLimitation === "NTimesOnly" 
-            ? "(Total uses across all customers)"
-            : "(Uses per individual customer)"
-          }
-        </span>
-      </label>
-      <input
-        type="number"
-     // ✅ SIMPLE FIX - Line 1778
-     required={formData.discountLimitation !== "Unlimited" as DiscountLimitationType}
-
-        min="1"
-
-
-        value={formData.limitationTimes || ''}
-        onChange={(e) => setFormData({...formData, limitationTimes: e.target.value ? parseInt(e.target.value) : null})}
-        placeholder="Enter number of uses"
-        className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
-      />
-    </div>
-  )}
-</div>
-
-              {/* ✅ COMPLETE ASSIGNMENT SECTION WITH REACT-SELECT */}
-              <div className="bg-slate-800/30 p-2 rounded-2xl border border-slate-700/50">
-                <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-                  <span className="w-8 h-8 rounded-lg bg-gradient-to-br from-purple-500 to-violet-500 flex items-center justify-center text-sm">6</span>
-                  <span>Assignment & Settings</span>
-                </h3>
-                <div className="space-y-4">
-                  
-                  {/* ✅ PRODUCTS MULTI-SELECT */}
-                  {formData.discountType === "AssignedToProducts" && (
                     <div>
-                      <label className="block text-sm font-medium text-slate-300 mb-2">
-                        Select Products *
-                        <span className="text-xs text-slate-400 ml-2">(Choose which products this discount applies to)</span>
-                      </label>
-                      <Select
-                        isMulti
-                        options={productOptions}
-                        value={productOptions.filter(opt => formData.assignedProductIds.includes(opt.value))}
-                        onChange={(selectedOptions) => {
-                          const ids = selectedOptions ? selectedOptions.map(opt => opt.value) : [];
-                          setFormData({...formData, assignedProductIds: ids});
-                        }}
-                        placeholder="Search and select products..."
-                        isSearchable
-                        closeMenuOnSelect={false}
-                        styles={customSelectStyles}
-                        className="react-select-container"
-                        classNamePrefix="react-select"
-                        noOptionsMessage={() => "No products found"}
-                        loadingMessage={() => "Loading products..."}
-                      />
-                      <p className="text-xs text-slate-400 mt-1">
-                        {formData.assignedProductIds.length} product{formData.assignedProductIds.length !== 1 ? 's' : ''} selected
-                      </p>
+                      <p className="text-white font-medium">Cumulative</p>
+                      <p className="text-slate-400 text-xs">Can combine with others</p>
                     </div>
-                  )}
-                  
-                  {/* ✅ CATEGORIES MULTI-SELECT */}
-        {formData.discountType === "AssignedToCategories" && (
-  <div>
-    <label className="block text-sm font-medium text-slate-300 mb-2">
-      Select Categories
-      <span className="text-xs text-slate-400 ml-2">
-        Choose which categories this discount applies to
-      </span>
-    </label>
-
-    <Select
-      isMulti
-      options={categoryOptions}
-      value={categoryOptions.filter(opt =>
-        formData.assignedCategoryIds.includes(opt.value)
-      )}
-      onChange={(selectedOptions) => {
-        const ids = selectedOptions ? selectedOptions.map(opt => opt.value) : [];
-        setFormData({ ...formData, assignedCategoryIds: ids });
-      }}
-      placeholder="Search and select categories..."
-      isSearchable
-      closeMenuOnSelect={false}
-      styles={customSelectStyles}
-      className="react-select-container"
-      classNamePrefix="react-select"
-      noOptionsMessage={() => "No categories found"}
-      loadingMessage={() => "Loading categories..."}
-    />
-
-    <p className="text-xs text-slate-400 mt-1">
-      {formData.assignedCategoryIds.length
-        ? `${formData.assignedCategoryIds.length} categor${
-            formData.assignedCategoryIds.length !== 1 ? "ies" : "y"
-          } selected`
-        : "No categories selected"}
-    </p>
-  </div>
-)}
-
-                  
-
-                  {/* Settings Checkboxes */}
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="flex items-center gap-3 p-3 bg-slate-900/50 border border-slate-600 rounded-xl cursor-pointer hover:border-violet-500 transition-all">
-                        <input
-                          type="checkbox"
-                          checked={formData.isActive}
-                          onChange={(e) => setFormData({...formData, isActive: e.target.checked})}
-                          className="w-5 h-5 rounded border-slate-600 text-violet-500 focus:ring-2 focus:ring-violet-500"
-                        />
-                        <div>
-                          <p className="text-white font-medium">Active</p>
-                          <p className="text-slate-400 text-xs">Enable this discount</p>
-                        </div>
-                      </label>
-                    </div>
-                    <div>
-                      <label className="flex items-center gap-3 p-3 bg-slate-900/50 border border-slate-600 rounded-xl cursor-pointer hover:border-violet-500 transition-all">
-                        <input
-                          type="checkbox"
-                          checked={formData.isCumulative}
-                          onChange={(e) => setFormData({...formData, isCumulative: e.target.checked})}
-                          className="w-5 h-5 rounded border-slate-600 text-violet-500 focus:ring-2 focus:ring-violet-500"
-                        />
-                        <div>
-                          <p className="text-white font-medium">Cumulative</p>
-                          <p className="text-slate-400 text-xs">Can combine with others</p>
-                        </div>
-                      </label>
-                    </div>
-                  </div>
-                  
-                  <div>
-                    <label className="flex items-center gap-3 p-3 bg-slate-900/50 border border-slate-600 rounded-xl cursor-pointer hover:border-violet-500 transition-all">
-                      <input
-                        type="checkbox"
-                        checked={formData.appliedToSubOrders}
-                        onChange={(e) => setFormData({...formData, appliedToSubOrders: e.target.checked})}
-                        className="w-5 h-5 rounded border-slate-600 text-violet-500 focus:ring-2 focus:ring-violet-500"
-                      />
-                      <div>
-                        <p className="text-white font-medium">Apply to Sub Orders</p>
-                        <p className="text-slate-400 text-xs">Apply discount to sub orders as well</p>
-                      </div>
-                    </label>
-                  </div>
+                  </label>
                 </div>
               </div>
-
-              {/* Submit buttons */}
-              <div className="flex justify-end gap-3 pt-4 border-t border-slate-700/50">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowModal(false);
-                    resetForm();
-                  }}
-                  className="px-6 py-3 bg-slate-800 text-white rounded-xl hover:bg-slate-700 transition-all font-medium"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-6 py-3 bg-gradient-to-r from-violet-500 via-purple-500 to-cyan-500 text-white rounded-xl hover:shadow-xl hover:shadow-violet-500/50 transition-all font-semibold hover:scale-105"
-                >
-                  {editingDiscount ? '✓ Update Discount' : '+ Create Discount'}
-                </button>
+              
+              <div>
+                <label className="flex items-center gap-3 p-3 bg-slate-900/50 border border-slate-600 rounded-xl cursor-pointer hover:border-violet-500 transition-all">
+                  <input
+                    type="checkbox"
+                    checked={formData.appliedToSubOrders}
+                    onChange={(e) => setFormData({...formData, appliedToSubOrders: e.target.checked})}
+                    className="w-5 h-5 rounded border-slate-600 text-violet-500 focus:ring-2 focus:ring-violet-500"
+                  />
+                  <div>
+                    <p className="text-white font-medium">Apply to Sub Orders</p>
+                    <p className="text-slate-400 text-xs">Apply discount to sub orders as well</p>
+                  </div>
+                </label>
               </div>
-            </form>
+            </div>
+          </div>
+
+          <div className="mt-4">
+            <label className="block text-sm font-medium text-slate-300 mb-2">Admin Comment</label>
+            <ProductDescriptionEditor
+              value={formData.adminComment}
+              onChange={(content) => setFormData({...formData, adminComment: content})}
+              placeholder="Add internal notes about this discount..."
+              height={250}
+              required={false}
+            />
           </div>
         </div>
-      )}
+
+        {/* Discount Value */}
+        <div className="bg-slate-800/30 p-2 rounded-2xl border border-slate-700/50">
+          <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+            <span className="w-8 h-8 rounded-lg bg-gradient-to-br from-green-500 to-emerald-500 flex items-center justify-center text-sm">3</span>
+            <span>Discount Value</span>
+          </h3>
+          
+          <div className="flex gap-4 mb-4">
+            <label className="flex items-center gap-3 p-3 bg-slate-900/50 border border-slate-600 rounded-xl cursor-pointer hover:border-violet-500 transition-all">
+              <input
+                type="radio"
+                name="discountType"
+                checked={formData.usePercentage}
+                onChange={() => setFormData({...formData, usePercentage: true})}
+                className="w-5 h-5 text-violet-500 focus:ring-2 focus:ring-violet-500"
+              />
+              <div>
+                <p className="text-white font-medium">Percentage</p>
+                <p className="text-slate-400 text-xs">Discount by percentage</p>
+              </div>
+            </label>
+            <label className="flex items-center gap-3 p-3 bg-slate-900/50 border border-slate-600 rounded-xl cursor-pointer hover:border-violet-500 transition-all">
+              <input
+                type="radio"
+                name="discountType"
+                checked={!formData.usePercentage}
+                onChange={() => setFormData({...formData, usePercentage: false})}
+                className="w-5 h-5 text-violet-500 focus:ring-2 focus:ring-violet-500"
+              />
+              <div>
+                <p className="text-white font-medium">Fixed Amount</p>
+                <p className="text-slate-400 text-xs">Discount by fixed amount</p>
+              </div>
+            </label>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {formData.usePercentage ? (
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-2">Discount Percentage *</label>
+                <div className="relative">
+                  <input
+                    type="number"
+                    required
+                    min="0"
+                    max="100"
+                    step="0.01"
+                    value={formData.discountPercentage}
+                    onChange={(e) => setFormData({...formData, discountPercentage: parseFloat(e.target.value) || 0})}
+                    placeholder="0.00"
+                    className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all pr-12"
+                  />
+                  <span className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400">%</span>
+                </div>
+              </div>
+            ) : (
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-2">Discount Amount *</label>
+                <div className="relative">
+                  <input
+                    type="number"
+                    required
+                    min="0"
+                    step="0.01"
+                    value={formData.discountAmount}
+                    onChange={(e) => setFormData({...formData, discountAmount: parseFloat(e.target.value) || 0})}
+                    placeholder="0.00"
+                    className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all pl-12"
+                  />
+                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"> £</span>
+                </div>
+              </div>
+            )}
+            
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-2">Maximum Discount Amount</label>
+              <div className="relative">
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={formData.maximumDiscountAmount || ''}
+                  onChange={(e) => setFormData({...formData, maximumDiscountAmount: e.target.value ? parseFloat(e.target.value) : null})}
+                  placeholder="No limit"
+                  className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all pl-12"
+                />
+                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">£</span>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-2">Maximum Discounted Quantity</label>
+              <input
+                type="number"
+                min="0"
+                value={formData.maximumDiscountedQuantity || ''}
+                onChange={(e) => setFormData({...formData, maximumDiscountedQuantity: e.target.value ? parseInt(e.target.value) : null})}
+                placeholder="No limit"
+                className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Date Range */}
+        <div className="bg-slate-800/30 p-2 rounded-2xl border border-slate-700/50">
+          <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+            <span className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center text-sm">4</span>
+            <span>Valid Period</span>
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            
+            {/* START DATE & TIME */}
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-2">Start Date & Time *</label>
+              <input
+                type="datetime-local"
+                required
+                value={formData.startDate}
+                onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
+                className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+              />
+            </div>
+
+            {/* END DATE & TIME */}
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-2">End Date & Time *</label>
+              <input
+                type="datetime-local"
+                required
+                value={formData.endDate}
+                onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
+                className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Coupon Code */}
+        <div className="bg-slate-800/30 p-2 rounded-2xl border border-slate-700/50">
+          <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+            <span className="w-8 h-8 rounded-lg bg-gradient-to-br from-orange-500 to-amber-500 flex items-center justify-center text-sm">5</span>
+            <span>Coupon Settings</span>
+          </h3>
+          
+          <div className="mb-4">
+            <label className="flex items-center gap-3 p-3 bg-slate-900/50 border border-slate-600 rounded-xl cursor-pointer hover:border-violet-500 transition-all">
+              <input
+                type="checkbox"
+                checked={formData.requiresCouponCode}
+                onChange={(e) => setFormData({...formData, requiresCouponCode: e.target.checked})}
+                className="w-5 h-5 rounded border-slate-600 text-violet-500 focus:ring-2 focus:ring-violet-500"
+              />
+              <div>
+                <p className="text-white font-medium">Requires Coupon Code</p>
+                <p className="text-slate-400 text-xs">Customers must enter a coupon code to get this discount</p>
+              </div>
+            </label>
+          </div>
+
+          {formData.requiresCouponCode && (
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-2">Coupon Code *</label>
+              <input
+                type="text"
+                required={formData.requiresCouponCode}
+                value={formData.couponCode}
+                onChange={(e) => setFormData({...formData, couponCode: e.target.value.toUpperCase()})}
+                placeholder="Enter coupon code"
+                className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all font-mono"
+              />
+            </div>
+          )}
+        </div>
+
+        {/* ✅ FIXED Usage Limitations Section */}
+        <div className="bg-slate-800/30 p-2 rounded-2xl border border-slate-700/50">
+          <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+            <span className="w-8 h-8 rounded-lg bg-gradient-to-br from-red-500 to-rose-500 flex items-center justify-center text-sm">6</span>
+            <span>Usage Limitations</span>
+          </h3>
+          
+          <div className="mb-4">
+            <label className="block text-sm font-medium text-slate-300 mb-2">Limitation Type</label>
+            <select
+              value={formData.discountLimitation}
+              onChange={(e) => setFormData({...formData, discountLimitation: e.target.value as DiscountLimitationType})}
+              className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+            >
+              <option value="Unlimited">Unlimited</option>
+              <option value="NTimesOnly">Limited number of uses total</option>
+              <option value="NTimesPerCustomer">Limited number of uses per customer</option>
+            </select>
+          </div>
+
+          {/* ✅ FIXED: Now properly checks against "Unlimited" */}
+          {formData.discountLimitation !== "Unlimited" && (
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-2">
+                Number of Uses *
+                <span className="text-xs text-slate-400 ml-2">
+                  {formData.discountLimitation === "NTimesOnly" 
+                    ? "(Total uses across all customers)"
+                    : "(Uses per individual customer)"
+                  }
+                </span>
+              </label>
+              <input
+                type="number"
+                // ✅ SIMPLE FIX - Line 1778
+                required={formData.discountLimitation !== "Unlimited" as DiscountLimitationType}
+                min="1"
+                value={formData.limitationTimes || ''}
+                onChange={(e) => setFormData({...formData, limitationTimes: e.target.value ? parseInt(e.target.value) : null})}
+                placeholder="Enter number of uses"
+                className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+              />
+            </div>
+          )}
+        </div>
+
+        {/* Submit buttons */}
+        <div className="flex justify-end gap-3 pt-4 border-t border-slate-700/50">
+          <button
+            type="button"
+            onClick={() => {
+              setShowModal(false);
+              resetForm();
+            }}
+            className="px-6 py-3 bg-slate-800 text-white rounded-xl hover:bg-slate-700 transition-all font-medium"
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            className="px-6 py-3 bg-gradient-to-r from-violet-500 via-purple-500 to-cyan-500 text-white rounded-xl hover:shadow-xl hover:shadow-violet-500/50 transition-all font-semibold hover:scale-105"
+          >
+            {editingDiscount ? '✓ Update Discount' : '+ Create Discount'}
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+)}
 
 {/* View Discount Modal - COMPLETE WITH ALL FIELDS */}
 {viewingDiscount && (

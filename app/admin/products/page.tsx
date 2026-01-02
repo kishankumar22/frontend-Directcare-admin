@@ -2,12 +2,13 @@
 
 import { useState, useEffect, useMemo, useCallback } from "react";
 import Link from "next/link";
-import { Plus, Package, Edit, Trash2, Eye, Search, Filter, FilterX, TrendingUp, AlertCircle, X, Tag, PoundSterling, Calendar, User, CheckCircle, XCircle, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Info, Star, Video, ShoppingCart, Truck, Scale, Ruler, Box, FileText, Globe, Clock, Activity, ExternalLink, Play, ImageIcon, Download, ChevronDown, FileSpreadsheet } from "lucide-react";
+import { Plus, Package, Edit, Trash2, Eye, Search, Filter, FilterX, TrendingUp, AlertCircle, X, Tag, PoundSterling, Calendar, User, CheckCircle, XCircle, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Info, Star, Video, ShoppingCart, Truck, Scale, Ruler, Box, FileText, Globe, Clock, Activity, ExternalLink, Play, ImageIcon, Download, ChevronDown, FileSpreadsheet, Bell, Send } from "lucide-react";
 import { useToast } from "@/components/CustomToast";
 import { API_BASE_URL, API_ENDPOINTS } from "@/lib/api-config";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import { apiClient } from "@/lib/api";
 import { Category, ProductAttribute, ProductImage, RelatedProduct } from "@/lib/services";
+import productLockService, { TakeoverRequestData } from "@/lib/services/productLockService";
 
 interface ProductVariant {
   id: string;
@@ -143,6 +144,77 @@ export default function ProductsPage() {
     fetchCategories();
   }, []);
 
+  // ✅ NEW: Takeover Requests State
+  const [myTakeoverRequests, setMyTakeoverRequests] = useState<TakeoverRequestData[]>([]);
+  const [showTakeoverPanel, setShowTakeoverPanel] = useState(false);
+  const [loadingTakeovers, setLoadingTakeovers] = useState(false);
+  // ✅ NEW: Fetch My Takeover Requests
+  const fetchMyTakeoverRequests = async () => {
+    setLoadingTakeovers(true);
+    try {
+      const response = await productLockService.getMyTakeoverRequests(false); // onlyActive = true
+      
+      if (response.success && response.data) {
+        setMyTakeoverRequests(response.data);
+        console.log('📨 My takeover requests loaded:', response.data.length);
+      }
+    } catch (error) {
+      console.error('Error fetching my takeover requests:', error);
+    } finally {
+      setLoadingTakeovers(false);
+    }
+  };
+
+  // ✅ NEW: Poll for takeover requests every 30 seconds
+  useEffect(() => {
+    fetchMyTakeoverRequests(); // Initial fetch
+
+    const pollInterval = setInterval(() => {
+      fetchMyTakeoverRequests();
+    }, 30000); // 30 seconds
+
+    return () => clearInterval(pollInterval);
+  }, []);
+
+  // ✅ NEW: Cancel Takeover Request Handler
+  const handleCancelTakeoverRequest = async (requestId: string) => {
+    try {
+      const response = await productLockService.cancelTakeoverRequest(requestId);
+      
+      if (response.success) {
+        toast.success('🚫 Takeover request cancelled');
+        fetchMyTakeoverRequests(); // Refresh list
+      }
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to cancel request');
+    }
+  };
+
+  // ✅ NEW: Format time remaining
+  const formatTimeRemaining = (expiresAt: string): string => {
+    const now = new Date().getTime();
+    const expiry = new Date(expiresAt).getTime();
+    const diff = expiry - now;
+
+    if (diff <= 0) return 'Expired';
+
+    const minutes = Math.floor(diff / 1000 / 60);
+    const seconds = Math.floor((diff / 1000) % 60);
+
+    return minutes > 0 ? `${minutes}m ${seconds}s` : `${seconds}s`;
+  };
+
+  // ✅ NEW: Get status color
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'Pending': return 'bg-yellow-500/10 text-yellow-400 border-yellow-500/30';
+      case 'Approved': return 'bg-green-500/10 text-green-400 border-green-500/30';
+      case 'Rejected': return 'bg-red-500/10 text-red-400 border-red-500/30';
+      case 'Expired': return 'bg-gray-500/10 text-gray-400 border-gray-500/30';
+      case 'Cancelled': return 'bg-slate-500/10 text-slate-400 border-slate-500/30';
+      default: return 'bg-slate-500/10 text-slate-400 border-slate-500/30';
+    }
+  };
 // =============================
 // ⭐ FETCH PRODUCTS (apiClient)
 // =============================
@@ -590,78 +662,303 @@ const handleDelete = async (id: string) => {
     <div className="space-y-2">
       {/* Header */}
 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight bg-gradient-to-r from-violet-400 via-cyan-400 to-pink-400 bg-clip-text text-transparent">
-            Product Management
-          </h1>
-          <p className="text-slate-400">Manage your product inventory</p>
-        </div>
-        
-        <div className="flex items-center gap-3">
-          {/* ✅ Export Button with Dropdown */}
-          <div className="relative">
-            <button 
-              onClick={() => setShowExportMenu(!showExportMenu)}
-              className="px-4 py-2 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-xl hover:shadow-lg hover:shadow-green-500/50 transition-all flex items-center gap-2 font-semibold"
+  <div>
+    <h1 className="text-3xl font-bold tracking-tight bg-gradient-to-r from-violet-400 via-cyan-400 to-pink-400 bg-clip-text text-transparent">
+      Product Management
+    </h1>
+    <p className="text-slate-400">Manage your product inventory</p>
+  </div>
+  
+  <div className="flex items-center gap-3">
+    {/* ✅ NEW: My Takeover Requests Button */}
+    <button
+      onClick={(e) => {
+        e.stopPropagation(); // ← Prevent event bubbling
+        setShowTakeoverPanel(!showTakeoverPanel);
+      }}
+      className="relative px-4 py-2 bg-gradient-to-r from-orange-600 to-red-600 text-white rounded-xl hover:shadow-lg hover:shadow-orange-500/50 transition-all flex items-center gap-2 font-semibold"
+      title="View my takeover requests"
+    >
+      <Bell className="w-5 h-5" />
+      My Requests
+      {myTakeoverRequests.length > 0 && (
+        <span className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white text-xs font-bold rounded-full flex items-center justify-center animate-pulse shadow-lg">
+          {myTakeoverRequests.length}
+        </span>
+      )}
+    </button>
+
+    {/* ✅ Export Button with Dropdown */}
+    <div className="relative">
+      <button 
+        onClick={() => setShowExportMenu(!showExportMenu)}
+        className="px-4 py-2 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-xl hover:shadow-lg hover:shadow-green-500/50 transition-all flex items-center gap-2 font-semibold"
+      >
+        <Download className="w-5 h-5" />
+        Export
+        <ChevronDown className="w-4 h-4" />
+      </button>
+      
+      {/* Dropdown Menu */}
+      {showExportMenu && (
+        <>
+          {/* Backdrop */}
+          <div 
+            className="fixed inset-0 z-10" 
+            onClick={() => setShowExportMenu(false)}
+          />
+          
+          {/* Menu Items */}
+          <div className="absolute right-0 mt-2 w-64 bg-slate-800 border border-slate-700 rounded-xl shadow-2xl shadow-black/50 z-20 overflow-hidden">
+            <button
+              onClick={() => {
+                handleExport(false);
+                setShowExportMenu(false);
+              }}
+              disabled={filteredProducts.length === 0}
+              className="w-full px-4 py-3 text-left text-white hover:bg-slate-700 transition-all flex items-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed border-b border-slate-700"
             >
-              <Download className="w-5 h-5" />
-              Export
-              <ChevronDown className="w-4 h-4" />
+              <FileSpreadsheet className="w-4 h-4 text-green-400" />
+              <div>
+                <p className="text-sm font-medium">Export to Excel (filtered)</p>
+                <p className="text-xs text-slate-400">{filteredProducts.length} products</p>
+              </div>
             </button>
             
-            {/* Dropdown Menu */}
-            {showExportMenu && (
-              <>
-                {/* Backdrop */}
-                <div 
-                  className="fixed inset-0 z-10" 
-                  onClick={() => setShowExportMenu(false)}
-                />
-                
-                {/* Menu Items */}
-                <div className="absolute right-0 mt-2 w-64 bg-slate-800 border border-slate-700 rounded-xl shadow-2xl shadow-black/50 z-20 overflow-hidden">
-                  <button
-                    onClick={() => {
-                      handleExport(false);
-                      setShowExportMenu(false);
-                    }}
-                    disabled={filteredProducts.length === 0}
-                    className="w-full px-4 py-3 text-left text-white hover:bg-slate-700 transition-all flex items-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed border-b border-slate-700"
-                  >
-                    <FileSpreadsheet className="w-4 h-4 text-green-400" />
-                    <div>
-                      <p className="text-sm font-medium">Export to Excel (filtered)</p>
-                      <p className="text-xs text-slate-400">{filteredProducts.length} products</p>
-                    </div>
-                  </button>
-                  
-                  <button
-                    onClick={() => {
-                      handleExport(true);
-                      setShowExportMenu(false);
-                    }}
-                    disabled={products.length === 0}
-                    className="w-full px-4 py-3 text-left text-white hover:bg-slate-700 transition-all flex items-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    <FileSpreadsheet className="w-4 h-4 text-cyan-400" />
-                    <div>
-                      <p className="text-sm font-medium">Export to Excel (all found)</p>
-                      <p className="text-xs text-slate-400">{products.length} products</p>
-                    </div>
-                  </button>
-                </div>
-              </>
-            )}
-          </div>
-
-          <Link href="/admin/products/add">
-            <button className="px-4 py-2 bg-gradient-to-r from-violet-500 to-cyan-500 text-white rounded-xl hover:shadow-lg hover:shadow-violet-500/50 transition-all flex items-center gap-2 font-semibold">
-              <Plus className="h-4 w-4" />
-              Add Product
+            <button
+              onClick={() => {
+                handleExport(true);
+                setShowExportMenu(false);
+              }}
+              disabled={products.length === 0}
+              className="w-full px-4 py-3 text-left text-white hover:bg-slate-700 transition-all flex items-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <FileSpreadsheet className="w-4 h-4 text-cyan-400" />
+              <div>
+                <p className="text-sm font-medium">Export to Excel (all found)</p>
+                <p className="text-xs text-slate-400">{products.length} products</p>
+              </div>
             </button>
-          </Link>
+          </div>
+        </>
+      )}
+    </div>
+
+    {/* Add Product Button */}
+    <Link href="/admin/products/add">
+      <button className="px-4 py-2 bg-gradient-to-r from-violet-500 to-cyan-500 text-white rounded-xl hover:shadow-lg hover:shadow-violet-500/50 transition-all flex items-center gap-2 font-semibold">
+        <Plus className="h-4 w-4" />
+        Add Product
+      </button>
+    </Link>
+  </div>
+</div>
+
+{/* ✅ TABLE LAYOUT - POSITIONED HIGHER */}
+{showTakeoverPanel && (
+  <>
+    {/* Backdrop with Flexbox Container */}
+    <div 
+      className="fixed inset-0 bg-black/30 z-40 backdrop-blur-sm flex items-start justify-center pt-16"
+      onClick={() => setShowTakeoverPanel(false)}
+    >
+      {/* Full Width Panel - Positioned at Top */}
+      <div 
+        className="z-50 bg-slate-900/95 backdrop-blur-xl border border-orange-500/20 rounded-2xl shadow-2xl overflow-hidden max-w-7xl w-[95%]"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-orange-500/10 bg-gradient-to-r from-orange-500/5 to-red-500/5">
+          <h3 className="text-lg font-bold text-white flex items-center gap-2">
+            <Send className="w-5 h-5 text-orange-400" />
+            My Takeover Requests
+            <span className="text-sm font-normal text-slate-400">
+              ({myTakeoverRequests.length})
+            </span>
+          </h3>
+          <button
+            onClick={() => setShowTakeoverPanel(false)}
+            className="p-1.5 text-slate-400 hover:text-white hover:bg-red-500/20 rounded-lg transition-all"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        {/* Content Area */}
+        <div className="max-h-[70vh] overflow-auto">
+          {loadingTakeovers ? (
+            <div className="text-center py-12">
+              <div className="w-8 h-8 border-4 border-orange-500 border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
+              <p className="text-slate-400 text-sm">Loading...</p>
+            </div>
+          ) : myTakeoverRequests.length === 0 ? (
+            <div className="text-center py-16">
+              <Send className="w-16 h-16 text-slate-600 mx-auto mb-4 opacity-50" />
+              <p className="text-slate-400">No takeover requests found</p>
+              <p className="text-slate-500 text-sm mt-1">
+                Your requests will appear here
+              </p>
+            </div>
+          ) : (
+            <table className="w-full border-collapse">
+              <thead className="bg-slate-800/50 sticky top-0 z-10">
+                <tr>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wider border-b border-slate-700">
+                    Product
+                  </th>
+                  <th className="text-center px-4 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wider border-b border-slate-700">
+                    Status
+                  </th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wider border-b border-slate-700">
+                    Requested To
+                  </th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wider border-b border-slate-700">
+                    Message
+                  </th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wider border-b border-slate-700">
+                    Response
+                  </th>
+                  <th className="text-center px-4 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wider border-b border-slate-700">
+                    Time
+                  </th>
+                  <th className="text-center px-4 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wider border-b border-slate-700">
+                    Requested At
+                  </th>
+                  <th className="text-center px-4 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wider border-b border-slate-700">
+                    Actions
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {myTakeoverRequests.map((request, index) => (
+                  <tr
+                    key={request.id}
+                    className={`hover:bg-slate-800/40 transition-colors ${
+                      index !== myTakeoverRequests.length - 1 ? 'border-b border-slate-700/30' : ''
+                    }`}
+                  >
+                    {/* Product Name */}
+                    <td className="px-4 py-4">
+                      <div className="text-white font-medium text-sm max-w-[220px]" title={request.productName}>
+                        {request.productName}
+                      </div>
+                    </td>
+
+                    {/* Status */}
+                    <td className="px-4 py-4 text-center">
+                      <span
+                        className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-medium border whitespace-nowrap ${getStatusColor(
+                          request.status
+                        )}`}
+                      >
+                        {request.status === 'Pending' && <Clock className="w-3 h-3" />}
+                        {request.status === 'Approved' && <CheckCircle className="w-3 h-3" />}
+                        {request.status === 'Rejected' && <XCircle className="w-3 h-3" />}
+                        {request.status === 'Expired' && <AlertCircle className="w-3 h-3" />}
+                        {request.statusText}
+                      </span>
+                    </td>
+
+                    {/* Requested To */}
+                    <td className="px-4 py-4">
+                      <div className="text-slate-300 text-xs max-w-[180px]" title={request.currentEditorEmail}>
+                        {request.currentEditorEmail}
+                      </div>
+                    </td>
+
+                    {/* Message */}
+                    <td className="px-4 py-4">
+                      {request.requestMessage ? (
+                        <div className="text-slate-400 text-xs italic max-w-[200px]" title={request.requestMessage}>
+                          "{request.requestMessage}"
+                        </div>
+                      ) : (
+                        <span className="text-slate-600 text-xs">—</span>
+                      )}
+                    </td>
+
+                    {/* Response */}
+                    <td className="px-4 py-4">
+                      {request.responseMessage ? (
+                        <div className="text-cyan-400 text-xs italic max-w-[200px]" title={request.responseMessage}>
+                          "{request.responseMessage}"
+                        </div>
+                      ) : (
+                        <span className="text-slate-600 text-xs">—</span>
+                      )}
+                    </td>
+
+                    {/* Time Remaining / Expired */}
+                    <td className="px-4 py-4 text-center">
+                      {request.status === 'Pending' && !request.isExpired ? (
+                        <div className="flex items-center justify-center gap-1.5 text-orange-400 text-xs font-medium whitespace-nowrap">
+                          <Clock className="w-3 h-3" />
+                          {formatTimeRemaining(request.expiresAt)}
+                        </div>
+                      ) : request.isExpired ? (
+                        <div className="flex items-center justify-center gap-1.5 text-red-400 text-xs whitespace-nowrap">
+                          <AlertCircle className="w-3 h-3" />
+                          Expired
+                        </div>
+                      ) : (
+                        <span className="text-slate-600 text-xs">—</span>
+                      )}
+                    </td>
+
+                    {/* Requested At */}
+                    <td className="px-4 py-4 text-center">
+                      <div className="text-slate-400 text-xs whitespace-nowrap">
+                        {new Date(request.requestedAt).toLocaleDateString('en-IN', {
+                          day: 'numeric',
+                          month: 'short',
+                          year: 'numeric'
+                        })}
+                        <br />
+                        <span className="text-slate-500 text-[10px]">
+                          {new Date(request.requestedAt).toLocaleTimeString('en-IN', {
+                            hour: '2-digit',
+                            minute: '2-digit'
+                          })}
+                        </span>
+                      </div>
+                    </td>
+
+                    {/* Actions */}
+                    <td className="px-4 py-4">
+                      <div className="flex items-center justify-center gap-2">
+                        {request.status === 'Pending' && !request.isExpired ? (
+                          <button
+                            onClick={() => handleCancelTakeoverRequest(request.id)}
+                            className="px-3 py-1.5 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-lg transition-all text-xs font-medium flex items-center gap-1.5 whitespace-nowrap"
+                            title="Cancel request"
+                          >
+                            <X className="w-3 h-3" />
+                            Cancel
+                          </button>
+                        ) : request.status === 'Approved' ? (
+                          <Link href={`/admin/products/edit/${request.productId}`}>
+                            <button className="px-3 py-1.5 bg-green-500/10 hover:bg-green-500/20 text-green-400 rounded-lg transition-all text-xs font-medium flex items-center gap-1.5 whitespace-nowrap">
+                              <Edit className="w-3 h-3" />
+                              Edit Now
+                            </button>
+                          </Link>
+                        ) : (
+                          <span className="text-slate-600 text-xs">—</span>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
         </div>
       </div>
+    </div>
+  </>
+)}
+
+
 
 
       {/* Stats Cards */}
@@ -1137,660 +1434,10 @@ const handleDelete = async (id: string) => {
         </div>
       )}
 
-      {/* FULL DETAILS VIEW MODAL - ALL FIELDS WITH OPTIMIZATIONS */}
- {/* FULL DETAILS VIEW MODAL - ALL FIELDS WITH OPTIMIZATIONS */}
-{viewingProduct && (
-  <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-[60] flex items-center justify-center p-4">
-    <div className="bg-gradient-to-br from-slate-900 via-slate-900 to-slate-800 border border-violet-500/20 rounded-3xl max-w-6xl w-full max-h-[90vh] overflow-hidden shadow-2xl shadow-violet-500/10">
-      
-      {/* Header */}
-      <div className="p-6 border-b border-violet-500/20 bg-gradient-to-r from-violet-500/10 to-cyan-500/10 sticky top-0 z-10">
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-2xl font-bold bg-gradient-to-r from-violet-400 via-cyan-400 to-pink-400 bg-clip-text text-transparent">
-              Complete Product Details
-            </h2>
-          </div>
-          <button
-            onClick={() => setViewingProduct(null)}
-            className="p-2 text-slate-400 hover:text-white hover:bg-red-800 rounded-lg transition-all"
-          >
-            <X className="h-5 w-5" />
-          </button>
-        </div>
-      </div>
-
-      {/* Loading State */}
-      {loadingDetails ? (
-        <div className="flex items-center justify-center py-20">
-          <div className="text-center">
-            <div className="w-12 h-12 border-4 border-violet-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-            <p className="text-slate-400">Loading product details...</p>
-          </div>
-        </div>
-      ) : (
-        <div className="p-6 overflow-y-auto max-h-[calc(90vh-120px)] space-y-6">
-          
-          {/* Product Header with Images */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* Product Images */}
-            <div className="space-y-4">
-              <div className="w-full h-64 rounded-xl bg-gradient-to-br from-violet-500/20 to-cyan-500/20 flex items-center justify-center overflow-hidden border border-slate-700/50 hover:border-violet-500/50 transition-all group">
-                {viewingProduct.images && viewingProduct.images.length > 0 ? (
-                  <img
-                    src={`${API_BASE_URL.replace(/\/$/, '')}/${viewingProduct.images.find(img => img.isMain)?.imageUrl.replace(/^\//, '') || viewingProduct.images[0]?.imageUrl.replace(/^\//, '')}`}
-                    alt={viewingProduct.name}
-                    className="w-full h-full object-cover cursor-pointer hover:scale-105 transition-transform"
-                    onClick={() => setViewingImage(`${API_BASE_URL.replace(/\/$/, '')}/${viewingProduct.images?.find(img => img.isMain)?.imageUrl.replace(/^\//, '') || viewingProduct.images?.[0]?.imageUrl.replace(/^\//, '') || ''}`)}
-                  />
-                ) : (
-                  <span className="text-6xl">📦</span>
-                )}
-              </div>
-              
-              {/* Additional Images */}
-              {viewingProduct.images && viewingProduct.images.length > 1 && (
-                <div className="grid grid-cols-4 gap-2">
-                  {viewingProduct.images.map((img, idx) => (
-                    <div 
-                      key={img.id || `img-${idx}`}
-                      className="aspect-square rounded-lg overflow-hidden bg-slate-800/50 cursor-pointer hover:ring-2 hover:ring-violet-400 hover:scale-105 transition-all border border-slate-700/50"
-                      onClick={() => setViewingImage(`${API_BASE_URL.replace(/\/$/, '')}/${img.imageUrl.replace(/^\//, '')}`)}
-                    >
-                      <img
-                        src={`${API_BASE_URL.replace(/\/$/, '')}/${img.imageUrl.replace(/^\//, '')}`}
-                        alt={img.altText || `Image ${idx + 1}`}
-                        className="w-full h-full object-cover"
-                      />
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* Basic Info */}
-            <div className="lg:col-span-2 space-y-4">
-              <div>
-                <h3 className="text-3xl font-bold text-white mb-2">{viewingProduct.name}</h3>
-                <div className="flex items-center gap-2 flex-wrap mb-4">
-                  <span className="px-3 py-1 bg-violet-500/10 text-violet-400 rounded-lg text-sm font-medium hover:bg-violet-500/20 transition-all">
-                    {viewingProduct.category}
-                  </span>
-                  <span className="px-3 py-1 bg-cyan-500/10 text-cyan-400 rounded-lg text-sm font-medium hover:bg-cyan-500/20 transition-all">
-                    {viewingProduct.brandName}
-                  </span>
-                  <span className={`px-3 py-1 rounded-lg text-sm font-medium hover:scale-105 transition-all ${
-                    viewingProduct.status === 'In Stock' ? 'bg-green-500/10 text-green-400 hover:bg-green-500/20' :
-                    viewingProduct.status === 'Low Stock' ? 'bg-orange-500/10 text-orange-400 hover:bg-orange-500/20' :
-                    'bg-red-500/10 text-red-400 hover:bg-red-500/20'
-                  }`}>
-                    {viewingProduct.status}
-                  </span>
-                  <span className={`px-3 py-1 rounded-lg text-sm font-medium hover:scale-105 transition-all ${
-                    viewingProduct.isPublished ? 'bg-green-500/10 text-green-400 hover:bg-green-500/20' : 'bg-slate-500/10 text-slate-400 hover:bg-slate-500/20'
-                  }`}>
-                    {viewingProduct.isPublished ? '✓ Published' : '✗ Unpublished'}
-                  </span>
-                  {viewingProduct.markAsNew && (
-                    <span className="px-3 py-1 bg-pink-500/10 text-pink-400 rounded-lg text-sm font-medium animate-pulse hover:bg-pink-500/20 transition-all">
-                      🆕 New
-                    </span>
-                  )}
-                </div>
-              </div>
-
-              {/* Short Description */}
-              {viewingProduct.shortDescription && (
-                <div className="p-4 bg-slate-800/50 rounded-xl border border-slate-700/50 hover:border-violet-500/30 hover:bg-slate-800/70 transition-all">
-                  <div 
-                    className="prose prose-invert prose-sm max-w-none text-slate-300"
-                    dangerouslySetInnerHTML={{ __html: viewingProduct.shortDescription }}
-                  />
-                </div>
-              )}
-
-              {/* Quick Stats */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                <div className="p-3 bg-slate-800/50 rounded-xl text-center border border-slate-700/50 hover:border-green-500/50 hover:bg-slate-800/70 hover:scale-105 transition-all group">
-                  <PoundSterling className="w-5 h-5 text-green-400 mx-auto mb-1 group-hover:scale-110 transition-transform" />
-                  <p className="text-xs text-slate-400">Price</p>
-                  <p className="text-lg font-bold text-white">£{viewingProduct.price?.toFixed(2)}</p>
-                  {viewingProduct.oldPrice && viewingProduct.oldPrice > viewingProduct.price && (
-                    <p className="text-xs text-red-400 line-through">£{viewingProduct.oldPrice.toFixed(2)}</p>
-                  )}
-                </div>
-                <div className="p-3 bg-slate-800/50 rounded-xl text-center border border-slate-700/50 hover:border-cyan-500/50 hover:bg-slate-800/70 hover:scale-105 transition-all group">
-                  <Package className="w-5 h-5 text-cyan-400 mx-auto mb-1 group-hover:scale-110 transition-transform" />
-                  <p className="text-xs text-slate-400">Stock</p>
-                  <p className="text-lg font-bold text-white">{viewingProduct.stockQuantity}</p>
-                </div>
-                <div className="p-3 bg-slate-800/50 rounded-xl text-center border border-slate-700/50 hover:border-yellow-500/50 hover:bg-slate-800/70 hover:scale-105 transition-all group">
-                  <Star className="w-5 h-5 text-yellow-400 mx-auto mb-1 group-hover:scale-110 transition-transform" />
-                  <p className="text-xs text-slate-400">Rating</p>
-                  <p className="text-lg font-bold text-white">{viewingProduct.averageRating?.toFixed(1) || '0.0'}</p>
-                  <p className="text-xs text-slate-400">({viewingProduct.reviewCount || 0} reviews)</p>
-                </div>
-                <div className="p-3 bg-slate-800/50 rounded-xl text-center border border-slate-700/50 hover:border-violet-500/50 hover:bg-slate-800/70 hover:scale-105 transition-all group">
-                  <Eye className="w-5 h-5 text-violet-400 mx-auto mb-1 group-hover:scale-110 transition-transform" />
-                  <p className="text-xs text-slate-400">Views</p>
-                  <p className="text-lg font-bold text-white">{viewingProduct.viewCount || 0}</p>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Full Description */}
-          {viewingProduct.description && (
-            <div className="bg-slate-800/30 rounded-xl p-6 border border-slate-700 hover:border-violet-500/50 hover:bg-slate-800/40 transition-all group">
-              <h4 className="text-lg font-bold text-white mb-3 flex items-center gap-2">
-                <FileText className="w-5 h-5 text-violet-400 group-hover:scale-110 transition-transform" />
-                Full Description
-              </h4>
-              <div 
-                className="prose prose-invert max-w-none text-slate-300"
-                dangerouslySetInnerHTML={{ __html: viewingProduct.description }}
-              />
-            </div>
-          )}
-
-          {/* Product Identification */}
-          <div className="bg-slate-800/30 rounded-xl p-6 border border-slate-700 hover:border-cyan-500/50 hover:bg-slate-800/40 transition-all group">
-            <h4 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
-              <Tag className="w-5 h-5 text-cyan-400 group-hover:scale-110 transition-transform" />
-              Product Identification
-            </h4>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              <InfoField label="SKU" value={viewingProduct.sku} />
-              <InfoField label="Slug" value={viewingProduct.slug} />
-              <InfoField label="GTIN" value={viewingProduct.gtin} />
-              <InfoField label="Manufacturer Part #" value={viewingProduct.manufacturerPartNumber} />
-              <InfoField label="Product Type" value={viewingProduct.productType} />
-              <InfoField label="Display Order" value={viewingProduct.displayOrder?.toString()} />
-            </div>
-          </div>
-
-          {/* Pricing Information */}
-          <div className="bg-slate-800/30 rounded-xl p-6 border border-slate-700 hover:border-green-500/50 hover:bg-slate-800/40 transition-all group">
-            <h4 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
-              <PoundSterling className="w-5 h-5 text-green-400 group-hover:scale-110 transition-transform" />
-              Pricing Information
-            </h4>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              <InfoField label="Current Price" value={`£${viewingProduct.price?.toFixed(2)}`} highlight />
-              <InfoField label="Old Price" value={viewingProduct.oldPrice ? `£${viewingProduct.oldPrice.toFixed(2)}` : 'N/A'} />
-              <InfoField label="Compare At Price" value={viewingProduct.compareAtPrice ? `£${viewingProduct.compareAtPrice.toFixed(2)}` : 'N/A'} />
-              <InfoField label="Cost Price" value={viewingProduct.costPrice ? `£${viewingProduct.costPrice.toFixed(2)}` : 'N/A'} />
-              <InfoField label="Call For Price" value={viewingProduct.callForPrice ? 'Yes' : 'No'} />
-              <InfoField label="Customer Enters Price" value={viewingProduct.customerEntersPrice ? 'Yes' : 'No'} />
-              {viewingProduct.customerEntersPrice && (
-                <>
-                  <InfoField label="Min Customer Price" value={`£${viewingProduct.minimumCustomerEnteredPrice?.toFixed(2)}`} />
-                  <InfoField label="Max Customer Price" value={`£${viewingProduct.maximumCustomerEnteredPrice?.toFixed(2)}`} />
-                </>
-              )}
-            </div>
-          </div>
-
-          {/* Inventory Management */}
-          <div className="bg-slate-800/30 rounded-xl p-6 border border-slate-700 hover:border-orange-500/50 hover:bg-slate-800/40 transition-all group">
-            <h4 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
-              <Package className="w-5 h-5 text-orange-400 group-hover:scale-110 transition-transform" />
-              Inventory Management
-            </h4>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              <InfoField label="Stock Quantity" value={viewingProduct.stockQuantity?.toString()} highlight />
-              <InfoField label="Track Quantity" value={viewingProduct.trackQuantity ? 'Yes' : 'No'} />
-              <InfoField label="Manage Inventory" value={viewingProduct.manageInventoryMethod || 'N/A'} />
-              <InfoField label="Min Stock Quantity" value={viewingProduct.minStockQuantity?.toString()} />
-              <InfoField label="Notify Below Quantity" value={viewingProduct.notifyQuantityBelow?.toString()} />
-              <InfoField label="Allow Backorder" value={viewingProduct.allowBackorder ? 'Yes' : 'No'} />
-              <InfoField label="Backorder Mode" value={viewingProduct.backorderMode || 'N/A'} />
-              <InfoField label="Min Order Quantity" value={viewingProduct.orderMinimumQuantity?.toString()} />
-              <InfoField label="Max Order Quantity" value={viewingProduct.orderMaximumQuantity?.toString()} />
-              {viewingProduct.allowedQuantities && (
-                <InfoField label="Allowed Quantities" value={viewingProduct.allowedQuantities} className="col-span-full" />
-              )}
-            </div>
-          </div>
-
-          {/* Shipping & Dimensions */}
-          <div className="bg-slate-800/30 rounded-xl p-6 border border-slate-700 hover:border-blue-500/50 hover:bg-slate-800/40 transition-all group">
-            <h4 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
-              <Truck className="w-5 h-5 text-blue-400 group-hover:scale-110 transition-transform" />
-              Shipping & Dimensions
-            </h4>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              <InfoField label="Requires Shipping" value={viewingProduct.requiresShipping ? 'Yes' : 'No'} />
-              <InfoField label="Free Shipping" value={viewingProduct.isFreeShipping ? 'Yes' : 'No'} />
-              <InfoField label="Ship Separately" value={viewingProduct.shipSeparately ? 'Yes' : 'No'} />
-              <InfoField label="Additional Shipping" value={viewingProduct.additionalShippingCharge ? `£${viewingProduct.additionalShippingCharge}` : 'N/A'} />
-              <InfoField 
-                label="Weight" 
-                value={viewingProduct.weight ? `${viewingProduct.weight} ${viewingProduct.weightUnit || 'kg'}` : 'N/A'} 
-                icon={<Scale className="w-4 h-4" />}
-              />
-              <InfoField 
-                label="Length" 
-                value={viewingProduct.length ? `${viewingProduct.length} ${viewingProduct.dimensionUnit || 'cm'}` : 'N/A'}
-                icon={<Ruler className="w-4 h-4" />}
-              />
-              <InfoField 
-                label="Width" 
-                value={viewingProduct.width ? `${viewingProduct.width} ${viewingProduct.dimensionUnit || 'cm'}` : 'N/A'}
-                icon={<Ruler className="w-4 h-4" />}
-              />
-              <InfoField 
-                label="Height" 
-                value={viewingProduct.height ? `${viewingProduct.height} ${viewingProduct.dimensionUnit || 'cm'}` : 'N/A'}
-                icon={<Box className="w-4 h-4" />}
-              />
-            </div>
-          </div>
-
-          {/* Availability & Dates - ✅ ENHANCED WITH HOVER & DEFAULT TEXT */}
-          <div className="bg-slate-800/30 rounded-xl p-6 border border-slate-700 hover:border-yellow-500/50 hover:bg-slate-800/40 transition-all group">
-            <h4 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
-              <Calendar className="w-5 h-5 text-yellow-400 group-hover:scale-110 transition-transform" />
-              Availability & Important Dates
-            </h4>
-            {!viewingProduct.publishedAt && !viewingProduct.availableStartDate && !viewingProduct.availableEndDate && !viewingProduct.markAsNewStartDate ? (
-              <div className="text-center py-8">
-                <Calendar className="w-12 h-12 text-slate-600 mx-auto mb-3" />
-                <p className="text-slate-500 text-sm">No availability dates configured</p>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                <InfoField label="Published At" value={viewingProduct.publishedAt ? formatDate(viewingProduct.publishedAt) : 'Not published yet'} />
-                <InfoField label="Available From" value={viewingProduct.availableStartDate ? formatDate(viewingProduct.availableStartDate) : 'Always available'} />
-                <InfoField label="Available Until" value={viewingProduct.availableEndDate ? formatDate(viewingProduct.availableEndDate) : 'No end date'} />
-                {viewingProduct.markAsNew && (
-                  <>
-                    <InfoField label="Mark New From" value={viewingProduct.markAsNewStartDate ? formatDate(viewingProduct.markAsNewStartDate) : 'Not set'} />
-                    <InfoField label="Mark New Until" value={viewingProduct.markAsNewEndDate ? formatDate(viewingProduct.markAsNewEndDate) : 'Not set'} />
-                  </>
-                )}
-              </div>
-            )}
-          </div>
-
-          {/* Visibility & Settings - ✅ ENHANCED WITH HOVER & BETTER LAYOUT */}
-{/* Visibility & Settings - ✅ FIXED TypeScript Errors */}
-<div className="bg-slate-800/30 rounded-xl p-6 border border-slate-700 hover:border-purple-500/50 hover:bg-slate-800/40 transition-all group">
-  <h4 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
-    <Eye className="w-5 h-5 text-purple-400 group-hover:scale-110 group-hover:rotate-12 transition-all" />
-    Visibility & Settings
-  </h4>
-  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-    <ToggleField label="Published" value={viewingProduct.isPublished ?? false} />
-    <ToggleField label="Visible Individually" value={viewingProduct.visibleIndividually ?? false} />
-    <ToggleField label="Show on Homepage" value={viewingProduct.showOnHomepage ?? false} />
-    <ToggleField label="Buy Button" value={!(viewingProduct.disableBuyButton ?? false)} />
-    <ToggleField label="Wishlist Button" value={!(viewingProduct.disableWishlistButton ?? false)} />
-    <ToggleField label="Returnable" value={!(viewingProduct.notReturnable ?? false)} />
-    <ToggleField label="Customer Reviews" value={viewingProduct.allowCustomerReviews ?? false} />
-    <ToggleField label="Tax Exempt" value={viewingProduct.taxExempt ?? false} />
-  </div>
-  {viewingProduct.taxCategoryId && (
-    <div className="mt-4 p-3 bg-slate-900/50 rounded-lg border border-slate-700/50 hover:border-purple-500/30 hover:bg-slate-800/70 transition-all group/tax cursor-pointer">
-      <p className="text-xs text-slate-400 mb-1 group-hover/tax:text-slate-300 transition-colors">Tax Category ID</p>
-      <p className="text-sm text-white font-mono group-hover/tax:text-purple-400 transition-colors">{viewingProduct.taxCategoryId}</p>
-    </div>
-  )}
-</div>
-
-
-          {/* SEO Information */}
-{/* SEO Information - ✅ ENHANCED WITH HOVER */}
-<div className="bg-slate-800/30 rounded-xl p-6 border border-slate-700 hover:border-indigo-500/50 hover:bg-slate-800/40 transition-all group">
-  <h4 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
-    <Globe className="w-5 h-5 text-indigo-400 group-hover:scale-110 group-hover:rotate-12 transition-all" />
-    SEO Information
-  </h4>
-  {!viewingProduct.metaTitle && !viewingProduct.metaDescription && !viewingProduct.metaKeywords ? (
-    <div className="text-center py-8">
-      <Globe className="w-12 h-12 text-slate-600 mx-auto mb-3" />
-      <p className="text-slate-500 text-sm">No SEO data configured</p>
-    </div>
-  ) : (
-    <div className="space-y-3">
-      <InfoField label="Meta Title" value={viewingProduct.metaTitle || 'Not set'} fullWidth />
-      <InfoField label="Meta Description" value={viewingProduct.metaDescription || 'Not set'} fullWidth />
-      <InfoField label="Meta Keywords" value={viewingProduct.metaKeywords || 'Not set'} fullWidth />
-      <InfoField label="SEO Friendly URL" value={viewingProduct.searchEngineFriendlyPageName || 'Not set'} fullWidth />
-    </div>
-  )}
-</div>
-
-
-          {/* Tags */}
-          {viewingProduct.tags && (
-            <div className="bg-slate-800/30 rounded-xl p-6 border border-slate-700 hover:border-pink-500/50 hover:bg-slate-800/40 transition-all group">
-              <h4 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
-                <Tag className="w-5 h-5 text-pink-400 group-hover:scale-110 transition-transform" />
-                Tags
-              </h4>
-              <div className="flex flex-wrap gap-2">
-                {viewingProduct.tags.split(',').map((tag, idx) => (
-                  <span key={`tag-${idx}-${tag.trim()}`} className="px-3 py-1 bg-pink-500/10 text-pink-400 rounded-lg text-sm border border-pink-500/20 hover:bg-pink-500/20 hover:scale-105 transition-all cursor-pointer">
-                    {tag.trim()}
-                  </span>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Product Videos */}
-          {viewingProduct.videoUrls && (
-            <div className="bg-slate-800/30 rounded-xl p-6 border border-slate-700 hover:border-red-500/50 hover:bg-slate-800/40 transition-all group">
-              <h4 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
-                <Video className="w-5 h-5 text-red-400 group-hover:scale-110 transition-transform" />
-                Product Videos ({viewingProduct.videoUrls.split(',').length})
-              </h4>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {viewingProduct.videoUrls.split(',').map((url, idx) => {
-                  const embedUrl = getYouTubeEmbedUrl(url.trim());
-                  return (
-                    <div key={`video-${idx}-${url.trim()}`} className="bg-slate-900/50 rounded-lg overflow-hidden border border-slate-700/50 hover:border-red-500/50 hover:scale-105 transition-all">
-                      {embedUrl ? (
-                        <div 
-                          className="relative aspect-video bg-slate-900 flex items-center justify-center cursor-pointer group/video"
-                          onClick={() => setPlayingVideo(embedUrl)}
-                        >
-                          <iframe
-                            src={`${embedUrl}?controls=0`}
-                            className="w-full h-full pointer-events-none"
-                            title={`Product Video ${idx + 1}`}
-                          />
-                          <div className="absolute inset-0 bg-black/40 group-hover/video:bg-black/60 transition-all flex items-center justify-center">
-                            <div className="bg-red-500 rounded-full p-4 group-hover/video:scale-110 transition-transform">
-                              <Play className="w-6 h-6 text-white fill-white" />
-                            </div>
-                          </div>
-                        </div>
-                      ) : (
-                        <a
-                          href={url.trim()}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="flex items-center gap-3 p-4 hover:bg-slate-800/50 transition-all group/link"
-                        >
-                          <div className="p-2 bg-red-500/10 rounded-lg group-hover/link:bg-red-500/20 transition-all">
-                            <ExternalLink className="w-5 h-5 text-red-400" />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-slate-300 text-sm truncate group-hover/link:text-white transition-colors">
-                              Video {idx + 1}
-                            </p>
-                            <p className="text-xs text-slate-500 truncate">{url.trim()}</p>
-                          </div>
-                        </a>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
 
 
 
 
-          {/* Product Attributes */}
-          {viewingProduct.attributes && viewingProduct.attributes.length > 0 && (
-            <div className="bg-slate-800/30 rounded-xl p-6 border border-slate-700 hover:border-purple-500/50 hover:bg-slate-800/40 transition-all group">
-              <h4 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
-                <Tag className="w-5 h-5 text-purple-400 group-hover:scale-110 transition-transform" />
-                Product Attributes ({viewingProduct.attributes.length})
-              </h4>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                {viewingProduct.attributes
-                  .sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0))
-                  .map((attr) => (
-                    <div 
-                      key={attr.id || `attr-${attr.name}-${attr.value}`} 
-                      className="flex flex-col p-4 bg-slate-900/50 rounded-lg border border-slate-700/50 hover:border-purple-500/50 hover:bg-slate-800/70 hover:scale-105 transition-all group/attr cursor-pointer"
-                    >
-                      <div className="flex items-center gap-2 mb-2">
-                        <div className="w-6 h-6 bg-purple-500/20 rounded flex items-center justify-center flex-shrink-0 group-hover/attr:bg-purple-500/30 transition-all">
-                          <span className="text-xs text-purple-400 font-bold">{attr.sortOrder || '0'}</span>
-                        </div>
-                        <span className="text-slate-400 text-sm font-medium group-hover/attr:text-slate-300 transition-colors">{attr.displayName || attr.name}</span>
-                      </div>
-                      <span className="text-white font-semibold text-base pl-8 group-hover/attr:text-purple-400 transition-colors">
-                        {attr.value}
-                      </span>
-                    </div>
-                  ))}
-              </div>
-            </div>
-          )}
-
-          {/* Product Variants */}
-          {viewingProduct.variants && viewingProduct.variants.length > 0 && (
-            <div className="bg-slate-800/30 rounded-xl p-6 border border-slate-700 hover:border-indigo-500/50 hover:bg-slate-800/40 transition-all group">
-              <h4 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
-                <Package className="w-5 h-5 text-indigo-400 group-hover:scale-110 transition-transform" />
-                Product Variants ({viewingProduct.variants.length})
-              </h4>
-              <div className="space-y-3">
-                {viewingProduct.variants.map((variant, idx) => (
-                  <div 
-                    key={variant.id || `variant-${variant.sku}-${idx}`}
-                    className={`bg-slate-900/50 rounded-lg p-4 border transition-all hover:shadow-lg hover:scale-[1.02] ${
-                      variant.isDefault 
-                        ? 'border-indigo-500/50 bg-indigo-500/5 hover:border-indigo-500/70' 
-                        : 'border-slate-700/50 hover:border-indigo-500/30'
-                    }`}
-                  >
-                    <div className="flex items-start gap-4">
-                      {/* Variant Image */}
-                      <div className="w-16 h-16 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center overflow-hidden flex-shrink-0 hover:scale-110 transition-transform">
-                        {variant.imageUrl ? (
-                          <img
-                            src={`${API_BASE_URL.replace(/\/$/, '')}/${variant.imageUrl.replace(/^\//, '')}`}
-                            alt={variant.name}
-                            className="w-full h-full object-cover"
-                            onError={(e) => {
-                              const target = e.target as HTMLImageElement;
-                              target.style.display = 'none';
-                            }}
-                          />
-                        ) : (
-                          <span className="text-2xl">📦</span>
-                        )}
-                      </div>
-
-                      {/* Variant Details */}
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap mb-2">
-                          <h5 className="text-white font-semibold text-base">{variant.name}</h5>
-                          {variant.isDefault && (
-                            <span className="px-2 py-0.5 bg-indigo-500/20 text-indigo-400 text-xs rounded-full border border-indigo-500/30 font-medium animate-pulse">
-                              Default
-                            </span>
-                          )}
-                        </div>
-                        
-                        {/* Variant Info Grid */}
-                        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 mt-3">
-                          <div className="bg-slate-800/50 rounded-lg p-2 border border-slate-700/30 hover:border-indigo-500/50 hover:scale-105 transition-all">
-                            <p className="text-xs text-slate-400 mb-0.5">SKU</p>
-                            <p className="text-sm text-white font-mono truncate" title={variant.sku}>
-                              {variant.sku}
-                            </p>
-                          </div>
-                          
-                          <div className="bg-slate-800/50 rounded-lg p-2 border border-slate-700/30 hover:border-green-500/50 hover:scale-105 transition-all">
-                            <p className="text-xs text-slate-400 mb-0.5">Price</p>
-                            <p className="text-sm text-green-400 font-bold">
-                              £{variant.price.toFixed(2)}
-                            </p>
-                            {variant.compareAtPrice && variant.compareAtPrice > variant.price && (
-                              <p className="text-xs text-red-400 line-through">
-                                £{variant.compareAtPrice.toFixed(2)}
-                              </p>
-                            )}
-                          </div>
-                          
-                          <div className="bg-slate-800/50 rounded-lg p-2 border border-slate-700/30 hover:border-cyan-500/50 hover:scale-105 transition-all">
-                            <p className="text-xs text-slate-400 mb-0.5">Stock</p>
-                            <p className={`text-sm font-bold ${
-                              variant.stockQuantity > 10 ? 'text-green-400' :
-                              variant.stockQuantity > 0 ? 'text-orange-400' :
-                              'text-red-400'
-                            }`}>
-                              {variant.stockQuantity}
-                            </p>
-                          </div>
-                          
-                          {variant.weight && (
-                            <div className="bg-slate-800/50 rounded-lg p-2 border border-slate-700/30 hover:border-blue-500/50 hover:scale-105 transition-all">
-                              <p className="text-xs text-slate-400 mb-0.5">Weight</p>
-                              <p className="text-sm text-white">{variant.weight} kg</p>
-                            </div>
-                          )}
-                          
-                          {(variant.option1 || variant.option2 || variant.option3) && (
-                            <div className="bg-slate-800/50 rounded-lg p-2 border border-slate-700/30 col-span-2 sm:col-span-1 hover:border-purple-500/50 hover:scale-105 transition-all">
-                              <p className="text-xs text-slate-400 mb-0.5">Options</p>
-                              <div className="flex flex-wrap gap-1">
-                                {variant.option1 && (
-                                  <span className="text-xs bg-indigo-500/10 text-indigo-400 px-2 py-0.5 rounded border border-indigo-500/20 hover:bg-indigo-500/20 transition-all">
-                                    {variant.option1}
-                                  </span>
-                                )}
-                                {variant.option2 && (
-                                  <span className="text-xs bg-purple-500/10 text-purple-400 px-2 py-0.5 rounded border border-purple-500/20 hover:bg-purple-500/20 transition-all">
-                                    {variant.option2}
-                                  </span>
-                                )}
-                                {variant.option3 && (
-                                  <span className="text-xs bg-pink-500/10 text-pink-400 px-2 py-0.5 rounded border border-pink-500/20 hover:bg-pink-500/20 transition-all">
-                                    {variant.option3}
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Related Products */}
-          {viewingProduct.relatedProducts && viewingProduct.relatedProducts.length > 0 && (
-            <div className="bg-slate-800/30 rounded-xl p-6 border border-slate-700 hover:border-green-500/50 hover:bg-slate-800/40 transition-all group">
-              <h4 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
-                <ShoppingCart className="w-5 h-5 text-green-400 group-hover:scale-110 transition-transform" />
-                Related Products ({viewingProduct.relatedProducts.length})
-              </h4>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                {viewingProduct.relatedProducts.map((product) => (
-                  <div key={product.id || `related-${product.sku}`} className="bg-slate-900/50 rounded-lg p-4 border border-slate-700/50 hover:border-violet-500/50 hover:scale-105 hover:shadow-lg transition-all group/prod cursor-pointer">
-                    <div className="flex items-center gap-3">
-                      <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-violet-500 to-pink-500 flex items-center justify-center overflow-hidden flex-shrink-0 group-hover/prod:scale-110 transition-transform">
-                        {product.image && product.image !== "📦" ? (
-                          <img src={product.image} alt={product.name} className="w-full h-full object-cover" />
-                        ) : (
-                          <span className="text-lg">📦</span>
-                        )}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-white text-sm font-medium truncate group-hover/prod:text-violet-400 transition-colors">
-                          {product.name}
-                        </p>
-                        <p className="text-xs text-slate-400 font-mono">{product.sku}</p>
-                        <p className="text-xs text-green-400 font-semibold">£{product.price.toFixed(2)}</p>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Cross-Sell Products */}
-          {viewingProduct.crossSellProducts && viewingProduct.crossSellProducts.length > 0 && (
-            <div className="bg-slate-800/30 rounded-xl p-6 border border-slate-700 hover:border-cyan-500/50 hover:bg-slate-800/40 transition-all group">
-              <h4 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
-                <ShoppingCart className="w-5 h-5 text-cyan-400 group-hover:scale-110 transition-transform" />
-                Cross-Sell Products ({viewingProduct.crossSellProducts.length})
-              </h4>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                {viewingProduct.crossSellProducts.map((product) => (
-                  <div key={product.id || `cross-${product.sku}`} className="bg-slate-900/50 rounded-lg p-4 border border-slate-700/50 hover:border-cyan-500/50 hover:scale-105 hover:shadow-lg transition-all group/prod cursor-pointer">
-                    <div className="flex items-center gap-3">
-                      <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-cyan-500 to-blue-500 flex items-center justify-center overflow-hidden flex-shrink-0 group-hover/prod:scale-110 transition-transform">
-                        {product.image && product.image !== "📦" ? (
-                          <img src={product.image} alt={product.name} className="w-full h-full object-cover" />
-                        ) : (
-                          <span className="text-lg">📦</span>
-                        )}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-white text-sm font-medium truncate group-hover/prod:text-cyan-400 transition-colors">
-                          {product.name}
-                        </p>
-                        <p className="text-xs text-slate-400 font-mono">{product.sku}</p>
-                        <p className="text-xs text-green-400 font-semibold">£{product.price.toFixed(2)}</p>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Admin Comment */}
-          {viewingProduct.adminComment && (
-            <div className="bg-slate-800/30 rounded-xl p-6 border border-slate-700 hover:border-amber-500/50 hover:bg-slate-800/40 transition-all group">
-              <h4 className="text-lg font-bold text-white mb-3 flex items-center gap-2">
-                <AlertCircle className="w-5 h-5 text-amber-400 group-hover:scale-110 transition-transform" />
-                Admin Comment
-              </h4>
-              <p className="text-slate-300 text-sm">{viewingProduct.adminComment}</p>
-            </div>
-          )}
-
-          {/* Activity Timeline */}
-          <div className="bg-slate-800/30 rounded-xl p-6 border border-slate-700 hover:border-blue-500/50 hover:bg-slate-800/40 transition-all group">
-            <h4 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
-              <Activity className="w-5 h-5 text-blue-400 group-hover:scale-110 transition-transform" />
-              Activity Timeline
-            </h4>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              <InfoField label="Created At" value={viewingProduct.createdAt} icon={<Clock className="w-4 h-4" />} />
-              <InfoField label="Created By" value={viewingProduct.createdBy || 'N/A'} icon={<User className="w-4 h-4" />} />
-              <InfoField label="Updated At" value={viewingProduct.updatedAt} icon={<Clock className="w-4 h-4" />} />
-              <InfoField label="Updated By" value={viewingProduct.updatedBy || 'N/A'} icon={<User className="w-4 h-4" />} />
-            </div>
-          </div>
-
-          {/* Action Buttons */}
-          <div className="flex justify-end gap-3 pt-4 border-t border-slate-700/50">
-            <Link href={`/admin/products/edit/${viewingProduct.id}`}>
-              <button className="px-6 py-2.5 bg-gradient-to-r from-cyan-500 to-blue-500 text-white rounded-xl hover:shadow-lg hover:shadow-cyan-500/50 hover:scale-105 transition-all font-medium text-sm flex items-center gap-2">
-                <Edit className="w-4" />
-                Edit Product
-              </button>
-            </Link>
-            <button
-              onClick={() => setViewingProduct(null)}
-              className="px-6 py-2.5 bg-slate-800 text-white rounded-xl hover:bg-slate-700 hover:scale-105 transition-all font-medium text-sm"
-            >
-              Close
-            </button>
-          </div>
-
-        </div>
-      )}
-    </div>
-  </div>
-)}
 
 
 

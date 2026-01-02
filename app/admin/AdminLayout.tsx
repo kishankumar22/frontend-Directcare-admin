@@ -42,6 +42,10 @@ import {
   LockKeyhole,
   User,
   Mail,
+  DollarSign,
+  MapPin,
+  Ship,
+  Truck,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTheme } from "@/context/theme-provider";
@@ -84,7 +88,16 @@ const navigation: NavigationItem[] = [
     children: [
       { name: 'Customers', href: '/admin/customers', icon: Users },
     ],
-  },  
+  },
+  {
+    name: 'Shipping Management',
+    icon: Ship,
+    children: [
+      { name: 'Zones', href: '/admin/shipping/zones', icon: MapPin },
+      { name: 'Methods', href: '/admin/shipping/methods', icon: Truck },
+      { name: 'Rates', href: '/admin/shipping/rates', icon: DollarSign },
+    ],
+  },
   {
     name: 'Promotions',
     icon: Gift,
@@ -92,7 +105,7 @@ const navigation: NavigationItem[] = [
       { name: 'Discounts', href: '/admin/discounts', icon: Percent },
       { name: 'Subscriptions', href: '/admin/subscriptions', icon: PackageOpen },
       { name: 'VAT Rates', href: '/admin/vatRates', icon: Receipt },
-      {name: "NewsLetter", href: "/admin/newsletter", icon: Mail }
+      { name: "NewsLetter", href: "/admin/newsletter", icon: Mail },
     ],
   },  
   {
@@ -112,6 +125,7 @@ const navigation: NavigationItem[] = [
     ],
   },  
 ];
+
 
 export default function AdminLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname();

@@ -6,6 +6,7 @@ import { Send, X, CheckCircle, XCircle, Clock, AlertCircle } from 'lucide-react'
 import { productLockService } from '@/lib/services/productLockService';
 import { useToast } from '@/components/CustomToast';
 import { cn } from '@/lib/utils';
+import { useRouter } from 'next/navigation';
 
 interface TakeoverRequest {
   id: string;
@@ -34,6 +35,7 @@ export default function TakeoverRequestModal({
   onActionComplete
 }: TakeoverRequestModalProps) {
   const toast = useToast();
+  const router = useRouter();
   const [selectedAction, setSelectedAction] = useState<'approve' | 'reject' | 'cancel'>('approve');
   const [responseMessage, setResponseMessage] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -102,6 +104,10 @@ export default function TakeoverRequestModal({
             onActionComplete();
             onClose();
             
+            // ✅ FIXED: Inside if block
+            setTimeout(() => {
+              router.push('/admin/products');
+            }, 500);
           }
           break;
 
@@ -114,6 +120,7 @@ export default function TakeoverRequestModal({
             toast.success('❌ Takeover request rejected');
             onActionComplete();
             onClose();
+            // ✅ Stay on page (no redirect)
           }
           break;
 
@@ -123,6 +130,7 @@ export default function TakeoverRequestModal({
             toast.success('🚫 Takeover request cancelled');
             onActionComplete();
             onClose();
+            // ✅ Stay on page (no redirect)
           }
           break;
       }
@@ -220,14 +228,13 @@ export default function TakeoverRequestModal({
             </div>
           </div>
 
-          {/* 🎯 INLINE ACTION BUTTONS */}
+          {/* Action Buttons */}
           <div className="mb-3">
             <p className="text-xs font-semibold text-slate-200 mb-2 flex items-center gap-1.5">
               <div className="w-1 h-4 bg-gradient-to-b from-orange-400 to-red-400 rounded-full" />
               Choose Action:
             </p>
             
-            {/* 3 Buttons in a Row */}
             <div className="grid grid-cols-3 gap-2 mb-2">
               {/* Approve Button */}
               <button
@@ -284,7 +291,7 @@ export default function TakeoverRequestModal({
               </button>
             </div>
 
-            {/* 🎯 DYNAMIC DESCRIPTION - Shows based on selected action */}
+            {/* Dynamic Description */}
             <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-2.5 animate-in slide-in-from-top duration-300">
               <p className="text-xs text-slate-300 text-center leading-relaxed">
                 {selectedAction === 'approve' && "Release lock and allow editing"}
@@ -294,10 +301,10 @@ export default function TakeoverRequestModal({
             </div>
           </div>
 
-          {/* Response Message - Dynamic (only for approve/reject) */}
+          {/* Response Message */}
           {(selectedAction === 'approve' || selectedAction === 'reject') && (
             <div className="mb-3 animate-in slide-in-from-top duration-300">
-              <label className="block text-xs font-semibold text-slate-200 mb-1.5 flex items-center gap-1.5">
+              <label className="text-xs font-semibold text-slate-200 mb-1.5 flex items-center gap-1.5">
                 <Send className="w-3.5 h-3.5 text-orange-400" />
                 Response Message <span className="text-red-400">*</span>
               </label>
