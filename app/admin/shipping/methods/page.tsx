@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { shippingService, shippingHelpers } from "@/lib/services/shipping";
 import { ShippingMethod, CreateMethodDto } from "@/lib/types/shipping";
 import { useToast } from "@/components/CustomToast";
@@ -21,8 +21,66 @@ import {
   Navigation,
   ChevronLeft,
   ChevronRight,
+  Eye,
+  ChevronDown,
+  FilterX,
+  Package,
+  MapPin,
+  Calendar,
+  Hash,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+
+// ==================== UTILITY FUNCTIONS ====================
+
+// Input Sanitization
+const sanitizeInput = (value: string): string => {
+  return value.trim().replace(/<script.*?>.*?<\/script>/gi, ""); // XSS Protection
+};
+
+// Retry Logic
+const fetchWithRetry = async <T,>(
+  fn: () => Promise<T>,
+  retries = 3,
+  delay = 1000
+): Promise<T> => {
+  for (let i = 0; i < retries; i++) {
+    try {
+      return await fn();
+    } catch (error: any) {
+      if (i === retries - 1) throw error;
+
+      // Don't retry on client errors (4xx)
+      if (error.response?.status >= 400 && error.response?.status < 500) {
+        throw error;
+      }
+
+      await new Promise((resolve) => setTimeout(resolve, delay * (i + 1)));
+    }
+  }
+  throw new Error("Max retries reached");
+};
+
+// ==================== CUSTOM HOOKS ====================
+
+// Debounce Hook
+function useDebounce<T>(value: T, delay: number): T {
+  const [debouncedValue, setDebouncedValue] = useState<T>(value);
+
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedValue(value);
+    }, delay);
+
+    return () => {
+      clearTimeout(handler);
+    };
+  }, [value, delay]);
+
+  return debouncedValue;
+}
+
+// ==================== MAIN COMPONENT ====================
 
 export default function ShippingMethodsPage() {
   const toast = useToast();
@@ -31,10 +89,22 @@ export default function ShippingMethodsPage() {
   const [methods, setMethods] = useState<ShippingMethod[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
-  const [filterActive, setFilterActive] = useState<"all" | "active" | "inactive">("all");
+
+  // Filter Dropdown States
+  const [filterStatus, setFilterStatus] = useState<"all" | "active" | "inactive">("all");
   const [filterTracking, setFilterTracking] = useState<"all" | "tracked" | "untracked">("all");
   const [sortBy, setSortBy] = useState<"name" | "carrier" | "deliveryTime" | "order">("order");
-  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
+
+  // Dropdown References
+  const [showStatusDropdown, setShowStatusDropdown] = useState(false);
+  const [showTrackingDropdown, setShowTrackingDropdown] = useState(false);
+  const [showSortDropdown, setShowSortDropdown] = useState(false);
+  const statusDropdownRef = useRef<HTMLDivElement>(null);
+  const trackingDropdownRef = useRef<HTMLDivElement>(null);
+  const sortDropdownRef = useRef<HTMLDivElement>(null);
+
+  // Debounced Search
+  const debouncedSearchTerm = useDebounce(searchTerm, 500);
 
   // Pagination State
   const [currentPage, setCurrentPage] = useState(1);
@@ -42,10 +112,17 @@ export default function ShippingMethodsPage() {
 
   // Modal States
   const [showModal, setShowModal] = useState(false);
+  const [showViewModal, setShowViewModal] = useState(false);
   const [modalMode, setModalMode] = useState<"create" | "edit">("create");
   const [selectedMethod, setSelectedMethod] = useState<ShippingMethod | null>(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+
+  // Double Submit Prevention
   const [submitting, setSubmitting] = useState(false);
+  const submitTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // AbortController for cleanup
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   // Form State
   const [formData, setFormData] = useState<CreateMethodDto>({
@@ -65,22 +142,76 @@ export default function ShippingMethodsPage() {
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
 
   // ==================== EFFECTS ====================
+
   useEffect(() => {
     fetchMethods();
+
+    return () => {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+    };
   }, []);
 
   // Reset to page 1 when filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm, filterActive, filterTracking, sortBy, sortOrder]);
+  }, [debouncedSearchTerm, filterStatus, filterTracking, sortBy]);
 
-  // ==================== API CALLS ====================
+  // Click Outside - Status Dropdown
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (statusDropdownRef.current && !statusDropdownRef.current.contains(event.target as Node)) {
+        setShowStatusDropdown(false);
+      }
+    };
+
+    if (showStatusDropdown) {
+      document.addEventListener("mousedown", handleClickOutside);
+      return () => document.removeEventListener("mousedown", handleClickOutside);
+    }
+  }, [showStatusDropdown]);
+
+  // Click Outside - Tracking Dropdown
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (trackingDropdownRef.current && !trackingDropdownRef.current.contains(event.target as Node)) {
+        setShowTrackingDropdown(false);
+      }
+    };
+
+    if (showTrackingDropdown) {
+      document.addEventListener("mousedown", handleClickOutside);
+      return () => document.removeEventListener("mousedown", handleClickOutside);
+    }
+  }, [showTrackingDropdown]);
+
+  // Click Outside - Sort Dropdown
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (sortDropdownRef.current && !sortDropdownRef.current.contains(event.target as Node)) {
+        setShowSortDropdown(false);
+      }
+    };
+
+    if (showSortDropdown) {
+      document.addEventListener("mousedown", handleClickOutside);
+      return () => document.removeEventListener("mousedown", handleClickOutside);
+    }
+  }, [showSortDropdown]);
+
+  // ==================== API CALLS WITH RETRY ====================
+
   const fetchMethods = async () => {
     try {
       setLoading(true);
-      const response = await shippingService.getAllMethods({
-        params: { includeInactive: true },
-      });
+      abortControllerRef.current = new AbortController();
+
+      const response = await fetchWithRetry(() =>
+        shippingService.getAllMethods({
+          params: { includeInactive: true },
+        })
+      );
 
       if (response.data && response.data.success) {
         setMethods(response.data.data || []);
@@ -88,59 +219,126 @@ export default function ShippingMethodsPage() {
         toast.error("Failed to fetch methods");
       }
     } catch (error: any) {
-      console.error("Error fetching methods:", error);
-      toast.error(error.message || "Failed to fetch methods");
+      if (error.name !== "AbortError") {
+        console.error("Error fetching methods:", error);
+
+        // Enhanced Error Handling
+        if (error.response?.status === 401) {
+          toast.error("Session expired. Please login again");
+        } else if (error.response?.status === 403) {
+          toast.error("Access denied. Insufficient permissions");
+        } else if (error.response?.status === 500) {
+          toast.error("Server error. Please try again later");
+        } else {
+          toast.error(error.message || "Failed to fetch methods");
+        }
+      }
     } finally {
       setLoading(false);
     }
   };
 
-  // ==================== FORM VALIDATION ====================
+  // ==================== ENHANCED FORM VALIDATION ====================
+
   const validateForm = (): boolean => {
     const errors: Record<string, string> = {};
 
+    // Method Name (Internal)
     if (!formData.name.trim()) {
       errors.name = "Method name is required";
+    } else if (formData.name.length < 3) {
+      errors.name = "Method name must be at least 3 characters";
+    } else if (formData.name.length > 100) {
+      errors.name = "Method name cannot exceed 100 characters";
+    } else if (!/^[a-z0-9-_]+$/i.test(formData.name)) {
+      errors.name = "Method name can only contain letters, numbers, hyphens, and underscores";
     }
 
+    // Display Name
     if (!formData.displayName.trim()) {
       errors.displayName = "Display name is required";
+    } else if (formData.displayName.length < 3) {
+      errors.displayName = "Display name must be at least 3 characters";
+    } else if (formData.displayName.length > 100) {
+      errors.displayName = "Display name cannot exceed 100 characters";
     }
 
+    // Description
     if (!formData.description.trim()) {
       errors.description = "Description is required";
+    } else if (formData.description.length < 10) {
+      errors.description = "Description must be at least 10 characters";
+    } else if (formData.description.length > 500) {
+      errors.description = "Description cannot exceed 500 characters";
     }
 
+    // Carrier Code
     if (!formData.carrierCode.trim()) {
       errors.carrierCode = "Carrier code is required";
+    } else if (formData.carrierCode.length < 2) {
+      errors.carrierCode = "Carrier code must be at least 2 characters";
+    } else if (formData.carrierCode.length > 50) {
+      errors.carrierCode = "Carrier code cannot exceed 50 characters";
     }
 
+    // Service Code
     if (!formData.serviceCode.trim()) {
       errors.serviceCode = "Service code is required";
+    } else if (formData.serviceCode.length < 2) {
+      errors.serviceCode = "Service code must be at least 2 characters";
+    } else if (formData.serviceCode.length > 50) {
+      errors.serviceCode = "Service code cannot exceed 50 characters";
     }
 
+    // Delivery Time Validation
     if (formData.deliveryTimeMinDays < 0) {
       errors.deliveryTimeMinDays = "Minimum delivery days must be positive";
+    } else if (formData.deliveryTimeMinDays > 365) {
+      errors.deliveryTimeMinDays = "Minimum delivery days cannot exceed 365";
     }
 
     if (formData.deliveryTimeMaxDays < 0) {
       errors.deliveryTimeMaxDays = "Maximum delivery days must be positive";
+    } else if (formData.deliveryTimeMaxDays > 365) {
+      errors.deliveryTimeMaxDays = "Maximum delivery days cannot exceed 365";
     }
 
     if (formData.deliveryTimeMaxDays < formData.deliveryTimeMinDays) {
-      errors.deliveryTimeMaxDays = "Maximum days must be greater than minimum";
+      errors.deliveryTimeMaxDays = "Maximum days must be greater than or equal to minimum days";
     }
 
+    // Display Order
     if (formData.displayOrder < 0) {
       errors.displayOrder = "Display order must be positive";
+    } else if (formData.displayOrder > 9999) {
+      errors.displayOrder = "Display order cannot exceed 9999";
+    }
+
+    // Check for duplicate method name (only in create mode)
+    if (modalMode === "create") {
+      const duplicate = methods.find(
+        (m) => m.name.toLowerCase() === formData.name.toLowerCase()
+      );
+      if (duplicate) {
+        errors.name = "A method with this name already exists";
+      }
+    } else if (selectedMethod) {
+      // In edit mode, check if name conflicts with other methods
+      const duplicate = methods.find(
+        (m) => m.id !== selectedMethod.id && m.name.toLowerCase() === formData.name.toLowerCase()
+      );
+      if (duplicate) {
+        errors.name = "A method with this name already exists";
+      }
     }
 
     setFormErrors(errors);
     return Object.keys(errors).length === 0;
   };
 
-  // ==================== HANDLERS ====================
-  const handleCreate = () => {
+  // ==================== HANDLERS WITH useCallback ====================
+
+  const handleCreate = useCallback(() => {
     setModalMode("create");
     setFormData({
       name: "",
@@ -157,9 +355,9 @@ export default function ShippingMethodsPage() {
     });
     setFormErrors({});
     setShowModal(true);
-  };
+  }, [methods.length]);
 
-  const handleEdit = (method: ShippingMethod) => {
+  const handleEdit = useCallback((method: ShippingMethod) => {
     setModalMode("edit");
     setSelectedMethod(method);
     setFormData({
@@ -177,10 +375,21 @@ export default function ShippingMethodsPage() {
     });
     setFormErrors({});
     setShowModal(true);
-  };
+  }, []);
 
+  const handleView = useCallback((method: ShippingMethod) => {
+    setSelectedMethod(method);
+    setShowViewModal(true);
+  }, []);
+
+  // Submit with Enhanced Error Handling
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (submitting) {
+      console.log("Submit already in progress, ignoring...");
+      return;
+    }
 
     if (!validateForm()) {
       toast.error("Please fix validation errors");
@@ -190,15 +399,27 @@ export default function ShippingMethodsPage() {
     try {
       setSubmitting(true);
 
+      // Timeout protection
+      submitTimeoutRef.current = setTimeout(() => {
+        console.warn("Submit timeout reached, resetting...");
+        setSubmitting(false);
+      }, 10000);
+
       if (modalMode === "create") {
-        const response = await shippingService.createMethod(formData);
+        const response = await fetchWithRetry(() =>
+          shippingService.createMethod(formData)
+        );
+
         if (response.data && response.data.success) {
           toast.success("✅ Method created successfully!");
           setShowModal(false);
           fetchMethods();
         }
       } else if (selectedMethod) {
-        const response = await shippingService.updateMethod(selectedMethod.id, formData);
+        const response = await fetchWithRetry(() =>
+          shippingService.updateMethod(selectedMethod.id, formData)
+        );
+
         if (response.data && response.data.success) {
           toast.success("✅ Method updated successfully!");
           setShowModal(false);
@@ -207,15 +428,35 @@ export default function ShippingMethodsPage() {
       }
     } catch (error: any) {
       console.error("Submit error:", error);
-      toast.error(error.message || "Operation failed");
+
+      // Enhanced Error Handling
+      if (error.response?.status === 409) {
+        toast.error("Method with this name already exists");
+      } else if (error.response?.status === 400) {
+        toast.error(error.response.data.message || "Invalid data provided");
+      } else if (error.response?.status === 401) {
+        toast.error("Session expired. Please login again");
+      } else if (error.response?.status === 403) {
+        toast.error("Access denied. Insufficient permissions");
+      } else if (error.response?.status === 500) {
+        toast.error("Server error. Please try again later");
+      } else {
+        toast.error(error.message || "Operation failed");
+      }
     } finally {
+      if (submitTimeoutRef.current) {
+        clearTimeout(submitTimeoutRef.current);
+      }
       setSubmitting(false);
     }
   };
 
   const handleDelete = async (id: string) => {
     try {
-      const response = await shippingService.deleteMethod(id);
+      const response = await fetchWithRetry(() =>
+        shippingService.deleteMethod(id)
+      );
+
       if (response.data && response.data.success) {
         toast.success("🗑️ Method deleted successfully!");
         setDeleteConfirmId(null);
@@ -223,62 +464,92 @@ export default function ShippingMethodsPage() {
       }
     } catch (error: any) {
       console.error("Delete error:", error);
-      toast.error(error.message || "Failed to delete method. It may have associated rates.");
+
+      // Enhanced Error Handling
+      if (error.response?.status === 404) {
+        toast.error("Method not found");
+      } else if (error.response?.status === 403) {
+        toast.error("Access denied. Cannot delete this method");
+      } else if (error.response?.status === 409) {
+        toast.error("Cannot delete method. Please remove associated rates first");
+      } else if (error.response?.status === 500) {
+        toast.error("Server error. Please try again later");
+      } else {
+        toast.error(error.message || "Failed to delete method");
+      }
     }
   };
 
-  // ==================== FILTERING & SORTING ====================
-  const filteredAndSortedMethods = methods
-    .filter((method) => {
-      // Search filter
-      const matchesSearch =
-        method.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        method.displayName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        method.carrierCode.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        method.description.toLowerCase().includes(searchTerm.toLowerCase());
+  // Clear All Filters
+  const handleClearFilters = useCallback(() => {
+    setSearchTerm("");
+    setFilterStatus("all");
+    setFilterTracking("all");
+    setSortBy("order");
+  }, []);
 
-      // Active filter
-      const matchesActive =
-        filterActive === "all" ||
-        (filterActive === "active" && method.isActive) ||
-        (filterActive === "inactive" && !method.isActive);
+  // Check if filters are active
+  const hasActiveFilters = searchTerm !== "" || filterStatus !== "all" || filterTracking !== "all";
 
-      // Tracking filter
-      const matchesTracking =
-        filterTracking === "all" ||
-        (filterTracking === "tracked" && method.trackingSupported) ||
-        (filterTracking === "untracked" && !method.trackingSupported);
+  // ==================== FILTERING & SORTING WITH MEMOIZATION ====================
 
-      return matchesSearch && matchesActive && matchesTracking;
-    })
-    .sort((a, b) => {
-      let comparison = 0;
+  const filteredAndSortedMethods = useMemo(() => {
+    return methods
+      .filter((method) => {
+        // Search filter
+        const matchesSearch =
+          method.name.toLowerCase().includes(debouncedSearchTerm.toLowerCase()) ||
+          method.displayName.toLowerCase().includes(debouncedSearchTerm.toLowerCase()) ||
+          method.carrierCode.toLowerCase().includes(debouncedSearchTerm.toLowerCase()) ||
+          method.description.toLowerCase().includes(debouncedSearchTerm.toLowerCase());
 
-      if (sortBy === "name") {
-        comparison = a.displayName.localeCompare(b.displayName);
-      } else if (sortBy === "carrier") {
-        comparison = a.carrierCode.localeCompare(b.carrierCode);
-      } else if (sortBy === "deliveryTime") {
-        comparison = a.deliveryTimeMinDays - b.deliveryTimeMinDays;
-      } else if (sortBy === "order") {
-        comparison = a.displayOrder - b.displayOrder;
-      }
+        // Status filter
+        const matchesStatus =
+          filterStatus === "all" ||
+          (filterStatus === "active" && method.isActive) ||
+          (filterStatus === "inactive" && !method.isActive);
 
-      return sortOrder === "asc" ? comparison : -comparison;
-    });
+        // Tracking filter
+        const matchesTracking =
+          filterTracking === "all" ||
+          (filterTracking === "tracked" && method.trackingSupported) ||
+          (filterTracking === "untracked" && !method.trackingSupported);
+
+        return matchesSearch && matchesStatus && matchesTracking;
+      })
+      .sort((a, b) => {
+        let comparison = 0;
+
+        if (sortBy === "name") {
+          comparison = a.displayName.localeCompare(b.displayName);
+        } else if (sortBy === "carrier") {
+          comparison = a.carrierCode.localeCompare(b.carrierCode);
+        } else if (sortBy === "deliveryTime") {
+          comparison = a.deliveryTimeMinDays - b.deliveryTimeMinDays;
+        } else if (sortBy === "order") {
+          comparison = a.displayOrder - b.displayOrder;
+        }
+
+        return comparison;
+      });
+  }, [methods, debouncedSearchTerm, filterStatus, filterTracking, sortBy]);
 
   // ==================== PAGINATION ====================
+
   const totalItems = filteredAndSortedMethods.length;
   const totalPages = Math.ceil(totalItems / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
   const endIndex = startIndex + itemsPerPage;
   const currentMethods = filteredAndSortedMethods.slice(startIndex, endIndex);
 
-  const goToPage = (page: number) => {
-    setCurrentPage(Math.max(1, Math.min(page, totalPages)));
-  };
+  const goToPage = useCallback(
+    (page: number) => {
+      setCurrentPage(Math.max(1, Math.min(page, totalPages)));
+    },
+    [totalPages]
+  );
 
-  const getPageNumbers = () => {
+  const getPageNumbers = useMemo(() => {
     const pages: (number | string)[] = [];
     const maxVisible = 5;
 
@@ -305,19 +576,24 @@ export default function ShippingMethodsPage() {
     }
 
     return pages;
-  };
+  }, [currentPage, totalPages]);
 
-  // ==================== STATS ====================
-  const stats = {
-    total: methods.length,
-    active: methods.filter((m) => m.isActive).length,
-    tracked: methods.filter((m) => m.trackingSupported).length,
-    signature: methods.filter((m) => m.signatureRequired).length,
-  };
+  // ==================== STATS WITH MEMOIZATION ====================
+
+  const stats = useMemo(
+    () => ({
+      total: methods.length,
+      active: methods.filter((m) => m.isActive).length,
+      tracked: methods.filter((m) => m.trackingSupported).length,
+      signature: methods.filter((m) => m.signatureRequired).length,
+    }),
+    [methods]
+  );
 
   // ==================== RENDER ====================
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-2">
       {/* Header */}
       <div className="flex flex-col gap-4">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -340,6 +616,7 @@ export default function ShippingMethodsPage() {
 
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          {/* Total Methods */}
           <div className="bg-slate-900/50 dark:bg-gray-900/50 backdrop-blur-xl border border-slate-800 dark:border-gray-800 rounded-xl p-4">
             <div className="flex items-center justify-between">
               <div>
@@ -352,6 +629,7 @@ export default function ShippingMethodsPage() {
             </div>
           </div>
 
+          {/* Active Methods */}
           <div className="bg-slate-900/50 dark:bg-gray-900/50 backdrop-blur-xl border border-slate-800 dark:border-gray-800 rounded-xl p-4">
             <div className="flex items-center justify-between">
               <div>
@@ -364,6 +642,7 @@ export default function ShippingMethodsPage() {
             </div>
           </div>
 
+          {/* With Tracking */}
           <div className="bg-slate-900/50 dark:bg-gray-900/50 backdrop-blur-xl border border-slate-800 dark:border-gray-800 rounded-xl p-4">
             <div className="flex items-center justify-between">
               <div>
@@ -376,6 +655,7 @@ export default function ShippingMethodsPage() {
             </div>
           </div>
 
+          {/* Signature Required */}
           <div className="bg-slate-900/50 dark:bg-gray-900/50 backdrop-blur-xl border border-slate-800 dark:border-gray-800 rounded-xl p-4">
             <div className="flex items-center justify-between">
               <div>
@@ -390,173 +670,313 @@ export default function ShippingMethodsPage() {
         </div>
       </div>
 
-      {/* Filters & Search */}
-      <div className="bg-slate-900/50 dark:bg-gray-900/50 backdrop-blur-xl border border-slate-800 dark:border-gray-800 rounded-xl p-4">
-        <div className="flex flex-col gap-4">
+      {/* FILTERS SECTION - ALL IN ONE ROW */}
+      <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-xl p-4 overflow-visible relative z-20">
+        <div className="flex items-end gap-4">
           {/* Search */}
-          <div className="flex-1 relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500 dark:text-gray-600" />
-            <input
-              type="text"
-              placeholder="Search by name, carrier, or description..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2.5 bg-slate-800/50 dark:bg-gray-800/50 border border-slate-700 dark:border-gray-700 rounded-lg text-white placeholder-slate-500 dark:placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all"
-            />
+          <div className="flex-1">
+            <label className="text-sm font-medium text-slate-300 mb-2 flex items-center gap-2">
+              <Search className="w-4 h-4 text-cyan-400" />
+              Search Methods
+            </label>
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500" />
+              <input
+                type="text"
+                placeholder="Search by name, carrier, or description..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(sanitizeInput(e.target.value))}
+                className="w-full pl-10 pr-4 py-2.5 bg-slate-800/50 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500"
+              />
+              {searchTerm !== "" && debouncedSearchTerm !== searchTerm && (
+                <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                  <Loader2 className="w-4 h-4 text-cyan-400 animate-spin" />
+                </div>
+              )}
+            </div>
           </div>
 
-          <div className="flex flex-col lg:flex-row gap-3">
-            {/* Active Filter */}
-            <div className="flex gap-2">
-              <button
-                onClick={() => setFilterActive("all")}
-                className={cn(
-                  "px-4 py-2 rounded-lg font-medium transition-all text-sm",
-                  filterActive === "all"
-                    ? "bg-violet-500 text-white"
-                    : "bg-slate-800/50 dark:bg-gray-800/50 text-slate-400 hover:text-white"
-                )}
-              >
-                All
-              </button>
-              <button
-                onClick={() => setFilterActive("active")}
-                className={cn(
-                  "px-4 py-2 rounded-lg font-medium transition-all text-sm",
-                  filterActive === "active"
-                    ? "bg-green-500 text-white"
-                    : "bg-slate-800/50 dark:bg-gray-800/50 text-slate-400 hover:text-white"
-                )}
-              >
-                Active
-              </button>
-              <button
-                onClick={() => setFilterActive("inactive")}
-                className={cn(
-                  "px-4 py-2 rounded-lg font-medium transition-all text-sm",
-                  filterActive === "inactive"
-                    ? "bg-red-500 text-white"
-                    : "bg-slate-800/50 dark:bg-gray-800/50 text-slate-400 hover:text-white"
-                )}
-              >
-                Inactive
-              </button>
+          {/* Results Count */}
+          <div className="flex-shrink-0 pt-6">
+            <div className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-cyan-500/10 to-violet-500/10 border border-cyan-500/30 rounded-lg">
+              <div className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse"></div>
+              <p className="text-sm whitespace-nowrap">
+                <span className="font-bold text-cyan-400">{filteredAndSortedMethods.length}</span>
+                <span className="text-slate-400 ml-1">
+                  {filteredAndSortedMethods.length === 1 ? "result" : "results"}
+                </span>
+              </p>
             </div>
+          </div>
 
-            {/* Tracking Filter */}
-            <div className="flex gap-2">
-              <button
-                onClick={() => setFilterTracking("all")}
-                className={cn(
-                  "px-4 py-2 rounded-lg font-medium transition-all text-sm",
-                  filterTracking === "all"
-                    ? "bg-cyan-500 text-white"
-                    : "bg-slate-800/50 dark:bg-gray-800/50 text-slate-400 hover:text-white"
-                )}
-              >
-                All Tracking
-              </button>
-              <button
-                onClick={() => setFilterTracking("tracked")}
-                className={cn(
-                  "px-4 py-2 rounded-lg font-medium transition-all text-sm",
-                  filterTracking === "tracked"
-                    ? "bg-cyan-500 text-white"
-                    : "bg-slate-800/50 dark:bg-gray-800/50 text-slate-400 hover:text-white"
-                )}
-              >
-                Tracked
-              </button>
-              <button
-                onClick={() => setFilterTracking("untracked")}
-                className={cn(
-                  "px-4 py-2 rounded-lg font-medium transition-all text-sm",
-                  filterTracking === "untracked"
-                    ? "bg-cyan-500 text-white"
-                    : "bg-slate-800/50 dark:bg-gray-800/50 text-slate-400 hover:text-white"
-                )}
-              >
-                No Tracking
-              </button>
-            </div>
-
-            {/* Sort Dropdown */}
-            <select
-              value={`${sortBy}-${sortOrder}`}
-              onChange={(e) => {
-                const [newSortBy, newSortOrder] = e.target.value.split("-") as [
-                  typeof sortBy,
-                  typeof sortOrder
-                ];
-                setSortBy(newSortBy);
-                setSortOrder(newSortOrder);
-              }}
-              className="px-4 py-2 bg-slate-800/50 dark:bg-gray-800/50 border border-slate-700 dark:border-gray-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-violet-500 text-sm"
+          {/* Status Filter Dropdown */}
+          <div className="flex-shrink-0 relative" ref={statusDropdownRef}>
+            <label className="text-sm font-medium text-slate-300 mb-2">Filter Status</label>
+            <button
+              onClick={() => setShowStatusDropdown(!showStatusDropdown)}
+              className={cn(
+                "flex items-center justify-between gap-3 px-4 py-2.5 rounded-lg font-medium text-sm w-40 ring-2",
+                filterStatus === "all"
+                  ? "bg-violet-500/10 text-violet-400 ring-violet-500/50"
+                  : filterStatus === "active"
+                  ? "bg-green-500/10 text-green-400 ring-green-500/50"
+                  : "bg-red-500/10 text-red-400 ring-red-500/50"
+              )}
             >
-              <option value="order-asc">Order: Low to High</option>
-              <option value="order-desc">Order: High to Low</option>
-              <option value="name-asc">Name: A to Z</option>
-              <option value="name-desc">Name: Z to A</option>
-              <option value="carrier-asc">Carrier: A to Z</option>
-              <option value="carrier-desc">Carrier: Z to A</option>
-              <option value="deliveryTime-asc">Delivery: Fastest First</option>
-              <option value="deliveryTime-desc">Delivery: Slowest First</option>
-            </select>
+              <span className="capitalize">{filterStatus}</span>
+              <ChevronDown
+                className={cn("w-4 h-4 transition-transform", showStatusDropdown && "rotate-180")}
+              />
+            </button>
+
+            {showStatusDropdown && (
+              <div className="absolute w-full mt-2 bg-slate-800 border border-slate-700 rounded-lg shadow-xl z-[9999]">
+                {["all", "active", "inactive"].map((status) => (
+                  <button
+                    key={status}
+                    onClick={() => {
+                      setFilterStatus(status as any);
+                      setShowStatusDropdown(false);
+                    }}
+                    className={cn(
+                      "w-full px-4 py-2.5 text-left hover:bg-slate-700/50 flex items-center gap-2",
+                      filterStatus === status
+                        ? status === "all"
+                          ? "bg-violet-500/10"
+                          : status === "active"
+                          ? "bg-green-500/10"
+                          : "bg-red-500/10"
+                        : ""
+                    )}
+                  >
+                    <div
+                      className={cn(
+                        "w-2 h-2 rounded-full",
+                        filterStatus === status
+                          ? status === "all"
+                            ? "bg-violet-400"
+                            : status === "active"
+                            ? "bg-green-400"
+                            : "bg-red-400"
+                          : "bg-slate-600"
+                      )}
+                    ></div>
+                    <span
+                      className={cn(
+                        "text-sm font-medium capitalize",
+                        filterStatus === status
+                          ? status === "all"
+                            ? "text-violet-400"
+                            : status === "active"
+                            ? "text-green-400"
+                            : "text-red-400"
+                          : "text-slate-300"
+                      )}
+                    >
+                      {status}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
+
+          {/* Tracking Filter Dropdown */}
+          <div className="flex-shrink-0 relative" ref={trackingDropdownRef}>
+            <label className="text-sm font-medium text-slate-300 mb-2">Tracking</label>
+            <button
+              onClick={() => setShowTrackingDropdown(!showTrackingDropdown)}
+              className={cn(
+                "flex items-center justify-between gap-3 px-4 py-2.5 rounded-lg font-medium text-sm w-40 ring-2",
+                filterTracking === "all"
+                  ? "bg-cyan-500/10 text-cyan-400 ring-cyan-500/50"
+                  : filterTracking === "tracked"
+                  ? "bg-green-500/10 text-green-400 ring-green-500/50"
+                  : "bg-orange-500/10 text-orange-400 ring-orange-500/50"
+              )}
+            >
+              <span className="capitalize">
+                {filterTracking === "all" ? "All" : filterTracking === "tracked" ? "With Tracking" : "No Tracking"}
+              </span>
+              <ChevronDown
+                className={cn("w-4 h-4 transition-transform", showTrackingDropdown && "rotate-180")}
+              />
+            </button>
+
+            {showTrackingDropdown && (
+              <div className="absolute w-full mt-2 bg-slate-800 border border-slate-700 rounded-lg shadow-xl z-[9999]">
+                {["all", "tracked", "untracked"].map((tracking) => (
+                  <button
+                    key={tracking}
+                    onClick={() => {
+                      setFilterTracking(tracking as any);
+                      setShowTrackingDropdown(false);
+                    }}
+                    className={cn(
+                      "w-full px-4 py-2.5 text-left hover:bg-slate-700/50 flex items-center gap-2",
+                      filterTracking === tracking
+                        ? tracking === "all"
+                          ? "bg-cyan-500/10"
+                          : tracking === "tracked"
+                          ? "bg-green-500/10"
+                          : "bg-orange-500/10"
+                        : ""
+                    )}
+                  >
+                    <Navigation
+                      className={cn(
+                        "w-4 h-4",
+                        filterTracking === tracking
+                          ? tracking === "all"
+                            ? "text-cyan-400"
+                            : tracking === "tracked"
+                            ? "text-green-400"
+                            : "text-orange-400"
+                          : "text-slate-600"
+                      )}
+                    />
+                    <span
+                      className={cn(
+                        "text-sm font-medium",
+                        filterTracking === tracking
+                          ? tracking === "all"
+                            ? "text-cyan-400"
+                            : tracking === "tracked"
+                            ? "text-green-400"
+                            : "text-orange-400"
+                          : "text-slate-300"
+                      )}
+                    >
+                      {tracking === "all" ? "All" : tracking === "tracked" ? "With Tracking" : "No Tracking"}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Sort Order Dropdown */}
+          <div className="flex-shrink-0 relative" ref={sortDropdownRef}>
+            <label className="text-sm font-medium text-slate-300 mb-2">Sort By</label>
+            <button
+              onClick={() => setShowSortDropdown(!showSortDropdown)}
+              className="flex items-center justify-between gap-3 px-4 py-2.5 bg-slate-800/50 border border-slate-700 rounded-lg text-white font-medium text-sm w-48 ring-2 ring-transparent hover:ring-violet-500/50"
+            >
+              <span>
+                {sortBy === "name"
+                  ? "Name"
+                  : sortBy === "carrier"
+                  ? "Carrier"
+                  : sortBy === "deliveryTime"
+                  ? "Delivery Time"
+                  : "Display Order"}
+              </span>
+              <ChevronDown
+                className={cn("w-4 h-4 transition-transform", showSortDropdown && "rotate-180")}
+              />
+            </button>
+
+            {showSortDropdown && (
+              <div className="absolute w-full mt-2 bg-slate-800 border border-slate-700 rounded-lg shadow-xl z-[9999]">
+                {[
+                  { value: "order", label: "Display Order" },
+                  { value: "name", label: "Name" },
+                  { value: "carrier", label: "Carrier" },
+                  { value: "deliveryTime", label: "Delivery Time" },
+                ].map((option) => (
+                  <button
+                    key={option.value}
+                    onClick={() => {
+                      setSortBy(option.value as any);
+                      setShowSortDropdown(false);
+                    }}
+                    className={cn(
+                      "w-full px-4 py-2.5 text-left hover:bg-slate-700/50 flex items-center gap-2",
+                      sortBy === option.value && "bg-violet-500/10"
+                    )}
+                  >
+                    <Hash className={cn("w-4 h-4", sortBy === option.value ? "text-violet-400" : "text-slate-600")} />
+                    <span className={cn("text-sm font-medium", sortBy === option.value ? "text-violet-400" : "text-slate-300")}>
+                      {option.label}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Clear Button */}
+          {hasActiveFilters && (
+            <div className="flex-shrink-0 pt-6">
+              <button
+                onClick={handleClearFilters}
+                className="flex items-center gap-2 px-4 py-2.5 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-lg font-medium ring-2 ring-red-500/50"
+              >
+                <FilterX className="w-4 h-4" />
+                Clear Filters
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
       {/* Table */}
-      <div className="bg-slate-900/50 dark:bg-gray-900/50 backdrop-blur-xl border border-slate-800 dark:border-gray-800 rounded-xl overflow-hidden">
+      <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-xl overflow-hidden">
         {loading ? (
           <div className="flex flex-col items-center justify-center py-16">
             <Loader2 className="w-10 h-10 text-violet-500 animate-spin mb-4" />
-            <p className="text-slate-400 dark:text-gray-500">Loading methods...</p>
+            <p className="text-slate-400">Loading methods...</p>
           </div>
         ) : currentMethods.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 text-center px-4">
-            <div className="w-16 h-16 bg-slate-800/50 dark:bg-gray-800/50 rounded-full flex items-center justify-center mb-4">
-              <Truck className="w-8 h-8 text-slate-600 dark:text-gray-600" />
+            <div className="w-16 h-16 bg-slate-800/50 rounded-full flex items-center justify-center mb-4">
+              <Truck className="w-8 h-8 text-slate-600" />
             </div>
             <h3 className="text-lg font-semibold text-white mb-2">No methods found</h3>
-            <p className="text-slate-400 dark:text-gray-500 max-w-sm">
+            <p className="text-slate-400 max-w-sm mb-4">
               {searchTerm
                 ? "Try adjusting your search or filters"
                 : "Get started by creating your first shipping method"}
             </p>
+            {!searchTerm && (
+              <button
+                onClick={handleCreate}
+                className="flex items-center gap-2 px-4 py-2 bg-violet-500 hover:bg-violet-600 text-white rounded-lg font-medium transition-colors"
+              >
+                <Plus className="w-4 h-4" />
+                Create First Method
+              </button>
+            )}
           </div>
         ) : (
           <>
             <div className="overflow-x-auto">
               <table className="w-full">
-                <thead className="bg-slate-800/50 dark:bg-gray-800/50 border-b border-slate-700 dark:border-gray-700">
+                <thead className="bg-slate-800/50 border-b border-slate-700">
                   <tr>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-slate-300 dark:text-gray-400 uppercase tracking-wider">
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-slate-300 uppercase tracking-wider">
                       Method
                     </th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-slate-300 dark:text-gray-400 uppercase tracking-wider">
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-slate-300 uppercase tracking-wider">
                       Carrier
                     </th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-slate-300 dark:text-gray-400 uppercase tracking-wider">
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-slate-300 uppercase tracking-wider">
                       Delivery Time
                     </th>
-                    <th className="px-6 py-4 text-center text-xs font-semibold text-slate-300 dark:text-gray-400 uppercase tracking-wider">
+                    <th className="px-6 py-4 text-center text-xs font-semibold text-slate-300 uppercase tracking-wider">
                       Features
                     </th>
-                    <th className="px-6 py-4 text-center text-xs font-semibold text-slate-300 dark:text-gray-400 uppercase tracking-wider">
+                    <th className="px-6 py-4 text-center text-xs font-semibold text-slate-300 uppercase tracking-wider">
                       Status
                     </th>
-                    <th className="px-6 py-4 text-center text-xs font-semibold text-slate-300 dark:text-gray-400 uppercase tracking-wider">
+                    <th className="px-6 py-4 text-center text-xs font-semibold text-slate-300 uppercase tracking-wider">
                       Actions
                     </th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-800 dark:divide-gray-800">
+                <tbody className="divide-y divide-slate-800">
                   {currentMethods.map((method) => (
-                    <tr
-                      key={method.id}
-                      className="hover:bg-slate-800/30 dark:hover:bg-gray-800/30 transition-colors"
-                    >
+                    <tr key={method.id} className="hover:bg-slate-800/30 transition-colors">
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-3">
                           <div className="w-10 h-10 bg-gradient-to-br from-violet-500/10 to-cyan-500/10 rounded-lg flex items-center justify-center flex-shrink-0">
@@ -564,26 +984,20 @@ export default function ShippingMethodsPage() {
                           </div>
                           <div>
                             <p className="text-sm font-semibold text-white">{method.displayName}</p>
-                            <p className="text-xs text-slate-500 dark:text-gray-600">
-                              {method.description}
-                            </p>
+                            <p className="text-xs text-slate-500">{method.description}</p>
                           </div>
                         </div>
                       </td>
                       <td className="px-6 py-4">
                         <div>
-                          <p className="text-sm font-medium text-slate-300 dark:text-gray-400">
-                            {method.carrierCode}
-                          </p>
-                          <p className="text-xs text-slate-500 dark:text-gray-600">
-                            {method.serviceCode}
-                          </p>
+                          <p className="text-sm font-medium text-slate-300">{method.carrierCode}</p>
+                          <p className="text-xs text-slate-500">{method.serviceCode}</p>
                         </div>
                       </td>
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-2">
                           <Clock className="w-4 h-4 text-cyan-400" />
-                          <span className="text-sm text-slate-300 dark:text-gray-400">
+                          <span className="text-sm text-slate-300">
                             {shippingHelpers.formatDeliveryTime(method)}
                           </span>
                         </div>
@@ -622,6 +1036,13 @@ export default function ShippingMethodsPage() {
                       <td className="px-6 py-4">
                         <div className="flex items-center justify-center gap-2">
                           <button
+                            onClick={() => handleView(method)}
+                            className="p-2 text-cyan-400 hover:bg-cyan-500/10 rounded-lg transition-colors"
+                            title="View Details"
+                          >
+                            <Eye className="w-4 h-4" />
+                          </button>
+                          <button
                             onClick={() => handleEdit(method)}
                             className="p-2 text-blue-400 hover:bg-blue-500/10 rounded-lg transition-colors"
                             title="Edit Method"
@@ -645,13 +1066,12 @@ export default function ShippingMethodsPage() {
 
             {/* Pagination */}
             {totalPages > 1 && (
-              <div className="border-t border-slate-800 dark:border-gray-800 p-4">
+              <div className="border-t border-slate-800 p-4">
                 <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
                   {/* Results Info */}
                   <div className="flex items-center gap-4">
-                    <p className="text-sm text-slate-400 dark:text-gray-500">
-                      Showing {startIndex + 1} to {Math.min(endIndex, totalItems)} of {totalItems}{" "}
-                      results
+                    <p className="text-sm text-slate-400">
+                      Showing {startIndex + 1} to {Math.min(endIndex, totalItems)} of {totalItems} results
                     </p>
 
                     {/* Items Per Page */}
@@ -661,7 +1081,7 @@ export default function ShippingMethodsPage() {
                         setItemsPerPage(Number(e.target.value));
                         setCurrentPage(1);
                       }}
-                      className="px-3 py-1.5 bg-slate-800/50 dark:bg-gray-800/50 border border-slate-700 dark:border-gray-700 rounded-lg text-sm text-white focus:outline-none focus:ring-2 focus:ring-violet-500"
+                      className="px-3 py-1.5 bg-slate-800/50 border border-slate-700 rounded-lg text-sm text-white focus:outline-none focus:ring-2 focus:ring-violet-500"
                     >
                       <option value="5">5 per page</option>
                       <option value="10">10 per page</option>
@@ -677,14 +1097,14 @@ export default function ShippingMethodsPage() {
                     <button
                       onClick={() => goToPage(currentPage - 1)}
                       disabled={currentPage === 1}
-                      className="p-2 rounded-lg bg-slate-800/50 dark:bg-gray-800/50 text-slate-400 hover:text-white hover:bg-slate-700 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                      className="p-2 rounded-lg bg-slate-800/50 text-slate-400 hover:text-white hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                     >
                       <ChevronLeft className="w-4 h-4" />
                     </button>
 
                     {/* Page Numbers */}
                     <div className="flex items-center gap-1">
-                      {getPageNumbers().map((page, index) => (
+                      {getPageNumbers.map((page, index) => (
                         <button
                           key={index}
                           onClick={() => typeof page === "number" && goToPage(page)}
@@ -695,7 +1115,7 @@ export default function ShippingMethodsPage() {
                               ? "bg-violet-500 text-white"
                               : page === "..."
                               ? "text-slate-500 cursor-default"
-                              : "bg-slate-800/50 dark:bg-gray-800/50 text-slate-400 hover:text-white hover:bg-slate-700 dark:hover:bg-gray-700"
+                              : "bg-slate-800/50 text-slate-400 hover:text-white hover:bg-slate-700"
                           )}
                         >
                           {page}
@@ -707,7 +1127,7 @@ export default function ShippingMethodsPage() {
                     <button
                       onClick={() => goToPage(currentPage + 1)}
                       disabled={currentPage === totalPages}
-                      className="p-2 rounded-lg bg-slate-800/50 dark:bg-gray-800/50 text-slate-400 hover:text-white hover:bg-slate-700 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                      className="p-2 rounded-lg bg-slate-800/50 text-slate-400 hover:text-white hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                     >
                       <ChevronRight className="w-4 h-4" />
                     </button>
@@ -719,18 +1139,230 @@ export default function ShippingMethodsPage() {
         )}
       </div>
 
-      {/* Create/Edit Modal */}
+      {/* VIEW MODAL - FULL DETAILS */}
+      {showViewModal && selectedMethod && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 border border-cyan-500/20 rounded-2xl max-w-3xl w-full max-h-[90vh] overflow-hidden flex flex-col shadow-2xl shadow-cyan-500/10">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between p-6 border-b border-cyan-500/20">
+              <h2 className="text-xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-violet-400">
+                Method Details
+              </h2>
+              <button
+                onClick={() => setShowViewModal(false)}
+                className="p-2 text-slate-400 hover:text-white hover:bg-slate-700/50 rounded-lg transition-colors"
+                aria-label="Close modal"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="flex-1 overflow-y-auto p-6 space-y-6">
+              {/* Header Info */}
+              <div className="bg-gradient-to-r from-cyan-500/10 to-violet-500/10 border border-cyan-500/20 rounded-xl p-6">
+                <div className="flex items-start justify-between">
+                  <div className="flex items-start gap-4">
+                    <div className="w-16 h-16 bg-gradient-to-br from-cyan-500 to-violet-500 rounded-xl flex items-center justify-center flex-shrink-0">
+                      <Truck className="w-8 h-8 text-white" />
+                    </div>
+                    <div>
+                      <h3 className="text-2xl font-bold text-white mb-1">{selectedMethod.displayName}</h3>
+                      <p className="text-sm text-slate-400">{selectedMethod.description}</p>
+                    </div>
+                  </div>
+                  <div>
+                    {selectedMethod.isActive ? (
+                      <span className="inline-flex items-center mt-4  gap-1.5 px-3 py-1.5 bg-green-500/20 text-green-400 rounded-full text-sm font-medium">
+                        <CheckCircle className="w-4 h-4" />
+                        Active
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center mt-4  gap-1.5 px-3 py-1.5 bg-red-500/20 text-red-400 rounded-full text-sm font-medium">
+                        <XCircle className="w-4 h-4" />
+                        Inactive
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Carrier & Service Information */}
+              <div>
+                <h4 className="text-sm font-semibold text-slate-300 uppercase tracking-wider mb-3 flex items-center gap-2">
+                  <Package className="w-4 h-4 text-cyan-400" />
+                  Carrier & Service
+                </h4>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="p-4 bg-slate-800/50 border border-slate-700 rounded-lg">
+                    <p className="text-xs text-slate-400 mb-1">Carrier Code</p>
+                    <p className="text-lg font-bold text-white">{selectedMethod.carrierCode}</p>
+                  </div>
+                  <div className="p-4 bg-slate-800/50 border border-slate-700 rounded-lg">
+                    <p className="text-xs text-slate-400 mb-1">Service Code</p>
+                    <p className="text-lg font-bold text-white">{selectedMethod.serviceCode}</p>
+                  </div>
+                  <div className="p-4 bg-slate-800/50 border border-slate-700 rounded-lg">
+                    <p className="text-xs text-slate-400 mb-1">Method Name</p>
+                    <p className="text-lg font-bold text-white font-mono ">{selectedMethod.name}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Delivery Time */}
+              <div>
+                <h4 className="text-sm font-semibold text-slate-300 uppercase tracking-wider mb-3 flex items-center gap-2">
+                  <Clock className="w-4 h-4 text-cyan-400" />
+                  Delivery Information
+                </h4>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="p-4 bg-slate-800/50 border border-slate-700 rounded-lg">
+                    <p className="text-xs text-slate-400 mb-1">Minimum Days</p>
+                    <p className="text-2xl font-bold text-cyan-400">{selectedMethod.deliveryTimeMinDays}</p>
+                  </div>
+                  <div className="p-4 bg-slate-800/50 border border-slate-700 rounded-lg">
+                    <p className="text-xs text-slate-400 mb-1">Maximum Days</p>
+                    <p className="text-2xl font-bold text-violet-400">{selectedMethod.deliveryTimeMaxDays}</p>
+                  </div>
+                  <div className="p-4 bg-slate-800/50 border border-slate-700 rounded-lg">
+                    <p className="text-xs text-slate-400 mb-1">Delivery Window</p>
+                    <p className="text-lg font-bold text-white">
+                      {shippingHelpers.formatDeliveryTime(selectedMethod)}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Features */}
+              <div>
+                <h4 className="text-sm font-semibold text-slate-300 uppercase tracking-wider mb-3 flex items-center gap-2">
+                  <FileSignature className="w-4 h-4 text-cyan-400" />
+                  Features & Options
+                </h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="p-4 bg-slate-800/30 border border-slate-700 rounded-lg">
+                    <div className="flex items-center justify-between mb-2">
+                      <p className="text-sm text-slate-300">Tracking Supported</p>
+                      {selectedMethod.trackingSupported ? (
+                        <CheckCircle className="w-5 h-5 text-green-400" />
+                      ) : (
+                        <XCircle className="w-5 h-5 text-red-400" />
+                      )}
+                    </div>
+                    <p className="text-xs text-slate-500">
+                      {selectedMethod.trackingSupported
+                        ? "Package tracking is available"
+                        : "No tracking available"}
+                    </p>
+                  </div>
+
+                  <div className="p-4 bg-slate-800/30 border border-slate-700 rounded-lg">
+                    <div className="flex items-center justify-between mb-2">
+                      <p className="text-sm text-slate-300">Signature Required</p>
+                      {selectedMethod.signatureRequired ? (
+                        <CheckCircle className="w-5 h-5 text-green-400" />
+                      ) : (
+                        <XCircle className="w-5 h-5 text-red-400" />
+                      )}
+                    </div>
+                    <p className="text-xs text-slate-500">
+                      {selectedMethod.signatureRequired
+                        ? "Signature required on delivery"
+                        : "No signature required"}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Display Order */}
+              <div>
+                <h4 className="text-sm font-semibold text-slate-300 uppercase tracking-wider mb-3 flex items-center gap-2">
+                  <Hash className="w-4 h-4 text-cyan-400" />
+                  Display Settings
+                </h4>
+                <div className="p-4 bg-slate-800/30 border border-slate-700 rounded-lg">
+                  <p className="text-xs text-slate-400 mb-1">Display Order</p>
+                  <p className="text-lg font-bold text-white">{selectedMethod.displayOrder}</p>
+                </div>
+              </div>
+
+              {/* Timestamps */}
+              {(selectedMethod.createdAt || selectedMethod.updatedAt) && (
+                <div>
+                  <h4 className="text-sm font-semibold text-slate-300 uppercase tracking-wider mb-3 flex items-center gap-2">
+                    <Calendar className="w-4 h-4 text-cyan-400" />
+                    Timestamps
+                  </h4>
+                  <div className="grid grid-cols-2 gap-4">
+                    {selectedMethod.createdAt && (
+                      <div className="p-4 bg-slate-800/30 border border-slate-700 rounded-lg">
+                        <p className="text-xs text-slate-400 mb-1">Created</p>
+                        <p className="text-sm text-white font-medium">
+                          {new Date(selectedMethod.createdAt).toLocaleDateString("en-GB", {
+                            day: "2-digit",
+                            month: "short",
+                            year: "numeric",
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })}
+                        </p>
+                      </div>
+                    )}
+                    {selectedMethod.updatedAt && (
+                      <div className="p-4 bg-slate-800/30 border border-slate-700 rounded-lg">
+                        <p className="text-xs text-slate-400 mb-1">Updated</p>
+                        <p className="text-sm text-white font-medium">
+                          {new Date(selectedMethod.updatedAt).toLocaleDateString("en-GB", {
+                            day: "2-digit",
+                            month: "short",
+                            year: "numeric",
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="flex gap-3 p-6 border-t border-cyan-500/20 bg-slate-900/50">
+              <button
+                onClick={() => setShowViewModal(false)}
+                className="flex-1 px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-white rounded-lg transition-colors font-medium"
+              >
+                Close
+              </button>
+              <button
+                onClick={() => {
+                  setShowViewModal(false);
+                  handleEdit(selectedMethod);
+                }}
+                className="flex-1 px-4 py-2.5 bg-gradient-to-r from-violet-500 to-cyan-500 hover:from-violet-600 hover:to-cyan-600 text-white rounded-lg font-medium shadow-lg transition-all flex items-center justify-center gap-2"
+              >
+                <Edit className="w-4 h-4" />
+                Edit Method
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* CREATE/EDIT MODAL */}
       {showModal && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-slate-900 dark:bg-gray-900 border border-slate-800 dark:border-gray-800 rounded-xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col shadow-2xl">
+          <div className="bg-slate-900 border border-slate-800 rounded-xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col shadow-2xl">
             {/* Modal Header */}
-            <div className="flex items-center justify-between p-6 border-b border-slate-800 dark:border-gray-800">
+            <div className="flex items-center justify-between p-6 border-b border-slate-800">
               <h2 className="text-xl font-bold text-white">
                 {modalMode === "create" ? "Create New Method" : "Edit Method"}
               </h2>
               <button
                 onClick={() => setShowModal(false)}
-                className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 dark:hover:bg-gray-800 rounded-lg transition-colors"
+                disabled={submitting}
+                className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors disabled:opacity-50"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -741,54 +1373,63 @@ export default function ShippingMethodsPage() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                 {/* Method Name */}
                 <div>
-                  <label className="block text-sm font-medium text-slate-300 dark:text-gray-400 mb-2">
+                  <label className="block text-sm font-medium text-slate-300 mb-2">
                     Method Name (Internal) <span className="text-red-400">*</span>
                   </label>
                   <input
                     type="text"
                     value={formData.name}
                     onChange={(e) => {
-                      setFormData({ ...formData, name: e.target.value });
+                      setFormData({ ...formData, name: sanitizeInput(e.target.value) });
                       setFormErrors({ ...formErrors, name: "" });
                     }}
+                    disabled={submitting}
+                    placeholder="e.g., royal-mail-24"
+                    aria-invalid={!!formErrors.name}
+                    aria-describedby={formErrors.name ? "name-error" : undefined}
                     className={cn(
-                      "w-full px-4 py-2.5 bg-slate-800/50 dark:bg-gray-800/50 border rounded-lg text-white placeholder-slate-500 dark:placeholder-gray-600 focus:outline-none focus:ring-2 transition-all",
+                      "w-full px-4 py-2.5 bg-slate-800/50 border rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 transition-all disabled:opacity-50",
                       formErrors.name
                         ? "border-red-500 focus:ring-red-500"
-                        : "border-slate-700 dark:border-gray-700 focus:ring-violet-500"
+                        : "border-slate-700 focus:ring-violet-500"
                     )}
-                    placeholder="e.g., royal-mail-24"
                   />
                   {formErrors.name && (
-                    <p className="mt-1.5 text-xs text-red-400 flex items-center gap-1">
+                    <p id="name-error" className="mt-1.5 text-xs text-red-400 flex items-center gap-1">
                       <AlertCircle className="w-3 h-3" />
                       {formErrors.name}
                     </p>
                   )}
+                  <p className="mt-1.5 text-xs text-slate-500">
+                    Use lowercase letters, numbers, hyphens, and underscores only
+                  </p>
                 </div>
 
                 {/* Display Name */}
                 <div>
-                  <label className="block text-sm font-medium text-slate-300 dark:text-gray-400 mb-2">
+                  <label className="block text-sm font-medium text-slate-300 mb-2">
                     Display Name <span className="text-red-400">*</span>
                   </label>
                   <input
                     type="text"
                     value={formData.displayName}
                     onChange={(e) => {
-                      setFormData({ ...formData, displayName: e.target.value });
+                      setFormData({ ...formData, displayName: sanitizeInput(e.target.value) });
                       setFormErrors({ ...formErrors, displayName: "" });
                     }}
+                    disabled={submitting}
+                    placeholder="e.g., Royal Mail 24"
+                    aria-invalid={!!formErrors.displayName}
+                    aria-describedby={formErrors.displayName ? "displayName-error" : undefined}
                     className={cn(
-                      "w-full px-4 py-2.5 bg-slate-800/50 dark:bg-gray-800/50 border rounded-lg text-white placeholder-slate-500 dark:placeholder-gray-600 focus:outline-none focus:ring-2 transition-all",
+                      "w-full px-4 py-2.5 bg-slate-800/50 border rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 transition-all disabled:opacity-50",
                       formErrors.displayName
                         ? "border-red-500 focus:ring-red-500"
-                        : "border-slate-700 dark:border-gray-700 focus:ring-violet-500"
+                        : "border-slate-700 focus:ring-violet-500"
                     )}
-                    placeholder="e.g., Royal Mail 24"
                   />
                   {formErrors.displayName && (
-                    <p className="mt-1.5 text-xs text-red-400 flex items-center gap-1">
+                    <p id="displayName-error" className="mt-1.5 text-xs text-red-400 flex items-center gap-1">
                       <AlertCircle className="w-3 h-3" />
                       {formErrors.displayName}
                     </p>
@@ -798,26 +1439,29 @@ export default function ShippingMethodsPage() {
 
               {/* Description */}
               <div>
-                <label className="block text-sm font-medium text-slate-300 dark:text-gray-400 mb-2">
+                <label className="block text-sm font-medium text-slate-300 mb-2">
                   Description <span className="text-red-400">*</span>
                 </label>
                 <textarea
                   value={formData.description}
                   onChange={(e) => {
-                    setFormData({ ...formData, description: e.target.value });
+                    setFormData({ ...formData, description: sanitizeInput(e.target.value) });
                     setFormErrors({ ...formErrors, description: "" });
                   }}
+                  disabled={submitting}
                   rows={2}
+                  placeholder="e.g., 1-2 business days delivery"
+                  aria-invalid={!!formErrors.description}
+                  aria-describedby={formErrors.description ? "description-error" : undefined}
                   className={cn(
-                    "w-full px-4 py-2.5 bg-slate-800/50 dark:bg-gray-800/50 border rounded-lg text-white placeholder-slate-500 dark:placeholder-gray-600 focus:outline-none focus:ring-2 transition-all resize-none",
+                    "w-full px-4 py-2.5 bg-slate-800/50 border rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 transition-all resize-none disabled:opacity-50",
                     formErrors.description
                       ? "border-red-500 focus:ring-red-500"
-                      : "border-slate-700 dark:border-gray-700 focus:ring-violet-500"
+                      : "border-slate-700 focus:ring-violet-500"
                   )}
-                  placeholder="e.g., 1-2 business days delivery"
                 />
                 {formErrors.description && (
-                  <p className="mt-1.5 text-xs text-red-400 flex items-center gap-1">
+                  <p id="description-error" className="mt-1.5 text-xs text-red-400 flex items-center gap-1">
                     <AlertCircle className="w-3 h-3" />
                     {formErrors.description}
                   </p>
@@ -827,26 +1471,29 @@ export default function ShippingMethodsPage() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                 {/* Carrier Code */}
                 <div>
-                  <label className="block text-sm font-medium text-slate-300 dark:text-gray-400 mb-2">
+                  <label className="block text-sm font-medium text-slate-300 mb-2">
                     Carrier Code <span className="text-red-400">*</span>
                   </label>
                   <input
                     type="text"
                     value={formData.carrierCode}
                     onChange={(e) => {
-                      setFormData({ ...formData, carrierCode: e.target.value.toUpperCase() });
+                      setFormData({ ...formData, carrierCode: sanitizeInput(e.target.value.toUpperCase()) });
                       setFormErrors({ ...formErrors, carrierCode: "" });
                     }}
+                    disabled={submitting}
+                    placeholder="ROYAL_MAIL"
+                    aria-invalid={!!formErrors.carrierCode}
+                    aria-describedby={formErrors.carrierCode ? "carrierCode-error" : undefined}
                     className={cn(
-                      "w-full px-4 py-2.5 bg-slate-800/50 dark:bg-gray-800/50 border rounded-lg text-white placeholder-slate-500 dark:placeholder-gray-600 focus:outline-none focus:ring-2 transition-all uppercase",
+                      "w-full px-4 py-2.5 bg-slate-800/50 border rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 transition-all uppercase disabled:opacity-50",
                       formErrors.carrierCode
                         ? "border-red-500 focus:ring-red-500"
-                        : "border-slate-700 dark:border-gray-700 focus:ring-violet-500"
+                        : "border-slate-700 focus:ring-violet-500"
                     )}
-                    placeholder="ROYAL_MAIL"
                   />
                   {formErrors.carrierCode && (
-                    <p className="mt-1.5 text-xs text-red-400 flex items-center gap-1">
+                    <p id="carrierCode-error" className="mt-1.5 text-xs text-red-400 flex items-center gap-1">
                       <AlertCircle className="w-3 h-3" />
                       {formErrors.carrierCode}
                     </p>
@@ -855,26 +1502,29 @@ export default function ShippingMethodsPage() {
 
                 {/* Service Code */}
                 <div>
-                  <label className="block text-sm font-medium text-slate-300 dark:text-gray-400 mb-2">
+                  <label className="block text-sm font-medium text-slate-300 mb-2">
                     Service Code <span className="text-red-400">*</span>
                   </label>
                   <input
                     type="text"
                     value={formData.serviceCode}
                     onChange={(e) => {
-                      setFormData({ ...formData, serviceCode: e.target.value.toUpperCase() });
+                      setFormData({ ...formData, serviceCode: sanitizeInput(e.target.value.toUpperCase()) });
                       setFormErrors({ ...formErrors, serviceCode: "" });
                     }}
+                    disabled={submitting}
+                    placeholder="TPN"
+                    aria-invalid={!!formErrors.serviceCode}
+                    aria-describedby={formErrors.serviceCode ? "serviceCode-error" : undefined}
                     className={cn(
-                      "w-full px-4 py-2.5 bg-slate-800/50 dark:bg-gray-800/50 border rounded-lg text-white placeholder-slate-500 dark:placeholder-gray-600 focus:outline-none focus:ring-2 transition-all uppercase",
+                      "w-full px-4 py-2.5 bg-slate-800/50 border rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 transition-all uppercase disabled:opacity-50",
                       formErrors.serviceCode
                         ? "border-red-500 focus:ring-red-500"
-                        : "border-slate-700 dark:border-gray-700 focus:ring-violet-500"
+                        : "border-slate-700 focus:ring-violet-500"
                     )}
-                    placeholder="TPN"
                   />
                   {formErrors.serviceCode && (
-                    <p className="mt-1.5 text-xs text-red-400 flex items-center gap-1">
+                    <p id="serviceCode-error" className="mt-1.5 text-xs text-red-400 flex items-center gap-1">
                       <AlertCircle className="w-3 h-3" />
                       {formErrors.serviceCode}
                     </p>
@@ -885,29 +1535,34 @@ export default function ShippingMethodsPage() {
               <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
                 {/* Min Delivery Days */}
                 <div>
-                  <label className="block text-sm font-medium text-slate-300 dark:text-gray-400 mb-2">
+                  <label className="block text-sm font-medium text-slate-300 mb-2">
                     Min Days <span className="text-red-400">*</span>
                   </label>
                   <input
                     type="number"
                     min="0"
+                    max="365"
                     value={formData.deliveryTimeMinDays}
                     onChange={(e) => {
+                      const value = parseInt(e.target.value) || 0;
                       setFormData({
                         ...formData,
-                        deliveryTimeMinDays: parseInt(e.target.value) || 0,
+                        deliveryTimeMinDays: Math.max(0, Math.min(365, value)),
                       });
                       setFormErrors({ ...formErrors, deliveryTimeMinDays: "" });
                     }}
+                    disabled={submitting}
+                    aria-invalid={!!formErrors.deliveryTimeMinDays}
+                    aria-describedby={formErrors.deliveryTimeMinDays ? "deliveryTimeMinDays-error" : undefined}
                     className={cn(
-                      "w-full px-4 py-2.5 bg-slate-800/50 dark:bg-gray-800/50 border rounded-lg text-white placeholder-slate-500 dark:placeholder-gray-600 focus:outline-none focus:ring-2 transition-all",
+                      "w-full px-4 py-2.5 bg-slate-800/50 border rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 transition-all disabled:opacity-50",
                       formErrors.deliveryTimeMinDays
                         ? "border-red-500 focus:ring-red-500"
-                        : "border-slate-700 dark:border-gray-700 focus:ring-violet-500"
+                        : "border-slate-700 focus:ring-violet-500"
                     )}
                   />
                   {formErrors.deliveryTimeMinDays && (
-                    <p className="mt-1.5 text-xs text-red-400 flex items-center gap-1">
+                    <p id="deliveryTimeMinDays-error" className="mt-1.5 text-xs text-red-400 flex items-center gap-1">
                       <AlertCircle className="w-3 h-3" />
                       {formErrors.deliveryTimeMinDays}
                     </p>
@@ -916,29 +1571,34 @@ export default function ShippingMethodsPage() {
 
                 {/* Max Delivery Days */}
                 <div>
-                  <label className="block text-sm font-medium text-slate-300 dark:text-gray-400 mb-2">
+                  <label className="block text-sm font-medium text-slate-300 mb-2">
                     Max Days <span className="text-red-400">*</span>
                   </label>
                   <input
                     type="number"
                     min="0"
+                    max="365"
                     value={formData.deliveryTimeMaxDays}
                     onChange={(e) => {
+                      const value = parseInt(e.target.value) || 0;
                       setFormData({
                         ...formData,
-                        deliveryTimeMaxDays: parseInt(e.target.value) || 0,
+                        deliveryTimeMaxDays: Math.max(0, Math.min(365, value)),
                       });
                       setFormErrors({ ...formErrors, deliveryTimeMaxDays: "" });
                     }}
+                    disabled={submitting}
+                    aria-invalid={!!formErrors.deliveryTimeMaxDays}
+                    aria-describedby={formErrors.deliveryTimeMaxDays ? "deliveryTimeMaxDays-error" : undefined}
                     className={cn(
-                      "w-full px-4 py-2.5 bg-slate-800/50 dark:bg-gray-800/50 border rounded-lg text-white placeholder-slate-500 dark:placeholder-gray-600 focus:outline-none focus:ring-2 transition-all",
+                      "w-full px-4 py-2.5 bg-slate-800/50 border rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 transition-all disabled:opacity-50",
                       formErrors.deliveryTimeMaxDays
                         ? "border-red-500 focus:ring-red-500"
-                        : "border-slate-700 dark:border-gray-700 focus:ring-violet-500"
+                        : "border-slate-700 focus:ring-violet-500"
                     )}
                   />
                   {formErrors.deliveryTimeMaxDays && (
-                    <p className="mt-1.5 text-xs text-red-400 flex items-center gap-1">
+                    <p id="deliveryTimeMaxDays-error" className="mt-1.5 text-xs text-red-400 flex items-center gap-1">
                       <AlertCircle className="w-3 h-3" />
                       {formErrors.deliveryTimeMaxDays}
                     </p>
@@ -947,26 +1607,34 @@ export default function ShippingMethodsPage() {
 
                 {/* Display Order */}
                 <div>
-                  <label className="block text-sm font-medium text-slate-300 dark:text-gray-400 mb-2">
+                  <label className="block text-sm font-medium text-slate-300 mb-2">
                     Order <span className="text-red-400">*</span>
                   </label>
                   <input
                     type="number"
                     min="0"
+                    max="9999"
                     value={formData.displayOrder}
                     onChange={(e) => {
-                      setFormData({ ...formData, displayOrder: parseInt(e.target.value) || 0 });
+                      const value = parseInt(e.target.value) || 0;
+                      setFormData({
+                        ...formData,
+                        displayOrder: Math.max(0, Math.min(9999, value)),
+                      });
                       setFormErrors({ ...formErrors, displayOrder: "" });
                     }}
+                    disabled={submitting}
+                    aria-invalid={!!formErrors.displayOrder}
+                    aria-describedby={formErrors.displayOrder ? "displayOrder-error" : undefined}
                     className={cn(
-                      "w-full px-4 py-2.5 bg-slate-800/50 dark:bg-gray-800/50 border rounded-lg text-white placeholder-slate-500 dark:placeholder-gray-600 focus:outline-none focus:ring-2 transition-all",
+                      "w-full px-4 py-2.5 bg-slate-800/50 border rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 transition-all disabled:opacity-50",
                       formErrors.displayOrder
                         ? "border-red-500 focus:ring-red-500"
-                        : "border-slate-700 dark:border-gray-700 focus:ring-violet-500"
+                        : "border-slate-700 focus:ring-violet-500"
                     )}
                   />
                   {formErrors.displayOrder && (
-                    <p className="mt-1.5 text-xs text-red-400 flex items-center gap-1">
+                    <p id="displayOrder-error" className="mt-1.5 text-xs text-red-400 flex items-center gap-1">
                       <AlertCircle className="w-3 h-3" />
                       {formErrors.displayOrder}
                     </p>
@@ -976,21 +1644,18 @@ export default function ShippingMethodsPage() {
 
               {/* Toggle Options */}
               <div className="space-y-3">
-                <div className="flex items-center justify-between p-4 bg-slate-800/30 dark:bg-gray-800/30 rounded-lg">
+                <div className="flex items-center justify-between p-4 bg-slate-800/30 rounded-lg">
                   <div>
                     <p className="text-sm font-medium text-white">Tracking Supported</p>
-                    <p className="text-xs text-slate-500 dark:text-gray-600 mt-0.5">
-                      Enable package tracking for this method
-                    </p>
+                    <p className="text-xs text-slate-500 mt-0.5">Enable package tracking for this method</p>
                   </div>
                   <button
                     type="button"
-                    onClick={() =>
-                      setFormData({ ...formData, trackingSupported: !formData.trackingSupported })
-                    }
+                    onClick={() => setFormData({ ...formData, trackingSupported: !formData.trackingSupported })}
+                    disabled={submitting}
                     className={cn(
-                      "relative inline-flex h-6 w-11 items-center rounded-full transition-colors",
-                      formData.trackingSupported ? "bg-cyan-500" : "bg-slate-700 dark:bg-gray-700"
+                      "relative inline-flex h-6 w-11 items-center rounded-full transition-colors disabled:opacity-50",
+                      formData.trackingSupported ? "bg-cyan-500" : "bg-slate-700"
                     )}
                   >
                     <span
@@ -1002,26 +1667,18 @@ export default function ShippingMethodsPage() {
                   </button>
                 </div>
 
-                <div className="flex items-center justify-between p-4 bg-slate-800/30 dark:bg-gray-800/30 rounded-lg">
+                <div className="flex items-center justify-between p-4 bg-slate-800/30 rounded-lg">
                   <div>
                     <p className="text-sm font-medium text-white">Signature Required</p>
-                    <p className="text-xs text-slate-500 dark:text-gray-600 mt-0.5">
-                      Require signature on delivery
-                    </p>
+                    <p className="text-xs text-slate-500 mt-0.5">Require signature on delivery</p>
                   </div>
                   <button
                     type="button"
-                    onClick={() =>
-                      setFormData({
-                        ...formData,
-                        signatureRequired: !formData.signatureRequired,
-                      })
-                    }
+                    onClick={() => setFormData({ ...formData, signatureRequired: !formData.signatureRequired })}
+                    disabled={submitting}
                     className={cn(
-                      "relative inline-flex h-6 w-11 items-center rounded-full transition-colors",
-                      formData.signatureRequired
-                        ? "bg-orange-500"
-                        : "bg-slate-700 dark:bg-gray-700"
+                      "relative inline-flex h-6 w-11 items-center rounded-full transition-colors disabled:opacity-50",
+                      formData.signatureRequired ? "bg-orange-500" : "bg-slate-700"
                     )}
                   >
                     <span
@@ -1033,19 +1690,20 @@ export default function ShippingMethodsPage() {
                   </button>
                 </div>
 
-                <div className="flex items-center justify-between p-4 bg-slate-800/30 dark:bg-gray-800/30 rounded-lg">
+                <div className="flex items-center justify-between p-4 bg-slate-800/30 rounded-lg">
                   <div>
                     <p className="text-sm font-medium text-white">Method Status</p>
-                    <p className="text-xs text-slate-500 dark:text-gray-600 mt-0.5">
+                    <p className="text-xs text-slate-500 mt-0.5">
                       {formData.isActive ? "Method is active" : "Method is inactive"}
                     </p>
                   </div>
                   <button
                     type="button"
                     onClick={() => setFormData({ ...formData, isActive: !formData.isActive })}
+                    disabled={submitting}
                     className={cn(
-                      "relative inline-flex h-6 w-11 items-center rounded-full transition-colors",
-                      formData.isActive ? "bg-green-500" : "bg-slate-700 dark:bg-gray-700"
+                      "relative inline-flex h-6 w-11 items-center rounded-full transition-colors disabled:opacity-50",
+                      formData.isActive ? "bg-green-500" : "bg-slate-700"
                     )}
                   >
                     <span
@@ -1060,12 +1718,12 @@ export default function ShippingMethodsPage() {
             </form>
 
             {/* Modal Footer */}
-            <div className="flex gap-3 p-6 border-t border-slate-800 dark:border-gray-800 bg-slate-900/50 dark:bg-gray-900/50">
+            <div className="flex gap-3 p-6 border-t border-slate-800 bg-slate-900/50">
               <button
                 type="button"
                 onClick={() => setShowModal(false)}
                 disabled={submitting}
-                className="flex-1 px-4 py-2.5 bg-slate-800 dark:bg-gray-800 text-white rounded-lg hover:bg-slate-700 dark:hover:bg-gray-700 transition-colors font-medium disabled:opacity-50"
+                className="flex-1 px-4 py-2.5 bg-slate-800 text-white rounded-lg hover:bg-slate-700 transition-colors font-medium disabled:opacity-50"
               >
                 Cancel
               </button>
@@ -1091,33 +1749,38 @@ export default function ShippingMethodsPage() {
         </div>
       )}
 
-      {/* Delete Confirmation Modal */}
+      {/* DELETE CONFIRMATION MODAL */}
       {deleteConfirmId && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-slate-900 dark:bg-gray-900 border border-slate-800 dark:border-gray-800 rounded-xl max-w-md w-full shadow-2xl">
-            <div className="p-6">
-              <div className="w-12 h-12 bg-red-500/10 rounded-full flex items-center justify-center mb-4">
+          <div className="bg-slate-900 border border-red-500/20 rounded-xl max-w-md w-full p-6">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-12 h-12 bg-red-500/10 rounded-lg flex items-center justify-center">
                 <AlertCircle className="w-6 h-6 text-red-400" />
               </div>
-              <h3 className="text-xl font-bold text-white mb-2">Delete Method?</h3>
-              <p className="text-slate-400 dark:text-gray-500 mb-6">
-                Are you sure you want to delete this shipping method? This action cannot be undone.
-                Make sure to delete all associated rates first.
-              </p>
-              <div className="flex gap-3">
-                <button
-                  onClick={() => setDeleteConfirmId(null)}
-                  className="flex-1 px-4 py-2.5 bg-slate-800 dark:bg-gray-800 text-white rounded-lg hover:bg-slate-700 dark:hover:bg-gray-700 transition-colors font-medium"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={() => handleDelete(deleteConfirmId)}
-                  className="flex-1 px-4 py-2.5 bg-red-500 hover:bg-red-600 text-white rounded-lg transition-colors font-medium"
-                >
-                  Delete
-                </button>
+              <div>
+                <h3 className="text-lg font-bold text-white">Delete Method</h3>
+                <p className="text-sm text-slate-400">This action cannot be undone</p>
               </div>
+            </div>
+
+            <p className="text-slate-300 mb-6">
+              Are you sure you want to delete this shipping method? This will permanently remove it from the
+              system. Make sure to delete all associated rates first.
+            </p>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => handleDelete(deleteConfirmId)}
+                className="flex-1 px-4 py-2.5 bg-red-500 hover:bg-red-600 text-white rounded-lg font-medium transition-colors"
+              >
+                Delete
+              </button>
+              <button
+                onClick={() => setDeleteConfirmId(null)}
+                className="flex-1 px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-white rounded-lg font-medium transition-colors"
+              >
+                Cancel
+              </button>
             </div>
           </div>
         </div>

@@ -51,6 +51,7 @@ import { cn } from "@/lib/utils";
 import { useTheme } from "@/context/theme-provider";
 import { authService } from "@/lib/services/auth";
 import PendingTakeoverNotifications from "./products/PendingTakeoverNotifications";
+import ErrorBoundary from "@/components/ErrorBoundary";
 
 interface NavigationItem {
   name: string;
@@ -354,6 +355,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
   };
 
   return (
+     <ErrorBoundary>
     <div className="min-h-screen bg-slate-950 dark:bg-gray-950 relative overflow-hidden transition-colors duration-500">
       <div className="fixed inset-0 bg-[linear-gradient(to_right,#1e293b_1px,transparent_1px),linear-gradient(to_bottom,#1e293b_1px,transparent_1px)] dark:bg-[linear-gradient(to_right,#1f2937_1px,transparent_1px),linear-gradient(to_bottom,#1f2937_1px,transparent_1px)] bg-[size:4rem_4rem] [mask-image:radial-gradient(ellipse_80%_50%_at_50%_0%,#000_70%,transparent_110%)] transition-all duration-500" />
 
@@ -361,7 +363,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
       <div className="fixed top-0 -right-4 w-96 h-96 bg-cyan-500 dark:bg-cyan-700 rounded-full mix-blend-multiply filter blur-3xl opacity-10 dark:opacity-15 animate-blob animation-delay-2000 transition-all duration-500" />
       <div className="fixed -bottom-8 left-1/2 w-96 h-96 bg-pink-500 dark:bg-pink-700 rounded-full mix-blend-multiply filter blur-3xl opacity-10 dark:opacity-15 animate-blob animation-delay-4000 transition-all duration-500" />
 
-      <div className="relative z-10 flex h-screen overflow-hidden">
+      <div className="relative z-990 flex h-screen overflow-hidden">
         {/* Desktop Sidebar */}
         <aside
           onMouseEnter={() => sidebarCollapsed && setIsHovering(true)}
@@ -921,5 +923,6 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
         }
       `}</style>
     </div>
+    </ErrorBoundary>
   );
 }
