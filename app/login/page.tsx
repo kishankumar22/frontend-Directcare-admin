@@ -16,41 +16,54 @@ export default function LoginPage() {
   });
   const [error, setError] = useState('');
 
-const handleSubmit = async (e: React.FormEvent) => {
-  e.preventDefault();
-  setError("");
-  setLoading(true);
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError("");
+    setLoading(true);
 
-try {
-  const { data: result } = await authService.login(formData);
+    try {
+      const { data: result } = await authService.login(formData);
 
-  if (!result?.accessToken && !result?.token) {
-    setError("Token not received from server");
-    return;
-  }
+      if (!result?.accessToken && !result?.token) {
+        setError("Token not received from server");
+        return;
+      }
 
-  const token = result.accessToken ?? result.token!;
+      const token = result.accessToken ?? result.token!;
 
-  localStorage.setItem("authToken", token);
-  localStorage.setItem("userEmail", result.user?.email ?? formData.email);
+      // ✅ COMPLETE LOCALSTORAGE SYNC (for AuthContext compatibility)
+      localStorage.setItem("accessToken", token);
+      localStorage.setItem("authToken", token);
+      localStorage.setItem("refreshToken", result.refreshToken || "");
+      
+      if (result.user) {
+        localStorage.setItem("user", JSON.stringify(result.user));
+        localStorage.setItem("userData", JSON.stringify(result.user)); // Backward compatibility
+        localStorage.setItem("userId", result.user.id);
+        localStorage.setItem("userEmail", result.user.email);
+        localStorage.setItem("userName", `${result.user.firstName || ''} ${result.user.lastName || ''}`);
+        localStorage.setItem("userFirstName", result.user.firstName || "");
+        localStorage.setItem("userLastName", result.user.lastName || "");
+      } else {
+        localStorage.setItem("userEmail", formData.email);
+      }
 
-  if (result.user) {
-    localStorage.setItem("userData", JSON.stringify(result.user));
-  }
+      // Cookie for SSR (optional)
+      document.cookie = `authToken=${token}; path=/; max-age=86400`;
 
-  document.cookie = `authToken=${token}; path=/; max-age=86400`;
+      console.log("✅ Login successful, data stored");
 
-  setTimeout(() => {
-    window.location.href = "/admin";
-  }, 200);
+      // Redirect to admin
+      setTimeout(() => {
+        window.location.href = "/admin";
+      }, 200);
 
-} catch (err: any) {
-  setError(err.response?.data?.message || "Invalid email or password");
-} finally {
-  setLoading(false);
-}
-
-};
+    } catch (err: any) {
+      console.error("❌ Login error:", err);
+      setError(err.response?.data?.message || "Invalid email or password");
+      setLoading(false);
+    }
+  };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({

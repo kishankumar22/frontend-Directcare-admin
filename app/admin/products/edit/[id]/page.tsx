@@ -5,15 +5,14 @@ import { useRouter } from "next/navigation";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   ArrowLeft, Save, Upload, X, Info, Search, Image, Package,
-  Tag, BarChart3, Globe, Settings, Truck, Gift, Calendar,
-  Users, PoundSterling, Shield, FileText, Link as LinkIcon, ShoppingCart, Video,
+  Tag,BarChart3, Globe, Settings, Truck,
+  Users, PoundSterling, Link as LinkIcon, ShoppingCart, Video,
   Play,
   ChevronDown,
   Clock,
   Send,
   Bell
 } from "lucide-react";
-
 
 import Link from "next/link";
 import { ProductDescriptionEditor } from "@/app/admin/products/SelfHostedEditor";
@@ -30,294 +29,18 @@ import { VATRateApiResponse, vatratesService } from "@/lib/services/vatrates";
 import productLockService from "@/lib/services/productLockService";
 import { signalRService } from "@/lib/services/signalRService";
 import TakeoverRequestModal from "../../TakeoverRequestModal";
+import { useAuth } from "@/context/AuthContext";
 
 export default function EditProductPage({ params }: { params: Promise<{ id: string }> }) {
   const router = useRouter();
-      const toast = useToast();
+  const toast = useToast();
   let seoTimer: any = null;
 
   const { id: productId } = use(params);
   const [searchTerm, setSearchTerm] = useState('');
   const [searchTermCross, setSearchTermCross] = useState('');
   const [pendingTakeoverRequests, setPendingTakeoverRequests] = useState<any[]>([]);
-const [showNotifications, setShowNotifications] = useState(false);
-// Add this function to manually check for pending requests
-const checkPendingTakeoverRequests = async () => {
-  try {
-    const response = await productLockService.getPendingTakeoverRequests();
-    
-    if (response.success && response.data) {
-      // Filter only for current product
-      const forThisProduct = response.data.filter(
-        (req: any) => req.productId === productId
-      );
-      
-      setPendingTakeoverRequests(forThisProduct);
-      
-      // Auto-open modal if there's a new request
-      if (forThisProduct.length > 0 && !isTakeoverModalOpen) {
-        const latestRequest = forThisProduct[0];
-        setTakeoverRequest(latestRequest);
-        setIsTakeoverModalOpen(true);
-        setHasPendingTakeover(true);
-      }
-    }
-  } catch (error) {
-    console.error('Failed to check requests:', error);
-  }
-};
 
-// Polling: Check every 30 seconds (since SignalR not working)
-useEffect(() => {
-  if (!productId) return;
-  
-  // Initial check
-  checkPendingTakeoverRequests();
-  
-  // Poll every 30 seconds
-  const pollInterval = setInterval(() => {
-    checkPendingTakeoverRequests();
-  }, 30000); // 30 seconds
-  
-  return () => clearInterval(pollInterval);
-}, [productId]);
-// ⭐ AUTO-SYNC USER DATA FROM TOKEN (Add this)
-// ==================== AUTO-SYNC USER DATA ====================
-useEffect(() => {
-  const syncUserData = () => {
-    // Check if already synced
-    const existingUserId = localStorage.getItem('userId');
-    if (existingUserId) {
-      console.log('✅ userId already exists:', existingUserId);
-      return;
-    }
-
-    console.log('🔍 Extracting userId from token...');
-
-    // Get token
-    const token = localStorage.getItem('accessToken') || localStorage.getItem('authToken');
-    if (!token) {
-      console.error('❌ No token found');
-      return;
-    }
-
-    try {
-      // Decode JWT
-      const parts = token.split('.');
-      if (parts.length !== 3) {
-        console.error('❌ Invalid token format');
-        return;
-      }
-
-      const payload = JSON.parse(atob(parts[1]));
-      console.log('📦 Token payload:', payload);
-
-      // Try all possible userId claim names
-      const possibleUserIdKeys = [
-        'sub',
-        'userId',
-        'user_id',
-        'id',
-        'nameid',
-        'http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier',
-        'http://schemas.microsoft.com/ws/2008/06/identity/claims/nameidentifier'
-      ];
-
-      let extractedUserId = null;
-
-      for (const key of possibleUserIdKeys) {
-        if (payload[key]) {
-          extractedUserId = payload[key];
-          console.log(`✅ Found userId in claim: ${key} = ${extractedUserId}`);
-          break;
-        }
-      }
-
-      if (extractedUserId) {
-        localStorage.setItem('userId', extractedUserId);
-        localStorage.setItem('authToken', token);
-        console.log('✅ userId stored:', extractedUserId);
-        
-        // Force re-render to trigger SignalR connection
-        window.location.reload();
-      } else {
-        console.error('❌ userId not found in token claims');
-        console.log('Available claims:', Object.keys(payload));
-      }
-
-    } catch (error) {
-      console.error('❌ Error extracting userId:', error);
-    }
-  };
-
-  syncUserData();
-}, []); // Run once on mount
-
-// ==================== SIGNALR CONNECTION ====================
-useEffect(() => {
-  console.log('🔍 SignalR Init');
-  
-  // Get userId
-  let userId = localStorage.getItem('userId');
-  const userEmail = localStorage.getItem('userEmail');
-  
-  // If no userId, try to extract from user object
-  if (!userId) {
-    const userStr = localStorage.getItem('user');
-    if (userStr) {
-      try {
-        const user = JSON.parse(userStr);
-        userId = user.id;
-        if (userId) {
-          localStorage.setItem('userId', userId);
-          console.log('✅ userId extracted from user object');
-        }
-      } catch (e) {
-        console.error('Error parsing user:', e);
-      }
-    }
-  }
-
-  console.log('User ID:', userId || '❌ Not found');
-  console.log('Email:', userEmail || '❌ Not found');
-  console.log('Product ID:', productId);
-
-  if (!userId) {
-    console.error('❌ Cannot start SignalR - no userId');
-    console.error('💡 Will retry after token sync...');
-    return;
-  }
-
-  // Start connection
-  let mounted = true;
-  
-  const init = async () => {
-    console.log('🔌 Starting SignalR connection...');
-    const connected = await signalRService.startConnection(userId!);
-    
-    if (!mounted) return;
-    
-    if (connected) {
-      console.log('✅ SignalR connected successfully');
-      console.log('   Connection ID:', signalRService.getConnectionId());
-      console.log('   State:', signalRService.getConnectionState());
-    } else {
-      console.error('❌ SignalR connection failed');
-    }
-  };
-
-  init();
-
-  // Listen for takeover requests
-  const handleTakeover = (data: any) => {
-    console.log('🔔 ==================== TAKEOVER REQUEST ====================');
-    console.log('📦 Received data:', data);
-    console.log('🔍 Validation:');
-    console.log('   Current product:', productId);
-    console.log('   Request product:', data.productId);
-    console.log('   Match:', data.productId === productId ? '✅' : '❌');
-    console.log('   Current editor:', data.currentEditorEmail);
-    console.log('   My email:', userEmail);
-    console.log('   Is for me:', data.currentEditorEmail === userEmail ? '✅' : '❌');
-
-    if (data.productId !== productId) {
-      console.log('⏭️ Ignoring: Different product');
-      return;
-    }
-
-    if (data.currentEditorEmail !== userEmail) {
-      console.log('⏭️ Ignoring: Not for me');
-      return;
-    }
-
-    console.log('✅ All checks passed - Opening modal...');
-    setTakeoverRequest(data);
-    setIsTakeoverModalOpen(true);
-    setHasPendingTakeover(true);
-
-    // Play notification sound
-    try {
-      const audio = new Audio('/notification.mp3');
-      audio.play().catch((e) => console.log('🔇 Audio blocked:', e.message));
-    } catch (e) {
-      console.log('🔇 Audio not available');
-    }
-
-    console.log('🎯 Modal state updated');
-    console.log('================================================================');
-  };
-
-  signalRService.on('takeoverRequest', handleTakeover);
-
-  // Cleanup
-  return () => {
-    mounted = false;
-    console.log('🧹 Cleanup: Removing SignalR listener');
-    signalRService.off('takeoverRequest', handleTakeover);
-  };
-}, [productId]);
-
-  useEffect(() => {
-    const syncUserData = () => {
-      const userId = localStorage.getItem('userId');
-      const authToken = localStorage.getItem('authToken');
-      
-      // If already synced, skip
-      if (userId && authToken) {
-        console.log('✅ User data already synced');
-        return;
-      }
-      
-      // Try to get from accessToken
-      const accessToken = localStorage.getItem('accessToken');
-      if (!accessToken) {
-        console.warn('⚠️ No access token - redirect to login');
-        router.push('/login');
-        return;
-      }
-      
-      try {
-        // Decode JWT token
-        const parts = accessToken.split('.');
-        if (parts.length !== 3) throw new Error('Invalid token');
-        
-        const payload = JSON.parse(atob(parts[1]));
-        console.log('🔍 Syncing user data from token...');
-        
-        // Extract userId
-        const extractedUserId = payload.sub || 
-                                payload.userId || 
-                                payload.id ||
-                                payload['http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier'];
-        
-        // Extract email
-        const extractedEmail = payload.email || 
-                               payload['http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress'];
-        
-        if (extractedUserId) {
-          localStorage.setItem('userId', extractedUserId);
-          localStorage.setItem('authToken', accessToken);
-          if (extractedEmail) localStorage.setItem('userEmail', extractedEmail);
-          
-          console.log('✅ User data synced:', {
-            userId: extractedUserId,
-            email: extractedEmail
-          });
-        } else {
-          console.error('❌ userId not found in token - please re-login');
-          toast.error('Session invalid. Please login again.');
-          setTimeout(() => router.push('/login'), 2000);
-        }
-        
-      } catch (error) {
-        console.error('❌ Error syncing user data:', error);
-        toast.error('Session error. Please login again.');
-        setTimeout(() => router.push('/login'), 2000);
-      }
-    };
-    
-    syncUserData();
-  }, []);
   const fileInputRef = useRef<HTMLInputElement>(null);
   // Helper function to format datetime for React inputs
   const [productAttributes, setProductAttributes] = useState<ProductAttribute[]>([]);
@@ -348,6 +71,19 @@ const categoryDropdownRef = useRef<HTMLDivElement>(null);
   // Add these states after existing states
 const [simpleProducts, setSimpleProducts] = useState<SimpleProduct[]>([]);
 const [selectedGroupedProducts, setSelectedGroupedProducts] = useState<string[]>([]);
+
+const { user, isAuthenticated } = useAuth(); // ✅ Use AuthContext
+
+  useEffect(() => {
+    if (!isAuthenticated) {
+      console.error('❌ Not authenticated - redirecting to login');
+      toast.error('Please login to continue');
+      router.push('/login');
+      return;
+    }
+    
+    console.log('✅ User authenticated:', user?.email);
+  }, [isAuthenticated, user]);
 // ✅ Extract YouTube Video ID from URL
 const getYouTubeVideoId = (url: string): string | null => {
   if (!url) return null;
@@ -364,7 +100,6 @@ const getYouTubeVideoId = (url: string): string | null => {
       return match[1];
     }
   }
-  
   return null;
 };
 
@@ -556,7 +291,7 @@ const [formData, setFormData] = useState({
 const [productLock, setProductLock] = useState<{
   isLocked: boolean;
   lockedBy: string | null;
-  expiresAt: string | null;
+  expiresAt?: string | null;
 } | null>(null);
 
 const [isLockModalOpen, setIsLockModalOpen] = useState(false);
@@ -564,6 +299,9 @@ const [lockModalMessage, setLockModalMessage] = useState("");
 const [isAcquiringLock, setIsAcquiringLock] = useState(true); // ⚡ ADD THIS
 const lockAcquiredRef = useRef(false);
 const refreshIntervalRef = useRef<NodeJS.Timeout | null>(null);
+// ✅ ADD THESE 2 NEW LINES BELOW:
+const initRef = useRef(false);  // ✅ NEW: Prevent duplicate initialization
+const isAcquiringLockRef = useRef(false);  // ✅ NEW: Prevent duplicate acquire calls
 // ==================== TAKEOVER REQUEST STATE (ADD THIS) ====================
 const [isTakeoverModalOpen, setIsTakeoverModalOpen] = useState(false);
 const [takeoverRequestMessage, setTakeoverRequestMessage] = useState('');
@@ -1052,108 +790,398 @@ useEffect(() => {
   fetchAllData();
 }, [productId]);
 
-// ==================== SIGNALR CONNECTION ====================
+// ============================================
+// ✅ SIGNALR - Enhanced with Better Error Handling
+// ============================================
 useEffect(() => {
   console.log('🔍 SignalR Init');
   
-  // Get userId
   let userId = localStorage.getItem('userId');
   const userEmail = localStorage.getItem('userEmail');
   
-  // If no userId, try to extract from user object
+  // ✅ Extract userId from token if not found
   if (!userId) {
     const userStr = localStorage.getItem('user');
     if (userStr) {
       try {
         const user = JSON.parse(userStr);
         userId = user.id;
-        if (userId) {
-          localStorage.setItem('userId', userId);
-          console.log('✅ userId extracted from user object');
-        }
+        if (userId) localStorage.setItem('userId', userId);
       } catch (e) {
         console.error('Error parsing user:', e);
       }
     }
   }
 
-  console.log('User ID:', userId || '❌ Not found');
-  console.log('Email:', userEmail || '❌ Not found');
-  console.log('Product ID:', productId);
+  console.log('==================== SIGNALR SETUP ====================');
+  console.log('👤 User ID:', userId || '❌ Not found');
+  console.log('📧 Email:', userEmail || '❌ Not found');
+  console.log('📦 Product ID:', productId);
+  console.log('======================================================');
 
   if (!userId) {
     console.error('❌ Cannot start SignalR - no userId');
     return;
   }
 
-  // Start connection
   let mounted = true;
+  let handlerRegistered = false;
+  let connectionRetryTimer: NodeJS.Timeout | null = null;
   
-  const init = async () => {
-    const connected = await signalRService.startConnection(userId!);
-    
-    if (!mounted) return;
-    
-    if (connected) {
-      console.log('✅ SignalR ready');
-    } else {
-      console.error('❌ SignalR failed');
-    }
-  };
-
-  init();
-
-  // Listen for takeover requests
+  // ✅ ENHANCED: Takeover handler with validation
   const handleTakeover = (data: any) => {
-    console.log('🔔 Takeover handler called');
-    console.log('Data:', data);
-    console.log('Match product?', data.productId === productId);
-    console.log('Match editor?', data.currentEditorEmail === userEmail);
+    if (!mounted) {
+      console.log('⚠️ Component unmounted - ignoring event');
+      return;
+    }
 
+    console.log('');
+    console.log('🔔 ==================== SIGNALR TAKEOVER EVENT ====================');
+    console.log('📦 Request ID:', data.requestId || data.id);
+    console.log('📦 Product ID:', data.productId);
+    console.log('📦 Product Name:', data.productName);
+    console.log('👤 Requested By:', data.requestedByEmail);
+    console.log('👥 Current Editor:', data.currentEditorEmail);
+    console.log('💬 Message:', data.requestMessage || 'No message');
+    console.log('⏰ Expires At:', data.expiresAt);
+    console.log('⏱️ Time Left:', data.timeLeftSeconds, 'seconds');
+    console.log('=================================================================');
+
+    // ✅ Validate product ID
     if (data.productId !== productId) {
-      console.log('⏭️ Different product');
+      console.log('⏭️ Different product - ignoring event');
       return;
     }
 
+    // ✅ Validate current editor email
     if (data.currentEditorEmail !== userEmail) {
-      console.log('⏭️ Not for me');
+      console.log('⏭️ Not for current user - ignoring event');
       return;
     }
 
-    console.log('✅ Opening modal...');
-    setTakeoverRequest(data);
+    // ✅ Prevent duplicate modal opening
+    if (isTakeoverModalOpen) {
+      console.log('⚠️ Modal already open - ignoring event');
+      return;
+    }
+
+    console.log('✅ Opening modal from SignalR...');
+    
+    // ✅ Update states
+    setTakeoverRequest({
+      id: data.requestId || data.id,
+      requestId: data.requestId || data.id,
+      productId: data.productId,
+      productName: data.productName,
+      requestedByEmail: data.requestedByEmail,
+      currentEditorEmail: data.currentEditorEmail,
+      message: data.requestMessage || '',
+      expiresAt: data.expiresAt,
+      timeLeftSeconds: data.timeLeftSeconds
+    });
     setIsTakeoverModalOpen(true);
     setHasPendingTakeover(true);
+    
+    // ✅ Optional: Browser notification
+    showBrowserNotification(data);
+    
+    console.log('✅ Modal opened successfully from SignalR!');
+    console.log('=================================================================');
   };
 
-  signalRService.on('takeoverRequest', handleTakeover);
+  // ✅ NEW: Browser notification helper
+  const showBrowserNotification = (data: any) => {
+    if ('Notification' in window) {
+      if (Notification.permission === 'granted') {
+        new Notification('🔔 Takeover Request', {
+          body: `${data.requestedByEmail} wants to edit ${data.productName}`,
+          icon: '/logo.png',
+          tag: `takeover-${data.productId}`,
+          requireInteraction: true
+        });
+      } else if (Notification.permission !== 'denied') {
+        Notification.requestPermission().then(permission => {
+          if (permission === 'granted') {
+            new Notification('🔔 Takeover Request', {
+              body: `${data.requestedByEmail} wants to edit ${data.productName}`,
+              icon: '/logo.png'
+            });
+          }
+        });
+      }
+    }
+  };
+  
+  // ✅ NEW: Additional event handlers
+  const handleTakeoverApproved = (data: any) => {
+    console.log('✅ SIGNALR: Takeover approved', data);
+    if (data.productId === productId) {
+      toast.success('Takeover request approved!');
+      handleTakeoverActionComplete();
+      // Optionally redirect or refresh
+    }
+  };
 
-  // Cleanup
+  const handleTakeoverRejected = (data: any) => {
+    console.log('❌ SIGNALR: Takeover rejected', data);
+    if (data.productId === productId) {
+      toast.error('Takeover request rejected');
+      handleTakeoverActionComplete();
+    }
+  };
+
+  const handleLockReleased = (data: any) => {
+    console.log('🔓 SIGNALR: Lock released', data);
+    if (data.productId === productId) {
+      toast.info('Product lock has been released');
+    }
+  };
+  
+  // ✅ Connection initialization with retry
+  const init = async (retryCount = 0) => {
+    if (!mounted) return;
+
+    console.log(`🚀 Attempting SignalR connection... (Attempt ${retryCount + 1})`);
+    
+    const connected = await signalRService.startConnection(userId!);
+    
+    if (!mounted) {
+      console.log('⚠️ Component unmounted during connection');
+      return;
+    }
+    
+    if (connected) {
+      console.log('');
+      console.log('==================== ✅ SIGNALR CONNECTED ====================');
+      console.log('🆔 Connection ID:', signalRService.getConnectionId());
+      console.log('📡 State:', signalRService.getConnectionState());
+      console.log('============================================================');
+      
+      // ✅ Register all event handlers
+      signalRService.on('takeoverRequest', handleTakeover);
+      signalRService.on('takeoverApproved', handleTakeoverApproved);
+      signalRService.on('takeoverRejected', handleTakeoverRejected);
+      signalRService.on('lockReleased', handleLockReleased);
+      
+      handlerRegistered = true;
+      
+      // ✅ Test connection (optional)
+      if (process.env.NODE_ENV === 'development') {
+        setTimeout(() => {
+          signalRService.testConnection();
+        }, 2000);
+      }
+      
+    } else {
+      console.error('❌ SignalR connection failed');
+      
+      // ✅ Retry logic (max 3 attempts)
+      if (retryCount < 3 && mounted) {
+        const delay = (retryCount + 1) * 5000; // 5s, 10s, 15s
+        console.log(`🔄 Retrying in ${delay / 1000} seconds...`);
+        
+        connectionRetryTimer = setTimeout(() => {
+          init(retryCount + 1);
+        }, delay);
+      } else {
+        console.error('❌ SignalR connection failed after max retries');
+        toast.error('Real-time updates unavailable. Using polling instead.', {
+          autoClose: 5000
+        });
+      }
+    }
+  };
+
+  // ✅ Start connection
+  init();
+
+  // ✅ Cleanup
   return () => {
+    console.log('🧹 Cleaning up SignalR...');
     mounted = false;
-    signalRService.off('takeoverRequest', handleTakeover);
+    
+    // Clear retry timer
+    if (connectionRetryTimer) {
+      clearTimeout(connectionRetryTimer);
+    }
+    
+    // Remove event handlers
+    if (handlerRegistered) {
+      signalRService.off('takeoverRequest', handleTakeover);
+      signalRService.off('takeoverApproved', handleTakeoverApproved);
+      signalRService.off('takeoverRejected', handleTakeoverRejected);
+      signalRService.off('lockReleased', handleLockReleased);
+      console.log('✅ Event handlers removed');
+    }
+    
+    console.log('✅ SignalR cleanup complete');
   };
 }, [productId]);
 
 
+// ==================== 🔒 LOCK INITIALIZATION WITH STATUS CHECK ====================
+useEffect(() => {
+  if (!productId) return;
 
-// Add handler for modal close
+  // ✅ PREVENT DUPLICATE INITIALIZATION
+  if (initRef.current) {
+    console.log('⚠️ Lock initialization already running, skipping...');
+    return;
+  }
+
+  initRef.current = true;
+
+  let lockRefreshTimer: NodeJS.Timeout | null = null;
+
+  const initializeLock = async () => {
+    if (lockAcquiredRef.current) {
+      console.log('⚠️ Lock already acquired, skipping...');
+      return;
+    }
+
+    try {
+      // ✅ STEP 1: Check lock status FIRST (docs ke according)
+      console.log('🔍 Checking lock status...');
+      const statusResponse = await productLockService.getLockStatus(productId);
+      
+      if (!statusResponse.success || !statusResponse.data) {
+        throw new Error('Failed to get lock status');
+      }
+
+      const status = statusResponse.data;
+      const currentUserId = localStorage.getItem('userId');
+      const currentUserEmail = localStorage.getItem('userEmail');
+
+      console.log('📊 Lock Status:', {
+        isLocked: status.isLocked,
+        lockedBy: status.lockedBy,
+        lockedByEmail: status.lockedByEmail,
+        canRequestTakeover: status.canRequestTakeover
+      });
+
+      // ✅ CASE 1: Product locked by SOMEONE ELSE
+      if (status.isLocked && status.lockedBy && status.lockedBy !== currentUserId) {
+        console.log('🔒 Product is locked by another user');
+        
+        const expiryIST = status.expiresAt 
+          ? new Date(status.expiresAt).toLocaleString('en-IN', {
+              timeZone: 'Asia/Kolkata',
+              dateStyle: 'medium',
+              timeStyle: 'short'
+            })
+          : 'Unknown';
+
+        const displayMessage = `Product is currently being edited by ${status.lockedByEmail || 'another user'}.\n\nLock expires at ${expiryIST} IST.${
+          status.canRequestTakeover 
+            ? '\n\nYou can request takeover from the current editor.' 
+            : status.cannotRequestReason ? `\n\n${status.cannotRequestReason}` : ''
+        }`;
+
+        // Store lock info for "Request Takeover" modal
+        setLockedByEmail(status.lockedByEmail || 'Unknown User');
+        setProductLock({
+          isLocked: true,
+          lockedBy: status.lockedBy,
+          expiresAt: status.expiresAt || null
+        });
+        setLockModalMessage(displayMessage);
+        setIsLockModalOpen(true);
+        setIsAcquiringLock(false);
+        lockAcquiredRef.current = false;
+        return;
+      }
+
+      // ✅ CASE 2: Product locked by ME (same user, different tab)
+      if (status.isLocked && status.lockedBy === currentUserId) {
+        console.log('✅ Product already locked by you (same user)');
+        setProductLock({
+          isLocked: true,
+          lockedBy: status.lockedBy,
+          expiresAt: status.expiresAt || null
+        });
+        lockAcquiredRef.current = true;
+        setIsAcquiringLock(false);
+        toast.info('Already editing in another tab - you can continue here');
+        return;
+      }
+
+      // ✅ CASE 3: Product NOT locked - Acquire lock now
+      if (!status.isLocked) {
+        console.log('🆓 Product is free - acquiring lock...');
+        await acquireProductLock(productId, false);
+      }
+
+    } catch (error: any) {
+      console.error('❌ Lock initialization error:', error);
+      toast.error('Failed to initialize product lock');
+      setTimeout(() => router.push('/admin/products'), 2000);
+    }
+  };
+
+  // Start initialization
+  initializeLock();
+
+  // ✅ Refresh lock every 10 minutes
+  lockRefreshTimer = setInterval(() => {
+    if (lockAcquiredRef.current) {
+      console.log('🔄 Refreshing lock...');
+      acquireProductLock(productId, true);
+    }
+  }, 10 * 60 * 1000);
+
+  // ✅ Cleanup on unmount
+  return () => {
+    console.log('🧹 Cleanup: Releasing lock...');
+    initRef.current = false; // ✅ Reset flag
+    if (lockRefreshTimer) clearInterval(lockRefreshTimer);
+    releaseProductLock(productId);
+  };
+}, [productId]); // ✅ ONLY productId dependency
+
+
+
+// ============================================
+// ✅ CONNECTION STATUS DISPLAY (Optional)
+// ============================================
+const [signalRStatus, setSignalRStatus] = useState({
+  isConnected: false,
+  connectionId: null as string | null
+});
+
+useEffect(() => {
+  const checkStatus = () => {
+    const status = signalRService.getStatus();
+    setSignalRStatus({
+      isConnected: status.isConnected,
+      connectionId: status.connectionId
+    });
+  };
+  
+  // Check every 5 seconds
+  const statusInterval = setInterval(checkStatus, 5000);
+  checkStatus(); // Initial check
+  
+  return () => clearInterval(statusInterval);
+}, []);
+
+
+// ✅ Modal Handlers (unchanged)
 const handleTakeoverModalClose = () => {
   setIsTakeoverModalOpen(false);
 };
 
-// Add handler for action complete
 const handleTakeoverActionComplete = () => {
   setHasPendingTakeover(false);
   setTakeoverRequest(null);
+  setPendingTakeoverRequests([]);
 };
 
-// Add handler to reopen modal
 const handleReopenTakeoverModal = () => {
   if (takeoverRequest) {
     setIsTakeoverModalOpen(true);
   }
 };
+
 // ✅ States
 const [skuError, setSkuError] = useState('');
 const [checkingSku, setCheckingSku] = useState(false);
@@ -1238,20 +1266,6 @@ const checkSkuExists = async (sku: string): Promise<boolean> => {
   }
 };
 
-// ✅ DEBOUNCED SKU CHECK
-useEffect(() => {
-  const timer = setTimeout(() => {
-    if (formData.sku && formData.sku.length >= 2) {
-      checkSkuExists(formData.sku);
-    } else {
-      setSkuError('');
-      setCheckingSku(false);
-    }
-  }, 800); // Check after 800ms of typing
-  
-  return () => clearTimeout(timer);
-}, [formData.sku]);
-
 
 
 // ✅ Real-time check
@@ -1264,99 +1278,7 @@ useEffect(() => {
   
   return () => clearTimeout(timer);
 }, [formData.sku]);
-// ==========================================
-// 🔒 UPDATED: LOCK INITIALIZATION WITH STATUS CHECK
-// ==========================================
 
-const initializeLock = async () => {
-  if (lockAcquiredRef.current) {
-    console.log('Lock already acquired, skipping...');
-    return;
-  }
-
-  // ✅ STEP 1: First check lock status (no side effects)
-  try {
-    console.log('🔍 Checking lock status...');
-    const statusResponse = await productLockService.getLockStatus(productId);
-    
-    if (statusResponse.success && statusResponse.data) {
-      const status = statusResponse.data;
-      
-      console.log('📊 Lock Status:', {
-        isLocked: status.isLocked,
-        lockedBy: status.lockedBy,
-        lockedByEmail: status.lockedByEmail,
-        hasPendingTakeover: status.hasPendingTakeoverRequest,
-        canRequestTakeover: status.canRequestTakeover
-      });
-
-      // Get current user info
-      const currentUserId = localStorage.getItem('userId');
-      const currentUserEmail = localStorage.getItem('userEmail');
-
-      // ✅ CASE 1: Product is locked by someone else
-      if (status.isLocked && status.lockedBy && status.lockedBy !== currentUserId) {
-        console.log('🔒 Product locked by another user');
-        
-        const expiresAt = status.expiresAt || '';
-        const expiryIST = expiresAt 
-          ? new Date(expiresAt).toLocaleString('en-IN', {
-              timeZone: 'Asia/Kolkata',
-              dateStyle: 'medium',
-              timeStyle: 'short'
-            })
-          : 'Unknown';
-
-        const displayMessage = `Product is currently being edited by ${status.lockedByEmail || 'another user'}.\n\nLock expires at ${expiryIST} IST.\n\n${status.canRequestTakeover ? 'You can request takeover from the current editor.' : status.cannotRequestReason || ''}`;
-
-        // Store lock info
-        setLockedByEmail(status.lockedByEmail || 'Unknown User');
-        setProductLock({
-          isLocked: true,
-          lockedBy: status.lockedBy,
-          expiresAt: expiresAt,
-        });
-        
-        // Show modal
-        setLockModalMessage(displayMessage);
-        setIsLockModalOpen(true);
-        setIsAcquiringLock(false);
-        
-        lockAcquiredRef.current = false;
-        return; // ❌ Don't try to acquire lock
-      }
-
-      // ✅ CASE 2: Product is locked by ME (same user, maybe different tab)
-      if (status.isLocked && status.lockedBy === currentUserId) {
-        console.log('✅ Product already locked by you');
-        
-        setProductLock({
-          isLocked: true,
-          lockedBy: status.lockedBy,
-          expiresAt: status.expiresAt || new Date(Date.now() + 15 * 60 * 1000).toISOString(),
-        });
-        
-        lockAcquiredRef.current = true;
-        setIsAcquiringLock(false);
-        
-        toast.info('✅ Already editing in another tab - you can continue editing here');
-        return; // ✅ No need to acquire again
-      }
-
-      // ✅ CASE 3: Product is NOT locked - Proceed to acquire
-      if (!status.isLocked) {
-        console.log('🆓 Product is free - acquiring lock...');
-        // Fall through to acquire lock below
-      }
-    }
-  } catch (statusError: any) {
-    console.warn('⚠️ Lock status check failed, trying to acquire directly...', statusError);
-    // If status check fails, try to acquire anyway
-  }
-
-  // ✅ STEP 2: Try to acquire lock
-  await acquireProductLock(productId, false);
-};
 // ==========================================
 // 🔒 LOCK INITIALIZATION & REFRESH
 // ==========================================
@@ -1364,8 +1286,6 @@ const initializeLock = async () => {
 useEffect(() => {
   if (!productId) return;
 
-  // 1️⃣ Initialize lock on mount (with status check)
-  initializeLock();
 
   // 2️⃣ Setup refresh interval (10 minutes)
   refreshIntervalRef.current = setInterval(() => {
@@ -1393,44 +1313,48 @@ useEffect(() => {
 
 
 
-// ==================== ACQUIRE PRODUCT LOCK (UPDATED WITH TAKEOVER INFO) ====================
-const acquireProductLock = async (
-  productId: string, 
-  isRefresh: boolean = false
-): Promise<boolean> => {
+// ==================== 🔒 ACQUIRE LOCK (WITH DUPLICATE PREVENTION) ====================
+const acquireProductLock = async (productId: string, isRefresh: boolean = false): Promise<boolean> => {
+  // ✅ PREVENT DUPLICATE CALLS
+  if (!isRefresh && isAcquiringLockRef.current) {
+    console.log('⚠️ Already acquiring lock, skipping duplicate call');
+    return false;
+  }
+
   try {
     if (!isRefresh) {
-      console.log('🔒 LOCK: Attempting to acquire lock...');
+      console.log('🔐 Acquiring lock...');
       setIsAcquiringLock(true);
+      isAcquiringLockRef.current = true; // ✅ Set flag
     } else {
-      console.log('🔄 Refreshing product lock...');
+      console.log('🔄 Refreshing lock...');
     }
 
     const response = await productLockService.acquireLock(productId, 15);
-
     console.log('🔒 LOCK: Response received:', response);
 
     if (response.success && response.data) {
       const lockData = response.data;
-
+      
       setProductLock({
         isLocked: lockData.isLocked,
         lockedBy: lockData.lockedBy,
-        expiresAt: lockData.expiresAt,
+        expiresAt: lockData.expiresAt || null
       });
-
+      
       lockAcquiredRef.current = true;
-
+      
       if (!isRefresh) {
         const expiryTime = new Date(lockData.expiresAt).toLocaleString('en-IN', {
           timeZone: 'Asia/Kolkata',
           dateStyle: 'medium',
           timeStyle: 'short'
         });
-        toast.success(`🔒 Lock acquired\nExpires: ${expiryTime} (IST)`);
+        toast.success(`✅ Lock acquired! Expires at ${expiryTime} IST`);
       }
-
+      
       setIsAcquiringLock(false);
+      isAcquiringLockRef.current = false; // ✅ Clear flag
       return true;
     }
 
@@ -1438,91 +1362,55 @@ const acquireProductLock = async (
 
   } catch (error: any) {
     setIsAcquiringLock(false);
+    isAcquiringLockRef.current = false; // ✅ Clear flag on error
+    lockAcquiredRef.current = false;
 
     // ✅ Handle 409 Conflict
     if (error.status === 409) {
       const lockedByEmail = error.lockedByEmail || 'Unknown User';
       const expiresAt = error.expiresAt;
-
       console.warn('⚠️ Lock conflict (409):', error.message);
-
-      const currentUserEmail = localStorage.getItem('userEmail') || '';
+      
+      const currentUserEmail = localStorage.getItem('userEmail');
       const isLockedByMe = lockedByEmail === currentUserEmail;
 
-      if (isLockedByMe && !isRefresh) {
-        console.log('✅ Product already locked by you');
-        
+      if (isLockedByMe) {
+        console.log('✅ Already locked by you');
         lockAcquiredRef.current = true;
-        
-        setProductLock({
-          isLocked: true,
-          lockedBy: error.lockedBy || '',
-          expiresAt: expiresAt || new Date(Date.now() + 15 * 60 * 1000).toISOString(),
-        });
-
-        toast.info(`Already editing in another tab\nYou can continue editing here`);
-
-        setIsAcquiringLock(false);
+        if (!isRefresh) {
+          toast.info('Already editing - lock active');
+        }
         return true;
-      } 
-      
-      if (!isLockedByMe && !isRefresh) {
-        // ❌ Locked by different user - Store info for takeover
-        const expiryIST = expiresAt 
-          ? new Date(expiresAt).toLocaleString('en-IN', {
-              timeZone: 'Asia/Kolkata',
-              dateStyle: 'medium',
-              timeStyle: 'short'
-            })
-          : 'Unknown';
+      }
 
-        const displayMessage = `Product is currently being edited by ${lockedByEmail}. Lock expires at ${expiryIST} (IST).`;
-
-        // ✅ Store for takeover modal
-        setLockedByEmail(lockedByEmail);
-        setProductLock({
-          isLocked: true,
-          lockedBy: error.lockedBy || '',
-          expiresAt: expiresAt || '',
-        });
-
-        setLockModalMessage(displayMessage);
-        setIsLockModalOpen(true);
-
-        lockAcquiredRef.current = false;
+      // ❌ Locked by someone else during refresh
+      if (isRefresh) {
+        console.warn('⚠️ Lock lost during refresh');
+        toast.error('Lock was taken by another user');
+        setTimeout(() => router.push('/admin/products'), 2000);
         return false;
       }
 
-      if (isRefresh) {
-        console.log('⚠️ 409 on refresh - lock still active');
-        lockAcquiredRef.current = true;
-        return true;
-      }
+      // ❌ This should NOT happen if getLockStatus was called first
+      console.error('❌ Unexpected: 409 error on initial acquire');
+      return false;
     }
 
     // ❌ Other errors
-    lockAcquiredRef.current = false;
-
-    const displayMessage = error.message || 'Product could not be locked for editing.';
-
+    const errorMessage = error.message || 'Failed to acquire lock';
+    console.error('❌ LOCK ERROR DETAILS:', {
+      message: error.message,
+      status: error.status,
+      error: error
+    });
+    
     if (!isRefresh) {
-      console.error('🔒 LOCK ERROR DETAILS:', {
-        message: error.message,
-        status: error.status,
-        error: error
-      });
-
-      setLockModalMessage(displayMessage);
-      setIsLockModalOpen(true);
-      toast.error(displayMessage);
-
-      // setTimeout(() => {
-      //   router.push('/admin/products');
-      // }, 3500);
+      toast.error(errorMessage);
+      setTimeout(() => router.push('/admin/products'), 3000);
     } else {
-      console.warn('🔄 Lock refresh failed:', displayMessage);
+      console.warn('⚠️ Lock refresh failed:', errorMessage);
     }
-
+    
     return false;
   }
 };
@@ -1630,42 +1518,7 @@ const handleModalClose = () => {
   router.push("/admin/products");
 };
 
-// ==================== ✅ SINGLE CONSOLIDATED useEffect ====================
-useEffect(() => {
-  if (!productId) return;
 
-  // 1️⃣ Acquire lock on mount (only once)
-  const initializeLock = async () => {
-    if (lockAcquiredRef.current) {
-      console.log("🔒 Lock already acquired, skipping...");
-      return;
-    }
-    await acquireProductLock(productId, false);  // isRefresh = false
-  };
-
-  initializeLock();
-
-  // 2️⃣ Setup refresh interval (10 minutes)
-  refreshIntervalRef.current = setInterval(() => {
-    if (!lockAcquiredRef.current) {
-      console.log("⏭️ Skipping refresh - no active lock");
-      return;
-    }
-    acquireProductLock(productId, true);  // isRefresh = true
-  }, 10 * 60 * 1000); // 10 minutes
-
-  // 3️⃣ Cleanup on unmount
-  return () => {
-    console.log("🧹 Cleanup: Releasing lock and clearing interval");
-    
-    if (refreshIntervalRef.current) {
-      clearInterval(refreshIntervalRef.current);
-      refreshIntervalRef.current = null;
-    }
-
-    releaseProductLock(productId);
-  };
-}, [productId]);
 // ==================== FORM SUBMISSION HANDLER ====================
 const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
   e.preventDefault();
@@ -3276,192 +3129,106 @@ const uploadImagesToProductDirect = async (
   return (
     <div className="space-y-2">
       {/* Header */}
-      <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-2xl p-2">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="flex items-center gap-4">
-            <Link href="/admin/products">
-              <button className="p-2.5 text-slate-400 hover:text-white hover:bg-slate-800 rounded-xl transition-all">
-                <ArrowLeft className="h-5 w-5" />
-              </button>
-            </Link>
-            <div>
-              <h1 className="text-3xl font-bold tracking-tight bg-gradient-to-r from-violet-400 via-cyan-400 to-pink-400 bg-clip-text text-transparent">
-                Edit Product
-              </h1>
-              <p className="text-sm text-slate-400 mt-1">Update and configure your product details</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-3">
-            {/* Takeover Request Alert Button (Show if pending) */}
-  {hasPendingTakeover && (
-    <button
-      onClick={handleReopenTakeoverModal}
-      className="relative px-4 py-2.5 bg-gradient-to-r from-orange-500/20 to-red-500/20 border-2 border-orange-500/50 rounded-xl text-orange-300 hover:bg-orange-500/30 transition-all text-sm font-semibold flex items-center gap-2 animate-pulse-slow"
-    >
-      <Bell className="w-4 h-4" />
-      <span>Takeover Request</span>
-      <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full ring-2 ring-slate-900"></span>
-    </button>
-  )}
-           <button
-  onClick={handleCancel}
-  className="px-5 py-2.5 bg-slate-800/50 border border-slate-700 rounded-xl text-slate-300 hover:bg-slate-800 hover:border-slate-600 transition-all text-sm font-medium"
->
-  Cancel
-</button>
-{/* BELL ICON - Pending Takeover Requests */}
-<div className="relative">
-  <button
-    type="button"
-    onClick={() => {
-      checkPendingTakeoverRequests();
-      setShowNotifications(!showNotifications);
-    }}
-    className="relative p-2 text-slate-300 hover:text-white hover:bg-slate-700 rounded-lg transition-all"
-    title="Check Takeover Requests"
-  >
-    <Bell className="w-5 h-5" />
-    
-    {/* Badge - Red dot if pending requests */}
-    {pendingTakeoverRequests.length > 0 && (
-      <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full animate-pulse" />
-    )}
-  </button>
-  
-  {/* Dropdown - Show pending requests */}
-  {showNotifications && (
-      <div className="absolute right-0 top-full mt-2 w-80 bg-slate-800 border border-slate-700 rounded-xl shadow-2xl ">
-      <div className="p-3 border-b border-slate-700">
-        <h3 className="text-sm font-semibold text-white flex items-center gap-2">
-          <Bell className="w-4 h-4 text-violet-400" />
-          Takeover Requests
-        </h3>
-      </div>
-      
-      <div className="max-h-96 overflow-y-auto">
-        {pendingTakeoverRequests.length === 0 ? (
-          <div className="p-6 text-center">
-            <p className="text-sm text-slate-400">No pending requests</p>
-          </div>
-        ) : (
-          pendingTakeoverRequests.map((request) => (
-            <div
-              key={request.id}
-              className="p-4 border-b z-[999] border-slate-700 hover:bg-slate-700/30 transition-all"
-            >
-              <div className="flex items-start justify-between mb-2">
-                <div>
-                  <p className="text-sm font-semibold text-white">
-                    {request.requestedByEmail}
-                  </p>
-                  <p className="text-xs text-slate-400">
-                    {new Date(request.requestedAt).toLocaleString()}
-                  </p>
-                </div>
-                <span className="px-2 py-1 bg-orange-500/20 border border-orange-500/30 rounded text-xs text-orange-400">
-                  Pending
-                </span>
-              </div>
-              
-              {request.requestMessage && (
-                <p className="text-xs text-slate-300 mb-3 line-clamp-2">
-                  {request.requestMessage}
-                </p>
-              )}
-              
-              <button
-                onClick={() => {
-                  setTakeoverRequest(request);
-                  setIsTakeoverModalOpen(true);
-                  setShowNotifications(false);
-                }}
-                className="w-full px-3 py-2 bg-gradient-to-r from-violet-500 to-cyan-500 hover:from-violet-600 hover:to-cyan-600 text-white text-xs rounded-lg font-medium transition-all"
-              >
-                View & Respond
-              </button>
-            </div>
-          ))
-        )}
-      </div>
-      
-      <div className="p-3 border-t border-slate-700">
-        <button
-          onClick={checkPendingTakeoverRequests}
-          className="w-full px-3 py-2 bg-slate-700 hover:bg-slate-600 text-white text-xs rounded-lg font-medium transition-all flex items-center justify-center gap-2"
-        >
-          <svg className="w-3 h-3 animate-spin" fill="none" viewBox="0 0 24 24">
-            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-          </svg>
-          Refresh
-        </button>
-      </div>
+   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+  <div className="flex items-center gap-4">
+    <Link href="/admin/products">
+      <button className="p-2.5 text-slate-400 hover:text-white hover:bg-slate-800 rounded-xl transition-all">
+        <ArrowLeft className="h-5 w-5" />
+      </button>
+    </Link>
+    <div>
+      <h1 className="text-3xl font-bold tracking-tight bg-gradient-to-r from-violet-400 via-cyan-400 to-pink-400 bg-clip-text text-transparent">
+        Edit Product
+      </h1>
+      <p className="text-sm text-slate-400 mt-1">Update and configure your product details</p>
     </div>
-  )}
+  </div>
+  
+  <div className="flex items-center gap-3">
+    
+    {/* ✅ SINGLE BELL BUTTON - Shows badge + Opens modal directly */}
+    {hasPendingTakeover && (
+      <button
+        onClick={handleReopenTakeoverModal}
+        className="relative p-2.5 bg-gradient-to-r from-orange-500/20 to-red-500/20 border-2 border-orange-500/50 rounded-xl text-orange-300 hover:bg-orange-500/30 transition-all animate-pulse-slow"
+        title="View Takeover Request"
+      >
+        <Bell className="w-5 h-5" />
+        {/* Red notification badge */}
+        <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full ring-2 ring-slate-900 animate-pulse"></span>
+      </button>
+    )}
+    
+    {/* Cancel Button */}
+    <button
+      onClick={handleCancel}
+      className="px-5 py-2.5 bg-slate-800/50 border border-slate-700 rounded-xl text-slate-300 hover:bg-slate-800 hover:border-slate-600 transition-all text-sm font-medium"
+    >
+      Cancel
+    </button>
+
+    {/* SignalR Connection Status Indicator */}
+    <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-800/50 border border-slate-700 rounded-lg">
+      {signalRService.isConnected() ? (
+        <>
+          <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+          <span className="text-xs text-slate-400">Live</span>
+        </>
+      ) : (
+        <>
+          <div className="w-2 h-2 bg-red-400 rounded-full"></div>
+          <span className="text-xs text-slate-400">Offline</span>
+        </>
+      )}
+    </div>
+
+    {/* Save as Draft Button */}
+    <button
+      type="button"
+      onClick={(e) => handleSubmit(e, true)}
+      className="px-4 py-2 rounded-xl bg-orange-500/10 border border-orange-500/30 text-orange-400 hover:bg-orange-500/20 hover:border-orange-500/50 transition-all text-sm font-medium flex items-center gap-2"
+    >
+      <div className="w-2 h-2 bg-orange-400 rounded-full animate-pulse"></div>
+      Save as Draft
+    </button>
+
+    {/* Update Product Button */}
+    <button
+      type="button"
+      onClick={(e) => handleSubmit(e, false)}
+      disabled={isAcquiringLock || !productLock?.isLocked || loading}
+      className={cn(
+        "px-5 py-2.5 rounded-xl text-sm flex items-center gap-2 font-semibold transition-all",
+        (isAcquiringLock || !productLock?.isLocked || loading)
+          ? "bg-slate-700 text-slate-500 cursor-not-allowed opacity-50"
+          : "bg-gradient-to-r from-violet-500 to-cyan-500 text-white hover:shadow-lg hover:shadow-violet-500/50"
+      )}
+    >
+      {isAcquiringLock ? (
+        <>
+          <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+          <span>Acquiring Lock...</span>
+        </>
+      ) : !productLock?.isLocked ? (
+        <>
+          <X className="h-4 w-4" />
+          <span>No Edit Lock</span>
+        </>
+      ) : loading ? (
+        <>
+          <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+          <span>Loading...</span>
+        </>
+      ) : (
+        <>
+          <Save className="h-4 w-4" />
+          <span>Update Product</span>
+        </>
+      )}
+    </button>
+  </div>
 </div>
 
-{/* SignalR Connection Status Indicator */}
-<div className="flex items-center gap-2 px-3 py-1.5 bg-slate-800/50 border border-slate-700 rounded-lg">
-  {signalRService.isConnected() ? (
-    <>
-      <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
-      <span className="text-xs text-slate-400">Live</span>
-    </>
-  ) : (
-    <>
-      <div className="w-2 h-2 bg-red-400 rounded-full"></div>
-      <span className="text-xs text-slate-400">Offline</span>
-    </>
-  )}
-</div>
-
-
-            <button
-              type="button"
-              onClick={(e) => handleSubmit(e, true)}
-              className="px-4 py-2 rounded-xl bg-orange-500/10 border border-orange-500/30 text-orange-400 hover:bg-orange-500/20 hover:border-orange-500/50 transition-all text-sm font-medium flex items-center gap-2"
-            >
-              <div className="w-2 h-2 bg-orange-400 rounded-full animate-pulse"></div>
-              Save as Draft
-            </button>
-      
-{/* Update Product Button */}
-<button
-  type="button"
-  onClick={(e) => handleSubmit(e, false)}
-  disabled={isAcquiringLock || !productLock?.isLocked || loading}
-  className={cn(
-    "px-5 py-2.5 rounded-xl text-sm flex items-center gap-2 font-semibold transition-all",
-    (isAcquiringLock || !productLock?.isLocked || loading)
-      ? "bg-slate-700 text-slate-500 cursor-not-allowed opacity-50"
-      : "bg-gradient-to-r from-violet-500 to-cyan-500 text-white hover:shadow-lg hover:shadow-violet-500/50"
-  )}
->
-  {isAcquiringLock ? (
-    <>
-      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-      <span>Acquiring Lock...</span>
-    </>
-  ) : !productLock?.isLocked ? (
-    <>
-      <X className="h-4 w-4" />
-      <span>No Edit Lock</span>
-    </>
-  ) : loading ? (
-    <>
-      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-      <span>Loading...</span>
-    </>
-  ) : (
-    <>
-      <Save className="h-4 w-4" />
-      <span>Update Product</span>
-    </>
-  )}
-</button>
-          </div>
-        </div>
-      </div>
       {/* Main Content */}
       <div className="w-full">
         {/* Main Form */}
