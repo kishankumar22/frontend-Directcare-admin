@@ -14,11 +14,12 @@ import {
 import Link from "next/link"
 import { ProductDescriptionEditor } from "@/app/admin/products/SelfHostedEditor";
 import { useToast } from "@/components/CustomToast";
-import  { API_BASE_URL,API_ENDPOINTS } from "@/lib/api-config";
+
 import {  BrandApiResponse, brandsService, categoriesService, CategoryApiResponse, CategoryData, DropdownsData, ProductAttribute, ProductImage, ProductItem, ProductsApiResponse, productsService, ProductVariant, SimpleProduct,  VATRateData } from '@/lib/services';
 import { GroupedProductModal } from '../GroupedProductModal';
 import { MultiBrandSelector } from "../MultiBrandSelector";
 import { VATRateApiResponse, vatratesService } from "@/lib/services/vatrates";
+import { MultiCategorySelector } from "../MultiCategorySelector";
 
 
 
@@ -30,10 +31,7 @@ export default function AddProductPage() {
   const [productAttributes, setProductAttributes] = useState<ProductAttribute[]>([]);
   const [productVariants, setProductVariants] = useState<ProductVariant[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
-// Add these states in your component
-const [isCategoryDropdownOpen, setIsCategoryDropdownOpen] = useState(false);
-const [categorySearchTerm, setCategorySearchTerm] = useState('');
-const categoryDropdownRef = useRef<HTMLDivElement>(null);
+
   
 // Add this to your component state
 const [availableProducts, setAvailableProducts] = useState<Array<{id: string, name: string, sku: string, price: string}>>([]);
@@ -133,17 +131,15 @@ useEffect(() => {
   fetchAllData();
 }, []);
 
-
-
-
  const [formData, setFormData] = useState({
   // ===== BASIC INFO =====
   name: '',
   shortDescription: '',
   fullDescription: '',
   sku: '',
-  categories: '', // Will store category ID
-    brand: '', // For backward compatibility (primary brand)
+  // ✅ NEW - Add this:
+  categoryIds: [] as string[], // Multiple categories array
+  brand: '', // For backward compatibility (primary brand)
   brandIds: [] as string[], // ✅ NEW - Multiple brands array
   
   published: true,
@@ -330,89 +326,6 @@ const filteredVATRates = dropdownsData.vatRates.filter(vat =>
     });
   };
 
-// Flatten categories for search
-const flattenCategories = (categories: CategoryData[]): Array<{
-  id: string;
-  name: string;
-  displayName: string;
-  level: number;
-}> => {
-  const flattened: Array<{
-    id: string;
-    name: string;
-    displayName: string;
-    level: number;
-  }> = [];
-  
-  const flatten = (
-    category: CategoryData,
-    level: number = 0,
-    parentNames: string[] = []
-  ) => {
-    let displayName = category.name;
-    
-    if (level === 1) {
-      displayName = `${parentNames[0]} > ${category.name}`;
-    } else if (level === 2) {
-      displayName = `${parentNames[0]} > ${parentNames[1]} >> ${category.name}`;
-    }
-    
-    flattened.push({
-      id: category.id,
-      name: category.name,
-      displayName: displayName,
-      level: level
-    });
-    
-    if (category.subCategories && category.subCategories.length > 0) {
-      category.subCategories.forEach((sub) => {
-        flatten(sub, level + 1, [...parentNames, category.name]);
-      });
-    }
-  };
-  
-  categories.forEach((cat) => flatten(cat, 0, []));
-  return flattened;
-};
-
-// Filter categories based on search
-const getFilteredCategories = () => {
-  const flattened = flattenCategories(dropdownsData.categories);
-  
-  if (!categorySearchTerm.trim()) {
-    return flattened;
-  }
-  
-  const searchLower = categorySearchTerm.toLowerCase();
-  return flattened.filter((cat) => 
-    cat.displayName.toLowerCase().includes(searchLower) ||
-    cat.name.toLowerCase().includes(searchLower)
-  );
-};
-
-// Handle category selection
-const handleCategorySelect = (categoryId: string, categoryName: string) => {
-  setFormData({
-    ...formData,
-    categories: categoryId,
-    categoryName: categoryName
-  });
-  setIsCategoryDropdownOpen(false);
-  setCategorySearchTerm('');
-};
-
-// Close dropdown when clicking outside
-useEffect(() => {
-  const handleClickOutside = (event: MouseEvent) => {
-    if (categoryDropdownRef.current && !categoryDropdownRef.current.contains(event.target as Node)) {
-      setIsCategoryDropdownOpen(false);
-      setCategorySearchTerm('');
-    }
-  };
-  
-  document.addEventListener('mousedown', handleClickOutside);
-  return () => document.removeEventListener('mousedown', handleClickOutside);
-}, []);
 
 // ==================== SKU VALIDATION (COMPLETE - SERVICE-BASED) ====================
 const [skuError, setSkuError] = useState<string>('');
@@ -628,15 +541,42 @@ const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
       isDraft ? '💾 Saving as draft...' : '🔄 Creating product...', 
     );
 
-    // ✅ GUID validation
-    const guidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  
 
-    // ✅ Process Category
-    let categoryId: string | null = null;
-    if (formData.categories && formData.categories.trim() && guidRegex.test(formData.categories.trim())) {
-      categoryId = formData.categories.trim();
-    }
-    console.log('📁 Category ID:', categoryId || 'None');
+ const guidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+let categoryIdsArray: string[] = [];
+
+if (formData.categoryIds && Array.isArray(formData.categoryIds) && formData.categoryIds.length > 0) {
+  categoryIdsArray = formData.categoryIds.filter(id => {
+    if (!id || typeof id !== 'string') return false;
+    return guidRegex.test(id.trim());
+  });
+}
+
+// Validation
+if (categoryIdsArray.length === 0) {
+  console.error('❌ [VALIDATION] No valid categories selected');
+  toast.error('❌ Please select at least one category');
+  target.removeAttribute('data-submitting');
+  toast.dismiss(loadingId);
+  return;
+}
+
+console.log('✅ [VALIDATION] Categories validated:', categoryIdsArray);
+
+// Create categories array with displayOrder
+const categoriesArray = categoryIdsArray.map((categoryId, index) => ({
+  categoryId: categoryId,
+  isPrimary: index === 0,
+  displayOrder: index + 1
+}));
+
+console.log('📁 Categories:', {
+  primary: categoryIdsArray[0],
+  all: categoryIdsArray,
+  array: categoriesArray
+});
 
     // ✅ Process Multiple Brands - NEW IMPLEMENTATION
     let brandIdsArray: string[] = [];
@@ -805,8 +745,10 @@ const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
       productAvailabilityRange: formData.productAvailabilityRange || null,
       notReturnable: formData.notReturnable ?? false,
 
-      // Relationships
-      categoryId: categoryId || null,
+   // ✅ NEW - Add these 3 fields:
+  categoryId: categoryIdsArray[0], // Primary category (backward compatible)
+  categoryIds: categoryIdsArray,   // All category IDs
+  categories: categoriesArray,     // Full category objects with metadata
 
       // Attributes & Variants
       attributes: attributesArray.length > 0 ? attributesArray : [],
@@ -1127,20 +1069,7 @@ const handleChange = (
   const { name, value, type } = e.target;
   const checked = type === 'checkbox' ? (e.target as HTMLInputElement).checked : false;
 
-  // ⭐ 1. CATEGORY SELECTION - Special handling
-  if (name === "categories") {
-    const selectElement = e.target as HTMLSelectElement;
-    const selectedOption = selectElement.options[selectElement.selectedIndex];
 
-    setFormData((prev) => ({
-      ...prev,
-      categories: value,
-      categoryName: selectedOption.dataset.categoryName || 
-                    selectedOption.dataset.displayName || 
-                    selectedOption.text.replace(/📁\s*/, "").trim(),
-    }));
-    return;
-  }
 
   // ⭐ 2. SEO SLUG - Auto-generate with debounce
   if (name === "searchEngineFriendlyPageName") {
@@ -2125,135 +2054,50 @@ const uploadVariantImages = async (productResponse: any) => {
 </div>
 
 
-    <div>
+{/* ==================== CATEGORIES ==================== */}
+<div>
   <label className="flex items-center justify-between text-sm font-medium text-slate-300 mb-2">
-    <span>Categories</span>
+    <span className="flex items-center gap-2">
+      Categories *
+      <span className="text-xs text-slate-500 font-normal">
+        (Select up to 5)
+      </span>
+    </span>
     <span className="text-xs text-emerald-400 font-normal">
-      {dropdownsData.categories.length} loaded
+      {dropdownsData.categories.length} available
     </span>
   </label>
   
-  {/* Custom Searchable Dropdown */}
-  <div className="relative" ref={categoryDropdownRef}>
-    
-    {/* Main Input/Display Area */}
-    <div
-      onClick={() => setIsCategoryDropdownOpen(!isCategoryDropdownOpen)}
-      className="w-full px-3 py-2.5 bg-slate-800/50 border border-slate-700 rounded-xl focus-within:ring-2 focus-within:ring-violet-500 focus-within:border-transparent transition-all cursor-pointer"
-    >
-      <div className="flex items-center justify-between">
-        {isCategoryDropdownOpen ? (
-          // Editable search input when open
-          <input
-            type="text"
-            value={categorySearchTerm}
-            onChange={(e) => setCategorySearchTerm(e.target.value)}
-            onClick={(e) => e.stopPropagation()}
-            placeholder="Type to search categories..."
-            autoFocus
-            className="flex-1 bg-transparent text-white text-sm outline-none placeholder-slate-500"
-          />
-        ) : (
-          // Display selected category when closed
-          <span className={`truncate text-sm ${formData.categoryName && formData.categoryName !== 'All' ? 'text-white' : 'text-slate-500'}`}>
-            {formData.categoryName || 'Select category'}
-          </span>
-        )}
-        
-        {/* Dropdown arrow */}
-        <svg 
-          className={`w-4 h-4 text-slate-400 flex-shrink-0 ml-2 transition-transform ${isCategoryDropdownOpen ? 'rotate-180' : ''}`} 
-          fill="none" 
-          stroke="currentColor" 
-          viewBox="0 0 24 24"
-        >
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-        </svg>
-      </div>
-    </div>
-    
-    {/* Dropdown Menu */}
-    {isCategoryDropdownOpen && (
-      <div className="absolute z-50 w-full mt-2 bg-slate-800 border border-slate-700 rounded-xl shadow-2xl max-h-80 overflow-y-auto">
-        
-        {/* All Option */}
-        <div
-          onClick={() => handleCategorySelect('', 'All')}
-          className={`px-4 py-2.5 cursor-pointer transition-colors hover:bg-violet-500/10 border-b border-slate-700 ${
-            formData.categories === '' ? 'bg-violet-500/20 text-violet-300' : 'text-slate-300'
-          }`}
-        >
-          <span className="font-medium">📦 All Categories</span>
-        </div>
-        
-        {/* Filtered Categories */}
-        {getFilteredCategories().length > 0 ? (
-          getFilteredCategories().map((category) => {
-            const isSelected = formData.categories === category.id;
-            const indent = category.level * 12;
-            
-            // Level-based styling
-            let bgColor = 'hover:bg-slate-700/50';
-            let textColor = 'text-violet-300';
-            let icon = '📁';
-            
-            if (category.level === 1) {
-              textColor = 'text-cyan-300';
-              icon = '📂';
-            } else if (category.level === 2) {
-              textColor = 'text-green-300';
-              icon = '📄';
-            }
-            
-            if (isSelected) {
-              bgColor = 'bg-violet-500/20';
-            }
-            
-            return (
-              <div
-                key={category.id}
-                onClick={() => handleCategorySelect(category.id, category.displayName)}
-                className={`px-4 py-2.5 cursor-pointer transition-colors ${bgColor} ${isSelected ? 'border-l-4 border-violet-500' : ''}`}
-                style={{ paddingLeft: `${16 + indent}px` }}
-              >
-                <div className="flex items-center justify-between">
-                  <span className={`text-sm ${isSelected ? 'text-white font-medium' : textColor} ${category.level > 0 ? 'italic' : 'font-semibold'}`}>
-                    {icon} {category.displayName}
-                  </span>
-                  
-                  {isSelected && (
-                    <svg className="w-4 h-4 text-violet-400" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                    </svg>
-                  )}
-                </div>
-              </div>
-            );
-          })
-        ) : (
-          <div className="px-4 py-8 text-center text-slate-500">
-            <svg className="w-12 h-12 mx-auto mb-2 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-            </svg>
-            <p className="text-sm">No categories found</p>
-            <p className="text-xs mt-1">Try a different search term</p>
-          </div>
-        )}
-      </div>
-    )}
-  </div>
+  <MultiCategorySelector
+    selectedCategories={formData.categoryIds}
+    availableCategories={dropdownsData.categories}
+    onChange={(categoryIds) => {
+      console.log('📝 Categories changed:', categoryIds);
+      setFormData(prev => ({
+        ...prev,
+        categoryIds
+      }));
+    }}
+    maxSelection={5}
+    placeholder="Click to select categories..."
+  />
   
-  {/* Selected Category Info */}
-  {/* {formData.categories && formData.categories !== '' && (
-    <div className="mt-2 p-2 bg-violet-500/10 border border-violet-500/20 rounded-lg">
-      <p className="text-xs text-violet-300 flex items-center gap-2">
-        <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-        </svg>
-        Selected: <strong>{formData.categoryName}</strong>
-      </p>
-    </div>
-  )} */}
+  {/* Validation Message */}
+  {formData.categoryIds.length === 0 && (
+    <p className="mt-2 text-xs text-red-400">
+      * Please select at least one category
+    </p>
+  )}
+  
+  {/* Info Text */}
+  {formData.categoryIds.length > 0 && (
+    <p className="mt-2 text-xs text-slate-500 flex items-center gap-1">
+      <svg className="w-3 h-3 text-emerald-400" fill="currentColor" viewBox="0 0 20 20">
+        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+      </svg>
+      {formData.categoryIds.length} {formData.categoryIds.length === 1 ? 'category' : 'categories'} selected (first is primary)
+    </p>
+  )}
 </div>
 
       </div>

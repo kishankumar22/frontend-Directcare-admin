@@ -30,6 +30,8 @@ import productLockService from "@/lib/services/productLockService";
 import { signalRService } from "@/lib/services/signalRService";
 import TakeoverRequestModal from "../../TakeoverRequestModal";
 import { useAuth } from "@/context/AuthContext";
+import { MultiCategorySelector } from "../../MultiCategorySelector";
+
 
 export default function EditProductPage({ params }: { params: Promise<{ id: string }> }) {
   const router = useRouter();
@@ -63,10 +65,7 @@ const [hasPendingTakeover, setHasPendingTakeover] = useState(false);
   });
 // Add this state with your other useState declarations
 const [isGroupedModalOpen, setIsGroupedModalOpen] = useState(false);
-// Add these with your other useState declarations
-const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
-const [categorySearchTerm, setCategorySearchTerm] = useState("");
-const categoryDropdownRef = useRef<HTMLDivElement>(null);
+
 
   // Add these states after existing states
 const [simpleProducts, setSimpleProducts] = useState<SimpleProduct[]>([]);
@@ -109,24 +108,6 @@ const filteredVATRates = dropdownsData.vatRates.filter(vat =>
   vat.name.toLowerCase().includes(vatSearch.toLowerCase()) ||
   vat.rate.toString().includes(vatSearch)
 )
-// Add this useEffect for category dropdown outside click
-useEffect(() => {
-  const handleClickOutside = (event: MouseEvent) => {
-    if (categoryDropdownRef.current && !categoryDropdownRef.current.contains(event.target as Node)) {
-      setShowCategoryDropdown(false);
-      setCategorySearchTerm("");
-    }
-  };
-// Close dropdown when clicking outside
-
-  if (showCategoryDropdown) {
-    document.addEventListener('mousedown', handleClickOutside);
-  }
-
-  return () => {
-    document.removeEventListener('mousedown', handleClickOutside);
-  };
-}, [showCategoryDropdown]);
 
   // Available products for related/cross-sell (from API)
   const [availableProducts, setAvailableProducts] = useState<Array<{id: string, name: string, sku: string, price: string}>>([]);
@@ -136,7 +117,7 @@ const [formData, setFormData] = useState({
   shortDescription: '',
   fullDescription: '',
   sku: '',
-  categories: '', // Will store category ID
+   categoryIds: [] as string[], // NEW - multiple categories array
   brand: '', // For backward compatibility (primary brand)
   brandIds: [] as string[], // ✅ Multiple brands array
   
@@ -541,7 +522,42 @@ useEffect(() => {
         manufacturerPartNumber: productData.manufacturerPartNumber || '',
         adminComment: productData.adminComment || '',
         gender: productData.gender || '',
-        categories: productData.categoryId || '',
+// Inside fetchAllData(), around line 520-550, REPLACE:
+
+// ❌ OLD CODE:
+// categories: productData.categoryId || '',
+
+// ✅ NEW CODE:
+categoryIds: (() => {
+  console.log('📦 Loading categories from API...');
+  
+  // Option 1: Backend sends categories array (NEW API)
+  if (productData.categories && Array.isArray(productData.categories)) {
+    const categoryIds = productData.categories
+      .sort((a: any, b: any) => (a.displayOrder || 0) - (b.displayOrder || 0))
+      .map((cat: any) => cat.categoryId)
+      .filter(Boolean);
+    
+    console.log('✅ Categories loaded (array):', categoryIds);
+    return categoryIds;
+  }
+  
+  // Option 2: Backend sends categoryIds array directly
+  if (productData.categoryIds && Array.isArray(productData.categoryIds)) {
+    console.log('✅ Categories loaded (categoryIds):', productData.categoryIds);
+    return productData.categoryIds;
+  }
+  
+  // Option 3: Backend sends single categoryId (OLD API - backward compatible)
+  if (productData.categoryId) {
+    console.log('✅ Categories loaded (single):', [productData.categoryId]);
+    return [productData.categoryId];
+  }
+  
+  console.log('⚠️ No categories found');
+  return [];
+})(),
+
         categoryName: productData.categoryName || '',
         brand: brandIdsArray[0] || '',
         brandIds: brandIdsArray,
@@ -912,23 +928,38 @@ useEffect(() => {
     }
   };
   
-  // ✅ NEW: Additional event handlers
-  const handleTakeoverApproved = (data: any) => {
-    console.log('✅ SIGNALR: Takeover approved', data);
-    if (data.productId === productId) {
-      toast.success('Takeover request approved!');
-      handleTakeoverActionComplete();
-      // Optionally redirect or refresh
-    }
-  };
+// SignalR event handlers mein add karo:
 
-  const handleTakeoverRejected = (data: any) => {
-    console.log('❌ SIGNALR: Takeover rejected', data);
-    if (data.productId === productId) {
-      toast.error('Takeover request rejected');
-      handleTakeoverActionComplete();
-    }
-  };
+const handleTakeoverApproved = (data: any) => {
+  console.log('✅ SIGNALR: Takeover approved', data);
+  if (data.productId === productId) {
+    toast.success('🎉 Takeover approved! You can now edit.', {
+      autoClose: 3000
+    });
+    
+    // ✅ Now close modal after approval
+    setIsTakeoverModalOpen(false);
+    setIsLockModalOpen(false);
+    
+    // Refresh page or update lock status
+    handleTakeoverActionComplete();
+  }
+};
+
+const handleTakeoverRejected = (data: any) => {
+  console.log('❌ SIGNALR: Takeover rejected', data);
+  if (data.productId === productId) {
+    toast.error('❌ Takeover request rejected by editor', {
+      autoClose: 3000
+    });
+    
+    // ✅ Close modal after rejection
+    setIsTakeoverModalOpen(false);
+    
+    handleTakeoverActionComplete();
+  }
+};
+
 
   const handleLockReleased = (data: any) => {
     console.log('🔓 SIGNALR: Lock released', data);
@@ -1071,10 +1102,10 @@ useEffect(() => {
             })
           : 'Unknown';
 
-        const displayMessage = `Product is currently being edited by ${status.lockedByEmail || 'another user'}.\n\nLock expires at ${expiryIST} IST.${
+        const displayMessage = `Product is currently being edited by ${status.lockedByEmail || 'another user'}.\nLock expires at ${expiryIST} IST.${
           status.canRequestTakeover 
-            ? '\n\nYou can request takeover from the current editor.' 
-            : status.cannotRequestReason ? `\n\n${status.cannotRequestReason}` : ''
+            ? '\nYou can request takeover from the current editor.' 
+            : status.cannotRequestReason ? `\n${status.cannotRequestReason}` : ''
         }`;
 
         // Store lock info for "Request Takeover" modal
@@ -1430,29 +1461,53 @@ const handleTakeoverRequest = async () => {
       }
     );
 
-    if (response.success) {
-      toast.success('✅ Takeover request sent successfully!');
-      setIsTakeoverModalOpen(false);
-      setIsLockModalOpen(false);
-      
-      // Reset form
-      setTakeoverRequestMessage('');
-      setTakeoverExpiryMinutes(10);
+    console.log('✅ Takeover request response:', response);
 
-      // Show success message and redirect
-      setTimeout(() => {
-        toast.info('The editor will be notified. Redirecting...');
-        setTimeout(() => {
-          router.push('/admin/products');
-        }, 2000);
-      }, 1000);
+    const responseData = response as any;
+    
+    if (responseData?.success === false) {
+      console.log('❌ Response indicates failure:', responseData);
+      
+      const errorMessage = responseData?.message || responseData?.error || 'Request failed';
+      
+      if (
+        errorMessage.toLowerCase().includes('already exists') || 
+        errorMessage.toLowerCase().includes('active takeover') ||
+        errorMessage.toLowerCase().includes('pending')
+      ) {
+        toast.warning(
+          '⚠️ Request Already Sent!\n\nYou already have an active takeover request. Please wait for the editor to respond.',
+          { 
+            autoClose: 5000,
+            position: 'top-center'
+          }
+        );
+        
+        // ✅ Modal open hi rahega - no close
+        return;
+      }
+      
+      toast.error(`❌ ${errorMessage}`);
+      return;
     }
+
+    // ✅ SUCCESS - Only show success message
+    toast.success('✅ Takeover request sent successfully! Waiting for editor response...', {
+      autoClose: 3000
+    });
+    
+    // ✅ Modal open rahega - no close
+    // ✅ User can close manually with X button
+    
   } catch (error: any) {
-    toast.error(error.message || 'Failed to send takeover request');
+    console.error('❌ Takeover request error:', error);
+    toast.error(error.message || 'Failed to send request');
   } finally {
     setIsSubmittingTakeover(false);
   }
 };
+
+
 
 // ==================== TAKEOVER MODAL HANDLERS ====================
 const openTakeoverModal = () => {
@@ -1692,13 +1747,22 @@ const skuExists = items.some(
     // ✅ PROCESS CATEGORY ID
     // ==========================================
     
-    let categoryId: string | null = null;
-    if (formData.categories && formData.categories.trim()) {
-      const trimmedCategory = formData.categories.trim();
-      if (guidRegex.test(trimmedCategory)) {
-        categoryId = trimmedCategory;
-      }
-    }
+   // Process Multiple Categories
+let categoryIdsArray: string[] = [];
+if (formData.categoryIds && Array.isArray(formData.categoryIds) && formData.categoryIds.length > 0) {
+  categoryIdsArray = formData.categoryIds.filter(id => {
+    if (!id || typeof id !== 'string') return false;
+    const guidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    return guidRegex.test(id.trim());
+  });
+}
+
+// Validation
+if (categoryIdsArray.length === 0) {
+  toast.error('❌ Please select at least one category');
+  target.removeAttribute('data-submitting');
+  return;
+}
 
     // ==========================================
     // ✅ PROCESS MULTIPLE BRANDS
@@ -1965,8 +2029,9 @@ const skuExists = items.some(
         ? formData.crossSellProducts.join(',') 
         : null,
       
-      // Category
-      categoryId: categoryId
+       // ✅ ADD THIS:
+  categoryId: categoryIdsArray[0], // Primary category (for backward compatibility)
+  categoryIds: categoryIdsArray,    // All selected categories
     };
 
     // ==========================================
@@ -2136,25 +2201,7 @@ const handleChange = (
     return;
   }
 
-  // ================================
-  // 1. CATEGORY SELECTION
-  // ================================
-  if (name === "categories") {
-    const select = e.target as HTMLSelectElement;
-    const opt = select.options[select.selectedIndex];
 
-    const displayName =
-      opt.dataset.categoryName ||
-      opt.dataset.displayName ||
-      opt.text.replace(/^[\s\u00A0]*└──\s*/, "").replace(/📁\s*/, "");
-
-    setFormData(prev => ({
-      ...prev,
-      categories: value,
-      categoryName: displayName
-    }));
-    return;
-  }
 
   // ================================
   // 2. SEO FRIENDLY PAGE NAME (with debounce)
@@ -3480,209 +3527,47 @@ const uploadImagesToProductDirect = async (
 </div>
 
 
-{/* Categories - Searchable Dropdown (Product Filter Style) */}
-{/* Categories - Searchable Dropdown (Same as Add Page) */}
+{/* ==================== CATEGORIES ==================== */}
 <div>
   <label className="flex items-center justify-between text-sm font-medium text-slate-300 mb-2">
-    <span>Categories</span>
+    <span className="flex items-center gap-2">
+      Categories *
+      <span className="text-xs text-slate-500 font-normal">
+        (Select up to 5)
+      </span>
+    </span>
     <span className="text-xs text-emerald-400 font-normal">
-      {dropdownsData.categories.length} loaded
+      {formData.categoryIds.length} selected
     </span>
   </label>
   
-  <div className="relative" ref={categoryDropdownRef}>
-    <div className="relative">
-      <input
-        type="text"
-        value={showCategoryDropdown ? categorySearchTerm : (formData.categoryName || '')}
-        onChange={(e) => {
-          setCategorySearchTerm(e.target.value);
-          if (!showCategoryDropdown) setShowCategoryDropdown(true);
-        }}
-        onFocus={() => {
-          setShowCategoryDropdown(true);
-          setCategorySearchTerm("");
-        }}
-        placeholder="Search categories..."
-        className={`w-full px-4 py-2.5 pl-10 pr-10 bg-slate-800/50 border rounded-xl text-white text-sm placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all ${
-          formData.categories && formData.categories !== 'all'
-            ? "border-violet-500 bg-violet-500/10 ring-2 ring-violet-500/50"
-            : "border-slate-700 hover:border-slate-600"
-        }`}
-      />
-      
-      {/* Left Icon */}
-      <svg className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
-      </svg>
-      
-      {/* Right Icon - Clear or Chevron */}
-      {formData.categories && formData.categories !== 'all' ? (
-        <button
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation();
-            setFormData(prev => ({
-              ...prev,
-              categories: 'all',
-              categoryName: ''
-            }));
-            setCategorySearchTerm("");
-          }}
-          className="absolute right-3 top-1/2 -translate-y-1/2 p-1 hover:bg-slate-700 rounded transition-all"
-        >
-          <X className="h-3.5 w-3.5 text-slate-400 hover:text-white" />
-        </button>
-      ) : (
-        <ChevronDown
-          className={`absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none transition-transform ${
-            showCategoryDropdown ? "rotate-180" : ""
-          }`}
-        />
-      )}
-    </div>
-
-    {/* Dropdown Menu */}
-    {showCategoryDropdown && (
-      <div className="absolute top-full left-0 right-0 mt-2 bg-slate-800 border border-slate-600 rounded-xl shadow-xl max-h-64 overflow-y-auto z-50">
-        {/* All Categories Option */}
-        <button
-          type="button"
-          onClick={() => {
-            setFormData(prev => ({
-              ...prev,
-              categories: 'all',
-              categoryName: ''
-            }));
-            setShowCategoryDropdown(false);
-            setCategorySearchTerm("");
-          }}
-          className={`w-full px-4 py-2.5 text-left hover:bg-slate-700 transition-all ${
-            (!formData.categories || formData.categories === 'all') ? "bg-violet-500/10 text-violet-400" : "text-white"
-          }`}
-        >
-          <div className="flex items-center gap-2">
-            <svg className="h-4 w-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
-            </svg>
-            <span className="text-sm font-medium">All Categories</span>
-          </div>
-        </button>
-
-        {/* Category List with Hierarchy */}
-        {(() => {
-          const renderCategories = (categories: any[], level = 0, parentNames: string[] = []) => {
-            return categories
-              .filter(cat => {
-                // Search in category name and full path
-                const fullPath = level === 0 
-                  ? cat.name 
-                  : level === 1 
-                    ? `${parentNames[0]} > ${cat.name}`
-                    : `${parentNames[0]} > ${parentNames[1]} >> ${cat.name}`;
-                
-                return fullPath.toLowerCase().includes(categorySearchTerm.toLowerCase()) ||
-                       cat.name.toLowerCase().includes(categorySearchTerm.toLowerCase());
-              })
-              .map(category => {
-                // Build display name with hierarchy
-                let displayName = category.name;
-                let icon = '📁';
-                let textColor = 'text-violet-300';
-                
-                if (level === 1) {
-                  displayName = `${parentNames[0]} > ${category.name}`;
-                  icon = '📂';
-                  textColor = 'text-cyan-300';
-                } else if (level === 2) {
-                  displayName = `${parentNames[0]} > ${parentNames[1]} >> ${category.name}`;
-                  icon = '📄';
-                  textColor = 'text-green-300';
-                }
-                
-                return (
-                  <React.Fragment key={category.id}>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setFormData(prev => ({
-                          ...prev,
-                          categories: category.id,
-                          categoryName: displayName
-                        }));
-                        setShowCategoryDropdown(false);
-                        setCategorySearchTerm("");
-                      }}
-                      className={`w-full px-4 py-2.5 text-left hover:bg-slate-700 transition-all border-t border-slate-700/50 ${
-                        formData.categories === category.id 
-                          ? "bg-violet-500/20 border-l-4 border-l-violet-500" 
-                          : ""
-                      }`}
-                      style={{ paddingLeft: `${16 + level * 20}px` }}
-                    >
-                      <div className="flex items-center justify-between gap-2">
-                        <div className="flex items-center gap-2 flex-1 min-w-0">
-                          <span className="flex-shrink-0">{icon}</span>
-                          <span className={`text-sm truncate ${
-                            formData.categories === category.id 
-                              ? 'text-white font-medium' 
-                              : textColor
-                          } ${level > 0 ? 'italic' : 'font-semibold'}`}>
-                            {displayName}
-                          </span>
-                        </div>
-                        
-                        {/* Checkmark for selected */}
-                        {formData.categories === category.id && (
-                          <svg className="h-4 w-4 text-violet-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                            <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                          </svg>
-                        )}
-                      </div>
-                    </button>
-                    
-                    {/* Render subcategories recursively */}
-                    {category.subCategories && category.subCategories.length > 0 && 
-                      renderCategories(category.subCategories, level + 1, [...parentNames, category.name])
-                    }
-                  </React.Fragment>
-                );
-              });
-          };
-
-          const filteredCategories = renderCategories(dropdownsData.categories);
-          
-          return filteredCategories.length > 0 ? (
-            filteredCategories
-          ) : (
-            <div className="px-4 py-8 text-center">
-              <svg className="w-12 h-12 mx-auto mb-2 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-              </svg>
-              <p className="text-slate-500 text-sm">No categories found</p>
-              <p className="text-slate-600 text-xs mt-1">
-                {categorySearchTerm ? `for "${categorySearchTerm}"` : 'Try a different search'}
-              </p>
-            </div>
-          );
-        })()}
-      </div>
-    )}
-  </div>
+  <MultiCategorySelector
+    selectedCategories={formData.categoryIds}
+    availableCategories={dropdownsData.categories}
+    onChange={(categoryIds: any) => {
+      console.log('📝 Categories changed:', categoryIds);
+      setFormData(prev => ({
+        ...prev,
+        categoryIds
+      }));
+    }}
+    maxSelection={5}
+    placeholder="Click to select categories..."
+  />
   
-  {/* Selected Category Info - Optional */}
-  {/* {formData.categories && formData.categories !== 'all' && (
-    <div className="mt-2 p-2.5 bg-violet-500/10 border border-violet-500/20 rounded-lg">
-      <p className="text-xs text-violet-300 flex items-center gap-2">
-        <svg className="w-4 h-4 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-        </svg>
-        <span className="truncate">
-          <strong>Selected:</strong> {formData.categoryName}
-        </span>
-      </p>
-    </div>
-  )} */}
+  {/* Validation Message */}
+  {formData.categoryIds.length === 0 && (
+    <p className="mt-2 text-xs text-red-400">
+      * Please select at least one category
+    </p>
+  )}
+  
+  {/* Info Text */}
+  {formData.categoryIds.length > 0 && (
+    <p className="mt-2 text-xs text-slate-500">
+      ✓ First category is the primary one
+    </p>
+  )}
 </div>
 
 
@@ -5969,8 +5854,6 @@ const uploadImagesToProductDirect = async (
   }}
 />
 
-
-
 {/* ==================== PRODUCT LOCK MODAL (FIXED SYNTAX) ==================== */}
 {isLockModalOpen && (
   <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -5979,45 +5862,92 @@ const uploadImagesToProductDirect = async (
       onClick={handleModalClose}
     />
     
-    <div className="relative bg-gradient-to-br from-slate-900 to-slate-800 border-2 border-red-500/30 rounded-2xl shadow-2xl max-w-md w-full p-8 animate-fade-in">
+    <div className="relative bg-gradient-to-br from-slate-900 to-slate-800 border border-red-500/20 rounded-2xl shadow-2xl max-w-lg w-full overflow-hidden animate-fade-in">
       
-      <button
-        onClick={handleModalClose}
-        className="absolute top-4 right-4 p-2 text-slate-400 hover:text-white hover:bg-red-500/20 rounded-lg transition-all group"
-        title="Close and go back"
-      >
-        <X className="w-5 h-5" />
-      </button>
+      {/* ✅ SYNCED HEADER - Single line with lock icon, title, and close button */}
+      <div className="relative flex items-center justify-between px-5 py-4 border-b border-slate-700/50">
+        {/* Left side: Lock icon + Title */}
+        <div className="flex items-center gap-3">
+          <div className="w-12 h-12 rounded-xl bg-red-500/10 border border-red-500/30 flex items-center justify-center flex-shrink-0">
+            <svg className="w-6 h-6 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+            </svg>
+          </div>
+          
+          <h2 className="text-xl font-bold text-white">
+            Product Locked
+          </h2>
+        </div>
+        
+        {/* Right side: Close button with rotate effect */}
+        <button
+          onClick={handleModalClose}
+          className="p-1.5 text-slate-400 hover:text-white hover:bg-red-500/20 rounded-lg transition-all hover:rotate-90 duration-300"
+          title="Close"
+        >
+          <X className="w-5 h-5" />
+        </button>
+      </div>
       
-      <div className="flex justify-center mb-6">
-        <div className="w-20 h-20 rounded-full bg-red-500/10 border-2 border-red-500/30 flex items-center justify-center animate-pulse-slow">
-          <svg className="w-10 h-10 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-          </svg>
+      {/* ✅ MINIMIZED Body - Reduced padding and spacing */}
+      <div className="px-5 py-4 space-y-3">
+        
+        {/* Editor info card - Minimal padding */}
+        <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-3">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-full bg-gradient-to-br from-violet-500 to-cyan-500 flex items-center justify-center flex-shrink-0">
+              <Users className="w-4 h-4 text-white" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-xs text-slate-400">Currently Editing</p>
+              <p className="text-white text-sm font-medium truncate">
+                {lockedByEmail || 'admin@ecommerce.com'}
+              </p>
+            </div>
+          </div>
+        </div>
+        
+        {/* Lock expiry info - Minimal padding */}
+        <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-3">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-full bg-amber-500/10 border border-amber-500/30 flex items-center justify-center flex-shrink-0">
+              <Clock className="w-4 h-4 text-amber-400" />
+            </div>
+            <div className="flex-1">
+              <p className="text-xs text-slate-400">Lock Expires At</p>
+              <p className="text-white text-sm font-medium">
+                {productLock?.expiresAt 
+                  ? new Date(productLock.expiresAt).toLocaleString('en-IN', {
+                      timeZone: 'Asia/Kolkata',
+                      dateStyle: 'medium',
+                      timeStyle: 'short'
+                    })
+                  : '6 Jan 2026, 7:24 am IST'
+                }
+              </p>
+            </div>
+          </div>
+        </div>
+        
+        {/* Info alert - Minimal padding */}
+        <div className="flex items-start gap-2.5 bg-amber-500/5 border border-amber-500/20 rounded-xl p-3">
+          <Info className="w-4 h-4 text-amber-400 flex-shrink-0 mt-0.5" />
+          <div>
+            <p className="text-amber-200 text-sm font-medium">
+              What can you do?
+            </p>
+            <p className="text-amber-100/70 text-xs leading-relaxed mt-0.5">
+              Wait for the lock to expire automatically, or request takeover from the current editor to gain immediate access.
+            </p>
+          </div>
         </div>
       </div>
       
-      <h2 className="text-2xl font-bold text-center mb-4 bg-gradient-to-r from-red-400 to-orange-400 bg-clip-text text-transparent">
-        Product Locked
-      </h2>
-      
-      <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-4 mb-6">
-        <p className="text-slate-300 text-center text-sm leading-relaxed whitespace-pre-line">
-          {lockModalMessage}
-        </p>
-      </div>
-      
-      <div className="flex items-start gap-3 mb-6 text-slate-400 text-xs bg-amber-500/5 border border-amber-500/20 rounded-lg p-3">
-        <Info className="w-5 h-5 text-amber-400 flex-shrink-0 mt-0.5" />
-        <p className="leading-relaxed">
-          Please wait for the lock to expire or request takeover from the current editor.
-        </p>
-      </div>
-      
-      <div className="flex gap-3">
+      {/* ✅ MINIMIZED Footer - Reduced padding */}
+      <div className="px-5 py-3 bg-slate-900/50 border-t border-slate-700 flex gap-2.5">
         <button
           onClick={handleModalClose}
-          className="flex-1 px-4 py-3 bg-slate-700 hover:bg-slate-600 text-white rounded-xl font-medium transition-all flex items-center justify-center gap-2 group"
+          className="flex-1 px-3 py-2.5 bg-slate-800 hover:bg-slate-700 text-white text-sm rounded-xl font-medium transition-all flex items-center justify-center gap-2 group border border-slate-600"
         >
           <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
           Go Back
@@ -6025,7 +5955,7 @@ const uploadImagesToProductDirect = async (
         
         <button
           onClick={openTakeoverModal}
-          className="flex-1 px-4 py-3 bg-gradient-to-r from-violet-500 to-cyan-500 hover:from-violet-600 hover:to-cyan-600 text-white rounded-xl font-medium transition-all transform hover:scale-105 flex items-center justify-center gap-2 group"
+          className="flex-1 px-3 py-2.5 bg-gradient-to-r from-violet-500 to-cyan-500 hover:from-violet-600 hover:to-cyan-600 text-white text-sm rounded-xl font-medium transition-all transform hover:scale-105 flex items-center justify-center gap-2 shadow-lg shadow-violet-500/25"
         >
           <Send className="w-4 h-4" />
           Request Takeover
@@ -6035,63 +5965,72 @@ const uploadImagesToProductDirect = async (
   </div>
 )}
 
+
+
 {/* ==================== IMPROVED TAKEOVER MODAL (BETTER COLORS) ==================== */}
 {isTakeoverModalOpen && (
   <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
-    {/* Backdrop - Same as lock modal */}
+    {/* Backdrop */}
     <div 
       className="absolute inset-0 bg-black/70 backdrop-blur-sm" 
       onClick={closeTakeoverModal}
     />
     
-    {/* Modal - Lighter background like lock modal */}
-    <div className="relative bg-gradient-to-br from-slate-800 to-slate-900 border-2 border-violet-400/40 rounded-2xl shadow-2xl max-w-md w-full p-6 animate-fade-in">
+    {/* Modal */}
+    <div className="relative bg-gradient-to-br from-slate-900 to-slate-800 border border-violet-500/20 rounded-2xl shadow-2xl max-w-md w-full overflow-hidden animate-fade-in">
       
-      {/* Close Button */}
-      <button
-        onClick={closeTakeoverModal}
-        className="absolute top-3 right-3 p-1.5 text-slate-300 hover:text-white hover:bg-violet-500/30 rounded-lg transition-all"
-        title="Close"
-      >
-        <X className="w-4 h-4" />
-      </button>
-      
-      {/* Icon - Brighter */}
-      <div className="flex justify-center mb-4">
-        <div className="w-16 h-16 rounded-full bg-gradient-to-br from-violet-500/30 to-cyan-500/30 border-2 border-violet-400/50 flex items-center justify-center">
-          <Send className="w-8 h-8 text-violet-300" />
+      {/* ✅ SYNCED HEADER - Matching Lock Modal */}
+      <div className="relative flex items-center justify-between px-5 py-4 border-b border-slate-700/50">
+        {/* Left side: Lock icon + Title */}
+        <div className="flex items-center gap-3">
+          <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-violet-500/20 to-cyan-500/20 border border-violet-400/30 flex items-center justify-center flex-shrink-0">
+            <Send className="w-6 h-6 text-violet-400" />
+          </div>
+          
+          <div>
+            <h2 className="text-xl font-bold text-white">
+              Request Takeover
+            </h2>
+            <p className="text-xs text-slate-400 mt-0.5">
+              Send to{' '}
+              <span className="text-cyan-400 font-semibold">
+                {lockedByEmail || 'admin@ecommerce.com'}
+              </span>
+            </p>
+          </div>
         </div>
+        
+        {/* Right side: Close button with rotate effect */}
+        <button
+          onClick={closeTakeoverModal}
+          className="p-1.5 text-slate-400 hover:text-white hover:bg-violet-500/20 rounded-lg transition-all hover:rotate-90 duration-300"
+          title="Close"
+        >
+          <X className="w-5 h-5" />
+        </button>
       </div>
       
-      {/* Title - Brighter gradient */}
-      <h2 className="text-xl font-bold text-center mb-1 bg-gradient-to-r from-violet-300 to-cyan-300 bg-clip-text text-transparent">
-        Request Product Takeover
-      </h2>
-      
-      {/* Subtitle - Brighter */}
-      <p className="text-center text-slate-300 text-xs mb-4">
-        Send request to <span className="text-white font-semibold">{lockedByEmail}</span>
-      </p>
-      
-      <div className="space-y-4">
+      {/* ✅ BODY */}
+      <div className="px-5 py-4 space-y-3">
+        
         {/* Request Message */}
         <div>
-          <label className="block text-xs font-medium text-slate-200 mb-1.5">
-            Message <span className="text-slate-400">(Optional)</span>
+          <label className="block text-sm font-medium text-slate-300 mb-1.5">
+            Message <span className="text-slate-500">(Optional)</span>
           </label>
           <textarea
             value={takeoverRequestMessage}
             onChange={(e) => setTakeoverRequestMessage(e.target.value)}
             placeholder="Why do you need urgent access?"
-            className="w-full bg-slate-700/50 border border-slate-600 rounded-lg px-3 py-2 text-sm text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-violet-400/60 focus:border-violet-400/60 transition-all resize-none"
+            className="w-full bg-slate-800/50 border border-slate-700 rounded-lg px-3 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all resize-none"
             rows={3}
             maxLength={500}
           />
-          <div className="flex justify-between items-center mt-1">
-            <p className="text-[10px] text-slate-400">
+          <div className="flex justify-between items-center mt-1.5">
+            <p className="text-xs text-slate-500">
               Be specific about urgency
             </p>
-            <p className="text-[10px] text-slate-400">
+            <p className="text-xs text-slate-500">
               {takeoverRequestMessage.length}/500
             </p>
           </div>
@@ -6099,8 +6038,8 @@ const uploadImagesToProductDirect = async (
 
         {/* Expiry Time */}
         <div>
-          <label className="text-xs font-medium text-slate-200 mb-1.5 flex items-center gap-1.5">
-            <Clock className="w-3.5 h-3.5" />
+          <label className="text-sm font-medium text-slate-300 mb-2 flex items-center gap-1.5">
+            <Clock className="w-4 h-4 text-amber-400" />
             Request Expiry
           </label>
           <div className="grid grid-cols-3 gap-2">
@@ -6110,35 +6049,35 @@ const uploadImagesToProductDirect = async (
                 type="button"
                 onClick={() => setTakeoverExpiryMinutes(minutes)}
                 className={cn(
-                  "px-3 py-2 rounded-lg text-sm font-semibold transition-all",
+                  "px-3 py-2.5 rounded-lg text-sm font-semibold transition-all",
                   takeoverExpiryMinutes === minutes
                     ? "bg-gradient-to-r from-violet-500 to-cyan-500 text-white shadow-lg shadow-violet-500/30 scale-105"
-                    : "bg-slate-700/60 border border-slate-600 text-slate-300 hover:bg-slate-600 hover:text-white hover:border-slate-500"
+                    : "bg-slate-800/50 border border-slate-700 text-slate-400 hover:bg-slate-700 hover:text-white hover:border-slate-600"
                 )}
               >
                 {minutes}m
               </button>
             ))}
           </div>
-          <p className="text-[10px] text-slate-400 mt-1">
+          <p className="text-xs text-slate-500 mt-1.5">
             Expires if not responded within time
           </p>
         </div>
 
-        {/* Info Alert - Brighter */}
-        <div className="flex items-start gap-2 bg-cyan-500/10 border border-cyan-400/30 rounded-lg p-2.5">
-          <Info className="w-4 h-4 text-cyan-300 flex-shrink-0 mt-0.5" />
-          <p className="text-[10px] text-slate-300 leading-relaxed">
-            Editor will receive real-time notification and can approve or reject.
+        {/* Info Alert */}
+        <div className="flex items-start gap-2.5 bg-cyan-500/5 border border-cyan-500/20 rounded-xl p-3">
+          <Info className="w-4 h-4 text-cyan-400 flex-shrink-0 mt-0.5" />
+          <p className="text-xs text-cyan-100/70 leading-relaxed">
+            <span className="text-cyan-300 font-semibold">Real-time notification:</span> Editor will receive instant alert and can approve or reject.
           </p>
         </div>
       </div>
 
-      {/* Action Buttons */}
-      <div className="flex gap-2 mt-4">
+      {/* ✅ FOOTER */}
+      <div className="px-5 py-3 bg-slate-900/50 border-t border-slate-700 flex gap-2.5">
         <button
           onClick={closeTakeoverModal}
-          className="flex-1 px-3 py-2 bg-slate-600 hover:bg-slate-500 text-white text-sm rounded-lg font-medium transition-all"
+          className="flex-1 px-3 py-2.5 bg-slate-800 hover:bg-slate-700 text-white text-sm rounded-xl font-medium transition-all border border-slate-600"
           disabled={isSubmittingTakeover}
         >
           Cancel
@@ -6147,11 +6086,11 @@ const uploadImagesToProductDirect = async (
         <button
           onClick={handleTakeoverRequest}
           disabled={isSubmittingTakeover}
-          className="flex-1 px-3 py-2 bg-gradient-to-r from-violet-500 to-cyan-500 hover:from-violet-600 hover:to-cyan-600 text-white text-sm rounded-lg font-semibold transition-all transform hover:scale-105 flex items-center justify-center gap-1.5 shadow-lg shadow-violet-500/30 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
+          className="flex-1 px-3 py-2.5 bg-gradient-to-r from-violet-500 to-cyan-500 hover:from-violet-600 hover:to-cyan-600 text-white text-sm rounded-xl font-semibold transition-all transform hover:scale-105 flex items-center justify-center gap-2 shadow-lg shadow-violet-500/30 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
         >
           {isSubmittingTakeover ? (
             <>
-              <svg className="animate-spin h-3.5 w-3.5" fill="none" viewBox="0 0 24 24">
+              <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
               </svg>
@@ -6159,7 +6098,7 @@ const uploadImagesToProductDirect = async (
             </>
           ) : (
             <>
-              <Send className="w-3.5 h-3.5" />
+              <Send className="w-4 h-4" />
               Send Request
             </>
           )}
@@ -6168,9 +6107,7 @@ const uploadImagesToProductDirect = async (
     </div>
   </div>
 )}
-
-
-  
+ 
 {/* Takeover Request Modal */}
 <TakeoverRequestModal
   productId={productId}

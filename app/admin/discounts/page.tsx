@@ -1229,20 +1229,7 @@ const categoryOptions: SelectOption[] = processCategoryData(categories as any);
                 <option value="AssignedToCategories">Assigned to categories</option>
                 <option value="AssignedToShipping">Assigned to shipping</option>
               </select>
-              
-              {/* ✅ Optional: Show current assignments count (no warning) */}
-              {(formData.assignedProductIds.length > 0 || 
-                formData.assignedCategoryIds.length > 0 || 
-                formData.assignedManufacturerIds.length > 0) && (
-                <div className="mt-2 flex items-center gap-2 text-xs text-slate-400">
-                  <span className="px-2 py-1 bg-slate-700/50 rounded">
-                    {formData.assignedProductIds.length} products
-                  </span>
-                  <span className="px-2 py-1 bg-slate-700/50 rounded">
-                    {formData.assignedCategoryIds.length} categories
-                  </span>
-                </div>
-              )}
+   
             </div>
           </div>
 
@@ -1325,7 +1312,7 @@ const categoryOptions: SelectOption[] = processCategoryData(categories as any);
               )}
 
               {/* Settings Checkboxes */}
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-3 gap-4">
                 <div>
                   <label className="flex items-center gap-3 p-3 bg-slate-900/50 border border-slate-600 rounded-xl cursor-pointer hover:border-violet-500 transition-all">
                     <input
@@ -1354,8 +1341,6 @@ const categoryOptions: SelectOption[] = processCategoryData(categories as any);
                     </div>
                   </label>
                 </div>
-              </div>
-              
               <div>
                 <label className="flex items-center gap-3 p-3 bg-slate-900/50 border border-slate-600 rounded-xl cursor-pointer hover:border-violet-500 transition-all">
                   <input
@@ -1370,6 +1355,8 @@ const categoryOptions: SelectOption[] = processCategoryData(categories as any);
                   </div>
                 </label>
               </div>
+              </div>
+              
             </div>
           </div>
 

@@ -50,7 +50,6 @@ import {
 import { cn } from "@/lib/utils";
 import { useTheme } from "@/context/theme-provider";
 import { authService } from "@/lib/services/auth";
-import PendingTakeoverNotifications from "./products/PendingTakeoverNotifications";
 import ErrorBoundary from "@/components/ErrorBoundary";
 
 interface NavigationItem {
@@ -779,8 +778,15 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
                       </span>
                     </div>
                   )}
+<button
+  onClick={() => {
+    toast.success("No Notificaton Right Now");
+  }}
+  className="relative p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-all duration-150"
+>
+  <Bell className="h-5 w-5" />
+</button>
 
-                  <PendingTakeoverNotifications />
 
                   <button
                     onClick={handleThemeToggle}

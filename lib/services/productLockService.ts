@@ -155,26 +155,26 @@ export const productLockService = {
    * Request takeover of locked product
    * POST /api/Products/{productId}/request-takeover
    */
-  requestTakeover: async (productId: string, data: RequestTakeoverDto) => {
-    try {
-      const response = await apiClient.post<ApiResponse<TakeoverRequestData>>(
-        `${API_ENDPOINTS.products}/${productId}/request-takeover`,
-        {
-          requestMessage: data.requestMessage || '',
-          expiryMinutes: data.expiryMinutes || 10
-        }
-      );
-      
-      if (!response.data || !response.data.data) {
-        throw new Error('Invalid response format');
-      }
-      
-      return response.data;
-    } catch (error: any) {
-      const errorMsg = error.response?.data?.message || 'Failed to request takeover';
-      throw new Error(errorMsg);
+ /**
+ * Request takeover of locked product
+ * POST /api/Products/{productId}/request-takeover
+ */
+requestTakeover: async (productId: string, data: RequestTakeoverDto) => {
+  const response = await apiClient.post(
+    `${API_ENDPOINTS.products}/${productId}/request-takeover`,
+    {
+      requestMessage: data.requestMessage || '',
+      expiryMinutes: data.expiryMinutes || 10
     }
-  },
+  );
+  
+  console.log('🔍 Service response:', response.data);
+  
+  // Return the data as-is (it should have success field)
+  return response.data;
+},
+
+
 
   /**
    * Get pending takeover requests for current user (as editor)
