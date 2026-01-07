@@ -31,6 +31,7 @@ import { signalRService } from "@/lib/services/signalRService";
 import TakeoverRequestModal from "../../TakeoverRequestModal";
 import { useAuth } from "@/context/AuthContext";
 import { MultiCategorySelector } from "../../MultiCategorySelector";
+import RequestTakeoverModal from "../../RequestTakeoverModal";
 
 
 export default function EditProductPage({ params }: { params: Promise<{ id: string }> }) {
@@ -55,7 +56,10 @@ const [loading, setLoading] = useState(true);
 // Add states (after existing useState declarations)
 const [takeoverRequest, setTakeoverRequest] = useState<any>(null);
 const [hasPendingTakeover, setHasPendingTakeover] = useState(false);
-
+// ✅ NEW (add these for RequestTakeoverModal)
+const [pendingRequestTimeLeft, setPendingRequestTimeLeft] = useState(0);
+const [takeoverRequestStatus, setTakeoverRequestStatus] = useState<'pending' | 'approved' | 'rejected' | 'expired' | null>(null);
+const [takeoverResponseMessage, setTakeoverResponseMessage] = useState('');
   // Dynamic dropdown data from API
   const [showVatDropdown, setShowVatDropdown] = useState(false);
   const [dropdownsData, setDropdownsData] = useState<DropdownsData>({
@@ -71,18 +75,7 @@ const [isGroupedModalOpen, setIsGroupedModalOpen] = useState(false);
 const [simpleProducts, setSimpleProducts] = useState<SimpleProduct[]>([]);
 const [selectedGroupedProducts, setSelectedGroupedProducts] = useState<string[]>([]);
 
-const { user, isAuthenticated } = useAuth(); // ✅ Use AuthContext
 
-  useEffect(() => {
-    if (!isAuthenticated) {
-      console.error('❌ Not authenticated - redirecting to login');
-      toast.error('Please login to continue');
-      router.push('/login');
-      return;
-    }
-    
-    console.log('✅ User authenticated:', user?.email);
-  }, [isAuthenticated, user]);
 // ✅ Extract YouTube Video ID from URL
 const getYouTubeVideoId = (url: string): string | null => {
   if (!url) return null;
@@ -809,13 +802,15 @@ categoryIds: (() => {
 // ============================================
 // ✅ SIGNALR - Enhanced with Better Error Handling
 // ============================================
+// ============================================
+// ✅ SIGNALR - COMPLETE WITH ALL 5 EVENT HANDLERS
+// ============================================
 useEffect(() => {
   console.log('🔍 SignalR Init');
   
   let userId = localStorage.getItem('userId');
   const userEmail = localStorage.getItem('userEmail');
   
-  // ✅ Extract userId from token if not found
   if (!userId) {
     const userStr = localStorage.getItem('user');
     if (userStr) {
@@ -829,12 +824,6 @@ useEffect(() => {
     }
   }
 
-  console.log('==================== SIGNALR SETUP ====================');
-  console.log('👤 User ID:', userId || '❌ Not found');
-  console.log('📧 Email:', userEmail || '❌ Not found');
-  console.log('📦 Product ID:', productId);
-  console.log('======================================================');
-
   if (!userId) {
     console.error('❌ Cannot start SignalR - no userId');
     return;
@@ -844,210 +833,292 @@ useEffect(() => {
   let handlerRegistered = false;
   let connectionRetryTimer: NodeJS.Timeout | null = null;
   
-  // ✅ ENHANCED: Takeover handler with validation
-  const handleTakeover = (data: any) => {
-    if (!mounted) {
-      console.log('⚠️ Component unmounted - ignoring event');
-      return;
-    }
-
-    console.log('');
-    console.log('🔔 ==================== SIGNALR TAKEOVER EVENT ====================');
-    console.log('📦 Request ID:', data.requestId || data.id);
-    console.log('📦 Product ID:', data.productId);
-    console.log('📦 Product Name:', data.productName);
-    console.log('👤 Requested By:', data.requestedByEmail);
-    console.log('👥 Current Editor:', data.currentEditorEmail);
-    console.log('💬 Message:', data.requestMessage || 'No message');
-    console.log('⏰ Expires At:', data.expiresAt);
-    console.log('⏱️ Time Left:', data.timeLeftSeconds, 'seconds');
-    console.log('=================================================================');
-
-    // ✅ Validate product ID
-    if (data.productId !== productId) {
-      console.log('⏭️ Different product - ignoring event');
-      return;
-    }
-
-    // ✅ Validate current editor email
-    if (data.currentEditorEmail !== userEmail) {
-      console.log('⏭️ Not for current user - ignoring event');
-      return;
-    }
-
-    // ✅ Prevent duplicate modal opening
-    if (isTakeoverModalOpen) {
-      console.log('⚠️ Modal already open - ignoring event');
-      return;
-    }
-
-    console.log('✅ Opening modal from SignalR...');
-    
-    // ✅ Update states
-    setTakeoverRequest({
-      id: data.requestId || data.id,
-      requestId: data.requestId || data.id,
-      productId: data.productId,
-      productName: data.productName,
-      requestedByEmail: data.requestedByEmail,
-      currentEditorEmail: data.currentEditorEmail,
-      message: data.requestMessage || '',
-      expiresAt: data.expiresAt,
-      timeLeftSeconds: data.timeLeftSeconds
-    });
-    setIsTakeoverModalOpen(true);
-    setHasPendingTakeover(true);
-    
-    // ✅ Optional: Browser notification
-    showBrowserNotification(data);
-    
-    console.log('✅ Modal opened successfully from SignalR!');
-    console.log('=================================================================');
-  };
-
-  // ✅ NEW: Browser notification helper
-  const showBrowserNotification = (data: any) => {
-    if ('Notification' in window) {
-      if (Notification.permission === 'granted') {
-        new Notification('🔔 Takeover Request', {
-          body: `${data.requestedByEmail} wants to edit ${data.productName}`,
-          icon: '/logo.png',
-          tag: `takeover-${data.productId}`,
-          requireInteraction: true
-        });
-      } else if (Notification.permission !== 'denied') {
-        Notification.requestPermission().then(permission => {
-          if (permission === 'granted') {
-            new Notification('🔔 Takeover Request', {
-              body: `${data.requestedByEmail} wants to edit ${data.productName}`,
-              icon: '/logo.png'
-            });
-          }
-        });
-      }
-    }
+// Around line 830-860 in page.tsx
+const handleTakeover = (data: any) => {
+  if (!mounted || data.productId !== productId || data.currentEditorEmail !== userEmail) return;
+  
+  console.log('');
+  console.log('🔔 ==================== TAKEOVER REQUEST RECEIVED ====================');
+  console.log('📦 Full data:', JSON.stringify(data, null, 2));
+  console.log('👤 From:', data.requestedByEmail);
+  console.log('⏰ Expires:', data.expiresAt || data.expires);
+  console.log('⏱️ Time Left:', data.timeLeftSeconds, 'seconds');
+  console.log('===================================================================');
+  
+  // ✅ COMPLETE field mapping
+  const requestObject = {
+    id: data.requestId || data.id,
+    requestId: data.requestId || data.id,
+    productId: data.productId,
+    productName: data.productName,
+    requestedByUserId: data.requestedByUserId || data.requestedBy || '',
+    requestedByEmail: data.requestedByEmail,
+    requestMessage: data.requestMessage || data.message || '',
+    timeLeftSeconds: data.timeLeftSeconds || 300, // Default 5 minutes
+    expiresAt: data.expiresAt || data.expires || new Date(Date.now() + 300000).toISOString()
   };
   
-// SignalR event handlers mein add karo:
+  console.log('✅ Setting request object:', requestObject);
+  setTakeoverRequest(requestObject);
+  setIsTakeoverModalOpen(true);
+  setHasPendingTakeover(true);
+};
 
-const handleTakeoverApproved = (data: any) => {
-  console.log('✅ SIGNALR: Takeover approved', data);
-  if (data.productId === productId) {
-    toast.success('🎉 Takeover approved! You can now edit.', {
-      autoClose: 3000
+// ✅ EVENT 2: Takeover Approved (editor approved YOUR request)
+const handleTakeoverApproved = async (data: any) => {
+  console.log('🎯 handleTakeoverApproved CALLED - USER 2 (REQUESTER)');
+  console.log('📦 Data received:', JSON.stringify(data, null, 2));  // ← Important log
+  console.log('📦 Data type:', typeof data);
+  
+  // Extract productId
+  const approvedProductId = data?.productId || data;
+  
+  console.log('🔍 Extracted productId:', approvedProductId);
+  console.log('🔍 Current productId:', productId);
+  
+  if (approvedProductId !== productId) {
+    console.log('⚠️ Different product, ignoring');
+    return;
+  }
+  
+  console.log('✅ Takeover approved! Processing...');
+  
+  // Close modals
+  setIsLockModalOpen(false);
+  setIsTakeoverModalOpen(false);
+  setHasPendingTakeover(false);
+  setTakeoverRequest(null);
+  
+  toast.success('✅ Takeover approved! Loading latest changes...', {
+    autoClose: 2000,
+    position: 'top-center'
+  });
+  
+  try {
+    console.log('🔐 Acquiring lock...');
+    const lockAcquired = await acquireProductLock(productId, false);
+    
+    if (lockAcquired) {
+      setProductLock({
+        isLocked: true,
+        lockedBy: userId,
+        expiresAt: null
+      });
+      lockAcquiredRef.current = true;
+      
+      console.log('🔄 Reloading page...');
+      setTimeout(() => {
+        window.location.href = window.location.href;
+      }, 500);
+    }
+  } catch (error: any) {
+    console.error('❌ Error:', error);
+    toast.error('Error. Reloading...');
+    setTimeout(() => window.location.reload(), 1000);
+  }
+};
+
+
+
+// ✅ EVENT 3: Takeover Rejected (editor rejected YOUR request)
+const handleTakeoverRejected = (data: any) => {
+  console.log('');
+  console.log('❌ ==================== TAKEOVER REJECTED EVENT ====================');
+  
+  // ✅ FIX: Backend sometimes sends just requestId string instead of object
+  if (typeof data === 'string') {
+    console.log('📦 Request ID:', data);
+    console.log('⚠️ Backend sent only ID, not full object - showing generic message');
+    
+    toast.error('❌ Takeover request rejected by editor', {
+      autoClose: 5000,
+      position: 'top-center',
+      
     });
     
-    // ✅ Now close modal after approval
+    // ✅ Close modal and reset state
+    setIsTakeoverModalOpen(false);
+    setHasPendingTakeover(false);
+    setTakeoverRequest(null);
+    
+    console.log('✅ Modal closed after rejection (string data)');
+    console.log('=================================================================');
+    return;
+  }
+  
+  // ✅ Normal object handling
+  console.log('📦 Product ID:', data.productId || 'Not provided');
+  console.log('👤 Rejected By:', data.rejectedByEmail || data.rejectedBy || 'Unknown');
+  console.log('💬 Reason:', data.rejectionReason || data.reason || data.message || 'No reason provided');
+  console.log('📊 Full data:', JSON.stringify(data, null, 2));
+  console.log('=================================================================');
+  
+  // ✅ Only check productId if provided (for backward compatibility)
+  if (data.productId && data.productId !== productId) {
+    console.log('⏭️ Different product - ignoring');
+    return;
+  }
+  
+  // ✅ Extract reason from multiple possible fields
+  const reason = data.rejectionReason || data.reason || data.message || '';
+  const reasonText = reason ? `\n\nReason: ${reason}` : '';
+  
+  toast.error(`❌ Takeover request rejected${reasonText}`, {
+    autoClose: 6000,
+    position: 'top-center',
+    
+  });
+  
+  // ✅ Close modal and reset state
+  setIsTakeoverModalOpen(false);
+  setHasPendingTakeover(false);
+  setTakeoverRequest(null);
+  
+  console.log('✅ Modal closed after rejection (object data)');
+};
+
+// ✅ EVENT 4: Takeover Expired (YOUR request expired) - FIXED
+const handleTakeoverExpired = (data: any) => {
+  console.log('');
+  console.log('⏰ ==================== TAKEOVER EXPIRED EVENT ====================');
+  
+  // ✅ FIX: Backend might send just requestId string
+  if (typeof data === 'string') {
+    console.log('📦 Request ID:', data);
+    console.log('⚠️ Backend sent only ID, not full object');
+    
+    toast.info('⏰ Your takeover request expired. You can send a new request.', {
+      autoClose: 5000,
+      position: 'top-center',
+     
+    });
+    
+    // ✅ Close modal and reset state
+    setIsTakeoverModalOpen(false);
+    setHasPendingTakeover(false);
+    setTakeoverRequest(null);
+    
+    console.log('✅ Modal closed after expiry (string data)');
+    console.log('=================================================================');
+    return;
+  }
+  
+  // ✅ Normal object handling
+  console.log('📦 Product ID:', data.productId || 'Not provided');
+  console.log('📦 Request ID:', data.requestId || data.id || 'Unknown');
+  console.log('⏰ Expired At:', data.expiredAt || 'Unknown');
+  console.log('📊 Full data:', JSON.stringify(data, null, 2));
+  console.log('=================================================================');
+  
+  // ✅ Only check productId if provided (for backward compatibility)
+  if (data.productId && data.productId !== productId) {
+    console.log('⏭️ Different product - ignoring');
+    return;
+  }
+  
+  toast.info('⏰ Your takeover request expired. You can send a new request.', {
+    autoClose: 5000,
+    position: 'top-center',
+ 
+  });
+  
+  // ✅ Close modal and reset state
+  setIsTakeoverModalOpen(false);
+  setHasPendingTakeover(false);
+  setTakeoverRequest(null);
+  
+  console.log('✅ Modal closed after expiry (object data)');
+};
+
+
+  // ✅ EVENT 5: Lock Released (editor released lock manually)
+const handleLockReleased = (data: any) => {
+  if (data.productId !== productId) return;
+  
+  console.log('🔓 Lock released by:', data.releasedByEmail);
+  
+  // ✅ Check if this is from YOUR takeover approval
+  const isFromTakeoverApproval = data.reason === 'takeover-approved' || data.fromTakeover;
+  
+  if (isFromTakeoverApproval) {
+    console.log('✅ Lock released due to takeover approval - reloading page...');
+    toast.success('✅ Takeover approved! Loading latest data...', { autoClose: 2000 });
+    
+    // ✅ Close modals
     setIsTakeoverModalOpen(false);
     setIsLockModalOpen(false);
+    setHasPendingTakeover(false);
+    setTakeoverRequest(null);
     
-    // Refresh page or update lock status
-    handleTakeoverActionComplete();
-  }
-};
-
-const handleTakeoverRejected = (data: any) => {
-  console.log('❌ SIGNALR: Takeover rejected', data);
-  if (data.productId === productId) {
-    toast.error('❌ Takeover request rejected by editor', {
-      autoClose: 3000
+    // ✅ Update lock
+    setProductLock({
+      isLocked: true,
+      lockedBy: userId,
+      expiresAt: null
     });
+    lockAcquiredRef.current = true;
     
-    // ✅ Close modal after rejection
+    // ✅ Acquire lock then reload
+    console.log('🔐 Acquiring lock...');
+    acquireProductLock(productId, false).then(() => {
+      console.log('🔄 Reloading page to fetch latest changes...');
+      setTimeout(() => {
+        window.location.reload();
+      }, 1000);
+    });
+  } else {
+    // Normal lock release (not from takeover)
+    console.log('🔓 Normal lock release - acquiring lock...');
+    toast.info('🔓 Product lock released. Acquiring lock...', { autoClose: 3000 });
+    
     setIsTakeoverModalOpen(false);
+    setIsLockModalOpen(false);
+    setProductLock({ isLocked: false, lockedBy: null, expiresAt: null });
     
-    handleTakeoverActionComplete();
+    setTimeout(() => acquireProductLock(productId, false), 500);
   }
 };
 
-
-  const handleLockReleased = (data: any) => {
-    console.log('🔓 SIGNALR: Lock released', data);
-    if (data.productId === productId) {
-      toast.info('Product lock has been released');
-    }
-  };
   
-  // ✅ Connection initialization with retry
+  // ✅ Connection init
   const init = async (retryCount = 0) => {
     if (!mounted) return;
-
-    console.log(`🚀 Attempting SignalR connection... (Attempt ${retryCount + 1})`);
     
     const connected = await signalRService.startConnection(userId!);
     
-    if (!mounted) {
-      console.log('⚠️ Component unmounted during connection');
-      return;
-    }
-    
     if (connected) {
-      console.log('');
-      console.log('==================== ✅ SIGNALR CONNECTED ====================');
-      console.log('🆔 Connection ID:', signalRService.getConnectionId());
-      console.log('📡 State:', signalRService.getConnectionState());
-      console.log('============================================================');
+      console.log('✅ SignalR connected');
       
-      // ✅ Register all event handlers
+      // Register all handlers
       signalRService.on('takeoverRequest', handleTakeover);
       signalRService.on('takeoverApproved', handleTakeoverApproved);
       signalRService.on('takeoverRejected', handleTakeoverRejected);
+      signalRService.on('takeoverExpired', handleTakeoverExpired);
       signalRService.on('lockReleased', handleLockReleased);
       
       handlerRegistered = true;
-      
-      // ✅ Test connection (optional)
-      if (process.env.NODE_ENV === 'development') {
-        setTimeout(() => {
-          signalRService.testConnection();
-        }, 2000);
-      }
-      
-    } else {
-      console.error('❌ SignalR connection failed');
-      
-      // ✅ Retry logic (max 3 attempts)
-      if (retryCount < 3 && mounted) {
-        const delay = (retryCount + 1) * 5000; // 5s, 10s, 15s
-        console.log(`🔄 Retrying in ${delay / 1000} seconds...`);
-        
-        connectionRetryTimer = setTimeout(() => {
-          init(retryCount + 1);
-        }, delay);
-      } else {
-        console.error('❌ SignalR connection failed after max retries');
-        toast.error('Real-time updates unavailable. Using polling instead.', {
-          autoClose: 5000
-        });
-      }
+    } else if (retryCount < 3) {
+      setTimeout(() => init(retryCount + 1), 5000);
     }
   };
 
-  // ✅ Start connection
   init();
 
-  // ✅ Cleanup
+  // Cleanup
   return () => {
-    console.log('🧹 Cleaning up SignalR...');
     mounted = false;
+    if (connectionRetryTimer) clearTimeout(connectionRetryTimer);
     
-    // Clear retry timer
-    if (connectionRetryTimer) {
-      clearTimeout(connectionRetryTimer);
-    }
-    
-    // Remove event handlers
     if (handlerRegistered) {
       signalRService.off('takeoverRequest', handleTakeover);
       signalRService.off('takeoverApproved', handleTakeoverApproved);
       signalRService.off('takeoverRejected', handleTakeoverRejected);
+      signalRService.off('takeoverExpired', handleTakeoverExpired);
       signalRService.off('lockReleased', handleLockReleased);
-      console.log('✅ Event handlers removed');
     }
-    
-    console.log('✅ SignalR cleanup complete');
   };
 }, [productId]);
+
 
 
 // ==================== 🔒 LOCK INITIALIZATION WITH STATUS CHECK ====================
@@ -1446,66 +1517,68 @@ const acquireProductLock = async (productId: string, isRefresh: boolean = false)
   }
 };
 
-// ==================== HANDLE TAKEOVER REQUEST (ADD THIS NEW FUNCTION) ====================
-const handleTakeoverRequest = async () => {
-  if (!productId) return;
-
+// ==================== HANDLE TAKEOVER REQUEST ====================
+// ✅ FIXED: Handle takeover request with proper type handling
+const handleTakeoverRequest = async (message: string, expiryMinutes: number) => {
+  console.log('📤 Sending takeover request...');
+  console.log('💬 Message:', message);
+  console.log('⏰ Expiry:', expiryMinutes, 'minutes');
+  
   setIsSubmittingTakeover(true);
-
+  
   try {
+    // ✅ FIX: Wrap parameters into DTO object
     const response = await productLockService.requestTakeover(
       productId,
       {
-        requestMessage: takeoverRequestMessage.trim() || 'I need urgent access to this product',
-        expiryMinutes: takeoverExpiryMinutes
+        requestMessage: message.trim(),
+        expiryMinutes: expiryMinutes
       }
-    );
-
-    console.log('✅ Takeover request response:', response);
-
-    const responseData = response as any;
+    ) as any; // ✅ Type assertion to handle unknown type
     
-    if (responseData?.success === false) {
-      console.log('❌ Response indicates failure:', responseData);
+    console.log('🔍 Service response:', response);
+    
+    // ✅ Check if response exists and has success property
+    if (response && response.success) {
+      console.log('✅ Takeover request sent successfully');
       
-      const errorMessage = responseData?.message || responseData?.error || 'Request failed';
+      // ✅ Update state
+      setHasPendingTakeover(true);
+      setTakeoverRequestStatus('pending');
+      setPendingRequestTimeLeft(expiryMinutes * 60);
       
-      if (
-        errorMessage.toLowerCase().includes('already exists') || 
-        errorMessage.toLowerCase().includes('active takeover') ||
-        errorMessage.toLowerCase().includes('pending')
-      ) {
-        toast.warning(
-          '⚠️ Request Already Sent!\n\nYou already have an active takeover request. Please wait for the editor to respond.',
-          { 
-            autoClose: 5000,
-            position: 'top-center'
+      // ✅ Start timer countdown
+      const timer = setInterval(() => {
+        setPendingRequestTimeLeft(prev => {
+          if (prev <= 1) {
+            clearInterval(timer);
+            setTakeoverRequestStatus('expired');
+            return 0;
           }
-        );
-        
-        // ✅ Modal open hi rahega - no close
-        return;
-      }
+          return prev - 1;
+        });
+      }, 1000);
       
-      toast.error(`❌ ${errorMessage}`);
-      return;
+      toast.success(`📤 Request sent! Expires in ${expiryMinutes}m`);
+    } else {
+      // ✅ Handle unsuccessful response
+      throw new Error(response?.message || 'Failed to send request');
     }
-
-    // ✅ SUCCESS - Only show success message
-    toast.success('✅ Takeover request sent successfully! Waiting for editor response...', {
-      autoClose: 3000
-    });
-    
-    // ✅ Modal open rahega - no close
-    // ✅ User can close manually with X button
-    
   } catch (error: any) {
     console.error('❌ Takeover request error:', error);
-    toast.error(error.message || 'Failed to send request');
+    
+    // ✅ Better error handling
+    const errorMessage = error?.response?.data?.message 
+      || error?.message 
+      || '❌ Failed to send request';
+    
+    toast.error(errorMessage);
+    throw error;
   } finally {
     setIsSubmittingTakeover(false);
   }
 };
+
 
 
 
@@ -1574,10 +1647,20 @@ const handleModalClose = () => {
 };
 
 
+
 // ==================== FORM SUBMISSION HANDLER ====================
-const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
-  e.preventDefault();
-  const target = e.target as HTMLElement;
+const handleSubmit = async (
+  e?: React.FormEvent, 
+  isDraft: boolean = false,
+  releaseLockAfter: boolean = true
+) => {
+  // ✅ Handle both form submit and direct call
+  if (e) {
+    e.preventDefault();
+  }
+  
+  // ✅ Use document.body as fallback if no event target
+  const target = (e?.target as HTMLElement) || document.body;
 
   console.log('🚀 [SUBMIT] Starting submission...');
   console.log('📊 [SUBMIT] Current state:', {
@@ -1647,16 +1730,14 @@ const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
     
     try {
       console.log('🔍 [SKU CHECK] Checking SKU uniqueness...');
-     const allProducts = await productsService.getAll();
+      const allProducts = await productsService.getAll();
+      const items = allProducts.data?.data?.items ?? [];
 
-const items = allProducts.data?.data?.items ?? [];
-
-const skuExists = items.some(
-  (p: any) =>
-    p.sku?.toLowerCase() === formData.sku.toLowerCase() &&
-    p.id !== productId
-);
-
+      const skuExists = items.some(
+        (p: any) =>
+          p.sku?.toLowerCase() === formData.sku.toLowerCase() &&
+          p.id !== productId
+      );
       
       if (skuExists) {
         console.error('❌ [SKU CHECK] SKU already exists');
@@ -1747,22 +1828,19 @@ const skuExists = items.some(
     // ✅ PROCESS CATEGORY ID
     // ==========================================
     
-   // Process Multiple Categories
-let categoryIdsArray: string[] = [];
-if (formData.categoryIds && Array.isArray(formData.categoryIds) && formData.categoryIds.length > 0) {
-  categoryIdsArray = formData.categoryIds.filter(id => {
-    if (!id || typeof id !== 'string') return false;
-    const guidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-    return guidRegex.test(id.trim());
-  });
-}
+    let categoryIdsArray: string[] = [];
+    if (formData.categoryIds && Array.isArray(formData.categoryIds) && formData.categoryIds.length > 0) {
+      categoryIdsArray = formData.categoryIds.filter(id => {
+        if (!id || typeof id !== 'string') return false;
+        return guidRegex.test(id.trim());
+      });
+    }
 
-// Validation
-if (categoryIdsArray.length === 0) {
-  toast.error('❌ Please select at least one category');
-  target.removeAttribute('data-submitting');
-  return;
-}
+    if (categoryIdsArray.length === 0) {
+      toast.error('❌ Please select at least one category');
+      target.removeAttribute('data-submitting');
+      return;
+    }
 
     // ==========================================
     // ✅ PROCESS MULTIPLE BRANDS
@@ -1907,6 +1985,10 @@ if (categoryIdsArray.length === 0) {
       brandIds: brandIdsArray,
       brands: brandsArray,
       
+      // Category Info
+      categoryId: categoryIdsArray[0],
+      categoryIds: categoryIdsArray,
+      
       // Additional Fields
       vendor: null,
       tags: formData.productTags?.trim() || null,
@@ -2028,10 +2110,6 @@ if (categoryIdsArray.length === 0) {
       crossSellProductIds: Array.isArray(formData.crossSellProducts) && formData.crossSellProducts.length > 0 
         ? formData.crossSellProducts.join(',') 
         : null,
-      
-       // ✅ ADD THIS:
-  categoryId: categoryIdsArray[0], // Primary category (for backward compatibility)
-  categoryIds: categoryIdsArray,    // All selected categories
     };
 
     // ==========================================
@@ -2048,18 +2126,6 @@ if (categoryIdsArray.length === 0) {
 
     console.log('📦 ==================== FINAL PAYLOAD ====================');
     console.log(JSON.stringify(cleanProductData, null, 2));
-    console.log('🏷️ brandId (primary):', productData.brandId);
-    console.log('🏷️ brandIds (array):', productData.brandIds);
-    console.log('🏷️ brands (objects):', productData.brands);
-    console.log('🎁 Bundle Discount:', {
-      type: productData.groupBundleDiscountType,
-      percentage: productData.groupBundleDiscountPercentage,
-      amount: productData.groupBundleDiscountAmount,
-      specialPrice: productData.groupBundleSpecialPrice,
-      message: productData.groupBundleSavingsMessage,
-      showIndividualPrices: productData.showIndividualPrices,
-      applyDiscountToAllItems: productData.applyDiscountToAllItems
-    });
     console.log('📦 ==================== END PAYLOAD ====================');
 
     // ==========================================
@@ -2094,21 +2160,25 @@ if (categoryIdsArray.length === 0) {
         );
 
         // ==========================================
-        // ✅ RELEASE LOCK USING SERVICE
+        // ✅ CONDITIONAL LOCK RELEASE
         // ==========================================
         
-        console.log('🔓 [LOCK] Releasing lock using service...');
-        try {
-         await productLockService.releaseLock(productId);
-          console.log('✅ [LOCK] Lock released successfully');
-        } catch (lockError) {
-          console.warn('⚠️ [LOCK] Failed to release lock:', lockError);
-        }
+        if (releaseLockAfter) {
+          console.log('🔓 [LOCK] Releasing lock using service...');
+          try {
+            await productLockService.releaseLock(productId);
+            console.log('✅ [LOCK] Lock released successfully');
+          } catch (lockError) {
+            console.warn('⚠️ [LOCK] Failed to release lock:', lockError);
+          }
 
-        setTimeout(() => {
-          console.log('🔄 [REDIRECT] Redirecting to products list');
-          router.push('/admin/products');
-        }, 800);
+          setTimeout(() => {
+            console.log('🔄 [REDIRECT] Redirecting to products list');
+            router.push('/admin/products');
+          }, 800);
+        } else {
+          console.log('🔒 [LOCK] Keeping lock (save-before-approve mode)');
+        }
       } else if (apiResponse.success === false) {
         console.error('❌ [ERROR] Backend returned success: false');
         throw new Error(apiResponse.message || 'Update failed');
@@ -5968,146 +6038,19 @@ const uploadImagesToProductDirect = async (
 
 
 {/* ==================== IMPROVED TAKEOVER MODAL (BETTER COLORS) ==================== */}
-{isTakeoverModalOpen && (
-  <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
-    {/* Backdrop */}
-    <div 
-      className="absolute inset-0 bg-black/70 backdrop-blur-sm" 
-      onClick={closeTakeoverModal}
-    />
-    
-    {/* Modal */}
-    <div className="relative bg-gradient-to-br from-slate-900 to-slate-800 border border-violet-500/20 rounded-2xl shadow-2xl max-w-md w-full overflow-hidden animate-fade-in">
-      
-      {/* ✅ SYNCED HEADER - Matching Lock Modal */}
-      <div className="relative flex items-center justify-between px-5 py-4 border-b border-slate-700/50">
-        {/* Left side: Lock icon + Title */}
-        <div className="flex items-center gap-3">
-          <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-violet-500/20 to-cyan-500/20 border border-violet-400/30 flex items-center justify-center flex-shrink-0">
-            <Send className="w-6 h-6 text-violet-400" />
-          </div>
-          
-          <div>
-            <h2 className="text-xl font-bold text-white">
-              Request Takeover
-            </h2>
-            <p className="text-xs text-slate-400 mt-0.5">
-              Send to{' '}
-              <span className="text-cyan-400 font-semibold">
-                {lockedByEmail || 'admin@ecommerce.com'}
-              </span>
-            </p>
-          </div>
-        </div>
-        
-        {/* Right side: Close button with rotate effect */}
-        <button
-          onClick={closeTakeoverModal}
-          className="p-1.5 text-slate-400 hover:text-white hover:bg-violet-500/20 rounded-lg transition-all hover:rotate-90 duration-300"
-          title="Close"
-        >
-          <X className="w-5 h-5" />
-        </button>
-      </div>
-      
-      {/* ✅ BODY */}
-      <div className="px-5 py-4 space-y-3">
-        
-        {/* Request Message */}
-        <div>
-          <label className="block text-sm font-medium text-slate-300 mb-1.5">
-            Message <span className="text-slate-500">(Optional)</span>
-          </label>
-          <textarea
-            value={takeoverRequestMessage}
-            onChange={(e) => setTakeoverRequestMessage(e.target.value)}
-            placeholder="Why do you need urgent access?"
-            className="w-full bg-slate-800/50 border border-slate-700 rounded-lg px-3 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all resize-none"
-            rows={3}
-            maxLength={500}
-          />
-          <div className="flex justify-between items-center mt-1.5">
-            <p className="text-xs text-slate-500">
-              Be specific about urgency
-            </p>
-            <p className="text-xs text-slate-500">
-              {takeoverRequestMessage.length}/500
-            </p>
-          </div>
-        </div>
+{/* ✅ Takeover Request Modal */}
+<RequestTakeoverModal
+  isOpen={isTakeoverModalOpen}
+  onClose={closeTakeoverModal}
+  onSubmit={handleTakeoverRequest}
+  productName={formData.name || 'Product'}
+  lockedByEmail={lockedByEmail || 'Unknown'}
+  timeLeft={pendingRequestTimeLeft}
+  isPending={hasPendingTakeover}
+  requestStatus={takeoverRequestStatus}
+  responseMessage={takeoverResponseMessage}
+/>
 
-        {/* Expiry Time */}
-        <div>
-          <label className="text-sm font-medium text-slate-300 mb-2 flex items-center gap-1.5">
-            <Clock className="w-4 h-4 text-amber-400" />
-            Request Expiry
-          </label>
-          <div className="grid grid-cols-3 gap-2">
-            {[5, 10, 15].map((minutes) => (
-              <button
-                key={minutes}
-                type="button"
-                onClick={() => setTakeoverExpiryMinutes(minutes)}
-                className={cn(
-                  "px-3 py-2.5 rounded-lg text-sm font-semibold transition-all",
-                  takeoverExpiryMinutes === minutes
-                    ? "bg-gradient-to-r from-violet-500 to-cyan-500 text-white shadow-lg shadow-violet-500/30 scale-105"
-                    : "bg-slate-800/50 border border-slate-700 text-slate-400 hover:bg-slate-700 hover:text-white hover:border-slate-600"
-                )}
-              >
-                {minutes}m
-              </button>
-            ))}
-          </div>
-          <p className="text-xs text-slate-500 mt-1.5">
-            Expires if not responded within time
-          </p>
-        </div>
-
-        {/* Info Alert */}
-        <div className="flex items-start gap-2.5 bg-cyan-500/5 border border-cyan-500/20 rounded-xl p-3">
-          <Info className="w-4 h-4 text-cyan-400 flex-shrink-0 mt-0.5" />
-          <p className="text-xs text-cyan-100/70 leading-relaxed">
-            <span className="text-cyan-300 font-semibold">Real-time notification:</span> Editor will receive instant alert and can approve or reject.
-          </p>
-        </div>
-      </div>
-
-      {/* ✅ FOOTER */}
-      <div className="px-5 py-3 bg-slate-900/50 border-t border-slate-700 flex gap-2.5">
-        <button
-          onClick={closeTakeoverModal}
-          className="flex-1 px-3 py-2.5 bg-slate-800 hover:bg-slate-700 text-white text-sm rounded-xl font-medium transition-all border border-slate-600"
-          disabled={isSubmittingTakeover}
-        >
-          Cancel
-        </button>
-        
-        <button
-          onClick={handleTakeoverRequest}
-          disabled={isSubmittingTakeover}
-          className="flex-1 px-3 py-2.5 bg-gradient-to-r from-violet-500 to-cyan-500 hover:from-violet-600 hover:to-cyan-600 text-white text-sm rounded-xl font-semibold transition-all transform hover:scale-105 flex items-center justify-center gap-2 shadow-lg shadow-violet-500/30 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
-        >
-          {isSubmittingTakeover ? (
-            <>
-              <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-              </svg>
-              Sending...
-            </>
-          ) : (
-            <>
-              <Send className="w-4 h-4" />
-              Send Request
-            </>
-          )}
-        </button>
-      </div>
-    </div>
-  </div>
-)}
- 
 {/* Takeover Request Modal */}
 <TakeoverRequestModal
   productId={productId}
@@ -6115,7 +6058,13 @@ const uploadImagesToProductDirect = async (
   onClose={handleTakeoverModalClose}
   request={takeoverRequest}
   onActionComplete={handleTakeoverActionComplete}
+  onSaveBeforeApprove={async () => {
+    console.log('🔄 Auto-saving all changes before approval...');
+    await handleSubmit(undefined, false, false);
+  }}
 />
+
+
 
     </div>
   );

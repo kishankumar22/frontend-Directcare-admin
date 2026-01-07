@@ -185,11 +185,11 @@ class SignalRService {
     }
   }
 
-  // ✅ FIXED: Correct event names matching backend
+  // ✅ FIXED: All event handlers with proper data transformation
   private setupEventHandlers() {
     if (!this.connection) return;
 
-    // ✅ Main takeover request event
+    // ✅ EVENT 1: Takeover Request Received
     this.connection.on('TakeoverRequestReceived', (data: TakeoverNotification) => {
       console.log('🔔 ==================== TAKEOVER REQUEST ====================');
       console.log('📦 Product:', data.productName);
@@ -203,23 +203,128 @@ class SignalRService {
       this.emit('takeoverRequest', data);
     });
 
-    this.connection.on('TakeoverRequestApproved', (data: any) => {
-      console.log('✅ TAKEOVER APPROVED:', data);
-      this.emit('takeoverApproved', data);
+    // ✅ EVENT 2: Takeover Approved - FIXED TO HANDLE STRING
+    this.connection.on('TakeoverRequestApproved', (productIdOrData: any) => {
+      console.log('✅ ==================== TAKEOVER APPROVED ====================');
+      console.log('📦 Raw data:', productIdOrData);
+      console.log('📦 Type:', typeof productIdOrData);
+      
+      // ✅ TRANSFORM: Backend sends string, we need object
+      let normalizedData;
+      
+      if (typeof productIdOrData === 'string') {
+        // Backend sent just productId string
+        normalizedData = { productId: productIdOrData };
+        console.log('✅ Transformed string to object:', normalizedData);
+      } else if (productIdOrData?.productId) {
+        // Backend sent full object
+        normalizedData = productIdOrData;
+        console.log('✅ Using object as-is');
+      } else {
+        // Fallback
+        console.warn('⚠️ Unknown format, using as-is:', productIdOrData);
+        normalizedData = productIdOrData;
+      }
+      
+      console.log('📤 Emitting to handlers:', JSON.stringify(normalizedData));
+      console.log('=========================================================');
+      
+      this.emit('takeoverApproved', normalizedData);
     });
 
-    this.connection.on('TakeoverRequestRejected', (data: any) => {
-      console.log('❌ TAKEOVER REJECTED:', data);
-      this.emit('takeoverRejected', data);
+    // ✅ EVENT 3: Takeover Rejected - handles multiple formats
+    this.connection.on('TakeoverRequestRejected', (requestIdOrData: any, optionalData?: any) => {
+      console.log('❌ ==================== TAKEOVER REJECTED ====================');
+      console.log('📦 Arg 1:', requestIdOrData);
+      console.log('📦 Arg 2:', optionalData);
+      
+      let normalizedData;
+      
+      // Case 1: Backend sends (requestId, dataObject)
+      if (optionalData && typeof optionalData === 'object') {
+        normalizedData = optionalData;
+        console.log('✅ Using arg 2 (full object)');
+      }
+      // Case 2: Backend sends full object in arg 1
+      else if (typeof requestIdOrData === 'object' && requestIdOrData !== null) {
+        normalizedData = requestIdOrData;
+        console.log('✅ Using arg 1 (object)');
+      }
+      // Case 3: Backend sends only requestId string
+      else if (typeof requestIdOrData === 'string') {
+        normalizedData = requestIdOrData; // Pass string as-is
+        console.log('⚠️ Using arg 1 (string only)');
+      }
+      // Case 4: Unknown format
+      else {
+        console.warn('⚠️ Unknown data format:', requestIdOrData);
+        normalizedData = requestIdOrData;
+      }
+      
+      console.log('📤 Emitting:', JSON.stringify(normalizedData));
+      console.log('=========================================================');
+      
+      this.emit('takeoverRejected', normalizedData);
     });
 
-    this.connection.on('ProductLockReleased', (productId: string) => {
-      console.log('🔓 LOCK RELEASED:', productId);
-      this.emit('lockReleased', { productId });
+    // ✅ FALLBACK: Alternative event name for rejection
+    this.connection.on('TakeoverRejected', (requestIdOrData: any, optionalData?: any) => {
+      console.log('❌ TAKEOVER REJECTED (alternative event)');
+      
+      let normalizedData;
+      if (optionalData && typeof optionalData === 'object') {
+        normalizedData = optionalData;
+      } else if (typeof requestIdOrData === 'object' && requestIdOrData !== null) {
+        normalizedData = requestIdOrData;
+      } else if (typeof requestIdOrData === 'string') {
+        normalizedData = requestIdOrData;
+      } else {
+        normalizedData = requestIdOrData;
+      }
+      
+      this.emit('takeoverRejected', normalizedData);
     });
 
+    // ✅ EVENT 4: Takeover Expired
+    this.connection.on('TakeoverRequestExpired', (requestIdOrData: any) => {
+      console.log('⏰ ==================== TAKEOVER EXPIRED ====================');
+      console.log('📦 Raw data:', requestIdOrData);
+      console.log('📦 Type:', typeof requestIdOrData);
+      
+      // Normalize to object format
+      const normalizedData = typeof requestIdOrData === 'string' 
+        ? { requestId: requestIdOrData }
+        : requestIdOrData;
+      
+      console.log('📤 Emitting:', JSON.stringify(normalizedData));
+      console.log('=========================================================');
+      
+      this.emit('takeoverExpired', normalizedData);
+    });
+
+    // ✅ EVENT 5: Lock Released - FIXED TO HANDLE STRING
+    this.connection.on('ProductLockReleased', (productIdOrData: any) => {
+      console.log('🔓 ==================== LOCK RELEASED ====================');
+      console.log('📦 Raw data:', productIdOrData);
+      console.log('📦 Type:', typeof productIdOrData);
+      
+      // ✅ TRANSFORM: Backend sends string, we need object
+      const normalizedData = typeof productIdOrData === 'string'
+        ? { productId: productIdOrData }
+        : productIdOrData;
+      
+      console.log('📤 Emitting:', JSON.stringify(normalizedData));
+      console.log('=========================================================');
+      
+      this.emit('lockReleased', normalizedData);
+    });
+
+    // ✅ EVENT 6: Lock Acquired
     this.connection.on('ProductLockAcquired', (data: any) => {
-      console.log('🔒 LOCK ACQUIRED:', data);
+      console.log('🔒 ==================== LOCK ACQUIRED ====================');
+      console.log('📦 Data:', JSON.stringify(data, null, 2));
+      console.log('=========================================================');
+      
       this.emit('lockAcquired', data);
     });
   }
@@ -253,7 +358,7 @@ class SignalRService {
     }
   }
 
-  // ✅ NEW: Invoke server methods
+  // ✅ Invoke server methods
   async invoke(methodName: string, ...args: any[]): Promise<any> {
     if (!this.connection) {
       throw new Error('SignalR not connected');
@@ -274,7 +379,7 @@ class SignalRService {
     }
   }
 
-  // ✅ IMPROVED: Stop with proper cleanup
+  // ✅ Stop connection with cleanup
   async stopConnection() {
     if (this.connection) {
       try {
@@ -291,9 +396,9 @@ class SignalRService {
     }
   }
 
-  // ✅ TYPED event names
+  // ✅ Add event listener
   on(
-    event: 'takeoverRequest' | 'takeoverApproved' | 'takeoverRejected' | 'lockReleased' | 'lockAcquired', 
+    event: 'takeoverRequest' | 'takeoverApproved' | 'takeoverRejected' | 'takeoverExpired' | 'lockReleased' | 'lockAcquired', 
     callback: (data: any) => void
   ) {
     if (!this.listeners.has(event)) {
@@ -302,7 +407,7 @@ class SignalRService {
     
     const callbacks = this.listeners.get(event)!;
     
-    // ✅ Prevent duplicate listeners
+    // Prevent duplicate listeners
     if (!callbacks.includes(callback)) {
       callbacks.push(callback);
       console.log(`📢 Listener added: ${event} (total: ${callbacks.length})`);
@@ -311,6 +416,7 @@ class SignalRService {
     }
   }
 
+  // ✅ Remove event listener
   off(event: string, callback: Function) {
     const callbacks = this.listeners.get(event);
     if (callbacks) {
@@ -322,6 +428,7 @@ class SignalRService {
     }
   }
 
+  // ✅ Emit event to listeners
   private emit(event: string, data: any) {
     const callbacks = this.listeners.get(event);
     if (callbacks && callbacks.length > 0) {
@@ -351,7 +458,7 @@ class SignalRService {
     return this.connection?.connectionId || null;
   }
 
-  // ✅ ENHANCED status
+  // ✅ Get detailed status
   getStatus() {
     return {
       isConnected: this.isConnected(),
@@ -365,7 +472,7 @@ class SignalRService {
     };
   }
 
-  // ✅ FIXED: Safe test without Ping method
+  // ✅ Test connection
   async testConnection(): Promise<boolean> {
     try {
       if (!this.isConnected()) {
@@ -375,7 +482,6 @@ class SignalRService {
 
       console.log('🧪 Testing connection...');
       
-      // ✅ SAFE: Just check connection state (no server method call)
       const status = this.getStatus();
       console.log('📊 Connection status:', {
         isConnected: status.isConnected,

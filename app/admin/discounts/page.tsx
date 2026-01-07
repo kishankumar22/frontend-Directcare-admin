@@ -1518,18 +1518,25 @@ const categoryOptions: SelectOption[] = processCategoryData(categories as any);
           </h3>
           
           <div className="mb-4">
-            <label className="flex items-center gap-3 p-3 bg-slate-900/50 border border-slate-600 rounded-xl cursor-pointer hover:border-violet-500 transition-all">
-              <input
-                type="checkbox"
-                checked={formData.requiresCouponCode}
-                onChange={(e) => setFormData({...formData, requiresCouponCode: e.target.checked})}
-                className="w-5 h-5 rounded border-slate-600 text-violet-500 focus:ring-2 focus:ring-violet-500"
-              />
-              <div>
-                <p className="text-white font-medium">Requires Coupon Code</p>
-                <p className="text-slate-400 text-xs">Customers must enter a coupon code to get this discount</p>
-              </div>
-            </label>
+<label className="flex items-center gap-3 p-3 bg-slate-900/50 border border-slate-600 rounded-xl cursor-pointer hover:border-violet-500 transition-all">
+  <input
+    type="checkbox"
+    checked={formData.requiresCouponCode}
+    onChange={(e) => {
+      setFormData({
+        ...formData,
+        requiresCouponCode: e.target.checked,
+        // ✅ Improvement: जब बंद करें तो coupon code पूरी तरह साफ़ कर दें
+        couponCode: e.target.checked ? formData.couponCode : ""
+      });
+    }}
+    className="w-5 h-5 rounded border-slate-600 text-violet-500 focus:ring-2 focus:ring-violet-500"
+  />
+  <div>
+    <p className="text-white font-medium">Requires Coupon Code</p>
+    <p className="text-slate-400 text-xs">Customers must enter a coupon code to get this discount</p>
+  </div>
+</label>
           </div>
 
           {formData.requiresCouponCode && (

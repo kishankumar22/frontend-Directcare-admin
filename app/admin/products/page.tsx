@@ -9,6 +9,7 @@ import ConfirmDialog from "@/components/ConfirmDialog";
 import { apiClient } from "@/lib/api";
 import { Category, ProductAttribute, ProductImage, RelatedProduct } from "@/lib/services";
 import productLockService, { TakeoverRequestData } from "@/lib/services/productLockService";
+import MyTakeoverRequestsPanel from "./MyTakeoverRequestsPanel";
 
 interface ProductVariant {
   id: string;
@@ -147,12 +148,12 @@ export default function ProductsPage() {
   // ✅ NEW: Takeover Requests State
   const [myTakeoverRequests, setMyTakeoverRequests] = useState<TakeoverRequestData[]>([]);
   const [showTakeoverPanel, setShowTakeoverPanel] = useState(false);
-  const [loadingTakeovers, setLoadingTakeovers] = useState(false);
+  const [loadingTakeovers, setLoadingTakeovers] = useState(true);
   // ✅ NEW: Fetch My Takeover Requests
   const fetchMyTakeoverRequests = async () => {
     setLoadingTakeovers(true);
     try {
-      const response = await productLockService.getMyTakeoverRequests(false); // onlyActive = true
+      const response = await productLockService.getMyTakeoverRequests(true); // onlyActive = true
       
       if (response.success && response.data) {
         setMyTakeoverRequests(response.data);
@@ -671,22 +672,13 @@ const handleDelete = async (id: string) => {
   
   <div className="flex items-center gap-3">
     {/* ✅ NEW: My Takeover Requests Button */}
-    <button
-      onClick={(e) => {
-        e.stopPropagation(); // ← Prevent event bubbling
-        setShowTakeoverPanel(!showTakeoverPanel);
-      }}
-      className="relative px-4 py-2 bg-gradient-to-r from-orange-600 to-red-600 text-white rounded-xl hover:shadow-lg hover:shadow-orange-500/50 transition-all flex items-center gap-2 font-semibold"
-      title="View my takeover requests"
-    >
-      <Bell className="w-5 h-5" />
-      My Requests
-      {myTakeoverRequests.length > 0 && (
-        <span className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white text-xs font-bold rounded-full flex items-center justify-center animate-pulse shadow-lg">
-          {myTakeoverRequests.length}
-        </span>
-      )}
-    </button>
+   <button
+  onClick={() => setShowTakeoverPanel(true)}
+  className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white rounded-lg transition-all shadow-lg hover:shadow-orange-500/30"
+>
+  <Send className="w-4 h-4" />
+  My Requests
+</button>
 
     {/* ✅ Export Button with Dropdown */}
     <div className="relative">
@@ -1438,7 +1430,10 @@ const handleDelete = async (id: string) => {
 
 
 
-
+<MyTakeoverRequestsPanel 
+  isOpen={showTakeoverPanel}
+  onClose={() => setShowTakeoverPanel(false)}
+/>
 
 
       {/* Delete Confirmation Dialog */}
