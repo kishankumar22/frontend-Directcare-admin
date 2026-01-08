@@ -96,6 +96,8 @@ const getYouTubeVideoId = (url: string): string | null => {
 };
 
 
+
+
 // Filter VAT rates based on search
 const filteredVATRates = dropdownsData.vatRates.filter(vat =>
   vat.name.toLowerCase().includes(vatSearch.toLowerCase()) ||
@@ -800,9 +802,6 @@ categoryIds: (() => {
 }, [productId]);
 
 // ============================================
-// ✅ SIGNALR - Enhanced with Better Error Handling
-// ============================================
-// ============================================
 // ✅ SIGNALR - COMPLETE WITH ALL 5 EVENT HANDLERS
 // ============================================
 useEffect(() => {
@@ -1413,6 +1412,116 @@ useEffect(() => {
   };
 }, [productId]);
 
+// Around line 125 (after existing states)
+const [lockTimeRemaining, setLockTimeRemaining] = useState<number>(30 * 60);
+const [showExpiryWarning, setShowExpiryWarning] = useState(false);
+const lockTimerRef = useRef<NodeJS.Timeout | null>(null);
+// ==================== LOCK TIMER - WARNINGS + AUTO-SAVE ====================
+useEffect(() => {
+  if (!lockAcquiredRef.current || !productLock?.expiresAt) {
+    return;
+  }
+
+  console.log('⏰ Starting lock timer...');
+
+  // Clear any existing timer
+  if (lockTimerRef.current) {
+    clearInterval(lockTimerRef.current);
+    lockTimerRef.current = null;
+  }
+
+  // Calculate initial remaining time
+  const calculateRemainingTime = () => {
+    const expiryTime = new Date(productLock.expiresAt!).getTime();
+    const currentTime = Date.now();
+    return Math.max(0, Math.floor((expiryTime - currentTime) / 1000));
+  };
+
+  const initialTime = calculateRemainingTime();
+  setLockTimeRemaining(initialTime);
+  
+  const minutes = Math.floor(initialTime / 60);
+  console.log(`⏰ Lock expires in ${minutes} minutes`);
+
+  // Start countdown timer
+  lockTimerRef.current = setInterval(() => {
+    setLockTimeRemaining(prev => {
+      const newTime = prev - 1;
+
+      // ✅ 5 MINUTES WARNING
+      if (newTime === 300) {
+        toast.warning('⏰ Lock expires in 5 minutes!', {
+          autoClose: 8000,
+          position: 'top-center'
+        });
+        console.log('⚠️ 5 minutes warning');
+      }
+
+      // ✅ 2 MINUTES WARNING
+      if (newTime === 120) {
+        toast.warning('⏰ Lock expires in 2 minutes! Please save your changes.', {
+          autoClose: 10000,
+          position: 'top-center'
+        });
+        console.log('⚠️ 2 minutes warning');
+      }
+
+      // ✅ 1 MINUTE WARNING
+      if (newTime === 60 && !showExpiryWarning) {
+        setShowExpiryWarning(true);
+        toast.error('🚨 Lock expires in 1 minute! Save your work now!', {
+          autoClose: 12000,
+          position: 'top-center'
+        });
+        console.log('⚠️ 1 minute warning');
+      }
+
+      // ✅ 30 SECONDS - FINAL WARNING
+      if (newTime === 30) {
+        toast.error('🚨 30 seconds remaining! Auto-save will trigger soon...', {
+          autoClose: 10000,
+          position: 'top-center'
+        });
+        console.log('🚨 30 seconds warning');
+      }
+
+      // ✅ 0 SECONDS - AUTO-SAVE
+      if (newTime <= 0) {
+        console.log('💾 Lock expired - auto-saving changes...');
+        
+        // Clear timer
+        if (lockTimerRef.current) {
+          clearInterval(lockTimerRef.current);
+          lockTimerRef.current = null;
+        }
+
+        // Show saving message
+        toast.info('💾 Lock expired! Auto-saving your changes...', {
+          autoClose: 3000,
+          position: 'top-center'
+        });
+        
+        // ✅ DIRECT BUTTON CLICK FUNCTIONALITY
+        // Parameters: (event, stayOnPage, releaseLockAfter)
+        // releaseLockAfter = true → will save, release lock, and redirect
+        handleSubmit(undefined, false, true);
+        
+        return 0;
+      }
+
+      return newTime;
+    });
+  }, 1000);
+
+  // Cleanup
+  return () => {
+    if (lockTimerRef.current) {
+      clearInterval(lockTimerRef.current);
+      lockTimerRef.current = null;
+    }
+  };
+}, [lockAcquiredRef.current, productLock?.expiresAt]);
+
 
 
 // ==================== 🔒 ACQUIRE LOCK (WITH DUPLICATE PREVENTION) ====================
@@ -1432,7 +1541,7 @@ const acquireProductLock = async (productId: string, isRefresh: boolean = false)
       console.log('🔄 Refreshing lock...');
     }
 
-    const response = await productLockService.acquireLock(productId, 15);
+    const response = await productLockService.acquireLock(productId, 30);
     console.log('🔒 LOCK: Response received:', response);
 
     if (response.success && response.data) {
@@ -1517,6 +1626,8 @@ const acquireProductLock = async (productId: string, isRefresh: boolean = false)
   }
 };
 
+
+
 // ==================== HANDLE TAKEOVER REQUEST ====================
 // ✅ FIXED: Handle takeover request with proper type handling
 const handleTakeoverRequest = async (message: string, expiryMinutes: number) => {
@@ -1557,9 +1668,7 @@ const handleTakeoverRequest = async (message: string, expiryMinutes: number) => 
           }
           return prev - 1;
         });
-      }, 1000);
-      
-      toast.success(`📤 Request sent! Expires in ${expiryMinutes}m`);
+      }, 1000);     
     } else {
       // ✅ Handle unsuccessful response
       throw new Error(response?.message || 'Failed to send request');

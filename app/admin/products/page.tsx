@@ -135,18 +135,49 @@ export default function ProductsPage() {
   const [publishedFilter, setPublishedFilter] = useState("all");
   const [viewingImage, setViewingImage] = useState<string | null>(null);
   const [playingVideo, setPlayingVideo] = useState<string | null>(null);
+  const [myTakeoverRequests, setMyTakeoverRequests] = useState<TakeoverRequestData[]>([]);
   
   // Pagination states
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(25);
 
+  // Fetch takeover requests to get count
+  useEffect(() => {
+    const fetchCounts = async () => {
+      const response = await productLockService.getMyTakeoverRequests(true);
+      if (response.success && response.data) {
+        setMyTakeoverRequests(response.data);
+      }
+    };
+
+    fetchCounts();
+
+    // Refresh count every 30 seconds
+    const interval = setInterval(fetchCounts, 30000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Calculate status counts
+  const statusCounts = useMemo(() => {
+    const counts = {
+      Pending: 0,
+      all: myTakeoverRequests.length,
+    };
+
+    myTakeoverRequests.forEach(req => {
+      if (req.status === 'Pending') {
+        counts.Pending++;
+      }
+    });
+
+    return counts;
+  }, [myTakeoverRequests]);
   useEffect(() => {
     fetchProducts();
     fetchCategories();
   }, []);
 
   // ✅ NEW: Takeover Requests State
-  const [myTakeoverRequests, setMyTakeoverRequests] = useState<TakeoverRequestData[]>([]);
   const [showTakeoverPanel, setShowTakeoverPanel] = useState(false);
   const [loadingTakeovers, setLoadingTakeovers] = useState(true);
   // ✅ NEW: Fetch My Takeover Requests
@@ -166,16 +197,16 @@ export default function ProductsPage() {
     }
   };
 
-  // ✅ NEW: Poll for takeover requests every 30 seconds
-  useEffect(() => {
-    fetchMyTakeoverRequests(); // Initial fetch
+  // // ✅ NEW: Poll for takeover requests every 30 seconds
+  // useEffect(() => {
+  //   fetchMyTakeoverRequests(); // Initial fetch
 
-    const pollInterval = setInterval(() => {
-      fetchMyTakeoverRequests();
-    }, 30000); // 30 seconds
+  //   const pollInterval = setInterval(() => {
+  //     fetchMyTakeoverRequests();
+  //   }, 30000); // 30 seconds
 
-    return () => clearInterval(pollInterval);
-  }, []);
+  //   return () => clearInterval(pollInterval);
+  // }, []);
 
   // ✅ NEW: Cancel Takeover Request Handler
   const handleCancelTakeoverRequest = async (requestId: string) => {
@@ -672,13 +703,36 @@ const handleDelete = async (id: string) => {
   
   <div className="flex items-center gap-3">
     {/* ✅ NEW: My Takeover Requests Button */}
-   <button
-  onClick={() => setShowTakeoverPanel(true)}
-  className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white rounded-lg transition-all shadow-lg hover:shadow-orange-500/30"
->
-  <Send className="w-4 h-4" />
-  My Requests
-</button>
+{/* ==================== MY REQUESTS BUTTON WITH NOTIFICATION ==================== */}
+<div className="relative">
+  <button
+    onClick={() => setShowTakeoverPanel(true)}
+    className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all shadow-lg relative overflow-hidden ${
+      statusCounts.Pending > 0
+        ? 'bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white animate-pulse shadow-orange-500/50'
+        : 'bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white hover:shadow-blue-500/30'
+    }`}
+  >
+    <Send className="w-4 h-4" />
+    My Requests
+    
+    {/* Badge with Ping Animation */}
+    {statusCounts.Pending > 0 && (
+      <span className="relative flex h-5 w-5 ml-1">
+        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"></span>
+        <span className="relative inline-flex rounded-full h-5 w-5 bg-white text-orange-600 items-center justify-center text-xs font-bold">
+          {statusCounts.Pending}
+        </span>
+      </span>
+    )}
+  </button>
+  
+  {/* Additional Glow Ring - Only when active */}
+  {statusCounts.Pending > 0 && (
+    <span className="absolute -inset-1 bg-gradient-to-r from-orange-500 to-red-500 rounded-lg blur-lg opacity-30 animate-pulse -z-10"></span>
+  )}
+</div>
+
 
     {/* ✅ Export Button with Dropdown */}
     <div className="relative">

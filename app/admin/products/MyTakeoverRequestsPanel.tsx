@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import Link from 'next/link';
 import { 
   Send, 
@@ -12,17 +12,14 @@ import {
   Edit, 
   Search 
 } from 'lucide-react';
-import { productLockService, TakeoverRequestData } from '@/lib/services/productLockService'; // ✅ Import type from service
+import { productLockService, TakeoverRequestData } from '@/lib/services/productLockService';
 import { useToast } from '@/components/CustomToast';
-
-// ✅ Remove duplicate interface, use imported one
 
 interface MyTakeoverRequestsPanelProps {
   isOpen: boolean;
   onClose: () => void;
 }
 
-// ✅ FIX: Proper type for status keys
 type StatusKey = 'all' | 'Pending' | 'Approved' | 'Rejected' | 'Expired' | 'Cancelled';
 
 interface StatusCounts {
@@ -34,7 +31,6 @@ interface StatusCounts {
   Cancelled: number;
 }
 
-// ==================== COMPONENT ====================
 export default function MyTakeoverRequestsPanel({ 
   isOpen, 
   onClose 
@@ -47,9 +43,10 @@ export default function MyTakeoverRequestsPanel({
   const [activeTab, setActiveTab] = useState<'active' | 'all'>('active');
   const [statusFilter, setStatusFilter] = useState<StatusKey>('all');
   const [searchQuery, setSearchQuery] = useState('');
+  const [currentTime, setCurrentTime] = useState(() => Date.now()); // ✅ Initialize with current time
 
   // ==================== FETCH DATA ====================
-  const fetchMyTakeoverRequests = async (onlyActive: boolean = true) => {
+  const fetchMyTakeoverRequests = useCallback(async (onlyActive: boolean = true) => {
     setLoadingTakeovers(true);
     try {
       const response = await productLockService.getMyTakeoverRequests(onlyActive);
@@ -64,7 +61,7 @@ export default function MyTakeoverRequestsPanel({
     } finally {
       setLoadingTakeovers(false);
     }
-  };
+  }, [toast]);
 
   // ==================== HANDLERS ====================
   const handleTabChange = (tab: 'active' | 'all') => {
@@ -96,12 +93,10 @@ export default function MyTakeoverRequestsPanel({
   const filteredRequests = useMemo(() => {
     let filtered = [...myTakeoverRequests];
 
-    // Status Filter
     if (statusFilter !== 'all') {
       filtered = filtered.filter(req => req.status === statusFilter);
     }
 
-    // Search Filter
     if (searchQuery.trim()) {
       filtered = filtered.filter(req => 
         req.productName.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -109,7 +104,6 @@ export default function MyTakeoverRequestsPanel({
       );
     }
 
-    // Sort: Pending first, then newest
     filtered.sort((a, b) => {
       if (a.status === 'Pending' && b.status !== 'Pending') return -1;
       if (a.status !== 'Pending' && b.status === 'Pending') return 1;
@@ -157,53 +151,106 @@ export default function MyTakeoverRequestsPanel({
     }
   };
 
+  // ✅ FIXED: Proper timezone handling for countdown
   const formatTimeRemaining = (expiresAt: string) => {
-    const now = new Date().getTime();
-    const expiry = new Date(expiresAt).getTime();
-    const diff = expiry - now;
+    // Parse the expiry date properly
+    // Backend sends UTC time, ensure proper parsing
+    let expiryTime: number;
+    
+    try {
+      // If backend sends UTC time without 'Z', add it
+      const dateString = expiresAt.endsWith('Z') ? expiresAt : expiresAt + 'Z';
+      expiryTime = new Date(dateString).getTime();
+      
+      // If that fails, try direct parsing
+      if (isNaN(expiryTime)) {
+        expiryTime = new Date(expiresAt).getTime();
+      }
+    } catch (error) {
+      console.error('Error parsing date:', error);
+      return 'Invalid date';
+    }
+
+    const diff = expiryTime - currentTime;
 
     if (diff <= 0) return 'Expired';
 
-    const minutes = Math.floor(diff / 60000);
+    const hours = Math.floor(diff / 3600000);
+    const minutes = Math.floor((diff % 3600000) / 60000);
     const seconds = Math.floor((diff % 60000) / 1000);
 
-    if (minutes > 0) return `${minutes}m ${seconds}s`;
-    return `${seconds}s`;
+    // Show hours if > 0
+    if (hours > 0) {
+      return `${hours}h ${minutes}m ${seconds}s`;
+    } else if (minutes > 0) {
+      return `${minutes}m ${seconds}s`;
+    } else {
+      return `${seconds}s`;
+    }
   };
 
   // ==================== EFFECTS ====================
+  // ✅ Effect 1: Data fetching
   useEffect(() => {
-    if (isOpen) {
-      fetchMyTakeoverRequests(activeTab === 'active');
-      
-      // Auto-refresh for active tab
-      if (activeTab === 'active') {
-        const interval = setInterval(() => {
-          fetchMyTakeoverRequests(true);
-        }, 30000);
-        
-        return () => clearInterval(interval);
-      }
-    }
-  }, [isOpen, activeTab]);
+    if (!isOpen) return;
 
-  // Don't render if not open
+    fetchMyTakeoverRequests(activeTab === 'active');
+
+    // Setup data refresh interval for active tab
+    if (activeTab === 'active') {
+      const dataRefreshInterval = setInterval(() => {
+        console.log('⏰ Auto-refresh: Fetching data...');
+        fetchMyTakeoverRequests(true);
+      }, 30000);
+      
+      return () => {
+        console.log('🧹 Cleaning up data refresh interval...');
+        clearInterval(dataRefreshInterval);
+      };
+    }
+  }, [isOpen, activeTab, fetchMyTakeoverRequests]);
+
+  // ✅ Effect 2: Timer countdown (separate effect)
+  useEffect(() => {
+    if (!isOpen || activeTab !== 'active') return;
+
+    // Check if there are any pending requests
+    const hasPendingRequests = myTakeoverRequests.some(
+      req => req.status === 'Pending' && !req.isExpired
+    );
+
+    if (hasPendingRequests) {
+      console.log('⏱️ Starting countdown timer...');
+      
+      // Update immediately
+      setCurrentTime(Date.now());
+      
+      // Then update every second
+      const timerInterval = setInterval(() => {
+        setCurrentTime(Date.now());
+      }, 1000);
+      
+      return () => {
+        console.log('🧹 Cleaning up timer interval...');
+        clearInterval(timerInterval);
+      };
+    }
+  }, [isOpen, activeTab, myTakeoverRequests]);
+
   if (!isOpen) return null;
 
   // ==================== RENDER ====================
   return (
     <>
-      {/* Backdrop */}
       <div 
         className="fixed inset-0 bg-black/50 z-40 backdrop-blur-sm flex items-start justify-center pt-12"
         onClick={onClose}
       >
-        {/* Panel Container - Blue/Black Theme */}
         <div 
           className="z-50 bg-slate-950 border-2 border-blue-500/30 rounded-xl shadow-2xl shadow-blue-500/20 overflow-hidden max-w-[98%] w-[90%]"
           onClick={(e) => e.stopPropagation()}
         >
-          {/* ==================== HEADER ==================== */}
+          {/* HEADER */}
           <div className="flex items-center justify-between px-6 py-4 border-b border-blue-500/20 bg-gradient-to-r from-blue-500/10 via-slate-900 to-blue-500/10">
             <h3 className="text-xl font-bold text-white flex items-center gap-3">
               <div className="p-2 bg-blue-500/20 rounded-lg">
@@ -219,10 +266,9 @@ export default function MyTakeoverRequestsPanel({
             </button>
           </div>
 
-          {/* ==================== INLINE FILTERS ROW ==================== */}
+          {/* FILTERS ROW */}
           <div className="px-6 py-4 border-b border-slate-800 bg-slate-900/50">
             <div className="flex items-center gap-4 flex-wrap">
-              {/* Tabs */}
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => handleTabChange('active')}
@@ -241,28 +287,8 @@ export default function MyTakeoverRequestsPanel({
                     </span>
                   )}
                 </button>
-                
-                {/* <button
-                  onClick={() => handleTabChange('all')}
-                  className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all ${
-                    activeTab === 'all'
-                      ? 'bg-gradient-to-r from-blue-600 to-blue-500 text-white shadow-lg shadow-blue-500/30 border border-blue-400/30'
-                      : 'bg-slate-800 text-slate-300 hover:bg-slate-700 border border-slate-700'
-                  }`}
-                >
-                  All History
-                  <span className={`ml-2 px-2 py-0.5 rounded-full text-xs font-bold ${
-                    activeTab === 'all' ? 'bg-white/20' : 'bg-blue-500/20 text-blue-400'
-                  }`}>
-                    {statusCounts.all}
-                  </span>
-                </button> */}
               </div>
 
-              {/* Divider */}
-              {/* <div className="h-8 w-px bg-slate-700"></div> */}
-
-              {/* ==================== STATUS FILTERS (Always Visible) ==================== */}
               {activeTab === 'all' && (
                 <>
                   <div className="flex items-center gap-2">
@@ -272,12 +298,12 @@ export default function MyTakeoverRequestsPanel({
                     
                     {(
                       [
-                        { key: 'all', label: 'All', activeClass: 'bg-slate-700 text-white border-slate-600', inactiveClass: '' },
-                        { key: 'Pending', label: 'Pending', activeClass: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/40', inactiveClass: '' },
-                        { key: 'Approved', label: 'Approved', activeClass: 'bg-green-500/20 text-green-400 border-green-500/40', inactiveClass: '' },
-                        { key: 'Rejected', label: 'Rejected', activeClass: 'bg-red-500/20 text-red-400 border-red-500/40', inactiveClass: '' },
-                        { key: 'Expired', label: 'Expired', activeClass: 'bg-orange-500/20 text-orange-400 border-orange-500/40', inactiveClass: '' },
-                        { key: 'Cancelled', label: 'Cancelled', activeClass: 'bg-gray-500/20 text-gray-400 border-gray-500/40', inactiveClass: '' },
+                        { key: 'all', label: 'All', activeClass: 'bg-slate-700 text-white border-slate-600' },
+                        { key: 'Pending', label: 'Pending', activeClass: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/40' },
+                        { key: 'Approved', label: 'Approved', activeClass: 'bg-green-500/20 text-green-400 border-green-500/40' },
+                        { key: 'Rejected', label: 'Rejected', activeClass: 'bg-red-500/20 text-red-400 border-red-500/40' },
+                        { key: 'Expired', label: 'Expired', activeClass: 'bg-orange-500/20 text-orange-400 border-orange-500/40' },
+                        { key: 'Cancelled', label: 'Cancelled', activeClass: 'bg-gray-500/20 text-gray-400 border-gray-500/40' },
                       ] as const
                     ).map(filter => (
                       <button
@@ -294,12 +320,10 @@ export default function MyTakeoverRequestsPanel({
                     ))}
                   </div>
 
-                  {/* Divider */}
                   <div className="h-8 w-px bg-slate-700"></div>
                 </>
               )}
 
-              {/* Search Box */}
               <div className="relative flex-1 min-w-[280px] max-w-md ml-auto">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                 <input
@@ -321,7 +345,7 @@ export default function MyTakeoverRequestsPanel({
             </div>
           </div>
 
-          {/* ==================== TABLE CONTENT ==================== */}
+          {/* TABLE */}
           <div className="max-h-[60vh] overflow-auto bg-slate-950">
             {loadingTakeovers ? (
               <div className="text-center py-16">
@@ -385,14 +409,12 @@ export default function MyTakeoverRequestsPanel({
                         index % 2 === 0 ? 'bg-slate-950' : 'bg-slate-900/30'
                       }`}
                     >
-                      {/* Product Name */}
                       <td className="px-4 py-3">
                         <div className="text-white font-semibold text-sm max-w-[220px] truncate" title={request.productName}>
                           {request.productName}
                         </div>
                       </td>
 
-                      {/* Status */}
                       <td className="px-4 py-3 text-center">
                         <span
                           className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border-2 whitespace-nowrap ${getStatusColor(
@@ -407,14 +429,12 @@ export default function MyTakeoverRequestsPanel({
                         </span>
                       </td>
 
-                      {/* Requested To */}
                       <td className="px-4 py-3">
                         <div className="text-slate-300 text-xs max-w-[180px] truncate" title={request.currentEditorEmail}>
                           {request.currentEditorEmail}
                         </div>
                       </td>
 
-                      {/* Message */}
                       <td className="px-4 py-3">
                         {request.requestMessage ? (
                           <div className="text-slate-400 text-xs italic max-w-[200px] truncate" title={request.requestMessage}>
@@ -425,7 +445,6 @@ export default function MyTakeoverRequestsPanel({
                         )}
                       </td>
 
-                      {/* Response (Only in "All" tab) */}
                       {activeTab === 'all' && (
                         <td className="px-4 py-3">
                           {request.responseMessage ? (
@@ -438,7 +457,6 @@ export default function MyTakeoverRequestsPanel({
                         </td>
                       )}
 
-                      {/* Time / Date */}
                       <td className="px-4 py-3 text-center">
                         {activeTab === 'active' && request.status === 'Pending' && !request.isExpired ? (
                           <div className="flex items-center justify-center gap-1.5 text-orange-400 text-xs font-bold whitespace-nowrap">
@@ -463,7 +481,6 @@ export default function MyTakeoverRequestsPanel({
                         )}
                       </td>
 
-                      {/* Actions */}
                       <td className="px-4 py-3">
                         <div className="flex items-center justify-center gap-2">
                           {request.status === 'Pending' && !request.isExpired ? (
@@ -494,7 +511,7 @@ export default function MyTakeoverRequestsPanel({
             )}
           </div>
 
-          {/* ==================== FOOTER ==================== */}
+          {/* FOOTER */}
           {filteredRequests.length > 0 && (
             <div className="px-6 py-3 border-t-2 border-blue-500/20 bg-gradient-to-r from-blue-500/5 via-slate-900 to-blue-500/5">
               <p className="text-xs text-slate-400 text-center font-medium">
