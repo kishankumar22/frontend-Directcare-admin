@@ -29,6 +29,25 @@ export default function ManageBanners() {
     inactiveBanners: 0,
     upcomingBanners: 0
   });
+type BannerStatus =
+  | 'LIVE'
+  | 'INACTIVE'
+  | 'EXPIRED'
+  | 'SCHEDULED';
+
+function getBannerStatus(banner: any): BannerStatus {
+  const now = new Date();
+
+  if (!banner.isActive) return 'INACTIVE';
+
+  if (banner.startDate && new Date(banner.startDate) > now)
+    return 'SCHEDULED';
+
+  if (banner.endDate && new Date(banner.endDate) < now)
+    return 'EXPIRED';
+
+  return 'LIVE';
+}
 
   const calculateStats = (bannersData: Banner[]) => {
     const totalBanners = bannersData.length;
@@ -123,89 +142,190 @@ export default function ManageBanners() {
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (!formData.title.trim()) {
-      toast.error("Banner title is required");
-      return;
-    }
-    if (!formData.bannerType) {
-      toast.error("Banner type is required");
-      return;
-    }
-    if (!editingBanner && !imageFile) {
-      toast.error("Banner image is required");
-      return;
-    }
+const handleSubmit = async (e: React.FormEvent) => {
+  e.preventDefault();
 
+  // 🔴 BASIC REQUIRED VALIDATIONS
+  if (!formData.title.trim()) {
+    toast.error("Banner title is required");
+    return;
+  }
+
+  if (!formData.bannerType) {
+    toast.error("Banner type is required");
+    return;
+  }
+
+  if (!editingBanner && !imageFile) {
+    toast.error("Banner image is required");
+    return;
+  }
+
+  // 🔴 DISPLAY ORDER VALIDATION
+  if (Number(formData.displayOrder) < 0) {
+    toast.error("Display order cannot be negative.");
+    return;
+  }
+
+  // 🔴 LINK URL VALIDATION
+  if (formData.link) {
     try {
-      let finalImageUrl = formData.imageUrl;
+      new URL(formData.link);
+    } catch {
+      toast.error("Please enter a valid banner link URL.");
+      return;
+    }
+  }
 
-      if (imageFile) {
-        try {
-          const uploadResponse = await bannersService.uploadImage(imageFile, {
-            title: formData.title
-          });
-          if (!uploadResponse.data?.success || !uploadResponse.data?.data) {
-            throw new Error(uploadResponse.data?.message || "Image upload failed");
-          }
-          finalImageUrl = uploadResponse.data.data;
-          toast.success("Image uploaded successfully!");
+  // 🔴 DATE VALIDATIONS
+  if (formData.startDate && formData.endDate) {
+    const start = new Date(formData.startDate);
+    const end = new Date(formData.endDate);
 
-          if (editingBanner?.imageUrl && editingBanner.imageUrl !== finalImageUrl) {
-            const filename = extractFilename(editingBanner.imageUrl);
-            if (filename) {
-              try {
-                await bannersService.deleteImage(filename);
-              } catch (err) {
-                console.log("Failed to delete old image:", err);
-              }
+    if (end < start) {
+      toast.error(
+        `End date cannot be earlier than start date.
+Example: If start date is ${start.toLocaleDateString()}, end date must be after it.`
+      );
+      return;
+    }
+
+    if (start.getTime() === end.getTime()) {
+      toast.error("Start date and end date cannot be the same.");
+      return;
+    }
+  }
+
+  if (formData.endDate) {
+    const end = new Date(formData.endDate);
+    const now = new Date();
+
+    if (end < now) {
+      toast.error("End date cannot be in the past.");
+      return;
+    }
+  }
+
+  if (formData.startDate && !formData.isActive) {
+    const start = new Date(formData.startDate);
+    const now = new Date();
+
+    if (start > now) {
+      toast.error("Inactive banner cannot have a future start date.");
+      return;
+    }
+  }
+
+  // 🔴 OFFER FIELDS CONSISTENCY
+  if (formData.offerText && !formData.buttonText) {
+    toast.error("Button text is required when offer text is provided.");
+    return;
+  }
+
+  if (formData.buttonText && !formData.offerText) {
+    toast.error("Offer text is required when button text is provided.");
+    return;
+  }
+
+  // 🔴 DISCOUNT RANGE
+if (formData.discountPercentage !== null) {
+  const discount = Number(formData.discountPercentage);
+
+  if (isNaN(discount) || discount <= 0 || discount > 100) {
+    toast.error("Discount percentage must be between 1 and 100.");
+    return;
+  }
+}
+
+
+  // 🔴 EMPTY HTML DESCRIPTION (TinyMCE / Rich text)
+  if (
+    formData.description &&
+    formData.description.replace(/<[^>]*>/g, "").trim() === ""
+  ) {
+    toast.error("Banner description cannot be empty.");
+    return;
+  }
+
+  try {
+    let finalImageUrl = formData.imageUrl;
+
+    // 🟢 IMAGE UPLOAD
+    if (imageFile) {
+      try {
+        const uploadResponse = await bannersService.uploadImage(imageFile, {
+          title: formData.title,
+        });
+
+        if (!uploadResponse.data?.success || !uploadResponse.data?.data) {
+          throw new Error(uploadResponse.data?.message || "Image upload failed");
+        }
+
+        finalImageUrl = uploadResponse.data.data;
+        toast.success("Image uploaded successfully!");
+
+        if (
+          editingBanner?.imageUrl &&
+          editingBanner.imageUrl !== finalImageUrl
+        ) {
+          const filename = extractFilename(editingBanner.imageUrl);
+          if (filename) {
+            try {
+              await bannersService.deleteImage(filename);
+            } catch (err) {
+              console.log("Failed to delete old image:", err);
             }
           }
-        } catch (uploadErr: any) {
-          console.error("Error uploading image:", uploadErr);
-          toast.error(uploadErr?.response?.data?.message || "Failed to upload image");
-          return;
         }
+      } catch (uploadErr: any) {
+        console.error("Error uploading image:", uploadErr);
+        toast.error(
+          uploadErr?.response?.data?.message || "Failed to upload image"
+        );
+        return;
       }
-
-      const payload = {
-        title: formData.title.trim(),
-        imageUrl: finalImageUrl,
-        link: formData.link || "",
-        description: formData.description || "",
-        bannerType: formData.bannerType,
-        offerCode: formData.offerCode || null,
-        discountPercentage: formData.discountPercentage || null,
-        offerText: formData.offerText || null,
-        buttonText: formData.buttonText || null,
-        isActive: Boolean(formData.isActive),
-        displayOrder: Number(formData.displayOrder) || 0,
-        startDate: formData.startDate || null,
-        endDate: formData.endDate || null,
-        ...(editingBanner && { id: editingBanner.id }),
-      };
-
-      if (editingBanner) {
-        await bannersService.update(editingBanner.id, payload);
-        toast.success("Banner updated successfully!");
-      } else {
-        await bannersService.create(payload);
-        toast.success("Banner created successfully!");
-      }
-
-      if (imagePreview) URL.revokeObjectURL(imagePreview);
-      setImageFile(null);
-      setImagePreview(null);
-      await fetchBanners();
-      setShowModal(false);
-      resetForm();
-    } catch (error: any) {
-      console.error("Error:", error);
-      toast.error(error?.response?.data?.message || "Failed to save banner");
     }
-  };
+
+    // 🟢 FINAL PAYLOAD
+    const payload = {
+      title: formData.title.trim(),
+      imageUrl: finalImageUrl,
+      link: formData.link || "",
+      description: formData.description || "",
+      bannerType: formData.bannerType,
+      offerCode: formData.offerCode || null,
+      discountPercentage: formData.discountPercentage || null,
+      offerText: formData.offerText || null,
+      buttonText: formData.buttonText || null,
+      isActive: Boolean(formData.isActive),
+      displayOrder: Number(formData.displayOrder) || 0,
+      startDate: formData.startDate || null,
+      endDate: formData.endDate || null,
+      ...(editingBanner && { id: editingBanner.id }),
+    };
+
+    // 🟢 CREATE / UPDATE
+    if (editingBanner) {
+      await bannersService.update(editingBanner.id, payload);
+      toast.success("Banner updated successfully!");
+    } else {
+      await bannersService.create(payload);
+      toast.success("Banner created successfully!");
+    }
+
+    // 🟢 CLEANUP
+    if (imagePreview) URL.revokeObjectURL(imagePreview);
+    setImageFile(null);
+    setImagePreview(null);
+    await fetchBanners();
+    setShowModal(false);
+    resetForm();
+  } catch (error: any) {
+    console.error("Error:", error);
+    toast.error(error?.response?.data?.message || "Failed to save banner");
+  }
+};
+
 
   useEffect(() => {
     fetchBanners();
@@ -609,15 +729,35 @@ export default function ManageBanners() {
                         {banner.bannerType || 'Homepage'}
                       </span>
                     </td>
-                    <td className="py-4 px-4 text-center">
-                      <span className={`px-3 py-1 rounded-lg text-xs font-medium ${
-                        banner.isActive
-                          ? 'bg-green-500/10 text-green-400'
-                          : 'bg-red-500/10 text-red-400'
-                      }`}>
-                        {banner.isActive ? 'Active' : 'Inactive'}
-                      </span>
-                    </td>
+                <td className="py-4 px-4 text-center">
+  {(() => {
+    const status = getBannerStatus(banner);
+
+    const statusStyles = {
+      LIVE: 'bg-green-500/15 text-green-400',
+      INACTIVE: 'bg-slate-500/15 text-slate-400',
+      EXPIRED: 'bg-red-500/15 text-red-400',
+      SCHEDULED: 'bg-yellow-500/15 text-yellow-400',
+    };
+
+    const statusLabels = {
+      LIVE: 'Live',
+      INACTIVE: 'Inactive',
+      EXPIRED: 'Expired',
+      SCHEDULED: 'Scheduled',
+    };
+
+    return (
+      <span
+        className={`px-3 py-1 rounded-lg text-xs font-semibold ${statusStyles[status]}`}
+        title={`Status: ${statusLabels[status]}`}
+      >
+        {statusLabels[status]}
+      </span>
+    );
+  })()}
+</td>
+
                     <td className="py-4 px-4 text-center text-slate-300">{banner.displayOrder || 0}</td>
                     <td className="py-4 px-4 text-slate-300 text-sm">
                       {banner.startDate ? new Date(banner.startDate).toLocaleString() : '-'}

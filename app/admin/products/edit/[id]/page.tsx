@@ -112,7 +112,7 @@ const [formData, setFormData] = useState({
   shortDescription: '',
   fullDescription: '',
   sku: '',
-   categoryIds: [] as string[], // NEW - multiple categories array
+  categoryIds: [] as string[], // NEW - multiple categories array
   brand: '', // For backward compatibility (primary brand)
   brandIds: [] as string[], // ✅ Multiple brands array
   
@@ -137,7 +137,8 @@ const [formData, setFormData] = useState({
   // ===== RELATED PRODUCTS =====
   relatedProducts: [] as string[],
   crossSellProducts: [] as string[],
-   // ✅ ADD THESE NEW BUNDLE DISCOUNT FIELDS
+  
+  // ✅ BUNDLE DISCOUNT FIELDS
   groupBundleDiscountType: 'None' as 'None' | 'Percentage' | 'FixedAmount' | 'SpecialPrice',
   groupBundleDiscountPercentage: 0,
   groupBundleDiscountAmount: 0,
@@ -149,7 +150,7 @@ const [formData, setFormData] = useState({
   // ===== MEDIA =====
   productImages: [] as ProductImage[],
   videoUrls: [] as string[],
-  specifications: [] as Array<{id: string, name: string, value: string, displayOrder: number}>, // ✅ ADD THIS LINE
+  specifications: [] as Array<{id: string, name: string, value: string, displayOrder: number}>,
 
   // ===== PRICING =====
   price: '',
@@ -159,7 +160,6 @@ const [formData, setFormData] = useState({
   disableWishlistButton: false,
   availableForPreOrder: false,
   preOrderAvailabilityStartDate: '',
-
   
   // Base Price
   basepriceEnabled: false,
@@ -181,7 +181,6 @@ const [formData, setFormData] = useState({
   // ===== TAX =====
   vatExempt: false,
   vatRateId: '',
-
 
   // ===== RECURRING / SUBSCRIPTION =====
   isRecurring: false,
@@ -225,13 +224,23 @@ const [formData, setFormData] = useState({
 
   // ===== SHIPPING =====
   isShipEnabled: true,
-
   shipSeparately: false,
   deliveryDateId: '',
   weight: '',
   length: '',
   width: '',
   height: '',
+  
+  // ✅ NEW DELIVERY FIELDS (ADDED)
+  sameDayDeliveryEnabled: false,
+  nextDayDeliveryEnabled: false,
+  standardDeliveryEnabled: true,
+  sameDayDeliveryCutoffTime: '',
+  nextDayDeliveryCutoffTime: '',
+  standardDeliveryDays: '5',
+  sameDayDeliveryCharge: '',
+  nextDayDeliveryCharge: '',
+  standardDeliveryCharge: '',
 
   // ===== GIFT CARDS =====
   isGiftCard: false,
@@ -264,6 +273,7 @@ const [formData, setFormData] = useState({
   metaDescription: '',
   searchEngineFriendlyPageName: '',
 });
+
 const [productLock, setProductLock] = useState<{
   isLocked: boolean;
   lockedBy: string | null;
@@ -689,6 +699,19 @@ categoryIds: (() => {
         
         // ===== REVIEWS =====
         allowCustomerReviews: productData.allowCustomerReviews ?? true,
+        // ✅ SHIPPING & DELIVERY (Add this section)
+
+  
+  // ✅ DELIVERY OPTIONS (NEW)
+  sameDayDeliveryEnabled: productData.sameDayDeliveryEnabled ?? false,
+  nextDayDeliveryEnabled: productData.nextDayDeliveryEnabled ?? false,
+  standardDeliveryEnabled: productData.standardDeliveryEnabled ?? true,
+  sameDayDeliveryCutoffTime: productData.sameDayDeliveryCutoffTime || '',
+  nextDayDeliveryCutoffTime: productData.nextDayDeliveryCutoffTime || '',
+  standardDeliveryDays: productData.standardDeliveryDays?.toString() || '5',
+  sameDayDeliveryCharge: productData.sameDayDeliveryCharge?.toString() || '',
+  nextDayDeliveryCharge: productData.nextDayDeliveryCharge?.toString() || '',
+  standardDeliveryCharge: productData.standardDeliveryCharge?.toString() || '',
         
         // ===== TAGS & RELATED =====
         productTags: productData.tags || '',
@@ -701,6 +724,7 @@ categoryIds: (() => {
         specifications: []
       });
 
+      
       console.log('✅ Form data populated');
       console.log('🎁 Bundle discount loaded:', {
         type: productData.groupBundleDiscountType || 'None',
@@ -1496,16 +1520,10 @@ useEffect(() => {
         }
 
         // Show saving message
-        toast.info('💾 Lock expired! Auto-saving your changes...', {
+        toast.info('💾 Lock expired!  your Chnages will be discorded', {
           autoClose: 3000,
           position: 'top-center'
         });
-        
-        // ✅ DIRECT BUTTON CLICK FUNCTIONALITY
-        // Parameters: (event, stayOnPage, releaseLockAfter)
-        // releaseLockAfter = true → will save, release lock, and redirect
-        handleSubmit(undefined, false, true);
-        
         return 0;
       }
 
@@ -1763,52 +1781,35 @@ const handleSubmit = async (
   isDraft: boolean = false,
   releaseLockAfter: boolean = true
 ) => {
-  // ✅ Handle both form submit and direct call
   if (e) {
     e.preventDefault();
   }
   
-  // ✅ Use document.body as fallback if no event target
   const target = (e?.target as HTMLElement) || document.body;
 
   console.log('🚀 [SUBMIT] Starting submission...');
-  console.log('📊 [SUBMIT] Current state:', {
-    isAcquiringLock,
-    hasLock: productLock?.isLocked,
-    lockedBy: productLock?.lockedBy,
-    expiresAt: productLock?.expiresAt
-  });
 
-  // ⚡ CHECK 1: Already submitting?
+  // ⚡ CHECKS 1-4 (Keep as is - already correct)
   if (target.hasAttribute('data-submitting')) {
     console.warn('⚠️ [SUBMIT] Already submitting - blocked');
     toast.info('⏳ Already submitting... Please wait!');
     return;
   }
 
-  // ⚡ CHECK 2: Lock still being acquired?
   if (isAcquiringLock) {
     console.warn('⚠️ [SUBMIT] Lock still being acquired - blocked');
     toast.warning('⏳ Acquiring edit lock... Please wait a moment.');
     return;
   }
 
-  // ⚡ CHECK 3: Do we have a valid lock?
   if (!productLock || !productLock.isLocked) {
     toast.error('❌ Cannot save: Product edit lock not acquired. Please try again.');
     return;
   }
 
-  // ⚡ CHECK 4: Is lock expired?
   if (productLock.expiresAt) {
     const expiryTime = new Date(productLock.expiresAt).getTime();
     const currentTime = new Date().getTime();
-    
-    console.log('⏰ [SUBMIT] Lock expiry check:', {
-      expiresAt: new Date(expiryTime).toISOString(),
-      currentTime: new Date(currentTime).toISOString(),
-      isExpired: currentTime >= expiryTime
-    });
     
     if (currentTime >= expiryTime) {
       console.warn('⚠️ [SUBMIT] Lock expired - refreshing');
@@ -1823,20 +1824,16 @@ const handleSubmit = async (
     
   try {
     // ==========================================
-    // ✅ VALIDATION - BASIC FIELDS
+    // ✅ VALIDATION (Keep as is)
     // ==========================================
     
     if (!formData.name || !formData.sku) {
-      console.error('❌ [VALIDATION] Missing required fields');
       toast.error('⚠️ Please fill in required fields: Product Name and SKU.');
       target.removeAttribute('data-submitting');
       return;
     }
 
-    // ==========================================
-    // ✅ SKU VALIDATION USING SERVICE
-    // ==========================================
-    
+    // SKU CHECK (Keep as is)
     try {
       console.log('🔍 [SKU CHECK] Checking SKU uniqueness...');
       const allProducts = await productsService.getAll();
@@ -1849,45 +1846,31 @@ const handleSubmit = async (
       );
       
       if (skuExists) {
-        console.error('❌ [SKU CHECK] SKU already exists');
         toast.error('❌ SKU already exists. Please use a unique SKU.');
         target.removeAttribute('data-submitting');
         return;
       }
-      console.log('✅ [SKU CHECK] SKU is unique');
     } catch (error) {
       console.warn('⚠️ [SKU CHECK] Could not check SKU uniqueness:', error);
     }
 
-    console.log('✅ [VALIDATION] Basic validation passed');
-
-    // ==========================================
-    // ✅ HELPER FUNCTION - SAFE NUMBER PARSING
-    // ==========================================
-    
+    // HELPER FUNCTION (Keep as is)
     const parseNumber = (value: any, fieldName: string = ''): number | null => {
       if (value === null || value === undefined || value === '') {
         return null;
       }
-
       const cleaned = String(value).trim().replace(/[^\d.-]/g, '');
       const parsed = parseFloat(cleaned);
-      
       if (isNaN(parsed)) {
         console.warn(`⚠️ Invalid number for ${fieldName}:`, value);
         return null;
       }
-
       return parsed;
     };
 
-    // ==========================================
-    // ✅ PRICE VALIDATION
-    // ==========================================
-    
+    // PRICE VALIDATION (Keep as is)
     const parsedPrice = parseNumber(formData.price, 'price');
     if (parsedPrice === null || parsedPrice < 0) {
-      console.error('❌ [VALIDATION] Invalid price');
       toast.error('⚠️ Please enter a valid product price (must be 0 or greater).');
       target.removeAttribute('data-submitting');
       return;
@@ -1896,22 +1879,7 @@ const handleSubmit = async (
     const parsedOldPrice = parseNumber(formData.oldPrice, 'oldPrice');
     const parsedCost = parseNumber(formData.cost, 'cost');
 
-    if (parsedOldPrice !== null && parsedOldPrice < 0) {
-      toast.error('⚠️ Old price must be 0 or greater.');
-      target.removeAttribute('data-submitting');
-      return;
-    }
-
-    if (parsedCost !== null && parsedCost < 0) {
-      toast.error('⚠️ Cost price must be 0 or greater.');
-      target.removeAttribute('data-submitting');
-      return;
-    }
-
-    // ==========================================
-    // ✅ NAME VALIDATION
-    // ==========================================
-    
+    // NAME VALIDATION (Keep as is)
     const nameRegex = /^[A-Za-z0-9\s\-.,()'/]+$/;
     if (!nameRegex.test(formData.name)) {
       toast.error("⚠️ Invalid product name. Special characters like @, #, $, % are not allowed.");
@@ -1919,24 +1887,9 @@ const handleSubmit = async (
       return;
     }
 
-    // ==========================================
-    // ✅ GROUPED PRODUCT VALIDATION
-    // ==========================================
-    
-    if (formData.productType === 'grouped' && formData.requireOtherProducts) {
-      if (!formData.requiredProductIds || !formData.requiredProductIds.trim()) {
-        toast.error('⚠️ Please select at least one product for grouped product.');
-        target.removeAttribute('data-submitting');
-        return;
-      }
-    }
-
     const guidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-    // ==========================================
-    // ✅ PROCESS CATEGORY ID
-    // ==========================================
-    
+    // PROCESS CATEGORIES (Keep as is)
     let categoryIdsArray: string[] = [];
     if (formData.categoryIds && Array.isArray(formData.categoryIds) && formData.categoryIds.length > 0) {
       categoryIdsArray = formData.categoryIds.filter(id => {
@@ -1951,10 +1904,7 @@ const handleSubmit = async (
       return;
     }
 
-    // ==========================================
-    // ✅ PROCESS MULTIPLE BRANDS
-    // ==========================================
-    
+    // PROCESS BRANDS (Keep as is)
     let brandIdsArray: string[] = [];
 
     if (formData.brandIds && Array.isArray(formData.brandIds) && formData.brandIds.length > 0) {
@@ -1985,26 +1935,44 @@ const handleSubmit = async (
     console.log('✅ [VALIDATION] All validations passed');
 
     // ==========================================
-    // ✅ PREPARE ATTRIBUTES
+    // ✅ PREPARE ATTRIBUTES WITH ID
     // ==========================================
     
     const attributesArray = productAttributes
       ?.filter(attr => attr.name && attr.value)
-      .map(attr => ({
-        id: attr.id || undefined,
-        name: attr.name,
-        value: attr.value,
-        displayOrder: attr.displayOrder || 0
-      }));
+      .map(attr => {
+        const isExistingAttr = attr.id && guidRegex.test(attr.id);
+        const attrData: any = {
+          name: attr.name,
+          value: attr.value,
+          displayOrder: attr.displayOrder || 0
+        };
+        
+        // ✅ Add ID only for existing attributes
+        if (isExistingAttr) {
+          attrData.id = attr.id;
+        }
+        
+        return attrData;
+      });
 
     // ==========================================
-    // ✅ PREPARE VARIANTS
+    // ✅ PREPARE VARIANTS WITH ID - FIXED
     // ==========================================
     
     const variantsArray = productVariants?.map(variant => {
       const imageUrl = variant.imageUrl?.startsWith('blob:') ? null : variant.imageUrl;
       
-      return {
+      // ✅ CHECK IF VARIANT HAS VALID GUID
+      const isExistingVariant = variant.id && guidRegex.test(variant.id);
+      
+      console.log(`🔍 Variant "${variant.name}":`, {
+        id: variant.id,
+        isExisting: isExistingVariant
+      });
+      
+      // ✅ BUILD VARIANT OBJECT
+      const variantData: any = {
         name: variant.name || '',
         sku: variant.sku || '',
         price: typeof variant.price === 'number' ? variant.price : (parseNumber(variant.price, 'variant.price') ?? 0),
@@ -2026,10 +1994,21 @@ const handleSubmit = async (
         gtin: variant.gtin || null,
         barcode: variant.sku || null
       };
+      
+      // ✅ ADD ID FOR EXISTING VARIANTS
+      if (isExistingVariant) {
+        variantData.id = variant.id;
+        console.log(`✅ Added ID to variant: ${variant.id}`);
+      }
+      
+      return variantData;
     });
 
+    console.log("✅ VARIANTS PREPARED:");
+    console.log(JSON.stringify(variantsArray, null, 2));
+
     // ==========================================
-    // ✅ BUILD PRODUCT DATA OBJECT
+    // ✅ BUILD PRODUCT DATA OBJECT - COMPLETE
     // ==========================================
     
     const productData: any = {
@@ -2099,7 +2078,6 @@ const handleSubmit = async (
       categoryIds: categoryIdsArray,
       
       // Additional Fields
-      vendor: null,
       tags: formData.productTags?.trim() || null,
       
       // Pricing
@@ -2178,6 +2156,15 @@ const handleSubmit = async (
       weightUnit: 'kg',
       dimensionUnit: 'cm',
       
+      // ✅ NEW DELIVERY FIELDS FROM SCHEMA
+      sameDayDeliveryEnabled: formData.sameDayDeliveryEnabled ?? false,
+      nextDayDeliveryEnabled: formData.nextDayDeliveryEnabled ?? false,
+      standardDeliveryEnabled: formData.standardDeliveryEnabled ?? true,
+      standardDeliveryDays: parseInt(formData.standardDeliveryDays) || 5,
+      sameDayDeliveryCharge: parseNumber(formData.sameDayDeliveryCharge, 'sameDayDeliveryCharge') || 0,
+      nextDayDeliveryCharge: parseNumber(formData.nextDayDeliveryCharge, 'nextDayDeliveryCharge') || 0,
+      standardDeliveryCharge: parseNumber(formData.standardDeliveryCharge, 'standardDeliveryCharge') || 0,
+      
       // Recurring/Subscription
       isRecurring: formData.isRecurring ?? false,
       recurringCycleLength: formData.isRecurring ? parseInt(formData.recurringCycleLength) || 0 : null,
@@ -2208,7 +2195,7 @@ const handleSubmit = async (
         ? formData.videoUrls.join(',') 
         : null,
       
-      // Attributes & Variants
+      // ✅ ATTRIBUTES & VARIANTS WITH IDs
       attributes: attributesArray && attributesArray.length > 0 ? attributesArray : [],
       variants: variantsArray && variantsArray.length > 0 ? variantsArray : [],
       
@@ -2222,19 +2209,11 @@ const handleSubmit = async (
     };
 
     // ==========================================
-    // ✅ CLEAN UP EMPTY VALUES
+    // ✅ DON'T CLEAN - Keep all fields including IDs
     // ==========================================
     
-    const cleanProductData = Object.fromEntries(
-      Object.entries(productData).filter(([key, value]) => {
-        if (value === false || value === 0) return true;
-        if (Array.isArray(value)) return true;
-        return value !== null && value !== undefined && value !== '';
-      })
-    );
-
     console.log('📦 ==================== FINAL PAYLOAD ====================');
-    console.log(JSON.stringify(cleanProductData, null, 2));
+    console.log(JSON.stringify(productData, null, 2));
     console.log('📦 ==================== END PAYLOAD ====================');
 
     // ==========================================
@@ -2242,7 +2221,7 @@ const handleSubmit = async (
     // ==========================================
     
     console.log('📤 [API] Updating product using service...');
-    const response = await productsService.update(productId, cleanProductData);
+    const response = await productsService.update(productId, productData);
 
     console.log('📥 [API] Response received:', response);
 
@@ -2258,42 +2237,34 @@ const handleSubmit = async (
     if (response.data) {
       const apiResponse = response.data;
       
-      console.log('🔍 [RESPONSE] Checking success flag:', apiResponse.success);
-      
       if (apiResponse.success === true || apiResponse.success === undefined) {
         console.log('✅ [SUCCESS] Product updated successfully');
+        
+        // ✅ LOG RETURNED VARIANTS
+        if (apiResponse.data?.variants) {
+          console.log('✅ VARIANTS IN RESPONSE:', apiResponse.data.variants);
+        }
         
         toast.success(
           isDraft ? '✅ Product saved as draft!' : '✅ Product updated successfully!',
           { autoClose: 3000 }
         );
 
-        // ==========================================
-        // ✅ CONDITIONAL LOCK RELEASE
-        // ==========================================
-        
         if (releaseLockAfter) {
-          console.log('🔓 [LOCK] Releasing lock using service...');
           try {
             await productLockService.releaseLock(productId);
-            console.log('✅ [LOCK] Lock released successfully');
           } catch (lockError) {
             console.warn('⚠️ [LOCK] Failed to release lock:', lockError);
           }
 
           setTimeout(() => {
-            console.log('🔄 [REDIRECT] Redirecting to products list');
             router.push('/admin/products');
           }, 800);
-        } else {
-          console.log('🔒 [LOCK] Keeping lock (save-before-approve mode)');
         }
       } else if (apiResponse.success === false) {
-        console.error('❌ [ERROR] Backend returned success: false');
         throw new Error(apiResponse.message || 'Update failed');
       }
     } else {
-      console.error('❌ [ERROR] No response data received');
       throw new Error('No response received from server');
     }
 
@@ -2306,10 +2277,8 @@ const handleSubmit = async (
       response: error.response?.data,
       status: error.response?.status
     });
-    console.error('❌ ==================== END ERROR ====================');
     
     let errorMessage = 'Failed to update product';
-    
     if (error.message) {
       errorMessage = error.message;
     }
@@ -2321,6 +2290,7 @@ const handleSubmit = async (
     console.log('🏁 [SUBMIT] Submission process completed');
   }
 };
+
 
 
 
@@ -2846,16 +2816,19 @@ const addProductVariant = () => {
     weight: formData.weight ? parseFloat(formData.weight) : null,
     stockQuantity: 0,
     trackInventory: true,
-    option1Name: null,
-    option1Value: null,
-    option2Name: null,
-    option2Value: null,
-    option3Name: null,
-    option3Value: null,
+    
+    // ✅ CHANGED: Empty string instead of null
+    option1Name: '',
+    option1Value: '',
+    option2Name: '',
+    option2Value: '',
+    option3Name: '',
+    option3Value: '',
+    
     imageUrl: null,
     isDefault: productVariants.length === 0,
     displayOrder: productVariants.length,
-    isActive: true
+    isActive: true,
   };
   setProductVariants([...productVariants, newVariant]);
 };
@@ -2869,7 +2842,6 @@ const updateProductVariant = (id: string, field: keyof ProductVariant, value: an
 };
 
 
-// ==================== UPLOAD VARIANT IMAGE (USING SERVICE) ====================
 // ==================== UPLOAD VARIANT IMAGE (FIXED VERSION) ====================
 const handleVariantImageUpload = async (variantId: string, file: File) => {
   /* =======================
@@ -4559,7 +4531,7 @@ const uploadImagesToProductDirect = async (
 </TabsContent>
 
 
-{/* Shipping Tab */}
+{/* ========== SHIPPING TAB ========== */}
 <TabsContent value="shipping" className="space-y-2 mt-2">
   {/* Shipping Enabled */}
   <div className="space-y-4">
@@ -4578,25 +4550,19 @@ const uploadImagesToProductDirect = async (
 
     {formData.isShipEnabled && (
       <div className="space-y-4 bg-slate-800/30 border border-slate-700 p-4 rounded-xl">
-        {/* Free Shipping */}
-{/* Free Shipping */}
-<div className="space-y-3">
-
-  {/* Ship Separately */}
-  <label className="flex items-center gap-2">
-    <input
-      type="checkbox"
-      name="shipSeparately"
-      checked={formData.shipSeparately}
-      onChange={handleChange}
-      className="rounded bg-slate-800/50 border-slate-700 text-violet-500 focus:ring-violet-500 focus:ring-offset-slate-900"
-    />
-    <span className="text-sm text-slate-300">Ship separately (not with other products)</span>
-  </label>
-</div>
-
-
-    
+        {/* Ship Separately */}
+        <div className="space-y-3">
+          <label className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              name="shipSeparately"
+              checked={formData.shipSeparately}
+              onChange={handleChange}
+              className="rounded bg-slate-800/50 border-slate-700 text-violet-500 focus:ring-violet-500 focus:ring-offset-slate-900"
+            />
+            <span className="text-sm text-slate-300">Ship separately (not with other products)</span>
+          </label>
+        </div>
 
         {/* Delivery Date */}
         <div>
@@ -4614,6 +4580,187 @@ const uploadImagesToProductDirect = async (
             <option value="4">2 weeks</option>
           </select>
         </div>
+
+        {/* ✅ NEW DELIVERY OPTIONS SECTION */}
+        <div className="space-y-4 bg-slate-900/30 border border-slate-600 rounded-xl p-4 mt-4">
+          <h4 className="text-sm font-semibold text-white border-b border-slate-700 pb-2 flex items-center gap-2">
+            <Truck className="w-4 h-4 text-violet-400" />
+            Delivery Options
+          </h4>
+          
+          {/* Same Day Delivery */}
+          <div className="space-y-3">
+            <label className="flex items-center gap-2 cursor-pointer group">
+              <input
+                type="checkbox"
+                name="sameDayDeliveryEnabled"
+                checked={formData.sameDayDeliveryEnabled}
+                onChange={handleChange}
+                className="rounded bg-slate-800/50 border-slate-700 text-violet-500 focus:ring-violet-500 focus:ring-offset-slate-900"
+              />
+              <span className="text-sm text-slate-300 group-hover:text-white transition-colors">
+                ⚡ Enable Same-Day Delivery
+              </span>
+            </label>
+            
+            {formData.sameDayDeliveryEnabled && (
+              <div className="ml-6 grid grid-cols-1 md:grid-cols-2 gap-3 p-3 bg-slate-800/40 rounded-lg border border-slate-700">
+                <div>
+                  <label className="block text-xs font-medium text-slate-400 mb-1">
+                    Cutoff Time <span className="text-red-400">*</span>
+                  </label>
+                  <input
+                    type="time"
+                    name="sameDayDeliveryCutoffTime"
+                    value={formData.sameDayDeliveryCutoffTime}
+                    onChange={handleChange}
+                    className="w-full px-3 py-2 bg-slate-900/70 border border-slate-700 rounded text-white text-sm focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+                  />
+                  <p className="text-xs text-slate-500 mt-1">Order before this time</p>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-slate-400 mb-1">
+                    Delivery Charge (₹)
+                  </label>
+                  <input
+                    type="number"
+                    name="sameDayDeliveryCharge"
+                    value={formData.sameDayDeliveryCharge}
+                    onChange={handleChange}
+                    placeholder="0"
+                    min="0"
+                    step="0.01"
+                    className="w-full px-3 py-2 bg-slate-900/70 border border-slate-700 rounded text-white text-sm focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+                  />
+                  <p className="text-xs text-slate-500 mt-1">Extra charge for same-day</p>
+                </div>
+              </div>
+            )}
+          </div>
+          
+          {/* Next Day Delivery */}
+          <div className="space-y-3">
+            <label className="flex items-center gap-2 cursor-pointer group">
+              <input
+                type="checkbox"
+                name="nextDayDeliveryEnabled"
+                checked={formData.nextDayDeliveryEnabled}
+                onChange={handleChange}
+                className="rounded bg-slate-800/50 border-slate-700 text-violet-500 focus:ring-violet-500 focus:ring-offset-slate-900"
+              />
+              <span className="text-sm text-slate-300 group-hover:text-white transition-colors">
+                🚀 Enable Next-Day Delivery
+              </span>
+            </label>
+            
+            {formData.nextDayDeliveryEnabled && (
+              <div className="ml-6 grid grid-cols-1 md:grid-cols-2 gap-3 p-3 bg-slate-800/40 rounded-lg border border-slate-700">
+                <div>
+                  <label className="block text-xs font-medium text-slate-400 mb-1">
+                    Cutoff Time <span className="text-red-400">*</span>
+                  </label>
+                  <input
+                    type="time"
+                    name="nextDayDeliveryCutoffTime"
+                    value={formData.nextDayDeliveryCutoffTime}
+                    onChange={handleChange}
+                    className="w-full px-3 py-2 bg-slate-900/70 border border-slate-700 rounded text-white text-sm focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+                  />
+                  <p className="text-xs text-slate-500 mt-1">Order before this time</p>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-slate-400 mb-1">
+                    Delivery Charge (₹)
+                  </label>
+                  <input
+                    type="number"
+                    name="nextDayDeliveryCharge"
+                    value={formData.nextDayDeliveryCharge}
+                    onChange={handleChange}
+                    placeholder="0"
+                    min="0"
+                    step="0.01"
+                    className="w-full px-3 py-2 bg-slate-900/70 border border-slate-700 rounded text-white text-sm focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+                  />
+                  <p className="text-xs text-slate-500 mt-1">Extra charge for next-day</p>
+                </div>
+              </div>
+            )}
+          </div>
+          
+          {/* Standard Delivery */}
+          <div className="space-y-3">
+            <label className="flex items-center gap-2 cursor-pointer group">
+              <input
+                type="checkbox"
+                name="standardDeliveryEnabled"
+                checked={formData.standardDeliveryEnabled}
+                onChange={handleChange}
+                className="rounded bg-slate-800/50 border-slate-700 text-violet-500 focus:ring-violet-500 focus:ring-offset-slate-900"
+              />
+              <span className="text-sm text-slate-300 group-hover:text-white transition-colors">
+                📦 Enable Standard Delivery
+              </span>
+            </label>
+            
+            {formData.standardDeliveryEnabled && (
+              <div className="ml-6 grid grid-cols-1 md:grid-cols-2 gap-3 p-3 bg-slate-800/40 rounded-lg border border-slate-700">
+                <div>
+                  <label className="block text-xs font-medium text-slate-400 mb-1">
+                    Delivery Days <span className="text-red-400">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    name="standardDeliveryDays"
+                    value={formData.standardDeliveryDays}
+                    onChange={handleChange}
+                    placeholder="5"
+                    min="1"
+                    className="w-full px-3 py-2 bg-slate-900/70 border border-slate-700 rounded text-white text-sm focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+                  />
+                  <p className="text-xs text-slate-500 mt-1">Estimated delivery time</p>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-slate-400 mb-1">
+                    Delivery Charge (₹)
+                  </label>
+                  <input
+                    type="number"
+                    name="standardDeliveryCharge"
+                    value={formData.standardDeliveryCharge}
+                    onChange={handleChange}
+                    placeholder="0"
+                    min="0"
+                    step="0.01"
+                    className="w-full px-3 py-2 bg-slate-900/70 border border-slate-700 rounded text-white text-sm focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+                  />
+                  <p className="text-xs text-slate-500 mt-1">Standard delivery charge</p>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Delivery Summary */}
+          {(formData.sameDayDeliveryEnabled || formData.nextDayDeliveryEnabled || formData.standardDeliveryEnabled) && (
+            <div className="flex items-start gap-2 text-xs text-blue-400 bg-blue-900/20 px-3 py-2 rounded border border-blue-800/50 mt-3">
+              <Info className="w-4 h-4 shrink-0 mt-0.5" />
+              <div>
+                <p className="font-semibold mb-1">Active Delivery Options:</p>
+                <ul className="space-y-1 text-slate-300">
+                  {formData.sameDayDeliveryEnabled && (
+                    <li>• Same-Day: ₹{formData.sameDayDeliveryCharge || '0'} (Before {formData.sameDayDeliveryCutoffTime || '--:--'})</li>
+                  )}
+                  {formData.nextDayDeliveryEnabled && (
+                    <li>• Next-Day: ₹{formData.nextDayDeliveryCharge || '0'} (Before {formData.nextDayDeliveryCutoffTime || '--:--'})</li>
+                  )}
+                  {formData.standardDeliveryEnabled && (
+                    <li>• Standard: ₹{formData.standardDeliveryCharge || '0'} ({formData.standardDeliveryDays || '5'} days)</li>
+                  )}
+                </ul>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
     )}
   </div>
@@ -4621,7 +4768,7 @@ const uploadImagesToProductDirect = async (
   {/* ===== RECURRING PRODUCT SECTION ===== */}
   <div className="space-y-4 mt-6">
     <h3 className="text-lg font-semibold text-white border-b border-slate-800 pb-2">Subscription / Recurring</h3>
-    
+
     <label className="flex items-center gap-3 cursor-pointer">
       <input
         type="checkbox"
@@ -4677,7 +4824,7 @@ const uploadImagesToProductDirect = async (
           </div>
         </div>
 
-        {/* ✅ NEW - Subscription Discount & Options */}
+        {/* Subscription Discount & Options */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-4 border-t border-slate-700">
           <div>
             <label className="block text-xs font-medium text-slate-400 mb-1">Subscription Discount (%)</label>
@@ -4744,7 +4891,7 @@ const uploadImagesToProductDirect = async (
   {/* ===== PACK / BUNDLE PRODUCT ===== */}
   <div className="space-y-4 mt-6">
     <h3 className="text-lg font-semibold text-white border-b border-slate-800 pb-2">Pack / Bundle</h3>
-    
+
     <div className="flex items-center gap-3">
       <input
         type="checkbox"
@@ -4815,6 +4962,7 @@ const uploadImagesToProductDirect = async (
     </div>
   )}
 </TabsContent>
+
 
 
 
@@ -5163,7 +5311,7 @@ const uploadImagesToProductDirect = async (
                 </div>
               </TabsContent>
 
-              {/* Product Variants Tab - NEW */}
+ 
 {/* ✅ COMPLETE UPDATED Product Variants Tab */}
 <TabsContent value="variants" className="space-y-2 mt-2">
   <div className="space-y-4">
@@ -5305,190 +5453,189 @@ const uploadImagesToProductDirect = async (
               </div>
             </div>
 
-            {/* ✅ UPDATED: Option 1 (Name + Value) */}
-            <div className="space-y-4 mb-4 bg-slate-900/50 border border-slate-700 rounded-lg p-4">
-              <h5 className="text-sm font-semibold text-violet-400">Option 1</h5>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-2">
-                    Option Name
-                  </label>
-                  <input
-                    type="text"
-                    value={variant.option1Name || ''}
-                    onChange={(e) => updateProductVariant(variant.id, 'option1Name', e.target.value || null)}
-                    placeholder="e.g., Size, Pack Size"
-                    className="w-full px-4 py-2.5 bg-slate-900 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-2">
-                    Option Value
-                  </label>
-                  <input
-                    type="text"
-                    value={variant.option1Value || ''}
-                    onChange={(e) => updateProductVariant(variant.id, 'option1Value', e.target.value || null)}
-                    placeholder="e.g., 500ml, Pack of 12"
-                    className="w-full px-4 py-2.5 bg-slate-900 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500"
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* ✅ UPDATED: Option 2 (Name + Value) */}
-            <div className="space-y-4 mb-4 bg-slate-900/50 border border-slate-700 rounded-lg p-4">
-              <h5 className="text-sm font-semibold text-cyan-400">Option 2</h5>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-2">
-                    Option Name
-                  </label>
-                  <input
-                    type="text"
-                    value={variant.option2Name || ''}
-                    onChange={(e) => updateProductVariant(variant.id, 'option2Name', e.target.value || null)}
-                    placeholder="e.g., Purchase Type, Color"
-                    className="w-full px-4 py-2.5 bg-slate-900 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-2">
-                    Option Value
-                  </label>
-                  <input
-                    type="text"
-                    value={variant.option2Value || ''}
-                    onChange={(e) => updateProductVariant(variant.id, 'option2Value', e.target.value || null)}
-                    placeholder="e.g., One Time Purchase, Black"
-                    className="w-full px-4 py-2.5 bg-slate-900 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500"
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* ✅ UPDATED: Option 3 (Name + Value) - Optional */}
-            <div className="space-y-4 mb-4 bg-slate-900/50 border border-slate-700 rounded-lg p-4">
-              <h5 className="text-sm font-semibold text-pink-400">Option 3 (Optional)</h5>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-2">
-                    Option Name
-                  </label>
-                  <input
-                    type="text"
-                    value={variant.option3Name || ''}
-                    onChange={(e) => updateProductVariant(variant.id, 'option3Name', e.target.value || null)}
-                    placeholder="e.g., Material, Style"
-                    className="w-full px-4 py-2.5 bg-slate-900 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-2">
-                    Option Value
-                  </label>
-                  <input
-                    type="text"
-                    value={variant.option3Value || ''}
-                    onChange={(e) => updateProductVariant(variant.id, 'option3Value', e.target.value || null)}
-                    placeholder="e.g., Premium, WiFi+Cellular"
-                    className="w-full px-4 py-2.5 bg-slate-900 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500"
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Variant Image Upload */}
-{/* ✅ UPDATED: Variant Image Upload with Preview */}
-<div>
-  <label className="block text-sm font-medium text-slate-300 mb-2">
-    Variant Image
-  </label>
-  
-  {/* ✅ Preview Section */}
-  {variant.imageUrl ? (
-    <div className="relative inline-block mb-3">
-      <img
-        src={
-          variant.imageUrl.startsWith("blob:") 
-            ? variant.imageUrl // Preview (local)
-            : variant.imageUrl.startsWith("http") || variant.imageUrl.startsWith("/")
-            ? `${API_BASE_URL}${variant.imageUrl}` // Server URL
-            : variant.imageUrl
-        }
-        alt={variant?.name || "Variant"}
-        className="w-32 h-32 object-cover rounded-lg border-2 border-slate-700 shadow-lg"
+{/* ✅ UPDATED: Option 1 (Name + Value) - Empty String Only */}
+<div className="space-y-4 mb-4 bg-slate-900/50 border border-slate-700 rounded-lg p-4">
+  <h5 className="text-sm font-semibold text-violet-400">Option 1</h5>
+  <div className="grid grid-cols-2 gap-4">
+    <div>
+      <label className="block text-sm font-medium text-slate-300 mb-2">
+        Option Name
+      </label>
+      <input
+        type="text"
+        value={variant.option1Name || ''}
+        onChange={(e) => updateProductVariant(variant.id, 'option1Name', e.target.value)}
+        placeholder="e.g., Size, Pack Size"
+        className="w-full px-4 py-2.5 bg-slate-900 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500"
       />
-      
-      {/* ✅ Preview Badge */}
-      {variant.imageUrl.startsWith("blob:") && (
-        <span className="absolute top-1 right-1 px-2 py-1 bg-orange-500 text-white text-xs rounded-md">
-          Preview
-        </span>
-      )}
-      
-      {/* ✅ Remove Image Button */}
-      <button
-        type="button"
-        onClick={() => {
-          if (variant.imageUrl?.startsWith('blob:')) {
-            URL.revokeObjectURL(variant.imageUrl);
-          }
-          updateProductVariant(variant.id, 'imageUrl', null);
-          updateProductVariant(variant.id, 'imageFile', undefined);
-        }}
-        className="absolute -top-2 -right-2 p-1 bg-red-500 hover:bg-red-600 text-white rounded-full transition-colors"
-      >
-        <X className="h-4 w-4" />
-      </button>
     </div>
-  ) : null}
-  
-  {/* ✅ Upload Button */}
-  <div className="flex items-center gap-2">
-    <input
-      type="file"
-      accept="image/*"
-      onChange={(e) => {
-        const file = e.target.files?.[0];
-        if (file) {
-          // ✅ Validate file size (max 5MB)
-          if (file.size > 5 * 1024 * 1024) {
-            toast.error("Image size should be less than 5MB");
-            return;
-          }
-          
-          // ✅ Validate file type
-          if (!file.type.startsWith('image/')) {
-            toast.error("Please select a valid image file");
-            return;
-          }
-          
-          handleVariantImageUpload(variant.id, file);
-        }
-      }}
-      className="hidden"
-      id={`variant-image-${variant.id}`}
-    />
-    <label
-      htmlFor={`variant-image-${variant.id}`}
-      className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-colors cursor-pointer flex items-center gap-2"
-    >
-      <Upload className="h-4 w-4" />
-      {variant.imageUrl ? "Change Image" : "Upload Image"}
-    </label>
-    
-    {/* ✅ Help Text */}
-    <div className="text-sm text-slate-400">
-      {variant.imageUrl?.startsWith("blob:") ? (
-        <span className="text-orange-400">⚠️ Save product to upload to server</span>
-      ) : (
-        <span>Optional - Max 5MB</span>
-      )}
+    <div>
+      <label className="block text-sm font-medium text-slate-300 mb-2">
+        Option Value
+      </label>
+      <input
+        type="text"
+        value={variant.option1Value || ''}
+        onChange={(e) => updateProductVariant(variant.id, 'option1Value', e.target.value)}
+        placeholder="e.g., 500ml, Pack of 12"
+        className="w-full px-4 py-2.5 bg-slate-900 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500"
+      />
     </div>
   </div>
 </div>
 
+{/* ✅ UPDATED: Option 2 (Name + Value) - Empty String Only */}
+<div className="space-y-4 mb-4 bg-slate-900/50 border border-slate-700 rounded-lg p-4">
+  <h5 className="text-sm font-semibold text-cyan-400">Option 2</h5>
+  <div className="grid grid-cols-2 gap-4">
+    <div>
+      <label className="block text-sm font-medium text-slate-300 mb-2">
+        Option Name
+      </label>
+      <input
+        type="text"
+        value={variant.option2Name || ''}
+        onChange={(e) => updateProductVariant(variant.id, 'option2Name', e.target.value)}
+        placeholder="e.g., Purchase Type, Color"
+        className="w-full px-4 py-2.5 bg-slate-900 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500"
+      />
+    </div>
+    <div>
+      <label className="block text-sm font-medium text-slate-300 mb-2">
+        Option Value
+      </label>
+      <input
+        type="text"
+        value={variant.option2Value || ''}
+        onChange={(e) => updateProductVariant(variant.id, 'option2Value', e.target.value)}
+        placeholder="e.g., One Time Purchase, Black"
+        className="w-full px-4 py-2.5 bg-slate-900 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500"
+      />
+    </div>
+  </div>
+</div>
+
+{/* ✅ UPDATED: Option 3 (Name + Value) - Empty String Only */}
+<div className="space-y-4 mb-4 bg-slate-900/50 border border-slate-700 rounded-lg p-4">
+  <h5 className="text-sm font-semibold text-pink-400">Option 3 (Optional)</h5>
+  <div className="grid grid-cols-2 gap-4">
+    <div>
+      <label className="block text-sm font-medium text-slate-300 mb-2">
+        Option Name
+      </label>
+      <input
+        type="text"
+        value={variant.option3Name || ''}
+        onChange={(e) => updateProductVariant(variant.id, 'option3Name', e.target.value)}
+        placeholder="e.g., Material, Style"
+        className="w-full px-4 py-2.5 bg-slate-900 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500"
+      />
+    </div>
+    <div>
+      <label className="block text-sm font-medium text-slate-300 mb-2">
+        Option Value
+      </label>
+      <input
+        type="text"
+        value={variant.option3Value || ''}
+        onChange={(e) => updateProductVariant(variant.id, 'option3Value', e.target.value)}
+        placeholder="e.g., Premium, WiFi+Cellular"
+        className="w-full px-4 py-2.5 bg-slate-900 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500"
+      />
+    </div>
+  </div>
+</div>
+
+
+            {/* Variant Image Upload */}
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-2">
+                Variant Image
+              </label>
+              
+              {/* ✅ Preview Section */}
+              {variant.imageUrl ? (
+                <div className="relative inline-block mb-3">
+                  <img
+                    src={
+                      variant.imageUrl.startsWith("blob:") 
+                        ? variant.imageUrl // Preview (local)
+                        : variant.imageUrl.startsWith("http") || variant.imageUrl.startsWith("/")
+                        ? `${API_BASE_URL}${variant.imageUrl}` // Server URL
+                        : variant.imageUrl
+                    }
+                    alt={variant?.name || "Variant"}
+                    className="w-32 h-32 object-cover rounded-lg border-2 border-slate-700 shadow-lg"
+                  />
+                  
+                  {/* ✅ Preview Badge */}
+                  {variant.imageUrl.startsWith("blob:") && (
+                    <span className="absolute top-1 right-1 px-2 py-1 bg-orange-500 text-white text-xs rounded-md">
+                      Preview
+                    </span>
+                  )}
+                  
+                  {/* ✅ Remove Image Button */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (variant.imageUrl?.startsWith('blob:')) {
+                        URL.revokeObjectURL(variant.imageUrl);
+                      }
+                      updateProductVariant(variant.id, 'imageUrl', null);
+                      updateProductVariant(variant.id, 'imageFile', undefined);
+                    }}
+                    className="absolute -top-2 -right-2 p-1 bg-red-500 hover:bg-red-600 text-white rounded-full transition-colors"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+              ) : null}
+              
+              {/* ✅ Upload Button */}
+              <div className="flex items-center gap-2">
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      // ✅ Validate file size (max 5MB)
+                      if (file.size > 5 * 1024 * 1024) {
+                        toast.error("Image size should be less than 5MB");
+                        return;
+                      }
+                      
+                      // ✅ Validate file type
+                      if (!file.type.startsWith('image/')) {
+                        toast.error("Please select a valid image file");
+                        return;
+                      }
+                      
+                      handleVariantImageUpload(variant.id, file);
+                    }
+                  }}
+                  className="hidden"
+                  id={`variant-image-${variant.id}`}
+                />
+                <label
+                  htmlFor={`variant-image-${variant.id}`}
+                  className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-colors cursor-pointer flex items-center gap-2"
+                >
+                  <Upload className="h-4 w-4" />
+                  {variant.imageUrl ? "Change Image" : "Upload Image"}
+                </label>
+                
+                {/* ✅ Help Text */}
+                <div className="text-sm text-slate-400">
+                  {variant.imageUrl?.startsWith("blob:") ? (
+                    <span className="text-orange-400">⚠️ Save product to upload to server</span>
+                  ) : (
+                    <span>Optional - Max 5MB</span>
+                  )}
+                </div>
+              </div>
+            </div>
 
             {/* Variant Settings */}
             <div className="mt-4 flex items-center gap-4 flex-wrap">
@@ -5547,6 +5694,7 @@ const uploadImagesToProductDirect = async (
     </div>
   </div>
 </TabsContent>
+
 
 {/* SEO Tab - Synced with Variants */}
 <TabsContent value="seo" className="space-y-2 mt-2">
