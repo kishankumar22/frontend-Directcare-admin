@@ -250,7 +250,7 @@ const ProductViewModal: React.FC<ProductViewModalProps> = ({
           ) : (
             <>
               {/* TABS */}
-              <div className="flex items-center gap-1 px-6 pt-4 border-b border-slate-700 overflow-x-auto">
+              <div className="flex items-center gap-1 px-3 border-b border-slate-700">
                 {[
                   { id: 'overview', label: 'Overview', icon: <Info className="w-4 h-4" /> },
                   { id: 'pricing', label: 'Pricing', icon: <PoundSterling className="w-4 h-4" /> },
@@ -296,7 +296,7 @@ const ProductViewModal: React.FC<ProductViewModalProps> = ({
               </div>
 
               {/* TAB CONTENT - SCROLLABLE */}
-              <div className="flex-1 overflow-y-auto p-6 space-y-4">
+              <div className="flex-1 overflow-y-auto p-2 space-y-2">
                 {/* TAB 1: OVERVIEW */}
                 <div id="content-overview" data-tab-content>
                   {/* Basic Info */}
@@ -440,7 +440,7 @@ const ProductViewModal: React.FC<ProductViewModalProps> = ({
 
                 {/* TAB 2: PRICING */}
                 <div id="content-pricing" data-tab-content className="hidden">
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-2">
                     <div className="p-4 bg-gradient-to-br from-green-500/20 to-emerald-500/20 rounded-lg border border-green-500/40">
                       <p className="text-xs text-green-400 font-bold mb-1">Price</p>
                       <p className="text-2xl text-white font-bold">£{product.price?.toFixed(2)}</p>
@@ -478,7 +478,7 @@ const ProductViewModal: React.FC<ProductViewModalProps> = ({
 
                 {/* TAB 3: INVENTORY */}
                 <div id="content-inventory" data-tab-content className="hidden">
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-2">
                     <div
                       className={`p-4 rounded-lg border ${
                         product.stockQuantity && product.stockQuantity > 10
@@ -540,7 +540,7 @@ const ProductViewModal: React.FC<ProductViewModalProps> = ({
                 {/* TAB 4: SHIPPING */}
                 <div id="content-shipping" data-tab-content className="hidden">
                   {/* Dimensions Grid */}
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-2">
                     {product.weight && product.weight > 0 && (
                       <InfoField
                         label="Weight"
@@ -572,21 +572,21 @@ const ProductViewModal: React.FC<ProductViewModalProps> = ({
                   </div>
 
                   {/* Basic Shipping Toggles */}
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-4">
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-2">
                     <ToggleField label="Requires Shipping" value={product.requiresShipping} />
                     <ToggleField label="Ship Separately" value={product.shipSeparately} />
                     <ToggleField label="Free Shipping" value={product.isFreeShipping} />
                   </div>
 
                   {/* ✅ NEW: DELIVERY OPTIONS SECTION */}
-                  <div className="mt-6 p-4 bg-gradient-to-r from-blue-500/10 to-cyan-500/10 rounded-lg border border-blue-500/30">
-                    <h4 className="text-sm font-bold text-blue-400 mb-4 flex items-center gap-2">
+                  <div className="mt-2 p-4 bg-gradient-to-r from-blue-500/10 to-cyan-500/10 rounded-lg border border-blue-500/30">
+                    <h4 className="text-sm font-bold text-blue-400 mb-2 flex items-center gap-2">
                       <Truck className="w-4 h-4" />
                       Delivery Options
                     </h4>
 
                     {/* Grid Layout */}
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
                       {/* Same-Day Delivery Card */}
                       <div className={`p-4 rounded-lg border transition-all ${
                         (product as any).sameDayDeliveryEnabled
@@ -784,108 +784,115 @@ const ProductViewModal: React.FC<ProductViewModalProps> = ({
                 </div>
 
                 {/* TAB 6: VARIANTS */}
-                <div id="content-variants" data-tab-content className="hidden">
-                  {product.variants && product.variants.length > 0 ? (
-                    <div className="space-y-3">
-                      {product.variants.map((variant, idx) => (
-                        <div
-                          key={idx}
-                          className="p-4 bg-gradient-to-r from-purple-500/10 to-pink-500/10 rounded-lg border border-purple-500/30"
-                        >
-                          {/* Header with Image */}
-                          <div className="flex items-start gap-4 mb-3">
-                            {/* ✅ Variant Image */}
-                            {variant.imageUrl ? (
-                              <div className="w-20 h-20 rounded-lg overflow-hidden border-2 border-purple-500/40 flex-shrink-0">
-                                <img
-                                  src={`${API_BASE_URL.replace('/api', '')}${variant.imageUrl.replace('\\\\', '/')}`}
-                                  alt={variant.name}
-                                  className="w-full h-full object-cover"
-                                />
-                              </div>
-                            ) : (
-                              <div className="w-20 h-20 rounded-lg bg-slate-800 border-2 border-slate-700 flex items-center justify-center flex-shrink-0">
-                                <Package className="w-8 h-8 text-slate-600" />
-                              </div>
-                            )}
+        <div id="content-variants" data-tab-content className="hidden">
+  {product.variants && product.variants.length > 0 ? (
+    <div className="space-y-3">
+      {product.variants.map((variant, idx) => (
+        <div
+          key={idx}
+          className="p-4 bg-gradient-to-r from-purple-500/10 to-pink-500/10 rounded-lg border border-purple-500/30"
+        >
+          {/* Header with Index, Image, Info and Status */}
+          <div className="flex items-start gap-4 mb-3">
+            {/* ✅ Variant Index Number */}
+            <div className="flex-shrink-0">
+              <p className="text-lg text-white font-bold">{idx + 1}.</p>
+            </div>
 
-                            {/* Variant Info */}
-                            <div className="flex-1">
-                              <div className="flex items-start justify-between">
-                                <div>
-                                  <p className="text-base text-white font-bold">{variant.name}</p>
-                                  <p className="text-xs text-purple-400 font-mono font-bold">{variant.sku}</p>
-                                </div>
-                                <div className="text-right">
-                                  <p className="text-xl text-green-400 font-bold">£{variant.price?.toFixed(2)}</p>
-                                  {variant.compareAtPrice && (
-                                    <p className="text-sm text-red-400 line-through font-bold">£{variant.compareAtPrice.toFixed(2)}</p>
-                                  )}
-                                </div>
-                              </div>
-                            </div>
-                          </div>
+            {/* ✅ Variant Image */}
+            {variant.imageUrl ? (
+              <div className="w-20 h-20 rounded-lg overflow-hidden border-2 border-purple-500/40 flex-shrink-0">
+                <img
+                  src={`${API_BASE_URL.replace('/api', '')}${variant.imageUrl.replace('\\\\', '/')}`}
+                  alt={variant.name}
+                  className="w-full h-full object-cover"
+                />
+              </div>
+            ) : (
+              <div className="w-20 h-20 rounded-lg bg-slate-800 border-2 border-slate-700 flex items-center justify-center flex-shrink-0">
+                <Package className="w-8 h-8 text-slate-600" />
+              </div>
+            )}
 
-                          {/* Options & Stock Grid */}
-                          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                            {variant.option1Name && variant.option1Value && (
-                              <div className="p-2 bg-slate-800/50 rounded border border-slate-700">
-                                <p className="text-xs text-slate-400 font-bold">{variant.option1Name}</p>
-                                <p className="text-sm text-white font-bold">{variant.option1Value}</p>
-                              </div>
-                            )}
-                            {variant.option2Name && variant.option2Value && (
-                              <div className="p-2 bg-slate-800/50 rounded border border-slate-700">
-                                <p className="text-xs text-slate-400 font-bold">{variant.option2Name}</p>
-                                <p className="text-sm text-white font-bold">{variant.option2Value}</p>
-                              </div>
-                            )}
-                            {variant.option3Name && variant.option3Value && (
-                              <div className="p-2 bg-slate-800/50 rounded border border-slate-700">
-                                <p className="text-xs text-slate-400 font-bold">{variant.option3Name}</p>
-                                <p className="text-sm text-white font-bold">{variant.option3Value}</p>
-                              </div>
-                            )}
-                            <div className="p-2 bg-slate-800/50 rounded border border-slate-700">
-                              <p className="text-xs text-slate-400 font-bold">Stock</p>
-                              <p
-                                className={`text-sm font-bold ${
-                                  variant.stockQuantity > 10
-                                    ? 'text-green-400'
-                                    : variant.stockQuantity > 0
-                                    ? 'text-orange-400'
-                                    : 'text-red-400'
-                                }`}
-                              >
-                                {variant.stockQuantity}
-                              </p>
-                            </div>
-                          </div>
-
-                          {/* Status Badges */}
-                          <div className="flex items-center gap-2 mt-3">
-                            {variant.isDefault && (
-                              <span className="px-2 py-1 bg-violet-500 text-white text-xs rounded font-bold">DEFAULT</span>
-                            )}
-                            {variant.trackInventory && (
-                              <span className="px-2 py-1 bg-cyan-500/20 text-cyan-400 text-xs rounded font-bold border border-cyan-500/40">TRACKED</span>
-                            )}
-                            {variant.isActive ? (
-                              <span className="px-2 py-1 bg-green-500/20 text-green-400 text-xs rounded font-bold border border-green-500/40">ACTIVE</span>
-                            ) : (
-                              <span className="px-2 py-1 bg-red-500/20 text-red-400 text-xs rounded font-bold border border-red-500/40">INACTIVE</span>
-                            )}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="p-8 bg-slate-800/30 rounded-lg border border-slate-700 text-center">
-                      <Tag className="w-12 h-12 text-slate-600 mx-auto mb-2" />
-                      <p className="text-slate-400 font-semibold">No variants configured</p>
-                    </div>
+            {/* Variant Info with Status Badges */}
+            <div className="flex-1">
+              <div className="flex items-start justify-between">
+                <div className="flex-1">
+                  <p className="text-base text-white font-bold">{variant.name}</p>
+                  <p className="text-xs text-purple-400 font-mono font-bold">{variant.sku}</p>
+                  
+                  {/* Status Badges - Inline below SKU */}
+                  <div className="flex items-center gap-2 mt-2">
+                    {variant.isDefault && (
+                      <span className="px-2 py-1 bg-violet-500 text-white text-xs rounded font-bold">DEFAULT</span>
+                    )}
+                    {variant.trackInventory && (
+                      <span className="px-2 py-1 bg-cyan-500/20 text-cyan-400 text-xs rounded font-bold border border-cyan-500/40">TRACKED</span>
+                    )}
+                    {variant.isActive ? (
+                      <span className="px-2 py-1 bg-green-500/20 text-green-400 text-xs rounded font-bold border border-green-500/40">ACTIVE</span>
+                    ) : (
+                      <span className="px-2 py-1 bg-red-500/20 text-red-400 text-xs rounded font-bold border border-red-500/40">INACTIVE</span>
+                    )}
+                  </div>
+                </div>
+                
+                {/* Price - Aligned to right */}
+                <div className="text-right ml-4">
+                  <p className="text-xl text-green-400 font-bold">£{variant.price?.toFixed(2)}</p>
+                  {variant.compareAtPrice && (
+                    <p className="text-sm text-red-400 line-through font-bold">£{variant.compareAtPrice.toFixed(2)}</p>
                   )}
                 </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Options & Stock Grid */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            {variant.option1Name && variant.option1Value && (
+              <div className="p-2 bg-slate-800/50 rounded border border-slate-700">
+                <p className="text-xs text-slate-400 font-bold">{variant.option1Name}</p>
+                <p className="text-sm text-white font-bold">{variant.option1Value}</p>
+              </div>
+            )}
+            {variant.option2Name && variant.option2Value && (
+              <div className="p-2 bg-slate-800/50 rounded border border-slate-700">
+                <p className="text-xs text-slate-400 font-bold">{variant.option2Name}</p>
+                <p className="text-sm text-white font-bold">{variant.option2Value}</p>
+              </div>
+            )}
+            {variant.option3Name && variant.option3Value && (
+              <div className="p-2 bg-slate-800/50 rounded border border-slate-700">
+                <p className="text-xs text-slate-400 font-bold">{variant.option3Name}</p>
+                <p className="text-sm text-white font-bold">{variant.option3Value}</p>
+              </div>
+            )}
+            <div className="p-2 bg-slate-800/50 rounded border border-slate-700">
+              <p className="text-xs text-slate-400 font-bold">Stock</p>
+              <p
+                className={`text-sm font-bold ${
+                  variant.stockQuantity > 10
+                    ? 'text-green-400'
+                    : variant.stockQuantity > 0
+                    ? 'text-orange-400'
+                    : 'text-red-400'
+                }`}
+              >
+                {variant.stockQuantity}
+              </p>
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  ) : (
+    <div className="p-8 bg-slate-800/30 rounded-lg border border-slate-700 text-center">
+      <Tag className="w-12 h-12 text-slate-600 mx-auto mb-2" />
+      <p className="text-slate-400 font-semibold">No variants configured</p>
+    </div>
+  )}
+</div>
 
                 {/* TAB 7: ATTRIBUTES */}
                 <div id="content-attributes" data-tab-content className="hidden">

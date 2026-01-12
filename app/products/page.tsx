@@ -73,13 +73,15 @@ interface SearchParams {
 }
 
 // ✅ Fetch Products with timeout
-async function getAllProducts(params: SearchParams = {}): Promise<ApiResponse> {
+async function getAllProducts(
+  params: SearchParams = {}
+): Promise<ApiResponse> {
   const {
     searchTerm = '',
     sortBy = 'name',
     sortDirection = 'asc',
     page = '1',
-    pageSize = '1000'
+    pageSize = '10',
   } = params;
 
   try {
@@ -94,126 +96,79 @@ async function getAllProducts(params: SearchParams = {}): Promise<ApiResponse> {
       queryParams.set('searchTerm', searchTerm);
     }
 
-    const res = await fetch(
-      `https://testapi.knowledgemarkg.com/api/Products?page=1&pageSize=10&sortDirection=asc?${queryParams.toString()}`,
-      {
-        cache: 'no-store',
-        next: { revalidate: 0 },
-        headers: {
-          'Content-Type': 'application/json',
-          'Cache-Control': 'no-cache',
-        },
-        signal: AbortSignal.timeout(15000), // 15 second timeout
-      }
-    );
+    const url = `https://testapi.knowledgemarkg.com/api/Products?${queryParams.toString()}`;
+
+    const res = await fetch(url, {
+      cache: 'no-store',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
 
     if (!res.ok) {
-      console.error('Products API Error:', res.status, res.statusText);
-      return { 
-        success: false,
-        message: 'Failed to fetch products',
-        data: { 
-          items: [], 
-          totalCount: 0, 
-          totalPages: 0,
-          page: 1,
-          pageSize: parseInt(pageSize),
-          hasPrevious: false,
-          hasNext: false
-        } 
-      };
+      console.error('❌ Products API Error:', res.status);
+      return emptyProductsResponse(pageSize);
     }
 
-    const data: ApiResponse = await res.json();
-    return data;
-  } catch (error) {
-    if (error instanceof Error && error.name === 'TimeoutError') {
-      console.error('Products API timeout');
-    } else {
-      console.error('Error fetching products:', error);
-    }
-    
-    return { 
-      success: false,
-      message: 'Error fetching products',
-      data: { 
-        items: [], 
-        totalCount: 0, 
-        totalPages: 0,
-        page: 1,
-        pageSize: parseInt(pageSize),
-        hasPrevious: false,
-        hasNext: false
-      } 
-    };
+    return await res.json();
+  } catch (err) {
+    console.error('❌ Products fetch failed:', err);
+    return emptyProductsResponse(pageSize);
   }
 }
 
+function emptyProductsResponse(pageSize: string): ApiResponse {
+  return {
+    success: false,
+    message: 'Products fetch failed',
+    data: {
+      items: [],
+      totalCount: 0,
+      page: 1,
+      pageSize: parseInt(pageSize),
+      totalPages: 0,
+      hasPrevious: false,
+      hasNext: false,
+    },
+  };
+}
+
+
 // ✅ Fetch Categories with timeout
-async function getCategories(): Promise<{ success: boolean; data: Category[] }> {
+async function getCategories() {
   try {
     const res = await fetch(
       `${process.env.NEXT_PUBLIC_API_URL}/api/Categories?includeInactive=false&includeSubCategories=true`,
-      {
-        cache: 'no-store',
-        next: { revalidate: 0 },
-        headers: {
-          'Content-Type': 'application/json',
-          'Cache-Control': 'no-cache',
-        },
-        signal: AbortSignal.timeout(10000),
-      }
+      { cache: 'no-store' }
     );
 
-    if (!res.ok) {
-      console.error('Categories API Error:', res.status, res.statusText);
-      return { success: false, data: [] };
-    }
+    if (!res.ok) return { success: false, data: [] };
 
-    const data: { success: boolean; data: Category[] } = await res.json();
-    return data;
-  } catch (error) {
-    if (error instanceof Error && error.name === 'TimeoutError') {
-      console.error('Categories API timeout');
-    } else {
-      console.error('Error fetching categories:', error);
-    }
+    return await res.json();
+  } catch (err) {
+    console.error('❌ Categories fetch failed:', err);
+    return { success: false, data: [] };
+  }
+}
+
+async function getBrands() {
+  try {
+    const res = await fetch(
+      `${process.env.NEXT_PUBLIC_API_URL}/api/Brands?includeUnpublished=false`,
+      { cache: 'no-store' }
+    );
+
+    if (!res.ok) return { success: false, data: [] };
+
+    return await res.json();
+  } catch (err) {
+    console.error('❌ Brands fetch failed:', err);
     return { success: false, data: [] };
   }
 }
 
 // ✅ Fetch Brands with timeout
-async function getBrands(): Promise<{ success: boolean; data: Brand[] }> {
-  try {
-    const res = await fetch(
-      `${process.env.NEXT_PUBLIC_API_URL}/api/Brands?includeUnpublished=false`,
-      {
-        cache: 'no-store',
-        next: { revalidate: 0 },
-        headers: {
-          'Content-Type': 'application/json',
-          'Cache-Control': 'no-cache',
-        },
-        signal: AbortSignal.timeout(10000),
-      }
-    );
 
-    if (!res.ok) {
-      console.error('Brands API Error:', res.status, res.statusText);
-      return { success: false, data: [] };
-    }
-
-    const data: { success: boolean; data: Brand[] } = await res.json();
-    return data;
-  } catch (error) {
-    if (error instanceof Error && error.name === 'TimeoutError') {
-      console.error('Brands API timeout');
-    } else {
-      console.error('Error fetching brands:', error);
-    }
-    return { success: false, data: [] };
-  }
-}
 
 // ✅ SEO Metadata
 export async function generateMetadata({ 
@@ -276,28 +231,26 @@ export default async function ProductsPage({
   searchParams: Promise<SearchParams>;
 }) {
   const params = await searchParams;
-  
-  // ✅ Parallel fetch with error handling
+
   const [productsData, categoriesData, brandsData] = await Promise.all([
     getAllProducts(params),
     getCategories(),
-    getBrands()
+    getBrands(),
   ]);
 
   return (
-    <Suspense fallback={<ProductsLoading />}>
-      <ProductsClient 
-        initialProducts={productsData.data.items} 
-        totalCount={productsData.data.totalCount}
-        currentPage={productsData.data.page}
-        pageSize={productsData.data.pageSize}
-        totalPages={productsData.data.totalPages}
-        initialSearchTerm={params.searchTerm || ''}
-        initialSortBy={params.sortBy || 'name'}
-        initialSortDirection={params.sortDirection || 'asc'}
-        categories={categoriesData.data}
-        brands={brandsData.data}
-      />
-    </Suspense>
+    <ProductsClient
+      initialProducts={productsData.data.items}
+      totalCount={productsData.data.totalCount}
+      currentPage={productsData.data.page}
+      pageSize={productsData.data.pageSize}
+      totalPages={productsData.data.totalPages}
+      initialSearchTerm={params.searchTerm || ''}
+      initialSortBy={params.sortBy || 'name'}
+      initialSortDirection={params.sortDirection || 'asc'}
+      categories={categoriesData.data}
+      brands={brandsData.data}
+    />
   );
 }
+

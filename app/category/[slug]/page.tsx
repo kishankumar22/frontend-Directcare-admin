@@ -47,13 +47,12 @@ export async function generateMetadata({
 }) {
   const { slug } = await params;
 
-  const category = await getCategoryBySlug(slug);
-
   return {
-    title: category?.metaTitle || category?.name || "Category",
-    description: category?.metaDescription || category?.description || "",
+    title: `${slug.replace(/-/g, " ")} | Category`,
+    description: "Browse products in this category",
   };
 }
+
 
 function Loading() {
   return (

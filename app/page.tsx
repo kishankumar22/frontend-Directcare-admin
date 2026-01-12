@@ -82,6 +82,7 @@ async function getProducts(baseUrl: string) {
       next: { revalidate: 60 },
     });
     const result = await res.json();
+    console.log("Product api ka response",result)
     return result.success ? result.data.items : [];
   } catch {
     return [];
@@ -96,6 +97,8 @@ async function getCategories(baseUrl: string) {
     );
 
     const result = await res.json();
+    console.log("category api ka response",result)
+
 
     if (!result.success || !Array.isArray(result.data)) return [];
 
@@ -113,6 +116,8 @@ async function getBrands(baseUrl: string) {
       next: { revalidate: 300 },
     });
     const result = await res.json();
+    console.log("Brannds api ka response",result)
+
     return result.success
       ? result.data
           .filter((b: Brand) => b.showOnHomepage)
@@ -223,6 +228,8 @@ export default async function Home() {
    
 
   </div>
+
+
    </>
 );
 

@@ -16,9 +16,8 @@ import {
 
 import Link from "next/link";
 import { ProductDescriptionEditor } from "@/app/admin/products/SelfHostedEditor";
-// import { ProductDescriptionEditor, RichTextEditor } from "../../RichTextEditor";
 import  {useToast } from "@/components/CustomToast";
-import { API_BASE_URL, API_ENDPOINTS } from "@/lib/api-config";
+import { API_BASE_URL } from "@/lib/api-config";
 import { cn } from "@/lib/utils";
 import { ProductAttribute, ProductVariant, DropdownsData, SimpleProduct, ProductImage, CategoryData, BrandApiResponse, CategoryApiResponse,  productsService, brandsService, categoriesService } from '@/lib/services';
 import { GroupedProductModal } from '../../GroupedProductModal';
@@ -29,7 +28,6 @@ import { VATRateApiResponse, vatratesService } from "@/lib/services/vatrates";
 import productLockService from "@/lib/services/productLockService";
 import { signalRService } from "@/lib/services/signalRService";
 import TakeoverRequestModal from "../../TakeoverRequestModal";
-import { useAuth } from "@/context/AuthContext";
 import { MultiCategorySelector } from "../../MultiCategorySelector";
 import RequestTakeoverModal from "../../RequestTakeoverModal";
 
@@ -43,6 +41,8 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
   const [searchTerm, setSearchTerm] = useState('');
   const [searchTermCross, setSearchTermCross] = useState('');
   const [pendingTakeoverRequests, setPendingTakeoverRequests] = useState<any[]>([]);
+const [homepageCount, setHomepageCount] = useState<number | null>(null);
+const MAX_HOMEPAGE = 20;
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   // Helper function to format datetime for React inputs
@@ -69,6 +69,9 @@ const [takeoverResponseMessage, setTakeoverResponseMessage] = useState('');
   });
 // Add this state with your other useState declarations
 const [isGroupedModalOpen, setIsGroupedModalOpen] = useState(false);
+// Add after existing useState declarations (around line 50-100)
+const [variantSkuErrors, setVariantSkuErrors] = useState<Record<string, string>>({});
+const [checkingVariantSku, setCheckingVariantSku] = useState<Record<string, boolean>>({});
 
 
   // Add these states after existing states
@@ -94,6 +97,7 @@ const getYouTubeVideoId = (url: string): string | null => {
   }
   return null;
 };
+
 
 
 
@@ -365,7 +369,7 @@ useEffect(() => {
             id: product.id,
             name: product.name,
             sku: product.sku,
-            price: `₹${(product.price || 0).toFixed(2)}`
+            price: `£${(product.price || 0).toFixed(2)}`
           }));
           
           setAvailableProducts(transformedProducts);
@@ -1142,7 +1146,21 @@ const handleLockReleased = (data: any) => {
   };
 }, [productId]);
 
-
+const getHomepageCount = async () => {
+  try {
+    const res = await productsService.getAll({ pageSize: 100 });
+    const products = res.data?.data?.items || [];
+    const count = products.filter((p: any) => 
+      p.showOnHomepage && p.id !== productId
+    ).length;
+    setHomepageCount(count);
+  } catch (e) {
+    setHomepageCount(null);
+  }
+};
+useEffect(() => {
+  if (formData.showOnHomepage) getHomepageCount();
+}, [formData.showOnHomepage]);
 
 // ==================== 🔒 LOCK INITIALIZATION WITH STATUS CHECK ====================
 useEffect(() => {
@@ -1262,6 +1280,22 @@ useEffect(() => {
     releaseProductLock(productId);
   };
 }, [productId]); // ✅ ONLY productId dependency
+// Add after the main SKU useEffect (around line 1150)
+useEffect(() => {
+  const timers: Record<string, NodeJS.Timeout> = {};
+
+  productVariants.forEach((variant) => {
+    if (variant.sku && variant.sku.length >= 2) {
+      timers[variant.id] = setTimeout(() => {
+        checkVariantSkuExists(variant.sku, variant.id);
+      }, 800); // 800ms debounce
+    }
+  });
+
+  return () => {
+    Object.values(timers).forEach((timer) => clearTimeout(timer));
+  };
+}, [productVariants.map((v) => `${v.id}-${v.sku}`).join(",")]); // Smart dependency
 
 
 
@@ -1388,6 +1422,63 @@ const checkSkuExists = async (sku: string): Promise<boolean> => {
     return false;
   } finally {
     setCheckingSku(false);
+  }
+};
+// ✅ Real-time variant SKU check
+const checkVariantSkuExists = async (
+  sku: string, 
+  currentVariantId: string
+): Promise<boolean> => {
+  if (!sku || sku.length < 2) return false;
+
+  try {
+    // Check within current product's variants
+    const duplicateInProduct = productVariants.find(
+      (v) => v.id !== currentVariantId && v.sku.toUpperCase() === sku.toUpperCase()
+    );
+
+    if (duplicateInProduct) {
+      toast.warning(`SKU already used by variant "${duplicateInProduct.name}"`, {
+        autoClose: 5000,
+      });
+      return true;
+    }
+
+    // Check against main product SKU
+    if (formData.sku.toUpperCase() === sku.toUpperCase()) {
+      toast.warning("SKU matches main product SKU", { autoClose: 5000 });
+      return true;
+    }
+
+    // Check against database (all products and variants)
+    const response = await productsService.getAll({ search: sku, pageSize: 100 });
+    const products = response.data?.data?.items || [];
+
+    for (const product of products) {
+      // Check product SKU
+      if (product.sku?.toUpperCase() === sku.toUpperCase() && product.id !== productId) {
+        toast.warning(`SKU used by product "${product.name}"`, { autoClose: 5000 });
+        return true;
+      }
+
+      // Check variant SKUs
+      if (product.variants && Array.isArray(product.variants)) {
+        const variantMatch = product.variants.find(
+          (v: any) => v.sku?.toUpperCase() === sku.toUpperCase()
+        );
+        if (variantMatch) {
+          toast.warning(`SKU used by "${product.name}" - Variant "${variantMatch.name}"`, {
+            autoClose: 5000,
+          });
+          return true;
+        }
+      }
+    }
+
+    return false;
+  } catch (error) {
+    console.error("Variant SKU check error:", error);
+    return false;
   }
 };
 
@@ -1777,68 +1868,122 @@ const handleModalClose = () => {
 
 // ==================== FORM SUBMISSION HANDLER ====================
 const handleSubmit = async (
-  e?: React.FormEvent, 
+  e?: React.FormEvent,
   isDraft: boolean = false,
   releaseLockAfter: boolean = true
 ) => {
-  if (e) {
-    e.preventDefault();
-  }
+  if (e) e.preventDefault();
   
   const target = (e?.target as HTMLElement) || document.body;
-
-  console.log('🚀 [SUBMIT] Starting submission...');
-
-  // ⚡ CHECKS 1-4 (Keep as is - already correct)
+  
+  // ============================================
+  // SECTION 1: DUPLICATE SUBMISSION PREVENTION
+  // ============================================
+  
   if (target.hasAttribute('data-submitting')) {
-    console.warn('⚠️ [SUBMIT] Already submitting - blocked');
     toast.info('⏳ Already submitting... Please wait!');
     return;
   }
-
+  
   if (isAcquiringLock) {
-    console.warn('⚠️ [SUBMIT] Lock still being acquired - blocked');
     toast.warning('⏳ Acquiring edit lock... Please wait a moment.');
     return;
   }
-
+  
   if (!productLock || !productLock.isLocked) {
-    toast.error('❌ Cannot save: Product edit lock not acquired. Please try again.');
+    toast.error('❌ Cannot save: Product edit lock not acquired.');
     return;
   }
-
+  
+  // Check lock expiry
   if (productLock.expiresAt) {
     const expiryTime = new Date(productLock.expiresAt).getTime();
     const currentTime = new Date().getTime();
     
     if (currentTime >= expiryTime) {
-      console.warn('⚠️ [SUBMIT] Lock expired - refreshing');
       toast.error('❌ Your edit lock has expired. Refreshing...');
       await acquireProductLock(productId);
       return;
     }
   }
-
-  console.log('✅ [SUBMIT] All checks passed - proceeding with submission');
+  
   target.setAttribute('data-submitting', 'true');
-    
+  
   try {
-    // ==========================================
-    // ✅ VALIDATION (Keep as is)
-    // ==========================================
+    // ============================================
+    // SECTION 2: BASIC REQUIRED FIELDS
+    // ============================================
     
-    if (!formData.name || !formData.sku) {
-      toast.error('⚠️ Please fill in required fields: Product Name and SKU.');
+    if (!formData.name || formData.name.trim().length === 0) {
+      toast.error('⚠️ Product Name is required');
       target.removeAttribute('data-submitting');
       return;
     }
-
-    // SKU CHECK (Keep as is)
+    
+    if (!formData.sku || formData.sku.trim().length === 0) {
+      toast.error('⚠️ SKU is required');
+      target.removeAttribute('data-submitting');
+      return;
+    }
+    
+    if (!formData.price || formData.price.trim() === '') {
+      toast.error('⚠️ Price is required');
+      target.removeAttribute('data-submitting');
+      return;
+    }
+    
+    // ============================================
+    // SECTION 3: STRING FORMAT VALIDATIONS
+    // ============================================
+    
+    // Product Name (3-150 chars, no special chars)
+    if (formData.name.length < 3) {
+      toast.error('⚠️ Product name must be at least 3 characters');
+      target.removeAttribute('data-submitting');
+      return;
+    }
+    
+    if (formData.name.length > 150) {
+      toast.error('⚠️ Product name cannot exceed 150 characters');
+      target.removeAttribute('data-submitting');
+      return;
+    }
+    
+    const nameRegex = /^[A-Za-z0-9\s\-.,()'/]+$/;
+    if (!nameRegex.test(formData.name)) {
+      toast.error('⚠️ Product name contains invalid characters (@, #, $, %, etc.)');
+      target.removeAttribute('data-submitting');
+      return;
+    }
+    
+    // SKU Format (alphanumeric, dash, underscore only)
+    const skuRegex = /^[A-Za-z0-9\-_]+$/;
+    if (!skuRegex.test(formData.sku)) {
+      toast.error('⚠️ SKU can only contain letters, numbers, dashes, and underscores');
+      target.removeAttribute('data-submitting');
+      return;
+    }
+    
+    if (formData.sku.length < 2) {
+      toast.error('⚠️ SKU must be at least 2 characters');
+      target.removeAttribute('data-submitting');
+      return;
+    }
+    
+    if (formData.sku.length > 50) {
+      toast.error('⚠️ SKU cannot exceed 50 characters');
+      target.removeAttribute('data-submitting');
+      return;
+    }
+    
+    // ============================================
+    // SECTION 4: SKU UNIQUENESS CHECK
+    // ============================================
+    
     try {
-      console.log('🔍 [SKU CHECK] Checking SKU uniqueness...');
       const allProducts = await productsService.getAll();
       const items = allProducts.data?.data?.items ?? [];
-
+      
       const skuExists = items.some(
         (p: any) =>
           p.sku?.toLowerCase() === formData.sku.toLowerCase() &&
@@ -1851,10 +1996,36 @@ const handleSubmit = async (
         return;
       }
     } catch (error) {
-      console.warn('⚠️ [SKU CHECK] Could not check SKU uniqueness:', error);
+      console.warn('⚠️ Could not verify SKU uniqueness:', error);
+      // Allow submission to continue
     }
-
-    // HELPER FUNCTION (Keep as is)
+    
+    // ============================================
+    // SECTION 5: DESCRIPTION LENGTH VALIDATIONS
+    // ============================================
+    
+    if (formData.shortDescription) {
+      const shortDescPlainText = formData.shortDescription.replace(/<[^>]*>/g, '').trim();
+      if (shortDescPlainText.length > 350) {
+        toast.error('⚠️ Short description cannot exceed 350 characters');
+        target.removeAttribute('data-submitting');
+        return;
+      }
+    }
+    
+    if (formData.fullDescription) {
+      const fullDescPlainText = formData.fullDescription.replace(/<[^>]*>/g, '').trim();
+      if (fullDescPlainText.length > 2000) {
+        toast.error('⚠️ Full description cannot exceed 2000 characters');
+        target.removeAttribute('data-submitting');
+        return;
+      }
+    }
+    
+    // ============================================
+    // SECTION 6: NUMBER PARSING & VALIDATION HELPER
+    // ============================================
+    
     const parseNumber = (value: any, fieldName: string = ''): number | null => {
       if (value === null || value === undefined || value === '') {
         return null;
@@ -1867,29 +2038,62 @@ const handleSubmit = async (
       }
       return parsed;
     };
-
-    // PRICE VALIDATION (Keep as is)
+    
+    // ============================================
+    // SECTION 7: PRICE VALIDATIONS
+    // ============================================
+    
     const parsedPrice = parseNumber(formData.price, 'price');
-    if (parsedPrice === null || parsedPrice < 0) {
-      toast.error('⚠️ Please enter a valid product price (must be 0 or greater).');
+    
+    if (parsedPrice === null) {
+      toast.error('⚠️ Please enter a valid price');
       target.removeAttribute('data-submitting');
       return;
     }
-
+    
+    if (parsedPrice < 0) {
+      toast.error('⚠️ Price cannot be negative');
+      target.removeAttribute('data-submitting');
+      return;
+    }
+    
+    if (parsedPrice > 10000000) {
+      toast.error('⚠️ Price seems unusually high. Please verify.');
+      target.removeAttribute('data-submitting');
+      return;
+    }
+    
     const parsedOldPrice = parseNumber(formData.oldPrice, 'oldPrice');
     const parsedCost = parseNumber(formData.cost, 'cost');
-
-    // NAME VALIDATION (Keep as is)
-    const nameRegex = /^[A-Za-z0-9\s\-.,()'/]+$/;
-    if (!nameRegex.test(formData.name)) {
-      toast.error("⚠️ Invalid product name. Special characters like @, #, $, % are not allowed.");
+    
+    // Old Price Logic
+    if (parsedOldPrice !== null && parsedOldPrice < 0) {
+      toast.error('⚠️ Old price cannot be negative');
       target.removeAttribute('data-submitting');
       return;
     }
-
+    
+    if (parsedOldPrice !== null && parsedOldPrice < parsedPrice) {
+      toast.warning('⚠️ Old price is less than current price. Strikethrough won\'t show.');
+    }
+    
+    // Cost Price Logic
+    if (parsedCost !== null && parsedCost < 0) {
+      toast.error('⚠️ Cost price cannot be negative');
+      target.removeAttribute('data-submitting');
+      return;
+    }
+    
+    if (parsedCost !== null && parsedCost > parsedPrice) {
+      toast.warning('⚠️ Cost is higher than selling price. Profit will be negative.');
+    }
+    
+    // ============================================
+    // SECTION 8: CATEGORY VALIDATION
+    // ============================================
+    
     const guidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
-    // PROCESS CATEGORIES (Keep as is)
+    
     let categoryIdsArray: string[] = [];
     if (formData.categoryIds && Array.isArray(formData.categoryIds) && formData.categoryIds.length > 0) {
       categoryIdsArray = formData.categoryIds.filter(id => {
@@ -1897,366 +2101,913 @@ const handleSubmit = async (
         return guidRegex.test(id.trim());
       });
     }
-
+    
     if (categoryIdsArray.length === 0) {
       toast.error('❌ Please select at least one category');
       target.removeAttribute('data-submitting');
       return;
     }
+    
+    if (categoryIdsArray.length > 5) {
+      toast.error('⚠️ Maximum 5 categories allowed');
+      target.removeAttribute('data-submitting');
+      return;
+    }
+    
+    // ✅ ADD THIS IN handleSubmit (After SECTION 8 - CATEGORY VALIDATION)
 
-    // PROCESS BRANDS (Keep as is)
+// ========================================
+// SECTION 8A - HOMEPAGE & DISPLAY ORDER VALIDATION
+// ========================================
+
+// Display Order Validation
+if (formData.displayOrder !== undefined && formData.displayOrder !== null) {
+  const displayOrderNum = parseInt(formData.displayOrder as any) || 0;
+  
+  // Negative check
+  if (displayOrderNum < 0) {
+    toast.error("Display order cannot be negative.", {
+      autoClose: 5000,
+    });
+    target.removeAttribute('data-submitting');
+    return;
+  }
+  
+  // Warn if displayOrder > 0 but not on homepage
+  if (displayOrderNum > 0 && !formData.showOnHomepage) {
+    toast.warning("Display order will be ignored (product not on homepage).", {
+      autoClose: 5000,
+    });
+  }
+}
+
+// Homepage Product Limit Check (Optional but recommended)
+if (formData.showOnHomepage) {
+  try {
+    // Fetch current homepage products
+    const response = await productsService.getAll({
+      pageSize: 100,
+      // Add filter for homepage if your API supports it
+      // showOnHomepage: true
+    });
+    
+    // Extract products array safely
+    let allProducts: any[] = [];
+    if (response.data?.data?.items) {
+      allProducts = response.data.data.items;
+    } else if (Array.isArray(response.data?.data)) {
+      allProducts = response.data.data;
+    } else if (Array.isArray(response.data)) {
+      allProducts = response.data;
+    }
+    
+    // Filter homepage products (excluding current product)
+    const homepageProducts = allProducts.filter((p: any) => {
+      // Exclude current product
+      if (p.id === productId) return false;
+      // Check if on homepage
+      return p.showOnHomepage === true;
+    });
+    
+    const MAX_HOMEPAGE_PRODUCTS = 20;
+    
+    // Hard limit check
+    if (homepageProducts.length >= MAX_HOMEPAGE_PRODUCTS) {
+      toast.error(
+        `Homepage product limit reached (${MAX_HOMEPAGE_PRODUCTS} maximum). Please remove other products first.`,
+        {
+          autoClose: 8000,
+          position: 'top-center',
+        }
+      );
+      target.removeAttribute('data-submitting');
+      return;
+    }
+    
+    // Warning when approaching limit
+    if (homepageProducts.length >= MAX_HOMEPAGE_PRODUCTS - 3) {
+      const currentCount = homepageProducts.length + 1;
+      toast.warning(
+        `Homepage products: ${currentCount}/${MAX_HOMEPAGE_PRODUCTS}. Approaching limit!`,
+        {
+          autoClose: 5000,
+          position: 'top-right',
+        }
+      );
+    }
+    
+    // Info: Show current homepage count
+    console.log(`Homepage products count: ${homepageProducts.length + 1}/${MAX_HOMEPAGE_PRODUCTS}`);
+    
+  } catch (error) {
+    console.warn("Could not verify homepage product limit:", error);
+    // Allow submission to continue (don't block user)
+  }
+  
+  // Display Order validation when on homepage
+  const displayOrderNum = parseInt(formData.displayOrder as any) || 0;
+  
+  if (displayOrderNum <= 0) {
+    toast.info("Tip: Set display order > 0 for better control of homepage position.", {
+      autoClose: 4000,
+    });
+  }
+  
+  // Duplicate display order warning (optional)
+  try {
+    const response = await productsService.getAll({
+      pageSize: 100,
+    });
+    
+    let allProducts: any[] = [];
+    if (response.data?.data?.items) {
+      allProducts = response.data.data.items;
+    } else if (Array.isArray(response.data?.data)) {
+      allProducts = response.data.data;
+    }
+    
+    const sameOrderProducts = allProducts.filter((p: any) => {
+      if (p.id === productId) return false;
+      return p.showOnHomepage && parseInt(p.displayOrder) === displayOrderNum && displayOrderNum > 0;
+    });
+    
+    if (sameOrderProducts.length > 0) {
+      toast.info(
+        `${sameOrderProducts.length} other product(s) have the same display order. They will be sorted by date.`,
+        {
+          autoClose: 5000,
+        }
+      );
+    }
+  } catch (error) {
+    console.warn("Could not check duplicate display order:", error);
+  }
+}
+
+// Continue with rest of validation...
+
+    // ============================================
+    // SECTION 9: BRAND VALIDATION
+    // ============================================
+    
     let brandIdsArray: string[] = [];
-
+    
     if (formData.brandIds && Array.isArray(formData.brandIds) && formData.brandIds.length > 0) {
       brandIdsArray = formData.brandIds.filter(id => {
         if (!id || typeof id !== 'string') return false;
         return guidRegex.test(id.trim());
       });
-    } 
-    else if (formData.brand && formData.brand.trim()) {
+    } else if (formData.brand && formData.brand.trim()) {
       const trimmedBrand = formData.brand.trim();
       if (guidRegex.test(trimmedBrand)) {
         brandIdsArray = [trimmedBrand];
       }
     }
-
+    
     if (brandIdsArray.length === 0) {
       toast.error('❌ Please select at least one brand');
       target.removeAttribute('data-submitting');
       return;
     }
-
+    
     const brandsArray = brandIdsArray.map((brandId, index) => ({
       brandId: brandId,
       isPrimary: index === 0,
       displayOrder: index + 1
     }));
-
-    console.log('✅ [VALIDATION] All validations passed');
-
-    // ==========================================
-    // ✅ PREPARE ATTRIBUTES WITH ID
-    // ==========================================
+    
+    // ============================================
+    // SECTION 10: INVENTORY VALIDATIONS
+    // ============================================
+    
+    if (formData.manageInventory === 'track') {
+      const stockQty = parseInt(formData.stockQuantity) || 0;
+      const minStockQty = parseInt(formData.minStockQuantity) || 0;
+      const notifyQty = parseInt(formData.notifyQuantityBelow) || 0;
+      
+      if (stockQty < 0) {
+        toast.error('⚠️ Stock quantity cannot be negative');
+        target.removeAttribute('data-submitting');
+        return;
+      }
+      
+      if (minStockQty < 0) {
+        toast.error('⚠️ Minimum stock quantity cannot be negative');
+        target.removeAttribute('data-submitting');
+        return;
+      }
+      
+      if (formData.notifyAdminForQuantityBelow && notifyQty < 0) {
+        toast.error('⚠️ Notification quantity cannot be negative');
+        target.removeAttribute('data-submitting');
+        return;
+      }
+      
+      if (minStockQty > stockQty) {
+        toast.warning('⚠️ Minimum stock is higher than current stock');
+      }
+      
+      if (formData.notifyAdminForQuantityBelow && notifyQty > stockQty) {
+        toast.info('ℹ️ You will receive low stock notification immediately');
+      }
+    }
+    
+    // ============================================
+    // SECTION 11: CART QUANTITY VALIDATIONS
+    // ============================================
+    
+    const minCartQty = parseInt(formData.minCartQuantity) || 1;
+    const maxCartQty = parseInt(formData.maxCartQuantity) || 10;
+    
+    if (minCartQty < 1) {
+      toast.error('⚠️ Minimum cart quantity must be at least 1');
+      target.removeAttribute('data-submitting');
+      return;
+    }
+    
+    if (maxCartQty < minCartQty) {
+      toast.error('⚠️ Maximum cart quantity cannot be less than minimum');
+      target.removeAttribute('data-submitting');
+      return;
+    }
+    
+    if (maxCartQty > 9999) {
+      toast.error('⚠️ Maximum cart quantity is too high');
+      target.removeAttribute('data-submitting');
+      return;
+    }
+    
+    // ============================================
+    // SECTION 12: DIMENSIONS VALIDATIONS
+    // ============================================
+    
+    if (formData.isShipEnabled) {
+      const weight = parseNumber(formData.weight, 'weight');
+      const length = parseNumber(formData.length, 'length');
+      const width = parseNumber(formData.width, 'width');
+      const height = parseNumber(formData.height, 'height');
+      
+      if (weight !== null && weight < 0) {
+        toast.error('⚠️ Weight cannot be negative');
+        target.removeAttribute('data-submitting');
+        return;
+      }
+      
+      if (weight !== null && weight > 1000) {
+        toast.warning('⚠️ Weight seems very high (>1000 kg). Please verify.');
+      }
+      
+      if (length !== null && length < 0) {
+        toast.error('⚠️ Length cannot be negative');
+        target.removeAttribute('data-submitting');
+        return;
+      }
+      
+      if (width !== null && width < 0) {
+        toast.error('⚠️ Width cannot be negative');
+        target.removeAttribute('data-submitting');
+        return;
+      }
+      
+      if (height !== null && height < 0) {
+        toast.error('⚠️ Height cannot be negative');
+        target.removeAttribute('data-submitting');
+        return;
+      }
+    }
+    
+    // ============================================
+    // SECTION 13: DATE VALIDATIONS
+    // ============================================
+    
+    // Mark as New Dates
+    if (formData.markAsNew) {
+      if (!formData.markAsNewStartDate) {
+        toast.error('⚠️ Please set "Mark as New" start date');
+        target.removeAttribute('data-submitting');
+        return;
+      }
+      
+      if (!formData.markAsNewEndDate) {
+        toast.error('⚠️ Please set "Mark as New" end date');
+        target.removeAttribute('data-submitting');
+        return;
+      }
+      
+      const startDate = new Date(formData.markAsNewStartDate);
+      const endDate = new Date(formData.markAsNewEndDate);
+      
+      if (endDate <= startDate) {
+        toast.error('⚠️ "Mark as New" end date must be after start date');
+        target.removeAttribute('data-submitting');
+        return;
+      }
+    }
+    
+    // Availability Dates
+    if (formData.availableStartDate && formData.availableEndDate) {
+      const availStart = new Date(formData.availableStartDate);
+      const availEnd = new Date(formData.availableEndDate);
+      
+      if (availEnd <= availStart) {
+        toast.error('⚠️ Availability end date must be after start date');
+        target.removeAttribute('data-submitting');
+        return;
+      }
+    }
+    
+    // Pre-order Date
+    if (formData.availableForPreOrder && !formData.preOrderAvailabilityStartDate) {
+      toast.error('⚠️ Please set pre-order availability date');
+      target.removeAttribute('data-submitting');
+      return;
+    }
+    
+    // ============================================
+    // SECTION 14: GROUPED PRODUCT VALIDATIONS
+    // ============================================
+    
+    if (formData.productType === 'grouped' && formData.requireOtherProducts) {
+      if (!formData.requiredProductIds || formData.requiredProductIds.trim() === '') {
+        toast.error('⚠️ Please select products for grouped product');
+        target.removeAttribute('data-submitting');
+        return;
+      }
+      
+      const groupedProductIds = formData.requiredProductIds.split(',').map(id => id.trim()).filter(Boolean);
+      
+      if (groupedProductIds.length === 0) {
+        toast.error('⚠️ Please select at least one product for grouped product');
+        target.removeAttribute('data-submitting');
+        return;
+      }
+      
+      if (groupedProductIds.length > 20) {
+        toast.error('⚠️ Maximum 20 products allowed in grouped product');
+        target.removeAttribute('data-submitting');
+        return;
+      }
+      
+      // Bundle Discount Validation
+      if (formData.groupBundleDiscountType === 'Percentage') {
+        const discountPercent = parseNumber(formData.groupBundleDiscountPercentage, 'discount');
+        if (discountPercent !== null && (discountPercent < 0 || discountPercent > 100)) {
+          toast.error('⚠️ Discount percentage must be between 0 and 100');
+          target.removeAttribute('data-submitting');
+          return;
+        }
+      }
+      
+      if (formData.groupBundleDiscountType === 'FixedAmount') {
+        const discountAmount = parseNumber(formData.groupBundleDiscountAmount, 'discount amount');
+        if (discountAmount !== null && discountAmount < 0) {
+          toast.error('⚠️ Discount amount cannot be negative');
+          target.removeAttribute('data-submitting');
+          return;
+        }
+      }
+      
+      if (formData.groupBundleDiscountType === 'SpecialPrice') {
+        const specialPrice = parseNumber(formData.groupBundleSpecialPrice, 'special price');
+        if (specialPrice !== null && specialPrice < 0) {
+          toast.error('⚠️ Special price cannot be negative');
+          target.removeAttribute('data-submitting');
+          return;
+        }
+      }
+    }
+    
+    // ============================================
+    // SECTION 15: RECURRING/SUBSCRIPTION VALIDATIONS
+    // ============================================
+    
+    if (formData.isRecurring) {
+      const cycleLength = parseInt(formData.recurringCycleLength) || 0;
+      
+      if (cycleLength <= 0) {
+        toast.error('⚠️ Recurring cycle length must be greater than 0');
+        target.removeAttribute('data-submitting');
+        return;
+      }
+      
+      if (cycleLength > 365) {
+        toast.error('⚠️ Recurring cycle length seems too long (>365)');
+        target.removeAttribute('data-submitting');
+        return;
+      }
+      
+      if (formData.recurringTotalCycles) {
+        const totalCycles = parseInt(formData.recurringTotalCycles) || 0;
+        if (totalCycles < 0) {
+          toast.error('⚠️ Total cycles cannot be negative');
+          target.removeAttribute('data-submitting');
+          return;
+        }
+      }
+      
+      if (formData.subscriptionDiscountPercentage) {
+        const subDiscount = parseNumber(formData.subscriptionDiscountPercentage, 'subscription discount');
+        if (subDiscount !== null && (subDiscount < 0 || subDiscount > 100)) {
+          toast.error('⚠️ Subscription discount must be between 0 and 100%');
+          target.removeAttribute('data-submitting');
+          return;
+        }
+      }
+    }
+    
+    // ============================================
+    // SECTION 16: RENTAL VALIDATIONS
+    // ============================================
+    
+    if (formData.isRental) {
+      const rentalLength = parseInt(formData.rentalPriceLength) || 0;
+      
+      if (rentalLength <= 0) {
+        toast.error('⚠️ Rental period must be greater than 0');
+        target.removeAttribute('data-submitting');
+        return;
+      }
+    }
+    
+    // ============================================
+    // SECTION 17: BASE PRICE VALIDATIONS
+    // ============================================
+    
+    if (formData.basepriceEnabled) {
+      const baseAmount = parseNumber(formData.basepriceAmount, 'base price amount');
+      const baseBaseAmount = parseNumber(formData.basepriceBaseAmount, 'base price base amount');
+      
+      if (baseAmount === null || baseAmount <= 0) {
+        toast.error('⚠️ Base price amount must be greater than 0');
+        target.removeAttribute('data-submitting');
+        return;
+      }
+      
+      if (baseBaseAmount === null || baseBaseAmount <= 0) {
+        toast.error('⚠️ Base price base amount must be greater than 0');
+        target.removeAttribute('data-submitting');
+        return;
+      }
+      
+      if (!formData.basepriceUnit || !formData.basepriceBaseUnit) {
+        toast.error('⚠️ Please select base price units');
+        target.removeAttribute('data-submitting');
+        return;
+      }
+    }
+    
+    // ============================================
+    // SECTION 18: SEO VALIDATIONS
+    // ============================================
+    
+    if (formData.metaTitle && formData.metaTitle.length > 60) {
+      toast.warning('⚠️ Meta title is longer than recommended (60 characters)');
+    }
+    
+    if (formData.metaDescription && formData.metaDescription.length > 160) {
+      toast.warning('⚠️ Meta description is longer than recommended (160 characters)');
+    }
+    
+    if (formData.searchEngineFriendlyPageName) {
+      const slugRegex = /^[a-z0-9-]+$/;
+      if (!slugRegex.test(formData.searchEngineFriendlyPageName)) {
+        toast.error('⚠️ SEO slug can only contain lowercase letters, numbers, and hyphens');
+        target.removeAttribute('data-submitting');
+        return;
+      }
+    }
+    
+    // ============================================
+    // SECTION 19: ATTRIBUTES VALIDATION
+    // ============================================
     
     const attributesArray = productAttributes
       ?.filter(attr => attr.name && attr.value)
       .map(attr => {
         const isExistingAttr = attr.id && guidRegex.test(attr.id);
         const attrData: any = {
-          name: attr.name,
-          value: attr.value,
+          name: attr.name.trim(),
+          value: attr.value.trim(),
           displayOrder: attr.displayOrder || 0
         };
         
-        // ✅ Add ID only for existing attributes
+        // Validate attribute name length
+        if (attrData.name.length > 100) {
+          toast.error(`⚠️ Attribute name "${attrData.name}" is too long (max 100 chars)`);
+          throw new Error('Invalid attribute name');
+        }
+        
+        // Validate attribute value length
+        if (attrData.value.length > 500) {
+          toast.error(`⚠️ Attribute value for "${attrData.name}" is too long (max 500 chars)`);
+          throw new Error('Invalid attribute value');
+        }
+        
         if (isExistingAttr) {
           attrData.id = attr.id;
         }
         
         return attrData;
       });
-
-    // ==========================================
-    // ✅ PREPARE VARIANTS WITH ID - FIXED
-    // ==========================================
     
-    const variantsArray = productVariants?.map(variant => {
-      const imageUrl = variant.imageUrl?.startsWith('blob:') ? null : variant.imageUrl;
-      
-      // ✅ CHECK IF VARIANT HAS VALID GUID
-      const isExistingVariant = variant.id && guidRegex.test(variant.id);
-      
-      console.log(`🔍 Variant "${variant.name}":`, {
-        id: variant.id,
-        isExisting: isExistingVariant
-      });
-      
-      // ✅ BUILD VARIANT OBJECT
-      const variantData: any = {
-        name: variant.name || '',
-        sku: variant.sku || '',
-        price: typeof variant.price === 'number' ? variant.price : (parseNumber(variant.price, 'variant.price') ?? 0),
-        compareAtPrice: typeof variant.compareAtPrice === 'number' ? variant.compareAtPrice : parseNumber(variant.compareAtPrice, 'variant.compareAtPrice'),
-        oldPrice: typeof variant.compareAtPrice === 'number' ? variant.compareAtPrice : parseNumber(variant.compareAtPrice, 'variant.oldPrice'),
-        weight: typeof variant.weight === 'number' ? variant.weight : parseNumber(variant.weight, 'variant.weight'),
-        stockQuantity: typeof variant.stockQuantity === 'number' ? variant.stockQuantity : (parseInt(String(variant.stockQuantity)) || 0),
-        trackInventory: variant.trackInventory ?? true,
-        option1Name: variant.option1Name || null,
-        option1Value: variant.option1Value || null,
-        option2Name: variant.option2Name || null,
-        option2Value: variant.option2Value || null,
-        option3Name: variant.option3Name || null,
-        option3Value: variant.option3Value || null,
-        imageUrl: imageUrl,
-        isDefault: variant.isDefault ?? false,
-        displayOrder: variant.displayOrder ?? 0,
-        isActive: variant.isActive ?? true,
-        gtin: variant.gtin || null,
-        barcode: variant.sku || null
-      };
-      
-      // ✅ ADD ID FOR EXISTING VARIANTS
-      if (isExistingVariant) {
-        variantData.id = variant.id;
-        console.log(`✅ Added ID to variant: ${variant.id}`);
+    // ============================================
+    // SECTION 20: VARIANTS VALIDATION
+    // ============================================
+    
+// ====================================================================
+// SECTION 20 - VARIANTS VALIDATION (WITH SKU UNIQUENESS)
+// ====================================================================
+
+const variantsArray = productVariants?.map((variant) => {
+  // ✅ 1. Validate variant name
+  if (!variant.name || variant.name.trim().length === 0) {
+    toast.error("All variants must have a name");
+    throw new Error("Invalid variant name");
+  }
+
+  // ✅ 2. Validate variant SKU exists
+  if (!variant.sku || variant.sku.trim().length === 0) {
+    toast.error(`Variant "${variant.name}" must have a SKU`);
+    throw new Error("Invalid variant SKU");
+  }
+
+  // ✅ 3. NEW: Check variant SKU uniqueness WITHIN this product's variants
+  const duplicateVariant = productVariants.find(
+    (v) => v.id !== variant.id && v.sku.trim().toUpperCase() === variant.sku.trim().toUpperCase()
+  );
+  
+  if (duplicateVariant) {
+    toast.error(
+      `Duplicate variant SKU: "${variant.sku}" is already used by variant "${duplicateVariant.name}"`,
+      { autoClose: 8000 }
+    );
+    throw new Error("Duplicate variant SKU");
+  }
+
+  // ✅ 4. NEW: Check if variant SKU matches main product SKU
+  if (variant.sku.trim().toUpperCase() === formData.sku.trim().toUpperCase()) {
+    toast.error(
+      `Variant SKU "${variant.sku}" cannot be the same as main product SKU`,
+      { autoClose: 8000 }
+    );
+    throw new Error("Variant SKU matches product SKU");
+  }
+
+  // ✅ 5. Validate variant price
+  const variantPrice = typeof variant.price === "number" 
+    ? variant.price 
+    : (parseNumber(variant.price, "variant.price") ?? 0);
+  
+  if (variantPrice < 0) {
+    toast.error(`Variant "${variant.name}" price cannot be negative`);
+    throw new Error("Invalid variant price");
+  }
+
+  // Build variant data
+  const imageUrl = variant.imageUrl?.startsWith("blob:") ? null : variant.imageUrl;
+  const isExistingVariant = variant.id && guidRegex.test(variant.id);
+
+  const variantData: any = {
+    name: variant.name.trim(),
+    sku: variant.sku.trim().toUpperCase(), // ✅ Force uppercase
+    price: variantPrice,
+    compareAtPrice: typeof variant.compareAtPrice === "number" 
+      ? variant.compareAtPrice 
+      : parseNumber(variant.compareAtPrice, "variant.compareAtPrice"),
+    oldPrice: typeof variant.compareAtPrice === "number" 
+      ? variant.compareAtPrice 
+      : parseNumber(variant.compareAtPrice, "variant.oldPrice"),
+    weight: typeof variant.weight === "number" 
+      ? variant.weight 
+      : parseNumber(variant.weight, "variant.weight"),
+    stockQuantity: typeof variant.stockQuantity === "number" 
+      ? variant.stockQuantity 
+      : parseInt(String(variant.stockQuantity)) || 0,
+    trackInventory: variant.trackInventory ?? true,
+    option1Name: variant.option1Name || null,
+    option1Value: variant.option1Value || null,
+    option2Name: variant.option2Name || null,
+    option2Value: variant.option2Value || null,
+    option3Name: variant.option3Name || null,
+    option3Value: variant.option3Value || null,
+    imageUrl: imageUrl,
+    isDefault: variant.isDefault ?? false,
+    displayOrder: variant.displayOrder ?? 0,
+    isActive: variant.isActive ?? true,
+    gtin: variant.gtin || null,
+    barcode: variant.sku || null,
+  };
+
+  if (isExistingVariant) {
+    variantData.id = variant.id;
+  }
+
+  return variantData;
+});
+
+// ✅ 6. NEW: Check variant SKUs against OTHER products/variants in database
+// This prevents conflicts with existing products
+if (variantsArray && variantsArray.length > 0) {
+  try {
+    // Get all products to check SKU conflicts
+    const allProductsResponse = await productsService.getAll({ pageSize: 1000 });
+    const allProducts = allProductsResponse.data?.data?.items || [];
+
+    for (const variant of variantsArray) {
+      // Check against other products' main SKUs
+      const productSkuConflict = allProducts.find(
+        (p: any) => 
+          p.id !== productId && 
+          p.sku?.toUpperCase() === variant.sku.toUpperCase()
+      );
+
+      if (productSkuConflict) {
+        toast.error(
+          `Variant SKU "${variant.sku}" conflicts with product "${productSkuConflict.name}" (SKU: ${productSkuConflict.sku})`,
+          { autoClose: 10000 }
+        );
+        throw new Error("Variant SKU conflicts with product SKU");
       }
-      
-      return variantData;
-    });
 
-    console.log("✅ VARIANTS PREPARED:");
-    console.log(JSON.stringify(variantsArray, null, 2));
+      // Check against other products' variant SKUs
+      for (const product of allProducts) {
+        if (product.id === productId) continue; // Skip current product
+        
+        if (product.variants && Array.isArray(product.variants)) {
+          const variantSkuConflict = product.variants.find(
+            (v: any) => v.sku?.toUpperCase() === variant.sku.toUpperCase()
+          );
 
-    // ==========================================
-    // ✅ BUILD PRODUCT DATA OBJECT - COMPLETE
-    // ==========================================
-    
-    const productData: any = {
-      // Basic Info
-      name: formData.name.trim(),
-      description: formData.fullDescription || formData.shortDescription || `${formData.name} - Product description`,
-      shortDescription: formData.shortDescription?.trim() || '',
-      sku: formData.sku.trim(),
-      gtin: formData.gtin?.trim() || null,
-      manufacturerPartNumber: formData.manufacturerPartNumber?.trim() || null,
-      
-      // Status & Visibility
-      status: isDraft ? "Draft" : "Active",
-      isPublished: isDraft ? false : (formData.published ?? true),
-      productType: formData.productType || 'simple',
-      visibleIndividually: formData.visibleIndividually ?? true,
-      customerRoles: formData.customerRoles || 'all',
-      limitedToStores: formData.limitedToStores ?? false,
-      vendorId: null,
-      
-      // Grouped Product Fields
-      requireOtherProducts: formData.productType === 'grouped' ? formData.requireOtherProducts : false,
-      requiredProductIds: formData.productType === 'grouped' && formData.requireOtherProducts && formData.requiredProductIds?.trim()
-        ? formData.requiredProductIds.trim()
-        : null,
-      automaticallyAddProducts: formData.productType === 'grouped' && formData.requireOtherProducts 
-        ? formData.automaticallyAddProducts 
-        : false,
-      
-      // Bundle Discount Fields
-      groupBundleDiscountType: formData.productType === 'grouped' 
-        ? (formData.groupBundleDiscountType || 'None') 
-        : 'None',
-      groupBundleDiscountPercentage: formData.productType === 'grouped' && formData.groupBundleDiscountType === 'Percentage'
-        ? (parseNumber(formData.groupBundleDiscountPercentage, 'groupBundleDiscountPercentage') ?? 0)
-        : null,
-      groupBundleDiscountAmount: formData.productType === 'grouped' && formData.groupBundleDiscountType === 'FixedAmount'
-        ? (parseNumber(formData.groupBundleDiscountAmount, 'groupBundleDiscountAmount') ?? 0)
-        : null,
-      groupBundleSpecialPrice: formData.productType === 'grouped' && formData.groupBundleDiscountType === 'SpecialPrice'
-        ? (parseNumber(formData.groupBundleSpecialPrice, 'groupBundleSpecialPrice') ?? 0)
-        : null,
-      groupBundleSavingsMessage: formData.productType === 'grouped' && formData.groupBundleDiscountType !== 'None'
-        ? (formData.groupBundleSavingsMessage?.trim() || null)
-        : null,
-      showIndividualPrices: formData.productType === 'grouped' 
-        ? (formData.showIndividualPrices ?? true) 
-        : true,
-      applyDiscountToAllItems: formData.productType === 'grouped' && formData.groupBundleDiscountType !== 'None'
-        ? (formData.applyDiscountToAllItems ?? false)
-        : false,
-      
-      // Display Settings
-      showOnHomepage: formData.showOnHomepage ?? false,
-      displayOrder: parseInt(formData.displayOrder) || 0,
-      adminComment: formData.adminComment?.trim() || null,
-      isPack: formData.isPack ?? false,
-      gender: formData.gender?.trim() || null,
-      
-      // Brand Info
-      brandId: brandIdsArray[0],
-      brandIds: brandIdsArray,
-      brands: brandsArray,
-      
-      // Category Info
-      categoryId: categoryIdsArray[0],
-      categoryIds: categoryIdsArray,
-      
-      // Additional Fields
-      tags: formData.productTags?.trim() || null,
-      
-      // Pricing
-      price: parsedPrice,
-      oldPrice: parsedOldPrice,
-      compareAtPrice: parsedOldPrice,
-      costPrice: parsedCost,
-      
-      // Purchase Options
-      disableBuyButton: formData.disableBuyButton ?? false,
-      disableWishlistButton: formData.disableWishlistButton ?? false,
-      availableForPreOrder: formData.availableForPreOrder ?? false,
-      preOrderAvailabilityStartDate: formData.availableForPreOrder && formData.preOrderAvailabilityStartDate 
-        ? new Date(formData.preOrderAvailabilityStartDate).toISOString() 
-        : null,
-      
-      // Base Price
-      basepriceEnabled: formData.basepriceEnabled ?? false,
-      basepriceAmount: parseNumber(formData.basepriceAmount, 'basepriceAmount'),
-      basepriceUnit: formData.basepriceEnabled ? (formData.basepriceUnit || null) : null,
-      basepriceBaseAmount: parseNumber(formData.basepriceBaseAmount, 'basepriceBaseAmount'),
-      basepriceBaseUnit: formData.basepriceEnabled ? (formData.basepriceBaseUnit || null) : null,
-      
-      // Mark as New
-      markAsNew: formData.markAsNew ?? false,
-      markAsNewStartDate: formData.markAsNew && formData.markAsNewStartDate 
-        ? new Date(formData.markAsNewStartDate).toISOString() 
-        : null,
-      markAsNewEndDate: formData.markAsNew && formData.markAsNewEndDate 
-        ? new Date(formData.markAsNewEndDate).toISOString() 
-        : null,
-      
-      // Availability Dates
-      availableStartDate: formData.availableStartDate && formData.availableStartDate.trim() 
-        ? new Date(formData.availableStartDate).toISOString() 
-        : null,
-      availableEndDate: formData.availableEndDate && formData.availableEndDate.trim() 
-        ? new Date(formData.availableEndDate).toISOString() 
-        : null,
-      
-      // Tax
-      vatExempt: formData.vatExempt ?? false,
-      vatRateId: formData.vatRateId || null,
-      
-      // Inventory
-      trackQuantity: formData.manageInventory === 'track',
-      manageInventoryMethod: formData.manageInventory || 'track',
-      stockQuantity: parseInt(formData.stockQuantity) || 0,
-      displayStockAvailability: formData.displayStockAvailability ?? true,
-      displayStockQuantity: formData.displayStockQuantity ?? false,
-      minStockQuantity: parseInt(formData.minStockQuantity) || 0,
-      lowStockThreshold: parseInt(formData.minStockQuantity) || 0,
-      notifyAdminForQuantityBelow: formData.notifyAdminForQuantityBelow ?? false,
-      notifyQuantityBelow: formData.notifyAdminForQuantityBelow 
-        ? parseInt(formData.notifyQuantityBelow) || 0 
-        : null,
-      allowBackorder: formData.allowBackorder ?? false,
-      backorderMode: formData.backorderMode || 'no-backorders',
-      
-      // Order Quantities
-      orderMinimumQuantity: parseInt(formData.minCartQuantity) || 0,
-      orderMaximumQuantity: parseInt(formData.maxCartQuantity) || 0,
-      allowedQuantities: formData.allowedQuantities?.trim() || null,
-      notReturnable: formData.notReturnable ?? false,
-      
-      // Shipping & Dimensions
-      requiresShipping: formData.isShipEnabled ?? true,
-      shipSeparately: formData.shipSeparately ?? false,
-      deliveryDateId: formData.deliveryDateId || null,
-      estimatedDispatchDays: 0,
-      dispatchTimeNote: null,
-      weight: parseNumber(formData.weight, 'weight') || 0,
-      length: parseNumber(formData.length, 'length'),
-      width: parseNumber(formData.width, 'width'),
-      height: parseNumber(formData.height, 'height'),
-      weightUnit: 'kg',
-      dimensionUnit: 'cm',
-      
-      // ✅ NEW DELIVERY FIELDS FROM SCHEMA
-      sameDayDeliveryEnabled: formData.sameDayDeliveryEnabled ?? false,
-      nextDayDeliveryEnabled: formData.nextDayDeliveryEnabled ?? false,
-      standardDeliveryEnabled: formData.standardDeliveryEnabled ?? true,
-      standardDeliveryDays: parseInt(formData.standardDeliveryDays) || 5,
-      sameDayDeliveryCharge: parseNumber(formData.sameDayDeliveryCharge, 'sameDayDeliveryCharge') || 0,
-      nextDayDeliveryCharge: parseNumber(formData.nextDayDeliveryCharge, 'nextDayDeliveryCharge') || 0,
-      standardDeliveryCharge: parseNumber(formData.standardDeliveryCharge, 'standardDeliveryCharge') || 0,
-      
-      // Recurring/Subscription
-      isRecurring: formData.isRecurring ?? false,
-      recurringCycleLength: formData.isRecurring ? parseInt(formData.recurringCycleLength) || 0 : null,
-      recurringCyclePeriod: formData.isRecurring ? (formData.recurringCyclePeriod || 'days') : null,
-      recurringTotalCycles: formData.isRecurring && formData.recurringTotalCycles 
-        ? parseInt(formData.recurringTotalCycles) 
-        : null,
-      subscriptionDiscountPercentage: parseNumber(formData.subscriptionDiscountPercentage, 'subscriptionDiscountPercentage'),
-      allowedSubscriptionFrequencies: formData.allowedSubscriptionFrequencies?.trim() || null,
-      subscriptionDescription: formData.subscriptionDescription?.trim() || null,
-      
-      // Rental
-      isRental: formData.isRental ?? false,
-      rentalPriceLength: formData.isRental ? parseInt(formData.rentalPriceLength) || 0 : null,
-      rentalPricePeriod: formData.isRental ? (formData.rentalPricePeriod || 'days') : null,
-      
-      // SEO
-      metaTitle: formData.metaTitle?.trim() || null,
-      metaDescription: formData.metaDescription?.trim() || null,
-      metaKeywords: formData.metaKeywords?.trim() || null,
-      searchEngineFriendlyPageName: formData.searchEngineFriendlyPageName?.trim() || null,
-      
-      // Reviews
-      allowCustomerReviews: formData.allowCustomerReviews ?? false,
-      
-      // Media
-      videoUrls: formData.videoUrls && formData.videoUrls.length > 0 
-        ? formData.videoUrls.join(',') 
-        : null,
-      
-      // ✅ ATTRIBUTES & VARIANTS WITH IDs
-      attributes: attributesArray && attributesArray.length > 0 ? attributesArray : [],
-      variants: variantsArray && variantsArray.length > 0 ? variantsArray : [],
-      
-      // Related Products
-      relatedProductIds: Array.isArray(formData.relatedProducts) && formData.relatedProducts.length > 0 
-        ? formData.relatedProducts.join(',') 
-        : null,
-      crossSellProductIds: Array.isArray(formData.crossSellProducts) && formData.crossSellProducts.length > 0 
-        ? formData.crossSellProducts.join(',') 
-        : null,
-    };
-
-    // ==========================================
-    // ✅ DON'T CLEAN - Keep all fields including IDs
-    // ==========================================
-    
-    console.log('📦 ==================== FINAL PAYLOAD ====================');
-    console.log(JSON.stringify(productData, null, 2));
-    console.log('📦 ==================== END PAYLOAD ====================');
-
-    // ==========================================
-    // ✅ UPDATE PRODUCT USING SERVICE
-    // ==========================================
-    
-    console.log('📤 [API] Updating product using service...');
-    const response = await productsService.update(productId, productData);
-
-    console.log('📥 [API] Response received:', response);
-
-    // ==========================================
-    // ✅ HANDLE RESPONSE
-    // ==========================================
-    
-    if (response.error) {
-      console.error('❌ [ERROR] API returned error:', response.error);
-      throw new Error(response.error);
+          if (variantSkuConflict) {
+            toast.error(
+              `Variant SKU "${variant.sku}" conflicts with "${product.name}" - Variant "${variantSkuConflict.name}"`,
+              { autoClose: 10000 }
+            );
+            throw new Error("Variant SKU conflicts with another product's variant");
+          }
+        }
+      }
     }
 
+    console.log("✅ All variant SKUs are unique");
+  } catch (error: any) {
+    // If it's our validation error, throw it
+    if (error.message?.includes("Variant SKU conflicts") || error.message?.includes("Duplicate variant SKU")) {
+      target.removeAttribute("data-submitting");
+      throw error;
+    }
+    
+    // Otherwise, log warning and allow submission (don't block user)
+    console.warn("Could not verify variant SKU uniqueness:", error);
+  }
+}
+
+    // ============================================
+    // SECTION 21: IMAGE VALIDATIONS
+    // ============================================
+    
+    if (formData.productImages.length === 0) {
+      toast.warning('⚠️ No product images added. Consider adding images for better conversion.');
+    }
+    
+    if (formData.productImages.length > 10) {
+      toast.error('⚠️ Maximum 10 images allowed');
+      target.removeAttribute('data-submitting');
+      return;
+    }
+    
+    // ============================================
+    // SECTION 22: BUILD PRODUCT DATA OBJECT
+    // ============================================
+    
+// ========================================
+// SECTION 22: BUILD PRODUCT DATA OBJECT (FIXED - All Types)
+// ========================================
+const productData: any = {
+  // Basic Info
+  name: formData.name.trim(),
+  description: formData.fullDescription || formData.shortDescription || `${formData.name} - Product description`,
+  shortDescription: formData.shortDescription?.trim() || '',
+  sku: formData.sku.trim(),
+  gtin: formData.gtin?.trim() || null,
+  manufacturerPartNumber: formData.manufacturerPartNumber?.trim() || null,
+
+  // Status & Visibility
+  status: isDraft ? 'Draft' : 'Active',
+  isPublished: isDraft ? false : (formData.published ?? true),
+  productType: formData.productType || 'simple',
+  visibleIndividually: formData.visibleIndividually ?? true,
+  customerRoles: formData.customerRoles || 'all',
+  limitedToStores: formData.limitedToStores ?? false,
+  vendorId: null,
+
+  // Grouped Product Fields
+  requireOtherProducts: formData.productType === 'grouped' ? formData.requireOtherProducts : false,
+  requiredProductIds: formData.productType === 'grouped' && formData.requireOtherProducts && formData.requiredProductIds?.trim()
+    ? formData.requiredProductIds.trim()
+    : null,
+  automaticallyAddProducts: formData.productType === 'grouped' && formData.requireOtherProducts
+    ? formData.automaticallyAddProducts
+    : false,
+
+  // Bundle Discount Fields (✅ Already fixed as numbers)
+  groupBundleDiscountType: formData.productType === 'grouped' ? formData.groupBundleDiscountType || 'None' : 'None',
+  groupBundleDiscountPercentage: formData.productType === 'grouped' && formData.groupBundleDiscountType === 'Percentage'
+    ? parseNumber(formData.groupBundleDiscountPercentage, 'groupBundleDiscountPercentage') ?? 0
+    : null,
+  groupBundleDiscountAmount: formData.productType === 'grouped' && formData.groupBundleDiscountType === 'FixedAmount'
+    ? parseNumber(formData.groupBundleDiscountAmount, 'groupBundleDiscountAmount') ?? 0
+    : null,
+  groupBundleSpecialPrice: formData.productType === 'grouped' && formData.groupBundleDiscountType === 'SpecialPrice'
+    ? parseNumber(formData.groupBundleSpecialPrice, 'groupBundleSpecialPrice') ?? 0
+    : null,
+  groupBundleSavingsMessage: formData.productType === 'grouped' && formData.groupBundleDiscountType !== 'None'
+    ? formData.groupBundleSavingsMessage?.trim() || null
+    : null,
+  showIndividualPrices: formData.productType === 'grouped' ? formData.showIndividualPrices ?? true : true,
+  applyDiscountToAllItems: formData.productType === 'grouped' && formData.groupBundleDiscountType !== 'None'
+    ? formData.applyDiscountToAllItems ?? false
+    : false,
+
+  // ✅ FIXED: Display Settings (Convert string to number)
+  showOnHomepage: formData.showOnHomepage ?? false,
+  displayOrder: parseInt(formData.displayOrder as any) || 0,  // ✅ Convert to number
+  adminComment: formData.adminComment?.trim() || null,
+  isPack: formData.isPack ?? false,
+  gender: formData.gender?.trim() || null,
+
+  // Brand Info
+  brandId: brandIdsArray[0],
+  brandIds: brandIdsArray,
+  brands: brandsArray,
+
+  // Category Info
+  categoryId: categoryIdsArray[0],
+  categoryIds: categoryIdsArray,
+
+  // Additional Fields
+  tags: formData.productTags?.trim() || null,
+
+  // Pricing
+  price: parsedPrice,
+  oldPrice: parsedOldPrice,
+  compareAtPrice: parsedOldPrice,
+  costPrice: parsedCost,
+
+  // Purchase Options
+  disableBuyButton: formData.disableBuyButton ?? false,
+  disableWishlistButton: formData.disableWishlistButton ?? false,
+  availableForPreOrder: formData.availableForPreOrder ?? false,
+  preOrderAvailabilityStartDate: formData.availableForPreOrder && formData.preOrderAvailabilityStartDate
+    ? new Date(formData.preOrderAvailabilityStartDate).toISOString()
+    : null,
+
+  // Base Price
+  basepriceEnabled: formData.basepriceEnabled ?? false,
+  basepriceAmount: parseNumber(formData.basepriceAmount, 'basepriceAmount'),
+  basepriceUnit: formData.basepriceEnabled ? formData.basepriceUnit || null : null,
+  basepriceBaseAmount: parseNumber(formData.basepriceBaseAmount, 'basepriceBaseAmount'),
+  basepriceBaseUnit: formData.basepriceEnabled ? formData.basepriceBaseUnit || null : null,
+
+  // Mark as New
+  markAsNew: formData.markAsNew ?? false,
+  markAsNewStartDate: formData.markAsNew && formData.markAsNewStartDate
+    ? new Date(formData.markAsNewStartDate).toISOString()
+    : null,
+  markAsNewEndDate: formData.markAsNew && formData.markAsNewEndDate
+    ? new Date(formData.markAsNewEndDate).toISOString()
+    : null,
+
+  // Availability Dates
+  availableStartDate: formData.availableStartDate && formData.availableStartDate.trim()
+    ? new Date(formData.availableStartDate).toISOString()
+    : null,
+  availableEndDate: formData.availableEndDate && formData.availableEndDate.trim()
+    ? new Date(formData.availableEndDate).toISOString()
+    : null,
+
+  // Tax
+  vatExempt: formData.vatExempt ?? false,
+  vatRateId: formData.vatRateId || null,
+
+  // ✅ FIXED: Inventory (Convert strings to numbers)
+  trackQuantity: formData.manageInventory === 'track',
+  manageInventoryMethod: formData.manageInventory || 'track',
+  stockQuantity: parseInt(formData.stockQuantity as any) || 0,  // ✅ Convert to number
+  displayStockAvailability: formData.displayStockAvailability ?? true,
+  displayStockQuantity: formData.displayStockQuantity ?? false,
+  minStockQuantity: parseInt(formData.minStockQuantity as any) || 0,  // ✅ Convert to number
+  lowStockThreshold: parseInt(formData.minStockQuantity as any) || 0,  // ✅ Convert to number
+  notifyAdminForQuantityBelow: formData.notifyAdminForQuantityBelow ?? false,
+  notifyQuantityBelow: formData.notifyAdminForQuantityBelow
+    ? parseInt(formData.notifyQuantityBelow as any) || 0  // ✅ Convert to number
+    : null,
+  allowBackorder: formData.allowBackorder ?? false,
+  backorderMode: formData.backorderMode || 'no-backorders',
+
+  // ✅ FIXED: Order Quantities (Convert strings to numbers)
+  orderMinimumQuantity: minCartQty,  // Already parsed as number
+  orderMaximumQuantity: maxCartQty,  // Already parsed as number
+  allowedQuantities: formData.allowedQuantities?.trim() || null,
+  notReturnable: formData.notReturnable ?? false,
+
+  // Shipping & Dimensions
+  requiresShipping: formData.isShipEnabled ?? true,
+  shipSeparately: formData.shipSeparately ?? false,
+  deliveryDateId: formData.deliveryDateId || null,
+  estimatedDispatchDays: 0,
+  dispatchTimeNote: null,
+  weight: parseNumber(formData.weight, 'weight') || 0,
+  length: parseNumber(formData.length, 'length'),
+  width: parseNumber(formData.width, 'width'),
+  height: parseNumber(formData.height, 'height'),
+  weightUnit: 'kg',
+  dimensionUnit: 'cm',
+
+  // Delivery Options
+  sameDayDeliveryEnabled: formData.sameDayDeliveryEnabled ?? false,
+  nextDayDeliveryEnabled: formData.nextDayDeliveryEnabled ?? false,
+  standardDeliveryEnabled: formData.standardDeliveryEnabled ?? true,
+  standardDeliveryDays: parseInt(formData.standardDeliveryDays as any) || 5,  // ✅ Convert to number
+  sameDayDeliveryCharge: parseNumber(formData.sameDayDeliveryCharge, 'sameDayDeliveryCharge') || 0,
+  nextDayDeliveryCharge: parseNumber(formData.nextDayDeliveryCharge, 'nextDayDeliveryCharge') || 0,
+  standardDeliveryCharge: parseNumber(formData.standardDeliveryCharge, 'standardDeliveryCharge') || 0,
+
+  // ✅ FIXED: Recurring/Subscription (Convert strings to numbers)
+  isRecurring: formData.isRecurring ?? false,
+  recurringCycleLength: formData.isRecurring
+    ? parseInt(formData.recurringCycleLength as any) || 0  // ✅ Convert to number
+    : null,
+  recurringCyclePeriod: formData.isRecurring ? formData.recurringCyclePeriod || 'days' : null,
+  recurringTotalCycles: formData.isRecurring && formData.recurringTotalCycles
+    ? parseInt(formData.recurringTotalCycles as any)  // ✅ Convert to number
+    : null,
+  subscriptionDiscountPercentage: parseNumber(formData.subscriptionDiscountPercentage, 'subscriptionDiscountPercentage'),
+  allowedSubscriptionFrequencies: formData.allowedSubscriptionFrequencies?.trim() || null,
+  subscriptionDescription: formData.subscriptionDescription?.trim() || null,
+
+  // ✅ FIXED: Rental (Convert strings to numbers)
+  isRental: formData.isRental ?? false,
+  rentalPriceLength: formData.isRental
+    ? parseInt(formData.rentalPriceLength as any) || 0  // ✅ Convert to number
+    : null,
+  rentalPricePeriod: formData.isRental ? formData.rentalPricePeriod || 'days' : null,
+
+  // SEO
+  metaTitle: formData.metaTitle?.trim() || null,
+  metaDescription: formData.metaDescription?.trim() || null,
+  metaKeywords: formData.metaKeywords?.trim() || null,
+  searchEngineFriendlyPageName: formData.searchEngineFriendlyPageName?.trim() || null,
+
+  // Reviews
+  allowCustomerReviews: formData.allowCustomerReviews ?? false,
+
+  // Media
+  videoUrls: formData.videoUrls && formData.videoUrls.length > 0
+    ? formData.videoUrls.join(',')
+    : null,
+
+  // Attributes & Variants
+  attributes: attributesArray && attributesArray.length > 0 ? attributesArray : [],
+  variants: variantsArray && variantsArray.length > 0 ? variantsArray : [],
+
+  // Related Products
+  relatedProductIds: Array.isArray(formData.relatedProducts) && formData.relatedProducts.length > 0
+    ? formData.relatedProducts.join(',')
+    : null,
+  crossSellProductIds: Array.isArray(formData.crossSellProducts) && formData.crossSellProducts.length > 0
+    ? formData.crossSellProducts.join(',')
+    : null,
+};
+
+    
+    // ============================================
+    // SECTION 23: FINAL SUBMISSION
+    // ============================================
+    
+    console.log('📤 [API] Updating product...');
+    const response = await productsService.update(productId, productData);
+    
+    if (response.error) {
+      throw new Error(response.error);
+    }
+    
     if (response.data) {
       const apiResponse = response.data;
       
       if (apiResponse.success === true || apiResponse.success === undefined) {
-        console.log('✅ [SUCCESS] Product updated successfully');
-        
-        // ✅ LOG RETURNED VARIANTS
-        if (apiResponse.data?.variants) {
-          console.log('✅ VARIANTS IN RESPONSE:', apiResponse.data.variants);
-        }
-        
         toast.success(
           isDraft ? '✅ Product saved as draft!' : '✅ Product updated successfully!',
           { autoClose: 3000 }
         );
-
+        
         if (releaseLockAfter) {
           try {
             await productLockService.releaseLock(productId);
           } catch (lockError) {
-            console.warn('⚠️ [LOCK] Failed to release lock:', lockError);
+            console.warn('⚠️ Failed to release lock:', lockError);
           }
-
+          
           setTimeout(() => {
             router.push('/admin/products');
           }, 800);
@@ -2267,34 +3018,27 @@ const handleSubmit = async (
     } else {
       throw new Error('No response received from server');
     }
-
-  } 
-  catch (error: any) {
-    console.error('❌ ==================== ERROR ====================');
-    console.error('❌ [ERROR] Submission failed:', error);
-    console.error('❌ [ERROR] Error details:', {
-      message: error.message,
-      response: error.response?.data,
-      status: error.response?.status
-    });
+    
+  } catch (error: any) {
+    console.error('❌ Submission failed:', error);
     
     let errorMessage = 'Failed to update product';
     if (error.message) {
       errorMessage = error.message;
     }
-
+    
     toast.error(errorMessage, { autoClose: 10000 });
     
   } finally {
     target.removeAttribute('data-submitting');
-    console.log('🏁 [SUBMIT] Submission process completed');
   }
 };
 
 
 
 
-// ✅ COMPLETE FIXED handleChange - ADD PRICE FIELD HANDLING
+
+// ✅ PRODUCTION-LEVEL handleChange with ALL edge cases
 const handleChange = (
   e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
 ) => {
@@ -2302,17 +3046,66 @@ const handleChange = (
   const checked = type === "checkbox" ? (e.target as HTMLInputElement).checked : false;
 
   // ================================
-  // ✅ NEW: PRICE FIELDS - Clean input on change
+  // ✅ SECTION 1: PRICE FIELDS
   // ================================
   if (name === 'price' || name === 'oldPrice' || name === 'cost') {
-    // Allow only numbers and one decimal point
-    const cleanedValue = value.replace(/[^\d.]/g, '');
-    const parts = cleanedValue.split('.');
+    let cleanedValue = value.replace(/[^\d.]/g, '');
     
-    // Ensure only one decimal point
-    const finalValue = parts.length > 2 
-      ? parts[0] + '.' + parts.slice(1).join('') 
+    const parts = cleanedValue.split('.');
+    if (parts.length > 2) {
+      cleanedValue = parts[0] + '.' + parts.slice(1).join('');
+    }
+    
+    if (cleanedValue.startsWith('.')) {
+      cleanedValue = '0' + cleanedValue;
+    }
+    
+    if (parts.length === 2 && parts[1].length > 2) {
+      cleanedValue = parts[0] + '.' + parts[1].substring(0, 2);
+    }
+    
+    const numValue = parseFloat(cleanedValue);
+    if (!isNaN(numValue) && numValue > 10000000) {
+      toast.warning('⚠️ Price seems too high. Please verify.');
+      return;
+    }
+    
+    setFormData(prev => ({
+      ...prev,
+      [name]: cleanedValue
+    }));
+    return;
+  }
+
+  // ================================
+  // ✅ SECTION 2: INTEGER FIELDS
+  // ================================
+  if (
+    name === 'stockQuantity' ||
+    name === 'minStockQuantity' ||
+    name === 'notifyQuantityBelow' ||
+    name === 'minCartQuantity' ||
+    name === 'maxCartQuantity' ||
+    name === 'displayOrder' ||
+    name === 'recurringCycleLength' ||
+    name === 'recurringTotalCycles' ||
+    name === 'maxNumberOfDownloads' ||
+    name === 'downloadExpirationDays' ||
+    name === 'rentalPriceLength' ||
+    name === 'packSize' ||
+    name === 'standardDeliveryDays'
+  ) {
+    const cleanedValue = value.replace(/[^\d]/g, '');
+    
+    const finalValue = cleanedValue.length > 1 && cleanedValue.startsWith('0')
+      ? cleanedValue.replace(/^0+/, '')
       : cleanedValue;
+    
+    const numValue = parseInt(finalValue);
+    if (!isNaN(numValue) && numValue > 999999) {
+      toast.warning('⚠️ Value seems too high. Please verify.');
+      return;
+    }
     
     setFormData(prev => ({
       ...prev,
@@ -2322,27 +3115,46 @@ const handleChange = (
   }
 
   // ================================
-  // ✅ NEW: OTHER NUMBER FIELDS - Clean input
+  // ✅ SECTION 3: DECIMAL FIELDS
   // ================================
   if (
     name === 'weight' || 
     name === 'length' || 
     name === 'width' || 
     name === 'height' ||
-    name === 'stockQuantity' ||
-    name === 'minStockQuantity' ||
-    name === 'notifyQuantityBelow' ||
-    name === 'minCartQuantity' ||
-    name === 'maxCartQuantity' ||
-    name === 'additionalShippingCharge' ||
-    name === 'minimumCustomerEnteredPrice' ||
-    name === 'maximumCustomerEnteredPrice' ||
     name === 'basepriceAmount' ||
     name === 'basepriceBaseAmount' ||
-    name === 'subscriptionDiscountPercentage'
+    name === 'subscriptionDiscountPercentage' ||
+    name === 'groupBundleDiscountPercentage' ||
+    name === 'groupBundleDiscountAmount' ||
+    name === 'groupBundleSpecialPrice' ||
+    name === 'sameDayDeliveryCharge' ||
+    name === 'nextDayDeliveryCharge' ||
+    name === 'standardDeliveryCharge'
   ) {
-    // Allow only numbers and one decimal point
-    const cleanedValue = value.replace(/[^\d.]/g, '');
+    let cleanedValue = value.replace(/[^\d.]/g, '');
+    
+    const parts = cleanedValue.split('.');
+    if (parts.length > 2) {
+      cleanedValue = parts[0] + '.' + parts.slice(1).join('');
+    }
+    
+    if (cleanedValue.startsWith('.')) {
+      cleanedValue = '0' + cleanedValue;
+    }
+    
+    if (parts.length === 2 && parts[1].length > 2) {
+      cleanedValue = parts[0] + '.' + parts[1].substring(0, 2);
+    }
+    
+    if (name === 'subscriptionDiscountPercentage' || name === 'groupBundleDiscountPercentage') {
+      const numValue = parseFloat(cleanedValue);
+      if (!isNaN(numValue) && numValue > 100) {
+        toast.warning('⚠️ Percentage cannot exceed 100%');
+        return;
+      }
+    }
+    
     setFormData(prev => ({
       ...prev,
       [name]: cleanedValue
@@ -2350,42 +3162,126 @@ const handleChange = (
     return;
   }
 
-
-
   // ================================
-  // 2. SEO FRIENDLY PAGE NAME (with debounce)
+  // ✅ SECTION 4: SKU FIELD
   // ================================
-  if (name === "searchEngineFriendlyPageName") {
-    setFormData(prev => ({ ...prev, searchEngineFriendlyPageName: value }));
-
-    clearTimeout(seoTimer);
-    seoTimer = setTimeout(() => {
-      setFormData(prev => ({
-        ...prev,
-        searchEngineFriendlyPageName: generateSeoName(prev.searchEngineFriendlyPageName)
-      }));
-    }, 1500);
+  if (name === 'sku') {
+    const cleanedValue = value
+      .toUpperCase()
+      .replace(/[^A-Z0-9\-_]/g, '');
+    
+    const finalValue = cleanedValue.substring(0, 50);
+    
+    setFormData(prev => ({
+      ...prev,
+      sku: finalValue
+    }));
+    
+    if (finalValue.length >= 2) {
+      clearTimeout(seoTimer);
+      seoTimer = setTimeout(() => {
+        checkSkuExists(finalValue);
+      }, 800);
+    } else {
+      setSkuError('');
+    }
     return;
   }
 
   // ================================
-  // 3. PRODUCT NAME - Auto-generate SEO slug
+  // ✅ SECTION 5: PRODUCT NAME
   // ================================
   if (name === "name") {
-    setFormData(prev => ({ ...prev, name: value }));
+    const trimmedValue = value.substring(0, 150);
+    
+    setFormData(prev => ({ ...prev, name: trimmedValue }));
 
     clearTimeout(seoTimer);
     seoTimer = setTimeout(() => {
       setFormData(prev => ({
         ...prev,
-        searchEngineFriendlyPageName: generateSeoName(value)
+        searchEngineFriendlyPageName: generateSeoName(trimmedValue)
       }));
     }, 1000);
     return;
   }
 
   // ================================
-  // 4. PRODUCT TYPE - Grouped/Simple
+  // ✅ SECTION 6: SEO SLUG
+  // ================================
+  if (name === "searchEngineFriendlyPageName") {
+    const formattedValue = value
+      .toLowerCase()
+      .replace(/\s+/g, '-')
+      .replace(/[^a-z0-9-]/g, '');
+    
+    setFormData(prev => ({ 
+      ...prev, 
+      searchEngineFriendlyPageName: formattedValue 
+    }));
+    return;
+  }
+
+  // ================================
+  // ✅ SECTION 7: META TITLE
+  // ================================
+  if (name === "metaTitle") {
+    const trimmedValue = value.substring(0, 100);
+    
+    setFormData(prev => ({ ...prev, metaTitle: trimmedValue }));
+    
+    if (trimmedValue.length > 60) {
+      toast.info('ℹ️ Meta title is longer than recommended (60 chars)');
+    }
+    return;
+  }
+
+  // ================================
+  // ✅ SECTION 8: META DESCRIPTION
+  // ================================
+  if (name === "metaDescription") {
+    const trimmedValue = value.substring(0, 200);
+    
+    setFormData(prev => ({ ...prev, metaDescription: trimmedValue }));
+    
+    if (trimmedValue.length > 160) {
+      toast.info('ℹ️ Meta description is longer than recommended (160 chars)');
+    }
+    return;
+  }
+
+  // ================================
+  // ✅ SECTION 9: SHORT DESCRIPTION
+  // ================================
+  if (name === "shortDescription") {
+    const plainText = value.replace(/<[^>]*>/g, '');
+    
+    if (plainText.length > 350) {
+      toast.warning('⚠️ Short description cannot exceed 350 characters');
+      return;
+    }
+    
+    setFormData(prev => ({ ...prev, shortDescription: value }));
+    return;
+  }
+
+  // ================================
+  // ✅ SECTION 10: FULL DESCRIPTION
+  // ================================
+  if (name === "fullDescription") {
+    const plainText = value.replace(/<[^>]*>/g, '');
+    
+    if (plainText.length > 2000) {
+      toast.warning('⚠️ Full description cannot exceed 2000 characters');
+      return;
+    }
+    
+    setFormData(prev => ({ ...prev, fullDescription: value }));
+    return;
+  }
+
+  // ================================
+  // ✅ SECTION 11: PRODUCT TYPE (FIXED)
   // ================================
   if (name === "productType") {
     if (value === 'grouped') {
@@ -2398,7 +3294,12 @@ const handleChange = (
       ...(value === 'simple' && {
         requireOtherProducts: false,
         requiredProductIds: '',
-        automaticallyAddProducts: false
+        automaticallyAddProducts: false,
+        groupBundleDiscountType: 'None',
+        groupBundleDiscountPercentage: 0,
+        groupBundleDiscountAmount: 0,
+        groupBundleSpecialPrice: 0,
+        groupBundleSavingsMessage: ''
       }),
       ...(value === 'grouped' && {
         requireOtherProducts: true
@@ -2412,7 +3313,7 @@ const handleChange = (
   }
 
   // ================================
-  // 5. REQUIRE OTHER PRODUCTS
+  // ✅ SECTION 12: REQUIRE OTHER PRODUCTS (FIXED)
   // ================================
   if (name === "requireOtherProducts") {
     setFormData(prev => ({
@@ -2420,7 +3321,12 @@ const handleChange = (
       requireOtherProducts: checked,
       ...(!checked && {
         requiredProductIds: '',
-        automaticallyAddProducts: false
+        automaticallyAddProducts: false,
+        groupBundleDiscountType: 'None',
+        groupBundleDiscountPercentage: 0,
+        groupBundleDiscountAmount: 0,
+        groupBundleSpecialPrice: 0,
+        groupBundleSavingsMessage: ''
       })
     }));
     
@@ -2431,7 +3337,7 @@ const handleChange = (
   }
 
   // ================================
-  // 6. SHIPPING ENABLED - Master Switch
+  // ✅ SECTION 13: SHIPPING ENABLED
   // ================================
   if (name === "isShipEnabled") {
     setFormData(prev => ({
@@ -2442,18 +3348,35 @@ const handleChange = (
       length: checked ? prev.length : "",
       width: checked ? prev.width : "",
       height: checked ? prev.height : "",
-      deliveryDateId: checked ? prev.deliveryDateId : ""
+      deliveryDateId: checked ? prev.deliveryDateId : "",
+      sameDayDeliveryEnabled: checked ? prev.sameDayDeliveryEnabled : false,
+      nextDayDeliveryEnabled: checked ? prev.nextDayDeliveryEnabled : false,
+      standardDeliveryEnabled: checked ? prev.standardDeliveryEnabled : true
     }));
     return;
   }
 
   // ================================
-  // 7. FREE SHIPPING (Auto reset charge)
+  // ✅ SECTION 14: MANAGE INVENTORY
   // ================================
-
+  if (name === "manageInventory") {
+    setFormData(prev => ({
+      ...prev,
+      manageInventory: value,
+      ...(value === 'dont-track' && {
+        stockQuantity: '0',
+        minStockQuantity: '0',
+        notifyAdminForQuantityBelow: false,
+        notifyQuantityBelow: '1',
+        allowBackorder: false,
+        backorderMode: 'no-backorders'
+      })
+    }));
+    return;
+  }
 
   // ================================
-  // 8. RECURRING / SUBSCRIPTION PRODUCT
+  // ✅ SECTION 15: IS RECURRING
   // ================================
   if (name === "isRecurring") {
     setFormData(prev => ({
@@ -2472,7 +3395,7 @@ const handleChange = (
   }
 
   // ================================
-  // 9. PACK / BUNDLE PRODUCT
+  // ✅ SECTION 16: IS PACK
   // ================================
   if (name === "isPack") {
     setFormData(prev => ({
@@ -2484,7 +3407,7 @@ const handleChange = (
   }
 
   // ================================
-  // 10. MARK AS NEW (with date reset)
+  // ✅ SECTION 17: MARK AS NEW
   // ================================
   if (name === "markAsNew") {
     setFormData(prev => ({
@@ -2496,10 +3419,8 @@ const handleChange = (
     return;
   }
 
-
-
   // ================================
-  // 12. BASE PRICE ENABLED
+  // ✅ SECTION 18: BASE PRICE ENABLED
   // ================================
   if (name === "basepriceEnabled") {
     setFormData(prev => ({
@@ -2516,7 +3437,7 @@ const handleChange = (
   }
 
   // ================================
-  // 13. NOTIFY ADMIN - Low Stock
+  // ✅ SECTION 19: NOTIFY ADMIN
   // ================================
   if (name === "notifyAdminForQuantityBelow") {
     setFormData(prev => ({
@@ -2528,7 +3449,7 @@ const handleChange = (
   }
 
   // ================================
-  // 14. ALLOW BACKORDER
+  // ✅ SECTION 20: ALLOW BACKORDER
   // ================================
   if (name === "allowBackorder") {
     setFormData(prev => ({
@@ -2540,7 +3461,7 @@ const handleChange = (
   }
 
   // ================================
-  // 15. AVAILABLE FOR PRE-ORDER
+  // ✅ SECTION 21: AVAILABLE FOR PRE-ORDER
   // ================================
   if (name === "availableForPreOrder") {
     setFormData(prev => ({
@@ -2552,7 +3473,7 @@ const handleChange = (
   }
 
   // ================================
-  // 16. GIFT CARD
+  // ✅ SECTION 22: IS GIFT CARD
   // ================================
   if (name === "isGiftCard") {
     setFormData(prev => ({
@@ -2567,7 +3488,7 @@ const handleChange = (
   }
 
   // ================================
-  // 17. DOWNLOADABLE PRODUCT
+  // ✅ SECTION 23: IS DOWNLOAD
   // ================================
   if (name === "isDownload") {
     setFormData(prev => ({
@@ -2589,7 +3510,7 @@ const handleChange = (
   }
 
   // ================================
-  // 18. RENTAL PRODUCT
+  // ✅ SECTION 24: IS RENTAL
   // ================================
   if (name === "isRental") {
     setFormData(prev => ({
@@ -2604,7 +3525,7 @@ const handleChange = (
   }
 
   // ================================
-  // 19. HAS USER AGREEMENT
+  // ✅ SECTION 25: HAS USER AGREEMENT
   // ================================
   if (name === "hasUserAgreement") {
     setFormData(prev => ({
@@ -2616,7 +3537,7 @@ const handleChange = (
   }
 
   // ================================
-  // 20. HAS SAMPLE DOWNLOAD
+  // ✅ SECTION 26: HAS SAMPLE DOWNLOAD
   // ================================
   if (name === "hasSampleDownload") {
     setFormData(prev => ({
@@ -2628,7 +3549,7 @@ const handleChange = (
   }
 
   // ================================
-  // 21. UNLIMITED DOWNLOADS
+  // ✅ SECTION 27: UNLIMITED DOWNLOADS
   // ================================
   if (name === "unlimitedDownloads") {
     setFormData(prev => ({
@@ -2639,8 +3560,38 @@ const handleChange = (
     return;
   }
 
+// ================================
+// ✅ SECTION 28A: SHOW ON HOMEPAGE (Keep as string in state, convert in payload)
+// ================================
+if (name === 'showOnHomepage') {
+  // Keep current value before update
+  const currentDisplayOrder = parseInt(formData.displayOrder as any) || 0;
+  
+  // Update state (keep as string for consistency with input)
+  setFormData(prev => ({
+    ...prev,
+    showOnHomepage: checked,
+    displayOrder: checked ? prev.displayOrder : "0"  // Keep as string
+  }));
+  
+  // User feedback
+  if (checked) {
+    toast.success("✅ Product added to homepage!");
+  } else {
+    if (currentDisplayOrder > 0) {
+      toast.info("📌 Product removed from homepage. Display order reset to 0.");
+    } else {
+      toast.info("📌 Product removed from homepage.");
+    }
+  }
+  
+  return;
+}
+
+
+
   // ================================
-  // 22. GENERIC CHECKBOXES
+  // ✅ SECTION 28: GENERIC CHECKBOXES
   // ================================
   if (type === "checkbox") {
     setFormData(prev => ({
@@ -2651,13 +3602,14 @@ const handleChange = (
   }
 
   // ================================
-  // 23. DEFAULT: Text, Number, Select, Textarea
+  // ✅ SECTION 29: DEFAULT
   // ================================
   setFormData(prev => ({
     ...prev,
     [name]: value
   }));
 };
+
 
 
 
@@ -2816,22 +3768,41 @@ const addProductVariant = () => {
     weight: formData.weight ? parseFloat(formData.weight) : null,
     stockQuantity: 0,
     trackInventory: true,
-    
-    // ✅ CHANGED: Empty string instead of null
     option1Name: '',
     option1Value: '',
     option2Name: '',
     option2Value: '',
     option3Name: '',
     option3Value: '',
-    
     imageUrl: null,
     isDefault: productVariants.length === 0,
     displayOrder: productVariants.length,
     isActive: true,
   };
+
   setProductVariants([...productVariants, newVariant]);
+  
+  // ✅ Auto-scroll to new variant
+  setTimeout(() => {
+    const variantCards = document.querySelectorAll('[data-variant-card]');
+    const lastCard = variantCards[variantCards.length - 1];
+    
+    if (lastCard) {
+      lastCard.scrollIntoView({ 
+        behavior: 'smooth', 
+        block: 'center' 
+      });
+      
+      // ✅ Highlight effect
+      lastCard.classList.add('ring-2', 'ring-violet-500');
+      setTimeout(() => {
+        lastCard.classList.remove('ring-2', 'ring-violet-500');
+      }, 1500);
+    }
+  }, 100);
 };
+
+
 
 
 
@@ -3867,42 +4838,107 @@ const uploadImagesToProductDirect = async (
       </div>
 
       {/* ✅ Show on Homepage + Display Order - Smart Layout */}
-      <div className="grid md:grid-cols-2 gap-4">
-        {/* Column 1 - Show on Homepage checkbox */}
-        <label className="flex items-center gap-2 w-full px-3 py-2.5  bg-slate-800/50 border border-slate-700 rounded-xl cursor-pointer hover:border-violet-500 transition-all">
-          <input
-            type="checkbox"
-            name="showOnHomepage"
-            checked={formData.showOnHomepage}
-            onChange={handleChange}
-            className="rounded bg-slate-800/50 h-8 border-slate-700 text-violet-500 focus:ring-violet-500 focus:ring-offset-slate-900"
-          />
-          <span className="text-sm text-slate-300">Show on home page</span>
-        </label>
-
-        {/* Column 2 - Display Order (always visible with same height) */}
-        <div className="flex items-center gap-3 w-full px-3 py-2.5 bg-slate-800/50 border border-slate-700 rounded-xl">
-          {formData.showOnHomepage ? (
-            <>
-              {/* Left: Label */}
-              <span className="text-sm font-medium text-slate-300 whitespace-nowrap">Display Order</span>
-              
-              {/* Right: Input */}
-              <input
-                type="number"
-                name="displayOrder"
-                value={formData.displayOrder}
-                onChange={handleChange}
-                placeholder="1"
-                className="flex-1 px-3 py-1 bg-slate-900/50 border border-slate-600 rounded-lg text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
-              />
-            </>
-          ) : (
-            /* Placeholder to maintain height when unchecked */
-            <span className="text-sm text-slate-500 italic">Enable "Show on home page" to set order</span>
-          )}
-        </div>
+{/* ========================================
+    ✅ SHOW ON HOMEPAGE + DISPLAY ORDER
+    ======================================== */}
+<div className="space-y-2">
+  <h3 className="text-sm font-semibold text-slate-200 uppercase tracking-wide mb-3">
+    Homepage Settings
+  </h3>
+  
+  <div className="grid md:grid-cols-2 gap-4">
+    {/* Column 1 - Show on Homepage checkbox */}
+    <label className="flex items-center gap-2 w-full px-3 py-2.5 bg-slate-800/50 border border-slate-700 rounded-xl cursor-pointer hover:border-violet-500 transition-all group">
+      <input
+        type="checkbox"
+        name="showOnHomepage"
+        checked={formData.showOnHomepage}
+        onChange={handleChange}
+        className="rounded bg-slate-800/50 border-slate-700 text-violet-500 focus:ring-violet-500 focus:ring-offset-slate-900 cursor-pointer"
+      />
+      <div className="flex-1">
+        <span className="text-sm font-medium text-slate-300 group-hover:text-white transition-colors">
+          Show on home page
+        </span>
+        <p className="text-xs text-slate-500 mt-0.5">
+          Display this product on homepage
+        </p>
       </div>
+      {formData.showOnHomepage && (
+        <span className="px-2 py-1 bg-violet-500/20 text-violet-400 text-xs rounded-md font-semibold">
+          ✓ Active
+        </span>
+      )}
+    </label>
+
+    {/* Column 2 - Display Order (conditional) */}
+    <div 
+      className={cn(
+        "flex items-center gap-3 w-full px-3 py-2.5 rounded-xl transition-all",
+        formData.showOnHomepage
+          ? "bg-slate-800/50 border border-slate-700"
+          : "bg-slate-800/30 border border-slate-700/50"
+      )}
+    >
+      {formData.showOnHomepage ? (
+        <>
+          {/* Left: Label */}
+          <label 
+            htmlFor="displayOrder" 
+            className="text-sm font-medium text-slate-300 whitespace-nowrap"
+          >
+            Display Order
+          </label>
+          
+          {/* Right: Input */}
+          <input
+            id="displayOrder"
+            type="number"
+            name="displayOrder"
+            value={formData.displayOrder}
+            onChange={handleChange}
+            placeholder="1"
+            min="0"
+            className="flex-1 px-3 py-2 bg-slate-900/50 border border-slate-600 rounded-lg text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+          />
+        </>
+      ) : (
+        /* Placeholder when unchecked */
+        <div className="flex items-center gap-2 text-slate-500">
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+          </svg>
+          <span className="text-sm italic">Enable "Show on home page" to set display order</span>
+        </div>
+      )}
+    </div>
+  </div>
+  
+  {/* Helper Text */}
+{formData.showOnHomepage && (
+  <div className="flex items-start gap-2 p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg">
+    <svg className="w-5 h-5 text-blue-400 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+      <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+    </svg>
+    <div className="flex-1">
+      <div className="flex items-center justify-between">
+        <p className="text-sm text-blue-300 font-medium">Homepage Product Active</p>
+        {homepageCount !== null && (
+          <span className="text-xs font-bold text-blue-400 bg-blue-500/20 px-2 py-0.5 rounded">
+            {homepageCount}/{MAX_HOMEPAGE}
+          </span>
+        )}
+      </div>
+      <p className="text-xs text-blue-400/80 mt-1">
+        Maximum 20 products allowed. Lower order numbers appear first.
+      </p>
+    </div>
+  </div>
+)}
+
+
+</div>
+
     </div>
 
     {/* Available Dates */}
@@ -4492,7 +5528,7 @@ const uploadImagesToProductDirect = async (
           name="maxCartQuantity"
           value={formData.maxCartQuantity}
           onChange={handleChange}
-          placeholder="10000"
+          placeholder="100"
           min="1"
           className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
         />
@@ -4620,7 +5656,7 @@ const uploadImagesToProductDirect = async (
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-slate-400 mb-1">
-                    Delivery Charge (₹)
+                    Delivery Charge (£)
                   </label>
                   <input
                     type="number"
@@ -4670,7 +5706,7 @@ const uploadImagesToProductDirect = async (
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-slate-400 mb-1">
-                    Delivery Charge (₹)
+                    Delivery Charge (£)
                   </label>
                   <input
                     type="number"
@@ -4722,7 +5758,7 @@ const uploadImagesToProductDirect = async (
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-slate-400 mb-1">
-                    Delivery Charge (₹)
+                    Delivery Charge (£)
                   </label>
                   <input
                     type="number"
@@ -4748,13 +5784,13 @@ const uploadImagesToProductDirect = async (
                 <p className="font-semibold mb-1">Active Delivery Options:</p>
                 <ul className="space-y-1 text-slate-300">
                   {formData.sameDayDeliveryEnabled && (
-                    <li>• Same-Day: ₹{formData.sameDayDeliveryCharge || '0'} (Before {formData.sameDayDeliveryCutoffTime || '--:--'})</li>
+                    <li>• Same-Day: £{formData.sameDayDeliveryCharge || '0'} (Before {formData.sameDayDeliveryCutoffTime || '--:--'})</li>
                   )}
                   {formData.nextDayDeliveryEnabled && (
-                    <li>• Next-Day: ₹{formData.nextDayDeliveryCharge || '0'} (Before {formData.nextDayDeliveryCutoffTime || '--:--'})</li>
+                    <li>• Next-Day: £{formData.nextDayDeliveryCharge || '0'} (Before {formData.nextDayDeliveryCutoffTime || '--:--'})</li>
                   )}
                   {formData.standardDeliveryEnabled && (
-                    <li>• Standard: ₹{formData.standardDeliveryCharge || '0'} ({formData.standardDeliveryDays || '5'} days)</li>
+                    <li>• Standard: £{formData.standardDeliveryCharge || '0'} ({formData.standardDeliveryDays || '5'} days)</li>
                   )}
                 </ul>
               </div>
@@ -5312,51 +6348,69 @@ const uploadImagesToProductDirect = async (
               </TabsContent>
 
  
-{/* ✅ COMPLETE UPDATED Product Variants Tab */}
-<TabsContent value="variants" className="space-y-2 mt-2">
-  <div className="space-y-4">
-    <div className="flex items-center justify-between">
-      <div>
-        <h3 className="text-lg font-semibold text-white">Product Variants</h3>
-        <p className="text-sm text-slate-400">
-          Create variants like different sizes, colors, or configurations with their own pricing and inventory
-        </p>
+<TabsContent value="variants" className="space-y-3 ">
+  <div className="space-y-3">
+    {/* ✅ STICKY HEADER - Compact & Professional */}
+    <div className="sticky top-0 z-10 bg-slate-900/98 backdrop-blur-md border-b border-slate-800 pb-3 -mt-2 pt-2 shadow-lg">
+      <div className="flex items-center justify-between gap-4">
+        <div className="flex-1 min-w-0">
+          <h3 className="text-base font-semibold text-white truncate">Product Variants</h3>
+          <p className="text-xs text-slate-400 mt-0.5">
+            Create variants with different sizes, colors, or configurations
+          </p>
+        </div>
+        
+        {/* ✅ Variant Count Badge (shows when variants exist) */}
+        {productVariants.length > 0 && (
+          <div className="flex items-center gap-2 px-3 py-1.5 bg-violet-500/15 text-violet-400 rounded-lg text-xs font-medium border border-violet-500/20">
+            <Package className="h-3.5 w-3.5" />
+            {productVariants.length} Variant{productVariants.length > 1 ? 's' : ''}
+          </div>
+        )}
+        
+        <button
+          type="button"
+          onClick={addProductVariant}
+          className="px-3.5 py-2 bg-violet-500 hover:bg-violet-600 text-white text-sm rounded-lg transition-all flex items-center gap-2 shadow-md hover:shadow-lg whitespace-nowrap"
+        >
+          <Package className="h-4 w-4" />
+          Add Variant
+        </button>
       </div>
-      <button
-        type="button"
-        onClick={addProductVariant}
-        className="px-4 py-2 bg-violet-500 hover:bg-violet-600 text-white rounded-lg transition-colors flex items-center gap-2"
-      >
-        <Package className="h-4 w-4" />
-        Add Variant
-      </button>
     </div>
 
+    {/* ✅ EMPTY STATE - Compact */}
     {productVariants.length === 0 ? (
-      <div className="bg-slate-800/30 border border-slate-700 rounded-xl p-8 text-center">
-        <Package className="h-12 w-12 text-slate-600 mx-auto mb-4" />
-        <h3 className="text-lg font-semibold text-white mb-2">No Product Variants Yet</h3>
-        <p className="text-slate-400 mb-4">
-          Click "Add Variant" to create different versions of this product
+      <div className="bg-slate-800/30 border border-slate-700 rounded-xl p-6 text-center">
+        <Package className="h-10 w-10 text-slate-600 mx-auto mb-3" />
+        <h3 className="text-base font-semibold text-white mb-1.5">No Product Variants</h3>
+        <p className="text-sm text-slate-400 mb-2">
+          Click "Add Variant" to create different versions
         </p>
-        <p className="text-sm text-slate-500">
-          Example: 500ml Original, 750ml Original, 200ml Fresh
+        <p className="text-xs text-slate-500">
+          Example: 500ml Original, 750ml Fresh
         </p>
       </div>
     ) : (
-      <div className="space-y-4">
+      /* ✅ VARIANTS LIST - Compact Layout */
+      <div className="space-y-3">
         {productVariants.map((variant, index) => (
-          <div key={variant.id} className="bg-slate-800/30 border border-slate-700 rounded-xl p-4">
-            <div className="flex items-start justify-between mb-4">
+          <div 
+            key={variant.id} 
+            data-variant-card
+            className="bg-slate-800/30 border border-slate-700 rounded-xl p-3.5 transition-all hover:border-slate-600"
+          >
+            {/* ✅ HEADER - Compact */}
+            <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
-                <h4 className="text-white font-medium">Variant #{index + 1}</h4>
+                <h4 className="text-sm font-semibold text-white">Variant #{index + 1}</h4>
                 {variant.isDefault && (
-                  <span className="px-2 py-1 bg-violet-500/20 text-violet-400 text-xs rounded-md">
+                  <span className="px-2 py-0.5 bg-violet-500/20 text-violet-400 text-xs rounded border border-violet-500/30">
                     Default
                   </span>
                 )}
                 {!variant.isActive && (
-                  <span className="px-2 py-1 bg-red-500/20 text-red-400 text-xs rounded-md">
+                  <span className="px-2 py-0.5 bg-red-500/20 text-red-400 text-xs rounded border border-red-500/30">
                     Inactive
                   </span>
                 )}
@@ -5364,16 +6418,16 @@ const uploadImagesToProductDirect = async (
               <button
                 type="button"
                 onClick={() => removeProductVariant(variant.id)}
-                className="p-2 text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-lg transition-colors"
+                className="p-1.5 text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-lg transition-colors"
               >
-                <X className="h-5 w-5" />
+                <X className="h-4 w-4" />
               </button>
             </div>
 
-            {/* Basic Info Row */}
-            <div className="grid grid-cols-2 gap-4 mb-4">
+            {/* ✅ BASIC INFO - 2 Columns */}
+            <div className="grid grid-cols-2 gap-3 mb-3">
               <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">
+                <label className="block text-xs font-medium text-slate-300 mb-1.5">
                   Variant Name <span className="text-red-500">*</span>
                 </label>
                 <input
@@ -5381,27 +6435,89 @@ const uploadImagesToProductDirect = async (
                   value={variant.name}
                   onChange={(e) => updateProductVariant(variant.id, 'name', e.target.value)}
                   placeholder="e.g., 500ml Original"
-                  className="w-full px-4 py-2.5 bg-slate-900 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500"
+                  className="w-full px-3 py-2 text-sm bg-slate-900 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent"
                 />
               </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">
-                  SKU <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  value={variant.sku}
-                  onChange={(e) => updateProductVariant(variant.id, 'sku', e.target.value)}
-                  placeholder="e.g., JOHNSON-500ML"
-                  className="w-full px-4 py-2.5 bg-slate-900 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500"
-                />
-              </div>
+<div>
+  <label className="block text-xs font-medium text-slate-300 mb-1.5">
+    SKU <span className="text-red-500">*</span>
+  </label>
+  
+  {/* Input with validation states */}
+  <div className="relative">
+    <input
+      type="text"
+      value={variant.sku}
+      onChange={(e) => {
+        const value = e.target.value.toUpperCase(); // Force uppercase
+        updateProductVariant(variant.id, 'sku', value);
+      }}
+      placeholder="e.g., PROD-500ML"
+      className={`w-full px-3 py-2 text-sm bg-slate-900 border rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:border-transparent transition-all ${
+        variantSkuErrors[variant.id]
+          ? 'border-red-500 focus:ring-red-500'
+          : checkingVariantSku[variant.id]
+          ? 'border-yellow-500 focus:ring-yellow-500'
+          : 'border-slate-700 focus:ring-violet-500'
+      }`}
+    />
+
+    {/* Loading Spinner */}
+    {checkingVariantSku[variant.id] && (
+      <div className="absolute right-3 top-1/2 -translate-y-1/2">
+        <svg className="animate-spin h-4 w-4 text-yellow-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+        </svg>
+      </div>
+    )}
+
+    {/* Success Checkmark */}
+    {!checkingVariantSku[variant.id] && variant.sku.length >= 2 && !variantSkuErrors[variant.id] && (
+      <div className="absolute right-3 top-1/2 -translate-y-1/2">
+        <svg className="h-4 w-4 text-green-500" fill="currentColor" viewBox="0 0 20 20">
+          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+        </svg>
+      </div>
+    )}
+
+    {/* Error Icon */}
+    {variantSkuErrors[variant.id] && (
+      <div className="absolute right-3 top-1/2 -translate-y-1/2">
+        <svg className="h-4 w-4 text-red-500" fill="currentColor" viewBox="0 0 20 20">
+          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+        </svg>
+      </div>
+    )}
+  </div>
+
+  {/* Error Message */}
+  {variantSkuErrors[variant.id] && (
+    <p className="mt-1.5 text-xs text-red-400 flex items-center gap-1">
+      <svg className="w-3.5 h-3.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+        <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+      </svg>
+      <span>{variantSkuErrors[variant.id]}</span>
+    </p>
+  )}
+
+  {/* Success Message */}
+  {!checkingVariantSku[variant.id] && variant.sku.length >= 2 && !variantSkuErrors[variant.id] && (
+    <p className="mt-1.5 text-xs text-green-400 flex items-center gap-1">
+      <svg className="w-3.5 h-3.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+      </svg>
+      <span>SKU available</span>
+    </p>
+  )}
+</div>
+
             </div>
 
-            {/* Pricing & Stock Row */}
-            <div className="grid grid-cols-4 gap-4 mb-4">
+            {/* ✅ PRICING & STOCK - 4 Columns Compact */}
+            <div className="grid grid-cols-4 gap-3 mb-3">
               <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">
+                <label className="block text-xs font-medium text-slate-300 mb-1.5">
                   Price (£)
                 </label>
                 <input
@@ -5409,25 +6525,25 @@ const uploadImagesToProductDirect = async (
                   step="0.01"
                   value={variant.price || ''}
                   onChange={(e) => updateProductVariant(variant.id, 'price', e.target.value ? parseFloat(e.target.value) : null)}
-                  placeholder="9.99"
-                  className="w-full px-4 py-2.5 bg-slate-900 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500"
+                  placeholder="99.99"
+                  className="w-full px-3 py-2 text-sm bg-slate-900 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">
-                  Compare At Price (£)
+                <label className="block text-xs font-medium text-slate-300 mb-1.5">
+                  Compare Price
                 </label>
                 <input
                   type="number"
                   step="0.01"
                   value={variant.compareAtPrice || ''}
                   onChange={(e) => updateProductVariant(variant.id, 'compareAtPrice', e.target.value ? parseFloat(e.target.value) : null)}
-                  placeholder="12.99"
-                  className="w-full px-4 py-2.5 bg-slate-900 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500"
+                  placeholder="129.99"
+                  className="w-full px-3 py-2 text-sm bg-slate-900 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">
+                <label className="block text-xs font-medium text-slate-300 mb-1.5">
                   Weight (kg)
                 </label>
                 <input
@@ -5436,213 +6552,175 @@ const uploadImagesToProductDirect = async (
                   value={variant.weight || ''}
                   onChange={(e) => updateProductVariant(variant.id, 'weight', e.target.value ? parseFloat(e.target.value) : null)}
                   placeholder="0.55"
-                  className="w-full px-4 py-2.5 bg-slate-900 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500"
+                  className="w-full px-3 py-2 text-sm bg-slate-900 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">
-                  Stock Quantity
+                <label className="block text-xs font-medium text-slate-300 mb-1.5">
+                  Stock Qty
                 </label>
                 <input
                   type="number"
                   value={variant.stockQuantity}
                   onChange={(e) => updateProductVariant(variant.id, 'stockQuantity', parseInt(e.target.value) || 0)}
                   placeholder="150"
-                  className="w-full px-4 py-2.5 bg-slate-900 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500"
+                  className="w-full px-3 py-2 text-sm bg-slate-900 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent"
                 />
               </div>
             </div>
 
-{/* ✅ UPDATED: Option 1 (Name + Value) - Empty String Only */}
-<div className="space-y-4 mb-4 bg-slate-900/50 border border-slate-700 rounded-lg p-4">
-  <h5 className="text-sm font-semibold text-violet-400">Option 1</h5>
-  <div className="grid grid-cols-2 gap-4">
-    <div>
-      <label className="block text-sm font-medium text-slate-300 mb-2">
-        Option Name
-      </label>
-      <input
-        type="text"
-        value={variant.option1Name || ''}
-        onChange={(e) => updateProductVariant(variant.id, 'option1Name', e.target.value)}
-        placeholder="e.g., Size, Pack Size"
-        className="w-full px-4 py-2.5 bg-slate-900 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500"
-      />
-    </div>
-    <div>
-      <label className="block text-sm font-medium text-slate-300 mb-2">
-        Option Value
-      </label>
-      <input
-        type="text"
-        value={variant.option1Value || ''}
-        onChange={(e) => updateProductVariant(variant.id, 'option1Value', e.target.value)}
-        placeholder="e.g., 500ml, Pack of 12"
-        className="w-full px-4 py-2.5 bg-slate-900 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500"
-      />
-    </div>
-  </div>
-</div>
-
-{/* ✅ UPDATED: Option 2 (Name + Value) - Empty String Only */}
-<div className="space-y-4 mb-4 bg-slate-900/50 border border-slate-700 rounded-lg p-4">
-  <h5 className="text-sm font-semibold text-cyan-400">Option 2</h5>
-  <div className="grid grid-cols-2 gap-4">
-    <div>
-      <label className="block text-sm font-medium text-slate-300 mb-2">
-        Option Name
-      </label>
-      <input
-        type="text"
-        value={variant.option2Name || ''}
-        onChange={(e) => updateProductVariant(variant.id, 'option2Name', e.target.value)}
-        placeholder="e.g., Purchase Type, Color"
-        className="w-full px-4 py-2.5 bg-slate-900 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500"
-      />
-    </div>
-    <div>
-      <label className="block text-sm font-medium text-slate-300 mb-2">
-        Option Value
-      </label>
-      <input
-        type="text"
-        value={variant.option2Value || ''}
-        onChange={(e) => updateProductVariant(variant.id, 'option2Value', e.target.value)}
-        placeholder="e.g., One Time Purchase, Black"
-        className="w-full px-4 py-2.5 bg-slate-900 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500"
-      />
-    </div>
-  </div>
-</div>
-
-{/* ✅ UPDATED: Option 3 (Name + Value) - Empty String Only */}
-<div className="space-y-4 mb-4 bg-slate-900/50 border border-slate-700 rounded-lg p-4">
-  <h5 className="text-sm font-semibold text-pink-400">Option 3 (Optional)</h5>
-  <div className="grid grid-cols-2 gap-4">
-    <div>
-      <label className="block text-sm font-medium text-slate-300 mb-2">
-        Option Name
-      </label>
-      <input
-        type="text"
-        value={variant.option3Name || ''}
-        onChange={(e) => updateProductVariant(variant.id, 'option3Name', e.target.value)}
-        placeholder="e.g., Material, Style"
-        className="w-full px-4 py-2.5 bg-slate-900 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500"
-      />
-    </div>
-    <div>
-      <label className="block text-sm font-medium text-slate-300 mb-2">
-        Option Value
-      </label>
-      <input
-        type="text"
-        value={variant.option3Value || ''}
-        onChange={(e) => updateProductVariant(variant.id, 'option3Value', e.target.value)}
-        placeholder="e.g., Premium, WiFi+Cellular"
-        className="w-full px-4 py-2.5 bg-slate-900 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500"
-      />
-    </div>
-  </div>
-</div>
-
-
-            {/* Variant Image Upload */}
-            <div>
-              <label className="block text-sm font-medium text-slate-300 mb-2">
-                Variant Image
-              </label>
-              
-              {/* ✅ Preview Section */}
-              {variant.imageUrl ? (
-                <div className="relative inline-block mb-3">
-                  <img
-                    src={
-                      variant.imageUrl.startsWith("blob:") 
-                        ? variant.imageUrl // Preview (local)
-                        : variant.imageUrl.startsWith("http") || variant.imageUrl.startsWith("/")
-                        ? `${API_BASE_URL}${variant.imageUrl}` // Server URL
-                        : variant.imageUrl
-                    }
-                    alt={variant?.name || "Variant"}
-                    className="w-32 h-32 object-cover rounded-lg border-2 border-slate-700 shadow-lg"
-                  />
-                  
-                  {/* ✅ Preview Badge */}
-                  {variant.imageUrl.startsWith("blob:") && (
-                    <span className="absolute top-1 right-1 px-2 py-1 bg-orange-500 text-white text-xs rounded-md">
-                      Preview
-                    </span>
-                  )}
-                  
-                  {/* ✅ Remove Image Button */}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (variant.imageUrl?.startsWith('blob:')) {
-                        URL.revokeObjectURL(variant.imageUrl);
-                      }
-                      updateProductVariant(variant.id, 'imageUrl', null);
-                      updateProductVariant(variant.id, 'imageFile', undefined);
-                    }}
-                    className="absolute -top-2 -right-2 p-1 bg-red-500 hover:bg-red-600 text-white rounded-full transition-colors"
-                  >
-                    <X className="h-4 w-4" />
-                  </button>
-                </div>
-              ) : null}
-              
-              {/* ✅ Upload Button */}
-              <div className="flex items-center gap-2">
+            {/* ✅ OPTION 1 - Compact */}
+            <div className="mb-3 bg-slate-900/50 border border-slate-700/50 rounded-lg p-3">
+              <div className="flex items-center gap-2 mb-2">
+                <div className="h-1.5 w-1.5 rounded-full bg-violet-500"></div>
+                <h5 className="text-xs font-semibold text-violet-400">Option 1</h5>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
                 <input
-                  type="file"
-                  accept="image/*"
-                  onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (file) {
-                      // ✅ Validate file size (max 5MB)
-                      if (file.size > 5 * 1024 * 1024) {
-                        toast.error("Image size should be less than 5MB");
-                        return;
-                      }
-                      
-                      // ✅ Validate file type
-                      if (!file.type.startsWith('image/')) {
-                        toast.error("Please select a valid image file");
-                        return;
-                      }
-                      
-                      handleVariantImageUpload(variant.id, file);
-                    }
-                  }}
-                  className="hidden"
-                  id={`variant-image-${variant.id}`}
+                  type="text"
+                  value={variant.option1Name || ''}
+                  onChange={(e) => updateProductVariant(variant.id, 'option1Name', e.target.value)}
+                  placeholder="Name (e.g., Size)"
+                  className="w-full px-3 py-2 text-sm bg-slate-900 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500"
                 />
-                <label
-                  htmlFor={`variant-image-${variant.id}`}
-                  className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-colors cursor-pointer flex items-center gap-2"
-                >
-                  <Upload className="h-4 w-4" />
-                  {variant.imageUrl ? "Change Image" : "Upload Image"}
-                </label>
+                <input
+                  type="text"
+                  value={variant.option1Value || ''}
+                  onChange={(e) => updateProductVariant(variant.id, 'option1Value', e.target.value)}
+                  placeholder="Value (e.g., 500ml)"
+                  className="w-full px-3 py-2 text-sm bg-slate-900 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500"
+                />
+              </div>
+            </div>
+
+            {/* ✅ OPTION 2 - Compact */}
+            <div className="mb-3 bg-slate-900/50 border border-slate-700/50 rounded-lg p-3">
+              <div className="flex items-center gap-2 mb-2">
+                <div className="h-1.5 w-1.5 rounded-full bg-cyan-500"></div>
+                <h5 className="text-xs font-semibold text-cyan-400">Option 2</h5>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <input
+                  type="text"
+                  value={variant.option2Name || ''}
+                  onChange={(e) => updateProductVariant(variant.id, 'option2Name', e.target.value)}
+                  placeholder="Name (e.g., Type)"
+                  className="w-full px-3 py-2 text-sm bg-slate-900 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                />
+                <input
+                  type="text"
+                  value={variant.option2Value || ''}
+                  onChange={(e) => updateProductVariant(variant.id, 'option2Value', e.target.value)}
+                  placeholder="Value (e.g., Original)"
+                  className="w-full px-3 py-2 text-sm bg-slate-900 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                />
+              </div>
+            </div>
+
+            {/* ✅ OPTION 3 - Compact (Collapsible Optional) */}
+            <details className="mb-3">
+              <summary className="cursor-pointer text-xs font-semibold text-pink-400 hover:text-pink-300 flex items-center gap-2 mb-2">
+                <ChevronDown className="h-3.5 w-3.5" />
+                Option 3 (Optional)
+              </summary>
+              <div className="bg-slate-900/50 border border-slate-700/50 rounded-lg p-3 mt-2">
+                <div className="grid grid-cols-2 gap-3">
+                  <input
+                    type="text"
+                    value={variant.option3Name || ''}
+                    onChange={(e) => updateProductVariant(variant.id, 'option3Name', e.target.value)}
+                    placeholder="Name (e.g., Material)"
+                    className="w-full px-3 py-2 text-sm bg-slate-900 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-pink-500"
+                  />
+                  <input
+                    type="text"
+                    value={variant.option3Value || ''}
+                    onChange={(e) => updateProductVariant(variant.id, 'option3Value', e.target.value)}
+                    placeholder="Value (e.g., Premium)"
+                    className="w-full px-3 py-2 text-sm bg-slate-900 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-pink-500"
+                  />
+                </div>
+              </div>
+            </details>
+
+            {/* ✅ IMAGE UPLOAD - Compact */}
+            <div className="mb-3">
+              <label className="block text-xs font-medium text-slate-300 mb-2">Variant Image</label>
+              
+              <div className="flex items-center gap-3">
+                {/* Image Preview */}
+                {variant.imageUrl && (
+                  <div className="relative">
+                    <img
+                      src={
+                        variant.imageUrl.startsWith("blob:") 
+                          ? variant.imageUrl 
+                          : `${API_BASE_URL}${variant.imageUrl}`
+                      }
+                      alt={variant?.name || "Variant"}
+                      className="w-16 h-16 object-cover rounded-lg border-2 border-slate-700"
+                    />
+                    {variant.imageUrl.startsWith("blob:") && (
+                      <span className="absolute -top-1 -right-1 px-1.5 py-0.5 bg-orange-500 text-white text-[10px] rounded">
+                        Preview
+                      </span>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (variant.imageUrl?.startsWith('blob:')) {
+                          URL.revokeObjectURL(variant.imageUrl);
+                        }
+                        updateProductVariant(variant.id, 'imageUrl', null);
+                      }}
+                      className="absolute -top-1.5 -right-1.5 p-0.5 bg-red-500 hover:bg-red-600 text-white rounded-full"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </div>
+                )}
                 
-                {/* ✅ Help Text */}
-                <div className="text-sm text-slate-400">
-                  {variant.imageUrl?.startsWith("blob:") ? (
-                    <span className="text-orange-400">⚠️ Save product to upload to server</span>
-                  ) : (
-                    <span>Optional - Max 5MB</span>
+                {/* Upload Button */}
+                <div className="flex-1">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        if (file.size > 5 * 1024 * 1024) {
+                          toast.error("Max 5MB allowed");
+                          return;
+                        }
+                        if (!file.type.startsWith('image/')) {
+                          toast.error("Invalid file type");
+                          return;
+                        }
+                        handleVariantImageUpload(variant.id, file);
+                      }
+                    }}
+                    className="hidden"
+                    id={`variant-img-${variant.id}`}
+                  />
+                  <label
+                    htmlFor={`variant-img-${variant.id}`}
+                    className="inline-flex items-center gap-2 px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-white text-xs rounded-lg transition-colors cursor-pointer"
+                  >
+                    <Upload className="h-3.5 w-3.5" />
+                    {variant.imageUrl ? "Change" : "Upload"}
+                  </label>
+                  {variant.imageUrl?.startsWith("blob:") && (
+                    <span className="ml-2 text-[11px] text-orange-400">⚠️ Save to upload</span>
                   )}
                 </div>
               </div>
             </div>
 
-            {/* Variant Settings */}
-            <div className="mt-4 flex items-center gap-4 flex-wrap">
-              <label className="flex items-center gap-2">
+            {/* ✅ SETTINGS - Compact Checkboxes */}
+            <div className="flex items-center gap-4 flex-wrap pt-2 border-t border-slate-700/50">
+              <label className="flex items-center gap-1.5 cursor-pointer">
                 <input
                   type="checkbox"
-                  id={`variant-default-${variant.id}`}
                   checked={variant.isDefault}
                   onChange={(e) => {
                     setProductVariants(productVariants.map(v => ({
@@ -5650,31 +6728,29 @@ const uploadImagesToProductDirect = async (
                       isDefault: v.id === variant.id ? e.target.checked : false
                     })));
                   }}
-                  className="w-4 h-4 rounded border-slate-700 bg-slate-900 text-violet-500 focus:ring-2 focus:ring-violet-500"
+                  className="w-3.5 h-3.5 rounded border-slate-700 bg-slate-900 text-violet-500 focus:ring-2 focus:ring-violet-500"
                 />
-                <span className="text-sm text-slate-300">Set as default variant</span>
+                <span className="text-xs text-slate-300">Default</span>
               </label>
 
-              <label className="flex items-center gap-2">
+              <label className="flex items-center gap-1.5 cursor-pointer">
                 <input
                   type="checkbox"
-                  id={`variant-track-${variant.id}`}
                   checked={variant.trackInventory}
                   onChange={(e) => updateProductVariant(variant.id, 'trackInventory', e.target.checked)}
-                  className="w-4 h-4 rounded border-slate-700 bg-slate-900 text-violet-500 focus:ring-2 focus:ring-violet-500"
+                  className="w-3.5 h-3.5 rounded border-slate-700 bg-slate-900 text-violet-500 focus:ring-2 focus:ring-violet-500"
                 />
-                <span className="text-sm text-slate-300">Track inventory</span>
+                <span className="text-xs text-slate-300">Track Stock</span>
               </label>
 
-              <label className="flex items-center gap-2">
+              <label className="flex items-center gap-1.5 cursor-pointer">
                 <input
                   type="checkbox"
-                  id={`variant-active-${variant.id}`}
                   checked={variant.isActive}
                   onChange={(e) => updateProductVariant(variant.id, 'isActive', e.target.checked)}
-                  className="w-4 h-4 rounded border-slate-700 bg-slate-900 text-violet-500 focus:ring-2 focus:ring-violet-500"
+                  className="w-3.5 h-3.5 rounded border-slate-700 bg-slate-900 text-violet-500 focus:ring-2 focus:ring-violet-500"
                 />
-                <span className="text-sm text-slate-300">Active</span>
+                <span className="text-xs text-slate-300">Active</span>
               </label>
             </div>
           </div>
@@ -5682,18 +6758,23 @@ const uploadImagesToProductDirect = async (
       </div>
     )}
 
-    {/* Help Section */}
-    <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-4">
-      <h4 className="font-semibold text-sm text-blue-400 mb-2">💡 Variant Examples</h4>
-      <ul className="text-sm text-slate-400 space-y-1">
-        <li>• <strong>Example 1:</strong> Option1Name: "Pack Size", Option1Value: "Pack of 12" | Option2Name: "Purchase Type", Option2Value: "One Time Purchase"</li>
-        <li>• <strong>Example 2:</strong> Option1Name: "Size", Option1Value: "500ml" | Option2Name: "Scent", Option2Value: "Original"</li>
-        <li>• Each variant should have a unique SKU</li>
-        <li>• Set one variant as default - it will be shown first to customers</li>
-      </ul>
+    {/* ✅ HELP SECTION - Compact */}
+    <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-3">
+      <div className="flex items-start gap-2">
+        <Info className="h-4 w-4 text-blue-400 mt-0.5 flex-shrink-0" />
+        <div>
+          <h4 className="font-semibold text-xs text-blue-400 mb-1">Variant Examples</h4>
+          <ul className="text-xs text-slate-400 space-y-0.5">
+            <li>• Option1: "Size" → "500ml" | Option2: "Type" → "Original"</li>
+            <li>• Option1: "Pack" → "12 Pack" | Option2: "Purchase" → "One-Time"</li>
+            <li>• Each variant needs a unique SKU</li>
+          </ul>
+        </div>
+      </div>
     </div>
   </div>
 </TabsContent>
+
 
 
 {/* SEO Tab - Synced with Variants */}

@@ -145,7 +145,7 @@ function getBannerStatus(banner: any): BannerStatus {
 const handleSubmit = async (e: React.FormEvent) => {
   e.preventDefault();
 
-  // 🔴 BASIC REQUIRED VALIDATIONS
+  // ✅ 1. BASIC REQUIRED VALIDATIONS (All types)
   if (!formData.title.trim()) {
     toast.error("Banner title is required");
     return;
@@ -161,14 +161,14 @@ const handleSubmit = async (e: React.FormEvent) => {
     return;
   }
 
-  // 🔴 DISPLAY ORDER VALIDATION
+  // ✅ 2. DISPLAY ORDER VALIDATION
   if (Number(formData.displayOrder) < 0) {
     toast.error("Display order cannot be negative.");
     return;
   }
 
-  // 🔴 LINK URL VALIDATION
-  if (formData.link) {
+  // ✅ 3. LINK URL VALIDATION (Only if provided)
+  if (formData.link && formData.link.trim()) {
     try {
       new URL(formData.link);
     } catch {
@@ -177,15 +177,14 @@ const handleSubmit = async (e: React.FormEvent) => {
     }
   }
 
-  // 🔴 DATE VALIDATIONS
+  // ✅ 4. DATE VALIDATIONS
   if (formData.startDate && formData.endDate) {
     const start = new Date(formData.startDate);
     const end = new Date(formData.endDate);
 
     if (end < start) {
       toast.error(
-        `End date cannot be earlier than start date.
-Example: If start date is ${start.toLocaleDateString()}, end date must be after it.`
+        `End date cannot be earlier than start date. Example: If start date is ${start.toLocaleDateString()}, end date must be after it.`
       );
       return;
     }
@@ -216,33 +215,53 @@ Example: If start date is ${start.toLocaleDateString()}, end date must be after 
     }
   }
 
-  // 🔴 OFFER FIELDS CONSISTENCY
-  if (formData.offerText && !formData.buttonText) {
-    toast.error("Button text is required when offer text is provided.");
-    return;
-  }
+  // ✅ 5. DYNAMIC TYPE-BASED VALIDATIONS
+  const bannerType = formData.bannerType;
 
-  if (formData.buttonText && !formData.offerText) {
-    toast.error("Offer text is required when button text is provided.");
-    return;
-  }
-
-  // 🔴 DISCOUNT RANGE
-if (formData.discountPercentage !== null) {
-  const discount = Number(formData.discountPercentage);
-
-  if (isNaN(discount) || discount <= 0 || discount > 100) {
-    toast.error("Discount percentage must be between 1 and 100.");
-    return;
-  }
-}
-
-
-  // 🔴 EMPTY HTML DESCRIPTION (TinyMCE / Rich text)
+  // ✅ 5a. OFFER/FLASH SALE/PROMOTIONAL VALIDATIONS
   if (
-    formData.description &&
-    formData.description.replace(/<[^>]*>/g, "").trim() === ""
+    bannerType === 'Offer' || 
+    bannerType === 'FlashSale' || 
+    bannerType === 'Promotional' ||
+    bannerType === 'Seasonal'
   ) {
+    // ✅ Discount Percentage Validation (only if provided AND not empty)
+    if (
+      formData.discountPercentage !== null && 
+      formData.discountPercentage !== undefined &&
+      formData.discountPercentage !== 0 &&
+      String(formData.discountPercentage).trim() !== ''
+    ) {
+      const discount = Number(formData.discountPercentage);
+
+      if (isNaN(discount)) {
+        toast.error("Discount percentage must be a valid number.");
+        return;
+      }
+
+      if (discount <= 0 || discount > 100) {
+        toast.error("Discount percentage must be between 1 and 100.");
+        return;
+      }
+    }
+
+    // ✅ Offer Text + Button Text Consistency
+    if (formData.offerText && formData.offerText.trim() && !formData.buttonText?.trim()) {
+      toast.error("Button text is required when offer text is provided.");
+      return;
+    }
+
+    if (formData.buttonText && formData.buttonText.trim() && !formData.offerText?.trim()) {
+      toast.error("Offer text is required when button text is provided.");
+      return;
+    }
+  }
+
+  // ✅ 5b. HOMEPAGE BANNER - No offer validations needed
+  // Homepage banners don't need discount/offer validations
+
+  // ✅ 6. EMPTY HTML DESCRIPTION (TinyMCE Rich text)
+  if (formData.description && formData.description.replace(/<[^>]*>/g, '').trim() === '') {
     toast.error("Banner description cannot be empty.");
     return;
   }
@@ -250,7 +269,7 @@ if (formData.discountPercentage !== null) {
   try {
     let finalImageUrl = formData.imageUrl;
 
-    // 🟢 IMAGE UPLOAD
+    // ✅ IMAGE UPLOAD
     if (imageFile) {
       try {
         const uploadResponse = await bannersService.uploadImage(imageFile, {
@@ -264,10 +283,8 @@ if (formData.discountPercentage !== null) {
         finalImageUrl = uploadResponse.data.data;
         toast.success("Image uploaded successfully!");
 
-        if (
-          editingBanner?.imageUrl &&
-          editingBanner.imageUrl !== finalImageUrl
-        ) {
+        // Delete old image if editing
+        if (editingBanner?.imageUrl && editingBanner.imageUrl !== finalImageUrl) {
           const filename = extractFilename(editingBanner.imageUrl);
           if (filename) {
             try {
@@ -279,32 +296,57 @@ if (formData.discountPercentage !== null) {
         }
       } catch (uploadErr: any) {
         console.error("Error uploading image:", uploadErr);
-        toast.error(
-          uploadErr?.response?.data?.message || "Failed to upload image"
-        );
+        toast.error(uploadErr?.response?.data?.message || "Failed to upload image");
         return;
       }
     }
 
-    // 🟢 FINAL PAYLOAD
-    const payload = {
-      title: formData.title.trim(),
-      imageUrl: finalImageUrl,
-      link: formData.link || "",
-      description: formData.description || "",
-      bannerType: formData.bannerType,
-      offerCode: formData.offerCode || null,
-      discountPercentage: formData.discountPercentage || null,
-      offerText: formData.offerText || null,
-      buttonText: formData.buttonText || null,
-      isActive: Boolean(formData.isActive),
-      displayOrder: Number(formData.displayOrder) || 0,
-      startDate: formData.startDate || null,
-      endDate: formData.endDate || null,
-      ...(editingBanner && { id: editingBanner.id }),
-    };
+// ✅ FINAL PAYLOAD - Use undefined instead of null
+const payload = {
+  title: formData.title.trim(),
+  imageUrl: finalImageUrl,
+  link: formData.link || undefined,  // ← Changed from null
+  description: formData.description || undefined,  // ← Changed from null
+  bannerType: formData.bannerType,
+  
+  // ✅ Only include offer fields if banner type supports them
+  offerCode: 
+    (bannerType === 'Offer' || bannerType === 'FlashSale' || bannerType === 'Promotional' || bannerType === 'Seasonal')
+      ? (formData.offerCode || undefined)  // ← Changed from null
+      : undefined,  // ← Changed from null
+  
+  discountPercentage: 
+    (bannerType === 'Offer' || bannerType === 'FlashSale' || bannerType === 'Promotional' || bannerType === 'Seasonal')
+      ? (formData.discountPercentage && Number(formData.discountPercentage) > 0 ? Number(formData.discountPercentage) : undefined)  // ← Changed from null
+      : undefined,  // ← Changed from null
+  
+  offerText: 
+    (bannerType === 'Offer' || bannerType === 'FlashSale' || bannerType === 'Promotional' || bannerType === 'Seasonal')
+      ? (formData.offerText || undefined)  // ← Changed from null
+      : undefined,  // ← Changed from null
+  
+  buttonText: 
+    (bannerType === 'Offer' || bannerType === 'FlashSale' || bannerType === 'Promotional' || bannerType === 'Seasonal')
+      ? (formData.buttonText || undefined)  // ← Changed from null
+      : undefined,  // ← Changed from null
+  
+  isActive: Boolean(formData.isActive),
+  displayOrder: Number(formData.displayOrder) || 0,
+  startDate: formData.startDate || undefined,  // ← Changed from null
+  endDate: formData.endDate || undefined,  // ← Changed from null
+  ...(editingBanner && { id: editingBanner.id }),
+};
 
-    // 🟢 CREATE / UPDATE
+// ✅ CREATE / UPDATE
+if (editingBanner) {
+  await bannersService.update(editingBanner.id, payload);
+  toast.success("Banner updated successfully!");
+} else {
+  await bannersService.create(payload);
+  toast.success("Banner created successfully!");
+}
+
+    // ✅ CREATE / UPDATE
     if (editingBanner) {
       await bannersService.update(editingBanner.id, payload);
       toast.success("Banner updated successfully!");
@@ -313,10 +355,13 @@ if (formData.discountPercentage !== null) {
       toast.success("Banner created successfully!");
     }
 
-    // 🟢 CLEANUP
-    if (imagePreview) URL.revokeObjectURL(imagePreview);
+    // ✅ CLEANUP
+    if (imagePreview) {
+      URL.revokeObjectURL(imagePreview);
+    }
     setImageFile(null);
     setImagePreview(null);
+
     await fetchBanners();
     setShowModal(false);
     resetForm();
@@ -325,6 +370,7 @@ if (formData.discountPercentage !== null) {
     toast.error(error?.response?.data?.message || "Failed to save banner");
   }
 };
+
 
 
   useEffect(() => {
