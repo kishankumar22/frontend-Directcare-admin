@@ -6,23 +6,18 @@ import { useState } from "react";
 import { useCart } from "@/context/CartContext";
 import { Button } from "@/components/ui/button";
 import QuantitySelector from "@/components/shared/QuantitySelector";
-import { Star, BadgePercent,ChevronLeft, ChevronRight, AwardIcon } from "lucide-react";
+import { Star, BadgePercent, AwardIcon } from "lucide-react";
 import { useVatRates } from "@/app/hooks/useVatRates";
 import { getVatRate } from "@/app/lib/vatHelpers";
+import { useToast } from "@/components/CustomToast";
+
 import {
   getDiscountBadge,
   getDiscountedPrice,
 } from "@/app/lib/discountHelpers";
-import { useToast } from "@/components/CustomToast";
 
 import { Card, CardContent } from "../ui/card";
-import "swiper/css";
-import "swiper/css/navigation";
-import "swiper/css/autoplay";
-import { Swiper, SwiperSlide } from "swiper/react";
-import { Autoplay, Navigation, Pagination } from "swiper/modules";
-
-const getRelatedProductImage = (
+const getCrossSellProductImage = (
   product: any,
   defaultVariant?: any
 ) => {
@@ -61,7 +56,7 @@ const getRelatedProductImage = (
   return "/placeholder.jpg";
 };
 
-export default function RelatedProductCard({ product, getImageUrl }: any) {
+export default function CrossSellProductCard({ product, getImageUrl }: any) {
   const { addToCart } = useCart();
   const [qty, setQty] = useState(1);
   const [stockError, setStockError] = useState<string | null>(null);
@@ -71,21 +66,25 @@ const toast = useToast();
     product.variants?.find((v: any) => v.isDefault) ??
     product.variants?.[0] ??
     null;
-  const stock = defaultVariant?.stockQuantity ?? product.stockQuantity ?? 0;
+
+  const price = defaultVariant?.price ?? product.price;
 const basePrice = defaultVariant?.price ?? product.price;
 const discountBadge = getDiscountBadge(product);
 const finalPrice = getDiscountedPrice(product, basePrice);
-  // VAT Rate / Exempt Logic
-  const vatRates = useVatRates(); // 👈 yaha dalna
-const vatRate = getVatRate(vatRates, (product as any).vatRateId, product.vatExempt);
+  const stock = defaultVariant?.stockQuantity ?? product.stockQuantity ?? 0;
 
+  // VAT Rate / Exempt Logic
+  const vatRates = useVatRates();
+  const vatRate = getVatRate(vatRates, (product as any).vatRateId, product.vatExempt);
 
   return (
-   <Card className="relative border-0 shadow-md hover:shadow-xl transition-all duration-300 rounded-xl 
-                 h-[330px] md:h-[370px] flex flex-col justify-between">
+     <Card className="border-0 shadow-md hover:shadow-xl transition-all duration-300 rounded-xl 
+                             h-[330px] md:h-[370px] flex flex-col justify-between">
              <CardContent className="p-2 mt-3 flex flex-col h-full">
-      {/* BADGES */}    
-  <div className="absolute top-1 left-1 sm:top-2 sm:left-2 z-20 bg-white/90 px-1 py-0.5 sm:px-2 sm:py-1 rounded-md shadow flex items-center gap-1">                 
+
+      {/* BADGES */}
+     <div className="absolute top-1 left-1 sm:top-2 sm:left-2 z-20 bg-white/90 px-1 py-0.5 sm:px-2 sm:py-1 rounded-md shadow flex items-center gap-1">
+                 
                     <img 
   src="/icons/unisex.svg" 
   alt="Unisex"
@@ -94,12 +93,19 @@ const vatRate = getVatRate(vatRates, (product as any).vatRateId, product.vatExem
 />
                     <span className="text-[8px] sm:text-[10px] font-semibold text-gray-700">Unisex</span>
                   </div>
-      
-       {discountBadge && (
+{discountBadge && (
   <div className="absolute top-3 right-3 z-20">
     <div
-      className="w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-gradient-to-br from-[#445D41] to-green-700 flex items-center justify-center text-white shadow-lg ring-2 ring-white">
-
+      className="
+        w-12 h-12 sm:w-14 sm:h-14
+        rounded-full
+        bg-gradient-to-br from-[#445D41] to-green-700
+        flex items-center justify-center
+        text-white
+        shadow-lg
+        ring-2 ring-white
+      "
+    >
       <div className="flex flex-col items-center leading-none">
         {discountBadge.type === "percent" ? (
           <>
@@ -124,23 +130,24 @@ const vatRate = getVatRate(vatRates, (product as any).vatRateId, product.vatExem
     </div>
   </div>
 )}
+
+
       {/* IMAGE */}
-    <div className="h-[140px] sm:h-[160px] md:h-[180px] flex items-center justify-center overflow-hidden bg-white rounded-t-xl pt-2 relative">
-      
+       <div className="h-[140px] sm:h-[160px] md:h-[180px] flex items-center justify-center overflow-hidden bg-white rounded-t-xl pt-2 relative">
+
         <Link href={`/products/${product.slug}`}>
-          <Image
-  src={getRelatedProductImage(product, defaultVariant)}
+         <Image
+  src={getCrossSellProductImage(product, defaultVariant)}
   alt={product.name}
   fill
   className="object-contain w-full h-full"
 />
 
-          
         </Link>
       </div>
 
       {/* NAME */}
-                <div className="min-h-[38px] max-h-[38px] mb-2">
+                    <div className="min-h-[38px] max-h-[38px] mb-2">
                     <Link href={`/products/${product.slug}`} className="block">
                       <h3 className="font-semibold text-xs md:text-sm text-gray-800 line-clamp-2">
   {defaultVariant
@@ -156,7 +163,7 @@ const vatRate = getVatRate(vatRates, (product as any).vatRateId, product.vatExem
                   </div>
 
       {/* RATING */}
-    <div className="flex items-center gap-2 min-h-[20px] mb-2">
+      <div className="flex items-center gap-2 min-h-[20px] mb-2">
 
   {/* ⭐ Flipkart-style rating badge */}
   <div className="flex items-center bg-green-600 text-white px-1.5 py-0.5 rounded-md text-[10px] font-semibold">
@@ -168,50 +175,45 @@ const vatRate = getVatRate(vatRates, (product as any).vatRateId, product.vatExem
   <span className="text-[11px] text-gray-600">
     ({product.reviewCount?.toLocaleString()})
   </span>
-
   {/* Discount badge – small, Flipkart style */}
- {product.vatExempt && (
+{product.vatExempt && (
   <span className="flex items-center gap-1 text-[11px] font-semibold text-green-700 whitespace-nowrap">
     <BadgePercent className="h-3 w-3" />
     VAT Free
   </span>
 )}
 </div>
-
       {/* PRICE & VAT */}
       <div className="flex items-center gap-2 mb-0 flex-wrap">
        <span className="text-lg font-bold text-[#445D41]">
   £{finalPrice.toFixed(2)}
 </span>
-
 {discountBadge && (
   <span className="line-through text-xs text-gray-400">
     £{basePrice.toFixed(2)}
   </span>
 )}
-
-       {product.vatExempt ? (
-  <span className="text-[10px] font-semibold text-green-700 bg-green-100 px-1 py-0.5 rounded whitespace-nowrap">
-    (0% VAT)
-  </span>
-) : vatRate !== null ? (
-  <span className="text-[10px] font-semibold text-blue-700 bg-blue-100 px-1 py-0.5 rounded whitespace-nowrap">
-    ({vatRate}% VAT)
-  </span>
-) : null}
-
+        {product.vatExempt ? (
+          <span className="text-[10px] font-semibold text-green-700 bg-green-100 px-1 py-0.5 rounded whitespace-nowrap">
+            (0% VAT)
+          </span>
+        ) : vatRate !== null ? (
+          <span className="text-[10px] font-semibold text-blue-700 bg-blue-100 px-1 py-0.5 rounded whitespace-nowrap">
+            ({vatRate}% VAT)
+          </span>
+        ) : null}
       </div>
-{/* 🎁 LOYALTY POINTS – RELATED CARD */}
+{/* 🎁 LOYALTY POINTS – CROSS SELL CARD */}
 {(product as any).loyaltyPointsEnabled && (
   <div className="inline-flex items-center gap-1 text-[11px] font-medium text-green-700 bg-green-50 border border-green-200 px-2 py-1 rounded-md w-fit">
-    <AwardIcon className="h-4 w-4 text-green-600"/>
+                                 
+    <AwardIcon className="h-4 w-4 text-green-600" />
     Earn {(product as any).loyaltyPointsEarnable} points
   </div>
 )}
 
       {/* QUANTITY + BUTTON */}
-     <div className="flex items-center gap-0 mt-1">
-
+       <div className="flex items-center gap-0 mt-1">
         <div className="flex-shrink-0 scale-90 -ml-1">
           <QuantitySelector
             quantity={qty}
@@ -233,18 +235,14 @@ const vatRate = getVatRate(vatRates, (product as any).vatRateId, product.vatExem
           defaultVariant.option1Value,
           (defaultVariant as any).option2Value,
           (defaultVariant as any).option3Value,
-        ].filter(Boolean).join(", ")})`
+        ]
+          .filter(Boolean)
+          .join(", ")})`
       : product.name,
+
     price: finalPrice,
-    priceBeforeDiscount: basePrice,
-    finalPrice: finalPrice,
-    discountAmount: discountBadge
-      ? discountBadge.type === "percent"
-        ? +(basePrice * discountBadge.value / 100).toFixed(2)
-        : discountBadge.value
-      : 0,
     quantity: qty,
-    image: getRelatedProductImage(product, defaultVariant),
+    image: getCrossSellProductImage(product, defaultVariant),
     sku: defaultVariant?.sku ?? product.sku,
     variantId: defaultVariant?.id ?? null,
     slug: product.slug,
@@ -256,11 +254,10 @@ const vatRate = getVatRate(vatRates, (product as any).vatRateId, product.vatExem
     productData: JSON.parse(JSON.stringify(product)),
   });
 
-  // ✅ TOAST YAHAN DALNA HAI
+  // ✅ TOAST HERE
   toast.success(`${qty} × ${product.name} added to cart 🛒`);
 }}
 
-          
           className={`flex-1 h-[32px] text-sm rounded-xl font-semibold mt-[-12px] ${
             stock === 0
               ? "bg-gray-400 cursor-not-allowed"
@@ -270,8 +267,7 @@ const vatRate = getVatRate(vatRates, (product as any).vatRateId, product.vatExem
           Add to Cart
         </Button>
       </div>
-       </CardContent>
+      </CardContent>
             </Card>
-   
   );
 }

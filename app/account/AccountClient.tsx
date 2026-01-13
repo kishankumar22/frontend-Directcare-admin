@@ -19,7 +19,7 @@ export default function AccountClient() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const fromCheckout = searchParams.get("from") === "checkout";
-
+  const fromBuyNow = searchParams.get("from") === "buy-now";
   const { cart } = useCart();
   const { login, register } = useAuth();
 
@@ -92,7 +92,12 @@ export default function AccountClient() {
 
     try {
       await login(loginEmail, loginPassword);
-      fromCheckout ? router.push("/checkout") : router.push("/account/profile");
+     if (fromCheckout || fromBuyNow) {
+  router.push("/checkout");
+} else {
+  router.push("/account/profile");
+}
+
 
     } catch (error: any) {
       setLoginError(error?.message || "Invalid email or password");
@@ -119,7 +124,11 @@ export default function AccountClient() {
         requireEmailConfirmation: true,
       });
 
-      fromCheckout ? router.push("/checkout") : router.push("/account/profile");
+     if (fromCheckout || fromBuyNow) {
+  router.push("/checkout");
+} else {
+  router.push("/account/profile");
+}
 
     } catch (error: any) {
       const msg = error?.errors?.[0] || "Registration failed";

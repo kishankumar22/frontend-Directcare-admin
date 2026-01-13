@@ -5,6 +5,8 @@ import { useEffect, useState } from "react";
 export function useNewsletter() {
   const [isOpen, setIsOpen] = useState(false);
   const [checked, setChecked] = useState(false);
+const [error, setError] = useState<string | null>(null);
+const [success, setSuccess] = useState<string | null>(null);
 
   useEffect(() => {
     const savedEmail = localStorage.getItem("newsletterEmail");
@@ -52,21 +54,38 @@ export function useNewsletter() {
 
       const data = await res.json();
 
-      if (data.success) {
-        localStorage.setItem("newsletterEmail", email);
-        setIsOpen(false);
-      } else {
-        console.error("Subscription failed:", data.errors);
-      }
-    } catch (err) {
-      console.error("Subscribe API error:", err);
-    }
+    if (data.success) {
+  localStorage.setItem("newsletterEmail", email);
+  setSuccess("Successfully subscribed to newsletter 🎉");
+  setError(null);
+
+  setTimeout(() => {
+    setIsOpen(false);
+    setSuccess(null);
+    setChecked(true);
+  }, 1500);
+}
+ else {
+  setError(data?.message ?? "Subscription failed");
+}
+
+  } catch (err) {
+  setError("Something went wrong. Please try again.");
+}
+
   }
 
-  return {
-    isOpen,
-    checked,
-    submitEmail,
-    close: () => setIsOpen(false),
-  };
+ return {
+  isOpen,
+  checked,
+  submitEmail,
+  close: () => {
+    setIsOpen(false);
+    setError(null);
+    setSuccess(null);
+  },
+  error,
+  success,
+};
+
 }

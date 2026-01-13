@@ -10,7 +10,6 @@ import {
 } from "react";
 import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useVatRates } from "@/app/hooks/useVatRates";
 import { getVatRate } from "@/app/lib/vatHelpers";
 import PremiumPriceSlider from "@/components/filters/PremiumPriceSlider";
 import Link from "next/link";
@@ -28,17 +27,18 @@ import {
   ChevronRight,
   ExternalLink,
   BadgePercent,
+  Grid2x2,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useCart } from "@/context/CartContext";
 import { useToast } from "@/components/CustomToast";
-import { getProductDiscountPercent } from "@/app/lib/discountHelpers";
-
-
+import {
+  getDiscountBadge,
+  getDiscountedPrice,
+} from "@/app/lib/discountHelpers";
 // ---------- Types ----------
-
 interface ProductImage {
   id: string;
   imageUrl: string;
@@ -48,7 +48,6 @@ interface ProductImage {
 }
 
 interface Product {
-  categoryId: string | undefined;
   id: string;
   name: string;
   description: string;
@@ -58,14 +57,22 @@ interface Product {
   price: number;
   oldPrice: number;
   stockQuantity: number;
-  categoryName: string;
-  brandName: string;
   images: ProductImage[];
   averageRating: number;
   reviewCount: number;
   tags: string;
   vatExempt?: boolean;
   gender?: string;
+    brands?: {
+    brandId: string;
+    brandName: string;
+    isPrimary: boolean;
+  }[];
+   categories?: {
+    categoryId: string;
+    categorySlug: string;
+    isPrimary: boolean;
+  }[];
 }
 
 interface Category {
@@ -82,6 +89,10 @@ interface Category {
   productCount: number;
   subCategories: Category[];
 }
+type BreadcrumbItem = {
+  label: string;
+  href?: string;
+};
 
 interface Brand {
   id: string;
@@ -94,6 +105,8 @@ interface Brand {
 
 interface CategoryClientProps {
   category: Category | null;
+   // 🧭 Breadcrumbs (NEW)
+  breadcrumbs: BreadcrumbItem[];
   initialProducts: Product[];
   totalCount: number;
   currentPage: number;
@@ -125,6 +138,7 @@ function useDebounce<T>(value: T, delay: number): T {
 
 export default function CategoryClient({
   category,
+  breadcrumbs,
   initialProducts,
   totalCount,
   currentPage,
@@ -134,13 +148,12 @@ export default function CategoryClient({
   initialSortBy,
   initialSortDirection,
   brands,
-}: CategoryClientProps) {
+  vatRates, // ✅ SERVER SE AAYA
+}: CategoryClientProps & { vatRates: any[] }) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const toast = useToast();
   const [isPending, startTransition] = useTransition();
-  const vatRates = useVatRates();
-
   const [products] = useState<Product[]>(initialProducts);
   const [instantSearch, setInstantSearch] = useState(initialSearchTerm);
   const [sortBy, setSortBy] = useState(initialSortBy);
@@ -195,26 +208,69 @@ useEffect(() => {
    const filtered = products.filter((product) => {
   // must match category
 // Category + subcategory filtering
+// ✅ CATEGORY + SUBCATEGORY FILTER (FIXED)
+const productCategoryIds =
+  product.categories?.map((c) => c.categoryId) ?? [];
+
+const allowedCategoryIds = [
+  category?.id,
+  ...allSubCategories.map((s) => s.id),
+].filter(Boolean);
+
+// If subcategories selected → strict match
 if (selectedSubCategories.length > 0) {
-  if (!selectedSubCategories.includes(product.categoryId ?? "")) return false;
-} else {
-  const allowedIds = [category?.id, ...allSubCategories.map(s => s.id)];
-  if (!allowedIds.includes(product.categoryId)) return false;
+  const match = productCategoryIds.some((id) =>
+    selectedSubCategories.includes(id)
+  );
+  if (!match) return false;
+} 
+// Else → parent + all children allowed
+else {
+  const match = productCategoryIds.some((id) =>
+    allowedCategoryIds.includes(id)
+  );
+  if (!match) return false;
 }
 
-  if (debouncedSearch) {
-    const searchLower = debouncedSearch.toLowerCase();
-    const matchesSearch =
-      product.name.toLowerCase().includes(searchLower) ||
-      product.description?.toLowerCase().includes(searchLower) ||
-      product.brandName?.toLowerCase().includes(searchLower) ||
-      product.tags?.toLowerCase().includes(searchLower);
 
-    if (!matchesSearch) return false;
-  }
 
-  if (selectedBrands.length > 0 && !selectedBrands.includes(product.brandName))
-    return false;
+ if (debouncedSearch) {
+  const searchLower = debouncedSearch.toLowerCase();
+
+  const nameMatch =
+    product.name?.toLowerCase().includes(searchLower);
+
+  const descriptionMatch =
+    product.description?.toLowerCase().includes(searchLower);
+
+  const tagMatch =
+    product.tags?.toLowerCase().includes(searchLower);
+
+  const brandMatch =
+    product.brands?.some((b) =>
+      b.brandName?.toLowerCase().includes(searchLower)
+    );
+
+  const matchesSearch =
+    nameMatch || descriptionMatch || tagMatch || brandMatch;
+
+  if (!matchesSearch) return false;
+}
+
+
+// ✅ BRAND FILTER (FIXED FOR brands[])
+if (selectedBrands.length > 0) {
+  const productBrandIds =
+    product.brands?.map((b) => b.brandId) ?? [];
+
+  const match = productBrandIds.some((id) =>
+    selectedBrands.includes(id)
+  );
+
+  if (!match) return false;
+}
+
+
 
   if (product.price < priceRange[0] || product.price > priceRange[1])
     return false;
@@ -314,9 +370,11 @@ allSubCategories,
     setInstantSearch("");
     setSortBy("name");
     setSortDirection("asc");
-    setPriceRange([0, 1000]);
+    setPriceRange([minPrice, maxPrice]);
     router.push(`/category/${category?.slug}`);
   }, [router, category?.slug]);
+
+
 
   const { addToCart } = useCart();
 
@@ -324,7 +382,9 @@ const handleAddToCart = useCallback(
   (product: any) => {
     const defaultVariant: any = getDefaultVariant(product);
 
-    const price = defaultVariant?.price ?? product.price;
+    const basePrice = defaultVariant?.price ?? product.price;
+const finalPrice = getDiscountedPrice(product, basePrice);
+
     const imageUrl = defaultVariant?.imageUrl
       ? (defaultVariant.imageUrl.startsWith("http")
           ? defaultVariant.imageUrl
@@ -347,8 +407,10 @@ const handleAddToCart = useCallback(
             defaultVariant.option3Value,
           ].filter(Boolean).join(", ")})`
         : product.name,
-      price,
-      finalPrice: price,
+     price: finalPrice,                 // ✅ cart uses discounted price
+  priceBeforeDiscount: basePrice,    // ✅ required for coupon logic
+  finalPrice: finalPrice,
+  discountAmount: basePrice - finalPrice,
       quantity: 1,
       image: imageUrl,
       sku: defaultVariant?.sku ?? product.sku,
@@ -381,38 +443,39 @@ const handleAddToCart = useCallback(
         </div>
       )}
 
-      <main className="max-w-7xl mx-auto px-4 py-8">
-        {/* Category header */}
-        <div className="mb-8 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-          <div>
-            <h1 className="text-3xl md:text-4xl font-bold mb-2 text-[#445D41]">
-              {category?.name || "Category"}
-            </h1>
-            <p className="text-gray-600 max-w-xl">
-              {category?.description ||
-                "Browse products in this category with advanced filters."}
-            </p>
-            <p className="text-sm text-gray-500 mt-2">
-              Showing {filteredAndSortedProducts.length} of {totalCount}{" "}
-              products
-            </p>
-          </div>
+      <main className="max-w-7xl mx-auto px-4 py-4">
+        {/* 🧭 Breadcrumbs */}
+<nav className="mb-4 flex items-center flex-wrap gap-1 text-sm text-gray-600">
+  {breadcrumbs.map((crumb, index) => (
+    <div key={index} className="flex items-center gap-1">
+      {index > 0 && (
+        <ChevronRight className="h-4 w-4 text-gray-400" />
+      )}
 
-          {category?.imageUrl && (
-            <div className="relative h-24 w-40 md:h-28 md:w-48 rounded-xl overflow-hidden bg-white shadow-sm border border-gray-100">
-              <Image
-                src={`${process.env.NEXT_PUBLIC_API_URL}${category.imageUrl}`}
-                alt={category.name}
-                fill
-                className="object-cover"
-              />
-            </div>
-          )}
-        </div>
+      {crumb.href ? (
+        <Link
+          href={crumb.href}
+          className="hover:text-[#445D41] transition-colors"
+        >
+          {crumb.label}
+        </Link>
+      ) : (
+        <span className="font-semibold text-gray-900">
+          {crumb.label}
+        </span>
+      )}
+    </div>
+  ))}
+</nav>
+
+        {/* Category header */}
+       
 
         <div className="flex gap-8">
           {/* SIDEBAR FILTERS (no category filter here, only brand/price/rating) */}
           <aside className="hidden lg:block w-64 flex-shrink-0">
+  <div className="sticky top-24">
+
             <Card className="sticky top-24 shadow-sm">
               <CardContent className="p-6">
                 {/* Header */}
@@ -471,7 +534,8 @@ const handleAddToCart = useCallback(
                     Brand
                   </h3>
                   <div className="space-y-1 max-h-64 overflow-y-auto pr-2 custom-scrollbar">
-                    {brands.map((brand) => (
+ {brands.map((brand) => (
+
                       <label
                         key={brand.id}
                         className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 p-2 rounded-md transition group"
@@ -480,20 +544,14 @@ const handleAddToCart = useCallback(
                         <input
                           type="checkbox"
                           className="w-4 h-4 rounded border-gray-300 text-[#445D41] focus:ring-[#445D41] focus:ring-2 flex-shrink-0"
-                          checked={selectedBrands.includes(brand.name)}
+                          checked={selectedBrands.includes(brand.id)}
                           onChange={(e) => {
-                            if (e.target.checked) {
-                              setSelectedBrands([
-                                ...selectedBrands,
-                                brand.name,
-                              ]);
-                            } else {
-                              setSelectedBrands(
-                                selectedBrands.filter(
-                                  (b) => b !== brand.name
-                                )
-                              );
-                            }
+                           if (e.target.checked) {
+  setSelectedBrands([...selectedBrands, brand.id]);
+} else {
+  setSelectedBrands(selectedBrands.filter((b) => b !== brand.id));
+}
+
                           }}
                         />
                         <div className="flex items-center justify-between flex-1 min-w-0">
@@ -557,6 +615,7 @@ const handleAddToCart = useCallback(
                 </div>
               </CardContent>
             </Card>
+            </div>
           </aside>
 
           {/* MAIN CONTENT */}
@@ -564,7 +623,8 @@ const handleAddToCart = useCallback(
             {/* Search & Sort Bar */}
             <Card className="mb-6 shadow-sm">
               <CardContent className="p-4">
-                <div className="flex flex-col md:flex-row gap-4">
+                <div className="flex flex-col md:flex-row md:items-center gap-4">
+
                   {/* Search */}
                   <div className="flex-1 relative">
                     <input
@@ -601,7 +661,7 @@ const handleAddToCart = useCallback(
 
                   {/* Grid toggle */}
                   <div className="flex gap-2">
-                    <Button
+                    {/* <Button
                       variant={gridCols === 2 ? "default" : "outline"}
                       size="sm"
                       onClick={() => setGridCols(2)}
@@ -611,7 +671,7 @@ const handleAddToCart = useCallback(
                           : "hover:bg-gray-100"
                       } transition`}
                     >
-                      <Grid3x3 className="h-4 w-4" />
+                      <Grid2x2 className="h-4 w-4" />
                     </Button>
                     <Button
                       variant={gridCols === 3 ? "default" : "outline"}
@@ -623,8 +683,13 @@ const handleAddToCart = useCallback(
                           : "hover:bg-gray-100"
                       } transition`}
                     >
-                      <LayoutGrid className="h-4 w-4" />
-                    </Button>
+                      <Grid3x3 className="h-4 w-4" />
+                    </Button> */}
+                    {/* Product count – TOP RIGHT */}
+<div className="md:ml-auto text-sm mt-5px text-gray-500 whitespace-nowrap">
+  Showing {filteredAndSortedProducts.length} of {totalCount}
+</div>
+
                   </div>
 
                   {/* Mobile filters toggle */}
@@ -659,7 +724,8 @@ const handleAddToCart = useCallback(
                       </button>
                     </div>
                     <div className="space-y-1 max-h-40 overflow-y-auto custom-scrollbar pr-1">
-                      {brands.map((brand) => (
+                   {brands.map((brand) => (
+
                         <label
                           key={brand.id}
                           className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 p-2 rounded-md transition group"
@@ -668,20 +734,14 @@ const handleAddToCart = useCallback(
                           <input
                             type="checkbox"
                             className="w-4 h-4 rounded border-gray-300 text-[#445D41] focus:ring-[#445D41]"
-                            checked={selectedBrands.includes(brand.name)}
+                            checked={selectedBrands.includes(brand.id)}
                             onChange={(e) => {
-                              if (e.target.checked) {
-                                setSelectedBrands([
-                                  ...selectedBrands,
-                                  brand.name,
-                                ]);
-                              } else {
-                                setSelectedBrands(
-                                  selectedBrands.filter(
-                                    (b) => b !== brand.name
-                                  )
-                                );
-                              }
+                             if (e.target.checked) {
+  setSelectedBrands([...selectedBrands, brand.id]);
+} else {
+  setSelectedBrands(selectedBrands.filter((b) => b !== brand.id));
+}
+
                             }}
                           />
                           <span className="text-sm text-gray-700 truncate group-hover:text-[#445D41]">
@@ -734,13 +794,18 @@ const handleAddToCart = useCallback(
             >
               {filteredAndSortedProducts.map((product) => {
                 // VAT rate finder like featured slider
-const discountPercent = getProductDiscountPercent(product, product.price);
-const vatRate = getVatRate(vatRates, (product as any).vatRateId, product.vatExempt);
+const discountBadge = getDiscountBadge(product);
+const vatRate = getVatRate(
+  vatRates,
+  (product as any).vatRateId,
+  product.vatExempt
+);
+
 
               const defaultVariant = getDefaultVariant(product);
 
-const price = defaultVariant?.price ?? product.price;
-const oldPrice = defaultVariant?.compareAtPrice ?? product.oldPrice;
+  const basePrice = defaultVariant?.price ?? product.price;   // ✅ ADD
+  const finalPrice = getDiscountedPrice(product, basePrice);  // ✅ ADD
 const stock = defaultVariant?.stockQuantity ?? product.stockQuantity ?? 0;
 
 const mainImage = defaultVariant?.imageUrl
@@ -766,18 +831,35 @@ const mainImage = defaultVariant?.imageUrl
                             loading="lazy"
                             quality={75}
                           />
-                          {discountPercent && (
-  <span className="absolute top-3 right-3 bg-green-600 text-white px-2 py-1 rounded-md shadow flex items-center gap-1 text-[10px] font-semibold">
-    -{discountPercent}% OFF
-  </span>
-)}
-                          {product.vatExempt && (
-                            <div className="absolute top-3 right-3 bg-green-600 text-white px-2 py-1 rounded-md shadow flex items-center gap-1 text-[10px] font-semibold">
-                              <BadgePercent className="h-3 w-3" />
-                              VAT Relief
-                            </div>
-                          )}
-
+  {discountBadge && (
+  <div className="absolute top-3 right-3 z-20">
+    <div
+      className="w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-gradient-to-br from-[#445D41] to-green-700 flex items-center justify-center text-white shadow-lg ring-2 ring-white">
+        
+      <div className="flex flex-col items-center leading-none">
+        {discountBadge.type === "percent" ? (
+          <>
+            <span className="text-sm sm:text-base font-extrabold">
+              {discountBadge.value}%
+            </span>
+            <span className="text-[9px] sm:text-[11px] font-semibold">
+              OFF
+            </span>
+          </>
+        ) : (
+          <>
+            <span className="text-sm sm:text-base font-extrabold">
+              £{discountBadge.value}
+            </span>
+            <span className="text-[9px] sm:text-[11px] font-semibold">
+              OFF
+            </span>
+          </>
+        )}
+      </div>
+    </div>
+  </div>
+)}                       
                            <div className="absolute top-1 left-1 sm:top-2 sm:left-2 z-20 bg-white/90 px-1 py-0.5 sm:px-2 sm:py-1 rounded-md shadow flex items-center gap-1">
                     <img 
   src="/icons/unisex.svg" 
@@ -793,12 +875,7 @@ const mainImage = defaultVariant?.imageUrl
 
                       {/* Content */}
                       <div className="p-4">
-                        <Badge
-                          variant="outline"
-                          className="mb-2 text-xs border-[#445D41] text-[#445D41]"
-                        >
-                          {product.categoryName}
-                        </Badge>
+
 
                          <Link href={`/products/${product.slug}`}>
                           <h3 className="font-semibold text-base mb-2 line-clamp-2 hover:text-[#445D41] transition-colors text-gray-900 min-h-[48px]">
@@ -814,29 +891,43 @@ const mainImage = defaultVariant?.imageUrl
                         
 
                         {/* Rating */}
-                        <div className="flex items-center gap-2 mb-3">
-                          <div className="flex items-center">
-                            <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
-                            <span className="text-sm ml-1 font-medium text-gray-700">
-                              {(product.averageRating ?? 0).toFixed(1)}
-                            </span>
-                          </div>
-                          <span className="text-xs text-gray-500">
-                            ({product.reviewCount || 0} reviews)
-                          </span>
-                        </div>
+                       <div className="flex items-center gap-2 mb-3 flex-wrap">
+  {/* ⭐ Rating */}
+  <div className="flex items-center">
+    <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
+    <span className="text-sm ml-1 font-medium text-gray-700">
+      {(product.averageRating ?? 0).toFixed(1)}
+    </span>
+  </div>
+
+  <span className="text-xs text-gray-500">
+    ({product.reviewCount || 0} reviews)
+  </span>
+
+  {/* 🟢 VAT Relief badge — moved here */}
+  {product.vatExempt && (
+    <span className="flex items-center gap-1 text-[10px] font-semibold bg-green-100 text-green-700 px-2 py-0.5 rounded whitespace-nowrap">
+                     
+                    
+      <BadgePercent className="h-3 w-3" />
+      VAT Relief
+    </span>
+  )}
+</div>
+
 
                         {/* Price */}
                        <div className="flex items-center gap-2 mb-4 flex-wrap">
-  <span className="text-2xl font-bold text-[#445D41]">
-    £{price.toFixed(2)}
-  </span>
+ <span className="text-2xl font-bold text-[#445D41]">
+  £{finalPrice.toFixed(2)}
+</span>
 
- {oldPrice > price && (
+{finalPrice < basePrice && (
   <span className="text-sm text-gray-400 line-through">
-    £{oldPrice.toFixed(2)}
+    £{basePrice.toFixed(2)}
   </span>
 )}
+
 
 {product.vatExempt ? (
   <span className="text-xs font-semibold text-green-700 bg-green-100 px-2 py-0.5 rounded whitespace-nowrap">

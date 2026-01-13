@@ -10,19 +10,23 @@ interface SearchParams {
   pageSize?: string;
 }
 
-// Get Category by slug (STATIC cache)
 async function getCategoryBySlug(slug: string) {
   const res = await fetch(
     `${process.env.NEXT_PUBLIC_API_URL}/api/Categories?includeInactive=false&includeSubCategories=true`,
-    { next: { revalidate: 600 } } // 10 min cache
+    { next: { revalidate: 600 } }
   );
 
   const json = await res.json();
   return json.data.find((c: any) => c.slug === slug) || null;
 }
 
-// Products — always dynamic
-async function getProducts(params: SearchParams = {}) {
+
+
+// server-side products fetch
+async function getProducts(
+  params: SearchParams = {},
+  categorySlug?: string
+) {
   const {
     page = "1",
     pageSize = "20",
@@ -31,28 +35,34 @@ async function getProducts(params: SearchParams = {}) {
     searchTerm = "",
   } = params;
 
+  const query = new URLSearchParams({
+    page,
+    pageSize,
+    sortBy,
+    sortDirection,
+  });
+
+  if (searchTerm) query.set("search", searchTerm);
+  if (categorySlug) query.set("categorySlug", categorySlug);
+
   const res = await fetch(
-    `${process.env.NEXT_PUBLIC_API_URL}/api/Products?page=${page}&pageSize=${pageSize}&sortDirection=${sortDirection}&sortBy=${sortBy}&searchTerm=${searchTerm}`,
+    `${process.env.NEXT_PUBLIC_API_URL}/api/Products?${query.toString()}`,
     { cache: "no-store" }
   );
 
   return res.json();
 }
 
-// ⭐ MUST USE Promise params (your project requires this)
-export async function generateMetadata({
-  params,
-}: {
-  params: Promise<{ slug: string }>;
-}) {
+
+export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
+  const category = await getCategoryBySlug(slug);
 
   return {
-    title: `${slug.replace(/-/g, " ")} | Category`,
-    description: "Browse products in this category",
+    title: category?.metaTitle || category?.name || "Category",
+    description: category?.metaDescription || category?.description || "",
   };
 }
-
 
 function Loading() {
   return (
@@ -62,7 +72,6 @@ function Loading() {
   );
 }
 
-// ⭐ MUST USE Promise types for params + searchParams
 export default async function CategoryPage({
   params,
   searchParams,
@@ -74,18 +83,73 @@ export default async function CategoryPage({
   const searchParamsResolved = await searchParams;
 
   const category = await getCategoryBySlug(slug);
-  const productsRes = await getProducts(searchParamsResolved);
 
-  // Brands — static
-  const brandsRes = await fetch(
-    `${process.env.NEXT_PUBLIC_API_URL}/api/Brands?includeUnpublished=false`,
-    { next: { revalidate: 600 } }
-  ).then((res) => res.json());
+  if (!category) {
+    throw new Error("Category not found");
+  }
+// 🔥 fetch full category tree ONCE (for breadcrumb path)
+const allCategoriesRes = await fetch(
+  `${process.env.NEXT_PUBLIC_API_URL}/api/Categories?includeInactive=false&includeSubCategories=true`,
+  { next: { revalidate: 600 } }
+).then((res) => res.json());
+// 🧭 Build breadcrumb path from category tree
+const categoryPath =
+  findCategoryPath(allCategoriesRes.data, slug) || [];
+
+// Final breadcrumb items
+const breadcrumbs = [
+  { label: "Home", href: "/" },
+  ...categoryPath.slice(0, -1).map((c: any) => ({
+    label: c.name,
+    href: `/category/${c.slug}`,
+  })),
+  { label: categoryPath.at(-1)?.name || category.name },
+];
+
+  // 🧭 find full category path from tree
+function findCategoryPath(
+  categories: any[],
+  slug: string,
+  path: any[] = []
+): any[] | null {
+  for (const cat of categories) {
+    const newPath = [...path, cat];
+
+    if (cat.slug === slug) {
+      return newPath;
+    }
+
+    if (Array.isArray(cat.subCategories) && cat.subCategories.length > 0) {
+      const result = findCategoryPath(cat.subCategories, slug, newPath);
+      if (result) return result;
+    }
+  }
+  return null;
+}
+
+  // ⭐ ALL category ids for filter (main + subchildren)
+ const productsRes = await getProducts(searchParamsResolved, slug);
+
+
+
+
+
+
+
+  const vatRatesRes = await fetch(
+  "https://testapi.knowledgemarkg.com/api/VATRates?activeOnly=true",
+  { next: { revalidate: 600 } }
+).then((res) => res.json());
+
+const vatRates = vatRatesRes.data || [];
+
+ 
 
   return (
     <Suspense fallback={<Loading />}>
       <CategoryClient
         category={category}
+         breadcrumbs={breadcrumbs}   // ✅ NEW PROP
         initialProducts={productsRes.data.items}
         totalCount={productsRes.data.totalCount}
         currentPage={productsRes.data.page}
@@ -94,7 +158,8 @@ export default async function CategoryPage({
         initialSearchTerm={searchParamsResolved.searchTerm || ""}
         initialSortBy={searchParamsResolved.sortBy || "name"}
         initialSortDirection={searchParamsResolved.sortDirection || "asc"}
-        brands={brandsRes.data}
+        brands={category.brands ?? []}   // ✅ ONLY THIS
+         vatRates={vatRates}   // ✅ YE ADD KARNA HAI
       />
     </Suspense>
   );

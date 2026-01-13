@@ -53,7 +53,7 @@ export default function TopBrandsSlider({
           768: { slidesPerView: 4 },
           1024: { slidesPerView: 5 },
         }}
-        autoplay={{ delay: 2200, disableOnInteraction: false }}
+        autoplay={{ delay: 2200, disableOnInteraction: false, pauseOnMouseEnter: true, }}
         navigation={{ prevEl: "#brandPrev", nextEl: "#brandNext" }}
         pagination={{ clickable: true, dynamicBullets: true }}
         loop={true}

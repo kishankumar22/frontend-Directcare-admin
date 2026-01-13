@@ -435,8 +435,6 @@ export default function ProductsClient({
 </div>
 
 
-
-
         {/* Rating Filter */}
         <div className="mb-6">
           <h3 className="font-bold text-sm text-gray-900 mb-3">Minimum Rating</h3>

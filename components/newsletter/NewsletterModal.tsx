@@ -6,11 +6,16 @@ export default function NewsletterModal({
   isOpen,
   onClose,
   onSubmit,
+  error,
+  success,
 }: {
   isOpen: boolean;
   onClose: () => void;
   onSubmit: (email: string) => Promise<void>;
+  error?: string | null;
+  success?: string | null;
 }) {
+
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -40,12 +45,23 @@ export default function NewsletterModal({
           value={email}
           onChange={(e) => setEmail(e.target.value)}
         />
+{error && (
+  <p className="text-sm text-red-600 mb-2 text-center">
+    {error}
+  </p>
+)}
 
-        <button
-          onClick={handleSubmit}
-          disabled={loading}
-          className="w-full bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700 transition"
-        >
+{success && (
+  <p className="text-sm text-green-600 mb-2 text-center">
+    {success}
+  </p>
+)}
+       <button
+  onClick={handleSubmit}
+  disabled={loading || !!success}
+  className="w-full bg-[#445D41] text-white py-2 rounded-md hover:bg-black transition disabled:opacity-60"
+>
+
           {loading ? "Submitting..." : "Subscribe"}
         </button>
 

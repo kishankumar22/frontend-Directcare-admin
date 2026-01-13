@@ -1,4 +1,4 @@
-// app/checkout/page.tsx ka wokig codehai
+// app/checkout/page.tsx ka working code hai
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -14,23 +14,37 @@ import Link from "next/link";
 import { useAuth } from "@/context/AuthContext";
 import { useRouter } from "next/navigation";
 import EmptyCart from "@/components/cart/EmptyCart";
-
-
-
+import { ShoppingBag } from "lucide-react";
 
 // ---------- Types ----------
-type PostcodeSuggestion = {
-  postcode?: string;
-  addressLine1?: string;
-  city?: string;
-  state?: string;
-  region?: string;
-  country?: string;
-  displayText?: string;
+type AddressSuggestion = {
+  id: string;
+  type: string;
+  text: string;
 };
+
 
 function formatCurrency(n = 0) {
   return `£${n.toFixed(2)}`;
+}
+function isBundleComplete(cartItems: any[], mainProductId: string) {
+  const mainItem = cartItems.find(
+    i => i.productId === mainProductId && !i.parentProductId
+  );
+
+  if (!mainItem) return false;
+
+  const groupedItems = cartItems.filter(
+    i => i.parentProductId === mainProductId
+  );
+
+  // ❌ koi grouped item hi nahi
+  if (groupedItems.length === 0) return false;
+
+  // optional: quantity validation
+  return groupedItems.every(
+    gi => gi.quantity >= mainItem.quantity
+  );
 }
 
 /* ===== Simple debounce hook (no lodash) ===== */
@@ -98,16 +112,17 @@ function StripeWrapper({ children }: { children: React.ReactNode }) {
 /* === CARD PAYMENT COMPONENT (FINAL PERFECT VERSION) === */
 function CheckoutPayment({
   orderPayload,
+  payAmount,
   onPaymentSuccess,
   onError,
 }: {
   orderPayload: any;
+   payAmount: number;                 // ⭐⭐⭐ ADD
   onPaymentSuccess: (orderResponse: any) => void;
   onError: (err: any) => void;
 }) {
+
    const { isAuthenticated, accessToken, user } = useAuth(); 
-
-
 
   const stripe = useStripe();
   const elements = useElements();
@@ -148,13 +163,19 @@ async function createOrder() {
     throw new Error("Order creation failed! missing id");
   }
 
-  return {
-    orderId: json.data.id,
-    orderTotal: json.data.totalAmount,
-    customerEmail: json.data.customerEmail,
-  };
-}
+ return {
+  orderId: json.data.id,
+  customerEmail: json.data.customerEmail,
 
+  subtotalAmount: json.data.subtotalAmount,
+  shippingAmount: json.data.shippingAmount,
+  discountAmount: json.data.discountAmount,
+  bundleDiscountAmount: json.data.bundleDiscountAmount,
+  taxAmount: json.data.taxAmount,
+  totalAmount: json.data.totalAmount,
+};
+
+}
 
 
   // 2️⃣ Create Payment Intent with orderId
@@ -196,12 +217,22 @@ const handlePay = async () => {
   setProcessing(true);
   try {
     // 1️⃣ Create order
-    const { orderId, orderTotal, customerEmail } = await createOrder();
+    const {
+  orderId,
+  customerEmail,
+  subtotalAmount,
+  shippingAmount,
+  discountAmount,
+  bundleDiscountAmount,
+  taxAmount,
+  totalAmount,
+} = await createOrder();
+
 
     // 2️⃣ Create Payment Intent
     const { clientSecret } = await createPaymentIntent(
       orderId,
-      orderTotal,
+      totalAmount,
       customerEmail
     );
 
@@ -231,15 +262,12 @@ const handlePay = async () => {
   setProcessing(false);
   return;
 }
-
-
     // ⭐⭐ THIS IS THE REAL CONFIRMED PAYMENT INTENT ID ⭐⭐
     const finalPaymentIntentId = result.paymentIntent?.id;
     if (!finalPaymentIntentId) throw new Error("Missing final payment intent ID");
 
     alert("FINAL PAYMENT INTENT ID: " + finalPaymentIntentId);
     
-
     // 4️⃣ Confirm in backend WITH FINAL PAYMENT INTENT
   const confirmResp = await fetch(
   `${process.env.NEXT_PUBLIC_API_URL}/api/Payment/confirm/${finalPaymentIntentId}`,
@@ -252,11 +280,21 @@ const handlePay = async () => {
 );
 
 const rawConfirm = await confirmResp.text();
-alert("CONFIRM RAW RESPONSE: " + rawConfirm);
-
+alert("CONFIRM RAW RESPONSE: " + rawConfirm)
 
     // Go to success page
-    onPaymentSuccess({ data: { id: orderId } });
+  onPaymentSuccess({
+  data: {
+    id: orderId,
+    subtotalAmount,
+    shippingAmount,
+    discountAmount,
+    bundleDiscountAmount,
+    taxAmount,
+    totalAmount,
+  },
+});
+
 
   } catch (err) {
     console.error(err);
@@ -265,8 +303,6 @@ alert("CONFIRM RAW RESPONSE: " + rawConfirm);
     setProcessing(false);
   }
 };
-
-
   return (
     <div className="space-y-3">
       {cardError && (
@@ -274,17 +310,17 @@ alert("CONFIRM RAW RESPONSE: " + rawConfirm);
     {cardError}
   </div>
 )}
-
       <div className="p-3 border rounded">
         <CardElement options={{ hidePostalCode: true }} />
       </div>
-
       <button
         onClick={handlePay}
         disabled={!stripe || processing}
         className="w-full bg-[#445D41] text-white py-3 rounded disabled:opacity-50"
       >
-        {processing ? "Processing…" : `Pay £${orderPayload.orderTotal.toFixed(2)}`}
+       {processing ? "Processing…" : `Pay ${formatCurrency(payAmount)}`}
+
+
       </button>
     </div>
   );
@@ -298,13 +334,8 @@ const ErrorText = ({ error }: { error?: string }) => {
 /* === Main Checkout Page === */
 export default function CheckoutPage() {
   const router = useRouter();
-  const { cart, cartTotal, cartCount, updateCart, updateQuantity } = useCart();
-
+ const { cart, updateCart, updateQuantity,clearCart } = useCart();
   const { user, accessToken, isAuthenticated } = useAuth();
-
-
-
-
   // Billing fields
   const [billingFirstName, setBillingFirstName] = useState("");
   const [billingLastName, setBillingLastName] = useState("");
@@ -332,31 +363,87 @@ const [deliveryMethod, setDeliveryMethod] = useState<"HomeDelivery" | "ClickAndC
   const [shippingCountry, setShippingCountry] = useState("United Kingdom");
 
   const [notes, setNotes] = useState("");
-  const [postcodeQuery, setPostcodeQuery] = useState("");
-  const [postcodeSuggestions, setPostcodeSuggestions] = useState<PostcodeSuggestion[]>([]);
+ const [addressQuery, setAddressQuery] = useState("");
+const [addressSuggestions, setAddressSuggestions] = useState<AddressSuggestion[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<{ [key: string]: string }>({});
 
+
   const [showPayment, setShowPayment] = useState(false);
   const [orderPayload, setOrderPayload] = useState<any>(null);
+const [orderSummary, setOrderSummary] = useState<{
+  subtotalAmount: number;
+  shippingAmount: number;
+  discountAmount: number;
+  bundleDiscountAmount: number;
+  taxAmount: number;
+  totalAmount: number;
+} | null>(null);
 
   // Payment method state: 'card' or 'cod'
   const [paymentMethod, setPaymentMethod] = useState<"card" | "cod">("card");
 
-  // Coupon state on checkout (prefill from cart if already applied)
-  const [couponInput, setCouponInput] = useState("");
-  const [appliedCoupon, setAppliedCoupon] = useState<string | null>(null);
+  // 🔹 BUY NOW ITEM (frontend-only)
+const buyNowItem =
+  typeof window !== "undefined"
+    ? JSON.parse(sessionStorage.getItem("buyNowItem") || "null")
+    : null;
+useEffect(() => {
+  // If user came from Cart (not Buy Now), clear stale BuyNow
+  const fromBuyNow = sessionStorage.getItem("buyNowItem");
+  const cameFromCart = cart.length > 0;
 
-  // detect coupon from cart items (first coupon found)
-  useEffect(() => {
-    const itemWithCoupon = cart.find((c) => !!c.couponCode);
-    if (itemWithCoupon?.couponCode) {
-      setCouponInput(itemWithCoupon.couponCode);
-      setAppliedCoupon(itemWithCoupon.couponCode);
+  if (fromBuyNow && cameFromCart) {
+    sessionStorage.removeItem("buyNowItem");
+  }
+}, [cart.length]);
+
+
+// 🔹 Decide final checkout items
+const checkoutItems =
+  buyNowItem && cart.length === 0
+    ? [buyNowItem]
+    : cart;
+
+
+const effectiveCartCount = checkoutItems.reduce(
+  (sum, i) => sum + i.quantity,
+  0
+);
+// ✅ PRICE CALCULATIONS FROM CART (FOR UI)
+const cartSubtotal = useMemo(() => {
+  return checkoutItems.reduce((sum, item) => {
+    const base = item.priceBeforeDiscount ?? item.price;
+    return sum + base * item.quantity;
+  }, 0);
+}, [checkoutItems]);
+
+const cartBundleDiscount = useMemo(() => {
+  return checkoutItems.reduce((sum, item) => {
+    // only main product can trigger bundle
+    if (
+      item.productData?.requireOtherProducts === true &&
+      typeof item.productData?.totalSavings === "number"
+    ) {
+      const valid = isBundleComplete(checkoutItems, item.productId);
+      return valid ? sum + item.productData.totalSavings : sum;
     }
-  }, [cart]);
+    return sum;
+  }, 0);
+}, [checkoutItems]);
 
+
+
+const cartDiscount = useMemo(() => {
+  return checkoutItems.reduce((sum, item) => {
+    return sum + (item.discountAmount ?? 0) * item.quantity;
+  }, 0);
+}, [checkoutItems]);
+
+const cartTotalAmount = useMemo(() => {
+  return cartSubtotal - cartBundleDiscount - cartDiscount;
+}, [cartSubtotal, cartBundleDiscount, cartDiscount]);
   // --- NEW: prefill billing email from localStorage (Continue as Guest) ---
  useEffect(() => {
   if (isAuthenticated && user?.email) {
@@ -366,149 +453,108 @@ const [deliveryMethod, setDeliveryMethod] = useState<"HomeDelivery" | "ClickAndC
     if (savedEmail) setBillingEmail(savedEmail);
   }
 }, [isAuthenticated, user]);
-
-
-
-
   // Debounced autocomplete using the single API you provided
- const doAutocomplete = useCallback(async (q: string) => {
-  if (!q || q.length < 4) {
-    setPostcodeSuggestions([]);
+const doAutocomplete = useCallback(async (q: string) => {
+  if (!q || q.trim().length < 3) {
+    setAddressSuggestions([]);
     setShowSuggestions(false);
     return;
   }
 
   try {
     const res = await fetch(
-      `${process.env.NEXT_PUBLIC_API_URL}/api/Postcode/search?query=${encodeURIComponent(q)}&limit=20`
+      `${process.env.NEXT_PUBLIC_API_URL}/api/address-lookup/search?query=${encodeURIComponent(
+        q.trim()
+      )}&country=GB`
     );
 
     const json = await res.json();
 
-    // ⭐ BACKEND RETURNS: { success, data: [] }
-    const raw = json?.data ?? json;
-
-    const suggestions: PostcodeSuggestion[] = Array.isArray(raw)
-      ? raw.map((x: any) => ({
-          postcode: x.postcode,
-          addressLine1: x.addressLine1,
-          city: x.city,
-          state: x.state,
-          region: x.region,
-          country: x.country,
-          displayText: x.displayText ?? `${x.postcode} - ${x.city}`,
-        }))
-      : [];
-
-    setPostcodeSuggestions(suggestions);
-    setShowSuggestions(suggestions.length > 0);
-  } catch (err) {
-    console.error("autocomplete error", err);
-    setPostcodeSuggestions([]);
-    setShowSuggestions(false);
-  }
-}, []);
-
-
-  const debouncedAutocomplete = useDebouncedCallback(doAutocomplete, 350);
-
-  useEffect(() => {
-    debouncedAutocomplete(postcodeQuery);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [postcodeQuery]);
-
-  // When user selects suggestion -> autofill fields
-  const handleSelectSuggestion = async (s: PostcodeSuggestion) => {
-    setShowSuggestions(false);
-    setPostcodeQuery(s.displayText ?? s.postcode ?? "");
-
-    const postal = s.postcode ?? "";
-    const city = s.city ?? "";
-    const state = s.state ?? s.region ?? "";
-    const addr1 = s.addressLine1 ?? "";
-
-    // Fill shipping fields (and billing if checkbox says same)
-    setShippingPostalCode(postal);
-    setShippingCity(city);
-    setShippingState(state);
-    setShippingAddress1(addr1);
-
-    if (shippingSameAsBilling) {
-      setBillingPostalCode(postal);
-      setBillingCity(city);
-      setBillingState(state);
-      setBillingAddress1(addr1);
-    }
-  };
-
-  // Apply coupon on checkout (same logic as cart)
-  const applyCoupon = () => {
-    if (!couponInput || couponInput.trim() === "") return;
-    let applied = false;
-
-    const updated = cart.map((item) => {
-      const product = item.productData;
-      const discount = product?.assignedDiscounts?.find(
-        (d: any) => d.requiresCouponCode && d.couponCode?.toLowerCase() === couponInput.trim().toLowerCase()
-      );
-
-      if (!discount) return item;
-      applied = true;
-
-      const basePrice = item.priceBeforeDiscount ?? item.price;
-      const discountValue = discount.usePercentage
-        ? (basePrice * discount.discountPercentage) / 100
-        : discount.discountAmount;
-
-      const finalPrice = +(basePrice - discountValue).toFixed(2);
-
-      return {
-        ...item,
-        appliedDiscountId: discount.id,
-        discountAmount: discountValue,
-        finalPrice,
-        couponCode: couponInput.trim(),
-      };
-    });
-
-    if (!applied) {
-      setError("This coupon is not valid for any product in your cart.");
+    if (!json?.success || !Array.isArray(json.data)) {
+      setAddressSuggestions([]);
+      setShowSuggestions(false);
       return;
     }
 
-    // update cart in context (assumes updateCart exists)
-    try {
-      updateCart(updated);
-    } catch (e) {
-      console.warn("updateCart not implemented in context, skipping updateCart call");
+    setAddressSuggestions(json.data);
+    setShowSuggestions(json.data.length > 0);
+  } catch (err) {
+    console.error("Address lookup failed", err);
+    setAddressSuggestions([]);
+    setShowSuggestions(false);
+  }
+}, []);
+const fetchAddressDetails = async (id: string) => {
+  const res = await fetch(
+    `${process.env.NEXT_PUBLIC_API_URL}/api/address-lookup/details/${encodeURIComponent(
+      id
+    )}`
+  );
+
+  const json = await res.json();
+
+  if (!json?.success || !json?.data) {
+    throw new Error("Failed to fetch address details");
+  }
+
+  return json.data;
+};
+
+
+ const debouncedAutocomplete = useDebouncedCallback(doAutocomplete, 350);
+useEffect(() => {
+  debouncedAutocomplete(addressQuery);
+}, [addressQuery, debouncedAutocomplete]);
+
+
+
+  // When user selects suggestion -> autofill fields
+const handleSelectSuggestion = async (s: AddressSuggestion) => {
+  try {
+   setShowSuggestions(false);
+setAddressSuggestions([]); // ⭐ ADD THIS
+setAddressQuery(s.text);
+
+
+    const details = await fetchAddressDetails(s.id);
+
+    const line1 =
+      details.line1 ||
+      details.line2 ||
+      details.line3 ||
+     s.text || "";
+
+    const city = details.city || "";
+    const state = details.province || "";
+    const postcode = details.postalCode || "";
+    const country = details.country || "United Kingdom";
+
+    // 🔹 Billing
+    setBillingAddress1(line1);
+    setBillingCity(city);
+    setBillingState(state);
+    setBillingPostalCode(postcode);
+    setBillingCountry(country);
+
+    // 🔹 Shipping (respect checkbox)
+    if (shippingSameAsBilling) {
+      setShippingAddress1(line1);
+      setShippingCity(city);
+      setShippingState(state);
+      setShippingPostalCode(postcode);
+      setShippingCountry(country);
     }
+  } catch (err) {
+    console.error("Address details error", err);
+  }
+};
 
-    setAppliedCoupon(couponInput.trim());
-    setError(null);
-  };
 
-  const removeCoupon = () => {
-    const updated = cart.map((item) => ({
-      ...item,
-      appliedDiscountId: null,
-      discountAmount: 0,
-      finalPrice: item.priceBeforeDiscount ?? item.price,
-      couponCode: null,
-    }));
-
-    try {
-      updateCart(updated);
-    } catch (e) {
-      console.warn("updateCart not implemented in context, skipping updateCart call");
-    }
-
-    setCouponInput("");
-    setAppliedCoupon(null);
-  };
+ 
 
   // Build order payload matching your sample
   const buildOrderPayload = () => {
-    const items = cart.map((c) => ({
+   const items = checkoutItems.map((c) => ({
       productId: c.productId ?? c.id,
       productVariantId: c.variantId ?? null,
       quantity: c.quantity,
@@ -540,13 +586,12 @@ const [deliveryMethod, setDeliveryMethod] = useState<"HomeDelivery" | "ClickAndC
       shippingPostalCode: shippingSameAsBilling ? billingPostalCode : shippingPostalCode,
       shippingCountry: shippingSameAsBilling ? billingCountry : shippingCountry,
       orderItems: items,
-      couponCode: appliedCoupon ?? null,
+      
       notes,
-      orderTotal: cartTotal,
+     
+
     };
   };
-
-  
 
 
 const handleProceedToPayment = async () => {
@@ -578,7 +623,7 @@ const handleProceedToPayment = async () => {
 
  const subscriptionMap: Record<string, string> = {};
 
-for (const item of cart) {
+for (const item of checkoutItems) {
   if (item.type === "subscription") {
     try {
       console.log("Sending subscription payload:", {
@@ -598,7 +643,7 @@ for (const item of cart) {
           productId: item.productId ?? item.id,
           productVariantId: item.variantId ?? null,
           quantity: item.quantity,
-          frequency: item.frequency,
+          frequency: item.frequencyPeriod,
           shippingFirstName: shippingSameAsBilling ? billingFirstName : shippingFirstName,
           shippingLastName: shippingSameAsBilling ? billingLastName : shippingLastName,
           shippingAddressLine1: shippingSameAsBilling ? billingAddress1 : shippingAddress1,
@@ -642,7 +687,7 @@ alert("SUB MAP:\n" + JSON.stringify(subscriptionMap, null, 2));
   // ⭐ Now build payload including subscriptionId per orderItem
   const payload = {
     ...buildOrderPayload(),
-    orderItems: cart.map((c) => ({
+    orderItems: checkoutItems.map((c) => ({
       productId: c.productId ?? c.id,
       productVariantId: c.variantId ?? null,
       quantity: c.quantity,
@@ -661,6 +706,7 @@ alert("PAYLOAD BEFORE PAYMENT:\n" + JSON.stringify(payload, null, 2));
 
   setOrderPayload(payload);
   setShowPayment(true);
+  
 };
 
 
@@ -705,7 +751,18 @@ userId: isAuthenticated ? user?.id : null,
 alert("COD ORDER FULL: " + JSON.stringify(createdOrder));
 alert("COD ORDER ID: " + createdOrder?.data?.id);
 
-   router.push(`/order/success?orderId=${createdOrder.data.id}`);
+  const isBuyNowFlow = !!sessionStorage.getItem("buyNowItem");
+
+if (isBuyNowFlow) {
+  sessionStorage.removeItem("buyNowItem");
+  sessionStorage.setItem("preserveCart", "1");
+} else {
+  clearCart();
+}
+
+router.push(`/order/success?orderId=${createdOrder.data.id}`);
+
+
 
 
     } catch (err: any) {
@@ -714,28 +771,46 @@ alert("COD ORDER ID: " + createdOrder?.data?.id);
     }
   };
 
-  const onPaymentSuccess = (createdOrder: any) => {
-    // navigate to order success
-alert("CARD ORDER FULL: " + JSON.stringify(createdOrder));
-alert("CARD ORDER ID: " + createdOrder?.data?.id);
+const onPaymentSuccess = (createdOrder: any) => {
+  if (createdOrder?.data) {
+    setOrderSummary({
+      subtotalAmount: createdOrder.data.subtotalAmount,
+      shippingAmount: createdOrder.data.shippingAmount,
+      discountAmount: createdOrder.data.discountAmount,
+      bundleDiscountAmount: createdOrder.data.bundleDiscountAmount,
+      taxAmount: createdOrder.data.taxAmount,
+      totalAmount: createdOrder.data.totalAmount,
+    });
+  }
 
+  const buyNowItem = sessionStorage.getItem("buyNowItem");
+
+  if (buyNowItem) {
+    sessionStorage.removeItem("buyNowItem");
+    sessionStorage.setItem("preserveCart", "1");
+  } else {
+    clearCart();
+  }
 
   router.push(`/order/success?orderId=${createdOrder.data.id}`);
+};
 
-  };
+
 
   const onPaymentError = (err: any) => {
     setError(err?.message ?? "Payment failed");
   };
 
-  if (!cart || cart.length === 0) {
+if (!checkoutItems || checkoutItems.length === 0) {
   return <EmptyCart />;
 }
-
-
   return (
-    <div className="max-w-7xl mx-auto px-4 py-8">
-      <h1 className="text-2xl font-bold mb-6">Checkout</h1>
+    <div className="max-w-7xl mx-auto px-4 py-4">
+     <h1 className="flex items-center gap-2 text-2xl font-semibold mb-3">
+  <ShoppingBag className="h-6 w-6 text-[#445D41]" />
+  Checkout
+</h1>
+
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* LEFT: Billing + Shipping */}
@@ -814,26 +889,31 @@ alert("CARD ORDER ID: " + createdOrder?.data?.id);
   />
 </div>
             {/* Postcode autocomplete suggestions */}
-           <div className="relative col-span-2">
-              <input
+         <div className="flex flex-col space-y-1 col-span-2 relative">
+  <label className="text-sm font-medium text-gray-700">
+    Search address or postcode
+  </label>
+      <input
   type="text"
-  value={postcodeQuery}
-  onChange={(e) => setPostcodeQuery(e.target.value)}
-  placeholder="Type 4+ characters for postcode/city suggestions"
+  value={addressQuery}
+  onChange={(e) => setAddressQuery(e.target.value)}
+  placeholder="Start typing city, postcode or address"
   className="w-full border p-2 rounded"
-  />
+/>
 
-              {showSuggestions && postcodeSuggestions.length > 0 && (
+
+              {showSuggestions && addressSuggestions.length > 0 && (
                 <div className="absolute left-0 right-0 bg-white border mt-1 rounded max-h-48 overflow-auto z-40">
-                  {postcodeSuggestions.map((s, i) => (
-                    <button
-                      key={i}
-                      onClick={() => handleSelectSuggestion(s)}
-                      className="w-full text-left px-3 py-2 hover:bg-gray-100"
-                    >
-                      {s.displayText ?? `${s.postcode ?? ""} ${s.city ?? ""}`}
-                    </button>
-                  ))}
+                {addressSuggestions.map((s) => (
+  <button
+    key={s.id}
+    onClick={() => handleSelectSuggestion(s)}
+    className="w-full text-left px-3 py-2 hover:bg-gray-100"
+  >
+    {s.text}
+  </button>
+))}
+
                 </div>
               )}
             </div>
@@ -1038,12 +1118,12 @@ alert("CARD ORDER ID: " + createdOrder?.data?.id);
         {/* RIGHT: Summary + coupon */}
        <aside className="lg:col-span-1 mt-6 lg:mt-0">
           <div className="bg-white p-4 rounded shadow lg:sticky lg:top-6 lg:min-h-[600px] flex flex-col">
-            <h3 className="text-lg font-semibold mb-3">Order summary ({cartCount} items)</h3>
+            <h3 className="text-lg font-semibold mb-3">Order summary ({effectiveCartCount} items)</h3>
 
             <div className="space-y-3 mb-4 overflow-visible">
-              {cart.map((it) => (
+              {checkoutItems.map((it) => (
                 <div key={it.id + (it.variantId || "")} className="flex gap-[2.75rem] items-start">
-                  <img src={it.image} alt={"Image not available"} className="w-14 h-14 object-cover rounded" />
+                  <img src={it.image} alt={"no img"} className="w-14 h-14 object-cover rounded" />
                   <div className="flex-1">
                     <div className="font-medium text-sm">{it.name}</div>
                    {it.type === "subscription" && (
@@ -1062,41 +1142,53 @@ alert("CARD ORDER ID: " + createdOrder?.data?.id);
   {it.variantOptions?.option3 ? ` • ${it.variantOptions.option3}` : ""}
 </div>
                     <div className="text-sm font-semibold mt-1">{formatCurrency((it.finalPrice ?? it.price) * it.quantity)}</div>
-                    {it.discountAmount ? <div className="text-xs text-green-600">Saved £{(it.discountAmount).toFixed(2)}</div> : null}
+                    {/* {it.discountAmount ? <div className="text-xs text-green-600">Saved £{(it.discountAmount).toFixed(2)}</div> : null} */}
                   </div>
                 </div>
               ))}
             </div>
 
             {/* Coupon box (prefilled if present) */}
-            <div className="mb-3 border rounded p-3">
-              {!appliedCoupon ? (
-                <>
-                  <label className="text-sm font-semibold mb-2 block">Apply coupon</label>
-                 <div className="flex flex-col sm:flex-row gap-2">
-                    <input value={couponInput} onChange={(e)=>setCouponInput(e.target.value)} placeholder="Coupon code" className="flex-1 border p-2 rounded" />
-                    <button onClick={applyCoupon} className="bg-[#445D41] text-white px-3 py-2 rounded w-full sm:w-auto">Apply</button>
-                  </div>
-                </>
-              ) : (
-                <div className="flex justify-between items-center text-sm text-green-700">
-                  <div>Coupon <strong>{appliedCoupon}</strong> applied</div>
-                  <button onClick={removeCoupon} className="text-red-600 underline text-xs">Remove</button>
-                </div>
-              )}
-            </div>
-
             <div className="border-t pt-3">
-              <div className="flex justify-between">
-                <span>Subtotal</span>
-                <strong>{formatCurrency(cartTotal)}</strong>
-              </div>
+              {/* ===== PRICE SUMMARY ===== */}
+<div className="mt-4 rounded-lg border bg-gray-50 p-4 space-y-3 text-sm">
 
-              {appliedCoupon && (
-                <div className="mt-2 text-sm text-green-700">
-                  Coupon: <strong>{appliedCoupon}</strong>
-                </div>
-              )}
+  {/* Subtotal */}
+  <div className="flex items-center justify-between">
+    <span className="text-gray-600">Subtotal</span>
+    <span className="font-medium">{formatCurrency(cartSubtotal)}</span>
+  </div>
+
+  {/* Bundle Discount */}
+  {cartBundleDiscount > 0 && (
+    <div className="flex items-center justify-between text-green-700">
+      <span>Bundle discount</span>
+      <span className="font-medium">
+        − {formatCurrency(cartBundleDiscount)}
+      </span>
+    </div>
+  )}
+
+  {/* Coupon / Normal Discount */}
+  {cartDiscount > 0 && (
+    <div className="flex items-center justify-between text-green-700">
+      <span>Discount</span>
+      <span className="font-medium">
+        − {formatCurrency(cartDiscount)}
+      </span>
+    </div>
+  )}
+
+  {/* Divider + Total */}
+  <div className="border-t pt-3 mt-2 flex items-center justify-between">
+    <span className="text-base font-semibold text-gray-900">Total</span>
+    <span className="text-lg font-bold text-gray-900">
+      {formatCurrency(cartTotalAmount)}
+    </span>
+  </div>
+
+</div>
+
 
               <div className="mt-4">
                 {!showPayment ? (
@@ -1126,10 +1218,9 @@ alert("CARD ORDER ID: " + createdOrder?.data?.id);
                       <StripeWrapper>
                         <div className="space-y-3">
                           <div className="text-sm mb-1">Pay with card</div>
-                         <CheckoutPayment
+                        <CheckoutPayment
   orderPayload={{
-    ...orderPayload,
-    orderTotal: cartTotal,
+    ...orderPayload, // 👈 yahin backend ko full payload jayega
     customerEmail: billingEmail,
     customerPhone: `+44${billingPhone}`,
     billingFirstName,
@@ -1137,11 +1228,12 @@ alert("CARD ORDER ID: " + createdOrder?.data?.id);
     billingCompany,
     billingAddressLine1: billingAddress1,
     billingAddressLine2: billingAddress2,
-    billingCity,
-    billingPostalCode,
-    billingCountry,
-  
+    billingCity: billingCity,
+    billingPostalCode: billingPostalCode,
+    billingCountry: billingCountry,
   }}
+ payAmount={cartTotalAmount}
+  // ⭐⭐⭐ ADD THIS
   onPaymentSuccess={onPaymentSuccess}
   onError={onPaymentError}
 />
@@ -1154,7 +1246,12 @@ alert("CARD ORDER ID: " + createdOrder?.data?.id);
                       <div className="space-y-3">
                         {error && <div className="text-red-600 text-sm">{error}</div>}
                         <div className="text-sm">You chose Cash on Delivery. Click below to place your order — you'll pay the delivery person when the order arrives.</div>
-                        <button onClick={handlePlaceOrderCOD} className="w-full bg-[#445D41] text-white py-3 rounded">Place order (COD) - {formatCurrency(cartTotal)}</button>
+                       <button
+  onClick={handlePlaceOrderCOD}
+  className="w-full bg-[#445D41] text-white py-3 rounded"
+>
+  Place order (COD)
+</button>
                       </div>
                     )}
                   </>

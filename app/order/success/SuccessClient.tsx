@@ -4,7 +4,7 @@ import { useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useAuth } from "@/context/AuthContext";
-import { useCart } from "@/context/CartContext";
+
 
 function formatCurrency(n = 0) {
   return `£${n.toFixed(2)}`;
@@ -18,12 +18,9 @@ export default function SuccessClient() {
   const [loading, setLoading] = useState(true);
 
   const { accessToken, isAuthenticated } = useAuth();
-  const { clearCart } = useCart();
+  
 
-  // Clear cart after order loads
-  useEffect(() => {
-    if (order) clearCart();
-  }, [order]);
+ 
 
   // Fetch order
   useEffect(() => {

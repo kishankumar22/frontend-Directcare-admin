@@ -4,7 +4,8 @@ import { useState, useEffect, useCallback, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/context/AuthContext";
 import { useToast } from "@/components/CustomToast";
-import { formatDistanceToNow } from "date-fns";
+import { timeFromNow } from "@/lib/date";
+
 import { Filter, ChevronDown, CheckCircle2  } from "lucide-react";
 
 interface RatingReviewsProps {
@@ -22,12 +23,13 @@ interface ReviewReply {
   createdAt: string;
 }
 
-interface Review {
+export interface Review {
   id: string;
   customerName: string;
   title: string;
   comment: string;
   rating: number;
+  isApproved: boolean; // 🔥 ADD THIS
   isVerifiedPurchase: boolean;
   helpfulCount: number;
   notHelpfulCount: number;
@@ -37,6 +39,14 @@ interface Review {
 
 export default function RatingReviews({ productId, allowCustomerReviews }: RatingReviewsProps) {
   const [reviews, setReviews] = useState<Review[]>([]);
+const recentReviews = useMemo(() => {
+  return reviews
+    .filter((r) => r.isApproved === true) // 🔥 ADD
+    .filter((r) => r.comment?.trim().length > 0)
+    .slice(0, 3);
+}, [reviews]);
+
+
   const [rating, setRating] = useState<number>(0);
   const [title, setTitle] = useState("");
   const [comment, setComment] = useState("");
@@ -53,7 +63,7 @@ export default function RatingReviews({ productId, allowCustomerReviews }: Ratin
   const fetchReviews = useCallback(async () => {
     try {
       const res = await fetch(
-        `https://testapi.knowledgemarkg.com/api/ProductReviews/product/${productId}?includeUnapproved=true&verifiedPurchaseOnly=false`
+        `https://testapi.knowledgemarkg.com/api/ProductReviews/product/${productId}`
       );
       const json = await res.json();
       setReviews(json?.data ?? []);
@@ -91,7 +101,7 @@ export default function RatingReviews({ productId, allowCustomerReviews }: Ratin
       setLoading(false);
       return;
     }
-      toast.success("Review submitted & awaiting approval!");
+      toast.success("Review submitted! It will be visible after admin approval.");
       setRating(0);
       setComment("");
       setTitle("");
@@ -107,21 +117,25 @@ export default function RatingReviews({ productId, allowCustomerReviews }: Ratin
   const handleNotHelpful = (id: string) => console.log("Future not helpful clicked for", id);
 
   // FILTERED DATA (no logic changed, only UI view manipulation)
-  const filteredReviews = useMemo(() => {
-    return reviews
-      .filter((r) => r.rating > 0 && r.comment.trim().length > 0)
-      .filter((r) => (filterRating ? r.rating === filterRating : true))
-      .filter((r) => (showVerifiedOnly ? r.isVerifiedPurchase : true))
-      .sort((a, b) => {
-        if (sortBy === "recent") return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-        if (sortBy === "high") return b.rating - a.rating;
-        return a.rating - b.rating;
-      });
-  }, [reviews, filterRating, sortBy, showVerifiedOnly]);
+const filteredReviews = useMemo(() => {
+  return reviews
+    .filter((r) => r.isApproved === true) // 🔥 ONLY APPROVED
+    .filter((r) => r.rating > 0 && r.comment.trim().length > 0)
+    .filter((r) => (filterRating ? r.rating === filterRating : true))
+    .filter((r) => (showVerifiedOnly ? r.isVerifiedPurchase : true))
+    .sort((a, b) => {
+      if (sortBy === "recent")
+        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      if (sortBy === "high") return b.rating - a.rating;
+      return a.rating - b.rating;
+    });
+}, [reviews, filterRating, sortBy, showVerifiedOnly]);
+
 
   return (
-   <section className="mt-12 bg-white p-8 rounded-2xl shadow-lg border border-gray-200 overflow-x-hidden w-full">
+   <section id="reviews-section" className="mt-12 bg-white p-8 rounded-2xl shadow-lg border border-gray-200 overflow-x-hidden w-full">
       <h2 className="text-3xl font-bold mb-6 text-gray-900">Ratings & Reviews</h2>
+
 
       {/* FILTER PANEL */}
      <div className="flex flex-col sm:flex-row flex-wrap items-start sm:items-center justify-between gap-4 mb-8 p-4 bg-gray-50 rounded-xl border w-full overflow-x-hidden">
@@ -237,9 +251,10 @@ export default function RatingReviews({ productId, allowCustomerReviews }: Ratin
               <p className="font-semibold mt-2 text-gray-900">{r.title}</p>
               <p className="text-sm text-gray-700 mt-1">{r.comment}</p>
 
-              <p className="text-xs text-gray-400 mt-2">
-                {formatDistanceToNow(new Date(r.createdAt), { addSuffix: true })}
-              </p>
+           <p className="text-xs text-gray-400 mt-2">
+  {timeFromNow(r.createdAt)}
+</p>
+
 
             <div className="flex flex-wrap gap-3 mt-3 text-sm font-medium w-full">
                 <button onClick={() => handleHelpful(r.id)} className="text-gray-600 hover:text-green-700">
@@ -257,7 +272,8 @@ export default function RatingReviews({ productId, allowCustomerReviews }: Ratin
                       <p className="text-gray-800">{reply.comment}</p>
                       <p className="text-xs text-gray-500 mt-1">
                         — {reply.createdByName} •{" "}
-                        {formatDistanceToNow(new Date(reply.createdAt), { addSuffix: true })}
+                        {timeFromNow(reply.createdAt)}
+
                       </p>
                     </div>
                   ))}
@@ -270,3 +286,11 @@ export default function RatingReviews({ productId, allowCustomerReviews }: Ratin
     </section>
   );
 }
+// 🔹 PDP tooltip ke liye reusable helper
+export function getRecentApprovedReviews(reviews: Review[]) {
+  return reviews
+    .filter((r) => r.isApproved === true)
+    .filter((r) => r.comment?.trim().length > 0)
+    .slice(0, 3);
+}
+

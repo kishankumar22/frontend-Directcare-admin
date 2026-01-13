@@ -33,77 +33,133 @@ interface Product {
   weightUnit: string;
   specificationAttributes: string;
   relatedProductIds: string;
+   crossSellProductIds: string; // ✅ ADD THIS
 }
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 export const fetchCache = 'force-no-store';
 
-async function getProduct(slug: string): Promise<Product | null> {
+async function getProduct(slug: string) {
   try {
-    const url = `${process.env.NEXT_PUBLIC_API_URL}/api/Products?slug=${encodeURIComponent(slug)}`;
+    // 🔹 STEP 1: LIST API (slug / variant resolve ke liye)
+    const listRes = await fetch(
+      `${process.env.NEXT_PUBLIC_API_URL}/api/Products?slug=${slug}`,
+      { cache: "no-store" }
+    );
 
-    const res = await fetch(url, {
-      cache: 'no-store',
-    });
+    if (!listRes.ok) return null;
 
-    if (!res.ok) {
-      console.error('❌ Product API error:', res.status);
-      return null;
+    const listJson = await listRes.json();
+    if (!listJson.success || !listJson.data?.items?.length) return null;
+
+    const items = listJson.data.items;
+
+    let product = items.find((p: any) => p.slug === slug);
+    let selectedVariantId: string | null = null;
+
+    if (!product) {
+      for (const p of items) {
+        const variant = p.variants?.find((v: any) => v.slug === slug);
+        if (variant) {
+          product = p;
+          selectedVariantId = variant.id;
+          break;
+        }
+      }
     }
 
-    const data = await res.json();
+    if (!product?.id) return null;
 
-    if (data?.success && Array.isArray(data.data?.items)) {
-      return data.data.items.find((p: Product) => p.slug === slug) ?? null;
-    }
+    // 🔥 STEP 2: DETAIL API (GROUPED PRODUCTS YAHI AATE HAIN)
+    const detailRes = await fetch(
+      `${process.env.NEXT_PUBLIC_API_URL}/api/Products/${product.id}`,
+      { cache: "no-store" }
+    );
 
-    return null;
+    if (!detailRes.ok) return null;
+
+    const detailJson = await detailRes.json();
+    if (!detailJson.success) return null;
+
+    return {
+      product: detailJson.data, // ✅ FULL PRODUCT (groupedProducts included)
+      selectedVariantId: selectedVariantId ?? undefined,
+    };
   } catch (err) {
-    console.error('❌ Product fetch failed:', err);
+    console.error("getProduct error:", err);
     return null;
   }
 }
 
-
 // ⭐ FIX: params is now Promise
-export async function generateMetadata({
-  params,
-}: {
-  params: { slug: string };
+export async function generateMetadata({ 
+  params 
+}: { 
+  params: Promise<{ slug: string }> // ✅ Changed to Promise
 }) {
-  const product = await getProduct(params.slug);
+  const { slug } = await params; // ✅ Already has await (good!)
+ const data = await getProduct(slug);
 
-  if (!product) {
-    return {
-      title: 'Product Not Found | Direct Care',
-      description: 'The product you are looking for could not be found.',
-      robots: { index: false, follow: false },
-    };
-  }
+if (!data?.product) {
+  return {
+    title: 'Product Not Found | Direct Care',
+    description: 'The product you are looking for could not be found.',
+  };
+}
 
-  const mainImage = product.images?.[0]?.imageUrl
-    ? `${process.env.NEXT_PUBLIC_API_URL}${product.images[0].imageUrl}`
-    : undefined;
+const product: Product = data.product;
+
+
+
+ const mainImage = product?.images?.[0]?.imageUrl
+  ? `${process.env.NEXT_PUBLIC_API_URL}${product.images[0].imageUrl}`
+  : null;
+
 
   return {
     title: `${product.name} | Direct Care`,
-    description:
-      product.shortDescription?.replace(/<[^>]*>/g, '').slice(0, 160) ||
-      product.name,
+    description: product.shortDescription?.replace(/<[^>]*>/g, '').substring(0, 160) || product.name,
     openGraph: {
       title: product.name,
-      description:
-        product.shortDescription?.replace(/<[^>]*>/g, '') || product.name,
-      images: mainImage ? [{ url: mainImage }] : [],
+      description: product.shortDescription?.replace(/<[^>]*>/g, '') || product.name,
+      url: `${process.env.NEXT_PUBLIC_BASE_URL}/products/${product.slug}`,
+      siteName: 'Direct Care',
+      images: mainImage ? [
+        {
+          url: mainImage,
+          width: 1200,
+          height: 630,
+          alt: product.name,
+        }
+      ] : [],
+      locale: 'en_US',
       type: 'website',
+    },
+    other: {
+      'og:type': 'product.item',
+      'product:price:amount': product.price.toString(),
+      'product:price:currency': 'GBP',
+      'product:availability': product.stockQuantity > 0 ? 'in stock' : 'out of stock',
+      'product:condition': 'new',
+      'product:brand': product.brandName || '',
+      'product:category': product.categoryName || '',
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title: product.name,
+      description: product.shortDescription?.replace(/<[^>]*>/g, '') || product.name,
+      images: mainImage ? [mainImage] : [],
+    },
+    robots: {
+      index: true,
+      follow: true,
     },
     alternates: {
       canonical: `${process.env.NEXT_PUBLIC_BASE_URL}/products/${product.slug}`,
     },
   };
 }
-
 
 function ProductLoading() {
   return (
@@ -121,17 +177,20 @@ export async function generateStaticParams() {
 }
 
 // ⭐ FIX: params is now Promise
-export default async function ProductDetailPage({
-  params,
-}: {
-  params: { slug: string };
-}) {
-  const product = await getProduct(params.slug);
+export default async function ProductDetailPage({ params }: { params: Promise<{ slug: string }> }) {
+  const { slug } = await params;
+  const data = await getProduct(slug);
 
-  if (!product) {
-    notFound();
-  }
+  if (!data) notFound();
 
-  return <ProductClient product={product} />;
+  return (
+    <div key={slug}>
+      <Suspense fallback={<ProductLoading />}>
+        <ProductClient 
+          product={data.product}
+          initialVariantId={data.selectedVariantId}
+        />
+      </Suspense>
+    </div>
+  );
 }
-

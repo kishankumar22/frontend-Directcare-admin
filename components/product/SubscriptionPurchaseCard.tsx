@@ -17,6 +17,12 @@ interface Props {
   stockError: string | null;
   setStockError: React.Dispatch<React.SetStateAction<string | null>>;
   vatRate: number | null;   // 🟢 Add this
+  // ⭐ ADD THIS
+  backorderState: {
+    canBuy: boolean;
+    showNotify: boolean;
+    label: string;
+  };
 }
 
 export default function SubscriptionPurchaseCard({
@@ -28,7 +34,9 @@ export default function SubscriptionPurchaseCard({
   setQuantity,
   stockError,
   setStockError,
-   vatRate 
+   vatRate,
+   backorderState,
+
 }: Props) {
 
   const { addToCart } = useCart();
@@ -187,13 +195,14 @@ image: selectedVariant?.imageUrl
 <div className="flex items-center gap-[-0.5rem] mt-2 mb-2">
 
   <div className="flex-shrink-0 w-[8rem]">
-    <QuantitySelector
-      quantity={quantity}
-      setQuantity={setQuantity}
-      maxStock={selectedVariant?.stockQuantity ?? product.stockQuantity}
-      stockError={stockError}
-      setStockError={setStockError}
-    />
+   <QuantitySelector
+  quantity={quantity}
+  setQuantity={setQuantity}
+  maxStock={backorderState.canBuy ? (selectedVariant?.stockQuantity ?? product.stockQuantity) : 0}
+  stockError={stockError}
+  setStockError={setStockError}
+/>
+
   </div>
 
   <div
@@ -220,19 +229,26 @@ image: selectedVariant?.imageUrl
 
    
 
-        {selectedPurchaseType === "subscription" && (
-          <Button
-            onClick={handleAddSubscriptionToCart}
-            disabled={(selectedVariant?.stockQuantity ?? product.stockQuantity) === 0}
-            className={`w-full py-3 rounded-xl text-sm font-semibold mt-[-0.75rem] ${
-              (selectedVariant?.stockQuantity ?? product.stockQuantity) === 0
-                ? "bg-gray-400 cursor-not-allowed opacity-70"
-                : "bg-black hover:bg-[#445D41] text-white"
-            }`}
-          >
-            Add Subscription to Cart
-          </Button>
-        )}
+       {selectedPurchaseType === "subscription" && backorderState.canBuy && (
+  <Button
+    onClick={handleAddSubscriptionToCart}
+    className="w-full py-3 rounded-xl text-sm font-semibold mt-[-0.75rem]
+      bg-black hover:bg-[#445D41] text-white"
+  >
+    Add Subscription to Cart
+  </Button>
+)}
+
+{selectedPurchaseType === "subscription" && !backorderState.canBuy && (
+  <Button
+    disabled
+    className="w-full py-3 rounded-xl text-sm font-semibold mt-[-0.75rem]
+      bg-gray-400 cursor-not-allowed opacity-70"
+  >
+    Subscription unavailable
+  </Button>
+)}
+
       </CardContent>
     </Card>
   );

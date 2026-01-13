@@ -110,6 +110,8 @@ const ToggleField: React.FC<ToggleFieldProps> = ({ label, value }) => {
 // MAIN MODAL COMPONENT
 // ==========================================
 
+
+// MAIN MODAL COMPONENT
 interface ProductViewModalProps {
   product: Product | null;
   isOpen: boolean;
@@ -117,41 +119,42 @@ interface ProductViewModalProps {
   loading: boolean;
 }
 
+
+interface ProductViewModalProps {
+  product: Product | null;
+  isOpen: boolean;
+  onClose: () => void;
+  loading: boolean;
+}
 const ProductViewModal: React.FC<ProductViewModalProps> = ({
   product,
   isOpen,
   onClose,
   loading,
 }) => {
-  // ==========================================
-  // 📸 MEDIA VIEWER STATE (REMOVED startIndex)
-  // ==========================================
+  // MEDIA VIEWER STATE
   const [mediaViewerOpen, setMediaViewerOpen] = useState(false);
-  const [mediaToView, setMediaToView] = useState<MediaItem[]>([]);
+  const [mediaToView, setMediaToView] = useState<MediaItem | MediaItem[]>([]);
 
   if (!isOpen || !product) return null;
 
-  // ==========================================
-  // 🎬 HELPER: GET YOUTUBE EMBED URL
-  // ==========================================
+  // HELPER: GET YOUTUBE EMBED URL
   const getYouTubeEmbedUrl = (url: string): string | null => {
-    const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
+    const regExp = /(?:youtu\.be\/|youtube\.com\/(?:embed\/|watch\?v=|v\/))([^&?\/]+)/;
     const match = url.match(regExp);
-    return match && match[2].length === 11 ? `https://www.youtube.com/embed/${match[2]}` : null;
+    return match && match[1].length === 11 
+      ? `https://www.youtube.com/embed/${match[1]}` 
+      : null;
   };
 
-  // ==========================================
-  // 📸 HELPER: OPEN MEDIA VIEWER (REMOVED startIndex)
-  // ==========================================
+  // HELPER: OPEN MEDIA VIEWER
   const openMediaViewer = (media: MediaItem | MediaItem[]) => {
     setMediaToView(Array.isArray(media) ? media : [media]);
     setMediaViewerOpen(true);
   };
 
-  // ==========================================
-  // 🖼️ HELPER: VIEW PRODUCT IMAGES (REMOVED startIndex)
-  // ==========================================
-  const viewProductImages = (startIndex = 0) => {
+  // HELPER: VIEW PRODUCT IMAGES
+  const viewProductImages = (startIndex: number = 0) => {
     if (!product.images || product.images.length === 0) return;
 
     // Reorder array to start from clicked index
@@ -170,14 +173,46 @@ const ProductViewModal: React.FC<ProductViewModalProps> = ({
 
     openMediaViewer(mediaItems);
   };
+ // ✅ NEW: VIEW VARIANT IMAGES
+  const viewVariantImages = (clickedVariantIndex: number) => {
+    if (!product.variants || product.variants.length === 0) return;
 
-  // ==========================================
-  // 🎥 HELPER: VIEW PRODUCT VIDEOS (REMOVED startIndex)
-  // ==========================================
-  const viewProductVideos = (startIndex = 0) => {
+    // Filter variants that have images
+    const variantsWithImages = product.variants.filter(v => v.imageUrl);
+    
+    if (variantsWithImages.length === 0) {
+      // Fallback to product images if no variant images
+      viewProductImages(0);
+      return;
+    }
+
+    // Find the index of clicked variant in filtered array
+    const clickedVariant = product.variants[clickedVariantIndex];
+    const startIndex = variantsWithImages.findIndex(v => v.id === clickedVariant.id);
+
+    // Create media items from all variants with images
+    const mediaItems: MediaItem[] = variantsWithImages.map((variant) => ({
+      type: 'image',
+      url: variant.imageUrl!,
+      title: variant.name,
+      description: `${product.name} - ${variant.name} (${variant.sku})`,
+      isMain: variant.isDefault,
+    }));
+
+    // Set media with proper start index
+    setMediaToView(mediaItems);
+    setMediaViewerOpen(true);
+  };
+
+  // HELPER: VIEW PRODUCT VIDEOS
+  const viewProductVideos = (startIndex: number = 0) => {
     if (!product.videoUrls) return;
 
-    const videoUrls = product.videoUrls.split(',').map((url) => url.trim()).filter(Boolean);
+    const videoUrls = product.videoUrls
+      .split(',')
+      .map((url) => url.trim())
+      .filter(Boolean);
+
     if (videoUrls.length === 0) return;
 
     // Reorder array to start from clicked index
@@ -190,7 +225,7 @@ const ProductViewModal: React.FC<ProductViewModalProps> = ({
       const embedUrl = getYouTubeEmbedUrl(url);
       return {
         type: 'video',
-        url: embedUrl ? '' : url,
+        url: embedUrl || url,
         embedUrl: embedUrl || undefined,
         title: `${product.name} - Video ${idx + 1}`,
         description: 'Product demonstration video',
@@ -199,7 +234,6 @@ const ProductViewModal: React.FC<ProductViewModalProps> = ({
 
     openMediaViewer(mediaItems);
   };
-
   return (
     <>
       <div
@@ -784,115 +818,123 @@ const ProductViewModal: React.FC<ProductViewModalProps> = ({
                 </div>
 
                 {/* TAB 6: VARIANTS */}
-        <div id="content-variants" data-tab-content className="hidden">
-  {product.variants && product.variants.length > 0 ? (
-    <div className="space-y-3">
-      {product.variants.map((variant, idx) => (
-        <div
-          key={idx}
-          className="p-4 bg-gradient-to-r from-purple-500/10 to-pink-500/10 rounded-lg border border-purple-500/30"
-        >
-          {/* Header with Index, Image, Info and Status */}
-          <div className="flex items-start gap-4 mb-3">
-            {/* ✅ Variant Index Number */}
-            <div className="flex-shrink-0">
-              <p className="text-lg text-white font-bold">{idx + 1}.</p>
-            </div>
+<div id="content-variants" data-tab-content className="hidden">
+                {product.variants && product.variants.length > 0 ? (
+                  <div className="space-y-3">
+                    {product.variants.map((variant, idx) => (
+                      <div
+                        key={idx}
+                        className="p-4 bg-gradient-to-r from-purple-500/10 to-pink-500/10 rounded-lg border border-purple-500/30"
+                      >
+                        {/* Header with Index, Image, Info and Status */}
+                        <div className="flex items-start gap-4 mb-3">
+                          {/* ✅ Variant Index Number */}
+                          <div className="flex-shrink-0">
+                            <p className="text-lg text-white font-bold">{idx + 1}.</p>
+                          </div>
 
-            {/* ✅ Variant Image */}
-            {variant.imageUrl ? (
-              <div className="w-20 h-20 rounded-lg overflow-hidden border-2 border-purple-500/40 flex-shrink-0">
-                <img
-                  src={`${API_BASE_URL.replace('/api', '')}${variant.imageUrl.replace('\\\\', '/')}`}
-                  alt={variant.name}
-                  className="w-full h-full object-cover"
-                />
-              </div>
-            ) : (
-              <div className="w-20 h-20 rounded-lg bg-slate-800 border-2 border-slate-700 flex items-center justify-center flex-shrink-0">
-                <Package className="w-8 h-8 text-slate-600" />
-              </div>
-            )}
+                          {/* ✅ Variant Image - NOW CLICKABLE */}
+                          {variant.imageUrl ? (
+                            <div 
+                              className="w-20 h-20 rounded-lg overflow-hidden border-2 border-purple-500/40 flex-shrink-0 cursor-pointer hover:border-pink-500 hover:scale-105 transition-all group relative"
+                              onClick={() => viewVariantImages(idx)}
+                              title="Click to view all variant images"
+                            >
+                              <img
+                                src={`${API_BASE_URL.replace('/api', '')}${variant.imageUrl.replace('\\\\', '/')}`}
+                                alt={variant.name}
+                                className="w-full h-full object-cover group-hover:opacity-80 transition-opacity"
+                              />
+                              {/* Overlay icon on hover */}
+                              <div className="absolute inset-0 bg-black/0 group-hover:bg-black/50 transition-all flex items-center justify-center">
+                                <Eye className="w-6 h-6 text-white opacity-0 group-hover:opacity-100 transition-all" />
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="w-20 h-20 rounded-lg bg-slate-800 border-2 border-slate-700 flex items-center justify-center flex-shrink-0">
+                              <Package className="w-8 h-8 text-slate-600" />
+                            </div>
+                          )}
 
-            {/* Variant Info with Status Badges */}
-            <div className="flex-1">
-              <div className="flex items-start justify-between">
-                <div className="flex-1">
-                  <p className="text-base text-white font-bold">{variant.name}</p>
-                  <p className="text-xs text-purple-400 font-mono font-bold">{variant.sku}</p>
-                  
-                  {/* Status Badges - Inline below SKU */}
-                  <div className="flex items-center gap-2 mt-2">
-                    {variant.isDefault && (
-                      <span className="px-2 py-1 bg-violet-500 text-white text-xs rounded font-bold">DEFAULT</span>
-                    )}
-                    {variant.trackInventory && (
-                      <span className="px-2 py-1 bg-cyan-500/20 text-cyan-400 text-xs rounded font-bold border border-cyan-500/40">TRACKED</span>
-                    )}
-                    {variant.isActive ? (
-                      <span className="px-2 py-1 bg-green-500/20 text-green-400 text-xs rounded font-bold border border-green-500/40">ACTIVE</span>
-                    ) : (
-                      <span className="px-2 py-1 bg-red-500/20 text-red-400 text-xs rounded font-bold border border-red-500/40">INACTIVE</span>
-                    )}
+                          {/* Variant Info with Status Badges */}
+                          <div className="flex-1">
+                            <div className="flex items-start justify-between">
+                              <div className="flex-1">
+                                <p className="text-base text-white font-bold">{variant.name}</p>
+                                <p className="text-xs text-purple-400 font-mono font-bold">{variant.sku}</p>
+                                
+                                {/* Status Badges - Inline below SKU */}
+                                <div className="flex items-center gap-2 mt-2">
+                                  {variant.isDefault && (
+                                    <span className="px-2 py-1 bg-violet-500 text-white text-xs rounded font-bold">DEFAULT</span>
+                                  )}
+                                  {variant.trackInventory && (
+                                    <span className="px-2 py-1 bg-cyan-500/20 text-cyan-400 text-xs rounded font-bold border border-cyan-500/40">TRACKED</span>
+                                  )}
+                                  {variant.isActive ? (
+                                    <span className="px-2 py-1 bg-green-500/20 text-green-400 text-xs rounded font-bold border border-green-500/40">ACTIVE</span>
+                                  ) : (
+                                    <span className="px-2 py-1 bg-red-500/20 text-red-400 text-xs rounded font-bold border border-red-500/40">INACTIVE</span>
+                                  )}
+                                </div>
+                              </div>
+                              
+                              {/* Price - Aligned to right */}
+                              <div className="text-right ml-4">
+                                <p className="text-xl text-green-400 font-bold">£{variant.price?.toFixed(2)}</p>
+                                {variant.compareAtPrice && (
+                                  <p className="text-sm text-red-400 line-through font-bold">£{variant.compareAtPrice.toFixed(2)}</p>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Options & Stock Grid */}
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                          {variant.option1Name && variant.option1Value && (
+                            <div className="p-2 bg-slate-800/50 rounded border border-slate-700">
+                              <p className="text-xs text-slate-400 font-bold">{variant.option1Name}</p>
+                              <p className="text-sm text-white font-bold">{variant.option1Value}</p>
+                            </div>
+                          )}
+                          {variant.option2Name && variant.option2Value && (
+                            <div className="p-2 bg-slate-800/50 rounded border border-slate-700">
+                              <p className="text-xs text-slate-400 font-bold">{variant.option2Name}</p>
+                              <p className="text-sm text-white font-bold">{variant.option2Value}</p>
+                            </div>
+                          )}
+                          {variant.option3Name && variant.option3Value && (
+                            <div className="p-2 bg-slate-800/50 rounded border border-slate-700">
+                              <p className="text-xs text-slate-400 font-bold">{variant.option3Name}</p>
+                              <p className="text-sm text-white font-bold">{variant.option3Value}</p>
+                            </div>
+                          )}
+                          <div className="p-2 bg-slate-800/50 rounded border border-slate-700">
+                            <p className="text-xs text-slate-400 font-bold">Stock</p>
+                            <p
+                              className={`text-sm font-bold ${
+                                variant.stockQuantity > 10
+                                  ? 'text-green-400'
+                                  : variant.stockQuantity > 0
+                                  ? 'text-orange-400'
+                                  : 'text-red-400'
+                              }`}
+                            >
+                              {variant.stockQuantity}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
                   </div>
-                </div>
-                
-                {/* Price - Aligned to right */}
-                <div className="text-right ml-4">
-                  <p className="text-xl text-green-400 font-bold">£{variant.price?.toFixed(2)}</p>
-                  {variant.compareAtPrice && (
-                    <p className="text-sm text-red-400 line-through font-bold">£{variant.compareAtPrice.toFixed(2)}</p>
-                  )}
-                </div>
+                ) : (
+                  <div className="p-8 bg-slate-800/30 rounded-lg border border-slate-700 text-center">
+                    <Tag className="w-12 h-12 text-slate-600 mx-auto mb-2" />
+                    <p className="text-slate-400 font-semibold">No variants configured</p>
+                  </div>
+                )}
               </div>
-            </div>
-          </div>
-
-          {/* Options & Stock Grid */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            {variant.option1Name && variant.option1Value && (
-              <div className="p-2 bg-slate-800/50 rounded border border-slate-700">
-                <p className="text-xs text-slate-400 font-bold">{variant.option1Name}</p>
-                <p className="text-sm text-white font-bold">{variant.option1Value}</p>
-              </div>
-            )}
-            {variant.option2Name && variant.option2Value && (
-              <div className="p-2 bg-slate-800/50 rounded border border-slate-700">
-                <p className="text-xs text-slate-400 font-bold">{variant.option2Name}</p>
-                <p className="text-sm text-white font-bold">{variant.option2Value}</p>
-              </div>
-            )}
-            {variant.option3Name && variant.option3Value && (
-              <div className="p-2 bg-slate-800/50 rounded border border-slate-700">
-                <p className="text-xs text-slate-400 font-bold">{variant.option3Name}</p>
-                <p className="text-sm text-white font-bold">{variant.option3Value}</p>
-              </div>
-            )}
-            <div className="p-2 bg-slate-800/50 rounded border border-slate-700">
-              <p className="text-xs text-slate-400 font-bold">Stock</p>
-              <p
-                className={`text-sm font-bold ${
-                  variant.stockQuantity > 10
-                    ? 'text-green-400'
-                    : variant.stockQuantity > 0
-                    ? 'text-orange-400'
-                    : 'text-red-400'
-                }`}
-              >
-                {variant.stockQuantity}
-              </p>
-            </div>
-          </div>
-        </div>
-      ))}
-    </div>
-  ) : (
-    <div className="p-8 bg-slate-800/30 rounded-lg border border-slate-700 text-center">
-      <Tag className="w-12 h-12 text-slate-600 mx-auto mb-2" />
-      <p className="text-slate-400 font-semibold">No variants configured</p>
-    </div>
-  )}
-</div>
 
                 {/* TAB 7: ATTRIBUTES */}
                 <div id="content-attributes" data-tab-content className="hidden">
@@ -1120,10 +1162,11 @@ const ProductViewModal: React.FC<ProductViewModalProps> = ({
       </div>
 
       {/* ✅ FIXED: Media Viewer Modal - REMOVED startIndex prop */}
-      <MediaViewerModal
+      <MediaViewerModal 
         isOpen={mediaViewerOpen}
         onClose={() => setMediaViewerOpen(false)}
         media={mediaToView}
+        baseUrl={API_BASE_URL.replace('/api', '')}
       />
     </>
   );

@@ -391,7 +391,7 @@ export const GroupedProductModal = ({
                 />
                 <div>
                   <span className="text-sm font-medium text-slate-200">
-                    Apply Discount to All Items
+                    Apply Same Discount to All Items
                   </span>
                   <p className="text-xs text-slate-400 mt-1">
                     Distribute discount across all bundle items proportionally

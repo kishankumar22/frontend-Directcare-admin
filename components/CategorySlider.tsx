@@ -15,7 +15,7 @@ interface Category {
   id: string;
   name: string;
   slug: string;
-  imageUrl: string;
+  imageUrl?: string | null;
 }
 
 export default function CategorySlider({
@@ -25,24 +25,34 @@ export default function CategorySlider({
   categories: Category[];
   baseUrl: string;
 }) {
-  return (
-    <div className="relative ">
+  /* 🔐 SAFE IMAGE RESOLVER */
+  const getImageSrc = (imageUrl?: string | null) => {
+    if (!imageUrl) return "/placeholder-category.png";
+    return imageUrl.startsWith("http")
+      ? imageUrl
+      : `${baseUrl}${imageUrl}`;
+  };
 
-      {/* ✅ Arrows */}
+  return (
+    <div className="relative">
+      {/* ===== ARROWS ===== */}
       <button
         id="catPrev"
-        className="absolute left-[-15px] top-[40%] -translate-y-1/2 z-30 bg-white p-2 md:p-3 shadow-md rounded-full border"
+        className="absolute left-[-15px] top-[40%] -translate-y-1/2 z-30
+                   bg-white p-2 md:p-3 shadow-md rounded-full border"
       >
         <ChevronLeft className="w-4 h-4 md:w-5 md:h-5" />
       </button>
 
       <button
         id="catNext"
-        className="absolute right-[-15px] top-[40%] -translate-y-1/2 z-30 bg-white p-2 md:p-3 shadow-md rounded-full border"
+        className="absolute right-[-15px] top-[40%] -translate-y-1/2 z-30
+                   bg-white p-2 md:p-3 shadow-md rounded-full border"
       >
         <ChevronRight className="w-4 h-4 md:w-5 md:h-5" />
       </button>
 
+      {/* ===== SLIDER ===== */}
       <Swiper
         modules={[Navigation, Pagination, Autoplay]}
         spaceBetween={16}
@@ -53,65 +63,53 @@ export default function CategorySlider({
           1024: { slidesPerView: 4 },
           1280: { slidesPerView: 5 },
         }}
-
         autoplay={{ delay: 2500, disableOnInteraction: false }}
-
         navigation={{
           prevEl: "#catPrev",
           nextEl: "#catNext",
         }}
-
         pagination={{
           clickable: true,
-          dynamicBullets: true,  // ✅ Professional motion bullets
+          dynamicBullets: true,
         }}
-
-        loop={true}
+        loop
         className="pb-12"
       >
-        {categories.map((category: Category) => (
+        {categories.map((category) => (
           <SwiperSlide key={category.id}>
             <Link href={`/category/${category.slug}`}>
-          <Card
-  className="w-full h-[200px] md:h-[230px] bg-white rounded-2xl 
-             shadow-[0_4px_20px_rgba(0,0,0,0.08)] 
-             hover:shadow-[0_6px_25px_rgba(0,0,0,0.12)]
-             transition-all duration-300 flex flex-col items-center justify-between py-6"
->
-  <CardContent className="p-0 w-full flex flex-col items-center justify-between h-full">
+              <Card
+                className="w-full h-[200px] md:h-[230px] bg-white rounded-2xl
+                           shadow-[0_4px_20px_rgba(0,0,0,0.08)]
+                           hover:shadow-[0_6px_25px_rgba(0,0,0,0.12)]
+                           transition-all duration-300
+                           flex flex-col items-center justify-between py-6"
+              >
+                <CardContent className="p-0 w-full flex flex-col items-center justify-between h-full">
+                  {/* ===== IMAGE ===== */}
+                  <div
+                    className="w-[120px] h-[120px] md:w-[140px] md:h-[140px]
+                               flex items-center justify-center overflow-hidden"
+                  >
+                    <img
+                      src={getImageSrc(category.imageUrl)}
+                      alt={category.name}
+                      loading="lazy"
+                      className="h-full w-auto object-contain"
+                      style={{ objectPosition: "center" }}
+                    />
+                  </div>
 
-    {/* FIXED PERFECT IMAGE BOX */}
-    <div className="w-[120px] h-[120px] md:w-[140px] md:h-[140px] 
-                    flex items-center justify-center overflow-hidden">
-<img
-  src={
-    category?.imageUrl
-      ? category.imageUrl.startsWith("http")
-        ? category.imageUrl
-        : `${baseUrl}${category.imageUrl}`
-      : "/images/placeholder-category.png"
-  }
-  alt={category?.name || "Category"}
-  className="h-full w-auto object-contain"
-  style={{ objectPosition: "center" }}
-/>
-
-    </div>
-
-    {/* TITLE */}
-    <h3 className="font-semibold text-gray-900 text-sm md:text-base text-center pb-2">
-      {category.name}
-    </h3>
-
-  </CardContent>
-</Card>
-
-
+                  {/* ===== TITLE ===== */}
+                  <h3 className="font-semibold text-gray-900 text-sm md:text-base text-center pb-2">
+                    {category.name}
+                  </h3>
+                </CardContent>
+              </Card>
             </Link>
           </SwiperSlide>
         ))}
       </Swiper>
-
     </div>
   );
 }

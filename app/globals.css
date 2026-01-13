@@ -92,3 +92,7 @@ input[type="number"]::-webkit-outer-spin-button {
 input[type="number"] {
   -moz-appearance: textfield; /* Firefox */
 }
+.share-item {
+  @apply flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700
+         hover:bg-gray-50 w-full transition;
+}

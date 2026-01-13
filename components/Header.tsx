@@ -3,13 +3,14 @@
 import { useState, useEffect, useRef } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { Menu, Search, Heart, ShoppingCart, User, X, ChevronDown, ChevronRight, Truck, Package, Bike } from "lucide-react";
+import { Menu, Search, Heart, ShoppingCart, User, X, ChevronDown, ChevronRight, Truck, Package, Bike, Star } from "lucide-react";
 import MegaMenu from "./MegaMenu";
 import { useToast } from "@/components/CustomToast";
 import { useCart } from "@/context/CartContext";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
-
+import { useDebounce } from "@/app/hooks/useDebounce";
+import { usePathname } from "next/navigation";
 interface Category {
   id: string;
   name: string;
@@ -17,7 +18,6 @@ interface Category {
   parentCategoryId?: string | null;
   subCategories?: Category[];
 }
-
 export default function Header({
   ssrCategories = [],
   className = "",
@@ -33,7 +33,8 @@ export default function Header({
   const [hideTopBar, setHideTopBar] = useState(false);
   
   const lastScroll = useRef(0);
-  
+  const megaWrapperRef = useRef<HTMLDivElement>(null);
+
   const toast = useToast();
   const { cartCount, isInitialized } = useCart();
   const router = useRouter();
@@ -73,6 +74,36 @@ export default function Header({
       link: "/delivery/special",
     },
   ];
+const renderStars = (rating: number) => {
+  const fullStars = Math.floor(rating);
+  const hasHalf = rating % 1 >= 0.5;
+
+  return (
+    <div className="flex items-center gap-0.5">
+      {[...Array(5)].map((_, i) => {
+        if (i < fullStars) {
+          return <Star key={i} size={12} className="fill-yellow-400 text-yellow-400" />;
+        }
+        if (i === fullStars && hasHalf) {
+          return <Star key={i} size={12} className="fill-yellow-400/50 text-yellow-400" />;
+        }
+        return <Star key={i} size={12} className="text-gray-300" />;
+      })}
+    </div>
+  );
+};
+
+const getDiscountedPrice = (price: number, discountPercentage: number) => {
+  const discounted = price - (price * discountPercentage) / 100;
+  return Number(discounted.toFixed(2));
+};
+
+const pathname = usePathname();
+useEffect(() => {
+  // Route change hua → MegaMenu band
+  setHovered(false);
+  setActiveCategory(null);
+}, [pathname]);
 
   const [currentMsg, setCurrentMsg] = useState(0);
   const [isClient, setIsClient] = useState(false);
@@ -87,6 +118,57 @@ export default function Header({
     }, 3000);
     return () => clearInterval(t);
   }, []);
+
+  const [results, setResults] = useState<any[]>([]);
+const [searchLoading, setSearchLoading] = useState(false);
+const [showSearchDropdown, setShowSearchDropdown] = useState(false);
+const debouncedSearch = useDebounce(searchValue, 400);
+useEffect(() => {
+  if (!debouncedSearch || debouncedSearch.length < 1) {
+    setResults([]);
+    setShowSearchDropdown(false);
+    return;
+  }
+
+  const fetchSearchResults = async () => {
+    try {
+      setSearchLoading(true);
+      const res = await fetch(
+       `${process.env.NEXT_PUBLIC_API_URL}/api/Products/quick-search?query=${debouncedSearch}&limit=6`
+      );
+    const json = await res.json();
+console.log("SEARCH API RESPONSE 👉", json);
+
+      if (json.success) {
+        setResults(json.data);
+        setShowSearchDropdown(true);
+      }
+    } catch (error) {
+      console.error("Search error:", error);
+    } finally {
+      setSearchLoading(false);
+    }
+  };
+
+  fetchSearchResults();
+}, [debouncedSearch]);
+
+const searchRef = useRef<HTMLDivElement>(null);
+useEffect(() => {
+  const handleClickOutside = (e: MouseEvent) => {
+    if (
+      searchRef.current &&
+      !searchRef.current.contains(e.target as Node)
+    ) {
+      setShowSearchDropdown(false);
+    }
+  };
+
+  document.addEventListener("mousedown", handleClickOutside);
+  return () =>
+    document.removeEventListener("mousedown", handleClickOutside);
+}, []);
+
 
   const [openParents, setOpenParents] = useState<Record<string, boolean>>({});
   const [openChildren, setOpenChildren] = useState<Record<string, boolean>>({});
@@ -143,9 +225,14 @@ export default function Header({
   }, [ssrCategories]);
 
   const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault();
-    console.log("search:", searchValue);
-  };
+  e.preventDefault();
+
+  if (!searchValue.trim()) return;
+
+  router.push(`/search?q=${encodeURIComponent(searchValue)}`);
+  setShowSearchDropdown(false);
+};
+
 
   const openMenu = (category: Category) => {
     setActiveCategory(category);
@@ -290,26 +377,172 @@ export default function Header({
                 </span>
               )}
             </button>
-            <button onClick={handleAccountClick} className="text-gray-700 hover:text-green-800 transition">
-              <User size={22} />
-            </button>
+           {/* USER STATUS UI */}
+{isAuthenticated ? (
+  // 🔵 USER LOGGED IN → show icon
+  <button onClick={handleAccountClick} className="text-gray-700 hover:text-green-800 transition">
+    <User size={22} />
+  </button>
+) : (
+  // 🔴 USER NOT LOGGED IN → show LOGIN BUTTON
+  <button
+    onClick={() => router.push("/account")}
+    className="px-3 py-1 text-xs font-semibold text-[#445D41] border border-[#445D41] rounded-md hover:bg-[#445D41] hover:text-white transition"
+  >
+    Login
+  </button>
+)}
+
           </div>
 
           {/* Search - Desktop */}
-          <form onSubmit={handleSearch} className="hidden md:flex flex-1 px-4 md:px-6">
-            <div className="relative max-w-[40rem] mx-auto w-full">
-              <input
-                type="text"
-                placeholder="Search..."
-                value={searchValue}
-                onChange={(e) => setSearchValue(e.target.value)}
-                className="w-full border border-[#445D41] rounded-md px-4 py-2 pr-12 outline-none focus:ring-0 focus:border-[#445D41] text-sm"
-              />
-              <button type="submit" className="absolute right-1 top-1/2 -translate-y-1/2 bg-[#445D41] hover:bg-green-700 text-white px-3 py-1.5 rounded text-sm">
-                <Search size={16} />
-              </button>
-            </div>
-          </form>
+         <form
+  onSubmit={handleSearch}
+  className="hidden md:flex flex-1 px-4 md:px-6"
+>
+  <div
+    ref={searchRef}
+    className="relative max-w-[40rem] mx-auto w-full"
+  >
+    <input
+      type="text"
+      placeholder="Search products..."
+      value={searchValue}
+      onChange={(e) => setSearchValue(e.target.value)}
+      onFocus={() =>
+        results.length > 0 && setShowSearchDropdown(true)
+      }
+      className="w-full border border-[#445D41] rounded-md px-4 py-2 pr-12 text-sm"
+    />
+
+    <button
+      type="submit"
+      className="absolute right-1 top-1/2 -translate-y-1/2 bg-[#445D41] text-white px-3 py-1.5 rounded"
+    >
+      <Search size={16} />
+    </button>
+
+    {/* 🔽 SEARCH DROPDOWN */}
+    {showSearchDropdown && (
+  <div className="absolute top-full mt-1 w-full bg-white border rounded-md shadow-xl z-[9999]">
+    {searchLoading && (
+      <div className="p-4 text-sm text-gray-500">
+        Searching...
+      </div>
+    )}
+
+    {!searchLoading && results.length === 0 && (
+      <div className="p-4 text-sm text-gray-500">
+        No products found
+      </div>
+    )}
+
+    {!searchLoading &&
+      results.map((item) => (
+        <Link
+          key={item.id}
+         href={`/products/${item.slug}`}
+          onClick={() => {
+            setShowSearchDropdown(false);
+            setSearchValue("");
+          }}
+          className="flex items-center gap-4 px-4 py-3 border-b last:border-b-0 hover:bg-gray-50"
+        >
+         {/* IMAGE FIX */}
+<img
+  src={
+    item.mainImageUrl?.startsWith("http")
+      ? item.mainImageUrl
+      : `${process.env.NEXT_PUBLIC_API_URL}${item.mainImageUrl}`
+  }
+  alt={"img"}
+  className="w-10 h-10 object-contain"
+/>
+
+{/* NAME + CATEGORY */}
+{/* NAME, CATEGORY, PRICE + DISCOUNT */}
+<div className="flex flex-col">
+  <div className="flex items-center gap-2 flex-wrap">
+  <span className="text-sm font-medium text-gray-800 line-clamp-1">
+    {item.name}
+  </span>
+
+  {item.hasDiscount &&
+    typeof item.discountPercentage === "number" &&
+    item.discountPercentage > 0 && (
+      <span className="text-[11px] px-1.5 py-0.5 bg-red-100 text-red-600 rounded font-semibold whitespace-nowrap">
+        {item.discountPercentage}% Off
+      </span>
+    )}
+
+  {typeof item.averageRating === "number" &&
+    item.averageRating > 0 && (
+      <div className="flex items-center gap-0.5">
+        {renderStars(item.averageRating)}
+        <span className="text-[11px] text-gray-500">
+          ({item.approvedReviewCount ?? item.reviewCount ?? 0})
+        </span>
+      </div>
+    )}
+</div>
+
+
+  <span className="text-xs text-gray-500">
+    {item.categoryName}
+  </span>
+
+  {/* PRICE */}
+ <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+  {item.hasDiscount &&
+  typeof item.discountPercentage === "number" &&
+  item.discountPercentage > 0 ? (
+    <>
+      {/* Discounted Price */}
+      <span className="text-sm font-semibold text-[#445D41]">
+        £{getDiscountedPrice(item.price, item.discountPercentage)}
+      </span>
+
+      {/* Original Price */}
+      <span className="text-xs text-gray-400 line-through">
+        £{Number(item.price).toFixed(2)}
+      </span>
+    </>
+  ) : (
+    <span className="text-sm font-semibold text-[#445D41]">
+      £{Number(item.price).toFixed(2)}
+    </span>
+  )}
+
+  {/* 🎁 Loyalty Points */}
+  {item.loyaltyPointsMessage && (
+    <span className="text-[11px] px-2 py-0.5 rounded bg-green-50 text-green-700 font-medium whitespace-nowrap">
+      {item.loyaltyPointsMessage}
+    </span>
+  )}
+</div>
+
+</div>
+{/* STOCK BADGE */}
+<div className="ml-auto">
+  {item.inStock ? (
+    <span className="text-[10px] px-2 py-1 rounded bg-green-100 text-green-700 font-semibold">
+      In Stock
+    </span>
+  ) : (
+    <span className="text-[10px] px-2 py-1 rounded bg-red-100 text-red-600 font-semibold">
+      Out of Stock
+    </span>
+  )}
+</div>
+
+        </Link>
+      ))}
+  </div>
+)}
+
+  </div>
+</form>
+
 
           {/* Desktop Icons */}
           <div className="hidden md:flex items-center gap-5 text-gray-700">
@@ -329,30 +562,54 @@ export default function Header({
                 )}
               </button>
             </Link>
-            <button onClick={handleAccountClick} className="hover:text-green-800 transition">
-              <User size={22} />
-            </button>
+           {isAuthenticated ? (
+  <button
+    onClick={handleAccountClick}
+    className="hover:text-green-800 transition"
+  >
+    <User size={22} />
+  </button>
+) : (
+  <button
+    onClick={() => router.push("/account")}
+    className="px-3 py-1 text-xs font-semibold text-[#445D41] border border-[#445D41] rounded-md hover:bg-[#445D41] hover:text-white transition"
+  >
+    Login
+  </button>
+)}
+
           </div>
         </div>
 
         {/* ✅ DESKTOP CATEGORIES */}
-        <div className="hidden md:block relative" onMouseLeave={closeMenu}>
-          <nav className="flex items-center justify-center h-12 border-y-2 text-sm font-bold border-[#445d41] text-black px-4 gap-8">
+        <div
+  ref={megaWrapperRef}
+  className="hidden md:block relative"
+  onMouseLeave={() => {
+    setHovered(false);
+    setActiveCategory(null);
+  }}
+>
+
+         <nav className="flex items-center h-9 border-y-2 text-sm font-bold border-[#445d41] text-black pl-20 gap-6">
             {categories.map((cat) => (
               <div
                 key={cat.id}
                 className="relative"
-                onMouseEnter={() => {
-                  if (cat.subCategories && cat.subCategories.length > 0) {
-                    openMenu(cat);
-                  } else {
-                    closeMenu();
-                  }
-                }}
+               onMouseEnter={() => {
+  if (cat.subCategories?.length) {
+    setActiveCategory(cat);
+    setHovered(true);
+  } else {
+    setHovered(false);
+    setActiveCategory(null);
+  }
+}}
+
               >
                 <Link
                   href={`/category/${cat.slug}`}
-                  className={`flex items-center gap-1 cursor-pointer py-2 transition-colors ${
+                  className={`flex items-center gap-0 cursor-pointer py-2 transition-colors ${
                     activeCategory?.id === cat.id ? "text-[#445D41]" : "hover:text-[#445D41]"
                   }`}
                 >
@@ -371,14 +628,30 @@ export default function Header({
           </nav>
 
           {/* Mega Menu */}
-          {hovered &&
-            activeCategory &&
-            activeCategory.subCategories &&
-            activeCategory.subCategories.length > 0 && (
-              <div className="absolute left-0 right-0 top-full z-50" onMouseEnter={() => setHovered(true)}>
-                <MegaMenu activeMainCategory={activeCategory} />
-              </div>
-            )}
+         {hovered &&
+  activeCategory &&
+  activeCategory.subCategories &&
+  activeCategory.subCategories.length > 0 && (
+   <div className="absolute left-0 right-0 top-full">
+  
+  {/* FULL WIDTH BACKGROUND (NON-HOVER) */}
+  <div className="absolute inset-0 bg-white shadow-lg" />
+
+  {/* HOVER AREA (LIMITED WIDTH) */}
+  <div
+    className="relative max-w-7xl mx-auto"
+    onMouseLeave={() => {
+      setHovered(false);
+      setActiveCategory(null);
+    }}
+  >
+    <MegaMenu activeMainCategory={activeCategory} />
+  </div>
+
+</div>
+
+)}
+
         </div>
       </div>
 

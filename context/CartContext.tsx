@@ -39,7 +39,13 @@ slug?: string;
   // ⭐ FULL PRODUCT DATA REQUIRED FOR CART COUPON LOGIC
   productData?: any; // store product JSON here
   maxStock?: number;
-  
+    // 🔥 GROUPED PRODUCT SUPPORT (UI PURPOSE ONLY)
+  parentProductId?: string;
+// 🔥 GROUPED BUNDLE DISPLAY (BACKEND DRIVEN)
+bundlePrice?: number;            // per grouped product bundle price
+individualSavings?: number;      // price - bundlePrice
+hasBundleDiscount?: boolean;
+
 
 }
 // ================== CONTEXT TYPE ==================
@@ -107,6 +113,7 @@ export const CartProvider = ({ children }: { children: React.ReactNode }) => {
                 frequency: item.frequency,
                 frequencyPeriod: item.frequencyPeriod,
                 subscriptionTotalCycles: item.subscriptionTotalCycles,
+                sku: item.sku ?? p.sku,
               }
             : p
         );
@@ -114,21 +121,33 @@ export const CartProvider = ({ children }: { children: React.ReactNode }) => {
     }
 
     // ===================== NORMAL PRODUCT MERGE LOGIC =====================
-    const existing = prev.find(
-      (p) =>
-        p.id === item.id &&
-        (p.variantId ?? "") === (item.variantId ?? "") &&
-        (p.type ?? "one-time") === (item.type ?? "one-time")
-    );
+ const existing = prev.find(
+  (p) =>
+    p.productId === item.productId &&
+    (p.variantId ?? null) === (item.variantId ?? null) &&
+    (p.type ?? "one-time") === (item.type ?? "one-time") &&
+    p.parentProductId === item.parentProductId // 🔥 IMPORTANT
+);
+
+
 
     if (existing) {
-      return prev.map((p) =>
-        p.id === item.id &&
-        (p.variantId ?? "") === (item.variantId ?? "") &&
-        (p.type ?? "one-time") === (item.type ?? "one-time")
-          ? { ...p, quantity: p.quantity + item.quantity }
-          : p
-      );
+  return prev.map((p) =>
+  p.productId === item.productId &&
+  (p.variantId ?? null) === (item.variantId ?? null) &&
+  (p.type ?? "one-time") === (item.type ?? "one-time") &&
+  p.parentProductId === item.parentProductId
+    ? {
+        ...p,
+        quantity: p.quantity + item.quantity,
+        sku: item.sku ?? p.sku,
+        finalPrice: item.finalPrice ?? p.finalPrice,
+        discountAmount: item.discountAmount ?? p.discountAmount,
+      }
+    : p
+);
+
+
     }
 
     // ===================== ADD NEW ITEM =====================
@@ -136,6 +155,7 @@ export const CartProvider = ({ children }: { children: React.ReactNode }) => {
       ...prev,
       {
         ...item,
+          sku: item.sku,
         priceBeforeDiscount: item.priceBeforeDiscount ?? item.price,
         finalPrice: item.finalPrice ?? item.price,
         discountAmount: item.discountAmount ?? 0,
@@ -148,8 +168,30 @@ export const CartProvider = ({ children }: { children: React.ReactNode }) => {
 
   // ================== REMOVE ITEM ==================
   const removeFromCart = (id: string, type?: string) => {
-  setCart((prev) => prev.filter((p) => !(p.id === id && p.type === type)));
+  setCart((prev) => {
+    // 🔹 find item being removed
+    const itemToRemove = prev.find(
+      (p) => p.id === id && (p.type ?? "one-time") === (type ?? p.type)
+    );
+
+    if (!itemToRemove) return prev;
+
+    // 🔥 if MAIN PRODUCT → remove itself + all grouped children
+    if (!itemToRemove.parentProductId) {
+      return prev.filter(
+        (p) =>
+          p.id !== id &&
+          p.parentProductId !== itemToRemove.productId
+      );
+    }
+
+    // 🔥 if GROUPED PRODUCT → remove only itself
+    return prev.filter(
+      (p) => !(p.id === id && (p.type ?? "one-time") === (type ?? p.type))
+    );
+  });
 };
+
 
 
   // ================== UPDATE QUANTITY ==================
@@ -196,18 +238,32 @@ const updateQuantity = (id: string, qty: number) => {
   };
 
   // ================== CLEAR CART ==================
-  const clearCart = () => setCart([]);
+  const clearCart = () => {
+  // 🔥 BUY NOW PROTECTION
+  const preserveCart = sessionStorage.getItem("preserveCart");
+
+  if (preserveCart === "1") {
+    // Buy Now flow → cart ko mat chhedo
+    sessionStorage.removeItem("preserveCart");
+    return;
+  }
+
+  // ✅ Normal checkout
+  setCart([]);
+  localStorage.removeItem("cart");
+};
+
 
   // ================== CART COUNT ==================
   const cartCount = cart.reduce((sum, item) => sum + item.quantity, 0);
 
   // ================== CART TOTAL (FINAL PRICE AWARE) ==================
-  const cartTotal = cart.reduce(
-    (sum, item) =>
-      sum +
-      (item.finalPrice ?? item.price) * (item.quantity ?? 1),
-    0
-  );
+ const cartTotal = cart.reduce(
+  (sum, item) =>
+    sum + (item.finalPrice ?? item.price) * (item.quantity ?? 1),
+  0
+);
+
 
   // ================== RETURN CONTEXT ==================
   return (

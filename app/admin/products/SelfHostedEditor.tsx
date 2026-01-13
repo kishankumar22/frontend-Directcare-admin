@@ -9,6 +9,9 @@ interface SelfHostedTinyMCEProps {
   placeholder?: string;
   height?: number;
   className?: string;
+  minLength?: number; // ✅ NEW
+  maxLength?: number; // ✅ NEW
+  showCharCount?: boolean; // ✅ NEW
 }
 
 declare global {
@@ -22,14 +25,18 @@ export const SelfHostedTinyMCE: React.FC<SelfHostedTinyMCEProps> = ({
   onChange,
   placeholder = "Start typing...",
   height = 400,
-  className = ""
+  className = "",
+  minLength = 0,
+  maxLength = Infinity,
+  showCharCount = true
 }) => {
   const editorRef = useRef<any>(null);
-  const onChangeRef = useRef(onChange); // ✅ Store onChange in ref
+  const onChangeRef = useRef(onChange);
   const isUpdatingRef = useRef(false);
   const [isLoaded, setIsLoaded] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
   const [isReady, setIsReady] = useState(false);
+  const [charCount, setCharCount] = useState(0); // ✅ NEW
   const [editorId] = useState(() => `tinymce-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`);
 
   // ✅ Update onChange ref
@@ -40,6 +47,30 @@ export const SelfHostedTinyMCE: React.FC<SelfHostedTinyMCEProps> = ({
   useEffect(() => {
     setIsMounted(true);
   }, []);
+
+  // ✅ NEW: Get plain text character count (excluding HTML tags)
+  const getPlainTextLength = (html: string): number => {
+    const tmp = document.createElement('div');
+    tmp.innerHTML = html;
+    const text = tmp.textContent || tmp.innerText || '';
+    return text.trim().length;
+  };
+
+  // ✅ NEW: Truncate content to maxLength
+  const truncateContent = (html: string, max: number): string => {
+    const tmp = document.createElement('div');
+    tmp.innerHTML = html;
+    const text = tmp.textContent || tmp.innerText || '';
+    
+    if (text.length <= max) return html;
+    
+    // Truncate text while preserving HTML structure
+    const truncated = text.substring(0, max);
+    
+    // Simple approach: replace text content
+    tmp.textContent = truncated;
+    return tmp.innerHTML;
+  };
 
   const deleteImageFromServer = async (imageUrl: string): Promise<boolean> => {
     try {
@@ -420,6 +451,73 @@ export const SelfHostedTinyMCE: React.FC<SelfHostedTinyMCEProps> = ({
         setup: (editor: any) => {
           editorRef.current = editor;
           
+          // ✅ NEW: Character limit validation
+          const enforceCharLimit = () => {
+            const content = editor.getContent();
+            const textLength = getPlainTextLength(content);
+            
+            setCharCount(textLength);
+            
+            // If exceeds max, truncate
+            if (maxLength !== Infinity && textLength > maxLength) {
+              const truncated = truncateContent(content, maxLength);
+              editor.setContent(truncated);
+              
+              editor.notificationManager.open({
+                text: `⚠️ Maximum ${maxLength} characters reached`,
+                type: 'warning',
+                timeout: 2000
+              });
+              
+              return false;
+            }
+            
+            return true;
+          };
+          
+          // ✅ NEW: Prevent paste if it exceeds limit
+          editor.on('paste', (e: any) => {
+            setTimeout(() => {
+              const content = editor.getContent();
+              const textLength = getPlainTextLength(content);
+              
+              if (maxLength !== Infinity && textLength > maxLength) {
+                const truncated = truncateContent(content, maxLength);
+                editor.setContent(truncated);
+                
+                editor.notificationManager.open({
+                  text: `⚠️ Pasted content truncated to ${maxLength} characters`,
+                  type: 'warning',
+                  timeout: 3000
+                });
+              }
+              
+              setCharCount(getPlainTextLength(editor.getContent()));
+            }, 10);
+          });
+          
+          // ✅ NEW: Prevent typing if max reached
+          editor.on('keydown', (e: any) => {
+            // Allow navigation and control keys
+            const allowedKeys = [8, 46, 37, 38, 39, 40, 35, 36]; // Backspace, Delete, Arrows, Home, End
+            
+            if (allowedKeys.includes(e.keyCode) || e.ctrlKey || e.metaKey) {
+              return;
+            }
+            
+            const content = editor.getContent();
+            const textLength = getPlainTextLength(content);
+            
+            if (maxLength !== Infinity && textLength >= maxLength) {
+              e.preventDefault();
+              editor.notificationManager.open({
+                text: `⚠️ Maximum ${maxLength} characters reached`,
+                type: 'warning',
+                timeout: 1500
+              });
+            }
+          });
+          
           editor.ui.registry.addButton('deleteimage', {
             text: '🗑️',
             tooltip: 'Delete Selected Image',
@@ -530,9 +628,11 @@ export const SelfHostedTinyMCE: React.FC<SelfHostedTinyMCEProps> = ({
           });
           
           editor.on('change input undo redo', () => {
+            enforceCharLimit(); // ✅ Check limits on every change
+            
             isUpdatingRef.current = true;
             const content = editor.getContent();
-            onChangeRef.current(content); // ✅ Use ref instead of direct onChange
+            onChangeRef.current(content);
             setTimeout(() => isUpdatingRef.current = false, 50);
           });
           
@@ -541,6 +641,7 @@ export const SelfHostedTinyMCE: React.FC<SelfHostedTinyMCEProps> = ({
             
             if (value) {
               editor.setContent(value);
+              setCharCount(getPlainTextLength(value)); // ✅ Set initial count
             }
             
             const container = editor.getContainer();
@@ -562,13 +663,14 @@ export const SelfHostedTinyMCE: React.FC<SelfHostedTinyMCEProps> = ({
         window.tinymce.remove(`#${editorId}`);
       }
     };
-  }, [isMounted, editorId, placeholder, height]); // ✅ Removed onChange dependency
+  }, [isMounted, editorId, placeholder, height, minLength, maxLength]);
 
   useEffect(() => {
     if (editorRef.current && isReady && !isUpdatingRef.current) {
       const currentContent = editorRef.current.getContent();
       if (value !== currentContent) {
         editorRef.current.setContent(value || '');
+        setCharCount(getPlainTextLength(value || ''));
       }
     }
   }, [value, isReady]);
@@ -585,6 +687,19 @@ export const SelfHostedTinyMCE: React.FC<SelfHostedTinyMCEProps> = ({
       </div>
     );
   }
+
+  // ✅ NEW: Character count status
+  const getCharCountColor = () => {
+    if (minLength > 0 && charCount < minLength) {
+      return 'text-red-400';
+    }
+    if (maxLength !== Infinity) {
+      const percentage = (charCount / maxLength) * 100;
+      if (percentage >= 90) return 'text-red-400';
+      if (percentage >= 75) return 'text-orange-400';
+    }
+    return 'text-slate-400';
+  };
 
   return (
     <div className={className}>
@@ -609,13 +724,54 @@ export const SelfHostedTinyMCE: React.FC<SelfHostedTinyMCEProps> = ({
           backgroundColor: '#1e293b'
         }}
       >
-        
         <textarea 
           id={editorId} 
           className="w-full"
           suppressHydrationWarning
         />
       </div>
+      
+      {/* ✅ NEW: Character Counter */}
+      {showCharCount && isReady && (
+        <div className="flex items-center justify-between mt-2 px-2">
+          <div className="flex items-center gap-3">
+            <span className={`text-xs font-medium ${getCharCountColor()}`}>
+              {charCount} {maxLength !== Infinity && `/ ${maxLength}`} characters
+            </span>
+            
+            {minLength > 0 && charCount < minLength && (
+              <span className="text-xs text-red-400 flex items-center gap-1">
+                <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                </svg>
+                Minimum {minLength} characters required
+              </span>
+            )}
+          </div>
+          
+          {maxLength !== Infinity && (
+            <div className="flex items-center gap-2">
+              <div className="w-32 h-1.5 bg-slate-700 rounded-full overflow-hidden">
+                <div 
+                  className={`h-full transition-all duration-300 ${
+                    charCount >= maxLength 
+                      ? 'bg-red-500' 
+                      : charCount >= maxLength * 0.9 
+                        ? 'bg-orange-500'
+                        : charCount >= maxLength * 0.75
+                          ? 'bg-yellow-500'
+                          : 'bg-green-500'
+                  }`}
+                  style={{ width: `${Math.min((charCount / maxLength) * 100, 100)}%` }}
+                />
+              </div>
+              <span className="text-xs text-slate-500">
+                {Math.max(0, maxLength - charCount)} left
+              </span>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 };
@@ -628,7 +784,10 @@ export const ProductDescriptionEditor = ({
   required = false,
   height = 350,
   showHelpText,
-  className = ""
+  className = "",
+  minLength = 0, // ✅ NEW
+  maxLength = Infinity, // ✅ NEW
+  showCharCount = true // ✅ NEW
 }: {
   label?: string;
   value: string;
@@ -638,6 +797,9 @@ export const ProductDescriptionEditor = ({
   height?: number;
   showHelpText?: string;
   className?: string;
+  minLength?: number; // ✅ NEW
+  maxLength?: number; // ✅ NEW
+  showCharCount?: boolean; // ✅ NEW
 }) => {
   return (
     <div className={className}>
@@ -650,13 +812,15 @@ export const ProductDescriptionEditor = ({
         placeholder={placeholder}
         height={height}
         className="w-full"
+        minLength={minLength} // ✅ NEW
+        maxLength={maxLength} // ✅ NEW
+        showCharCount={showCharCount} // ✅ NEW
       />
       {showHelpText && (
         <p className="text-xs text-slate-400 mt-1">
           {showHelpText}
         </p>
       )}
-  
     </div>
   );
 };

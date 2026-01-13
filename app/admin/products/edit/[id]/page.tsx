@@ -1424,40 +1424,64 @@ const checkSkuExists = async (sku: string): Promise<boolean> => {
     setCheckingSku(false);
   }
 };
-// ✅ Real-time variant SKU check
+// ✅ State to track if component is mounted
+const [isInitialLoad, setIsInitialLoad] = useState(true);
+
+// ✅ Set initial load false after component mounts
+useEffect(() => {
+  const timer = setTimeout(() => {
+    setIsInitialLoad(false);
+  }, 1000); // Wait 1 second after page load
+  
+  return () => clearTimeout(timer);
+}, []);
+
+// ✅ FIXED - Don't validate on page load
 const checkVariantSkuExists = async (
   sku: string, 
-  currentVariantId: string
+  currentVariantId: string,
+  skipToast: boolean = false // ✅ Add this parameter
 ): Promise<boolean> => {
   if (!sku || sku.length < 2) return false;
 
   try {
-    // Check within current product's variants
+    // ✅ Check within current product's variants
     const duplicateInProduct = productVariants.find(
       (v) => v.id !== currentVariantId && v.sku.toUpperCase() === sku.toUpperCase()
     );
 
     if (duplicateInProduct) {
-      toast.warning(`SKU already used by variant "${duplicateInProduct.name}"`, {
-        autoClose: 5000,
-      });
+      if (!skipToast && !isInitialLoad) {
+        toast.warning(`SKU already used by variant "${duplicateInProduct.name}"`, {
+          autoClose: 5000,
+        });
+      }
       return true;
     }
 
-    // Check against main product SKU
-    if (formData.sku.toUpperCase() === sku.toUpperCase()) {
-      toast.warning("SKU matches main product SKU", { autoClose: 5000 });
+    // ✅ Check against main product SKU
+    if (formData.sku && formData.sku.toUpperCase() === sku.toUpperCase()) {
+      if (!skipToast && !isInitialLoad) {
+        toast.warning("SKU matches main product SKU", { autoClose: 5000 });
+      }
       return true;
     }
 
-    // Check against database (all products and variants)
+    // ✅ Check against database (all products and variants)
     const response = await productsService.getAll({ search: sku, pageSize: 100 });
     const products = response.data?.data?.items || [];
 
     for (const product of products) {
+      // Skip current product in edit mode
+      if (productId && product.id === productId) {
+        continue; // ✅ Skip current product
+      }
+
       // Check product SKU
-      if (product.sku?.toUpperCase() === sku.toUpperCase() && product.id !== productId) {
-        toast.warning(`SKU used by product "${product.name}"`, { autoClose: 5000 });
+      if (product.sku?.toUpperCase() === sku.toUpperCase()) {
+        if (!skipToast && !isInitialLoad) {
+          toast.warning(`SKU used by product "${product.name}"`, { autoClose: 5000 });
+        }
         return true;
       }
 
@@ -1467,9 +1491,11 @@ const checkVariantSkuExists = async (
           (v: any) => v.sku?.toUpperCase() === sku.toUpperCase()
         );
         if (variantMatch) {
-          toast.warning(`SKU used by "${product.name}" - Variant "${variantMatch.name}"`, {
-            autoClose: 5000,
-          });
+          if (!skipToast && !isInitialLoad) {
+            toast.warning(`SKU used by "${product.name}" - Variant "${variantMatch.name}"`, {
+              autoClose: 5000,
+            });
+          }
           return true;
         }
       }
@@ -1481,6 +1507,7 @@ const checkVariantSkuExists = async (
     return false;
   }
 };
+
 
 
 
@@ -2766,15 +2793,27 @@ if (variantsArray && variantsArray.length > 0) {
     // SECTION 21: IMAGE VALIDATIONS
     // ============================================
     
-    if (formData.productImages.length === 0) {
-      toast.warning('⚠️ No product images added. Consider adding images for better conversion.');
-    }
-    
-    if (formData.productImages.length > 10) {
-      toast.error('⚠️ Maximum 10 images allowed');
-      target.removeAttribute('data-submitting');
-      return;
-    }
+  // 🔒 MINIMUM 5 IMAGES (HARD BLOCK)
+// if (formData.productImages.length < 5) {
+//   toast.error("❌ Please upload at least 5 product images before saving");
+//   target.removeAttribute("data-submitting");
+//   return;
+// }
+
+// ⚠️ OPTIONAL WARNING (0 images — redundant but safe)
+if (formData.productImages.length === 0) {
+  toast.warning(
+    "⚠️ No product images added. Consider adding images for better conversion."
+  );
+}
+
+// 🔒 MAXIMUM 10 IMAGES
+if (formData.productImages.length > 10) {
+  toast.error("❌ Maximum 10 images allowed");
+  target.removeAttribute("data-submitting");
+  return;
+}
+
     
     // ============================================
     // SECTION 22: BUILD PRODUCT DATA OBJECT
@@ -3976,22 +4015,41 @@ const ALLOWED_TYPES = [
   "image/jpg"
 ];
 
+// ✅ REPLACE existing handleImageUpload function:
+
+
+
 const MAX_SIZE = 500 * 1024;     // 500 KB hard limit
 const WARN_SIZE = 300 * 1024;    // 300 KB recommended
-const MIN_WIDTH = 800;
-const MIN_HEIGHT = 800;
+const MIN_IMAGES = 5;
+const MAX_IMAGES = 10;
 
 const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
   const files = e.target.files;
   if (!files || files.length === 0) return;
 
+  // ✅ Product name required
   if (!formData.name.trim()) {
     toast.error("Please enter product name before uploading images");
     return;
   }
 
-  if (formData.productImages.length + files.length > 10) {
-    toast.error(`Maximum 10 images allowed. You can add ${10 - formData.productImages.length} more.`);
+  // ✅ Max images validation
+  if (formData.productImages.length + files.length > MAX_IMAGES) {
+    toast.error(
+      `Maximum ${MAX_IMAGES} images allowed. You can add ${
+        MAX_IMAGES - formData.productImages.length
+      } more.`
+    );
+    return;
+  }
+
+  // ✅ MIN 5 images validation (CORRECT PLACE)
+  const totalAfterUpload =
+    formData.productImages.length + files.length;
+
+  if (totalAfterUpload < MIN_IMAGES) {
+    toast.error(`❌ Minimum ${MIN_IMAGES} images are required for a product`);
     return;
   }
 
@@ -4000,7 +4058,7 @@ const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
   for (const file of Array.from(files)) {
     /* ================= FORMAT & MIME ================= */
     if (!ALLOWED_TYPES.includes(file.type)) {
-      toast.error(`❌ ${file.name}: Only WebP, AVIF or JPG images allowed`);
+      toast.error(`❌ ${file.name}: Only WebP or JPG images allowed`);
       continue;
     }
 
@@ -4014,32 +4072,19 @@ const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
       toast.warning(`⚠️ ${file.name}: Image is large, may affect page speed`);
     }
 
-    /* ================= FILENAME SAFETY ================= */
-    if (!/^[a-zA-Z0-9\-_.]+$/.test(file.name)) {
-      toast.error(`❌ ${file.name}: Invalid characters in filename`);
-      continue;
-    }
-
     /* ================= DIMENSION & RATIO ================= */
     const isValidImage = await new Promise<boolean>((resolve) => {
       const img = new window.Image();
-
       img.src = URL.createObjectURL(file);
 
       img.onload = () => {
         URL.revokeObjectURL(img.src);
 
-        if (img.width < MIN_WIDTH || img.height < MIN_HEIGHT) {
-          toast.error(
-            `❌ ${file.name}: Minimum resolution is ${MIN_WIDTH}x${MIN_HEIGHT}`
-          );
-          resolve(false);
-          return;
-        }
-
         const ratio = img.width / img.height;
         if (Math.abs(ratio - 1) > 0.1) {
-          toast.warning(`⚠️ ${file.name}: Square (1:1) images are recommended`);
+          toast.warning(
+            `⚠️ ${file.name}: Square (1:1) images are recommended`
+          );
         }
 
         resolve(true);
@@ -4055,7 +4100,7 @@ const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
 
     /* ================= DUPLICATE CHECK ================= */
     const alreadyExists = formData.productImages.some(
-      img => img.fileName === file.name
+      (img) => img.fileName === file.name
     );
 
     if (alreadyExists) {
@@ -4071,30 +4116,34 @@ const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
   setUploadingImages(true);
 
   try {
-    const uploadedImages = await uploadImagesToProductDirect(productId, validatedFiles);
+    const uploadedImages = await uploadImagesToProductDirect(
+      productId,
+      validatedFiles
+    );
 
-    const newImages = uploadedImages.map(img => ({
+    const newImages = uploadedImages.map((img) => ({
       id: img.id,
       imageUrl: img.imageUrl,
       altText: img.altText,
       sortOrder: img.sortOrder,
       isMain: img.isMain,
-      fileName: img.imageUrl.split('/').pop() || '',
+      fileName: img.imageUrl.split("/").pop() || "",
       fileSize: 0,
-      file: undefined
+      file: undefined,
     }));
 
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
-      productImages: [...prev.productImages, ...newImages]
+      productImages: [...prev.productImages, ...newImages],
     }));
 
-    toast.success(`✅ ${uploadedImages.length} image(s) uploaded successfully`);
+    toast.success(
+      `✅ ${uploadedImages.length} image(s) uploaded successfully`
+    );
 
     if (fileInputRef.current) {
-      fileInputRef.current.value = '';
+      fileInputRef.current.value = "";
     }
-
   } catch (error) {
     console.error("Image upload failed", error);
     toast.error("Failed to upload images. Please try again.");
@@ -4475,44 +4524,14 @@ const uploadImagesToProductDirect = async (
 
       </div>
 
-
 <div className="space-y-4">
-  {/* Short Description Editor */}
+
+  {/* ================= SHORT DESCRIPTION ================= */}
   <div>
-    <div className="flex items-center justify-between gap-3 mb-2">
-      <label className="text-sm font-medium text-slate-300">
-        Short Description
-      </label>
- <div className="flex items-center gap-2 px-3 py-1 bg-red-500/10 border border-red-500/20 rounded-lg">
-  <svg
-    className="w-3.5 h-3.5 text-red-400 flex-shrink-0"
-    fill="currentColor"
-    viewBox="0 0 20 20"
-  >
-    <path
-      fillRule="evenodd"
-      d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
-      clipRule="evenodd"
-    />
-  </svg>
-
-  <span className="text-xs text-red-300 whitespace-nowrap">
-    Max 350 chars • Search Results & Product Cards
-  </span>
-</div>
-
-    </div>
-    
     <ProductDescriptionEditor
+      label="Short Description"
       value={formData.shortDescription}
       onChange={(content) => {
-        const plainText = content.replace(/<[^>]*>/g, "").trim();
-
-        if (plainText.length > 350) {
-          alert("You can not enter more than 350 characters");
-          return;
-        }
-
         setFormData((prev) => ({
           ...prev,
           shortDescription: content,
@@ -4520,47 +4539,19 @@ const uploadImagesToProductDirect = async (
       }}
       placeholder="Enter product short description..."
       height={250}
+      minLength={10}           // ✅ Minimum 10 characters
+      maxLength={350}          // ✅ Maximum 350 characters
+      showCharCount={true}     // ✅ Show built-in character counter
+      showHelpText="Brief description visible in product listings (10-350 characters)"
     />
   </div>
 
-  {/* Full Description Editor */}
+  {/* ================= FULL DESCRIPTION ================= */}
   <div>
-<div className="flex items-center justify-between gap-3 mb-2">
-  <label className="text-sm font-medium text-slate-300">
-    Full Description <span className="text-red-500">*</span>
-  </label>
-
-<div className="flex items-center gap-2 px-3 py-1 bg-red-500/10 border border-red-500/20 rounded-lg">
-  <svg
-    className="w-3.5 h-3.5 text-red-400 flex-shrink-0"
-    fill="currentColor"
-    viewBox="0 0 20 20"
-  >
-    <path
-      fillRule="evenodd"
-      d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
-      clipRule="evenodd"
-    />
-  </svg>
-
-  <span className="text-xs text-red-300 whitespace-nowrap">
-    Max 2000 chars • Used on Product Detail Page, SEO & Buyer Decision
-  </span>
-</div>
-
-</div>
-
-    
     <ProductDescriptionEditor
+      label="Full Description"
       value={formData.fullDescription}
       onChange={(content) => {
-        const plainText = content.replace(/<[^>]*>/g, "").trim();
-
-        if (plainText.length > 2000) {
-          alert("You can not enter more than 2000 characters");
-          return;
-        }
-
         setFormData((prev) => ({
           ...prev,
           fullDescription: content,
@@ -4568,10 +4559,16 @@ const uploadImagesToProductDirect = async (
       }}
       placeholder="Enter detailed product description..."
       height={400}
-
+      required={true}          // ✅ Shows red asterisk
+      minLength={50}           // ✅ Minimum 50 characters
+      maxLength={2000}         // ✅ Maximum 2000 characters
+      showCharCount={true}     // ✅ Show built-in character counter
+      showHelpText="Detailed product information with formatting (50-2000 characters)"
     />
   </div>
+
 </div>
+
 
  
 

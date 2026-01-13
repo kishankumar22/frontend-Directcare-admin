@@ -1,5 +1,5 @@
 "use client";
-import { useState, useRef, useEffect, JSX } from "react";
+import { useState, useRef, useEffect, JSX, useCallback } from "react";
 import { useRouter } from "next/navigation";
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -9,7 +9,8 @@ import {
  PoundSterling, Link as LinkIcon, ShoppingCart, Video,
   Play,
   Plus,
-  Settings
+  Settings,
+  ChevronDown
 } from "lucide-react";
 import Link from "next/link"
 import { ProductDescriptionEditor } from "@/app/admin/products/SelfHostedEditor";
@@ -20,6 +21,7 @@ import { GroupedProductModal } from '../GroupedProductModal';
 import { MultiBrandSelector } from "../MultiBrandSelector";
 import { VATRateApiResponse, vatratesService } from "@/lib/services/vatrates";
 import { MultiCategorySelector } from "../MultiCategorySelector";
+import { API_BASE_URL } from "@/lib/api-config";
 
 
 
@@ -31,8 +33,24 @@ export default function AddProductPage() {
   const [productAttributes, setProductAttributes] = useState<ProductAttribute[]>([]);
   const [productVariants, setProductVariants] = useState<ProductVariant[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
+// ✅ Variant SKU Validation States
+const [checkingVariantSku, setCheckingVariantSku] = useState<Record<string, boolean>>({});
+const [variantSkuErrors, setVariantSkuErrors] = useState<Record<string, string>>({});
+const [isSubmitting, setIsSubmitting] = useState(false);
+  // ✅ Check for variant SKU errors before submitting
+const hasVariantSkuErrors = Object.keys(variantSkuErrors).length > 0;
+const hasCheckingVariantSku = Object.values(checkingVariantSku).some(checking => checking);
 
-  
+if (hasVariantSkuErrors) {
+  toast.error("Please fix variant SKU errors before saving");
+  return;
+}
+
+if (hasCheckingVariantSku) {
+  toast.error("Please wait while we validate variant SKUs");
+  return;
+}
+
 // Add this to your component state
 const [availableProducts, setAvailableProducts] = useState<Array<{id: string, name: string, sku: string, price: string}>>([]);
 const [uploadingImages, setUploadingImages] = useState(false);
@@ -48,6 +66,37 @@ const [dropdownsData, setDropdownsData] = useState<DropdownsData>({
 // ✅ ADD THESE TWO STATES
 const [simpleProducts, setSimpleProducts] = useState<SimpleProduct[]>([]);
 const [selectedGroupedProducts, setSelectedGroupedProducts] = useState<string[]>([]);
+// ✅ ADD THESE STATES AFTER YOUR OTHER useState DECLARATIONS
+
+// Homepage Count State
+const [homepageCount, setHomepageCount] = useState<number | null>(null);
+const MAX_HOMEPAGE = 20;
+// ✅ DEBOUNCE UTILITY FUNCTION - Add at TOP of file (after imports)
+function debounce<T extends (...args: any[]) => any>(
+  func: T,
+  wait: number
+): T & { cancel: () => void } {
+  let timeout: NodeJS.Timeout | null = null;
+
+  const debounced = function (this: any, ...args: Parameters<T>) {
+    const later = () => {
+      timeout = null;
+      func.apply(this, args);
+    };
+
+    if (timeout) clearTimeout(timeout);
+    timeout = setTimeout(later, wait);
+  } as T & { cancel: () => void };
+
+  debounced.cancel = () => {
+    if (timeout) {
+      clearTimeout(timeout);
+      timeout = null;
+    }
+  };
+
+  return debounced;
+}
 
 // Updated combined useEffect with manufacturers API
 useEffect(() => {
@@ -243,7 +292,7 @@ useEffect(() => {
   
   // ✅ NOTIFICATION FIELDS - UPDATED
   notifyAdminForQuantityBelow: true,  // ✅ Backend boolean (always true)
-  notifyQuantityBelow: '1',           // ✅ User input threshold
+notifyQuantityBelow: "",          // ✅ User input threshold
   
   // ✅ BACKORDER FIELDS - UPDATED
   allowBackorder: false,              // ✅ Checkbox
@@ -300,6 +349,7 @@ useEffect(() => {
   metaDescription: '',
   searchEngineFriendlyPageName: '',
 });
+
 
 
 
@@ -417,6 +467,20 @@ const checkSkuExists = async (sku: string): Promise<boolean> => {
     setCheckingSku(false);
   }
 };
+// ✅ ADD THIS FUNCTION AFTER checkSkuExists FUNCTION
+
+const getHomepageCount = async () => {
+  try {
+    const res = await productsService.getAll({ pageSize: 100 });
+    const products = res.data?.data?.items || [];
+    const count = products.filter((p: any) => p.showOnHomepage).length;
+    setHomepageCount(count);
+    console.log(`📊 Homepage products count: ${count}/${MAX_HOMEPAGE}`);
+  } catch (e) {
+    console.error('❌ Error fetching homepage count:', e);
+    setHomepageCount(null);
+  }
+};
 
 // ==================== DEBOUNCED SKU CHECK ====================
 useEffect(() => {
@@ -449,14 +513,18 @@ const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
     console.log('🚀 ==================== PRODUCT SUBMISSION START ====================');
     console.log('📋 Form Mode:', isDraft ? 'DRAFT' : 'PUBLISH');
 
-    // ✅ 1. BASIC VALIDATION
+    // ═══════════════════════════════════════════════════════════════════════
+    // SECTION 1: BASIC VALIDATION
+    // ═══════════════════════════════════════════════════════════════════════
+
+    // ✅ 1.1 Required Fields
     if (!formData.name || !formData.sku) {
       toast.warning('⚠️ Please fill in required fields: Product Name and SKU');
       target.removeAttribute('data-submitting');
       return;
     }
 
-    // ✅ 2. NAME VALIDATION
+    // ✅ 1.2 NAME VALIDATION
     const nameRegex = /^[A-Za-z0-9\s\-.,()'/]+$/;
     if (!nameRegex.test(formData.name)) {
       toast.error("⚠️ Invalid product name. Special characters like @, #, $, % are not allowed.");
@@ -464,13 +532,14 @@ const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
       return;
     }
 
-    // ✅ 3. SKU VALIDATION
+    // ✅ 1.3 SKU VALIDATION (Length)
     if (formData.sku.length < 2) {
       toast.error('⚠️ SKU must be at least 2 characters long.');
       target.removeAttribute('data-submitting');
       return;
     }
     
+    // ✅ 1.4 SKU VALIDATION (Uniqueness)
     const skuExists = await checkSkuExists(formData.sku);
     if (skuExists) {
       toast.error('❌ SKU already exists. Please use a unique SKU.');
@@ -478,14 +547,14 @@ const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
       return;
     }
 
-    // ✅ 4. PRICE VALIDATION
+    // ✅ 1.5 PRICE VALIDATION
     if (formData.price && parseFloat(formData.price.toString()) < 0) {
       toast.error('⚠️ Price cannot be negative.');
       target.removeAttribute('data-submitting');
       return;
     }
 
-    // ✅ 5. STOCK VALIDATION
+    // ✅ 1.6 STOCK VALIDATION
     if (formData.manageInventory === 'track') {
       const stock = parseInt(formData.stockQuantity.toString());
       if (isNaN(stock) || stock < 0) {
@@ -495,7 +564,25 @@ const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
       }
     }
 
-    // ✅ 6. GROUPED PRODUCT VALIDATION
+    // ═══════════════════════════════════════════════════════════════════════
+    // SECTION 2: HOMEPAGE VALIDATION (NEW)
+    // ═══════════════════════════════════════════════════════════════════════
+
+    if (formData.showOnHomepage) {
+      if (homepageCount !== null && homepageCount >= MAX_HOMEPAGE) {
+        toast.error(
+          `❌ Maximum ${MAX_HOMEPAGE} products can be shown on homepage. Current: ${homepageCount}`,
+          { autoClose: 8000 }
+        );
+        target.removeAttribute('data-submitting');
+        return;
+      }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // SECTION 3: GROUPED PRODUCT VALIDATION
+    // ═══════════════════════════════════════════════════════════════════════
+
     if (formData.productType === 'grouped' && formData.requireOtherProducts) {
       if (!formData.requiredProductIds || formData.requiredProductIds.trim() === '') {
         toast.error('⚠️ Please select at least one product for grouped product.');
@@ -504,7 +591,10 @@ const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
       }
     }
 
-    // ✅ 7. BUNDLE DISCOUNT VALIDATION
+    // ═══════════════════════════════════════════════════════════════════════
+    // SECTION 4: BUNDLE DISCOUNT VALIDATION
+    // ═══════════════════════════════════════════════════════════════════════
+
     if (formData.productType === 'grouped' && formData.groupBundleDiscountType !== 'None') {
       if (formData.groupBundleDiscountType === 'Percentage') {
         const percentage = formData.groupBundleDiscountPercentage;
@@ -534,61 +624,165 @@ const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
       }
     }
 
-    // ✅ 8. VARIANT VALIDATION
+    // ═══════════════════════════════════════════════════════════════════════
+    // SECTION 5: COMPLETE VARIANT VALIDATION (PRODUCTION-READY)
+    // ═══════════════════════════════════════════════════════════════════════
+
     if (productVariants.length > 0) {
-      const invalidVariants = productVariants.filter(v => 
-        !v.name || !v.sku || !v.price || parseFloat(v.price.toString()) < 0
-      );
+      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      console.log('🔍 SECTION 20: VARIANT VALIDATION');
+      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+
+      // ✅ 5.1 Check Empty Name/SKU/Price
+      for (const variant of productVariants) {
+        if (!variant.name || !variant.name.trim()) {
+          toast.error(`❌ All variants must have a name`);
+          target.removeAttribute('data-submitting');
+          return;
+        }
+
+        if (!variant.sku || !variant.sku.trim()) {
+          toast.error(`❌ Variant "${variant.name}" must have a SKU`);
+          target.removeAttribute('data-submitting');
+          return;
+        }
+
+        const variantPrice = parseFloat(variant.price?.toString() || '0');
+        if (variantPrice < 0) {
+          toast.error(`❌ Variant "${variant.name}" has invalid price`);
+          target.removeAttribute('data-submitting');
+          return;
+        }
+      }
+
+      // ✅ 5.2 Check Duplicate SKUs Within Product
+      const variantSkus = productVariants.map(v => v.sku.toUpperCase());
+      const duplicateVariant = variantSkus.find((sku, index) => variantSkus.indexOf(sku) !== index);
       
-      if (invalidVariants.length > 0) {
-        toast.error('⚠️ All variants must have name, SKU, and valid price.');
+      if (duplicateVariant) {
+        const duplicateVariantName = productVariants.find(
+          v => v.sku.toUpperCase() === duplicateVariant
+        )?.name;
+        toast.error(
+          `❌ Duplicate SKU "${duplicateVariant}" found in variant "${duplicateVariantName}"`,
+          { autoClose: 8000 }
+        );
         target.removeAttribute('data-submitting');
         return;
       }
+
+      // ✅ 5.3 Check Variant SKU Matches Product SKU
+      for (const variant of productVariants) {
+        if (variant.sku.toUpperCase() === formData.sku.toUpperCase()) {
+          toast.error(
+            `❌ Variant "${variant.name}" SKU cannot be same as main product SKU`,
+            { autoClose: 8000 }
+          );
+          target.removeAttribute('data-submitting');
+          return;
+        }
+      }
+
+      // ✅ 5.4 Check Against Database (Products + Variants)
+      try {
+        console.log('🔍 Validating variant SKUs against database...');
+        const allProductsResponse = await productsService.getAll({ pageSize: 100 });
+        const allProducts = allProductsResponse.data?.data?.items || [];
+
+        for (const variant of productVariants) {
+          const variantSkuUpper = variant.sku.toUpperCase();
+
+          // Check against product SKUs
+          const productSkuConflict = allProducts.find(
+            (p: any) => p.sku?.toUpperCase() === variantSkuUpper
+          );
+          
+          if (productSkuConflict) {
+            toast.error(
+              `❌ Variant "${variant.name}" SKU conflicts with product "${productSkuConflict.name}"`,
+              { autoClose: 8000 }
+            );
+            target.removeAttribute('data-submitting');
+            return;
+          }
+
+          // Check against variant SKUs
+          for (const product of allProducts) {
+            if (product.variants && Array.isArray(product.variants)) {
+              const variantSkuConflict = product.variants.find(
+                (v: any) => v.sku?.toUpperCase() === variantSkuUpper
+              );
+              
+              if (variantSkuConflict) {
+                toast.error(
+                  `❌ Variant "${variant.name}" SKU conflicts with "${product.name}" - Variant "${variantSkuConflict.name}"`,
+                  { autoClose: 8000 }
+                );
+                target.removeAttribute('data-submitting');
+                return;
+              }
+            }
+          }
+        }
+
+        console.log('✅ All variant SKUs are unique!');
+      } catch (error) {
+        console.warn('⚠️ Failed to validate variant SKUs against database:', error);
+        toast.warning('⚠️ Could not verify variant SKUs. Proceeding...', { autoClose: 3000 });
+      }
     }
 
+    // ═══════════════════════════════════════════════════════════════════════
+    // SECTION 6: SHOW LOADING TOAST
+    // ═══════════════════════════════════════════════════════════════════════
+
     const loadingId = toast.info(
-      isDraft ? '💾 Saving as draft...' : '🔄 Creating product...', 
+      isDraft ? '💾 Saving as draft...' : '🔄 Creating product...'
     );
 
-  
+    // ═══════════════════════════════════════════════════════════════════════
+    // SECTION 7: CATEGORY VALIDATION & PROCESSING
+    // ═══════════════════════════════════════════════════════════════════════
 
- const guidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    const guidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-let categoryIdsArray: string[] = [];
+    let categoryIdsArray: string[] = [];
 
-if (formData.categoryIds && Array.isArray(formData.categoryIds) && formData.categoryIds.length > 0) {
-  categoryIdsArray = formData.categoryIds.filter(id => {
-    if (!id || typeof id !== 'string') return false;
-    return guidRegex.test(id.trim());
-  });
-}
+    if (formData.categoryIds && Array.isArray(formData.categoryIds) && formData.categoryIds.length > 0) {
+      categoryIdsArray = formData.categoryIds.filter(id => {
+        if (!id || typeof id !== 'string') return false;
+        return guidRegex.test(id.trim());
+      });
+    }
 
-// Validation
-if (categoryIdsArray.length === 0) {
-  console.error('❌ [VALIDATION] No valid categories selected');
-  toast.error('❌ Please select at least one category');
-  target.removeAttribute('data-submitting');
-  toast.dismiss(loadingId);
-  return;
-}
+    // Validation
+    if (categoryIdsArray.length === 0) {
+      console.error('❌ [VALIDATION] No valid categories selected');
+      toast.error('❌ Please select at least one category');
+      target.removeAttribute('data-submitting');
+      toast.dismiss(loadingId);
+      return;
+    }
 
-console.log('✅ [VALIDATION] Categories validated:', categoryIdsArray);
+    console.log('✅ [VALIDATION] Categories validated:', categoryIdsArray);
 
-// Create categories array with displayOrder
-const categoriesArray = categoryIdsArray.map((categoryId, index) => ({
-  categoryId: categoryId,
-  isPrimary: index === 0,
-  displayOrder: index + 1
-}));
+    // Create categories array with displayOrder
+    const categoriesArray = categoryIdsArray.map((categoryId, index) => ({
+      categoryId: categoryId,
+      isPrimary: index === 0,
+      displayOrder: index + 1
+    }));
 
-console.log('📁 Categories:', {
-  primary: categoryIdsArray[0],
-  all: categoryIdsArray,
-  array: categoriesArray
-});
+    console.log('📁 Categories:', {
+      primary: categoryIdsArray[0],
+      all: categoryIdsArray,
+      array: categoriesArray
+    });
 
-    // ✅ Process Multiple Brands - NEW IMPLEMENTATION
+    // ═══════════════════════════════════════════════════════════════════════
+    // SECTION 8: BRAND VALIDATION & PROCESSING
+    // ═══════════════════════════════════════════════════════════════════════
+
     let brandIdsArray: string[] = [];
 
     // Check if brandIds array exists (new multi-brand format)
@@ -616,7 +810,7 @@ console.log('📁 Categories:', {
       return;
     }
 
-    // ✅ BUILD BRANDS ARRAY - Required by backend
+    // BUILD BRANDS ARRAY - Required by backend
     const brandsArray = brandIdsArray.map((brandId, index) => ({
       brandId: brandId,
       isPrimary: index === 0,      // First brand is primary
@@ -626,7 +820,10 @@ console.log('📁 Categories:', {
     console.log('🏷️ Final brands array:', brandsArray);
     console.log('🏷️ Primary brand:', brandIdsArray[0]);
 
-    // ✅ Prepare attributes array
+    // ═══════════════════════════════════════════════════════════════════════
+    // SECTION 9: ATTRIBUTES & VARIANTS PROCESSING
+    // ═══════════════════════════════════════════════════════════════════════
+
     const attributesArray = productAttributes
       .filter(attr => attr.name && attr.value)
       .map(attr => ({
@@ -639,7 +836,6 @@ console.log('📁 Categories:', {
     
     console.log('📝 Attributes count:', attributesArray.length);
 
-    // ✅ Prepare variants array
     const variantsArray = productVariants.map(variant => ({
       name: variant.name,
       sku: variant.sku,
@@ -662,7 +858,10 @@ console.log('📁 Categories:', {
 
     console.log('🎨 Variants count:', variantsArray.length);
 
-    // ✅ COMPLETE PRODUCT DATA WITH BRANDS AND BUNDLE DISCOUNT
+    // ═══════════════════════════════════════════════════════════════════════
+    // SECTION 10: BUILD COMPLETE PRODUCT DATA
+    // ═══════════════════════════════════════════════════════════════════════
+
     const productData: any = {
       // Basic Info
       name: formData.name.trim(),
@@ -677,7 +876,7 @@ console.log('📁 Categories:', {
       visibleIndividually: formData.visibleIndividually ?? true,
       showOnHomepage: formData.showOnHomepage ?? false,
 
-      // ✅ Product Type & Grouped Product Configuration
+      // Product Type & Grouped Product Configuration
       productType: formData.productType || 'simple',
       requireOtherProducts: formData.productType === 'grouped' ? formData.requireOtherProducts : false,
       requiredProductIds: formData.productType === 'grouped' && formData.requireOtherProducts && formData.requiredProductIds?.trim()
@@ -687,31 +886,25 @@ console.log('📁 Categories:', {
         ? formData.automaticallyAddProducts 
         : false,
 
-      // ✅ BUNDLE DISCOUNT FIELDS (NEW)
+      // BUNDLE DISCOUNT FIELDS
       groupBundleDiscountType: formData.productType === 'grouped' 
         ? formData.groupBundleDiscountType 
         : 'None',
-      
       groupBundleDiscountPercentage: formData.productType === 'grouped' && formData.groupBundleDiscountType === 'Percentage'
         ? formData.groupBundleDiscountPercentage
         : null,
-      
       groupBundleDiscountAmount: formData.productType === 'grouped' && formData.groupBundleDiscountType === 'FixedAmount'
         ? formData.groupBundleDiscountAmount
         : null,
-      
       groupBundleSpecialPrice: formData.productType === 'grouped' && formData.groupBundleDiscountType === 'SpecialPrice'
         ? formData.groupBundleSpecialPrice
         : null,
-      
       groupBundleSavingsMessage: formData.productType === 'grouped' && formData.groupBundleDiscountType !== 'None'
         ? formData.groupBundleSavingsMessage?.trim() || null
         : null,
-      
       showIndividualPrices: formData.productType === 'grouped' 
         ? formData.showIndividualPrices 
         : true,
-      
       applyDiscountToAllItems: formData.productType === 'grouped' && formData.groupBundleDiscountType !== 'None'
         ? formData.applyDiscountToAllItems 
         : false,
@@ -719,10 +912,15 @@ console.log('📁 Categories:', {
       // Pricing
       price: parseFloat(formData.price.toString()) || 0,
 
-      // ✅ BRANDS - Complete format with all 3 fields
-      brandId: brandIdsArray[0],     // Primary brand (legacy support)
-      brandIds: brandIdsArray,       // Array of GUIDs (new format)
-      brands: brandsArray,           // ✅ Objects array (REQUIRED by backend)
+      // BRANDS - Complete format
+      brandId: brandIdsArray[0],     // Primary brand (legacy)
+      brandIds: brandIdsArray,       // Array of GUIDs (new)
+      brands: brandsArray,           // Objects array (REQUIRED)
+
+      // CATEGORIES - Complete format
+      categoryId: categoryIdsArray[0], // Primary category (legacy)
+      categoryIds: categoryIdsArray,   // All category IDs
+      categories: categoriesArray,     // Full category objects
 
       // INVENTORY
       stockQuantity: parseInt(formData.stockQuantity.toString()) || 0,
@@ -733,8 +931,8 @@ console.log('📁 Categories:', {
       // NOTIFICATION
       notifyAdminForQuantityBelow: formData.notifyAdminForQuantityBelow ?? false,
       notifyQuantityBelow: formData.notifyAdminForQuantityBelow 
-        ? parseInt(formData.notifyQuantityBelow.toString()) || 1 
-        : null,
+      ? (parseInt(formData.notifyQuantityBelow.toString()) || 10)  // Better fallback
+      : null,
       
       // Display Settings
       displayStockAvailability: formData.displayStockAvailability,
@@ -755,21 +953,26 @@ console.log('📁 Categories:', {
       productAvailabilityRange: formData.productAvailabilityRange || null,
       notReturnable: formData.notReturnable ?? false,
 
-   // ✅ NEW - Add these 3 fields:
-  categoryId: categoryIdsArray[0], // Primary category (backward compatible)
-  categoryIds: categoryIdsArray,   // All category IDs
-  categories: categoriesArray,     // Full category objects with metadata
-
       // Attributes & Variants
       attributes: attributesArray.length > 0 ? attributesArray : [],
       variants: variantsArray.length > 0 ? variantsArray : [],
     };
 
-    // ✅ Add optional fields
+    // ═══════════════════════════════════════════════════════════════════════
+    // SECTION 11: OPTIONAL FIELDS
+    // ═══════════════════════════════════════════════════════════════════════
+
+    // Optional Basic Fields
     if (formData.gtin?.trim()) productData.gtin = formData.gtin.trim();
     if (formData.manufacturerPartNumber?.trim()) productData.manufacturerPartNumber = formData.manufacturerPartNumber.trim();
     if (formData.adminComment?.trim()) productData.adminComment = formData.adminComment.trim();
-    if (formData.gender?.trim()) productData.gender = formData.gender.trim();
+   // TO THIS:
+if (formData.gender?.trim()) {
+  productData.gender = formData.gender.trim();
+} else {
+  // Explicitly send empty to prevent backend default
+  productData.gender = "";
+}
 
     // Pricing - Optional
     if (formData.oldPrice) productData.oldPrice = parseFloat(formData.oldPrice.toString());
@@ -809,60 +1012,65 @@ console.log('📁 Categories:', {
     if (formData.availableEndDate) productData.availableEndDate = formData.availableEndDate;
 
     // VAT
-    if (formData.vatExempt) productData.vatExempt = true;
-    if (formData.vatRateId) productData.vatRateId = formData.vatRateId;
-
-    // Shipping
-   // ===== EXISTING SHIPPING CODE =====
-// Shipping
-if (formData.isShipEnabled) {
-  productData.requiresShipping = true;
-}
-if (formData.shipSeparately) {
-  productData.shipSeparately = true;
-}
-if (formData.weight) {
-  productData.weight = parseFloat(formData.weight.toString());
-}
-if (formData.length) {
-  productData.length = parseFloat(formData.length.toString());
-}
-if (formData.width) {
-  productData.width = parseFloat(formData.width.toString());
-}
-if (formData.height) {
-  productData.height = parseFloat(formData.height.toString());
+// Always send VAT settings to prevent backend defaults
+if (formData.vatExempt === true) {
+  productData.vatExempt = true;
+  // Don't send vatRateId if exempt
+} else {
+  productData.vatExempt = false;  // Explicitly false
+  if (formData.vatRateId && formData.vatRateId.trim()) {
+    productData.vatRateId = formData.vatRateId;
+  }
 }
 
-// ✅ ADD THESE NEW DELIVERY FIELDS (After height)
-if (formData.sameDayDeliveryEnabled !== undefined) {
-  productData.sameDayDeliveryEnabled = formData.sameDayDeliveryEnabled;
-}
-if (formData.nextDayDeliveryEnabled !== undefined) {
-  productData.nextDayDeliveryEnabled = formData.nextDayDeliveryEnabled;
-}
-if (formData.standardDeliveryEnabled !== undefined) {
-  productData.standardDeliveryEnabled = formData.standardDeliveryEnabled;
-}
-if (formData.sameDayDeliveryCutoffTime?.trim()) {
-  productData.sameDayDeliveryCutoffTime = formData.sameDayDeliveryCutoffTime.trim();
-}
-if (formData.nextDayDeliveryCutoffTime?.trim()) {
-  productData.nextDayDeliveryCutoffTime = formData.nextDayDeliveryCutoffTime.trim();
-}
-if (formData.standardDeliveryDays) {
-  productData.standardDeliveryDays = parseInt(formData.standardDeliveryDays) || 5;
-}
-if (formData.sameDayDeliveryCharge) {
-  productData.sameDayDeliveryCharge = parseFloat(formData.sameDayDeliveryCharge.toString()) || 0;
-}
-if (formData.nextDayDeliveryCharge) {
-  productData.nextDayDeliveryCharge = parseFloat(formData.nextDayDeliveryCharge.toString()) || 0;
-}
-if (formData.standardDeliveryCharge) {
-  productData.standardDeliveryCharge = parseFloat(formData.standardDeliveryCharge.toString()) || 0;
-}
+    // Shipping & Delivery
+    if (formData.isShipEnabled) {
+      productData.requiresShipping = true;
+    }
+    if (formData.shipSeparately) {
+      productData.shipSeparately = true;
+    }
+    if (formData.weight) {
+      productData.weight = parseFloat(formData.weight.toString());
+    }
+    if (formData.length) {
+      productData.length = parseFloat(formData.length.toString());
+    }
+    if (formData.width) {
+      productData.width = parseFloat(formData.width.toString());
+    }
+    if (formData.height) {
+      productData.height = parseFloat(formData.height.toString());
+    }
 
+    // Delivery Options
+    if (formData.sameDayDeliveryEnabled !== undefined) {
+      productData.sameDayDeliveryEnabled = formData.sameDayDeliveryEnabled;
+    }
+    if (formData.nextDayDeliveryEnabled !== undefined) {
+      productData.nextDayDeliveryEnabled = formData.nextDayDeliveryEnabled;
+    }
+    if (formData.standardDeliveryEnabled !== undefined) {
+      productData.standardDeliveryEnabled = formData.standardDeliveryEnabled;
+    }
+    if (formData.sameDayDeliveryCutoffTime?.trim()) {
+      productData.sameDayDeliveryCutoffTime = formData.sameDayDeliveryCutoffTime.trim();
+    }
+    if (formData.nextDayDeliveryCutoffTime?.trim()) {
+      productData.nextDayDeliveryCutoffTime = formData.nextDayDeliveryCutoffTime.trim();
+    }
+    if (formData.standardDeliveryDays) {
+      productData.standardDeliveryDays = parseInt(formData.standardDeliveryDays) || 5;
+    }
+    if (formData.sameDayDeliveryCharge) {
+      productData.sameDayDeliveryCharge = parseFloat(formData.sameDayDeliveryCharge.toString()) || 0;
+    }
+    if (formData.nextDayDeliveryCharge) {
+      productData.nextDayDeliveryCharge = parseFloat(formData.nextDayDeliveryCharge.toString()) || 0;
+    }
+    if (formData.standardDeliveryCharge) {
+      productData.standardDeliveryCharge = parseFloat(formData.standardDeliveryCharge.toString()) || 0;
+    }
 
     // Pack Product
     if (formData.isPack) {
@@ -954,9 +1162,12 @@ if (formData.standardDeliveryCharge) {
       specialPrice: productData.groupBundleSpecialPrice
     });
     console.log('📦 ==================== END PAYLOAD ====================');
-    // ==================== EXTRACT PRODUCT ID (FIXED) ====================
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // SECTION 12: CREATE PRODUCT
+    // ═══════════════════════════════════════════════════════════════════════
+
     console.log('🚀 Creating product using service...');
-    
     const response = await productsService.create(productData);
 
     console.log('✅ Product created successfully');
@@ -964,11 +1175,14 @@ if (formData.standardDeliveryCharge) {
 
     toast.dismiss(loadingId);
 
-    // ✅ TYPE-SAFE PRODUCT ID EXTRACTION
+    // ═══════════════════════════════════════════════════════════════════════
+    // SECTION 13: EXTRACT PRODUCT ID
+    // ═══════════════════════════════════════════════════════════════════════
+
     const productId: string | null = 
-      (response.data as any)?.data?.id ||   // Standard: response.data.data.id
-      (response.data as any)?.id ||         // Alternative: response.data.id  
-      (response as any)?.id ||              // Fallback: response.id
+      (response.data as any)?.data?.id ||
+      (response.data as any)?.id ||
+      (response as any)?.id ||
       null;
 
     console.log('🆔 Extracted Product ID:', productId);
@@ -982,27 +1196,38 @@ if (formData.standardDeliveryCharge) {
 
     console.log('✅ Product ID confirmed:', productId);
 
-    // ==================== UPLOAD PRODUCT IMAGES (SERVICE-BASED) ====================
-    if (formData.productImages && formData.productImages.length > 0) {
-      const imagesToUpload = formData.productImages.filter(img => img.file);
-      
-      if (imagesToUpload.length > 0) {
-        console.log(`📤 Uploading ${imagesToUpload.length} product images...`);
-        
-        try {
-          const uploadedImages = await uploadImagesToProduct(productId, imagesToUpload);
-          
-          if (uploadedImages && uploadedImages.length > 0) {
-            console.log('✅ Product images uploaded:', uploadedImages.length);
-          }
-        } catch (imageError) {
-          console.error('❌ Error uploading product images:', imageError);
-          toast.warning('⚠️ Product created but some images failed to upload.');
-        }
-      }
-    }
+    // ═══════════════════════════════════════════════════════════════════════
+    // SECTION 14: UPLOAD PRODUCT IMAGES
+    // ═══════════════════════════════════════════════════════════════════════
 
-    // ==================== UPLOAD VARIANT IMAGES (SERVICE-BASED) ====================
+
+// if (!formData.productImages || formData.productImages.length < 5) {
+//   toast.error("❌ Please upload at least 5 product images before saving");
+//   return;
+// }
+
+const imagesToUpload = formData.productImages.filter(img => img.file);
+
+if (imagesToUpload.length > 0) {
+  console.log(`📤 Uploading ${imagesToUpload.length} product images...`);
+
+  try {
+    const uploadedImages = await uploadImagesToProduct(productId, imagesToUpload);
+
+    if (uploadedImages && uploadedImages.length > 0) {
+      console.log('✅ Product images uploaded:', uploadedImages.length);
+    }
+  } catch (imageError) {
+    console.error('❌ Error uploading product images:', imageError);
+    toast.warning('⚠️ Product created but some images failed to upload.');
+  }
+}
+
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // SECTION 15: UPLOAD VARIANT IMAGES
+    // ═══════════════════════════════════════════════════════════════════════
+
     if (productVariants.length > 0) {
       const variantsWithImages = productVariants.filter(v => v.imageFile);
       
@@ -1010,7 +1235,6 @@ if (formData.standardDeliveryCharge) {
         console.log(`🖼️ Uploading ${variantsWithImages.length} variant images...`);
         
         try {
-          // Extract created variants from response
           const createdVariants = (response.data as any)?.data?.variants || 
                                  (response.data as any)?.variants ||
                                  [];
@@ -1029,7 +1253,10 @@ if (formData.standardDeliveryCharge) {
 
     console.log('✅ ==================== PRODUCT SUBMISSION SUCCESS ====================');
 
-    // ✅ Success message
+    // ═══════════════════════════════════════════════════════════════════════
+    // SECTION 16: SUCCESS & NAVIGATION
+    // ═══════════════════════════════════════════════════════════════════════
+
     toast.success(
       isDraft 
         ? '💾 Product saved as draft!' 
@@ -1037,7 +1264,6 @@ if (formData.standardDeliveryCharge) {
       { autoClose: 3000 }
     );
 
-    // Navigate after delay
     setTimeout(() => {
       router.push('/admin/products');
     }, 1000);
@@ -1097,6 +1323,14 @@ if (formData.standardDeliveryCharge) {
   }
 };
 
+// ✅ ADD THIS useEffect AFTER OTHER useEffect HOOKS
+
+useEffect(() => {
+  if (formData.showOnHomepage) {
+    getHomepageCount();
+  }
+}, [formData.showOnHomepage]);
+
 
 
 // Global timer for delayed slug generation
@@ -1114,38 +1348,42 @@ const generateSeoName = (text: string) => {
 };
 
 // ⭐ FINAL handleChange for ADD PAGE (WITH BRANDS SUPPORT)
+// ═══════════════════════════════════════════════════════════════════════════
+// 🎯 HANDLECHANGE - COMPLETE PRODUCTION-READY CODE
+// ═══════════════════════════════════════════════════════════════════════════
+
+// ✅ STEP 3: COMPLETE HANDLECHANGE FUNCTION
 const handleChange = (
   e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
 ) => {
   const { name, value, type } = e.target;
   const checked = type === 'checkbox' ? (e.target as HTMLInputElement).checked : false;
 
+  console.log(`📝 Field changed: ${name} = ${type === 'checkbox' ? checked : value}`);
 
+  // ═══════════════════════════════════════════════════════════════════════
+  // 1. SEO SLUG - Manual override stops auto-generation
+  // ═══════════════════════════════════════════════════════════════════════
 
-  // ⭐ 2. SEO SLUG - Auto-generate with debounce
   if (name === "searchEngineFriendlyPageName") {
     setFormData((prev) => ({
       ...prev,
       searchEngineFriendlyPageName: value,
     }));
-
-    clearTimeout(slugTimer);
-    slugTimer = setTimeout(() => {
-      setFormData((prev) => ({
-        ...prev,
-        searchEngineFriendlyPageName: generateSeoName(prev.searchEngineFriendlyPageName),
-      }));
-    }, 1500);
     return;
   }
 
-  // ⭐ 3. PRODUCT NAME - Auto-generate slug
+  // ═══════════════════════════════════════════════════════════════════════
+  // 2. PRODUCT NAME - Auto-generate slug with debounce
+  // ═══════════════════════════════════════════════════════════════════════
+
   if (name === "name") {
     setFormData((prev) => ({
       ...prev,
       name: value,
     }));
 
+    // Auto-generate slug after 1 second of typing
     clearTimeout(slugTimer);
     slugTimer = setTimeout(() => {
       setFormData((prev) => ({
@@ -1156,7 +1394,10 @@ const handleChange = (
     return;
   }
 
-  // ⭐ 4. PRODUCT TYPE - Handle grouped/simple switching
+  // ═══════════════════════════════════════════════════════════════════════
+  // 3. PRODUCT TYPE - Handle grouped/simple switching
+  // ═══════════════════════════════════════════════════════════════════════
+
   if (name === "productType") {
     if (value === 'grouped') {
       setIsGroupedModalOpen(true);
@@ -1168,7 +1409,15 @@ const handleChange = (
       ...(value === 'simple' && {
         requireOtherProducts: false,
         requiredProductIds: '',
-        automaticallyAddProducts: false
+        automaticallyAddProducts: false,
+        // Reset bundle discount fields
+        groupBundleDiscountType: 'None',
+        groupBundleDiscountPercentage: 0,
+        groupBundleDiscountAmount: 0,
+        groupBundleSpecialPrice: 0,
+        groupBundleSavingsMessage: '',
+        showIndividualPrices: true,
+        applyDiscountToAllItems: false,
       }),
       ...(value === 'grouped' && {
         requireOtherProducts: true
@@ -1181,7 +1430,10 @@ const handleChange = (
     return;
   }
 
-  // ⭐ 5. REQUIRE OTHER PRODUCTS - Handle grouped product checkbox
+  // ═══════════════════════════════════════════════════════════════════════
+  // 4. REQUIRE OTHER PRODUCTS - Handle grouped product checkbox
+  // ═══════════════════════════════════════════════════════════════════════
+
   if (name === "requireOtherProducts") {
     setFormData((prev) => ({
       ...prev,
@@ -1198,26 +1450,38 @@ const handleChange = (
     return;
   }
 
-  // ⭐ 6. SHIPPING ENABLED - Master switch
+  // ═══════════════════════════════════════════════════════════════════════
+  // 5. SHIPPING ENABLED - Master switch
+  // ═══════════════════════════════════════════════════════════════════════
+
   if (name === "isShipEnabled") {
     setFormData((prev) => ({
       ...prev,
       isShipEnabled: checked,
-
-
       shipSeparately: checked ? prev.shipSeparately : false,
       weight: checked ? prev.weight : '',
       length: checked ? prev.length : '',
       width: checked ? prev.width : '',
       height: checked ? prev.height : '',
       deliveryDateId: checked ? prev.deliveryDateId : '',
+      // Reset delivery options if shipping disabled
+      sameDayDeliveryEnabled: checked ? prev.sameDayDeliveryEnabled : false,
+      nextDayDeliveryEnabled: checked ? prev.nextDayDeliveryEnabled : false,
+      standardDeliveryEnabled: checked ? prev.standardDeliveryEnabled : true,
+      sameDayDeliveryCutoffTime: checked ? prev.sameDayDeliveryCutoffTime : '',
+      nextDayDeliveryCutoffTime: checked ? prev.nextDayDeliveryCutoffTime : '',
+      standardDeliveryDays: checked ? prev.standardDeliveryDays : '5',
+      sameDayDeliveryCharge: checked ? prev.sameDayDeliveryCharge : '',
+      nextDayDeliveryCharge: checked ? prev.nextDayDeliveryCharge : '',
+      standardDeliveryCharge: checked ? prev.standardDeliveryCharge : '',
     }));
     return;
   }
 
+  // ═══════════════════════════════════════════════════════════════════════
+  // 6. RECURRING PRODUCT - Reset fields when disabled
+  // ═══════════════════════════════════════════════════════════════════════
 
-
-  // ⭐ 8. RECURRING PRODUCT - Reset fields when disabled
   if (name === "isRecurring") {
     setFormData((prev) => ({
       ...prev,
@@ -1234,7 +1498,10 @@ const handleChange = (
     return;
   }
 
-  // ⭐ 9. PACK PRODUCT - Reset pack size when disabled
+  // ═══════════════════════════════════════════════════════════════════════
+  // 7. PACK PRODUCT - Reset pack size when disabled
+  // ═══════════════════════════════════════════════════════════════════════
+
   if (name === "isPack") {
     setFormData((prev) => ({
       ...prev,
@@ -1244,7 +1511,10 @@ const handleChange = (
     return;
   }
 
-  // ⭐ 10. MARK AS NEW - Reset dates when disabled
+  // ═══════════════════════════════════════════════════════════════════════
+  // 8. MARK AS NEW - Reset dates when disabled
+  // ═══════════════════════════════════════════════════════════════════════
+
   if (name === "markAsNew") {
     setFormData((prev) => ({
       ...prev,
@@ -1255,8 +1525,10 @@ const handleChange = (
     return;
   }
 
+  // ═══════════════════════════════════════════════════════════════════════
+  // 9. BASE PRICE ENABLED - Reset base price fields
+  // ═══════════════════════════════════════════════════════════════════════
 
-  // ⭐ 12. BASE PRICE ENABLED - Reset base price fields
   if (name === "basepriceEnabled") {
     setFormData((prev) => ({
       ...prev,
@@ -1271,17 +1543,27 @@ const handleChange = (
     return;
   }
 
-  // ⭐ 13. NOTIFY ADMIN - Conditional threshold input
-  if (name === "notifyAdminForQuantityBelow") {
-    setFormData((prev) => ({
-      ...prev,
-      notifyAdminForQuantityBelow: checked,
-      notifyQuantityBelow: checked ? prev.notifyQuantityBelow : '1',
-    }));
-    return;
-  }
+  // ═══════════════════════════════════════════════════════════════════════
+  // 10. NOTIFY ADMIN - Conditional threshold input
+  // ═══════════════════════════════════════════════════════════════════════
 
-  // ⭐ 14. ALLOW BACKORDER - Conditional backorder mode
+// WITH THIS:
+if (name === "notifyAdminForQuantityBelow") {
+  setFormData(prev => ({
+    ...prev,
+    notifyAdminForQuantityBelow: checked,
+    // Keep existing value OR set to "10" as sensible default
+    notifyQuantityBelow: checked 
+      ? (prev.notifyQuantityBelow || "10")  // Better default than 1
+      : prev.notifyQuantityBelow  // DON'T CLEAR, keep value
+  }));
+  return;
+}
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // 11. ALLOW BACKORDER - Conditional backorder mode
+  // ═══════════════════════════════════════════════════════════════════════
+
   if (name === "allowBackorder") {
     setFormData((prev) => ({
       ...prev,
@@ -1291,7 +1573,10 @@ const handleChange = (
     return;
   }
 
-  // ⭐ 15. AVAILABLE FOR PRE-ORDER - Reset pre-order date
+  // ═══════════════════════════════════════════════════════════════════════
+  // 12. AVAILABLE FOR PRE-ORDER - Reset pre-order date
+  // ═══════════════════════════════════════════════════════════════════════
+
   if (name === "availableForPreOrder") {
     setFormData((prev) => ({
       ...prev,
@@ -1301,7 +1586,10 @@ const handleChange = (
     return;
   }
 
-  // ⭐ 16. GIFT CARD - Reset gift card fields
+  // ═══════════════════════════════════════════════════════════════════════
+  // 13. GIFT CARD - Reset gift card fields
+  // ═══════════════════════════════════════════════════════════════════════
+
   if (name === "isGiftCard") {
     setFormData((prev) => ({
       ...prev,
@@ -1314,7 +1602,10 @@ const handleChange = (
     return;
   }
 
-  // ⭐ 17. DOWNLOADABLE PRODUCT - Reset download fields
+  // ═══════════════════════════════════════════════════════════════════════
+  // 14. DOWNLOADABLE PRODUCT - Reset download fields
+  // ═══════════════════════════════════════════════════════════════════════
+
   if (name === "isDownload") {
     setFormData((prev) => ({
       ...prev,
@@ -1334,7 +1625,10 @@ const handleChange = (
     return;
   }
 
-  // ⭐ 18. RENTAL PRODUCT - Reset rental fields
+  // ═══════════════════════════════════════════════════════════════════════
+  // 15. RENTAL PRODUCT - Reset rental fields
+  // ═══════════════════════════════════════════════════════════════════════
+
   if (name === "isRental") {
     setFormData((prev) => ({
       ...prev,
@@ -1347,7 +1641,10 @@ const handleChange = (
     return;
   }
 
-  // ⭐ 19. HAS USER AGREEMENT - Reset agreement text
+  // ═══════════════════════════════════════════════════════════════════════
+  // 16. HAS USER AGREEMENT - Reset agreement text
+  // ═══════════════════════════════════════════════════════════════════════
+
   if (name === "hasUserAgreement") {
     setFormData((prev) => ({
       ...prev,
@@ -1357,7 +1654,10 @@ const handleChange = (
     return;
   }
 
-  // ⭐ 20. HAS SAMPLE DOWNLOAD - Reset sample download ID
+  // ═══════════════════════════════════════════════════════════════════════
+  // 17. HAS SAMPLE DOWNLOAD - Reset sample download ID
+  // ═══════════════════════════════════════════════════════════════════════
+
   if (name === "hasSampleDownload") {
     setFormData((prev) => ({
       ...prev,
@@ -1367,7 +1667,10 @@ const handleChange = (
     return;
   }
 
-  // ⭐ 21. UNLIMITED DOWNLOADS - Reset max downloads
+  // ═══════════════════════════════════════════════════════════════════════
+  // 18. UNLIMITED DOWNLOADS - Reset max downloads
+  // ═══════════════════════════════════════════════════════════════════════
+
   if (name === "unlimitedDownloads") {
     setFormData((prev) => ({
       ...prev,
@@ -1377,7 +1680,64 @@ const handleChange = (
     return;
   }
 
-  // ⭐ 22. DEFAULT HANDLER - All other fields
+  // ═══════════════════════════════════════════════════════════════════════
+  // 19. VAT EXEMPT - Reset VAT rate when exempt
+  // ═══════════════════════════════════════════════════════════════════════
+
+// WITH THIS:
+if (name === "vatExempt") {
+  setFormData(prev => ({
+    ...prev,
+    vatExempt: checked,
+    vatRateId: checked ? "" : prev.vatRateId  // Keep existing value when unchecking
+  }));
+  return;
+}
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // 20. MANAGE INVENTORY - Reset fields when switching modes
+  // ═══════════════════════════════════════════════════════════════════════
+
+  if (name === "manageInventory") {
+    setFormData((prev) => ({
+      ...prev,
+      manageInventory: value,
+      ...(value === 'dont-track' && {
+        stockQuantity: '',
+        minStockQuantity: '',
+        notifyAdminForQuantityBelow: false,
+        notifyQuantityBelow: '',
+        allowBackorder: false,
+        backorderMode: 'no-backorders',
+        displayStockAvailability: false,
+        displayStockQuantity: false,
+      })
+    }));
+    return;
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // 21. BUNDLE DISCOUNT TYPE - Reset discount fields when changing type
+  // ═══════════════════════════════════════════════════════════════════════
+
+  if (name === "groupBundleDiscountType") {
+    setFormData((prev) => ({
+      ...prev,
+      groupBundleDiscountType: value as any,
+      // Reset all discount values
+      groupBundleDiscountPercentage: value === 'Percentage' ? prev.groupBundleDiscountPercentage : 0,
+      groupBundleDiscountAmount: value === 'FixedAmount' ? prev.groupBundleDiscountAmount : 0,
+      groupBundleSpecialPrice: value === 'SpecialPrice' ? prev.groupBundleSpecialPrice : 0,
+      groupBundleSavingsMessage: value === 'None' ? '' : prev.groupBundleSavingsMessage,
+      applyDiscountToAllItems: value === 'None' ? false : prev.applyDiscountToAllItems,
+    }));
+    return;
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // 22. DEFAULT HANDLER - All other fields
+  // ═══════════════════════════════════════════════════════════════════════
+
   if (type === 'checkbox') {
     setFormData((prev) => ({
       ...prev,
@@ -1390,6 +1750,7 @@ const handleChange = (
     }));
   }
 };
+
 
 
   const addRelatedProduct = (productId: string) => {
@@ -1463,12 +1824,10 @@ const handleGroupedProductsChange = (selectedOptions: any) => {
   };
  
 
-  // Product Variant handlers (matching backend ProductVariantCreateDto)
-// ✅ STEP 2: Replace existing addProductVariant function
 const addProductVariant = () => {
   const newVariant: ProductVariant = {
     id: Date.now().toString(),
-    name: '',
+    name: "",
     sku: `${formData.sku}-V${productVariants.length + 1}`,
     price: formData.price ? parseFloat(formData.price) : null,
     compareAtPrice: null,
@@ -1484,10 +1843,29 @@ const addProductVariant = () => {
     imageUrl: null,
     isDefault: productVariants.length === 0,
     displayOrder: productVariants.length,
-    isActive: true
+    isActive: true,
   };
+  
   setProductVariants([...productVariants, newVariant]);
+  
+  // ✅ AUTO-SCROLL TO NEW VARIANT
+  setTimeout(() => {
+    const variantElement = document.getElementById(`variant-${newVariant.id}`);
+    if (variantElement) {
+      variantElement.scrollIntoView({ 
+        behavior: 'smooth', 
+        block: 'center' 
+      });
+      
+      // Add highlight animation
+      variantElement.classList.add('ring-2', 'ring-violet-500');
+      setTimeout(() => {
+        variantElement.classList.remove('ring-2', 'ring-violet-500');
+      }, 2000);
+    }
+  }, 100);
 };
+
 
 
   const removeProductVariant = (id: string) => {
@@ -1501,9 +1879,9 @@ const addProductVariant = () => {
   };
 // ✅ STEP 3: Replace existing handleVariantImageUpload - SIRF PREVIEW
 const handleVariantImageUpload = (variantId: string, file: File) => {
-  // ✅ Validate file size (max 5MB)
+  // ✅ Validate file size (max 1MB)
   if (file.size > 5 * 1024 * 1024) {
-    toast.error("Image size should be less than 5MB");
+    toast.error("Image size should be less than 1MB");
     return;
   }
   
@@ -1576,7 +1954,7 @@ const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
       Array.from(files).map(async (file, index) => {
         // File validation
         if (file.size > 5 * 1024 * 1024) {
-          toast.error(`${file.name} is too large. Max size is 5MB.`);
+          toast.error(`${file.name} is too large. Max size is 1MB.`);
           return null;
         }
 
@@ -1641,7 +2019,7 @@ const uploadImagesToProduct = async (productId: string, images: ProductImage[]) 
     }
 
     const MAX_IMAGES = 10;
-    const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
+    const MAX_FILE_SIZE = 1 * 1024 * 1024; // 1MB
     const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 
     const uploadFormData = new FormData();
@@ -1660,7 +2038,7 @@ const uploadImagesToProduct = async (productId: string, images: ProductImage[]) 
 
       // File size validation
       if (file.size > MAX_FILE_SIZE) {
-        toast.warning(`${file.name}: exceeds 5MB`);
+        toast.warning(`${file.name}: exceeds 1MB`);
         return;
       }
 
@@ -1699,10 +2077,6 @@ const uploadImagesToProduct = async (productId: string, images: ProductImage[]) 
   }
 };
 
-
-
-
-
 // ==================== UPLOAD VARIANT IMAGES (SERVICE-BASED) ====================
 const uploadVariantImages = async (productResponse: any) => {
   console.log('📤 Checking for variant images to upload...');
@@ -1721,7 +2095,7 @@ const uploadVariantImages = async (productResponse: any) => {
       return;
     }
 
-    const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
+    const MAX_FILE_SIZE = 1 * 1024 * 1024; // 1MB
     const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 
     console.log(`✅ Found ${createdVariants.length} variants in response`);
@@ -1753,7 +2127,7 @@ const uploadVariantImages = async (productResponse: any) => {
       }
 
       if (file.size > MAX_FILE_SIZE) {
-        toast.warning(`${file.name} exceeds 5MB`);
+        toast.warning(`${file.name} exceeds 1MB`);
         return null;
       }
 
@@ -1929,106 +2303,49 @@ const uploadVariantImages = async (productResponse: any) => {
 
       </div>
 
-      <div className="space-y-4">
+<div className="space-y-4">
 
   {/* ================= SHORT DESCRIPTION ================= */}
-  <div>
-    <div className="flex items-center justify-between gap-3 mb-2">
-      <label className="text-sm font-medium text-slate-300">
-        Short Description
-      </label>
-
-   <div className="flex items-center gap-2 px-3 py-1 bg-red-500/10 border border-red-500/20 rounded-lg">
-  <svg
-    className="w-3.5 h-3.5 text-red-400 flex-shrink-0"
-    fill="currentColor"
-    viewBox="0 0 20 20"
-  >
-    <path
-      fillRule="evenodd"
-      d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
-      clipRule="evenodd"
-    />
-  </svg>
-
-  <span className="text-xs text-red-300 whitespace-nowrap">
-    Max 350 chars • Search Results & Product Cards
-  </span>
-</div>
-
-    </div>
-
-    <ProductDescriptionEditor
-      value={formData.shortDescription}
-      onChange={(content) => {
-        const plainText = content.replace(/<[^>]*>/g, "").trim();
-
-        if (plainText.length > 350) {
-          alert("You can not enter more than 350 characters");
-          return;
-        }
-
-        setFormData((prev) => ({
-          ...prev,
-          shortDescription: content,
-        }));
-      }}
-      placeholder="Enter product short description..."
-      height={250}
-    />
-  </div>
+  <ProductDescriptionEditor
+    label="Short Description"
+    value={formData.shortDescription}
+    onChange={(content) => {
+      setFormData((prev) => ({
+        ...prev,
+        shortDescription: content,
+      }));
+    }}
+    placeholder="Enter product short description..."
+    height={250}
+    // minLength={10}
+    maxLength={350}
+    showCharCount={true}
+    showHelpText="Brief description visible in product listings (10-350 characters)"
+  />
 
   {/* ================= FULL DESCRIPTION ================= */}
-  <div>
-    <div className="flex items-center justify-between gap-3 mb-2">
-      <label className="text-sm font-medium text-slate-300">
-        Full Description <span className="text-red-500">*</span>
-      </label>
-
-  <div className="flex items-center gap-2 px-3 py-1 bg-red-500/10 border border-red-500/20 rounded-lg">
-  <svg
-    className="w-3.5 h-3.5 text-red-400 flex-shrink-0"
-    fill="currentColor"
-    viewBox="0 0 20 20"
-  >
-    <path
-      fillRule="evenodd"
-      d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
-      clipRule="evenodd"
-    />
-  </svg>
-
-  <span className="text-xs text-red-300 whitespace-nowrap">
-    Max 2000 chars • Used on Product Detail Page, SEO & Buyer Decision
-  </span>
-</div>
-
-    </div>
-
-    <ProductDescriptionEditor
-      value={formData.fullDescription}
-      onChange={(content) => {
-        const plainText = content.replace(/<[^>]*>/g, "").trim();
-
-        if (plainText.length > 2000) {
-          alert("You can not enter more than 2000 characters");
-          return;
-        }
-
-        setFormData((prev) => ({
-          ...prev,
-          fullDescription: content,
-        }));
-      }}
-      placeholder="Enter detailed product description..."
-      height={400}
-    />
-  </div>
+  <ProductDescriptionEditor
+    label="Full Description"
+    value={formData.fullDescription}
+    onChange={(content) => {
+      setFormData((prev) => ({
+        ...prev,
+        fullDescription: content,
+      }));
+    }}
+    placeholder="Enter detailed product description..."
+    height={400}
+    required={true}
+    // minLength={50}
+    maxLength={2000}
+    showCharCount={true}
+    showHelpText="Detailed product information with formatting (50-2000 characters)"
+  />
 
 </div>
 
 
-      <div className="grid md:grid-cols-3 gap-4">
+ <div className="grid md:grid-cols-3 gap-4">
  <div>
   <label className="block text-sm font-medium text-slate-300 mb-2">
     SKU <span className="text-red-500">*</span>
@@ -2095,13 +2412,7 @@ const uploadVariantImages = async (productResponse: any) => {
   placeholder="Select one brand..."
   maxSelection={1}
 />
-
-
-  {/* Info Text */}
-  {/* <p className="text-xs text-slate-400 mt-2 flex items-center gap-1">
-    <span>💡</span>
-    <span>First selected brand will be the primary brand</span>
-  </p> */}
+  
 </div>
 
 
@@ -3713,52 +4024,72 @@ const uploadVariantImages = async (productResponse: any) => {
                 </div>
               </TabsContent>
 
-              {/* Product Variants Tab - NEW */}
-{/* ✅ STEP 7: Replace ENTIRE Variants TabsContent section */}
-<TabsContent value="variants" className="space-y-2 mt-2">
-  <div className="space-y-4">
-    <div className="flex items-center justify-between">
-      <div>
-        <h3 className="text-lg font-semibold text-white">Product Variants</h3>
-        <p className="text-sm text-slate-400">
-          Create variants like different sizes, colors, or configurations with their own pricing and inventory
-        </p>
+
+{/* Product Variants Tab - CLEAN & COMPACT */}
+{/* Product Variants Tab - EDIT PAGE STYLE */}
+<TabsContent value="variants" className="space-y-3">
+  <div className="space-y-3">
+    {/* ✅ STICKY HEADER - Compact & Professional */}
+    <div className="sticky top-0 z-10 bg-slate-900/98 backdrop-blur-md border-b border-slate-800 pb-3 -mt-2 pt-2 shadow-lg">
+      <div className="flex items-center justify-between gap-4">
+        <div className="flex-1 min-w-0">
+          <h3 className="text-base font-semibold text-white truncate">Product Variants</h3>
+          <p className="text-xs text-slate-400 mt-0.5">
+            Create variants with different sizes, colors, or configurations
+          </p>
+        </div>
+        
+        {/* ✅ Variant Count Badge (shows when variants exist) */}
+        {productVariants.length > 0 && (
+          <div className="flex items-center gap-2 px-3 py-1.5 bg-violet-500/15 text-violet-400 rounded-lg text-xs font-medium border border-violet-500/20">
+            <Package className="h-3.5 w-3.5" />
+            {productVariants.length} Variant{productVariants.length > 1 ? 's' : ''}
+          </div>
+        )}
+        
+        <button
+          type="button"
+          onClick={addProductVariant}
+          className="px-3.5 py-2 bg-violet-500 hover:bg-violet-600 text-white text-sm rounded-lg transition-all flex items-center gap-2 shadow-md hover:shadow-lg whitespace-nowrap"
+        >
+          <Package className="h-4 w-4" />
+          Add Variant
+        </button>
       </div>
-      <button
-        type="button"
-        onClick={addProductVariant}
-        className="px-4 py-2 bg-violet-500 hover:bg-violet-600 text-white rounded-lg transition-colors flex items-center gap-2"
-      >
-        <Package className="h-4 w-4" />
-        Add Variant
-      </button>
     </div>
 
+    {/* ✅ EMPTY STATE - Compact */}
     {productVariants.length === 0 ? (
-      <div className="bg-slate-800/30 border border-slate-700 rounded-xl p-2 text-center">
-        <Package className="h-6 w-6 text-slate-600 mx-auto mb-4" />
-        <h3 className="text-md font-semibold text-white mb-2">No Product Variants Yet</h3>
-        <p className="text-slate-400 mb-2">
-          Click "Add Variant" to create different versions of this product
+      <div className="bg-slate-800/30 border border-slate-700 rounded-xl p-6 text-center">
+        <Package className="h-10 w-10 text-slate-600 mx-auto mb-3" />
+        <h3 className="text-base font-semibold text-white mb-1.5">No Product Variants</h3>
+        <p className="text-sm text-slate-400 mb-2">
+          Click "Add Variant" to create different versions
         </p>
-        <p className="text-sm text-slate-500">
-          Example: 500ml Original, 750ml Original, 200ml Fresh
+        <p className="text-xs text-slate-500">
+          Example: 500ml Original, 750ml Fresh
         </p>
       </div>
     ) : (
-      <div className="space-y-4">
+      /* ✅ VARIANTS LIST - Compact Layout */
+      <div className="space-y-3">
         {productVariants.map((variant, index) => (
-          <div key={variant.id} className="bg-slate-800/30 border border-slate-700 rounded-xl p-4">
-            <div className="flex items-start justify-between mb-4">
+          <div 
+            key={variant.id} 
+            id={`variant-${variant.id}`}
+            className="bg-slate-800/30 border border-slate-700 rounded-xl p-3.5 transition-all hover:border-slate-600"
+          >
+            {/* ✅ HEADER - Compact */}
+            <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
-                <h4 className="text-white font-medium">Variant #{index + 1}</h4>
+                <h4 className="text-sm font-semibold text-white">Variant #{index + 1}</h4>
                 {variant.isDefault && (
-                  <span className="px-2 py-1 bg-violet-500/20 text-violet-400 text-xs rounded-md">
+                  <span className="px-2 py-0.5 bg-violet-500/20 text-violet-400 text-xs rounded border border-violet-500/30">
                     Default
                   </span>
                 )}
                 {!variant.isActive && (
-                  <span className="px-2 py-1 bg-red-500/20 text-red-400 text-xs rounded-md">
+                  <span className="px-2 py-0.5 bg-red-500/20 text-red-400 text-xs rounded border border-red-500/30">
                     Inactive
                   </span>
                 )}
@@ -3766,16 +4097,16 @@ const uploadVariantImages = async (productResponse: any) => {
               <button
                 type="button"
                 onClick={() => removeProductVariant(variant.id)}
-                className="p-2 text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-lg transition-colors"
+                className="p-1.5 text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-lg transition-colors"
               >
-                <X className="h-5 w-5" />
+                <X className="h-4 w-4" />
               </button>
             </div>
 
-            {/* Basic Info Row */}
-            <div className="grid grid-cols-2 gap-4 mb-4">
+            {/* ✅ BASIC INFO - 2 Columns */}
+            <div className="grid grid-cols-2 gap-3 mb-3">
               <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">
+                <label className="block text-xs font-medium text-slate-300 mb-1.5">
                   Variant Name <span className="text-red-500">*</span>
                 </label>
                 <input
@@ -3783,53 +4114,115 @@ const uploadVariantImages = async (productResponse: any) => {
                   value={variant.name}
                   onChange={(e) => updateProductVariant(variant.id, 'name', e.target.value)}
                   placeholder="e.g., 500ml Original"
-                  className="w-full px-4 py-2.5 bg-slate-900 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500"
+                  className="w-full px-3 py-2 text-sm bg-slate-900 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent"
                 />
               </div>
+              
+              {/* ✅ SKU WITH VALIDATION UI */}
               <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">
+                <label className="block text-xs font-medium text-slate-300 mb-1.5">
                   SKU <span className="text-red-500">*</span>
                 </label>
-                <input
-                  type="text"
-                  value={variant.sku}
-                  onChange={(e) => updateProductVariant(variant.id, 'sku', e.target.value)}
-                  placeholder="e.g., JOHNSON-500ML"
-                  className="w-full px-4 py-2.5 bg-slate-900 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500"
-                />
+                
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={variant.sku}
+                    onChange={(e) => {
+                      const value = e.target.value.toUpperCase();
+                      updateProductVariant(variant.id, 'sku', value);
+                    }}
+                    placeholder="e.g., PROD-500ML"
+                    className={`w-full px-3 py-2 text-sm bg-slate-900 border rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:border-transparent transition-all ${
+                      variantSkuErrors[variant.id]
+                        ? 'border-red-500 focus:ring-red-500'
+                        : checkingVariantSku[variant.id]
+                        ? 'border-yellow-500 focus:ring-yellow-500'
+                        : 'border-slate-700 focus:ring-violet-500'
+                    }`}
+                  />
+
+                  {/* Loading Spinner */}
+                  {checkingVariantSku[variant.id] && (
+                    <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                      <svg className="animate-spin h-4 w-4 text-yellow-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                    </div>
+                  )}
+
+                  {/* Success Checkmark */}
+                  {!checkingVariantSku[variant.id] && variant.sku.length >= 2 && !variantSkuErrors[variant.id] && (
+                    <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                      <svg className="h-4 w-4 text-green-500" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                      </svg>
+                    </div>
+                  )}
+
+                  {/* Error Icon */}
+                  {variantSkuErrors[variant.id] && (
+                    <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                      <svg className="h-4 w-4 text-red-500" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                      </svg>
+                    </div>
+                  )}
+                </div>
+
+                {/* Error Message */}
+                {variantSkuErrors[variant.id] && (
+                  <p className="mt-1.5 text-xs text-red-400 flex items-center gap-1">
+                    <svg className="w-3.5 h-3.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                    </svg>
+                    <span>{variantSkuErrors[variant.id]}</span>
+                  </p>
+                )}
+
+                {/* Success Message */}
+                {!checkingVariantSku[variant.id] && variant.sku.length >= 2 && !variantSkuErrors[variant.id] && (
+                  <p className="mt-1.5 text-xs text-green-400 flex items-center gap-1">
+                    <svg className="w-3.5 h-3.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                    </svg>
+                    <span>SKU available</span>
+                  </p>
+                )}
               </div>
             </div>
 
-            {/* Pricing & Stock Row */}
-            <div className="grid grid-cols-4 gap-4 mb-4">
+            {/* ✅ PRICING & STOCK - 4 Columns Compact */}
+            <div className="grid grid-cols-4 gap-3 mb-3">
               <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">
-                  Price (£)
+                <label className="block text-xs font-medium text-slate-300 mb-1.5">
+                  Price (₹)
                 </label>
                 <input
                   type="number"
                   step="0.01"
                   value={variant.price || ''}
                   onChange={(e) => updateProductVariant(variant.id, 'price', e.target.value ? parseFloat(e.target.value) : null)}
-                  placeholder="9.99"
-                  className="w-full px-4 py-2.5 bg-slate-900 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500"
+                  placeholder="99.99"
+                  className="w-full px-3 py-2 text-sm bg-slate-900 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">
-                  Compare At Price (£)
+                <label className="block text-xs font-medium text-slate-300 mb-1.5">
+                  Compare Price
                 </label>
                 <input
                   type="number"
                   step="0.01"
                   value={variant.compareAtPrice || ''}
                   onChange={(e) => updateProductVariant(variant.id, 'compareAtPrice', e.target.value ? parseFloat(e.target.value) : null)}
-                  placeholder="12.99"
-                  className="w-full px-4 py-2.5 bg-slate-900 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500"
+                  placeholder="129.99"
+                  className="w-full px-3 py-2 text-sm bg-slate-900 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">
+                <label className="block text-xs font-medium text-slate-300 mb-1.5">
                   Weight (kg)
                 </label>
                 <input
@@ -3838,188 +4231,171 @@ const uploadVariantImages = async (productResponse: any) => {
                   value={variant.weight || ''}
                   onChange={(e) => updateProductVariant(variant.id, 'weight', e.target.value ? parseFloat(e.target.value) : null)}
                   placeholder="0.55"
-                  className="w-full px-4 py-2.5 bg-slate-900 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500"
+                  className="w-full px-3 py-2 text-sm bg-slate-900 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">
-                  Stock Quantity
+                <label className="block text-xs font-medium text-slate-300 mb-1.5">
+                  Stock Qty
                 </label>
                 <input
                   type="number"
                   value={variant.stockQuantity}
                   onChange={(e) => updateProductVariant(variant.id, 'stockQuantity', parseInt(e.target.value) || 0)}
                   placeholder="150"
-                  className="w-full px-4 py-2.5 bg-slate-900 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500"
+                  className="w-full px-3 py-2 text-sm bg-slate-900 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent"
                 />
               </div>
             </div>
 
-            {/* ✅ UPDATED: Option 1 (Name + Value) */}
-            <div className="space-y-4 mb-4 bg-slate-900/50 border border-slate-700 rounded-lg p-4">
-              <h5 className="text-sm font-semibold text-violet-400">Option 1</h5>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-2">
-                    Option Name
-                  </label>
-                  <input
-                    type="text"
-                    value={variant.option1Name || ''}
-                    onChange={(e) => updateProductVariant(variant.id, 'option1Name', e.target.value || null)}
-                    placeholder="e.g., Size, Pack Size"
-                    className="w-full px-4 py-2.5 bg-slate-900 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-2">
-                    Option Value
-                  </label>
-                  <input
-                    type="text"
-                    value={variant.option1Value || ''}
-                    onChange={(e) => updateProductVariant(variant.id, 'option1Value', e.target.value || null)}
-                    placeholder="e.g., 500ml, Pack of 12"
-                    className="w-full px-4 py-2.5 bg-slate-900 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500"
-                  />
-                </div>
+            {/* ✅ OPTION 1 - Compact */}
+            <div className="mb-3 bg-slate-900/50 border border-slate-700/50 rounded-lg p-3">
+              <div className="flex items-center gap-2 mb-2">
+                <div className="h-1.5 w-1.5 rounded-full bg-violet-500"></div>
+                <h5 className="text-xs font-semibold text-violet-400">Option 1</h5>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <input
+                  type="text"
+                  value={variant.option1Name || ''}
+                  onChange={(e) => updateProductVariant(variant.id, 'option1Name', e.target.value || null)}
+                  placeholder="Name (e.g., Size)"
+                  className="w-full px-3 py-2 text-sm bg-slate-900 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500"
+                />
+                <input
+                  type="text"
+                  value={variant.option1Value || ''}
+                  onChange={(e) => updateProductVariant(variant.id, 'option1Value', e.target.value || null)}
+                  placeholder="Value (e.g., 500ml)"
+                  className="w-full px-3 py-2 text-sm bg-slate-900 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500"
+                />
               </div>
             </div>
 
-            {/* ✅ UPDATED: Option 2 (Name + Value) */}
-            <div className="space-y-4 mb-4 bg-slate-900/50 border border-slate-700 rounded-lg p-4">
-              <h5 className="text-sm font-semibold text-cyan-400">Option 2</h5>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-2">
-                    Option Name
-                  </label>
-                  <input
-                    type="text"
-                    value={variant.option2Name || ''}
-                    onChange={(e) => updateProductVariant(variant.id, 'option2Name', e.target.value || null)}
-                    placeholder="e.g., Purchase Type, Color"
-                    className="w-full px-4 py-2.5 bg-slate-900 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-2">
-                    Option Value
-                  </label>
-                  <input
-                    type="text"
-                    value={variant.option2Value || ''}
-                    onChange={(e) => updateProductVariant(variant.id, 'option2Value', e.target.value || null)}
-                    placeholder="e.g., One Time Purchase, Black"
-                    className="w-full px-4 py-2.5 bg-slate-900 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500"
-                  />
-                </div>
+            {/* ✅ OPTION 2 - Compact */}
+            <div className="mb-3 bg-slate-900/50 border border-slate-700/50 rounded-lg p-3">
+              <div className="flex items-center gap-2 mb-2">
+                <div className="h-1.5 w-1.5 rounded-full bg-cyan-500"></div>
+                <h5 className="text-xs font-semibold text-cyan-400">Option 2</h5>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <input
+                  type="text"
+                  value={variant.option2Name || ''}
+                  onChange={(e) => updateProductVariant(variant.id, 'option2Name', e.target.value || null)}
+                  placeholder="Name (e.g., Type)"
+                  className="w-full px-3 py-2 text-sm bg-slate-900 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                />
+                <input
+                  type="text"
+                  value={variant.option2Value || ''}
+                  onChange={(e) => updateProductVariant(variant.id, 'option2Value', e.target.value || null)}
+                  placeholder="Value (e.g., Original)"
+                  className="w-full px-3 py-2 text-sm bg-slate-900 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                />
               </div>
             </div>
 
-            {/* ✅ UPDATED: Option 3 (Name + Value) - Optional */}
-            <div className="space-y-4 mb-4 bg-slate-900/50 border border-slate-700 rounded-lg p-4">
-              <h5 className="text-sm font-semibold text-pink-400">Option 3 (Optional)</h5>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-2">
-                    Option Name
-                  </label>
+            {/* ✅ OPTION 3 - Collapsible (Optional) */}
+            <details className="mb-3">
+              <summary className="cursor-pointer text-xs font-semibold text-pink-400 hover:text-pink-300 flex items-center gap-2 mb-2">
+                <ChevronDown className="h-3.5 w-3.5" />
+                Option 3 (Optional)
+              </summary>
+              <div className="bg-slate-900/50 border border-slate-700/50 rounded-lg p-3 mt-2">
+                <div className="grid grid-cols-2 gap-3">
                   <input
                     type="text"
                     value={variant.option3Name || ''}
                     onChange={(e) => updateProductVariant(variant.id, 'option3Name', e.target.value || null)}
-                    placeholder="e.g., Material, Style"
-                    className="w-full px-4 py-2.5 bg-slate-900 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500"
+                    placeholder="Name (e.g., Material)"
+                    className="w-full px-3 py-2 text-sm bg-slate-900 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-pink-500"
                   />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-2">
-                    Option Value
-                  </label>
                   <input
                     type="text"
                     value={variant.option3Value || ''}
                     onChange={(e) => updateProductVariant(variant.id, 'option3Value', e.target.value || null)}
-                    placeholder="e.g., Premium, WiFi+Cellular"
-                    className="w-full px-4 py-2.5 bg-slate-900 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500"
+                    placeholder="Value (e.g., Premium)"
+                    className="w-full px-3 py-2 text-sm bg-slate-900 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-pink-500"
                   />
                 </div>
               </div>
-            </div>
+            </details>
 
-            {/* ✅ UPDATED: Variant Image Upload with Preview */}
-            <div>
-              <label className="block text-sm font-medium text-slate-300 mb-2">
-                Variant Image
-              </label>
+            {/* ✅ IMAGE UPLOAD - Compact */}
+            <div className="mb-3">
+              <label className="block text-xs font-medium text-slate-300 mb-2">Variant Image</label>
               
-              {/* Preview Section */}
-              {variant.imageUrl ? (
-                <div className="relative inline-block mb-3">
-                  <img
-                    src={variant.imageUrl}
-                    alt={variant.name || "Variant"}
-                    className="w-32 h-32 object-cover rounded-lg border-2 border-slate-700 shadow-lg"
-                  />
-                  
-                  {/* Preview Badge */}
-                  {variant.imageUrl.startsWith("blob:") && (
-                    <span className="absolute top-1 right-1 px-2 py-1 bg-orange-500 text-white text-xs rounded-md">
-                      Preview
-                    </span>
-                  )}
-                  
-                  {/* Remove Button */}
-                  <button
-                    type="button"
-                    onClick={() => removeVariantImage(variant.id)}
-                    className="absolute -top-2 -right-2 p-1 bg-red-500 hover:bg-red-600 text-white rounded-full transition-colors"
-                  >
-                    <X className="h-4 w-4" />
-                  </button>
-                </div>
-              ) : null}
-              
-              {/* Upload Button */}
-              <div className="flex items-center gap-2">
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (file) {
-                      handleVariantImageUpload(variant.id, file);
-                    }
-                  }}
-                  className="hidden"
-                  id={`variant-image-${variant.id}`}
-                />
-                <label
-                  htmlFor={`variant-image-${variant.id}`}
-                  className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-colors cursor-pointer flex items-center gap-2"
-                >
-                  <Upload className="h-4 w-4" />
-                  {variant.imageUrl ? "Change Image" : "Upload Image"}
-                </label>
+              <div className="flex items-center gap-3">
+                {/* Image Preview */}
+                {variant.imageUrl && (
+                  <div className="relative">
+                    <img
+                      src={variant.imageUrl}
+                      alt={variant?.name || "Variant"}
+                      className="w-16 h-16 object-cover rounded-lg border-2 border-slate-700"
+                    />
+                    {variant.imageUrl.startsWith("blob:") && (
+                      <span className="absolute -top-1 -right-1 px-1.5 py-0.5 bg-orange-500 text-white text-[10px] rounded">
+                        Preview
+                      </span>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (variant.imageUrl?.startsWith('blob:')) {
+                          URL.revokeObjectURL(variant.imageUrl);
+                        }
+                        updateProductVariant(variant.id, 'imageUrl', null);
+                      }}
+                      className="absolute -top-1.5 -right-1.5 p-0.5 bg-red-500 hover:bg-red-600 text-white rounded-full"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </div>
+                )}
                 
-                {/* Help Text */}
-                <div className="text-sm text-slate-400">
-                  {variant.imageUrl?.startsWith("blob:") ? (
-                    <span className="text-orange-400">⚠️ Will upload when you save</span>
-                  ) : (
-                    <span>Optional - Max 5MB</span>
+                {/* Upload Button */}
+                <div className="flex-1">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        if (file.size > 5 * 1024 * 1024) {
+                          toast.error("Max 1MB allowed");
+                          return;
+                        }
+                        if (!file.type.startsWith('image/')) {
+                          toast.error("Invalid file type");
+                          return;
+                        }
+                        handleVariantImageUpload(variant.id, file);
+                      }
+                    }}
+                    className="hidden"
+                    id={`variant-img-${variant.id}`}
+                  />
+                  <label
+                    htmlFor={`variant-img-${variant.id}`}
+                    className="inline-flex items-center gap-2 px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-white text-xs rounded-lg transition-colors cursor-pointer"
+                  >
+                    <Upload className="h-3.5 w-3.5" />
+                    {variant.imageUrl ? "Change" : "Upload"}
+                  </label>
+                  {variant.imageUrl?.startsWith("blob:") && (
+                    <span className="ml-2 text-[11px] text-orange-400">⚠️ Save to upload</span>
                   )}
                 </div>
               </div>
             </div>
 
-            {/* Variant Settings */}
-            <div className="mt-4 flex items-center gap-4 flex-wrap">
-              <label className="flex items-center gap-2">
+            {/* ✅ SETTINGS - Compact Checkboxes */}
+            <div className="flex items-center gap-4 flex-wrap pt-2 border-t border-slate-700/50">
+              <label className="flex items-center gap-1.5 cursor-pointer">
                 <input
                   type="checkbox"
-                  id={`variant-default-${variant.id}`}
                   checked={variant.isDefault}
                   onChange={(e) => {
                     setProductVariants(productVariants.map(v => ({
@@ -4027,31 +4403,29 @@ const uploadVariantImages = async (productResponse: any) => {
                       isDefault: v.id === variant.id ? e.target.checked : false
                     })));
                   }}
-                  className="w-4 h-4 rounded border-slate-700 bg-slate-900 text-violet-500 focus:ring-2 focus:ring-violet-500"
+                  className="w-3.5 h-3.5 rounded border-slate-700 bg-slate-900 text-violet-500 focus:ring-2 focus:ring-violet-500"
                 />
-                <span className="text-sm text-slate-300">Set as default variant</span>
+                <span className="text-xs text-slate-300">Default</span>
               </label>
 
-              <label className="flex items-center gap-2">
+              <label className="flex items-center gap-1.5 cursor-pointer">
                 <input
                   type="checkbox"
-                  id={`variant-track-${variant.id}`}
                   checked={variant.trackInventory}
                   onChange={(e) => updateProductVariant(variant.id, 'trackInventory', e.target.checked)}
-                  className="w-4 h-4 rounded border-slate-700 bg-slate-900 text-violet-500 focus:ring-2 focus:ring-violet-500"
+                  className="w-3.5 h-3.5 rounded border-slate-700 bg-slate-900 text-violet-500 focus:ring-2 focus:ring-violet-500"
                 />
-                <span className="text-sm text-slate-300">Track inventory</span>
+                <span className="text-xs text-slate-300">Track Stock</span>
               </label>
 
-              <label className="flex items-center gap-2">
+              <label className="flex items-center gap-1.5 cursor-pointer">
                 <input
                   type="checkbox"
-                  id={`variant-active-${variant.id}`}
                   checked={variant.isActive}
                   onChange={(e) => updateProductVariant(variant.id, 'isActive', e.target.checked)}
-                  className="w-4 h-4 rounded border-slate-700 bg-slate-900 text-violet-500 focus:ring-2 focus:ring-violet-500"
+                  className="w-3.5 h-3.5 rounded border-slate-700 bg-slate-900 text-violet-500 focus:ring-2 focus:ring-violet-500"
                 />
-                <span className="text-sm text-slate-300">Active</span>
+                <span className="text-xs text-slate-300">Active</span>
               </label>
             </div>
           </div>
@@ -4059,18 +4433,25 @@ const uploadVariantImages = async (productResponse: any) => {
       </div>
     )}
 
-    {/* Help Section */}
-    <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-4">
-      <h4 className="font-semibold text-sm text-blue-400 mb-2">💡 Variant Examples</h4>
-      <ul className="text-sm text-slate-400 space-y-1">
-        <li>• <strong>Example 1:</strong> Option1Name: "Pack Size", Option1Value: "Pack of 12" | Option2Name: "Purchase Type", Option2Value: "One Time Purchase"</li>
-        <li>• <strong>Example 2:</strong> Option1Name: "Size", Option1Value: "500ml" | Option2Name: "Scent", Option2Value: "Original"</li>
-        <li>• Each variant should have a unique SKU</li>
-        <li>• Images will be uploaded when you click "Save & Continue" or "Save as Draft"</li>
-      </ul>
+    {/* ✅ HELP SECTION - Compact */}
+    <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-3">
+      <div className="flex items-start gap-2">
+        <Info className="h-4 w-4 text-blue-400 mt-0.5 flex-shrink-0" />
+        <div>
+          <h4 className="font-semibold text-xs text-blue-400 mb-1">Variant Examples</h4>
+          <ul className="text-xs text-slate-400 space-y-0.5">
+            <li>• Option1: "Size" → "500ml" | Option2: "Type" → "Original"</li>
+            <li>• Option1: "Pack" → "12 Pack" | Option2: "Purchase" → "One-Time"</li>
+            <li>• Each variant needs a unique SKU</li>
+          </ul>
+        </div>
+      </div>
     </div>
   </div>
 </TabsContent>
+
+
+
 
 
 {/* ================= SEO TAB ================= */}
@@ -4578,3 +4959,7 @@ const uploadVariantImages = async (productResponse: any) => {
     </div>
   );
 }
+function debounce(arg0: (variantId: string, sku: string, currentProductId?: string) => Promise<void>, arg1: number): any {
+  throw new Error("Function not implemented.");
+}
+
