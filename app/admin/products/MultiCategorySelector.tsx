@@ -23,7 +23,7 @@ export const MultiCategorySelector: React.FC<MultiCategorySelectorProps> = ({
   availableCategories,
   onChange,
   placeholder = 'Click to select categories...',
-  maxSelection = 5
+  maxSelection = 10
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [isOpen, setIsOpen] = useState(false);
@@ -141,7 +141,7 @@ export const MultiCategorySelector: React.FC<MultiCategorySelectorProps> = ({
                   return (
                     <div
                       key={categoryId}
-                      className={`flex items-center gap-1.5 px-2 py-1 rounded-lg text-xs font-medium ${
+                      className={`flex items-center gap-1 px-1 py-1 rounded-lg text-xs font-medium ${
                         index === 0 
                           ? 'bg-violet-500/20 text-violet-300 border border-violet-500/30' 
                           : 'bg-slate-700/50 text-slate-300 border border-slate-600'
@@ -195,7 +195,7 @@ export const MultiCategorySelector: React.FC<MultiCategorySelectorProps> = ({
 
           <div className="px-4 py-2 bg-violet-500/10 border-b border-violet-500/20 text-xs text-violet-300 flex items-center gap-2">
             <span>ℹ️</span>
-            <span>Select up to {maxSelection} categories. First is primary.</span>
+            <span> First is primary.</span>
           </div>
 
           {/* Categories List */}

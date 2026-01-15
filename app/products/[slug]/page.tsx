@@ -42,18 +42,36 @@ export const fetchCache = 'force-no-store';
 
 async function getProduct(slug: string) {
   try {
-    // 🔹 STEP 1: LIST API (slug / variant resolve ke liye)
+    /* ===============================
+       STEP 1: DIRECT SLUG FETCH (MAIN FIX)
+    =============================== */
+    const directRes = await fetch(
+      `${process.env.NEXT_PUBLIC_API_URL}/api/Products/by-slug/${slug}`,
+      { cache: 'no-store' }
+    );
+
+    if (directRes.ok) {
+      const directJson = await directRes.json();
+      if (directJson?.success && directJson.data?.id) {
+        return {
+          product: directJson.data,
+          selectedVariantId: undefined,
+        };
+      }
+    }
+
+    /* ===============================
+       STEP 2: LIST API (VARIANT FALLBACK)
+    =============================== */
     const listRes = await fetch(
-      `${process.env.NEXT_PUBLIC_API_URL}/api/Products?slug=${slug}`,
-      { cache: "no-store" }
+      `${process.env.NEXT_PUBLIC_API_URL}/api/Products`,
+      { cache: 'no-store' }
     );
 
     if (!listRes.ok) return null;
 
     const listJson = await listRes.json();
-    if (!listJson.success || !listJson.data?.items?.length) return null;
-
-    const items = listJson.data.items;
+    const items = listJson?.data?.items || [];
 
     let product = items.find((p: any) => p.slug === slug);
     let selectedVariantId: string | null = null;
@@ -71,10 +89,12 @@ async function getProduct(slug: string) {
 
     if (!product?.id) return null;
 
-    // 🔥 STEP 2: DETAIL API (GROUPED PRODUCTS YAHI AATE HAIN)
+    /* ===============================
+       STEP 3: FINAL DETAIL FETCH
+    =============================== */
     const detailRes = await fetch(
       `${process.env.NEXT_PUBLIC_API_URL}/api/Products/${product.id}`,
-      { cache: "no-store" }
+      { cache: 'no-store' }
     );
 
     if (!detailRes.ok) return null;
@@ -83,11 +103,11 @@ async function getProduct(slug: string) {
     if (!detailJson.success) return null;
 
     return {
-      product: detailJson.data, // ✅ FULL PRODUCT (groupedProducts included)
+      product: detailJson.data,
       selectedVariantId: selectedVariantId ?? undefined,
     };
   } catch (err) {
-    console.error("getProduct error:", err);
+    console.error('getProduct error:', err);
     return null;
   }
 }

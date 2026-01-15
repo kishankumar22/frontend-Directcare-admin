@@ -14,6 +14,7 @@ interface MultiBrandSelectorProps {
   onChange: (brands: string[]) => void;
   placeholder?: string;
   maxSelection?: number;
+  autoCloseOnSelect?: boolean; // New prop
 }
 
 export const MultiBrandSelector: React.FC<MultiBrandSelectorProps> = ({
@@ -21,7 +22,8 @@ export const MultiBrandSelector: React.FC<MultiBrandSelectorProps> = ({
   availableBrands,
   onChange,
   placeholder = 'Click to select brand...',
-  maxSelection = 1
+  maxSelection = 1,
+  autoCloseOnSelect = true // Default to true
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [isOpen, setIsOpen] = useState(false);
@@ -88,6 +90,20 @@ export const MultiBrandSelector: React.FC<MultiBrandSelectorProps> = ({
         onChange([...selectedBrands, brandId]);
       }
     }
+
+    // ✅ AUTO-CLOSE LOGIC
+    if (autoCloseOnSelect) {
+      // For single selection: Always close
+      if (maxSelection === 1) {
+        setIsOpen(false);
+        setSearchTerm('');
+      }
+      // For multiple selection: Close only when max reached
+      else if (selectedBrands.length + 1 >= maxSelection) {
+        setIsOpen(false);
+        setSearchTerm('');
+      }
+    }
   };
 
   const handleSetPrimary = (brandId: string) => {
@@ -97,12 +113,25 @@ export const MultiBrandSelector: React.FC<MultiBrandSelectorProps> = ({
       const otherBrands = selectedBrands.filter(id => id !== brandId);
       onChange([brandId, ...otherBrands]);
     }
+    
+    // ✅ Auto-close after setting primary
+    if (autoCloseOnSelect) {
+      setIsOpen(false);
+      setSearchTerm('');
+    }
   };
 
   const handleRemoveBrand = (brandId: string, e: React.MouseEvent) => {
     e.stopPropagation();
     onChange(selectedBrands.filter(id => id !== brandId));
   };
+
+  // ✅ Clear search when dropdown closes
+  useEffect(() => {
+    if (!isOpen) {
+      setSearchTerm('');
+    }
+  }, [isOpen]);
 
   const filteredBrands = availableBrands.filter(brand =>
     brand?.name?.toLowerCase().includes(searchTerm.toLowerCase())
@@ -115,7 +144,12 @@ export const MultiBrandSelector: React.FC<MultiBrandSelectorProps> = ({
       {/* Selected Brands Display */}
       <div 
         className="p-2.5 bg-slate-800/50 border border-slate-700 rounded-xl cursor-pointer hover:border-violet-500 transition-colors"
-        onClick={() => setIsOpen(!isOpen)}
+        onClick={() => {
+          setIsOpen(!isOpen);
+          if (isOpen) {
+            setSearchTerm(''); // Clear search when closing
+          }
+        }}
       >
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2 flex-1 flex-wrap">
@@ -211,7 +245,7 @@ export const MultiBrandSelector: React.FC<MultiBrandSelectorProps> = ({
           {maxSelection === 1 && (
             <div className="px-4 py-2 bg-violet-500/10 border-b border-violet-500/20 text-xs text-violet-300 flex items-center gap-2">
               <span>ℹ️</span>
-              <span>Click any brand to select it (current selection will be replaced)</span>
+              <span>Click any brand to select it (dropdown will auto-close)</span>
             </div>
           )}
 
@@ -326,7 +360,7 @@ export const MultiBrandSelector: React.FC<MultiBrandSelectorProps> = ({
             </div>
             {maxSelection === 1 && (
               <div className="text-[10px] text-slate-500 mt-1.5">
-                ℹ️ Click any brand to change selection
+                ℹ️ Dropdown auto-closes on selection
               </div>
             )}
             {maxSelection > 1 && selectedBrands.length > 1 && (

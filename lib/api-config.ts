@@ -73,4 +73,11 @@ export const API_ENDPOINTS = {
   
   // Comments
   blogComments: '/api/BlogComments',
+
+    // ✅ Editor
+  editor: {
+    uploadImage: '/api/Editor/upload-image',
+    deleteImage: '/api/Editor/delete-image',
+    deleteImageByUrl: '/api/Editor/delete-image-by-url',
+  },
 };

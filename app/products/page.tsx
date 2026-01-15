@@ -95,9 +95,7 @@ async function getAllProducts(params: SearchParams = {}): Promise<ApiResponse> {
       queryParams.set('searchTerm', searchTerm);
     }
 
-    const res = await fetch(
-      `${API_ENDPOINTS.products}?${queryParams.toString()}`,
-      {
+   const res = await fetch(`https://testapi.knowledgemarkg.com/api/Products?page=1&pageSize=10&sortDirection=asc?${queryParams.toString()}`,{
         cache: 'no-store',
         next: { revalidate: 0 },
         headers: {

@@ -21,7 +21,8 @@ import { GroupedProductModal } from '../GroupedProductModal';
 import { MultiBrandSelector } from "../MultiBrandSelector";
 import { VATRateApiResponse, vatratesService } from "@/lib/services/vatrates";
 import { MultiCategorySelector } from "../MultiCategorySelector";
-import { API_BASE_URL } from "@/lib/api-config";
+import ScrollToTopButton from "../ScrollToTopButton";
+
 
 
 
@@ -36,7 +37,16 @@ export default function AddProductPage() {
 // ✅ Variant SKU Validation States
 const [checkingVariantSku, setCheckingVariantSku] = useState<Record<string, boolean>>({});
 const [variantSkuErrors, setVariantSkuErrors] = useState<Record<string, string>>({});
+
+// ================================
+// ✅ LOADING & SUBMISSION STATES
+// ================================
 const [isSubmitting, setIsSubmitting] = useState(false);
+const [submitProgress, setSubmitProgress] = useState<{
+  step: string;
+  percentage: number;
+} | null>(null);
+
   // ✅ Check for variant SKU errors before submitting
 const hasVariantSkuErrors = Object.keys(variantSkuErrors).length > 0;
 const hasCheckingVariantSku = Object.values(checkingVariantSku).some(checking => checking);
@@ -499,19 +509,33 @@ useEffect(() => {
 }, [formData.sku]);
 
 
-const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
-  e.preventDefault();
+const handleSubmit = async (e?: React.FormEvent, isDraft: boolean = false) => {
+  if (e) {
+    e.preventDefault();
+  }
 
-  const target = e.target as HTMLElement;
+  const target = (e?.target as HTMLElement) || document.body;
+
+  // ================================
+  // DUPLICATE SUBMISSION PREVENTION
+  // ================================
   if (target.hasAttribute('data-submitting')) {
     toast.info('⏳ Already submitting... Please wait!');
     return;
   }
+
   target.setAttribute('data-submitting', 'true');
+  setIsSubmitting(true); // ✅ START LOADER
 
   try {
     console.log('🚀 ==================== PRODUCT SUBMISSION START ====================');
     console.log('📋 Form Mode:', isDraft ? 'DRAFT' : 'PUBLISH');
+
+    // ✅ SHOW PROGRESS
+    setSubmitProgress({
+      step: isDraft ? 'Validating draft data...' : 'Validating product data...',
+      percentage: 10,
+    });
 
     // ═══════════════════════════════════════════════════════════════════════
     // SECTION 1: BASIC VALIDATION
@@ -521,14 +545,19 @@ const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
     if (!formData.name || !formData.sku) {
       toast.warning('⚠️ Please fill in required fields: Product Name and SKU');
       target.removeAttribute('data-submitting');
+      setIsSubmitting(false);
+      setSubmitProgress(null);
       return;
     }
 
     // ✅ 1.2 NAME VALIDATION
-    const nameRegex = /^[A-Za-z0-9\s\-.,()'/]+$/;
-    if (!nameRegex.test(formData.name)) {
-      toast.error("⚠️ Invalid product name. Special characters like @, #, $, % are not allowed.");
-      target.removeAttribute('data-submitting');
+    const PRODUCT_NAME_REGEX = /^[A-Za-z0-9\u00C0-\u024F\s.,()'"'\-\/&+%]+$/;
+
+    if (!PRODUCT_NAME_REGEX.test(formData.name)) {
+      toast.error("⚠️ Product name contains unsupported characters.");
+      target.removeAttribute("data-submitting");
+      setIsSubmitting(false);
+      setSubmitProgress(null);
       return;
     }
 
@@ -536,14 +565,23 @@ const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
     if (formData.sku.length < 2) {
       toast.error('⚠️ SKU must be at least 2 characters long.');
       target.removeAttribute('data-submitting');
+      setIsSubmitting(false);
+      setSubmitProgress(null);
       return;
     }
-    
+
+    setSubmitProgress({
+      step: 'Checking SKU availability...',
+      percentage: 20,
+    });
+
     // ✅ 1.4 SKU VALIDATION (Uniqueness)
     const skuExists = await checkSkuExists(formData.sku);
     if (skuExists) {
       toast.error('❌ SKU already exists. Please use a unique SKU.');
       target.removeAttribute('data-submitting');
+      setIsSubmitting(false);
+      setSubmitProgress(null);
       return;
     }
 
@@ -551,6 +589,8 @@ const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
     if (formData.price && parseFloat(formData.price.toString()) < 0) {
       toast.error('⚠️ Price cannot be negative.');
       target.removeAttribute('data-submitting');
+      setIsSubmitting(false);
+      setSubmitProgress(null);
       return;
     }
 
@@ -560,12 +600,19 @@ const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
       if (isNaN(stock) || stock < 0) {
         toast.error('⚠️ Stock quantity must be a valid non-negative number.');
         target.removeAttribute('data-submitting');
+        setIsSubmitting(false);
+        setSubmitProgress(null);
         return;
       }
     }
 
+    setSubmitProgress({
+      step: 'Validating homepage settings...',
+      percentage: 30,
+    });
+
     // ═══════════════════════════════════════════════════════════════════════
-    // SECTION 2: HOMEPAGE VALIDATION (NEW)
+    // SECTION 2: HOMEPAGE VALIDATION
     // ═══════════════════════════════════════════════════════════════════════
 
     if (formData.showOnHomepage) {
@@ -575,6 +622,8 @@ const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
           { autoClose: 8000 }
         );
         target.removeAttribute('data-submitting');
+        setIsSubmitting(false);
+        setSubmitProgress(null);
         return;
       }
     }
@@ -587,6 +636,8 @@ const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
       if (!formData.requiredProductIds || formData.requiredProductIds.trim() === '') {
         toast.error('⚠️ Please select at least one product for grouped product.');
         target.removeAttribute('data-submitting');
+        setIsSubmitting(false);
+        setSubmitProgress(null);
         return;
       }
     }
@@ -601,36 +652,88 @@ const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
         if (percentage < 0 || percentage > 100) {
           toast.error('❌ Discount percentage must be between 0 and 100');
           target.removeAttribute('data-submitting');
+          setIsSubmitting(false);
+          setSubmitProgress(null);
           return;
         }
       }
-      
+
       if (formData.groupBundleDiscountType === 'FixedAmount') {
         const amount = formData.groupBundleDiscountAmount;
         if (amount < 0) {
           toast.error('❌ Discount amount cannot be negative');
           target.removeAttribute('data-submitting');
+          setIsSubmitting(false);
+          setSubmitProgress(null);
           return;
         }
       }
-      
+
       if (formData.groupBundleDiscountType === 'SpecialPrice') {
         const specialPrice = formData.groupBundleSpecialPrice;
         if (specialPrice < 0) {
           toast.error('❌ Special price cannot be negative');
           target.removeAttribute('data-submitting');
+          setIsSubmitting(false);
+          setSubmitProgress(null);
           return;
         }
       }
     }
 
+    // ============================================
+    // ✅ SECTION 4A: GROUPED + SUBSCRIPTION CONFLICT VALIDATION
+    // ============================================
+
+    // ❌ BLOCK: Grouped products cannot have subscription enabled
+    if (formData.productType === 'grouped' && formData.isRecurring) {
+      toast.error('❌ Grouped products cannot have subscription/recurring enabled. Please disable subscription first.', {
+        autoClose: 8000,
+        position: 'top-center',
+      });
+      target.removeAttribute('data-submitting');
+      setIsSubmitting(false);
+      setSubmitProgress(null);
+      return;
+    }
+
+    // ⚠️ WARN: If somehow subscription data exists for grouped product, clear it
+    if (formData.productType === 'grouped') {
+      if (formData.recurringCycleLength ||
+        formData.recurringTotalCycles ||
+        formData.subscriptionDiscountPercentage ||
+        formData.allowedSubscriptionFrequencies ||
+        formData.subscriptionDescription) {
+
+        console.warn('⚠️ Grouped product has subscription data. Clearing...');
+
+        // Force clear subscription fields
+        formData.isRecurring = false;
+        formData.recurringCycleLength = '';
+        formData.recurringCyclePeriod = 'days';
+        formData.recurringTotalCycles = '';
+        formData.subscriptionDiscountPercentage = '';
+        formData.allowedSubscriptionFrequencies = '';
+        formData.subscriptionDescription = '';
+
+        toast.info('ℹ️ Subscription data cleared for grouped product', {
+          autoClose: 3000,
+        });
+      }
+    }
+
+    setSubmitProgress({
+      step: 'Validating product variants...',
+      percentage: 40,
+    });
+
     // ═══════════════════════════════════════════════════════════════════════
-    // SECTION 5: COMPLETE VARIANT VALIDATION (PRODUCTION-READY)
+    // SECTION 5: VARIANT VALIDATION
     // ═══════════════════════════════════════════════════════════════════════
 
     if (productVariants.length > 0) {
       console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-      console.log('🔍 SECTION 20: VARIANT VALIDATION');
+      console.log('🔍 SECTION 5: VARIANT VALIDATION');
       console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
 
       // ✅ 5.1 Check Empty Name/SKU/Price
@@ -638,12 +741,16 @@ const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
         if (!variant.name || !variant.name.trim()) {
           toast.error(`❌ All variants must have a name`);
           target.removeAttribute('data-submitting');
+          setIsSubmitting(false);
+          setSubmitProgress(null);
           return;
         }
 
         if (!variant.sku || !variant.sku.trim()) {
           toast.error(`❌ Variant "${variant.name}" must have a SKU`);
           target.removeAttribute('data-submitting');
+          setIsSubmitting(false);
+          setSubmitProgress(null);
           return;
         }
 
@@ -651,6 +758,8 @@ const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
         if (variantPrice < 0) {
           toast.error(`❌ Variant "${variant.name}" has invalid price`);
           target.removeAttribute('data-submitting');
+          setIsSubmitting(false);
+          setSubmitProgress(null);
           return;
         }
       }
@@ -658,7 +767,7 @@ const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
       // ✅ 5.2 Check Duplicate SKUs Within Product
       const variantSkus = productVariants.map(v => v.sku.toUpperCase());
       const duplicateVariant = variantSkus.find((sku, index) => variantSkus.indexOf(sku) !== index);
-      
+
       if (duplicateVariant) {
         const duplicateVariantName = productVariants.find(
           v => v.sku.toUpperCase() === duplicateVariant
@@ -668,6 +777,8 @@ const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
           { autoClose: 8000 }
         );
         target.removeAttribute('data-submitting');
+        setIsSubmitting(false);
+        setSubmitProgress(null);
         return;
       }
 
@@ -679,11 +790,13 @@ const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
             { autoClose: 8000 }
           );
           target.removeAttribute('data-submitting');
+          setIsSubmitting(false);
+          setSubmitProgress(null);
           return;
         }
       }
 
-      // ✅ 5.4 Check Against Database (Products + Variants)
+      // ✅ 5.4 Check Against Database
       try {
         console.log('🔍 Validating variant SKUs against database...');
         const allProductsResponse = await productsService.getAll({ pageSize: 100 });
@@ -696,13 +809,15 @@ const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
           const productSkuConflict = allProducts.find(
             (p: any) => p.sku?.toUpperCase() === variantSkuUpper
           );
-          
+
           if (productSkuConflict) {
             toast.error(
               `❌ Variant "${variant.name}" SKU conflicts with product "${productSkuConflict.name}"`,
               { autoClose: 8000 }
             );
             target.removeAttribute('data-submitting');
+            setIsSubmitting(false);
+            setSubmitProgress(null);
             return;
           }
 
@@ -712,13 +827,15 @@ const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
               const variantSkuConflict = product.variants.find(
                 (v: any) => v.sku?.toUpperCase() === variantSkuUpper
               );
-              
+
               if (variantSkuConflict) {
                 toast.error(
                   `❌ Variant "${variant.name}" SKU conflicts with "${product.name}" - Variant "${variantSkuConflict.name}"`,
                   { autoClose: 8000 }
                 );
                 target.removeAttribute('data-submitting');
+                setIsSubmitting(false);
+                setSubmitProgress(null);
                 return;
               }
             }
@@ -732,16 +849,13 @@ const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
       }
     }
 
-    // ═══════════════════════════════════════════════════════════════════════
-    // SECTION 6: SHOW LOADING TOAST
-    // ═══════════════════════════════════════════════════════════════════════
-
-    const loadingId = toast.info(
-      isDraft ? '💾 Saving as draft...' : '🔄 Creating product...'
-    );
+    setSubmitProgress({
+      step: 'Processing categories and brands...',
+      percentage: 50,
+    });
 
     // ═══════════════════════════════════════════════════════════════════════
-    // SECTION 7: CATEGORY VALIDATION & PROCESSING
+    // SECTION 6: CATEGORY & BRAND VALIDATION
     // ═══════════════════════════════════════════════════════════════════════
 
     const guidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -755,73 +869,82 @@ const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
       });
     }
 
-    // Validation
     if (categoryIdsArray.length === 0) {
       console.error('❌ [VALIDATION] No valid categories selected');
       toast.error('❌ Please select at least one category');
       target.removeAttribute('data-submitting');
-      toast.dismiss(loadingId);
+      setIsSubmitting(false);
+      setSubmitProgress(null);
       return;
     }
 
-    console.log('✅ [VALIDATION] Categories validated:', categoryIdsArray);
-
-    // Create categories array with displayOrder
     const categoriesArray = categoryIdsArray.map((categoryId, index) => ({
       categoryId: categoryId,
       isPrimary: index === 0,
       displayOrder: index + 1
     }));
 
-    console.log('📁 Categories:', {
-      primary: categoryIdsArray[0],
-      all: categoryIdsArray,
-      array: categoriesArray
-    });
-
-    // ═══════════════════════════════════════════════════════════════════════
-    // SECTION 8: BRAND VALIDATION & PROCESSING
-    // ═══════════════════════════════════════════════════════════════════════
-
+    // BRAND VALIDATION
     let brandIdsArray: string[] = [];
 
-    // Check if brandIds array exists (new multi-brand format)
     if (formData.brandIds && Array.isArray(formData.brandIds) && formData.brandIds.length > 0) {
       brandIdsArray = formData.brandIds.filter(id => {
         if (!id || typeof id !== 'string') return false;
         return guidRegex.test(id.trim());
       });
-      console.log('✅ Using brandIds array (new format):', brandIdsArray);
-    } 
-    // Fallback to single brand (legacy format)
-    else if (formData.brand && formData.brand.trim()) {
+    } else if (formData.brand && formData.brand.trim()) {
       const trimmedBrand = formData.brand.trim();
       if (guidRegex.test(trimmedBrand)) {
         brandIdsArray = [trimmedBrand];
-        console.log('✅ Using single brand (legacy):', brandIdsArray);
       }
     }
 
-    // Validate: At least one brand required
     if (brandIdsArray.length === 0) {
       toast.error('❌ Please select at least one brand');
       target.removeAttribute('data-submitting');
-      toast.dismiss(loadingId);
+      setIsSubmitting(false);
+      setSubmitProgress(null);
       return;
     }
 
-    // BUILD BRANDS ARRAY - Required by backend
     const brandsArray = brandIdsArray.map((brandId, index) => ({
       brandId: brandId,
-      isPrimary: index === 0,      // First brand is primary
-      displayOrder: index + 1      // 1-based ordering
+      isPrimary: index === 0,
+      displayOrder: index + 1
     }));
 
-    console.log('🏷️ Final brands array:', brandsArray);
-    console.log('🏷️ Primary brand:', brandIdsArray[0]);
+    setSubmitProgress({
+      step: 'Validating product images...',
+      percentage: 55,
+    });
 
     // ═══════════════════════════════════════════════════════════════════════
-    // SECTION 9: ATTRIBUTES & VARIANTS PROCESSING
+    // SECTION 7: IMAGE VALIDATION
+    // ═══════════════════════════════════════════════════════════════════════
+
+    if (formData.productImages.length < 5) {
+      toast.error('❌ Please upload at least 5 product images before saving');
+      target.removeAttribute('data-submitting');
+      setIsSubmitting(false);
+      setSubmitProgress(null);
+      return;
+    }
+
+    if (formData.productImages.length > 10) {
+      toast.error('❌ Maximum 10 images allowed');
+      target.removeAttribute('data-submitting');
+      setIsSubmitting(false);
+      setSubmitProgress(null);
+      return;
+    }
+
+    setSubmitProgress({
+      step: 'Preparing product data...',
+      percentage: 60,
+    });
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // SECTION 8: BUILD PRODUCT DATA
     // ═══════════════════════════════════════════════════════════════════════
 
     const attributesArray = productAttributes
@@ -833,8 +956,6 @@ const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
         displayName: attr.name,
         sortOrder: attr.displayOrder || 1
       }));
-    
-    console.log('📝 Attributes count:', attributesArray.length);
 
     const variantsArray = productVariants.map(variant => ({
       name: variant.name,
@@ -856,12 +977,6 @@ const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
       isActive: variant.isActive ?? true
     }));
 
-    console.log('🎨 Variants count:', variantsArray.length);
-
-    // ═══════════════════════════════════════════════════════════════════════
-    // SECTION 10: BUILD COMPLETE PRODUCT DATA
-    // ═══════════════════════════════════════════════════════════════════════
-
     const productData: any = {
       // Basic Info
       name: formData.name.trim(),
@@ -876,19 +991,19 @@ const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
       visibleIndividually: formData.visibleIndividually ?? true,
       showOnHomepage: formData.showOnHomepage ?? false,
 
-      // Product Type & Grouped Product Configuration
+      // Product Type & Grouped Product
       productType: formData.productType || 'simple',
       requireOtherProducts: formData.productType === 'grouped' ? formData.requireOtherProducts : false,
       requiredProductIds: formData.productType === 'grouped' && formData.requireOtherProducts && formData.requiredProductIds?.trim()
         ? formData.requiredProductIds.trim()
         : null,
-      automaticallyAddProducts: formData.productType === 'grouped' && formData.requireOtherProducts 
-        ? formData.automaticallyAddProducts 
+      automaticallyAddProducts: formData.productType === 'grouped' && formData.requireOtherProducts
+        ? formData.automaticallyAddProducts
         : false,
 
-      // BUNDLE DISCOUNT FIELDS
-      groupBundleDiscountType: formData.productType === 'grouped' 
-        ? formData.groupBundleDiscountType 
+      // Bundle Discount
+      groupBundleDiscountType: formData.productType === 'grouped'
+        ? formData.groupBundleDiscountType
         : 'None',
       groupBundleDiscountPercentage: formData.productType === 'grouped' && formData.groupBundleDiscountType === 'Percentage'
         ? formData.groupBundleDiscountPercentage
@@ -902,53 +1017,45 @@ const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
       groupBundleSavingsMessage: formData.productType === 'grouped' && formData.groupBundleDiscountType !== 'None'
         ? formData.groupBundleSavingsMessage?.trim() || null
         : null,
-      showIndividualPrices: formData.productType === 'grouped' 
-        ? formData.showIndividualPrices 
+      showIndividualPrices: formData.productType === 'grouped'
+        ? formData.showIndividualPrices
         : true,
       applyDiscountToAllItems: formData.productType === 'grouped' && formData.groupBundleDiscountType !== 'None'
-        ? formData.applyDiscountToAllItems 
+        ? formData.applyDiscountToAllItems
         : false,
 
       // Pricing
       price: parseFloat(formData.price.toString()) || 0,
 
-      // BRANDS - Complete format
-      brandId: brandIdsArray[0],     // Primary brand (legacy)
-      brandIds: brandIdsArray,       // Array of GUIDs (new)
-      brands: brandsArray,           // Objects array (REQUIRED)
+      // Brands & Categories
+      brandId: brandIdsArray[0],
+      brandIds: brandIdsArray,
+      brands: brandsArray,
+      categoryId: categoryIdsArray[0],
+      categoryIds: categoryIdsArray,
+      categories: categoriesArray,
 
-      // CATEGORIES - Complete format
-      categoryId: categoryIdsArray[0], // Primary category (legacy)
-      categoryIds: categoryIdsArray,   // All category IDs
-      categories: categoriesArray,     // Full category objects
-
-      // INVENTORY
+      // Inventory
       stockQuantity: parseInt(formData.stockQuantity.toString()) || 0,
       trackQuantity: formData.manageInventory === 'track',
       manageInventoryMethod: formData.manageInventory,
       minStockQuantity: parseInt(formData.minStockQuantity.toString()) || 0,
-      
-      // NOTIFICATION
       notifyAdminForQuantityBelow: formData.notifyAdminForQuantityBelow ?? false,
-      notifyQuantityBelow: formData.notifyAdminForQuantityBelow 
-      ? (parseInt(formData.notifyQuantityBelow.toString()) || 10)  // Better fallback
-      : null,
-      
-      // Display Settings
+      notifyQuantityBelow: formData.notifyAdminForQuantityBelow
+        ? (parseInt(formData.notifyQuantityBelow.toString()) || 10)
+        : null,
       displayStockAvailability: formData.displayStockAvailability,
       displayStockQuantity: formData.displayStockQuantity,
-      
-      // BACKORDER
       allowBackorder: formData.allowBackorder ?? false,
       backorderMode: formData.backorderMode || 'no-backorders',
       allowBackInStockSubscriptions: formData.allowBackInStockSubscriptions,
-      
+
       // Cart Quantities
       orderMinimumQuantity: parseInt(formData.minCartQuantity.toString()) || 1,
       orderMaximumQuantity: parseInt(formData.maxCartQuantity.toString()) || 10000,
       allowedQuantities: formData.allowedQuantities?.trim() || null,
-      
-      // Other Inventory
+
+      // Other
       lowStockActivity: formData.lowStockActivity || null,
       productAvailabilityRange: formData.productAvailabilityRange || null,
       notReturnable: formData.notReturnable ?? false,
@@ -958,28 +1065,22 @@ const handleSubmit = async (e: React.FormEvent, isDraft: boolean = false) => {
       variants: variantsArray.length > 0 ? variantsArray : [],
     };
 
-    // ═══════════════════════════════════════════════════════════════════════
-    // SECTION 11: OPTIONAL FIELDS
-    // ═══════════════════════════════════════════════════════════════════════
-
-    // Optional Basic Fields
+    // Optional Fields
     if (formData.gtin?.trim()) productData.gtin = formData.gtin.trim();
     if (formData.manufacturerPartNumber?.trim()) productData.manufacturerPartNumber = formData.manufacturerPartNumber.trim();
     if (formData.adminComment?.trim()) productData.adminComment = formData.adminComment.trim();
-   // TO THIS:
-if (formData.gender?.trim()) {
-  productData.gender = formData.gender.trim();
-} else {
-  // Explicitly send empty to prevent backend default
-  productData.gender = "";
-}
+    if (formData.gender?.trim()) {
+      productData.gender = formData.gender.trim();
+    } else {
+      productData.gender = "";
+    }
 
-    // Pricing - Optional
-    if (formData.oldPrice) productData.oldPrice = parseFloat(formData.oldPrice.toString());
-    if (formData.oldPrice) productData.compareAtPrice = parseFloat(formData.oldPrice.toString());
+    if (formData.oldPrice) {
+      productData.oldPrice = parseFloat(formData.oldPrice.toString());
+      productData.compareAtPrice = parseFloat(formData.oldPrice.toString());
+    }
     if (formData.cost) productData.costPrice = parseFloat(formData.cost.toString());
 
-    // Buttons
     if (formData.disableBuyButton) productData.disableBuyButton = true;
     if (formData.disableWishlistButton) productData.disableWishlistButton = true;
 
@@ -1012,64 +1113,34 @@ if (formData.gender?.trim()) {
     if (formData.availableEndDate) productData.availableEndDate = formData.availableEndDate;
 
     // VAT
-// Always send VAT settings to prevent backend defaults
-if (formData.vatExempt === true) {
-  productData.vatExempt = true;
-  // Don't send vatRateId if exempt
-} else {
-  productData.vatExempt = false;  // Explicitly false
-  if (formData.vatRateId && formData.vatRateId.trim()) {
-    productData.vatRateId = formData.vatRateId;
-  }
-}
+    if (formData.vatExempt === true) {
+      productData.vatExempt = true;
+    } else {
+      productData.vatExempt = false;
+      if (formData.vatRateId && formData.vatRateId.trim()) {
+        productData.vatRateId = formData.vatRateId;
+      }
+    }
 
-    // Shipping & Delivery
+    // Shipping
     if (formData.isShipEnabled) {
       productData.requiresShipping = true;
-    }
-    if (formData.shipSeparately) {
-      productData.shipSeparately = true;
-    }
-    if (formData.weight) {
-      productData.weight = parseFloat(formData.weight.toString());
-    }
-    if (formData.length) {
-      productData.length = parseFloat(formData.length.toString());
-    }
-    if (formData.width) {
-      productData.width = parseFloat(formData.width.toString());
-    }
-    if (formData.height) {
-      productData.height = parseFloat(formData.height.toString());
-    }
+      if (formData.shipSeparately) productData.shipSeparately = true;
+      if (formData.weight) productData.weight = parseFloat(formData.weight.toString());
+      if (formData.length) productData.length = parseFloat(formData.length.toString());
+      if (formData.width) productData.width = parseFloat(formData.width.toString());
+      if (formData.height) productData.height = parseFloat(formData.height.toString());
 
-    // Delivery Options
-    if (formData.sameDayDeliveryEnabled !== undefined) {
-      productData.sameDayDeliveryEnabled = formData.sameDayDeliveryEnabled;
-    }
-    if (formData.nextDayDeliveryEnabled !== undefined) {
-      productData.nextDayDeliveryEnabled = formData.nextDayDeliveryEnabled;
-    }
-    if (formData.standardDeliveryEnabled !== undefined) {
-      productData.standardDeliveryEnabled = formData.standardDeliveryEnabled;
-    }
-    if (formData.sameDayDeliveryCutoffTime?.trim()) {
-      productData.sameDayDeliveryCutoffTime = formData.sameDayDeliveryCutoffTime.trim();
-    }
-    if (formData.nextDayDeliveryCutoffTime?.trim()) {
-      productData.nextDayDeliveryCutoffTime = formData.nextDayDeliveryCutoffTime.trim();
-    }
-    if (formData.standardDeliveryDays) {
-      productData.standardDeliveryDays = parseInt(formData.standardDeliveryDays) || 5;
-    }
-    if (formData.sameDayDeliveryCharge) {
-      productData.sameDayDeliveryCharge = parseFloat(formData.sameDayDeliveryCharge.toString()) || 0;
-    }
-    if (formData.nextDayDeliveryCharge) {
-      productData.nextDayDeliveryCharge = parseFloat(formData.nextDayDeliveryCharge.toString()) || 0;
-    }
-    if (formData.standardDeliveryCharge) {
-      productData.standardDeliveryCharge = parseFloat(formData.standardDeliveryCharge.toString()) || 0;
+      // Delivery Options
+      if (formData.sameDayDeliveryEnabled !== undefined) productData.sameDayDeliveryEnabled = formData.sameDayDeliveryEnabled;
+      if (formData.nextDayDeliveryEnabled !== undefined) productData.nextDayDeliveryEnabled = formData.nextDayDeliveryEnabled;
+      if (formData.standardDeliveryEnabled !== undefined) productData.standardDeliveryEnabled = formData.standardDeliveryEnabled;
+      if (formData.sameDayDeliveryCutoffTime?.trim()) productData.sameDayDeliveryCutoffTime = formData.sameDayDeliveryCutoffTime.trim();
+      if (formData.nextDayDeliveryCutoffTime?.trim()) productData.nextDayDeliveryCutoffTime = formData.nextDayDeliveryCutoffTime.trim();
+      if (formData.standardDeliveryDays) productData.standardDeliveryDays = parseInt(formData.standardDeliveryDays) || 5;
+      if (formData.sameDayDeliveryCharge) productData.sameDayDeliveryCharge = parseFloat(formData.sameDayDeliveryCharge.toString()) || 0;
+      if (formData.nextDayDeliveryCharge) productData.nextDayDeliveryCharge = parseFloat(formData.nextDayDeliveryCharge.toString()) || 0;
+      if (formData.standardDeliveryCharge) productData.standardDeliveryCharge = parseFloat(formData.standardDeliveryCharge.toString()) || 0;
     }
 
     // Pack Product
@@ -1152,20 +1223,15 @@ if (formData.vatExempt === true) {
 
     console.log('📦 ==================== FINAL PAYLOAD ====================');
     console.log(JSON.stringify(productData, null, 2));
-    console.log('🏷️ brandId (primary):', productData.brandId);
-    console.log('🏷️ brandIds (array):', productData.brandIds);
-    console.log('🏷️ brands (objects):', productData.brands);
-    console.log('🎁 Bundle Discount:', {
-      type: productData.groupBundleDiscountType,
-      percentage: productData.groupBundleDiscountPercentage,
-      amount: productData.groupBundleDiscountAmount,
-      specialPrice: productData.groupBundleSpecialPrice
-    });
-    console.log('📦 ==================== END PAYLOAD ====================');
 
     // ═══════════════════════════════════════════════════════════════════════
-    // SECTION 12: CREATE PRODUCT
+    // SECTION 9: CREATE PRODUCT
     // ═══════════════════════════════════════════════════════════════════════
+
+    setSubmitProgress({
+      step: isDraft ? 'Saving draft...' : 'Creating product...',
+      percentage: 70,
+    });
 
     console.log('🚀 Creating product using service...');
     const response = await productsService.create(productData);
@@ -1173,13 +1239,11 @@ if (formData.vatExempt === true) {
     console.log('✅ Product created successfully');
     console.log('📥 Response:', response);
 
-    toast.dismiss(loadingId);
-
     // ═══════════════════════════════════════════════════════════════════════
-    // SECTION 13: EXTRACT PRODUCT ID
+    // SECTION 10: EXTRACT PRODUCT ID
     // ═══════════════════════════════════════════════════════════════════════
 
-    const productId: string | null = 
+    const productId: string | null =
       (response.data as any)?.data?.id ||
       (response.data as any)?.id ||
       (response as any)?.id ||
@@ -1190,55 +1254,63 @@ if (formData.vatExempt === true) {
     if (!productId) {
       console.error('❌ Failed to extract product ID from response');
       toast.error('❌ Product created but ID not found. Cannot upload images.');
-      router.push('/admin/products');
+      setIsSubmitting(false);
+      setSubmitProgress(null);
+
+      setTimeout(() => {
+        router.push('/admin/products');
+      }, 2000);
       return;
     }
 
     console.log('✅ Product ID confirmed:', productId);
 
     // ═══════════════════════════════════════════════════════════════════════
-    // SECTION 14: UPLOAD PRODUCT IMAGES
+    // SECTION 11: UPLOAD PRODUCT IMAGES
     // ═══════════════════════════════════════════════════════════════════════
 
+    const imagesToUpload = formData.productImages.filter(img => img.file);
 
-// if (!formData.productImages || formData.productImages.length < 5) {
-//   toast.error("❌ Please upload at least 5 product images before saving");
-//   return;
-// }
+    if (imagesToUpload.length > 0) {
+      setSubmitProgress({
+        step: `Uploading ${imagesToUpload.length} product images...`,
+        percentage: 80,
+      });
 
-const imagesToUpload = formData.productImages.filter(img => img.file);
+      console.log(`📤 Uploading ${imagesToUpload.length} product images...`);
 
-if (imagesToUpload.length > 0) {
-  console.log(`📤 Uploading ${imagesToUpload.length} product images...`);
+      try {
+        const uploadedImages = await uploadImagesToProduct(productId, imagesToUpload);
 
-  try {
-    const uploadedImages = await uploadImagesToProduct(productId, imagesToUpload);
-
-    if (uploadedImages && uploadedImages.length > 0) {
-      console.log('✅ Product images uploaded:', uploadedImages.length);
+        if (uploadedImages && uploadedImages.length > 0) {
+          console.log('✅ Product images uploaded:', uploadedImages.length);
+        }
+      } catch (imageError) {
+        console.error('❌ Error uploading product images:', imageError);
+        toast.warning('⚠️ Product created but some images failed to upload.');
+      }
     }
-  } catch (imageError) {
-    console.error('❌ Error uploading product images:', imageError);
-    toast.warning('⚠️ Product created but some images failed to upload.');
-  }
-}
-
 
     // ═══════════════════════════════════════════════════════════════════════
-    // SECTION 15: UPLOAD VARIANT IMAGES
+    // SECTION 12: UPLOAD VARIANT IMAGES
     // ═══════════════════════════════════════════════════════════════════════
 
     if (productVariants.length > 0) {
       const variantsWithImages = productVariants.filter(v => v.imageFile);
-      
+
       if (variantsWithImages.length > 0) {
+        setSubmitProgress({
+          step: `Uploading ${variantsWithImages.length} variant images...`,
+          percentage: 90,
+        });
+
         console.log(`🖼️ Uploading ${variantsWithImages.length} variant images...`);
-        
+
         try {
-          const createdVariants = (response.data as any)?.data?.variants || 
-                                 (response.data as any)?.variants ||
-                                 [];
-          
+          const createdVariants = (response.data as any)?.data?.variants ||
+            (response.data as any)?.variants ||
+            [];
+
           if (createdVariants.length > 0) {
             await uploadVariantImages({ variants: createdVariants });
           } else {
@@ -1254,34 +1326,43 @@ if (imagesToUpload.length > 0) {
     console.log('✅ ==================== PRODUCT SUBMISSION SUCCESS ====================');
 
     // ═══════════════════════════════════════════════════════════════════════
-    // SECTION 16: SUCCESS & NAVIGATION
+    // ✅ SECTION 13: SUCCESS & REDIRECT
     // ═══════════════════════════════════════════════════════════════════════
 
+    setSubmitProgress({
+      step: isDraft ? 'Draft saved successfully!' : 'Product created successfully!',
+      percentage: 100,
+    });
+
     toast.success(
-      isDraft 
-        ? '💾 Product saved as draft!' 
+      isDraft
+        ? '💾 Product saved as draft!'
         : '✅ Product created successfully!',
       { autoClose: 3000 }
     );
 
+    // ✅ REDIRECT AFTER 1.5 SECONDS
     setTimeout(() => {
+      console.log('Redirecting to /admin/products...');
       router.push('/admin/products');
-    }, 1000);
+    }, 1500);
 
   } catch (error: any) {
     console.error('❌ ==================== ERROR SUBMITTING FORM ====================');
     console.error('Error object:', error);
-    
+
+    setSubmitProgress(null);
+
     if (error.response) {
       const errorData = error.response.data;
       const status = error.response.status;
-      
+
       console.error('📋 Error details:', {
         status,
         statusText: error.response.statusText,
         data: errorData
       });
-      
+
       if (status === 400 && errorData?.errors) {
         let errorMessage = '⚠️ Validation Errors:\n';
         for (const [field, messages] of Object.entries(errorData.errors)) {
@@ -1320,6 +1401,8 @@ if (imagesToUpload.length > 0) {
     console.error('❌ ==================== END ERROR LOG ====================');
   } finally {
     target.removeAttribute('data-submitting');
+    setIsSubmitting(false);
+    setSubmitProgress(null);
   }
 };
 
@@ -1347,46 +1430,38 @@ const generateSeoName = (text: string) => {
     .replace(/^-+|-+$/g, "");
 };
 
-// ⭐ FINAL handleChange for ADD PAGE (WITH BRANDS SUPPORT)
-// ═══════════════════════════════════════════════════════════════════════════
-// 🎯 HANDLECHANGE - COMPLETE PRODUCTION-READY CODE
-// ═══════════════════════════════════════════════════════════════════════════
-
-// ✅ STEP 3: COMPLETE HANDLECHANGE FUNCTION
-const handleChange = (
-  e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
-) => {
+// ================================
+// ✅ COMPLETE handleChange - WITH GROUPED + SUBSCRIPTION VALIDATION
+// ================================
+const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
   const { name, value, type } = e.target;
   const checked = type === 'checkbox' ? (e.target as HTMLInputElement).checked : false;
 
-  console.log(`📝 Field changed: ${name} = ${type === 'checkbox' ? checked : value}`);
+  console.log(`Field changed: ${name}`, type === 'checkbox' ? checked : value);
 
-  // ═══════════════════════════════════════════════════════════════════════
-  // 1. SEO SLUG - Manual override stops auto-generation
-  // ═══════════════════════════════════════════════════════════════════════
-
-  if (name === "searchEngineFriendlyPageName") {
-    setFormData((prev) => ({
+  // ================================
+  // 1. SEO SLUG
+  // ================================
+  if (name === 'searchEngineFriendlyPageName') {
+    setFormData(prev => ({
       ...prev,
       searchEngineFriendlyPageName: value,
     }));
     return;
   }
 
-  // ═══════════════════════════════════════════════════════════════════════
-  // 2. PRODUCT NAME - Auto-generate slug with debounce
-  // ═══════════════════════════════════════════════════════════════════════
-
-  if (name === "name") {
-    setFormData((prev) => ({
+  // ================================
+  // 2. PRODUCT NAME
+  // ================================
+  if (name === 'name') {
+    setFormData(prev => ({
       ...prev,
       name: value,
     }));
 
-    // Auto-generate slug after 1 second of typing
     clearTimeout(slugTimer);
     slugTimer = setTimeout(() => {
-      setFormData((prev) => ({
+      setFormData(prev => ({
         ...prev,
         searchEngineFriendlyPageName: generateSeoName(value),
       }));
@@ -1394,23 +1469,23 @@ const handleChange = (
     return;
   }
 
-  // ═══════════════════════════════════════════════════════════════════════
-  // 3. PRODUCT TYPE - Handle grouped/simple switching
-  // ═══════════════════════════════════════════════════════════════════════
-
-  if (name === "productType") {
+  // ================================
+  // ✅ 3. PRODUCT TYPE - CLEAR SUBSCRIPTION FOR GROUPED
+  // ================================
+  if (name === 'productType') {
     if (value === 'grouped') {
       setIsGroupedModalOpen(true);
     }
-    
-    setFormData((prev) => ({
+
+    setFormData(prev => ({
       ...prev,
       productType: value,
+
+      // Clear grouped fields when switching to simple
       ...(value === 'simple' && {
         requireOtherProducts: false,
         requiredProductIds: '',
         automaticallyAddProducts: false,
-        // Reset bundle discount fields
         groupBundleDiscountType: 'None',
         groupBundleDiscountPercentage: 0,
         groupBundleDiscountAmount: 0,
@@ -1419,29 +1494,47 @@ const handleChange = (
         showIndividualPrices: true,
         applyDiscountToAllItems: false,
       }),
+
+      // ✅ NEW: CLEAR SUBSCRIPTION when switching to grouped
       ...(value === 'grouped' && {
-        requireOtherProducts: true
-      })
+        requireOtherProducts: true,
+        
+        // ❌ Clear all subscription/recurring fields
+        isRecurring: false,
+        recurringCycleLength: '',
+        recurringCyclePeriod: 'days',
+        recurringTotalCycles: '',
+        subscriptionDiscountPercentage: '',
+        allowedSubscriptionFrequencies: '',
+        subscriptionDescription: '',
+      }),
     }));
-    
+
     if (value === 'simple') {
       setSelectedGroupedProducts([]);
     }
+
+    // ✅ Show warning when switching to grouped with existing subscription
+    if (value === 'grouped' && formData.isRecurring) {
+      toast.warning('⚠️ Subscription settings cleared for grouped product', {
+        autoClose: 4000,
+      });
+    }
+
     return;
   }
 
-  // ═══════════════════════════════════════════════════════════════════════
-  // 4. REQUIRE OTHER PRODUCTS - Handle grouped product checkbox
-  // ═══════════════════════════════════════════════════════════════════════
-
-  if (name === "requireOtherProducts") {
-    setFormData((prev) => ({
+  // ================================
+  // 4. REQUIRE OTHER PRODUCTS
+  // ================================
+  if (name === 'requireOtherProducts') {
+    setFormData(prev => ({
       ...prev,
       requireOtherProducts: checked,
       ...(!checked && {
         requiredProductIds: '',
-        automaticallyAddProducts: false
-      })
+        automaticallyAddProducts: false,
+      }),
     }));
 
     if (!checked) {
@@ -1450,12 +1543,11 @@ const handleChange = (
     return;
   }
 
-  // ═══════════════════════════════════════════════════════════════════════
-  // 5. SHIPPING ENABLED - Master switch
-  // ═══════════════════════════════════════════════════════════════════════
-
-  if (name === "isShipEnabled") {
-    setFormData((prev) => ({
+  // ================================
+  // 5. SHIPPING ENABLED
+  // ================================
+  if (name === 'isShipEnabled') {
+    setFormData(prev => ({
       ...prev,
       isShipEnabled: checked,
       shipSeparately: checked ? prev.shipSeparately : false,
@@ -1464,7 +1556,6 @@ const handleChange = (
       width: checked ? prev.width : '',
       height: checked ? prev.height : '',
       deliveryDateId: checked ? prev.deliveryDateId : '',
-      // Reset delivery options if shipping disabled
       sameDayDeliveryEnabled: checked ? prev.sameDayDeliveryEnabled : false,
       nextDayDeliveryEnabled: checked ? prev.nextDayDeliveryEnabled : false,
       standardDeliveryEnabled: checked ? prev.standardDeliveryEnabled : true,
@@ -1478,12 +1569,20 @@ const handleChange = (
     return;
   }
 
-  // ═══════════════════════════════════════════════════════════════════════
-  // 6. RECURRING PRODUCT - Reset fields when disabled
-  // ═══════════════════════════════════════════════════════════════════════
+  // ================================
+  // ✅ 6. IS RECURRING - BLOCK FOR GROUPED PRODUCTS
+  // ================================
+  if (name === 'isRecurring') {
+    // ❌ BLOCK: Cannot enable subscription for grouped products
+    if (checked && formData.productType === 'grouped') {
+      toast.error('❌ Subscription is not available for grouped products', {
+        autoClose: 5000,
+        position: 'top-center',
+      });
+      return; // Prevent enabling
+    }
 
-  if (name === "isRecurring") {
-    setFormData((prev) => ({
+    setFormData(prev => ({
       ...prev,
       isRecurring: checked,
       ...(!checked && {
@@ -1493,17 +1592,16 @@ const handleChange = (
         subscriptionDiscountPercentage: '',
         allowedSubscriptionFrequencies: '',
         subscriptionDescription: '',
-      })
+      }),
     }));
     return;
   }
 
-  // ═══════════════════════════════════════════════════════════════════════
-  // 7. PACK PRODUCT - Reset pack size when disabled
-  // ═══════════════════════════════════════════════════════════════════════
-
-  if (name === "isPack") {
-    setFormData((prev) => ({
+  // ================================
+  // 7. IS PACK
+  // ================================
+  if (name === 'isPack') {
+    setFormData(prev => ({
       ...prev,
       isPack: checked,
       packSize: checked ? prev.packSize : '',
@@ -1511,12 +1609,11 @@ const handleChange = (
     return;
   }
 
-  // ═══════════════════════════════════════════════════════════════════════
-  // 8. MARK AS NEW - Reset dates when disabled
-  // ═══════════════════════════════════════════════════════════════════════
-
-  if (name === "markAsNew") {
-    setFormData((prev) => ({
+  // ================================
+  // 8. MARK AS NEW
+  // ================================
+  if (name === 'markAsNew') {
+    setFormData(prev => ({
       ...prev,
       markAsNew: checked,
       markAsNewStartDate: checked ? prev.markAsNewStartDate : '',
@@ -1525,12 +1622,11 @@ const handleChange = (
     return;
   }
 
-  // ═══════════════════════════════════════════════════════════════════════
-  // 9. BASE PRICE ENABLED - Reset base price fields
-  // ═══════════════════════════════════════════════════════════════════════
-
-  if (name === "basepriceEnabled") {
-    setFormData((prev) => ({
+  // ================================
+  // 9. BASE PRICE ENABLED
+  // ================================
+  if (name === 'basepriceEnabled') {
+    setFormData(prev => ({
       ...prev,
       basepriceEnabled: checked,
       ...(!checked && {
@@ -1538,47 +1634,40 @@ const handleChange = (
         basepriceUnit: '',
         basepriceBaseAmount: '',
         basepriceBaseUnit: '',
-      })
+      }),
     }));
     return;
   }
 
-  // ═══════════════════════════════════════════════════════════════════════
-  // 10. NOTIFY ADMIN - Conditional threshold input
-  // ═══════════════════════════════════════════════════════════════════════
+  // ================================
+  // 10. NOTIFY ADMIN
+  // ================================
+  if (name === 'notifyAdminForQuantityBelow') {
+    setFormData(prev => ({
+      ...prev,
+      notifyAdminForQuantityBelow: checked,
+      notifyQuantityBelow: checked ? (prev.notifyQuantityBelow || '10') : prev.notifyQuantityBelow,
+    }));
+    return;
+  }
 
-// WITH THIS:
-if (name === "notifyAdminForQuantityBelow") {
-  setFormData(prev => ({
-    ...prev,
-    notifyAdminForQuantityBelow: checked,
-    // Keep existing value OR set to "10" as sensible default
-    notifyQuantityBelow: checked 
-      ? (prev.notifyQuantityBelow || "10")  // Better default than 1
-      : prev.notifyQuantityBelow  // DON'T CLEAR, keep value
-  }));
-  return;
-}
-
-  // ═══════════════════════════════════════════════════════════════════════
-  // 11. ALLOW BACKORDER - Conditional backorder mode
-  // ═══════════════════════════════════════════════════════════════════════
-
-  if (name === "allowBackorder") {
-    setFormData((prev) => ({
+  // ================================
+  // 11. ALLOW BACKORDER
+  // ================================
+  if (name === 'allowBackorder') {
+    setFormData(prev => ({
       ...prev,
       allowBackorder: checked,
-      backorderMode: checked ? "allow-qty-below-zero" : "no-backorders",
+      backorderMode: checked ? 'allow-qty-below-zero' : 'no-backorders',
     }));
     return;
   }
 
-  // ═══════════════════════════════════════════════════════════════════════
-  // 12. AVAILABLE FOR PRE-ORDER - Reset pre-order date
-  // ═══════════════════════════════════════════════════════════════════════
-
-  if (name === "availableForPreOrder") {
-    setFormData((prev) => ({
+  // ================================
+  // 12. AVAILABLE FOR PRE-ORDER
+  // ================================
+  if (name === 'availableForPreOrder') {
+    setFormData(prev => ({
       ...prev,
       availableForPreOrder: checked,
       preOrderAvailabilityStartDate: checked ? prev.preOrderAvailabilityStartDate : '',
@@ -1586,28 +1675,23 @@ if (name === "notifyAdminForQuantityBelow") {
     return;
   }
 
-  // ═══════════════════════════════════════════════════════════════════════
-  // 13. GIFT CARD - Reset gift card fields
-  // ═══════════════════════════════════════════════════════════════════════
-
-  if (name === "isGiftCard") {
-    setFormData((prev) => ({
+  // ================================
+  // 13-15. GIFT CARD, DOWNLOAD, RENTAL
+  // ================================
+  if (name === 'isGiftCard') {
+    setFormData(prev => ({
       ...prev,
       isGiftCard: checked,
       ...(!checked && {
         giftCardType: 'virtual',
         overriddenGiftCardAmount: '',
-      })
+      }),
     }));
     return;
   }
 
-  // ═══════════════════════════════════════════════════════════════════════
-  // 14. DOWNLOADABLE PRODUCT - Reset download fields
-  // ═══════════════════════════════════════════════════════════════════════
-
-  if (name === "isDownload") {
-    setFormData((prev) => ({
+  if (name === 'isDownload') {
+    setFormData(prev => ({
       ...prev,
       isDownload: checked,
       ...(!checked && {
@@ -1620,33 +1704,28 @@ if (name === "notifyAdminForQuantityBelow") {
         userAgreementText: '',
         hasSampleDownload: false,
         sampleDownloadId: '',
-      })
+      }),
     }));
     return;
   }
 
-  // ═══════════════════════════════════════════════════════════════════════
-  // 15. RENTAL PRODUCT - Reset rental fields
-  // ═══════════════════════════════════════════════════════════════════════
-
-  if (name === "isRental") {
-    setFormData((prev) => ({
+  if (name === 'isRental') {
+    setFormData(prev => ({
       ...prev,
       isRental: checked,
       ...(!checked && {
         rentalPriceLength: '',
         rentalPricePeriod: 'days',
-      })
+      }),
     }));
     return;
   }
 
-  // ═══════════════════════════════════════════════════════════════════════
-  // 16. HAS USER AGREEMENT - Reset agreement text
-  // ═══════════════════════════════════════════════════════════════════════
-
-  if (name === "hasUserAgreement") {
-    setFormData((prev) => ({
+  // ================================
+  // 16-18. OTHER CHECKBOXES
+  // ================================
+  if (name === 'hasUserAgreement') {
+    setFormData(prev => ({
       ...prev,
       hasUserAgreement: checked,
       userAgreementText: checked ? prev.userAgreementText : '',
@@ -1654,12 +1733,8 @@ if (name === "notifyAdminForQuantityBelow") {
     return;
   }
 
-  // ═══════════════════════════════════════════════════════════════════════
-  // 17. HAS SAMPLE DOWNLOAD - Reset sample download ID
-  // ═══════════════════════════════════════════════════════════════════════
-
-  if (name === "hasSampleDownload") {
-    setFormData((prev) => ({
+  if (name === 'hasSampleDownload') {
+    setFormData(prev => ({
       ...prev,
       hasSampleDownload: checked,
       sampleDownloadId: checked ? prev.sampleDownloadId : '',
@@ -1667,12 +1742,8 @@ if (name === "notifyAdminForQuantityBelow") {
     return;
   }
 
-  // ═══════════════════════════════════════════════════════════════════════
-  // 18. UNLIMITED DOWNLOADS - Reset max downloads
-  // ═══════════════════════════════════════════════════════════════════════
-
-  if (name === "unlimitedDownloads") {
-    setFormData((prev) => ({
+  if (name === 'unlimitedDownloads') {
+    setFormData(prev => ({
       ...prev,
       unlimitedDownloads: checked,
       maxNumberOfDownloads: checked ? '' : prev.maxNumberOfDownloads,
@@ -1680,26 +1751,23 @@ if (name === "notifyAdminForQuantityBelow") {
     return;
   }
 
-  // ═══════════════════════════════════════════════════════════════════════
-  // 19. VAT EXEMPT - Reset VAT rate when exempt
-  // ═══════════════════════════════════════════════════════════════════════
+  // ================================
+  // 19. VAT EXEMPT
+  // ================================
+  if (name === 'vatExempt') {
+    setFormData(prev => ({
+      ...prev,
+      vatExempt: checked,
+      vatRateId: checked ? '' : prev.vatRateId,
+    }));
+    return;
+  }
 
-// WITH THIS:
-if (name === "vatExempt") {
-  setFormData(prev => ({
-    ...prev,
-    vatExempt: checked,
-    vatRateId: checked ? "" : prev.vatRateId  // Keep existing value when unchecking
-  }));
-  return;
-}
-
-  // ═══════════════════════════════════════════════════════════════════════
-  // 20. MANAGE INVENTORY - Reset fields when switching modes
-  // ═══════════════════════════════════════════════════════════════════════
-
-  if (name === "manageInventory") {
-    setFormData((prev) => ({
+  // ================================
+  // 20. MANAGE INVENTORY
+  // ================================
+  if (name === 'manageInventory') {
+    setFormData(prev => ({
       ...prev,
       manageInventory: value,
       ...(value === 'dont-track' && {
@@ -1711,20 +1779,18 @@ if (name === "vatExempt") {
         backorderMode: 'no-backorders',
         displayStockAvailability: false,
         displayStockQuantity: false,
-      })
+      }),
     }));
     return;
   }
 
-  // ═══════════════════════════════════════════════════════════════════════
-  // 21. BUNDLE DISCOUNT TYPE - Reset discount fields when changing type
-  // ═══════════════════════════════════════════════════════════════════════
-
-  if (name === "groupBundleDiscountType") {
-    setFormData((prev) => ({
+  // ================================
+  // 21. BUNDLE DISCOUNT TYPE
+  // ================================
+  if (name === 'groupBundleDiscountType') {
+    setFormData(prev => ({
       ...prev,
       groupBundleDiscountType: value as any,
-      // Reset all discount values
       groupBundleDiscountPercentage: value === 'Percentage' ? prev.groupBundleDiscountPercentage : 0,
       groupBundleDiscountAmount: value === 'FixedAmount' ? prev.groupBundleDiscountAmount : 0,
       groupBundleSpecialPrice: value === 'SpecialPrice' ? prev.groupBundleSpecialPrice : 0,
@@ -1734,23 +1800,21 @@ if (name === "vatExempt") {
     return;
   }
 
-  // ═══════════════════════════════════════════════════════════════════════
-  // 22. DEFAULT HANDLER - All other fields
-  // ═══════════════════════════════════════════════════════════════════════
-
+  // ================================
+  // 22. DEFAULT HANDLER
+  // ================================
   if (type === 'checkbox') {
-    setFormData((prev) => ({
+    setFormData(prev => ({
       ...prev,
       [name]: checked,
     }));
   } else {
-    setFormData((prev) => ({
+    setFormData(prev => ({
       ...prev,
       [name]: value,
     }));
   }
 };
-
 
 
   const addRelatedProduct = (productId: string) => {
@@ -2184,48 +2248,185 @@ const uploadVariantImages = async (productResponse: any) => {
   return (
     <div className="space-y-2 ">
       {/* Header */}
-      <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-2xl p-2">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="flex items-center gap-4">
-            <Link href="/admin/products">
-              <button className="p-2.5 text-slate-400 hover:text-white hover:bg-slate-800 rounded-xl transition-all">
-                <ArrowLeft className="h-5 w-5" />
-              </button>
-            </Link>
-            <div>
-              <h1 className="text-3xl font-bold tracking-tight bg-gradient-to-r from-violet-400 via-cyan-400 to-pink-400 bg-clip-text text-transparent">
-                Add a New Product
-              </h1>
-              <p className="text-sm text-slate-400 mt-1">Create and configure your product details</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-3">
-            <button
-              type="button"
-              onClick={(e) => handleSubmit(e, true)}
-              className="px-4 py-2 rounded-xl bg-orange-500/10 border border-orange-500/30 text-orange-400 hover:bg-orange-500/20 transition-all text-sm font-medium flex items-center gap-2"
-            >
-              <div className="w-2 h-2 bg-orange-400 rounded-full animate-pulse"></div>
-              Save as Draft
-            </button>
-            <button
-              type="button"
-              onClick={() => router.push('/admin/products')}
-              className="px-5 py-2.5 bg-slate-800/50 border border-slate-700 rounded-xl text-slate-300 hover:bg-slate-800 hover:border-slate-600 transition-all text-sm font-medium"
-            >
-              Cancel
-            </button>
-            <button
-              type="button"
-              onClick={(e) => handleSubmit(e, false)}
-              className="px-5 py-2.5 bg-gradient-to-r from-violet-500 to-cyan-500 text-white rounded-xl hover:shadow-lg hover:shadow-violet-500/50 transition-all text-sm flex items-center gap-2 font-semibold"
-            >
-              <Save className="h-4 w-4" />
-              Save & Continue
-            </button>
+  {/* ================================ */}
+{/* ✅ HEADER WITH LOADING STATES */}
+{/* ================================ */}
+<div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-2xl p-2">
+  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+    {/* Left Side - Title */}
+    <div className="flex items-center gap-4">
+      <Link href="/admin/products">
+        <button 
+          className="p-2.5 text-slate-400 hover:text-white hover:bg-slate-800 rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+          disabled={isSubmitting}
+        >
+          <ArrowLeft className="h-5 w-5" />
+        </button>
+      </Link>
+      <div>
+        <h1 className="text-3xl font-bold tracking-tight bg-gradient-to-r from-violet-400 via-cyan-400 to-pink-400 bg-clip-text text-transparent">
+          Add a New Product
+        </h1>
+        <p className="text-sm text-slate-400 mt-1">
+          {isSubmitting 
+            ? submitProgress?.step || 'Processing...' 
+            : 'Create and configure your product details'
+          }
+        </p>
+      </div>
+    </div>
+
+    {/* Right Side - Action Buttons */}
+    <div className="flex items-center gap-3">
+      {/* ✅ Save as Draft Button */}
+      <button
+        type="button"
+        onClick={(e) => handleSubmit(e, true)}
+        disabled={isSubmitting}
+        className="px-4 py-2 rounded-xl bg-orange-500/10 border border-orange-500/30 text-orange-400 hover:bg-orange-500/20 transition-all text-sm font-medium flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed relative overflow-hidden"
+      >
+        {/* Loading Spinner - Only show when submitting as draft */}
+        {isSubmitting && submitProgress?.step?.includes('draft') ? (
+          <>
+            <div className="w-2 h-2 border border-orange-400 border-t-transparent rounded-full animate-spin"></div>
+            <span>Saving Draft...</span>
+          </>
+        ) : (
+          <>
+            <div className="w-2 h-2 bg-orange-400 rounded-full animate-pulse"></div>
+            <span>Save as Draft</span>
+          </>
+        )}
+      </button>
+
+      {/* ✅ Cancel Button */}
+      <button
+        type="button"
+        onClick={() => router.push('/admin/products')}
+        disabled={isSubmitting}
+        className="px-5 py-2.5 bg-slate-800/50 border border-slate-700 rounded-xl text-slate-300 hover:bg-slate-800 hover:border-slate-600 transition-all text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+      >
+        Cancel
+      </button>
+
+      {/* ✅ Save & Continue Button */}
+      <button
+        type="button"
+        onClick={(e) => handleSubmit(e, false)}
+        disabled={isSubmitting}
+        className="px-5 py-2.5 bg-gradient-to-r from-violet-500 to-cyan-500 text-white rounded-xl hover:shadow-lg hover:shadow-violet-500/50 transition-all text-sm flex items-center gap-2 font-semibold disabled:opacity-50 disabled:cursor-not-allowed relative overflow-hidden"
+      >
+        {/* Loading Spinner - Only show when submitting as publish */}
+        {isSubmitting && !submitProgress?.step?.includes('draft') ? (
+          <>
+            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+            <span>Creating...</span>
+          </>
+        ) : (
+          <>
+            <Save className="h-4 w-4" />
+            <span>Save & Continue</span>
+          </>
+        )}
+
+        {/* Progress Bar Overlay */}
+        {isSubmitting && submitProgress && !submitProgress.step?.includes('draft') && (
+          <div className="absolute bottom-0 left-0 h-1 bg-white/30 transition-all duration-500"
+            style={{ width: `${submitProgress.percentage}%` }}
+          ></div>
+        )}
+      </button>
+    </div>
+  </div>
+
+  {/* ✅ Progress Bar - Shows below header during submission */}
+  {isSubmitting && submitProgress && (
+    <div className="mt-3 pt-3 border-t border-slate-800">
+      <div className="flex items-center justify-between mb-2">
+        <span className="text-xs font-medium text-slate-400">
+          {submitProgress.step}
+        </span>
+        <span className="text-xs font-mono text-violet-400">
+          {submitProgress.percentage}%
+        </span>
+      </div>
+      <div className="w-full bg-slate-800 rounded-full h-1.5 overflow-hidden">
+        <div
+          className="bg-gradient-to-r from-violet-500 via-cyan-500 to-pink-500 h-full transition-all duration-500 ease-out"
+          style={{ width: `${submitProgress.percentage}%` }}
+        ></div>
+      </div>
+    </div>
+  )}
+</div>
+
+{/* ================================ */}
+{/* ✅ FULL SCREEN LOADING OVERLAY */}
+{/* ================================ */}
+{isSubmitting && (
+  <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center">
+    <div className="bg-slate-800 border border-slate-700 rounded-2xl p-8 max-w-md w-full mx-4 shadow-2xl">
+      {/* Header */}
+      <div className="flex items-center justify-center mb-6">
+        <div className="relative">
+          {/* Spinning Circle */}
+          <div className="w-16 h-16 border-4 border-slate-600 border-t-violet-500 rounded-full animate-spin"></div>
+          {/* Center Icon */}
+          <div className="absolute inset-0 flex items-center justify-center">
+            <Package className="w-6 h-6 text-violet-400" />
           </div>
         </div>
       </div>
+
+      {/* Title - Dynamic based on draft or publish */}
+      <h3 className="text-xl font-bold text-white text-center mb-2">
+        {submitProgress?.step?.includes('draft') || submitProgress?.step?.includes('Draft')
+          ? 'Saving as Draft'
+          : 'Creating Product'
+        }
+      </h3>
+
+      {/* Progress Info */}
+      {submitProgress && (
+        <div className="space-y-4">
+          {/* Progress Text */}
+          <p className="text-sm text-slate-300 text-center">
+            {submitProgress.step}
+          </p>
+
+          {/* Progress Bar */}
+          <div className="w-full bg-slate-700 rounded-full h-2 overflow-hidden">
+            <div
+              className="bg-gradient-to-r from-violet-500 to-purple-500 h-full transition-all duration-500 ease-out"
+              style={{ width: `${submitProgress.percentage}%` }}
+            ></div>
+          </div>
+
+          {/* Percentage */}
+          <p className="text-xs text-slate-400 text-center font-mono">
+            {submitProgress.percentage}%
+          </p>
+        </div>
+      )}
+
+      {/* Warning */}
+      <div className="mt-6 flex items-start gap-2 text-xs text-amber-400 bg-amber-900/20 px-3 py-2 rounded border border-amber-800/50">
+        <svg className="w-4 h-4 shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+          <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.742-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+        </svg>
+        <span>Please don't close this page or refresh the browser</span>
+      </div>
+
+      {/* Additional Info for Draft */}
+      {(submitProgress?.step?.includes('draft') || submitProgress?.step?.includes('Draft')) && (
+        <div className="mt-4 flex items-center gap-2 text-xs text-orange-400 bg-orange-900/20 px-3 py-2 rounded border border-orange-800/50">
+          <div className="w-2 h-2 bg-orange-400 rounded-full animate-pulse"></div>
+          <span>Draft will be saved and can be published later</span>
+        </div>
+      )}
+    </div>
+  </div>
+)}
 
       {/* Main Content */}
       <div className="w-full">
@@ -2419,11 +2620,8 @@ const uploadVariantImages = async (productResponse: any) => {
 {/* ==================== CATEGORIES ==================== */}
 <div>
   <label className="flex items-center justify-between text-sm font-medium text-slate-300 mb-2">
-    <span className="flex items-center gap-2">
-      Categories *
-      <span className="text-xs text-slate-500 font-normal">
-        (Select up to 5)
-      </span>
+    <span className="flex items-center gap-2">Categories *
+   
     </span>
     <span className="text-xs text-emerald-400 font-normal">
       {dropdownsData.categories.length} available
@@ -2440,7 +2638,7 @@ const uploadVariantImages = async (productResponse: any) => {
         categoryIds
       }));
     }}
-    maxSelection={5}
+    maxSelection={10}
     placeholder="Click to select categories..."
   />
   
@@ -3260,7 +3458,7 @@ const uploadVariantImages = async (productResponse: any) => {
 </TabsContent>
 
 
-              {/* Shipping Tab */}
+{/* Shipping Tab */}
 <TabsContent value="shipping" className="space-y-2 mt-2">
   {/* Shipping Enabled */}
   <div className="space-y-4">
@@ -3494,22 +3692,50 @@ const uploadVariantImages = async (productResponse: any) => {
     )}
   </div>
 
-  {/* ===== RECURRING PRODUCT SECTION ===== */}
+  {/* ===== ✅ UPDATED RECURRING PRODUCT SECTION WITH GROUPED VALIDATION ===== */}
   <div className="space-y-4 mt-6">
-    <h3 className="text-lg font-semibold text-white border-b border-slate-800 pb-2">Subscription / Recurring</h3>
+    <h3 className="text-lg font-semibold text-white border-b border-slate-800 pb-2">
+      Subscription / Recurring
+    </h3>
 
-    <label className="flex items-center gap-3 cursor-pointer">
+    {/* ✅ DISABLED FOR GROUPED PRODUCTS */}
+    <label className={`flex items-center gap-3 ${
+      formData.productType === 'grouped' 
+        ? 'cursor-not-allowed opacity-50' 
+        : 'cursor-pointer'
+    }`}>
       <input
         type="checkbox"
         name="isRecurring"
         checked={formData.isRecurring}
         onChange={handleChange}
-        className="rounded bg-slate-800/50 border-slate-700 text-violet-500 focus:ring-violet-500 focus:ring-offset-slate-900"
+        disabled={formData.productType === 'grouped'}
+        className="rounded bg-slate-800/50 border-slate-700 text-violet-500 focus:ring-violet-500 focus:ring-offset-slate-900 disabled:opacity-50 disabled:cursor-not-allowed"
       />
-      <span className="text-sm font-medium text-slate-300">This is a Recurring Product (Subscription)</span>
+      <span className="text-sm font-medium text-slate-300">
+        This is a Recurring Product (Subscription)
+        {formData.productType === 'grouped' && (
+          <span className="ml-2 text-xs text-red-400 font-normal">
+            (Not available for grouped products)
+          </span>
+        )}
+      </span>
     </label>
 
-    {formData.isRecurring && (
+    {/* ⚠️ WARNING BANNER FOR GROUPED PRODUCTS */}
+    {formData.productType === 'grouped' && (
+      <div className="flex items-center gap-3 text-xs text-amber-400 bg-amber-900/20 px-4 py-3 rounded border border-amber-800/50">
+        <svg className="w-4 h-4 shrink-0" fill="currentColor" viewBox="0 0 20 20">
+          <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.742-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+        </svg>
+        <span>
+          Subscription/recurring is not supported for grouped products. Individual products in the bundle can have their own subscriptions.
+        </span>
+      </div>
+    )}
+
+    {/* ✅ ONLY SHOW IF ENABLED AND NOT GROUPED */}
+    {formData.isRecurring && formData.productType !== 'grouped' && (
       <div className="p-4 bg-slate-800/40 border border-slate-700 rounded-lg space-y-4 transition-all duration-300">
         {/* Billing Cycle */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -3553,7 +3779,7 @@ const uploadVariantImages = async (productResponse: any) => {
           </div>
         </div>
 
-        {/* ✅ NEW - Subscription Discount & Options */}
+        {/* Subscription Discount & Options */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-4 border-t border-slate-700">
           <div>
             <label className="block text-xs font-medium text-slate-400 mb-1">Subscription Discount (%)</label>
@@ -3691,6 +3917,7 @@ const uploadVariantImages = async (productResponse: any) => {
     </div>
   )}
 </TabsContent>
+
 
 
               {/* Related Products Tab */}
@@ -4955,11 +5182,9 @@ const uploadVariantImages = async (productResponse: any) => {
     }));
   }}
 />
-
+<ScrollToTopButton />
     </div>
   );
 }
-function debounce(arg0: (variantId: string, sku: string, currentProductId?: string) => Promise<void>, arg1: number): any {
-  throw new Error("Function not implemented.");
-}
+
 

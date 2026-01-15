@@ -30,6 +30,9 @@ import { signalRService } from "@/lib/services/signalRService";
 import TakeoverRequestModal from "../../TakeoverRequestModal";
 import { MultiCategorySelector } from "../../MultiCategorySelector";
 import RequestTakeoverModal from "../../RequestTakeoverModal";
+import ScrollToTopButton from "../../ScrollToTopButton";
+
+
 
 
 export default function EditProductPage({ params }: { params: Promise<{ id: string }> }) {
@@ -43,6 +46,10 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
   const [pendingTakeoverRequests, setPendingTakeoverRequests] = useState<any[]>([]);
 const [homepageCount, setHomepageCount] = useState<number | null>(null);
 const MAX_HOMEPAGE = 20;
+// ================================
+// ✅ LOADING STATE (Add after other useState)
+// ================================
+const [isSubmitting, setIsSubmitting] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   // Helper function to format datetime for React inputs
@@ -89,6 +96,7 @@ const getYouTubeVideoId = (url: string): string | null => {
     /youtube\.com\/v\/([^&\n?#]+)/
   ];
 
+
   for (const pattern of patterns) {
     const match = url.match(pattern);
     if (match && match[1]) {
@@ -97,8 +105,6 @@ const getYouTubeVideoId = (url: string): string | null => {
   }
   return null;
 };
-
-
 
 
 
@@ -1892,7 +1898,34 @@ const handleModalClose = () => {
 };
 
 
+// ✂️ Utility: HTML → plain text length safe
+const getPlainText = (html: string) =>
+  html.replace(/<[^>]*>/g, '').trim();
 
+// ✂️ Utility: truncate HTML by plain text length
+const truncateHtmlByTextLength = (html: string, maxLength: number) => {
+  const div = document.createElement('div');
+  div.innerHTML = html;
+
+  let count = 0;
+  const walker = document.createTreeWalker(div, NodeFilter.SHOW_TEXT);
+
+  while (walker.nextNode()) {
+    const node = walker.currentNode as Text;
+    const remaining = maxLength - count;
+
+    if (remaining <= 0) {
+      node.textContent = '';
+    } else if (node.textContent!.length > remaining) {
+      node.textContent = node.textContent!.slice(0, remaining);
+      count = maxLength;
+    } else {
+      count += node.textContent!.length;
+    }
+  }
+
+  return div.innerHTML;
+};
 // ==================== FORM SUBMISSION HANDLER ====================
 const handleSubmit = async (
   e?: React.FormEvent,
@@ -1935,7 +1968,7 @@ const handleSubmit = async (
   }
   
   target.setAttribute('data-submitting', 'true');
-  
+    setIsSubmitting(true); // ✅ START LOADER
   try {
     // ============================================
     // SECTION 2: BASIC REQUIRED FIELDS
@@ -1976,12 +2009,15 @@ const handleSubmit = async (
       return;
     }
     
-    const nameRegex = /^[A-Za-z0-9\s\-.,()'/]+$/;
-    if (!nameRegex.test(formData.name)) {
-      toast.error('⚠️ Product name contains invalid characters (@, #, $, %, etc.)');
-      target.removeAttribute('data-submitting');
-      return;
-    }
+const PRODUCT_NAME_REGEX =
+  /^[A-Za-z0-9\u00C0-\u024F\s.,()'"’\-\/&+%]+$/;
+
+if (!PRODUCT_NAME_REGEX.test(formData.name)) {
+  toast.error("⚠️ Product name contains unsupported characters.");
+  target.removeAttribute("data-submitting");
+  return;
+}
+
     
     // SKU Format (alphanumeric, dash, underscore only)
     const skuRegex = /^[A-Za-z0-9\-_]+$/;
@@ -2030,25 +2066,34 @@ const handleSubmit = async (
     // ============================================
     // SECTION 5: DESCRIPTION LENGTH VALIDATIONS
     // ============================================
-    
-    if (formData.shortDescription) {
-      const shortDescPlainText = formData.shortDescription.replace(/<[^>]*>/g, '').trim();
-      if (shortDescPlainText.length > 350) {
-        toast.error('⚠️ Short description cannot exceed 350 characters');
-        target.removeAttribute('data-submitting');
-        return;
-      }
-    }
-    
-    if (formData.fullDescription) {
-      const fullDescPlainText = formData.fullDescription.replace(/<[^>]*>/g, '').trim();
-      if (fullDescPlainText.length > 2000) {
-        toast.error('⚠️ Full description cannot exceed 2000 characters');
-        target.removeAttribute('data-submitting');
-        return;
-      }
-    }
-    
+// SHORT DESCRIPTION (350)
+if (formData.shortDescription) {
+  const length = getPlainText(formData.shortDescription).length;
+
+  if (length > 350) {
+    formData.shortDescription = truncateHtmlByTextLength(
+      formData.shortDescription,
+      350
+    );
+
+    toast.info('ℹ️ Short description trimmed to 350 characters');
+  }
+}
+
+// FULL DESCRIPTION (2000)
+if (formData.fullDescription) {
+  const length = getPlainText(formData.fullDescription).length;
+
+  if (length > 2000) {
+    formData.fullDescription = truncateHtmlByTextLength(
+      formData.fullDescription,
+      2000
+    );
+
+    toast.info('ℹ️ Full description trimmed to 2000 characters');
+  }
+}
+
     // ============================================
     // SECTION 6: NUMBER PARSING & VALIDATION HELPER
     // ============================================
@@ -2503,7 +2548,17 @@ if (formData.showOnHomepage) {
         }
       }
     }
-    
+
+// SECTION 14A: GROUPED + SUBSCRIPTION CONFLICT VALIDATION
+if (formData.productType === 'grouped' && formData.isRecurring) {
+  toast.error('❌ Grouped products cannot have subscription/recurring enabled. Please disable subscription first.', {
+    autoClose: 8000,
+    position: 'top-center'
+  });
+  target.removeAttribute('data-submitting');
+  return;
+}
+
     // ============================================
     // SECTION 15: RECURRING/SUBSCRIPTION VALIDATIONS
     // ============================================
@@ -2964,33 +3019,47 @@ const productData: any = {
   dimensionUnit: 'cm',
 
   // Delivery Options
-  sameDayDeliveryEnabled: formData.sameDayDeliveryEnabled ?? false,
-  nextDayDeliveryEnabled: formData.nextDayDeliveryEnabled ?? false,
-  standardDeliveryEnabled: formData.standardDeliveryEnabled ?? true,
-  standardDeliveryDays: parseInt(formData.standardDeliveryDays as any) || 5,  // ✅ Convert to number
-  sameDayDeliveryCharge: parseNumber(formData.sameDayDeliveryCharge, 'sameDayDeliveryCharge') || 0,
-  nextDayDeliveryCharge: parseNumber(formData.nextDayDeliveryCharge, 'nextDayDeliveryCharge') || 0,
-  standardDeliveryCharge: parseNumber(formData.standardDeliveryCharge, 'standardDeliveryCharge') || 0,
+ // In handleSubmit, SECTION 22 - BUILD PRODUCT DATA OBJECT
+// REPLACE the Delivery Options section with this CORRECTED version:
+
+// 🔥 DELIVERY OPTIONS - FIXED CUTOFF TIME PARSING
+sameDayDeliveryEnabled: formData.sameDayDeliveryEnabled ?? false,
+nextDayDeliveryEnabled: formData.nextDayDeliveryEnabled ?? false,
+standardDeliveryEnabled: formData.standardDeliveryEnabled ?? true,
+
+// ✅ CUTOFF TIMES - Send null if empty
+sameDayDeliveryCutoffTime: formData.sameDayDeliveryCutoffTime?.trim() || null,
+nextDayDeliveryCutoffTime: formData.nextDayDeliveryCutoffTime?.trim() || null,
+
+// ✅ DELIVERY DAYS & CHARGES - Proper number parsing
+standardDeliveryDays: parseNumber(formData.standardDeliveryDays, 'standardDeliveryDays') ?? 5,
+sameDayDeliveryCharge: parseNumber(formData.sameDayDeliveryCharge, 'sameDayDeliveryCharge') ?? 0,
+nextDayDeliveryCharge: parseNumber(formData.nextDayDeliveryCharge, 'nextDayDeliveryCharge') ?? 0,
+standardDeliveryCharge: parseNumber(formData.standardDeliveryCharge, 'standardDeliveryCharge') ?? 0,
+
 
   // ✅ FIXED: Recurring/Subscription (Convert strings to numbers)
-  isRecurring: formData.isRecurring ?? false,
-  recurringCycleLength: formData.isRecurring
-    ? parseInt(formData.recurringCycleLength as any) || 0  // ✅ Convert to number
-    : null,
-  recurringCyclePeriod: formData.isRecurring ? formData.recurringCyclePeriod || 'days' : null,
-  recurringTotalCycles: formData.isRecurring && formData.recurringTotalCycles
-    ? parseInt(formData.recurringTotalCycles as any)  // ✅ Convert to number
-    : null,
-  subscriptionDiscountPercentage: parseNumber(formData.subscriptionDiscountPercentage, 'subscriptionDiscountPercentage'),
-  allowedSubscriptionFrequencies: formData.allowedSubscriptionFrequencies?.trim() || null,
-  subscriptionDescription: formData.subscriptionDescription?.trim() || null,
+// ✅ FIXED: Recurring/Subscription (ONLY for non-grouped products)
+isRecurring: formData.productType !== 'grouped' && formData.isRecurring ? true : false,
+recurringCycleLength: formData.productType !== 'grouped' && formData.isRecurring
+  ? parseInt(formData.recurringCycleLength as any) || 0
+  : null,
+recurringCyclePeriod: formData.productType !== 'grouped' && formData.isRecurring 
+  ? formData.recurringCyclePeriod || 'days' 
+  : null,
+recurringTotalCycles: formData.productType !== 'grouped' && formData.isRecurring && formData.recurringTotalCycles
+  ? parseInt(formData.recurringTotalCycles as any)
+  : null,
+subscriptionDiscountPercentage: formData.productType !== 'grouped'
+  ? parseNumber(formData.subscriptionDiscountPercentage, 'subscriptionDiscountPercentage')
+  : null,
+allowedSubscriptionFrequencies: formData.productType !== 'grouped'
+  ? formData.allowedSubscriptionFrequencies?.trim() || null
+  : null,
+subscriptionDescription: formData.productType !== 'grouped'
+  ? formData.subscriptionDescription?.trim() || null
+  : null,
 
-  // ✅ FIXED: Rental (Convert strings to numbers)
-  isRental: formData.isRental ?? false,
-  rentalPriceLength: formData.isRental
-    ? parseInt(formData.rentalPriceLength as any) || 0  // ✅ Convert to number
-    : null,
-  rentalPricePeriod: formData.isRental ? formData.rentalPricePeriod || 'days' : null,
 
   // SEO
   metaTitle: formData.metaTitle?.trim() || null,
@@ -3072,10 +3141,6 @@ const productData: any = {
     target.removeAttribute('data-submitting');
   }
 };
-
-
-
-
 
 // ✅ PRODUCTION-LEVEL handleChange with ALL edge cases
 const handleChange = (
@@ -3319,37 +3384,60 @@ const handleChange = (
     return;
   }
 
-  // ================================
-  // ✅ SECTION 11: PRODUCT TYPE (FIXED)
-  // ================================
-  if (name === "productType") {
-    if (value === 'grouped') {
-      setIsGroupedModalOpen(true);
-    }
-    
-    setFormData(prev => ({
-      ...prev,
-      productType: value,
-      ...(value === 'simple' && {
-        requireOtherProducts: false,
-        requiredProductIds: '',
-        automaticallyAddProducts: false,
-        groupBundleDiscountType: 'None',
-        groupBundleDiscountPercentage: 0,
-        groupBundleDiscountAmount: 0,
-        groupBundleSpecialPrice: 0,
-        groupBundleSavingsMessage: ''
-      }),
-      ...(value === 'grouped' && {
-        requireOtherProducts: true
-      })
-    }));
-    
-    if (value === 'simple') {
-      setSelectedGroupedProducts([]);
-    }
-    return;
+
+// ================================
+// ✅ SECTION 11: PRODUCT TYPE (WITH SUBSCRIPTION CLEARING)
+// ================================
+if (name === "productType") {
+  if (value === 'grouped') {
+    setIsGroupedModalOpen(true);
   }
+  
+  setFormData(prev => ({
+    ...prev,
+    productType: value,
+    
+    // ✅ CLEAR GROUPED FIELDS when switching to simple
+    ...(value === 'simple' && {
+      requireOtherProducts: false,
+      requiredProductIds: '',
+      automaticallyAddProducts: false,
+      groupBundleDiscountType: 'None',
+      groupBundleDiscountPercentage: 0,
+      groupBundleDiscountAmount: 0,
+      groupBundleSpecialPrice: 0,
+      groupBundleSavingsMessage: ''
+    }),
+    
+    // ✅ NEW: CLEAR SUBSCRIPTION FIELDS when switching to grouped
+    ...(value === 'grouped' && {
+      requireOtherProducts: true,
+      
+      // ❌ Clear all subscription/recurring fields
+      isRecurring: false,
+      recurringCycleLength: "",
+      recurringCyclePeriod: "days",
+      recurringTotalCycles: "",
+      subscriptionDiscountPercentage: "",
+      allowedSubscriptionFrequencies: "",
+      subscriptionDescription: ""
+    })
+  }));
+  
+  if (value === 'simple') {
+    setSelectedGroupedProducts([]);
+  }
+  
+  // ✅ Show warning when switching to grouped with existing subscription
+  if (value === 'grouped' && formData.isRecurring) {
+    toast.warning('⚠️ Subscription settings cleared for grouped product', {
+      autoClose: 4000
+    });
+  }
+  
+  return;
+}
+
 
   // ================================
   // ✅ SECTION 12: REQUIRE OTHER PRODUCTS (FIXED)
@@ -3414,24 +3502,35 @@ const handleChange = (
     return;
   }
 
-  // ================================
-  // ✅ SECTION 15: IS RECURRING
-  // ================================
-  if (name === "isRecurring") {
-    setFormData(prev => ({
-      ...prev,
-      isRecurring: checked,
-      ...(!checked && {
-        recurringCycleLength: "",
-        recurringCyclePeriod: "days",
-        recurringTotalCycles: "",
-        subscriptionDiscountPercentage: "",
-        allowedSubscriptionFrequencies: "",
-        subscriptionDescription: ""
-      })
-    }));
-    return;
+
+// ================================
+// ✅ SECTION 15: IS RECURRING (WITH GROUPED VALIDATION)
+// ================================
+if (name === "isRecurring") {
+  // ❌ BLOCK: Cannot enable subscription for grouped products
+  if (checked && formData.productType === 'grouped') {
+    toast.error('❌ Subscription is not available for grouped products', {
+      autoClose: 5000,
+      position: 'top-center'
+    });
+    return; // Prevent enabling
   }
+
+  setFormData(prev => ({
+    ...prev,
+    isRecurring: checked,
+    ...(!checked && {
+      recurringCycleLength: "",
+      recurringCyclePeriod: "days",
+      recurringTotalCycles: "",
+      subscriptionDiscountPercentage: "",
+      allowedSubscriptionFrequencies: "",
+      subscriptionDescription: ""
+    })
+  }));
+  return;
+}
+
 
   // ================================
   // ✅ SECTION 16: IS PACK
@@ -5566,7 +5665,7 @@ const uploadImagesToProductDirect = async (
 
 {/* ========== SHIPPING TAB ========== */}
 <TabsContent value="shipping" className="space-y-2 mt-2">
-  {/* Shipping Enabled */}
+  {/* ===== SHIPPING SETTINGS ===== */}
   <div className="space-y-4">
     <h3 className="text-lg font-semibold text-white border-b border-slate-800 pb-2">Shipping Settings</h3>
 
@@ -5614,7 +5713,7 @@ const uploadImagesToProductDirect = async (
           </select>
         </div>
 
-        {/* ✅ NEW DELIVERY OPTIONS SECTION */}
+        {/* ✅ DELIVERY OPTIONS SECTION */}
         <div className="space-y-4 bg-slate-900/30 border border-slate-600 rounded-xl p-4 mt-4">
           <h4 className="text-sm font-semibold text-white border-b border-slate-700 pb-2 flex items-center gap-2">
             <Truck className="w-4 h-4 text-violet-400" />
@@ -5798,22 +5897,50 @@ const uploadImagesToProductDirect = async (
     )}
   </div>
 
-  {/* ===== RECURRING PRODUCT SECTION ===== */}
+  {/* ===== SUBSCRIPTION / RECURRING SECTION (WITH GROUPED VALIDATION) ===== */}
   <div className="space-y-4 mt-6">
-    <h3 className="text-lg font-semibold text-white border-b border-slate-800 pb-2">Subscription / Recurring</h3>
+    <h3 className="text-lg font-semibold text-white border-b border-slate-800 pb-2">
+      Subscription / Recurring
+    </h3>
 
-    <label className="flex items-center gap-3 cursor-pointer">
+    {/* ✅ DISABLED FOR GROUPED PRODUCTS */}
+    <label className={`flex items-center gap-3 ${
+      formData.productType === 'grouped' 
+        ? 'cursor-not-allowed opacity-50' 
+        : 'cursor-pointer'
+    }`}>
       <input
         type="checkbox"
         name="isRecurring"
         checked={formData.isRecurring}
         onChange={handleChange}
-        className="rounded bg-slate-800/50 border-slate-700 text-violet-500 focus:ring-violet-500 focus:ring-offset-slate-900"
+        disabled={formData.productType === 'grouped'}
+        className="rounded bg-slate-800/50 border-slate-700 text-violet-500 focus:ring-violet-500 focus:ring-offset-slate-900 disabled:opacity-50 disabled:cursor-not-allowed"
       />
-      <span className="text-sm font-medium text-slate-300">This is a Recurring Product (Subscription)</span>
+      <span className="text-sm font-medium text-slate-300">
+        This is a Recurring Product (Subscription)
+        {formData.productType === 'grouped' && (
+          <span className="ml-2 text-xs text-red-400 font-normal">
+            (Not available for grouped products)
+          </span>
+        )}
+      </span>
     </label>
 
-    {formData.isRecurring && (
+    {/* ⚠️ WARNING BANNER FOR GROUPED PRODUCTS */}
+    {formData.productType === 'grouped' && (
+      <div className="flex items-center gap-3 text-xs text-amber-400 bg-amber-900/20 px-4 py-3 rounded border border-amber-800/50">
+        <svg className="w-4 h-4 shrink-0" fill="currentColor" viewBox="0 0 20 20">
+          <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.742-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+        </svg>
+        <span>
+          Subscription/recurring is not supported for grouped products. Individual products in the bundle can have their own subscriptions.
+        </span>
+      </div>
+    )}
+
+    {/* ✅ ONLY SHOW IF ENABLED AND NOT GROUPED */}
+    {formData.isRecurring && formData.productType !== 'grouped' && (
       <div className="p-4 bg-slate-800/40 border border-slate-700 rounded-lg space-y-4 transition-all duration-300">
         {/* Billing Cycle */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -5962,7 +6089,7 @@ const uploadImagesToProductDirect = async (
     )}
   </div>
 
-  {/* Dimensions */}
+  {/* ===== DIMENSIONS ===== */}
   {formData.isShipEnabled && (
     <div className="space-y-4 mt-6">
       <h3 className="text-lg font-semibold text-white border-b border-slate-800 pb-2">Dimensions</h3>
@@ -5995,6 +6122,7 @@ const uploadImagesToProductDirect = async (
     </div>
   )}
 </TabsContent>
+
 
 
 
@@ -7385,7 +7513,7 @@ const uploadImagesToProductDirect = async (
   requestStatus={takeoverRequestStatus}
   responseMessage={takeoverResponseMessage}
 />
-
+  
 {/* Takeover Request Modal */}
 <TakeoverRequestModal
   productId={productId}
@@ -7399,6 +7527,8 @@ const uploadImagesToProductDirect = async (
   }}
 />
 
+{/* ✅ FLOATING SCROLL TO TOP BUTTON */}
+<ScrollToTopButton />
 
 
     </div>
