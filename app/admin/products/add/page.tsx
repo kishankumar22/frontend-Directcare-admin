@@ -1,30 +1,17 @@
 "use client";
 import { useState, useRef, useEffect, JSX, useCallback } from "react";
 import { useRouter } from "next/navigation";
-
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-  ArrowLeft, Save, Upload, X, Info, Search, Image, Package,
-  Tag,  Globe,  Truck,
- PoundSterling, Link as LinkIcon, ShoppingCart, Video,
-  Play,
-  Plus,
-  Settings,
-  ChevronDown
-} from "lucide-react";
+import { ArrowLeft, Save, Upload, X, Info, Search, Image, Package, Tag,  Globe,  Truck, PoundSterling, Link as LinkIcon, ShoppingCart, Video, Play, Plus, Settings, ChevronDown } from "lucide-react";
 import Link from "next/link"
 import { ProductDescriptionEditor } from "@/app/admin/products/SelfHostedEditor";
 import { useToast } from "@/components/CustomToast";
-
 import {  BrandApiResponse, brandsService, categoriesService, CategoryApiResponse, CategoryData, DropdownsData, ProductAttribute, ProductImage, ProductItem, ProductsApiResponse, productsService, ProductVariant, SimpleProduct,  VATRateData } from '@/lib/services';
 import { GroupedProductModal } from '../GroupedProductModal';
 import { MultiBrandSelector } from "../MultiBrandSelector";
 import { VATRateApiResponse, vatratesService } from "@/lib/services/vatrates";
 import { MultiCategorySelector } from "../MultiCategorySelector";
 import ScrollToTopButton from "../ScrollToTopButton";
-
-
-
 
 export default function AddProductPage() {
   const router = useRouter();
@@ -2888,260 +2875,639 @@ const uploadVariantImages = async (productResponse: any) => {
   </div>
 </TabsContent>
 
-              {/* Prices Tab */}
-              <TabsContent value="prices" className="space-y-2 mt-2">
-                {/* Price Section */}
-                <div className="space-y-4">
-                  <h3 className="text-lg font-semibold text-white border-b border-slate-800 pb-2">Price</h3>
+{/* Prices Tab */}
+<TabsContent value="prices" className="space-y-2 mt-2">
+  {/* Price Section */}
+  <div className="space-y-4">
+    <h3 className="text-lg font-semibold text-white border-b border-slate-800 pb-2">Price</h3>
 
-                  <div className="grid md:grid-cols-3 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-slate-300 mb-2">
-                        Price (£) <span className="text-red-500">*</span>
-                      </label>
-                      <input
-                        type="number"
-                        name="price"
-                        value={formData.price}
-                        onChange={handleChange}
-                        placeholder="0.00"
-                        step="0.01"
-                        className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
-                        required
-                      />
-                    </div>
+    <div className="grid md:grid-cols-3 gap-4">
+      <div>
+        <label className="block text-sm font-medium text-slate-300 mb-2">
+          Price (£) <span className="text-red-500">*</span>
+        </label>
+        <input
+          type="number"
+          name="price"
+          value={formData.price}
+          onChange={handleChange}
+          placeholder="0.00"
+          step="0.01"
+          className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+          required
+        />
+      </div>
 
-                    <div>
-                      <label className="block text-sm font-medium text-slate-300 mb-2">Old Price (£)</label>
-                      <input
-                        type="number"
-                        name="oldPrice"
-                        value={formData.oldPrice}
-                        onChange={handleChange}
-                        placeholder="0.00"
-                        step="0.01"
-                        className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
-                      />
-                      <p className="text-xs text-slate-400 mt-1">Shows as strikethrough</p>
-                    </div>
+      <div>
+        <label className="block text-sm font-medium text-slate-300 mb-2">Old Price (£)</label>
+        <input
+          type="number"
+          name="oldPrice"
+          value={formData.oldPrice}
+          onChange={handleChange}
+          placeholder="0.00"
+          step="0.01"
+          className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+        />
+        <p className="text-xs text-slate-400 mt-1">Shows as strikethrough</p>
+      </div>
 
-                    <div>
-                      <label className="block text-sm font-medium text-slate-300 mb-2">Product Cost (£)</label>
-                      <input
-                        type="number"
-                        name="cost"
-                        value={formData.cost}
-                        onChange={handleChange}
-                        placeholder="0.00"
-                        step="0.01"
-                        className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
-                      />
-                      <p className="text-xs text-slate-400 mt-1">For profit calculation</p>
-                    </div>
+      <div>
+        <label className="block text-sm font-medium text-slate-300 mb-2">Product Cost (£)</label>
+        <input
+          type="number"
+          name="cost"
+          value={formData.cost}
+          onChange={handleChange}
+          placeholder="0.00"
+          step="0.01"
+          className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+        />
+        <p className="text-xs text-slate-400 mt-1">For profit calculation</p>
+      </div>
+    </div>
+
+    {/* ⭐⭐⭐ PROFESSIONAL PRICING BREAKDOWN ⭐⭐⭐ */}
+    {(() => {
+      const parsePrice = (value: any): number => {
+        if (!value) return 0;
+        const parsed = parseFloat(String(value));
+        return isNaN(parsed) ? 0 : parsed;
+      };
+
+      const mainPrice = parsePrice(formData.price);
+      const oldPrice = parsePrice(formData.oldPrice);
+      const costPrice = parsePrice(formData.cost);
+
+      const isGrouped = formData.productType === 'grouped';
+      let bundleItemsTotal = 0;
+      let bundleDiscount = 0;
+      let bundleBeforeDiscount = 0;
+      let finalBundlePrice = mainPrice;
+
+      if (isGrouped && selectedGroupedProducts.length > 0) {
+        bundleItemsTotal = selectedGroupedProducts.reduce((total: number, productId: string) => {
+          const product = simpleProducts.find((p: any) => p.id === productId);
+          return total + parsePrice(product?.price || 0);
+        }, 0);
+
+        bundleBeforeDiscount = mainPrice + bundleItemsTotal;
+
+        if (formData.groupBundleDiscountType === 'Percentage') {
+          const discountPercent = parsePrice(formData.groupBundleDiscountPercentage);
+          bundleDiscount = (bundleBeforeDiscount * discountPercent) / 100;
+        } else if (formData.groupBundleDiscountType === 'FixedAmount') {
+          bundleDiscount = parsePrice(formData.groupBundleDiscountAmount);
+        } else if (formData.groupBundleDiscountType === 'SpecialPrice') {
+          const specialPrice = parsePrice(formData.groupBundleSpecialPrice);
+          bundleDiscount = bundleBeforeDiscount - specialPrice;
+        }
+
+        finalBundlePrice = bundleBeforeDiscount - bundleDiscount;
+      }
+
+      const priceForVat = isGrouped ? finalBundlePrice : mainPrice;
+
+      if (mainPrice <= 0) return null;
+
+      return (
+        <div className="mt-3 bg-gradient-to-br from-violet-500/5 to-cyan-500/5 border border-violet-500/20 rounded-2xl p-3">
+          
+          {/* Header with Bundle Badge */}
+          <div className="flex items-center justify-between mb-2">
+            <h4 className="text-base font-semibold text-white flex items-center gap-2">
+              💰 Pricing Breakdown
+            </h4>
+            
+            {/* Clickable Bundle Badge */}
+            {isGrouped && (
+              <button
+                type="button"
+                onClick={() => setIsGroupedModalOpen(true)}
+                className="relative px-2.5 py-1 bg-violet-500/20 hover:bg-violet-500/30 border border-violet-500/30 hover:border-violet-500/50 rounded-lg text-xs font-medium text-violet-300 transition-all group cursor-pointer"
+              >
+                <span className="flex items-center gap-1">
+                  📦 Bundle
+                  <svg 
+                    className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" 
+                    fill="none" 
+                    stroke="currentColor" 
+                    viewBox="0 0 24 24"
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                  </svg>
+                </span>
+                
+                <div className="absolute -bottom-10 right-0 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
+                  <div className="bg-slate-900 border border-violet-500/50 rounded-lg px-3 py-1.5 text-xs text-violet-300 whitespace-nowrap shadow-xl">
+                    Click to edit bundle or add more products
                   </div>
+                </div>
+              </button>
+            )}
+          </div>
 
-<div className="space-y-3">
-  {/* ✅ First Row: 3 Checkboxes in 3 Columns */}
-  <div className="grid md:grid-cols-3 gap-4">
-    {/* Column 1 - Disable buy button */}
-    <label className="flex items-center gap-2 w-full px-3 py-2.5 bg-slate-800/50 border border-slate-700 rounded-xl cursor-pointer hover:border-violet-500 transition-all">
-      <input
-        type="checkbox"
-        name="disableBuyButton"
-        checked={formData.disableBuyButton}
-        onChange={handleChange}
-        className="rounded bg-slate-800/50 border-slate-700 text-violet-500 focus:ring-violet-500 focus:ring-offset-slate-900"
-      />
-      <span className="text-sm text-slate-300">Disable buy button</span>
-    </label>
+          <div className="space-y-2">
+            
+            {/* Bundle Details with Professional Breakdown */}
+            {isGrouped && selectedGroupedProducts.length > 0 ? (
+              <>
+                <div className="border-t border-slate-700/50 pt-3 mt-3">
+                  
+                  {/* Bundle Items Header */}
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="text-xs font-medium text-cyan-400">Bundle Items:</div>
+                    <span className="px-1.5 py-0.5 bg-cyan-500/10 text-cyan-400 rounded text-xs">
+                      {selectedGroupedProducts.length}
+                    </span>
+                  </div>
+                  
+                  {/* Numbered Product List */}
+                  {selectedGroupedProducts.map((productId: string, index: number) => {
+                    const product = simpleProducts.find((p: any) => p.id === productId);
+                    if (!product) return null;
+                    return (
+                      <div 
+                        key={productId} 
+                        className="flex justify-between items-center text-sm text-white ml-3 mb-1"
+                      >
+                        <span className="flex items-center gap-2">
+                          <span className="text-violet-400 font-semibold">{index + 1}.</span>
+                          <span>{product.name}</span>
+                        </span>
+                        <span className="font-medium">£{parsePrice(product.price).toFixed(2)}</span>
+                      </div>
+                    );
+                  })}
+                  
+                  {/* ⭐⭐⭐ PROFESSIONAL CALCULATION BREAKDOWN ⭐⭐⭐ */}
+                  <div className="mt-4 p-3 bg-gradient-to-br from-slate-800/60 to-slate-900/60 rounded-lg border border-slate-700">
+                    <div className="space-y-2.5">
+                      
+                      {/* Main Product Row */}
+                      <div className="flex items-center justify-between p-2 bg-slate-800/40 rounded-lg">
+                        <div className="flex items-center gap-2">
+                          <div className="w-1.5 h-1.5 rounded-full bg-cyan-400"></div>
+                          <span className="text-sm text-slate-200">{formData.name || 'Main Product'}</span>
+                        </div>
+                        <span className="font-semibold text-cyan-400 text-sm">£{mainPrice.toFixed(2)}</span>
+                      </div>
+                      
+                      {/* Bundle Items Total Row with + */}
+                      <div className="flex items-center justify-between p-2 bg-slate-800/40 rounded-lg">
+                        <div className="flex items-center gap-2">
+                          <div className="w-1.5 h-1.5 rounded-full bg-violet-400"></div>
+                          <span className="text-sm text-slate-200">Bundle Items Total</span>
+                        </div>
+                        <span className="font-semibold text-violet-400 text-sm">+£{bundleItemsTotal.toFixed(2)}</span>
+                      </div>
+                      
+                      {/* Divider */}
+                      <div className="relative py-1.5">
+                        <div className="absolute inset-0 flex items-center">
+                          <div className="w-full border-t-2 border-dashed border-slate-600"></div>
+                        </div>
+                      </div>
+                      
+                      {/* Subtotal */}
+                      <div className="flex items-center justify-between p-2.5 bg-slate-700/40 rounded-lg">
+                        <span className="text-sm font-medium text-slate-200 flex items-center gap-2">
+                          <span className="text-slate-400">=</span>
+                          Subtotal:
+                        </span>
+                        <span className="font-bold text-white text-base">£{bundleBeforeDiscount.toFixed(2)}</span>
+                      </div>
+                    </div>
+                    
+                    {/* Discount Section */}
+                    {bundleDiscount > 0 && (
+                      <>
+                        <div className="border-t-2 border-slate-600 my-2.5"></div>
+                        
+                        <div className="flex justify-between items-center p-2 bg-red-500/10 rounded-lg border border-red-500/20">
+                          <span className="text-sm text-red-400 flex items-center gap-1.5">
+                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 17h8m0 0V9m0 8l-8-8-4 4-6-6" />
+                            </svg>
+                            <span className="font-medium">Bundle Discount ({formData.groupBundleDiscountType}):</span>
+                          </span>
+                          <span className="font-bold text-red-400 text-sm">-£{bundleDiscount.toFixed(2)}</span>
+                        </div>
+                      </>
+                    )}
+                    
+                    {/* Final Bundle Price */}
+                    <div className="border-t-2 border-slate-600 pt-2.5 mt-2.5">
+                      <div className="flex justify-between items-center p-3 bg-gradient-to-r from-green-500/10 to-emerald-500/10 rounded-lg border border-green-500/30">
+                        <span className="text-base font-bold text-white">Bundle Total:</span>
+                        <span className="text-2xl font-bold text-violet-400">£{finalBundlePrice.toFixed(2)}</span>
+                      </div>
+                    </div>
 
-    {/* Column 2 - Disable wishlist button */}
-    <label className="flex items-center gap-2 w-full px-3 py-2.5 bg-slate-800/50 border border-slate-700 rounded-xl cursor-pointer hover:border-violet-500 transition-all">
-      <input
-        type="checkbox"
-        name="disableWishlistButton"
-        checked={formData.disableWishlistButton}
-        onChange={handleChange}
-        className="rounded bg-slate-800/50 border-slate-700 text-violet-500 focus:ring-violet-500 focus:ring-offset-slate-900"
-      />
-      <span className="text-sm text-slate-300">Disable wishlist button</span>
-    </label>
+                    {/* Savings Info */}
+                    {bundleDiscount > 0 && (
+                      <div className="mt-2 p-2 bg-green-500/10 border border-green-500/20 rounded-lg">
+                        <p className="text-xs text-green-400 flex items-center justify-center gap-1">
+                          <span>🎉</span>
+                          <span>Customer Saves: £{bundleDiscount.toFixed(2)} ({((bundleDiscount / bundleBeforeDiscount) * 100).toFixed(1)}% OFF)</span>
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </>
+            ) : null}
 
+            {/* Profit Margin */}
+            {costPrice > 0 && (
+              <div className="border-t border-slate-700/50 pt-3 mt-3">
+                <div className="flex justify-between items-center">
+                  <span className="text-xs text-slate-400">Your Cost:</span>
+                  <span className="text-xs text-orange-400">£{costPrice.toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between items-center mt-1">
+                  <span className="text-xs text-slate-400">Margin:</span>
+                  <span className={`text-xs font-medium ${priceForVat - costPrice > 0 ? 'text-green-400' : 'text-red-400'}`}>
+                    £{(priceForVat - costPrice).toFixed(2)} ({costPrice > 0 ? (((priceForVat - costPrice) / costPrice) * 100).toFixed(1) : '0'}%)
+                  </span>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      );
+    })()}
 
+    {/* Buttons */}
+    <div className="space-y-3">
+      <div className="grid md:grid-cols-3 gap-4">
+        <label className="flex items-center gap-2 w-full px-3 py-2.5 bg-slate-800/50 border border-slate-700 rounded-xl cursor-pointer hover:border-violet-500 transition-all">
+          <input
+            type="checkbox"
+            name="disableBuyButton"
+            checked={formData.disableBuyButton}
+            onChange={handleChange}
+            className="rounded bg-slate-800/50 border-slate-700 text-violet-500 focus:ring-violet-500 focus:ring-offset-slate-900"
+          />
+          <span className="text-sm text-slate-300">Disable buy button</span>
+        </label>
+
+        <label className="flex items-center gap-2 w-full px-3 py-2.5 bg-slate-800/50 border border-slate-700 rounded-xl cursor-pointer hover:border-violet-500 transition-all">
+          <input
+            type="checkbox"
+            name="disableWishlistButton"
+            checked={formData.disableWishlistButton}
+            onChange={handleChange}
+            className="rounded bg-slate-800/50 border-slate-700 text-violet-500 focus:ring-violet-500 focus:ring-offset-slate-900"
+          />
+          <span className="text-sm text-slate-300">Disable wishlist button</span>
+        </label>
+      </div>
+    </div>
   </div>
 
+  {/* Pre-order Section */}
+  <div className="space-y-4">
+    <h3 className="text-lg font-semibold text-white border-b border-slate-800 pb-2">Pre-order</h3>
 
-</div>
-
-
-                </div>
-
-                {/* Pre-order Section */}
-                <div className="space-y-4">
-                  <h3 className="text-lg font-semibold text-white border-b border-slate-800 pb-2">Pre-order</h3>
-
-                  <label className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      name="availableForPreOrder"
-                      checked={formData.availableForPreOrder}
-                      onChange={handleChange}
-                      className="rounded bg-slate-800/50 border-slate-700 text-violet-500 focus:ring-violet-500 focus:ring-offset-slate-900"
-                    />
-                    <span className="text-sm text-slate-300">Available for pre-order</span>
-                  </label>
-
-                  {formData.availableForPreOrder && (
-                    <div>
-                      <label className="block text-sm font-medium text-slate-300 mb-2">Pre-order Availability Start Date</label>
-                      <input
-                        type="datetime-local"
-                        name="preOrderAvailabilityStartDate"
-                        value={formData.preOrderAvailabilityStartDate}
-                        onChange={handleChange}
-                        className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
-                      />
-                    </div>
-                  )}
-                </div>
-
-                {/* Mark as New Section */}
-                <div className="space-y-4">
-                  <h3 className="text-lg font-semibold text-white border-b border-slate-800 pb-2">Mark as New</h3>
-
-                  <label className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      name="markAsNew"
-                      checked={formData.markAsNew}
-                      onChange={handleChange}
-                      className="rounded bg-slate-800/50 border-slate-700 text-violet-500 focus:ring-violet-500 focus:ring-offset-slate-900"
-                    />
-                    <span className="text-sm text-slate-300">Mark as new product</span>
-                  </label>
-
-                  {formData.markAsNew && (
-                    <div className="grid md:grid-cols-2 gap-4 bg-slate-800/30 border border-slate-700 p-4 rounded-xl">
-                      <div>
-                        <label className="block text-sm font-medium text-slate-300 mb-2">Start Date</label>
-                        <input
-                          type="datetime-local"
-                          name="markAsNewStartDate"
-                          value={formData.markAsNewStartDate}
-                          onChange={handleChange}
-                          className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-sm font-medium text-slate-300 mb-2">End Date</label>
-                        <input
-                          type="datetime-local"
-                          name="markAsNewEndDate"
-                          value={formData.markAsNewEndDate}
-                          onChange={handleChange}
-                          className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
-                        />
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                {/* Tax Section */}
-{/* ✅ NEW VAT / TAX SECTION - SAME AS EDIT PAGE */}
-<div className="space-y-4">
-  <h3 className="text-lg font-semibold text-white border-b border-slate-800 pb-2">
-    VAT / Tax Settings
-  </h3>
-
-  {/* VAT Exempt Checkbox */}
-  <label className="flex items-center gap-2 cursor-pointer">
-    <input
-      type="checkbox"
-      name="vatExempt"
-      checked={formData.vatExempt}
-      onChange={handleChange}
-      className="rounded bg-slate-800/50 border-slate-700 text-violet-500 focus:ring-violet-500 focus:ring-offset-slate-900"
-    />
-    <span className="text-sm text-slate-300">VAT Exempt (No tax applied)</span>
-  </label>
-
-  {/* VAT Rate Dropdown - Show when NOT exempt */}
-  {!formData.vatExempt && (
-    <div className="relative">
-      <label className="block text-sm font-medium text-slate-300 mb-2">
-        VAT Rate <span className="text-red-400">*</span>
-      </label>
-
-      {/* Search Input */}
+    <label className="flex items-center gap-2">
       <input
-        type="text"
-        placeholder="Search or select VAT rate..."
-        value={
-          formData.vatRateId 
-            ? `${dropdownsData.vatRates.find(v => v.id === formData.vatRateId)?.name} (${dropdownsData.vatRates.find(v => v.id === formData.vatRateId)?.rate}%)`
-            : vatSearch
-        }
-        onChange={(e) => {
-          setVatSearch(e.target.value);
-          setShowVatDropdown(true);
-          if (!e.target.value) {
-            setFormData({ ...formData, vatRateId: '' });
-          }
-        }}
-        onFocus={() => setShowVatDropdown(true)}
-        className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+        type="checkbox"
+        name="availableForPreOrder"
+        checked={formData.availableForPreOrder}
+        onChange={handleChange}
+        className="rounded bg-slate-800/50 border-slate-700 text-violet-500 focus:ring-violet-500 focus:ring-offset-slate-900"
       />
+      <span className="text-sm text-slate-300">Available for pre-order</span>
+    </label>
 
-      {/* Dropdown List */}
-      {showVatDropdown && (
-        <div className="absolute z-50 w-full mt-1 bg-slate-900 border border-slate-700 rounded-xl shadow-lg max-h-60 overflow-auto">
-          {filteredVATRates.length > 0 ? (
-            filteredVATRates.map((vat) => (
-              <button
-                key={vat.id}
-                type="button"
-                onClick={() => {
-                  setFormData({ ...formData, vatRateId: vat.id });
-                  setVatSearch('');
-                  setShowVatDropdown(false);
-                }}
-                className={`w-full text-left px-4 py-2 hover:bg-violet-500/20 transition-colors ${
-                  formData.vatRateId === vat.id ? 'bg-violet-500/30 text-violet-300' : 'text-white'
-                }`}
-              >
-                {vat.name} ({vat.rate}%)
-              </button>
-            ))
-          ) : (
-            <div className="px-4 py-2 text-slate-400 text-sm">
-              No VAT rates found
-            </div>
+    {formData.availableForPreOrder && (
+      <div>
+        <label className="block text-sm font-medium text-slate-300 mb-2">Pre-order Availability Start Date</label>
+        <input
+          type="datetime-local"
+          name="preOrderAvailabilityStartDate"
+          value={formData.preOrderAvailabilityStartDate}
+          onChange={handleChange}
+          className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+        />
+      </div>
+    )}
+  </div>
+
+  {/* Mark as New Section */}
+  <div className="space-y-4">
+    <h3 className="text-lg font-semibold text-white border-b border-slate-800 pb-2">Mark as New</h3>
+
+    <label className="flex items-center gap-2">
+      <input
+        type="checkbox"
+        name="markAsNew"
+        checked={formData.markAsNew}
+        onChange={handleChange}
+        className="rounded bg-slate-800/50 border-slate-700 text-violet-500 focus:ring-violet-500 focus:ring-offset-slate-900"
+      />
+      <span className="text-sm text-slate-300">Mark as new product</span>
+    </label>
+
+    {formData.markAsNew && (
+      <div className="grid md:grid-cols-2 gap-4 bg-slate-800/30 border border-slate-700 p-4 rounded-xl">
+        <div>
+          <label className="block text-sm font-medium text-slate-300 mb-2">Start Date</label>
+          <input
+            type="datetime-local"
+            name="markAsNewStartDate"
+            value={formData.markAsNewStartDate}
+            onChange={handleChange}
+            className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-slate-300 mb-2">End Date</label>
+          <input
+            type="datetime-local"
+            name="markAsNewEndDate"
+            value={formData.markAsNewEndDate}
+            onChange={handleChange}
+            className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+          />
+        </div>
+      </div>
+    )}
+  </div>
+
+  {/* Tax Section */}
+  <div className="space-y-4">
+    <h3 className="text-lg font-semibold text-white border-b border-slate-800 pb-2">
+      VAT / Tax Settings
+    </h3>
+
+    <label className="flex items-center gap-2 cursor-pointer">
+      <input
+        type="checkbox"
+        name="vatExempt"
+        checked={formData.vatExempt}
+        onChange={handleChange}
+        className="rounded bg-slate-800/50 border-slate-700 text-violet-500 focus:ring-violet-500 focus:ring-offset-slate-900"
+      />
+      <span className="text-sm text-slate-300">VAT Exempt (No tax applied)</span>
+    </label>
+
+    {!formData.vatExempt && (
+      <div className="relative">
+        <label className="block text-sm font-medium text-slate-300 mb-2">
+          VAT Rate <span className="text-red-400">*</span>
+        </label>
+
+        <div className="relative">
+          <input
+            type="text"
+            placeholder="Search VAT rate..."
+            value={
+              formData.vatRateId 
+                ? (() => {
+                    const selected = dropdownsData.vatRates.find((v: any) => v.id === formData.vatRateId);
+                    return selected ? `${selected.name} (${selected.rate}%)` : '';
+                  })()
+                : vatSearch
+            }
+            onChange={(e) => {
+              setVatSearch(e.target.value);
+              setShowVatDropdown(true);
+              if (!e.target.value) {
+                setFormData({ ...formData, vatRateId: '' });
+              }
+            }}
+            onFocus={() => setShowVatDropdown(true)}
+            className="w-full px-3 py-2 pr-10 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+          />
+          
+          {formData.vatRateId && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                setFormData({ ...formData, vatRateId: '' });
+                setVatSearch('');
+              }}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-red-400 transition-colors"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
           )}
         </div>
-      )}
 
-      {/* Close dropdown when clicking outside */}
-      {showVatDropdown && (
-        <div
-          className="fixed inset-0 z-40"
-          onClick={() => setShowVatDropdown(false)}
-        />
-      )}
+        {/* Dropdown */}
+        {showVatDropdown && (
+          <div className="absolute z-50 w-full mt-1 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl max-h-64 overflow-auto">
+            {(() => {
+              const searchLower = vatSearch.toLowerCase();
+              const filtered = dropdownsData.vatRates.filter((vat: any) => 
+                vat.name.toLowerCase().includes(searchLower) ||
+                vat.description?.toLowerCase().includes(searchLower) ||
+                vat.rate.toString().includes(searchLower) ||
+                vat.country?.toLowerCase().includes(searchLower) ||
+                vat.region?.toLowerCase().includes(searchLower)
+              );
 
-      {/* Selected Info */}
-      {formData.vatRateId && (
-        <p className="text-xs text-slate-400 mt-1">
-          Selected: {dropdownsData.vatRates.find(v => v.id === formData.vatRateId)?.name} 
-          ({dropdownsData.vatRates.find(v => v.id === formData.vatRateId)?.rate}%)
-        </p>
-      )}
-    </div>
-  )}
+              const highlightText = (text: string, search: string) => {
+                if (!search) return text;
+                const parts = text.split(new RegExp(`(${search})`, 'gi'));
+                return parts.map((part, i) => 
+                  part.toLowerCase() === search.toLowerCase() 
+                    ? `<mark class="bg-violet-500/30 text-violet-300 px-0.5 rounded">${part}</mark>`
+                    : part
+                ).join('');
+              };
 
-</div>
+              if (filtered.length === 0) {
+                return (
+                  <div className="px-4 py-4 text-center text-slate-500 text-sm">
+                    No results
+                  </div>
+                );
+              }
 
-              </TabsContent>
+              return filtered.map((vat: any) => {
+                const isSelected = formData.vatRateId === vat.id;
+                return (
+                  <button
+                    key={vat.id}
+                    type="button"
+                    onClick={() => {
+                      setFormData({ ...formData, vatRateId: vat.id });
+                      setVatSearch('');
+                      setShowVatDropdown(false);
+                    }}
+                    className={`w-full text-left px-3 py-2 border-b border-slate-800/50 hover:bg-violet-500/10 transition-all group ${
+                      isSelected ? 'bg-violet-500/20 border-l-3 border-l-violet-500' : ''
+                    }`}
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <span 
+                        className={`font-medium text-sm ${isSelected ? 'text-violet-300' : 'text-white'}`}
+                        dangerouslySetInnerHTML={{ __html: highlightText(vat.name, vatSearch) }}
+                      />
+                      
+                      <div className="flex items-center gap-2">
+                        <span className={`px-1.5 py-0.5 rounded text-xs font-bold ${
+                          vat.rate === 0 
+                            ? 'bg-green-500/20 text-green-400' 
+                            : vat.rate < 10 
+                              ? 'bg-blue-500/20 text-blue-400'
+                              : 'bg-amber-500/20 text-amber-400'
+                        }`}>
+                          {vat.rate}%
+                        </span>
+                        
+                        {vat.isDefault && (
+                          <span className="px-1.5 py-0.5 bg-violet-500/20 text-violet-400 rounded text-xs">
+                            Default
+                          </span>
+                        )}
+                        
+                        {isSelected && (
+                          <svg className="w-4 h-4 text-violet-400" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                          </svg>
+                        )}
+                      </div>
+                    </div>
+                  </button>
+                );
+              });
+            })()}
+          </div>
+        )}
+
+        {showVatDropdown && (
+          <div className="fixed inset-0 z-40" onClick={() => setShowVatDropdown(false)} />
+        )}
+      </div>
+    )}
+
+    {/* TAX CALCULATION */}
+    {!formData.vatExempt && (() => {
+      const parsePrice = (value: any): number => {
+        if (!value) return 0;
+        const parsed = parseFloat(String(value));
+        return isNaN(parsed) ? 0 : parsed;
+      };
+
+      const mainPrice = parsePrice(formData.price);
+      const oldPrice = parsePrice(formData.oldPrice);
+
+      const selectedVat = dropdownsData.vatRates.find((v: any) => v.id === formData.vatRateId);
+      const vatRate = selectedVat?.rate || 0;
+
+      const isGrouped = formData.productType === 'grouped';
+      let bundleItemsTotal = 0;
+      let bundleDiscount = 0;
+      let bundleBeforeDiscount = 0;
+      let finalBundlePrice = mainPrice;
+
+      if (isGrouped && selectedGroupedProducts.length > 0) {
+        bundleItemsTotal = selectedGroupedProducts.reduce((total: number, productId: string) => {
+          const product = simpleProducts.find((p: any) => p.id === productId);
+          return total + parsePrice(product?.price || 0);
+        }, 0);
+
+        bundleBeforeDiscount = mainPrice + bundleItemsTotal;
+
+        if (formData.groupBundleDiscountType === 'Percentage') {
+          const discountPercent = parsePrice(formData.groupBundleDiscountPercentage);
+          bundleDiscount = (bundleBeforeDiscount * discountPercent) / 100;
+        } else if (formData.groupBundleDiscountType === 'FixedAmount') {
+          bundleDiscount = parsePrice(formData.groupBundleDiscountAmount);
+        } else if (formData.groupBundleDiscountType === 'SpecialPrice') {
+          const specialPrice = parsePrice(formData.groupBundleSpecialPrice);
+          bundleDiscount = bundleBeforeDiscount - specialPrice;
+        }
+
+        finalBundlePrice = bundleBeforeDiscount - bundleDiscount;
+      }
+
+      const priceForVat = isGrouped ? finalBundlePrice : mainPrice;
+      const vatAmount = (priceForVat * vatRate) / 100;
+      const finalCustomerPrice = priceForVat + vatAmount;
+
+      const oldPriceWithVat = oldPrice + ((oldPrice * vatRate) / 100);
+      const savingsAmount = oldPriceWithVat - finalCustomerPrice;
+      const savingsPercent = oldPriceWithVat > 0 ? (savingsAmount / oldPriceWithVat) * 100 : 0;
+
+      if (mainPrice <= 0) return null;
+
+      return (
+        <div className="mt-6 bg-gradient-to-br from-amber-500/5 to-orange-500/5 border border-amber-500/20 rounded-2xl p-5">
+          <h4 className="text-base font-semibold text-white mb-4 flex items-center gap-2">
+            🧾 Tax Calculation
+          </h4>
+
+          <div className="space-y-3">
+            {selectedVat ? (
+              <>
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-slate-400">VAT Rate:</span>
+                  <span className="text-sm text-white font-medium">{selectedVat.name} ({vatRate}%)</span>
+                </div>
+
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-slate-400">Price (excl. VAT):</span>
+                  <span className="text-base font-semibold text-white">£{priceForVat.toFixed(2)}</span>
+                </div>
+
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-amber-400">+ VAT ({vatRate}%):</span>
+                  <span className="text-base font-semibold text-amber-400">£{vatAmount.toFixed(2)}</span>
+                </div>
+
+                <div className="border-t-2 border-amber-500/30 pt-3 mt-3">
+                  <div className="flex justify-between items-center">
+                    <span className="text-base font-bold text-white">Customer Pays:</span>
+                    <span className="text-2xl font-bold text-amber-400">£{finalCustomerPrice.toFixed(2)}</span>
+                  </div>
+                </div>
+
+                {oldPrice > 0 && savingsAmount > 0 && (
+                  <div className="mt-4 p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-xl">
+                    <div className="flex justify-between items-center">
+                      <span className="text-xs text-emerald-400">🎉 Customer Saves:</span>
+                      <span className="text-sm font-bold text-emerald-400">
+                        £{savingsAmount.toFixed(2)} ({savingsPercent.toFixed(1)}% off)
+                      </span>
+                    </div>
+                  </div>
+                )}
+
+                {isGrouped && selectedGroupedProducts.length > 0 && (
+                  <div className="mt-4 pt-3 border-t border-slate-700/50">
+                    <p className="text-xs text-slate-400 flex items-center gap-1">
+                      <span>📦</span>
+                      <span>
+                        Bundle includes {selectedGroupedProducts.length + 1} product{selectedGroupedProducts.length > 0 ? 's' : ''}
+                        {bundleDiscount > 0 && ` with £${bundleDiscount.toFixed(2)} discount`}
+                      </span>
+                    </p>
+                  </div>
+                )}
+              </>
+            ) : (
+              <div className="text-center py-6 bg-slate-800/30 rounded-xl border-2 border-dashed border-slate-700">
+                <div className="text-amber-400 text-sm">⚠️ Select a VAT rate</div>
+                <div className="text-xs text-slate-500 mt-1">Tax calculation will appear here</div>
+              </div>
+            )}
+          </div>
+        </div>
+      );
+    })()}
+  </div>
+</TabsContent>
+
+
 
               {/* Inventory Tab */}
 <TabsContent value="inventory" className="space-y-2 mt-2">
@@ -5144,7 +5510,9 @@ const uploadVariantImages = async (productResponse: any) => {
   simpleProducts={simpleProducts}
   selectedGroupedProducts={selectedGroupedProducts}
   automaticallyAddProducts={formData.automaticallyAddProducts}
-  
+   // ⭐ PASS MAIN PRODUCT DATA
+  mainProductPrice={parseFloat(formData.price) || 0}
+  mainProductName={formData.name || 'Main Product'}
   // ✅ ADD THESE NEW PROPS
   bundleDiscountType={formData.groupBundleDiscountType}
   bundleDiscountPercentage={formData.groupBundleDiscountPercentage}

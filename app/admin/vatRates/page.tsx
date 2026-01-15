@@ -30,6 +30,7 @@ import {
 import { useToast } from "@/components/CustomToast";
 import { VATRate, vatratesService, CreateVATRateDto, DeleteVATRateResponse } from "@/lib/services/vatrates";
 import { countriesService, Country } from "@/lib/services/countries";
+import { toDate } from "date-fns";
 
 export default function VATRatesPage() {
   const toast = useToast();
@@ -178,11 +179,17 @@ export default function VATRatesPage() {
       errors.description = "Description must be at least 10 characters";
     }
 
-    if (formData.rate <= 0) {
-      errors.rate = "Rate must be greater than 0";
-    } else if (formData.rate > 100) {
-      errors.rate = "Rate cannot exceed 100%";
-    }
+   if (formData.rate < 0) {
+  errors.rate = "VAT rate cannot be negative";
+} else if (formData.rate > 100) {
+  errors.rate = "VAT rate cannot exceed 100%";
+}
+if (formData.rate === 0) {
+  // Optional info banner
+  // errors.rate = "0% indicates zero-rated VAT (taxable but no charge)";
+  toast.info("0% indicates zero-rated VAT (taxable but no charge)");
+}
+
 
     if (!formData.country) {
       errors.country = "Country is required";

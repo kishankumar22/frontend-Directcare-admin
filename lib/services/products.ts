@@ -32,6 +32,10 @@ export interface VATRateData {
   rate: number;
   isActive?: boolean;
   displayOrder?: number;
+  description?: string;
+  country?: string;
+  region?: string
+  isDefault?: boolean;
 }
 
 export interface ProductVariant {

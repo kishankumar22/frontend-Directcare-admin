@@ -3,16 +3,7 @@
 import { useState, use, useEffect, useRef, JSX } from "react";
 import { useRouter } from "next/navigation";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-  ArrowLeft, Save, Upload, X, Info, Search, Image, Package,
-  Tag,BarChart3, Globe, Settings, Truck,
-  Users, PoundSterling, Link as LinkIcon, ShoppingCart, Video,
-  Play,
-  ChevronDown,
-  Clock,
-  Send,
-  Bell
-} from "lucide-react";
+import { ArrowLeft, Save, Upload, X, Info, Search, Image, Package, Tag,BarChart3, Globe, Settings, Truck, Users, PoundSterling, Link as LinkIcon, ShoppingCart, Video, Play, ChevronDown, Clock, Send, Bell } from "lucide-react";
 
 import Link from "next/link";
 import { ProductDescriptionEditor } from "@/app/admin/products/SelfHostedEditor";
@@ -50,6 +41,10 @@ const MAX_HOMEPAGE = 20;
 // ✅ LOADING STATE (Add after other useState)
 // ================================
 const [isSubmitting, setIsSubmitting] = useState(false);
+const [submitProgress, setSubmitProgress] = useState<{
+  step: string;
+  percentage: number;
+} | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   // Helper function to format datetime for React inputs
@@ -1927,182 +1922,190 @@ const truncateHtmlByTextLength = (html: string, maxLength: number) => {
   return div.innerHTML;
 };
 // ==================== FORM SUBMISSION HANDLER ====================
-const handleSubmit = async (
-  e?: React.FormEvent,
-  isDraft: boolean = false,
-  releaseLockAfter: boolean = true
-) => {
-  if (e) e.preventDefault();
-  
+const handleSubmit = async (e?: React.FormEvent, isDraft: boolean = false, releaseLockAfter: boolean = true) => {
+  if (e) {
+    e.preventDefault();
+  }
+
   const target = (e?.target as HTMLElement) || document.body;
-  
-  // ============================================
+
+  // ================================
   // SECTION 1: DUPLICATE SUBMISSION PREVENTION
-  // ============================================
-  
+  // ================================
   if (target.hasAttribute('data-submitting')) {
     toast.info('⏳ Already submitting... Please wait!');
     return;
   }
-  
+
   if (isAcquiringLock) {
     toast.warning('⏳ Acquiring edit lock... Please wait a moment.');
     return;
   }
-  
+
   if (!productLock || !productLock.isLocked) {
     toast.error('❌ Cannot save: Product edit lock not acquired.');
     return;
   }
-  
+
   // Check lock expiry
   if (productLock.expiresAt) {
     const expiryTime = new Date(productLock.expiresAt).getTime();
     const currentTime = new Date().getTime();
-    
+
     if (currentTime >= expiryTime) {
-      toast.error('❌ Your edit lock has expired. Refreshing...');
+      toast.error('⏰ Your edit lock has expired. Refreshing...');
       await acquireProductLock(productId);
       return;
     }
   }
-  
+
   target.setAttribute('data-submitting', 'true');
-    setIsSubmitting(true); // ✅ START LOADER
+  setIsSubmitting(true); // ✅ START LOADER
+
   try {
-    // ============================================
+    // ✅ PROGRESS: 10% - Start Validation
+    setSubmitProgress({
+      step: isDraft ? 'Validating draft data...' : 'Validating product data...',
+      percentage: 10,
+    });
+
+    // ═══════════════════════════════════════════════════════════════════════
     // SECTION 2: BASIC REQUIRED FIELDS
-    // ============================================
-    
+    // ═══════════════════════════════════════════════════════════════════════
+
     if (!formData.name || formData.name.trim().length === 0) {
-      toast.error('⚠️ Product Name is required');
+      toast.error('❌ Product Name is required');
       target.removeAttribute('data-submitting');
+      setIsSubmitting(false);
+      setSubmitProgress(null);
       return;
     }
-    
+
     if (!formData.sku || formData.sku.trim().length === 0) {
-      toast.error('⚠️ SKU is required');
+      toast.error('❌ SKU is required');
       target.removeAttribute('data-submitting');
+      setIsSubmitting(false);
+      setSubmitProgress(null);
       return;
     }
-    
-    if (!formData.price || formData.price.trim() === '') {
-      toast.error('⚠️ Price is required');
+
+    if (!formData.price || !formData.price.trim()) {
+      toast.error('❌ Price is required');
       target.removeAttribute('data-submitting');
+      setIsSubmitting(false);
+      setSubmitProgress(null);
       return;
     }
-    
-    // ============================================
+
+    // ═══════════════════════════════════════════════════════════════════════
     // SECTION 3: STRING FORMAT VALIDATIONS
-    // ============================================
-    
-    // Product Name (3-150 chars, no special chars)
+    // ═══════════════════════════════════════════════════════════════════════
+
     if (formData.name.length < 3) {
       toast.error('⚠️ Product name must be at least 3 characters');
       target.removeAttribute('data-submitting');
+      setIsSubmitting(false);
+      setSubmitProgress(null);
       return;
     }
-    
+
     if (formData.name.length > 150) {
       toast.error('⚠️ Product name cannot exceed 150 characters');
       target.removeAttribute('data-submitting');
+      setIsSubmitting(false);
+      setSubmitProgress(null);
       return;
     }
-    
-const PRODUCT_NAME_REGEX =
-  /^[A-Za-z0-9\u00C0-\u024F\s.,()'"’\-\/&+%]+$/;
 
-if (!PRODUCT_NAME_REGEX.test(formData.name)) {
-  toast.error("⚠️ Product name contains unsupported characters.");
-  target.removeAttribute("data-submitting");
-  return;
-}
+    const PRODUCT_NAME_REGEX = /^[A-Za-z0-9\u00C0-\u024F\s.,()'"'\-\/&+%]+$/;
+    if (!PRODUCT_NAME_REGEX.test(formData.name)) {
+      toast.error('⚠️ Product name contains unsupported characters.');
+      target.removeAttribute('data-submitting');
+      setIsSubmitting(false);
+      setSubmitProgress(null);
+      return;
+    }
 
-    
-    // SKU Format (alphanumeric, dash, underscore only)
-    const skuRegex = /^[A-Za-z0-9\-_]+$/;
+    const skuRegex = /^[A-Za-z0-9_-]+$/;
     if (!skuRegex.test(formData.sku)) {
       toast.error('⚠️ SKU can only contain letters, numbers, dashes, and underscores');
       target.removeAttribute('data-submitting');
+      setIsSubmitting(false);
+      setSubmitProgress(null);
       return;
     }
-    
+
     if (formData.sku.length < 2) {
       toast.error('⚠️ SKU must be at least 2 characters');
       target.removeAttribute('data-submitting');
+      setIsSubmitting(false);
+      setSubmitProgress(null);
       return;
     }
-    
+
     if (formData.sku.length > 50) {
       toast.error('⚠️ SKU cannot exceed 50 characters');
       target.removeAttribute('data-submitting');
+      setIsSubmitting(false);
+      setSubmitProgress(null);
       return;
     }
-    
-    // ============================================
+
+    // ✅ PROGRESS: 20% - SKU Check
+    setSubmitProgress({
+      step: 'Checking SKU availability...',
+      percentage: 20,
+    });
+
+    // ═══════════════════════════════════════════════════════════════════════
     // SECTION 4: SKU UNIQUENESS CHECK
-    // ============================================
-    
+    // ═══════════════════════════════════════════════════════════════════════
+
     try {
       const allProducts = await productsService.getAll();
       const items = allProducts.data?.data?.items ?? [];
-      
-      const skuExists = items.some(
-        (p: any) =>
-          p.sku?.toLowerCase() === formData.sku.toLowerCase() &&
-          p.id !== productId
+      const skuExists = items.some((p: any) =>
+        p.sku?.toLowerCase() === formData.sku.toLowerCase() && p.id !== productId
       );
-      
+
       if (skuExists) {
         toast.error('❌ SKU already exists. Please use a unique SKU.');
         target.removeAttribute('data-submitting');
+        setIsSubmitting(false);
+        setSubmitProgress(null);
         return;
       }
     } catch (error) {
       console.warn('⚠️ Could not verify SKU uniqueness:', error);
-      // Allow submission to continue
     }
-    
-    // ============================================
+
+    // ═══════════════════════════════════════════════════════════════════════
     // SECTION 5: DESCRIPTION LENGTH VALIDATIONS
-    // ============================================
-// SHORT DESCRIPTION (350)
-if (formData.shortDescription) {
-  const length = getPlainText(formData.shortDescription).length;
+    // ═══════════════════════════════════════════════════════════════════════
 
-  if (length > 350) {
-    formData.shortDescription = truncateHtmlByTextLength(
-      formData.shortDescription,
-      350
-    );
-
-    toast.info('ℹ️ Short description trimmed to 350 characters');
-  }
-}
-
-// FULL DESCRIPTION (2000)
-if (formData.fullDescription) {
-  const length = getPlainText(formData.fullDescription).length;
-
-  if (length > 2000) {
-    formData.fullDescription = truncateHtmlByTextLength(
-      formData.fullDescription,
-      2000
-    );
-
-    toast.info('ℹ️ Full description trimmed to 2000 characters');
-  }
-}
-
-    // ============================================
-    // SECTION 6: NUMBER PARSING & VALIDATION HELPER
-    // ============================================
-    
-    const parseNumber = (value: any, fieldName: string = ''): number | null => {
-      if (value === null || value === undefined || value === '') {
-        return null;
+    if (formData.shortDescription) {
+      const length = getPlainText(formData.shortDescription).length;
+      if (length > 350) {
+        formData.shortDescription = truncateHtmlByTextLength(formData.shortDescription, 350);
+        toast.info('ℹ️ Short description trimmed to 350 characters');
       }
-      const cleaned = String(value).trim().replace(/[^\d.-]/g, '');
+    }
+
+    if (formData.fullDescription) {
+      const length = getPlainText(formData.fullDescription).length;
+      if (length > 2000) {
+        formData.fullDescription = truncateHtmlByTextLength(formData.fullDescription, 2000);
+        toast.info('ℹ️ Full description trimmed to 2000 characters');
+      }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // SECTION 6: NUMBER PARSING HELPER
+    // ═══════════════════════════════════════════════════════════════════════
+
+    const parseNumber = (value: any, fieldName: string): number | null => {
+      if (value === null || value === undefined || value === '') return null;
+      const cleaned = String(value).trim().replace(/[^0-9.-]/g, '');
       const parsed = parseFloat(cleaned);
       if (isNaN(parsed)) {
         console.warn(`⚠️ Invalid number for ${fieldName}:`, value);
@@ -2110,62 +2113,81 @@ if (formData.fullDescription) {
       }
       return parsed;
     };
-    
-    // ============================================
+
+    // ✅ PROGRESS: 30% - Price Validation
+    setSubmitProgress({
+      step: 'Validating pricing...',
+      percentage: 30,
+    });
+
+    // ═══════════════════════════════════════════════════════════════════════
     // SECTION 7: PRICE VALIDATIONS
-    // ============================================
-    
+    // ═══════════════════════════════════════════════════════════════════════
+
     const parsedPrice = parseNumber(formData.price, 'price');
-    
     if (parsedPrice === null) {
       toast.error('⚠️ Please enter a valid price');
       target.removeAttribute('data-submitting');
+      setIsSubmitting(false);
+      setSubmitProgress(null);
       return;
     }
-    
+
     if (parsedPrice < 0) {
-      toast.error('⚠️ Price cannot be negative');
+      toast.error('❌ Price cannot be negative');
       target.removeAttribute('data-submitting');
+      setIsSubmitting(false);
+      setSubmitProgress(null);
       return;
     }
-    
+
     if (parsedPrice > 10000000) {
       toast.error('⚠️ Price seems unusually high. Please verify.');
       target.removeAttribute('data-submitting');
+      setIsSubmitting(false);
+      setSubmitProgress(null);
       return;
     }
-    
+
     const parsedOldPrice = parseNumber(formData.oldPrice, 'oldPrice');
     const parsedCost = parseNumber(formData.cost, 'cost');
-    
-    // Old Price Logic
+
     if (parsedOldPrice !== null && parsedOldPrice < 0) {
-      toast.error('⚠️ Old price cannot be negative');
+      toast.error('❌ Old price cannot be negative');
       target.removeAttribute('data-submitting');
+      setIsSubmitting(false);
+      setSubmitProgress(null);
       return;
     }
-    
+
     if (parsedOldPrice !== null && parsedOldPrice < parsedPrice) {
       toast.warning('⚠️ Old price is less than current price. Strikethrough won\'t show.');
     }
-    
-    // Cost Price Logic
+
     if (parsedCost !== null && parsedCost < 0) {
-      toast.error('⚠️ Cost price cannot be negative');
+      toast.error('❌ Cost price cannot be negative');
       target.removeAttribute('data-submitting');
+      setIsSubmitting(false);
+      setSubmitProgress(null);
       return;
     }
-    
+
     if (parsedCost !== null && parsedCost > parsedPrice) {
       toast.warning('⚠️ Cost is higher than selling price. Profit will be negative.');
     }
-    
-    // ============================================
+
+    // ✅ PROGRESS: 35% - Category/Brand Validation
+    setSubmitProgress({
+      step: 'Validating categories and brands...',
+      percentage: 35,
+    });
+
+    // ═══════════════════════════════════════════════════════════════════════
     // SECTION 8: CATEGORY VALIDATION
-    // ============================================
-    
+    // ═══════════════════════════════════════════════════════════════════════
+
     const guidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-    
+
     let categoryIdsArray: string[] = [];
     if (formData.categoryIds && Array.isArray(formData.categoryIds) && formData.categoryIds.length > 0) {
       categoryIdsArray = formData.categoryIds.filter(id => {
@@ -2173,157 +2195,91 @@ if (formData.fullDescription) {
         return guidRegex.test(id.trim());
       });
     }
-    
+
     if (categoryIdsArray.length === 0) {
       toast.error('❌ Please select at least one category');
       target.removeAttribute('data-submitting');
+      setIsSubmitting(false);
+      setSubmitProgress(null);
       return;
     }
-    
+
     if (categoryIdsArray.length > 5) {
       toast.error('⚠️ Maximum 5 categories allowed');
       target.removeAttribute('data-submitting');
+      setIsSubmitting(false);
+      setSubmitProgress(null);
       return;
     }
-    
-    // ✅ ADD THIS IN handleSubmit (After SECTION 8 - CATEGORY VALIDATION)
 
-// ========================================
-// SECTION 8A - HOMEPAGE & DISPLAY ORDER VALIDATION
-// ========================================
+    // ═══════════════════════════════════════════════════════════════════════
+    // SECTION 8A: HOMEPAGE DISPLAY ORDER VALIDATION
+    // ═══════════════════════════════════════════════════════════════════════
 
-// Display Order Validation
-if (formData.displayOrder !== undefined && formData.displayOrder !== null) {
-  const displayOrderNum = parseInt(formData.displayOrder as any) || 0;
-  
-  // Negative check
-  if (displayOrderNum < 0) {
-    toast.error("Display order cannot be negative.", {
-      autoClose: 5000,
-    });
-    target.removeAttribute('data-submitting');
-    return;
-  }
-  
-  // Warn if displayOrder > 0 but not on homepage
-  if (displayOrderNum > 0 && !formData.showOnHomepage) {
-    toast.warning("Display order will be ignored (product not on homepage).", {
-      autoClose: 5000,
-    });
-  }
-}
+    if (formData.displayOrder !== undefined && formData.displayOrder !== null) {
+      const displayOrderNum = parseInt(formData.displayOrder as any) || 0;
 
-// Homepage Product Limit Check (Optional but recommended)
-if (formData.showOnHomepage) {
-  try {
-    // Fetch current homepage products
-    const response = await productsService.getAll({
-      pageSize: 100,
-      // Add filter for homepage if your API supports it
-      // showOnHomepage: true
-    });
-    
-    // Extract products array safely
-    let allProducts: any[] = [];
-    if (response.data?.data?.items) {
-      allProducts = response.data.data.items;
-    } else if (Array.isArray(response.data?.data)) {
-      allProducts = response.data.data;
-    } else if (Array.isArray(response.data)) {
-      allProducts = response.data;
+      if (displayOrderNum < 0) {
+        toast.error('❌ Display order cannot be negative.', { autoClose: 5000 });
+        target.removeAttribute('data-submitting');
+        setIsSubmitting(false);
+        setSubmitProgress(null);
+        return;
+      }
+
+      if (displayOrderNum === 0 && !formData.showOnHomepage) {
+        toast.warning('⚠️ Display order will be ignored: product not on homepage.', { autoClose: 5000 });
+      }
     }
-    
-    // Filter homepage products (excluding current product)
-    const homepageProducts = allProducts.filter((p: any) => {
-      // Exclude current product
-      if (p.id === productId) return false;
-      // Check if on homepage
-      return p.showOnHomepage === true;
-    });
-    
-    const MAX_HOMEPAGE_PRODUCTS = 20;
-    
-    // Hard limit check
-    if (homepageProducts.length >= MAX_HOMEPAGE_PRODUCTS) {
-      toast.error(
-        `Homepage product limit reached (${MAX_HOMEPAGE_PRODUCTS} maximum). Please remove other products first.`,
-        {
-          autoClose: 8000,
-          position: 'top-center',
+
+    if (formData.showOnHomepage) {
+      try {
+        const response = await productsService.getAll({ pageSize: 100 });
+        let allProducts: any[] = [];
+
+        if (response.data?.data?.items) {
+          allProducts = response.data.data.items;
+        } else if (Array.isArray(response.data?.data)) {
+          allProducts = response.data.data;
+        } else if (Array.isArray(response.data)) {
+          allProducts = response.data;
         }
-      );
-      target.removeAttribute('data-submitting');
-      return;
-    }
-    
-    // Warning when approaching limit
-    if (homepageProducts.length >= MAX_HOMEPAGE_PRODUCTS - 3) {
-      const currentCount = homepageProducts.length + 1;
-      toast.warning(
-        `Homepage products: ${currentCount}/${MAX_HOMEPAGE_PRODUCTS}. Approaching limit!`,
-        {
-          autoClose: 5000,
-          position: 'top-right',
-        }
-      );
-    }
-    
-    // Info: Show current homepage count
-    console.log(`Homepage products count: ${homepageProducts.length + 1}/${MAX_HOMEPAGE_PRODUCTS}`);
-    
-  } catch (error) {
-    console.warn("Could not verify homepage product limit:", error);
-    // Allow submission to continue (don't block user)
-  }
-  
-  // Display Order validation when on homepage
-  const displayOrderNum = parseInt(formData.displayOrder as any) || 0;
-  
-  if (displayOrderNum <= 0) {
-    toast.info("Tip: Set display order > 0 for better control of homepage position.", {
-      autoClose: 4000,
-    });
-  }
-  
-  // Duplicate display order warning (optional)
-  try {
-    const response = await productsService.getAll({
-      pageSize: 100,
-    });
-    
-    let allProducts: any[] = [];
-    if (response.data?.data?.items) {
-      allProducts = response.data.data.items;
-    } else if (Array.isArray(response.data?.data)) {
-      allProducts = response.data.data;
-    }
-    
-    const sameOrderProducts = allProducts.filter((p: any) => {
-      if (p.id === productId) return false;
-      return p.showOnHomepage && parseInt(p.displayOrder) === displayOrderNum && displayOrderNum > 0;
-    });
-    
-    if (sameOrderProducts.length > 0) {
-      toast.info(
-        `${sameOrderProducts.length} other product(s) have the same display order. They will be sorted by date.`,
-        {
-          autoClose: 5000,
-        }
-      );
-    }
-  } catch (error) {
-    console.warn("Could not check duplicate display order:", error);
-  }
-}
 
-// Continue with rest of validation...
+        const homepageProducts = allProducts.filter((p: any) => {
+          if (p.id === productId) return false;
+          return p.showOnHomepage === true;
+        });
 
-    // ============================================
+        const MAX_HOMEPAGE_PRODUCTS = 20;
+
+        if (homepageProducts.length >= MAX_HOMEPAGE_PRODUCTS) {
+          toast.error(
+            `❌ Homepage product limit reached (${MAX_HOMEPAGE_PRODUCTS} maximum). Please remove other products first.`,
+            { autoClose: 8000, position: 'top-center' }
+          );
+          target.removeAttribute('data-submitting');
+          setIsSubmitting(false);
+          setSubmitProgress(null);
+          return;
+        }
+
+        if (homepageProducts.length >= MAX_HOMEPAGE_PRODUCTS - 3) {
+          const currentCount = homepageProducts.length + 1;
+          toast.warning(
+            `⚠️ Homepage products: ${currentCount}/${MAX_HOMEPAGE_PRODUCTS}. Approaching limit!`,
+            { autoClose: 5000, position: 'top-right' }
+          );
+        }
+      } catch (error) {
+        console.warn('⚠️ Could not verify homepage product limit:', error);
+      }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
     // SECTION 9: BRAND VALIDATION
-    // ============================================
-    
+    // ═══════════════════════════════════════════════════════════════════════
+
     let brandIdsArray: string[] = [];
-    
     if (formData.brandIds && Array.isArray(formData.brandIds) && formData.brandIds.length > 0) {
       brandIdsArray = formData.brandIds.filter(id => {
         if (!id || typeof id !== 'string') return false;
@@ -2335,334 +2291,423 @@ if (formData.showOnHomepage) {
         brandIdsArray = [trimmedBrand];
       }
     }
-    
+
     if (brandIdsArray.length === 0) {
       toast.error('❌ Please select at least one brand');
       target.removeAttribute('data-submitting');
+      setIsSubmitting(false);
+      setSubmitProgress(null);
       return;
     }
-    
+
     const brandsArray = brandIdsArray.map((brandId, index) => ({
       brandId: brandId,
       isPrimary: index === 0,
       displayOrder: index + 1
     }));
-    
-    // ============================================
+
+    // ✅ PROGRESS: 40% - Inventory Validation
+    setSubmitProgress({
+      step: 'Validating inventory settings...',
+      percentage: 40,
+    });
+
+    // ═══════════════════════════════════════════════════════════════════════
     // SECTION 10: INVENTORY VALIDATIONS
-    // ============================================
-    
+    // ═══════════════════════════════════════════════════════════════════════
+
     if (formData.manageInventory === 'track') {
       const stockQty = parseInt(formData.stockQuantity) || 0;
       const minStockQty = parseInt(formData.minStockQuantity) || 0;
       const notifyQty = parseInt(formData.notifyQuantityBelow) || 0;
-      
+
       if (stockQty < 0) {
-        toast.error('⚠️ Stock quantity cannot be negative');
+        toast.error('❌ Stock quantity cannot be negative');
         target.removeAttribute('data-submitting');
+        setIsSubmitting(false);
+        setSubmitProgress(null);
         return;
       }
-      
+
       if (minStockQty < 0) {
-        toast.error('⚠️ Minimum stock quantity cannot be negative');
+        toast.error('❌ Minimum stock quantity cannot be negative');
         target.removeAttribute('data-submitting');
+        setIsSubmitting(false);
+        setSubmitProgress(null);
         return;
       }
-      
+
       if (formData.notifyAdminForQuantityBelow && notifyQty < 0) {
-        toast.error('⚠️ Notification quantity cannot be negative');
+        toast.error('❌ Notification quantity cannot be negative');
         target.removeAttribute('data-submitting');
+        setIsSubmitting(false);
+        setSubmitProgress(null);
         return;
       }
-      
+
       if (minStockQty > stockQty) {
         toast.warning('⚠️ Minimum stock is higher than current stock');
       }
-      
+
       if (formData.notifyAdminForQuantityBelow && notifyQty > stockQty) {
         toast.info('ℹ️ You will receive low stock notification immediately');
       }
     }
-    
-    // ============================================
+
+    // ═══════════════════════════════════════════════════════════════════════
     // SECTION 11: CART QUANTITY VALIDATIONS
-    // ============================================
-    
+    // ═══════════════════════════════════════════════════════════════════════
+
     const minCartQty = parseInt(formData.minCartQuantity) || 1;
     const maxCartQty = parseInt(formData.maxCartQuantity) || 10;
-    
+
     if (minCartQty < 1) {
-      toast.error('⚠️ Minimum cart quantity must be at least 1');
+      toast.error('❌ Minimum cart quantity must be at least 1');
       target.removeAttribute('data-submitting');
+      setIsSubmitting(false);
+      setSubmitProgress(null);
       return;
     }
-    
+
     if (maxCartQty < minCartQty) {
-      toast.error('⚠️ Maximum cart quantity cannot be less than minimum');
+      toast.error('❌ Maximum cart quantity cannot be less than minimum');
       target.removeAttribute('data-submitting');
+      setIsSubmitting(false);
+      setSubmitProgress(null);
       return;
     }
-    
+
     if (maxCartQty > 9999) {
-      toast.error('⚠️ Maximum cart quantity is too high');
+      toast.error('❌ Maximum cart quantity is too high');
       target.removeAttribute('data-submitting');
+      setIsSubmitting(false);
+      setSubmitProgress(null);
       return;
     }
-    
-    // ============================================
+
+    // ✅ PROGRESS: 45% - Dimensions Validation
+    setSubmitProgress({
+      step: 'Validating shipping dimensions...',
+      percentage: 45,
+    });
+
+    // ═══════════════════════════════════════════════════════════════════════
     // SECTION 12: DIMENSIONS VALIDATIONS
-    // ============================================
-    
+    // ═══════════════════════════════════════════════════════════════════════
+
     if (formData.isShipEnabled) {
       const weight = parseNumber(formData.weight, 'weight');
       const length = parseNumber(formData.length, 'length');
       const width = parseNumber(formData.width, 'width');
       const height = parseNumber(formData.height, 'height');
-      
+
       if (weight !== null && weight < 0) {
-        toast.error('⚠️ Weight cannot be negative');
+        toast.error('❌ Weight cannot be negative');
         target.removeAttribute('data-submitting');
+        setIsSubmitting(false);
+        setSubmitProgress(null);
         return;
       }
-      
+
       if (weight !== null && weight > 1000) {
         toast.warning('⚠️ Weight seems very high (>1000 kg). Please verify.');
       }
-      
+
       if (length !== null && length < 0) {
-        toast.error('⚠️ Length cannot be negative');
+        toast.error('❌ Length cannot be negative');
         target.removeAttribute('data-submitting');
+        setIsSubmitting(false);
+        setSubmitProgress(null);
         return;
       }
-      
+
       if (width !== null && width < 0) {
-        toast.error('⚠️ Width cannot be negative');
+        toast.error('❌ Width cannot be negative');
         target.removeAttribute('data-submitting');
+        setIsSubmitting(false);
+        setSubmitProgress(null);
         return;
       }
-      
+
       if (height !== null && height < 0) {
-        toast.error('⚠️ Height cannot be negative');
+        toast.error('❌ Height cannot be negative');
         target.removeAttribute('data-submitting');
+        setIsSubmitting(false);
+        setSubmitProgress(null);
         return;
       }
     }
-    
-    // ============================================
+
+    // ═══════════════════════════════════════════════════════════════════════
     // SECTION 13: DATE VALIDATIONS
-    // ============================================
-    
-    // Mark as New Dates
+    // ═══════════════════════════════════════════════════════════════════════
+
     if (formData.markAsNew) {
       if (!formData.markAsNewStartDate) {
-        toast.error('⚠️ Please set "Mark as New" start date');
+        toast.error('❌ Please set "Mark as New" start date');
         target.removeAttribute('data-submitting');
+        setIsSubmitting(false);
+        setSubmitProgress(null);
         return;
       }
-      
+
       if (!formData.markAsNewEndDate) {
-        toast.error('⚠️ Please set "Mark as New" end date');
+        toast.error('❌ Please set "Mark as New" end date');
         target.removeAttribute('data-submitting');
+        setIsSubmitting(false);
+        setSubmitProgress(null);
         return;
       }
-      
+
       const startDate = new Date(formData.markAsNewStartDate);
       const endDate = new Date(formData.markAsNewEndDate);
-      
+
       if (endDate <= startDate) {
-        toast.error('⚠️ "Mark as New" end date must be after start date');
+        toast.error('❌ "Mark as New" end date must be after start date');
         target.removeAttribute('data-submitting');
+        setIsSubmitting(false);
+        setSubmitProgress(null);
         return;
       }
     }
-    
-    // Availability Dates
+
     if (formData.availableStartDate && formData.availableEndDate) {
       const availStart = new Date(formData.availableStartDate);
       const availEnd = new Date(formData.availableEndDate);
-      
+
       if (availEnd <= availStart) {
-        toast.error('⚠️ Availability end date must be after start date');
+        toast.error('❌ Availability end date must be after start date');
         target.removeAttribute('data-submitting');
+        setIsSubmitting(false);
+        setSubmitProgress(null);
         return;
       }
     }
-    
-    // Pre-order Date
+
     if (formData.availableForPreOrder && !formData.preOrderAvailabilityStartDate) {
-      toast.error('⚠️ Please set pre-order availability date');
+      toast.error('❌ Please set pre-order availability date');
       target.removeAttribute('data-submitting');
+      setIsSubmitting(false);
+      setSubmitProgress(null);
       return;
     }
-    
-    // ============================================
+
+    // ✅ PROGRESS: 50% - Grouped Product Validation
+    setSubmitProgress({
+      step: 'Validating grouped product settings...',
+      percentage: 50,
+    });
+
+    // ═══════════════════════════════════════════════════════════════════════
     // SECTION 14: GROUPED PRODUCT VALIDATIONS
-    // ============================================
-    
+    // ═══════════════════════════════════════════════════════════════════════
+
     if (formData.productType === 'grouped' && formData.requireOtherProducts) {
-      if (!formData.requiredProductIds || formData.requiredProductIds.trim() === '') {
-        toast.error('⚠️ Please select products for grouped product');
+      if (!formData.requiredProductIds || !formData.requiredProductIds.trim()) {
+        toast.error('❌ Please select products for grouped product');
         target.removeAttribute('data-submitting');
+        setIsSubmitting(false);
+        setSubmitProgress(null);
         return;
       }
-      
-      const groupedProductIds = formData.requiredProductIds.split(',').map(id => id.trim()).filter(Boolean);
-      
+
+      const groupedProductIds = formData.requiredProductIds
+        .split(',')
+        .map(id => id.trim())
+        .filter(Boolean);
+
       if (groupedProductIds.length === 0) {
-        toast.error('⚠️ Please select at least one product for grouped product');
+        toast.error('❌ Please select at least one product for grouped product');
         target.removeAttribute('data-submitting');
+        setIsSubmitting(false);
+        setSubmitProgress(null);
         return;
       }
-      
+
       if (groupedProductIds.length > 20) {
-        toast.error('⚠️ Maximum 20 products allowed in grouped product');
+        toast.error('❌ Maximum 20 products allowed in grouped product');
         target.removeAttribute('data-submitting');
+        setIsSubmitting(false);
+        setSubmitProgress(null);
         return;
       }
-      
-      // Bundle Discount Validation
+
       if (formData.groupBundleDiscountType === 'Percentage') {
         const discountPercent = parseNumber(formData.groupBundleDiscountPercentage, 'discount');
         if (discountPercent !== null && (discountPercent < 0 || discountPercent > 100)) {
-          toast.error('⚠️ Discount percentage must be between 0 and 100');
+          toast.error('❌ Discount percentage must be between 0 and 100');
           target.removeAttribute('data-submitting');
+          setIsSubmitting(false);
+          setSubmitProgress(null);
           return;
         }
       }
-      
+
       if (formData.groupBundleDiscountType === 'FixedAmount') {
         const discountAmount = parseNumber(formData.groupBundleDiscountAmount, 'discount amount');
         if (discountAmount !== null && discountAmount < 0) {
-          toast.error('⚠️ Discount amount cannot be negative');
+          toast.error('❌ Discount amount cannot be negative');
           target.removeAttribute('data-submitting');
+          setIsSubmitting(false);
+          setSubmitProgress(null);
           return;
         }
       }
-      
+
       if (formData.groupBundleDiscountType === 'SpecialPrice') {
         const specialPrice = parseNumber(formData.groupBundleSpecialPrice, 'special price');
         if (specialPrice !== null && specialPrice < 0) {
-          toast.error('⚠️ Special price cannot be negative');
+          toast.error('❌ Special price cannot be negative');
           target.removeAttribute('data-submitting');
+          setIsSubmitting(false);
+          setSubmitProgress(null);
           return;
         }
       }
     }
 
-// SECTION 14A: GROUPED + SUBSCRIPTION CONFLICT VALIDATION
-if (formData.productType === 'grouped' && formData.isRecurring) {
-  toast.error('❌ Grouped products cannot have subscription/recurring enabled. Please disable subscription first.', {
-    autoClose: 8000,
-    position: 'top-center'
-  });
-  target.removeAttribute('data-submitting');
-  return;
-}
+    // ═══════════════════════════════════════════════════════════════════════
+    // SECTION 14A: GROUPED + SUBSCRIPTION CONFLICT VALIDATION
+    // ═══════════════════════════════════════════════════════════════════════
 
-    // ============================================
+    if (formData.productType === 'grouped' && formData.isRecurring) {
+      toast.error('❌ Grouped products cannot have subscription/recurring enabled. Please disable subscription first.', {
+        autoClose: 8000,
+        position: 'top-center'
+      });
+      target.removeAttribute('data-submitting');
+      setIsSubmitting(false);
+      setSubmitProgress(null);
+      return;
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
     // SECTION 15: RECURRING/SUBSCRIPTION VALIDATIONS
-    // ============================================
-    
+    // ═══════════════════════════════════════════════════════════════════════
+
     if (formData.isRecurring) {
       const cycleLength = parseInt(formData.recurringCycleLength) || 0;
-      
+
       if (cycleLength <= 0) {
-        toast.error('⚠️ Recurring cycle length must be greater than 0');
+        toast.error('❌ Recurring cycle length must be greater than 0');
         target.removeAttribute('data-submitting');
+        setIsSubmitting(false);
+        setSubmitProgress(null);
         return;
       }
-      
+
       if (cycleLength > 365) {
         toast.error('⚠️ Recurring cycle length seems too long (>365)');
         target.removeAttribute('data-submitting');
+        setIsSubmitting(false);
+        setSubmitProgress(null);
         return;
       }
-      
+
       if (formData.recurringTotalCycles) {
         const totalCycles = parseInt(formData.recurringTotalCycles) || 0;
         if (totalCycles < 0) {
-          toast.error('⚠️ Total cycles cannot be negative');
+          toast.error('❌ Total cycles cannot be negative');
           target.removeAttribute('data-submitting');
+          setIsSubmitting(false);
+          setSubmitProgress(null);
           return;
         }
       }
-      
+
       if (formData.subscriptionDiscountPercentage) {
         const subDiscount = parseNumber(formData.subscriptionDiscountPercentage, 'subscription discount');
         if (subDiscount !== null && (subDiscount < 0 || subDiscount > 100)) {
-          toast.error('⚠️ Subscription discount must be between 0 and 100%');
+          toast.error('❌ Subscription discount must be between 0 and 100');
           target.removeAttribute('data-submitting');
+          setIsSubmitting(false);
+          setSubmitProgress(null);
           return;
         }
       }
     }
-    
-    // ============================================
+
+    // ═══════════════════════════════════════════════════════════════════════
     // SECTION 16: RENTAL VALIDATIONS
-    // ============================================
-    
+    // ═══════════════════════════════════════════════════════════════════════
+
     if (formData.isRental) {
       const rentalLength = parseInt(formData.rentalPriceLength) || 0;
-      
       if (rentalLength <= 0) {
-        toast.error('⚠️ Rental period must be greater than 0');
+        toast.error('❌ Rental period must be greater than 0');
         target.removeAttribute('data-submitting');
+        setIsSubmitting(false);
+        setSubmitProgress(null);
         return;
       }
     }
-    
-    // ============================================
+
+    // ═══════════════════════════════════════════════════════════════════════
     // SECTION 17: BASE PRICE VALIDATIONS
-    // ============================================
-    
+    // ═══════════════════════════════════════════════════════════════════════
+
     if (formData.basepriceEnabled) {
       const baseAmount = parseNumber(formData.basepriceAmount, 'base price amount');
       const baseBaseAmount = parseNumber(formData.basepriceBaseAmount, 'base price base amount');
-      
+
       if (baseAmount === null || baseAmount <= 0) {
-        toast.error('⚠️ Base price amount must be greater than 0');
+        toast.error('❌ Base price amount must be greater than 0');
         target.removeAttribute('data-submitting');
+        setIsSubmitting(false);
+        setSubmitProgress(null);
         return;
       }
-      
+
       if (baseBaseAmount === null || baseBaseAmount <= 0) {
-        toast.error('⚠️ Base price base amount must be greater than 0');
+        toast.error('❌ Base price base amount must be greater than 0');
         target.removeAttribute('data-submitting');
+        setIsSubmitting(false);
+        setSubmitProgress(null);
         return;
       }
-      
+
       if (!formData.basepriceUnit || !formData.basepriceBaseUnit) {
-        toast.error('⚠️ Please select base price units');
+        toast.error('❌ Please select base price units');
         target.removeAttribute('data-submitting');
+        setIsSubmitting(false);
+        setSubmitProgress(null);
         return;
       }
     }
-    
-    // ============================================
+
+    // ✅ PROGRESS: 55% - SEO Validation
+    setSubmitProgress({
+      step: 'Validating SEO settings...',
+      percentage: 55,
+    });
+
+    // ═══════════════════════════════════════════════════════════════════════
     // SECTION 18: SEO VALIDATIONS
-    // ============================================
-    
+    // ═══════════════════════════════════════════════════════════════════════
+
     if (formData.metaTitle && formData.metaTitle.length > 60) {
       toast.warning('⚠️ Meta title is longer than recommended (60 characters)');
     }
-    
+
     if (formData.metaDescription && formData.metaDescription.length > 160) {
       toast.warning('⚠️ Meta description is longer than recommended (160 characters)');
     }
-    
+
     if (formData.searchEngineFriendlyPageName) {
       const slugRegex = /^[a-z0-9-]+$/;
       if (!slugRegex.test(formData.searchEngineFriendlyPageName)) {
-        toast.error('⚠️ SEO slug can only contain lowercase letters, numbers, and hyphens');
+        toast.error('❌ SEO slug can only contain lowercase letters, numbers, and hyphens');
         target.removeAttribute('data-submitting');
+        setIsSubmitting(false);
+        setSubmitProgress(null);
         return;
       }
     }
-    
-    // ============================================
+
+    // ═══════════════════════════════════════════════════════════════════════
     // SECTION 19: ATTRIBUTES VALIDATION
-    // ============================================
-    
+    // ═══════════════════════════════════════════════════════════════════════
+
     const attributesArray = productAttributes
       ?.filter(attr => attr.name && attr.value)
       .map(attr => {
@@ -2672,475 +2717,417 @@ if (formData.productType === 'grouped' && formData.isRecurring) {
           value: attr.value.trim(),
           displayOrder: attr.displayOrder || 0
         };
-        
-        // Validate attribute name length
+
         if (attrData.name.length > 100) {
-          toast.error(`⚠️ Attribute name "${attrData.name}" is too long (max 100 chars)`);
+          toast.error(`❌ Attribute name "${attrData.name}" is too long (max 100 chars)`);
           throw new Error('Invalid attribute name');
         }
-        
-        // Validate attribute value length
+
         if (attrData.value.length > 500) {
-          toast.error(`⚠️ Attribute value for "${attrData.name}" is too long (max 500 chars)`);
+          toast.error(`❌ Attribute value for "${attrData.name}" is too long (max 500 chars)`);
           throw new Error('Invalid attribute value');
         }
-        
+
         if (isExistingAttr) {
           attrData.id = attr.id;
         }
-        
+
         return attrData;
       });
-    
-    // ============================================
+
+    // ✅ PROGRESS: 60% - Variant Validation
+    setSubmitProgress({
+      step: 'Validating product variants...',
+      percentage: 60,
+    });
+
+    // ═══════════════════════════════════════════════════════════════════════
     // SECTION 20: VARIANTS VALIDATION
-    // ============================================
-    
-// ====================================================================
-// SECTION 20 - VARIANTS VALIDATION (WITH SKU UNIQUENESS)
-// ====================================================================
+    // ═══════════════════════════════════════════════════════════════════════
 
-const variantsArray = productVariants?.map((variant) => {
-  // ✅ 1. Validate variant name
-  if (!variant.name || variant.name.trim().length === 0) {
-    toast.error("All variants must have a name");
-    throw new Error("Invalid variant name");
-  }
+    const variantsArray = productVariants?.map(variant => {
+      if (!variant.name || variant.name.trim().length === 0) {
+        toast.error('❌ All variants must have a name');
+        throw new Error('Invalid variant name');
+      }
 
-  // ✅ 2. Validate variant SKU exists
-  if (!variant.sku || variant.sku.trim().length === 0) {
-    toast.error(`Variant "${variant.name}" must have a SKU`);
-    throw new Error("Invalid variant SKU");
-  }
+      if (!variant.sku || variant.sku.trim().length === 0) {
+        toast.error(`❌ Variant "${variant.name}" must have a SKU`);
+        throw new Error('Invalid variant SKU');
+      }
 
-  // ✅ 3. NEW: Check variant SKU uniqueness WITHIN this product's variants
-  const duplicateVariant = productVariants.find(
-    (v) => v.id !== variant.id && v.sku.trim().toUpperCase() === variant.sku.trim().toUpperCase()
-  );
-  
-  if (duplicateVariant) {
-    toast.error(
-      `Duplicate variant SKU: "${variant.sku}" is already used by variant "${duplicateVariant.name}"`,
-      { autoClose: 8000 }
-    );
-    throw new Error("Duplicate variant SKU");
-  }
-
-  // ✅ 4. NEW: Check if variant SKU matches main product SKU
-  if (variant.sku.trim().toUpperCase() === formData.sku.trim().toUpperCase()) {
-    toast.error(
-      `Variant SKU "${variant.sku}" cannot be the same as main product SKU`,
-      { autoClose: 8000 }
-    );
-    throw new Error("Variant SKU matches product SKU");
-  }
-
-  // ✅ 5. Validate variant price
-  const variantPrice = typeof variant.price === "number" 
-    ? variant.price 
-    : (parseNumber(variant.price, "variant.price") ?? 0);
-  
-  if (variantPrice < 0) {
-    toast.error(`Variant "${variant.name}" price cannot be negative`);
-    throw new Error("Invalid variant price");
-  }
-
-  // Build variant data
-  const imageUrl = variant.imageUrl?.startsWith("blob:") ? null : variant.imageUrl;
-  const isExistingVariant = variant.id && guidRegex.test(variant.id);
-
-  const variantData: any = {
-    name: variant.name.trim(),
-    sku: variant.sku.trim().toUpperCase(), // ✅ Force uppercase
-    price: variantPrice,
-    compareAtPrice: typeof variant.compareAtPrice === "number" 
-      ? variant.compareAtPrice 
-      : parseNumber(variant.compareAtPrice, "variant.compareAtPrice"),
-    oldPrice: typeof variant.compareAtPrice === "number" 
-      ? variant.compareAtPrice 
-      : parseNumber(variant.compareAtPrice, "variant.oldPrice"),
-    weight: typeof variant.weight === "number" 
-      ? variant.weight 
-      : parseNumber(variant.weight, "variant.weight"),
-    stockQuantity: typeof variant.stockQuantity === "number" 
-      ? variant.stockQuantity 
-      : parseInt(String(variant.stockQuantity)) || 0,
-    trackInventory: variant.trackInventory ?? true,
-    option1Name: variant.option1Name || null,
-    option1Value: variant.option1Value || null,
-    option2Name: variant.option2Name || null,
-    option2Value: variant.option2Value || null,
-    option3Name: variant.option3Name || null,
-    option3Value: variant.option3Value || null,
-    imageUrl: imageUrl,
-    isDefault: variant.isDefault ?? false,
-    displayOrder: variant.displayOrder ?? 0,
-    isActive: variant.isActive ?? true,
-    gtin: variant.gtin || null,
-    barcode: variant.sku || null,
-  };
-
-  if (isExistingVariant) {
-    variantData.id = variant.id;
-  }
-
-  return variantData;
-});
-
-// ✅ 6. NEW: Check variant SKUs against OTHER products/variants in database
-// This prevents conflicts with existing products
-if (variantsArray && variantsArray.length > 0) {
-  try {
-    // Get all products to check SKU conflicts
-    const allProductsResponse = await productsService.getAll({ pageSize: 1000 });
-    const allProducts = allProductsResponse.data?.data?.items || [];
-
-    for (const variant of variantsArray) {
-      // Check against other products' main SKUs
-      const productSkuConflict = allProducts.find(
-        (p: any) => 
-          p.id !== productId && 
-          p.sku?.toUpperCase() === variant.sku.toUpperCase()
+      const duplicateVariant = productVariants.find(
+        v => v.id !== variant.id && v.sku.trim().toUpperCase() === variant.sku.trim().toUpperCase()
       );
 
-      if (productSkuConflict) {
+      if (duplicateVariant) {
         toast.error(
-          `Variant SKU "${variant.sku}" conflicts with product "${productSkuConflict.name}" (SKU: ${productSkuConflict.sku})`,
-          { autoClose: 10000 }
+          `❌ Duplicate variant SKU "${variant.sku}" is already used by variant "${duplicateVariant.name}"`,
+          { autoClose: 8000 }
         );
-        throw new Error("Variant SKU conflicts with product SKU");
+        throw new Error('Duplicate variant SKU');
       }
 
-      // Check against other products' variant SKUs
-      for (const product of allProducts) {
-        if (product.id === productId) continue; // Skip current product
-        
-        if (product.variants && Array.isArray(product.variants)) {
-          const variantSkuConflict = product.variants.find(
-            (v: any) => v.sku?.toUpperCase() === variant.sku.toUpperCase()
+      if (variant.sku.trim().toUpperCase() === formData.sku.trim().toUpperCase()) {
+        toast.error(
+          `❌ Variant SKU "${variant.sku}" cannot be the same as main product SKU`,
+          { autoClose: 8000 }
+        );
+        throw new Error('Variant SKU matches product SKU');
+      }
+
+      const variantPrice = typeof variant.price === 'number'
+        ? variant.price
+        : parseNumber(variant.price, 'variant.price') ?? 0;
+
+      if (variantPrice < 0) {
+        toast.error(`❌ Variant "${variant.name}" price cannot be negative`);
+        throw new Error('Invalid variant price');
+      }
+
+      const imageUrl = variant.imageUrl?.startsWith('blob:') ? null : variant.imageUrl;
+      const isExistingVariant = variant.id && guidRegex.test(variant.id);
+
+      const variantData: any = {
+        name: variant.name.trim(),
+        sku: variant.sku.trim().toUpperCase(),
+        price: variantPrice,
+        compareAtPrice: typeof variant.compareAtPrice === 'number'
+          ? variant.compareAtPrice
+          : parseNumber(variant.compareAtPrice, 'variant.compareAtPrice'),
+        weight: typeof variant.weight === 'number'
+          ? variant.weight
+          : parseNumber(variant.weight, 'variant.weight'),
+        stockQuantity: typeof variant.stockQuantity === 'number'
+          ? variant.stockQuantity
+          : parseInt(String(variant.stockQuantity)) || 0,
+        trackInventory: variant.trackInventory ?? true,
+        option1Name: variant.option1Name || null,
+        option1Value: variant.option1Value || null,
+        option2Name: variant.option2Name || null,
+        option2Value: variant.option2Value || null,
+        option3Name: variant.option3Name || null,
+        option3Value: variant.option3Value || null,
+        imageUrl: imageUrl,
+        isDefault: variant.isDefault ?? false,
+        displayOrder: variant.displayOrder ?? 0,
+        isActive: variant.isActive ?? true,
+        gtin: variant.gtin || null,
+        barcode: variant.sku || null,
+      };
+
+      if (isExistingVariant) {
+        variantData.id = variant.id;
+      }
+
+      return variantData;
+    });
+
+    if (variantsArray && variantsArray.length > 0) {
+      try {
+        const allProductsResponse = await productsService.getAll({ pageSize: 1000 });
+        const allProducts = allProductsResponse.data?.data?.items || [];
+
+        for (const variant of variantsArray) {
+          const productSkuConflict = allProducts.find((p: any) =>
+            p.id !== productId && p.sku?.toUpperCase() === variant.sku.toUpperCase()
           );
 
-          if (variantSkuConflict) {
+          if (productSkuConflict) {
             toast.error(
-              `Variant SKU "${variant.sku}" conflicts with "${product.name}" - Variant "${variantSkuConflict.name}"`,
+              `❌ Variant SKU "${variant.sku}" conflicts with product "${productSkuConflict.name}" SKU "${productSkuConflict.sku}"`,
               { autoClose: 10000 }
             );
-            throw new Error("Variant SKU conflicts with another product's variant");
+            throw new Error('Variant SKU conflicts with product SKU');
+          }
+
+          for (const product of allProducts) {
+            if (product.id === productId) continue;
+
+            if (product.variants && Array.isArray(product.variants)) {
+              const variantSkuConflict = product.variants.find((v: any) =>
+                v.sku?.toUpperCase() === variant.sku.toUpperCase()
+              );
+
+              if (variantSkuConflict) {
+                toast.error(
+                  `❌ Variant SKU "${variant.sku}" conflicts with "${product.name}" - Variant "${variantSkuConflict.name}"`,
+                  { autoClose: 10000 }
+                );
+                throw new Error('Variant SKU conflicts with another product\'s variant');
+              }
+            }
           }
         }
+
+        console.log('✅ All variant SKUs are unique');
+      } catch (error: any) {
+        if (error.message?.includes('Variant SKU conflicts') || error.message?.includes('Duplicate variant SKU')) {
+          target.removeAttribute('data-submitting');
+          setIsSubmitting(false);
+          setSubmitProgress(null);
+          throw error;
+        }
+        console.warn('⚠️ Could not verify variant SKU uniqueness:', error);
       }
     }
 
-    console.log("✅ All variant SKUs are unique");
-  } catch (error: any) {
-    // If it's our validation error, throw it
-    if (error.message?.includes("Variant SKU conflicts") || error.message?.includes("Duplicate variant SKU")) {
-      target.removeAttribute("data-submitting");
-      throw error;
-    }
-    
-    // Otherwise, log warning and allow submission (don't block user)
-    console.warn("Could not verify variant SKU uniqueness:", error);
-  }
-}
+    // ✅ PROGRESS: 70% - Image Validation
+    setSubmitProgress({
+      step: 'Validating product images...',
+      percentage: 70,
+    });
 
-    // ============================================
+    // ═══════════════════════════════════════════════════════════════════════
     // SECTION 21: IMAGE VALIDATIONS
-    // ============================================
-    
-  // 🔒 MINIMUM 5 IMAGES (HARD BLOCK)
-// if (formData.productImages.length < 5) {
-//   toast.error("❌ Please upload at least 5 product images before saving");
-//   target.removeAttribute("data-submitting");
-//   return;
-// }
+    // ═══════════════════════════════════════════════════════════════════════
 
-// ⚠️ OPTIONAL WARNING (0 images — redundant but safe)
-if (formData.productImages.length === 0) {
-  toast.warning(
-    "⚠️ No product images added. Consider adding images for better conversion."
-  );
-}
+    // if (formData.productImages.length < 5) {
+    //   toast.error('❌ Please upload at least 5 product images before saving');
+    //   target.removeAttribute('data-submitting');
+    //   setIsSubmitting(false);
+    //   setSubmitProgress(null);
+    //   return;
+    // }
 
-// 🔒 MAXIMUM 10 IMAGES
-if (formData.productImages.length > 10) {
-  toast.error("❌ Maximum 10 images allowed");
-  target.removeAttribute("data-submitting");
-  return;
-}
+    if (formData.productImages.length > 10) {
+      toast.error('❌ Maximum 10 images allowed');
+      target.removeAttribute('data-submitting');
+      setIsSubmitting(false);
+      setSubmitProgress(null);
+      return;
+    }
 
-    
-    // ============================================
+    // ✅ PROGRESS: 80% - Preparing Data
+    setSubmitProgress({
+      step: 'Preparing product data...',
+      percentage: 80,
+    });
+
+    // ═══════════════════════════════════════════════════════════════════════
     // SECTION 22: BUILD PRODUCT DATA OBJECT
-    // ============================================
-    
-// ========================================
-// SECTION 22: BUILD PRODUCT DATA OBJECT (FIXED - All Types)
-// ========================================
-const productData: any = {
-  // Basic Info
-  name: formData.name.trim(),
-  description: formData.fullDescription || formData.shortDescription || `${formData.name} - Product description`,
-  shortDescription: formData.shortDescription?.trim() || '',
-  sku: formData.sku.trim(),
-  gtin: formData.gtin?.trim() || null,
-  manufacturerPartNumber: formData.manufacturerPartNumber?.trim() || null,
+    // ═══════════════════════════════════════════════════════════════════════
 
-  // Status & Visibility
-  status: isDraft ? 'Draft' : 'Active',
-  isPublished: isDraft ? false : (formData.published ?? true),
-  productType: formData.productType || 'simple',
-  visibleIndividually: formData.visibleIndividually ?? true,
-  customerRoles: formData.customerRoles || 'all',
-  limitedToStores: formData.limitedToStores ?? false,
-  vendorId: null,
+    const productData: any = {
+      name: formData.name.trim(),
+      description: formData.fullDescription || formData.shortDescription || `${formData.name} - Product description`,
+      shortDescription: formData.shortDescription?.trim() || '',
+      sku: formData.sku.trim(),
+      gtin: formData.gtin?.trim() || null,
+      manufacturerPartNumber: formData.manufacturerPartNumber?.trim() || null,
+      status: isDraft ? 'Draft' : 'Active',
+      isPublished: isDraft ? false : (formData.published ?? true),
+      productType: formData.productType || 'simple',
+      visibleIndividually: formData.visibleIndividually ?? true,
+      customerRoles: formData.customerRoles || 'all',
+      limitedToStores: formData.limitedToStores ?? false,
+      vendorId: null,
+      requireOtherProducts: formData.productType === 'grouped' ? formData.requireOtherProducts : false,
+      requiredProductIds: formData.productType === 'grouped' && formData.requireOtherProducts && formData.requiredProductIds?.trim()
+        ? formData.requiredProductIds.trim()
+        : null,
+      automaticallyAddProducts: formData.productType === 'grouped' && formData.requireOtherProducts
+        ? formData.automaticallyAddProducts
+        : false,
+      groupBundleDiscountType: formData.productType === 'grouped' ? formData.groupBundleDiscountType || 'None' : 'None',
+      groupBundleDiscountPercentage: formData.productType === 'grouped' && formData.groupBundleDiscountType === 'Percentage'
+        ? parseNumber(formData.groupBundleDiscountPercentage, 'groupBundleDiscountPercentage') ?? 0
+        : null,
+      groupBundleDiscountAmount: formData.productType === 'grouped' && formData.groupBundleDiscountType === 'FixedAmount'
+        ? parseNumber(formData.groupBundleDiscountAmount, 'groupBundleDiscountAmount') ?? 0
+        : null,
+      groupBundleSpecialPrice: formData.productType === 'grouped' && formData.groupBundleDiscountType === 'SpecialPrice'
+        ? parseNumber(formData.groupBundleSpecialPrice, 'groupBundleSpecialPrice') ?? 0
+        : null,
+      groupBundleSavingsMessage: formData.productType === 'grouped' && formData.groupBundleDiscountType !== 'None'
+        ? formData.groupBundleSavingsMessage?.trim() || null
+        : null,
+      showIndividualPrices: formData.productType === 'grouped' ? formData.showIndividualPrices ?? true : true,
+      applyDiscountToAllItems: formData.productType === 'grouped' && formData.groupBundleDiscountType !== 'None'
+        ? formData.applyDiscountToAllItems ?? false
+        : false,
+      showOnHomepage: formData.showOnHomepage ?? false,
+      displayOrder: parseInt(formData.displayOrder as any) || 0,
+      adminComment: formData.adminComment?.trim() || null,
+      isPack: formData.isPack ?? false,
+      gender: formData.gender?.trim() || null,
+      brandId: brandIdsArray[0],
+      brandIds: brandIdsArray,
+      brands: brandsArray,
+      categoryId: categoryIdsArray[0],
+      categoryIds: categoryIdsArray,
+      tags: formData.productTags?.trim() || null,
+      price: parsedPrice,
+      oldPrice: parsedOldPrice,
+      compareAtPrice: parsedOldPrice,
+      costPrice: parsedCost,
+      disableBuyButton: formData.disableBuyButton ?? false,
+      disableWishlistButton: formData.disableWishlistButton ?? false,
+      availableForPreOrder: formData.availableForPreOrder ?? false,
+      preOrderAvailabilityStartDate: formData.availableForPreOrder && formData.preOrderAvailabilityStartDate
+        ? new Date(formData.preOrderAvailabilityStartDate).toISOString()
+        : null,
+      basepriceEnabled: formData.basepriceEnabled ?? false,
+      basepriceAmount: parseNumber(formData.basepriceAmount, 'basepriceAmount'),
+      basepriceUnit: formData.basepriceEnabled ? formData.basepriceUnit || null : null,
+      basepriceBaseAmount: parseNumber(formData.basepriceBaseAmount, 'basepriceBaseAmount'),
+      basepriceBaseUnit: formData.basepriceEnabled ? formData.basepriceBaseUnit || null : null,
+      markAsNew: formData.markAsNew ?? false,
+      markAsNewStartDate: formData.markAsNew && formData.markAsNewStartDate
+        ? new Date(formData.markAsNewStartDate).toISOString()
+        : null,
+      markAsNewEndDate: formData.markAsNew && formData.markAsNewEndDate
+        ? new Date(formData.markAsNewEndDate).toISOString()
+        : null,
+      availableStartDate: formData.availableStartDate && formData.availableStartDate.trim()
+        ? new Date(formData.availableStartDate).toISOString()
+        : null,
+      availableEndDate: formData.availableEndDate && formData.availableEndDate.trim()
+        ? new Date(formData.availableEndDate).toISOString()
+        : null,
+      vatExempt: formData.vatExempt ?? false,
+      vatRateId: formData.vatRateId || null,
+      trackQuantity: formData.manageInventory === 'track',
+      manageInventoryMethod: formData.manageInventory || 'track',
+      stockQuantity: parseInt(formData.stockQuantity as any) || 0,
+      displayStockAvailability: formData.displayStockAvailability ?? true,
+      displayStockQuantity: formData.displayStockQuantity ?? false,
+      minStockQuantity: parseInt(formData.minStockQuantity as any) || 0,
+      lowStockThreshold: parseInt(formData.minStockQuantity as any) || 0,
+      notifyAdminForQuantityBelow: formData.notifyAdminForQuantityBelow ?? false,
+      notifyQuantityBelow: formData.notifyAdminForQuantityBelow
+        ? parseInt(formData.notifyQuantityBelow as any) || 0
+        : null,
+      allowBackorder: formData.allowBackorder ?? false,
+      backorderMode: formData.backorderMode || 'no-backorders',
+      orderMinimumQuantity: minCartQty,
+      orderMaximumQuantity: maxCartQty,
+      allowedQuantities: formData.allowedQuantities?.trim() || null,
+      notReturnable: formData.notReturnable ?? false,
+      requiresShipping: formData.isShipEnabled ?? true,
+      shipSeparately: formData.shipSeparately ?? false,
+      deliveryDateId: formData.deliveryDateId || null,
+      estimatedDispatchDays: 0,
+      dispatchTimeNote: null,
+      weight: parseNumber(formData.weight, 'weight') || 0,
+      length: parseNumber(formData.length, 'length'),
+      width: parseNumber(formData.width, 'width'),
+      height: parseNumber(formData.height, 'height'),
+      weightUnit: 'kg',
+      dimensionUnit: 'cm',
+      sameDayDeliveryEnabled: formData.sameDayDeliveryEnabled ?? false,
+      nextDayDeliveryEnabled: formData.nextDayDeliveryEnabled ?? false,
+      standardDeliveryEnabled: formData.standardDeliveryEnabled ?? true,
+      sameDayDeliveryCutoffTime: formData.sameDayDeliveryCutoffTime?.trim() || null,
+      nextDayDeliveryCutoffTime: formData.nextDayDeliveryCutoffTime?.trim() || null,
+      standardDeliveryDays: parseNumber(formData.standardDeliveryDays, 'standardDeliveryDays') ?? 5,
+      sameDayDeliveryCharge: parseNumber(formData.sameDayDeliveryCharge, 'sameDayDeliveryCharge') ?? 0,
+      nextDayDeliveryCharge: parseNumber(formData.nextDayDeliveryCharge, 'nextDayDeliveryCharge') ?? 0,
+      standardDeliveryCharge: parseNumber(formData.standardDeliveryCharge, 'standardDeliveryCharge') ?? 0,
+      isRecurring: formData.productType !== 'grouped' && formData.isRecurring ? true : false,
+      recurringCycleLength: formData.productType !== 'grouped' && formData.isRecurring
+        ? parseInt(formData.recurringCycleLength as any) || 0
+        : null,
+      recurringCyclePeriod: formData.productType !== 'grouped' && formData.isRecurring
+        ? formData.recurringCyclePeriod || 'days'
+        : null,
+      recurringTotalCycles: formData.productType !== 'grouped' && formData.isRecurring && formData.recurringTotalCycles
+        ? parseInt(formData.recurringTotalCycles as any)
+        : null,
+      subscriptionDiscountPercentage: formData.productType !== 'grouped'
+        ? parseNumber(formData.subscriptionDiscountPercentage, 'subscriptionDiscountPercentage')
+        : null,
+      allowedSubscriptionFrequencies: formData.productType !== 'grouped'
+        ? formData.allowedSubscriptionFrequencies?.trim() || null
+        : null,
+      subscriptionDescription: formData.productType !== 'grouped'
+        ? formData.subscriptionDescription?.trim() || null
+        : null,
+      metaTitle: formData.metaTitle?.trim() || null,
+      metaDescription: formData.metaDescription?.trim() || null,
+      metaKeywords: formData.metaKeywords?.trim() || null,
+      searchEngineFriendlyPageName: formData.searchEngineFriendlyPageName?.trim() || null,
+      allowCustomerReviews: formData.allowCustomerReviews ?? false,
+      videoUrls: formData.videoUrls && formData.videoUrls.length > 0
+        ? formData.videoUrls.join(',')
+        : null,
+      attributes: attributesArray && attributesArray.length > 0 ? attributesArray : [],
+      variants: variantsArray && variantsArray.length > 0 ? variantsArray : [],
+      relatedProductIds: Array.isArray(formData.relatedProducts) && formData.relatedProducts.length > 0
+        ? formData.relatedProducts.join(',')
+        : null,
+      crossSellProductIds: Array.isArray(formData.crossSellProducts) && formData.crossSellProducts.length > 0
+        ? formData.crossSellProducts.join(',')
+        : null,
+    };
 
-  // Grouped Product Fields
-  requireOtherProducts: formData.productType === 'grouped' ? formData.requireOtherProducts : false,
-  requiredProductIds: formData.productType === 'grouped' && formData.requireOtherProducts && formData.requiredProductIds?.trim()
-    ? formData.requiredProductIds.trim()
-    : null,
-  automaticallyAddProducts: formData.productType === 'grouped' && formData.requireOtherProducts
-    ? formData.automaticallyAddProducts
-    : false,
+    // ✅ PROGRESS: 90% - Updating Product
+    setSubmitProgress({
+      step: isDraft ? 'Saving draft...' : 'Updating product...',
+      percentage: 90,
+    });
 
-  // Bundle Discount Fields (✅ Already fixed as numbers)
-  groupBundleDiscountType: formData.productType === 'grouped' ? formData.groupBundleDiscountType || 'None' : 'None',
-  groupBundleDiscountPercentage: formData.productType === 'grouped' && formData.groupBundleDiscountType === 'Percentage'
-    ? parseNumber(formData.groupBundleDiscountPercentage, 'groupBundleDiscountPercentage') ?? 0
-    : null,
-  groupBundleDiscountAmount: formData.productType === 'grouped' && formData.groupBundleDiscountType === 'FixedAmount'
-    ? parseNumber(formData.groupBundleDiscountAmount, 'groupBundleDiscountAmount') ?? 0
-    : null,
-  groupBundleSpecialPrice: formData.productType === 'grouped' && formData.groupBundleDiscountType === 'SpecialPrice'
-    ? parseNumber(formData.groupBundleSpecialPrice, 'groupBundleSpecialPrice') ?? 0
-    : null,
-  groupBundleSavingsMessage: formData.productType === 'grouped' && formData.groupBundleDiscountType !== 'None'
-    ? formData.groupBundleSavingsMessage?.trim() || null
-    : null,
-  showIndividualPrices: formData.productType === 'grouped' ? formData.showIndividualPrices ?? true : true,
-  applyDiscountToAllItems: formData.productType === 'grouped' && formData.groupBundleDiscountType !== 'None'
-    ? formData.applyDiscountToAllItems ?? false
-    : false,
-
-  // ✅ FIXED: Display Settings (Convert string to number)
-  showOnHomepage: formData.showOnHomepage ?? false,
-  displayOrder: parseInt(formData.displayOrder as any) || 0,  // ✅ Convert to number
-  adminComment: formData.adminComment?.trim() || null,
-  isPack: formData.isPack ?? false,
-  gender: formData.gender?.trim() || null,
-
-  // Brand Info
-  brandId: brandIdsArray[0],
-  brandIds: brandIdsArray,
-  brands: brandsArray,
-
-  // Category Info
-  categoryId: categoryIdsArray[0],
-  categoryIds: categoryIdsArray,
-
-  // Additional Fields
-  tags: formData.productTags?.trim() || null,
-
-  // Pricing
-  price: parsedPrice,
-  oldPrice: parsedOldPrice,
-  compareAtPrice: parsedOldPrice,
-  costPrice: parsedCost,
-
-  // Purchase Options
-  disableBuyButton: formData.disableBuyButton ?? false,
-  disableWishlistButton: formData.disableWishlistButton ?? false,
-  availableForPreOrder: formData.availableForPreOrder ?? false,
-  preOrderAvailabilityStartDate: formData.availableForPreOrder && formData.preOrderAvailabilityStartDate
-    ? new Date(formData.preOrderAvailabilityStartDate).toISOString()
-    : null,
-
-  // Base Price
-  basepriceEnabled: formData.basepriceEnabled ?? false,
-  basepriceAmount: parseNumber(formData.basepriceAmount, 'basepriceAmount'),
-  basepriceUnit: formData.basepriceEnabled ? formData.basepriceUnit || null : null,
-  basepriceBaseAmount: parseNumber(formData.basepriceBaseAmount, 'basepriceBaseAmount'),
-  basepriceBaseUnit: formData.basepriceEnabled ? formData.basepriceBaseUnit || null : null,
-
-  // Mark as New
-  markAsNew: formData.markAsNew ?? false,
-  markAsNewStartDate: formData.markAsNew && formData.markAsNewStartDate
-    ? new Date(formData.markAsNewStartDate).toISOString()
-    : null,
-  markAsNewEndDate: formData.markAsNew && formData.markAsNewEndDate
-    ? new Date(formData.markAsNewEndDate).toISOString()
-    : null,
-
-  // Availability Dates
-  availableStartDate: formData.availableStartDate && formData.availableStartDate.trim()
-    ? new Date(formData.availableStartDate).toISOString()
-    : null,
-  availableEndDate: formData.availableEndDate && formData.availableEndDate.trim()
-    ? new Date(formData.availableEndDate).toISOString()
-    : null,
-
-  // Tax
-  vatExempt: formData.vatExempt ?? false,
-  vatRateId: formData.vatRateId || null,
-
-  // ✅ FIXED: Inventory (Convert strings to numbers)
-  trackQuantity: formData.manageInventory === 'track',
-  manageInventoryMethod: formData.manageInventory || 'track',
-  stockQuantity: parseInt(formData.stockQuantity as any) || 0,  // ✅ Convert to number
-  displayStockAvailability: formData.displayStockAvailability ?? true,
-  displayStockQuantity: formData.displayStockQuantity ?? false,
-  minStockQuantity: parseInt(formData.minStockQuantity as any) || 0,  // ✅ Convert to number
-  lowStockThreshold: parseInt(formData.minStockQuantity as any) || 0,  // ✅ Convert to number
-  notifyAdminForQuantityBelow: formData.notifyAdminForQuantityBelow ?? false,
-  notifyQuantityBelow: formData.notifyAdminForQuantityBelow
-    ? parseInt(formData.notifyQuantityBelow as any) || 0  // ✅ Convert to number
-    : null,
-  allowBackorder: formData.allowBackorder ?? false,
-  backorderMode: formData.backorderMode || 'no-backorders',
-
-  // ✅ FIXED: Order Quantities (Convert strings to numbers)
-  orderMinimumQuantity: minCartQty,  // Already parsed as number
-  orderMaximumQuantity: maxCartQty,  // Already parsed as number
-  allowedQuantities: formData.allowedQuantities?.trim() || null,
-  notReturnable: formData.notReturnable ?? false,
-
-  // Shipping & Dimensions
-  requiresShipping: formData.isShipEnabled ?? true,
-  shipSeparately: formData.shipSeparately ?? false,
-  deliveryDateId: formData.deliveryDateId || null,
-  estimatedDispatchDays: 0,
-  dispatchTimeNote: null,
-  weight: parseNumber(formData.weight, 'weight') || 0,
-  length: parseNumber(formData.length, 'length'),
-  width: parseNumber(formData.width, 'width'),
-  height: parseNumber(formData.height, 'height'),
-  weightUnit: 'kg',
-  dimensionUnit: 'cm',
-
-  // Delivery Options
- // In handleSubmit, SECTION 22 - BUILD PRODUCT DATA OBJECT
-// REPLACE the Delivery Options section with this CORRECTED version:
-
-// 🔥 DELIVERY OPTIONS - FIXED CUTOFF TIME PARSING
-sameDayDeliveryEnabled: formData.sameDayDeliveryEnabled ?? false,
-nextDayDeliveryEnabled: formData.nextDayDeliveryEnabled ?? false,
-standardDeliveryEnabled: formData.standardDeliveryEnabled ?? true,
-
-// ✅ CUTOFF TIMES - Send null if empty
-sameDayDeliveryCutoffTime: formData.sameDayDeliveryCutoffTime?.trim() || null,
-nextDayDeliveryCutoffTime: formData.nextDayDeliveryCutoffTime?.trim() || null,
-
-// ✅ DELIVERY DAYS & CHARGES - Proper number parsing
-standardDeliveryDays: parseNumber(formData.standardDeliveryDays, 'standardDeliveryDays') ?? 5,
-sameDayDeliveryCharge: parseNumber(formData.sameDayDeliveryCharge, 'sameDayDeliveryCharge') ?? 0,
-nextDayDeliveryCharge: parseNumber(formData.nextDayDeliveryCharge, 'nextDayDeliveryCharge') ?? 0,
-standardDeliveryCharge: parseNumber(formData.standardDeliveryCharge, 'standardDeliveryCharge') ?? 0,
-
-
-  // ✅ FIXED: Recurring/Subscription (Convert strings to numbers)
-// ✅ FIXED: Recurring/Subscription (ONLY for non-grouped products)
-isRecurring: formData.productType !== 'grouped' && formData.isRecurring ? true : false,
-recurringCycleLength: formData.productType !== 'grouped' && formData.isRecurring
-  ? parseInt(formData.recurringCycleLength as any) || 0
-  : null,
-recurringCyclePeriod: formData.productType !== 'grouped' && formData.isRecurring 
-  ? formData.recurringCyclePeriod || 'days' 
-  : null,
-recurringTotalCycles: formData.productType !== 'grouped' && formData.isRecurring && formData.recurringTotalCycles
-  ? parseInt(formData.recurringTotalCycles as any)
-  : null,
-subscriptionDiscountPercentage: formData.productType !== 'grouped'
-  ? parseNumber(formData.subscriptionDiscountPercentage, 'subscriptionDiscountPercentage')
-  : null,
-allowedSubscriptionFrequencies: formData.productType !== 'grouped'
-  ? formData.allowedSubscriptionFrequencies?.trim() || null
-  : null,
-subscriptionDescription: formData.productType !== 'grouped'
-  ? formData.subscriptionDescription?.trim() || null
-  : null,
-
-
-  // SEO
-  metaTitle: formData.metaTitle?.trim() || null,
-  metaDescription: formData.metaDescription?.trim() || null,
-  metaKeywords: formData.metaKeywords?.trim() || null,
-  searchEngineFriendlyPageName: formData.searchEngineFriendlyPageName?.trim() || null,
-
-  // Reviews
-  allowCustomerReviews: formData.allowCustomerReviews ?? false,
-
-  // Media
-  videoUrls: formData.videoUrls && formData.videoUrls.length > 0
-    ? formData.videoUrls.join(',')
-    : null,
-
-  // Attributes & Variants
-  attributes: attributesArray && attributesArray.length > 0 ? attributesArray : [],
-  variants: variantsArray && variantsArray.length > 0 ? variantsArray : [],
-
-  // Related Products
-  relatedProductIds: Array.isArray(formData.relatedProducts) && formData.relatedProducts.length > 0
-    ? formData.relatedProducts.join(',')
-    : null,
-  crossSellProductIds: Array.isArray(formData.crossSellProducts) && formData.crossSellProducts.length > 0
-    ? formData.crossSellProducts.join(',')
-    : null,
-};
-
-    
-    // ============================================
+    // ═══════════════════════════════════════════════════════════════════════
     // SECTION 23: FINAL SUBMISSION
-    // ============================================
-    
-    console.log('📤 [API] Updating product...');
+    // ═══════════════════════════════════════════════════════════════════════
+
+    console.log('🚀 API: Updating product...');
     const response = await productsService.update(productId, productData);
-    
+
     if (response.error) {
       throw new Error(response.error);
     }
-    
+
     if (response.data) {
       const apiResponse = response.data;
-      
+
       if (apiResponse.success === true || apiResponse.success === undefined) {
+        // ✅ PROGRESS: 100% - Success
+        setSubmitProgress({
+          step: isDraft ? 'Draft saved successfully!' : 'Product updated successfully!',
+          percentage: 100,
+        });
+
         toast.success(
-          isDraft ? '✅ Product saved as draft!' : '✅ Product updated successfully!',
+          isDraft ? '💾 Product saved as draft!' : '✅ Product updated successfully!',
           { autoClose: 3000 }
         );
-        
+
         if (releaseLockAfter) {
           try {
             await productLockService.releaseLock(productId);
           } catch (lockError) {
             console.warn('⚠️ Failed to release lock:', lockError);
           }
-          
-          setTimeout(() => {
-            router.push('/admin/products');
-          }, 800);
         }
+
+        setTimeout(() => {
+          router.push('/admin/products');
+        }, 1500);
       } else if (apiResponse.success === false) {
         throw new Error(apiResponse.message || 'Update failed');
       }
     } else {
       throw new Error('No response received from server');
     }
-    
+
   } catch (error: any) {
     console.error('❌ Submission failed:', error);
-    
+
     let errorMessage = 'Failed to update product';
     if (error.message) {
       errorMessage = error.message;
     }
-    
+
     toast.error(errorMessage, { autoClose: 10000 });
-    
   } finally {
     target.removeAttribute('data-submitting');
+    setIsSubmitting(false);
+    setSubmitProgress(null);
   }
 };
+
+
 
 // ✅ PRODUCTION-LEVEL handleChange with ALL edge cases
 const handleChange = (
@@ -4147,10 +4134,10 @@ const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
   const totalAfterUpload =
     formData.productImages.length + files.length;
 
-  if (totalAfterUpload < MIN_IMAGES) {
-    toast.error(`❌ Minimum ${MIN_IMAGES} images are required for a product`);
-    return;
-  }
+  // if (totalAfterUpload < MIN_IMAGES) {
+  //   toast.error(`❌ Minimum ${MIN_IMAGES} images are required for a product`);
+  //   return;
+  // }
 
   const validatedFiles: File[] = [];
 
@@ -4445,106 +4432,117 @@ const uploadImagesToProductDirect = async (
 
   return (
     <div className="space-y-2">
-      {/* Header */}
-   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-  <div className="flex items-center gap-4">
-    <Link href="/admin/products">
-      <button className="p-2.5 text-slate-400 hover:text-white hover:bg-slate-800 rounded-xl transition-all">
-        <ArrowLeft className="h-5 w-5" />
-      </button>
-    </Link>
-    <div>
-      <h1 className="text-3xl font-bold tracking-tight bg-gradient-to-r from-violet-400 via-cyan-400 to-pink-400 bg-clip-text text-transparent">
-        Edit Product
-      </h1>
-      <p className="text-sm text-slate-400 mt-1">Update and configure your product details</p>
+{/* ================================ */}
+{/* ✅ HEADER WITH LOADING & PROGRESS */}
+{/* ================================ */}
+<div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-2xl p-2">
+  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+    {/* Left Side - Title */}
+    <div className="flex items-center gap-4">
+      <Link href="/admin/products">
+        <button 
+          className="p-2.5 text-slate-400 hover:text-white hover:bg-slate-800 rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+          disabled={isSubmitting}
+        >
+          <ArrowLeft className="h-5 w-5" />
+        </button>
+      </Link>
+      <div>
+        <h1 className="text-3xl font-bold tracking-tight bg-gradient-to-r from-violet-400 via-cyan-400 to-pink-400 bg-clip-text text-transparent">
+          Edit Product
+        </h1>
+        <p className="text-sm text-slate-400 mt-1">
+          {isSubmitting 
+            ? submitProgress?.step || 'Processing...' 
+            : 'Update your product details'
+          }
+        </p>
+      </div>
     </div>
-  </div>
-  
-  <div className="flex items-center gap-3">
-    
-    {/* ✅ SINGLE BELL BUTTON - Shows badge + Opens modal directly */}
-    {hasPendingTakeover && (
+
+    {/* Right Side - Action Buttons */}
+    <div className="flex items-center gap-3">
+      {/* ✅ Save as Draft Button */}
       <button
-        onClick={handleReopenTakeoverModal}
-        className="relative p-2.5 bg-gradient-to-r from-orange-500/20 to-red-500/20 border-2 border-orange-500/50 rounded-xl text-orange-300 hover:bg-orange-500/30 transition-all animate-pulse-slow"
-        title="View Takeover Request"
+        type="button"
+        onClick={(e) => handleSubmit(e, true)}
+        disabled={isSubmitting}
+        className="px-4 py-2 rounded-xl bg-orange-500/10 border border-orange-500/30 text-orange-400 hover:bg-orange-500/20 transition-all text-sm font-medium flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
       >
-        <Bell className="w-5 h-5" />
-        {/* Red notification badge */}
-        <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full ring-2 ring-slate-900 animate-pulse"></span>
+        {isSubmitting ? (
+          <>
+            <div className="w-2 h-2 border border-orange-400 border-t-transparent rounded-full animate-spin"></div>
+            <span>Saving...</span>
+          </>
+        ) : (
+          <>
+            <div className="w-2 h-2 bg-orange-400 rounded-full animate-pulse"></div>
+            <span>Save as Draft</span>
+          </>
+        )}
       </button>
-    )}
-    
-    {/* Cancel Button */}
-    <button
-      onClick={handleCancel}
-      className="px-5 py-2.5 bg-slate-800/50 border border-slate-700 rounded-xl text-slate-300 hover:bg-slate-800 hover:border-slate-600 transition-all text-sm font-medium"
-    >
-      Cancel
-    </button>
 
-    {/* SignalR Connection Status Indicator */}
-    <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-800/50 border border-slate-700 rounded-lg">
-      {signalRService.isConnected() ? (
-        <>
-          <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
-          <span className="text-xs text-slate-400">Live</span>
-        </>
-      ) : (
-        <>
-          <div className="w-2 h-2 bg-red-400 rounded-full"></div>
-          <span className="text-xs text-slate-400">Offline</span>
-        </>
-      )}
+      {/* ✅ Cancel Button */}
+      <button
+        type="button"
+        onClick={() => router.push('/admin/products')}
+        disabled={isSubmitting}
+        className="px-5 py-2.5 bg-slate-800/50 border border-slate-700 rounded-xl text-slate-300 hover:bg-slate-800 hover:border-slate-600 transition-all text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+      >
+        Cancel
+      </button>
+
+      {/* ✅ Update Button */}
+      <button
+        type="button"
+        onClick={(e) => handleSubmit(e, false)}
+        disabled={isSubmitting}
+        className="px-5 py-2.5 bg-gradient-to-r from-violet-500 to-cyan-500 text-white rounded-xl hover:shadow-lg hover:shadow-violet-500/50 transition-all text-sm flex items-center gap-2 font-semibold disabled:opacity-50 disabled:cursor-not-allowed relative overflow-hidden"
+      >
+        {isSubmitting ? (
+          <>
+            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+            <span>Updating...</span>
+          </>
+        ) : (
+          <>
+            <Save className="h-4 w-4" />
+            <span>Update Product</span>
+          </>
+        )}
+
+        {/* Progress Bar Overlay */}
+        {isSubmitting && submitProgress && (
+          <div className="absolute bottom-0 left-0 h-1 bg-white/30 transition-all duration-500"
+            style={{ width: `${submitProgress.percentage}%` }}
+          ></div>
+        )}
+      </button>
     </div>
-
-    {/* Save as Draft Button */}
-    <button
-      type="button"
-      onClick={(e) => handleSubmit(e, true)}
-      className="px-4 py-2 rounded-xl bg-orange-500/10 border border-orange-500/30 text-orange-400 hover:bg-orange-500/20 hover:border-orange-500/50 transition-all text-sm font-medium flex items-center gap-2"
-    >
-      <div className="w-2 h-2 bg-orange-400 rounded-full animate-pulse"></div>
-      Save as Draft
-    </button>
-
-    {/* Update Product Button */}
-    <button
-      type="button"
-      onClick={(e) => handleSubmit(e, false)}
-      disabled={isAcquiringLock || !productLock?.isLocked || loading}
-      className={cn(
-        "px-5 py-2.5 rounded-xl text-sm flex items-center gap-2 font-semibold transition-all",
-        (isAcquiringLock || !productLock?.isLocked || loading)
-          ? "bg-slate-700 text-slate-500 cursor-not-allowed opacity-50"
-          : "bg-gradient-to-r from-violet-500 to-cyan-500 text-white hover:shadow-lg hover:shadow-violet-500/50"
-      )}
-    >
-      {isAcquiringLock ? (
-        <>
-          <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-          <span>Acquiring Lock...</span>
-        </>
-      ) : !productLock?.isLocked ? (
-        <>
-          <X className="h-4 w-4" />
-          <span>No Edit Lock</span>
-        </>
-      ) : loading ? (
-        <>
-          <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-          <span>Loading...</span>
-        </>
-      ) : (
-        <>
-          <Save className="h-4 w-4" />
-          <span>Update Product</span>
-        </>
-      )}
-    </button>
   </div>
+
+  {/* ✅ Progress Bar Below Header */}
+  {isSubmitting && submitProgress && (
+    <div className="mt-3 pt-3 border-t border-slate-800">
+      <div className="flex items-center justify-between mb-2">
+        <span className="text-xs font-medium text-slate-400">
+          {submitProgress.step}
+        </span>
+        <span className="text-xs font-mono text-violet-400">
+          {submitProgress.percentage}%
+        </span>
+      </div>
+      <div className="w-full bg-slate-800 rounded-full h-1.5 overflow-hidden">
+        <div
+          className="bg-gradient-to-r from-violet-500 via-cyan-500 to-pink-500 h-full transition-all duration-500 ease-out"
+          style={{ width: `${submitProgress.percentage}%` }}
+        ></div>
+      </div>
+    </div>
+  )}
 </div>
+
+
 
       {/* Main Content */}
       <div className="w-full">
@@ -5089,7 +5087,6 @@ const uploadImagesToProductDirect = async (
 
 </TabsContent>
 
-{/* ✅ ADD NEW TAB: GROUPED PRODUCTS */}
 <TabsContent value="prices" className="space-y-2 mt-2">
   {/* Price Section */}
   <div className="space-y-4">
@@ -5141,8 +5138,227 @@ const uploadImagesToProductDirect = async (
       </div>
     </div>
 
+    {/* ⭐⭐⭐ PROFESSIONAL PRICING BREAKDOWN ⭐⭐⭐ */}
+    {(() => { 
+      const parsePrice = (value: any): number => {
+        if (!value) return 0;
+        const parsed = parseFloat(String(value));
+        return isNaN(parsed) ? 0 : parsed;
+      };
+
+      const mainPrice = parsePrice(formData.price);
+      const oldPrice = parsePrice(formData.oldPrice);
+      const costPrice = parsePrice(formData.cost);
+
+      const isGrouped = formData.productType === 'grouped';
+      let bundleItemsTotal = 0;
+      let bundleDiscount = 0;
+      let bundleBeforeDiscount = 0;
+      let finalBundlePrice = mainPrice;
+
+      if (isGrouped && selectedGroupedProducts.length > 0) {
+        bundleItemsTotal = selectedGroupedProducts.reduce((total, productId) => {
+          const product = simpleProducts.find(p => p.id === productId);
+          return total + parsePrice(product?.price || 0);
+        }, 0);
+
+        bundleBeforeDiscount = mainPrice + bundleItemsTotal;
+
+        if (formData.groupBundleDiscountType === 'Percentage') {
+          const discountPercent = parsePrice(formData.groupBundleDiscountPercentage);
+          bundleDiscount = (bundleBeforeDiscount * discountPercent) / 100;
+        } else if (formData.groupBundleDiscountType === 'FixedAmount') {
+          bundleDiscount = parsePrice(formData.groupBundleDiscountAmount);
+        } else if (formData.groupBundleDiscountType === 'SpecialPrice') {
+          const specialPrice = parsePrice(formData.groupBundleSpecialPrice);
+          bundleDiscount = bundleBeforeDiscount - specialPrice;
+        }
+
+        finalBundlePrice = bundleBeforeDiscount - bundleDiscount;
+      }
+
+      const priceForVat = isGrouped ? finalBundlePrice : mainPrice;
+
+      if (mainPrice <= 0) return null;
+
+      return (
+    <div className="mt-3 bg-gradient-to-br from-violet-500/5 to-cyan-500/5 border border-violet-500/20 rounded-2xl p-3">
+  
+  {/* Header with Bundle Badge */}
+  <div className="flex items-center justify-between mb-3">
+    <h4 className="text-base font-semibold text-white flex items-center gap-2">
+      💰 Pricing Breakdown
+    </h4>
+    
+    {isGrouped && (
+      <button
+        type="button"
+        onClick={() => setIsGroupedModalOpen(true)}
+        className="relative px-2.5 py-1 bg-violet-500/20 hover:bg-violet-500/30 border border-violet-500/30 hover:border-violet-500/50 rounded-lg text-xs font-medium text-violet-300 transition-all group cursor-pointer"
+      >
+        <span className="flex items-center gap-1">
+          📦 Bundle
+          <svg 
+            className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" 
+            fill="none" 
+            stroke="currentColor" 
+            viewBox="0 0 24 24"
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+          </svg>
+        </span>
+        
+        <div className="absolute -bottom-10 right-0 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
+          <div className="bg-slate-900 border border-violet-500/50 rounded-lg px-3 py-1.5 text-xs text-violet-300 whitespace-nowrap shadow-xl">
+            Click to edit bundle or add more products
+          </div>
+        </div>
+      </button>
+    )}
+  </div>
+
+  <div className="space-y-2">
+    
+    {/* Bundle Details */}
+    {isGrouped && selectedGroupedProducts.length > 0 ? (
+      <>
+        {/* ⭐⭐⭐ SECTION 1: BUNDLE ITEMS ⭐⭐⭐ */}
+        <div className="p-3 bg-slate-800/40 rounded-lg border border-slate-700">
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-2">
+              <div className="w-2 h-2 rounded-full bg-cyan-400"></div>
+              <span className="text-sm font-bold text-cyan-400 uppercase tracking-wide">Bundle Items</span>
+            </div>
+            <span className="px-2 py-0.5 bg-cyan-500/20 text-cyan-400 rounded-md text-xs font-bold">
+              {selectedGroupedProducts.length} Products
+            </span>
+          </div>
+          
+          {/* Product List */}
+          <div className="space-y-1 mb-2">
+            {selectedGroupedProducts.map((productId: string, index: number) => {
+              const product = simpleProducts.find((p: any) => p.id === productId);
+              if (!product) return null;
+              return (
+                <div key={productId} className="flex justify-between items-center text-xs py-1">
+                  <span className="text-slate-300">
+                    <span className="text-cyan-400 font-bold mr-1">{index + 1}.</span>
+                    {product.name}
+                  </span>
+                  <span className="text-white font-semibold">£{parsePrice(product.price).toFixed(2)}</span>
+                </div>
+              );
+            })}
+          </div>
+          
+          {/* Bundle Items Sum */}
+          <div className="border-t border-slate-700 pt-2 mt-2">
+            <div className="flex justify-between items-center">
+              <span className="text-sm text-slate-300 font-medium">Bundle Items Sum:</span>
+              <span className="text-base font-bold text-cyan-400">£{bundleItemsTotal.toFixed(2)}</span>
+            </div>
+          </div>
+        </div>
+
+        {/* ⭐⭐⭐ SECTION 2: BUNDLE PRICE ⭐⭐⭐ */}
+        <div className="p-3 bg-gradient-to-br from-violet-500/10 to-purple-500/10 rounded-lg border border-violet-500/30">
+          <div className="flex items-center gap-2 mb-3">
+            <div className="w-2 h-2 rounded-full bg-violet-400"></div>
+            <span className="text-sm font-bold text-violet-400 uppercase tracking-wide">Bundle Price</span>
+          </div>
+          
+          <div className="space-y-2">
+            {/* Main Product */}
+            <div className="flex justify-between items-center p-2 bg-slate-900/50 rounded-md">
+              <span className="text-sm text-slate-200 font-medium">{formData.name || 'Main Product'}</span>
+              <span className="text-base font-bold text-white">£{mainPrice.toFixed(2)}</span>
+            </div>
+            
+            {/* Bundle Items Sum */}
+            <div className="flex justify-between items-center p-2 bg-slate-900/50 rounded-md">
+              <span className="text-sm text-slate-200 font-medium">Bundle Items Sum</span>
+              <span className="text-base font-bold text-cyan-400">+£{bundleItemsTotal.toFixed(2)}</span>
+            </div>
+            
+            {/* Divider */}
+            <div className="border-t-2 border-dashed border-violet-500/30 my-2"></div>
+            
+            {/* Total Bundle Price */}
+            <div className="flex justify-between items-center p-2.5 bg-violet-500/20 rounded-md">
+              <span className="text-base font-bold text-white">Total Bundle Price(INCLUDING MAIN PRODUCT)</span>
+              <span className="text-xl font-bold text-violet-400">£{bundleBeforeDiscount.toFixed(2)}</span>
+            </div>
+          </div>
+        </div>
+
+        {/* ⭐⭐⭐ SECTION 3: BUNDLE DISCOUNT ⭐⭐⭐ */}
+        {bundleDiscount > 0 && (
+          <div className="p-3 bg-gradient-to-br from-red-500/10 to-pink-500/10 rounded-lg border border-red-500/30">
+            <div className="flex items-center gap-2 mb-3">
+              <div className="w-2 h-2 rounded-full bg-red-400"></div>
+              <span className="text-sm font-bold text-red-400 uppercase tracking-wide">Bundle Discount</span>
+            </div>
+            
+            <div className="space-y-2">
+              {/* Total Bundle Price */}
+              <div className="flex justify-between items-center p-2 bg-slate-900/50 rounded-md">
+                <span className="text-sm text-slate-200 font-medium">Total Bundle Price</span>
+                <span className="text-base font-bold text-white">£{bundleBeforeDiscount.toFixed(2)}</span>
+              </div>
+              
+              {/* Discount */}
+              <div className="flex justify-between items-center p-2 bg-slate-900/50 rounded-md">
+                <span className="text-sm text-slate-200 font-medium">
+                  Discount ({formData.groupBundleDiscountType})
+                </span>
+                <span className="text-base font-bold text-red-400">-£{bundleDiscount.toFixed(2)}</span>
+              </div>
+              
+              {/* Divider */}
+              <div className="border-t-2 border-dashed border-red-500/30 my-2"></div>
+              
+              {/* Final Bundle Price */}
+              <div className="flex justify-between items-center p-3 bg-gradient-to-r from-green-500/20 to-emerald-500/20 rounded-md border border-green-500/40">
+                <span className="text-base font-bold text-white">Final Bundle Price</span>
+                <span className="text-2xl font-bold text-green-400">£{finalBundlePrice.toFixed(2)}</span>
+              </div>
+              
+              {/* Savings Badge */}
+              <div className="p-2 bg-green-500/10 border border-green-500/30 rounded-md">
+                <p className="text-xs text-green-400 font-bold text-center flex items-center justify-center gap-1">
+                  <span>🎉</span>
+                  You Save: £{bundleDiscount.toFixed(2)} ({((bundleDiscount / bundleBeforeDiscount) * 100).toFixed(1)}% OFF)
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+      </>
+    ) : null}
+
+    {/* Profit Margin */}
+    {costPrice > 0 && (
+      <div className="border-t border-slate-700/50 pt-3 mt-3">
+        <div className="flex justify-between items-center">
+          <span className="text-xs text-slate-400">Your Cost:</span>
+          <span className="text-xs text-orange-400">£{costPrice.toFixed(2)}</span>
+        </div>
+        <div className="flex justify-between items-center mt-1">
+          <span className="text-xs text-slate-400">Margin:</span>
+          <span className={`text-xs font-medium ${priceForVat - costPrice > 0 ? 'text-green-400' : 'text-red-400'}`}>
+            £{(priceForVat - costPrice).toFixed(2)} ({costPrice > 0 ? (((priceForVat - costPrice) / costPrice) * 100).toFixed(1) : '0'}%)
+          </span>
+        </div>
+      </div>
+    )}
+  </div>
+</div>
+
+      );
+    })()}
+
+    {/* Buttons */}
     <div className="space-y-3">
-      {/* First Row: 3 Checkboxes in 3 Columns */}
       <div className="grid md:grid-cols-3 gap-4">
         <label className="flex items-center gap-2 w-full px-3 py-2.5 bg-slate-800/50 border border-slate-700 rounded-xl cursor-pointer hover:border-violet-500 transition-all">
           <input
@@ -5165,15 +5381,11 @@ const uploadImagesToProductDirect = async (
           />
           <span className="text-sm text-slate-300">Disable wishlist button</span>
         </label>
-
       </div>
-
-
     </div>
-
   </div>
 
-  {/* ✅ PRE-ORDER SECTION - NEW (Above Mark as New) */}
+  {/* PRE-ORDER SECTION */}
   <div className="space-y-4">
     <h3 className="text-lg font-semibold text-white border-b border-slate-800 pb-2">Pre-Order</h3>
 
@@ -5195,7 +5407,6 @@ const uploadImagesToProductDirect = async (
       </div>
     </label>
 
-    {/* ✅ Conditional Date Input */}
     {formData.availableForPreOrder && (
       <div className="bg-slate-800/30 border border-slate-700 p-4 rounded-xl">
         <label className="block text-sm font-medium text-slate-300 mb-2">
@@ -5263,7 +5474,6 @@ const uploadImagesToProductDirect = async (
       VAT / Tax Settings
     </h3>
 
-    {/* VAT Exempt Checkbox */}
     <label className="flex items-center gap-2 cursor-pointer">
       <input
         type="checkbox"
@@ -5275,83 +5485,260 @@ const uploadImagesToProductDirect = async (
       <span className="text-sm text-slate-300">VAT Exempt (No tax applied)</span>
     </label>
 
-    {/* VAT Rate Dropdown - Only show if NOT exempt */}
     {!formData.vatExempt && (
       <div className="relative">
         <label className="block text-sm font-medium text-slate-300 mb-2">
           VAT Rate <span className="text-red-400">*</span>
         </label>
 
-        {/* Search Input */}
-        <input
-          type="text"
-          placeholder="Search or select VAT rate..."
-          value={
-            formData.vatRateId 
-              ? `${dropdownsData.vatRates.find(v => v.id === formData.vatRateId)?.name} (${dropdownsData.vatRates.find(v => v.id === formData.vatRateId)?.rate}%)`
-              : vatSearch
-          }
-          onChange={(e) => {
-            setVatSearch(e.target.value);
-            setShowVatDropdown(true);
-            if (!e.target.value) {
-              setFormData({ ...formData, vatRateId: '' });
+        <div className="relative">
+          <input
+            type="text"
+            placeholder="Search VAT rate..."
+            value={
+              formData.vatRateId 
+                ? (() => {
+                    const selected = dropdownsData.vatRates.find((v: any) => v.id === formData.vatRateId);
+                    return selected ? `${selected.name} (${selected.rate}%)` : '';
+                  })()
+                : vatSearch
             }
-          }}
-          onFocus={() => setShowVatDropdown(true)}
-          className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
-        />
+            onChange={(e) => {
+              setVatSearch(e.target.value);
+              setShowVatDropdown(true);
+              if (!e.target.value) {
+                setFormData({ ...formData, vatRateId: '' });
+              }
+            }}
+            onFocus={() => setShowVatDropdown(true)}
+            className="w-full px-3 py-2 pr-10 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+          />
+          
+          {formData.vatRateId && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                setFormData({ ...formData, vatRateId: '' });
+                setVatSearch('');
+              }}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-red-400 transition-colors"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          )}
+        </div>
 
-        {/* Dropdown List */}
+        {/* Dropdown */}
         {showVatDropdown && (
-          <div className="absolute z-50 w-full mt-1 bg-slate-900 border border-slate-700 rounded-xl shadow-lg max-h-60 overflow-auto">
-            {filteredVATRates.length > 0 ? (
-              filteredVATRates.map((vat) => (
-                <button
-                  key={vat.id}
-                  type="button"
-                  onClick={() => {
-                    setFormData({ ...formData, vatRateId: vat.id });
-                    setVatSearch('');
-                    setShowVatDropdown(false);
-                  }}
-                  className={`w-full text-left px-4 py-2 hover:bg-violet-500/20 transition-colors ${
-                    formData.vatRateId === vat.id ? 'bg-violet-500/30 text-violet-300' : 'text-white'
-                  }`}
-                >
-                  {vat.name} ({vat.rate}%)
-                </button>
-              ))
-            ) : (
-              <div className="px-4 py-2 text-slate-400 text-sm">
-                No VAT rates found
-              </div>
-            )}
+          <div className="absolute z-50 w-full mt-1 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl max-h-64 overflow-auto">
+            {(() => {
+              const searchLower = vatSearch.toLowerCase();
+              const filtered = dropdownsData.vatRates.filter((vat: any) => 
+                vat.name.toLowerCase().includes(searchLower) ||
+                vat.description?.toLowerCase().includes(searchLower) ||
+                vat.rate.toString().includes(searchLower) ||
+                vat.country?.toLowerCase().includes(searchLower) ||
+                vat.region?.toLowerCase().includes(searchLower)
+              );
+
+              const highlightText = (text: string, search: string) => {
+                if (!search) return text;
+                const parts = text.split(new RegExp(`(${search})`, 'gi'));
+                return parts.map((part, i) => 
+                  part.toLowerCase() === search.toLowerCase() 
+                    ? `<mark class="bg-violet-500/30 text-violet-300 px-0.5 rounded">${part}</mark>`
+                    : part
+                ).join('');
+              };
+
+              if (filtered.length === 0) {
+                return (
+                  <div className="px-4 py-4 text-center text-slate-500 text-sm">
+                    No results
+                  </div>
+                );
+              }
+
+              return filtered.map((vat: any) => {
+                const isSelected = formData.vatRateId === vat.id;
+                return (
+                  <button
+                    key={vat.id}
+                    type="button"
+                    onClick={() => {
+                      setFormData({ ...formData, vatRateId: vat.id });
+                      setVatSearch('');
+                      setShowVatDropdown(false);
+                    }}
+                    className={`w-full text-left px-3 py-2 border-b border-slate-800/50 hover:bg-violet-500/10 transition-all group ${
+                      isSelected ? 'bg-violet-500/20 border-l-3 border-l-violet-500' : ''
+                    }`}
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <span 
+                        className={`font-medium text-sm ${isSelected ? 'text-violet-300' : 'text-white'}`}
+                        dangerouslySetInnerHTML={{ __html: highlightText(vat.name, vatSearch) }}
+                      />
+                      
+                      <div className="flex items-center gap-2">
+                        <span className={`px-1.5 py-0.5 rounded text-xs font-bold ${
+                          vat.rate === 0 
+                            ? 'bg-green-500/20 text-green-400' 
+                            : vat.rate < 10 
+                              ? 'bg-blue-500/20 text-blue-400'
+                              : 'bg-amber-500/20 text-amber-400'
+                        }`}>
+                          {vat.rate}%
+                        </span>
+                        
+                        {vat.isDefault && (
+                          <span className="px-1.5 py-0.5 bg-violet-500/20 text-violet-400 rounded text-xs">
+                            Default
+                          </span>
+                        )}
+                        
+                        {isSelected && (
+                          <svg className="w-4 h-4 text-violet-400" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                          </svg>
+                        )}
+                      </div>
+                    </div>
+                  </button>
+                );
+              });
+            })()}
           </div>
         )}
 
-        {/* Close dropdown when clicking outside */}
         {showVatDropdown && (
-          <div
-            className="fixed inset-0 z-40"
-            onClick={() => setShowVatDropdown(false)}
-          />
-        )}
-
-        {/* Selected Info */}
-        {formData.vatRateId && (
-          <p className="text-xs text-slate-400 mt-1">
-            Selected: {dropdownsData.vatRates.find(v => v.id === formData.vatRateId)?.name} 
-            ({dropdownsData.vatRates.find(v => v.id === formData.vatRateId)?.rate}%)
-          </p>
+          <div className="fixed inset-0 z-40" onClick={() => setShowVatDropdown(false)} />
         )}
       </div>
     )}
 
+    {/* TAX CALCULATION */}
+    {!formData.vatExempt && (() => {
+      const parsePrice = (value: any): number => {
+        if (!value) return 0;
+        const parsed = parseFloat(String(value));
+        return isNaN(parsed) ? 0 : parsed;
+      };
 
+      const mainPrice = parsePrice(formData.price);
+      const oldPrice = parsePrice(formData.oldPrice);
 
+      const selectedVat = dropdownsData.vatRates.find((v: any) => v.id === formData.vatRateId);
+      const vatRate = selectedVat?.rate || 0;
+
+      const isGrouped = formData.productType === 'grouped';
+      let bundleItemsTotal = 0;
+      let bundleDiscount = 0;
+      let bundleBeforeDiscount = 0;
+      let finalBundlePrice = mainPrice;
+
+      if (isGrouped && selectedGroupedProducts.length > 0) {
+        bundleItemsTotal = selectedGroupedProducts.reduce((total: number, productId: string) => {
+          const product = simpleProducts.find((p: any) => p.id === productId);
+          return total + parsePrice(product?.price || 0);
+        }, 0);
+
+        bundleBeforeDiscount = mainPrice + bundleItemsTotal;
+
+        if (formData.groupBundleDiscountType === 'Percentage') {
+          const discountPercent = parsePrice(formData.groupBundleDiscountPercentage);
+          bundleDiscount = (bundleBeforeDiscount * discountPercent) / 100;
+        } else if (formData.groupBundleDiscountType === 'FixedAmount') {
+          bundleDiscount = parsePrice(formData.groupBundleDiscountAmount);
+        } else if (formData.groupBundleDiscountType === 'SpecialPrice') {
+          const specialPrice = parsePrice(formData.groupBundleSpecialPrice);
+          bundleDiscount = bundleBeforeDiscount - specialPrice;
+        }
+
+        finalBundlePrice = bundleBeforeDiscount - bundleDiscount;
+      }
+
+      const priceForVat = isGrouped ? finalBundlePrice : mainPrice;
+      const vatAmount = (priceForVat * vatRate) / 100;
+      const finalCustomerPrice = priceForVat + vatAmount;
+
+      const oldPriceWithVat = oldPrice + ((oldPrice * vatRate) / 100);
+      const savingsAmount = oldPriceWithVat - finalCustomerPrice;
+      const savingsPercent = oldPriceWithVat > 0 ? (savingsAmount / oldPriceWithVat) * 100 : 0;
+
+      if (mainPrice <= 0) return null;
+
+      return (
+        <div className="mt-6 bg-gradient-to-br from-amber-500/5 to-orange-500/5 border border-amber-500/20 rounded-2xl p-5">
+          <h4 className="text-base font-semibold text-white mb-4 flex items-center gap-2">
+            🧾 Tax Calculation
+          </h4>
+
+          <div className="space-y-3">
+            {selectedVat ? (
+              <>
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-slate-400">VAT Rate:</span>
+                  <span className="text-sm text-white font-medium">{selectedVat.name} ({vatRate}%)</span>
+                </div>
+
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-slate-400">Price (excl. VAT):</span>
+                  <span className="text-base font-semibold text-white">£{priceForVat.toFixed(2)}</span>
+                </div>
+
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-amber-400">+ VAT ({vatRate}%):</span>
+                  <span className="text-base font-semibold text-amber-400">£{vatAmount.toFixed(2)}</span>
+                </div>
+
+                <div className="border-t-2 border-amber-500/30 pt-3 mt-3">
+                  <div className="flex justify-between items-center">
+                    <span className="text-base font-bold text-white">Customer Pays:</span>
+                    <span className="text-2xl font-bold text-amber-400">£{finalCustomerPrice.toFixed(2)}</span>
+                  </div>
+                </div>
+
+                {oldPrice > 0 && savingsAmount > 0 && (
+                  <div className="mt-4 p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-xl">
+                    <div className="flex justify-between items-center">
+                      <span className="text-xs text-emerald-400">🎉 Customer Saves:</span>
+                      <span className="text-sm font-bold text-emerald-400">
+                        £{savingsAmount.toFixed(2)} ({savingsPercent.toFixed(1)}% off)
+                      </span>
+                    </div>
+                  </div>
+                )}
+
+                {isGrouped && selectedGroupedProducts.length > 0 && (
+                  <div className="mt-4 pt-3 border-t border-slate-700/50">
+                    <p className="text-xs text-slate-400 flex items-center gap-1">
+                      <span>📦</span>
+                      <span>
+                        Bundle includes {selectedGroupedProducts.length + 1} product{selectedGroupedProducts.length > 0 ? 's' : ''}
+                        {bundleDiscount > 0 && ` with £${bundleDiscount.toFixed(2)} discount`}
+                      </span>
+                    </p>
+                  </div>
+                )}
+              </>
+            ) : (
+              <div className="text-center py-6 bg-slate-800/30 rounded-xl border-2 border-dashed border-slate-700">
+                <div className="text-amber-400 text-sm">⚠️ Select a VAT rate</div>
+                <div className="text-xs text-slate-500 mt-1">Tax calculation will appear here</div>
+              </div>
+            )}
+          </div>
+        </div>
+      );
+    })()}
   </div>
 </TabsContent>
+
+
 
 
 
@@ -7346,7 +7733,9 @@ const uploadImagesToProductDirect = async (
   simpleProducts={simpleProducts}
   selectedGroupedProducts={selectedGroupedProducts}
   automaticallyAddProducts={formData.automaticallyAddProducts}
-  
+   // ⭐ PASS MAIN PRODUCT DATA
+  mainProductPrice={parseFloat(formData.price) || 0}
+  mainProductName={formData.name || 'Main Product'}
   // ✅ NEW: Bundle Discount Props
   bundleDiscountType={formData.groupBundleDiscountType}
   bundleDiscountPercentage={formData.groupBundleDiscountPercentage}
