@@ -5138,224 +5138,161 @@ const uploadImagesToProductDirect = async (
       </div>
     </div>
 
-    {/* ⭐⭐⭐ PROFESSIONAL PRICING BREAKDOWN ⭐⭐⭐ */}
-    {(() => { 
-      const parsePrice = (value: any): number => {
-        if (!value) return 0;
-        const parsed = parseFloat(String(value));
-        return isNaN(parsed) ? 0 : parsed;
-      };
+{(() => { 
+  const parsePrice = (value: any): number => {
+    if (!value) return 0;
+    const parsed = parseFloat(String(value));
+    return isNaN(parsed) ? 0 : parsed;
+  };
 
-      const mainPrice = parsePrice(formData.price);
-      const oldPrice = parsePrice(formData.oldPrice);
-      const costPrice = parsePrice(formData.cost);
+  const mainPrice = parsePrice(formData.price);
+  const oldPrice = parsePrice(formData.oldPrice);
+  const costPrice = parsePrice(formData.cost);
 
-      const isGrouped = formData.productType === 'grouped';
-      let bundleItemsTotal = 0;
-      let bundleDiscount = 0;
-      let bundleBeforeDiscount = 0;
-      let finalBundlePrice = mainPrice;
+  const isGrouped = formData.productType === 'grouped';
+  let bundleItemsTotal = 0;
+  let bundleDiscount = 0;
+  let bundleBeforeDiscount = 0;
+  let finalBundlePrice = mainPrice;
 
-      if (isGrouped && selectedGroupedProducts.length > 0) {
-        bundleItemsTotal = selectedGroupedProducts.reduce((total, productId) => {
-          const product = simpleProducts.find(p => p.id === productId);
-          return total + parsePrice(product?.price || 0);
-        }, 0);
+  if (isGrouped && selectedGroupedProducts.length > 0) {
+    bundleItemsTotal = selectedGroupedProducts.reduce((total, productId) => {
+      const product = simpleProducts.find(p => p.id === productId);
+      return total + parsePrice(product?.price || 0);
+    }, 0);
 
-        bundleBeforeDiscount = mainPrice + bundleItemsTotal;
+    bundleBeforeDiscount = mainPrice + bundleItemsTotal;
 
-        if (formData.groupBundleDiscountType === 'Percentage') {
-          const discountPercent = parsePrice(formData.groupBundleDiscountPercentage);
-          bundleDiscount = (bundleBeforeDiscount * discountPercent) / 100;
-        } else if (formData.groupBundleDiscountType === 'FixedAmount') {
-          bundleDiscount = parsePrice(formData.groupBundleDiscountAmount);
-        } else if (formData.groupBundleDiscountType === 'SpecialPrice') {
-          const specialPrice = parsePrice(formData.groupBundleSpecialPrice);
-          bundleDiscount = bundleBeforeDiscount - specialPrice;
-        }
+    // ✅ DISCOUNT ONLY ON BUNDLE ITEMS (NOT MAIN PRODUCT)
+    if (formData.groupBundleDiscountType === 'Percentage') {
+      const discountPercent = parsePrice(formData.groupBundleDiscountPercentage);
+      bundleDiscount = (bundleItemsTotal * discountPercent) / 100;
+    } else if (formData.groupBundleDiscountType === 'FixedAmount') {
+      bundleDiscount = parsePrice(formData.groupBundleDiscountAmount);
+    } else if (formData.groupBundleDiscountType === 'SpecialPrice') {
+      const specialPrice = parsePrice(formData.groupBundleSpecialPrice);
+      bundleDiscount = bundleItemsTotal - specialPrice;
+    }
 
-        finalBundlePrice = bundleBeforeDiscount - bundleDiscount;
-      }
+    // Final = (Bundle Items - Discount) + Main Product
+    finalBundlePrice = (bundleItemsTotal - bundleDiscount) + mainPrice;
+  }
 
-      const priceForVat = isGrouped ? finalBundlePrice : mainPrice;
+  const priceForVat = isGrouped ? finalBundlePrice : mainPrice;
 
-      if (mainPrice <= 0) return null;
+  if (mainPrice <= 0) return null;
 
-      return (
-    <div className="mt-3 bg-gradient-to-br from-violet-500/5 to-cyan-500/5 border border-violet-500/20 rounded-2xl p-3">
-  
-  {/* Header with Bundle Badge */}
-  <div className="flex items-center justify-between mb-3">
-    <h4 className="text-base font-semibold text-white flex items-center gap-2">
-      💰 Pricing Breakdown
-    </h4>
-    
-    {isGrouped && (
-      <button
-        type="button"
-        onClick={() => setIsGroupedModalOpen(true)}
-        className="relative px-2.5 py-1 bg-violet-500/20 hover:bg-violet-500/30 border border-violet-500/30 hover:border-violet-500/50 rounded-lg text-xs font-medium text-violet-300 transition-all group cursor-pointer"
-      >
-        <span className="flex items-center gap-1">
-          📦 Bundle
-          <svg 
-            className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" 
-            fill="none" 
-            stroke="currentColor" 
-            viewBox="0 0 24 24"
+  return (
+    <div className="mt-2 border border-slate-700 rounded-xl bg-slate-900 p-2 space-y-2">
+
+      {/* Header */}
+      <div className="flex justify-between items-center">
+        <h4 className="text-sm font-semibold text-white">
+          Pricing Breakdown
+        </h4>
+        {isGrouped && (
+          <button
+            type="button"
+            onClick={() => setIsGroupedModalOpen(true)}
+            className="relative px-2.5 py-1 bg-violet-500/20 hover:bg-violet-500/30 border border-violet-500/30 hover:border-violet-500/50 rounded-lg text-xs font-medium text-violet-300 transition-all group cursor-pointer"
           >
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-          </svg>
-        </span>
-        
-        <div className="absolute -bottom-10 right-0 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
-          <div className="bg-slate-900 border border-violet-500/50 rounded-lg px-3 py-1.5 text-xs text-violet-300 whitespace-nowrap shadow-xl">
-            Click to edit bundle or add more products
-          </div>
-        </div>
-      </button>
-    )}
-  </div>
-
-  <div className="space-y-2">
-    
-    {/* Bundle Details */}
-    {isGrouped && selectedGroupedProducts.length > 0 ? (
-      <>
-        {/* ⭐⭐⭐ SECTION 1: BUNDLE ITEMS ⭐⭐⭐ */}
-        <div className="p-3 bg-slate-800/40 rounded-lg border border-slate-700">
-          <div className="flex items-center justify-between mb-2">
-            <div className="flex items-center gap-2">
-              <div className="w-2 h-2 rounded-full bg-cyan-400"></div>
-              <span className="text-sm font-bold text-cyan-400 uppercase tracking-wide">Bundle Items</span>
-            </div>
-            <span className="px-2 py-0.5 bg-cyan-500/20 text-cyan-400 rounded-md text-xs font-bold">
-              {selectedGroupedProducts.length} Products
+            <span className="flex items-center gap-1">
+              📦 Bundle
+              <svg 
+                className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" 
+                fill="none" 
+                stroke="currentColor" 
+                viewBox="0 0 24 24"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+              </svg>
             </span>
-          </div>
-          
-          {/* Product List */}
-          <div className="space-y-1 mb-2">
-            {selectedGroupedProducts.map((productId: string, index: number) => {
-              const product = simpleProducts.find((p: any) => p.id === productId);
-              if (!product) return null;
-              return (
-                <div key={productId} className="flex justify-between items-center text-xs py-1">
-                  <span className="text-slate-300">
-                    <span className="text-cyan-400 font-bold mr-1">{index + 1}.</span>
-                    {product.name}
-                  </span>
-                  <span className="text-white font-semibold">£{parsePrice(product.price).toFixed(2)}</span>
-                </div>
-              );
-            })}
-          </div>
-          
-          {/* Bundle Items Sum */}
-          <div className="border-t border-slate-700 pt-2 mt-2">
-            <div className="flex justify-between items-center">
-              <span className="text-sm text-slate-300 font-medium">Bundle Items Sum:</span>
-              <span className="text-base font-bold text-cyan-400">£{bundleItemsTotal.toFixed(2)}</span>
-            </div>
-          </div>
-        </div>
-
-        {/* ⭐⭐⭐ SECTION 2: BUNDLE PRICE ⭐⭐⭐ */}
-        <div className="p-3 bg-gradient-to-br from-violet-500/10 to-purple-500/10 rounded-lg border border-violet-500/30">
-          <div className="flex items-center gap-2 mb-3">
-            <div className="w-2 h-2 rounded-full bg-violet-400"></div>
-            <span className="text-sm font-bold text-violet-400 uppercase tracking-wide">Bundle Price</span>
-          </div>
-          
-          <div className="space-y-2">
-            {/* Main Product */}
-            <div className="flex justify-between items-center p-2 bg-slate-900/50 rounded-md">
-              <span className="text-sm text-slate-200 font-medium">{formData.name || 'Main Product'}</span>
-              <span className="text-base font-bold text-white">£{mainPrice.toFixed(2)}</span>
-            </div>
             
-            {/* Bundle Items Sum */}
-            <div className="flex justify-between items-center p-2 bg-slate-900/50 rounded-md">
-              <span className="text-sm text-slate-200 font-medium">Bundle Items Sum</span>
-              <span className="text-base font-bold text-cyan-400">+£{bundleItemsTotal.toFixed(2)}</span>
-            </div>
-            
-            {/* Divider */}
-            <div className="border-t-2 border-dashed border-violet-500/30 my-2"></div>
-            
-            {/* Total Bundle Price */}
-            <div className="flex justify-between items-center p-2.5 bg-violet-500/20 rounded-md">
-              <span className="text-base font-bold text-white">Total Bundle Price(INCLUDING MAIN PRODUCT)</span>
-              <span className="text-xl font-bold text-violet-400">£{bundleBeforeDiscount.toFixed(2)}</span>
-            </div>
-          </div>
-        </div>
-
-        {/* ⭐⭐⭐ SECTION 3: BUNDLE DISCOUNT ⭐⭐⭐ */}
-        {bundleDiscount > 0 && (
-          <div className="p-3 bg-gradient-to-br from-red-500/10 to-pink-500/10 rounded-lg border border-red-500/30">
-            <div className="flex items-center gap-2 mb-3">
-              <div className="w-2 h-2 rounded-full bg-red-400"></div>
-              <span className="text-sm font-bold text-red-400 uppercase tracking-wide">Bundle Discount</span>
-            </div>
-            
-            <div className="space-y-2">
-              {/* Total Bundle Price */}
-              <div className="flex justify-between items-center p-2 bg-slate-900/50 rounded-md">
-                <span className="text-sm text-slate-200 font-medium">Total Bundle Price</span>
-                <span className="text-base font-bold text-white">£{bundleBeforeDiscount.toFixed(2)}</span>
-              </div>
-              
-              {/* Discount */}
-              <div className="flex justify-between items-center p-2 bg-slate-900/50 rounded-md">
-                <span className="text-sm text-slate-200 font-medium">
-                  Discount ({formData.groupBundleDiscountType})
-                </span>
-                <span className="text-base font-bold text-red-400">-£{bundleDiscount.toFixed(2)}</span>
-              </div>
-              
-              {/* Divider */}
-              <div className="border-t-2 border-dashed border-red-500/30 my-2"></div>
-              
-              {/* Final Bundle Price */}
-              <div className="flex justify-between items-center p-3 bg-gradient-to-r from-green-500/20 to-emerald-500/20 rounded-md border border-green-500/40">
-                <span className="text-base font-bold text-white">Final Bundle Price</span>
-                <span className="text-2xl font-bold text-green-400">£{finalBundlePrice.toFixed(2)}</span>
-              </div>
-              
-              {/* Savings Badge */}
-              <div className="p-2 bg-green-500/10 border border-green-500/30 rounded-md">
-                <p className="text-xs text-green-400 font-bold text-center flex items-center justify-center gap-1">
-                  <span>🎉</span>
-                  You Save: £{bundleDiscount.toFixed(2)} ({((bundleDiscount / bundleBeforeDiscount) * 100).toFixed(1)}% OFF)
-                </p>
+            <div className="absolute -bottom-10 right-0 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
+              <div className="bg-slate-900 border border-violet-500/50 rounded-lg px-3 py-1.5 text-xs text-violet-300 whitespace-nowrap shadow-xl">
+                Click to edit bundle or add more products
               </div>
             </div>
-          </div>
+          </button>
         )}
-      </>
-    ) : null}
+      </div>
 
-    {/* Profit Margin */}
-    {costPrice > 0 && (
-      <div className="border-t border-slate-700/50 pt-3 mt-3">
-        <div className="flex justify-between items-center">
-          <span className="text-xs text-slate-400">Your Cost:</span>
-          <span className="text-xs text-orange-400">£{costPrice.toFixed(2)}</span>
-        </div>
-        <div className="flex justify-between items-center mt-1">
-          <span className="text-xs text-slate-400">Margin:</span>
-          <span className={`text-xs font-medium ${priceForVat - costPrice > 0 ? 'text-green-400' : 'text-red-400'}`}>
-            £{(priceForVat - costPrice).toFixed(2)} ({costPrice > 0 ? (((priceForVat - costPrice) / costPrice) * 100).toFixed(1) : '0'}%)
+      {/* Bundle Items */}
+      <div className="space-y-1 text-sm">
+        <div className="text-cyan-400 font-medium">Bundle Items</div>
+
+        {selectedGroupedProducts.map((id, i) => {
+          const p = simpleProducts.find(x => x.id === id);
+          if (!p) return null;
+          return (
+            <div key={id} className="flex justify-between text-slate-300">
+              <span>{i + 1}. {p.name}</span>
+              <span className="text-white">£{parsePrice(p.price).toFixed(2)}</span>
+            </div>
+          );
+        })}
+
+        <div className="flex justify-between pt-2 mt-2 border-t border-dashed border-slate-700">
+          <span className="text-slate-400 font-medium">Bundle Items Subtotal</span>
+          <span className="text-cyan-400 font-medium">
+            £{bundleItemsTotal.toFixed(2)}
           </span>
         </div>
       </div>
-    )}
-  </div>
-</div>
 
-      );
-    })()}
+      {/* Discount (Applied on Bundle Items Only) */}
+      {bundleDiscount > 0 && (
+        <div className="flex justify-between text-sm">
+          <span className="text-slate-400">
+            Discount ({formData.groupBundleDiscountType})
+          </span>
+          <span className="text-red-400 font-medium">
+            −£{bundleDiscount.toFixed(2)}
+          </span>
+        </div>
+      )}
+
+      {/* Main Product (with + icon) */}
+      <div className="space-y-1 text-sm">
+        <div className="flex justify-between text-slate-300">
+          <span className="text-slate-300">
+            <span className="text-emerald-400 font-medium">
+              {formData.name || 'Main Product'}
+            </span>
+            <span className="ml-1 text-xs font-bold text-purple-500">
+              (Main Product)
+            </span>
+          </span>
+          <span className="text-white flex items-center gap-1">
+            <span className="text-green-400 font-bold text-sm">+</span>
+            £{mainPrice.toFixed(2)}
+          </span>
+        </div>
+      </div>
+
+      {/* Final Bundle Price */}
+      <div className="flex justify-between items-center pt-3 border-t border-slate-700">
+        <span className="text-base font-semibold text-white">
+          Final Bundle Price (with Main Product)
+        </span>
+        <span className="text-xl font-bold text-green-400">
+          £{finalBundlePrice.toFixed(2)}
+        </span>
+      </div>
+
+      {/* Savings */}
+      {bundleDiscount > 0 && (
+        <div className="text-center text-xs text-green-400 bg-green-500/10 border border-green-500/20 rounded-md py-1.5">
+          You Save £{bundleDiscount.toFixed(2)} (
+          {((bundleDiscount / bundleItemsTotal) * 100).toFixed(1)}% off)
+        </div>
+      )}
+
+    </div>
+  );
+})()}
+
+
 
     {/* Buttons */}
     <div className="space-y-3">

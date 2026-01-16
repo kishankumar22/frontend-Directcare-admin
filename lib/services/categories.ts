@@ -17,6 +17,7 @@ export interface Category {
   metaKeywords?: string;
   parentCategoryId?: string;
   parentCategoryName?:string;
+  showOnHomepage: boolean; 
   createdAt?: string;
   updatedAt?: string;
   createdBy?: string;

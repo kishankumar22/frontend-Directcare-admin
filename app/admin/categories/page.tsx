@@ -19,13 +19,14 @@ export default function CategoriesPage() {
   const [viewingCategory, setViewingCategory] = useState<Category | null>(null);
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [levelFilter, setLevelFilter] = useState<string>("all");
-  
+  const MAX_HOMEPAGE_CATEGORIES = 15;
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
   const [selectedParentId, setSelectedParentId] = useState<string>("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
-
+// Add after other useState declarations
+const [homepageCategories, setHomepageCategories] = useState<Category[]>([]); 
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(25);
   
@@ -54,6 +55,7 @@ export default function CategoriesPage() {
     description: "",
     imageUrl: "",
     isActive: true,
+    showOnHomepage: false,  // ✅ ADD THIS LINE
     sortOrder: 1,
     metaTitle: "",
     metaDescription: "",
@@ -238,6 +240,7 @@ const handleImageFileChange = (file: File) => {
       description: "",
       imageUrl: "",
       isActive: true,
+      showOnHomepage: false,  // ✅ ADD THIS LINE
       sortOrder: 1,
       metaTitle: "",
       metaDescription: "",
@@ -246,7 +249,12 @@ const handleImageFileChange = (file: File) => {
     });
     setShowModal(true);
   };
-
+// Calculate homepage categories count
+useEffect(() => {
+  const categoriesOnHomepage = categories.filter(cat => cat.showOnHomepage);
+  setHomepageCategories(categoriesOnHomepage);
+}, [categories]);
+const homepageCount = homepageCategories.length;
 const handleDeleteImage = async (categoryId: string, imageUrl: string) => {
   setIsDeletingImage(true);
   try {
@@ -352,7 +360,19 @@ if (!nameRegex.test(name)) {
     toast.error("Meta keywords must be less than 255 characters");
     return;
   }
+  // ✅ Homepage limit validation
+if (formData.showOnHomepage) {
+  const currentHomepageCount = categories.filter(
+    cat => cat.showOnHomepage && cat.id !== editingCategory?.id
+  ).length;
   
+  if (currentHomepageCount >= MAX_HOMEPAGE_CATEGORIES) {
+    toast.error(
+      `🚫 Homepage limit reached! Only ${MAX_HOMEPAGE_CATEGORIES} categories allowed. Currently: ${currentHomepageCount}/${MAX_HOMEPAGE_CATEGORIES}`
+    );
+    return;
+  }
+}
   // ✅ Image validation
   if (imageFile) {
     const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
@@ -420,6 +440,7 @@ if (!nameRegex.test(name)) {
       description: formData.description.trim(),
       imageUrl: finalImageUrl,
       isActive: formData.isActive,
+       showOnHomepage: formData.showOnHomepage,  // ✅ ADD THIS LINE
       sortOrder: formData.sortOrder,
       parentCategoryId: formData.parentCategoryId || null,
       metaTitle: formData.metaTitle.trim() || undefined,
@@ -487,7 +508,6 @@ if (!nameRegex.test(name)) {
 const handleEdit = (category: Category) => {
   setEditingCategory(category);
   
-  // ✅ Calculate current category level
   const currentLevel = getCategoryLevel(category, categories);
   
   setFormData({
@@ -495,12 +515,13 @@ const handleEdit = (category: Category) => {
     description: category.description,
     imageUrl: category.imageUrl || "",
     isActive: category.isActive,
+    showOnHomepage: category.showOnHomepage || false,  // ✅ CATEGORY KI ACTUAL VALUE USE KARO
     sortOrder: category.sortOrder,
     metaTitle: category.metaTitle || "",
     metaDescription: category.metaDescription || "",
     metaKeywords: category.metaKeywords || "",
     parentCategoryId: category.parentCategoryId || "",
-  });
+  })
   
   setImageFile(null);
   setImagePreview(null);
@@ -520,6 +541,7 @@ const handleEdit = (category: Category) => {
       description: "",
       imageUrl: "",
       isActive: true,
+        showOnHomepage: false,  // ✅ ADD THIS LINE
       sortOrder: 1,
       metaTitle: "",
       metaDescription: "",
@@ -1771,45 +1793,165 @@ const getParentCategoryOptions = () => {
                 </div>
               </div>
 
-              <div className="bg-slate-800/30 p-2 rounded-2xl border border-slate-700/50">
-                <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-                  <span className="w-8 h-8 rounded-lg bg-gradient-to-br from-pink-500 to-rose-500 flex items-center justify-center text-sm">4</span>
-                  <span>Settings</span>
-                </h3>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-slate-300 mb-2">Make category visible</label>
-                    <label className="flex items-center gap-3 p-3.5 bg-slate-900/50 border border-slate-600 rounded-xl cursor-pointer hover:border-violet-500 transition-all group">
-                      <input
-                        type="checkbox"
-                        checked={formData.isActive}
-                        onChange={(e) => setFormData({...formData, isActive: e.target.checked})}
-                        className="w-5 h-5 rounded border-slate-600 text-violet-500 focus:ring-2 focus:ring-violet-500 focus:ring-offset-0 focus:ring-offset-slate-900"
-                      />
-                      <div>
-                        <p className="text-sm font-medium text-white group-hover:text-violet-400 transition-colors">Active</p>
-                      </div>
-                    </label>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-slate-300 mb-2">Sort Order</label>
-                    <input
-                      type="number"
-                      min="0"
-                      value={formData.sortOrder || 0}
-                      onChange={(e) => {
-                        const value = e.target.value;
-                        setFormData({
-                          ...formData,
-                          sortOrder: value === '' ? 0 : parseInt(value, 10)
-                        });
-                      }}
-                      placeholder="0"
-                      className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
-                    />
-                  </div>
-                </div>
-              </div>
+{/* ✅ SECTION 4: SETTINGS - REPLACE COMPLETE SECTION */}
+<div className="bg-slate-800/30 p-6 rounded-2xl border border-slate-700/50">
+  <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+    <span className="w-8 h-8 rounded-lg bg-gradient-to-br from-pink-500 to-rose-500 flex items-center justify-center text-sm">4</span>
+    <span>Settings</span>
+  </h3>
+  
+  {/* Row 1: Active + Sort Order */}
+  <div className="grid grid-cols-2 gap-4 mb-4">
+    {/* Active Checkbox */}
+    <div>
+      <label className="block text-sm font-medium text-slate-300 mb-2">
+        Make category visible
+      </label>
+      <label className="flex items-center gap-3 p-3.5 bg-slate-900/50 border border-slate-600 rounded-xl cursor-pointer hover:border-violet-500 transition-all group">
+        <input
+          type="checkbox"
+          checked={formData.isActive}
+          onChange={(e) => setFormData({...formData, isActive: e.target.checked})}
+          className="w-5 h-5 rounded border-slate-600 text-violet-500 focus:ring-2 focus:ring-violet-500 focus:ring-offset-0 focus:ring-offset-slate-900"
+        />
+        <div>
+          <p className="text-sm font-medium text-white group-hover:text-violet-400 transition-colors">
+            Active
+          </p>
+        </div>
+      </label>
+    </div>
+
+    {/* Sort Order */}
+    <div>
+      <label className="block text-sm font-medium text-slate-300 mb-2">
+        Sort Order
+      </label>
+      <input
+        type="number"
+        min="0"
+        value={formData.sortOrder || 0}
+        onChange={(e) => {
+          const value = e.target.value;
+          setFormData({
+            ...formData,
+            sortOrder: value === '' ? 0 : parseInt(value, 10)
+          });
+        }}
+        placeholder="0"
+        className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+      />
+    </div>
+  </div>
+
+  {/* Row 2: Show on Homepage - Full Width with Counter */}
+  <div>
+    <div className="flex items-center justify-between mb-2">
+      <label className="block text-sm font-medium text-slate-300">
+        Show on homepage
+      </label>
+      
+      {/* Counter Badge */}
+      <span className={`px-3 py-1 rounded-lg text-xs font-bold border ${
+        homepageCount >= 15
+          ? 'bg-red-500/10 text-red-400 border-red-500/30'
+          : homepageCount >= 12
+          ? 'bg-amber-500/10 text-amber-400 border-amber-500/30'
+          : 'bg-cyan-500/10 text-cyan-400 border-cyan-500/30'
+      }`}>
+        {homepageCount}/15 Featured
+      </span>
+    </div>
+    
+    <label className={`flex items-center justify-between gap-3 p-4 border rounded-xl transition-all ${
+      formData.showOnHomepage
+        ? 'bg-cyan-500/10 border-cyan-500/30'
+        : 'bg-slate-900/50 border-slate-600 hover:border-cyan-500 cursor-pointer'
+    } ${
+      !formData.showOnHomepage && homepageCount >= 15
+        ? 'opacity-50 cursor-not-allowed'
+        : ''
+    }`}>
+      <div className="flex items-center gap-3 flex-1">
+        <input
+          type="checkbox"
+          checked={formData.showOnHomepage}
+          onChange={(e) => {
+            const checked = e.target.checked;
+            
+            // Prevent checking if limit reached (only for new checks)
+            if (checked && homepageCount >= 15 && !editingCategory?.showOnHomepage) {
+              toast.error(
+                `🚫 Maximum ${MAX_HOMEPAGE_CATEGORIES} categories allowed on homepage! Currently: ${homepageCount}/15`
+              );
+              return;
+            }
+            
+            setFormData({...formData, showOnHomepage: checked});
+          }}
+          disabled={!formData.showOnHomepage && homepageCount >= 15 && !editingCategory?.showOnHomepage}
+          className="w-5 h-5 rounded border-slate-600 text-cyan-500 focus:ring-2 focus:ring-cyan-500 focus:ring-offset-0 focus:ring-offset-slate-900 disabled:opacity-50 disabled:cursor-not-allowed"
+        />
+        <div className="flex-1">
+          <p className="text-sm font-medium text-white">
+            Featured on Homepage
+          </p>
+          <p className="text-xs text-slate-400 mt-0.5">
+            {homepageCount >= 15 && !formData.showOnHomepage
+              ? '⚠️ Homepage limit reached'
+              : 'Display this category on the store homepage'}
+          </p>
+        </div>
+      </div>
+      
+      {/* Visual indicator */}
+      {formData.showOnHomepage && (
+        <div className="flex items-center gap-2">
+          <svg className="w-5 h-5 text-cyan-400" fill="currentColor" viewBox="0 0 20 20">
+            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+          </svg>
+        </div>
+      )}
+    </label>
+    
+    {/* Warning message when close to limit */}
+    {homepageCount >= 12 && homepageCount < 15 && (
+      <div className="mt-2 p-3 bg-amber-500/10 border border-amber-500/20 rounded-lg flex items-start gap-2">
+        <svg className="w-4 h-4 text-amber-400 mt-0.5 shrink-0" fill="currentColor" viewBox="0 0 20 20">
+          <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+        </svg>
+        <p className="text-xs text-amber-300">
+          <strong>Warning:</strong> {15 - homepageCount} {15 - homepageCount === 1 ? 'slot' : 'slots'} remaining for homepage
+        </p>
+      </div>
+    )}
+    
+    {/* Info message when limit reached */}
+    {homepageCount >= 15 && (
+      <div className="mt-2 p-3 bg-red-500/10 border border-red-500/20 rounded-lg flex items-start gap-2">
+        <svg className="w-4 h-4 text-red-400 mt-0.5 shrink-0" fill="currentColor" viewBox="0 0 20 20">
+          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+        </svg>
+        <div className="flex-1">
+          <p className="text-xs text-red-300">
+            <strong>Homepage Full!</strong> Remove one category from homepage to add another.
+          </p>
+          <button
+            type="button"
+            onClick={() => {
+              toast.info(
+                `📋 ${homepageCount} categories currently featured on homepage. Edit them to make room.`
+              );
+            }}
+            className="text-xs text-red-400 underline mt-1 hover:text-red-300"
+          >
+            View featured categories
+          </button>
+        </div>
+      </div>
+    )}
+  </div>
+</div>
 
 <div className="flex justify-end gap-3 pt-4 border-t border-slate-700/50">
   <button
@@ -1982,6 +2124,14 @@ const getParentCategoryOptions = () => {
                           {viewingCategory.isActive ? 'Active' : 'Inactive'}
                         </span>
                       </div>
+                          <div className="bg-slate-900/50 p-3 rounded-lg flex items-center justify-between">
+      <span className="text-slate-300 text-sm">Show on Homepage</span>
+      <span className={`px-2 py-1 rounded text-xs font-semibold ${
+        viewingCategory.showOnHomepage ? 'bg-cyan-500/10 text-cyan-400' : 'bg-slate-500/10 text-slate-400'
+      }`}>
+        {viewingCategory.showOnHomepage ? 'Featured' : 'Not Featured'}
+      </span>
+    </div>
                     </div>
                   </div>
 

@@ -60,6 +60,9 @@ const [dropdownsData, setDropdownsData] = useState<DropdownsData>({
 });
  // ✅ ADD THIS STATE FOR MODAL
   const [isGroupedModalOpen, setIsGroupedModalOpen] = useState(false);
+const [missingFields, setMissingFields] = useState<string[]>([]);
+const [validationErrors, setValidationErrors] = useState<{[key: string]: string}>({});
+
 // ✅ ADD THESE TWO STATES
 const [simpleProducts, setSimpleProducts] = useState<SimpleProduct[]>([]);
 const [selectedGroupedProducts, setSelectedGroupedProducts] = useState<string[]>([]);
@@ -94,6 +97,117 @@ function debounce<T extends (...args: any[]) => any>(
 
   return debounced;
 }
+/**
+ * ✅ CHECK DRAFT REQUIREMENTS (Minimal)
+ * Only basic fields required to save as draft
+ */
+const checkDraftRequirements = (): { isValid: boolean; missing: string[] } => {
+  const missing: string[] = [];
+
+  // 1. Product Name
+  if (!formData.name?.trim()) {
+    missing.push('Product Name');
+  }
+
+  // 2. SKU
+  if (!formData.sku?.trim()) {
+    missing.push('SKU');
+  }
+
+  // 3. At least one category
+  if (!formData.categoryIds || formData.categoryIds.length === 0) {
+    missing.push('Category');
+  }
+
+  // 4. At least one brand
+  const hasBrand = (formData.brandIds && formData.brandIds.length > 0) || formData.brand?.trim();
+  if (!hasBrand) {
+    missing.push('Brand');
+  }
+
+  return {
+    isValid: missing.length === 0,
+    missing
+  };
+};
+
+
+/**
+ * ✅ CHECK PUBLISH REQUIREMENTS (Complete)
+ * All required fields for creating/publishing product
+ */
+const checkPublishRequirements = (): { isValid: boolean; missing: string[] } => {
+  const missing: string[] = [];
+
+  // 1. Basic Info
+  if (!formData.name?.trim()) missing.push('Product Name');
+  if (!formData.sku?.trim()) missing.push('SKU');
+  if (!formData.shortDescription?.trim()) missing.push('Short Description');
+
+  // 2. Pricing
+  if (!formData.price || parseFloat(formData.price.toString()) <= 0) {
+    missing.push('Price (must be greater than 0)');
+  }
+
+  // 3. Categories
+  if (!formData.categoryIds || formData.categoryIds.length === 0) {
+    missing.push('Category (at least 1)');
+  }
+
+  // 4. Brands
+  const hasBrand = (formData.brandIds && formData.brandIds.length > 0) || formData.brand?.trim();
+  if (!hasBrand) {
+    missing.push('Brand (at least 1)');
+  }
+
+  // 5. Images
+  if (!formData.productImages || formData.productImages.length < 5) {
+    missing.push(`Product Images (minimum 5, current: ${formData.productImages?.length || 0})`);
+  }
+
+  // 6. Stock (if tracking)
+  if (formData.manageInventory === 'track') {
+    const stock = parseInt(formData.stockQuantity?.toString() || '0');
+    if (isNaN(stock) || stock < 0) {
+      missing.push('Stock Quantity (valid number)');
+    }
+  }
+
+  // 7. Shipping (if enabled)
+  if (formData.isShipEnabled) {
+    if (!formData.weight || parseFloat(formData.weight.toString()) <= 0) {
+      missing.push('Weight (required for shipping)');
+    }
+  }
+
+  // 8. Grouped Product Requirements
+  if (formData.productType === 'grouped' && formData.requireOtherProducts) {
+    if (!formData.requiredProductIds?.trim()) {
+      missing.push('Grouped Products (at least 1)');
+    }
+  }
+
+  return {
+    isValid: missing.length === 0,
+    missing
+  };
+};
+
+/**
+ * ✅ SHOW MISSING FIELDS TOAST
+ */
+const showMissingFieldsToast = (missing: string[], isDraft: boolean) => {
+  const title = isDraft ? 'Draft Requirements' : 'Required Fields Missing';
+  const message = missing.length === 1 
+    ? `📋 Missing: ${missing[0]}`
+    : `📋 Missing ${missing.length} fields:\n\n${missing.map((f, i) => `${i + 1}. ${f}`).join('\n')}`;
+
+  toast.warning(message, {
+    autoClose: 8000,
+    position: 'top-center',
+  });
+};
+
 
 // Updated combined useEffect with manufacturers API
 useEffect(() => {
@@ -347,9 +461,58 @@ notifyQuantityBelow: "",          // ✅ User input threshold
   searchEngineFriendlyPageName: '',
 });
 
+useEffect(() => {
+  const { missing } = checkPublishRequirements();
+  setMissingFields(missing);
+}, [
+  formData.name,
+  formData.sku,
+  formData.shortDescription,
+  formData.price,
+  formData.categoryIds,
+  formData.brandIds,
+  formData.brand,
+  formData.productImages,
+  formData.stockQuantity,
+  formData.manageInventory,
+  formData.weight,
+  formData.isShipEnabled,
+  formData.productType,
+  formData.requireOtherProducts,
+  formData.requiredProductIds,
+]);
 
+/**
+ * ✅ HANDLE DRAFT SAVE
+ */
+const handleDraftSave = (e: React.FormEvent) => {
+  e.preventDefault();
 
+  const { isValid, missing } = checkDraftRequirements();
 
+  if (!isValid) {
+    showMissingFieldsToast(missing, true);
+    return;
+  }
+
+  handleSubmit(e, true); // Proceed with draft save
+};
+
+/**
+ * ✅ HANDLE PUBLISH/CREATE
+ */
+const handlePublish = (e: React.FormEvent) => {
+  e.preventDefault();
+
+  const { isValid, missing } = checkPublishRequirements();
+
+  if (!isValid) {
+    showMissingFieldsToast(missing, false);
+    return;
+  }
+
+  handleSubmit(e, false); // Proceed with publish
+};
 // ✅ Extract YouTube Video ID from URL
 const getYouTubeVideoId = (url: string): string | null => {
   if (!url) return null;
@@ -2234,54 +2397,70 @@ const uploadVariantImages = async (productResponse: any) => {
 
   return (
     <div className="space-y-2 ">
-      {/* Header */}
-  {/* ================================ */}
-{/* ✅ HEADER WITH LOADING STATES */}
-{/* ================================ */}
+{/* ✅ MINIMAL COMPACT HEADER - Hover Tooltips + Badges */}
 <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-2xl p-2">
-  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+  <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
     {/* Left Side - Title */}
     <div className="flex items-center gap-4">
       <Link href="/admin/products">
         <button 
           className="p-2.5 text-slate-400 hover:text-white hover:bg-slate-800 rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed"
           disabled={isSubmitting}
+          title="Back to Products"
         >
           <ArrowLeft className="h-5 w-5" />
         </button>
       </Link>
       <div>
-        <h1 className="text-3xl font-bold tracking-tight bg-gradient-to-r from-violet-400 via-cyan-400 to-pink-400 bg-clip-text text-transparent">
-          Add a New Product
+        <h1 className="text-2xl lg:text-3xl font-bold tracking-tight bg-gradient-to-r from-violet-400 via-cyan-400 to-pink-400 bg-clip-text text-transparent">
+          Create New Product
         </h1>
         <p className="text-sm text-slate-400 mt-1">
           {isSubmitting 
             ? submitProgress?.step || 'Processing...' 
-            : 'Create and configure your product details'
+            : missingFields.length > 0
+            ? `${missingFields.length} required field${missingFields.length !== 1 ? 's' : ''} remaining`
+            : 'All required fields filled ✓'
           }
         </p>
       </div>
     </div>
 
     {/* Right Side - Action Buttons */}
-    <div className="flex items-center gap-3">
-      {/* ✅ Save as Draft Button */}
+    <div className="flex items-center gap-3 flex-wrap sm:flex-nowrap">
+      {/* ✅ Save as Draft Button - WITH BADGE + TOOLTIP */}
       <button
         type="button"
-        onClick={(e) => handleSubmit(e, true)}
-        disabled={isSubmitting}
-        className="px-4 py-2 rounded-xl bg-orange-500/10 border border-orange-500/30 text-orange-400 hover:bg-orange-500/20 transition-all text-sm font-medium flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed relative overflow-hidden"
+        onClick={handleDraftSave}
+        disabled={isSubmitting || !checkDraftRequirements().isValid}
+        className="px-4 py-2.5 rounded-xl bg-slate-800/50 border border-slate-700 text-slate-300 hover:bg-slate-800 hover:border-slate-600 transition-all text-sm font-medium flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+        title={
+          isSubmitting 
+            ? "Processing..." 
+            : checkDraftRequirements().isValid 
+            ? "Save as draft for later" 
+            : `Missing: ${checkDraftRequirements().missing.join(', ')}`
+        }
       >
-        {/* Loading Spinner - Only show when submitting as draft */}
         {isSubmitting && submitProgress?.step?.includes('draft') ? (
           <>
-            <div className="w-2 h-2 border border-orange-400 border-t-transparent rounded-full animate-spin"></div>
-            <span>Saving Draft...</span>
+            <div className="w-4 h-4 border-2 border-slate-400 border-t-transparent rounded-full animate-spin"></div>
+            <span className="hidden sm:inline">Saving...</span>
+            <span className="sm:hidden">Draft...</span>
           </>
         ) : (
           <>
-            <div className="w-2 h-2 bg-orange-400 rounded-full animate-pulse"></div>
-            <span>Save as Draft</span>
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
+            </svg>
+            <span className="hidden sm:inline">Save as</span>
+            <span>Draft</span>
+            {/* ✅ ALWAYS SHOW BADGE */}
+            {checkDraftRequirements().missing.length > 0 && (
+              <span className="ml-1 px-1.5 py-0.5 bg-orange-500/20 text-orange-400 rounded text-xs font-bold">
+                {checkDraftRequirements().missing.length}
+              </span>
+            )}
           </>
         )}
       </button>
@@ -2292,18 +2471,25 @@ const uploadVariantImages = async (productResponse: any) => {
         onClick={() => router.push('/admin/products')}
         disabled={isSubmitting}
         className="px-5 py-2.5 bg-slate-800/50 border border-slate-700 rounded-xl text-slate-300 hover:bg-slate-800 hover:border-slate-600 transition-all text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+        title="Discard changes"
       >
         Cancel
       </button>
 
-      {/* ✅ Save & Continue Button */}
+      {/* ✅ CREATE PRODUCT Button - WITH BADGE + TOOLTIP */}
       <button
         type="button"
-        onClick={(e) => handleSubmit(e, false)}
-        disabled={isSubmitting}
-        className="px-5 py-2.5 bg-gradient-to-r from-violet-500 to-cyan-500 text-white rounded-xl hover:shadow-lg hover:shadow-violet-500/50 transition-all text-sm flex items-center gap-2 font-semibold disabled:opacity-50 disabled:cursor-not-allowed relative overflow-hidden"
+        onClick={handlePublish}
+        disabled={isSubmitting || missingFields.length > 0}
+        className="px-6 py-2.5 bg-gradient-to-r from-violet-500 to-cyan-500 text-white rounded-xl hover:shadow-lg hover:shadow-violet-500/50 transition-all text-sm flex items-center gap-2 font-semibold disabled:opacity-50 disabled:cursor-not-allowed relative overflow-hidden min-w-[140px] justify-center"
+        title={
+          isSubmitting 
+            ? "Creating product..." 
+            : missingFields.length === 0 
+            ? "Create and publish product" 
+            : `Missing: ${missingFields.join(', ')}`
+        }
       >
-        {/* Loading Spinner - Only show when submitting as publish */}
         {isSubmitting && !submitProgress?.step?.includes('draft') ? (
           <>
             <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
@@ -2311,8 +2497,16 @@ const uploadVariantImages = async (productResponse: any) => {
           </>
         ) : (
           <>
-            <Save className="h-4 w-4" />
-            <span>Save & Continue</span>
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+            </svg>
+            <span>Create</span>
+            {/* ✅ ALWAYS SHOW BADGE */}
+            {missingFields.length > 0 && (
+              <span className="ml-1 px-1.5 py-0.5 bg-red-500/80 text-white rounded text-xs font-bold">
+                {missingFields.length}
+              </span>
+            )}
           </>
         )}
 
@@ -2326,20 +2520,23 @@ const uploadVariantImages = async (productResponse: any) => {
     </div>
   </div>
 
-  {/* ✅ Progress Bar - Shows below header during submission */}
+  {/* ✅ Progress Bar - Only during submission */}
   {isSubmitting && submitProgress && (
-    <div className="mt-3 pt-3 border-t border-slate-800">
+    <div className="mt-4 pt-4 border-t border-slate-800">
       <div className="flex items-center justify-between mb-2">
-        <span className="text-xs font-medium text-slate-400">
-          {submitProgress.step}
-        </span>
-        <span className="text-xs font-mono text-violet-400">
+        <div className="flex items-center gap-2">
+          <div className="w-2 h-2 bg-violet-400 rounded-full animate-pulse"></div>
+          <span className="text-xs font-medium text-slate-300">
+            {submitProgress.step}
+          </span>
+        </div>
+        <span className="text-xs font-mono text-violet-400 font-semibold">
           {submitProgress.percentage}%
         </span>
       </div>
-      <div className="w-full bg-slate-800 rounded-full h-1.5 overflow-hidden">
+      <div className="w-full bg-slate-800 rounded-full h-2 overflow-hidden">
         <div
-          className="bg-gradient-to-r from-violet-500 via-cyan-500 to-pink-500 h-full transition-all duration-500 ease-out"
+          className="bg-gradient-to-r from-violet-500 via-cyan-500 to-pink-500 h-full transition-all duration-500 ease-out rounded-full"
           style={{ width: `${submitProgress.percentage}%` }}
         ></div>
       </div>
@@ -2347,73 +2544,107 @@ const uploadVariantImages = async (productResponse: any) => {
   )}
 </div>
 
+
+
 {/* ================================ */}
-{/* ✅ FULL SCREEN LOADING OVERLAY */}
+{/* ✅ INDUSTRY-LEVEL LOADING OVERLAY */}
 {/* ================================ */}
 {isSubmitting && (
-  <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center">
-    <div className="bg-slate-800 border border-slate-700 rounded-2xl p-8 max-w-md w-full mx-4 shadow-2xl">
-      {/* Header */}
+  <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
+    <div className="bg-slate-900 border border-slate-700 rounded-2xl p-8 max-w-md w-full shadow-2xl">
+      {/* Animated Icon Header */}
       <div className="flex items-center justify-center mb-6">
         <div className="relative">
-          {/* Spinning Circle */}
-          <div className="w-16 h-16 border-4 border-slate-600 border-t-violet-500 rounded-full animate-spin"></div>
-          {/* Center Icon */}
+          {/* Outer spinning ring */}
+          <div className="w-20 h-20 border-4 border-slate-700 border-t-violet-500 border-r-cyan-500 rounded-full animate-spin"></div>
+          
+          {/* Inner pulsing circle */}
           <div className="absolute inset-0 flex items-center justify-center">
-            <Package className="w-6 h-6 text-violet-400" />
+            <div className="w-12 h-12 bg-gradient-to-br from-violet-500/20 to-cyan-500/20 rounded-full flex items-center justify-center animate-pulse">
+              <Package className="w-7 h-7 text-violet-400" />
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Title - Dynamic based on draft or publish */}
-      <h3 className="text-xl font-bold text-white text-center mb-2">
-        {submitProgress?.step?.includes('draft') || submitProgress?.step?.includes('Draft')
+      {/* Dynamic Title */}
+      <h3 className="text-2xl font-bold text-white text-center mb-2">
+        {submitProgress?.step?.toLowerCase().includes('draft')
           ? 'Saving as Draft'
           : 'Creating Product'
         }
       </h3>
 
-      {/* Progress Info */}
+      {/* Subtitle */}
+      <p className="text-sm text-slate-400 text-center mb-6">
+        {submitProgress?.step?.toLowerCase().includes('draft')
+          ? 'Your changes will be saved for later'
+          : 'Please wait while we set up your product'
+        }
+      </p>
+
+      {/* Progress Section */}
       {submitProgress && (
         <div className="space-y-4">
-          {/* Progress Text */}
-          <p className="text-sm text-slate-300 text-center">
-            {submitProgress.step}
-          </p>
-
-          {/* Progress Bar */}
-          <div className="w-full bg-slate-700 rounded-full h-2 overflow-hidden">
-            <div
-              className="bg-gradient-to-r from-violet-500 to-purple-500 h-full transition-all duration-500 ease-out"
-              style={{ width: `${submitProgress.percentage}%` }}
-            ></div>
+          {/* Current Step */}
+          <div className="flex items-center justify-between">
+            <span className="text-sm text-slate-300 font-medium">
+              {submitProgress.step}
+            </span>
+            <span className="text-sm text-violet-400 font-mono font-bold">
+              {submitProgress.percentage}%
+            </span>
           </div>
 
-          {/* Percentage */}
-          <p className="text-xs text-slate-400 text-center font-mono">
-            {submitProgress.percentage}%
-          </p>
+          {/* Progress Bar */}
+          <div className="relative w-full bg-slate-800 rounded-full h-3 overflow-hidden">
+            <div
+              className="absolute inset-0 bg-gradient-to-r from-violet-500 via-cyan-500 to-pink-500 transition-all duration-500 ease-out"
+              style={{ width: `${submitProgress.percentage}%` }}
+            >
+              {/* Shimmer effect */}
+              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent animate-shimmer"></div>
+            </div>
+          </div>
+
+          {/* Step Indicators */}
+          <div className="flex items-center justify-between text-xs text-slate-500 pt-2">
+            <span className={submitProgress.percentage > 0 ? 'text-violet-400' : ''}>
+              Started
+            </span>
+            <span className={submitProgress.percentage > 50 ? 'text-cyan-400' : ''}>
+              Processing
+            </span>
+            <span className={submitProgress.percentage === 100 ? 'text-green-400' : ''}>
+              Complete
+            </span>
+          </div>
         </div>
       )}
 
-      {/* Warning */}
-      <div className="mt-6 flex items-start gap-2 text-xs text-amber-400 bg-amber-900/20 px-3 py-2 rounded border border-amber-800/50">
+      {/* Warning Message */}
+      <div className="mt-6 flex items-start gap-2.5 text-xs text-amber-400 bg-amber-900/20 px-4 py-3 rounded-lg border border-amber-800/30">
         <svg className="w-4 h-4 shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
-          <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.742-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+          <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
         </svg>
-        <span>Please don't close this page or refresh the browser</span>
+        <span className="leading-relaxed">
+          Please don't close this page or refresh the browser
+        </span>
       </div>
 
-      {/* Additional Info for Draft */}
-      {(submitProgress?.step?.includes('draft') || submitProgress?.step?.includes('Draft')) && (
-        <div className="mt-4 flex items-center gap-2 text-xs text-orange-400 bg-orange-900/20 px-3 py-2 rounded border border-orange-800/50">
+      {/* Draft Mode Indicator */}
+      {submitProgress?.step?.toLowerCase().includes('draft') && (
+        <div className="mt-3 flex items-center gap-2.5 text-xs text-orange-400 bg-orange-900/20 px-4 py-3 rounded-lg border border-orange-800/30">
           <div className="w-2 h-2 bg-orange-400 rounded-full animate-pulse"></div>
-          <span>Draft will be saved and can be published later</span>
+          <span className="leading-relaxed">
+            Draft will be saved and can be published later
+          </span>
         </div>
       )}
     </div>
   </div>
 )}
+
 
       {/* Main Content */}
       <div className="w-full">
@@ -2927,216 +3158,156 @@ const uploadVariantImages = async (productResponse: any) => {
       </div>
     </div>
 
-    {/* ⭐⭐⭐ PROFESSIONAL PRICING BREAKDOWN ⭐⭐⭐ */}
-    {(() => {
-      const parsePrice = (value: any): number => {
-        if (!value) return 0;
-        const parsed = parseFloat(String(value));
-        return isNaN(parsed) ? 0 : parsed;
-      };
+{/* ⭐⭐⭐ PROFESSIONAL PRICING BREAKDOWN - SAME AS EDIT PAGE ⭐⭐⭐ */}
+{(() => {
+  const parsePrice = (value: any): number => {
+    if (!value) return 0;
+    const parsed = parseFloat(String(value));
+    return isNaN(parsed) ? 0 : parsed;
+  };
 
-      const mainPrice = parsePrice(formData.price);
-      const oldPrice = parsePrice(formData.oldPrice);
-      const costPrice = parsePrice(formData.cost);
+  const mainPrice = parsePrice(formData.price);
+  const isGrouped = formData.productType === 'grouped';
+  let bundleItemsTotal = 0;
+  let bundleDiscount = 0;
+  let bundleBeforeDiscount = 0;
+  let finalBundlePrice = mainPrice;
 
-      const isGrouped = formData.productType === 'grouped';
-      let bundleItemsTotal = 0;
-      let bundleDiscount = 0;
-      let bundleBeforeDiscount = 0;
-      let finalBundlePrice = mainPrice;
+  if (isGrouped && selectedGroupedProducts.length > 0) {
+    bundleItemsTotal = selectedGroupedProducts.reduce((total: number, productId: string) => {
+      const product = simpleProducts.find((p: any) => p.id === productId);
+      return total + parsePrice(product?.price || 0);
+    }, 0);
 
-      if (isGrouped && selectedGroupedProducts.length > 0) {
-        bundleItemsTotal = selectedGroupedProducts.reduce((total: number, productId: string) => {
-          const product = simpleProducts.find((p: any) => p.id === productId);
-          return total + parsePrice(product?.price || 0);
-        }, 0);
+    // ✅ DISCOUNT ONLY ON BUNDLE ITEMS (NOT MAIN PRODUCT)
+    if (formData.groupBundleDiscountType === 'Percentage') {
+      const discountPercent = parsePrice(formData.groupBundleDiscountPercentage);
+      bundleDiscount = (bundleItemsTotal * discountPercent) / 100;
+    } else if (formData.groupBundleDiscountType === 'FixedAmount') {
+      bundleDiscount = parsePrice(formData.groupBundleDiscountAmount);
+    } else if (formData.groupBundleDiscountType === 'SpecialPrice') {
+      const specialPrice = parsePrice(formData.groupBundleSpecialPrice);
+      bundleDiscount = bundleItemsTotal - specialPrice;
+    }
 
-        bundleBeforeDiscount = mainPrice + bundleItemsTotal;
+    // Final = (Bundle Items - Discount) + Main Product
+    finalBundlePrice = (bundleItemsTotal - bundleDiscount) + mainPrice;
+  }
 
-        if (formData.groupBundleDiscountType === 'Percentage') {
-          const discountPercent = parsePrice(formData.groupBundleDiscountPercentage);
-          bundleDiscount = (bundleBeforeDiscount * discountPercent) / 100;
-        } else if (formData.groupBundleDiscountType === 'FixedAmount') {
-          bundleDiscount = parsePrice(formData.groupBundleDiscountAmount);
-        } else if (formData.groupBundleDiscountType === 'SpecialPrice') {
-          const specialPrice = parsePrice(formData.groupBundleSpecialPrice);
-          bundleDiscount = bundleBeforeDiscount - specialPrice;
-        }
+  const priceForVat = isGrouped ? finalBundlePrice : mainPrice;
 
-        finalBundlePrice = bundleBeforeDiscount - bundleDiscount;
-      }
+  if (mainPrice <= 0) return null;
 
-      const priceForVat = isGrouped ? finalBundlePrice : mainPrice;
+  return (
+    <div className="mt-2 border border-slate-700 rounded-xl bg-slate-900 p-2 space-y-2">
 
-      if (mainPrice <= 0) return null;
-
-      return (
-        <div className="mt-3 bg-gradient-to-br from-violet-500/5 to-cyan-500/5 border border-violet-500/20 rounded-2xl p-3">
-          
-          {/* Header with Bundle Badge */}
-          <div className="flex items-center justify-between mb-2">
-            <h4 className="text-base font-semibold text-white flex items-center gap-2">
-              💰 Pricing Breakdown
-            </h4>
-            
-            {/* Clickable Bundle Badge */}
-            {isGrouped && (
-              <button
-                type="button"
-                onClick={() => setIsGroupedModalOpen(true)}
-                className="relative px-2.5 py-1 bg-violet-500/20 hover:bg-violet-500/30 border border-violet-500/30 hover:border-violet-500/50 rounded-lg text-xs font-medium text-violet-300 transition-all group cursor-pointer"
+      {/* Header */}
+      <div className="flex justify-between items-center">
+        <h4 className="text-sm font-semibold text-white">
+          Pricing Breakdown
+        </h4>
+        {isGrouped && (
+          <button
+            type="button"
+            onClick={() => setIsGroupedModalOpen(true)}
+            className="relative px-2.5 py-1 bg-violet-500/20 hover:bg-violet-500/30 border border-violet-500/30 hover:border-violet-500/50 rounded-lg text-xs font-medium text-violet-300 transition-all group cursor-pointer"
+          >
+            <span className="flex items-center gap-1">
+              📦 Bundle
+              <svg 
+                className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" 
+                fill="none" 
+                stroke="currentColor" 
+                viewBox="0 0 24 24"
               >
-                <span className="flex items-center gap-1">
-                  📦 Bundle
-                  <svg 
-                    className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" 
-                    fill="none" 
-                    stroke="currentColor" 
-                    viewBox="0 0 24 24"
-                  >
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                  </svg>
-                </span>
-                
-                <div className="absolute -bottom-10 right-0 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
-                  <div className="bg-slate-900 border border-violet-500/50 rounded-lg px-3 py-1.5 text-xs text-violet-300 whitespace-nowrap shadow-xl">
-                    Click to edit bundle or add more products
-                  </div>
-                </div>
-              </button>
-            )}
-          </div>
-
-          <div className="space-y-2">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+              </svg>
+            </span>
             
-            {/* Bundle Details with Professional Breakdown */}
-            {isGrouped && selectedGroupedProducts.length > 0 ? (
-              <>
-                <div className="border-t border-slate-700/50 pt-3 mt-3">
-                  
-                  {/* Bundle Items Header */}
-                  <div className="flex items-center gap-2 mb-2">
-                    <div className="text-xs font-medium text-cyan-400">Bundle Items:</div>
-                    <span className="px-1.5 py-0.5 bg-cyan-500/10 text-cyan-400 rounded text-xs">
-                      {selectedGroupedProducts.length}
-                    </span>
-                  </div>
-                  
-                  {/* Numbered Product List */}
-                  {selectedGroupedProducts.map((productId: string, index: number) => {
-                    const product = simpleProducts.find((p: any) => p.id === productId);
-                    if (!product) return null;
-                    return (
-                      <div 
-                        key={productId} 
-                        className="flex justify-between items-center text-sm text-white ml-3 mb-1"
-                      >
-                        <span className="flex items-center gap-2">
-                          <span className="text-violet-400 font-semibold">{index + 1}.</span>
-                          <span>{product.name}</span>
-                        </span>
-                        <span className="font-medium">£{parsePrice(product.price).toFixed(2)}</span>
-                      </div>
-                    );
-                  })}
-                  
-                  {/* ⭐⭐⭐ PROFESSIONAL CALCULATION BREAKDOWN ⭐⭐⭐ */}
-                  <div className="mt-4 p-3 bg-gradient-to-br from-slate-800/60 to-slate-900/60 rounded-lg border border-slate-700">
-                    <div className="space-y-2.5">
-                      
-                      {/* Main Product Row */}
-                      <div className="flex items-center justify-between p-2 bg-slate-800/40 rounded-lg">
-                        <div className="flex items-center gap-2">
-                          <div className="w-1.5 h-1.5 rounded-full bg-cyan-400"></div>
-                          <span className="text-sm text-slate-200">{formData.name || 'Main Product'}</span>
-                        </div>
-                        <span className="font-semibold text-cyan-400 text-sm">£{mainPrice.toFixed(2)}</span>
-                      </div>
-                      
-                      {/* Bundle Items Total Row with + */}
-                      <div className="flex items-center justify-between p-2 bg-slate-800/40 rounded-lg">
-                        <div className="flex items-center gap-2">
-                          <div className="w-1.5 h-1.5 rounded-full bg-violet-400"></div>
-                          <span className="text-sm text-slate-200">Bundle Items Total</span>
-                        </div>
-                        <span className="font-semibold text-violet-400 text-sm">+£{bundleItemsTotal.toFixed(2)}</span>
-                      </div>
-                      
-                      {/* Divider */}
-                      <div className="relative py-1.5">
-                        <div className="absolute inset-0 flex items-center">
-                          <div className="w-full border-t-2 border-dashed border-slate-600"></div>
-                        </div>
-                      </div>
-                      
-                      {/* Subtotal */}
-                      <div className="flex items-center justify-between p-2.5 bg-slate-700/40 rounded-lg">
-                        <span className="text-sm font-medium text-slate-200 flex items-center gap-2">
-                          <span className="text-slate-400">=</span>
-                          Subtotal:
-                        </span>
-                        <span className="font-bold text-white text-base">£{bundleBeforeDiscount.toFixed(2)}</span>
-                      </div>
-                    </div>
-                    
-                    {/* Discount Section */}
-                    {bundleDiscount > 0 && (
-                      <>
-                        <div className="border-t-2 border-slate-600 my-2.5"></div>
-                        
-                        <div className="flex justify-between items-center p-2 bg-red-500/10 rounded-lg border border-red-500/20">
-                          <span className="text-sm text-red-400 flex items-center gap-1.5">
-                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 17h8m0 0V9m0 8l-8-8-4 4-6-6" />
-                            </svg>
-                            <span className="font-medium">Bundle Discount ({formData.groupBundleDiscountType}):</span>
-                          </span>
-                          <span className="font-bold text-red-400 text-sm">-£{bundleDiscount.toFixed(2)}</span>
-                        </div>
-                      </>
-                    )}
-                    
-                    {/* Final Bundle Price */}
-                    <div className="border-t-2 border-slate-600 pt-2.5 mt-2.5">
-                      <div className="flex justify-between items-center p-3 bg-gradient-to-r from-green-500/10 to-emerald-500/10 rounded-lg border border-green-500/30">
-                        <span className="text-base font-bold text-white">Bundle Total:</span>
-                        <span className="text-2xl font-bold text-violet-400">£{finalBundlePrice.toFixed(2)}</span>
-                      </div>
-                    </div>
-
-                    {/* Savings Info */}
-                    {bundleDiscount > 0 && (
-                      <div className="mt-2 p-2 bg-green-500/10 border border-green-500/20 rounded-lg">
-                        <p className="text-xs text-green-400 flex items-center justify-center gap-1">
-                          <span>🎉</span>
-                          <span>Customer Saves: £{bundleDiscount.toFixed(2)} ({((bundleDiscount / bundleBeforeDiscount) * 100).toFixed(1)}% OFF)</span>
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </>
-            ) : null}
-
-            {/* Profit Margin */}
-            {costPrice > 0 && (
-              <div className="border-t border-slate-700/50 pt-3 mt-3">
-                <div className="flex justify-between items-center">
-                  <span className="text-xs text-slate-400">Your Cost:</span>
-                  <span className="text-xs text-orange-400">£{costPrice.toFixed(2)}</span>
-                </div>
-                <div className="flex justify-between items-center mt-1">
-                  <span className="text-xs text-slate-400">Margin:</span>
-                  <span className={`text-xs font-medium ${priceForVat - costPrice > 0 ? 'text-green-400' : 'text-red-400'}`}>
-                    £{(priceForVat - costPrice).toFixed(2)} ({costPrice > 0 ? (((priceForVat - costPrice) / costPrice) * 100).toFixed(1) : '0'}%)
-                  </span>
-                </div>
+            <div className="absolute -bottom-10 right-0 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
+              <div className="bg-slate-900 border border-violet-500/50 rounded-lg px-3 py-1.5 text-xs text-violet-300 whitespace-nowrap shadow-xl">
+                Click to edit bundle or add more products
               </div>
-            )}
-          </div>
+            </div>
+          </button>
+        )}
+      </div>
+
+      {/* Bundle Items */}
+      <div className="space-y-1 text-sm">
+        <div className="text-cyan-400 font-medium">Bundle Items</div>
+
+        {selectedGroupedProducts.map((id, i) => {
+          const p = simpleProducts.find(x => x.id === id);
+          if (!p) return null;
+          return (
+            <div key={id} className="flex justify-between text-slate-300">
+              <span>{i + 1}. {p.name}</span>
+              <span className="text-white">£{parsePrice(p.price).toFixed(2)}</span>
+            </div>
+          );
+        })}
+
+        <div className="flex justify-between pt-2 mt-2 border-t border-dashed border-slate-700">
+          <span className="text-slate-400 font-medium">Bundle Items Subtotal</span>
+          <span className="text-cyan-400 font-medium">
+            £{bundleItemsTotal.toFixed(2)}
+          </span>
         </div>
-      );
-    })()}
+      </div>
+
+      {/* Discount (Applied on Bundle Items Only) */}
+      {bundleDiscount > 0 && (
+        <div className="flex justify-between text-sm">
+          <span className="text-slate-400">
+            Discount ({formData.groupBundleDiscountType})
+          </span>
+          <span className="text-red-400 font-medium">
+            −£{bundleDiscount.toFixed(2)}
+          </span>
+        </div>
+      )}
+
+      {/* Main Product (with + icon) */}
+      <div className="space-y-1 text-sm">
+        <div className="flex justify-between text-slate-300">
+          <span className="text-slate-300">
+            <span className="text-emerald-400 font-medium">
+              {formData.name || 'Main Product'}
+            </span>
+            <span className="ml-1 text-xs font-bold text-purple-500">
+              (Main Product)
+            </span>
+          </span>
+          <span className="text-white flex items-center gap-1">
+            <span className="text-green-400 font-bold text-sm">+</span>
+            £{mainPrice.toFixed(2)}
+          </span>
+        </div>
+      </div>
+
+      {/* Final Bundle Price */}
+      <div className="flex justify-between items-center pt-3 border-t border-slate-700">
+        <span className="text-base font-semibold text-white">
+          Final Bundle Price (with Main Product)
+        </span>
+        <span className="text-xl font-bold text-green-400">
+          £{finalBundlePrice.toFixed(2)}
+        </span>
+      </div>
+
+      {/* Savings */}
+      {bundleDiscount > 0 && (
+        <div className="text-center text-xs text-green-400 bg-green-500/10 border border-green-500/20 rounded-md py-1.5">
+          You Save £{bundleDiscount.toFixed(2)} (
+          {((bundleDiscount / bundleItemsTotal) * 100).toFixed(1)}% off)
+        </div>
+      )}
+
+    </div>
+  );
+})()}
+
 
     {/* Buttons */}
     <div className="space-y-3">
