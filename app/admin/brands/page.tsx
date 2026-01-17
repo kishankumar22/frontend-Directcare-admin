@@ -136,198 +136,355 @@ const homepageCount = homepageBrandsCounter.length;
   };
 
   // ✅ Service-based Submit (Upload + Create/Update)
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+const handleSubmit = async (e: React.FormEvent) => {
+  e.preventDefault();
 
-    
-// 🔥 BRAND FORM VALIDATION (SEO Optimized)
-const brandName = formData.name.trim();
-
-// Required
-if (!brandName) {
-  toast.error("Brand name is required");
-  return;
-}
-
-// Length check
-if (brandName.length < 2 || brandName.length > 80) {
-  toast.error("Brand name must be between 2 and 80 characters");
-  return;
-}
-
-// Allowed characters
-const brandRegex = /^[A-Za-z0-9\s&.\-]+$/;
-
-if (!brandRegex.test(brandName)) {
-  toast.error(
-    "Brand name can contain only letters, numbers, spaces, &, . and -"
-  );
-  return;
-}
-
-
-if (formData.name.trim().length < 2) {
-  toast.error("Brand name must be at least 2 characters");
-  return;
-}
-
-if (formData.name.trim().length > 60) {
-  toast.error("Brand name must be less than 60 characters (SEO recommended)");
-  return;
-}
-
-// ❗ Brand name should not contain only symbols or numbers
-if (!/^[A-Za-z0-9\s\-&]+$/.test(formData.name.trim())) {
-  toast.error("Brand name contains invalid characters");
-  return;
-}
-
-
-
-//  🏷 Meta Title — SEO Length: 50–60 is ideal
-if (formData.metaTitle.trim().length > 60) {
-  toast.error("Meta title must be less than 60 characters (SEO recommended)");
-  return;
-}
-
-// 📝 Meta Description — SEO Length: 120–160 ideal
-if (formData.metaDescription.trim().length > 160) {
-  toast.error("Meta description must be less than 160 characters (SEO recommended)");
-  return;
-}
-
-// 🔑 Meta Keywords — comma separated
-if (formData.metaKeywords.trim().length > 200) {
-  toast.error("Meta keywords must be less than 200 characters");
-  return;
-}
-
-if (formData.metaKeywords && !/^([a-zA-Z0-9\s]+)(\s*,\s*[a-zA-Z0-9\s]+)*$/.test(formData.metaKeywords)) {
-  toast.error("Enter keywords separated with commas only. Example: perfume, luxury perfume");
-  return;
-}
-
-// ✅ Add this BEFORE const payload = ...
-
-// Homepage limit validation
-if (formData.showOnHomepage) {
-  const currentHomepageCount = brands.filter(
-    brand => brand.showOnHomepage && brand.id !== editingBrand?.id
-  ).length;
+  // ============================================
+  // 1. BRAND NAME VALIDATION (Clean)
+  // ============================================
   
-  if (currentHomepageCount >= MAX_HOMEPAGE_BRANDS) {
-    toast.error(
-      `🚫 Homepage limit reached! Only ${MAX_HOMEPAGE_BRANDS} brands allowed on homepage. Currently: ${currentHomepageCount}/${MAX_HOMEPAGE_BRANDS}`
-    );
+  const brandName = formData.name.trim();
+
+  // Empty check
+  if (!brandName) {
+    toast.error("❌ Brand name is required");
     return;
   }
-}
 
-  // 🔥 Duplicate name check
+  // Length validation (consistent)
+  if (brandName.length < 2 || brandName.length > 80) {
+    toast.error(`❌ Brand name must be between 2 and 80 characters. Current: ${brandName.length}`);
+    return;
+  }
+
+  // Character validation (single regex)
+  const brandRegex = /^[A-Za-z0-9\s&.\-()]+$/;
+  if (!brandRegex.test(brandName)) {
+    toast.error("❌ Brand name can only contain letters, numbers, spaces, &, ., -, ()");
+    return;
+  }
+
+  // Duplicate check
   const isDuplicateName = brands.some(
     brand => 
-      brand.name.toLowerCase().trim() === formData.name.toLowerCase().trim() &&
+      brand.name.toLowerCase().trim() === brandName.toLowerCase() &&
       brand.id !== editingBrand?.id
   );
-
   if (isDuplicateName) {
-    toast.error("A brand with this name already exists!");
+    toast.error("❌ A brand with this name already exists!");
     return;
   }
 
-  if (!formData.description.trim()) {
-    toast.error("Description is required");
+  // ============================================
+  // 2. DESCRIPTION VALIDATION
+  // ============================================
+  
+  const description = formData.description.trim();
+
+  // Min length
+  if (description.length < 10) {
+    toast.error(`❌ Description must be at least 10 characters. Current: ${description.length}`);
     return;
   }
 
-  if (formData.description.trim().length < 10) {
-    toast.error("Description must be at least 10 characters");
+  // ✅ Max length (Industry Standard)
+  if (description.length > 1000) {
+    toast.error(`❌ Description cannot exceed 1000 characters. Current: ${description.length}`);
     return;
   }
 
-  if (formData.displayOrder < 0) {
-    toast.error("Display order cannot be negative");
+  // ============================================
+  // 3. DISPLAY ORDER VALIDATION
+  // ============================================
+  
+  // Valid number check
+  if (isNaN(formData.displayOrder)) {
+    toast.error("❌ Display order must be a valid number");
     return;
   }
 
-  // Logo file validation
-  if (logoFile) {
-    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
-    const maxSize = 10 * 1024 * 1024;
+  // Integer check
+  if (!Number.isInteger(formData.displayOrder)) {
+    toast.error("❌ Display order must be a whole number (no decimals)");
+    return;
+  }
 
-    if (!allowedTypes.includes(logoFile.type)) {
-      toast.error("Only JPG, PNG, and WebP images are allowed");
+  // Range validation
+  if (formData.displayOrder < 1 || formData.displayOrder > 1000) {
+    toast.error("❌ Display order must be between 1 and 1000");
+    return;
+  }
+
+  // ============================================
+  // 4. META FIELDS VALIDATION
+  // ============================================
+  
+  // Meta Title
+  if (formData.metaTitle) {
+    const metaTitle = formData.metaTitle.trim();
+    
+    if (metaTitle.length > 60) {
+      toast.error(`❌ Meta title must be less than 60 characters. Current: ${metaTitle.length}`);
       return;
     }
 
-    if (logoFile.size > maxSize) {
-      toast.error("Image size must be less than 10MB");
+    // Whitespace check
+    if (/^\s+$/.test(formData.metaTitle)) {
+      toast.error("❌ Meta title cannot contain only spaces");
       return;
     }
   }
 
+  // Meta Description
+  if (formData.metaDescription) {
+    const metaDesc = formData.metaDescription.trim();
+    
+    if (metaDesc.length > 160) {
+      toast.error(`❌ Meta description must be less than 160 characters. Current: ${metaDesc.length}`);
+      return;
+    }
 
-    if (isSubmitting) return;
-    setIsSubmitting(true);
-    try {
-      let finalLogoUrl = formData.logoUrl;
-      if (logoFile) {
-        try {
-          const uploadResponse = await brandsService.uploadLogo(logoFile, { name: formData.name });
-          if (!uploadResponse.data?.success || !uploadResponse.data?.data) {
-            throw new Error(uploadResponse.data?.message || "Logo upload failed");
-          }
-          finalLogoUrl = uploadResponse.data.data;
-          toast.success("Logo uploaded successfully!");
-          if (editingBrand?.logoUrl && editingBrand.logoUrl !== finalLogoUrl) {
-            const filename = extractFilename(editingBrand.logoUrl);
-            if (filename) {
-              try {
-                await brandsService.deleteLogo(filename);
-              } catch (err) {
-                console.log("Failed to delete old logo:", err);
-              }
-            }
-          }
-        } catch (uploadErr: any) {
-          console.error("Error uploading logo:", uploadErr);
-          toast.error(uploadErr?.response?.data?.message || "Failed to upload logo");
-          setIsSubmitting(false);
+    // Whitespace check
+    if (/^\s+$/.test(formData.metaDescription)) {
+      toast.error("❌ Meta description cannot contain only spaces");
+      return;
+    }
+  }
+
+  // Meta Keywords
+  if (formData.metaKeywords) {
+    const metaKeywords = formData.metaKeywords.trim();
+    
+    if (metaKeywords.length > 200) {
+      toast.error(`❌ Meta keywords must be less than 200 characters. Current: ${metaKeywords.length}`);
+      return;
+    }
+
+    // Whitespace check
+    if (/^\s+$/.test(formData.metaKeywords)) {
+      toast.error("❌ Meta keywords cannot contain only spaces");
+      return;
+    }
+
+    // Format validation (comma-separated)
+    if (metaKeywords.length > 0) {
+      const keywords = metaKeywords.split(',');
+      for (const keyword of keywords) {
+        const trimmed = keyword.trim();
+        if (trimmed.length > 0 && (trimmed.length < 2 || trimmed.length > 50)) {
+          toast.error("❌ Each keyword must be between 2-50 characters");
           return;
         }
       }
-      const payload = {
-        name: formData.name.trim(),
-        description: formData.description.trim(),
-        logoUrl: finalLogoUrl,
-        isPublished: formData.isPublished,
-        showOnHomepage: formData.showOnHomepage,
-        displayOrder: formData.displayOrder,
-        metaTitle: formData.metaTitle.trim() || undefined,
-        metaDescription: formData.metaDescription.trim() || undefined,
-        metaKeywords: formData.metaKeywords.trim() || undefined,
-        ...(editingBrand && { id: editingBrand.id }),
-      };
-      if (editingBrand) {
-        await brandsService.update(editingBrand.id, payload);
-        toast.success("Brand updated successfully! 🎉");
-      } else {
-        await brandsService.create(payload);
-        toast.success("Brand created successfully! 🎉");
-      }
-      if (logoPreview) URL.revokeObjectURL(logoPreview);
-      setLogoFile(null);
-      setLogoPreview(null);
-      await fetchBrands();
-      setShowModal(false);
-      resetForm();
-    } catch (error: any) {
-      console.error("Error saving brand:", error);
-      toast.error(error?.response?.data?.message || "Failed to save brand");
-    } finally {
-      setIsSubmitting(false);
     }
-  };
+  }
+
+  // ============================================
+  // 5. HOMEPAGE LIMIT VALIDATION
+  // ============================================
+  
+  if (formData.showOnHomepage) {
+    const currentHomepageCount = brands.filter(
+      brand => brand.showOnHomepage && brand.id !== editingBrand?.id
+    ).length;
+    
+    if (currentHomepageCount >= MAX_HOMEPAGE_BRANDS) {
+      toast.error(
+        `❌ Homepage limit reached! Only ${MAX_HOMEPAGE_BRANDS} brands allowed. Currently: ${currentHomepageCount}/${MAX_HOMEPAGE_BRANDS}`
+      );
+      return;
+    }
+  }
+
+  // ============================================
+  // 6. LOGO VALIDATION (Industry Standard)
+  // ============================================
+  
+  if (logoFile) {
+    const allowedTypes = [ 'image/webp'];
+    const maxSize = 10 * 1024 * 1024; // 10MB
+
+    // Type validation
+    if (!allowedTypes.includes(logoFile.type)) {
+      toast.error("❌ Only WebP images are allowed");
+      return;
+    }
+
+    // Size validation
+    if (logoFile.size > maxSize) {
+      const sizeMB = (logoFile.size / (1024 * 1024)).toFixed(2);
+      toast.error(`❌ Logo size must be less than 10MB. Current: ${sizeMB}MB`);
+      return;
+    }
+
+    // ✅ File name length
+    if (logoFile.name.length > 255) {
+      toast.error("❌ Logo file name is too long (max 255 characters)");
+      return;
+    }
+
+    // ✅ Dimension validation
+    try {
+      await new Promise<void>((resolve, reject) => {
+        const img = new Image();
+        const url = URL.createObjectURL(logoFile);
+        
+        img.onload = () => {
+          URL.revokeObjectURL(url);
+          
+          const MIN_WIDTH = 200;
+          const MAX_WIDTH = 5000;
+          const MIN_HEIGHT = 200;
+          const MAX_HEIGHT = 5000;
+          
+          if (img.width < MIN_WIDTH || img.width > MAX_WIDTH) {
+            reject(`Logo width must be between ${MIN_WIDTH}px and ${MAX_WIDTH}px. Current: ${img.width}px`);
+            return;
+          }
+          
+          if (img.height < MIN_HEIGHT || img.height > MAX_HEIGHT) {
+            reject(`Logo height must be between ${MIN_HEIGHT}px and ${MAX_HEIGHT}px. Current: ${img.height}px`);
+            return;
+          }
+          
+          resolve();
+        };
+        
+        img.onerror = () => {
+          URL.revokeObjectURL(url);
+          reject('Invalid or corrupted logo file');
+        };
+        
+        img.src = url;
+      });
+    } catch (error: any) {
+      toast.error(`❌ ${error}`);
+      return;
+    }
+  }
+
+  // ============================================
+  // 7. PREVENT DUPLICATE SUBMISSION
+  // ============================================
+  
+  if (isSubmitting) {
+    toast.error("⏳ Please wait, processing...");
+    return;
+  }
+  
+  setIsSubmitting(true);
+
+  try {
+    let finalLogoUrl = formData.logoUrl;
+
+    // ============================================
+    // 8. LOGO UPLOAD
+    // ============================================
+    
+    if (logoFile) {
+      try {
+        const uploadResponse = await brandsService.uploadLogo(logoFile, {
+          name: formData.name,
+        });
+
+        if (!uploadResponse.data?.success || !uploadResponse.data?.data) {
+          throw new Error(
+            uploadResponse.data?.message || "Logo upload failed"
+          );
+        }
+
+        finalLogoUrl = uploadResponse.data.data;
+        toast.success("✅ Logo uploaded successfully!");
+        
+        // Delete old logo if exists
+        if (editingBrand?.logoUrl && editingBrand.logoUrl !== finalLogoUrl) {
+          const filename = extractFilename(editingBrand.logoUrl);
+          if (filename) {
+            try {
+              await brandsService.deleteLogo(filename);
+            } catch (err) {
+              // Silently fail - old logo deletion is non-critical
+            }
+          }
+        }
+      } catch (uploadErr: any) {
+        toast.error(
+          uploadErr?.response?.data?.message || "Failed to upload logo"
+        );
+        setIsSubmitting(false);
+        return;
+      }
+    }
+
+    // ============================================
+    // 9. PREPARE PAYLOAD
+    // ============================================
+    
+    const payload = {
+      name: brandName, // Already trimmed and validated
+      description: description, // Already trimmed and validated
+      logoUrl: finalLogoUrl,
+      isPublished: formData.isPublished,
+      showOnHomepage: formData.showOnHomepage,
+      displayOrder: formData.displayOrder,
+      metaTitle: formData.metaTitle?.trim() || undefined,
+      metaDescription: formData.metaDescription?.trim() || undefined,
+      metaKeywords: formData.metaKeywords?.trim() || undefined,
+      ...(editingBrand && { id: editingBrand.id }),
+    };
+
+    // ============================================
+    // 10. API CALL WITH ERROR HANDLING
+    // ============================================
+    
+    if (editingBrand) {
+      await brandsService.update(editingBrand.id, payload);
+      toast.success("✅ Brand updated successfully! 🎉");
+    } else {
+      await brandsService.create(payload);
+      toast.success("✅ Brand created successfully! 🎉");
+    }
+
+    // ============================================
+    // 11. CLEANUP
+    // ============================================
+    
+    if (logoPreview) URL.revokeObjectURL(logoPreview);
+    setLogoFile(null);
+    setLogoPreview(null);
+    await fetchBrands();
+    setShowModal(false);
+    resetForm();
+
+  } catch (error: any) {
+    // ============================================
+    // 12. ENHANCED ERROR HANDLING
+    // ============================================
+    
+    let message = "Failed to save brand";
+    
+    if (error?.response?.status === 400) {
+      message = error?.response?.data?.message || "Invalid data provided";
+    } else if (error?.response?.status === 401) {
+      message = "Session expired. Please login again";
+    } else if (error?.response?.status === 403) {
+      message = "Access denied. You don't have permission";
+    } else if (error?.response?.status === 409) {
+      message = "Brand with this name already exists";
+    } else if (error?.response?.status === 500) {
+      message = "Server error. Please try again later";
+    } else if (error?.code === 'ECONNABORTED') {
+      message = "Request timeout. Check your internet connection";
+    } else if (error?.message) {
+      message = error.message;
+    }
+    
+    toast.error(message);
+  } finally {
+    setIsSubmitting(false);
+  }
+};
+
 
   // ✅ Service-based Delete
   const handleDelete = async (id: string) => {

@@ -5155,7 +5155,10 @@ const uploadImagesToProductDirect = async (
   let bundleBeforeDiscount = 0;
   let finalBundlePrice = mainPrice;
 
-  if (isGrouped && selectedGroupedProducts.length > 0) {
+  // ✅ EARLY RETURN - Only show for GROUPED products
+  if (!isGrouped || mainPrice <= 0) return null;
+
+  if (selectedGroupedProducts.length > 0) {
     bundleItemsTotal = selectedGroupedProducts.reduce((total, productId) => {
       const product = simpleProducts.find(p => p.id === productId);
       return total + parsePrice(product?.price || 0);
@@ -5180,8 +5183,6 @@ const uploadImagesToProductDirect = async (
 
   const priceForVat = isGrouped ? finalBundlePrice : mainPrice;
 
-  if (mainPrice <= 0) return null;
-
   return (
     <div className="mt-2 border border-slate-700 rounded-xl bg-slate-900 p-2 space-y-2">
 
@@ -5190,65 +5191,73 @@ const uploadImagesToProductDirect = async (
         <h4 className="text-sm font-semibold text-white">
           Pricing Breakdown
         </h4>
-        {isGrouped && (
-          <button
-            type="button"
-            onClick={() => setIsGroupedModalOpen(true)}
-            className="relative px-2.5 py-1 bg-violet-500/20 hover:bg-violet-500/30 border border-violet-500/30 hover:border-violet-500/50 rounded-lg text-xs font-medium text-violet-300 transition-all group cursor-pointer"
-          >
-            <span className="flex items-center gap-1">
-              📦 Bundle
-              <svg 
-                className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" 
-                fill="none" 
-                stroke="currentColor" 
-                viewBox="0 0 24 24"
-              >
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-              </svg>
-            </span>
-            
-            <div className="absolute -bottom-10 right-0 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
-              <div className="bg-slate-900 border border-violet-500/50 rounded-lg px-3 py-1.5 text-xs text-violet-300 whitespace-nowrap shadow-xl">
-                Click to edit bundle or add more products
-              </div>
+        <button
+          type="button"
+          onClick={() => setIsGroupedModalOpen(true)}
+          className="relative px-2.5 py-1 bg-violet-500/20 hover:bg-violet-500/30 border border-violet-500/30 hover:border-violet-500/50 rounded-lg text-xs font-medium text-violet-300 transition-all group cursor-pointer"
+        >
+          <span className="flex items-center gap-1">
+            📦 Bundle
+            <svg 
+              className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" 
+              fill="none" 
+              stroke="currentColor" 
+              viewBox="0 0 24 24"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+            </svg>
+          </span>
+          
+          <div className="absolute -bottom-10 right-0 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
+            <div className="bg-slate-900 border border-violet-500/50 rounded-lg px-3 py-1.5 text-xs text-violet-300 whitespace-nowrap shadow-xl">
+              Click to edit bundle or add more products
             </div>
-          </button>
-        )}
+          </div>
+        </button>
       </div>
 
-      {/* Bundle Items */}
-      <div className="space-y-1 text-sm">
-        <div className="text-cyan-400 font-medium">Bundle Items</div>
+      {/* Bundle Items Section */}
+      {selectedGroupedProducts.length > 0 ? (
+        <>
+          {/* Bundle Items */}
+          <div className="space-y-1 text-sm">
+            <div className="text-cyan-400 font-medium">Bundle Items</div>
 
-        {selectedGroupedProducts.map((id, i) => {
-          const p = simpleProducts.find(x => x.id === id);
-          if (!p) return null;
-          return (
-            <div key={id} className="flex justify-between text-slate-300">
-              <span>{i + 1}. {p.name}</span>
-              <span className="text-white">£{parsePrice(p.price).toFixed(2)}</span>
+            {selectedGroupedProducts.map((id, i) => {
+              const p = simpleProducts.find(x => x.id === id);
+              if (!p) return null;
+              return (
+                <div key={id} className="flex justify-between text-slate-300">
+                  <span>{i + 1}. {p.name}</span>
+                  <span className="text-white">£{parsePrice(p.price).toFixed(2)}</span>
+                </div>
+              );
+            })}
+
+            <div className="flex justify-between pt-2 mt-2 border-t border-dashed border-slate-700">
+              <span className="text-slate-400 font-medium">Bundle Items Subtotal</span>
+              <span className="text-cyan-400 font-medium">
+                £{bundleItemsTotal.toFixed(2)}
+              </span>
             </div>
-          );
-        })}
+          </div>
 
-        <div className="flex justify-between pt-2 mt-2 border-t border-dashed border-slate-700">
-          <span className="text-slate-400 font-medium">Bundle Items Subtotal</span>
-          <span className="text-cyan-400 font-medium">
-            £{bundleItemsTotal.toFixed(2)}
-          </span>
-        </div>
-      </div>
-
-      {/* Discount (Applied on Bundle Items Only) */}
-      {bundleDiscount > 0 && (
-        <div className="flex justify-between text-sm">
-          <span className="text-slate-400">
-            Discount ({formData.groupBundleDiscountType})
-          </span>
-          <span className="text-red-400 font-medium">
-            −£{bundleDiscount.toFixed(2)}
-          </span>
+          {/* Discount (Applied on Bundle Items Only) */}
+          {bundleDiscount > 0 && (
+            <div className="flex justify-between text-sm">
+              <span className="text-slate-400">
+                Discount ({formData.groupBundleDiscountType})
+              </span>
+              <span className="text-red-400 font-medium">
+                −£{bundleDiscount.toFixed(2)}
+              </span>
+            </div>
+          )}
+        </>
+      ) : (
+        <div className="text-center py-4 text-slate-400 text-sm border border-dashed border-slate-700 rounded-lg">
+          <p className="mb-1">No bundle items selected</p>
+          <p className="text-xs text-slate-500">Click the "📦 Bundle" button above to add products</p>
         </div>
       )}
 
@@ -5291,6 +5300,7 @@ const uploadImagesToProductDirect = async (
     </div>
   );
 })()}
+
 
 
 
@@ -6045,7 +6055,7 @@ const uploadImagesToProductDirect = async (
           </h4>
           
           {/* Same Day Delivery */}
-          <div className="space-y-3">
+          {/* <div className="space-y-3 hidden">
             <label className="flex items-center gap-2 cursor-pointer group">
               <input
                 type="checkbox"
@@ -6092,7 +6102,7 @@ const uploadImagesToProductDirect = async (
                 </div>
               </div>
             )}
-          </div>
+          </div> */}
           
           {/* Next Day Delivery */}
           <div className="space-y-3">

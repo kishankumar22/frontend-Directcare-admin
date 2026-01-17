@@ -257,12 +257,7 @@ const ProductViewModal: React.FC<ProductViewModalProps> = ({
             </div>
 
             <div className="flex items-center gap-2">
-              <Link href={`/admin/products/edit/${product.id}`}>
-                <button className="px-4 py-2 bg-gradient-to-r from-cyan-500 to-blue-500 text-white rounded-lg hover:shadow-lg hover:shadow-cyan-500/40 transition-all flex items-center gap-2 text-sm font-bold">
-                  <Edit className="w-4 h-4" />
-                  Edit Product
-                </button>
-              </Link>
+             
 
               <button
                 onClick={onClose}

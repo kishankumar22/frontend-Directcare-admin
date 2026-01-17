@@ -237,152 +237,419 @@ const calculateStats = (allCategoriesData: BlogCategory[]) => {
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+const handleSubmit = async (e: React.FormEvent) => {
+  e.preventDefault();
 
-    // Validation
-    if (!formData.name.trim()) {
-      toast.error("Blog category name is required");
-      return;
-    }
-    if (formData.name.trim().length < 2) {
-      toast.error("Category name must be at least 2 characters");
-      return;
-    }
-    if (formData.name.trim().length > 100) {
-      toast.error("Category name must be less than 100 characters");
-      return;
-    }
-    const isDuplicateName = blogCategories.some(
-      cat =>
-        cat.name.toLowerCase().trim() === formData.name.toLowerCase().trim() &&
-        cat.id !== editingBlogCategory?.id
+  // ============================================
+  // 1. BLOG CATEGORY NAME VALIDATION
+  // ============================================
+  
+  const categoryName = formData.name.trim();
+
+  // Empty check
+  if (!categoryName) {
+    toast.error("❌ Blog category name is required");
+    return;
+  }
+
+  // Length validation
+  if (categoryName.length < 2 || categoryName.length > 100) {
+    toast.error(`❌ Category name must be between 2 and 100 characters. Current: ${categoryName.length}`);
+    return;
+  }
+
+  // ✅ Character validation (alphanumeric + safe special chars)
+  const nameRegex = /^[A-Za-z0-9\s\-&/()]+$/;
+  if (!nameRegex.test(categoryName)) {
+    toast.error("❌ Category name can only contain letters, numbers, spaces, -, &, /, ()");
+    return;
+  }
+
+  // Duplicate check
+  const isDuplicateName = blogCategories.some(
+    cat =>
+      cat.name.toLowerCase().trim() === categoryName.toLowerCase() &&
+      cat.id !== editingBlogCategory?.id
+  );
+  if (isDuplicateName) {
+    toast.error("❌ A category with this name already exists!");
+    return;
+  }
+
+  // ============================================
+  // 2. DESCRIPTION VALIDATION
+  // ============================================
+  
+  const description = formData.description.trim();
+
+  // Min length
+  if (description.length < 10) {
+    toast.error(`❌ Description must be at least 10 characters. Current: ${description.length}`);
+    return;
+  }
+
+  // ✅ Max length (Industry Standard)
+  if (description.length > 1000) {
+    toast.error(`❌ Description cannot exceed 1000 characters. Current: ${description.length}`);
+    return;
+  }
+
+  // ============================================
+  // 3. SLUG VALIDATION
+  // ============================================
+  
+  const slug = generateSlug(formData.slug || formData.name);
+  
+  // ✅ Slug format validation (URL-safe)
+  const slugRegex = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+  if (!slugRegex.test(slug)) {
+    toast.error("❌ Slug must be lowercase alphanumeric with hyphens only");
+    return;
+  }
+
+  // ✅ Slug length check
+  if (slug.length < 2 || slug.length > 100) {
+    toast.error(`❌ Slug must be between 2 and 100 characters. Current: ${slug.length}`);
+    return;
+  }
+
+  // ✅ Slug duplicate check
+  const isDuplicateSlug = blogCategories.some(
+    cat =>
+      cat.slug === slug &&
+      cat.id !== editingBlogCategory?.id
+  );
+  if (isDuplicateSlug) {
+    toast.error("❌ A category with this slug already exists!");
+    return;
+  }
+
+  // ============================================
+  // 4. PARENT CATEGORY VALIDATION
+  // ============================================
+  
+  if (formData.parentCategoryId) {
+    // Check if parent exists
+    const parentExists = blogCategories.find(
+      cat => cat.id === formData.parentCategoryId
     );
-    if (isDuplicateName) {
-      toast.error("A category with this name already exists!");
+    
+    if (!parentExists) {
+      toast.error("❌ Selected parent category does not exist");
       return;
     }
-    if (!formData.description.trim()) {
-      toast.error("Description is required");
-      return;
-    }
-    if (formData.description.trim().length < 10) {
-      toast.error("Description must be at least 10 characters");
-      return;
-    }
-    if (formData.displayOrder < 0) {
-      toast.error("Display order cannot be negative");
-      return;
-    }
-    if (formData.metaTitle && formData.metaTitle.length > 60) {
-      toast.error("Meta title should be less than 60 characters");
-      return;
-    }
-    if (formData.metaDescription && formData.metaDescription.length > 160) {
-      toast.error("Meta description should be less than 160 characters");
-      return;
-    }
-    if (formData.metaKeywords && formData.metaKeywords.length > 255) {
-      toast.error("Meta keywords must be less than 255 characters");
-      return;
-    }
-    if (imageFile) {
-      const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
-      const maxSize = 10 * 1024 * 1024;
-      if (!allowedTypes.includes(imageFile.type)) {
-        toast.error("Only JPG, PNG, and WebP images are allowed");
-        return;
-      }
-      if (imageFile.size > maxSize) {
-        toast.error("Image size must be less than 10MB");
-        return;
-      }
-    }
-    if (isSubmitting) return;
-    setIsSubmitting(true);
 
-    try {
-      let finalImageUrl = formData.imageUrl;
+    // ✅ Check if parent is active
+    if (!parentExists.isActive) {
+      toast.error("❌ Cannot add subcategory to an inactive parent category");
+      return;
+    }
 
-      if (imageFile) {
-        try {
-          const uploadResponse = await blogCategoriesService.uploadImage(imageFile, {
-            title: formData.name,
-          });
+    // ✅ Prevent circular reference
+    if (editingBlogCategory && formData.parentCategoryId === editingBlogCategory.id) {
+      toast.error("❌ Category cannot be its own parent");
+      return;
+    }
+  }
 
-          if (!uploadResponse.data?.success || !uploadResponse.data?.data) {
-            throw new Error(
-              uploadResponse.data?.message || "Image upload failed"
-            );
-          }
-          finalImageUrl = uploadResponse.data.data;
-          toast.success("Image uploaded successfully!");
-          
-          if (
-            editingBlogCategory?.imageUrl &&
-            editingBlogCategory.imageUrl !== finalImageUrl
-          ) {
-            const filename = extractFilename(editingBlogCategory.imageUrl);
-            if (filename) {
-              try {
-                await blogCategoriesService.deleteImage(filename);
-              } catch (err) {
-                console.log("Failed to delete old image:", err);
-              }
-            }
-          }
-        } catch (uploadErr: any) {
-          console.error("Error uploading image:", uploadErr);
-          toast.error(
-            uploadErr?.response?.data?.message || "Failed to upload image"
-          );
-          setIsSubmitting(false);
+  // ============================================
+  // 5. DISPLAY ORDER VALIDATION
+  // ============================================
+  
+  // Valid number check
+  if (isNaN(formData.displayOrder)) {
+    toast.error("❌ Display order must be a valid number");
+    return;
+  }
+
+  // ✅ Integer check
+  if (!Number.isInteger(formData.displayOrder)) {
+    toast.error("❌ Display order must be a whole number (no decimals)");
+    return;
+  }
+
+  // ✅ Range validation
+  if (formData.displayOrder < 1 || formData.displayOrder > 1000) {
+    toast.error("❌ Display order must be between 1 and 1000");
+    return;
+  }
+
+  // ============================================
+  // 6. META FIELDS VALIDATION
+  // ============================================
+  
+  // Meta Title
+  if (formData.metaTitle) {
+    const metaTitle = formData.metaTitle.trim();
+    
+    if (metaTitle.length > 60) {
+      toast.error(`❌ Meta title must be less than 60 characters. Current: ${metaTitle.length}`);
+      return;
+    }
+
+    // ✅ Whitespace check
+    if (/^\s+$/.test(formData.metaTitle)) {
+      toast.error("❌ Meta title cannot contain only spaces");
+      return;
+    }
+  }
+
+  // Meta Description
+  if (formData.metaDescription) {
+    const metaDesc = formData.metaDescription.trim();
+    
+    if (metaDesc.length > 160) {
+      toast.error(`❌ Meta description must be less than 160 characters. Current: ${metaDesc.length}`);
+      return;
+    }
+
+    // ✅ Whitespace check
+    if (/^\s+$/.test(formData.metaDescription)) {
+      toast.error("❌ Meta description cannot contain only spaces");
+      return;
+    }
+  }
+
+  // Meta Keywords
+  if (formData.metaKeywords) {
+    const metaKeywords = formData.metaKeywords.trim();
+    
+    if (metaKeywords.length > 255) {
+      toast.error(`❌ Meta keywords must be less than 255 characters. Current: ${metaKeywords.length}`);
+      return;
+    }
+
+    // ✅ Whitespace check
+    if (/^\s+$/.test(formData.metaKeywords)) {
+      toast.error("❌ Meta keywords cannot contain only spaces");
+      return;
+    }
+
+    // ✅ Format validation (comma-separated)
+    if (metaKeywords.length > 0) {
+      const keywords = metaKeywords.split(',');
+      for (const keyword of keywords) {
+        const trimmed = keyword.trim();
+        if (trimmed.length > 0 && (trimmed.length < 2 || trimmed.length > 50)) {
+          toast.error("❌ Each keyword must be between 2-50 characters");
           return;
         }
       }
-
-      const payload = {
-        name: formData.name.trim(),
-        description: formData.description.trim(),
-        slug: generateSlug(formData.slug || formData.name),
-        imageUrl: finalImageUrl,
-        isActive: formData.isActive,
-        displayOrder: formData.displayOrder,
-        parentCategoryId: formData.parentCategoryId || null,
-        metaTitle: formData.metaTitle.trim() || undefined,
-        metaDescription: formData.metaDescription.trim() || undefined,
-        metaKeywords: formData.metaKeywords.trim() || undefined,
-        searchEngineFriendlyPageName: formData.searchEngineFriendlyPageName.trim() || undefined,
-        ...(editingBlogCategory && { id: editingBlogCategory.id }),
-      };
-
-      if (editingBlogCategory) {
-        await blogCategoriesService.update(editingBlogCategory.id, payload);
-        toast.success("Blog Category updated successfully! 🎉");
-      } else {
-        await blogCategoriesService.create(payload);
-        toast.success("Blog Category created successfully! 🎉");
-      }
-
-      if (imagePreview) URL.revokeObjectURL(imagePreview);
-      setImageFile(null);
-      setImagePreview(null);
-      await fetchBlogCategories();
-      setShowModal(false);
-      resetForm();
-
-    } catch (error: any) {
-      console.error("Error saving blog category:", error);
-      const message =
-        error?.response?.data?.message ||
-        error?.response?.data?.error ||
-        error.message ||
-        "Failed to save blog category";
-      toast.error(message);
-    } finally {
-      setIsSubmitting(false);
     }
-  };
+  }
+
+  // ✅ SEO Page Name validation
+  if (formData.searchEngineFriendlyPageName) {
+    const seoName = formData.searchEngineFriendlyPageName.trim();
+    
+    if (seoName.length > 200) {
+      toast.error(`❌ SEO page name must be less than 200 characters. Current: ${seoName.length}`);
+      return;
+    }
+
+    // URL-safe check
+    const seoRegex = /^[a-z0-9\-]+$/;
+    if (!seoRegex.test(seoName)) {
+      toast.error("❌ SEO page name must be lowercase alphanumeric with hyphens only");
+      return;
+    }
+  }
+
+  // ============================================
+  // 7. IMAGE VALIDATION - WebP ONLY (User Request)
+  // ============================================
+  
+  if (imageFile) {
+    // ✅ ONLY WebP allowed
+    const allowedTypes = ['image/webp'];
+    const maxSize = 10 * 1024 * 1024; // 10MB
+
+    // Type validation (WebP ONLY)
+    if (!allowedTypes.includes(imageFile.type)) {
+      toast.error("❌ Only WebP images are allowed for blog categories");
+      return;
+    }
+
+    // Size validation
+    if (imageFile.size > maxSize) {
+      const sizeMB = (imageFile.size / (1024 * 1024)).toFixed(2);
+      toast.error(`❌ Image size must be less than 10MB. Current: ${sizeMB}MB`);
+      return;
+    }
+
+    // ✅ File name length
+    if (imageFile.name.length > 255) {
+      toast.error("❌ Image file name is too long (max 255 characters)");
+      return;
+    }
+
+    // ✅ Dimension validation (Industry Standard)
+    try {
+      await new Promise<void>((resolve, reject) => {
+        const img = new Image();
+        const url = URL.createObjectURL(imageFile);
+        
+        img.onload = () => {
+          URL.revokeObjectURL(url);
+          
+          const MIN_WIDTH = 200;
+          const MAX_WIDTH = 5000;
+          const MIN_HEIGHT = 200;
+          const MAX_HEIGHT = 5000;
+          
+          if (img.width < MIN_WIDTH || img.width > MAX_WIDTH) {
+            reject(`Image width must be between ${MIN_WIDTH}px and ${MAX_WIDTH}px. Current: ${img.width}px`);
+            return;
+          }
+          
+          if (img.height < MIN_HEIGHT || img.height > MAX_HEIGHT) {
+            reject(`Image height must be between ${MIN_HEIGHT}px and ${MAX_HEIGHT}px. Current: ${img.height}px`);
+            return;
+          }
+          
+          resolve();
+        };
+        
+        img.onerror = () => {
+          URL.revokeObjectURL(url);
+          reject('Invalid or corrupted WebP image file');
+        };
+        
+        img.src = url;
+      });
+    } catch (error: any) {
+      toast.error(`❌ ${error}`);
+      return;
+    }
+  }
+
+  // ============================================
+  // 8. PREVENT DUPLICATE SUBMISSION
+  // ============================================
+  
+  if (isSubmitting) {
+    toast.error("⏳ Please wait, processing...");
+    return;
+  }
+  
+  setIsSubmitting(true);
+
+  try {
+    let finalImageUrl = formData.imageUrl;
+
+    // ============================================
+    // 9. IMAGE UPLOAD
+    // ============================================
+    
+    if (imageFile) {
+      try {
+        const uploadResponse = await blogCategoriesService.uploadImage(imageFile, {
+          title: formData.name,
+        });
+
+        if (!uploadResponse.data?.success || !uploadResponse.data?.data) {
+          throw new Error(
+            uploadResponse.data?.message || "Image upload failed"
+          );
+        }
+
+        finalImageUrl = uploadResponse.data.data;
+        toast.success("✅ WebP image uploaded successfully!");
+        
+        // Delete old image if exists
+        if (
+          editingBlogCategory?.imageUrl &&
+          editingBlogCategory.imageUrl !== finalImageUrl
+        ) {
+          const filename = extractFilename(editingBlogCategory.imageUrl);
+          if (filename) {
+            try {
+              await blogCategoriesService.deleteImage(filename);
+            } catch (err) {
+              // Silently fail - old image deletion is non-critical
+            }
+          }
+        }
+      } catch (uploadErr: any) {
+        toast.error(
+          uploadErr?.response?.data?.message || "Failed to upload image"
+        );
+        setIsSubmitting(false);
+        return;
+      }
+    }
+
+    // ============================================
+    // 10. PREPARE PAYLOAD
+    // ============================================
+    
+    const payload = {
+      name: categoryName, // Already trimmed and validated
+      description: description, // Already trimmed and validated
+      slug: slug, // Already validated
+      imageUrl: finalImageUrl,
+      isActive: formData.isActive,
+      displayOrder: formData.displayOrder,
+      parentCategoryId: formData.parentCategoryId || null,
+      metaTitle: formData.metaTitle?.trim() || undefined,
+      metaDescription: formData.metaDescription?.trim() || undefined,
+      metaKeywords: formData.metaKeywords?.trim() || undefined,
+      searchEngineFriendlyPageName: formData.searchEngineFriendlyPageName?.trim() || undefined,
+      ...(editingBlogCategory && { id: editingBlogCategory.id }),
+    };
+
+    // ============================================
+    // 11. API CALL WITH ERROR HANDLING
+    // ============================================
+    
+    if (editingBlogCategory) {
+      await blogCategoriesService.update(editingBlogCategory.id, payload);
+      toast.success("✅ Blog Category updated successfully! 🎉");
+    } else {
+      await blogCategoriesService.create(payload);
+      toast.success("✅ Blog Category created successfully! 🎉");
+    }
+
+    // ============================================
+    // 12. CLEANUP
+    // ============================================
+    
+    if (imagePreview) URL.revokeObjectURL(imagePreview);
+    setImageFile(null);
+    setImagePreview(null);
+    await fetchBlogCategories();
+    setShowModal(false);
+    resetForm();
+
+  } catch (error: any) {
+    // ============================================
+    // 13. ENHANCED ERROR HANDLING
+    // ============================================
+    
+    let message = "Failed to save blog category";
+    
+    if (error?.response?.status === 400) {
+      message = error?.response?.data?.message || "Invalid data provided";
+    } else if (error?.response?.status === 401) {
+      message = "Session expired. Please login again";
+    } else if (error?.response?.status === 403) {
+      message = "Access denied. You don't have permission";
+    } else if (error?.response?.status === 409) {
+      message = "Category with this name or slug already exists";
+    } else if (error?.response?.status === 500) {
+      message = "Server error. Please try again later";
+    } else if (error?.code === 'ECONNABORTED') {
+      message = "Request timeout. Check your internet connection";
+    } else if (error?.message) {
+      message = error.message;
+    }
+    
+    toast.error(message);
+  } finally {
+    setIsSubmitting(false);
+  }
+};
+
 
   const handleDelete = async (id: string) => {
     setIsDeleting(true);

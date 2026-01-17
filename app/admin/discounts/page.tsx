@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import Select from 'react-select';
-import { Plus, Edit, Trash2, Search, Percent, Eye, Filter, History, FilterX, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, AlertCircle, Calendar, Gift, Target, Clock, TrendingUp, Users, Infinity as InfinityIcon, CalendarRange } from "lucide-react";
+import { Plus, Edit, Trash2, Search, Percent, Eye, Filter, History, FilterX, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, AlertCircle, Calendar, Gift, Target, Clock, TrendingUp, Users, Infinity as InfinityIcon, CalendarRange, ChevronDown, Package } from "lucide-react";
 import { API_ENDPOINTS } from "@/lib/api-config";
 import { apiClient } from "@/lib/api";
 import { ProductDescriptionEditor } from "../products/SelfHostedEditor";
@@ -10,7 +10,7 @@ import { useToast } from "@/components/CustomToast";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import { Discount, DiscountLimitationType, discountsService, DiscountType } from "@/lib/services/discounts";
 import { categoriesService, Category } from "@/lib/services/categories";
-import {  Product } from "@/lib/services";
+import {  Product, productsService } from "@/lib/services";
 import { DiscountUsageHistory } from "@/lib/services/discounts";
 
 interface SelectOption {
@@ -275,9 +275,12 @@ export default function DiscountsPage() {
   const [viewingDiscount, setViewingDiscount] = useState<Discount | null>(null);
   const [activeFilter, setActiveFilter] = useState<string>("all");
   const [typeFilter, setTypeFilter] = useState<string>("all");
-  
+  const [isProductSelectionModalOpen, setIsProductSelectionModalOpen] = useState(false);
   // ✅ DROPDOWN DATA STATES
   const [categories, setCategories] = useState<Category[]>([]);
+  // ADD THESE NEW FILTER STATES - Line ~300 के बाद
+const [productCategoryFilter, setProductCategoryFilter] = useState<string>("");
+const [productBrandFilter, setProductBrandFilter] = useState<string>("");
   const [products, setProducts] = useState<Product[]>([]);
 
   // ✅ USAGE HISTORY STATES
@@ -340,7 +343,7 @@ export default function DiscountsPage() {
 
       const [categoriesRes, productsRes] = await Promise.all([
         categoriesService.getAll(),
-        apiClient.get(API_ENDPOINTS.products, { headers })
+        productsService.getAll({ pageSize: 100 }),
       ]);
 
       if (categoriesRes?.data) {
@@ -391,24 +394,27 @@ console.log("DISCOUNT CATEGORIES RAW:", JSON.stringify(c.data, null, 2));
     await fetchUsageHistory(discount.id);
   };
 
-// ✅ IMPLEMENTED CORRECTLY (Line ~390)
+// EXISTING FUNCTION - ADD filter reset
 const handleDiscountTypeChange = (newType: DiscountType) => {
-  const hasAssignments = 
+  const hasAssignments =
     formData.assignedProductIds.length > 0 ||
     formData.assignedCategoryIds.length > 0;
 
   if (hasAssignments && newType !== formData.discountType) {
     const productCount = formData.assignedProductIds.length;
     const categoryCount = formData.assignedCategoryIds.length;
-    
-    let warningMessage = "⚠️ Discount type changed! Cleared: ";
-    const cleared = [];
-    
-    if (productCount > 0) cleared.push(`${productCount} product${productCount > 1 ? 's' : ''}`);
-    if (categoryCount > 0) cleared.push(`${categoryCount} ${categoryCount > 1 ? 'categories' : 'category'}`);
-    
+
+    let warningMessage = "Discount type changed! Cleared: ";
+    const cleared: string[] = [];
+
+    if (productCount > 0)
+      cleared.push(`${productCount} product${productCount > 1 ? "s" : ""}`);
+    if (categoryCount > 0)
+      cleared.push(
+        `${categoryCount} ${categoryCount > 1 ? "categories" : "category"}`
+      );
+
     warningMessage += cleared.join(", ");
-    
     toast.warning(warningMessage);
 
     setFormData({
@@ -418,12 +424,14 @@ const handleDiscountTypeChange = (newType: DiscountType) => {
       assignedCategoryIds: [],
     });
   } else {
-    setFormData({
-      ...formData,
-      discountType: newType
-    });
+    setFormData({ ...formData, discountType: newType });
   }
+  
+  // ADD THIS - Reset filters when discount type changes
+  setProductCategoryFilter("");
+  setProductBrandFilter("");
 };
+
 
 
 
@@ -452,11 +460,76 @@ const handleDiscountTypeChange = (newType: DiscountType) => {
   };
 
 // NEW - full nested path + sari categories
+// EXISTING categoryOptions
 const categoryOptions: SelectOption[] = processCategoryData(categories as any);
-  const productOptions: SelectOption[] = products.map(product => ({
+
+// EXISTING CODE
+const brandOptions: SelectOption[] = useMemo(() => {
+  const uniqueBrands = new Map<string, string>();
+  products.forEach(product => {
+    if (product.brandId && product.brandName) {
+      uniqueBrands.set(product.brandId, product.brandName);
+    }
+  });
+  return Array.from(uniqueBrands.entries()).map(([id, name]) => ({
+    value: id,
+    label: name
+  })).sort((a, b) => a.label.localeCompare(b.label));
+}, [products]);
+// ADD THIS - Products filtered by SELECTED categories
+const categoryFilteredProductOptions: SelectOption[] = useMemo(() => {
+  // Agar koi category selected nahi hai, to empty array return karo
+  if (formData.assignedCategoryIds.length === 0) {
+    return [];
+  }
+  
+  // Sirf selected categories ke products filter karo
+  const filtered = products.filter(product => {
+    const prod = product as any;
+    if (!Array.isArray(prod.categories)) return false;
+    
+    // Check if product belongs to any of the selected categories
+    return prod.categories.some((cat: any) => 
+      formData.assignedCategoryIds.includes(cat.categoryId)
+    );
+  });
+  
+  return filtered.map(product => ({
     value: product.id,
     label: product.name
   }));
+}, [products, formData.assignedCategoryIds]);
+
+// ADD THIS - Filtered product options based on category and brand filters
+const filteredProductOptions: SelectOption[] = useMemo(() => {
+  let filtered = products;
+  
+  // Filter by category
+  if (productCategoryFilter) {
+    filtered = filtered.filter(product => 
+     (product as any).categories?.some((cat: any) => cat.categoryId === productCategoryFilter)
+    );
+  }
+  
+  // Filter by brand
+  if (productBrandFilter) {
+    filtered = filtered.filter(product => 
+      product.brandId === productBrandFilter
+    );
+  }
+  
+  return filtered.map(product => ({
+    value: product.id,
+    label: product.name
+  }));
+}, [products, productCategoryFilter, productBrandFilter]);
+
+// EXISTING productOptions - REPLACE with filteredProductOptions where needed
+const productOptions: SelectOption[] = products.map(product => ({
+  value: product.id,
+  label: product.name
+}));
+
 
   // ✅ FETCH DISCOUNTS
   const fetchDiscounts = async () => {
@@ -500,60 +573,76 @@ const categoryOptions: SelectOption[] = processCategoryData(categories as any);
     }
   };
 
-  // ✅ HANDLE EDIT
-  const handleEdit = (discount: Discount) => {
-    setEditingDiscount(discount);
-    setFormData({
-      name: discount.name,
-      isActive: discount.isActive,
-      discountType: discount.discountType,
-      usePercentage: discount.usePercentage,
-      discountAmount: discount.discountAmount,
-      discountPercentage: discount.discountPercentage,
-      maximumDiscountAmount: discount.maximumDiscountAmount,
-      startDate: discount.startDate.slice(0, 16),
-      endDate: discount.endDate.slice(0, 16),
-      requiresCouponCode: discount.requiresCouponCode,
-      couponCode: discount.couponCode || "",
-      isCumulative: discount.isCumulative,
-      discountLimitation: discount.discountLimitation,
-      limitationTimes: discount.limitationTimes,
-      maximumDiscountedQuantity: discount.maximumDiscountedQuantity,
-      appliedToSubOrders: discount.appliedToSubOrders,
-      adminComment: discount.adminComment,
-      assignedProductIds: discount.assignedProductIds ? discount.assignedProductIds.split(',').filter(id => id.trim() !== '') : [],
-      assignedCategoryIds: discount.assignedCategoryIds ? discount.assignedCategoryIds.split(',').filter(id => id.trim() !== '') : [],
-      assignedManufacturerIds: discount.assignedManufacturerIds ? discount.assignedManufacturerIds.split(',').filter(id => id.trim() !== '') : []
-    });
-    setShowModal(true);
-  };
+const handleEdit = (discount: Discount) => {
+  setEditingDiscount(discount);
+  setFormData({
+    name: discount.name,
+    isActive: discount.isActive,
+    discountType: discount.discountType,
+    usePercentage: discount.usePercentage,
+    discountAmount: discount.discountAmount,
+    discountPercentage: discount.discountPercentage,
+    maximumDiscountAmount: discount.maximumDiscountAmount,
+    startDate: discount.startDate.slice(0, 16),
+    endDate: discount.endDate.slice(0, 16),
+    requiresCouponCode: discount.requiresCouponCode,
+    couponCode: discount.couponCode || "",
+    isCumulative: discount.isCumulative,
+    discountLimitation: discount.discountLimitation,
+    limitationTimes: discount.limitationTimes,
+    maximumDiscountedQuantity: discount.maximumDiscountedQuantity,
+    appliedToSubOrders: discount.appliedToSubOrders,
+    adminComment: discount.adminComment,
+    assignedProductIds: discount.assignedProductIds
+      ? discount.assignedProductIds.split(",").filter((id) => id.trim() !== "")
+      : [],
+    assignedCategoryIds: discount.assignedCategoryIds
+      ? discount.assignedCategoryIds.split(",").filter((id) => id.trim() !== "")
+      : [],
+    assignedManufacturerIds: discount.assignedManufacturerIds
+      ? discount.assignedManufacturerIds.split(",").filter((id) => id.trim() !== "")
+      : [],
+  });
+  setShowModal(true);
+  
+  // OPTIONAL: Reset filters when editing
+  setProductCategoryFilter("");
+  setProductBrandFilter("");
+};
+
 
   // ✅ RESET FORM
-  const resetForm = () => {
-    setFormData({
-      name: "",
-      isActive: true,
-      discountType: "AssignedToOrderTotal",
-      usePercentage: true,
-      discountAmount: 0,
-      discountPercentage: 0,
-      maximumDiscountAmount: null,
-      startDate: "",
-      endDate: "",
-      requiresCouponCode: false,
-      couponCode: "",
-      isCumulative: false,
-      discountLimitation: "Unlimited",
-      limitationTimes: null,
-      maximumDiscountedQuantity: null,
-      appliedToSubOrders: false,
-      adminComment: "",
-      assignedProductIds: [],
-      assignedCategoryIds: [],
-      assignedManufacturerIds: []
-    });
-    setEditingDiscount(null);
-  };
+// EXISTING resetForm - ADD filter reset
+const resetForm = () => {
+  setFormData({
+    name: "",
+    isActive: true,
+    discountType: "AssignedToOrderTotal",
+    usePercentage: true,
+    discountAmount: 0,
+    discountPercentage: 0,
+    maximumDiscountAmount: null,
+    startDate: "",
+    endDate: "",
+    requiresCouponCode: false,
+    couponCode: "",
+    isCumulative: false,
+    discountLimitation: "Unlimited",
+    limitationTimes: null,
+    maximumDiscountedQuantity: null,
+    appliedToSubOrders: false,
+    adminComment: "",
+    assignedProductIds: [],
+    assignedCategoryIds: [],
+    assignedManufacturerIds: [],
+  });
+  setEditingDiscount(null);
+  
+  // ADD THIS - Reset filters
+  setProductCategoryFilter("");
+  setProductBrandFilter("");
+};
+
 
   // ✅ HANDLE DELETE
   const handleDelete = async (id: string) => {
@@ -1168,10 +1257,15 @@ const categoryOptions: SelectOption[] = processCategoryData(categories as any);
           </div>
         </div>
       )}
-{/* ✅ COMPLETE CREATE/EDIT MODAL */}
+{/* ✅ ADD THIS STATE AT TOP OF COMPONENT */}
+const [isProductSelectionModalOpen, setIsProductSelectionModalOpen] = useState(false);
+
+{/* ========== COMPLETE MAIN MODAL CODE ========== */}
 {showModal && (
   <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-50 flex items-center justify-center p-4">
     <div className="bg-gradient-to-br from-slate-900 via-slate-900 to-slate-800 border border-violet-500/20 rounded-3xl max-w-6xl w-full max-h-[90vh] overflow-hidden shadow-2xl shadow-violet-500/10">
+      
+      {/* HEADER */}
       <div className="p-2 border-b border-violet-500/20 bg-gradient-to-r from-violet-500/10 to-cyan-500/10">
         <div className="flex items-center justify-between">
           <div>
@@ -1195,14 +1289,23 @@ const categoryOptions: SelectOption[] = processCategoryData(categories as any);
         </div>
       </div>
       
+      {/* FORM */}
       <form onSubmit={handleSubmit} className="p-2 space-y-2 overflow-y-auto max-h-[calc(90vh-120px)]">
-        {/* Basic Information */}
+        
+        {/* ========== SECTION 1: BASIC INFORMATION ========== */}
         <div className="bg-slate-800/30 p-2 rounded-2xl border border-slate-700/50">
           <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
             <span className="w-8 h-8 rounded-lg bg-gradient-to-br from-violet-500 to-purple-500 flex items-center justify-center text-sm">1</span>
             <span>Basic Information</span>
           </h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          
+          <div className={`grid gap-4 ${
+            formData.discountType === "AssignedToCategories" 
+              ? "grid-cols-1 md:grid-cols-3" 
+              : "grid-cols-1 md:grid-cols-2"
+          }`}>
+            
+            {/* Discount Name */}
             <div>
               <label className="block text-sm font-medium text-slate-300 mb-2">Discount Name *</label>
               <input
@@ -1214,10 +1317,10 @@ const categoryOptions: SelectOption[] = processCategoryData(categories as any);
                 className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
               />
             </div>
+            
+            {/* Discount Type */}
             <div>
-              <label className="block text-sm font-medium text-slate-300 mb-2">
-                Discount Type *
-              </label>
+              <label className="block text-sm font-medium text-slate-300 mb-2">Discount Type *</label>
               <select
                 required
                 value={formData.discountType}
@@ -1229,124 +1332,219 @@ const categoryOptions: SelectOption[] = processCategoryData(categories as any);
                 <option value="AssignedToCategories">Assigned to categories</option>
                 <option value="AssignedToShipping">Assigned to shipping</option>
               </select>
-   
             </div>
+
+            {/* Category Selector (Third Column) */}
+            {formData.discountType === "AssignedToCategories" && (
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-2">
+                  Select Category *
+                  <span className="text-xs text-slate-400 ml-2">Choose one category</span>
+                </label>
+                <Select
+                  isClearable
+                  options={categoryOptions}
+                  value={categoryOptions.find(opt => 
+                    formData.assignedCategoryIds.length > 0 && 
+                    opt.value === formData.assignedCategoryIds[0]
+                  ) || null}
+                  onChange={(selectedOption) => {
+                    const categoryId = selectedOption?.value || "";
+                    setFormData({ 
+                      ...formData, 
+                      assignedCategoryIds: categoryId ? [categoryId] : [],
+                      assignedProductIds: []
+                    });
+                  }}
+                  placeholder="Select a category..."
+                  isSearchable
+                  styles={customSelectStyles}
+                  className="react-select-container"
+                  classNamePrefix="react-select"
+                  noOptionsMessage={() => "No categories found"}
+                />
+              </div>
+            )}
           </div>
+        </div>
 
-          {/* ✅ Assignment & Settings Section moved here - Discount Type के नीचे */}
-          <div className="mt-6">
-            <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-              <span className="w-8 h-8 rounded-lg bg-gradient-to-br from-purple-500 to-violet-500 flex items-center justify-center text-sm">2</span>
-              <span>Assignment & Settings</span>
-            </h3>
-            <div className="space-y-4">
-              
-              {/* ✅ PRODUCTS MULTI-SELECT */}
-              {formData.discountType === "AssignedToProducts" && (
-                <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-2">
-                    Select Products *
-                    <span className="text-xs text-slate-400 ml-2">(Choose which products this discount applies to)</span>
-                  </label>
-                  <Select
-                    isMulti
-                    options={productOptions}
-                    value={productOptions.filter(opt => formData.assignedProductIds.includes(opt.value))}
-                    onChange={(selectedOptions) => {
-                      const ids = selectedOptions ? selectedOptions.map(opt => opt.value) : [];
-                      setFormData({...formData, assignedProductIds: ids});
-                    }}
-                    placeholder="Search and select products..."
-                    isSearchable
-                    closeMenuOnSelect={false}
-                    styles={customSelectStyles}
-                    className="react-select-container"
-                    classNamePrefix="react-select"
-                    noOptionsMessage={() => "No products found"}
-                    loadingMessage={() => "Loading products..."}
-                  />
-                  <p className="text-xs text-slate-400 mt-1">
-                    {formData.assignedProductIds.length} product{formData.assignedProductIds.length !== 1 ? 's' : ''} selected
-                  </p>
-                </div>
-              )}
-              
-              {/* ✅ CATEGORIES MULTI-SELECT */}
-              {formData.discountType === "AssignedToCategories" && (
-                <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-2">
-                    Select Categories
-                    <span className="text-xs text-slate-400 ml-2">
-                      Choose which categories this discount applies to
-                    </span>
-                  </label>
+        {/* ========== SECTION 2: ASSIGNMENT SETTINGS ========== */}
+        <div className="bg-slate-800/30 p-2 rounded-2xl border border-slate-700/50">
+          <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+            <span className="w-8 h-8 rounded-lg bg-gradient-to-br from-purple-500 to-violet-500 flex items-center justify-center text-sm">2</span>
+            <span>Assignment Settings</span>
+          </h3>
 
-                  <Select
-                    isMulti
-                    options={categoryOptions}
-                    value={categoryOptions.filter(opt =>
-                      formData.assignedCategoryIds.includes(opt.value)
-                    )}
-                    onChange={(selectedOptions) => {
-                      const ids = selectedOptions ? selectedOptions.map(opt => opt.value) : [];
-                      setFormData({ ...formData, assignedCategoryIds: ids });
-                    }}
-                    placeholder="Search and select categories..."
-                    isSearchable
-                    closeMenuOnSelect={false}
-                    styles={customSelectStyles}
-                    className="react-select-container"
-                    classNamePrefix="react-select"
-                    noOptionsMessage={() => "No categories found"}
-                    loadingMessage={() => "Loading categories..."}
-                  />
+          <div className="space-y-4">
+            
+            {/* ========== FOR ASSIGNED TO PRODUCTS ========== */}
+            {formData.discountType === "AssignedToProducts" && (
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-2">
+                  Select Products *
+                  <span className="text-xs text-slate-400 ml-2">Choose which products this discount applies to</span>
+                </label>
 
-                  <p className="text-xs text-slate-400 mt-1">
-                    {formData.assignedCategoryIds.length
-                      ? `${formData.assignedCategoryIds.length} categor${
-                          formData.assignedCategoryIds.length !== 1 ? "ies" : "y"
-                        } selected`
-                      : "No categories selected"}
-                  </p>
-                </div>
-              )}
-
-              {/* Settings Checkboxes */}
-              <div className="grid grid-cols-3 gap-4">
-                <div>
-                  <label className="flex items-center gap-3 p-3 bg-slate-900/50 border border-slate-600 rounded-xl cursor-pointer hover:border-violet-500 transition-all">
-                    <input
-                      type="checkbox"
-                      checked={formData.isActive}
-                      onChange={(e) => setFormData({...formData, isActive: e.target.checked})}
-                      className="w-5 h-5 rounded border-slate-600 text-violet-500 focus:ring-2 focus:ring-violet-500"
+                <div className="grid grid-cols-2 gap-3 mb-3">
+                  <div>
+                    <label className="block text-xs font-medium text-slate-400 mb-1">Filter by Category</label>
+                    <Select
+                      isClearable
+                      options={categoryOptions}
+                      value={categoryOptions.find(opt => opt.value === productCategoryFilter) || null}
+                      onChange={(selectedOption) => setProductCategoryFilter(selectedOption?.value || "")}
+                      placeholder="All categories..."
+                      isSearchable
+                      styles={customSelectStyles}
+                      className="react-select-container"
+                      classNamePrefix="react-select"
                     />
-                    <div>
-                      <p className="text-white font-medium">Active</p>
-                      <p className="text-slate-400 text-xs">Enable this discount</p>
-                    </div>
-                  </label>
-                </div>
-                <div>
-                  <label className="flex items-center gap-3 p-3 bg-slate-900/50 border border-slate-600 rounded-xl cursor-pointer hover:border-violet-500 transition-all">
-                    <input
-                      type="checkbox"
-                      checked={formData.isCumulative}
-                      onChange={(e) => setFormData({...formData, isCumulative: e.target.checked})}
-                      className="w-5 h-5 rounded border-slate-600 text-violet-500 focus:ring-2 focus:ring-violet-500"
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-slate-400 mb-1">Filter by Brand</label>
+                    <Select
+                      isClearable
+                      options={brandOptions}
+                      value={brandOptions.find(opt => opt.value === productBrandFilter) || null}
+                      onChange={(selectedOption) => setProductBrandFilter(selectedOption?.value || "")}
+                      placeholder="All brands..."
+                      isSearchable
+                      styles={customSelectStyles}
+                      className="react-select-container"
+                      classNamePrefix="react-select"
                     />
-                    <div>
-                      <p className="text-white font-medium">Cumulative</p>
-                      <p className="text-slate-400 text-xs">Can combine with others</p>
-                    </div>
-                  </label>
+                  </div>
                 </div>
+
+                <Select
+                  isMulti
+                  options={filteredProductOptions}
+                  value={filteredProductOptions.filter((opt) =>
+                    formData.assignedProductIds.includes(opt.value)
+                  )}
+                  onChange={(selectedOptions) => {
+                    const ids = selectedOptions ? selectedOptions.map((opt) => opt.value) : [];
+                    setFormData({ ...formData, assignedProductIds: ids });
+                  }}
+                  placeholder="Search and select products..."
+                  isSearchable
+                  closeMenuOnSelect={false}
+                  styles={customSelectStyles}
+                  className="react-select-container"
+                  classNamePrefix="react-select"
+                  noOptionsMessage={() => 
+                    productCategoryFilter || productBrandFilter 
+                      ? "No products match the selected filters" 
+                      : "No products found"
+                  }
+                />
+
+                <div className="flex items-center justify-between mt-2">
+                  <p className="text-xs text-slate-400">
+                    {formData.assignedProductIds.length > 0
+                      ? `${formData.assignedProductIds.length} product${formData.assignedProductIds.length !== 1 ? "s" : ""} selected`
+                      : "No products selected"}
+                  </p>
+                  {(productCategoryFilter || productBrandFilter) && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setProductCategoryFilter("");
+                        setProductBrandFilter("");
+                      }}
+                      className="text-xs text-violet-400 hover:text-violet-300 transition-colors flex items-center gap-1"
+                    >
+                      <FilterX className="h-3 w-3" />
+                      Clear Filters
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* ========== FOR ASSIGNED TO CATEGORIES - INPUT BOX WITH MODAL ========== */}
+            {formData.discountType === "AssignedToCategories" && (
+              <>
+                {formData.assignedCategoryIds.length > 0 ? (
+                  <div>
+                    <label className="block text-sm font-medium text-slate-300 mb-2">
+                      Additional Products
+                      <span className="text-xs text-slate-400 ml-2">Select specific products from selected categories</span>
+                    </label>
+                    
+                    {/* ✅ INPUT BOX TO OPEN MODAL */}
+                    <div
+                      onClick={() => setIsProductSelectionModalOpen(true)}
+                      className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-xl text-slate-400 cursor-pointer hover:border-violet-500 transition-all flex items-center justify-between"
+                    >
+                      <span>
+                        {formData.assignedProductIds.length > 0
+                          ? `${formData.assignedProductIds.length} product${formData.assignedProductIds.length !== 1 ? 's' : ''} selected`
+                          : 'Select products...'
+                        }
+                      </span>
+                      <ChevronDown className="h-5 w-5" />
+                    </div>
+
+                    {/* Product Count */}
+                    <div className="flex items-center justify-between mt-2">
+                      <p className="text-xs text-slate-400">
+                        Click to view and select products
+                      </p>
+                      <p className="text-xs text-blue-400">
+                        {categoryFilteredProductOptions.length} product{categoryFilteredProductOptions.length !== 1 ? 's' : ''} available
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl p-3">
+                    <p className="text-blue-400 text-sm flex items-center gap-2">
+                      <AlertCircle className="h-4 w-4" />
+                      Select a category first to choose specific products
+                    </p>
+                  </div>
+                )}
+              </>
+            )}
+
+            {/* Settings Checkboxes */}
+            <div className="grid grid-cols-3 gap-4 mt-6">
+              <div>
+                <label className="flex items-center gap-3 p-3 bg-slate-900/50 border border-slate-600 rounded-xl cursor-pointer hover:border-violet-500 transition-all">
+                  <input
+                    type="checkbox"
+                    checked={formData.isActive}
+                    onChange={(e) => setFormData({ ...formData, isActive: e.target.checked })}
+                    className="w-5 h-5 rounded border-slate-600 text-violet-500 focus:ring-2 focus:ring-violet-500"
+                  />
+                  <div>
+                    <p className="text-white font-medium">Active</p>
+                    <p className="text-slate-400 text-xs">Enable this discount</p>
+                  </div>
+                </label>
+              </div>
+
+              <div>
+                <label className="flex items-center gap-3 p-3 bg-slate-900/50 border border-slate-600 rounded-xl cursor-pointer hover:border-violet-500 transition-all">
+                  <input
+                    type="checkbox"
+                    checked={formData.isCumulative}
+                    onChange={(e) => setFormData({ ...formData, isCumulative: e.target.checked })}
+                    className="w-5 h-5 rounded border-slate-600 text-violet-500 focus:ring-2 focus:ring-violet-500"
+                  />
+                  <div>
+                    <p className="text-white font-medium">Cumulative</p>
+                    <p className="text-slate-400 text-xs">Can combine with others</p>
+                  </div>
+                </label>
+              </div>
+
               <div>
                 <label className="flex items-center gap-3 p-3 bg-slate-900/50 border border-slate-600 rounded-xl cursor-pointer hover:border-violet-500 transition-all">
                   <input
                     type="checkbox"
                     checked={formData.appliedToSubOrders}
-                    onChange={(e) => setFormData({...formData, appliedToSubOrders: e.target.checked})}
+                    onChange={(e) => setFormData({ ...formData, appliedToSubOrders: e.target.checked })}
                     className="w-5 h-5 rounded border-slate-600 text-violet-500 focus:ring-2 focus:ring-violet-500"
                   />
                   <div>
@@ -1355,24 +1553,23 @@ const categoryOptions: SelectOption[] = processCategoryData(categories as any);
                   </div>
                 </label>
               </div>
-              </div>
-              
             </div>
-          </div>
 
-          <div className="mt-4">
-            <label className="block text-sm font-medium text-slate-300 mb-2">Admin Comment</label>
-            <ProductDescriptionEditor
-              value={formData.adminComment}
-              onChange={(content) => setFormData({...formData, adminComment: content})}
-              placeholder="Add internal notes about this discount..."
-              height={250}
-              required={false}
-            />
+            {/* Admin Comment */}
+            <div className="mt-6">
+              <label className="block text-sm font-medium text-slate-300 mb-2">Admin Comment</label>
+              <ProductDescriptionEditor
+                value={formData.adminComment}
+                onChange={(content) => setFormData({...formData, adminComment: content})}
+                placeholder="Add internal notes about this discount..."
+                height={250}
+                required={false}
+              />
+            </div>
           </div>
         </div>
 
-        {/* Discount Value */}
+        {/* ========== SECTION 3: DISCOUNT VALUE ========== */}
         <div className="bg-slate-800/30 p-2 rounded-2xl border border-slate-700/50">
           <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
             <span className="w-8 h-8 rounded-lg bg-gradient-to-br from-green-500 to-emerald-500 flex items-center justify-center text-sm">3</span>
@@ -1383,7 +1580,7 @@ const categoryOptions: SelectOption[] = processCategoryData(categories as any);
             <label className="flex items-center gap-3 p-3 bg-slate-900/50 border border-slate-600 rounded-xl cursor-pointer hover:border-violet-500 transition-all">
               <input
                 type="radio"
-                name="discountType"
+                name="discountValueType"
                 checked={formData.usePercentage}
                 onChange={() => setFormData({...formData, usePercentage: true})}
                 className="w-5 h-5 text-violet-500 focus:ring-2 focus:ring-violet-500"
@@ -1396,7 +1593,7 @@ const categoryOptions: SelectOption[] = processCategoryData(categories as any);
             <label className="flex items-center gap-3 p-3 bg-slate-900/50 border border-slate-600 rounded-xl cursor-pointer hover:border-violet-500 transition-all">
               <input
                 type="radio"
-                name="discountType"
+                name="discountValueType"
                 checked={!formData.usePercentage}
                 onChange={() => setFormData({...formData, usePercentage: false})}
                 className="w-5 h-5 text-violet-500 focus:ring-2 focus:ring-violet-500"
@@ -1441,7 +1638,7 @@ const categoryOptions: SelectOption[] = processCategoryData(categories as any);
                     placeholder="0.00"
                     className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all pl-12"
                   />
-                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"> £</span>
+                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">£</span>
                 </div>
               </div>
             )}
@@ -1476,15 +1673,13 @@ const categoryOptions: SelectOption[] = processCategoryData(categories as any);
           </div>
         </div>
 
-        {/* Date Range */}
+        {/* ========== SECTION 4: VALID PERIOD ========== */}
         <div className="bg-slate-800/30 p-2 rounded-2xl border border-slate-700/50">
           <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
             <span className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center text-sm">4</span>
             <span>Valid Period</span>
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            
-            {/* START DATE & TIME */}
             <div>
               <label className="block text-sm font-medium text-slate-300 mb-2">Start Date & Time *</label>
               <input
@@ -1496,7 +1691,6 @@ const categoryOptions: SelectOption[] = processCategoryData(categories as any);
               />
             </div>
 
-            {/* END DATE & TIME */}
             <div>
               <label className="block text-sm font-medium text-slate-300 mb-2">End Date & Time *</label>
               <input
@@ -1510,7 +1704,7 @@ const categoryOptions: SelectOption[] = processCategoryData(categories as any);
           </div>
         </div>
 
-        {/* Coupon Code */}
+        {/* ========== SECTION 5: COUPON SETTINGS ========== */}
         <div className="bg-slate-800/30 p-2 rounded-2xl border border-slate-700/50">
           <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
             <span className="w-8 h-8 rounded-lg bg-gradient-to-br from-orange-500 to-amber-500 flex items-center justify-center text-sm">5</span>
@@ -1518,25 +1712,24 @@ const categoryOptions: SelectOption[] = processCategoryData(categories as any);
           </h3>
           
           <div className="mb-4">
-<label className="flex items-center gap-3 p-3 bg-slate-900/50 border border-slate-600 rounded-xl cursor-pointer hover:border-violet-500 transition-all">
-  <input
-    type="checkbox"
-    checked={formData.requiresCouponCode}
-    onChange={(e) => {
-      setFormData({
-        ...formData,
-        requiresCouponCode: e.target.checked,
-        // ✅ Improvement: जब बंद करें तो coupon code पूरी तरह साफ़ कर दें
-        couponCode: e.target.checked ? formData.couponCode : ""
-      });
-    }}
-    className="w-5 h-5 rounded border-slate-600 text-violet-500 focus:ring-2 focus:ring-violet-500"
-  />
-  <div>
-    <p className="text-white font-medium">Requires Coupon Code</p>
-    <p className="text-slate-400 text-xs">Customers must enter a coupon code to get this discount</p>
-  </div>
-</label>
+            <label className="flex items-center gap-3 p-3 bg-slate-900/50 border border-slate-600 rounded-xl cursor-pointer hover:border-violet-500 transition-all">
+              <input
+                type="checkbox"
+                checked={formData.requiresCouponCode}
+                onChange={(e) => {
+                  setFormData({
+                    ...formData,
+                    requiresCouponCode: e.target.checked,
+                    couponCode: e.target.checked ? formData.couponCode : ""
+                  });
+                }}
+                className="w-5 h-5 rounded border-slate-600 text-violet-500 focus:ring-2 focus:ring-violet-500"
+              />
+              <div>
+                <p className="text-white font-medium">Requires Coupon Code</p>
+                <p className="text-slate-400 text-xs">Customers must enter a coupon code to get this discount</p>
+              </div>
+            </label>
           </div>
 
           {formData.requiresCouponCode && (
@@ -1554,7 +1747,7 @@ const categoryOptions: SelectOption[] = processCategoryData(categories as any);
           )}
         </div>
 
-        {/* ✅ FIXED Usage Limitations Section */}
+        {/* ========== SECTION 6: USAGE LIMITATIONS ========== */}
         <div className="bg-slate-800/30 p-2 rounded-2xl border border-slate-700/50">
           <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
             <span className="w-8 h-8 rounded-lg bg-gradient-to-br from-red-500 to-rose-500 flex items-center justify-center text-sm">6</span>
@@ -1574,7 +1767,6 @@ const categoryOptions: SelectOption[] = processCategoryData(categories as any);
             </select>
           </div>
 
-          {/* ✅ FIXED: Now properly checks against "Unlimited" */}
           {formData.discountLimitation !== "Unlimited" && (
             <div>
               <label className="block text-sm font-medium text-slate-300 mb-2">
@@ -1588,8 +1780,7 @@ const categoryOptions: SelectOption[] = processCategoryData(categories as any);
               </label>
               <input
                 type="number"
-                // ✅ SIMPLE FIX - Line 1778
-                required={formData.discountLimitation !== "Unlimited" as DiscountLimitationType}
+                required={formData.discountLimitation !== "Unlimited"}
                 min="1"
                 value={formData.limitationTimes || ''}
                 onChange={(e) => setFormData({...formData, limitationTimes: e.target.value ? parseInt(e.target.value) : null})}
@@ -1600,7 +1791,7 @@ const categoryOptions: SelectOption[] = processCategoryData(categories as any);
           )}
         </div>
 
-        {/* Submit buttons */}
+        {/* ========== SUBMIT BUTTONS ========== */}
         <div className="flex justify-end gap-3 pt-4 border-t border-slate-700/50">
           <button
             type="button"
@@ -1624,21 +1815,23 @@ const categoryOptions: SelectOption[] = processCategoryData(categories as any);
   </div>
 )}
 
-{/* View Discount Modal - COMPLETE WITH ALL FIELDS */}
-{viewingDiscount && (
-  <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-50 flex items-center justify-center p-4">
-    <div className="bg-gradient-to-br from-slate-900 via-slate-900 to-slate-800 border border-violet-500/20 rounded-3xl max-w-5xl w-full max-h-[90vh] overflow-hidden shadow-2xl shadow-violet-500/10">
+{/* ✅ PRODUCT SELECTION MODAL - FIXED UNCHECK/RECHECK LOGIC */}
+{isProductSelectionModalOpen && (
+  <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
+    <div className="bg-gradient-to-br from-slate-900 via-slate-900 to-slate-800 border border-violet-500/20 rounded-2xl max-w-3xl w-full max-h-[80vh] overflow-hidden shadow-2xl">
+      
+      {/* Modal Header */}
       <div className="p-4 border-b border-violet-500/20 bg-gradient-to-r from-violet-500/10 to-cyan-500/10">
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-2xl font-bold bg-gradient-to-r from-violet-400 via-cyan-400 to-pink-400 bg-clip-text text-transparent">
-              Discount Details
-            </h2>
-            <p className="text-slate-300 text-xs mt-1 font-medium"
-            title={viewingDiscount.id}>View discount information</p>
+            <h3 className="text-xl font-bold text-white">Select Products</h3>
+            <p className="text-slate-400 text-sm mt-1">
+              Choose products from the selected category
+            </p>
           </div>
           <button
-            onClick={() => setViewingDiscount(null)}
+            type="button"
+            onClick={() => setIsProductSelectionModalOpen(false)}
             className="p-2 text-slate-400 hover:text-white hover:bg-red-600 rounded-lg transition-all"
           >
             ✕
@@ -1646,307 +1839,138 @@ const categoryOptions: SelectOption[] = processCategoryData(categories as any);
         </div>
       </div>
 
-      <div className="p-4 overflow-y-auto max-h-[calc(90vh-180px)]">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          {/* Left Column - Basic Information */}
-          <div className="space-y-4">
-            {/* Discount Name */}
-            <div className="bg-slate-800/30 p-4 rounded-xl border border-slate-700/50">
-              <div className="flex items-start justify-between gap-3">
-                <span className="text-sm text-slate-300 font-semibold whitespace-nowrap pt-1 flex items-center gap-2">
-                  <Gift className="w-4 h-4" />
-                  Name:
-                </span>
-                <p className="text-base font-bold text-white text-right flex-1">{viewingDiscount.name}</p>
-              </div>
-            </div>
-
-            {/* Discount Type, Status & Limitation */}
-            <div className="bg-slate-800/30 p-4 rounded-xl border border-slate-700/50 space-y-3">
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-slate-300 font-semibold flex items-center gap-2">
-                  <Target className="w-4 h-4" />
-                  Discount Type:
-                </span>
-                <span className={`inline-flex items-center px-3 py-1.5 rounded-lg text-sm font-bold ${
-                  viewingDiscount.discountType === 'AssignedToProducts' ? 'bg-blue-500/10 text-blue-400' :
-                  viewingDiscount.discountType === 'AssignedToCategories' ? 'bg-green-500/10 text-green-400' :
-                  viewingDiscount.discountType === 'AssignedToManufacturers' ? 'bg-purple-500/10 text-purple-400' :
-                  viewingDiscount.discountType === 'AssignedToOrderTotal' ? 'bg-orange-500/10 text-orange-400' :
-                  viewingDiscount.discountType === 'AssignedToOrderSubTotal' ? 'bg-pink-500/10 text-pink-400' :
-                  'bg-cyan-500/10 text-cyan-400'
-                }`}>
-                  {getDiscountTypeIcon(viewingDiscount.discountType)}
-                  {getDiscountTypeLabel(viewingDiscount.discountType)}
-                </span>
-              </div>
-
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-slate-300 font-semibold">Status:</span>
-                {isDiscountActive(viewingDiscount) ? (
-                  <span className="px-3 py-1.5 bg-green-500/10 text-green-400 rounded-lg text-sm font-bold flex items-center gap-1.5">
-                    <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
-                    Active Now
-                  </span>
-                ) : viewingDiscount.isActive ? (
-                  <span className="px-3 py-1.5 bg-orange-500/10 text-orange-400 rounded-lg text-sm font-bold flex items-center gap-1.5">
-                    <div className="w-2 h-2 bg-orange-400 rounded-full"></div>
-                    Scheduled
-                  </span>
-                ) : (
-                  <span className="px-3 py-1.5 bg-red-500/10 text-red-400 rounded-lg text-sm font-bold flex items-center gap-1.5">
-                    <div className="w-2 h-2 bg-red-400 rounded-full"></div>
-                    Inactive
-                  </span>
-                )}
-              </div>
-
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-slate-300 font-semibold">Limitation:</span>
-                <span className="text-white font-bold">{viewingDiscount.discountLimitation}</span>
-              </div>
-
-              {viewingDiscount.limitationTimes && (
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-slate-300 font-semibold">Limitation Times:</span>
-                  <span className="text-white font-bold">{viewingDiscount.limitationTimes}</span>
-                </div>
-              )}
-            </div>
-
-            {/* Discount Value Details */}
-            <div className="bg-slate-800/30 p-4 rounded-xl border border-slate-700/50 space-y-3">
-              <h3 className="text-sm font-bold text-white mb-2 flex items-center gap-2">
-                <Percent className="w-4 h-4" />
-                Discount Value
-              </h3>
+      {/* Product List */}
+      <div className="p-4 overflow-y-auto max-h-[calc(80vh-180px)]">
+        {categoryFilteredProductOptions.length > 0 ? (
+          <div className="space-y-2">
+            {categoryFilteredProductOptions.map((productOption) => {
+              const product = products.find(p => p.id === productOption.value);
+              const hasDiscount = product && Array.isArray((product as any).assignedDiscounts) && 
+                                 (product as any).assignedDiscounts.length > 0;
               
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-slate-300 font-semibold">Use Percentage:</span>
-                <span className={`px-2 py-1 rounded text-xs font-bold ${
-                  viewingDiscount.usePercentage ? 'bg-green-500/10 text-green-400' : 'bg-blue-500/10 text-blue-400'
-                }`}>
-                  {viewingDiscount.usePercentage ? 'Yes' : 'No'}
-                </span>
-              </div>
-
-              {viewingDiscount.usePercentage ? (
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-slate-300 font-semibold">Discount Percentage:</span>
-                  <span className="text-green-400 font-extrabold text-2xl">{viewingDiscount.discountPercentage}%</span>
-                </div>
-              ) : (
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-slate-300 font-semibold">Discount Amount:</span>
-                  <span className="text-blue-400 font-extrabold text-2xl">£{viewingDiscount.discountAmount}</span>
-                </div>
-              )}
-
-              {viewingDiscount.maximumDiscountAmount && (
-                <div className="flex items-center justify-between pt-2 border-t border-slate-700/50">
-                  <span className="text-sm text-slate-300 font-semibold">Maximum Discount:</span>
-                  <span className="text-orange-400 font-bold text-lg">£{viewingDiscount.maximumDiscountAmount}</span>
-                </div>
-              )}
-            </div>
-
-            {/* Coupon Code */}
-            <div className="bg-slate-800/30 p-4 rounded-xl border border-slate-700/50 space-y-3">
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-slate-300 font-semibold">Requires Coupon Code:</span>
-                <span className={`px-2 py-1 rounded text-xs font-bold ${
-                  viewingDiscount.requiresCouponCode ? 'bg-green-500/10 text-green-400' : 'bg-slate-500/10 text-slate-400'
-                }`}>
-                  {viewingDiscount.requiresCouponCode ? 'Yes' : 'No'}
-                </span>
-              </div>
-
-              {viewingDiscount.requiresCouponCode && viewingDiscount.couponCode && (
-                <div className="pt-2 border-t border-slate-700/50">
-                  <p className="text-xs text-slate-300 font-semibold mb-2">Coupon Code:</p>
-                  <div className="bg-gradient-to-r from-green-500/10 to-emerald-500/10 border border-green-500/30 rounded-lg p-3">
-                    <p className="text-green-400 font-mono font-bold text-xl text-center tracking-wider">
-                      {viewingDiscount.couponCode}
-                    </p>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Additional Options */}
-            <div className="bg-slate-800/30 p-4 rounded-xl border border-slate-700/50 space-y-3">
-              <h3 className="text-sm font-bold text-white mb-2">Additional Options</h3>
+              const discountInfo = hasDiscount ? (product as any).assignedDiscounts[0] : null;
+              const isSelected = formData.assignedProductIds.includes(productOption.value);
               
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-slate-300 font-semibold">Is Cumulative:</span>
-                <span className={`px-2 py-1 rounded text-xs font-bold ${
-                  viewingDiscount.isCumulative ? 'bg-green-500/10 text-green-400' : 'bg-red-500/10 text-red-400'
-                }`}>
-                  {viewingDiscount.isCumulative ? 'Yes' : 'No'}
-                </span>
-              </div>
+              // ✅ FIX: Check if discount belongs to current editing discount
+              const isCurrentDiscountProduct = editingDiscount && hasDiscount && 
+                                               discountInfo?.id === editingDiscount.id;
+              
+              // ✅ CORRECTED LOGIC: Disable only if has OTHER discount (not current one) and not selected
+              const isDisabled = hasDiscount && !isCurrentDiscountProduct && !isSelected;
 
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-slate-300 font-semibold">Applied to Sub-Orders:</span>
-                <span className={`px-2 py-1 rounded text-xs font-bold ${
-                  viewingDiscount.appliedToSubOrders ? 'bg-green-500/10 text-green-400' : 'bg-red-500/10 text-red-400'
-                }`}>
-                  {viewingDiscount.appliedToSubOrders ? 'Yes' : 'No'}
-                </span>
-              </div>
-            </div>
-          </div>
-
-          {/* Right Column - Schedule & Assignments */}
-          <div className="space-y-4">
-            {/* Valid Period */}
-            <div className="bg-slate-800/30 p-5 rounded-xl border border-slate-700/50">
-              <h3 className="text-base font-bold text-white mb-4 flex items-center gap-2">
-                <Calendar className="h-5 w-5 text-violet-400" />
-                Valid Period
-              </h3>
-              <div className="space-y-3">
-                <div className="flex items-center justify-between py-1">
-                  <span className="text-sm text-slate-300 font-semibold">Start Date:</span>
-                  <span className="text-slate-100 text-sm font-medium">
-                    {new Date(viewingDiscount.startDate).toLocaleString()}
-                  </span>
-                </div>
-
-                <div className="flex items-center justify-between py-1">
-                  <span className="text-sm text-slate-300 font-semibold">End Date:</span>
-                  <span className="text-slate-100 text-sm font-medium">
-                    {new Date(viewingDiscount.endDate).toLocaleString()}
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            {/* Assignment Details */}
-            {(viewingDiscount.assignedProductIds || viewingDiscount.assignedCategoryIds || viewingDiscount.assignedManufacturerIds) && (
-              <div className="bg-slate-800/30 p-5 rounded-xl border border-slate-700/50">
-                <h3 className="text-base font-bold text-white mb-4 flex items-center gap-2">
-                  <span className="text-xl">🎯</span>
-                  Assignments
-                </h3>
-                <div className="space-y-4">
-                  {viewingDiscount.assignedProductIds && (
-                    <div>
-                      <p className="text-sm text-slate-300 font-semibold mb-2">Assigned Products:</p>
-                      <div className="flex flex-wrap gap-2">
-                        {viewingDiscount.assignedProductIds.split(',').map((productId, index) => {
-                          const product = products.find(p => p.id === productId.trim());
-                          return (
-                            <span key={index} className="px-3 py-1.5 bg-blue-500/10 text-blue-400 rounded-lg text-xs font-semibold border border-blue-500/20">
-                              {product ? product.name : `Product ${index + 1}`}
-                            </span>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  )}
-                  
-                  {viewingDiscount.assignedCategoryIds && (
-                    <div>
-                      <p className="text-sm text-slate-300 font-semibold mb-2">Assigned Categories:</p>
-                      <div className="flex flex-wrap gap-2">
-                        {viewingDiscount.assignedCategoryIds.split(',').map((categoryId, index) => {
-                          const category = categories.find(c => c.id === categoryId.trim());
-                          return (
-                            <span key={index} className="px-3 py-1.5 bg-green-500/10 text-green-400 rounded-lg text-xs font-semibold border border-green-500/20">
-                              {category ? category.name : `Category ${index + 1}`}
-                            </span>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  )}
-
-                </div>
-              </div>
-            )}
-
-            {/* Admin Comment */}
-            {viewingDiscount.adminComment && (
-              <div className="bg-slate-800/30 p-5 rounded-xl border border-slate-700/50">
-                <h3 className="text-base font-bold text-white mb-3">Admin Comment</h3>
+              return (
                 <div
-                  className="prose prose-invert max-w-none text-slate-200 text-sm leading-relaxed"
-                  dangerouslySetInnerHTML={{
-                    __html: viewingDiscount.adminComment || "No comment available",
+                  key={productOption.value}
+                  className={`relative flex items-center gap-3 p-4 rounded-xl border transition-all ${
+                    isDisabled
+                      ? 'bg-slate-800/30 border-slate-700/50 cursor-not-allowed opacity-60'
+                      : isSelected
+                      ? 'bg-violet-500/20 border-violet-500/50 cursor-pointer'
+                      : 'bg-slate-800/50 border-slate-700 hover:border-violet-500/50 cursor-pointer'
+                  }`}
+                  onClick={() => {
+                    if (!isDisabled) {
+                      const newIds = isSelected
+                        ? formData.assignedProductIds.filter(id => id !== productOption.value)
+                        : [...formData.assignedProductIds, productOption.value];
+                      setFormData({ ...formData, assignedProductIds: newIds });
+                    }
                   }}
-                />
-              </div>
-            )}
+                >
+                  {/* Checkbox */}
+                  <input
+                    type="checkbox"
+                    checked={isSelected}
+                    disabled={isDisabled}
+                    onChange={() => {}}
+                    className="w-5 h-5 rounded border-slate-600 text-violet-500 focus:ring-2 focus:ring-violet-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                  />
 
-            {/* Audit Information */}
-            <div className="bg-slate-800/30 p-5 rounded-xl border border-slate-700/50">
-              <h3 className="text-base font-bold text-white mb-4 flex items-center gap-2">
-                <AlertCircle className="h-5 w-5 text-violet-400" />
-                Audit Information
-              </h3>
-              <div className="space-y-3">
-                <div className="flex items-center justify-between py-1">
-                  <span className="text-sm text-slate-300 font-semibold">Created At:</span>
-                  <span className="text-slate-100 text-sm font-medium">
-                    {viewingDiscount.createdAt ? new Date(viewingDiscount.createdAt).toLocaleString() : 'N/A'}
-                  </span>
-                </div>
-
-                <div className="flex items-center justify-between py-1">
-                  <span className="text-sm text-slate-300 font-semibold">Updated At:</span>
-                  <span className="text-slate-100 text-sm font-medium">
-                    {viewingDiscount.updatedAt ? new Date(viewingDiscount.updatedAt).toLocaleString() : 'Never updated'}
-                  </span>
-                </div>
-
-                <div className="border-t border-slate-700/50 my-3"></div>
-
-                <div className="py-1">
-                  <div className="flex items-start justify-between gap-2">
-                    <span className="text-sm text-slate-300 font-semibold whitespace-nowrap">Created By:</span>
-                    <span className="text-slate-100 text-sm font-medium text-right break-all">
-                      {viewingDiscount.createdBy || 'Unknown'}
-                    </span>
+                  {/* Product Info */}
+                  <div className="flex-1 min-w-0">
+                    <p className={`text-sm font-medium truncate ${
+                      isDisabled ? 'text-slate-500' : 'text-white'
+                    }`}>
+                      {productOption.label}
+                    </p>
+                    {product && (
+                      <p className="text-xs text-slate-400 mt-0.5">
+                        £{(product as any).price || '0.00'}
+                      </p>
+                    )}
                   </div>
-                </div>
 
-                <div className="py-1">
-                  <div className="flex items-start justify-between gap-2">
-                    <span className="text-sm text-slate-300 font-semibold whitespace-nowrap">Updated By:</span>
-                    <span className="text-slate-100 text-sm font-medium text-right break-all">
-                      {viewingDiscount.updatedBy || 'Never updated'}
-                    </span>
-                  </div>
+                  {/* Discount Badge */}
+                  {hasDiscount && (
+                    <div className="flex items-center gap-2">
+                      <div className="px-3 py-1.5 bg-orange-500/20 border border-orange-500/40 rounded-lg">
+                        <p className="text-xs font-bold text-orange-400 flex items-center gap-1.5">
+                          <Percent className="h-3.5 w-3.5" />
+                          {discountInfo.usePercentage 
+                            ? `${discountInfo.discountPercentage}% OFF`
+                            : `£${discountInfo.discountAmount} OFF`
+                          }
+                        </p>
+                      </div>
+
+                      {/* ✅ Show "Already Discounted" only for OTHER discounts */}
+                      {isDisabled && (
+                        <div className="px-2.5 py-1 bg-red-500/20 border border-red-500/40 rounded-lg text-xs font-semibold text-red-400">
+                          Already Discounted
+                        </div>
+                      )}
+                      
+                      {/* ✅ Show "Current Discount" for products from this discount */}
+                      {isCurrentDiscountProduct && (
+                        <div className="px-2.5 py-1 bg-blue-500/20 border border-blue-500/40 rounded-lg text-xs font-semibold text-blue-400">
+                          Current Discount
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Selected Badge */}
+                  {isSelected && !hasDiscount && (
+                    <div className="px-2.5 py-1 bg-green-500/20 border border-green-500/40 rounded-lg text-xs font-semibold text-green-400">
+                      ✓ Selected
+                    </div>
+                  )}
                 </div>
-              </div>
-            </div>
+              );
+            })}
           </div>
-        </div>
+        ) : (
+          <div className="text-center py-12 text-slate-400">
+            <Package className="h-16 w-16 mx-auto mb-4 opacity-30" />
+            <p className="text-lg mb-1">No products found</p>
+            <p className="text-sm text-slate-500">
+              There are no products available in this category
+            </p>
+          </div>
+        )}
       </div>
 
-      {/* Footer Buttons */}
-      <div className="flex justify-end gap-3 px-6 py-4 border-t border-slate-700/50 bg-slate-900/50">
-        <button
-          onClick={() => {
-            setViewingDiscount(null);
-            handleEdit(viewingDiscount);
-          }}
-          className="px-6 py-3 bg-cyan-500 text-white rounded-lg hover:bg-cyan-600 transition-all font-bold text-sm flex items-center gap-2 hover:shadow-lg hover:shadow-cyan-500/40"
-        >
-          <Edit className="h-4 w-4" />
-          Edit Discount
-        </button>
-        <button
-          onClick={() => setViewingDiscount(null)}
-          className="px-6 py-3 bg-slate-800 text-white rounded-lg hover:bg-slate-700 transition-all font-bold text-sm"
-        >
-          Close
-        </button>
+      {/* Modal Footer */}
+      <div className="p-4 border-t border-slate-700/50 bg-slate-800/30">
+        <div className="flex items-center justify-between">
+          <p className="text-sm text-slate-400">
+            {formData.assignedProductIds.length > 0
+              ? `${formData.assignedProductIds.length} product${formData.assignedProductIds.length !== 1 ? 's' : ''} selected`
+              : 'No products selected'}
+          </p>
+          <button
+            type="button"
+            onClick={() => setIsProductSelectionModalOpen(false)}
+            className="px-6 py-2.5 bg-gradient-to-r from-violet-500 to-purple-500 text-white rounded-xl hover:shadow-lg hover:shadow-violet-500/50 transition-all font-medium"
+          >
+            Done
+          </button>
+        </div>
       </div>
     </div>
   </div>
 )}
+
 
 
 

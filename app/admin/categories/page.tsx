@@ -56,7 +56,7 @@ const [homepageCategories, setHomepageCategories] = useState<Category[]>([]);
     imageUrl: "",
     isActive: true,
     showOnHomepage: false,  // ✅ ADD THIS LINE
-    sortOrder: 1,
+    sortOrder: 0,
     metaTitle: "",
     metaDescription: "",
     metaKeywords: "",
@@ -292,108 +292,299 @@ const handleDeleteImage = async (categoryId: string, imageUrl: string) => {
 const handleSubmit = async (e: React.FormEvent) => {
   e.preventDefault();
 
-  // ✅ Validation
-const name = formData.name.trim();
-
-// Required check
-if (!name) {
-  toast.error("Category name is required");
-  return;
-}
-
-// Length validation
-if (name.length < 3 || name.length > 100) {
-  toast.error("Category name must be between 3 and 100 characters");
-  return;
-}
-
-// Character validation (industry-safe)
-const nameRegex = /^[A-Za-z0-9\s\-&/]+$/;
-
-if (!nameRegex.test(name)) {
-  toast.error(
-    "Category name can contain only letters, numbers, spaces, -, &, /"
-  );
-  return;
-}
-
-  if (formData.name.trim().length < 2) {
-    toast.error("Category name must be at least 2 characters");
-    return;
-  }
-  if (formData.name.trim().length > 100) {
-    toast.error("Category name must be less than 100 characters");
-    return;
-  }
+  // ============================================
+  // 1. NAME VALIDATION (Industry Standard)
+  // ============================================
   
+  const name = formData.name.trim();
+
+  // Empty & whitespace check
+  if (!name || name.length === 0 || /^\s+$/.test(formData.name)) {
+    toast.error("❌ Category name is required and cannot be only spaces");
+    return;
+  }
+
+  // Length validation
+  if (name.length < 3 || name.length > 100) {
+    toast.error(`❌ Category name must be between 3 and 100 characters. Current: ${name.length}`);
+    return;
+  }
+
+  // Character validation (alphanumeric + safe special chars)
+  const nameRegex = /^[A-Za-z0-9\s\-&/()]+$/;
+  if (!nameRegex.test(name)) {
+    toast.error("❌ Category name can only contain letters, numbers, spaces, -, &, /, ()");
+    return;
+  }
+
+  // Duplicate check
   const isDuplicateName = categories.some(
     cat =>
-      cat.name.toLowerCase().trim() === formData.name.toLowerCase().trim() &&
+      cat.name.toLowerCase().trim() === name.toLowerCase() &&
       cat.id !== editingCategory?.id
   );
   if (isDuplicateName) {
-    toast.error("A category with this name already exists!");
+    toast.error("❌ A category with this name already exists!");
     return;
   }
-  
-  if (!formData.description.trim()) {
-    toast.error("Description is required");
-    return;
-  }
-  if (formData.description.trim().length < 10) {
-    toast.error("Description must be at least 10 characters");
-    return;
-  }
-  if (formData.sortOrder < 0) {
-    toast.error("Sort order cannot be negative");
-    return;
-  }
-  if (formData.metaTitle && formData.metaTitle.length > 60) {
-    toast.error("Meta title should be less than 60 characters");
-    return;
-  }
-  if (formData.metaDescription && formData.metaDescription.length > 160) {
-    toast.error("Meta description should be less than 160 characters");
-    return;
-  }
-  if (formData.metaKeywords && formData.metaKeywords.length > 255) {
-    toast.error("Meta keywords must be less than 255 characters");
-    return;
-  }
-  // ✅ Homepage limit validation
-if (formData.showOnHomepage) {
-  const currentHomepageCount = categories.filter(
-    cat => cat.showOnHomepage && cat.id !== editingCategory?.id
-  ).length;
-  
-  if (currentHomepageCount >= MAX_HOMEPAGE_CATEGORIES) {
-    toast.error(
-      `🚫 Homepage limit reached! Only ${MAX_HOMEPAGE_CATEGORIES} categories allowed. Currently: ${currentHomepageCount}/${MAX_HOMEPAGE_CATEGORIES}`
-    );
-    return;
-  }
+
+
+
+// ============================================
+// 2. DESCRIPTION VALIDATION (Industry Standard)
+// ============================================
+
+const description = formData.description.trim();
+
+// Single check handles both empty and min length
+if (description.length < 10) {
+  toast.error(`❌ Description must be at least 10 characters. Current: ${description.length}`);
+  return;
 }
-  // ✅ Image validation
-  if (imageFile) {
-    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
-    const maxSize = 10 * 1024 * 1024; // 10MB
-    if (!allowedTypes.includes(imageFile.type)) {
-      toast.error("Only JPG, PNG, and WebP images are allowed");
+
+// Max length
+if (description.length > 1000) {
+  toast.error(`❌ Description cannot exceed 1000 characters. Current: ${description.length}`);
+  return;
+}
+
+
+  // ============================================
+  // 3. PARENT CATEGORY VALIDATION
+  // ============================================
+  
+  if (formData.parentCategoryId) {
+    // Check if parent exists
+    const parentExists = findCategoryById(formData.parentCategoryId, categories);
+    if (!parentExists) {
+      toast.error("❌ Selected parent category does not exist");
       return;
     }
-    if (imageFile.size > maxSize) {
-      toast.error("Image size must be less than 10MB");
+
+    // Check if parent is active
+    if (!parentExists.isActive) {
+      toast.error("❌ Cannot add subcategory to an inactive parent category");
+      return;
+    }
+
+    // Check depth limit (max 3 levels)
+    const parentLevel = getCategoryLevel(parentExists, categories);
+    if (parentLevel >= 2) {
+      toast.error("❌ Maximum 3 levels allowed! Cannot add subcategory here");
+      return;
+    }
+
+    // ✅ Circular reference check (Industry Standard)
+    if (editingCategory) {
+      let currentId: string | null | undefined = formData.parentCategoryId;
+      const visited = new Set<string>();
+      let hasCircular = false;
+
+      while (currentId) {
+        if (visited.has(currentId) || currentId === editingCategory.id) {
+          hasCircular = true;
+          break;
+        }
+        visited.add(currentId);
+        const parent = findCategoryById(currentId, categories);
+        currentId = parent?.parentCategoryId;
+      }
+
+      if (hasCircular) {
+        toast.error("❌ Circular reference detected! Category cannot be its own ancestor");
+        return;
+      }
+    }
+  }
+
+  // ============================================
+  // 4. SORT ORDER VALIDATION (Industry Standard)
+  // ============================================
+  
+  // Check if it's a valid number
+  if (isNaN(formData.sortOrder)) {
+    toast.error("❌ Sort order must be a valid number");
+    return;
+  }
+
+  // Check if integer
+  if (!Number.isInteger(formData.sortOrder)) {
+    toast.error("❌ Sort order must be a whole number (no decimals)");
+    return;
+  }
+
+  // Range validation (1-1000)
+  if (formData.sortOrder < 1 || formData.sortOrder > 1000) {
+    toast.error("❌ Sort order must be between 1 and 1000");
+    return;
+  }
+
+  // ============================================
+  // 5. META FIELDS VALIDATION
+  // ============================================
+  
+  // Meta Title
+  if (formData.metaTitle) {
+    const metaTitle = formData.metaTitle.trim();
+    
+    if (metaTitle.length > 60) {
+      toast.error(`❌ Meta title should be less than 60 characters. Current: ${metaTitle.length}`);
+      return;
+    }
+
+    // Check for only spaces
+    if (/^\s+$/.test(formData.metaTitle)) {
+      toast.error("❌ Meta title cannot contain only spaces");
       return;
     }
   }
+
+  // Meta Description
+  if (formData.metaDescription) {
+    const metaDesc = formData.metaDescription.trim();
+    
+    if (metaDesc.length > 160) {
+      toast.error(`❌ Meta description should be less than 160 characters. Current: ${metaDesc.length}`);
+      return;
+    }
+
+    // Check for only spaces
+    if (/^\s+$/.test(formData.metaDescription)) {
+      toast.error("❌ Meta description cannot contain only spaces");
+      return;
+    }
+  }
+
+  // Meta Keywords (Industry Standard)
+  if (formData.metaKeywords) {
+    const metaKeywords = formData.metaKeywords.trim();
+    
+    if (metaKeywords.length > 255) {
+      toast.error(`❌ Meta keywords must be less than 255 characters. Current: ${metaKeywords.length}`);
+      return;
+    }
+
+    // Check for only spaces
+    if (/^\s+$/.test(formData.metaKeywords)) {
+      toast.error("❌ Meta keywords cannot contain only spaces");
+      return;
+    }
+
+    // ✅ Format validation (comma-separated)
+    if (metaKeywords.length > 0) {
+      const keywords = metaKeywords.split(',');
+      for (const keyword of keywords) {
+        const trimmed = keyword.trim();
+        if (trimmed.length > 0 && (trimmed.length < 2 || trimmed.length > 50)) {
+          toast.error("❌ Each keyword must be between 2-50 characters");
+          return;
+        }
+      }
+    }
+  }
+
+  // ============================================
+  // 6. HOMEPAGE LIMIT VALIDATION
+  // ============================================
   
-  if (isSubmitting) return;
+  if (formData.showOnHomepage) {
+    const currentHomepageCount = categories.filter(
+      cat => cat.showOnHomepage && cat.id !== editingCategory?.id
+    ).length;
+    
+    if (currentHomepageCount >= MAX_HOMEPAGE_CATEGORIES) {
+      toast.error(
+        `❌ Homepage limit reached! Only ${MAX_HOMEPAGE_CATEGORIES} categories allowed. Currently: ${currentHomepageCount}/${MAX_HOMEPAGE_CATEGORIES}`
+      );
+      return;
+    }
+  }
+
+  // ============================================
+  // 7. IMAGE VALIDATION (Industry Standard)
+  // ============================================
+  
+  if (imageFile) {
+    const allowedTypes = ['image/webp'];
+    const maxSize = 10 * 1024 * 1024; // 10MB
+
+    // Type validation
+    if (!allowedTypes.includes(imageFile.type)) {
+      toast.error("❌ Only WebP images are allowed");
+      return;
+    }
+
+    // Size validation
+    if (imageFile.size > maxSize) {
+      const sizeMB = (imageFile.size / (1024 * 1024)).toFixed(2);
+      toast.error(`❌ Image size must be less than 10MB. Current: ${sizeMB}MB`);
+      return;
+    }
+
+    // ✅ File name length validation
+    if (imageFile.name.length > 255) {
+      toast.error("❌ Image file name is too long (max 255 characters)");
+      return;
+    }
+
+    // ✅ Dimension validation (Industry Standard)
+    try {
+      await new Promise<void>((resolve, reject) => {
+        const img = new Image();
+        const url = URL.createObjectURL(imageFile);
+        
+        img.onload = () => {
+          URL.revokeObjectURL(url);
+          
+          const MIN_WIDTH = 200;
+          const MAX_WIDTH = 5000;
+          const MIN_HEIGHT = 200;
+          const MAX_HEIGHT = 5000;
+          
+          if (img.width < MIN_WIDTH || img.width > MAX_WIDTH) {
+            reject(`Image width must be between ${MIN_WIDTH}px and ${MAX_WIDTH}px. Current: ${img.width}px`);
+            return;
+          }
+          
+          if (img.height < MIN_HEIGHT || img.height > MAX_HEIGHT) {
+            reject(`Image height must be between ${MIN_HEIGHT}px and ${MAX_HEIGHT}px. Current: ${img.height}px`);
+            return;
+          }
+          
+          resolve();
+        };
+        
+        img.onerror = () => {
+          URL.revokeObjectURL(url);
+          reject('Invalid or corrupted image file');
+        };
+        
+        img.src = url;
+      });
+    } catch (error: any) {
+      toast.error(`❌ ${error}`);
+      return;
+    }
+  }
+
+  // ============================================
+  // 8. PREVENT DUPLICATE SUBMISSION
+  // ============================================
+  
+  if (isSubmitting) {
+    toast.error("⏳ Please wait, processing...");
+    return;
+  }
+  
   setIsSubmitting(true);
 
   try {
     let finalImageUrl = formData.imageUrl;
 
-    // ⚡ IMAGE UPLOAD LOGIC
+    // ============================================
+    // 9. IMAGE UPLOAD
+    // ============================================
+    
     if (imageFile) {
       try {
         const uploadResponse = await categoriesService.uploadImage(imageFile, {
@@ -408,7 +599,6 @@ if (formData.showOnHomepage) {
 
         finalImageUrl = uploadResponse.data.data;
         toast.success("✅ Image uploaded successfully!");
-        fetchCategories();
         
         // Delete old image if exists (in edit mode)
         if (
@@ -420,12 +610,11 @@ if (formData.showOnHomepage) {
             try {
               await categoriesService.deleteImage(filename);
             } catch (err) {
-              console.log("Failed to delete old image:", err);
+              // Silently fail - old image deletion is non-critical
             }
           }
         }
       } catch (uploadErr: any) {
-        console.error("❌ Error uploading image:", uploadErr);
         toast.error(
           uploadErr?.response?.data?.message || "Failed to upload image"
         );
@@ -434,22 +623,28 @@ if (formData.showOnHomepage) {
       }
     }
 
-    // ✅ Prepare payload
+    // ============================================
+    // 10. PREPARE PAYLOAD
+    // ============================================
+    
     const payload = {
-      name: formData.name.trim(),
-      description: formData.description.trim(),
+      name: name, // Already trimmed and validated
+      description: description, // Already trimmed and validated
       imageUrl: finalImageUrl,
       isActive: formData.isActive,
-       showOnHomepage: formData.showOnHomepage,  // ✅ ADD THIS LINE
+      showOnHomepage: formData.showOnHomepage,
       sortOrder: formData.sortOrder,
       parentCategoryId: formData.parentCategoryId || null,
-      metaTitle: formData.metaTitle.trim() || undefined,
-      metaDescription: formData.metaDescription.trim() || undefined,
-      metaKeywords: formData.metaKeywords.trim() || undefined,
+      metaTitle: formData.metaTitle?.trim() || undefined,
+      metaDescription: formData.metaDescription?.trim() || undefined,
+      metaKeywords: formData.metaKeywords?.trim() || undefined,
       ...(editingCategory && { id: editingCategory.id }),
     };
 
-    // ✅ Save category
+    // ============================================
+    // 11. API CALL WITH ERROR HANDLING
+    // ============================================
+    
     if (editingCategory) {
       await categoriesService.update(editingCategory.id, payload);
       toast.success("✅ Category updated successfully! 🎉");
@@ -458,7 +653,10 @@ if (formData.showOnHomepage) {
       toast.success("✅ Category created successfully! 🎉");
     }
 
-    // ✅ Cleanup
+    // ============================================
+    // 12. CLEANUP
+    // ============================================
+    
     if (imagePreview) URL.revokeObjectURL(imagePreview);
     setImageFile(null);
     setImagePreview(null);
@@ -467,17 +665,34 @@ if (formData.showOnHomepage) {
     resetForm();
 
   } catch (error: any) {
-    console.error("❌ Error saving category:", error);
-    const message =
-      error?.response?.data?.message ||
-      error?.response?.data?.error ||
-      error.message ||
-      "Failed to save category";
+    // ============================================
+    // 13. ENHANCED ERROR HANDLING
+    // ============================================
+    
+    let message = "Failed to save category";
+    
+    if (error?.response?.status === 400) {
+      message = error?.response?.data?.message || "Invalid data provided";
+    } else if (error?.response?.status === 401) {
+      message = "Session expired. Please login again";
+    } else if (error?.response?.status === 403) {
+      message = "Access denied. You don't have permission";
+    } else if (error?.response?.status === 409) {
+      message = "Category with this name or slug already exists";
+    } else if (error?.response?.status === 500) {
+      message = "Server error. Please try again later";
+    } else if (error?.code === 'ECONNABORTED') {
+      message = "Request timeout. Check your internet connection";
+    } else if (error?.message) {
+      message = error.message;
+    }
+    
     toast.error(message);
   } finally {
     setIsSubmitting(false);
   }
 };
+
 
 
   const handleDelete = async (id: string) => {
