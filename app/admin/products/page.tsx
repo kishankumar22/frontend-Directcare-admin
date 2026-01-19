@@ -24,6 +24,11 @@ import {
   Send,
   Play,
   ImageIcon,
+  FolderTree,
+  Award,
+  ShoppingCart,
+  Star,
+  Tag,
 } from 'lucide-react';
 import { useToast } from '@/components/CustomToast';
 import { API_BASE_URL } from '@/lib/api-config';
@@ -31,6 +36,7 @@ import { API_BASE_URL } from '@/lib/api-config';
 import { productLockService, TakeoverRequestData } from '@/lib/services/productLockService';
 
 import ProductViewModal from './ProductViewModal';
+import { useRouter } from "next/navigation";
 
 // ==========================================
 // 📦 IMPORT FROM SERVICES
@@ -77,6 +83,8 @@ interface FormattedProduct {
 // ==========================================
 export default function ProductsPage() {
   const toast = useToast();
+  const router = useRouter();
+
 
   // ==========================================
   // 📊 STATE MANAGEMENT
@@ -906,90 +914,134 @@ const handleExport = async (exportAll: boolean = false) => {
           <p className="text-slate-400">Manage your product inventory</p>
         </div>
 
-        <div className="flex items-center gap-3">
-          {/* MY REQUESTS BUTTON */}
-          <div className="relative">
-            <button
-              onClick={() => setShowTakeoverPanel(true)}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all shadow-lg relative overflow-hidden ${
-                statusCounts.Pending > 0
-                  ? 'bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white animate-pulse shadow-orange-500/50'
-                  : 'bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white hover:shadow-blue-500/30'
-              }`}
-            >
-              <Send className="w-4 h-4" />
-              My Requests
-              {statusCounts.Pending > 0 && (
-                <span className="relative flex h-5 w-5 ml-1">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-5 w-5 bg-white text-orange-600 items-center justify-center text-xs font-bold">
-                    {statusCounts.Pending}
-                  </span>
-                </span>
-              )}
-            </button>
+<div className="flex flex-wrap items-center gap-1">
+  {/* Navigation Button: Categories */}
+  <button
+    onClick={() => router.push('/admin/categories')}
+    className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-violet-500 to-purple-500 hover:from-violet-600 hover:to-purple-600 text-white rounded-xl font-semibold shadow-lg hover:shadow-violet-500/50 transition-all"
+  >
+    <FolderTree className="w-4 h-4" />
+    Categories
+  </button>
 
-            {statusCounts.Pending > 0 && (
-              <span className="absolute -inset-1 bg-gradient-to-r from-orange-500 to-red-500 rounded-lg blur-lg opacity-30 animate-pulse -z-10"></span>
-            )}
-          </div>
+  {/* Navigation Button: Brands */}
+  <button
+    onClick={() => router.push('/admin/brands')}
+    className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-600 hover:to-blue-600 text-white rounded-xl font-semibold shadow-lg hover:shadow-cyan-500/50 transition-all"
+  >
+    <Award className="w-4 h-4" />
+    Brands
+  </button>
+  {/* Navigation Button: Discounts */}
+  <button
+    onClick={() => router.push('/admin/discounts')}
+    className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-pink-500 to-rose-500 hover:from-pink-600 hover:to-rose-600 text-white rounded-xl font-semibold shadow-lg hover:shadow-pink-500/50 transition-all"
+  >
+    <Tag className="w-4 h-4" />
+    Discounts
+  </button>
+  {/* Navigation Button: Orders */}
+  <button
+    onClick={() => router.push('/admin/orders')}
+    className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white rounded-xl font-semibold shadow-lg hover:shadow-emerald-500/50 transition-all"
+  >
+    <ShoppingCart className="w-4 h-4" />
+    Orders
+  </button>
 
-          {/* EXPORT BUTTON */}
-          <div className="relative">
-            <button
-              onClick={() => setShowExportMenu(!showExportMenu)}
-              className="px-4 py-2 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-xl hover:shadow-lg hover:shadow-green-500/50 transition-all flex items-center gap-2 font-semibold"
-            >
-              <FileSpreadsheet className="w-5 h-5" />
-              Export
-            </button>
+  {/* Navigation Button: Reviews */}
+  <button
+    onClick={() => router.push('/admin/productReview')}
+    className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white rounded-xl font-semibold shadow-lg hover:shadow-amber-500/50 transition-all"
+  >
+    <Star className="w-4 h-4" />
+    Reviews
+  </button>
 
-            {showExportMenu && (
-              <>
-                <div className="fixed inset-0 z-10" onClick={() => setShowExportMenu(false)}></div>
-                <div className="absolute right-0 mt-2 w-64 bg-slate-800 border border-slate-700 rounded-xl shadow-2xl shadow-black/50 z-20 overflow-hidden">
-                  <button
-                    onClick={() => {
-                      handleExport(false);
-                      setShowExportMenu(false);
-                    }}
-                    disabled={filteredProducts.length === 0}
-                    className="w-full px-4 py-3 text-left text-white hover:bg-slate-700 transition-all flex items-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed border-b border-slate-700"
-                  >
-                    <FileSpreadsheet className="w-4 h-4 text-green-400" />
-                    <div>
-                      <p className="text-sm font-medium">Export to Excel (filtered)</p>
-                      <p className="text-xs text-slate-400">{filteredProducts.length} products</p>
-                    </div>
-                  </button>
+  {/* MY REQUESTS BUTTON */}
+  <div className="relative">
+    <button
+      onClick={() => setShowTakeoverPanel(true)}
+      className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all shadow-lg relative overflow-hidden ${
+        statusCounts.Pending > 0
+          ? 'bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white animate-pulse shadow-orange-500/50'
+          : 'bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white hover:shadow-blue-500/30'
+      }`}
+    >
+      <Send className="w-4 h-4" />
+      My Requests
+      {statusCounts.Pending > 0 && (
+        <span className="relative flex h-5 w-5 ml-1">
+          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"></span>
+          <span className="relative inline-flex rounded-full h-5 w-5 bg-white text-orange-600 items-center justify-center text-xs font-bold">
+            {statusCounts.Pending}
+          </span>
+        </span>
+      )}
+    </button>
 
-                  <button
-                    onClick={() => {
-                      handleExport(true);
-                      setShowExportMenu(false);
-                    }}
-                    disabled={products.length === 0}
-                    className="w-full px-4 py-3 text-left text-white hover:bg-slate-700 transition-all flex items-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    <FileSpreadsheet className="w-4 h-4 text-cyan-400" />
-                    <div>
-                      <p className="text-sm font-medium">Export to Excel (all found)</p>
-                      <p className="text-xs text-slate-400">{products.length} products</p>
-                    </div>
-                  </button>
-                </div>
-              </>
-            )}
-          </div>
+    {statusCounts.Pending > 0 && (
+      <span className="absolute -inset-1 bg-gradient-to-r from-orange-500 to-red-500 rounded-lg blur-lg opacity-30 animate-pulse -z-10"></span>
+    )}
+  </div>
 
-          {/* ADD PRODUCT BUTTON */}
-          <Link href="/admin/products/add">
-            <button className="px-4 py-2 bg-gradient-to-r from-violet-500 to-cyan-500 text-white rounded-xl hover:shadow-lg hover:shadow-violet-500/50 transition-all flex items-center gap-2 font-semibold">
-              <Plus className="h-4 w-4" />
-              Add Product
-            </button>
-          </Link>
+  {/* EXPORT BUTTON */}
+  <div className="relative">
+    <button
+      onClick={() => setShowExportMenu(!showExportMenu)}
+      className="px-4 py-2 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-xl hover:shadow-lg hover:shadow-green-500/50 transition-all flex items-center gap-2 font-semibold"
+    >
+      <FileSpreadsheet className="w-5 h-5" />
+      Export
+    </button>
+
+    {showExportMenu && (
+      <>
+        <div className="fixed inset-0 z-10" onClick={() => setShowExportMenu(false)}></div>
+        <div className="absolute right-0 mt-2 w-64 bg-slate-800 border border-slate-700 rounded-xl shadow-2xl shadow-black/50 z-20 overflow-hidden">
+          <button
+            onClick={() => {
+              handleExport(false);
+              setShowExportMenu(false);
+            }}
+            disabled={filteredProducts.length === 0}
+            className="w-full px-4 py-3 text-left text-white hover:bg-slate-700 transition-all flex items-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed border-b border-slate-700"
+          >
+            <FileSpreadsheet className="w-4 h-4 text-green-400" />
+            <div>
+              <p className="text-sm font-medium">Export to Excel (filtered)</p>
+              <p className="text-xs text-slate-400">{filteredProducts.length} products</p>
+            </div>
+          </button>
+
+          <button
+            onClick={() => {
+              handleExport(true);
+              setShowExportMenu(false);
+            }}
+            disabled={products.length === 0}
+            className="w-full px-4 py-3 text-left text-white hover:bg-slate-700 transition-all flex items-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <FileSpreadsheet className="w-4 h-4 text-cyan-400" />
+            <div>
+              <p className="text-sm font-medium">Export to Excel (all found)</p>
+              <p className="text-xs text-slate-400">{products.length} products</p>
+            </div>
+          </button>
         </div>
+      </>
+    )}
+  </div>
+
+  {/* ADD PRODUCT BUTTON */}
+  <Link href="/admin/products/add">
+    <button className="px-4 py-2 bg-gradient-to-r from-violet-500 to-cyan-500 text-white rounded-xl hover:shadow-lg hover:shadow-violet-500/50 transition-all flex items-center gap-2 font-semibold">
+      <Plus className="h-4 w-4" />
+      Add Product
+    </button>
+  </Link>
+</div>
+
       </div>
 
       {/* ==================== TAKEOVER REQUESTS PANEL ==================== */}
@@ -1250,7 +1302,7 @@ const handleExport = async (exportAll: boolean = false) => {
             <select
               value={selectedCategory}
               onChange={(e) => setSelectedCategory(e.target.value)}
-              className={`px-3 py-3 bg-slate-800/50 border rounded-xl text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all min-w-[160px] ${
+              className={`px-3 py-3 bg-slate-800/90 border rounded-xl text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all min-w-[160px] ${
                 selectedCategory !== 'all'
                   ? 'border-blue-500 bg-blue-500/10 ring-2 ring-blue-500/50'
                   : 'border-slate-600'
@@ -1268,7 +1320,7 @@ const handleExport = async (exportAll: boolean = false) => {
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              className={`px-3 py-3 bg-slate-800/50 border rounded-xl text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all min-w-[140px] ${
+              className={`px-3 py-3 bg-slate-800/90 border rounded-xl text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all min-w-[140px] ${
                 statusFilter !== 'all' ? 'border-blue-500 bg-blue-500/10 ring-2 ring-blue-500/50' : 'border-slate-600'
               }`}
             >
@@ -1282,7 +1334,7 @@ const handleExport = async (exportAll: boolean = false) => {
             <select
               value={publishedFilter}
               onChange={(e) => setPublishedFilter(e.target.value)}
-              className={`px-3 py-3 bg-slate-800/50 border rounded-xl text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all min-w-[150px] ${
+              className={`px-3 py-3 bg-slate-800/90 border rounded-xl text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all min-w-[150px] ${
                 publishedFilter !== 'all'
                   ? 'border-blue-500 bg-blue-500/10 ring-2 ring-blue-500/50'
                   : 'border-slate-600'

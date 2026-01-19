@@ -1,15 +1,17 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Plus, Edit, Trash2, Search, FolderTree, Eye, Upload, Filter, FilterX, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, AlertCircle, CheckCircle, ChevronDown, ChevronRight as ChevronRightIcon, X } from "lucide-react";
+import { Plus, Edit, Trash2, Search, FolderTree, Eye, Upload, Filter, FilterX, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, AlertCircle, CheckCircle, ChevronDown, ChevronRight as ChevronRightIcon, X, Award, Package } from "lucide-react";
 import { ProductDescriptionEditor } from "../products/SelfHostedEditor";
 import { useToast } from "@/components/CustomToast";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import { API_BASE_URL } from "@/lib/api";
 import { categoriesService, Category, CategoryStats } from "@/lib/services/categories";
+import { useRouter } from "next/navigation";
 
 export default function CategoriesPage() {
   const toast = useToast();
+  const router = useRouter();
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
@@ -1388,24 +1390,48 @@ const CategoryRow: React.FC<CategoryRowProps> = ({
   return (
     <div className="space-y-2">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight bg-gradient-to-r from-violet-400 via-cyan-400 to-pink-400 bg-clip-text text-transparent">
-            Categories Management
-          </h1>
-          <p className="text-slate-400 mt-1">Manage product categories and hierarchies</p>
-        </div>
-        <button
-          onClick={() => {
-            resetForm();
-            setShowModal(true);
-          }}
-          className="px-4 py-2 bg-gradient-to-r from-violet-500 to-cyan-500 text-white rounded-xl hover:shadow-lg hover:shadow-violet-500/50 transition-all flex items-center justify-center gap-2 font-semibold"
-        >
-          <Plus className="h-4 w-4" />
-          Add Category
-        </button>
-      </div>
+<div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+  <div>
+    <h1 className="text-3xl font-bold tracking-tight bg-gradient-to-r from-violet-400 via-cyan-400 to-pink-400 bg-clip-text text-transparent">
+      Categories Management
+    </h1>
+    <p className="text-slate-400 mt-1">Manage product categories and hierarchies</p>
+  </div>
+  
+  {/* Navigation & Action Buttons */}
+  <div className="flex flex-wrap items-center gap-3">
+    {/* Navigation Button: Brands */}
+    <button
+      onClick={() => router.push('/admin/brands')}
+      className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-violet-500 to-purple-500 hover:from-violet-600 hover:to-purple-600 text-white rounded-xl font-semibold shadow-lg hover:shadow-violet-500/50 transition-all"
+    >
+      <Award className="h-4 w-4" />
+      View Brands
+    </button>
+
+    {/* Navigation Button: Products */}
+    <button
+      onClick={() => router.push('/admin/products')}
+      className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-600 hover:to-blue-600 text-white rounded-xl font-semibold shadow-lg hover:shadow-cyan-500/50 transition-all"
+    >
+      <Package className="h-4 w-4" />
+      View Products
+    </button>
+
+    {/* Action Button: Add Category */}
+    <button
+      onClick={() => {
+        resetForm();
+        setShowModal(true);
+      }}
+      className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-violet-500 to-cyan-500 hover:from-violet-600 hover:to-cyan-600 text-white rounded-xl font-semibold shadow-lg hover:shadow-pink-500/50 transition-all"
+    >
+      <Plus className="h-4 w-4" />
+      Add Category
+    </button>
+  </div>
+</div>
+
 
       {/* Stats Cards */}
 {/* Stats Cards - COMPACT & CLEAN */}
@@ -1496,7 +1522,7 @@ const CategoryRow: React.FC<CategoryRowProps> = ({
         <select
           value={levelFilter}
           onChange={(e) => setLevelFilter(e.target.value)}
-          className={`w-full pl-9 pr-8 py-2 bg-slate-900/50 border rounded-lg text-white text-sm appearance-none cursor-pointer focus:outline-none transition-all ${
+          className={`w-full pl-9 pr-8 py-2 bg-slate-900/90 border rounded-lg text-white text-sm appearance-none cursor-pointer focus:outline-none transition-all ${
             levelFilter !== 'all' 
               ? 'border-cyan-500 ring-2 ring-cyan-500/30' 
               : 'border-slate-700 focus:ring-2 focus:ring-violet-500/50'
@@ -1518,7 +1544,7 @@ const CategoryRow: React.FC<CategoryRowProps> = ({
         <select
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value)}
-          className={`w-full pl-9 pr-8 py-2 bg-slate-900/50 border rounded-lg text-white text-sm appearance-none cursor-pointer focus:outline-none transition-all ${
+          className={`w-full pl-9 pr-8 py-2 bg-slate-900/90 border rounded-lg text-white text-sm appearance-none cursor-pointer focus:outline-none transition-all ${
             statusFilter !== 'all' 
               ? 'border-pink-500 ring-2 ring-pink-500/30' 
               : 'border-slate-700 focus:ring-2 focus:ring-violet-500/50'

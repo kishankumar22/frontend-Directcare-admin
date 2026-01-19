@@ -800,7 +800,7 @@ export default function DiscountsPage() {
             <select
               value={activeFilter}
               onChange={(e) => setActiveFilter(e.target.value)}
-              className={`px-3 py-3 bg-slate-800/50 border rounded-xl text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all min-w-32 ${
+              className={`px-3 py-3 bg-slate-800/90 border rounded-xl text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all min-w-32 ${
                 activeFilter !== "all"
                   ? "border-blue-500 bg-blue-500/10 ring-2 ring-blue-500/50"
                   : "border-slate-600"
@@ -814,7 +814,7 @@ export default function DiscountsPage() {
             <select
               value={typeFilter}
               onChange={(e) => setTypeFilter(e.target.value)}
-              className={`px-3 py-3 bg-slate-800/50 border rounded-xl text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all min-w-40 ${
+              className={`px-3 py-3 bg-slate-800/90 border rounded-xl text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all min-w-40 ${
                 typeFilter !== "all"
                   ? "border-blue-500 bg-blue-500/10 ring-2 ring-blue-500/50"
                   : "border-slate-600"

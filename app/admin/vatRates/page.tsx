@@ -603,7 +603,7 @@ const handleUpdate = async (e: React.FormEvent) => {
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
-            className="px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all"
+            className="px-4 py-3 bg-slate-800/90 border border-slate-700 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all"
           >
             <option>All Status</option>
             <option>Active</option>
@@ -612,7 +612,7 @@ const handleUpdate = async (e: React.FormEvent) => {
           <select
             value={countryFilter}
             onChange={(e) => setCountryFilter(e.target.value)}
-            className="px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all"
+            className="px-4 py-3 bg-slate-800/90 border border-slate-700 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all"
           >
             <option>All Countries</option>
             {Array.from(new Set(vatRates.map(r => r.country))).sort().map(country => (

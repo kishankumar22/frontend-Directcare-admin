@@ -1,15 +1,17 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Plus, Edit, Trash2, Search, Tag, Eye, CheckCircle, Upload, Filter, FilterX, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, AlertCircle, Loader2, X } from "lucide-react";
+import { Plus, Edit, Trash2, Search, Tag, Eye, CheckCircle, Upload, Filter, FilterX, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, AlertCircle, Loader2, X, Package, FolderTree } from "lucide-react";
 import { API_ENDPOINTS, API_BASE_URL } from "@/lib/api-config";
 import { ProductDescriptionEditor } from "../products/SelfHostedEditor";
 import { useToast } from "@/components/CustomToast";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import { Brand, brandsService, BrandStats } from "@/lib/services/brands";
+import { useRouter } from "next/navigation";
 
 export default function BrandsPage() {
   const toast = useToast();
+  const router = useRouter();
   const [brands, setBrands] = useState<Brand[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
@@ -653,16 +655,39 @@ const handleSubmit = async (e: React.FormEvent) => {
           </h1>
           <p className="text-slate-400">Manage your product brands</p>
         </div>
-        <button
-          onClick={() => {
-            resetForm();
-            setShowModal(true);
-          }}
-          className="px-4 py-2 bg-gradient-to-r from-violet-500 to-cyan-500 text-white rounded-xl hover:shadow-lg hover:shadow-violet-500/50 transition-all flex items-center gap-2 font-semibold"
-        >
-          <Plus className="h-4 w-4" />
-          Add Brand
-        </button>
+        
+        {/* Navigation & Action Buttons */}
+        <div className="flex flex-wrap items-center gap-3">
+          {/* Navigation Button: Categories */}
+          <button
+            onClick={() => router.push('/admin/categories')}
+            className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-violet-500 to-purple-500 hover:from-violet-600 hover:to-purple-600 text-white rounded-xl font-semibold shadow-lg hover:shadow-violet-500/50 transition-all"
+          >
+            <FolderTree className="h-4 w-4" />
+            View Categories
+          </button>
+
+          {/* Navigation Button: Products */}
+          <button
+            onClick={() => router.push('/admin/products')}
+            className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-600 hover:to-blue-600 text-white rounded-xl font-semibold shadow-lg hover:shadow-cyan-500/50 transition-all"
+          >
+            <Package className="h-4 w-4" />
+            View Products
+          </button>
+
+          {/* Action Button: Add Brand */}
+          <button
+            onClick={() => {
+              resetForm();
+              setShowModal(true);
+            }}
+            className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-violet-500 to-cyan-500 hover:from-violet-600 hover:to-cyan-600 text-white rounded-xl font-semibold shadow-lg hover:shadow-pink-500/50 transition-all"
+          >
+            <Plus className="h-4 w-4" />
+            Add Brand
+          </button>
+        </div>
       </div>
 
       
@@ -771,7 +796,7 @@ const handleSubmit = async (e: React.FormEvent) => {
             <select
               value={publishedFilter}
               onChange={(e) => setPublishedFilter(e.target.value)}
-              className={`px-3 py-3 bg-slate-800/50 border rounded-xl text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all min-w-32 ${
+              className={`px-3 py-3 bg-slate-800/90 border rounded-xl text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all min-w-32 ${
                 publishedFilter !== "all" 
                   ? "border-blue-500 bg-blue-500/10 ring-2 ring-blue-500/50" 
                   : "border-slate-600"
@@ -786,7 +811,7 @@ const handleSubmit = async (e: React.FormEvent) => {
             <select
               value={homepageFilter}
               onChange={(e) => setHomepageFilter(e.target.value)}
-              className={`px-3 py-3 bg-slate-800/50 border rounded-xl text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all min-w-36 ${
+              className={`px-3 py-3 bg-slate-800/90 border rounded-xl text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all min-w-36 ${
                 homepageFilter !== "all" 
                   ? "border-blue-500 bg-blue-500/10 ring-2 ring-blue-500/50" 
                   : "border-slate-600"

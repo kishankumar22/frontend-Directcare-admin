@@ -2,11 +2,12 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Edit, Trash2, Search, FileText, Eye, Filter, FilterX, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, AlertCircle, CheckCircle, Edit3, Star, MessageSquare, RotateCcw, Shield, Clock, TrendingUp } from "lucide-react";
+import { Plus, Edit, Trash2, Search, FileText, Eye, Filter, FilterX, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, AlertCircle, CheckCircle, Edit3, Star, MessageSquare, RotateCcw, Shield, Clock, TrendingUp, FolderTree } from "lucide-react";
 import { API_BASE_URL } from "@/lib/api-config";
 import { BlogPost, blogPostsService, BlogCategory } from "@/lib/services/blogPosts";
 import { useToast } from "@/components/CustomToast";
 import ConfirmDialog from "@/components/ConfirmDialog";
+
 
 export default function BlogPostsPage() {
   const router = useRouter();
@@ -311,13 +312,36 @@ const fetchBlogPosts = async () => {
           </h1>
           <p className="text-slate-400">Manage your blog posts</p>
         </div>
-        <button
-          onClick={() => router.push("/admin/BlogPosts/create")}
-          className="px-4 py-2 bg-gradient-to-r from-violet-500 justify-center to-cyan-500 text-white rounded-xl hover:shadow-lg hover:shadow-violet-500/50 transition-all flex items-center gap-2 font-semibold"
-        >
-          <Plus className="h-4 w-4" />
-          Add New Post
-        </button>
+         {/* Navigation Button: Comments */}
+<div className="flex flex-wrap gap-3">
+  {/* Comments Button - Pink/Rose */}
+  <button
+    onClick={() => router.push('/admin/comments')}
+    className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-pink-500 to-rose-500 hover:from-pink-600 hover:to-rose-600 text-white rounded-xl font-semibold shadow-lg hover:shadow-pink-500/50 transition-all"
+  >
+    <MessageSquare className="h-4 w-4" />
+    Go to Comments
+  </button>
+
+  {/* Blog Categories Button - Purple/Violet */}
+  <button
+    onClick={() => router.push('/admin/BlogCategories')}
+    className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-violet-500 to-purple-500 hover:from-violet-600 hover:to-purple-600 text-white rounded-xl font-semibold shadow-lg hover:shadow-violet-500/50 transition-all"
+  >
+    <FolderTree className="h-4 w-4" />
+    Go to Blog Categories
+  </button>
+
+  {/* Add New Post Button - Cyan/Blue */}
+  <button
+    onClick={() => router.push("/admin/BlogPosts/create")}
+    className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-600 hover:to-blue-600 text-white rounded-xl font-semibold shadow-lg hover:shadow-cyan-500/50 transition-all"
+  >
+    <Plus className="h-4 w-4" />
+    Add New Post
+  </button>
+</div>
+
       </div>
 
       {/* ✅ Dynamic Stats - All from List Data */}
@@ -479,7 +503,7 @@ const fetchBlogPosts = async () => {
             <select
               value={activeFilter}
               onChange={(e) => setActiveFilter(e.target.value)}
-              className={`px-3 py-3 bg-slate-800/50 border rounded-xl text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all min-w-32 ${
+              className={`px-3 py-3 bg-slate-800/90 border rounded-xl text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all min-w-32 ${
                 activeFilter !== "all" 
                   ? "border-blue-500 bg-blue-500/10 ring-2 ring-blue-500/50" 
                   : "border-slate-600"
@@ -493,7 +517,7 @@ const fetchBlogPosts = async () => {
             <select
               value={categoryFilter}
               onChange={(e) => setCategoryFilter(e.target.value)}
-              className={`px-3 py-3 bg-slate-800/50 border rounded-xl text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all min-w-48 ${
+              className={`px-3 py-3 bg-slate-800/90 border rounded-xl text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all min-w-48 ${
                 categoryFilter !== "all" 
                   ? "border-purple-500 bg-purple-500/10 ring-2 ring-purple-500/50" 
                   : "border-slate-600"
@@ -508,7 +532,7 @@ const fetchBlogPosts = async () => {
             <select
               value={deletionStatusFilter}
               onChange={(e) => setDeletionStatusFilter(e.target.value)}
-              className={`px-3 py-3 bg-slate-800/50 border rounded-xl text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all min-w-32 ${
+              className={`px-3 py-3 bg-slate-800/90 border rounded-xl text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all min-w-32 ${
                 deletionStatusFilter !== "all" 
                   ? "border-orange-500 bg-orange-500/10 ring-2 ring-orange-500/50" 
                   : "border-slate-600"

@@ -1,5 +1,6 @@
 "use client";
-
+// ✅ CORRECT - App Router import  
+import { useRouter } from "next/navigation";
 import { useState, useEffect, useRef, useCallback } from "react";
 import { shippingService } from "@/lib/services/shipping";
 import { ShippingZone, CreateZoneDto } from "@/lib/types/shipping";
@@ -23,8 +24,11 @@ import {
   Eye,
   Flag,
   Info,
+  Package,
+  DollarSign,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+
 
 // ==================== CUSTOM HOOKS ====================
 
@@ -47,6 +51,7 @@ function useDebounce<T>(value: T, delay: number): T {
 
 export default function ShippingZonesPage() {
   const toast = useToast();
+  const router = useRouter();
 
   // ==================== STATE ====================
   const [zones, setZones] = useState<ShippingZone[]>([]);
@@ -412,64 +417,84 @@ export default function ShippingZonesPage() {
   return (
     <div className="space-y-2">
       {/* Header */}
-      <div className="flex flex-col gap-4">
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-          <div>
-            <h1 className="text-3xl font-bold bg-gradient-to-r from-violet-400 via-purple-400 to-cyan-400 bg-clip-text text-transparent">
-              Shipping Zones
-            </h1>
-            <p className="text-slate-400 dark:text-gray-500 mt-1">
-              Manage delivery zones and regional settings
-            </p>
-          </div>
+    <div className="flex flex-col gap-4">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div>
+          <h1 className="text-3xl font-bold bg-gradient-to-r from-violet-400 via-purple-400 to-cyan-400 bg-clip-text text-transparent">
+            Shipping Zones
+          </h1>
+          <p className="text-slate-400 dark:text-gray-500 mt-1">
+            Manage delivery zones and regional settings
+          </p>
+        </div>
+        
+        {/* Inline Buttons with Different Colors */}
+        <div className="flex flex-wrap items-center gap-3">
           <button
-            onClick={handleCreate}
-            className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-violet-500 to-cyan-500 hover:from-violet-600 hover:to-cyan-600 text-white rounded-lg font-medium shadow-lg hover:shadow-xl transition-all duration-200"
+            onClick={() => router.push('/admin/shipping/zones')}
+            className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-violet-500 to-purple-500 hover:from-violet-600 hover:to-purple-600 text-white rounded-lg font-medium shadow-lg hover:shadow-xl transition-all duration-200"
           >
             <Plus className="w-4 h-4" />
             Add Zone
           </button>
+
+          <button
+            onClick={() => router.push('/admin/shipping/rates')}
+            className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-600 hover:to-blue-600 text-white rounded-lg font-medium shadow-lg hover:shadow-xl transition-all duration-200"
+          >
+            <DollarSign className="w-4 h-4" />
+            Add Rates
+          </button>
+
+          <button
+            onClick={() => router.push('/admin/shipping/methods')}
+            className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white rounded-lg font-medium shadow-lg hover:shadow-xl transition-all duration-200"
+          >
+            <Package className="w-4 h-4" />
+            Add Shipping
+          </button>
+        </div>
+      </div>
+
+      {/* Stats Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="bg-slate-900/50 dark:bg-gray-900/50 backdrop-blur-xl border border-slate-800 dark:border-gray-800 rounded-xl p-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-slate-400 dark:text-gray-500 text-sm">Total Zones</p>
+              <p className="text-2xl font-bold text-white mt-1">{stats.total}</p>
+            </div>
+            <div className="w-12 h-12 bg-violet-500/10 rounded-lg flex items-center justify-center">
+              <MapPin className="w-6 h-6 text-violet-400" />
+            </div>
+          </div>
         </div>
 
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="bg-slate-900/50 dark:bg-gray-900/50 backdrop-blur-xl border border-slate-800 dark:border-gray-800 rounded-xl p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-slate-400 dark:text-gray-500 text-sm">Total Zones</p>
-                <p className="text-2xl font-bold text-white mt-1">{stats.total}</p>
-              </div>
-              <div className="w-12 h-12 bg-violet-500/10 rounded-lg flex items-center justify-center">
-                <MapPin className="w-6 h-6 text-violet-400" />
-              </div>
+        <div className="bg-slate-900/50 dark:bg-gray-900/50 backdrop-blur-xl border border-slate-800 dark:border-gray-800 rounded-xl p-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-slate-400 dark:text-gray-500 text-sm">Active Zones</p>
+              <p className="text-2xl font-bold text-white mt-1">{stats.active}</p>
+            </div>
+            <div className="w-12 h-12 bg-green-500/10 rounded-lg flex items-center justify-center">
+              <CheckCircle className="w-6 h-6 text-green-400" />
             </div>
           </div>
+        </div>
 
-          <div className="bg-slate-900/50 dark:bg-gray-900/50 backdrop-blur-xl border border-slate-800 dark:border-gray-800 rounded-xl p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-slate-400 dark:text-gray-500 text-sm">Active Zones</p>
-                <p className="text-2xl font-bold text-white mt-1">{stats.active}</p>
-              </div>
-              <div className="w-12 h-12 bg-green-500/10 rounded-lg flex items-center justify-center">
-                <CheckCircle className="w-6 h-6 text-green-400" />
-              </div>
+        <div className="bg-slate-900/50 dark:bg-gray-900/50 backdrop-blur-xl border border-slate-800 dark:border-gray-800 rounded-xl p-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-slate-400 dark:text-gray-500 text-sm">Inactive Zones</p>
+              <p className="text-2xl font-bold text-white mt-1">{stats.inactive}</p>
             </div>
-          </div>
-
-          <div className="bg-slate-900/50 dark:bg-gray-900/50 backdrop-blur-xl border border-slate-800 dark:border-gray-800 rounded-xl p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-slate-400 dark:text-gray-500 text-sm">Inactive Zones</p>
-                <p className="text-2xl font-bold text-white mt-1">{stats.inactive}</p>
-              </div>
-              <div className="w-12 h-12 bg-red-500/10 rounded-lg flex items-center justify-center">
-                <XCircle className="w-6 h-6 text-red-400" />
-              </div>
+            <div className="w-12 h-12 bg-red-500/10 rounded-lg flex items-center justify-center">
+              <XCircle className="w-6 h-6 text-red-400" />
             </div>
           </div>
         </div>
       </div>
+    </div>
 
       {/* Filters & Search */}
       <div className="bg-slate-900/50 dark:bg-gray-900/50 backdrop-blur-xl border border-slate-800 dark:border-gray-800 rounded-xl p-4">
@@ -537,7 +562,7 @@ export default function ShippingZonesPage() {
               setSortBy(newSortBy);
               setSortOrder(newSortOrder);
             }}
-            className="px-4 py-2.5 bg-slate-800/50 dark:bg-gray-800/50 border border-slate-700 dark:border-gray-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-violet-500"
+            className="px-4 py-2.5 bg-slate-800/90 dark:bg-gray-800/90 border border-slate-700 dark:border-gray-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-violet-500"
           >
             <option value="order-asc">Order: Low to High</option>
             <option value="order-desc">Order: High to Low</option>

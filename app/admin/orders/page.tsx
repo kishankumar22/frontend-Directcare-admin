@@ -659,7 +659,7 @@ export default function OrdersListPage() {
             <select
               value={filters.status}
               onChange={(e) => setFilters({ ...filters, status: e.target.value })}
-              className={`pl-9 pr-8 py-2 rounded-lg bg-slate-700 text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/50 transition-all appearance-none cursor-pointer min-w-[140px] ${
+              className={`pl-9 pr-8 py-2 rounded-lg bg-slate-800/90 text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/50 transition-all appearance-none cursor-pointer min-w-[140px] ${
                 filters.status
                   ? 'bg-blue-500/20 border-2 border-blue-500/50'
                   : 'bg-slate-800/50 border border-slate-700'
@@ -685,7 +685,7 @@ export default function OrdersListPage() {
             <select
               value={filters.deliveryMethod}
               onChange={(e) => setFilters({ ...filters, deliveryMethod: e.target.value })}
-              className={`pl-9 pr-8 py-2 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/50 transition-all appearance-none cursor-pointer min-w-[140px] ${
+              className={`pl-9 pr-8 py-2  bg-slate-800/90 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/50 transition-all appearance-none cursor-pointer min-w-[140px] ${
                 filters.deliveryMethod
                   ? 'bg-cyan-500/20 border-2 border-cyan-500/50'
                   : 'bg-slate-800/50 border border-slate-700'
@@ -704,7 +704,7 @@ export default function OrdersListPage() {
             <select
               value={filters.paymentStatus}
               onChange={(e) => setFilters({ ...filters, paymentStatus: e.target.value })}
-              className={`pl-9 pr-8 py-2 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/50 transition-all appearance-none cursor-pointer min-w-[140px] ${
+              className={`pl-9 pr-8 py-2 rounded-lg  bg-slate-800/90 text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/50 transition-all appearance-none cursor-pointer min-w-[140px] ${
                 filters.paymentStatus
                   ? 'bg-green-500/20 border-2 border-green-500/50'
                   : 'bg-slate-800/50 border border-slate-700'

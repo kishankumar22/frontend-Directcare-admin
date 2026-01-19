@@ -529,7 +529,7 @@ export default function SubscriptionsPage() {
                   <select
                     value={statusFilter}
                     onChange={(e) => setStatusFilter(e.target.value)}
-                    className={`px-4 py-2.5 bg-slate-800/50 border rounded-xl text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all min-w-[160px] appearance-none cursor-pointer ${
+                    className={`px-4 py-2.5 bg-slate-800/90 border rounded-xl text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all min-w-[160px] appearance-none cursor-pointer ${
                       statusFilter !== "all"
                         ? "border-blue-500 bg-blue-500/10 ring-2 ring-blue-500/50"
                         : "border-slate-600 hover:border-slate-500"
@@ -548,7 +548,7 @@ export default function SubscriptionsPage() {
                   <select
                     value={frequencyFilter}
                     onChange={(e) => setFrequencyFilter(e.target.value)}
-                    className={`px-4 py-2.5 bg-slate-800/50 border rounded-xl text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all min-w-[160px] appearance-none cursor-pointer ${
+                    className={`px-4 py-2.5 bg-slate-800/90 border rounded-xl text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all min-w-[160px] appearance-none cursor-pointer ${
                       frequencyFilter !== "all"
                         ? "border-purple-500 bg-purple-500/10 ring-2 ring-purple-500/50"
                         : "border-slate-600 hover:border-slate-500"

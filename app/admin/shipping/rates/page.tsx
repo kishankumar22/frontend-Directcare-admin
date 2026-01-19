@@ -11,6 +11,8 @@ import {
   UpdateRateDto,
 } from "@/lib/types/shipping";
 import { useToast } from "@/components/CustomToast";
+// ✅ FIX: App Router import
+import { useRouter } from "next/navigation";
 import {
   Plus,
   Edit,
@@ -34,6 +36,7 @@ import {
   Info,
   ChevronDown,
   FilterX,
+  Package,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -111,7 +114,7 @@ function useDebounce<T>(value: T, delay: number): T {
 
 export default function ShippingRatesPage() {
   const toast = useToast();
-
+  const router = useRouter();
   // ==================== STATE ====================
   const [zones, setZones] = useState<ShippingZone[]>([]);
   const [methods, setMethods] = useState<ShippingMethod[]>([]);
@@ -875,7 +878,7 @@ const validateUpdateForm = (): boolean => {
   return (
     <div className="space-y-2">
       {/* Header */}
-      <div className="flex flex-col gap-4">
+     <div className="flex flex-col gap-4">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div>
             <h1 className="text-3xl font-bold bg-gradient-to-r from-violet-400 via-purple-400 to-cyan-400 bg-clip-text text-transparent">
@@ -885,15 +888,37 @@ const validateUpdateForm = (): boolean => {
               Manage pricing for zones and methods
             </p>
           </div>
-          {/* 🎯 Add Rate button */}
-          <button
-            onClick={handleCreate}
-            disabled={!selectedZoneId || loadingZones}
-            className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-violet-500 to-cyan-500 hover:from-violet-600 hover:to-cyan-600 text-white rounded-lg font-medium shadow-lg hover:shadow-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <Plus className="w-4 h-4" />
-            Add Rate
-          </button>
+          
+          {/* Navigation & Action Buttons */}
+          <div className="flex flex-wrap items-center gap-3">
+            {/* Navigation Button: Zones */}
+            <button
+              onClick={() => router.push('/admin/shipping/zones')}
+              className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-violet-500 to-purple-500 hover:from-violet-600 hover:to-purple-600 text-white rounded-lg font-medium shadow-lg hover:shadow-xl transition-all duration-200"
+            >
+              <MapPin className="w-4 h-4" />
+              Zones
+            </button>
+
+            {/* Navigation Button: Methods */}
+            <button
+              onClick={() => router.push('/admin/shipping/methods')}
+              className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white rounded-lg font-medium shadow-lg hover:shadow-xl transition-all duration-200"
+            >
+              <Package className="w-4 h-4" />
+              Methods
+            </button>
+
+            {/* Action Button: Add Rate */}
+            <button
+              onClick={handleCreate}
+              disabled={!selectedZoneId || loadingZones}
+              className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-600 hover:to-blue-600 text-white rounded-lg font-medium shadow-lg hover:shadow-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <Plus className="w-4 h-4" />
+              Add Rate
+            </button>
+          </div>
         </div>
 
         {/* Stats Cards */}

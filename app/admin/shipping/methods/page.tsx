@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { shippingService, shippingHelpers } from "@/lib/services/shipping";
 import { ShippingMethod, CreateMethodDto } from "@/lib/types/shipping";
 import { useToast } from "@/components/CustomToast";
+import { useRouter } from "next/navigation"; // ✅ App Router import
 import {
   Plus,
   Edit,
@@ -28,6 +29,7 @@ import {
   MapPin,
   Calendar,
   Hash,
+  DollarSign,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -84,6 +86,7 @@ function useDebounce<T>(value: T, delay: number): T {
 
 export default function ShippingMethodsPage() {
   const toast = useToast();
+   const router = useRouter();
 
   // ==================== STATE ====================
   const [methods, setMethods] = useState<ShippingMethod[]>([]);
@@ -595,7 +598,7 @@ export default function ShippingMethodsPage() {
   return (
     <div className="space-y-2">
       {/* Header */}
-      <div className="flex flex-col gap-4">
+<div className="flex flex-col gap-4">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div>
             <h1 className="text-3xl font-bold bg-gradient-to-r from-violet-400 via-purple-400 to-cyan-400 bg-clip-text text-transparent">
@@ -605,13 +608,36 @@ export default function ShippingMethodsPage() {
               Manage carriers and delivery services
             </p>
           </div>
-          <button
-            onClick={handleCreate}
-            className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-violet-500 to-cyan-500 hover:from-violet-600 hover:to-cyan-600 text-white rounded-lg font-medium shadow-lg hover:shadow-xl transition-all duration-200"
-          >
-            <Plus className="w-4 h-4" />
-            Add Method
-          </button>
+          
+          {/* Navigation & Action Buttons */}
+          <div className="flex flex-wrap items-center gap-3">
+            {/* Navigation Button: Zones */}
+            <button
+              onClick={() => router.push('/admin/shipping/zones')}
+              className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-violet-500 to-purple-500 hover:from-violet-600 hover:to-purple-600 text-white rounded-lg font-medium shadow-lg hover:shadow-xl transition-all duration-200"
+            >
+              <MapPin className="w-4 h-4" />
+              Zones
+            </button>
+
+            {/* Navigation Button: Rates */}
+            <button
+              onClick={() => router.push('/admin/shipping/rates')}
+              className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-600 hover:to-blue-600 text-white rounded-lg font-medium shadow-lg hover:shadow-xl transition-all duration-200"
+            >
+              <DollarSign className="w-4 h-4" />
+              Rates
+            </button>
+
+            {/* Action Button: Add Method */}
+            <button
+              onClick={handleCreate}
+              className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white rounded-lg font-medium shadow-lg hover:shadow-xl transition-all duration-200"
+            >
+              <Plus className="w-4 h-4" />
+              Add Method
+            </button>
+          </div>
         </div>
 
         {/* Stats Cards */}
@@ -669,6 +695,7 @@ export default function ShippingMethodsPage() {
           </div>
         </div>
       </div>
+
 
       {/* FILTERS SECTION - ALL IN ONE ROW */}
       <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-xl p-4 overflow-visible relative z-20">

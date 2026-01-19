@@ -1185,7 +1185,7 @@ const handleSlugChange = (value: string) => {
       <div className=" z-10">
         <div className="max-w-[1920px] mx-auto px-4 ">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2">
               <button
                 onClick={() => router.back()}
                 className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-all"
@@ -1205,10 +1205,10 @@ const handleSlugChange = (value: string) => {
         </div>
       </div>
 
-      <div className="max-w-[1920px] mx-auto px-6 py-6">
-        <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+      <div className="max-w-[1920px] mx-auto px-3 py-3">
+        <div className="grid grid-cols-1 xl:grid-cols-3 gap-3">
           {/* Main Content */}
-          <div className="xl:col-span-2 space-y-4">
+          <div className="xl:col-span-2 space-y-2">
             {/* Title */}
             <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-xl p-2">
               <input
@@ -1222,7 +1222,7 @@ const handleSlugChange = (value: string) => {
 
 
               {/* ✅ REPLACE existing Permalink section */}
-              <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-xl p-4">
+              <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-xl p-3">
               <div className="space-y-3">
               {/* Slug Input Row */}
               <div className="flex items-center gap-2 text-sm">

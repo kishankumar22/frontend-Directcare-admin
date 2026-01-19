@@ -546,32 +546,7 @@ if (editingBanner) {
           Add Banner
         </button>
       </div>
-
-      {/* Items Per Page Selector */}
-      <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-2xl p-2">
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <span className="text-sm text-slate-400">Show</span>
-            <select
-              value={itemsPerPage}
-              onChange={(e) => handleItemsPerPageChange(Number(e.target.value))}
-              className="px-3 py-2 bg-slate-800/50 border border-slate-600 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all"
-            >
-              <option value={25}>25</option>
-              <option value={50}>50</option>
-              <option value={75}>75</option>
-              <option value={100}>100</option>
-            </select>
-            <span className="text-sm text-slate-400">entries per page</span>
-          </div>
-          
-          <div className="text-sm text-slate-400">
-            Showing {startIndex + 1} to {Math.min(endIndex, totalItems)} of {totalItems} entries
-          </div>
-        </div>
-      </div>
-
-      {/* Statistics Cards */}
+           {/* Statistics Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-6 hover:border-violet-500/50 transition-all">
           <div className="flex items-center gap-4">
@@ -622,6 +597,32 @@ if (editingBanner) {
         </div>
       </div>
 
+      {/* Items Per Page Selector */}
+      <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-2xl p-2">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <span className="text-sm text-slate-400">Show</span>
+            <select
+              value={itemsPerPage}
+              onChange={(e) => handleItemsPerPageChange(Number(e.target.value))}
+              className="px-3 py-2 bg-slate-800/50 border border-slate-600 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all"
+            >
+              <option value={25}>25</option>
+              <option value={50}>50</option>
+              <option value={75}>75</option>
+              <option value={100}>100</option>
+            </select>
+            <span className="text-sm text-slate-400">entries per page</span>
+          </div>
+          
+          <div className="text-sm text-slate-400">
+            Showing {startIndex + 1} to {Math.min(endIndex, totalItems)} of {totalItems} entries
+          </div>
+        </div>
+      </div>
+
+ 
+
       {/* Search and Filters */}
       <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-2xl p-2">
         <div className="flex flex-wrap items-center gap-4">
@@ -642,7 +643,7 @@ if (editingBanner) {
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              className={`px-3 py-3 bg-slate-800/50 border rounded-xl text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all min-w-32 ${
+              className={`px-3 py-3 bg-slate-800/90 border rounded-xl text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all min-w-32 ${
                 statusFilter !== "all" 
                   ? "border-blue-500 bg-blue-500/10 ring-2 ring-blue-500/50" 
                   : "border-slate-600"
@@ -656,7 +657,7 @@ if (editingBanner) {
             <select
               value={bannerTypeFilter}
               onChange={(e) => setBannerTypeFilter(e.target.value)}
-              className={`px-3 py-3 bg-slate-800/50 border rounded-xl text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all min-w-40 ${
+              className={`px-3 py-3 bg-slate-800/90 border rounded-xl text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all min-w-40 ${
                 bannerTypeFilter !== "all" 
                   ? "border-violet-500 bg-violet-500/10 ring-2 ring-violet-500/50" 
                   : "border-slate-600"

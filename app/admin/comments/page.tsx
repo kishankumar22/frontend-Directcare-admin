@@ -2,14 +2,16 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { MessageSquare, Clock, CheckCircle, X, Search, FilterX, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Eye, Trash2, AlertCircle, Ban, Filter, Reply, Shield, ShieldOff, AlertTriangle, CornerDownRight, User, ChevronDown, RefreshCw } from "lucide-react";
+import { MessageSquare, Clock, CheckCircle, X, Search, FilterX, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Eye, Trash2, AlertCircle, Ban, Filter, Reply, Shield, ShieldOff, AlertTriangle, CornerDownRight, User, ChevronDown, RefreshCw, Plus, FolderTree, FileText } from "lucide-react";
 import { useToast } from "@/components/CustomToast";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import { blogCommentsService, BlogComment, BlogPost } from "@/lib/services/blogComments";
 
+
 export default function CommentsPage() {
 
   const toast = useToast();
+  const router = useRouter();
   const [comments, setComments] = useState<BlogComment[]>([]);
   const [blogPosts, setBlogPosts] = useState<BlogPost[]>([]);
   const [loading, setLoading] = useState(true);
@@ -602,7 +604,7 @@ const getDateRangeLabel = () => {
 
   return (
     <div className="min-h-screen bg-slate-950">
-      <div className="mx-auto space-y-3 ">
+      <div className="mx-auto space-y-2">
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
@@ -618,18 +620,40 @@ const getDateRangeLabel = () => {
               )}
             </p>
           </div>
-          <button
-            onClick={fetchBlogPosts}
-            disabled={loadingComments}
-            className="px-4 py-2.5 bg-slate-800/50 hover:bg-slate-700/50 text-white rounded-xl transition-all flex items-center gap-2 font-medium border border-slate-700/50 disabled:opacity-50"
-          >
-            {loadingComments ? (
-              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-            ) : (
-              <MessageSquare className="h-4 w-4" />
-            )}
-            Refresh
-          </button>
+ <div className="flex flex-wrap gap-3">
+  {/* Navigation Button: Blog Categories */}
+  <button
+    onClick={() => router.push('/admin/BlogCategories')}
+    className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-violet-500 to-purple-500 hover:from-violet-600 hover:to-purple-600 text-white rounded-xl font-semibold shadow-lg hover:shadow-violet-500/50 transition-all"
+  >
+    <FolderTree className="h-4 w-4" />
+    Go to Blog Categories
+  </button>
+
+  {/* Navigation Button: Blog Posts */}
+  <button
+    onClick={() => router.push("/admin/BlogPosts")}
+    className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-600 hover:to-blue-600 text-white rounded-xl font-semibold shadow-lg hover:shadow-cyan-500/50 transition-all"
+  >
+    <FileText className="h-4 w-4" />
+    Go to Blog Posts
+  </button>
+
+  {/* Refresh Button */}
+  <button
+    onClick={fetchBlogPosts}
+    disabled={loadingComments}
+    className="flex items-center gap-2 px-4 py-2.5 bg-slate-800/50 hover:bg-slate-700/50 text-white rounded-xl font-medium border border-slate-700/50 transition-all disabled:opacity-50"
+  >
+    {loadingComments ? (
+      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+    ) : (
+      <RefreshCw className="h-4 w-4" />
+    )}
+    Refresh
+  </button>
+</div>
+
         </div>
         {/* Statistics Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -683,14 +707,14 @@ const getDateRangeLabel = () => {
         </div>
 
         {/* Items Per Page */}
-        <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-2xl p-3">
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
+        <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-2xl p-2">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
               <span className="text-sm text-slate-400">Show</span>
               <select
                 value={itemsPerPage}
                 onChange={(e) => handleItemsPerPageChange(Number(e.target.value))}
-                className="px-3 py-2 bg-slate-800/50 border border-slate-600 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all"
+                className="px-2 py-1.5 bg-slate-800/50 border border-slate-600 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all"
               >
                 <option value={25}>25</option>
                 <option value={50}>50</option>
@@ -707,12 +731,11 @@ const getDateRangeLabel = () => {
         </div>
 
         {/* Comments Section */}
-<div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-2xl p-3">
+<div className="bg-slate-900/90 backdrop-blur-xl border border-slate-800 rounded-2xl p-2">
   {/* Header */}
-  <div className="space-y-4 mb-6">
+  <div className="space-y-2 mb-3">
     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
       <div>
-        <h2 className="text-2xl font-bold text-white">All Comments</h2>
         <p className="text-slate-400 text-sm mt-1">
           Manage and moderate user comments
           {blogPosts.length > 0 && (
@@ -748,7 +771,7 @@ const getDateRangeLabel = () => {
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
-            className={`px-4 py-2.5 bg-slate-800/50 border rounded-xl text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all min-w-[180px] appearance-none cursor-pointer ${
+            className={`px-4 py-2.5 bg-slate-800/90 border rounded-xl text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all min-w-[180px] appearance-none cursor-pointer ${
               statusFilter !== "all" 
                 ? "border-blue-500 bg-blue-500/10 ring-2 ring-blue-500/50" 
                 : "border-slate-600 hover:border-slate-500"

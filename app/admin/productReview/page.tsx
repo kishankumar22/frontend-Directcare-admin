@@ -964,7 +964,7 @@ const handleExportReviews = (type: string) => {
                   <select
                     value={statusFilter}
                     onChange={(e) => setStatusFilter(e.target.value)}
-                    className={`px-4 py-2.5 bg-slate-800/50 border rounded-xl text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all min-w-[160px] appearance-none cursor-pointer ${
+                    className={`px-4 py-2.5 bg-slate-800/90 border rounded-xl text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all min-w-[160px] appearance-none cursor-pointer ${
                       statusFilter !== "all"
                         ? "border-blue-500 bg-blue-500/10 ring-2 ring-blue-500/50"
                         : "border-slate-600 hover:border-slate-500"
@@ -982,7 +982,7 @@ const handleExportReviews = (type: string) => {
                   <select
                     value={ratingFilter}
                     onChange={(e) => setRatingFilter(e.target.value)}
-                    className={`px-4 py-2.5 bg-slate-800/50 border rounded-xl w-44 text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all min-w-[140px] appearance-none cursor-pointer ${
+                    className={`px-4 py-2.5 bg-slate-800/90 border rounded-xl w-44 text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all min-w-[140px] appearance-none cursor-pointer ${
                       ratingFilter !== "all"
                         ? "border-gray-500 bg-slate-800/50  ring-2 border  ring-purple-500/50  "
                         : "border-slate-600 hover:border-slate-500"

@@ -7978,8 +7978,6 @@ const uploadImagesToProductDirect = async (
 
 {/* ✅ FLOATING SCROLL TO TOP BUTTON */}
 <ScrollToTopButton />
-
-
     </div>
   );
 }

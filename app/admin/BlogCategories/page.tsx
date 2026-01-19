@@ -1,12 +1,13 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Plus, Edit, Trash2, Search, FolderTree, Eye, Upload, Filter, FilterX, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, AlertCircle, CheckCircle, Tag, FileText, TrendingUp, Clock, ChevronDown } from "lucide-react";
+import { Plus, Edit, Trash2, Search, FolderTree, Eye, Upload, Filter, FilterX, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, AlertCircle, CheckCircle, Tag, FileText, TrendingUp, Clock, ChevronDown, MessageSquare } from "lucide-react";
 import { ProductDescriptionEditor } from "../products/SelfHostedEditor";
 import { useToast } from "@/components/CustomToast";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import { API_BASE_URL } from "@/lib/api";
 import { blogCategoriesService, BlogCategory } from "@/lib/services/blogCategories";
+import { useRouter } from "next/navigation";
 
 interface BlogCategoryStats {
   totalCategories: number;
@@ -17,6 +18,7 @@ interface BlogCategoryStats {
 
 export default function BlogCategoriesPage() {
   const toast = useToast();
+  const router = useRouter();
   const [blogCategories, setBlogCategories] = useState<BlogCategory[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
@@ -830,24 +832,47 @@ const getFlattenedCategories = () => {
 
   return (
     <div className="space-y-2">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+ <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold tracking-tight bg-gradient-to-r from-violet-400 via-cyan-400 to-pink-400 bg-clip-text text-transparent">
             Blog Categories Management
           </h1>
           <p className="text-slate-400 mt-1">Manage blog categories and hierarchies</p>
         </div>
-        <button
-          onClick={() => {
-            resetForm();
-            setShowModal(true);
-          }}
-          className="px-4 py-2 bg-gradient-to-r from-violet-500 to-cyan-500 text-white rounded-xl hover:shadow-lg hover:shadow-violet-500/50 transition-all flex items-center justify-center gap-2 font-semibold"
-        >
-          <Plus className="h-4 w-4" />
-          Add Blog Category
-        </button>
+        
+        {/* Navigation & Action Buttons */}
+<div className="flex flex-wrap items-center gap-3">
+  {/* Navigation Button: Blog Posts */}
+  <button
+    onClick={() => router.push('/admin/BlogPosts')}
+    className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-violet-500 to-purple-500 hover:from-violet-600 hover:to-purple-600 text-white rounded-xl font-semibold shadow-lg hover:shadow-violet-500/50 transition-all"
+  >
+    <FileText className="h-4 w-4" />
+    Go to Blog Posts
+  </button>
+
+  {/* Navigation Button: Comments */}
+  <button
+    onClick={() => router.push('/admin/comments')}
+    className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-pink-500 to-rose-500 hover:from-pink-600 hover:to-rose-600 text-white rounded-xl font-semibold shadow-lg hover:shadow-pink-500/50 transition-all"
+  >
+    <MessageSquare className="h-4 w-4" />
+    Go to Comments
+  </button>
+
+  {/* Action Button: Add Category */}
+  <button
+    onClick={() => {
+      resetForm();
+      setShowModal(true);
+    }}
+    className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-violet-500 to-cyan-500 hover:from-violet-600 hover:to-cyan-600 text-white rounded-xl font-semibold shadow-lg hover:shadow-cyan-500/50 transition-all"
+  >
+    <Plus className="h-4 w-4" />
+    Add Blog Category
+  </button>
+</div>
+
       </div>
 
       {/* Stats Cards */}
@@ -945,7 +970,7 @@ const getFlattenedCategories = () => {
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              className={`px-3 py-3 bg-slate-800/50 border rounded-xl text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all min-w-32 ${
+              className={`px-3 py-3 bg-slate-800/90 border rounded-xl text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all min-w-32 ${
                 statusFilter !== "all" 
                   ? "border-blue-500 bg-blue-500/10 ring-2 ring-blue-500/50" 
                   : "border-slate-600"
