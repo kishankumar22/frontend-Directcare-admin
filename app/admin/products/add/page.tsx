@@ -24,6 +24,7 @@ export default function AddProductPage() {
 // ✅ Variant SKU Validation States
 const [checkingVariantSku, setCheckingVariantSku] = useState<Record<string, boolean>>({});
 const [variantSkuErrors, setVariantSkuErrors] = useState<Record<string, string>>({});
+const [showTaxPreview, setShowTaxPreview] = useState(false);
 
 // ================================
 // ✅ LOADING & SUBMISSION STATES
@@ -161,8 +162,8 @@ const checkPublishRequirements = (): { isValid: boolean; missing: string[] } => 
   }
 
   // 5. Images
-  if (!formData.productImages || formData.productImages.length < 5) {
-    missing.push(`Product Images (minimum 5, current: ${formData.productImages?.length || 0})`);
+  if (!formData.productImages || formData.productImages.length < 3) {
+    missing.push(`Product Images (minimum 3, current: ${formData.productImages?.length || 0})`);
   }
 
   // 6. Stock (if tracking)
@@ -174,11 +175,11 @@ const checkPublishRequirements = (): { isValid: boolean; missing: string[] } => 
   }
 
   // 7. Shipping (if enabled)
-  if (formData.isShipEnabled) {
-    if (!formData.weight || parseFloat(formData.weight.toString()) <= 0) {
-      missing.push('Weight (required for shipping)');
-    }
-  }
+  // if (formData.isShipEnabled) {
+  //   if (!formData.weight || parseFloat(formData.weight.toString()) <= 0) {
+  //     missing.push('Weight (required for shipping)');
+  //   }
+  // }
 
   // 8. Grouped Product Requirements
   if (formData.productType === 'grouped' && formData.requireOtherProducts) {
@@ -187,6 +188,11 @@ const checkPublishRequirements = (): { isValid: boolean; missing: string[] } => 
     }
   }
 
+  if(formData.vatExempt === false){
+    if (!formData.vatRateId || formData.vatRateId.trim() === '') {
+      missing.push('VAT Rate (required when product is taxable)');
+  }
+  }
   return {
     isValid: missing.length === 0,
     missing
@@ -475,7 +481,6 @@ useEffect(() => {
   formData.productImages,
   formData.stockQuantity,
   formData.manageInventory,
-  formData.weight,
   formData.isShipEnabled,
   formData.productType,
   formData.requireOtherProducts,
@@ -760,6 +765,15 @@ const handleSubmit = async (e?: React.FormEvent, isDraft: boolean = false) => {
       step: 'Validating homepage settings...',
       percentage: 30,
     });
+
+    // If product is NOT VAT exempt, VAT rate is required
+if (!formData.vatExempt && (!formData.vatRateId || !formData.vatRateId.trim())) {
+  toast.error('❌ VAT rate is required when product is taxable');
+  target.removeAttribute('data-submitting');
+  setIsSubmitting(false);
+  setSubmitProgress(null);
+  return;
+}
 
     // ═══════════════════════════════════════════════════════════════════════
     // SECTION 2: HOMEPAGE VALIDATION
@@ -1072,8 +1086,8 @@ const handleSubmit = async (e?: React.FormEvent, isDraft: boolean = false) => {
     // SECTION 7: IMAGE VALIDATION
     // ═══════════════════════════════════════════════════════════════════════
 
-    if (formData.productImages.length < 5) {
-      toast.error('❌ Please upload at least 5 product images before saving');
+    if (formData.productImages.length < 3) {
+      toast.error('❌ Please upload at least 3 product images before saving');
       target.removeAttribute('data-submitting');
       setIsSubmitting(false);
       setSubmitProgress(null);
@@ -2412,9 +2426,22 @@ const uploadVariantImages = async (productResponse: any) => {
         </button>
       </Link>
       <div>
-        <h1 className="text-2xl lg:text-3xl font-bold tracking-tight bg-gradient-to-r from-violet-400 via-cyan-400 to-pink-400 bg-clip-text text-transparent">
-          Create New Product
-        </h1>
+        <div className="flex items-center gap-3 flex-wrap">
+  <h1 className="text-2xl lg:text-3xl font-bold tracking-tight bg-gradient-to-r from-violet-400 via-cyan-400 to-pink-400 bg-clip-text text-transparent">
+    Create New Product
+  </h1>
+  
+  {/* ✅ PRODUCT NAME - Inline Display */}
+  {formData.name && (
+    <div className="flex items-center gap-2">
+      <span className="text-slate-600">•</span>
+      <span className="text-lg font-semibold text-white truncate max-w-xs" title={formData.name}>
+        {formData.name}
+      </span>
+    </div>
+  )}
+</div>
+
         <p className="text-sm text-slate-400 mt-1">
           {isSubmitting 
             ? submitProgress?.step || 'Processing...' 
@@ -3418,273 +3445,310 @@ const uploadVariantImages = async (productResponse: any) => {
   </div>
 
   {/* Tax Section */}
-  <div className="space-y-4">
-    <h3 className="text-lg font-semibold text-white border-b border-slate-800 pb-2">
-      VAT / Tax Settings
-    </h3>
+<div className="space-y-4">
+  <h3 className="text-lg font-semibold text-white border-b border-slate-800 pb-2">
+    VAT / Tax Settings
+  </h3>
 
-    <label className="flex items-center gap-2 cursor-pointer">
-      <input
-        type="checkbox"
-        name="vatExempt"
-        checked={formData.vatExempt}
-        onChange={handleChange}
-        className="rounded bg-slate-800/50 border-slate-700 text-violet-500 focus:ring-violet-500 focus:ring-offset-slate-900"
-      />
-      <span className="text-sm text-slate-300">VAT Exempt (No tax applied)</span>
-    </label>
+  <label className="flex items-center gap-2 cursor-pointer">
+    <input
+      type="checkbox"
+      name="vatExempt"
+      checked={formData.vatExempt}
+      onChange={handleChange}
+      className="rounded bg-slate-800/50 border-slate-700 text-violet-500 focus:ring-violet-500 focus:ring-offset-slate-900"
+    />
+    <span className="text-sm text-slate-300">VAT Exempt (No tax applied)</span>
+  </label>
 
-    {!formData.vatExempt && (
-      <div className="relative">
-        <label className="block text-sm font-medium text-slate-300 mb-2">
-          VAT Rate <span className="text-red-400">*</span>
+  {!formData.vatExempt && (
+    <div className="relative">
+      {/* ✅ LABEL & BUTTON IN SAME ROW */}
+      <div className="flex items-center justify-between gap-3 mb-2">
+        <label className="block text-sm font-medium text-slate-300">
+          VAT Rate (Please select an applicable rate)
+          <span className="text-red-400">*</span>
         </label>
 
-        <div className="relative">
-          <input
-            type="text"
-            placeholder="Search VAT rate..."
-            value={
-              formData.vatRateId 
-                ? (() => {
-                    const selected = dropdownsData.vatRates.find((v: any) => v.id === formData.vatRateId);
-                    return selected ? `${selected.name} (${selected.rate}%)` : '';
-                  })()
-                : vatSearch
-            }
-            onChange={(e) => {
-              setVatSearch(e.target.value);
-              setShowVatDropdown(true);
-              if (!e.target.value) {
-                setFormData({ ...formData, vatRateId: '' });
-              }
-            }}
-            onFocus={() => setShowVatDropdown(true)}
-            className="w-full px-3 py-2 pr-10 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
-          />
-          
-          {formData.vatRateId && (
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                setFormData({ ...formData, vatRateId: '' });
-                setVatSearch('');
-              }}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-red-400 transition-colors"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-          )}
-        </div>
-
-        {/* Dropdown */}
-        {showVatDropdown && (
-          <div className="absolute z-50 w-full mt-1 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl max-h-64 overflow-auto">
-            {(() => {
-              const searchLower = vatSearch.toLowerCase();
-              const filtered = dropdownsData.vatRates.filter((vat: any) => 
-                vat.name.toLowerCase().includes(searchLower) ||
-                vat.description?.toLowerCase().includes(searchLower) ||
-                vat.rate.toString().includes(searchLower) ||
-                vat.country?.toLowerCase().includes(searchLower) ||
-                vat.region?.toLowerCase().includes(searchLower)
-              );
-
-              const highlightText = (text: string, search: string) => {
-                if (!search) return text;
-                const parts = text.split(new RegExp(`(${search})`, 'gi'));
-                return parts.map((part, i) => 
-                  part.toLowerCase() === search.toLowerCase() 
-                    ? `<mark class="bg-violet-500/30 text-violet-300 px-0.5 rounded">${part}</mark>`
-                    : part
-                ).join('');
-              };
-
-              if (filtered.length === 0) {
-                return (
-                  <div className="px-4 py-4 text-center text-slate-500 text-sm">
-                    No results
-                  </div>
-                );
-              }
-
-              return filtered.map((vat: any) => {
-                const isSelected = formData.vatRateId === vat.id;
-                return (
-                  <button
-                    key={vat.id}
-                    type="button"
-                    onClick={() => {
-                      setFormData({ ...formData, vatRateId: vat.id });
-                      setVatSearch('');
-                      setShowVatDropdown(false);
-                    }}
-                    className={`w-full text-left px-3 py-2 border-b border-slate-800/50 hover:bg-violet-500/10 transition-all group ${
-                      isSelected ? 'bg-violet-500/20 border-l-3 border-l-violet-500' : ''
-                    }`}
-                  >
-                    <div className="flex items-center justify-between gap-2">
-                      <span 
-                        className={`font-medium text-sm ${isSelected ? 'text-violet-300' : 'text-white'}`}
-                        dangerouslySetInnerHTML={{ __html: highlightText(vat.name, vatSearch) }}
-                      />
-                      
-                      <div className="flex items-center gap-2">
-                        <span className={`px-1.5 py-0.5 rounded text-xs font-bold ${
-                          vat.rate === 0 
-                            ? 'bg-green-500/20 text-green-400' 
-                            : vat.rate < 10 
-                              ? 'bg-blue-500/20 text-blue-400'
-                              : 'bg-amber-500/20 text-amber-400'
-                        }`}>
-                          {vat.rate}%
-                        </span>
-                        
-                        {vat.isDefault && (
-                          <span className="px-1.5 py-0.5 bg-violet-500/20 text-violet-400 rounded text-xs">
-                            Default
-                          </span>
-                        )}
-                        
-                        {isSelected && (
-                          <svg className="w-4 h-4 text-violet-400" fill="currentColor" viewBox="0 0 20 20">
-                            <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                          </svg>
-                        )}
-                      </div>
-                    </div>
-                  </button>
-                );
-              });
-            })()}
-          </div>
-        )}
-
-        {showVatDropdown && (
-          <div className="fixed inset-0 z-40" onClick={() => setShowVatDropdown(false)} />
-        )}
-      </div>
-    )}
-
-    {/* TAX CALCULATION */}
-    {!formData.vatExempt && (() => {
-      const parsePrice = (value: any): number => {
-        if (!value) return 0;
-        const parsed = parseFloat(String(value));
-        return isNaN(parsed) ? 0 : parsed;
-      };
-
-      const mainPrice = parsePrice(formData.price);
-      const oldPrice = parsePrice(formData.oldPrice);
-
-      const selectedVat = dropdownsData.vatRates.find((v: any) => v.id === formData.vatRateId);
-      const vatRate = selectedVat?.rate || 0;
-
-      const isGrouped = formData.productType === 'grouped';
-      let bundleItemsTotal = 0;
-      let bundleDiscount = 0;
-      let bundleBeforeDiscount = 0;
-      let finalBundlePrice = mainPrice;
-
-      if (isGrouped && selectedGroupedProducts.length > 0) {
-        bundleItemsTotal = selectedGroupedProducts.reduce((total: number, productId: string) => {
-          const product = simpleProducts.find((p: any) => p.id === productId);
-          return total + parsePrice(product?.price || 0);
-        }, 0);
-
-        bundleBeforeDiscount = mainPrice + bundleItemsTotal;
-
-        if (formData.groupBundleDiscountType === 'Percentage') {
-          const discountPercent = parsePrice(formData.groupBundleDiscountPercentage);
-          bundleDiscount = (bundleBeforeDiscount * discountPercent) / 100;
-        } else if (formData.groupBundleDiscountType === 'FixedAmount') {
-          bundleDiscount = parsePrice(formData.groupBundleDiscountAmount);
-        } else if (formData.groupBundleDiscountType === 'SpecialPrice') {
-          const specialPrice = parsePrice(formData.groupBundleSpecialPrice);
-          bundleDiscount = bundleBeforeDiscount - specialPrice;
-        }
-
-        finalBundlePrice = bundleBeforeDiscount - bundleDiscount;
-      }
-
-      const priceForVat = isGrouped ? finalBundlePrice : mainPrice;
-      const vatAmount = (priceForVat * vatRate) / 100;
-      const finalCustomerPrice = priceForVat + vatAmount;
-
-      const oldPriceWithVat = oldPrice + ((oldPrice * vatRate) / 100);
-      const savingsAmount = oldPriceWithVat - finalCustomerPrice;
-      const savingsPercent = oldPriceWithVat > 0 ? (savingsAmount / oldPriceWithVat) * 100 : 0;
-
-      if (mainPrice <= 0) return null;
-
-      return (
-        <div className="mt-6 bg-gradient-to-br from-amber-500/5 to-orange-500/5 border border-amber-500/20 rounded-2xl p-5">
-          <h4 className="text-base font-semibold text-white mb-4 flex items-center gap-2">
-            🧾 Tax Calculation
-          </h4>
-
-          <div className="space-y-3">
-            {selectedVat ? (
+        {/* ✅ BUTTON ON RIGHT SIDE - Compact */}
+        {formData.vatRateId && parseFloat(formData.price || '0') > 0 && (
+          <button
+            type="button"
+            onClick={() => setShowTaxPreview(!showTaxPreview)}
+            className={`px-3 py-1.5 rounded-lg font-medium text-xs transition-all flex items-center gap-1.5 shrink-0 ${
+              showTaxPreview
+                ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-md'
+                : 'bg-amber-500/10 border border-amber-500/30 text-amber-400 hover:bg-amber-500/20'
+            }`}
+          >
+            {showTaxPreview ? (
               <>
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-slate-400">VAT Rate:</span>
-                  <span className="text-sm text-white font-medium">{selectedVat.name} ({vatRate}%)</span>
-                </div>
-
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-slate-400">Price (excl. VAT):</span>
-                  <span className="text-base font-semibold text-white">£{priceForVat.toFixed(2)}</span>
-                </div>
-
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-amber-400">+ VAT ({vatRate}%):</span>
-                  <span className="text-base font-semibold text-amber-400">£{vatAmount.toFixed(2)}</span>
-                </div>
-
-                <div className="border-t-2 border-amber-500/30 pt-3 mt-3">
-                  <div className="flex justify-between items-center">
-                    <span className="text-base font-bold text-white">Customer Pays:</span>
-                    <span className="text-2xl font-bold text-amber-400">£{finalCustomerPrice.toFixed(2)}</span>
-                  </div>
-                </div>
-
-                {oldPrice > 0 && savingsAmount > 0 && (
-                  <div className="mt-4 p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-xl">
-                    <div className="flex justify-between items-center">
-                      <span className="text-xs text-emerald-400">🎉 Customer Saves:</span>
-                      <span className="text-sm font-bold text-emerald-400">
-                        £{savingsAmount.toFixed(2)} ({savingsPercent.toFixed(1)}% off)
-                      </span>
-                    </div>
-                  </div>
-                )}
-
-                {isGrouped && selectedGroupedProducts.length > 0 && (
-                  <div className="mt-4 pt-3 border-t border-slate-700/50">
-                    <p className="text-xs text-slate-400 flex items-center gap-1">
-                      <span>📦</span>
-                      <span>
-                        Bundle includes {selectedGroupedProducts.length + 1} product{selectedGroupedProducts.length > 0 ? 's' : ''}
-                        {bundleDiscount > 0 && ` with £${bundleDiscount.toFixed(2)} discount`}
-                      </span>
-                    </p>
-                  </div>
-                )}
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
+                </svg>
+                Hide
               </>
             ) : (
-              <div className="text-center py-6 bg-slate-800/30 rounded-xl border-2 border-dashed border-slate-700">
-                <div className="text-amber-400 text-sm">⚠️ Select a VAT rate</div>
-                <div className="text-xs text-slate-500 mt-1">Tax calculation will appear here</div>
-              </div>
+              <>
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                </svg>
+                Preview
+              </>
             )}
-          </div>
+          </button>
+        )}
+      </div>
+
+      <div className="relative">
+        <input
+          type="text"
+          placeholder="Search VAT rate..."
+          value={
+            formData.vatRateId 
+              ? (() => {
+                  const selected = dropdownsData.vatRates.find((v: any) => v.id === formData.vatRateId);
+                  return selected ? `${selected.name} (${selected.rate}%)` : '';
+                })()
+              : vatSearch
+          }
+          onChange={(e) => {
+            setVatSearch(e.target.value);
+            setShowVatDropdown(true);
+            if (!e.target.value) {
+              setFormData({ ...formData, vatRateId: '' });
+            }
+          }}
+          onFocus={() => setShowVatDropdown(true)}
+          className="w-full px-3 py-2 pr-10 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+        />
+        
+        {formData.vatRateId && (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              setFormData({ ...formData, vatRateId: '' });
+              setVatSearch('');
+              setShowTaxPreview(false);
+            }}
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-red-400 transition-colors"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        )}
+      </div>
+
+      {/* Dropdown */}
+      {showVatDropdown && (
+        <div className="absolute z-50 w-full mt-1 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl max-h-64 overflow-auto">
+          {(() => {
+            const searchLower = vatSearch.toLowerCase();
+            const filtered = dropdownsData.vatRates.filter((vat: any) => 
+              vat.name.toLowerCase().includes(searchLower) ||
+              vat.description?.toLowerCase().includes(searchLower) ||
+              vat.rate.toString().includes(searchLower) ||
+              vat.country?.toLowerCase().includes(searchLower) ||
+              vat.region?.toLowerCase().includes(searchLower)
+            );
+
+            const highlightText = (text: string, search: string) => {
+              if (!search) return text;
+              const parts = text.split(new RegExp(`(${search})`, 'gi'));
+              return parts.map((part, i) => 
+                part.toLowerCase() === search.toLowerCase() 
+                  ? `<mark class="bg-violet-500/30 text-violet-300 px-0.5 rounded">${part}</mark>`
+                  : part
+              ).join('');
+            };
+
+            if (filtered.length === 0) {
+              return (
+                <div className="px-4 py-4 text-center text-slate-500 text-sm">
+                  No results
+                </div>
+              );
+            }
+
+            return filtered.map((vat: any) => {
+              const isSelected = formData.vatRateId === vat.id;
+              return (
+                <button
+                  key={vat.id}
+                  type="button"
+                  onClick={() => {
+                    setFormData({ ...formData, vatRateId: vat.id });
+                    setVatSearch('');
+                    setShowVatDropdown(false);
+                  }}
+                  className={`w-full text-left px-3 py-2 border-b border-slate-800/50 hover:bg-violet-500/10 transition-all group ${
+                    isSelected ? 'bg-violet-500/20 border-l-3 border-l-violet-500' : ''
+                  }`}
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <span 
+                      className={`font-medium text-sm ${isSelected ? 'text-violet-300' : 'text-white'}`}
+                      dangerouslySetInnerHTML={{ __html: highlightText(vat.name, vatSearch) }}
+                    />
+                    
+                    <div className="flex items-center gap-2">
+                      <span className={`px-1.5 py-0.5 rounded text-xs font-bold ${
+                        vat.rate === 0 
+                          ? 'bg-green-500/20 text-green-400' 
+                          : vat.rate < 10 
+                            ? 'bg-blue-500/20 text-blue-400'
+                            : 'bg-amber-500/20 text-amber-400'
+                      }`}>
+                        {vat.rate}%
+                      </span>
+                      
+                      {vat.isDefault && (
+                        <span className="px-1.5 py-0.5 bg-violet-500/20 text-violet-400 rounded text-xs">
+                          Default
+                        </span>
+                      )}
+                      
+                      {isSelected && (
+                        <svg className="w-4 h-4 text-violet-400" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                        </svg>
+                      )}
+                    </div>
+                  </div>
+                </button>
+              );
+            });
+          })()}
         </div>
-      );
-    })()}
-  </div>
+      )}
+
+      {showVatDropdown && (
+        <div className="fixed inset-0 z-40" onClick={() => setShowVatDropdown(false)} />
+      )}
+    </div>
+  )}
+
+  {/* ✅ COMPACT TAX CALCULATION - With proper bottom padding */}
+  {!formData.vatExempt && showTaxPreview && (() => {
+    const parsePrice = (value: any): number => {
+      if (!value) return 0;
+      const parsed = parseFloat(String(value));
+      return isNaN(parsed) ? 0 : parsed;
+    };
+
+    const mainPrice = parsePrice(formData.price);
+    const oldPrice = parsePrice(formData.oldPrice);
+
+    const selectedVat = dropdownsData.vatRates.find((v: any) => v.id === formData.vatRateId);
+    const vatRate = selectedVat?.rate || 0;
+
+    const isGrouped = formData.productType === 'grouped';
+    let bundleItemsTotal = 0;
+    let bundleDiscount = 0;
+    let bundleBeforeDiscount = 0;
+    let finalBundlePrice = mainPrice;
+
+    if (isGrouped && selectedGroupedProducts.length > 0) {
+      bundleItemsTotal = selectedGroupedProducts.reduce((total: number, productId: string) => {
+        const product = simpleProducts.find((p: any) => p.id === productId);
+        return total + parsePrice(product?.price || 0);
+      }, 0);
+
+      bundleBeforeDiscount = mainPrice + bundleItemsTotal;
+
+      if (formData.groupBundleDiscountType === 'Percentage') {
+        const discountPercent = parsePrice(formData.groupBundleDiscountPercentage);
+        bundleDiscount = (bundleBeforeDiscount * discountPercent) / 100;
+      } else if (formData.groupBundleDiscountType === 'FixedAmount') {
+        bundleDiscount = parsePrice(formData.groupBundleDiscountAmount);
+      } else if (formData.groupBundleDiscountType === 'SpecialPrice') {
+        const specialPrice = parsePrice(formData.groupBundleSpecialPrice);
+        bundleDiscount = bundleBeforeDiscount - specialPrice;
+      }
+
+      finalBundlePrice = bundleBeforeDiscount - bundleDiscount;
+    }
+
+    const priceForVat = isGrouped ? finalBundlePrice : mainPrice;
+    const vatAmount = (priceForVat * vatRate) / 100;
+    const finalCustomerPrice = priceForVat + vatAmount;
+
+    const oldPriceWithVat = oldPrice + ((oldPrice * vatRate) / 100);
+    const savingsAmount = oldPriceWithVat - finalCustomerPrice;
+    const savingsPercent = oldPriceWithVat > 0 ? (savingsAmount / oldPriceWithVat) * 100 : 0;
+
+    if (mainPrice <= 0) return null;
+
+    return (
+      <div className="mt-3 bg-gradient-to-br from-amber-500/5 px-16 to-orange-500/5 border border-amber-500/20 rounded-xl p-3 animate-fadeIn mb-20">
+        <h4 className="text-sm font-semibold text-white mb-2 flex items-center gap-2">
+          🧾 Tax Calculation Preview
+        </h4>
+
+        <div className="space-y-1.5">
+          {selectedVat ? (
+            <>
+              <div className="flex justify-between items-center text-xs">
+                <span className="text-slate-400">VAT Rate:</span>
+                <span className="text-white font-medium">{selectedVat.name} ({vatRate}%)</span>
+              </div>
+
+              <div className="flex justify-between items-center text-sm">
+                <span className="text-slate-400">Price (excl. VAT):</span>
+                <span className="font-semibold text-white">£{priceForVat.toFixed(2)}</span>
+              </div>
+
+              <div className="flex justify-between items-center text-sm">
+                <span className="text-amber-400">+ VAT ({vatRate}%):</span>
+                <span className="font-semibold text-amber-400">£{vatAmount.toFixed(2)}</span>
+              </div>
+
+              <div className="border-t border-amber-500/30 pt-1.5 mt-1.5">
+                <div className="flex justify-between items-center">
+                  <span className="text-sm font-bold text-white">Customer Pays:</span>
+                  <span className="text-xl font-bold text-amber-400">£{finalCustomerPrice.toFixed(2)}</span>
+                </div>
+              </div>
+
+              {oldPrice > 0 && savingsAmount > 0 && (
+                <div className="mt-2 p-2 bg-emerald-500/10 border border-emerald-500/20 rounded-lg">
+                  <div className="flex justify-between items-center">
+                    <span className="text-xs text-emerald-400">🎉 Customer Saves:</span>
+                    <span className="text-sm font-bold text-emerald-400">
+                      £{savingsAmount.toFixed(2)} ({savingsPercent.toFixed(1)}% off)
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              {isGrouped && selectedGroupedProducts.length > 0 && (
+                <div className="mt-2 pt-1.5 border-t border-slate-700/50">
+                  <p className="text-xs text-slate-400 flex items-center gap-1">
+                    <span>📦</span>
+                    <span>
+                      Bundle includes {selectedGroupedProducts.length + 1} product{selectedGroupedProducts.length > 0 ? 's' : ''}
+                      {bundleDiscount > 0 && ` with £${bundleDiscount.toFixed(2)} discount`}
+                    </span>
+                  </p>
+                </div>
+              )}
+            </>
+          ) : (
+            <div className="text-center py-3 bg-slate-800/30 rounded-lg border-2 border-dashed border-slate-700">
+              <div className="text-amber-400 text-sm">⚠️ Select a VAT rate</div>
+              <div className="text-xs text-slate-500 mt-1">Tax calculation will appear here</div>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  })()}
+</div>
+
+
 </TabsContent>
 
 

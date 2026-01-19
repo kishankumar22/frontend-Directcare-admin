@@ -255,79 +255,105 @@ export const GroupedProductModal = ({
         <div className="flex-1 overflow-y-auto p-4 space-y-4">
           
           {/* Product Selection */}
-          <div>
-            <label className="block text-sm font-medium text-slate-300 mb-2">
-              Select Required Products <span className="text-red-500">*</span>
-            </label>
-            
-            <Select<ProductOption, true>
-              isMulti
-              options={productOptions}
-              value={selectedOptions}
-              onChange={onProductsChange}
-              className="react-select-container"
-              classNamePrefix="react-select"
-              placeholder="Search and select products..."
-              styles={{
-                control: (base) => ({
-                  ...base,
-                  background: 'rgba(15, 23, 42, 0.5)',
-                  borderColor: 'rgba(100, 116, 139, 0.5)',
-                  minHeight: '42px',
-                  borderRadius: '12px',
-                  '&:hover': { borderColor: 'rgba(139, 92, 246, 0.5)' }
-                }),
-                menu: (base) => ({
-                  ...base,
-                  background: 'rgb(30, 41, 59)',
-                  border: '1px solid rgba(100, 116, 139, 0.5)',
-                  borderRadius: '12px',
-                  overflow: 'hidden',
-                  zIndex: 9999
-                }),
-                option: (base, state) => ({
-                  ...base,
-                  background: state.isFocused ? 'rgba(139, 92, 246, 0.2)' : 'transparent',
-                  color: 'rgb(226, 232, 240)',
-                  padding: '8px 12px',
-                  fontSize: '13px',
-                  '&:hover': { background: 'rgba(139, 92, 246, 0.3)' }
-                }),
-                multiValue: (base) => ({
-                  ...base,
-                  background: 'rgba(139, 92, 246, 0.2)',
-                  borderRadius: '6px'
-                }),
-                multiValueLabel: (base) => ({
-                  ...base,
-                  color: 'rgb(226, 232, 240)',
-                  fontSize: '13px',
-                  padding: '2px 6px'
-                }),
-                multiValueRemove: (base) => ({
-                  ...base,
-                  color: 'rgb(226, 232, 240)',
-                  '&:hover': {
-                    background: 'rgba(239, 68, 68, 0.3)',
-                    color: 'rgb(248, 113, 113)'
-                  }
-                }),
-                valueContainer: (base) => ({
-                  ...base,
-                  padding: '2px 8px',
-                  maxHeight: '100px',
-                  overflowY: 'auto'
-                })
-              }}
-              formatOptionLabel={(option) => (
-                <div title={option.fullName}>{option.label}</div>
-              )}
-            />
+<div>
+  <label className="block text-sm font-medium text-slate-300 mb-2">
+    Select Required Products <span className="text-red-500">*</span>
+  </label>
+  
+  <Select<ProductOption, true>
+    isMulti
+    options={productOptions}
+    value={selectedOptions}
+    onChange={onProductsChange}
+    className="react-select-container"
+    classNamePrefix="react-select"
+    placeholder="Search and select products..."
+    styles={{
+      control: (base) => ({
+        ...base,
+        background: 'rgba(15, 23, 42, 0.5)',
+        borderColor: 'rgba(100, 116, 139, 0.5)',
+        minHeight: '42px',
+        borderRadius: '12px',
+        '&:hover': { borderColor: 'rgba(139, 92, 246, 0.5)' }
+      }),
+      menu: (base) => ({
+        ...base,
+        background: 'rgb(30, 41, 59)',
+        border: '1px solid rgba(100, 116, 139, 0.5)',
+        borderRadius: '12px',
+        overflow: 'hidden',
+        zIndex: 9999
+      }),
+      option: (base, state) => ({
+        ...base,
+        background: state.isFocused ? 'rgba(139, 92, 246, 0.2)' : 'transparent',
+        color: 'rgb(226, 232, 240)',
+        padding: '8px 12px',
+        fontSize: '13px',
+        '&:hover': { background: 'rgba(139, 92, 246, 0.3)' }
+      }),
+      multiValue: (base) => ({
+        ...base,
+        background: 'rgba(139, 92, 246, 0.2)',
+        borderRadius: '6px'
+      }),
+      multiValueLabel: (base) => ({
+        ...base,
+        color: 'rgb(226, 232, 240)',
+        fontSize: '13px',
+        padding: '2px 6px'
+      }),
+      multiValueRemove: (base) => ({
+        ...base,
+        color: 'rgb(226, 232, 240)',
+        '&:hover': {
+          background: 'rgba(239, 68, 68, 0.3)',
+          color: 'rgb(248, 113, 113)'
+        }
+      }),
+      valueContainer: (base) => ({
+        ...base,
+        padding: '2px 8px',
+        maxHeight: '100px',
+        overflowY: 'auto'
+      })
+    }}
+    formatOptionLabel={(option) => (
+      <div title={option.fullName}>{option.label}</div>
+    )}
+    
+  />
 
-            <p className="mt-1.5 text-xs text-slate-400">
-              Selected: {selectedGroupedProducts.length} product(s)
-            </p>
-          </div>
+  {/* ✅ IMPROVED MESSAGE SECTION */}
+  {selectedGroupedProducts.length === 0 ? (
+    <div className="mt-2 p-3 h-72 flex items-center justify-center bg-amber-500/10 border border-amber-500/30 rounded-lg">
+      <div className="flex items-center gap-2">
+        <AlertCircle className="w-4 h-4 text-amber-400 mt-0.5 shrink-0" />
+        <div>
+          <p className="text-sm font-medium text-amber-400">
+            No products selected
+          </p>
+          <p className="text-xs text-amber-300/80 mt-0.5">
+            Please select at least one product to create a bundle/grouped product
+          </p>
+        </div>
+      </div>
+    </div>
+  ) : (
+    <div className="mt-2 p-2.5 bg-violet-500/10 border border-violet-500/30 rounded-lg">
+      <div className="flex items-center gap-2">
+        <svg className="w-4 h-4 text-violet-400" fill="currentColor" viewBox="0 0 20 20">
+          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+        </svg>
+        <p className="text-xs font-medium text-violet-300">
+          Selected: <span className="text-white font-semibold">{selectedGroupedProducts.length}</span> product{selectedGroupedProducts.length !== 1 ? 's' : ''}
+        </p>
+      </div>
+    </div>
+  )}
+</div>
+
 
           {/* ⭐⭐⭐ BUNDLE DISCOUNT SETTINGS - 2 ROW GRID ⭐⭐⭐ */}
           {selectedGroupedProducts.length > 0 && (

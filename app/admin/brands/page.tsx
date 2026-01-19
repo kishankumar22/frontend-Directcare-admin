@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Plus, Edit, Trash2, Search, Tag, Eye, CheckCircle, Upload, Filter, FilterX, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, AlertCircle, Loader2 } from "lucide-react";
+import { Plus, Edit, Trash2, Search, Tag, Eye, CheckCircle, Upload, Filter, FilterX, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, AlertCircle, Loader2, X } from "lucide-react";
 import { API_ENDPOINTS, API_BASE_URL } from "@/lib/api-config";
 import { ProductDescriptionEditor } from "../products/SelfHostedEditor";
 import { useToast } from "@/components/CustomToast";
@@ -105,22 +105,38 @@ const [homepageBrandsCounter, setHomepageBrandsCounter] = useState<Brand[]>([]);
   };
 
   // ✅ Service-based Fetch
-  const fetchBrands = async () => {
-    setLoading(true);
-    try {
-      const response = await brandsService.getAll({
-        params: { includeInactive: true }
-      });
-      const brandsData = response.data?.data || [];
-      setBrands(brandsData);
-      calculateStats(brandsData);
-    } catch (error) {
-      console.error("Error fetching brands:", error);
-      setBrands([]);
-    } finally {
-      setLoading(false);
-    }
-  };
+// ✅ Service-based Fetch with Date Sorting
+const fetchBrands = async () => {
+  setLoading(true);
+  try {
+    const response = await brandsService.getAll({
+      params: { includeInactive: true }
+    });
+    
+    const brandsData = response.data?.data || [];
+    
+    // ✅ Sort by active status first, then by creation date (newest first)
+    const sortedBrands = brandsData.sort((a: any, b: any) => {
+      // Active brands first
+      if (a.isActive !== b.isActive) {
+        return a.isActive ? -1 : 1;
+      }
+      // Then by creation date (newest first)
+      const dateA = new Date(a.createdAt || 0).getTime();
+      const dateB = new Date(b.createdAt || 0).getTime();
+      return dateB - dateA;
+    });
+    
+    setBrands(sortedBrands);
+    calculateStats(sortedBrands);
+  } catch (error) {
+    console.error("Error fetching brands:", error);
+    setBrands([]);
+  } finally {
+    setLoading(false);
+  }
+};
+
 // ✅ Calculate homepage brands count
 useEffect(() => {
   const brandsOnHomepage = brands.filter(brand => brand.showOnHomepage);
@@ -301,7 +317,7 @@ const handleSubmit = async (e: React.FormEvent) => {
   // ============================================
   
   if (logoFile) {
-    const allowedTypes = [ 'image/webp'];
+    const allowedTypes = [ 'image/webp','image/png'];
     const maxSize = 10 * 1024 * 1024; // 10MB
 
     // Type validation
@@ -1024,7 +1040,7 @@ const handleSubmit = async (e: React.FormEvent) => {
                   <span>Basic Information</span>
                 </h3>
                 <div className="space-y-2">
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 gap-4">
                     <div>
                       <label className="block text-sm font-medium text-slate-300 mb-2">Brand Name *</label>
                       <input
@@ -1039,22 +1055,7 @@ const handleSubmit = async (e: React.FormEvent) => {
                         <p className="text-xs text-amber-400 mt-1">⚠️ Brand name is required before uploading logo</p>
                       )}
                     </div>
-                    <div>
-                      <label className="block text-sm font-medium text-slate-300 mb-2">Display Order</label>
-                    <input
-  type="number"
-  value={formData.displayOrder === 0 ? "" : formData.displayOrder}
-  onChange={(e) => {
-    const val = e.target.value;
-
-    setFormData({
-      ...formData,
-      displayOrder: val === "" ? 0 : Number(val),
-    });
-  }}
-   className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
-/>
-                    </div>
+                   
                   </div>
                   
                   <div>
@@ -1284,7 +1285,7 @@ const handleSubmit = async (e: React.FormEvent) => {
       </label>
       <input
         type="number"
-        value={formData.displayOrder || 0}
+        value={formData.displayOrder}
         onChange={(e) => {
           const val = e.target.value;
           setFormData({
@@ -1445,179 +1446,223 @@ const handleSubmit = async (e: React.FormEvent) => {
       )}
 
       {/* View Details Modal - UPDATED WITH DELETE BUTTON */}
-      {viewingBrand && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-50 flex items-center justify-center p-2">
-          <div className="bg-gradient-to-br from-slate-900 via-slate-900 to-slate-800 border border-violet-500/20 rounded-3xl max-w-4xl w-full max-h-[90vh] overflow-hidden shadow-2xl shadow-violet-500/10">
-            <div className="p-2 border-b border-violet-500/20 bg-gradient-to-r from-violet-500/10 to-cyan-500/10">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h2 className="text-2xl font-bold bg-gradient-to-r from-violet-400 via-cyan-400 to-pink-400 bg-clip-text text-transparent">
-                    Brand Details
-                  </h2>
-                  <p className="text-slate-400 text-sm mt-1">View brand information</p>
+{viewingBrand && (
+  <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-50 flex items-center justify-center p-4">
+    <div className="bg-gradient-to-br from-slate-900 via-slate-900 to-slate-800 border border-violet-500/20 rounded-2xl max-w-4xl w-full max-h-[90vh] flex flex-col shadow-2xl shadow-violet-500/10">
+      
+      {/* ========== FIXED HEADER WITH IMAGE ========== */}
+      <div className="p-4 border-b border-violet-500/20 bg-gradient-to-r from-violet-500/10 to-cyan-500/10 rounded-t-2xl shrink-0">
+        <div className="flex items-center gap-4">
+          {/* Brand Logo */}
+          {viewingBrand.logoUrl ? (
+            <div 
+              className="w-14 h-14 rounded-lg overflow-hidden border-2 border-violet-500/30 cursor-pointer hover:border-violet-500 transition-all shrink-0"
+              onClick={() => setSelectedImageUrl(getImageUrl(viewingBrand.logoUrl))}
+            >
+              <img
+                src={getImageUrl(viewingBrand.logoUrl)}
+                alt={viewingBrand.name}
+                className="w-full h-full object-cover hover:scale-105 transition-transform"
+              />
+            </div>
+          ) : (
+            <div className="w-14 h-14 rounded-lg bg-gradient-to-br from-violet-500 to-pink-500 flex items-center justify-center shrink-0">
+              <svg className="h-7 w-7 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+              </svg>
+            </div>
+          )}
+
+          {/* Title & Subtitle */}
+          <div className="flex-1 min-w-0">
+            <h2 className="text-xl font-bold bg-gradient-to-r from-violet-400 via-cyan-400 to-pink-400 bg-clip-text text-transparent truncate">
+              {viewingBrand.name}
+            </h2>
+            <p className="text-slate-400 text-xs mt-0.5">View brand information</p>
+          </div>
+
+          {/* Close Button */}
+          <button
+            onClick={() => setViewingBrand(null)}
+            className="p-2 text-slate-400 hover:text-white hover:bg-red-500/20 border border-transparent hover:border-red-500/50 rounded-lg transition-all shrink-0"
+            title="Close"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+      </div>
+
+      {/* ========== SCROLLABLE CONTENT ========== */}
+      <div className="flex-1 overflow-y-auto p-4">
+        <div className="space-y-4">
+          
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            {/* Basic Info */}
+            <div className="bg-slate-800/30 p-4 rounded-xl border border-slate-700/50">
+              <h3 className="text-base font-bold text-white mb-3 flex items-center gap-2">
+                <span className="w-7 h-7 rounded-lg bg-gradient-to-br from-violet-500 to-cyan-500 flex items-center justify-center text-xs">ℹ</span>
+                Basic Information
+              </h3>
+              <div className="space-y-3">
+                <div className="bg-slate-900/50 p-3 rounded-lg">
+                  <p className="text-xs text-slate-400 mb-1">Name</p>
+                  <p className="text-base font-bold text-white">{viewingBrand.name}</p>
                 </div>
-                <button
-                  onClick={() => setViewingBrand(null)}
-                  className="p-2 text-slate-400 hover:text-white hover:bg-red-800 rounded-lg transition-all"
-                >
-                  ✕
-                </button>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="bg-slate-900/50 p-3 rounded-lg">
+                    <p className="text-xs text-slate-400 mb-1">Slug</p>
+                    <p className="text-white text-sm font-mono break-all">{viewingBrand.slug}</p>
+                  </div>
+                  <div className="bg-slate-900/50 p-3 rounded-lg">
+                    <p className="text-xs text-slate-400 mb-1">Display Order</p>
+                    <p className="text-white font-semibold">{viewingBrand.displayOrder}</p>
+                  </div>
+                </div>
+                <div className="bg-slate-900/50 p-3 rounded-lg">
+                  <p className="text-xs text-slate-400 mb-1">Description</p>
+                  {viewingBrand.description ? (
+                    <div
+                      className="text-white text-sm prose prose-invert prose-sm max-w-none"
+                      dangerouslySetInnerHTML={{ __html: viewingBrand.description }}
+                    />
+                  ) : (
+                    <p className="text-slate-500 text-sm italic">No description</p>
+                  )}
+                </div>
               </div>
             </div>
 
-            <div className="p-2 overflow-y-auto max-h-[calc(90vh-120px)]">
+            {/* SEO Info */}
+            <div className="bg-slate-800/30 p-4 rounded-xl border border-slate-700/50">
+              <h3 className="text-base font-bold text-white mb-3 flex items-center gap-2">
+                <span className="w-7 h-7 rounded-lg bg-gradient-to-br from-emerald-500 to-green-500 flex items-center justify-center text-xs">🔍</span>
+                SEO Information
+              </h3>
+              <div className="space-y-3">
+                <div className="bg-slate-900/50 p-3 rounded-lg">
+                  <p className="text-xs text-slate-400 mb-1">Meta Title</p>
+                  <p className="text-white text-sm">{viewingBrand.metaTitle || <span className="text-slate-500 italic">Not set</span>}</p>
+                </div>
+                <div className="bg-slate-900/50 p-3 rounded-lg">
+                  <p className="text-xs text-slate-400 mb-1">Meta Description</p>
+                  <p className="text-white text-sm">{viewingBrand.metaDescription || <span className="text-slate-500 italic">Not set</span>}</p>
+                </div>
+                <div className="bg-slate-900/50 p-3 rounded-lg">
+                  <p className="text-xs text-slate-400 mb-1">Meta Keywords</p>
+                  <p className="text-white text-sm">{viewingBrand.metaKeywords || <span className="text-slate-500 italic">Not set</span>}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            {/* Statistics */}
+            <div className="bg-gradient-to-br from-violet-500/10 to-cyan-500/10 border border-violet-500/20 rounded-xl p-4">
+              <h3 className="text-base font-bold text-white mb-3">Statistics</h3>
               <div className="space-y-2">
-                {/* Image Section - UPDATED WITH DELETE BUTTON */}
-                {viewingBrand.logoUrl && (
-                  <div className="flex justify-center mb-4">
-                    <div className="relative">
-                      <div className="w-32 h-32 rounded-xl overflow-hidden border-2 border-violet-500/20 cursor-pointer hover:border-violet-500/50 transition-all">
-                        <img
-                          src={getImageUrl(viewingBrand.logoUrl)}
-                          alt={viewingBrand.name}
-                          className="w-full h-full object-cover hover:scale-105 transition-transform"
-                          onClick={() => setSelectedImageUrl(getImageUrl(viewingBrand.logoUrl))}
-                        />
-                      </div>
-
-                    </div>
-                  </div>
-                )}
-
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                  {/* Basic Info */}
-                  <div className="bg-slate-800/30 p-2 rounded-xl border border-slate-700/50">
-                    <h3 className="text-lg font-bold text-white mb-3 flex items-center gap-2">
-                      <span className="w-8 h-8 rounded-lg bg-gradient-to-br from-violet-500 to-cyan-500 flex items-center justify-center text-sm">ℹ</span>
-                      Basic Information
-                    </h3>
-                    <div className="space-y-1">
-                      <div className="bg-slate-900/50 p-3 rounded-lg">
-                        <p className="text-xs text-slate-400 mb-1">Name</p>
-                        <p className="text-lg font-bold text-white">{viewingBrand.name}</p>
-                      </div>
-                      <div className="grid grid-cols-2 gap-3">
-                        <div className="bg-slate-900/50 p-3 rounded-lg">
-                          <p className="text-xs text-slate-400 mb-1">Slug</p>
-                          <p className="text-white text-sm font-mono">{viewingBrand.slug}</p>
-                        </div>
-                        <div className="bg-slate-900/50 p-3 rounded-lg">
-                          <p className="text-xs text-slate-400 mb-1">Display Order</p>
-                          <p className="text-white font-semibold">{viewingBrand.displayOrder}</p>
-                        </div>
-                      </div>
-                    <div className="bg-slate-900/50 p-3 rounded-lg">
-  <p className="text-xs text-slate-400 mb-1">Description</p>
-  {viewingBrand.description ? (
-    <div
-      className="text-white text-sm prose prose-invert max-w-none"
-      dangerouslySetInnerHTML={{ __html: viewingBrand.description }}
-    />
-  ) : (
-    <p className="text-white text-sm">No description</p>
-  )}
-</div>
-
-                    </div>
-                  </div>
-
-                  {/* SEO Info */}
-                  <div className="bg-slate-800/30 p-2 rounded-xl border border-slate-700/50">
-                    <h3 className="text-lg font-bold text-white mb-3 flex items-center gap-2">
-                      <span className="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-500 to-green-500 flex items-center justify-center text-sm">🔍</span>
-                      SEO Information
-                    </h3>
-                    <div className="space-y-1">
-                      <div className="bg-slate-900/50 p-3 rounded-lg">
-                        <p className="text-xs text-slate-400 mb-1">Meta Title</p>
-                        <p className="text-white text-sm">{viewingBrand.metaTitle || 'Not set'}</p>
-                      </div>
-                      <div className="bg-slate-900/50 p-3 rounded-lg">
-                        <p className="text-xs text-slate-400 mb-1">Meta Description</p>
-                        <p className="text-white text-sm">{viewingBrand.metaDescription || 'Not set'}</p>
-                      </div>
-                      <div className="bg-slate-900/50 p-3 rounded-lg">
-                        <p className="text-xs text-slate-400 mb-1">Meta Keywords</p>
-                        <p className="text-white text-sm">{viewingBrand.metaKeywords || 'Not set'}</p>
-                      </div>
-                    </div>
-                  </div>
+                <div className="bg-slate-900/50 p-3 rounded-lg flex items-center justify-between">
+                  <span className="text-slate-300 text-sm">Products</span>
+                  <span className="text-xl font-bold text-white">{viewingBrand.productCount || 0}</span>
                 </div>
-
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                  {/* Statistics */}
-                  <div className="bg-gradient-to-br from-violet-500/10 to-cyan-500/10 border border-violet-500/20 rounded-xl p-2">
-                    <h3 className="text-lg font-bold text-white mb-3">Statistics</h3>
-                    <div className="space-y-2">
-                      <div className="bg-slate-900/50 p-3 rounded-lg flex items-center justify-between">
-                        <span className="text-slate-300 text-sm">Products</span>
-                        <span className="text-xl font-bold text-white">{viewingBrand.productCount}</span>
-                      </div>
-                      <div className="bg-slate-900/50 p-3 rounded-lg flex items-center justify-between">
-                        <span className="text-slate-300 text-sm">Status</span>
-                        <span className={`px-2 py-1 rounded text-xs font-semibold ${
-                          viewingBrand.isPublished ? 'bg-green-500/10 text-green-400' : 'bg-red-500/10 text-red-400'
-                        }`}>
-                          {viewingBrand.isPublished ? 'Published' : 'Unpublished'}
-                        </span>
-                      </div>
-                      <div className="bg-slate-900/50 p-3 rounded-lg flex items-center justify-between">
-                        <span className="text-slate-300 text-sm">Homepage</span>
-                        <span className={`px-2 py-1 rounded text-xs font-semibold ${
-                          viewingBrand.showOnHomepage ? 'bg-violet-500/10 text-violet-400' : 'bg-slate-500/10 text-slate-400'
-                        }`}>
-                          {viewingBrand.showOnHomepage ? 'Yes' : 'No'}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Activity */}
-                  <div className="bg-slate-800/30 p-2 rounded-xl border border-slate-700/50">
-                    <h3 className="text-lg font-bold text-white mb-3">Activity</h3>
-                    <div className="space-y-2">
-                      <div className="bg-slate-900/50 p-2 rounded-lg">
-                        <p className="text-xs text-slate-400 mb-1">Created At</p>
-                        <p className="text-white text-xs">{viewingBrand.createdAt ? new Date(viewingBrand.createdAt).toLocaleString() : 'N/A'}</p>
-                      </div>
-                      <div className="bg-slate-900/50 p-2 rounded-lg">
-                        <p className="text-xs text-slate-400 mb-1">Created By</p>
-                        <p className="text-white text-xs">{viewingBrand.createdBy || 'N/A'}</p>
-                      </div>
-                      <div className="bg-slate-900/50 p-2 rounded-lg">
-                        <p className="text-xs text-slate-400 mb-1">Updated At</p>
-                        <p className="text-white text-xs">{viewingBrand.updatedAt ? new Date(viewingBrand.updatedAt).toLocaleString() : 'N/A'}</p>
-                      </div>
-                      <div className="bg-slate-900/50 p-2 rounded-lg">
-                        <p className="text-xs text-slate-400 mb-1">Updated By</p>
-                        <p className="text-white text-xs">{viewingBrand.updatedBy || 'N/A'}</p>
-                      </div>
-                    </div>
-                  </div>
+                <div className="bg-slate-900/50 p-3 rounded-lg flex items-center justify-between">
+                  <span className="text-slate-300 text-sm">Status</span>
+                  <span className={`px-2.5 py-1 rounded-lg text-xs font-semibold flex items-center gap-1.5 ${
+                    viewingBrand.isPublished 
+                      ? 'bg-green-500/10 text-green-400 border border-green-500/20' 
+                      : 'bg-red-500/10 text-red-400 border border-red-500/20'
+                  }`}>
+                    <span className={`w-1.5 h-1.5 rounded-full ${viewingBrand.isPublished ? 'bg-green-400' : 'bg-red-400'}`}></span>
+                    {viewingBrand.isPublished ? 'Published' : 'Unpublished'}
+                  </span>
                 </div>
+                <div className="bg-slate-900/50 p-3 rounded-lg flex items-center justify-between">
+                  <span className="text-slate-300 text-sm">Homepage</span>
+                  <span className={`px-2.5 py-1 rounded-lg text-xs font-semibold flex items-center gap-1.5 ${
+                    viewingBrand.showOnHomepage 
+                      ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/20' 
+                      : 'bg-slate-500/10 text-slate-400 border border-slate-500/20'
+                  }`}>
+                    {viewingBrand.showOnHomepage ? (
+                      <>
+                        <CheckCircle className="h-3.5 w-3.5" />
+                        Featured
+                      </>
+                    ) : (
+                      'Not Featured'
+                    )}
+                  </span>
+                </div>
+              </div>
+            </div>
 
-                <div className="flex justify-end gap-3 pt-2 border-t border-slate-700/50">
-                  <button
-                    onClick={() => {
-                      setViewingBrand(null);
-                      handleEdit(viewingBrand);
-                    }}
-                    className="px-4 py-2 bg-cyan-500 text-white rounded-lg hover:bg-cyan-600 transition-all font-medium text-sm"
-                  >
-                    Edit Brand
-                  </button>
-                  <button
-                    onClick={() => setViewingBrand(null)}
-                    className="px-4 py-2 bg-slate-800 text-white rounded-lg hover:bg-slate-700 transition-all font-medium text-sm"
-                  >
-                    Close
-                  </button>
+            {/* Activity */}
+            <div className="bg-slate-800/30 p-4 rounded-xl border border-slate-700/50">
+              <h3 className="text-base font-bold text-white mb-3">Activity Timeline</h3>
+              <div className="space-y-2">
+                <div className="bg-slate-900/50 p-2.5 rounded-lg">
+                  <p className="text-xs text-slate-400 mb-1">Created At</p>
+                  <p className="text-white text-xs font-medium">
+                    {viewingBrand.createdAt ? new Date(viewingBrand.createdAt).toLocaleString('en-GB', {
+                      day: '2-digit',
+                      month: 'short',
+                      year: 'numeric',
+                      hour: '2-digit',
+                      minute: '2-digit'
+                    }) : 'N/A'}
+                  </p>
+                </div>
+                <div className="bg-slate-900/50 p-2.5 rounded-lg">
+                  <p className="text-xs text-slate-400 mb-1">Created By</p>
+                  <p className="text-white text-xs font-medium">{viewingBrand.createdBy || 'N/A'}</p>
+                </div>
+                <div className="bg-slate-900/50 p-2.5 rounded-lg">
+                  <p className="text-xs text-slate-400 mb-1">Updated At</p>
+                  <p className="text-white text-xs font-medium">
+                    {viewingBrand.updatedAt ? new Date(viewingBrand.updatedAt).toLocaleString('en-GB', {
+                      day: '2-digit',
+                      month: 'short',
+                      year: 'numeric',
+                      hour: '2-digit',
+                      minute: '2-digit'
+                    }) : 'N/A'}
+                  </p>
+                </div>
+                <div className="bg-slate-900/50 p-2.5 rounded-lg">
+                  <p className="text-xs text-slate-400 mb-1">Updated By</p>
+                  <p className="text-white text-xs font-medium">{viewingBrand.updatedBy || 'N/A'}</p>
                 </div>
               </div>
             </div>
           </div>
         </div>
-      )}
+      </div>
+
+      {/* ========== FIXED FOOTER ========== */}
+      <div className="p-4 border-t border-slate-700/50 bg-slate-800/30 rounded-b-2xl shrink-0">
+        <div className="flex justify-end gap-2">
+          <button
+            onClick={() => setViewingBrand(null)}
+            className="px-4 py-2.5 bg-slate-800 text-white text-sm rounded-lg hover:bg-slate-700 transition-all font-medium flex items-center gap-2"
+          >
+            <X className="h-4 w-4" />
+            Close
+          </button>
+          <button
+            onClick={() => {
+              setViewingBrand(null);
+              handleEdit(viewingBrand);
+            }}
+            className="px-4 py-2.5 bg-gradient-to-r from-cyan-500 to-blue-500 text-white text-sm rounded-lg hover:shadow-lg transition-all font-semibold flex items-center gap-2"
+          >
+            <Edit className="h-4 w-4" />
+            Edit Brand
+          </button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+)}
 
       {/* Brand Delete Confirmation Dialog */}
       <ConfirmDialog

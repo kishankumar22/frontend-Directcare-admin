@@ -106,20 +106,48 @@ const getMaxDepthOfSubtree = (category: Category, allCategories: Category[]): nu
     fetchCategories();
   }, []);
 
-  const fetchCategories = async () => {
-    try {
-      const response = await categoriesService.getAll({
-        params: { includeInactive: true, includeSubCategories: true }
-      });
-      const categoriesData = response.data?.data || [];
-      setCategories([...categoriesData]);
-      calculateStats(categoriesData);
-    } catch (error) {
-      console.error("Error fetching categories:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
+const fetchCategories = async () => {
+  try {
+    const response = await categoriesService.getAll({
+      params: { includeInactive: true, includeSubCategories: true }
+    });
+    
+    const categoriesData = response.data?.data || [];
+    
+    // ✅ Recursive function to sort categories and subcategories
+    const sortRecursive = (cats: Category[]): Category[] => {
+      return cats
+        .map(cat => ({
+          ...cat,
+          // ✅ Fixed: Check if subCategories exists and has length
+          subCategories: cat.subCategories && cat.subCategories.length > 0 
+            ? sortRecursive(cat.subCategories) 
+            : (cat.subCategories || []) // ✅ Fixed: Default to empty array if undefined
+        }))
+        .sort((a, b) => {
+          // Active categories first
+          if (a.isActive !== b.isActive) {
+            return a.isActive ? -1 : 1;
+          }
+          // Then by creation date (newest first)
+          const dateA = new Date(a.createdAt || 0).getTime();
+          const dateB = new Date(b.createdAt || 0).getTime();
+          return dateB - dateA;
+        });
+    };
+    
+    const sortedCategories = sortRecursive(categoriesData);
+    
+    setCategories([...sortedCategories]);
+    calculateStats(sortedCategories);
+    
+  } catch (error) {
+    console.error("Error fetching categories:", error);
+  } finally {
+    setLoading(false);
+  }
+};
+
 
   const calculateStats = (categoriesData: Category[]) => {
     const totalCategories = categoriesData.length;
@@ -295,25 +323,27 @@ const handleSubmit = async (e: React.FormEvent) => {
   // ============================================
   // 1. NAME VALIDATION (Industry Standard)
   // ============================================
-  
-  const name = formData.name.trim();
+const name = formData.name?.trim();
 
-  // Empty & whitespace check
-  if (!name || name.length === 0 || /^\s+$/.test(formData.name)) {
-    toast.error("❌ Category name is required and cannot be only spaces");
-    return;
-  }
+if (!name) {
+  toast.error("❌ Category name is required");
+  return;
+}
+
+const CATEGORY_NAME_REGEX = /^[A-Za-z0-9\s,()&'’\-]+$/;
+
+if (!CATEGORY_NAME_REGEX.test(name)) {
+  toast.error(
+    "❌ Category name may contain letters, numbers, spaces, commas (,), &, -, ' and () only"
+  );
+  return;
+}
+
+
 
   // Length validation
   if (name.length < 3 || name.length > 100) {
     toast.error(`❌ Category name must be between 3 and 100 characters. Current: ${name.length}`);
-    return;
-  }
-
-  // Character validation (alphanumeric + safe special chars)
-  const nameRegex = /^[A-Za-z0-9\s\-&/()]+$/;
-  if (!nameRegex.test(name)) {
-    toast.error("❌ Category name can only contain letters, numbers, spaces, -, &, /, ()");
     return;
   }
 
@@ -337,10 +367,10 @@ const handleSubmit = async (e: React.FormEvent) => {
 const description = formData.description.trim();
 
 // Single check handles both empty and min length
-if (description.length < 10) {
-  toast.error(`❌ Description must be at least 10 characters. Current: ${description.length}`);
-  return;
-}
+// if (description.length < 10) {
+//   toast.error(`❌ Description must be at least 10 characters. Current: ${description.length}`);
+//   return;
+// }
 
 // Max length
 if (description.length > 1000) {
@@ -505,12 +535,12 @@ if (description.length > 1000) {
   // ============================================
   
   if (imageFile) {
-    const allowedTypes = ['image/webp'];
+    const allowedTypes = ['image/webp', 'image/jpeg', 'image/png'];
     const maxSize = 10 * 1024 * 1024; // 10MB
 
     // Type validation
     if (!allowedTypes.includes(imageFile.type)) {
-      toast.error("❌ Only WebP images are allowed");
+      toast.error("❌ Only WebP, JPEG, and PNG images are allowed");
       return;
     }
 
@@ -806,411 +836,402 @@ const getParentCategoryOptions = () => {
     setImageDeleteConfirm: (data: any) => void;
   };
 
-  const CategoryRow: React.FC<CategoryRowProps> = ({
-    category,
-    level,
-    allCategories,
-    expandedCategories,
-    onToggleExpand,
-    onEdit,
-    onDelete,
-    onView,
-    onAddSubcategory,
-    getImageUrl,
-    setImageDeleteConfirm,
-  }) => {
-    const hasChildren = category.subCategories && category.subCategories.length > 0;
-    const isExpanded = expandedCategories.has(category.id);
-    const isInactive = !category.isActive;
-    const indent = level * 32;
+const CategoryRow: React.FC<CategoryRowProps> = ({
+  category,
+  level,
+  allCategories,
+  expandedCategories,
+  onToggleExpand,
+  onEdit,
+  onDelete,
+  onView,
+  onAddSubcategory,
+  getImageUrl,
+  setImageDeleteConfirm,
+}) => {
+  const hasChildren = category.subCategories && category.subCategories.length > 0;
+  const isExpanded = expandedCategories.has(category.id);
+  const isInactive = !category.isActive;
+  const indent = level * 24; // ✅ Reduced from 32 to 24
 
-    const MAX_LEVEL = 2;
-    const canAddSubcategory = level < MAX_LEVEL;
+  const MAX_LEVEL = 2;
+  const canAddSubcategory = level < MAX_LEVEL;
 
-    const levelColors = [
-      "from-violet-500 to-cyan-500",
-      "from-cyan-500 to-blue-500",
-      "from-blue-500 to-indigo-500",
-    ];
-    const colorClass = levelColors[Math.min(level, 2)] || "from-gray-500 to-gray-600";
+  return (
+    <tr
+      className={`border-b border-slate-800 transition-all ${
+        level === 0 ? "bg-slate-800/10" : ""
+      } ${
+        isInactive
+          ? "opacity-50 hover:opacity-60 grayscale-30"
+          : "hover:bg-slate-800/30"
+      }`}
+    >
+      {/* ✅ REDUCED PADDING: py-4 → py-2.5, px-4 → px-3 */}
+      <td className="py-2.5 px-3">
+        <div className="flex items-center gap-2" style={{ paddingLeft: `${indent}px` }}>
+          {hasChildren ? (
+            <button
+              onClick={() => onToggleExpand(category.id)}
+              className={`p-1 rounded-lg transition-all shrink-0 ${
+                isInactive
+                  ? "hover:bg-slate-700/30 cursor-not-allowed"
+                  : "hover:bg-slate-700/50"
+              }`}
+              disabled={isInactive}
+              title={
+                isInactive
+                  ? "Inactive category"
+                  : isExpanded
+                  ? "Collapse"
+                  : "Expand"
+              }
+            >
+              {isExpanded ? (
+                <ChevronDown
+                  className={`h-4 w-4 ${
+                    isInactive ? "text-slate-600" : "text-violet-400"
+                  }`}
+                />
+              ) : (
+                <ChevronRightIcon
+                  className={`h-4 w-4 ${
+                    isInactive ? "text-slate-600" : "text-slate-400"
+                  }`}
+                />
+              )}
+            </button>
+          ) : (
+            <div className="w-6 shrink-0"></div>
+          )}
 
-    return (
-      <tr
-        className={`border-b border-slate-800 transition-all ${
-          level === 0 ? "bg-slate-800/10" : ""
-        } ${
-          isInactive
-            ? "opacity-50 hover:opacity-60 grayscale-30"
-            : "hover:bg-slate-800/30"
-        }`}
-      >
-        <td className="py-4 px-4">
-          <div className="flex items-center gap-3" style={{ paddingLeft: `${indent}px` }}>
-            {hasChildren ? (
-              <button
-                onClick={() => onToggleExpand(category.id)}
-                className={`p-1.5 rounded-lg transition-all shrink-0 ${
-                  isInactive
-                    ? "hover:bg-slate-700/30 cursor-not-allowed"
-                    : "hover:bg-slate-700/50"
-                }`}
-                disabled={isInactive}
-                title={
-                  isInactive
-                    ? "Inactive category"
-                    : isExpanded
-                    ? "Collapse"
-                    : "Expand"
+          {level > 0 && (
+            <div className="flex items-center shrink-0 -ml-3 mr-1" style={{ width: "24px", height: "32px" }}>
+              <div className="relative w-full h-full">
+                <div
+                  className={`absolute left-2 top-0 w-px h-1/2 bg-gradient-to-b ${
+                    isInactive
+                      ? "from-slate-600/30 to-slate-600/40"
+                      : "from-cyan-500/40 to-cyan-500/60"
+                  }`}
+                ></div>
+                <div
+                  className={`absolute left-2 top-1/2 w-2.5 h-px bg-gradient-to-r ${
+                    isInactive
+                      ? "from-slate-600/40 to-slate-600/30"
+                      : "from-cyan-500/60 to-cyan-500/40"
+                  }`}
+                ></div>
+                <div
+                  className={`absolute left-5 top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full ${
+                    isInactive ? "bg-slate-600/40" : "bg-cyan-400/60"
+                  }`}
+                ></div>
+              </div>
+            </div>
+          )}
+
+          {/* ✅ REDUCED IMAGE SIZE: w-10 h-10 → w-8 h-8 */}
+          {category.imageUrl ? (
+            <div
+              className={`w-8 h-8 rounded-lg overflow-hidden border cursor-pointer transition-all shrink-0 relative ${
+                isInactive 
+                  ? 'border-slate-700/50 hover:ring-1 hover:ring-slate-600' 
+                  : 'border-slate-700 hover:ring-2 hover:ring-violet-500'
+              }`}
+              onClick={(e) => {
+                e.stopPropagation();
+                if (!isInactive) {
+                  setSelectedImageUrl(getImageUrl(category.imageUrl));
                 }
-              >
-                {isExpanded ? (
-                  <ChevronDown
-                    className={`h-4 w-4 ${
-                      isInactive ? "text-slate-600" : "text-violet-400"
-                    }`}
-                  />
-                ) : (
-                  <ChevronRightIcon
-                    className={`h-4 w-4 ${
-                      isInactive ? "text-slate-600" : "text-slate-400"
-                    }`}
-                  />
-                )}
-              </button>
-            ) : (
-              <div className="w-7 shrink-0"></div>
-            )}
-
-            {level > 0 && (
-              <div className="flex items-center shrink-0 -ml-4 mr-1" style={{ width: "28px", height: "40px" }}>
-                <div className="relative w-full h-full">
-                  <div
-                    className={`absolute left-3 top-0 w-px h-1/2 bg-gradient-to-b ${
-                      isInactive
-                        ? "from-slate-600/30 to-slate-600/40"
-                        : "from-cyan-500/40 to-cyan-500/60"
-                    }`}
-                  ></div>
-                  <div
-                    className={`absolute left-3 top-1/2 w-3 h-px bg-gradient-to-r ${
-                      isInactive
-                        ? "from-slate-600/40 to-slate-600/30"
-                        : "from-cyan-500/60 to-cyan-500/40"
-                    }`}
-                  ></div>
-                  <div
-                    className={`absolute left-6 top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full ${
-                      isInactive ? "bg-slate-600/40" : "bg-cyan-400/60"
-                    }`}
-                  ></div>
+              }}
+            >
+              <img
+                src={getImageUrl(category.imageUrl)}
+                alt={category.name}
+                className={`w-full h-full object-cover ${isInactive ? 'grayscale' : ''}`}
+                onError={(e) => {
+                  e.currentTarget.style.display = 'none';
+                }}
+              />
+              
+              {isInactive && (
+                <div className="absolute inset-0 bg-slate-900/60 flex items-center justify-center">
+                  <svg className="h-4 w-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 715.636 5.636m12.728 12.728L5.636 5.636" />
+                  </svg>
                 </div>
-              </div>
-            )}
+              )}
+            </div>
+          ) : (
+            <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
+              isInactive 
+                ? 'bg-slate-700/50' 
+                : 'bg-gradient-to-br from-violet-500 to-pink-500'
+            }`}>
+              <FolderTree className={`h-4 w-4 ${isInactive ? 'text-slate-500' : 'text-white'}`} />
+            </div>
+          )}
 
-{category.imageUrl ? (
-  <div
-    className={`w-10 h-10 rounded-lg overflow-hidden border cursor-pointer transition-all shrink-0 relative ${
-      isInactive 
-        ? 'border-slate-700/50 hover:ring-1 hover:ring-slate-600' 
-        : 'border-slate-700 hover:ring-2 hover:ring-violet-500'
-    }`}
-    onClick={(e) => {
-      e.stopPropagation(); // ⚡ IMPORTANT: Prevent parent row click
-      if (!isInactive) {
-        setSelectedImageUrl(getImageUrl(category.imageUrl));
-      }
-    }}
-  >
-    <img
-      src={getImageUrl(category.imageUrl)}
-      alt={category.name}
-      className={`w-full h-full object-cover ${isInactive ? 'grayscale' : ''}`}
-      onError={(e) => {
-        e.currentTarget.style.display = 'none';
-      }}
-    />
-    
-    {/* Inactive overlay icon */}
-    {isInactive && (
-      <div className="absolute inset-0 bg-slate-900/60 flex items-center justify-center">
-        <svg className="h-5 w-5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 715.636 5.636m12.728 12.728L5.636 5.636" />
-        </svg>
-      </div>
-    )}
-  </div>
-) : (
-  <div className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${
-    isInactive 
-      ? 'bg-slate-700/50' 
-      : 'bg-gradient-to-br from-violet-500 to-pink-500'
-  }`}>
-    <FolderTree className={`h-5 w-5 ${isInactive ? 'text-slate-500' : 'text-white'}`} />
-  </div>
-)}
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <p
+                className={`font-medium text-sm cursor-pointer transition-colors ${
+                  isInactive
+                    ? "text-slate-500 hover:text-slate-400"
+                    : "text-white hover:text-violet-400"
+                }`}
+                onClick={() => onView(category)}
+              >
+                {category.name}
+              </p>
 
+              <span
+                className={`shrink-0 px-1.5 py-0.5 rounded text-xs font-medium border ${
+                  isInactive
+                    ? "bg-slate-700/50 text-slate-600 border-slate-600/50"
+                    : "bg-slate-700/50 text-slate-400 border-slate-600/50"
+                }`}
+              >
+                L{level + 1}
+              </span>
 
-            <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-2 flex-wrap">
-                <p
-                  className={`font-medium cursor-pointer transition-colors ${
-                    isInactive
-                      ? "text-slate-500 hover:text-slate-400"
-                      : "text-white hover:text-violet-400"
-                  }`}
-                  onClick={() => onView(category)}
-                >
-                  {category.name}
-                </p>
-
+              {hasChildren && (
                 <span
-                  className={`shrink-0 px-2 py-0.5 rounded-md text-xs font-medium border ${
+                  className={`shrink-0 px-1.5 py-0.5 rounded text-xs font-medium border ${
                     isInactive
-                      ? "bg-slate-700/50 text-slate-600 border-slate-600/50"
-                      : "bg-slate-700/50 text-slate-400 border-slate-600/50"
+                      ? "bg-slate-700/50 text-slate-500 border-slate-600/50"
+                      : "bg-violet-500/10 text-violet-400 border-violet-500/20"
                   }`}
                 >
-                  L{level + 1}
+                  {category.subCategories?.length} sub
                 </span>
+              )}
 
-                {hasChildren && (
-                  <span
-                    className={`shrink-0 px-2 py-0.5 rounded-md text-xs font-medium border ${
-                      isInactive
-                        ? "bg-slate-700/50 text-slate-500 border-slate-600/50"
-                        : "bg-violet-500/10 text-violet-400 border-violet-500/20"
-                    }`}
-                  >
-                    {category.subCategories?.length} sub
+              {isInactive && (
+                <span className="shrink-0 px-1.5 py-0.5 bg-amber-500/10 text-amber-500 rounded text-xs font-medium border border-amber-500/20 flex items-center gap-1">
+                  <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 715.636 5.636m12.728 12.728L5.636 5.636" />
+                  </svg>
+                  Archived
+                </span>
+              )}
+            </div>
+
+            {/* ✅ REDUCED GAP & MARGIN: gap-2 → gap-1.5, mt-1 → mt-0.5 */}
+            <div className="flex items-center gap-1.5 mt-0.5">
+              {category.parentCategoryName ? (
+                <div className="flex items-center gap-1">
+                  <svg className={`h-3 w-3 ${isInactive ? "text-slate-600" : "text-slate-500"}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
+                  </svg>
+                  <span className={`text-xs ${isInactive ? "text-slate-600" : "text-slate-400"}`}>
+                    in
                   </span>
-                )}
-
-                {isInactive && (
-                  <span className="shrink-0 px-2 py-0.5 bg-amber-500/10 text-amber-500 rounded-md text-xs font-medium border border-amber-500/20 flex items-center gap-1">
-                    <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 715.636 5.636m12.728 12.728L5.636 5.636" />
-                    </svg>
-                    Archived
+                  <span className={`text-xs font-medium ${isInactive ? "text-slate-600" : "text-cyan-400"}`}>
+                    {category.parentCategoryName}
                   </span>
-                )}
-              </div>
-
-              <div className="flex items-center gap-2 mt-1">
-                {category.parentCategoryName ? (
-                  <div className="flex items-center gap-1.5">
-                    <svg className={`h-3 w-3 ${isInactive ? "text-slate-600" : "text-slate-500"}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
-                    </svg>
-                    <span className={`text-xs ${isInactive ? "text-slate-600" : "text-slate-400"}`}>
-                      in
-                    </span>
-                    <span className={`text-xs font-medium ${isInactive ? "text-slate-600" : "text-cyan-400"}`}>
-                      {category.parentCategoryName}
-                    </span>
-                    <span className={`text-xs ${isInactive ? "text-slate-700" : "text-slate-600"}`}>•</span>
-                    <span className={`text-xs ${isInactive ? "text-slate-600" : "text-slate-500"}`}>
-                      {category.slug}
-                    </span>
-                  </div>
-                ) : (
+                  <span className={`text-xs ${isInactive ? "text-slate-700" : "text-slate-600"}`}>•</span>
                   <span className={`text-xs ${isInactive ? "text-slate-600" : "text-slate-500"}`}>
                     {category.slug}
                   </span>
-                )}
-              </div>
+                </div>
+              ) : (
+                <span className={`text-xs ${isInactive ? "text-slate-600" : "text-slate-500"}`}>
+                  {category.slug}
+                </span>
+              )}
             </div>
           </div>
-        </td>
+        </div>
+      </td>
 
-        <td className="py-4 px-4 text-center">
-          <span
-            className={`inline-flex items-center px-3 py-1 rounded-lg text-sm font-medium ${
-              isInactive
-                ? "bg-slate-700/30 text-slate-600"
-                : category.productCount > 0
-                ? "bg-cyan-500/10 text-cyan-400"
-                : "bg-slate-700/30 text-slate-500"
-            }`}
-          >
-            {category.productCount}
-          </span>
-        </td>
+      {/* ✅ ALL CELLS: py-4 px-4 → py-2.5 px-3 */}
+      <td className="py-2.5 px-3 text-center">
+        <span
+          className={`inline-flex items-center px-2 py-0.5 rounded-lg text-xs font-medium ${
+            isInactive
+              ? "bg-slate-700/30 text-slate-600"
+              : category.productCount > 0
+              ? "bg-cyan-500/10 text-cyan-400"
+              : "bg-slate-700/30 text-slate-500"
+          }`}
+        >
+          {category.productCount}
+        </span>
+      </td>
 
-        <td className="py-4 px-4 text-center">
+      <td className="py-2.5 px-3 text-center">
+        <span
+          className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-xs font-medium ${
+            category.isActive
+              ? "bg-green-500/10 text-green-400 border border-green-500/20"
+              : "bg-red-500/10 text-red-400 border border-red-500/20"
+          }`}
+        >
           <span
-            className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-medium ${
-              category.isActive
-                ? "bg-green-500/10 text-green-400 border border-green-500/20"
-                : "bg-red-500/10 text-red-400 border border-red-500/20"
+            className={`w-1.5 h-1.5 rounded-full ${
+              category.isActive ? "bg-green-400" : "bg-red-400"
             }`}
-          >
+          ></span>
+          {category.isActive ? "Active" : "Inactive"}
+        </span>
+      </td>
+
+      <td className="py-2.5 px-3 text-center">
+        <span
+          className={`font-mono text-xs ${
+            isInactive ? "text-slate-600" : "text-slate-300"
+          }`}
+        >
+          {category.sortOrder}
+        </span>
+      </td>
+
+      <td className="py-2.5 px-3 text-xs">
+        {category.createdAt ? (
+          <div className="flex flex-col">
             <span
-              className={`w-1.5 h-1.5 rounded-full ${
-                category.isActive ? "bg-green-400" : "bg-red-400"
+              className={`font-medium ${
+                isInactive ? "text-slate-600" : "text-slate-300"
               }`}
-            ></span>
-            {category.isActive ? "Active" : "Inactive"}
-          </span>
-        </td>
-
-        <td className="py-4 px-4 text-center">
-          <span
-            className={`font-mono text-sm ${
-              isInactive ? "text-slate-600" : "text-slate-300"
-            }`}
-          >
-            {category.sortOrder}
-          </span>
-        </td>
-
-        <td className="py-4 px-4 text-sm">
-          {category.createdAt ? (
-            <div className="flex flex-col">
-              <span
-                className={`font-medium ${
-                  isInactive ? "text-slate-600" : "text-slate-300"
-                }`}
-              >
-                {new Date(category.createdAt).toLocaleDateString("en-GB", {
-                  day: "2-digit",
-                  month: "short",
-                  year: "numeric",
-                })}
-              </span>
-              <span
-                className={`text-xs ${
-                  isInactive ? "text-slate-700" : "text-slate-500"
-                }`}
-              >
-                {new Date(category.createdAt).toLocaleTimeString("en-GB", {
-                  hour: "2-digit",
-                  minute: "2-digit",
-                })}
-              </span>
-            </div>
-          ) : (
-            "-"
-          )}
-        </td>
-
-        <td className="py-4 px-4 text-sm">
-          {category.updatedAt ? (
-            <div className="flex flex-col">
-              <span
-                className={`font-medium ${
-                  isInactive ? "text-slate-600" : "text-slate-300"
-                }`}
-              >
-                {new Date(category.updatedAt).toLocaleDateString("en-GB", {
-                  day: "2-digit",
-                  month: "short",
-                  year: "numeric",
-                })}
-              </span>
-              <span
-                className={`text-xs ${
-                  isInactive ? "text-slate-700" : "text-slate-500"
-                }`}
-              >
-                {new Date(category.updatedAt).toLocaleTimeString("en-GB", {
-                  hour: "2-digit",
-                  minute: "2-digit",
-                })}
-              </span>
-            </div>
-          ) : (
-            "-"
-          )}
-        </td>
-
-        <td className="py-4 px-4">
-          {category.updatedBy ? (
-            <div className="flex items-center gap-2">
-              <div
-                className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold text-white shrink-0 ${
-                  isInactive
-                    ? "bg-slate-600"
-                    : "bg-gradient-to-br from-violet-500 to-cyan-500"
-                }`}
-              >
-                {category.updatedBy.charAt(0).toUpperCase()}
-              </div>
-              <span
-                className={`text-sm truncate max-w-[150px] ${
-                  isInactive ? "text-slate-600" : "text-slate-300"
-                }`}
-                title={category.updatedBy}
-              >
-                {category.updatedBy}
-              </span>
-            </div>
-          ) : (
-            <span className="text-slate-500 text-sm">-</span>
-          )}
-        </td>
-
-        <td className="py-4 px-4">
-          <div className="flex items-center justify-center gap-2">
-            <button
-              onClick={() => canAddSubcategory && onAddSubcategory(category.id, category.name)}
-              disabled={!canAddSubcategory || isInactive}
-              className={`p-2 rounded-lg transition-all relative z-10 ${
-                canAddSubcategory && !isInactive
-                  ? "text-green-400 hover:bg-green-500/10"
-                  : "text-slate-600 cursor-not-allowed opacity-50"
+            >
+              {new Date(category.createdAt).toLocaleDateString("en-GB", {
+                day: "2-digit",
+                month: "short",
+                year: "numeric",
+              })}
+            </span>
+            <span
+              className={`text-xs ${
+                isInactive ? "text-slate-700" : "text-slate-500"
               }`}
-              style={{ opacity: 1 }}
-              title={
-                !canAddSubcategory
-                  ? "🚫 Maximum 3 levels reached"
-                  : isInactive
-                  ? "Cannot add to inactive category"
-                  : `Add subcategory to ${category.name}`
-              }
             >
-              <Plus className="h-4 w-4" />
-            </button>
-
-            <button
-              onClick={() => onView(category)}
-              className="p-2 text-violet-400 hover:bg-violet-500/10 rounded-lg transition-all relative z-10"
-              style={{ opacity: 1 }}
-              title={isInactive ? "View archived category" : "View details"}
-            >
-              <Eye className="h-4 w-4" />
-            </button>
-
-            <button
-              onClick={() => onEdit(category)}
-              className="p-2 text-cyan-400 hover:bg-cyan-500/10 rounded-lg transition-all relative z-10"
-              style={{ opacity: 1 }}
-              title={isInactive ? "Edit archived category" : "Edit category"}
-            >
-              <Edit className="h-4 w-4" />
-            </button>
-
-            <button
-              onClick={() => !isInactive && onDelete(category.id, category.name)}
-              disabled={isInactive}
-              className={`p-2 rounded-lg transition-all relative z-10 ${
-                isInactive
-                  ? "text-slate-600 cursor-not-allowed"
-                  : "text-red-400 hover:bg-red-500/10"
-              }`}
-              style={{ opacity: 1 }}
-              title={
-                isInactive
-                  ? "Delete disabled for archived categories"
-                  : "Delete category"
-              }
-            >
-              <Trash2 className="h-4 w-4" />
-            </button>
+              {new Date(category.createdAt).toLocaleTimeString("en-GB", {
+                hour: "2-digit",
+                minute: "2-digit",
+              })}
+            </span>
           </div>
-        </td>
-      </tr>
-    );
-  };
+        ) : (
+          "-"
+        )}
+      </td>
+
+      <td className="py-2.5 px-3 text-xs">
+        {category.updatedAt ? (
+          <div className="flex flex-col">
+            <span
+              className={`font-medium ${
+                isInactive ? "text-slate-600" : "text-slate-300"
+              }`}
+            >
+              {new Date(category.updatedAt).toLocaleDateString("en-GB", {
+                day: "2-digit",
+                month: "short",
+                year: "numeric",
+              })}
+            </span>
+            <span
+              className={`text-xs ${
+                isInactive ? "text-slate-700" : "text-slate-500"
+              }`}
+            >
+              {new Date(category.updatedAt).toLocaleTimeString("en-GB", {
+                hour: "2-digit",
+                minute: "2-digit",
+              })}
+            </span>
+          </div>
+        ) : (
+          "-"
+        )}
+      </td>
+
+      <td className="py-2.5 px-3">
+        {category.updatedBy ? (
+          <div className="flex items-center gap-1.5">
+            <div
+              className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold text-white shrink-0 ${
+                isInactive
+                  ? "bg-slate-600"
+                  : "bg-gradient-to-br from-violet-500 to-cyan-500"
+              }`}
+            >
+              {category.updatedBy.charAt(0).toUpperCase()}
+            </div>
+            <span
+              className={`text-xs truncate max-w-[120px] ${
+                isInactive ? "text-slate-600" : "text-slate-300"
+              }`}
+              title={category.updatedBy}
+            >
+              {category.updatedBy}
+            </span>
+          </div>
+        ) : (
+          <span className="text-slate-500 text-xs">-</span>
+        )}
+      </td>
+
+      <td className="py-2.5 px-3">
+        <div className="flex items-center justify-center gap-1.5">
+          <button
+            onClick={() => canAddSubcategory && onAddSubcategory(category.id, category.name)}
+            disabled={!canAddSubcategory || isInactive}
+            className={`p-1.5 rounded-lg transition-all relative z-10 ${
+              canAddSubcategory && !isInactive
+                ? "text-green-400 hover:bg-green-500/10"
+                : "text-slate-600 cursor-not-allowed opacity-50"
+            }`}
+            title={
+              !canAddSubcategory
+                ? "🚫 Maximum 3 levels reached"
+                : isInactive
+                ? "Cannot add to inactive category"
+                : `Add subcategory to ${category.name}`
+            }
+          >
+            <Plus className="h-4 w-4" />
+          </button>
+
+          <button
+            onClick={() => onView(category)}
+            className="p-1.5 text-violet-400 hover:bg-violet-500/10 rounded-lg transition-all relative z-10"
+            title={isInactive ? "View archived category" : "View details"}
+          >
+            <Eye className="h-4 w-4" />
+          </button>
+
+          <button
+            onClick={() => onEdit(category)}
+            className="p-1.5 text-cyan-400 hover:bg-cyan-500/10 rounded-lg transition-all relative z-10"
+            title={isInactive ? "Edit archived category" : "Edit category"}
+          >
+            <Edit className="h-4 w-4" />
+          </button>
+
+          <button
+            onClick={() => !isInactive && onDelete(category.id, category.name)}
+            disabled={isInactive}
+            className={`p-1.5 rounded-lg transition-all relative z-10 ${
+              isInactive
+                ? "text-slate-600 cursor-not-allowed"
+                : "text-red-400 hover:bg-red-500/10"
+            }`}
+            title={
+              isInactive
+                ? "Delete disabled for archived categories"
+                : "Delete category"
+            }
+          >
+            <Trash2 className="h-4 w-4" />
+          </button>
+        </div>
+      </td>
+    </tr>
+  );
+};
 
   // ✅ FIXED - Only ONE filteredCategories definition
   const hasActiveFilters = 
@@ -1387,106 +1408,127 @@ const getParentCategoryOptions = () => {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-gradient-to-br from-violet-500/10 to-violet-600/5 backdrop-blur-sm border border-violet-500/20 rounded-2xl p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-slate-400 text-sm font-medium">Total Categories</p>
-              <p className="text-3xl font-bold text-white mt-2">{stats.totalCategories}</p>
-            </div>
-            <div className="w-12 h-12 bg-violet-500/20 rounded-xl flex items-center justify-center">
-              <FolderTree className="h-6 w-6 text-violet-400" />
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-gradient-to-br from-cyan-500/10 to-cyan-600/5 backdrop-blur-sm border border-cyan-500/20 rounded-2xl p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-slate-400 text-sm font-medium">Subcategories</p>
-              <p className="text-3xl font-bold text-white mt-2">{stats.totalSubCategories}</p>
-            </div>
-            <div className="w-12 h-12 bg-cyan-500/20 rounded-xl flex items-center justify-center">
-              <FolderTree className="h-6 w-6 text-cyan-400" />
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-gradient-to-br from-pink-500/10 to-pink-600/5 backdrop-blur-sm border border-pink-500/20 rounded-2xl p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-slate-400 text-sm font-medium">Total Products</p>
-              <p className="text-3xl font-bold text-white mt-2">{stats.totalProducts}</p>
-            </div>
-            <div className="w-12 h-12 bg-pink-500/20 rounded-xl flex items-center justify-center">
-              <Search className="h-6 w-6 text-pink-400" />
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-gradient-to-br from-green-500/10 to-green-600/5 backdrop-blur-sm border border-green-500/20 rounded-2xl p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-slate-400 text-sm font-medium">Active Categories</p>
-              <p className="text-3xl font-bold text-white mt-2">{stats.activeCategories}</p>
-            </div>
-            <div className="w-12 h-12 bg-green-500/20 rounded-xl flex items-center justify-center">
-              <CheckCircle className="h-6 w-6 text-green-400" />
-            </div>
-          </div>
-        </div>
+{/* Stats Cards - COMPACT & CLEAN */}
+<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3"> 
+  
+  {/* Total Categories */}
+  <div className="bg-gradient-to-br from-violet-500/10 to-violet-600/5 backdrop-blur-sm border border-violet-500/20 rounded-xl p-4">
+    <div className="flex items-center justify-between">
+      <div>
+        <p className="text-slate-400 text-xs font-medium">Total Categories</p>
+        <p className="text-2xl font-bold text-white mt-1">{stats.totalCategories}</p>
       </div>
+      <div className="w-10 h-10 bg-violet-500/20 rounded-lg flex items-center justify-center shrink-0">
+        <FolderTree className="h-5 w-5 text-violet-400" />
+      </div>
+    </div>
+  </div>
+
+  {/* Subcategories */}
+  <div className="bg-gradient-to-br from-cyan-500/10 to-cyan-600/5 backdrop-blur-sm border border-cyan-500/20 rounded-xl p-4">
+    <div className="flex items-center justify-between">
+      <div>
+        <p className="text-slate-400 text-xs font-medium">Subcategories</p>
+        <p className="text-2xl font-bold text-white mt-1">{stats.totalSubCategories}</p>
+      </div>
+      <div className="w-10 h-10 bg-cyan-500/20 rounded-lg flex items-center justify-center shrink-0">
+        <FolderTree className="h-5 w-5 text-cyan-400" />
+      </div>
+    </div>
+  </div>
+
+  {/* Total Products */}
+  <div className="bg-gradient-to-br from-pink-500/10 to-pink-600/5 backdrop-blur-sm border border-pink-500/20 rounded-xl p-4">
+    <div className="flex items-center justify-between">
+      <div>
+        <p className="text-slate-400 text-xs font-medium">Total Products</p>
+        <p className="text-2xl font-bold text-white mt-1">{stats.totalProducts}</p>
+      </div>
+      <div className="w-10 h-10 bg-pink-500/20 rounded-lg flex items-center justify-center shrink-0">
+        <Search className="h-5 w-5 text-pink-400" />
+      </div>
+    </div>
+  </div>
+
+  {/* Active Categories */}
+  <div className="bg-gradient-to-br from-green-500/10 to-green-600/5 backdrop-blur-sm border border-green-500/20 rounded-xl p-4">
+    <div className="flex items-center justify-between">
+      <div>
+        <p className="text-slate-400 text-xs font-medium">Active Categories</p>
+        <p className="text-2xl font-bold text-white mt-1">{stats.activeCategories}</p>
+      </div>
+      <div className="w-10 h-10 bg-green-500/20 rounded-lg flex items-center justify-center shrink-0">
+        <CheckCircle className="h-5 w-5 text-green-400" />
+      </div>
+    </div>
+  </div>
+
+</div>
+
 
       {/* Search and Filters */}
-<div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-4">
-  <div className="flex flex-col md:flex-row gap-3">
-
+{/* Search and Filters - COMPACT */}
+<div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-xl p-3">
+  <div className="flex flex-col md:flex-row gap-2">
+    
     {/* Search Input */}
     <div className="flex-1">
       <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4.5 w-4.5 text-slate-400" />
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
         <input
           type="text"
-          placeholder="Search categories (all levels)..."
+          placeholder="Search categories..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
-          className="w-full pl-9 pr-4 py-2.5 bg-slate-900/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all"
+          className={`w-full pl-9 pr-4 py-2 bg-slate-900/50 border rounded-lg text-white text-sm placeholder-slate-500 focus:outline-none transition-all ${
+            searchTerm 
+              ? 'border-violet-500 ring-2 ring-violet-500/30' 
+              : 'border-slate-700 focus:ring-2 focus:ring-violet-500/50'
+          }`}
         />
       </div>
     </div>
 
     {/* Level Filter */}
-    <div className="w-full md:w-44">
+    <div className="w-full md:w-40">
       <div className="relative">
-        <Filter className="absolute left-3 top-1/2 -translate-y-1/2 h-4.5 w-4.5 text-slate-400 pointer-events-none" />
+        <Filter className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
         <select
           value={levelFilter}
           onChange={(e) => setLevelFilter(e.target.value)}
-          className="w-full pl-9 pr-4 py-2.5 bg-slate-900/50 border border-slate-700 rounded-xl text-white appearance-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all"
+          className={`w-full pl-9 pr-8 py-2 bg-slate-900/50 border rounded-lg text-white text-sm appearance-none cursor-pointer focus:outline-none transition-all ${
+            levelFilter !== 'all' 
+              ? 'border-cyan-500 ring-2 ring-cyan-500/30' 
+              : 'border-slate-700 focus:ring-2 focus:ring-violet-500/50'
+          }`}
         >
           <option value="all">All Levels</option>
-          <option value="level1">Level 1 (Root)</option>
-          <option value="level2">Level 2 (Sub)</option>
-          <option value="level3">Level 3 (Sub-sub)</option>
+          <option value="level1">Level 1</option>
+          <option value="level2">Level 2</option>
+          <option value="level3">Level 3</option>
         </select>
-        <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-4.5 w-4.5 text-slate-400 pointer-events-none" />
+        <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
       </div>
     </div>
 
     {/* Status Filter */}
-    <div className="w-full md:w-44">
+    <div className="w-full md:w-40">
       <div className="relative">
-        <Filter className="absolute left-3 top-1/2 -translate-y-1/2 h-4.5 w-4.5 text-slate-400 pointer-events-none" />
+        <Filter className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
         <select
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value)}
-          className="w-full pl-9 pr-4 py-2.5 bg-slate-900/50 border border-slate-700 rounded-xl text-white appearance-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all"
+          className={`w-full pl-9 pr-8 py-2 bg-slate-900/50 border rounded-lg text-white text-sm appearance-none cursor-pointer focus:outline-none transition-all ${
+            statusFilter !== 'all' 
+              ? 'border-pink-500 ring-2 ring-pink-500/30' 
+              : 'border-slate-700 focus:ring-2 focus:ring-violet-500/50'
+          }`}
         >
           <option value="all">All Status</option>
-          <option value="active">Active Only</option>
-          <option value="inactive">Inactive Only</option>
+          <option value="active">Active</option>
+          <option value="inactive">Inactive</option>
         </select>
-        <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-4.5 w-4.5 text-slate-400 pointer-events-none" />
+        <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
       </div>
     </div>
 
@@ -1494,42 +1536,16 @@ const getParentCategoryOptions = () => {
     {hasActiveFilters && (
       <button
         onClick={clearFilters}
-        className="px-3 py-2.5 bg-slate-900/50 border border-slate-700 rounded-xl text-slate-400 hover:text-white hover:border-violet-500 transition-all flex items-center gap-2"
+        className="px-3 py-2 bg-slate-900/50 border border-slate-700 rounded-lg text-slate-400 hover:text-white hover:border-red-500 hover:bg-red-500/10 transition-all flex items-center gap-1.5 shrink-0"
         title="Clear all filters"
       >
-        <FilterX className="h-4.5 w-4.5" />
-        Clear
+        <FilterX className="h-4 w-4" />
+        <span className="text-sm">Clear</span>
       </button>
     )}
   </div>
-
-  {/* Active Filters */}
-  {hasActiveFilters && (
-    <div className="flex flex-wrap gap-2 mt-3">
-      {searchTerm && (
-        <span className="px-2.5 py-1 bg-violet-500/10 border border-violet-500/30 rounded-lg text-violet-400 text-xs flex items-center gap-2">
-          <Search className="h-3.5 w-3.5" />
-          "{searchTerm}"
-          <button onClick={() => setSearchTerm("")} className="hover:text-violet-300">×</button>
-        </span>
-      )}
-      {levelFilter !== "all" && (
-        <span className="px-2.5 py-1 bg-cyan-500/10 border border-cyan-500/30 rounded-lg text-cyan-400 text-xs flex items-center gap-2">
-          <Filter className="h-3.5 w-3.5" />
-          {levelFilter === "level1" ? "Level 1" : levelFilter === "level2" ? "Level 2" : "Level 3"}
-          <button onClick={() => setLevelFilter("all")} className="hover:text-cyan-300">×</button>
-        </span>
-      )}
-      {statusFilter !== "all" && (
-        <span className="px-2.5 py-1 bg-pink-500/10 border border-pink-500/30 rounded-lg text-pink-400 text-xs flex items-center gap-2">
-          <Filter className="h-3.5 w-3.5" />
-          {statusFilter === "active" ? "Active" : "Inactive"}
-          <button onClick={() => setStatusFilter("all")} className="hover:text-pink-300">×</button>
-        </span>
-      )}
-    </div>
-  )}
 </div>
+
 
 
       {/* Categories Table */}
@@ -2224,179 +2240,221 @@ const getParentCategoryOptions = () => {
       )}
 
       {/* View Details Modal - UPDATED WITH DELETE BUTTON */}
-      {viewingCategory && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-50 flex items-center justify-center p-4">
-          <div className="bg-gradient-to-br from-slate-900 via-slate-900 to-slate-800 border border-violet-500/20 rounded-3xl max-w-4xl w-full max-h-[90vh] overflow-hidden shadow-2xl shadow-violet-500/10">
-            <div className="p-2 border-b border-violet-500/20 bg-gradient-to-r from-violet-500/10 to-cyan-500/10">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h2 className="text-2xl font-bold bg-gradient-to-r from-violet-400 via-cyan-400 to-pink-400 bg-clip-text text-transparent">
-                    Category Details
-                  </h2>
-                  <p className="text-slate-400 text-sm mt-1">View category information</p>
+{viewingCategory && (
+  <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-50 flex items-center justify-center p-4">
+    <div className="bg-gradient-to-br from-slate-900 via-slate-900 to-slate-800 border border-violet-500/20 rounded-2xl max-w-4xl w-full max-h-[90vh] flex flex-col shadow-2xl shadow-violet-500/10">
+      
+      {/* ========== FIXED HEADER WITH IMAGE ========== */}
+      <div className="p-4 border-b border-violet-500/20 bg-gradient-to-r from-violet-500/10 to-cyan-500/10 rounded-t-2xl shrink-0">
+        <div className="flex items-center gap-4">
+          {/* Category Image */}
+          {viewingCategory.imageUrl ? (
+            <div 
+              className="w-14 h-14 rounded-lg overflow-hidden border-2 border-violet-500/30 cursor-pointer hover:border-violet-500 transition-all shrink-0"
+              onClick={() => setSelectedImageUrl(getImageUrl(viewingCategory.imageUrl))}
+            >
+              <img
+                src={getImageUrl(viewingCategory.imageUrl)}
+                alt={viewingCategory.name}
+                className="w-full h-full object-cover hover:scale-105 transition-transform"
+              />
+            </div>
+          ) : (
+            <div className="w-14 h-14 rounded-lg bg-gradient-to-br from-violet-500 to-pink-500 flex items-center justify-center shrink-0">
+              <FolderTree className="h-7 w-7 text-white" />
+            </div>
+          )}
+
+          {/* Title & Subtitle */}
+          <div className="flex-1 min-w-0">
+            <h2 className="text-xl font-bold bg-gradient-to-r from-violet-400 via-cyan-400 to-pink-400 bg-clip-text text-transparent truncate">
+              {viewingCategory.name}
+            </h2>
+            <p className="text-slate-400 text-xs mt-0.5">View category information</p>
+          </div>
+
+          {/* Close Button */}
+          <button
+            onClick={() => setViewingCategory(null)}
+            className="p-2 text-slate-400 hover:text-white hover:bg-red-500/20 border border-transparent hover:border-red-500/50 rounded-lg transition-all shrink-0"
+            title="Close"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+      </div>
+
+      {/* ========== SCROLLABLE CONTENT ========== */}
+      <div className="flex-1 overflow-y-auto p-4">
+        <div className="space-y-4">
+          
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            {/* Basic Info */}
+            <div className="bg-slate-800/30 p-4 rounded-xl border border-slate-700/50">
+              <h3 className="text-base font-bold text-white mb-3 flex items-center gap-2">
+                <span className="w-7 h-7 rounded-lg bg-gradient-to-br from-violet-500 to-cyan-500 flex items-center justify-center text-xs">ℹ</span>
+                Basic Information
+              </h3>
+              <div className="space-y-3">
+                <div className="bg-slate-900/50 p-3 rounded-lg">
+                  <p className="text-xs text-slate-400 mb-1">Name</p>
+                  <p className="text-base font-bold text-white">{viewingCategory.name}</p>
                 </div>
-                <button
-                  onClick={() => setViewingCategory(null)}
-                  className="p-2 text-slate-400 hover:text-white hover:bg-red-600 rounded-lg transition-all"
-                >
-                  ✕
-                </button>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="bg-slate-900/50 p-3 rounded-lg">
+                    <p className="text-xs text-slate-400 mb-1">Slug</p>
+                    <p className="text-white text-sm font-mono break-all">{viewingCategory.slug}</p>
+                  </div>
+                  <div className="bg-slate-900/50 p-3 rounded-lg">
+                    <p className="text-xs text-slate-400 mb-1">Sort Order</p>
+                    <p className="text-white font-semibold">{viewingCategory.sortOrder}</p>
+                  </div>
+                </div>
+                <div className="bg-slate-900/50 p-3 rounded-lg">
+                  <p className="text-xs text-slate-400 mb-1">Description</p>
+                  {viewingCategory.description ? (
+                    <div
+                      className="text-white text-sm prose prose-invert prose-sm max-w-none"
+                      dangerouslySetInnerHTML={{ __html: viewingCategory.description }}
+                    />
+                  ) : (
+                    <p className="text-slate-500 text-sm italic">No description</p>
+                  )}
+                </div>
               </div>
             </div>
 
-            <div className="p-2 overflow-y-auto max-h-[calc(90vh-120px)]">
+            {/* SEO Info */}
+            <div className="bg-slate-800/30 p-4 rounded-xl border border-slate-700/50">
+              <h3 className="text-base font-bold text-white mb-3 flex items-center gap-2">
+                <span className="w-7 h-7 rounded-lg bg-gradient-to-br from-emerald-500 to-green-500 flex items-center justify-center text-xs">🔍</span>
+                SEO Information
+              </h3>
+              <div className="space-y-3">
+                <div className="bg-slate-900/50 p-3 rounded-lg">
+                  <p className="text-xs text-slate-400 mb-1">Meta Title</p>
+                  <p className="text-white text-sm">{viewingCategory.metaTitle || <span className="text-slate-500 italic">Not set</span>}</p>
+                </div>
+                <div className="bg-slate-900/50 p-3 rounded-lg">
+                  <p className="text-xs text-slate-400 mb-1">Meta Description</p>
+                  <p className="text-white text-sm">{viewingCategory.metaDescription || <span className="text-slate-500 italic">Not set</span>}</p>
+                </div>
+                <div className="bg-slate-900/50 p-3 rounded-lg">
+                  <p className="text-xs text-slate-400 mb-1">Meta Keywords</p>
+                  <p className="text-white text-sm">{viewingCategory.metaKeywords || <span className="text-slate-500 italic">Not set</span>}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            {/* Statistics */}
+            <div className="bg-gradient-to-br from-violet-500/10 to-cyan-500/10 border border-violet-500/20 rounded-xl p-4">
+              <h3 className="text-base font-bold text-white mb-3">Statistics</h3>
               <div className="space-y-2">
-                {/* Image Section - UPDATED WITH DELETE BUTTON */}
-                {viewingCategory.imageUrl && (
-                  <div className="flex justify-center mb-4">
-                    <div className="relative">
-                      <div className="w-32 h-32 rounded-xl overflow-hidden border-2 border-violet-500/20 cursor-pointer hover:border-violet-500/50 transition-all">
-                        <img
-                          src={getImageUrl(viewingCategory.imageUrl)}
-                          alt={viewingCategory.name}
-                          className="w-full h-full object-cover hover:scale-105 transition-transform"
-                          onClick={() => setSelectedImageUrl(getImageUrl(viewingCategory.imageUrl))}
-                        />
-                      </div>
-                  </div>
-                  </div>
-                )}
-
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                  {/* Basic Info */}
-                  <div className="bg-slate-800/30 p-2 rounded-xl border border-slate-700/50">
-                    <h3 className="text-lg font-bold text-white mb-3 flex items-center gap-2">
-                      <span className="w-8 h-8 rounded-lg bg-gradient-to-br from-violet-500 to-cyan-500 flex items-center justify-center text-sm">ℹ</span>
-                      Basic Information
-                    </h3>
-                    <div className="space-y-3">
-                      <div className="bg-slate-900/50 p-3 rounded-lg">
-                        <p className="text-xs text-slate-400 mb-1">Name</p>
-                        <p className="text-lg font-bold text-white">{viewingCategory.name}</p>
-                      </div>
-                      <div className="grid grid-cols-2 gap-3">
-                        <div className="bg-slate-900/50 p-3 rounded-lg">
-                          <p className="text-xs text-slate-400 mb-1">Slug</p>
-                          <p className="text-white text-sm font-mono">{viewingCategory.slug}</p>
-                        </div>
-                        <div className="bg-slate-900/50 p-3 rounded-lg">
-                          <p className="text-xs text-slate-400 mb-1">Sort Order</p>
-                          <p className="text-white font-semibold">{viewingCategory.sortOrder}</p>
-                        </div>
-                      </div>
-                      <div className="bg-slate-900/50 p-3 rounded-lg">
-  <p className="text-xs text-slate-400 mb-1">Description</p>
-  {viewingCategory.description ? (
-    <div
-      className="text-white text-sm prose prose-invert max-w-none"
-      dangerouslySetInnerHTML={{ __html: viewingCategory.description }}
-    />
-  ) : (
-    <p className="text-white text-sm">No description</p>
-  )}
-</div>
-
-                    </div>
-                  </div>
-
-                  {/* SEO Info */}
-                  <div className="bg-slate-800/30 p-2 rounded-xl border border-slate-700/50">
-                    <h3 className="text-lg font-bold text-white mb-3 flex items-center gap-2">
-                      <span className="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-500 to-green-500 flex items-center justify-center text-sm">🔍</span>
-                      SEO Information
-                    </h3>
-                    <div className="space-y-3">
-                      <div className="bg-slate-900/50 p-3 rounded-lg">
-                        <p className="text-xs text-slate-400 mb-1">Meta Title</p>
-                        <p className="text-white text-sm">{viewingCategory.metaTitle || 'Not set'}</p>
-                      </div>
-                      <div className="bg-slate-900/50 p-3 rounded-lg">
-                        <p className="text-xs text-slate-400 mb-1">Meta Description</p>
-                        <p className="text-white text-sm">{viewingCategory.metaDescription || 'Not set'}</p>
-                      </div>
-                      <div className="bg-slate-900/50 p-3 rounded-lg">
-                        <p className="text-xs text-slate-400 mb-1">Meta Keywords</p>
-                        <p className="text-white text-sm">{viewingCategory.metaKeywords || 'Not set'}</p>
-                      </div>
-                    </div>
-                  </div>
+                <div className="bg-slate-900/50 p-3 rounded-lg flex items-center justify-between">
+                  <span className="text-slate-300 text-sm">Products</span>
+                  <span className="text-xl font-bold text-white">{viewingCategory.productCount || 0}</span>
                 </div>
-
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                  {/* Statistics */}
-                  <div className="bg-gradient-to-br from-violet-500/10 to-cyan-500/10 border border-violet-500/20 rounded-xl p-2">
-                    <h3 className="text-lg font-bold text-white mb-3">Statistics</h3>
-                    <div className="space-y-2">
-                      <div className="bg-slate-900/50 p-3 rounded-lg flex items-center justify-between">
-                        <span className="text-slate-300 text-sm">Products</span>
-                        <span className="text-xl font-bold text-white">{viewingCategory.productCount}</span>
-                      </div>
-                      <div className="bg-slate-900/50 p-3 rounded-lg flex items-center justify-between">
-                        <span className="text-slate-300 text-sm">Status</span>
-                        <span className={`px-2 py-1 rounded text-xs font-semibold ${
-                          viewingCategory.isActive ? 'bg-green-500/10 text-green-400' : 'bg-red-500/10 text-red-400'
-                        }`}>
-                          {viewingCategory.isActive ? 'Active' : 'Inactive'}
-                        </span>
-                      </div>
-                          <div className="bg-slate-900/50 p-3 rounded-lg flex items-center justify-between">
-      <span className="text-slate-300 text-sm">Show on Homepage</span>
-      <span className={`px-2 py-1 rounded text-xs font-semibold ${
-        viewingCategory.showOnHomepage ? 'bg-cyan-500/10 text-cyan-400' : 'bg-slate-500/10 text-slate-400'
-      }`}>
-        {viewingCategory.showOnHomepage ? 'Featured' : 'Not Featured'}
-      </span>
-    </div>
-                    </div>
-                  </div>
-
-                  {/* Activity */}
-                  <div className="bg-slate-800/30 p-2 rounded-xl border border-slate-700/50">
-                    <h3 className="text-lg font-bold text-white mb-3">Activity</h3>
-                    <div className="space-y-2">
-                      <div className="bg-slate-900/50 p-2 rounded-lg">
-                        <p className="text-xs text-slate-400 mb-1">Created At</p>
-                        <p className="text-white text-xs">{viewingCategory.createdAt ? new Date(viewingCategory.createdAt).toLocaleString() : 'N/A'}</p>
-                      </div>
-                      <div className="bg-slate-900/50 p-2 rounded-lg">
-                        <p className="text-xs text-slate-400 mb-1">Created By</p>
-                        <p className="text-white text-xs">{viewingCategory.createdBy || 'N/A'}</p>
-                      </div>
-                      <div className="bg-slate-900/50 p-2 rounded-lg">
-                        <p className="text-xs text-slate-400 mb-1">Updated At</p>
-                        <p className="text-white text-xs">{viewingCategory.updatedAt ? new Date(viewingCategory.updatedAt).toLocaleString() : 'N/A'}</p>
-                      </div>
-                      <div className="bg-slate-900/50 p-2 rounded-lg">
-                        <p className="text-xs text-slate-400 mb-1">Updated By</p>
-                        <p className="text-white text-xs">{viewingCategory.updatedBy || 'N/A'}</p>
-                      </div>
-                    </div>
-                  </div>
+                <div className="bg-slate-900/50 p-3 rounded-lg flex items-center justify-between">
+                  <span className="text-slate-300 text-sm">Status</span>
+                  <span className={`px-2.5 py-1 rounded-lg text-xs font-semibold flex items-center gap-1.5 ${
+                    viewingCategory.isActive 
+                      ? 'bg-green-500/10 text-green-400 border border-green-500/20' 
+                      : 'bg-red-500/10 text-red-400 border border-red-500/20'
+                  }`}>
+                    <span className={`w-1.5 h-1.5 rounded-full ${viewingCategory.isActive ? 'bg-green-400' : 'bg-red-400'}`}></span>
+                    {viewingCategory.isActive ? 'Active' : 'Inactive'}
+                  </span>
                 </div>
+                <div className="bg-slate-900/50 p-3 rounded-lg flex items-center justify-between">
+                  <span className="text-slate-300 text-sm">Homepage</span>
+                  <span className={`px-2.5 py-1 rounded-lg text-xs font-semibold flex items-center gap-1.5 ${
+                    viewingCategory.showOnHomepage 
+                      ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/20' 
+                      : 'bg-slate-500/10 text-slate-400 border border-slate-500/20'
+                  }`}>
+                    {viewingCategory.showOnHomepage ? (
+                      <>
+                        <CheckCircle className="h-3.5 w-3.5" />
+                        Featured
+                      </>
+                    ) : (
+                      'Not Featured'
+                    )}
+                  </span>
+                </div>
+              </div>
+            </div>
 
-                {/* Actions */}
-                <div className="flex justify-end gap-3 pt-2 border-t border-slate-700/50">
-                  <button
-                    onClick={() => {
-                      setViewingCategory(null);
-                      handleEdit(viewingCategory);
-                    }}
-                    className="px-4 py-2 bg-cyan-500 text-white rounded-lg hover:bg-cyan-600 transition-all font-medium text-sm"
-                  >
-                    Edit Category
-                  </button>
-                  <button
-                    onClick={() => setViewingCategory(null)}
-                    className="px-4 py-2 bg-slate-800 text-white rounded-lg hover:bg-slate-700 transition-all font-medium text-sm"
-                  >
-                    Close
-                  </button>
+            {/* Activity */}
+            <div className="bg-slate-800/30 p-4 rounded-xl border border-slate-700/50">
+              <h3 className="text-base font-bold text-white mb-3">Activity Timeline</h3>
+              <div className="space-y-2">
+                <div className="bg-slate-900/50 p-2.5 rounded-lg">
+                  <p className="text-xs text-slate-400 mb-1">Created At</p>
+                  <p className="text-white text-xs font-medium">
+                    {viewingCategory.createdAt ? new Date(viewingCategory.createdAt).toLocaleString('en-GB', {
+                      day: '2-digit',
+                      month: 'short',
+                      year: 'numeric',
+                      hour: '2-digit',
+                      minute: '2-digit'
+                    }) : 'N/A'}
+                  </p>
+                </div>
+                <div className="bg-slate-900/50 p-2.5 rounded-lg">
+                  <p className="text-xs text-slate-400 mb-1">Created By</p>
+                  <p className="text-white text-xs font-medium">{viewingCategory.createdBy || 'N/A'}</p>
+                </div>
+                <div className="bg-slate-900/50 p-2.5 rounded-lg">
+                  <p className="text-xs text-slate-400 mb-1">Updated At</p>
+                  <p className="text-white text-xs font-medium">
+                    {viewingCategory.updatedAt ? new Date(viewingCategory.updatedAt).toLocaleString('en-GB', {
+                      day: '2-digit',
+                      month: 'short',
+                      year: 'numeric',
+                      hour: '2-digit',
+                      minute: '2-digit'
+                    }) : 'N/A'}
+                  </p>
+                </div>
+                <div className="bg-slate-900/50 p-2.5 rounded-lg">
+                  <p className="text-xs text-slate-400 mb-1">Updated By</p>
+                  <p className="text-white text-xs font-medium">{viewingCategory.updatedBy || 'N/A'}</p>
                 </div>
               </div>
             </div>
           </div>
         </div>
-      )}
+      </div>
+
+      {/* ========== FIXED FOOTER ========== */}
+      <div className="p-4 border-t border-slate-700/50 bg-slate-800/30 rounded-b-2xl shrink-0">
+        <div className="flex justify-end gap-2">
+          <button
+            onClick={() => setViewingCategory(null)}
+            className="px-4 py-2.5 bg-slate-800 text-white text-sm rounded-lg hover:bg-slate-700 transition-all font-medium flex items-center gap-2"
+          >
+            <X className="h-4 w-4" />
+            Close
+          </button>
+          <button
+            onClick={() => {
+              setViewingCategory(null);
+              handleEdit(viewingCategory);
+            }}
+            className="px-4 py-2.5 bg-gradient-to-r from-cyan-500 to-blue-500 text-white text-sm rounded-lg hover:shadow-lg transition-all font-semibold flex items-center gap-2"
+          >
+            <Edit className="h-4 w-4" />
+            Edit Category
+          </button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+)}
 
       
       {/* Delete Confirmation Dialog */}
