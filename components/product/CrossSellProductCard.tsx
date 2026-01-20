@@ -17,6 +17,7 @@ import {
 } from "@/app/lib/discountHelpers";
 
 import { Card, CardContent } from "../ui/card";
+import GenderBadge from "../shared/GenderBadge";
 const getCrossSellProductImage = (
   product: any,
   defaultVariant?: any
@@ -71,6 +72,18 @@ const toast = useToast();
 const basePrice = defaultVariant?.price ?? product.price;
 const discountBadge = getDiscountBadge(product);
 const finalPrice = getDiscountedPrice(product, basePrice);
+// ---------- Active Coupon Indicator ----------
+const hasActiveCoupon = (product as any).assignedDiscounts?.some((d: any) => {
+  if (!d.isActive) return false;
+  if (!d.requiresCouponCode) return false;
+
+  const now = new Date();
+  if (d.startDate && now < new Date(d.startDate)) return false;
+  if (d.endDate && now > new Date(d.endDate)) return false;
+
+  return true;
+});
+
   const stock = defaultVariant?.stockQuantity ?? product.stockQuantity ?? 0;
 
   // VAT Rate / Exempt Logic
@@ -83,29 +96,12 @@ const finalPrice = getDiscountedPrice(product, basePrice);
              <CardContent className="p-2 mt-3 flex flex-col h-full">
 
       {/* BADGES */}
-     <div className="absolute top-1 left-1 sm:top-2 sm:left-2 z-20 bg-white/90 px-1 py-0.5 sm:px-2 sm:py-1 rounded-md shadow flex items-center gap-1">
-                 
-                    <img 
-  src="/icons/unisex.svg" 
-  alt="Unisex"
-  className="h-3 w-3 sm:h-4 sm:w-4"
-  loading="lazy"
-/>
-                    <span className="text-[8px] sm:text-[10px] font-semibold text-gray-700">Unisex</span>
-                  </div>
+   <GenderBadge gender={product.gender} />
 {discountBadge && (
   <div className="absolute top-3 right-3 z-20">
     <div
-      className="
-        w-12 h-12 sm:w-14 sm:h-14
-        rounded-full
-        bg-gradient-to-br from-[#445D41] to-green-700
-        flex items-center justify-center
-        text-white
-        shadow-lg
-        ring-2 ring-white
-      "
-    >
+      className="w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-gradient-to-br from-red-500 to-red-700 flex items-center justify-center text-white shadow-lg ring-2 ring-white">
+
       <div className="flex flex-col items-center leading-none">
         {discountBadge.type === "percent" ? (
           <>
@@ -202,6 +198,12 @@ const finalPrice = getDiscountedPrice(product, basePrice);
             ({vatRate}% VAT)
           </span>
         ) : null}
+        {hasActiveCoupon && (
+  <span className="text-[10px] font-semibold text-red-700 bg-red-100 px-1 py-0.5 rounded whitespace-nowrap">
+    Coupon!
+  </span>
+)}
+
       </div>
 {/* 🎁 LOYALTY POINTS – CROSS SELL CARD */}
 {(product as any).loyaltyPointsEnabled && (

@@ -37,7 +37,6 @@ export default function WhyChooseUs() {
   Why Choose Direct Care?
 </h2>
 
-
           {/* ✅ CARDS GRID → Mobile: 2 per row */}
           <div className="grid grid-cols-2 gap-4">
             {reasons.map((reason, index) => (
@@ -60,7 +59,7 @@ export default function WhyChooseUs() {
         {/* ✅ RIGHT IMAGE → HIDE IN MOBILE */}
         <div className="flex-1 text-center mt-6 hidden md:block">
           <img
-            src="https://unity-connect.com/wp-content/uploads/2022/12/Outsourcing-E-commerce-Customer-Service-Specialists-Feature-Image_763854619.jpg"
+            src="/whychoose.webp"
             alt="Direct Care"
             className="w-full max-w-[610px] h-[440px] object-cover rounded-2xl shadow-xl mx-auto"
           />

@@ -16,6 +16,7 @@ interface Category {
   name: string;
   slug: string;
   imageUrl?: string | null;
+  
 }
 
 export default function CategorySlider({

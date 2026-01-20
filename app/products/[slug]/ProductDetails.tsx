@@ -1,13 +1,11 @@
 // app/products/[slug]/ProductDetails.tsx
 "use client";
-
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import RatingReviews from "@/components/product/RatingReviews";
 import { Review, getRecentApprovedReviews } from "@/components/product/RatingReviews";
-
 import RelatedProductCard from "@/components/product/RelatedProductCard";
 import CrossSellProductCard from "@/components/product/CrossSellProductCard";
 import SubscriptionPurchaseCard from "@/components/product/SubscriptionPurchaseCard";
@@ -20,30 +18,7 @@ import BackInStockModal from "@/components/backorder/BackInStockModal";
 import "swiper/css";
 import "swiper/css/navigation";
 import "swiper/css/pagination";
-import { 
-  ShoppingCart, 
-  Heart, 
-  Star, 
-  Minus, 
-  Plus, 
-  ChevronLeft, 
-  ChevronRight,
-  X,
-  Truck,
-  RotateCcw,
-  ShieldCheck,
-  Pause,
-  Play,
-  Package,
-  Bike,
-  Users,
-  BadgePercent,
-  Zap,
-  BellRing,
-  Share2,
-  Gift,
-  AwardIcon
-} from "lucide-react";
+import { ShoppingCart, Heart, Star, Minus, Plus, ChevronLeft, ChevronRight, X, Truck, RotateCcw, ShieldCheck, Pause, Play, Package, Bike, Users, BadgePercent, Zap, BellRing, Share2, Gift, AwardIcon, MapPin, Clock, TruckElectric, TruckElectricIcon } from "lucide-react";
 import ShareMenu from "@/components/share/ShareMenu";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -55,12 +30,10 @@ import { addRecentlyViewed } from "@/app/hooks/useRecentlyViewed";
 import { normalizePrice } from "@/lib/price";
 import CouponModal from "@/components/product/CouponModal";
 import ProductImageModal from "@/components/product/ProductImageModal";
-import {
-  getDiscountBadge,
-  getDiscountedPrice,
-} from "@/app/lib/discountHelpers";
+import { getDiscountBadge, getDiscountedPrice, } from "@/app/lib/discountHelpers";
 import { usePathname } from "next/navigation";
-
+import { detectUKRegion } from "@/app/lib/region";
+import GenderBadge from "@/components/shared/GenderBadge";
 // ---------- Types ----------
 interface ProductImage {
   id: string;
@@ -69,7 +42,6 @@ interface ProductImage {
   sortOrder: number;
   isMain: boolean;
 }
-
 interface Variant {
   id: string;
   name: string;
@@ -88,7 +60,6 @@ interface Variant {
     displayOrder: number;   // <-- ADD THIS
     slug: string;
 }
-
 interface AssignedDiscount {
   id: string;
   name: string;
@@ -103,6 +74,7 @@ interface AssignedDiscount {
   couponCode?: string;
 }
 interface GroupedProduct {
+  slug: string | undefined;
   mainImageUrl?: string;
   individualSavings: any;
   hasBundleDiscount: any;
@@ -185,7 +157,9 @@ groupBundleSavingsMessage?: string;
 totalSavings?: number;
 savingsPercentage?: number;
 applyDiscountToAllItems?: boolean;
-
+nextDayDeliveryEnabled?: boolean;
+  nextDayDeliveryCutoffTime?: string; 
+  nextDayDeliveryCharge?: number;
 }
 interface RelatedProduct {
   id: string;
@@ -348,18 +322,113 @@ const handleShareClick = async () => {
   // Desktop OR fallback
   setShowShare(v => !v);
 };
+const isUKUser = useMemo(() => detectUKRegion(), []);
+const formatUKDate = (date: Date) => {
+  return date.toLocaleDateString("en-GB", {
+    day: "2-digit",
+    month: "short",
+  });
+};
+const [shipDate, setShipDate] = useState<string | null>(null);
+const [deliveryDate, setDeliveryDate] = useState<string | null>(null);
+const [nextDayTimeLeft, setNextDayTimeLeft] = useState<string | null>(null);
+useEffect(() => {
+  if (
+    !product.nextDayDeliveryEnabled ||
+    !product.nextDayDeliveryCutoffTime
+  ) {
+    setNextDayTimeLeft(null);
+    setShipDate(null);
+    setDeliveryDate(null);
+    return;
+  }
 
+  const calculateTimeLeft = () => {
+    const now = new Date();
+
+    const [h, m] = product.nextDayDeliveryCutoffTime!.split(":").map(Number);
+
+    const cutoff = new Date();
+    cutoff.setHours(h, m, 0, 0);
+
+    if (now >= cutoff) {
+      setNextDayTimeLeft(null);
+      setShipDate(null);
+      setDeliveryDate(null);
+      return;
+    }
+
+    const diffMs = cutoff.getTime() - now.getTime();
+    const hours = Math.floor(diffMs / (1000 * 60 * 60));
+    const minutes = Math.floor((diffMs / (1000 * 60)) % 60);
+
+    setNextDayTimeLeft(
+      `${hours} hour${hours !== 1 ? "s" : ""} ${minutes} minute${minutes !== 1 ? "s" : ""}`
+    );
+
+    // 📦 SHIPPING DATE → TODAY
+    const ship = new Date();
+    setShipDate(formatUKDate(ship));
+
+    // 🚚 DELIVERY DATE → TOMORROW
+    const deliver = new Date();
+    deliver.setDate(deliver.getDate() + 1);
+    setDeliveryDate(formatUKDate(deliver));
+  };
+
+  calculateTimeLeft();
+  const interval = setInterval(calculateTimeLeft, 60_000);
+
+  return () => clearInterval(interval);
+}, [
+  product.nextDayDeliveryEnabled,
+  product.nextDayDeliveryCutoffTime,
+]);
 // 🔹 GROUPED PRODUCT FLAGS
 const isGroupedProduct =
   product.productType === "grouped" &&
   product.requireOtherProducts === true;
-
 // 🔹 REQUIRED PRODUCT IDS (backend string → array)
 const requiredProductIds = useMemo(() => {
   if (!product.requiredProductIds) return [];
   return product.requiredProductIds.split(",").map(id => id.trim());
 }, [product.requiredProductIds]);
+useEffect(() => {
+  if (!isGroupedProduct) return;
 
+  setGroupedSelections(prev => {
+    const updated = { ...prev };
+
+    Object.keys(updated).forEach(pid => {
+      updated[pid] = {
+        ...updated[pid],
+        quantity: normalQty, // 🔥 SYNC
+      };
+    });
+
+    return updated;
+  });
+}, [normalQty, isGroupedProduct]);
+// 🔥 BUNDLE TOTALS (QUANTITY AWARE)
+const bundleIndividualTotal = useMemo(() => {
+  if (!product.groupedProducts) return 0;
+
+  return product.groupedProducts.reduce(
+    (sum, gp) => sum + gp.price * normalQty,
+    0
+  );
+}, [product.groupedProducts, normalQty]);
+
+const bundleTotalPrice = useMemo(() => {
+  if (!product.groupedProducts) return 0;
+
+  return product.groupedProducts.reduce(
+    (sum, gp) => sum + (gp.bundlePrice ?? gp.price) * normalQty,
+    0
+  );
+}, [product.groupedProducts, normalQty]);
+
+const bundleTotalSavings = bundleIndividualTotal - bundleTotalPrice;
   // Discount & coupon states
   const [couponCode, setCouponCode] = useState("");
   const [appliedCoupon, setAppliedCoupon] = useState<AssignedDiscount | null>(null);
@@ -827,7 +896,8 @@ console.log("🔥 VARIANT IMAGE →", selectedVariant?.imageUrl);
         selected.option3Value
       ].filter(Boolean).join(", ")})`
     : "";
-
+const allowNextDay =
+  isUKUser && product.nextDayDeliveryEnabled === true;
   addToCart({
     id: `${product.id}-${selected?.id ?? "base"}-one`,
 
@@ -857,6 +927,10 @@ image: selectedVariant?.imageUrl
       ...(selected?.option2Name && { [selected.option2Name]: selected.option2Value }),
       ...(selected?.option3Name && { [selected.option3Name]: selected.option3Value }),
     },
+    nextDayDeliveryEnabled: allowNextDay,
+  nextDayDeliveryCharge: allowNextDay
+    ? product.nextDayDeliveryCharge ?? 0
+    : 0,
     // ⭐ MOST IMPORTANT (for coupon validation on cart page)
     productData: JSON.parse(JSON.stringify(product)),
 
@@ -885,6 +959,11 @@ if (isGroupedProduct && product.groupedProducts) {
           : `${process.env.NEXT_PUBLIC_API_URL}${gp.mainImageUrl}`
         : "/placeholder-product.png",
       sku: gp.sku,
+      slug: gp.slug,
+    nextDayDeliveryEnabled: allowNextDay,
+nextDayDeliveryCharge: allowNextDay
+  ? product.nextDayDeliveryCharge ?? 0
+  : 0,
       productData: JSON.parse(JSON.stringify(gp)),
     });
   });
@@ -913,10 +992,14 @@ if (isGroupedProduct && product.groupedProducts) {
 ]);
 
 const handleBuyNow = () => {
+  
   const selected = selectedVariant ?? null;
 
   const basePrice = selected ? selected.price : product.price;
-
+  // ✅ DISCOUNTED price (same as add to cart)
+  const final = finalPrice;
+  const allowNextDay =
+  isUKUser && product.nextDayDeliveryEnabled === true;
   const buyNowItem = {
     id: `${product.id}-${selected?.id ?? "base"}-one`,
 
@@ -933,10 +1016,11 @@ const handleBuyNow = () => {
             .join(", ")})`
         : ""
     }`,
-    price: basePrice,
+      // 🔥 IMPORTANT FIELDS
+    price: final,
     priceBeforeDiscount: basePrice,
-    finalPrice: basePrice,
-    discountAmount: 0,
+    finalPrice: final,
+    discountAmount: discountAmount ?? 0,
     quantity: normalQty,
     image: selected?.imageUrl
       ? getImageUrl(selected.imageUrl)
@@ -949,6 +1033,10 @@ const handleBuyNow = () => {
       ...(selected?.option2Name && { [selected.option2Name]: selected.option2Value }),
       ...(selected?.option3Name && { [selected.option3Name]: selected.option3Value }),
     },
+     nextDayDeliveryEnabled: allowNextDay,
+  nextDayDeliveryCharge: allowNextDay
+    ? product.nextDayDeliveryCharge ?? 0
+    : 0,
     productData: JSON.parse(JSON.stringify(product)),
   };
 
@@ -1021,6 +1109,8 @@ if (variant.slug) updateVariantInUrl(variant);
   setCouponCode(input);
 
   toast.success("Coupon applied successfully");
+  // 🔥 AUTO CLOSE MODAL ON SUCCESS
+  setShowCouponModal(false);
 };
 const handleRemoveCoupon = () => {
   setAppliedCoupon(null);
@@ -1071,7 +1161,7 @@ const handleRemoveCoupon = () => {
         </div>
       </div>
 
-      <main className="max-w-7xl mx-auto px-4 py-6">
+      <main className="max-w-7xl mx-auto px-4 py-4">
         {/* PRODUCT LAYOUT */}
        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
           {/* LEFT: Image Gallery */}
@@ -1160,11 +1250,37 @@ src={activeMainImage}
 </div>
 
                     {/* discount badge (from oldPrice percent) */}
-                    {product.assignedDiscounts && product.assignedDiscounts.length > 0 && (() => {
-  const active = product.assignedDiscounts.find(
+                  {(() => {
+  // 🥇 Priority 1: Applied Coupon
+  if (appliedCoupon) {
+    const percent = appliedCoupon.usePercentage
+      ? appliedCoupon.discountPercentage
+      : Math.round(
+          (appliedCoupon.discountAmount /
+            (selectedVariant?.price ?? product.price)) * 100
+        );
+
+    return (
+      <div className="absolute top-3 left-4 z-20">
+        <div className="w-14 h-14 md:w-20 md:h-20 rounded-full bg-gradient-to-br from-red-500 to-red-700 flex items-center justify-center text-white shadow-lg ring-2 ring-white">         
+          <div className="flex flex-col items-center leading-none">
+            <span className="text-lg md:text-xl font-extrabold">
+              {percent}%
+            </span>
+            <span className="text-[10px] md:text-sm font-semibold">
+              OFF
+            </span>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // 🥈 Priority 2: Auto Discount (no coupon)
+  const active = product.assignedDiscounts?.find(
     d =>
       d.isActive &&
-    d.requiresCouponCode === false && // ⭐ IMPORTANT
+      d.requiresCouponCode === false &&
       new Date() >= new Date(d.startDate) &&
       new Date() <= new Date(d.endDate)
   );
@@ -1173,25 +1289,28 @@ src={activeMainImage}
 
   const percent = active.usePercentage
     ? active.discountPercentage
-    : Math.round((active.discountAmount / (selectedVariant?.price ?? product.price)) * 100);
+    : Math.round(
+        (active.discountAmount /
+          (selectedVariant?.price ?? product.price)) * 100
+      );
 
   return (
-  <div className="absolute top-3 left-4 z-20">
-    <div
-      className="w-14 h-14 md:w-20 md:h-20 rounded-full bg-gradient-to-br from-[#445D41] to-green-700 flex items-center justify-center text-white  shadow-lg ring-2 ring-white">
-      <div className="flex flex-col items-center leading-none">
-        <span className="ml-1 text-lg md:text-xl font-extrabold">
-          {percent}%
-        </span>
-        <span className=" ml-0 text-[10px] md:text-[18px] font-semibold tracking-wide">
-          OFF
-        </span>
+    <div className="absolute top-3 left-4 z-20">
+      <div className="w-14 h-14 md:w-20 md:h-20 rounded-full bg-gradient-to-br from-red-500 to-red-700 flex items-center justify-center text-white shadow-lg ring-2 ring-white">
+       
+        <div className="flex flex-col items-center leading-none">
+          <span className="text-lg md:text-xl font-extrabold">
+            {percent}%
+          </span>
+          <span className="text-[10px] md:text-sm font-semibold">
+            OFF
+          </span>
+        </div>
       </div>
     </div>
-  </div>
-);
-
+  );
 })()}
+
 
                     {product.images.length > 1 && (
                       <>
@@ -1237,8 +1356,8 @@ bg-white/80 hover:bg-white shadow-md rounded-full p-2 backdrop-blur-sm transitio
             className={`cursor-pointer rounded-xl overflow-hidden w-24 h-20 flex-shrink-0 transition-all duration-200         
               ${
                 selectedImage === realIndex
-                  ? "ring-2 ring-[#445D41] scale-105 shadow-md"
-                  : "ring-1 ring-gray-200 hover:ring-[#445D41] hover:scale-105"
+                  ? "ring-2 ring-[#445D41] scale-90 shadow-md"
+                  : "ring-1 ring-gray-200  hover:scale-90"
               }`}
           >
             <div className="relative w-full h-full bg-white">
@@ -1246,7 +1365,7 @@ bg-white/80 hover:bg-white shadow-md rounded-full p-2 backdrop-blur-sm transitio
                 src={getImageUrl(img.imageUrl)}
                 alt={img.altText || product.name}
                 fill
-                className="object-contain p-2"
+                className="object-contain p-0"
               />
             </div>
           </div>
@@ -1273,7 +1392,7 @@ bg-white/80 hover:bg-white shadow-md rounded-full p-2 backdrop-blur-sm transitio
           <div>
 
   {/* TITLE + BADGES (same line on desktop, stacked on mobile) */}
-  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-2">
+  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-0">
 
     {/* PRODUCT NAME */}
  <h1 className="text-2xl font-bold">
@@ -1287,7 +1406,7 @@ bg-white/80 hover:bg-white shadow-md rounded-full p-2 backdrop-blur-sm transitio
 </h1>
      </div>
 
- <div className="flex flex-wrap items-center gap-3 mb-3">
+ <div className="flex flex-wrap items-center gap-3 mb-2">
 
   {/* Brand */}
   {product.brandName && (
@@ -1295,6 +1414,7 @@ bg-white/80 hover:bg-white shadow-md rounded-full p-2 backdrop-blur-sm transitio
       by <span className="font-semibold text-[#445D41]">{product.brandName}</span>
     </p>
   )}
+
 
   {/* Rating + Reviews */}
   <div className="flex items-center gap-2">
@@ -1372,20 +1492,66 @@ bg-white/80 hover:bg-white shadow-md rounded-full p-2 backdrop-blur-sm transitio
     )}
 
     {/* Unisex */}
-    {product.gender === "Unisex" && (
-      <div className="flex items-center gap-1 bg-gray-100 text-gray-700 px-2 py-1 rounded text-xs font-semibold">
-        <img 
-          src="/icons/unisex.svg"
-          alt="Unisex"
-          className="h-4 w-4 object-contain"
-        />
-        Unisex
-      </div>
-    )}
+    <GenderBadge
+  gender={product.gender}
+  absolute={false}
+  className="bg-gray-100 text-gray-700 px-2 py-1 rounded text-xs font-semibold gap-1 shadow-none"
+/>
+
 
   </div>
 </div>
+{isUKUser && product.nextDayDeliveryEnabled && nextDayTimeLeft && (
+  <div className="mt-2 mb-3 rounded-xl border border-white bg-gradient-to-r from-green-50 via-white to-green-50 px-4 py-1 shadow-sm">
 
+    <div className="flex items-center justify-between">
+
+      {/* ORDER WITHIN */}
+      <div className="flex flex-col items-center text-center">
+        <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#445D41] shadow-sm">
+          <Clock className="h-6 w-6 text-white" />
+        </div>
+        <p className="mt-1 text-[11px] font-medium text-[#445D41]">
+          Order within
+        </p>
+        <p className="text-xs font-semibold text-emerald-900">
+          {nextDayTimeLeft}
+        </p>
+      </div>
+
+      {/* LINE */}
+      <div className="mx-2 h-px flex-1 bg-gradient-to-r from-emerald-200 via-emerald-300 to-emerald-200" />
+      {/* SHIPS */}
+      <div className="flex flex-col items-center text-center">
+        <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#445D41] shadow-sm">
+          <Truck className="h-6 w-6 text-white" />
+        </div>
+        <p className="mt-1 text-[11px] font-medium text-[#445D41]">
+          Ships
+        </p>
+       <p className="text-xs font-semibold text-[#445D41]">
+  Today • {shipDate}
+</p>
+      </div>
+
+      {/* LINE */}
+      <div className="mx-2 h-px flex-1 bg-gradient-to-r from-emerald-200 via-emerald-300 to-emerald-200" />
+
+      {/* DELIVERS */}
+      <div className="flex flex-col items-center text-center">
+        <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#445D41] shadow-sm">
+          <MapPin className="h-6 w-6 text-white" />
+        </div>
+        <p className="mt-1 text-[11px] font-medium text-[#445D41]">
+          Delivers
+        </p>
+       <p className="text-xs font-semibold text-[#445D41]">
+  Tomorrow • {deliveryDate}
+</p>
+      </div>
+    </div>   
+  </div>
+)}
 
 {/* VARIANTS UI */}
 {product.variants && product.variants?.length > 0 && (
@@ -1396,21 +1562,28 @@ bg-white/80 hover:bg-white shadow-md rounded-full p-2 backdrop-blur-sm transitio
     <p className="text-sm font-semibold">
           {product.variants?.[0]?.option1Name}
         </p>
-        <div className="flex flex-wrap gap-2">
-          {[...new Set(product.variants?.map(v => v.option1Value))].map((opt) => (
-            <button
-              key={opt}
-              onClick={() => updateSelection(1, opt)}
-              className={`px-3 py-1 rounded border text-sm ${
-                selectedOptions.option1 === opt
-                  ? "bg-[#445D41] text-white border-[#445D41]"
-                  : "border-gray-300"
-              }`}
-            >
-              {opt}
-            </button>
-          ))}
-        </div>
+       <div className="flex flex-wrap gap-2">
+  {[
+    ...new Set(
+      [...(product.variants ?? [])]
+        .sort((a, b) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0))
+        .map(v => v.option1Value)
+    ),
+  ].map((opt) => (
+    <button
+      key={opt}
+      onClick={() => updateSelection(1, opt)}
+      className={`px-3 py-1 rounded border text-sm ${
+        selectedOptions.option1 === opt
+          ? "bg-[#445D41] text-white border-[#445D41]"
+          : "border-gray-300"
+      }`}
+    >
+      {opt}
+    </button>
+  ))}
+</div>
+
       </div>
     )}
 
@@ -1488,13 +1661,13 @@ bg-white/80 hover:bg-white shadow-md rounded-full p-2 backdrop-blur-sm transitio
               <CardContent className="p-4">
                 {/* PURCHASE MODE CARDS SIDE BY SIDE */}
 {product.isRecurring ? (
-  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-0">
 
     {/* LEFT NORMAL PURCHASE CARD */}
     <div
   id="normal-purchase-card"
    onClick={() => setPurchaseType("one")}
-  className={`w-full transition-all duration-300 rounded-2xl ${
+  className={`w-full transition-all duration-300 rounded-2xl  ${
     purchaseType === "one"
       ? "border-2 border-[#445D41] bg-[#f8faf9] shadow-md"
       : "border border-gray-200 bg-white"
@@ -1691,7 +1864,7 @@ bg-white/80 hover:bg-white shadow-md rounded-full p-2 backdrop-blur-sm transitio
 ) : (
   <>
     {/* If no subscription then just show normal card */}
-    <Card className="mb-4 border border-gray-200 rounded-2xl shadow-sm">
+    <Card className="mb-4 border border-gray-200 rounded-2xl shadow-sm ">
       <CardContent className="p-5">
          <div className="flex flex-col sm:flex-row sm:items-center sm:gap-3 mb-1">
                   <span className="text-3xl font-bold text-[#445D41]">
@@ -1719,7 +1892,7 @@ bg-white/80 hover:bg-white shadow-md rounded-full p-2 backdrop-blur-sm transitio
   {/* 🎁 LOYALTY POINTS (SHORT, NO MESSAGE) */}
 {(product as any).loyaltyPointsEnabled && (
   <div className="mt-[-12px] inline-flex items-center gap-1.5 text-sm text-green-700 bg-green-50 border border-green-200 px-2 py-0.5 rounded-md">
-    <AwardIcon className="h-4 w-4 text-green-700" />
+    <AwardIcon className="h-4 w-4 text-[#445D41]" />
     <span>
       Earn {(product as any).loyaltyPointsEarnable} points
     </span>
@@ -1812,7 +1985,7 @@ if (num > maxStock) {
 
                     {/* ⭐ PREMIUM Stock Badge */}
     <div
-  className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-semibold shadow-sm ${
+  className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-semibold shadow-sm ${
     (selectedVariant?.stockQuantity ?? product.stockQuantity) === 0
       ? "bg-red-100 text-red-700"
       : "bg-green-100 text-green-700"
@@ -1914,15 +2087,30 @@ if (num > maxStock) {
 )}
 
 {/* 🔥 GROUPED PRODUCTS + BUNDLE OFFER (SINGLE BOX) */}
-{isGroupedProduct && product.groupedProducts && (
+{purchaseType === "one" && isGroupedProduct && product.groupedProducts && (
   <div className="mb-4 mt-3 border border-green-2 bg-white rounded-xl p-4">
+<div className="flex items-center gap-3 mb-4">
+  <input
+    type="checkbox"
+    className="w-5 h-5 accent-black cursor-pointer"
+    checked={groupEnabled}
+    disabled={product.automaticallyAddProducts}
+    onChange={(e) => setGroupEnabled(e.target.checked)}
+  />
 
+  <span className="text-sm font-semibold text-gray-800 flex items-center gap-1">
+    Include required products
+    {product.automaticallyAddProducts && (
+      <span className="text-xs text-gray-500">(required)</span>
+    )}
+  </span>
+</div>
     {/* 🔥 BUNDLE OFFER MESSAGE */}
     {product.groupBundleDiscountType &&
       product.groupBundleDiscountType !== "None" && (
         <div className="mb-3 bg-green-50 border rounded-lg p-3">
          <p className="flex items-center gap-2 text-sm font-semibold text-green-800">
-  <Gift className="w-6 h-6 text-green-700" />
+  <Gift className="w-8 h-8 text-green-700" />
   <span>
     Bundle Offer: Save {product.savingsPercentage}% when purchased together
   </span>
@@ -1940,22 +2128,7 @@ if (num > maxStock) {
           )}
         </div>
       )}
-<div className="flex items-center gap-3 mb-4">
-  <input
-    type="checkbox"
-    className="w-5 h-5 accent-black cursor-pointer"
-    checked={groupEnabled}
-    disabled={product.automaticallyAddProducts}
-    onChange={(e) => setGroupEnabled(e.target.checked)}
-  />
 
-  <span className="text-sm font-semibold text-gray-800 flex items-center gap-1">
-    Include required products
-    {product.automaticallyAddProducts && (
-      <span className="text-xs text-gray-500">(required)</span>
-    )}
-  </span>
-</div>
 
 
 
@@ -1979,6 +2152,8 @@ if (num > maxStock) {
               {/* PRODUCT INFO */}
               {/* PRODUCT IMAGE */}
 <div className="w-14 h-14 flex-shrink-0 rounded-lg border bg-white overflow-hidden">
+  <Link href={`/products/${gp.slug}`}>
+
   <img
     src={
       gp.mainImageUrl
@@ -1991,24 +2166,30 @@ if (num > maxStock) {
     className="w-full h-full object-contain p-1"
     loading="lazy"
   />
+  </Link>
 </div>
 
               <div>
-               
+               <Link href={`/products/${gp.slug}`}>
                 <p className="text-sm font-semibold">{gp.name}</p>
+                </Link>
 
                 <p className="text-sm font-semibold text-gray-900">
-                  £{(gp.bundlePrice ?? gp.price).toFixed(2)}
+                  £{((gp.bundlePrice ?? gp.price) * normalQty).toFixed(2)}
                 </p>
 
                 {gp.hasBundleDiscount && (
                   <>
                     <p className="text-xs text-gray-400 line-through">
-                      £{gp.price.toFixed(2)}
-                    </p>
+  £{(gp.price * normalQty).toFixed(2)}
+</p>
+
 
                    {typeof gp.individualSavings === "number" && (
-  <p>You save £{gp.individualSavings.toFixed(2)}</p>
+  <p className="text-xs text-green-700">
+  You save £{(gp.individualSavings * normalQty).toFixed(2)}
+</p>
+
 )}
 
                   </>
@@ -2017,21 +2198,15 @@ if (num > maxStock) {
             </div>
 
             {/* QUANTITY */}
-            <QuantitySelector
-              quantity={state.quantity}
-              setQuantity={q =>
-                setGroupedSelections(prev => ({
-                  ...prev,
-                  [gp.productId]: {
-                    ...prev[gp.productId],
-                    quantity: q,
-                  },
-                }))
-              }
-              maxStock={gp.stockQuantity}
-              stockError={null}
-              setStockError={() => {}}
-            />
+         <div className="flex items-center gap-2 border rounded-lg px-3 py-1.5 bg-gray-50">
+  <span className="text-sm font-semibold text-gray-800">
+    Quantity: {normalQty}
+  </span>
+</div>
+
+
+
+
           </div>
         );
       })}
@@ -2040,22 +2215,25 @@ if (num > maxStock) {
     </div>
 
     {/* 🔥 BUNDLE TOTAL SUMMARY */}
-    {product.bundlePrice && (
-      <div className="mt-4 pt-3 border-t">
-        <div className="flex justify-between text-sm text-gray-600">
-          <span>Individual total</span>
-        {typeof product.totalIndividualPrice === "number" && (
-  <span>£{product.totalIndividualPrice.toFixed(2)}</span>
-)}
+   <div className="mt-4 pt-3 border-t space-y-1">
+  <div className="flex justify-between text-sm text-gray-600">
+    <span>Individual total</span>
+    <span>£{bundleIndividualTotal.toFixed(2)}</span>
+  </div>
+ {bundleTotalSavings > 0 && (
+    <div className="flex justify-between text-sm text-green-800 font-medium">
+      <span>You save</span>
+      <span>£{bundleTotalSavings.toFixed(2)}</span>
+    </div>
+  )}
+  <div className="flex justify-between text-base font-semibold text-green-700">
+    <span>Bundle price</span>
+    <span>£{bundleTotalPrice.toFixed(2)}</span>
+  </div>
 
-        </div>
+ 
+</div>
 
-        <div className="flex justify-between text-base font-semibold text-green-700">
-          <span>Bundle price</span>
-          <span>£{product.bundlePrice.toFixed(2)}</span>
-        </div>
-      </div>
-    )}
   </div>
 )}
 

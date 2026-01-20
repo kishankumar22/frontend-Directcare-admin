@@ -45,7 +45,9 @@ slug?: string;
 bundlePrice?: number;            // per grouped product bundle price
 individualSavings?: number;      // price - bundlePrice
 hasBundleDiscount?: boolean;
-
+// ✅ NEXT DAY DELIVERY (ADD THESE)
+  nextDayDeliveryEnabled?: boolean;
+  nextDayDeliveryCharge?: number;
 
 }
 // ================== CONTEXT TYPE ==================
@@ -195,41 +197,49 @@ export const CartProvider = ({ children }: { children: React.ReactNode }) => {
 
 
   // ================== UPDATE QUANTITY ==================
-  // ================== UPDATE QUANTITY (FINAL PERFECT VERSION) ==================
-// ================== UPDATE QUANTITY (FINAL PERFECT VERSION) ==================
 const updateQuantity = (id: string, qty: number) => {
-  setCart((prev) =>
-    prev.map((p) => {
-      if (p.id !== id) return p;
+  setCart((prev) => {
+    const target = prev.find(p => p.id === id);
+    if (!target) return prev;
 
-      const product = p.productData;
-      const variantStock = p.variantId
-        ? product?.variants?.find((v: any) => v.id === p.variantId)?.stockQuantity
-        : product?.stockQuantity;
+    // ❌ BLOCK MANUAL UPDATE FOR GROUPED CHILD
+    if (target.parentProductId) {
+      return prev;
+    }
+
+    const product = target.productData;
+    const variantStock = target.variantId
+      ? product?.variants?.find((v: any) => v.id === target.variantId)?.stockQuantity
+      : product?.stockQuantity;
 
     const maxStock =
-  p.maxStock ??
-  variantStock ??
-  product?.stockQuantity ??
-  9999;
+      target.maxStock ??
+      variantStock ??
+      product?.stockQuantity ??
+      9999;
 
+    let finalQty = qty;
 
+    if (qty === 0) finalQty = 0;
+    else if (qty > maxStock) finalQty = maxStock;
+    else if (qty < 1) finalQty = 1;
 
-
-      // 🔥 Allow qty === 0 (typing ke time)
-      if (qty === 0) {
-        return { ...p, quantity: 0 };
+    return prev.map((item) => {
+      // 🔥 MAIN PRODUCT
+      if (item.id === id) {
+        return { ...item, quantity: finalQty };
       }
 
-      // 🔥 Only fix on exceeding user input
-      if (qty > maxStock) {
-        return { ...p, quantity: maxStock };
+      // 🔥 AUTO-SYNC GROUPED PRODUCTS
+      if (item.parentProductId === target.productId) {
+        return { ...item, quantity: finalQty };
       }
 
-      return { ...p, quantity: qty };
-    })
-  );
+      return item;
+    });
+  });
 };
+
 
 
   // ================== UPDATE CART (COUPON APPLY) ==================

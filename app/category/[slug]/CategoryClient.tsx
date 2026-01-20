@@ -1,43 +1,20 @@
 // app/category/[slug]/CategoryClient.tsx
 "use client";
 
-import {
-  useState,
-  useMemo,
-  useTransition,
-  useEffect,
-  useCallback,
-} from "react";
+import { useState, useMemo, useTransition, useEffect, useCallback, useRef, } from "react";
 import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
 import { getVatRate } from "@/app/lib/vatHelpers";
 import PremiumPriceSlider from "@/components/filters/PremiumPriceSlider";
 import Link from "next/link";
-
-
-import {
-  ShoppingCart,
-  Star,
-  SlidersHorizontal,
-  X,
-  Search,
-  Grid3x3,
-  LayoutGrid,
-  ChevronLeft,
-  ChevronRight,
-  ExternalLink,
-  BadgePercent,
-  Grid2x2,
-} from "lucide-react";
+import { ShoppingCart, Star, SlidersHorizontal, X, Search, Grid3x3, LayoutGrid, ChevronLeft, ChevronRight, ExternalLink, BadgePercent, Grid2x2, AwardIcon, } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useCart } from "@/context/CartContext";
 import { useToast } from "@/components/CustomToast";
-import {
-  getDiscountBadge,
-  getDiscountedPrice,
-} from "@/app/lib/discountHelpers";
+import { getDiscountBadge, getDiscountedPrice, } from "@/app/lib/discountHelpers";
+import GenderBadge from "@/components/shared/GenderBadge";
 // ---------- Types ----------
 interface ProductImage {
   id: string;
@@ -105,17 +82,17 @@ interface Brand {
 
 interface CategoryClientProps {
   category: Category | null;
-   // 🧭 Breadcrumbs (NEW)
+   // :compass: Breadcrumbs (NEW)
   breadcrumbs: BreadcrumbItem[];
   initialProducts: Product[];
   totalCount: number;
   currentPage: number;
   pageSize: number;
   totalPages: number;
-  initialSearchTerm: string;
   initialSortBy: string;
   initialSortDirection: string;
   brands: Brand[];
+  discount?: number | null; // :white_check_mark: ADD THIS
 }
 
 // ---------- Debounce hook ----------
@@ -144,18 +121,26 @@ export default function CategoryClient({
   currentPage,
   pageSize,
   totalPages,
-  initialSearchTerm,
   initialSortBy,
   initialSortDirection,
   brands,
-  vatRates, // ✅ SERVER SE AAYA
+  vatRates, // :white_check_mark: SERVER SE AAYA
+  discount, // :white_check_mark: ADD THIS
 }: CategoryClientProps & { vatRates: any[] }) {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const isOfferPage = searchParams.get("offer") === "true";
+
   const toast = useToast();
   const [isPending, startTransition] = useTransition();
-  const [products] = useState<Product[]>(initialProducts);
-  const [instantSearch, setInstantSearch] = useState(initialSearchTerm);
+  const [products, setProducts] = useState<Product[]>(initialProducts);
+const [page, setPage] = useState(currentPage ?? 1);
+const [hasMore, setHasMore] = useState(
+  totalPages ? currentPage < totalPages : true
+);
+
+const [isLoadingMore, setIsLoadingMore] = useState(false);
+
   const [sortBy, setSortBy] = useState(initialSortBy);
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">(
     initialSortDirection as "asc" | "desc"
@@ -167,7 +152,7 @@ const [selectedSubCategories, setSelectedSubCategories] = useState<string[]>([])
   const [minRating, setMinRating] = useState(0);
   const [showFilters, setShowFilters] = useState(false);
   const [gridCols, setGridCols] = useState(3);
-  const debouncedSearch = useDebounce(instantSearch, 300);
+  
 
   const [minPrice, setMinPrice] = useState(0);
 const [maxPrice, setMaxPrice] = useState(0);
@@ -206,9 +191,34 @@ useEffect(() => {
   // ---------- Filtering + sorting ----------
   const filteredAndSortedProducts = useMemo(() => {
    const filtered = products.filter((product) => {
+    // :fire: OFFER DISCOUNT FILTER (NON-BREAKING)
+// :fire: OFFER / DISCOUNT FILTER (HYBRID – OPTION 3)
+
+// Case 1: exact discount selected (chip click)
+if (typeof discount === "number") {
+  const hasExactDiscount = (product as any).assignedDiscounts?.some(
+    (d: any) =>
+      d.isActive === true &&
+      d.usePercentage === true &&
+      d.discountPercentage === discount
+  );
+
+  if (!hasExactDiscount) return false;
+}
+
+// Case 2: offer page → show ALL discounted products
+else if (isOfferPage) {
+  const hasAnyDiscount = (product as any).assignedDiscounts?.some(
+    (d: any) => d.isActive === true
+  );
+
+  if (!hasAnyDiscount) return false;
+}
+
+
   // must match category
 // Category + subcategory filtering
-// ✅ CATEGORY + SUBCATEGORY FILTER (FIXED)
+// :white_check_mark: CATEGORY + SUBCATEGORY FILTER (FIXED)
 const productCategoryIds =
   product.categories?.map((c) => c.categoryId) ?? [];
 
@@ -233,32 +243,7 @@ else {
 }
 
 
-
- if (debouncedSearch) {
-  const searchLower = debouncedSearch.toLowerCase();
-
-  const nameMatch =
-    product.name?.toLowerCase().includes(searchLower);
-
-  const descriptionMatch =
-    product.description?.toLowerCase().includes(searchLower);
-
-  const tagMatch =
-    product.tags?.toLowerCase().includes(searchLower);
-
-  const brandMatch =
-    product.brands?.some((b) =>
-      b.brandName?.toLowerCase().includes(searchLower)
-    );
-
-  const matchesSearch =
-    nameMatch || descriptionMatch || tagMatch || brandMatch;
-
-  if (!matchesSearch) return false;
-}
-
-
-// ✅ BRAND FILTER (FIXED FOR brands[])
+// :white_check_mark: BRAND FILTER (FIXED FOR brands[])
 if (selectedBrands.length > 0) {
   const productBrandIds =
     product.brands?.map((b) => b.brandId) ?? [];
@@ -296,7 +281,6 @@ if (selectedBrands.length > 0) {
     return sorted;
   }, [
     products,
-    debouncedSearch,
     selectedBrands,
     priceRange,
     minRating,
@@ -316,10 +300,62 @@ allSubCategories,
       : "/placeholder-product.jpg";
   }, []);
 
-  const calculateDiscount = useCallback((price: number, oldPrice: number) => {
-    if (!oldPrice || oldPrice <= price) return 0;
-    return Math.round(((oldPrice - price) / oldPrice) * 100);
-  }, []);
+  const fetchMoreProducts = useCallback(async () => {
+  if (isLoadingMore || !hasMore) return;
+
+  setIsLoadingMore(true);
+
+  try {
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("page", String(page + 1));
+
+    const res = await fetch(
+      `${process.env.NEXT_PUBLIC_API_URL}/api/Products?${params.toString()}`
+    );
+
+    if (!res.ok) {
+      throw new Error(`Failed to load products: ${res.status}`);
+    }
+
+    const json = await res.json();
+
+    setProducts((prev) => [...prev, ...json.data.items]);
+    setPage(json.data.page);
+    setHasMore(json.data.hasNext);
+  } catch (e) {
+    console.error(e);
+  } finally {
+    setIsLoadingMore(false);
+  }
+}, [page, hasMore, isLoadingMore, searchParams]);
+
+
+const loadMoreRef = useRef<HTMLDivElement | null>(null);
+
+useEffect(() => {
+  if (!loadMoreRef.current || !hasMore || isLoadingMore) return;
+
+  const observer = new IntersectionObserver(
+    ([entry]) => {
+      if (entry.isIntersecting) {
+        fetchMoreProducts();
+      }
+    },
+    { rootMargin: "200px" }
+  );
+
+  observer.observe(loadMoreRef.current);
+
+  return () => observer.disconnect();
+}, [hasMore, isLoadingMore, fetchMoreProducts]);
+
+useEffect(() => {
+  setProducts(initialProducts);
+  setPage(currentPage ?? 1);
+  setHasMore(totalPages ? currentPage < totalPages : true);
+}, [initialProducts, currentPage, totalPages]);
+
+
 
   const getDefaultVariant = (product: any) => {
   if (product.variants?.length > 0) {
@@ -357,21 +393,19 @@ allSubCategories,
     setSortDirection(newDirection as "asc" | "desc");
   }, []);
 
-  const handlePageChange = useCallback(
-    (page: number) => {
-      updateServerFilters({ page: page.toString() });
-    },
-    [updateServerFilters]
-  );
+  
 
   const resetFilters = useCallback(() => {
     setSelectedBrands([]);
     setMinRating(0);
-    setInstantSearch("");
     setSortBy("name");
     setSortDirection("asc");
     setPriceRange([minPrice, maxPrice]);
-    router.push(`/category/${category?.slug}`);
+    const params = new URLSearchParams();
+if (discount) params.set("discount", String(discount));
+
+router.push(`/category/${category?.slug}?${params.toString()}`);
+
   }, [router, category?.slug]);
 
 
@@ -407,8 +441,8 @@ const finalPrice = getDiscountedPrice(product, basePrice);
             defaultVariant.option3Value,
           ].filter(Boolean).join(", ")})`
         : product.name,
-     price: finalPrice,                 // ✅ cart uses discounted price
-  priceBeforeDiscount: basePrice,    // ✅ required for coupon logic
+     price: finalPrice,                 // :white_check_mark: cart uses discounted price
+  priceBeforeDiscount: basePrice,    // :white_check_mark: required for coupon logic
   finalPrice: finalPrice,
   discountAmount: basePrice - finalPrice,
       quantity: 1,
@@ -424,7 +458,7 @@ const finalPrice = getDiscountedPrice(product, basePrice);
       productData: JSON.parse(JSON.stringify(product)),
     });
 
-    toast.success(`${product.name} added to cart! 🛒`);
+    toast.success(`${product.name} added to cart! :shopping_trolley:`);
   },
   [toast, addToCart]
 );
@@ -444,35 +478,51 @@ const finalPrice = getDiscountedPrice(product, basePrice);
       )}
 
       <main className="max-w-7xl mx-auto px-4 py-4">
-        {/* 🧭 Breadcrumbs */}
-<nav className="mb-4 flex items-center flex-wrap gap-1 text-sm text-gray-600">
-  {breadcrumbs.map((crumb, index) => (
-    <div key={index} className="flex items-center gap-1">
-      {index > 0 && (
-        <ChevronRight className="h-4 w-4 text-gray-400" />
-      )}
+        {/* :compass: Breadcrumbs */}
+<div className="mb-2 flex items-center justify-between">
+  {/* :compass: Breadcrumbs – LEFT */}
+  <nav className="flex items-center flex-wrap gap-1 text-sm text-gray-600">
+    {breadcrumbs.map((crumb, index) => (
+      <div key={index} className="flex items-center gap-1">
+        {index > 0 && (
+          <ChevronRight className="h-4 w-4 text-gray-400" />
+        )}
 
-      {crumb.href ? (
-        <Link
-          href={crumb.href}
-          className="hover:text-[#445D41] transition-colors"
-        >
-          {crumb.label}
-        </Link>
-      ) : (
-        <span className="font-semibold text-gray-900">
-          {crumb.label}
-        </span>
-      )}
-    </div>
-  ))}
-</nav>
+        {crumb.href ? (
+          <Link
+            href={crumb.href}
+            className="hover:text-[#445D41] transition-colors"
+          >
+            {crumb.label}
+          </Link>
+        ) : (
+          <span className="font-semibold text-gray-900">
+            {crumb.label}
+          </span>
+        )}
+      </div>
+    ))}
+  </nav>
+
+  {/* :arrow_down_small: Sort – TOP RIGHT (same line) */}
+  <select
+    value={`${sortBy}-${sortDirection}`}
+    onChange={(e) => handleSortChange(e.target.value)}
+    className="px-4 py-1 border border-gray-300 rounded-lg bg-white text-sm font-medium text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#445D41]"
+  >
+    <option value="name-asc">Name: A-Z</option>
+    <option value="name-desc">Name: Z-A</option>
+    <option value="price-asc">Price: Low to High</option>
+    <option value="price-desc">Price: High to Low</option>
+  </select>
+</div>
+
 
         {/* Category header */}
        
 
         <div className="flex gap-8">
-          {/* SIDEBAR FILTERS (no category filter here, only brand/price/rating) */}
+       
           <aside className="hidden lg:block w-64 flex-shrink-0">
   <div className="sticky top-24">
 
@@ -621,91 +671,8 @@ const finalPrice = getDiscountedPrice(product, basePrice);
           {/* MAIN CONTENT */}
           <div className="flex-1">
             {/* Search & Sort Bar */}
-            <Card className="mb-6 shadow-sm">
-              <CardContent className="p-4">
-                <div className="flex flex-col md:flex-row md:items-center gap-4">
-
-                  {/* Search */}
-                  <div className="flex-1 relative">
-                    <input
-                      type="text"
-                      placeholder={`Search in ${
-                        category?.name || "this category"
-                      }...`}
-                      value={instantSearch}
-                      onChange={(e) => setInstantSearch(e.target.value)}
-                      className="w-full px-4 py-2.5 border border-gray-300 rounded-lg pl-10 focus:outline-none focus:ring-2 focus:ring-[#445D41] focus:border-transparent transition"
-                    />
-                    <Search className="absolute left-3 top-3 h-5 w-5 text-gray-400" />
-                    {instantSearch && (
-                      <button
-                        onClick={() => setInstantSearch("")}
-                        className="absolute right-3 top-3 text-gray-400 hover:text-gray-600 transition"
-                      >
-                        <X className="h-5 w-5" />
-                      </button>
-                    )}
-                  </div>
-
-                  {/* Sort */}
-                  <select
-                    value={`${sortBy}-${sortDirection}`}
-                    onChange={(e) => handleSortChange(e.target.value)}
-                    className="px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#445D41] focus:border-transparent bg-white text-sm font-medium text-gray-700 transition"
-                  >
-                    <option value="name-asc">Name: A-Z</option>
-                    <option value="name-desc">Name: Z-A</option>
-                    <option value="price-asc">Price: Low to High</option>
-                    <option value="price-desc">Price: High to Low</option>
-                  </select>
-
-                  {/* Grid toggle */}
-                  <div className="flex gap-2">
-                    {/* <Button
-                      variant={gridCols === 2 ? "default" : "outline"}
-                      size="sm"
-                      onClick={() => setGridCols(2)}
-                      className={`${
-                        gridCols === 2
-                          ? "bg-[#445D41] hover:bg-[#334a2c]"
-                          : "hover:bg-gray-100"
-                      } transition`}
-                    >
-                      <Grid2x2 className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant={gridCols === 3 ? "default" : "outline"}
-                      size="sm"
-                      onClick={() => setGridCols(3)}
-                      className={`${
-                        gridCols === 3
-                          ? "bg-[#445D41] hover:bg-[#334a2c]"
-                          : "hover:bg-gray-100"
-                      } transition`}
-                    >
-                      <Grid3x3 className="h-4 w-4" />
-                    </Button> */}
-                    {/* Product count – TOP RIGHT */}
-<div className="md:ml-auto text-sm mt-5px text-gray-500 whitespace-nowrap">
-  Showing {filteredAndSortedProducts.length} of {totalCount}
-</div>
-
-                  </div>
-
-                  {/* Mobile filters toggle */}
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="lg:hidden hover:bg-gray-100 transition"
-                    onClick={() => setShowFilters(!showFilters)}
-                  >
-                    <SlidersHorizontal className="h-4 w-4 mr-2" />
-                    Filters
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-
+ 
+           
             {/* Mobile filters panel (reuse same as sidebar, simplified) */}
             {showFilters && (
               <Card className="mb-6 shadow-sm lg:hidden">
@@ -792,7 +759,13 @@ const finalPrice = getDiscountedPrice(product, basePrice);
                 gridCols === 3 ? "md:grid-cols-3" : "md:grid-cols-2"
               } gap-6 mb-8`}
             >
-              {filteredAndSortedProducts.map((product) => {
+             {filteredAndSortedProducts
+  .filter(
+    (product, index, self) =>
+      index === self.findIndex((p) => p.id === product.id)
+  )
+  .map((product, index) => {
+
                 // VAT rate finder like featured slider
 const discountBadge = getDiscountBadge(product);
 const vatRate = getVatRate(
@@ -800,12 +773,15 @@ const vatRate = getVatRate(
   (product as any).vatRateId,
   product.vatExempt
 );
+const hasCoupon = (product as any).assignedDiscounts?.some(
+  (d: any) => d.isActive === true && d.requiresCouponCode === true
+);
 
 
               const defaultVariant = getDefaultVariant(product);
 
-  const basePrice = defaultVariant?.price ?? product.price;   // ✅ ADD
-  const finalPrice = getDiscountedPrice(product, basePrice);  // ✅ ADD
+  const basePrice = defaultVariant?.price ?? product.price;   // :white_check_mark: ADD
+  const finalPrice = getDiscountedPrice(product, basePrice);  // :white_check_mark: ADD
 const stock = defaultVariant?.stockQuantity ?? product.stockQuantity ?? 0;
 
 const mainImage = defaultVariant?.imageUrl
@@ -815,7 +791,8 @@ const mainImage = defaultVariant?.imageUrl
 
                 return (
                   <Card
-                    key={product.id}
+                   key={`${product.id}-${index}`}
+
                     className="group hover:shadow-xl transition-all duration-300 border border-gray-200"
                   >
                     <CardContent className="p-0">
@@ -834,7 +811,7 @@ const mainImage = defaultVariant?.imageUrl
   {discountBadge && (
   <div className="absolute top-3 right-3 z-20">
     <div
-      className="w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-gradient-to-br from-[#445D41] to-green-700 flex items-center justify-center text-white shadow-lg ring-2 ring-white">
+      className="w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-gradient-to-br from-red-500 to-red-700 flex items-center justify-center text-white shadow-lg ring-2 ring-white">
         
       <div className="flex flex-col items-center leading-none">
         {discountBadge.type === "percent" ? (
@@ -860,15 +837,7 @@ const mainImage = defaultVariant?.imageUrl
     </div>
   </div>
 )}                       
-                           <div className="absolute top-1 left-1 sm:top-2 sm:left-2 z-20 bg-white/90 px-1 py-0.5 sm:px-2 sm:py-1 rounded-md shadow flex items-center gap-1">
-                    <img 
-  src="/icons/unisex.svg" 
-  alt="Unisex"
-  className="h-3 w-3 sm:h-4 sm:w-4"
-  loading="lazy"
-/>
-                    <span className="text-[8px] sm:text-[10px] font-semibold text-gray-700">Unisex</span>
-                  </div>
+                           <GenderBadge gender={product.gender} />
                         </div>
                          </Link>
                      
@@ -878,7 +847,7 @@ const mainImage = defaultVariant?.imageUrl
 
 
                          <Link href={`/products/${product.slug}`}>
-                          <h3 className="font-semibold text-base mb-2 line-clamp-2 hover:text-[#445D41] transition-colors text-gray-900 min-h-[48px]">
+                          <h3 className="font-semibold text-base mb-0 line-clamp-2 hover:text-[#445D41] transition-colors text-gray-900 min-h-[48px]">
   {defaultVariant
     ? `${product.name} (${[
         defaultVariant?.option1Value,
@@ -891,8 +860,8 @@ const mainImage = defaultVariant?.imageUrl
                         
 
                         {/* Rating */}
-                       <div className="flex items-center gap-2 mb-3 flex-wrap">
-  {/* ⭐ Rating */}
+                       <div className="flex items-center gap-2 mb-1 flex-wrap">
+  {/* :star: Rating */}
   <div className="flex items-center">
     <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
     <span className="text-sm ml-1 font-medium text-gray-700">
@@ -904,9 +873,9 @@ const mainImage = defaultVariant?.imageUrl
     ({product.reviewCount || 0} reviews)
   </span>
 
-  {/* 🟢 VAT Relief badge — moved here */}
+  {/* :large_green_circle: VAT Relief badge — moved here */}
   {product.vatExempt && (
-    <span className="flex items-center gap-1 text-[10px] font-semibold bg-green-100 text-green-700 px-2 py-0.5 rounded whitespace-nowrap">
+    <span className="flex items-center gap-1 text-[10px] font-semibold text-green-700 bg-green-50 border border-green-200 px-2 py-0.5 rounded whitespace-nowrap">
                      
                     
       <BadgePercent className="h-3 w-3" />
@@ -917,29 +886,45 @@ const mainImage = defaultVariant?.imageUrl
 
 
                         {/* Price */}
-                       <div className="flex items-center gap-2 mb-4 flex-wrap">
- <span className="text-2xl font-bold text-[#445D41]">
-  £{finalPrice.toFixed(2)}
-</span>
-
-{finalPrice < basePrice && (
-  <span className="text-sm text-gray-400 line-through">
-    £{basePrice.toFixed(2)}
+                       <div className="flex items-center gap-2 mb-1 flex-wrap">
+   {/* FINAL PRICE */}
+  <span className="text-2xl font-bold text-[#445D41]">
+    £{finalPrice.toFixed(2)}
   </span>
-)}
+
+  {/* CUT PRICE (ONLY AUTO DISCOUNT) */}
+  {finalPrice < basePrice && (
+    <span className="text-sm text-gray-400 line-through">
+      £{basePrice.toFixed(2)}
+    </span>
+  )}
+
+  {/* COUPON AVAILABLE – ALWAYS WHEN EXISTS */}
+  {hasCoupon && (
+    <span className="text-xs font-semibold text-red-700 bg-red-100 px-2 py-0.5 rounded whitespace-nowrap">
+      Coupon!
+    </span>
+  )}
 
 
 {product.vatExempt ? (
-  <span className="text-xs font-semibold text-green-700 bg-green-100 px-2 py-0.5 rounded whitespace-nowrap">
+  <span className="text-xs font-semibold text-green-700 bg-green-50 border border-green-200 px-2 py-0.5 rounded-md whitespace-nowrap">
     (0% VAT)
   </span>
 ) : vatRate !== null ? (
-  <span className="text-xs font-semibold text-blue-700 bg-blue-100 px-2 py-0.5 rounded whitespace-nowrap">
+  <span className="text-xs font-semibold text-green-700 bg-green-50 border border-green-200 px-2 py-0.5 rounded-md whitespace-nowrap">
     ({vatRate}% VAT)
   </span>
 ) : null}
 
 </div>
+{(product as any).loyaltyPointsEnabled && (
+  <span className="mt-0 inline-flex items-center gap-1.5 text-[11px] font-medium text-green-700 bg-green-50 border border-green-200 px-2 py-0.5 rounded-md w-fit leading-none">
+    <AwardIcon className="h-4 w-4 text-green-600" />
+    {(product as any).loyaltyPointsMessage ??
+      `Earn ${(product as any).loyaltyPointsEarnable} points`}
+  </span>
+)}
                         {/* Add to Cart */}
                         <Button
                           onClick={() => handleAddToCart(product)}
@@ -957,6 +942,15 @@ const mainImage = defaultVariant?.imageUrl
                 );
               })}
             </div>
+{hasMore && (
+  <div ref={loadMoreRef} className="flex justify-center py-6">
+    {isLoadingMore && (
+      <span className="text-sm text-gray-500">
+        Loading more products…
+      </span>
+    )}
+  </div>
+)}
 
             {/* No results */}
             {filteredAndSortedProducts.length === 0 && (
@@ -969,11 +963,7 @@ const mainImage = defaultVariant?.imageUrl
                     <p className="text-gray-700 text-lg font-semibold mb-2">
                       No products found
                     </p>
-                    <p className="text-gray-500 text-sm mb-6">
-                      {instantSearch
-                        ? `No results for "${instantSearch}" in this category`
-                        : "Try adjusting your filters"}
-                    </p>
+                   
                   </div>
                   <Button
                     onClick={resetFilters}
@@ -981,41 +971,6 @@ const mainImage = defaultVariant?.imageUrl
                   >
                     Reset All Filters
                   </Button>
-                </CardContent>
-              </Card>
-            )}
-
-            {/* Pagination (server-driven like /products) */}
-            {totalPages > 1 && filteredAndSortedProducts.length > 0 && (
-              <Card className="shadow-sm">
-                <CardContent className="p-4">
-                  <div className="flex items-center justify-between">
-                    <Button
-                      variant="outline"
-                      onClick={() => handlePageChange(currentPage - 1)}
-                      disabled={currentPage === 1 || isPending}
-                      className="hover:bg-gray-100 transition"
-                    >
-                      <ChevronLeft className="h-4 w-4 mr-2" />
-                      Previous
-                    </Button>
-
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-medium text-gray-700">
-                        Page {currentPage} of {totalPages}
-                      </span>
-                    </div>
-
-                    <Button
-                      variant="outline"
-                      onClick={() => handlePageChange(currentPage + 1)}
-                      disabled={currentPage === totalPages || isPending}
-                      className="hover:bg-gray-100 transition"
-                    >
-                      Next
-                      <ChevronRight className="h-4 w-4 ml-2" />
-                    </Button>
-                  </div>
                 </CardContent>
               </Card>
             )}

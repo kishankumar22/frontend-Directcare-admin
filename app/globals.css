@@ -96,3 +96,25 @@ input[type="number"] {
   @apply flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700
          hover:bg-gray-50 w-full transition;
 }
+/* ===============================
+   Swiper Navigation Arrows – Small & Clean
+================================ */
+
+.swiper-button-prev,
+.swiper-button-next {
+  color: #445D41 !important;
+  width: 32px;
+  height: 32px;
+}
+
+.swiper-button-prev::after,
+.swiper-button-next::after {
+  font-size: 16px;   /* 🔥 arrow size */
+  font-weight: 700;
+}
+
+/* Optional: subtle hover */
+.swiper-button-prev:hover,
+.swiper-button-next:hover {
+  color: #111827 !important;
+}

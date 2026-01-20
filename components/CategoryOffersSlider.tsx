@@ -48,9 +48,8 @@ export default function CategoryOffersSlider({
   };
 
  return (
-  <section className="relative w-full py-14 overflow-hidden
-    bg-gradient-to-r from-[#445D41] via-[#2f6b3f] to-black"
-  >
+  <section className="relative w-full py-4 mt-1 overflow-hidden bg-gradient-to-r from-[#445D41] via-[#2f6b3f] to-black">
+ 
     {/* ===== SUBTLE DESIGN TEXTURE (NO PERFORMANCE HIT) ===== */}
    {/* STAR DUST / CONFETTI EFFECT */}
 {/* CHRISTMAS STARS – VISIBLE & PREMIUM */}
@@ -102,21 +101,32 @@ export default function CategoryOffersSlider({
         }}
       >
         {offerCategories.map((cat) => {
-          const discount = cat.assignedDiscounts[0];
+         // 🔥 get MAX percentage discount for this category
+const percentageDiscounts = cat.assignedDiscounts
+  .filter((d) => d.usePercentage)
+  .map((d) => d.discountPercentage);
 
-          const offerText = discount.usePercentage
-            ? `UP TO ${discount.discountPercentage}% OFF`
-            : "SPECIAL OFFER";
+const maxDiscount =
+  percentageDiscounts.length > 0
+    ? Math.max(...percentageDiscounts)
+    : null;
+
+const offerText = maxDiscount
+  ? `UP TO ${maxDiscount}% OFF`
+  : "SPECIAL OFFER";
+
 
           return (
   <SwiperSlide key={cat.id}>
-  <Link href={`/category/${cat.slug}`} className="block h-full">
+<Link href={`/category/${cat.slug}?offer=true`}>
+
+
     <div
-      className="relative h-[260px] bg-white rounded-xl overflow-hidden shadow-lg transition-all duration-300 hover:shadow-xl hover:-translate-y-1  flex flex-col">
+      className="relative h-[280px] bg-white rounded-xl overflow-hidden shadow-lg transition-all duration-300 hover:shadow-xl hover:-translate-y-1  flex flex-col">
  
       {/* ===== OFFER BADGE ===== */}
     <div
-  className="absolute top-3 left-3 z-10 flex items-center justify-center text-center w-[70px] h-[70px] bg-gradient-to-br from-[#445D41] to-green-700 text-white text-[11px] font-extrabold leading-tight rounded-full shadow-lg ring-2 ring-white/70">
+  className="absolute top-3 left-3 z-10 flex items-center justify-center text-center w-[70px] h-[70px] bg-gradient-to-br from-red-500 to-red-700 text-white text-[11px] font-extrabold leading-tight rounded-full shadow-lg ring-2 ring-white/70">
              
   <span className="px-2">
     {offerText}
@@ -125,7 +135,7 @@ export default function CategoryOffersSlider({
 
 
       {/* ===== IMAGE (FIXED HEIGHT) ===== */}
-      <div className="h-[160px] flex items-center justify-center p-5">
+      <div className="h-[172px] flex items-center justify-center p-2">
         <img
           src={getImageSrc(cat.imageUrl)}
           alt={cat.name}
@@ -135,7 +145,7 @@ export default function CategoryOffersSlider({
       </div>
 
       {/* ===== CONTENT WRAPPER ===== */}
-      <div className="flex-1 px-4 pt-[-0.5rem] flex flex-col items-center text-center">
+      <div className="flex-1 px-4 pt-[1.5rem] flex flex-col items-center text-center">
         {/* CATEGORY NAME */}
         <h3 className="text-sm font-semibold text-black leading-tight line-clamp-2">
           {cat.name}
@@ -143,26 +153,14 @@ export default function CategoryOffersSlider({
 
         {/* COUPON (RESERVED SPACE – VERY IMPORTANT) */}
      {/* COUPON (FIXED HEIGHT – CRITICAL FOR ALIGNMENT) */}
-<div className="mt-0 h-[32px] flex items-center justify-center">
-  {discount.requiresCouponCode ? (
-    <p className="text-sm text-green-500 text-center leading-tight">
-      Use code{" "}
-      <span className="font-semibold">{discount.couponCode}</span>
-    </p>
-  ) : (
-    <span className="text-xs invisible">no coupon</span>
-  )}
-</div>
+
+
 
 
         {/* ===== BUTTON LOCKED TO BOTTOM ===== */}
-        <div className="mt-auto w-full pb-6 pt-0">
+        <div className="mt-[16px] w-full pb-3 pt-0">
           <span
-            className="block w-full text-center
-                       bg-[#2f6b3f] text-white
-                       text-sm font-semibold py-2.5 rounded-md
-                       hover:bg-[#245432] transition"
-          >
+            className="block w-full text-center bg-[#2f6b3f] text-white text-sm font-semibold py-2.5 rounded-md hover:bg-[#245432] transition" >
             Shop now
           </span>
         </div>
@@ -170,8 +168,6 @@ export default function CategoryOffersSlider({
     </div>
   </Link>
 </SwiperSlide>
-
-
           );
         })}
       </Swiper>

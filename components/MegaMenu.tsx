@@ -3,6 +3,9 @@ import React, { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { getImageUrl } from "@/app/lib/getImageUrl";
+import { ChevronLeft, ChevronRight } from "lucide-react";
+import { useRef } from "react";
+;
 
 interface Category {
   id: string;
@@ -43,6 +46,18 @@ const MegaMenu: React.FC<MegaMenuProps> = ({ activeMainCategory }) => {
     };
     loadBrands();
   }, []);
+const brandScrollRef = useRef<HTMLDivElement>(null);
+
+const scrollBrands = (direction: "left" | "right") => {
+  if (!brandScrollRef.current) return;
+
+  const scrollAmount = 300;
+
+  brandScrollRef.current.scrollBy({
+    left: direction === "left" ? -scrollAmount : scrollAmount,
+    behavior: "smooth",
+  });
+};
 
   // ✅ Set default middle column on hover
   useEffect(() => {
@@ -61,51 +76,78 @@ const MegaMenu: React.FC<MegaMenuProps> = ({ activeMainCategory }) => {
         <div className="flex min-h-[300px]">
 
           {/* ✅ LEFT COLUMN (Subcategories) */}
-          <div className="w-1/3 border-r border-gray-200 bg-gray-50 overflow-y-auto">
-            {activeMainCategory?.subCategories?.length ? (
-              activeMainCategory.subCategories.map((sub) => (
-                <Link
-                  key={sub.id}
-                  href={`/category/${activeMainCategory.slug}/${sub.slug}`}
-                  onMouseEnter={() => setActiveSubCategory(sub)}
-                  className={`block p-3 cursor-pointer hover:bg-white hover:font-semibold ${
-                    activeSubCategory?.id === sub.id ? "bg-white font-semibold" : ""
-                  }`}
-                >
-                  {sub.name}
-                </Link>
-              ))
-            ) : (
-              <div className="p-4 text-gray-400 italic">No subcategories</div>
-            )}
-          </div>
+        <div className="w-1/3 border-r border-gray-200 bg-gray-50 overflow-y-auto">
+  {activeMainCategory?.subCategories?.length ? (
+    activeMainCategory.subCategories.map((sub) => {
+      const hasChildren =
+        Array.isArray(sub.subCategories) && sub.subCategories.length > 0;
+
+      return (
+        <Link
+          key={sub.id}
+          href={`/category/${activeMainCategory.slug}/${sub.slug}`}
+          onMouseEnter={() => setActiveSubCategory(sub)}
+          className={`
+            flex items-center justify-between
+            p-2
+            cursor-pointer
+            transition
+            hover:bg-white
+            hover:font-semibold
+            ${
+              activeSubCategory?.id === sub.id
+                ? "bg-white font-semibold text-[#445D41]"
+                : "text-gray-800"
+            }
+          `}
+        >
+          <span>{sub.name}</span>
+
+          {hasChildren && (
+            <ChevronRight
+              className={`h-4 w-4 transition-transform ${
+                activeSubCategory?.id === sub.id
+                  ? "translate-x-1 text-[#445D41]"
+                  : "text-gray-400"
+              }`}
+            />
+          )}
+        </Link>
+      );
+    })
+  ) : (
+    <div className="p-4 text-gray-400 italic">No subcategories</div>
+  )}
+</div>
+
 
           {/* ✅ MIDDLE COLUMN (Child subcategories) */}
-          <div className="w-1/3 border-r border-gray-200 bg-white p-4 overflow-y-auto">
-            {activeSubCategory?.subCategories?.length ? (
-              <div className="grid grid-cols-2 gap-3">
-                {activeSubCategory.subCategories.map((child) => (
-                  <Link
-                    key={child.id}
-                    href={`/category/${activeMainCategory.slug}/${activeSubCategory.slug}/${child.slug}`}
-                    className="text-gray-700 hover:text-green-700"
-                  >
-                    {child.name ?? "Unnamed"}
-                  </Link>
-                ))}
-              </div>
-            ) : (
-              <div className="p-4 text-gray-400 italic">Hover a subcategory →</div>
-            )}
-          </div>
+         {/* ✅ MIDDLE COLUMN (Child subcategories) */}
+<div className="w-1/3 border-r border-gray-200 bg-white p-4">
+  {activeSubCategory?.subCategories?.length ? (
+    <div
+      className=" max-h-[260px] overflow-y-auto pr-2 space-y-2 " >
+      {activeSubCategory.subCategories.map((child) => (
+        <Link
+          key={child.id}
+          href={`/category/${activeMainCategory.slug}/${activeSubCategory.slug}/${child.slug}`}
+          className=" block text-base text-gray-700 hover:text-[#445D41] hover:font-medium transition " >
+          {child.name ?? "Unnamed"}
+        </Link>
+      ))}
+    </div>
+  ) : (
+    <div className="p-8 text-gray-400 italic">
+      Hover a subcategory →
+    </div>
+  )}
+</div>
+
 
           {/* ✅ RIGHT COLUMN (Promo Banner Placeholder) */}
          <div className="w-1/3 p-4">
   <div
-    className="relative h-full min-h-[260px] rounded-xl overflow-hidden
-               bg-gradient-to-br from-[#2f6b3f] via-[#3f7f55] to-[#1f3d2b]
-               shadow-lg flex flex-col justify-between p-6 text-white"
-  >
+    className="relative h-full min-h-[260px] rounded-xl overflow-hidden bg-gradient-to-br from-[#2f6b3f] via-[#3f7f55] to-[#1f3d2b] shadow-lg flex flex-col justify-between p-6 text-white" >
     {/* Badge */}
     <span className="inline-block bg-white/20 text-xs font-semibold px-3 py-1 rounded-full w-fit">
       LIMITED OFFER
@@ -124,10 +166,7 @@ const MegaMenu: React.FC<MegaMenuProps> = ({ activeMainCategory }) => {
     {/* CTA */}
     <div>
       <span
-        className="inline-block bg-white text-[#2f6b3f]
-                   text-sm font-semibold px-5 py-2 rounded-md
-                   hover:bg-gray-100 transition"
-      >
+        className="inline-block bg-white text-[#2f6b3f] text-sm font-semibold px-5 py-2 rounded-md hover:bg-gray-100 transition" >
         Shop Deals
       </span>
     </div>
@@ -140,21 +179,42 @@ const MegaMenu: React.FC<MegaMenuProps> = ({ activeMainCategory }) => {
         </div>
 
         {/* ✅ BRAND LOGOS ROW */}
-        <div className="border-t border-gray-200 p-4 bg-white flex flex-wrap justify-center gap-16">
-          {brands.map((brand) => (
-            <Link href={`/brand/${brand.slug}`} key={brand.id}>
-              <div className="w-20 h-20 relative">
-               <Image
-  src={getImageUrl(brand.logoUrl, "/images/placeholder.jpg")}
-  alt={brand.name}
-  fill
-  className="object-contain"
-/>
+       {/* ✅ BRAND LOGOS ROW WITH SCROLL */}
+<div className="relative border-t border-gray-200 bg-white px-8 py-4">
 
-              </div>
-            </Link>
-          ))}
+  {/* LEFT BUTTON */}
+  <button
+    onClick={() => scrollBrands("left")}
+    className="absolute left-2 top-1/2 -translate-y-1/2 z-10 bg-white shadow-md rounded-full p-2 hover:bg-gray-100 transition" >
+    <ChevronLeft className="h-5 w-5 text-gray-700" />
+  </button>
+
+  {/* SCROLL AREA */}
+  <div
+    ref={brandScrollRef}
+    className="flex gap-16 overflow-x-auto scroll-smooth scrollbar-hide px-6" >
+    {brands.map((brand) => (
+      <Link href={`/brand/${brand.slug}`} key={brand.id}>
+        <div className="w-20 h-20 relative flex-shrink-0 hover:scale-105 transition">
+          <Image
+            src={getImageUrl(brand.logoUrl, "/images/placeholder.jpg")}
+            alt={brand.name}
+            fill
+            className="object-contain"
+          />
         </div>
+      </Link>
+    ))}
+  </div>
+
+  {/* RIGHT BUTTON */}
+  <button
+    onClick={() => scrollBrands("right")}
+    className="absolute right-2 top-1/2 -translate-y-1/2 z-10 bg-white shadow-md rounded-full p-2 hover:bg-gray-100 transition" >
+    <ChevronRight className="h-5 w-5 text-gray-700" />
+  </button>
+</div>
+
 
       </div>
     </div>

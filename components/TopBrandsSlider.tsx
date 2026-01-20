@@ -1,5 +1,5 @@
 "use client";
-
+import { useMemo } from "react";
 import Link from "next/link";
 import { Card, CardContent } from "@/components/ui/card";
 import { Swiper, SwiperSlide } from "swiper/react";
@@ -16,15 +16,35 @@ interface Brand {
   name: string;
   slug: string;
   logoUrl: string;
+  showOnHomepage?: boolean;
+}
+
+interface TopBrandsSliderProps {
+  brands: Brand[];
+  baseUrl: string;
 }
 
 export default function TopBrandsSlider({
   brands,
   baseUrl,
-}: {
-  brands: Brand[];
-  baseUrl: string;
-}) {
+}: TopBrandsSliderProps) {
+  /**
+   * 🔥 PERFORMANCE CRITICAL
+   * - Filter once
+   * - Prevent unnecessary Swiper re-renders
+   */
+  const homepageBrands = useMemo(
+    () => brands.filter((b) => b.showOnHomepage === true),
+    [brands]
+  );
+
+  /**
+   * 🛡️ SAFETY GUARD
+   * - If no brands to show → don't mount Swiper
+   */
+  if (homepageBrands.length === 0) {
+    return null;
+  }
   return (
     <div className="relative">
 

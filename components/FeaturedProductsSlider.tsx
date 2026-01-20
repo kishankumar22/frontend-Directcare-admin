@@ -13,6 +13,7 @@ import {
   getDiscountBadge,
   getDiscountedPrice,
 } from "@/app/lib/discountHelpers";
+import GenderBadge from "@/components/shared/GenderBadge";
 
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
@@ -112,8 +113,11 @@ const getProductDisplayImage = (
 const handleBuyNow = (
   product: Product,
   defaultVariant: Variant | undefined,
-  basePrice: number
+  basePrice: number,
+  finalPrice: number,
+  discountAmount: number
 ) => {
+
   // 🔒 Save buy-now product (cart ko touch nahi karta)
   sessionStorage.setItem(
     "buyNowItem",
@@ -130,10 +134,10 @@ const handleBuyNow = (
             .filter(Boolean)
             .join(", ")})`
         : product.name,
-      price: basePrice,
-      priceBeforeDiscount: basePrice,
-      finalPrice: basePrice,
-      discountAmount: 0,
+     price: finalPrice,                  // ⭐ important
+priceBeforeDiscount: basePrice,
+finalPrice: finalPrice,
+discountAmount: discountAmount,
       quantity: 1,
       image: defaultVariant?.imageUrl
         ? defaultVariant.imageUrl.startsWith("http")
@@ -215,6 +219,18 @@ useEffect(() => {
 const basePrice = defaultVariant?.price ?? product.price;
 const discountBadge = getDiscountBadge(product);
 const finalPrice = getDiscountedPrice(product, basePrice);
+// ---------- Active Coupon (indicator only) ----------
+const hasActiveCoupon = (product as any).assignedDiscounts?.some((d: any) => {
+  if (!d.isActive) return false;
+  if (!d.requiresCouponCode) return false;
+
+  const now = new Date();
+  if (d.startDate && now < new Date(d.startDate)) return false;
+  if (d.endDate && now > new Date(d.endDate)) return false;
+
+  return true;
+});
+
 const discountAmount =
   basePrice > finalPrice
     ? +(basePrice - finalPrice).toFixed(2)
@@ -244,16 +260,8 @@ const backorderState = getBackorderUIState({
                 <Link href={`/products/${product.slug}`}>
                   
                   {/* UNISEX Badge */}
-                 <div className="absolute top-1 left-1 sm:top-2 sm:left-2 z-20 bg-white/90 px-1 py-0.5 sm:px-2 sm:py-1 rounded-md shadow flex items-center gap-1">
+                <GenderBadge gender={product.gender} />
 
-                    <img 
-  src="/icons/unisex.svg" 
-  alt="Unisex"
-  className="h-3 w-3 sm:h-4 sm:w-4"
-  loading="lazy"
-/>
-                    <span className="text-[8px] sm:text-[10px] font-semibold text-gray-700">Unisex</span>
-                  </div>
 
                  <div className="group h-[140px] sm:h-[160px] md:h-[180px] flex items-center justify-center overflow-hidden bg-white rounded-t-xl pt-2 relative">
                
@@ -269,7 +277,7 @@ const backorderState = getBackorderUIState({
  {discountBadge && (
   <div className="absolute top-3 right-3 z-20">
     <div
-      className="w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-gradient-to-br from-[#445D41] to-green-700 flex items-center justify-center text-white shadow-lg ring-2 ring-white">
+      className="w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-gradient-to-br from-red-500 to-red-700 flex items-center justify-center text-white shadow-lg ring-2 ring-white">
       <div className="flex flex-col items-center leading-none">
         {discountBadge.type === "percent" ? (
           <>
@@ -374,12 +382,18 @@ const backorderState = getBackorderUIState({
         ({vatRate}% VAT)
       </span>
     ) : null}
+    {hasActiveCoupon && (
+  <span className="text-[8px] sm:text-[10px] font-semibold text-red-700 bg-red-100 px-1 py-0.5 rounded whitespace-nowrap leading-none">
+    Coupon!
+  </span>
+)}
+
   </div>
 
 {/* LOYALTY INLINE (NO EXTRA MARGIN) */}
 {(product as any).loyaltyPointsEnabled && (
-  <span className="mt-2 inline-flex items-center gap-1.5 text-[12px] font-medium text-green-700 bg-green-50 px-2 py-0.5 rounded w-fit leading-none">
-    <AwardIcon className="h-3.5 w-3.5 text-green-600" />
+  <span className="mt-2 inline-flex items-center gap-1.5 text-[11px] font-medium text-green-700 bg-green-50 border border-green-200 px-2 py-0.5 rounded-md w-fit leading-none">
+    <AwardIcon className="h-4 w-4 text-green-600" />
     {(product as any).loyaltyPointsMessage ??
       `Earn ${(product as any).loyaltyPointsEarnable} points`}
   </span>
@@ -445,7 +459,16 @@ discountAmount: discountAmount,    // ⭐ actual discount
 
       {/* BUY NOW */}
       <Button
-        onClick={() => handleBuyNow(product, defaultVariant, basePrice)}
+       onClick={() =>
+  handleBuyNow(
+    product,
+    defaultVariant,
+    basePrice,
+    finalPrice,
+    discountAmount
+  )
+}
+
         className="flex-1 text-xs md:text-sm rounded-lg py-2 bg-black border border-[#445D41] text-white hover:bg-[#445D41] disabled:bg-gray-300 disabled:text-gray-600 disabled:border-gray-300"
       >
         <Zap className="h-4 w-4" />

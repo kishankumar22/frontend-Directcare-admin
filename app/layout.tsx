@@ -40,6 +40,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={inter.className} suppressHydrationWarning>
+
         <ToastProvider>
           <AuthProvider>
             <CartProvider>
@@ -49,6 +50,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             </CartProvider>
           </AuthProvider>
         </ToastProvider>
+        
       </body>
     </html>
   );

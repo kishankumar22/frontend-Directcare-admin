@@ -42,36 +42,18 @@ export const fetchCache = 'force-no-store';
 
 async function getProduct(slug: string) {
   try {
-    /* ===============================
-       STEP 1: DIRECT SLUG FETCH (MAIN FIX)
-    =============================== */
-    const directRes = await fetch(
-      `${process.env.NEXT_PUBLIC_API_URL}/api/Products/by-slug/${slug}`,
-      { cache: 'no-store' }
-    );
-
-    if (directRes.ok) {
-      const directJson = await directRes.json();
-      if (directJson?.success && directJson.data?.id) {
-        return {
-          product: directJson.data,
-          selectedVariantId: undefined,
-        };
-      }
-    }
-
-    /* ===============================
-       STEP 2: LIST API (VARIANT FALLBACK)
-    =============================== */
+    // 🔹 STEP 1: LIST API (slug / variant resolve ke liye)
     const listRes = await fetch(
-      `${process.env.NEXT_PUBLIC_API_URL}/api/Products`,
-      { cache: 'no-store' }
+      `${process.env.NEXT_PUBLIC_API_URL}/api/Products?slug=${slug}&page=1&pageSize=200`,
+      { cache: "no-store" }
     );
 
     if (!listRes.ok) return null;
 
     const listJson = await listRes.json();
-    const items = listJson?.data?.items || [];
+    if (!listJson.success || !listJson.data?.items?.length) return null;
+
+    const items = listJson.data.items;
 
     let product = items.find((p: any) => p.slug === slug);
     let selectedVariantId: string | null = null;
@@ -89,12 +71,10 @@ async function getProduct(slug: string) {
 
     if (!product?.id) return null;
 
-    /* ===============================
-       STEP 3: FINAL DETAIL FETCH
-    =============================== */
+    // 🔥 STEP 2: DETAIL API (GROUPED PRODUCTS YAHI AATE HAIN)
     const detailRes = await fetch(
       `${process.env.NEXT_PUBLIC_API_URL}/api/Products/${product.id}`,
-      { cache: 'no-store' }
+      { cache: "no-store" }
     );
 
     if (!detailRes.ok) return null;
@@ -103,11 +83,11 @@ async function getProduct(slug: string) {
     if (!detailJson.success) return null;
 
     return {
-      product: detailJson.data,
+      product: detailJson.data, // ✅ FULL PRODUCT (groupedProducts included)
       selectedVariantId: selectedVariantId ?? undefined,
     };
   } catch (err) {
-    console.error('getProduct error:', err);
+    console.error("getProduct error:", err);
     return null;
   }
 }
@@ -130,12 +110,9 @@ if (!data?.product) {
 
 const product: Product = data.product;
 
-
-
  const mainImage = product?.images?.[0]?.imageUrl
   ? `${process.env.NEXT_PUBLIC_API_URL}${product.images[0].imageUrl}`
   : null;
-
 
   return {
     title: `${product.name} | Direct Care`,

@@ -28,7 +28,9 @@ export default function CartPage() {
   updateCart(inStockItems);
 
   if (isAuthenticated) {
-    router.push("/checkout");
+    sessionStorage.removeItem("buyNowItem");
+router.push("/checkout");
+
   } else {
     router.push("/account?from=checkout");
   }
@@ -98,6 +100,15 @@ const totalDiscount = useMemo(() => {
     0
   );
 }, [cart]);
+const bundleSavings = useMemo(() => {
+  return cart
+    .filter(i => i.hasBundleDiscount)
+    .reduce(
+      (sum, i) => sum + (i.individualSavings ?? 0) * (i.quantity ?? 1),
+      0
+    );
+}, [cart]);
+const totalCombinedDiscount = bundleSavings + totalDiscount;
 
 const applyCouponForItem = (item: any, code: string) => {
   const coupon = code.trim();
@@ -504,34 +515,41 @@ const getGroupedItems = (parentProductId?: string) => {
         className="flex items-center justify-between bg-gray-50 rounded-lg p-3"
       >
         <div className="flex items-center gap-3">
+          <Link
+  href={`/products/${gp.slug}`}
+  className="flex items-center gap-3 group"
+>
           <img
             src={gp.image}
             alt={"no img"}
-            className="w-12 h-12 object-cover rounded border"
+            className="w-16 h-16 object-cover rounded border"
           />
-
+</Link>
           <div>
+            <Link href={`/products/${gp.slug}`}>
             <p className="text-sm font-semibold text-gray-800">
               {gp.name}
             </p>
-
+</Link>
            <div className="flex flex-col">
   {/* 🔥 BUNDLE PRICE */}
  {gp.hasBundleDiscount ? (
   <>
     <p className="text-xs line-through text-gray-400">
-      £{gp.price.toFixed(2)}
+      £{(gp.price * gp.quantity).toFixed(2)}
     </p>
+
     <p className="text-sm font-semibold text-green-700">
-      £{gp.bundlePrice?.toFixed(2)}
+      £{((gp.bundlePrice ?? gp.price) * gp.quantity).toFixed(2)}
     </p>
+
     <p className="text-[11px] text-green-600">
-      You save £{gp.individualSavings?.toFixed(2)}
+      You save £{((gp.individualSavings ?? 0) * gp.quantity).toFixed(2)}
     </p>
   </>
 ) : (
   <p className="text-sm font-semibold text-gray-800">
-    £{gp.price.toFixed(2)}
+    £{(gp.price * gp.quantity).toFixed(2)}
   </p>
 )}
 
@@ -539,32 +557,19 @@ const getGroupedItems = (parentProductId?: string) => {
 
           </div>
         </div>
+<div className="flex flex-col items-end">
+  <div className="flex items-center gap-2 border rounded-md px-3 py-1.5 bg-gray-100">
+    <span className="text-sm font-semibold text-gray-800">
+      Qty: {gp.quantity}
+    </span>
+  </div>
 
-        <div className="flex items-center gap-3">
-          <div className="flex items-center border rounded-md px-2">
-            <button
-              onClick={() =>
-                updateQuantity(gp.id, Math.max(1, gp.quantity - 1))
-              }
-              className="px-2"
-            >
-              -
-            </button>
-            <span className="px-2 text-sm font-medium">
-              {gp.quantity}
-            </span>
-            <button
-              onClick={() => updateQuantity(gp.id, gp.quantity + 1)}
-              className="px-2"
-            >
-              +
-            </button>
-          </div>
+  <span className="text-[11px] text-gray-500 mt-1">
+    Quantity matches main product
+  </span>
+</div>
 
-
-
-
-        </div>
+       
       </div>
     ))}
   </div>
@@ -648,29 +653,28 @@ const getGroupedItems = (parentProductId?: string) => {
   <span>Subtotal</span>
   <span>£{subtotalBeforeDiscount.toFixed(2)}</span>
 </div>
-{cart.some(i => i.hasBundleDiscount) && (
+{bundleSavings > 0 && (
   <div className="flex justify-between text-green-700">
     <span>Bundle Savings</span>
-    <span>
-      - £{
-        cart
-          .filter(i => i.hasBundleDiscount)
-          .reduce(
-            (sum, i) => sum + (i.individualSavings ?? 0) * (i.quantity ?? 1),
-            0
-          )
-          .toFixed(2)
-      }
-    </span>
+    <span>- £{bundleSavings.toFixed(2)}</span>
   </div>
 )}
-              {/* total discount sum (safe fallback) */}
-             {totalDiscount > 0 && (
+
+{totalDiscount > 0 && (
   <div className="flex justify-between text-green-600">
     <span>Discount</span>
     <span>- £{totalDiscount.toFixed(2)}</span>
   </div>
 )}
+
+{/* 🔥 TOTAL DISCOUNT (NEW LINE) */}
+{totalCombinedDiscount > 0 && (
+  <div className="flex justify-between text-green-800 font-semibold border-t pt-2 mt-1">
+    <span>Total Discount</span>
+    <span>- £{totalCombinedDiscount.toFixed(2)}</span>
+  </div>
+)}
+
 
               <div className="flex justify-between font-semibold text-gray-900 border-t pt-3">
                 <span>Total Amount</span>

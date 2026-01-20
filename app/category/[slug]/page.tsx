@@ -3,11 +3,11 @@ import { Loader2 } from "lucide-react";
 import CategoryClient from "./CategoryClient";
 
 interface SearchParams {
-  searchTerm?: string;
   sortBy?: string;
   sortDirection?: string;
   page?: string;
   pageSize?: string;
+  discount?: string; // ✅ ADD THIS
 }
 
 async function getCategoryBySlug(slug: string) {
@@ -32,7 +32,7 @@ async function getProducts(
     pageSize = "20",
     sortBy = "name",
     sortDirection = "asc",
-    searchTerm = "",
+    
   } = params;
 
   const query = new URLSearchParams({
@@ -42,7 +42,7 @@ async function getProducts(
     sortDirection,
   });
 
-  if (searchTerm) query.set("search", searchTerm);
+  
   if (categorySlug) query.set("categorySlug", categorySlug);
 
   const res = await fetch(
@@ -54,15 +54,20 @@ async function getProducts(
 }
 
 
-export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
+export async function generateMetadata({ params, searchParams }: any) {
   const { slug } = await params;
+  const discount = searchParams?.discount;
   const category = await getCategoryBySlug(slug);
 
   return {
-    title: category?.metaTitle || category?.name || "Category",
-    description: category?.metaDescription || category?.description || "",
+    title: discount
+      ? `${category?.name} – ${discount}% OFF`
+      : category?.metaTitle || category?.name || "Category",
+    description:
+      category?.metaDescription || category?.description || "",
   };
 }
+
 
 function Loading() {
   return (
@@ -81,6 +86,9 @@ export default async function CategoryPage({
 }) {
   const { slug } = await params;
   const searchParamsResolved = await searchParams;
+const discount = searchParamsResolved.discount
+  ? Number(searchParamsResolved.discount)
+  : null;
 
   const category = await getCategoryBySlug(slug);
 
@@ -130,12 +138,6 @@ function findCategoryPath(
   // ⭐ ALL category ids for filter (main + subchildren)
  const productsRes = await getProducts(searchParamsResolved, slug);
 
-
-
-
-
-
-
   const vatRatesRes = await fetch(
   "https://testapi.knowledgemarkg.com/api/VATRates?activeOnly=true",
   { next: { revalidate: 600 } }
@@ -155,11 +157,11 @@ const vatRates = vatRatesRes.data || [];
         currentPage={productsRes.data.page}
         pageSize={productsRes.data.pageSize}
         totalPages={productsRes.data.totalPages}
-        initialSearchTerm={searchParamsResolved.searchTerm || ""}
         initialSortBy={searchParamsResolved.sortBy || "name"}
         initialSortDirection={searchParamsResolved.sortDirection || "asc"}
         brands={category.brands ?? []}   // ✅ ONLY THIS
          vatRates={vatRates}   // ✅ YE ADD KARNA HAI
+         discount={discount} // ✅ ADD THIS
       />
     </Suspense>
   );

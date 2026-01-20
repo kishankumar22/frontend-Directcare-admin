@@ -91,12 +91,12 @@ export default function Footer() {
             </button>
             <div className={`mt-3 ${open.social ? "block" : "hidden md:block"}`}>
               <div className="flex gap-2 flex-wrap mt-2">
-                <Link href="#"><Image src="/social/facebook.svg" alt="Facebook" width={32} height={32} /></Link>
-                <Link href="#"><Image src="/social/instagram.svg" alt="Instagram" width={32} height={32} /></Link>
-                <Link href="#"><Image src="/social/linkedin.svg" alt="LinkedIn" width={32} height={32} /></Link>
-                <Link href="#"><Image src="/social/twitter.svg" alt="Twitter" width={32} height={32} /></Link>
-                <Link href="#"><Image src="/social/youtube.svg" alt="YouTube" width={32} height={32} /></Link>
-                <Link href="#"><Image src="/social/tiktok.svg" alt="TikTok" width={32} height={32} /></Link>
+                <Link href="#"  className="w-8 h-8 flex items-center justify-center rounded-md bg-white hover:bg-gray-100 transition shadow-sm hover:scale-105" ><Image src="/social/facebook.svg" alt="Facebook" width={30} height={30} /></Link>
+                 <Link href="#"  className="w-8 h-8 flex items-center justify-center rounded-md bg-white hover:bg-gray-100 transition shadow-sm hover:scale-105" ><Image src="/social/instagram.svg" alt="Instagram" width={30} height={30} /></Link>
+                 <Link href="#"  className="w-8 h-8 flex items-center justify-center  bg-white hover:bg-gray-100 transition shadow-sm hover:scale-105" ><Image src="/social/linkedin.svg" alt="LinkedIn" width={30} height={30} /></Link>
+                 <Link href="#"  className="w-8 h-8 flex items-center justify-center rounded-md bg-white hover:bg-gray-100 transition shadow-sm hover:scale-105" ><Image src="/social/twitter.svg" alt="Twitter" width={30} height={30} /></Link>
+                 <Link href="#"  className="w-8 h-8 flex items-center justify-center rounded-md bg-white hover:bg-gray-100 transition shadow-sm hover:scale-105" ><Image src="/social/youtube.svg" alt="YouTube" width={30} height={30} /></Link>
+                 <Link href="#"  className="w-8 h-8 flex items-center justify-center  bg-white hover:bg-gray-100 transition shadow-sm hover:scale-105" ><Image src="/social/tiktok.svg" alt="TikTok" width={30} height={30} /></Link>
               </div>
             </div>
           </div>

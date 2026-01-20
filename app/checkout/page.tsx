@@ -128,6 +128,12 @@ function CheckoutPayment({
   const elements = useElements();
   const [processing, setProcessing] = useState(false);
   const [cardError, setCardError] = useState<string | null>(null);
+useEffect(() => {
+  return () => {
+    // 🔥 Checkout chhodte hi Buy Now clear
+    sessionStorage.removeItem("buyNowItem");
+  };
+}, []);
 
 
   // 1️⃣ Create ORDER First
@@ -389,22 +395,13 @@ const buyNowItem =
   typeof window !== "undefined"
     ? JSON.parse(sessionStorage.getItem("buyNowItem") || "null")
     : null;
-useEffect(() => {
-  // If user came from Cart (not Buy Now), clear stale BuyNow
-  const fromBuyNow = sessionStorage.getItem("buyNowItem");
-  const cameFromCart = cart.length > 0;
 
-  if (fromBuyNow && cameFromCart) {
-    sessionStorage.removeItem("buyNowItem");
-  }
-}, [cart.length]);
+const isBuyNowFlow = Boolean(buyNowItem);
 
+const checkoutItems = isBuyNowFlow
+  ? [buyNowItem]
+  : cart;
 
-// 🔹 Decide final checkout items
-const checkoutItems =
-  buyNowItem && cart.length === 0
-    ? [buyNowItem]
-    : cart;
 
 
 const effectiveCartCount = checkoutItems.reduce(
@@ -427,11 +424,16 @@ const cartBundleDiscount = useMemo(() => {
       typeof item.productData?.totalSavings === "number"
     ) {
       const valid = isBundleComplete(checkoutItems, item.productId);
-      return valid ? sum + item.productData.totalSavings : sum;
+
+      if (!valid) return sum;
+
+      // 🔥 MULTIPLY BY MAIN PRODUCT QUANTITY
+      return sum + item.productData.totalSavings * item.quantity;
     }
     return sum;
   }, 0);
 }, [checkoutItems]);
+
 
 
 
@@ -440,10 +442,38 @@ const cartDiscount = useMemo(() => {
     return sum + (item.discountAmount ?? 0) * item.quantity;
   }, 0);
 }, [checkoutItems]);
+// ✅ NEXT DAY DELIVERY CHECK
+const hasNextDayDelivery = useMemo(() => {
+  return checkoutItems.some(
+    (item) => item.nextDayDeliveryEnabled === true
+  );
+}, [checkoutItems]);
+
+const nextDayDeliveryCharge = useMemo(() => {
+  if (!hasNextDayDelivery) return 0;
+
+  // single charge logic (safe)
+  const item = checkoutItems.find(
+    (i) => i.nextDayDeliveryEnabled && typeof i.nextDayDeliveryCharge === "number"
+  );
+
+  return item?.nextDayDeliveryCharge ?? 0;
+}, [checkoutItems, hasNextDayDelivery]);
 
 const cartTotalAmount = useMemo(() => {
-  return cartSubtotal - cartBundleDiscount - cartDiscount;
-}, [cartSubtotal, cartBundleDiscount, cartDiscount]);
+  return (
+    cartSubtotal -
+    cartBundleDiscount -
+    cartDiscount +
+    nextDayDeliveryCharge
+  );
+}, [
+  cartSubtotal,
+  cartBundleDiscount,
+  cartDiscount,
+  nextDayDeliveryCharge,
+]);
+
   // --- NEW: prefill billing email from localStorage (Continue as Guest) ---
  useEffect(() => {
   if (isAuthenticated && user?.email) {
@@ -1178,6 +1208,15 @@ if (!checkoutItems || checkoutItems.length === 0) {
       </span>
     </div>
   )}
+{/* Next-Day Delivery */}
+{hasNextDayDelivery && (
+  <div className="flex items-center justify-between text-sm text-emerald-700">
+    <span className="font-medium">Next-Day Delivery</span>
+    <span className="font-semibold">
+      + {formatCurrency(nextDayDeliveryCharge)}
+    </span>
+  </div>
+)}
 
   {/* Divider + Total */}
   <div className="border-t pt-3 mt-2 flex items-center justify-between">

@@ -6,6 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { useToast } from "@/components/CustomToast";
 import { useCart } from "@/context/CartContext";
 import QuantitySelector from "@/components/shared/QuantitySelector";
+import { AwardIcon } from "lucide-react";
 
 interface Props {
   product: any;
@@ -146,7 +147,13 @@ image: selectedVariant?.imageUrl
   ) : null}
 
 </p>   
-
+{(product as any).loyaltyPointsEnabled && (
+  <div
+    className="mb-1 mt-[-0.5rem] inline-flex items-center gap-1 text-sm font-medium text-green-700 bg-green-50 border border-green-200 px-2.5 py-1 rounded-md w-fit">
+    <AwardIcon className="h-4 w-4 text-green-600" />
+    Earn {(product as any).loyaltyPointsEarnable} points
+  </div>
+)}
           {/* Benefits Block */}
     <ul className="bg-[#f8faf9] border border-green-200 rounded-xl p-2 mb-2 text-[11px] text-gray-700 space-y-0.5">
 
@@ -192,7 +199,7 @@ image: selectedVariant?.imageUrl
   </div>
 </div>
         )}
-<div className="flex items-center gap-[-0.5rem] mt-2 mb-2">
+<div className="flex items-center gap-[-0.5rem] mt-2 mb-0">
 
   <div className="flex-shrink-0 w-[8rem]">
    <QuantitySelector

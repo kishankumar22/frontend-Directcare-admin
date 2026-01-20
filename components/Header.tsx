@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { Menu, Search, Heart, ShoppingCart, User, X, ChevronDown, ChevronRight, Truck, Package, Bike, Star } from "lucide-react";
+import { Menu, Search, Heart, ShoppingCart, User, X, ChevronDown, ChevronRight, Truck, Package, Bike, Star, BadgePercent } from "lucide-react";
 import MegaMenu from "./MegaMenu";
 import { useToast } from "@/components/CustomToast";
 import { useCart } from "@/context/CartContext";
@@ -129,7 +129,6 @@ useEffect(() => {
     setShowSearchDropdown(false);
     return;
   }
-
   const fetchSearchResults = async () => {
     try {
       setSearchLoading(true);
@@ -412,7 +411,7 @@ useEffect(() => {
       onFocus={() =>
         results.length > 0 && setShowSearchDropdown(true)
       }
-      className="w-full border border-[#445D41] rounded-md px-4 py-2 pr-12 text-sm"
+     className=" w-full rounded-md px-4 py-2 pr-12 text-sm border border-[#445D41] focus:outline-none focus:ring-2 focus:ring-[#445D41] focus:border-[#445D41] "
     />
 
     <button
@@ -625,6 +624,8 @@ useEffect(() => {
                 </Link>
               </div>
             ))}
+           {/*  OFFERS — RIGHT END */} 
+            <Link href="/offers" className=" flex items-center gap-1 py-2 text-[#C62828] hover:text-red-700 transition-colors"  >    <BadgePercent size={14} />    Offers  </Link>
           </nav>
 
           {/* Mega Menu */}

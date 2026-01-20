@@ -266,7 +266,7 @@ export default function SuccessClient() {
         </section>
 
         <Link
-          href="/products"
+          href="/"
           className="inline-block bg-[#445D41] text-white px-6 py-3 rounded"
         >
           Continue Shopping

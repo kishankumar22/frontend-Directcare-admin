@@ -9,14 +9,7 @@ import CategorySlider from "@/components/CategorySlider";
 import NewsletterWrapper from "@/components/NewsletterWrapper";
 import CategoryOffersSlider from "@/components/CategoryOffersSlider";
 import { getActiveBanners } from "@/lib/bannerUtils";
-import {
-  ShoppingCart,
-  Star,
-  TrendingUp,
-  Zap,
-  Gift,
-  Shield,
-} from "lucide-react";
+import { ShoppingCart, Star, TrendingUp, Zap, Gift, Shield, } from "lucide-react";
 import WhyChooseUs from "@/components/WhyChooseUs";
 
 // ✅ Static feature section
@@ -42,13 +35,13 @@ interface Banner {
   startDate: string;
   endDate: string;
 }
-
 // ✅ Types
 interface Product {
   id: string;
   name: string;
   slug: string; // ✅ IMPORTANT: Need slug for routing
   price: number;
+   showOnHomepage: boolean; // ✅ ADD THIS
   oldPrice?: number | null;
   averageRating?: number;
   reviewCount?: number;
@@ -66,6 +59,7 @@ interface Category {
   slug: string;
   imageUrl: string;
   productCount: number;
+  showOnHomepage: boolean; // ✅ ADD THIS
   sortOrder: number;
   assignedDiscounts?: Discount[]; // ✅ ADD THIS
   subCategories?: Category[];
@@ -105,15 +99,22 @@ async function getBanners(baseUrl: string): Promise<Banner[]> {
 
 async function getProducts(baseUrl: string) {
   try {
-    const res = await fetch(`${baseUrl}/api/Products?page=1&pageSize=10&sortDirection=asc`, {
-      next: { revalidate: 60 },
-    });
+    const res = await fetch(
+      `${baseUrl}/api/Products?page=1&pageSize=500&sortDirection=asc`,
+      {
+        cache: "no-store", // IMPORTANT FIX
+      }
+    );
+
     const result = await res.json();
+
     return result.success ? result.data.items : [];
-  } catch {
+  } catch (error) {
+    console.error("Failed to fetch products:", error);
     return [];
   }
 }
+
 
 async function getCategories(baseUrl: string) {
   try {
@@ -169,6 +170,14 @@ const homeBanners = activeBanners.filter(
 const seasonalBanners = activeBanners.filter(
   banner => banner.bannerType === "Seasonal"
 );
+const homeCategories = categories
+  .filter((c: Category) => c.showOnHomepage)
+  .sort((a: Category, b: Category) => a.sortOrder - b.sortOrder);
+
+const homeProducts = products.filter(
+  (p: Product) => p.showOnHomepage
+);
+
 
  return (
   <>
@@ -182,26 +191,7 @@ const seasonalBanners = activeBanners.filter(
 
     </section>
 
-    {/* ===== FEATURES ===== */}
-    <section className="w-full bg-white py-8">
-      <div className="max-w-7xl mx-auto px-4">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
-          {features.map((feature, i) => (
-            <Card key={i} className="border-0 shadow-md hover:shadow-lg transition-shadow">
-              <CardContent className="flex items-start gap-3 md:gap-4 p-4 md:p-6">
-                <div className="p-2 md:p-3 bg-blue-100 rounded-lg">
-                  <feature.icon className="h-5 w-5 md:h-6 md:w-6 text-blue-600" />
-                </div>
-                <div>
-                  <h3 className="font-semibold mb-1 text-base md:text-lg">{feature.title}</h3>
-                  <p className="text-xs md:text-sm text-gray-600">{feature.description}</p>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      </div>
-    </section>
+  
 {/* ===== CATEGORY OFFERS (NEW) ===== */}
 <CategoryOffersSlider categories={categories} baseUrl={baseUrl} />
     {/* ===== PROMO BANNER ===== */}
@@ -233,7 +223,8 @@ const seasonalBanners = activeBanners.filter(
     {/* ===== FEATURED PRODUCTS ===== */}
     <section className="w-full bg-gray-50 py-8">
       <div className="max-w-7xl mx-auto px-4">
-        <FeaturedProductsSlider products={products} baseUrl={baseUrl} />
+       <FeaturedProductsSlider products={homeProducts} baseUrl={baseUrl} />
+
       </div>
     </section>
 
@@ -244,7 +235,8 @@ const seasonalBanners = activeBanners.filter(
           <h2 className="text-2xl md:text-3xl font-bold mb-1">Shop by Category</h2>
           <p className="text-gray-600 text-sm md:text-base">Browse our wide range of products</p>
         </div>
-        <CategorySlider categories={categories} baseUrl={baseUrl} />
+        <CategorySlider categories={homeCategories} baseUrl={baseUrl} />
+
       </div>
     </section>
 
