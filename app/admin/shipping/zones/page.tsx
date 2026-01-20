@@ -430,15 +430,7 @@ export default function ShippingZonesPage() {
         
         {/* Inline Buttons with Different Colors */}
         <div className="flex flex-wrap items-center gap-3">
-          <button
-            onClick={() => router.push('/admin/shipping/zones')}
-            className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-violet-500 to-purple-500 hover:from-violet-600 hover:to-purple-600 text-white rounded-lg font-medium shadow-lg hover:shadow-xl transition-all duration-200"
-          >
-            <Plus className="w-4 h-4" />
-            Add Zone
-          </button>
-
-          <button
+        <button
             onClick={() => router.push('/admin/shipping/rates')}
             className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-600 hover:to-blue-600 text-white rounded-lg font-medium shadow-lg hover:shadow-xl transition-all duration-200"
           >
@@ -453,6 +445,14 @@ export default function ShippingZonesPage() {
             <Package className="w-4 h-4" />
             Add Shipping
           </button>
+           {/* ✅ CHANGED: Opens modal instead of routing */}
+  <button 
+    onClick={handleCreate}
+    className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-violet-500 to-purple-500 hover:from-violet-600 hover:to-purple-600 text-white rounded-lg font-medium shadow-lg hover:shadow-xl transition-all duration-200"
+  >
+    <Plus className="w-4 h-4" />
+    Add Zones
+  </button>
         </div>
       </div>
 

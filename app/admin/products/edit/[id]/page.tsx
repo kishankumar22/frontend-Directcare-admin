@@ -1377,32 +1377,95 @@ const [skuError, setSkuError] = useState('');
 const [checkingSku, setCheckingSku] = useState(false);
 
 // ✅ SERVICE-BASED SKU CHECK FUNCTION
+// ✅ INDUSTRY-STANDARD SKU VALIDATION FUNCTION
+const validateSkuFormat = (sku: string): { isValid: boolean; error: string } => {
+  const trimmedSku = sku.trim();
+  
+  // Check if empty
+  if (!trimmedSku) {
+    return { isValid: false, error: 'SKU is required' };
+  }
+  
+  // Check minimum length
+  if (trimmedSku.length < 3) {
+    return { isValid: false, error: 'SKU must be at least 3 characters' };
+  }
+  
+  // Check maximum length
+  if (trimmedSku.length > 30) {
+    return { isValid: false, error: 'SKU must not exceed 30 characters' };
+  }
+  
+  // ✅ MUST contain at least ONE letter
+  if (!/[A-Z]/.test(trimmedSku)) {
+    return { isValid: false, error: 'SKU must contain at least one letter (A-Z)' };
+  }
+  
+  // ✅ MUST contain at least ONE number
+  if (!/[0-9]/.test(trimmedSku)) {
+    return { isValid: false, error: 'SKU must contain at least one number (0-9)' };
+  }
+  
+  // ✅ Only alphanumeric + hyphens allowed (no spaces, special chars)
+  if (!/^[A-Z0-9]+(-[A-Z0-9]+)*$/.test(trimmedSku)) {
+    return { isValid: false, error: 'SKU format invalid. Use: LETTERS + NUMBERS + HYPHENS only (e.g., PROD-001)' };
+  }
+  
+  // Check for consecutive hyphens
+  if (trimmedSku.includes('--')) {
+    return { isValid: false, error: 'SKU cannot contain consecutive hyphens' };
+  }
+  
+  // Check if starts or ends with hyphen
+  if (trimmedSku.startsWith('-') || trimmedSku.endsWith('-')) {
+    return { isValid: false, error: 'SKU cannot start or end with a hyphen' };
+  }
+  
+  // ✅ BLOCK pure numbers (e.g., "12345")
+  if (/^[0-9-]+$/.test(trimmedSku)) {
+    return { isValid: false, error: 'SKU cannot be only numbers. Must include letters (e.g., PROD-12345)' };
+  }
+  
+  // ✅ BLOCK pure letters (e.g., "MOBILE")
+  if (/^[A-Z-]+$/.test(trimmedSku)) {
+    return { isValid: false, error: 'SKU cannot be only letters. Must include numbers (e.g., MOBILE-001)' };
+  }
+  
+  return { isValid: true, error: '' };
+};
+
+// ✅ UPDATED SKU CHECK WITH VALIDATION
 const checkSkuExists = async (sku: string): Promise<boolean> => {
+  // Clear previous errors
+  setSkuError('');
+  
   // Validation
-  if (!sku || sku.length < 2) {
-    setSkuError('');
+  if (!sku || sku.length < 3) {
     return false;
   }
   
+  // ✅ VALIDATE FORMAT FIRST (before API call)
+  const validation = validateSkuFormat(sku);
+  if (!validation.isValid) {
+    setSkuError(validation.error);
+    return true; // Return true to indicate "not available"
+  }
+  
   setCheckingSku(true);
+  
   try {
-    console.log('🔍 Checking SKU:', sku);
+    console.log('🔍 Checking SKU availability:', sku);
     
-    // ✅ USE SERVICE with search filter
     const response = await productsService.getAll({ 
       search: sku, 
       pageSize: 100 
     });
     
-    console.log('📦 Response:', response);
-    
-    // ✅ SAFE DATA EXTRACTION
+    // Safe data extraction
     let products: any[] = [];
     
     try {
-      // Try different response structures
       if (response.data) {
-        // Structure 1: response.data.data.items (most common)
         if (typeof response.data === 'object' && 'data' in response.data) {
           const nestedData = (response.data as any).data;
           
@@ -1413,9 +1476,7 @@ const checkSkuExists = async (sku: string): Promise<boolean> => {
               products = nestedData;
             }
           }
-        }
-        // Structure 2: response.data direct array
-        else if (Array.isArray(response.data)) {
+        } else if (Array.isArray(response.data)) {
           products = response.data;
         }
       }
@@ -1424,37 +1485,30 @@ const checkSkuExists = async (sku: string): Promise<boolean> => {
       products = [];
     }
     
-    console.log('✅ Found products:', products.length);
-    
-    // ✅ SAFE SKU CHECK - Exclude current product for EDIT page
+    // Check for duplicate SKU (exclude current product in edit mode)
     const exists = products.some((p: any) => {
       if (!p || typeof p !== 'object' || !p.sku) return false;
-      
-      // ✅ EDIT PAGE: Exclude current product
-      if (p.id === productId) return false;
-      
-      return p.sku.toLowerCase() === sku.toLowerCase();
+      if (p.id === productId) return false; // Exclude current product
+      return p.sku.toUpperCase() === sku.toUpperCase();
     });
     
     if (exists) {
-      setSkuError('❌ SKU already exists');
-      console.warn('⚠️ SKU conflict:', sku);
+      setSkuError('SKU already exists. Please choose a unique SKU.');
       return true;
-    } else {
-      setSkuError('');
-      console.log('✅ SKU available:', sku);
-      return false;
     }
     
+    return false;
+    
   } catch (error: any) {
-    console.error('❌ SKU check error:', error);
-    // Don't show error to user, just log it
-    setSkuError(''); // On error, allow submission (don't block user)
+    console.error('SKU check error:', error);
+    setSkuError(''); // On error, don't block user
     return false;
   } finally {
     setCheckingSku(false);
   }
 };
+
+
 // ✅ State to track if component is mounted
 const [isInitialLoad, setIsInitialLoad] = useState(true);
 
@@ -2116,6 +2170,12 @@ if (!formData.vatExempt && (!formData.vatRateId || !formData.vatRateId.trim())) 
     } catch (error) {
       console.warn('⚠️ Could not verify SKU uniqueness:', error);
     }
+
+      const skuValidation = validateSkuFormat(formData.sku);
+  if (!skuValidation.isValid) {
+    toast.error(skuValidation.error, { autoClose: 5000 });
+    return;
+  }
 
     // ═══════════════════════════════════════════════════════════════════════
     // SECTION 5: DESCRIPTION LENGTH VALIDATIONS
@@ -4748,46 +4808,97 @@ const uploadImagesToProductDirect = async (
 
       {/* ✅ Row 1: SKU, Brand, Categories (3 Columns) */}
       <div className="grid md:grid-cols-3 gap-4">
-    <div>
+<div>
   <label className="block text-sm font-medium text-slate-300 mb-2">
-    SKU <span className="text-red-500">*</span>
+    SKU (Stock Keeping Unit) <span className="text-red-500">*</span>
   </label>
+  
   <div className="relative">
     <input
       type="text"
       name="sku"
       value={formData.sku}
-      onChange={handleChange}
-      placeholder="e.g., PROD-001"
-      className={`w-full px-3 py-2.5 pr-10 bg-slate-800/50 border rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 transition-all ${
-        skuError ? 'border-red-500' : 'border-slate-700'
+      onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+        const input = e.target.value;
+        // ✅ Auto-uppercase and remove invalid characters
+        const sanitized = input.toUpperCase().replace(/[^A-Z0-9-]/g, '');
+        
+        setFormData({ ...formData, sku: sanitized });
+        
+        // Clear error on typing
+        if (skuError) setSkuError('');
+      }}
+      onBlur={() => {
+        // ✅ Validate on blur
+        if (formData.sku && formData.sku.length >= 3) {
+          checkSkuExists(formData.sku);
+        } else if (formData.sku && formData.sku.length > 0 && formData.sku.length < 3) {
+          setSkuError('SKU must be at least 3 characters');
+        }
+      }}
+      placeholder="PROD-001"
+      maxLength={30}
+      className={`w-full px-3 py-2.5 pr-10 bg-slate-800/50 border rounded-xl text-white placeholder-slate-500 focus:ring-2 transition-all uppercase font-mono ${
+        skuError 
+          ? 'border-red-500 focus:ring-red-500' 
+          : formData.sku && !checkingSku && formData.sku.length >= 3
+            ? 'border-green-500 focus:ring-green-500' 
+            : 'border-slate-700 focus:ring-violet-500'
       }`}
       required
     />
     
-    {/* Checking Spinner */}
+    {/* Status Icons */}
     {checkingSku && (
       <div className="absolute right-3 top-1/2 -translate-y-1/2">
-        <svg className="animate-spin h-4 w-4 text-violet-400" fill="none" viewBox="0 0 24 24">
+        <svg className="animate-spin h-5 w-5 text-violet-400" fill="none" viewBox="0 0 24 24">
           <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
           <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
         </svg>
       </div>
     )}
     
-    {/* Error Icon */}
-    {skuError && !checkingSku && (
+    {!checkingSku && skuError && (
       <div className="absolute right-3 top-1/2 -translate-y-1/2">
         <svg className="h-5 w-5 text-red-500" fill="currentColor" viewBox="0 0 20 20">
           <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
         </svg>
       </div>
     )}
+    
+    {!checkingSku && !skuError && formData.sku && formData.sku.length >= 3 && (
+      <div className="absolute right-3 top-1/2 -translate-y-1/2">
+        <svg className="h-5 w-5 text-green-500" fill="currentColor" viewBox="0 0 20 20">
+          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+        </svg>
+      </div>
+    )}
   </div>
   
   {/* Error Message */}
-  {skuError && <p className="text-xs text-red-400 mt-1.5">{skuError}</p>}
+  {skuError && (
+    <div className="mt-2 p-2 bg-red-500/10 border border-red-500/30 rounded-lg flex items-start gap-2">
+      <svg className="w-4 h-4 text-red-400 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+      </svg>
+      <p className="text-xs text-red-400">{skuError}</p>
+    </div>
+  )}
+  
+  {/* Valid Examples - One Line */}
+  {!skuError && (
+    <p className="mt-1.5 text-xs text-slate-400">
+      <span className="text-slate-500">Format:</span>{' '}
+      <code className="text-violet-400 bg-violet-500/10 px-1.5 py-0.5 rounded">LETTERS+NUMBERS</code>{' '}
+      <span className="text-slate-500">•</span>{' '}
+      <code className="text-emerald-400">PROD-001</code>,{' '}
+      <code className="text-emerald-400">LAP-HP-I5</code>{' '}
+      <span className="text-slate-500">({formData.sku.length}/30)</span>
+    </p>
+  )}
 </div>
+
+
 
 
 {/* ✅ Multiple Brands Selector - EDIT PAGE */}
@@ -4825,9 +4936,7 @@ const uploadImagesToProductDirect = async (
   <label className="flex items-center justify-between text-sm font-medium text-slate-300 mb-2">
     <span className="flex items-center gap-2">
       Categories *
-      <span className="text-xs text-slate-500 font-normal">
-        (Select up to 5)
-      </span>
+      
     </span>
     <span className="text-xs text-emerald-400 font-normal">
       {formData.categoryIds.length} selected
@@ -4844,7 +4953,7 @@ const uploadImagesToProductDirect = async (
         categoryIds
       }));
     }}
-    maxSelection={5}
+    maxSelection={10}
     placeholder="Click to select categories..."
   />
   

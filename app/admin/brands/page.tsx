@@ -927,9 +927,29 @@ const handleSubmit = async (e: React.FormEvent) => {
                     <td className="py-4 px-4 text-slate-300 text-sm">
                       {brand.updatedAt ? new Date(brand.updatedAt).toLocaleString() : '-'}
                     </td>
-                    <td className="py-4 px-4 text-slate-300 text-sm">
-                      {brand.updatedBy || '-'}
-                    </td>
+                  <td className="py-2.5 px-3">
+  {brand.updatedBy ? (
+    <div className="flex items-center gap-1.5">
+      <div
+        className="w-6 h-6 rounded-full flex items-center justify-center
+                   text-xs font-bold text-white shrink-0
+                   bg-gradient-to-br from-violet-500 to-cyan-500"
+      >
+        {brand.updatedBy.charAt(0).toUpperCase()}
+      </div>
+
+      <span
+        className="text-xs truncate max-w-[120px] text-slate-300"
+        title={brand.updatedBy}
+      >
+        {brand.updatedBy}
+      </span>
+    </div>
+  ) : (
+    <span className="text-slate-500 text-xs">-</span>
+  )}
+</td>
+
                     <td className="py-4 px-4">
                       <div className="flex items-center justify-center gap-2">
                         <button

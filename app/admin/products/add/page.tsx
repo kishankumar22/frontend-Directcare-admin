@@ -556,35 +556,95 @@ const filteredVATRates = dropdownsData.vatRates.filter(vat =>
 const [skuError, setSkuError] = useState<string>('');
 const [checkingSku, setCheckingSku] = useState<boolean>(false);
 
+// ✅ 1. ADD VALIDATION FUNCTION (Add after other functions, before handleSubmit)
+
+const validateSkuFormat = (sku: string): { isValid: boolean; error: string } => {
+  const trimmedSku = sku.trim();
+  
+  if (!trimmedSku) {
+    return { isValid: false, error: 'SKU is required' };
+  }
+  
+  if (trimmedSku.length < 3) {
+    return { isValid: false, error: 'SKU must be at least 3 characters' };
+  }
+  
+  if (trimmedSku.length > 30) {
+    return { isValid: false, error: 'SKU must not exceed 30 characters' };
+  }
+  
+  // ✅ MUST contain at least ONE letter
+  if (!/[A-Z]/.test(trimmedSku)) {
+    return { isValid: false, error: 'SKU must contain at least one letter (A-Z)' };
+  }
+  
+  // ✅ MUST contain at least ONE number
+  if (!/[0-9]/.test(trimmedSku)) {
+    return { isValid: false, error: 'SKU must contain at least one number (0-9)' };
+  }
+  
+  // ✅ Only alphanumeric + hyphens allowed
+  if (!/^[A-Z0-9]+(-[A-Z0-9]+)*$/.test(trimmedSku)) {
+    return { isValid: false, error: 'SKU format invalid. Use: LETTERS + NUMBERS + HYPHENS (e.g., PROD-001)' };
+  }
+  
+  if (trimmedSku.includes('--')) {
+    return { isValid: false, error: 'SKU cannot contain consecutive hyphens' };
+  }
+  
+  if (trimmedSku.startsWith('-') || trimmedSku.endsWith('-')) {
+    return { isValid: false, error: 'SKU cannot start or end with a hyphen' };
+  }
+  
+  // ✅ BLOCK pure numbers
+  if (/^[0-9-]+$/.test(trimmedSku)) {
+    return { isValid: false, error: 'SKU cannot be only numbers. Must include letters (e.g., PROD-12345)' };
+  }
+  
+  // ✅ BLOCK pure letters
+  if (/^[A-Z-]+$/.test(trimmedSku)) {
+    return { isValid: false, error: 'SKU cannot be only letters. Must include numbers (e.g., MOBILE-001)' };
+  }
+  
+  return { isValid: true, error: '' };
+};
+
+
+// ✅ 2. UPDATE EXISTING checkSkuExists FUNCTION
+
 const checkSkuExists = async (sku: string): Promise<boolean> => {
-  // Validation
-  if (!sku || sku.length < 2) {
-    setSkuError('');
+  // Clear previous errors
+  setSkuError('');
+  
+  if (!sku || sku.length < 3) {
     return false;
   }
-
+  
+  // ✅ VALIDATE FORMAT FIRST
+  const validation = validateSkuFormat(sku);
+  if (!validation.isValid) {
+    setSkuError(validation.error);
+    return true;
+  }
+  
   setCheckingSku(true);
-
+  
   try {
     console.log('🔍 Checking SKU:', sku);
-
-    // ✅ USE SERVICE with search filter
+    
     const response = await productsService.getAll({ 
-      search: sku,
-      pageSize: 100 // Get enough results
+      search: sku, 
+      pageSize: 100 
     });
-
-    console.log('📥 Response:', response);
-
-    // ✅ SAFE DATA EXTRACTION
+    
+    // Safe data extraction
     let products: any[] = [];
-
+    
     try {
-      // Try different response structures
       if (response.data) {
-        // Structure 1: response.data.data.items (most common)
         if (typeof response.data === 'object' && 'data' in response.data) {
           const nestedData = (response.data as any).data;
+          
           if (nestedData && typeof nestedData === 'object') {
             if ('items' in nestedData && Array.isArray(nestedData.items)) {
               products = nestedData.items;
@@ -592,46 +652,37 @@ const checkSkuExists = async (sku: string): Promise<boolean> => {
               products = nestedData;
             }
           }
-        }
-        // Structure 2: response.data (direct array)
-        else if (Array.isArray(response.data)) {
+        } else if (Array.isArray(response.data)) {
           products = response.data;
         }
       }
     } catch (parseError) {
-      console.error('❌ Error parsing products:', parseError);
+      console.error('Error parsing products:', parseError);
       products = [];
     }
-
-    console.log('📦 Found products:', products.length);
-
-    // ✅ SAFE SKU CHECK
+    
+    // Check for duplicate SKU
     const exists = products.some((p: any) => {
       if (!p || typeof p !== 'object' || !p.sku) return false;
-      return p.sku.toLowerCase() === sku.toLowerCase();
+      return p.sku.toUpperCase() === sku.toUpperCase();
     });
-
+    
     if (exists) {
-      setSkuError('⚠️ SKU already exists');
-      console.warn('❌ SKU conflict:', sku);
+      setSkuError('SKU already exists. Please choose a unique SKU.');
       return true;
-    } else {
-      setSkuError('');
-      console.log('✅ SKU available:', sku);
-      return false;
     }
+    
+    return false;
+    
   } catch (error: any) {
-    console.error('❌ SKU check error:', error);
-    
-    // Don't show error to user, just log it
+    console.error('SKU check error:', error);
     setSkuError('');
-    
-    // On error, allow submission (don't block user)
     return false;
   } finally {
     setCheckingSku(false);
   }
 };
+
 // ✅ ADD THIS FUNCTION AFTER checkSkuExists FUNCTION
 
 const getHomepageCount = async () => {
@@ -717,13 +768,27 @@ const handleSubmit = async (e?: React.FormEvent, isDraft: boolean = false) => {
     }
 
     // ✅ 1.3 SKU VALIDATION (Length)
-    if (formData.sku.length < 2) {
-      toast.error('⚠️ SKU must be at least 2 characters long.');
-      target.removeAttribute('data-submitting');
-      setIsSubmitting(false);
-      setSubmitProgress(null);
-      return;
-    }
+// ✅ FIND THIS SECTION IN handleSubmit AND REPLACE:
+
+// 1.3 SKU VALIDATION - Length
+if (formData.sku.length < 3) {
+  toast.error('SKU must be at least 3 characters long.');
+  target.removeAttribute('data-submitting');
+  setIsSubmitting(false);
+  setSubmitProgress(null);
+  return;
+}
+
+// ✅ ADD THIS NEW VALIDATION BEFORE LENGTH CHECK:
+const skuValidation = validateSkuFormat(formData.sku);
+if (!skuValidation.isValid) {
+  toast.error(skuValidation.error, { autoClose: 5000 });
+  target.removeAttribute('data-submitting');
+  setIsSubmitting(false);
+  setSubmitProgress(null);
+  return;
+}
+
 
     setSubmitProgress({
       step: 'Checking SKU availability...',
@@ -2792,46 +2857,96 @@ const uploadVariantImages = async (productResponse: any) => {
 
 
  <div className="grid md:grid-cols-3 gap-4">
- <div>
+{/* ✅ SKU FIELD - Find and replace existing SKU input */}
+<div>
   <label className="block text-sm font-medium text-slate-300 mb-2">
-    SKU <span className="text-red-500">*</span>
+    SKU (Stock Keeping Unit) <span className="text-red-500">*</span>
   </label>
+  
   <div className="relative">
     <input
       type="text"
       name="sku"
       value={formData.sku}
-      onChange={handleChange}
-      placeholder="e.g., PROD-001"
-      className={`w-full px-3 py-2.5 pr-10 bg-slate-800/50 border rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 transition-all ${
-        skuError ? 'border-red-500' : 'border-slate-700'
+      onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+        const input = e.target.value;
+        // ✅ Auto-uppercase and sanitize
+        const sanitized = input.toUpperCase().replace(/[^A-Z0-9-]/g, '');
+        
+        setFormData({ ...formData, sku: sanitized });
+        
+        // Clear error on typing
+        if (skuError) setSkuError('');
+      }}
+      onBlur={() => {
+        if (formData.sku && formData.sku.length >= 3) {
+          checkSkuExists(formData.sku);
+        } else if (formData.sku && formData.sku.length > 0 && formData.sku.length < 3) {
+          setSkuError('SKU must be at least 3 characters');
+        }
+      }}
+      placeholder="PROD-001"
+      maxLength={30}
+      className={`w-full px-4 py-2.5 bg-slate-900 border rounded-lg text-white placeholder-slate-500 focus:ring-2 transition-all uppercase font-mono ${
+        skuError 
+          ? 'border-red-500 focus:ring-red-500' 
+          : formData.sku && !checkingSku && formData.sku.length >= 3
+            ? 'border-green-500 focus:ring-green-500' 
+            : 'border-slate-700 focus:ring-violet-500'
       }`}
       required
     />
     
-    {/* Checking Spinner */}
+    {/* Status Icons */}
     {checkingSku && (
       <div className="absolute right-3 top-1/2 -translate-y-1/2">
-        <svg className="animate-spin h-4 w-4 text-violet-400" fill="none" viewBox="0 0 24 24">
+        <svg className="animate-spin h-5 w-5 text-violet-400" fill="none" viewBox="0 0 24 24">
           <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
           <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
         </svg>
       </div>
     )}
     
-    {/* Error Icon */}
-    {skuError && !checkingSku && (
+    {!checkingSku && skuError && (
       <div className="absolute right-3 top-1/2 -translate-y-1/2">
         <svg className="h-5 w-5 text-red-500" fill="currentColor" viewBox="0 0 20 20">
           <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
         </svg>
       </div>
     )}
+    
+    {!checkingSku && !skuError && formData.sku && formData.sku.length >= 3 && (
+      <div className="absolute right-3 top-1/2 -translate-y-1/2">
+        <svg className="h-5 w-5 text-green-500" fill="currentColor" viewBox="0 0 20 20">
+          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+        </svg>
+      </div>
+    )}
   </div>
   
   {/* Error Message */}
-  {skuError && <p className="text-xs text-red-400 mt-1.5">{skuError}</p>}
+  {skuError && (
+    <div className="mt-2 p-2 bg-red-500/10 border border-red-500/30 rounded-lg flex items-start gap-2">
+      <svg className="w-4 h-4 text-red-400 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+      </svg>
+      <p className="text-xs text-red-400">{skuError}</p>
+    </div>
+  )}
+  
+  {/* Help Text */}
+  {!skuError && (
+    <p className="mt-1.5 text-xs text-slate-400">
+      <span className="text-slate-500">Format:</span>{' '}
+      <code className="text-violet-400 bg-violet-500/10 px-1.5 py-0.5 rounded">LETTERS+NUMBERS</code>{' '}
+      <span className="text-slate-500">•</span>{' '}
+      <code className="text-emerald-400">PROD-001</code>,{' '}
+      <code className="text-emerald-400">LAP-HP-I5</code>{' '}
+      <span className="text-slate-500">({formData.sku.length}/30)</span>
+    </p>
+  )}
 </div>
+
 
 
    {/* ✅ Multiple Brands Selector - ADD PAGE */}
