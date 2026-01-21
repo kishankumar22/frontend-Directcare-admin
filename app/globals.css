@@ -118,3 +118,13 @@ input[type="number"] {
 .swiper-button-next:hover {
   color: #111827 !important;
 }
+/* ========================================
+   Calendar Icon White - Datetime Input
+======================================== */
+
+input[type="date"]::-webkit-calendar-picker-indicator,
+input[type="time"]::-webkit-calendar-picker-indicator,
+input[type="datetime-local"]::-webkit-calendar-picker-indicator {
+  filter: invert(1) brightness(1.2);
+  cursor: pointer;
+}

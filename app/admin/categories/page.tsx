@@ -15,6 +15,7 @@ export default function CategoriesPage() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
+  const [showParentDropdown, setShowParentDropdown] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
   const [selectedImageUrl, setSelectedImageUrl] = useState<string | null>(null);
@@ -1743,35 +1744,100 @@ const CategoryRow: React.FC<CategoryRowProps> = ({
                       <p className="text-xs text-amber-400 mt-1">⚠️ Category name is required before uploading image</p>
                     )}
                   </div>
-{/* ✅ NEW CODE - VALIDATED PARENT DROPDOWN */}
+{/* ✅ PARENT CATEGORY - CUSTOM DROPDOWN WITH SCROLLBAR */}
 <div>
   <label className="block text-sm font-medium text-slate-300 mb-2">
     Parent Category
     <span className="text-red-400 ml-1">*</span>
   </label>
   
-  <select
-    value={formData.parentCategoryId}
-    onChange={(e) => setFormData({...formData, parentCategoryId: e.target.value})}
-    className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
-  >
-    <option value="">None (Root Category - Level 1)</option>
-    {getParentCategoryOptions().map((cat: any) => {
-      const level = cat.level !== undefined ? cat.level : getCategoryLevel(cat, categories);
-      const indent = '—'.repeat(level);
-      
-      // Show only Level 0 (Root) and Level 1 (Sub) as parents
-      if (level >= 2) return null;
-      
-      return (
-        <option key={cat.id} value={cat.id}>
-          {indent} {cat.name} {level === 0 ? '(Level 1 - Root)' : '(Level 2 - Sub)'}
-        </option>
-      );
-    })}
-  </select>
+  {/* Custom Dropdown */}
+  <div className="relative">
+    {/* Selected Display Button */}
+    <button
+      type="button"
+      onClick={() => setShowParentDropdown(!showParentDropdown)}
+      className="w-full px-4 py-3 bg-slate-900 border border-slate-600 rounded-xl text-white text-left focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all cursor-pointer hover:border-violet-500 flex items-center justify-between"
+    >
+      <span>
+        {formData.parentCategoryId 
+          ? (() => {
+              const selected = categories.find(c => c.id === formData.parentCategoryId);
+              if (!selected) return 'None (Root Category - Level 1)';
+              const level = getCategoryLevel(selected, categories);
+              const indent = '—'.repeat(level);
+              return `${indent} ${selected.name} ${level === 0 ? '(Level 1 - Root)' : '(Level 2 - Sub)'}`;
+            })()
+          : 'None (Root Category - Level 1)'}
+      </span>
+      <svg 
+        className={`w-5 h-5 text-violet-400 transition-transform ${showParentDropdown ? 'rotate-180' : ''}`}
+        fill="none" 
+        stroke="currentColor" 
+        viewBox="0 0 24 24"
+      >
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+      </svg>
+    </button>
+
+    {/* Dropdown Menu - NEECHE */}
+    {showParentDropdown && (
+      <>
+        {/* Backdrop to close dropdown */}
+        <div 
+          className="fixed inset-0 z-10" 
+          onClick={() => setShowParentDropdown(false)}
+        />
+        
+        {/* Dropdown List */}
+        <div className="absolute z-20 w-full mt-2 bg-slate-900 border border-slate-600 rounded-xl shadow-2xl shadow-black/50 overflow-hidden">
+          <div className="max-h-64 overflow-y-auto custom-scrollbar">
+            {/* None Option */}
+            <button
+              type="button"
+              onClick={() => {
+                setFormData({...formData, parentCategoryId: ''});
+                setShowParentDropdown(false);
+              }}
+              className={`w-full px-4 py-3 text-left hover:bg-violet-500/20 transition-colors ${
+                !formData.parentCategoryId ? 'bg-violet-500/30 text-violet-300' : 'text-white'
+              }`}
+            >
+              None (Root Category - Level 1)
+            </button>
+
+            {/* Category Options */}
+            {getParentCategoryOptions().map((cat: any) => {
+              const level = cat.level !== undefined ? cat.level : getCategoryLevel(cat, categories);
+              const indent = '—'.repeat(level);
+              
+              if (level >= 2) return null;
+              
+              const isSelected = formData.parentCategoryId === cat.id;
+              
+              return (
+                <button
+                  key={cat.id}
+                  type="button"
+                  onClick={() => {
+                    setFormData({...formData, parentCategoryId: cat.id});
+                    setShowParentDropdown(false);
+                  }}
+                  className={`w-full px-4 py-3 text-left hover:bg-violet-500/20 transition-colors border-t border-slate-700/50 ${
+                    isSelected ? 'bg-violet-500/30 text-violet-300' : 'text-white'
+                  }`}
+                >
+                  {indent} {cat.name} {level === 0 ? '(Level 1 - Root)' : '(Level 2 - Sub)'}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      </>
+    )}
+  </div>
   
-  {/* Enhanced Helper Text with Visual Guide */}
+  {/* Rest of your helper text - same as before */}
   <div className="mt-3 p-4 bg-violet-500/5 border border-violet-500/20 rounded-xl space-y-2">
     <p className="text-xs font-semibold text-violet-300 flex items-center gap-2">
       <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
@@ -1825,6 +1891,8 @@ const CategoryRow: React.FC<CategoryRowProps> = ({
     </div>
   )}
 </div>
+
+
 
                   <div>
                     <ProductDescriptionEditor

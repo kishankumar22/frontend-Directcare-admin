@@ -145,7 +145,7 @@ function getBannerStatus(banner: any): BannerStatus {
 const handleSubmit = async (e: React.FormEvent) => {
   e.preventDefault();
 
-  // ✅ 1. BASIC REQUIRED VALIDATIONS (All types)
+  // 1. BASIC REQUIRED VALIDATIONS
   if (!formData.title.trim()) {
     toast.error("Banner title is required");
     return;
@@ -161,13 +161,24 @@ const handleSubmit = async (e: React.FormEvent) => {
     return;
   }
 
-  // ✅ 2. DISPLAY ORDER VALIDATION
+  // ✅ NEW: START DATE & END DATE REQUIRED VALIDATION
+  if (!formData.startDate || !formData.startDate.trim()) {
+    toast.error("Start date & time is required");
+    return;
+  }
+
+  if (!formData.endDate || !formData.endDate.trim()) {
+    toast.error("End date & time is required");
+    return;
+  }
+
+  // 2. DISPLAY ORDER VALIDATION
   if (Number(formData.displayOrder) < 0) {
     toast.error("Display order cannot be negative.");
     return;
   }
 
-  // ✅ 3. LINK URL VALIDATION (Only if provided)
+  // 3. LINK URL VALIDATION (Optional)
   if (formData.link && formData.link.trim()) {
     try {
       new URL(formData.link);
@@ -177,75 +188,94 @@ const handleSubmit = async (e: React.FormEvent) => {
     }
   }
 
-  // ✅ 4. DATE VALIDATIONS
-  if (formData.startDate && formData.endDate) {
-    const start = new Date(formData.startDate);
-    const end = new Date(formData.endDate);
+  // 4. DATE VALIDATIONS (Now guaranteed to have values)
+  const start = new Date(formData.startDate);
+  const end = new Date(formData.endDate);
+  const now = new Date();
 
-    if (end < start) {
-      toast.error(
-        `End date cannot be earlier than start date. Example: If start date is ${start.toLocaleDateString()}, end date must be after it.`
-      );
-      return;
-    }
-
-    if (start.getTime() === end.getTime()) {
-      toast.error("Start date and end date cannot be the same.");
-      return;
-    }
+  // Check if dates are valid
+  if (isNaN(start.getTime())) {
+    toast.error("Invalid start date format");
+    return;
   }
 
-  if (formData.endDate) {
-    const end = new Date(formData.endDate);
-    const now = new Date();
-
-    if (end < now) {
-      toast.error("End date cannot be in the past.");
-      return;
-    }
+  if (isNaN(end.getTime())) {
+    toast.error("Invalid end date format");
+    return;
   }
 
-  if (formData.startDate && !formData.isActive) {
-    const start = new Date(formData.startDate);
-    const now = new Date();
-
-    if (start > now) {
-      toast.error("Inactive banner cannot have a future start date.");
-      return;
-    }
+  // End date must be after start date
+  if (end <= start) {
+    toast.error(
+      `End date must be after start date.\nStart: ${start.toLocaleString()}\nEnd: ${end.toLocaleString()}`
+    );
+    return;
   }
 
-  // ✅ 5. DYNAMIC TYPE-BASED VALIDATIONS
+  // Start date validation for inactive banners
+  if (!formData.isActive && start > now) {
+    toast.error("Inactive banner cannot have a future start date.");
+    return;
+  }
+
+  // End date cannot be in the past
+  if (end < now) {
+    toast.error(
+      `End date cannot be in the past.\nCurrent time: ${now.toLocaleString()}\nEnd date: ${end.toLocaleString()}`
+    );
+    return;
+  }
+
+  // Start date should not be too far in the past (optional - adjust as needed)
+  const oneYearAgo = new Date();
+  oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
+  
+  if (start < oneYearAgo) {
+    toast.error("Start date cannot be more than 1 year in the past.");
+    return;
+  }
+
+  // Duration validation (optional - max 1 year campaign)
+  const durationInDays = (end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24);
+  
+  if (durationInDays > 365) {
+    toast.error("Banner campaign cannot exceed 1 year duration.");
+    return;
+  }
+
+  if (durationInDays < 1) {
+    toast.error("Banner campaign must be at least 1 day long.");
+    return;
+  }
+
+  // 5. DYNAMIC TYPE-BASED VALIDATIONS
   const bannerType = formData.bannerType;
 
-  // ✅ 5a. OFFER/FLASH SALE/PROMOTIONAL VALIDATIONS
   if (
-    bannerType === 'Offer' || 
-    bannerType === 'FlashSale' || 
-    bannerType === 'Promotional' ||
-    bannerType === 'Seasonal'
+    bannerType === "Offer" ||
+    bannerType === "FlashSale" ||
+    bannerType === "Promotional" ||
+    bannerType === "Seasonal"
   ) {
-    // ✅ Discount Percentage Validation (only if provided AND not empty)
+    // Discount Percentage Validation
     if (
-      formData.discountPercentage !== null && 
+      formData.discountPercentage !== null &&
       formData.discountPercentage !== undefined &&
       formData.discountPercentage !== 0 &&
-      String(formData.discountPercentage).trim() !== ''
+      String(formData.discountPercentage).trim() !== ""
     ) {
       const discount = Number(formData.discountPercentage);
-
       if (isNaN(discount)) {
         toast.error("Discount percentage must be a valid number.");
         return;
       }
-
       if (discount <= 0 || discount > 100) {
         toast.error("Discount percentage must be between 1 and 100.");
         return;
       }
     }
 
-    // ✅ Offer Text + Button Text Consistency
+    // Offer Text & Button Text Consistency
     if (formData.offerText && formData.offerText.trim() && !formData.buttonText?.trim()) {
       toast.error("Button text is required when offer text is provided.");
       return;
@@ -257,19 +287,19 @@ const handleSubmit = async (e: React.FormEvent) => {
     }
   }
 
-  // ✅ 5b. HOMEPAGE BANNER - No offer validations needed
-  // Homepage banners don't need discount/offer validations
-
-  // ✅ 6. EMPTY HTML DESCRIPTION (TinyMCE Rich text)
-  if (formData.description && formData.description.replace(/<[^>]*>/g, '').trim() === '') {
-    toast.error("Banner description cannot be empty.");
-    return;
+  // 6. EMPTY HTML DESCRIPTION VALIDATION
+  if (formData.description) {
+    const strippedDescription = formData.description.replace(/<[^>]*>/g, "").trim();
+    if (!strippedDescription) {
+      toast.error("Banner description cannot be empty.");
+      return;
+    }
   }
 
   try {
     let finalImageUrl = formData.imageUrl;
 
-    // ✅ IMAGE UPLOAD
+    // IMAGE UPLOAD
     if (imageFile) {
       try {
         const uploadResponse = await bannersService.uploadImage(imageFile, {
@@ -290,7 +320,7 @@ const handleSubmit = async (e: React.FormEvent) => {
             try {
               await bannersService.deleteImage(filename);
             } catch (err) {
-              console.log("Failed to delete old image:", err);
+              console.log("Failed to delete old image", err);
             }
           }
         }
@@ -301,52 +331,51 @@ const handleSubmit = async (e: React.FormEvent) => {
       }
     }
 
-// ✅ FINAL PAYLOAD - Use undefined instead of null
-const payload = {
-  title: formData.title.trim(),
-  imageUrl: finalImageUrl,
-  link: formData.link || undefined,  // ← Changed from null
-  description: formData.description || undefined,  // ← Changed from null
-  bannerType: formData.bannerType,
-  
-  // ✅ Only include offer fields if banner type supports them
-  offerCode: 
-    (bannerType === 'Offer' || bannerType === 'FlashSale' || bannerType === 'Promotional' || bannerType === 'Seasonal')
-      ? (formData.offerCode || undefined)  // ← Changed from null
-      : undefined,  // ← Changed from null
-  
-  discountPercentage: 
-    (bannerType === 'Offer' || bannerType === 'FlashSale' || bannerType === 'Promotional' || bannerType === 'Seasonal')
-      ? (formData.discountPercentage && Number(formData.discountPercentage) > 0 ? Number(formData.discountPercentage) : undefined)  // ← Changed from null
-      : undefined,  // ← Changed from null
-  
-  offerText: 
-    (bannerType === 'Offer' || bannerType === 'FlashSale' || bannerType === 'Promotional' || bannerType === 'Seasonal')
-      ? (formData.offerText || undefined)  // ← Changed from null
-      : undefined,  // ← Changed from null
-  
-  buttonText: 
-    (bannerType === 'Offer' || bannerType === 'FlashSale' || bannerType === 'Promotional' || bannerType === 'Seasonal')
-      ? (formData.buttonText || undefined)  // ← Changed from null
-      : undefined,  // ← Changed from null
-  
-  isActive: Boolean(formData.isActive),
-  displayOrder: Number(formData.displayOrder) || 0,
-  startDate: formData.startDate || undefined,  // ← Changed from null
-  endDate: formData.endDate || undefined,  // ← Changed from null
-  ...(editingBanner && { id: editingBanner.id }),
-};
+    // FINAL PAYLOAD
+    const payload = {
+      title: formData.title.trim(),
+      imageUrl: finalImageUrl,
+      link: formData.link || undefined,
+      description: formData.description || undefined,
+      bannerType: formData.bannerType,
+      offerCode:
+        bannerType === "Offer" ||
+        bannerType === "FlashSale" ||
+        bannerType === "Promotional" ||
+        bannerType === "Seasonal"
+          ? formData.offerCode || undefined
+          : undefined,
+      discountPercentage:
+        bannerType === "Offer" ||
+        bannerType === "FlashSale" ||
+        bannerType === "Promotional" ||
+        bannerType === "Seasonal"
+          ? formData.discountPercentage && Number(formData.discountPercentage) > 0
+            ? Number(formData.discountPercentage)
+            : undefined
+          : undefined,
+      offerText:
+        bannerType === "Offer" ||
+        bannerType === "FlashSale" ||
+        bannerType === "Promotional" ||
+        bannerType === "Seasonal"
+          ? formData.offerText || undefined
+          : undefined,
+      buttonText:
+        bannerType === "Offer" ||
+        bannerType === "FlashSale" ||
+        bannerType === "Promotional" ||
+        bannerType === "Seasonal"
+          ? formData.buttonText || undefined
+          : undefined,
+      isActive: Boolean(formData.isActive),
+      displayOrder: Number(formData.displayOrder) || 0,
+      startDate: formData.startDate, // Now guaranteed to exist
+      endDate: formData.endDate,     // Now guaranteed to exist
+      ...(editingBanner && { id: editingBanner.id }),
+    };
 
-// ✅ CREATE / UPDATE
-if (editingBanner) {
-  await bannersService.update(editingBanner.id, payload);
-  toast.success("Banner updated successfully!");
-} else {
-  await bannersService.create(payload);
-  toast.success("Banner created successfully!");
-}
-
-    // ✅ CREATE / UPDATE
+    // ✅ SINGLE CREATE/UPDATE CALL
     if (editingBanner) {
       await bannersService.update(editingBanner.id, payload);
       toast.success("Banner updated successfully!");
@@ -355,7 +384,7 @@ if (editingBanner) {
       toast.success("Banner created successfully!");
     }
 
-    // ✅ CLEANUP
+    // CLEANUP
     if (imagePreview) {
       URL.revokeObjectURL(imagePreview);
     }
@@ -1227,24 +1256,38 @@ if (editingBanner) {
                   <span>Schedule</span>
                 </h3>
                 <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-slate-300 mb-2">Start Date & Time</label>
-                    <input
-                      type="datetime-local"
-                      value={formData.startDate}
-                      onChange={(e) => setFormData({...formData, startDate: e.target.value})}
-                      className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-slate-300 mb-2">End Date & Time</label>
-                    <input
-                      type="datetime-local"
-                      value={formData.endDate}
-                      onChange={(e) => setFormData({...formData, endDate: e.target.value})}
-                      className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
-                    />
-                  </div>
+{/* Start Date Time */}
+<div>
+  <label className="block text-sm font-medium text-slate-300 mb-2">
+    Start Date & Time <span className="text-red-400">*</span>
+  </label>
+  <input
+    type="datetime-local"
+    // required 
+    value={formData.startDate}
+    onChange={(e) =>
+      setFormData({ ...formData, startDate: e.target.value })
+    }
+    className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+  />
+</div>
+
+{/* End Date Time */}
+<div>
+  <label className="block text-sm font-medium text-slate-300 mb-2">
+    End Date & Time <span className="text-red-400">*</span>
+  </label>
+  <input
+    type="datetime-local"
+    // required 
+    value={formData.endDate}
+    onChange={(e) =>
+      setFormData({ ...formData, endDate: e.target.value })
+    }
+    className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+  />
+</div>
+
                 </div>
               </div>
 

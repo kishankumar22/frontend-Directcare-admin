@@ -37,7 +37,7 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
   const [pendingTakeoverRequests, setPendingTakeoverRequests] = useState<any[]>([]);
   const [takeoverTimeLeft, setTakeoverTimeLeft] = useState<number>(0);
 const [homepageCount, setHomepageCount] = useState<number | null>(null);
-const MAX_HOMEPAGE = 20;
+const MAX_HOMEPAGE = 50;
 const [showTaxPreview, setShowTaxPreview] = useState(false);
 
 // ================================
@@ -2348,7 +2348,7 @@ if (!formData.vatExempt && (!formData.vatRateId || !formData.vatRateId.trim())) 
           return p.showOnHomepage === true;
         });
 
-        const MAX_HOMEPAGE_PRODUCTS = 20;
+        const MAX_HOMEPAGE_PRODUCTS = 50;
 
         if (homepageProducts.length >= MAX_HOMEPAGE_PRODUCTS) {
           toast.error(
@@ -5210,7 +5210,7 @@ const uploadImagesToProductDirect = async (
         )}
       </div>
       <p className="text-xs text-blue-400/80 mt-1">
-        Maximum 20 products allowed. Lower order numbers appear first.
+        Maximum 50 products allowed. Lower order numbers appear first.
       </p>
     </div>
   </div>

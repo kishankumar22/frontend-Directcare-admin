@@ -35,7 +35,7 @@ export default function BrandsPage() {
   const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; name: string } | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   // After imports, before component
-const MAX_HOMEPAGE_BRANDS = 7;
+const MAX_HOMEPAGE_BRANDS = 50;
 // ✅ Homepage brands counter
 const [homepageBrandsCounter, setHomepageBrandsCounter] = useState<Brand[]>([]);
   const [imageDeleteConfirm, setImageDeleteConfirm] = useState<{
@@ -1379,9 +1379,9 @@ const handleSubmit = async (e: React.FormEvent) => {
             const checked = e.target.checked;
             
             // Prevent checking if limit reached (only for new checks)
-            if (checked && homepageCount >= 15 && !editingBrand?.showOnHomepage) {
+            if (checked && homepageCount >= 50 && !editingBrand?.showOnHomepage) {
               toast.error(
-                `🚫 Maximum ${MAX_HOMEPAGE_BRANDS} brands allowed on homepage! Currently: ${homepageCount}/15`
+                `🚫 Maximum ${MAX_HOMEPAGE_BRANDS} brands allowed on homepage! Currently: ${homepageCount}/50`
               );
               return;
             }
@@ -1396,7 +1396,7 @@ const handleSubmit = async (e: React.FormEvent) => {
             Featured on Homepage
           </p>
           <p className="text-xs text-slate-400 mt-0.5">
-            {homepageCount >= 15 && !formData.showOnHomepage
+            {homepageCount >= 50 && !formData.showOnHomepage
               ? '⚠️ Homepage limit reached'
               : 'Display this brand on the store homepage'}
           </p>
@@ -1420,13 +1420,13 @@ const handleSubmit = async (e: React.FormEvent) => {
           <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
         </svg>
         <p className="text-xs text-amber-300">
-          <strong>Warning:</strong> {15 - homepageCount} {15 - homepageCount === 1 ? 'slot' : 'slots'} remaining for homepage
+          <strong>Warning:</strong> {50 - homepageCount} {50 - homepageCount === 1 ? 'slot' : 'slots'} remaining for homepage
         </p>
       </div>
     )}
     
     {/* Info message when limit reached */}
-    {homepageCount >= 15 && (
+    {homepageCount >= 50 && (
       <div className="mt-2 p-3 bg-red-500/10 border border-red-500/20 rounded-lg flex items-start gap-2">
         <svg className="w-4 h-4 text-red-400 mt-0.5 shrink-0" fill="currentColor" viewBox="0 0 20 20">
           <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />

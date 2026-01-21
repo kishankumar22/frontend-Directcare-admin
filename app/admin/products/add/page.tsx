@@ -71,7 +71,7 @@ const [selectedGroupedProducts, setSelectedGroupedProducts] = useState<string[]>
 
 // Homepage Count State
 const [homepageCount, setHomepageCount] = useState<number | null>(null);
-const MAX_HOMEPAGE = 20;
+const MAX_HOMEPAGE = 50;
 // ✅ DEBOUNCE UTILITY FUNCTION - Add at TOP of file (after imports)
 function debounce<T extends (...args: any[]) => any>(
   func: T,
