@@ -126,12 +126,12 @@ image: selectedVariant?.imageUrl
           </span>
         
         </label>
-<p className="flex items-center gap-0 mb-2 text-3xl font-extrabold text-[#445D41] whitespace-nowrap">
+<p className="flex items-center gap-0 mb-2 text-xl font-extrabold text-[#445D41] whitespace-nowrap">
 
   £{(subscriptionPrice * quantity).toFixed(2)}
 
   
-    <span className="text-xl font-bold text-gray-400 line-through ml-2">
+    <span className="text-base font-bold text-gray-400 line-through ml-2">
        £{(selectedVariant?.price ?? product.price).toFixed(2)}
     </span>
   

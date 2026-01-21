@@ -1,3 +1,4 @@
+// app/admin/layout.tsx - CONFIRM THIS
 "use client";
 
 import { ReactNode, useState, useEffect, useRef } from "react";

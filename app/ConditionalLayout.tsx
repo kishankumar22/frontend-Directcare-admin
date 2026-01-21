@@ -26,9 +26,9 @@ export default function ConditionalLayout({
     "/payment-failed"
   ];
 
-  // ✅ Admin routes ko completely exclude karo
-  const isAdminRoute = pathname.startsWith("/admin");
-  const isAuthRoute = hideLayoutRoutes.includes(pathname);
+  // ✅ Admin routes ko completely exclude karo (NULL SAFE)
+  const isAdminRoute = pathname?.startsWith("/admin") || false;
+  const isAuthRoute = pathname ? hideLayoutRoutes.includes(pathname) : false;
   
   const hideLayout = isAdminRoute || isAuthRoute;
 
@@ -37,11 +37,10 @@ export default function ConditionalLayout({
     return <>{children}</>;
   }
 
-  // ✅ Main site par Header + Footer dikhega with proper spacing
+  // ✅ Main site par Header + Footer dikhega
   return (
     <>
       <Header ssrCategories={categories} />
-      {/* ⭐ Added pt-[120px] for fixed header height */}
       <main className="pt-[150px]">{children}</main>
       <Footer />
     </>

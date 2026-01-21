@@ -11,6 +11,7 @@ import CategoryOffersSlider from "@/components/CategoryOffersSlider";
 import { getActiveBanners } from "@/lib/bannerUtils";
 import { ShoppingCart, Star, TrendingUp, Zap, Gift, Shield, } from "lucide-react";
 import WhyChooseUs from "@/components/WhyChooseUs";
+export const dynamic = "force-dynamic";
 
 // ✅ Static feature section
 const features = [
@@ -87,7 +88,7 @@ interface HomeBanner {
 async function getBanners(baseUrl: string): Promise<Banner[]> {
   try {
     const res = await fetch(`${baseUrl}/api/Banners`, {
-      next: { revalidate: 60 },
+      cache: "no-store",
     });
     const result = await res.json();
     return result.success ? result.data : [];
@@ -96,21 +97,17 @@ async function getBanners(baseUrl: string): Promise<Banner[]> {
   }
 }
 
-
 async function getProducts(baseUrl: string) {
   try {
     const res = await fetch(
-      `${baseUrl}/api/Products?page=1&pageSize=500&sortDirection=asc`,
+      `${baseUrl}/api/Products?page=1&pageSize=100&sortDirection=asc`,
       {
-        cache: "no-store", // IMPORTANT FIX
+        cache: "no-store",
       }
     );
-
     const result = await res.json();
-
     return result.success ? result.data.items : [];
-  } catch (error) {
-    console.error("Failed to fetch products:", error);
+  } catch {
     return [];
   }
 }
@@ -120,11 +117,12 @@ async function getCategories(baseUrl: string) {
   try {
     const res = await fetch(
       `${baseUrl}/api/Categories?includeInactive=false&includeSubCategories=true`,
-      { next: { revalidate: 300 } }
+      {
+        cache: "no-store",
+      }
     );
 
     const result = await res.json();
-
     if (!result.success || !Array.isArray(result.data)) return [];
 
     return result.data.sort(
@@ -137,9 +135,13 @@ async function getCategories(baseUrl: string) {
 
 async function getBrands(baseUrl: string) {
   try {
-    const res = await fetch(`${baseUrl}/api/Brands?includeUnpublished=false`, {
-      next: { revalidate: 300 },
-    });
+    const res = await fetch(
+      `${baseUrl}/api/Brands?includeUnpublished=false`,
+      {
+        cache: "no-store",
+      }
+    );
+
     const result = await res.json();
     return result.success
       ? result.data
@@ -150,6 +152,7 @@ async function getBrands(baseUrl: string) {
     return [];
   }
 }
+
 
 // ✅ MAIN PAGE
 export default async function Home() {

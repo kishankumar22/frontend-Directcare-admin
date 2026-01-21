@@ -817,28 +817,47 @@ const fetchCrossSellProducts = async (crossIds: string) => {
     return imageUrl.startsWith('http') ? imageUrl : `${process.env.NEXT_PUBLIC_API_URL}${imageUrl}`;
   }, []);
 const sortedImages = useMemo(() => {
-  if (!product.images || product.images.length === 0) return [];
-
-  const sorted = [...product.images].sort(
+  const baseImages = [...(product.images ?? [])].sort(
     (a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0)
   );
 
-  const mainIndex = sorted.findIndex(img => img.isMain === true);
-
-  if (mainIndex > 0) {
-    const [mainImg] = sorted.splice(mainIndex, 1);
-    sorted.unshift(mainImg);
-  }
-
-  return sorted;
-}, [product.images]);
-const activeMainImage = useMemo(() => {
+  // 🔥 If variant selected & has image → inject as first thumbnail
   if (selectedVariant?.imageUrl) {
-    return getImageUrl(selectedVariant.imageUrl);
+    return [
+      {
+        id: `variant-${selectedVariant.id}`,
+        imageUrl: selectedVariant.imageUrl,
+        altText: product.name,
+        sortOrder: -1,
+        isMain: true,
+      },
+      ...baseImages.filter(
+        img => img.imageUrl !== selectedVariant.imageUrl
+      ),
+    ];
   }
 
+  // Default product images
+  const mainIndex = baseImages.findIndex(img => img.isMain);
+  if (mainIndex > 0) {
+    const [mainImg] = baseImages.splice(mainIndex, 1);
+    baseImages.unshift(mainImg);
+  }
+
+  return baseImages;
+}, [product.images, selectedVariant, product.name]);
+
+const activeMainImage = useMemo(() => {
   return getImageUrl(sortedImages[selectedImage]?.imageUrl);
-}, [selectedVariant, sortedImages, selectedImage, getImageUrl]);
+}, [sortedImages, selectedImage, getImageUrl]);
+
+useEffect(() => {
+  if (selectedVariant?.imageUrl) {
+    setSelectedImage(0);
+    setThumbStart(0);
+  }
+}, [selectedVariant]);
+
 
 useEffect(() => {
   setThumbStart(0);
@@ -1688,15 +1707,15 @@ bg-white/80 hover:bg-white shadow-md rounded-full p-2 backdrop-blur-sm transitio
   <span className="font-semibold text-sm">One-Time Purchase</span>
 </label>
 <div className="flex flex-col sm:flex-row sm:items-center sm:gap-3 mb-1">
-  <div className="flex items-center gap-3">
+  <div className="flex items-center gap-1">
   {/* FINAL PRICE */}
-  <span className="text-3xl font-bold text-[#445D41]">
+  <span className="text-xl font-bold text-[#445D41]">
     £{(finalPrice * normalQty).toFixed(2)}
   </span>
 
   {/* CUT PRICE */}
   {discountAmount > 0 && (
-    <span className="text-lg text-gray-400 line-through">
+    <span className="text-base text-gray-400 line-through">
       £{basePrice.toFixed(2)}
     </span>
   )}
@@ -1708,7 +1727,7 @@ bg-white/80 hover:bg-white shadow-md rounded-full p-2 backdrop-blur-sm transitio
     0% VAT
   </span>
 ) : vatRate !== null ? (
-  <span className="text-sm text-blue-700 bg-blue-100 px-2 py-0.5 rounded font-semibold">
+  <span className="text-sm text-green-700 bg-green-100 px-2 py-0.5 rounded font-semibold">
     {vatRate}% VAT
   </span>
 ) : null}
@@ -1871,15 +1890,7 @@ bg-white/80 hover:bg-white shadow-md rounded-full p-2 backdrop-blur-sm transitio
                  £{(finalPrice * normalQty).toFixed(2)}
 
                   </span>
-   {product.vatExempt ? (
-    <span className="text-sm text-green-700 bg-green-100 px-2 py-0.5 rounded font-semibold ml-0 sm:ml-2">
-      0% VAT
-    </span>
-  ) : vatRate !== null ? (
-    <span className="text-sm text-blue-700 bg-blue-100 px-2 py-0.5 rounded font-semibold ml-0 sm:ml-2">
-      {vatRate}% VAT
-    </span>
-  ) : null}
+   
 
                   {/* Strike-through original (variant price if present) */}
                   {(discountAmount > 0) && (
@@ -1887,6 +1898,15 @@ bg-white/80 hover:bg-white shadow-md rounded-full p-2 backdrop-blur-sm transitio
                       £{(selectedVariant?.price ?? product.price).toFixed(2)}
                     </span>
                   )}
+                  {product.vatExempt ? (
+    <span className="text-sm text-green-700 bg-green-100 px-2 py-0.5 rounded font-semibold ml-0 sm:ml-2">
+      0% VAT
+    </span>
+  ) : vatRate !== null ? (
+    <span className="text-sm text-green-700 bg-green-100 px-2 py-0.5 rounded font-semibold ml-0 sm:ml-2">
+      {vatRate}% VAT
+    </span>
+  ) : null}
                 </div>
 
   {/* 🎁 LOYALTY POINTS (SHORT, NO MESSAGE) */}
@@ -2198,8 +2218,8 @@ if (num > maxStock) {
             </div>
 
             {/* QUANTITY */}
-         <div className="flex items-center gap-2 border rounded-lg px-3 py-1.5 bg-gray-50">
-  <span className="text-sm font-semibold text-gray-800">
+          <div className="flex items-center justify-center border rounded-lg px-3 py-1.5 bg-gray-50 min-w-[110px]">
+  <span className="text-sm font-semibold text-gray-800 whitespace-nowrap">
     Quantity: {normalQty}
   </span>
 </div>
