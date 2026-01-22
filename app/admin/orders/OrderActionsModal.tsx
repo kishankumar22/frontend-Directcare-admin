@@ -441,7 +441,7 @@ export default function OrderActionsModal({
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-xs text-slate-400 mb-1">Current Status</p>
-                  <div className="flex items-center gap-2">
+                  <div className="flex text-white items-center gap-2">
                     {getStatusDisplayInfo(order.status).icon}
                     <p className={`font-medium ${getStatusDisplayInfo(order.status).color}`}>
                       {getStatusDisplayInfo(order.status).label}

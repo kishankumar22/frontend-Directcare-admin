@@ -232,7 +232,6 @@ useEffect(() => {
         brandsService.getAll({ includeInactive: true }),
         categoriesService.getAll({ includeInactive: true, includeSubCategories: true }),
         vatratesService.getAll(),
-        
         // ✅ SERVICE-BASED (changed)
         productsService.getAll({ pageSize: 100 }),
         productsService.getAll({ productType: 'simple', pageSize: 100 })
@@ -556,59 +555,42 @@ const filteredVATRates = dropdownsData.vatRates.filter(vat =>
 const [skuError, setSkuError] = useState<string>('');
 const [checkingSku, setCheckingSku] = useState<boolean>(false);
 
-// ✅ 1. ADD VALIDATION FUNCTION (Add after other functions, before handleSubmit)
 
+// ✅ FLEXIBLE SKU VALIDATION - Allows: Pure Numbers, Pure Letters, OR Alphanumeric
 const validateSkuFormat = (sku: string): { isValid: boolean; error: string } => {
   const trimmedSku = sku.trim();
-  
+
   if (!trimmedSku) {
     return { isValid: false, error: 'SKU is required' };
   }
-  
+
   if (trimmedSku.length < 3) {
     return { isValid: false, error: 'SKU must be at least 3 characters' };
   }
-  
+
   if (trimmedSku.length > 30) {
     return { isValid: false, error: 'SKU must not exceed 30 characters' };
   }
-  
-  // ✅ MUST contain at least ONE letter
-  if (!/[A-Z]/.test(trimmedSku)) {
-    return { isValid: false, error: 'SKU must contain at least one letter (A-Z)' };
+
+  // ✅ Allows: letters (a-z A-Z), numbers (0-9), hyphens between groups
+  // Examples: 641256412, MOBILE, mobile, prod-001, 2025-xYz, ABC123
+  if (!/^[a-zA-Z0-9]+(-[a-zA-Z0-9]+)*$/.test(trimmedSku)) {
+    return {
+      isValid: false,
+      error: 'Invalid SKU format. Only letters (a-z A-Z), numbers (0-9) and hyphens are allowed (e.g. 641256412, MOBILE, prod-001, mobile-xyz-42)',
+    };
   }
-  
-  // ✅ MUST contain at least ONE number
-  if (!/[0-9]/.test(trimmedSku)) {
-    return { isValid: false, error: 'SKU must contain at least one number (0-9)' };
-  }
-  
-  // ✅ Only alphanumeric + hyphens allowed
-  if (!/^[A-Z0-9]+(-[A-Z0-9]+)*$/.test(trimmedSku)) {
-    return { isValid: false, error: 'SKU format invalid. Use: LETTERS + NUMBERS + HYPHENS (e.g., PROD-001)' };
-  }
-  
+
   if (trimmedSku.includes('--')) {
-    return { isValid: false, error: 'SKU cannot contain consecutive hyphens' };
+    return { isValid: false, error: 'SKU cannot contain consecutive hyphens (--)' };
   }
-  
+
   if (trimmedSku.startsWith('-') || trimmedSku.endsWith('-')) {
     return { isValid: false, error: 'SKU cannot start or end with a hyphen' };
   }
-  
-  // ✅ BLOCK pure numbers
-  if (/^[0-9-]+$/.test(trimmedSku)) {
-    return { isValid: false, error: 'SKU cannot be only numbers. Must include letters (e.g., PROD-12345)' };
-  }
-  
-  // ✅ BLOCK pure letters
-  if (/^[A-Z-]+$/.test(trimmedSku)) {
-    return { isValid: false, error: 'SKU cannot be only letters. Must include numbers (e.g., MOBILE-001)' };
-  }
-  
+
   return { isValid: true, error: '' };
 };
-
 
 // ✅ 2. UPDATE EXISTING checkSkuExists FUNCTION
 
@@ -814,17 +796,19 @@ if (!skuValidation.isValid) {
       return;
     }
 
-    // ✅ 1.6 STOCK VALIDATION
-    if (formData.manageInventory === 'track') {
-      const stock = parseInt(formData.stockQuantity.toString());
-      if (isNaN(stock) || stock < 0) {
-        toast.error('⚠️ Stock quantity must be a valid non-negative number.');
-        target.removeAttribute('data-submitting');
-        setIsSubmitting(false);
-        setSubmitProgress(null);
-        return;
-      }
-    }
+   
+// ✅ 1.6 STOCK VALIDATION - SKIP FOR DRAFT
+if (!isDraft && formData.manageInventory === 'track') {
+  const stock = parseInt(formData.stockQuantity.toString());
+  if (isNaN(stock) || stock < 0) {
+    toast.error('⚠️ Stock quantity must be a valid non-negative number.');
+    target.removeAttribute('data-submitting');
+    setIsSubmitting(false);
+    setSubmitProgress(null);
+    return;
+  }
+}
+
 
     setSubmitProgress({
       step: 'Validating homepage settings...',
@@ -832,7 +816,7 @@ if (!skuValidation.isValid) {
     });
 
     // If product is NOT VAT exempt, VAT rate is required
-if (!formData.vatExempt && (!formData.vatRateId || !formData.vatRateId.trim())) {
+if (!isDraft && !formData.vatExempt && (!formData.vatRateId || !formData.vatRateId.trim())) {
   toast.error('❌ VAT rate is required when product is taxable');
   target.removeAttribute('data-submitting');
   setIsSubmitting(false);
@@ -844,7 +828,7 @@ if (!formData.vatExempt && (!formData.vatRateId || !formData.vatRateId.trim())) 
     // SECTION 2: HOMEPAGE VALIDATION
     // ═══════════════════════════════════════════════════════════════════════
 
-    if (formData.showOnHomepage) {
+    if (!isDraft && formData.showOnHomepage) {
       if (homepageCount !== null && homepageCount >= MAX_HOMEPAGE) {
         toast.error(
           `❌ Maximum ${MAX_HOMEPAGE} products can be shown on homepage. Current: ${homepageCount}`,
@@ -1151,7 +1135,7 @@ if (!formData.vatExempt && (!formData.vatRateId || !formData.vatRateId.trim())) 
     // SECTION 7: IMAGE VALIDATION
     // ═══════════════════════════════════════════════════════════════════════
 
-    if (formData.productImages.length < 3) {
+    if (!isDraft && formData.productImages.length < 3) {
       toast.error('❌ Please upload at least 3 product images before saving');
       target.removeAttribute('data-submitting');
       setIsSubmitting(false);
@@ -2778,12 +2762,10 @@ const uploadVariantImages = async (productResponse: any) => {
                     <Globe className="h-4 w-4" />
                     SEO
                   </TabsTrigger>
-<TabsTrigger value="media" className="flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-slate-400 hover:text-violet-400 border-b-2 border-transparent data-[state=active]:border-violet-500 data-[state=active]:text-violet-400 data-[state=active]:bg-slate-800/50 whitespace-nowrap transition-all rounded-t-lg">
-  <Image className="h-4 w-4" />
-  Media
-</TabsTrigger>
-
-
+                  <TabsTrigger value="media" className="flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-slate-400 hover:text-violet-400 border-b-2 border-transparent data-[state=active]:border-violet-500 data-[state=active]:text-violet-400 data-[state=active]:bg-slate-800/50 whitespace-nowrap transition-all rounded-t-lg">
+                  <Image className="h-4 w-4" />
+                  Media
+                  </TabsTrigger>
                 </TabsList>
               </div>
 
@@ -2857,7 +2839,7 @@ const uploadVariantImages = async (productResponse: any) => {
 
 
  <div className="grid md:grid-cols-3 gap-4">
-{/* ✅ SKU FIELD - Find and replace existing SKU input */}
+{/* ✅ SKU FIELD - Updated with flexible format support */}
 <div>
   <label className="block text-sm font-medium text-slate-300 mb-2">
     SKU (Stock Keeping Unit) <span className="text-red-500">*</span>
@@ -2870,7 +2852,7 @@ const uploadVariantImages = async (productResponse: any) => {
       value={formData.sku}
       onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
         const input = e.target.value;
-        // ✅ Auto-uppercase and sanitize
+        // ✅ Convert to uppercase and remove invalid characters (spaces, special chars except hyphen)
         const sanitized = input.toUpperCase().replace(/[^A-Z0-9-]/g, '');
         
         setFormData({ ...formData, sku: sanitized });
@@ -2885,7 +2867,7 @@ const uploadVariantImages = async (productResponse: any) => {
           setSkuError('SKU must be at least 3 characters');
         }
       }}
-      placeholder="PROD-001"
+      placeholder="641256412 or MOBILE or PROD-001"
       maxLength={30}
       className={`w-full px-4 py-2.5 bg-slate-900 border rounded-lg text-white placeholder-slate-500 focus:ring-2 transition-all uppercase font-mono ${
         skuError 
@@ -2934,18 +2916,20 @@ const uploadVariantImages = async (productResponse: any) => {
     </div>
   )}
   
-  {/* Help Text */}
+  {/* ✅ Updated Help Text - Shows all 3 format options */}
   {!skuError && (
     <p className="mt-1.5 text-xs text-slate-400">
-      <span className="text-slate-500">Format:</span>{' '}
-      <code className="text-violet-400 bg-violet-500/10 px-1.5 py-0.5 rounded">LETTERS+NUMBERS</code>{' '}
+      <span className="text-slate-500">Formats:</span>{' '}
+      <code className="text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded">641256412</code>{' '}
       <span className="text-slate-500">•</span>{' '}
-      <code className="text-emerald-400">PROD-001</code>,{' '}
-      <code className="text-emerald-400">LAP-HP-I5</code>{' '}
+      <code className="text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded">MOBILE</code>{' '}
+      <span className="text-slate-500">•</span>{' '}
+      <code className="text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded">PROD-001</code>{' '}
       <span className="text-slate-500">({formData.sku.length}/30)</span>
     </p>
   )}
 </div>
+
 
 
 
@@ -3203,8 +3187,178 @@ const uploadVariantImages = async (productResponse: any) => {
             <span className="text-sm text-slate-500 italic">Enable "Show on home page" to set order</span>
           )}
         </div>
+
+      </div>        {formData.showOnHomepage && (
+  <div className="flex items-start gap-2 p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg">
+    <svg className="w-5 h-5 text-blue-400 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+      <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+    </svg>
+    <div className="flex-1">
+      <div className="flex items-center justify-between">
+        <p className="text-sm text-blue-300 font-medium">Homepage Product Active</p>
+        {homepageCount !== null && (
+          <span className="text-xs font-bold text-blue-400 bg-blue-500/20 px-2 py-0.5 rounded">
+            {homepageCount}/{MAX_HOMEPAGE}
+          </span>
+        )}
       </div>
+      <p className="text-xs text-blue-400/80 mt-1">
+        Maximum 50 products allowed. Lower order numbers appear first.
+      </p>
     </div>
+  </div>
+)}
+    </div>
+  {/* ===== ✅ UPDATED RECURRING PRODUCT SECTION WITH GROUPED VALIDATION ===== */}
+  <div className="space-y-4 mt-6">
+    <h3 className="text-lg font-semibold text-white border-b border-slate-800 pb-2">
+      Subscription / Recurring
+    </h3>
+
+    {/* ✅ DISABLED FOR GROUPED PRODUCTS */}
+    <label className={`flex items-center gap-3 ${
+      formData.productType === 'grouped' 
+        ? 'cursor-not-allowed opacity-50' 
+        : 'cursor-pointer'
+    }`}>
+      <input
+        type="checkbox"
+        name="isRecurring"
+        checked={formData.isRecurring}
+        onChange={handleChange}
+        disabled={formData.productType === 'grouped'}
+        className="rounded bg-slate-800/50 border-slate-700 text-violet-500 focus:ring-violet-500 focus:ring-offset-slate-900 disabled:opacity-50 disabled:cursor-not-allowed"
+      />
+      <span className="text-sm font-medium text-slate-300">
+        This is a Recurring Product (Subscription)
+        {formData.productType === 'grouped' && (
+          <span className="ml-2 text-xs text-red-400 font-normal">
+            (Not available for grouped products)
+          </span>
+        )}
+      </span>
+    </label>
+
+    {/* ⚠️ WARNING BANNER FOR GROUPED PRODUCTS */}
+    {formData.productType === 'grouped' && (
+      <div className="flex items-center gap-3 text-xs text-amber-400 bg-amber-900/20 px-4 py-3 rounded border border-amber-800/50">
+        <svg className="w-4 h-4 shrink-0" fill="currentColor" viewBox="0 0 20 20">
+          <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.742-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+        </svg>
+        <span>
+          Subscription/recurring is not supported for grouped products. Individual products in the bundle can have their own subscriptions.
+        </span>
+      </div>
+    )}
+
+    {/* ✅ ONLY SHOW IF ENABLED AND NOT GROUPED */}
+    {formData.isRecurring && formData.productType !== 'grouped' && (
+      <div className="p-4 bg-slate-800/40 border border-slate-700 rounded-lg space-y-4 transition-all duration-300">
+        {/* Billing Cycle */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div>
+            <label className="block text-xs font-medium text-slate-400 mb-1">Charge every</label>
+            <input
+              type="number"
+              name="recurringCycleLength"
+              value={formData.recurringCycleLength}
+              onChange={handleChange}
+              min="1"
+              placeholder="30"
+              className="w-full px-3 py-2 bg-slate-900/70 border border-slate-700 rounded-md text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-slate-400 mb-1">Period</label>
+            <select
+              name="recurringCyclePeriod"
+              value={formData.recurringCyclePeriod}
+              onChange={handleChange}
+              className="w-full px-3 py-2 bg-slate-900/70 border border-slate-700 rounded-md text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
+            >
+              <option value="days">Days</option>
+              <option value="weeks">Weeks</option>
+              <option value="months">Months</option>
+              <option value="years">Years</option>
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-slate-400 mb-1">Total Billing Cycles</label>
+            <input
+              type="number"
+              name="recurringTotalCycles"
+              value={formData.recurringTotalCycles}
+              onChange={handleChange}
+              min="0"
+              placeholder="0 = Unlimited"
+              className="w-full px-3 py-2 bg-slate-900/70 border border-slate-700 rounded-md text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
+            />
+          </div>
+        </div>
+
+        {/* Subscription Discount & Options */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-4 border-t border-slate-700">
+          <div>
+            <label className="block text-xs font-medium text-slate-400 mb-1">Subscription Discount (%)</label>
+            <input
+              type="number"
+              name="subscriptionDiscountPercentage"
+              value={formData.subscriptionDiscountPercentage}
+              onChange={handleChange}
+              min="0"
+              max="100"
+              step="0.01"
+              placeholder="15"
+              className="w-full px-3 py-2 bg-slate-900/70 border border-slate-700 rounded-md text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
+            />
+            <p className="text-xs text-slate-500 mt-1">e.g., 15 for 15% off</p>
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-slate-400 mb-1">Allowed Frequencies</label>
+            <input
+              type="text"
+              name="allowedSubscriptionFrequencies"
+              value={formData.allowedSubscriptionFrequencies}
+              onChange={handleChange}
+              placeholder="weekly,monthly,yearly"
+              className="w-full px-3 py-2 bg-slate-900/70 border border-slate-700 rounded-md text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
+            />
+            <p className="text-xs text-slate-500 mt-1">Comma-separated</p>
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-slate-400 mb-1">Subscription Description</label>
+            <input
+              type="text"
+              name="subscriptionDescription"
+              value={formData.subscriptionDescription}
+              onChange={handleChange}
+              placeholder="Save 15% with monthly billing"
+              className="w-full px-3 py-2 bg-slate-900/70 border border-slate-700 rounded-md text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
+            />
+          </div>
+        </div>
+
+        {/* Warning Banner */}
+        <div className="flex items-center gap-3 text-xs text-amber-400 bg-amber-900/20 px-4 py-3 rounded border border-amber-800/50">
+          <svg className="w-4 h-4 shrink-0" fill="currentColor" viewBox="0 0 20 20">
+            <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.742-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+          </svg>
+          <div className="flex w-full justify-between">
+            <span>
+              Customer will be charged every {formData.recurringCycleLength || "?"} {formData.recurringCyclePeriod || "days"}
+              {formData.recurringTotalCycles && parseInt(formData.recurringTotalCycles) > 0
+                ? ` for ${formData.recurringTotalCycles} times`
+                : " indefinitely"}
+              {formData.subscriptionDiscountPercentage && ` with ${formData.subscriptionDiscountPercentage}% discount`}
+            </span>
+            <span className="text-slate-400 whitespace-nowrap">
+              Leave 0 for unlimited recurring payments
+            </span>
+          </div>
+        </div>
+      </div>
+    )}
+  </div>
 
     {/* Available Dates */}
     <div className="grid md:grid-cols-2 gap-4">
@@ -4417,159 +4571,9 @@ const uploadVariantImages = async (productResponse: any) => {
     )}
   </div>
 
-  {/* ===== ✅ UPDATED RECURRING PRODUCT SECTION WITH GROUPED VALIDATION ===== */}
-  <div className="space-y-4 mt-6">
-    <h3 className="text-lg font-semibold text-white border-b border-slate-800 pb-2">
-      Subscription / Recurring
-    </h3>
-
-    {/* ✅ DISABLED FOR GROUPED PRODUCTS */}
-    <label className={`flex items-center gap-3 ${
-      formData.productType === 'grouped' 
-        ? 'cursor-not-allowed opacity-50' 
-        : 'cursor-pointer'
-    }`}>
-      <input
-        type="checkbox"
-        name="isRecurring"
-        checked={formData.isRecurring}
-        onChange={handleChange}
-        disabled={formData.productType === 'grouped'}
-        className="rounded bg-slate-800/50 border-slate-700 text-violet-500 focus:ring-violet-500 focus:ring-offset-slate-900 disabled:opacity-50 disabled:cursor-not-allowed"
-      />
-      <span className="text-sm font-medium text-slate-300">
-        This is a Recurring Product (Subscription)
-        {formData.productType === 'grouped' && (
-          <span className="ml-2 text-xs text-red-400 font-normal">
-            (Not available for grouped products)
-          </span>
-        )}
-      </span>
-    </label>
-
-    {/* ⚠️ WARNING BANNER FOR GROUPED PRODUCTS */}
-    {formData.productType === 'grouped' && (
-      <div className="flex items-center gap-3 text-xs text-amber-400 bg-amber-900/20 px-4 py-3 rounded border border-amber-800/50">
-        <svg className="w-4 h-4 shrink-0" fill="currentColor" viewBox="0 0 20 20">
-          <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.742-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-        </svg>
-        <span>
-          Subscription/recurring is not supported for grouped products. Individual products in the bundle can have their own subscriptions.
-        </span>
-      </div>
-    )}
-
-    {/* ✅ ONLY SHOW IF ENABLED AND NOT GROUPED */}
-    {formData.isRecurring && formData.productType !== 'grouped' && (
-      <div className="p-4 bg-slate-800/40 border border-slate-700 rounded-lg space-y-4 transition-all duration-300">
-        {/* Billing Cycle */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div>
-            <label className="block text-xs font-medium text-slate-400 mb-1">Charge every</label>
-            <input
-              type="number"
-              name="recurringCycleLength"
-              value={formData.recurringCycleLength}
-              onChange={handleChange}
-              min="1"
-              placeholder="30"
-              className="w-full px-3 py-2 bg-slate-900/70 border border-slate-700 rounded-md text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
-            />
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-slate-400 mb-1">Period</label>
-            <select
-              name="recurringCyclePeriod"
-              value={formData.recurringCyclePeriod}
-              onChange={handleChange}
-              className="w-full px-3 py-2 bg-slate-900/70 border border-slate-700 rounded-md text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
-            >
-              <option value="days">Days</option>
-              <option value="weeks">Weeks</option>
-              <option value="months">Months</option>
-              <option value="years">Years</option>
-            </select>
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-slate-400 mb-1">Total Billing Cycles</label>
-            <input
-              type="number"
-              name="recurringTotalCycles"
-              value={formData.recurringTotalCycles}
-              onChange={handleChange}
-              min="0"
-              placeholder="0 = Unlimited"
-              className="w-full px-3 py-2 bg-slate-900/70 border border-slate-700 rounded-md text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
-            />
-          </div>
-        </div>
-
-        {/* Subscription Discount & Options */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-4 border-t border-slate-700">
-          <div>
-            <label className="block text-xs font-medium text-slate-400 mb-1">Subscription Discount (%)</label>
-            <input
-              type="number"
-              name="subscriptionDiscountPercentage"
-              value={formData.subscriptionDiscountPercentage}
-              onChange={handleChange}
-              min="0"
-              max="100"
-              step="0.01"
-              placeholder="15"
-              className="w-full px-3 py-2 bg-slate-900/70 border border-slate-700 rounded-md text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
-            />
-            <p className="text-xs text-slate-500 mt-1">e.g., 15 for 15% off</p>
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-slate-400 mb-1">Allowed Frequencies</label>
-            <input
-              type="text"
-              name="allowedSubscriptionFrequencies"
-              value={formData.allowedSubscriptionFrequencies}
-              onChange={handleChange}
-              placeholder="weekly,monthly,yearly"
-              className="w-full px-3 py-2 bg-slate-900/70 border border-slate-700 rounded-md text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
-            />
-            <p className="text-xs text-slate-500 mt-1">Comma-separated</p>
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-slate-400 mb-1">Subscription Description</label>
-            <input
-              type="text"
-              name="subscriptionDescription"
-              value={formData.subscriptionDescription}
-              onChange={handleChange}
-              placeholder="Save 15% with monthly billing"
-              className="w-full px-3 py-2 bg-slate-900/70 border border-slate-700 rounded-md text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
-            />
-          </div>
-        </div>
-
-        {/* Warning Banner */}
-        <div className="flex items-center gap-3 text-xs text-amber-400 bg-amber-900/20 px-4 py-3 rounded border border-amber-800/50">
-          <svg className="w-4 h-4 shrink-0" fill="currentColor" viewBox="0 0 20 20">
-            <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.742-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-          </svg>
-          <div className="flex w-full justify-between">
-            <span>
-              Customer will be charged every {formData.recurringCycleLength || "?"} {formData.recurringCyclePeriod || "days"}
-              {formData.recurringTotalCycles && parseInt(formData.recurringTotalCycles) > 0
-                ? ` for ${formData.recurringTotalCycles} times`
-                : " indefinitely"}
-              {formData.subscriptionDiscountPercentage && ` with ${formData.subscriptionDiscountPercentage}% discount`}
-            </span>
-            <span className="text-slate-400 whitespace-nowrap">
-              Leave 0 for unlimited recurring payments
-            </span>
-          </div>
-        </div>
-      </div>
-    )}
-  </div>
 
   {/* ===== PACK / BUNDLE PRODUCT ===== */}
-  <div className="space-y-4 mt-6">
+  {/* <div className="space-y-4 mt-6">
     <h3 className="text-lg font-semibold text-white border-b border-slate-800 pb-2">Pack / Bundle</h3>
 
     <div className="flex items-center gap-3">
@@ -4607,7 +4611,7 @@ const uploadVariantImages = async (productResponse: any) => {
         </p>
       </div>
     )}
-  </div>
+  </div> */}
 
   {/* Dimensions */}
   {formData.isShipEnabled && (

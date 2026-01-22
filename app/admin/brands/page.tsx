@@ -320,7 +320,7 @@ const handleSubmit = async (e: React.FormEvent) => {
   
   if (logoFile) {
     const allowedTypes = [ 'image/webp','image/png'];
-    const maxSize = 10 * 1024 * 1024; // 10MB
+    const maxSize = 1 * 1024 * 1024; // 1MB
 
     // Type validation
     if (!allowedTypes.includes(logoFile.type)) {
@@ -331,7 +331,7 @@ const handleSubmit = async (e: React.FormEvent) => {
     // Size validation
     if (logoFile.size > maxSize) {
       const sizeMB = (logoFile.size / (1024 * 1024)).toFixed(2);
-      toast.error(`❌ Logo size must be less than 10MB. Current: ${sizeMB}MB`);
+      toast.error(`❌ Logo size must be less than 1MB. Current: ${sizeMB}MB`);
       return;
     }
 
@@ -1352,13 +1352,13 @@ const handleSubmit = async (e: React.FormEvent) => {
       
       {/* Counter Badge */}
       <span className={`px-3 py-1 rounded-lg text-xs font-bold border ${
-        homepageCount >= 15
+        homepageCount >= 50
           ? 'bg-red-500/10 text-red-400 border-red-500/30'
-          : homepageCount >= 12
+          : homepageCount >= 40
           ? 'bg-amber-500/10 text-amber-400 border-amber-500/30'
           : 'bg-cyan-500/10 text-cyan-400 border-cyan-500/30'
       }`}>
-        {homepageCount}/15 Featured
+        {homepageCount}/50 Featured
       </span>
     </div>
     
@@ -1367,7 +1367,7 @@ const handleSubmit = async (e: React.FormEvent) => {
         ? 'bg-cyan-500/10 border-cyan-500/30'
         : 'bg-slate-900/50 border-slate-600 hover:border-cyan-500 cursor-pointer'
     } ${
-      !formData.showOnHomepage && homepageCount >= 15
+      !formData.showOnHomepage && homepageCount >= 50
         ? 'opacity-50 cursor-not-allowed'
         : ''
     }`}>

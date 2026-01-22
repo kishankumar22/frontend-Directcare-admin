@@ -1376,8 +1376,7 @@ const handleReopenTakeoverModal = () => {
 const [skuError, setSkuError] = useState('');
 const [checkingSku, setCheckingSku] = useState(false);
 
-// ✅ SERVICE-BASED SKU CHECK FUNCTION
-// ✅ INDUSTRY-STANDARD SKU VALIDATION FUNCTION
+// ✅ FLEXIBLE SKU VALIDATION - Allows: Pure Numbers, Pure Letters, OR Alphanumeric
 const validateSkuFormat = (sku: string): { isValid: boolean; error: string } => {
   const trimmedSku = sku.trim();
   
@@ -1396,19 +1395,9 @@ const validateSkuFormat = (sku: string): { isValid: boolean; error: string } => 
     return { isValid: false, error: 'SKU must not exceed 30 characters' };
   }
   
-  // ✅ MUST contain at least ONE letter
-  if (!/[A-Z]/.test(trimmedSku)) {
-    return { isValid: false, error: 'SKU must contain at least one letter (A-Z)' };
-  }
-  
-  // ✅ MUST contain at least ONE number
-  if (!/[0-9]/.test(trimmedSku)) {
-    return { isValid: false, error: 'SKU must contain at least one number (0-9)' };
-  }
-  
   // ✅ Only alphanumeric + hyphens allowed (no spaces, special chars)
   if (!/^[A-Z0-9]+(-[A-Z0-9]+)*$/.test(trimmedSku)) {
-    return { isValid: false, error: 'SKU format invalid. Use: LETTERS + NUMBERS + HYPHENS only (e.g., PROD-001)' };
+    return { isValid: false, error: 'SKU format invalid. Use only LETTERS, NUMBERS, and HYPHENS (e.g., PROD-001, 641256412, MOBILE)' };
   }
   
   // Check for consecutive hyphens
@@ -1421,15 +1410,10 @@ const validateSkuFormat = (sku: string): { isValid: boolean; error: string } => 
     return { isValid: false, error: 'SKU cannot start or end with a hyphen' };
   }
   
-  // ✅ BLOCK pure numbers (e.g., "12345")
-  if (/^[0-9-]+$/.test(trimmedSku)) {
-    return { isValid: false, error: 'SKU cannot be only numbers. Must include letters (e.g., PROD-12345)' };
-  }
-  
-  // ✅ BLOCK pure letters (e.g., "MOBILE")
-  if (/^[A-Z-]+$/.test(trimmedSku)) {
-    return { isValid: false, error: 'SKU cannot be only letters. Must include numbers (e.g., MOBILE-001)' };
-  }
+  // ✅ ALL ALLOWED NOW:
+  // - Pure numbers: 641256412 ✅
+  // - Pure letters: MOBILE ✅
+  // - Alphanumeric: PROD-001, LAP-HP-I5 ✅
   
   return { isValid: true, error: '' };
 };
@@ -1909,9 +1893,6 @@ const handleTakeoverRequest = async (message: string, expiryMinutes: number) => 
   }
 };
 
-
-
-
 // ==================== TAKEOVER MODAL HANDLERS ====================
 const openTakeoverModal = () => {
   setIsTakeoverModalOpen(true);
@@ -2361,7 +2342,7 @@ if (!formData.vatExempt && (!formData.vatRateId || !formData.vatRateId.trim())) 
           return;
         }
 
-        if (homepageProducts.length >= MAX_HOMEPAGE_PRODUCTS - 3) {
+        if (homepageProducts.length >= MAX_HOMEPAGE_PRODUCTS - 10) {
           const currentCount = homepageProducts.length + 1;
           toast.warning(
             `⚠️ Homepage products: ${currentCount}/${MAX_HOMEPAGE_PRODUCTS}. Approaching limit!`,
@@ -4820,7 +4801,7 @@ const uploadImagesToProductDirect = async (
       value={formData.sku}
       onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
         const input = e.target.value;
-        // ✅ Auto-uppercase and remove invalid characters
+        // ✅ Auto-uppercase and remove invalid characters (spaces, special chars)
         const sanitized = input.toUpperCase().replace(/[^A-Z0-9-]/g, '');
         
         setFormData({ ...formData, sku: sanitized });
@@ -4836,7 +4817,7 @@ const uploadImagesToProductDirect = async (
           setSkuError('SKU must be at least 3 characters');
         }
       }}
-      placeholder="PROD-001"
+      placeholder="641256412 or MOBILE or PROD-001"
       maxLength={30}
       className={`w-full px-3 py-2.5 pr-10 bg-slate-800/50 border rounded-xl text-white placeholder-slate-500 focus:ring-2 transition-all uppercase font-mono ${
         skuError 
@@ -4848,7 +4829,7 @@ const uploadImagesToProductDirect = async (
       required
     />
     
-    {/* Status Icons */}
+    {/* Status Icons - Same as before */}
     {checkingSku && (
       <div className="absolute right-3 top-1/2 -translate-y-1/2">
         <svg className="animate-spin h-5 w-5 text-violet-400" fill="none" viewBox="0 0 24 24">
@@ -4885,18 +4866,20 @@ const uploadImagesToProductDirect = async (
     </div>
   )}
   
-  {/* Valid Examples - One Line */}
+  {/* ✅ Updated Examples - Shows all formats */}
   {!skuError && (
     <p className="mt-1.5 text-xs text-slate-400">
-      <span className="text-slate-500">Format:</span>{' '}
-      <code className="text-violet-400 bg-violet-500/10 px-1.5 py-0.5 rounded">LETTERS+NUMBERS</code>{' '}
+      <span className="text-slate-500">Formats:</span>{' '}
+      <code className="text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded">641256412</code>{' '}
       <span className="text-slate-500">•</span>{' '}
-      <code className="text-emerald-400">PROD-001</code>,{' '}
-      <code className="text-emerald-400">LAP-HP-I5</code>{' '}
+      <code className="text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded">MOBILE</code>{' '}
+      <span className="text-slate-500">•</span>{' '}
+      <code className="text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded">PROD-001</code>{' '}
       <span className="text-slate-500">({formData.sku.length}/30)</span>
     </p>
   )}
 </div>
+
 
 
 
@@ -5117,7 +5100,6 @@ const uploadImagesToProductDirect = async (
         </label>
       </div>
 
-      {/* ✅ Show on Homepage + Display Order - Smart Layout */}
 {/* ========================================
     ✅ SHOW ON HOMEPAGE + DISPLAY ORDER
     ======================================== */}
@@ -5220,6 +5202,197 @@ const uploadImagesToProductDirect = async (
 </div>
 
     </div>
+  {/* ===== SUBSCRIPTION / RECURRING SECTION (WITH GROUPED VALIDATION) ===== */}
+  <div className="space-y-4 mt-6">
+    <h3 className="text-lg font-semibold text-white border-b border-slate-800 pb-2">
+      Subscription / Recurring
+    </h3>
+
+    {/* ✅ DISABLED FOR GROUPED PRODUCTS */}
+    <label className={`flex items-center gap-3 ${
+      formData.productType === 'grouped' 
+        ? 'cursor-not-allowed opacity-50' 
+        : 'cursor-pointer'
+    }`}>
+      <input
+        type="checkbox"
+        name="isRecurring"
+        checked={formData.isRecurring}
+        onChange={handleChange}
+        disabled={formData.productType === 'grouped'}
+        className="rounded bg-slate-800/50 border-slate-700 text-violet-500 focus:ring-violet-500 focus:ring-offset-slate-900 disabled:opacity-50 disabled:cursor-not-allowed"
+      />
+      <span className="text-sm font-medium text-slate-300">
+        This is a Recurring Product (Subscription)
+        {formData.productType === 'grouped' && (
+          <span className="ml-2 text-xs text-red-400 font-normal">
+            (Not available for grouped products)
+          </span>
+        )}
+      </span>
+    </label>
+
+    {/* ⚠️ WARNING BANNER FOR GROUPED PRODUCTS */}
+    {formData.productType === 'grouped' && (
+      <div className="flex items-center gap-3 text-xs text-amber-400 bg-amber-900/20 px-4 py-3 rounded border border-amber-800/50">
+        <svg className="w-4 h-4 shrink-0" fill="currentColor" viewBox="0 0 20 20">
+          <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.742-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+        </svg>
+        <span>
+          Subscription/recurring is not supported for grouped products. Individual products in the bundle can have their own subscriptions.
+        </span>
+      </div>
+    )}
+
+    {/* ✅ ONLY SHOW IF ENABLED AND NOT GROUPED */}
+    {formData.isRecurring && formData.productType !== 'grouped' && (
+      <div className="p-4 bg-slate-800/40 border border-slate-700 rounded-lg space-y-4 transition-all duration-300">
+        {/* Billing Cycle */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div>
+            <label className="block text-xs font-medium text-slate-400 mb-1">Charge every</label>
+            <input
+              type="number"
+              name="recurringCycleLength"
+              value={formData.recurringCycleLength}
+              onChange={handleChange}
+              min="1"
+              placeholder="30"
+              className="w-full px-3 py-2 bg-slate-900/70 border border-slate-700 rounded-md text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-slate-400 mb-1">Period</label>
+            <select
+              name="recurringCyclePeriod"
+              value={formData.recurringCyclePeriod}
+              onChange={handleChange}
+              className="w-full px-3 py-2 bg-slate-900/70 border border-slate-700 rounded-md text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
+            >
+              <option value="days">Days</option>
+              <option value="weeks">Weeks</option>
+              <option value="months">Months</option>
+              <option value="years">Years</option>
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-slate-400 mb-1">Total Billing Cycles</label>
+            <input
+              type="number"
+              name="recurringTotalCycles"
+              value={formData.recurringTotalCycles}
+              onChange={handleChange}
+              min="0"
+              placeholder="0 = Unlimited"
+              className="w-full px-3 py-2 bg-slate-900/70 border border-slate-700 rounded-md text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
+            />
+          </div>
+        </div>
+
+        {/* Subscription Discount & Options */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-4 border-t border-slate-700">
+          <div>
+            <label className="block text-xs font-medium text-slate-400 mb-1">Subscription Discount (%)</label>
+            <input
+              type="number"
+              name="subscriptionDiscountPercentage"
+              value={formData.subscriptionDiscountPercentage}
+              onChange={handleChange}
+              min="0"
+              max="100"
+              step="0.01"
+              placeholder="15"
+              className="w-full px-3 py-2 bg-slate-900/70 border border-slate-700 rounded-md text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
+            />
+            <p className="text-xs text-slate-500 mt-1">e.g., 15 for 15% off</p>
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-slate-400 mb-1">Allowed Frequencies</label>
+            <input
+              type="text"
+              name="allowedSubscriptionFrequencies"
+              value={formData.allowedSubscriptionFrequencies}
+              onChange={handleChange}
+              placeholder="weekly,monthly,yearly"
+              className="w-full px-3 py-2 bg-slate-900/70 border border-slate-700 rounded-md text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
+            />
+            <p className="text-xs text-slate-500 mt-1">Comma-separated</p>
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-slate-400 mb-1">Subscription Description</label>
+            <input
+              type="text"
+              name="subscriptionDescription"
+              value={formData.subscriptionDescription}
+              onChange={handleChange}
+              placeholder="Save 15% with monthly billing"
+              className="w-full px-3 py-2 bg-slate-900/70 border border-slate-700 rounded-md text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
+            />
+          </div>
+        </div>
+
+        {/* Warning Banner */}
+        <div className="flex items-center gap-3 text-xs text-amber-400 bg-amber-900/20 px-4 py-3 rounded border border-amber-800/50">
+          <svg className="w-4 h-4 shrink-0" fill="currentColor" viewBox="0 0 20 20">
+            <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.742-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+          </svg>
+          <div className="flex w-full justify-between">
+            <span>
+              Customer will be charged every {formData.recurringCycleLength || "?"} {formData.recurringCyclePeriod || "days"}
+              {formData.recurringTotalCycles && parseInt(formData.recurringTotalCycles) > 0
+                ? ` for ${formData.recurringTotalCycles} times`
+                : " indefinitely"}
+              {formData.subscriptionDiscountPercentage && ` with ${formData.subscriptionDiscountPercentage}% discount`}
+            </span>
+            <span className="text-slate-400 whitespace-nowrap">
+              Leave 0 for unlimited recurring payments
+            </span>
+          </div>
+        </div>
+      </div>
+    )}
+  </div>
+
+  {/* ===== PACK / BUNDLE PRODUCT ===== */}
+  {/* <div className="space-y-4 mt-6">
+    <h3 className="text-lg font-semibold text-white border-b border-slate-800 pb-2">Pack / Bundle</h3>
+
+    <div className="flex items-center gap-3">
+      <input
+        type="checkbox"
+        name="isPack"
+        checked={formData.isPack}
+        onChange={handleChange}
+        className="rounded bg-slate-800/50 border-slate-700 text-violet-500 focus:ring-violet-500 focus:ring-offset-slate-900 cursor-pointer"
+      />
+      <label className="text-sm font-medium text-slate-300 cursor-pointer">
+        This is a Pack / Bundle Product
+      </label>
+    </div>
+
+    {formData.isPack && (
+      <div className="p-4 bg-gradient-to-r from-violet-900/20 to-purple-900/20 border border-violet-700/50 rounded-lg transition-all duration-300">
+        <label className="block text-xs font-medium text-violet-300 mb-2">
+          Pack Name / Size <span className="text-red-400">*</span>
+        </label>
+        <input
+          type="text"
+          name="packSize"
+          value={formData.packSize}
+          onChange={handleChange}
+          required={formData.isPack}
+          placeholder="e.g. 6 Pack, Combo of 3, Family Bundle, Buy 2 Get 1"
+          className="w-full px-3 py-2 bg-slate-900/80 border border-violet-600/50 rounded-md text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-violet-500 transition-all"
+        />
+        <p className="text-xs text-slate-400 mt-2">
+          Ye name customer ko product title ke saath dikhega → "
+          <span className="text-violet-400 font-medium">
+            {formData.name} {formData.packSize && `- ${formData.packSize}`}
+          </span>"
+        </p>
+      </div>
+    )}
+  </div> */}
 
     {/* Available Dates */}
     <div className="grid md:grid-cols-2 gap-4">
@@ -5906,12 +6079,7 @@ const uploadImagesToProductDirect = async (
 </div>
 
 </TabsContent>
-
-
-
-
-
-              {/* Inventory Tab */}
+{/* Inventory Tab */}
 <TabsContent value="inventory" className="space-y-2 mt-2">
   {/* Inventory Method Section */}
   <div className="space-y-4">
@@ -6453,197 +6621,6 @@ const uploadImagesToProductDirect = async (
     )}
   </div>
 
-  {/* ===== SUBSCRIPTION / RECURRING SECTION (WITH GROUPED VALIDATION) ===== */}
-  <div className="space-y-4 mt-6">
-    <h3 className="text-lg font-semibold text-white border-b border-slate-800 pb-2">
-      Subscription / Recurring
-    </h3>
-
-    {/* ✅ DISABLED FOR GROUPED PRODUCTS */}
-    <label className={`flex items-center gap-3 ${
-      formData.productType === 'grouped' 
-        ? 'cursor-not-allowed opacity-50' 
-        : 'cursor-pointer'
-    }`}>
-      <input
-        type="checkbox"
-        name="isRecurring"
-        checked={formData.isRecurring}
-        onChange={handleChange}
-        disabled={formData.productType === 'grouped'}
-        className="rounded bg-slate-800/50 border-slate-700 text-violet-500 focus:ring-violet-500 focus:ring-offset-slate-900 disabled:opacity-50 disabled:cursor-not-allowed"
-      />
-      <span className="text-sm font-medium text-slate-300">
-        This is a Recurring Product (Subscription)
-        {formData.productType === 'grouped' && (
-          <span className="ml-2 text-xs text-red-400 font-normal">
-            (Not available for grouped products)
-          </span>
-        )}
-      </span>
-    </label>
-
-    {/* ⚠️ WARNING BANNER FOR GROUPED PRODUCTS */}
-    {formData.productType === 'grouped' && (
-      <div className="flex items-center gap-3 text-xs text-amber-400 bg-amber-900/20 px-4 py-3 rounded border border-amber-800/50">
-        <svg className="w-4 h-4 shrink-0" fill="currentColor" viewBox="0 0 20 20">
-          <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.742-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-        </svg>
-        <span>
-          Subscription/recurring is not supported for grouped products. Individual products in the bundle can have their own subscriptions.
-        </span>
-      </div>
-    )}
-
-    {/* ✅ ONLY SHOW IF ENABLED AND NOT GROUPED */}
-    {formData.isRecurring && formData.productType !== 'grouped' && (
-      <div className="p-4 bg-slate-800/40 border border-slate-700 rounded-lg space-y-4 transition-all duration-300">
-        {/* Billing Cycle */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div>
-            <label className="block text-xs font-medium text-slate-400 mb-1">Charge every</label>
-            <input
-              type="number"
-              name="recurringCycleLength"
-              value={formData.recurringCycleLength}
-              onChange={handleChange}
-              min="1"
-              placeholder="30"
-              className="w-full px-3 py-2 bg-slate-900/70 border border-slate-700 rounded-md text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
-            />
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-slate-400 mb-1">Period</label>
-            <select
-              name="recurringCyclePeriod"
-              value={formData.recurringCyclePeriod}
-              onChange={handleChange}
-              className="w-full px-3 py-2 bg-slate-900/70 border border-slate-700 rounded-md text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
-            >
-              <option value="days">Days</option>
-              <option value="weeks">Weeks</option>
-              <option value="months">Months</option>
-              <option value="years">Years</option>
-            </select>
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-slate-400 mb-1">Total Billing Cycles</label>
-            <input
-              type="number"
-              name="recurringTotalCycles"
-              value={formData.recurringTotalCycles}
-              onChange={handleChange}
-              min="0"
-              placeholder="0 = Unlimited"
-              className="w-full px-3 py-2 bg-slate-900/70 border border-slate-700 rounded-md text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
-            />
-          </div>
-        </div>
-
-        {/* Subscription Discount & Options */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-4 border-t border-slate-700">
-          <div>
-            <label className="block text-xs font-medium text-slate-400 mb-1">Subscription Discount (%)</label>
-            <input
-              type="number"
-              name="subscriptionDiscountPercentage"
-              value={formData.subscriptionDiscountPercentage}
-              onChange={handleChange}
-              min="0"
-              max="100"
-              step="0.01"
-              placeholder="15"
-              className="w-full px-3 py-2 bg-slate-900/70 border border-slate-700 rounded-md text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
-            />
-            <p className="text-xs text-slate-500 mt-1">e.g., 15 for 15% off</p>
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-slate-400 mb-1">Allowed Frequencies</label>
-            <input
-              type="text"
-              name="allowedSubscriptionFrequencies"
-              value={formData.allowedSubscriptionFrequencies}
-              onChange={handleChange}
-              placeholder="weekly,monthly,yearly"
-              className="w-full px-3 py-2 bg-slate-900/70 border border-slate-700 rounded-md text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
-            />
-            <p className="text-xs text-slate-500 mt-1">Comma-separated</p>
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-slate-400 mb-1">Subscription Description</label>
-            <input
-              type="text"
-              name="subscriptionDescription"
-              value={formData.subscriptionDescription}
-              onChange={handleChange}
-              placeholder="Save 15% with monthly billing"
-              className="w-full px-3 py-2 bg-slate-900/70 border border-slate-700 rounded-md text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
-            />
-          </div>
-        </div>
-
-        {/* Warning Banner */}
-        <div className="flex items-center gap-3 text-xs text-amber-400 bg-amber-900/20 px-4 py-3 rounded border border-amber-800/50">
-          <svg className="w-4 h-4 shrink-0" fill="currentColor" viewBox="0 0 20 20">
-            <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.742-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-          </svg>
-          <div className="flex w-full justify-between">
-            <span>
-              Customer will be charged every {formData.recurringCycleLength || "?"} {formData.recurringCyclePeriod || "days"}
-              {formData.recurringTotalCycles && parseInt(formData.recurringTotalCycles) > 0
-                ? ` for ${formData.recurringTotalCycles} times`
-                : " indefinitely"}
-              {formData.subscriptionDiscountPercentage && ` with ${formData.subscriptionDiscountPercentage}% discount`}
-            </span>
-            <span className="text-slate-400 whitespace-nowrap">
-              Leave 0 for unlimited recurring payments
-            </span>
-          </div>
-        </div>
-      </div>
-    )}
-  </div>
-
-  {/* ===== PACK / BUNDLE PRODUCT ===== */}
-  <div className="space-y-4 mt-6">
-    <h3 className="text-lg font-semibold text-white border-b border-slate-800 pb-2">Pack / Bundle</h3>
-
-    <div className="flex items-center gap-3">
-      <input
-        type="checkbox"
-        name="isPack"
-        checked={formData.isPack}
-        onChange={handleChange}
-        className="rounded bg-slate-800/50 border-slate-700 text-violet-500 focus:ring-violet-500 focus:ring-offset-slate-900 cursor-pointer"
-      />
-      <label className="text-sm font-medium text-slate-300 cursor-pointer">
-        This is a Pack / Bundle Product
-      </label>
-    </div>
-
-    {formData.isPack && (
-      <div className="p-4 bg-gradient-to-r from-violet-900/20 to-purple-900/20 border border-violet-700/50 rounded-lg transition-all duration-300">
-        <label className="block text-xs font-medium text-violet-300 mb-2">
-          Pack Name / Size <span className="text-red-400">*</span>
-        </label>
-        <input
-          type="text"
-          name="packSize"
-          value={formData.packSize}
-          onChange={handleChange}
-          required={formData.isPack}
-          placeholder="e.g. 6 Pack, Combo of 3, Family Bundle, Buy 2 Get 1"
-          className="w-full px-3 py-2 bg-slate-900/80 border border-violet-600/50 rounded-md text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-violet-500 transition-all"
-        />
-        <p className="text-xs text-slate-400 mt-2">
-          Ye name customer ko product title ke saath dikhega → "
-          <span className="text-violet-400 font-medium">
-            {formData.name} {formData.packSize && `- ${formData.packSize}`}
-          </span>"
-        </p>
-      </div>
-    )}
-  </div>
 
   {/* ===== DIMENSIONS ===== */}
   {formData.isShipEnabled && (

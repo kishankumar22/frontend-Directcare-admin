@@ -171,73 +171,75 @@ const getDateRangeLabel = () => {
 
 
   // ✅ Fetch Reviews
-  const fetchReviews = async (specificProductId?: string) => {
-    setLoadingReviews(true);
-    try {
-      if (statusFilter === "pending") {
-        // Fetch pending reviews
-        const response = await productReviewsService.getPendingReviews(1, 1000);
-        if (response.data?.success && Array.isArray(response.data.data)) {
-          setReviews(response.data.data);
-        } else {
-          setReviews([]);
-        }
-      } else if (specificProductId && specificProductId !== "all") {
-        // Fetch reviews for specific product
-        const minRating = ratingFilter !== "all" ? parseInt(ratingFilter) : undefined;
-        const maxRating = ratingFilter !== "all" ? parseInt(ratingFilter) : undefined;
+const fetchReviews = async (specificProductId?: string) => {
+  setLoadingReviews(true);
+  try {
+    let allReviews: ProductReview[] = [];
 
-        const response = await productReviewsService.getByProductId(
-          specificProductId,
-          true,
-          minRating,
-          maxRating,
-          verifiedOnlyFilter
-        );
-
-        if (response.data?.success && Array.isArray(response.data.data)) {
-          setReviews(response.data.data);
-        } else {
-          setReviews([]);
-        }
-      } else {
-        // Fetch reviews from all products
-        if (products.length === 0) {
-          setReviews([]);
-          setLoadingReviews(false);
-          return;
-        }
-
-        const allReviewsPromises = products.map((product) =>
-          productReviewsService
-            .getByProductId(product.id, true)
-            .catch((err) => {
-              console.error(`Error for product ${product.id}:`, err);
-              return {
-                data: { success: false, data: [], message: "", errors: null },
-              };
-            })
-        );
-
-        const results = await Promise.all(allReviewsPromises);
-        const allReviews: ProductReview[] = [];
-
-        results.forEach((response) => {
-          if (response.data?.success && Array.isArray(response.data.data)) {
-            allReviews.push(...response.data.data);
-          }
-        });
-
-        setReviews(allReviews);
+    if (statusFilter === "pending") {
+      const response = await productReviewsService.getPendingReviews(1, 1000);
+      if (response.data?.success && Array.isArray(response.data.data)) {
+        allReviews = response.data.data;
       }
-    } catch (error: any) {
-      console.error("Error fetching reviews:", error);
-      toast.error("Failed to load reviews");
-      setReviews([]);
-    } finally {
-      setLoadingReviews(false);
+    } else if (specificProductId && specificProductId !== "all") {
+      const minRating = ratingFilter !== "all" ? parseInt(ratingFilter) : undefined;
+      const maxRating = ratingFilter !== "all" ? parseInt(ratingFilter) : undefined;
+
+      const response = await productReviewsService.getByProductId(
+        specificProductId,
+        true,
+        minRating,
+        maxRating,
+        verifiedOnlyFilter
+      );
+
+      if (response.data?.success && Array.isArray(response.data.data)) {
+        allReviews = response.data.data;
+      }
+    } else {
+      // All products
+      if (products.length === 0) {
+        setReviews([]);
+        return;
+      }
+
+      const allReviewsPromises = products.map((product) =>
+        productReviewsService
+          .getByProductId(product.id, true)
+          .catch((err) => {
+            console.error(`Error for product ${product.id}:`, err);
+            return { data: { success: false, data: [] } };
+          })
+      );
+
+      const results = await Promise.all(allReviewsPromises);
+
+      results.forEach((response) => {
+        if (response.data?.success && Array.isArray(response.data.data)) {
+          allReviews.push(...response.data.data);
+        }
+      });
     }
-  };
+
+    // ──────────────────────────────────────────────
+    // Sort by latest first (most recent createdAt)
+    allReviews.sort((a, b) => {
+      const dateA = new Date(a.createdAt).getTime();
+      const dateB = new Date(b.createdAt).getTime();
+      return dateB - dateA; // descending = newest first
+    });
+    // ──────────────────────────────────────────────
+
+    setReviews(allReviews);
+
+  } catch (error: any) {
+    console.error("Error fetching reviews:", error);
+    toast.error("Failed to load reviews");
+    setReviews([]);
+  } finally {
+    setLoadingReviews(false);
+  }
+};
 
   // ✅ Initial load
   useEffect(() => {
