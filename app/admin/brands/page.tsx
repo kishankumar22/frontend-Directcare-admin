@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Plus, Edit, Trash2, Search, Tag, Eye, CheckCircle, Upload, Filter, FilterX, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, AlertCircle, Loader2, X, Package, FolderTree } from "lucide-react";
+import { Plus, Edit, Trash2, Search, Tag, Eye, CheckCircle, Upload, Filter, FilterX, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, AlertCircle, Loader2, X, Package, FolderTree, Copy } from "lucide-react";
 import { API_ENDPOINTS, API_BASE_URL } from "@/lib/api-config";
 import { ProductDescriptionEditor } from "../products/SelfHostedEditor";
 import { useToast } from "@/components/CustomToast";
@@ -1549,10 +1549,30 @@ const handleSubmit = async (e: React.FormEvent) => {
                 Basic Information
               </h3>
               <div className="space-y-3">
-                <div className="bg-slate-900/50 p-3 rounded-lg">
-                  <p className="text-xs text-slate-400 mb-1">Name</p>
-                  <p className="text-base font-bold text-white">{viewingBrand.name}</p>
-                </div>
+              <div className="bg-slate-900/50 p-3 rounded-lg">
+  <p className="text-xs text-slate-400 mb-1">Name</p>
+
+  <p className="text-base font-bold text-white">
+    {viewingBrand.name}
+  </p>
+
+  <div className="flex items-center gap-2">
+    <p className="text-sm font-mono text-slate-300 break-all">
+      {viewingBrand.id}
+    </p>
+
+    <button
+      onClick={() => {
+        navigator.clipboard.writeText(viewingBrand.id);
+      }}
+      className="text-slate-400 hover:text-white transition"
+      title="Copy ID"
+    >
+      <Copy size={14} />
+    </button>
+  </div>
+</div>
+
                 <div className="grid grid-cols-2 gap-3">
                   <div className="bg-slate-900/50 p-3 rounded-lg">
                     <p className="text-xs text-slate-400 mb-1">Slug</p>

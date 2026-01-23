@@ -741,7 +741,7 @@ const handleExportReviews = (type: string) => {
 
   return (
     <div className="min-h-screen">
-      <div className="mx-auto space-y-4">
+      <div className="mx-auto space-y-2">
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>

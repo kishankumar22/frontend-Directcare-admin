@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Plus, Edit, Trash2, Search, FolderTree, Eye, Upload, Filter, FilterX, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, AlertCircle, CheckCircle, ChevronDown, ChevronRight as ChevronRightIcon, X, Award, Package } from "lucide-react";
+import { Plus, Edit, Trash2, Search, FolderTree, Eye, Upload, Filter, FilterX, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, AlertCircle, CheckCircle, ChevronDown, ChevronRight as ChevronRightIcon, X, Award, Package, Copy } from "lucide-react";
 import { ProductDescriptionEditor } from "../products/SelfHostedEditor";
 import { useToast } from "@/components/CustomToast";
 import ConfirmDialog from "@/components/ConfirmDialog";
@@ -22,7 +22,9 @@ export default function CategoriesPage() {
   const [viewingCategory, setViewingCategory] = useState<Category | null>(null);
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [levelFilter, setLevelFilter] = useState<string>("all");
-  const MAX_HOMEPAGE_CATEGORIES = 15;
+  const [homepageFilter, setHomepageFilter] = useState<'all' | 'yes' | 'no'>('all');
+
+  const MAX_HOMEPAGE_CATEGORIES = 50;
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
   const [selectedParentId, setSelectedParentId] = useState<string>("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -816,14 +818,14 @@ const getParentCategoryOptions = () => {
   return availableParents;
 };
 
-  const clearFilters = () => {
-    setStatusFilter("all");
-    setLevelFilter("all");
-    setSearchTerm("");
-    setCurrentPage(1);
-    setExpandedCategories(new Set());
-  };
-
+const clearFilters = () => {
+  setStatusFilter("all");
+  setLevelFilter("all");
+  setHomepageFilter("all");          // ← this is what you actually want
+  setSearchTerm("");
+  setCurrentPage(1);
+  setExpandedCategories(new Set());
+};
   // CategoryRow Component
   type CategoryRowProps = {
     category: Category;
@@ -1237,44 +1239,64 @@ const CategoryRow: React.FC<CategoryRowProps> = ({
 };
 
   // ✅ FIXED - Only ONE filteredCategories definition
-  const hasActiveFilters = 
-    statusFilter !== "all" || 
-    levelFilter !== "all" || 
-    searchTerm.trim() !== "";
+const hasActiveFilters =
+  searchTerm ||
+  levelFilter !== 'all' ||
+  statusFilter !== 'all' ||
+  homepageFilter !== 'all';
+
 
   // ✅ Smart search in hierarchy
-  const searchInHierarchy = (
-    category: Category, 
-    searchTerm: string,
-    statusFilter: string,
-    levelFilter: string
-  ): boolean => {
-    const nameMatch = category.name.toLowerCase().includes(searchTerm.toLowerCase());
-    const statusMatch = statusFilter === "all" || 
-                       (statusFilter === "active" && category.isActive) ||
-                       (statusFilter === "inactive" && !category.isActive);
-    
-    const categoryLevel = getCategoryLevel(category, categories);
-    const levelMatch = levelFilter === "all" ||
-                      levelFilter === `level${categoryLevel + 1}`;
-    
-    if (nameMatch && statusMatch && levelMatch) {
-      return true;
-    }
-    
-    if (category.subCategories && category.subCategories.length > 0) {
-      return category.subCategories.some(child => 
-        searchInHierarchy(child, searchTerm, statusFilter, levelFilter)
-      );
-    }
-    
-    return false;
-  };
+const searchInHierarchy = (
+  category: Category,
+  searchTerm: string,
+  statusFilter: string,
+  levelFilter: string,
+  homepageFilter: 'all' | 'yes' | 'no'   // ← add this parameter
+): boolean => {
+  const nameMatch = category.name.toLowerCase().includes(searchTerm.toLowerCase());
 
-  // ✅ SINGLE filteredCategories definition
-  const filteredCategories = categories.filter(category => 
-    searchInHierarchy(category, searchTerm, statusFilter, levelFilter)
-  );
+  const statusMatch =
+    statusFilter === "all" ||
+    (statusFilter === "active" && category.isActive) ||
+    (statusFilter === "inactive" && !category.isActive);
+
+  const categoryLevel = getCategoryLevel(category, categories);
+  const levelMatch =
+    levelFilter === "all" ||
+    levelFilter === `level${categoryLevel + 1}`;
+
+  // ── NEW ── Homepage match logic
+  const homepageMatch =
+    homepageFilter === 'all' ||
+    (homepageFilter === 'yes' && category.showOnHomepage === true) ||
+    (homepageFilter === 'no'  && category.showOnHomepage === false);
+
+  // All conditions must pass
+  if (nameMatch && statusMatch && levelMatch && homepageMatch) {
+    return true;
+  }
+
+  // Recurse into children if any
+  if (category.subCategories && category.subCategories.length > 0) {
+    return category.subCategories.some(child =>
+      searchInHierarchy(
+        child,
+        searchTerm,
+        statusFilter,
+        levelFilter,
+        homepageFilter   // ← pass it down!
+      )
+    );
+  }
+
+  return false;
+};
+
+// NEW – pass the 5th argument
+const filteredCategories = categories.filter(category =>
+  searchInHierarchy(category, searchTerm, statusFilter, levelFilter, homepageFilter)
+);
 
   // ✅ Auto-expand parents when children match search
   useEffect(() => {
@@ -1373,10 +1395,9 @@ const CategoryRow: React.FC<CategoryRowProps> = ({
     return pages;
   };
 
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [searchTerm, statusFilter, levelFilter]);
-
+useEffect(() => {
+  setCurrentPage(1);
+}, [searchTerm, statusFilter, levelFilter, homepageFilter]);   // ← add homepageFilter here
   if (loading) {
     return (
       <div className="flex items-center justify-center h-screen">
@@ -1434,7 +1455,7 @@ const CategoryRow: React.FC<CategoryRowProps> = ({
 </div>
 
 
-      {/* Stats Cards */}
+
 {/* Stats Cards - COMPACT & CLEAN */}
 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3"> 
   
@@ -1481,7 +1502,7 @@ const CategoryRow: React.FC<CategoryRowProps> = ({
   <div className="bg-gradient-to-br from-green-500/10 to-green-600/5 backdrop-blur-sm border border-green-500/20 rounded-xl p-4">
     <div className="flex items-center justify-between">
       <div>
-        <p className="text-slate-400 text-xs font-medium">Active Categories</p>
+        <p className="text-slate-400 text-xs font-medium" >Active Categories</p>
         <p className="text-2xl font-bold text-white mt-1">{stats.activeCategories}</p>
       </div>
       <div className="w-10 h-10 bg-green-500/20 rounded-lg flex items-center justify-center shrink-0">
@@ -1493,13 +1514,12 @@ const CategoryRow: React.FC<CategoryRowProps> = ({
 </div>
 
 
-      {/* Search and Filters */}
 {/* Search and Filters - COMPACT */}
 <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-xl p-3">
-  <div className="flex flex-col md:flex-row gap-2">
-    
+  <div className="flex flex-col md:flex-row gap-2 flex-wrap">
+
     {/* Search Input */}
-    <div className="flex-1">
+    <div className="flex-1 min-w-[220px]">
       <div className="relative">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
         <input
@@ -1517,7 +1537,7 @@ const CategoryRow: React.FC<CategoryRowProps> = ({
     </div>
 
     {/* Level Filter */}
-    <div className="w-full md:w-40">
+    <div className="w-full md:w-40 min-w-[140px]">
       <div className="relative">
         <Filter className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
         <select
@@ -1539,7 +1559,7 @@ const CategoryRow: React.FC<CategoryRowProps> = ({
     </div>
 
     {/* Status Filter */}
-    <div className="w-full md:w-40">
+    <div className="w-full md:w-40 min-w-[140px]">
       <div className="relative">
         <Filter className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
         <select
@@ -1559,11 +1579,32 @@ const CategoryRow: React.FC<CategoryRowProps> = ({
       </div>
     </div>
 
-    {/* Clear Filters */}
+    {/* Show on Homepage Filter */}
+    <div className="w-full md:w-48 min-w-[160px]">
+      <div className="relative">
+        <Award className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
+        <select
+          value={homepageFilter}
+          onChange={(e) => setHomepageFilter(e.target.value as 'all' | 'yes' | 'no')}
+          className={`w-full pl-9 pr-8 py-2 bg-slate-900/90 border rounded-lg text-white text-sm appearance-none cursor-pointer focus:outline-none transition-all ${
+            homepageFilter !== 'all'
+              ? 'border-emerald-500 ring-2 ring-emerald-500/30'
+              : 'border-slate-700 focus:ring-2 focus:ring-violet-500/50'
+          }`}
+        >
+          <option value="all">Homepage: All</option>
+          <option value="yes">Homepage: Yes</option>
+          <option value="no">Homepage: No</option>
+        </select>
+        <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
+      </div>
+    </div>
+
+    {/* Clear Filters Button */}
     {hasActiveFilters && (
       <button
         onClick={clearFilters}
-        className="px-3 py-2 bg-slate-900/50 border border-slate-700 rounded-lg text-slate-400 hover:text-white hover:border-red-500 hover:bg-red-500/10 transition-all flex items-center gap-1.5 shrink-0"
+        className="px-4 py-2 bg-slate-900/50 border border-slate-700 rounded-lg text-slate-400 hover:text-white hover:border-red-500 hover:bg-red-500/10 transition-all flex items-center gap-1.5 shrink-0 md:self-center"
         title="Clear all filters"
       >
         <FilterX className="h-4 w-4" />
@@ -2389,11 +2430,32 @@ const CategoryRow: React.FC<CategoryRowProps> = ({
                 <span className="w-7 h-7 rounded-lg bg-gradient-to-br from-violet-500 to-cyan-500 flex items-center justify-center text-xs">ℹ</span>
                 Basic Information
               </h3>
-              <div className="space-y-3">
-                <div className="bg-slate-900/50 p-3 rounded-lg">
-                  <p className="text-xs text-slate-400 mb-1">Name</p>
-                  <p className="text-base font-bold text-white">{viewingCategory.name}</p>
-                </div>
+              <div className="space-y-2">
+               
+<div className="bg-slate-900/50 p-3 rounded-lg">
+  <p className="text-xs text-slate-400 mb-1">Name</p>
+
+  <p className="text-base font-bold text-white">
+    {viewingCategory.name}
+  </p>
+
+  <div className="flex items-center gap-2">
+    <p className="text-sm font-mono text-slate-300 break-all">
+      {viewingCategory.id}
+    </p>
+
+    <button
+      onClick={() => {
+        navigator.clipboard.writeText(viewingCategory.id);
+      }}
+      className="text-slate-400 hover:text-white transition"
+      title="Copy ID"
+    >
+      <Copy size={14} />
+    </button>
+  </div>
+</div>
+
                 <div className="grid grid-cols-2 gap-3">
                   <div className="bg-slate-900/50 p-3 rounded-lg">
                     <p className="text-xs text-slate-400 mb-1">Slug</p>

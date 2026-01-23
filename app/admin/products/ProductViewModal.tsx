@@ -23,6 +23,7 @@ import {
   Star,
   Video,
   Play,
+  Copy,
 } from 'lucide-react';
 import { API_BASE_URL } from '@/lib/api-config';
 import { Product } from '../../../lib/services/products';
@@ -330,10 +331,31 @@ const ProductViewModal: React.FC<ProductViewModalProps> = ({
                 <div id="content-overview" data-tab-content>
                   {/* Basic Info */}
                   <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-4">
-                    <div className="md:col-span-3 p-3 bg-gradient-to-r from-violet-500/10 to-purple-500/10 rounded-lg border border-violet-500/30">
-                      <p className="text-xs text-violet-400 font-bold mb-1">Product Name</p>
-                      <p className="text-base text-white font-bold">{product.name}</p>
-                    </div>
+                   <div className="md:col-span-3 p-3 bg-gradient-to-r from-violet-500/10 to-purple-500/10 rounded-lg border border-violet-500/30">
+    <p className="text-xs text-violet-400 font-bold mb-1">
+      Product Name
+    </p>
+
+    <p className="text-base text-white font-bold">
+      {product.name}
+    </p>
+
+    <div className="flex items-center gap-2 mt-1">
+      <p className="text-sm font-mono text-slate-300 break-all">
+        {product.id}
+      </p>
+
+      <button
+        onClick={() => {
+          navigator.clipboard.writeText(product.id);
+        }}
+        className="text-slate-400 hover:text-white transition"
+        title="Copy Product ID"
+      >
+        <Copy size={14} />
+      </button>
+    </div>
+  </div>
 
                     <InfoField label="SKU" value={product.sku} icon={<FileText className="w-3.5 h-3.5" />} />
                     <InfoField
