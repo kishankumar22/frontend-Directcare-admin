@@ -214,6 +214,48 @@ const showMissingFieldsToast = (missing: string[], isDraft: boolean) => {
   });
 };
 
+// ✅ ADD THIS FUNCTION AFTER useState DECLARATIONS (around line 100)
+
+/**
+ * ✅ CLEAN VARIANT OPTIONS - Save only if BOTH name AND value exist
+ */
+const cleanVariantOptions = (variant: any, firstVariant: any) => {
+  const cleaned = { ...variant };
+
+  // ✅ Non-first variants: Inherit names from first variant
+  const option1Name = variant.option1Name || firstVariant.option1Name;
+  const option2Name = variant.option2Name || firstVariant.option2Name;
+  const option3Name = variant.option3Name || firstVariant.option3Name;
+
+  // ✅ Option 1: Name aur Value DONO chahiye
+  if (option1Name && variant.option1Value) {
+    cleaned.option1Name = option1Name;
+    cleaned.option1Value = variant.option1Value;
+  } else {
+    cleaned.option1Name = null;
+    cleaned.option1Value = null;
+  }
+
+  // ✅ Option 2: Name aur Value DONO chahiye
+  if (option2Name && variant.option2Value) {
+    cleaned.option2Name = option2Name;
+    cleaned.option2Value = variant.option2Value;
+  } else {
+    cleaned.option2Name = null;
+    cleaned.option2Value = null;
+  }
+
+  // ✅ Option 3: Name aur Value DONO chahiye
+  if (option3Name && variant.option3Value) {
+    cleaned.option3Name = option3Name;
+    cleaned.option3Value = variant.option3Value;
+  } else {
+    cleaned.option3Name = null;
+    cleaned.option3Value = null;
+  }
+
+  return cleaned;
+};
 
 // Updated combined useEffect with manufacturers API
 useEffect(() => {
@@ -1170,25 +1212,39 @@ if (!isDraft && !formData.vatExempt && (!formData.vatRateId || !formData.vatRate
         sortOrder: attr.displayOrder || 1
       }));
 
-    const variantsArray = productVariants.map(variant => ({
-      name: variant.name,
-      sku: variant.sku,
-      price: parseFloat(variant.price?.toString() ?? "0") || 0,
-      compareAtPrice: variant.compareAtPrice ? parseFloat(variant.compareAtPrice.toString()) : null,
-      weight: variant.weight ? parseFloat(variant.weight.toString()) : null,
-      stockQuantity: parseInt(variant.stockQuantity.toString()) || 0,
-      trackInventory: variant.trackInventory ?? true,
-      option1Name: variant.option1Name || null,
-      option1Value: variant.option1Value || null,
-      option2Name: variant.option2Name || null,
-      option2Value: variant.option2Value || null,
-      option3Name: variant.option3Name || null,
-      option3Value: variant.option3Value || null,
-      imageUrl: null,
-      isDefault: variant.isDefault || false,
-      displayOrder: variant.displayOrder || 0,
-      isActive: variant.isActive ?? true
-    }));
+// ✅ SECTION 8: BUILD PRODUCT DATA - CLEAN VARIANTS BEFORE MAPPING
+
+const firstVariant = productVariants[0]; // Get master variant
+
+const variantsArray = productVariants.map((variant) => {
+  // ✅ CLEAN VARIANT OPTIONS FIRST
+  const cleanedVariant = cleanVariantOptions(variant, firstVariant);
+
+  return {
+    name: cleanedVariant.name,
+    sku: cleanedVariant.sku,
+    price: parseFloat(cleanedVariant.price?.toString() ?? '0') || 0,
+    compareAtPrice: cleanedVariant.compareAtPrice ? parseFloat(cleanedVariant.compareAtPrice.toString()) : null,
+    weight: cleanedVariant.weight ? parseFloat(cleanedVariant.weight.toString()) : null,
+    stockQuantity: parseInt(cleanedVariant.stockQuantity.toString()) || 0,
+    trackInventory: cleanedVariant.trackInventory ?? true,
+    
+    // ✅ USE CLEANED OPTIONS (null if incomplete)
+    option1Name: cleanedVariant.option1Name,
+    option1Value: cleanedVariant.option1Value,
+    option2Name: cleanedVariant.option2Name,
+    option2Value: cleanedVariant.option2Value,
+    option3Name: cleanedVariant.option3Name,
+    option3Value: cleanedVariant.option3Value,
+    
+    imageUrl: null,
+    isDefault: cleanedVariant.isDefault || false,
+    displayOrder: cleanedVariant.displayOrder || 0,
+    isActive: cleanedVariant.isActive ?? true,
+    gtin: cleanedVariant.gtin || null,
+    barcode: cleanedVariant.barcode || null,
+  };
+});
 
     const productData: any = {
       // Basic Info
@@ -2104,7 +2160,7 @@ const handleGroupedProductsChange = (selectedOptions: any) => {
 const addProductVariant = () => {
   const newVariant: ProductVariant = {
     id: Date.now().toString(),
-    name: "",
+    name: '',
     sku: `${formData.sku}-V${productVariants.length + 1}`,
     price: formData.price ? parseFloat(formData.price) : null,
     compareAtPrice: null,
@@ -2121,20 +2177,17 @@ const addProductVariant = () => {
     isDefault: productVariants.length === 0,
     displayOrder: productVariants.length,
     isActive: true,
+    gtin: null,       // ✅ ADD THIS
+    barcode: null,    // ✅ ADD THIS
   };
-  
+
   setProductVariants([...productVariants, newVariant]);
-  
-  // ✅ AUTO-SCROLL TO NEW VARIANT
+
+  // Auto-scroll to new variant
   setTimeout(() => {
     const variantElement = document.getElementById(`variant-${newVariant.id}`);
     if (variantElement) {
-      variantElement.scrollIntoView({ 
-        behavior: 'smooth', 
-        block: 'center' 
-      });
-      
-      // Add highlight animation
+      variantElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
       variantElement.classList.add('ring-2', 'ring-violet-500');
       setTimeout(() => {
         variantElement.classList.remove('ring-2', 'ring-violet-500');
@@ -2142,6 +2195,7 @@ const addProductVariant = () => {
     }
   }, 100);
 };
+
 
 
 
@@ -4897,7 +4951,7 @@ const uploadVariantImages = async (productResponse: any) => {
                             <div className="flex-1 grid grid-cols-3 gap-4">
                               <div>
                                 <label className="block text-sm font-medium text-slate-300 mb-2">
-                                  Attribute Name <span className="text-red-500">*</span>
+                                  {index+1} . Attribute Name <span className="text-red-500">*</span>
                                 </label>
                                 <input
                                   type="text"
@@ -4980,431 +5034,582 @@ const uploadVariantImages = async (productResponse: any) => {
                 </div>
               </TabsContent>
 
-
-{/* Product Variants Tab - CLEAN & COMPACT */}
-{/* Product Variants Tab - EDIT PAGE STYLE */}
+{/* ========================================== */}
+{/* PRODUCT VARIANTS TAB - REDESIGNED */}
+{/* ========================================== */}
 <TabsContent value="variants" className="space-y-3">
   <div className="space-y-3">
-    {/* ✅ STICKY HEADER - Compact & Professional */}
-    <div className="sticky top-0 z-10 bg-slate-900/98 backdrop-blur-md border-b border-slate-800 pb-3 -mt-2 pt-2 shadow-lg">
-      <div className="flex items-center justify-between gap-4">
-        <div className="flex-1 min-w-0">
-          <h3 className="text-base font-semibold text-white truncate">Product Variants</h3>
-          <p className="text-xs text-slate-400 mt-0.5">
-            Create variants with different sizes, colors, or configurations
-          </p>
-        </div>
-        
-        {/* ✅ Variant Count Badge (shows when variants exist) */}
-        {productVariants.length > 0 && (
-          <div className="flex items-center gap-2 px-3 py-1.5 bg-violet-500/15 text-violet-400 rounded-lg text-xs font-medium border border-violet-500/20">
-            <Package className="h-3.5 w-3.5" />
-            {productVariants.length} Variant{productVariants.length > 1 ? 's' : ''}
-          </div>
-        )}
-        
+    {/* EMPTY STATE */}
+    {productVariants.length === 0 ? (
+      <div className="bg-slate-800/30 border border-slate-700 rounded-xl p-8 text-center">
+        <Package className="h-12 w-12 text-slate-600 mx-auto mb-3" />
+        <h3 className="text-base font-semibold text-white mb-1.5">
+          No Product Variants
+        </h3>
+        <p className="text-sm text-slate-400 mb-4">
+          Create different versions of this product with unique sizes, colors, or configurations
+        </p>
         <button
           type="button"
           onClick={addProductVariant}
-          className="px-3.5 py-2 bg-violet-500 hover:bg-violet-600 text-white text-sm rounded-lg transition-all flex items-center gap-2 shadow-md hover:shadow-lg whitespace-nowrap"
+          className="px-4 py-2.5 bg-gradient-to-r from-violet-500 to-purple-600 hover:from-violet-600 hover:to-purple-700 text-white text-sm font-medium rounded-lg transition-all inline-flex items-center gap-2 shadow-lg hover:shadow-xl"
         >
-          <Package className="h-4 w-4" />
-          Add Variant
+          <Plus className="h-4 w-4" />
+          Add First Variant
         </button>
-      </div>
-    </div>
-
-    {/* ✅ EMPTY STATE - Compact */}
-    {productVariants.length === 0 ? (
-      <div className="bg-slate-800/30 border border-slate-700 rounded-xl p-6 text-center">
-        <Package className="h-10 w-10 text-slate-600 mx-auto mb-3" />
-        <h3 className="text-base font-semibold text-white mb-1.5">No Product Variants</h3>
-        <p className="text-sm text-slate-400 mb-2">
-          Click "Add Variant" to create different versions
-        </p>
-        <p className="text-xs text-slate-500">
-          Example: 500ml Original, 750ml Fresh
+        <p className="text-xs text-slate-500 mt-3">
+          Example: 500ml Original, 750ml Fresh, 1L Premium
         </p>
       </div>
     ) : (
-      /* ✅ VARIANTS LIST - Compact Layout */
       <div className="space-y-3">
-        {productVariants.map((variant, index) => (
-          <div 
-            key={variant.id} 
-            id={`variant-${variant.id}`}
-            className="bg-slate-800/30 border border-slate-700 rounded-xl p-3.5 transition-all hover:border-slate-600"
-          >
-            {/* ✅ HEADER - Compact */}
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-2">
-                <h4 className="text-sm font-semibold text-white">Variant #{index + 1}</h4>
-                {variant.isDefault && (
-                  <span className="px-2 py-0.5 bg-violet-500/20 text-violet-400 text-xs rounded border border-violet-500/30">
-                    Default
+        {productVariants.map((variant, index) => {
+          // Get option names from first variant
+          const firstVariant = productVariants[0];
+          const isFirstVariant = index === 0;
+          
+          return (
+            <div 
+              key={variant.id} 
+              id={`variant-${variant.id}`}
+              className="bg-slate-800/30 border border-slate-700 rounded-xl p-4 transition-all hover:border-slate-600"
+            >
+              {/* ============================================ */}
+              {/* HEADER SECTION - With Add Variant Button */}
+              {/* ============================================ */}
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2">
+                  <h4 className="text-base font-bold text-white">
+                    Variant #{index + 1}
+                  </h4>
+                  
+                  {/* Variant Count Badge */}
+                  <span className="px-2 py-0.5 bg-slate-700/50 text-slate-300 text-xs font-medium rounded border border-slate-600">
+                    {productVariants.length} Total
                   </span>
-                )}
-                {!variant.isActive && (
-                  <span className="px-2 py-0.5 bg-red-500/20 text-red-400 text-xs rounded border border-red-500/30">
-                    Inactive
-                  </span>
-                )}
+                  
+                  {variant.isDefault && (
+                    <span className="px-2 py-0.5 bg-violet-500/20 text-violet-400 text-xs font-medium rounded border border-violet-500/30">
+                      Default
+                    </span>
+                  )}
+                  {!variant.isActive && (
+                    <span className="px-2 py-0.5 bg-red-500/20 text-red-400 text-xs font-medium rounded border border-red-500/30">
+                      Inactive
+                    </span>
+                  )}
+                  {isFirstVariant && (
+                    <span className="px-2 py-0.5 bg-blue-500/20 text-blue-400 text-xs font-medium rounded border border-blue-500/30">
+                      Master
+                    </span>
+                  )}
+                </div>
+                
+                {/* Action Buttons */}
+                <div className="flex items-center gap-2">
+                  {/* Add Variant Button */}
+                  <button
+                    type="button"
+                    onClick={addProductVariant}
+                    className="px-3 py-1.5 bg-gradient-to-r from-violet-500 to-purple-600 hover:from-violet-600 hover:to-purple-700 text-white text-xs font-medium rounded-lg transition-all flex items-center gap-1.5 shadow-md hover:shadow-lg"
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                    Add Variant
+                  </button>
+                  
+                  {/* Remove Button */}
+                  <button
+                    type="button"
+                    onClick={() => removeProductVariant(variant.id)}
+                    className="p-1.5 text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-lg transition-colors"
+                    title="Remove this variant"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
               </div>
-              <button
-                type="button"
-                onClick={() => removeProductVariant(variant.id)}
-                className="p-1.5 text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-lg transition-colors"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
 
-            {/* ✅ BASIC INFO - 2 Columns */}
-            <div className="grid grid-cols-2 gap-3 mb-3">
-              <div>
-                <label className="block text-xs font-medium text-slate-300 mb-1.5">
-                  Variant Name <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  value={variant.name}
-                  onChange={(e) => updateProductVariant(variant.id, 'name', e.target.value)}
-                  placeholder="e.g., 500ml Original"
-                  className="w-full px-3 py-2 text-sm bg-slate-900 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent"
-                />
+              {/* ============================================ */}
+              {/* ROW 1: NAME, SKU, PRICE - 3 COLUMNS */}
+              {/* ============================================ */}
+              <div className="grid grid-cols-3 gap-3 mb-3">
+                {/* Variant Name */}
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                    Variant Name <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={variant.name}
+                    onChange={(e) => updateProductVariant(variant.id, 'name', e.target.value)}
+                    placeholder="e.g., 500ml Original"
+                    className="w-full px-3 py-2 text-sm bg-slate-900 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent"
+                  />
+                </div>
+                
+                {/* SKU with Validation */}
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                    SKU <span className="text-red-500">*</span>
+                  </label>
+                  
+                  <div className="relative">
+                    <input
+                      type="text"
+                      value={variant.sku}
+                      onChange={(e) => {
+                        const value = e.target.value.toUpperCase();
+                        updateProductVariant(variant.id, 'sku', value);
+                      }}
+                      placeholder="e.g., PROD-500ML"
+                      className={`w-full px-3 py-2 text-sm bg-slate-900 border rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:border-transparent transition-all ${
+                        variantSkuErrors[variant.id]
+                          ? 'border-red-500 focus:ring-red-500'
+                          : checkingVariantSku[variant.id]
+                          ? 'border-yellow-500 focus:ring-yellow-500'
+                          : 'border-slate-700 focus:ring-violet-500'
+                      }`}
+                    />
+
+                    {/* Status Icons */}
+                    {checkingVariantSku[variant.id] && (
+                      <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                        <svg className="animate-spin h-4 w-4 text-yellow-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                      </div>
+                    )}
+
+                    {!checkingVariantSku[variant.id] && variant.sku.length >= 2 && !variantSkuErrors[variant.id] && (
+                      <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                        <svg className="h-4 w-4 text-green-500" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                        </svg>
+                      </div>
+                    )}
+
+                    {variantSkuErrors[variant.id] && (
+                      <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                        <svg className="h-4 w-4 text-red-500" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                        </svg>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Status Messages */}
+                  {variantSkuErrors[variant.id] && (
+                    <p className="mt-1 text-xs text-red-400">{variantSkuErrors[variant.id]}</p>
+                  )}
+                  {!checkingVariantSku[variant.id] && variant.sku.length >= 2 && !variantSkuErrors[variant.id] && (
+                    <p className="mt-1 text-xs text-green-400">✓ SKU available</p>
+                  )}
+                </div>
+
+                {/* Price */}
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                    Price (₹)
+                  </label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={variant.price || ''}
+                    onChange={(e) => updateProductVariant(variant.id, 'price', e.target.value ? parseFloat(e.target.value) : null)}
+                    placeholder="99.99"
+                    className="w-full px-3 py-2 text-sm bg-slate-900 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent"
+                  />
+                </div>
               </div>
-              
-              {/* ✅ SKU WITH VALIDATION UI */}
-              <div>
-                <label className="block text-xs font-medium text-slate-300 mb-1.5">
-                  SKU <span className="text-red-500">*</span>
+
+              {/* ============================================ */}
+              {/* ROW 2: COMPARE PRICE, WEIGHT, STOCK - 3 COLUMNS */}
+              {/* ============================================ */}
+              <div className="grid grid-cols-3 gap-3 mb-3">
+                {/* Compare Price */}
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                    Compare Price
+                  </label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={variant.compareAtPrice || ''}
+                    onChange={(e) => updateProductVariant(variant.id, 'compareAtPrice', e.target.value ? parseFloat(e.target.value) : null)}
+                    placeholder="129.99"
+                    className="w-full px-3 py-2 text-sm bg-slate-900 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent"
+                  />
+                </div>
+
+                {/* Weight */}
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                    Weight (kg)
+                  </label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={variant.weight || ''}
+                    onChange={(e) => updateProductVariant(variant.id, 'weight', e.target.value ? parseFloat(e.target.value) : null)}
+                    placeholder="0.55"
+                    className="w-full px-3 py-2 text-sm bg-slate-900 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent"
+                  />
+                </div>
+
+                {/* Stock Quantity */}
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                    Stock Qty
+                  </label>
+                  <input
+                    type="number"
+                    value={variant.stockQuantity}
+                    onChange={(e) => updateProductVariant(variant.id, 'stockQuantity', parseInt(e.target.value) || 0)}
+                    placeholder="150"
+                    min="0"
+                    className="w-full px-3 py-2 text-sm bg-slate-900 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent"
+                  />
+                </div>
+              </div>
+
+              {/* ============================================ */}
+              {/* ROW 3: GTIN, BARCODE, DISPLAY ORDER - 3 COLUMNS */}
+              {/* ============================================ */}
+              <div className="grid grid-cols-3 gap-3 mb-3">
+                {/* GTIN */}
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                    GTIN <span className="text-xs text-slate-500">(Optional)</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={variant.gtin || ''}
+                    onChange={(e) => updateProductVariant(variant.id, 'gtin', e.target.value || null)}
+                    placeholder="e.g., 00012345678905"
+                    maxLength={14}
+                    className="w-full px-3 py-2 text-sm bg-slate-900 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent"
+                  />
+                </div>
+                
+                {/* Barcode */}
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                    Barcode <span className="text-xs text-slate-500">(Optional)</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={variant.barcode || ''}
+                    onChange={(e) => updateProductVariant(variant.id, 'barcode', e.target.value || null)}
+                    placeholder="e.g., 1234567890123"
+                    className="w-full px-3 py-2 text-sm bg-slate-900 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent"
+                  />
+                </div>
+
+                {/* Display Order */}
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                    Display Order
+                  </label>
+                  <input
+                    type="number"
+                    value={variant.displayOrder}
+                    onChange={(e) => updateProductVariant(variant.id, 'displayOrder', parseInt(e.target.value) || 0)}
+                    placeholder="0"
+                    min="0"
+                    className="w-full px-3 py-2 text-sm bg-slate-900 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent"
+                  />
+                </div>
+              </div>
+
+              {/* ============================================ */}
+              {/* COMPACT OPTIONS TABLE */}
+              {/* ============================================ */}
+              <div className="mb-3">
+                <div className="flex items-center gap-2 mb-2">
+                  <Settings className="h-4 w-4 text-violet-400" />
+                  <h5 className="text-xs font-semibold text-violet-400">
+                    Variant Options
+                    {isFirstVariant && <span className="ml-1 text-slate-500">(Define names here)</span>}
+                  </h5>
+                </div>
+
+                {/* COMPACT TABLE LAYOUT */}
+                <div className="bg-slate-900/50 border border-slate-700/50 rounded-lg overflow-hidden">
+                  <table className="w-full text-xs">
+                    <thead>
+                      <tr className="border-b border-slate-700/50">
+                        <th className="text-left px-3 py-2 font-semibold text-slate-400 w-24">Option</th>
+                        <th className="text-left px-3 py-2 font-semibold text-slate-400">Name</th>
+                        <th className="text-left px-3 py-2 font-semibold text-slate-400">Value</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {/* Option 1 */}
+                      <tr className="border-b border-slate-700/30">
+                        <td className="px-3 py-2">
+                          <div className="flex items-center gap-1.5">
+                            <div className="h-1.5 w-1.5 rounded-full bg-violet-500"></div>
+                            <span className="text-violet-400 font-medium">Option 1</span>
+                          </div>
+                        </td>
+                        <td className="px-3 py-2">
+                          <input
+                            type="text"
+                            value={isFirstVariant ? variant.option1Name || '' : firstVariant.option1Name || ''}
+                            onChange={(e) => {
+                              if (isFirstVariant) {
+                                updateProductVariant(variant.id, 'option1Name', e.target.value || null);
+                              }
+                            }}
+                            placeholder="e.g., Size"
+                            disabled={!isFirstVariant}
+                            className={`w-full px-2 py-1.5 text-xs rounded ${
+                              isFirstVariant 
+                                ? 'bg-slate-800 border border-slate-600 text-white focus:ring-1 focus:ring-violet-500' 
+                                : 'bg-slate-800/50 border border-slate-700 text-slate-400 cursor-not-allowed'
+                            }`}
+                          />
+                        </td>
+                        <td className="px-3 py-2">
+                          <input
+                            type="text"
+                            value={variant.option1Value || ''}
+                            onChange={(e) => updateProductVariant(variant.id, 'option1Value', e.target.value || null)}
+                            placeholder="e.g., 500ml"
+                            className="w-full px-2 py-1.5 text-xs bg-slate-800 border border-slate-600 rounded text-white focus:ring-1 focus:ring-violet-500"
+                          />
+                        </td>
+                      </tr>
+
+                      {/* Option 2 */}
+                      <tr className="border-b border-slate-700/30">
+                        <td className="px-3 py-2">
+                          <div className="flex items-center gap-1.5">
+                            <div className="h-1.5 w-1.5 rounded-full bg-cyan-500"></div>
+                            <span className="text-cyan-400 font-medium">Option 2</span>
+                          </div>
+                        </td>
+                        <td className="px-3 py-2">
+                          <input
+                            type="text"
+                            value={isFirstVariant ? variant.option2Name || '' : firstVariant.option2Name || ''}
+                            onChange={(e) => {
+                              if (isFirstVariant) {
+                                updateProductVariant(variant.id, 'option2Name', e.target.value || null);
+                              }
+                            }}
+                            placeholder="e.g., Type"
+                            disabled={!isFirstVariant}
+                            className={`w-full px-2 py-1.5 text-xs rounded ${
+                              isFirstVariant 
+                                ? 'bg-slate-800 border border-slate-600 text-white focus:ring-1 focus:ring-cyan-500' 
+                                : 'bg-slate-800/50 border border-slate-700 text-slate-400 cursor-not-allowed'
+                            }`}
+                          />
+                        </td>
+                        <td className="px-3 py-2">
+                          <input
+                            type="text"
+                            value={variant.option2Value || ''}
+                            onChange={(e) => updateProductVariant(variant.id, 'option2Value', e.target.value || null)}
+                            placeholder="e.g., Original"
+                            className="w-full px-2 py-1.5 text-xs bg-slate-800 border border-slate-600 rounded text-white focus:ring-1 focus:ring-cyan-500"
+                          />
+                        </td>
+                      </tr>
+
+                      {/* Option 3 */}
+                      <tr>
+                        <td className="px-3 py-2">
+                          <div className="flex items-center gap-1.5">
+                            <div className="h-1.5 w-1.5 rounded-full bg-pink-500"></div>
+                            <span className="text-pink-400 font-medium">Option 3</span>
+                          </div>
+                        </td>
+                        <td className="px-3 py-2">
+                          <input
+                            type="text"
+                            value={isFirstVariant ? variant.option3Name || '' : firstVariant.option3Name || ''}
+                            onChange={(e) => {
+                              if (isFirstVariant) {
+                                updateProductVariant(variant.id, 'option3Name', e.target.value || null);
+                              }
+                            }}
+                            placeholder="e.g., Material"
+                            disabled={!isFirstVariant}
+                            className={`w-full px-2 py-1.5 text-xs rounded ${
+                              isFirstVariant 
+                                ? 'bg-slate-800 border border-slate-600 text-white focus:ring-1 focus:ring-pink-500' 
+                                : 'bg-slate-800/50 border border-slate-700 text-slate-400 cursor-not-allowed'
+                            }`}
+                          />
+                        </td>
+                        <td className="px-3 py-2">
+                          <input
+                            type="text"
+                            value={variant.option3Value || ''}
+                            onChange={(e) => updateProductVariant(variant.id, 'option3Value', e.target.value || null)}
+                            placeholder="e.g., Premium"
+                            className="w-full px-2 py-1.5 text-xs bg-slate-800 border border-slate-600 rounded text-white focus:ring-1 focus:ring-pink-500"
+                          />
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* ============================================ */}
+              {/* VARIANT IMAGE UPLOAD */}
+              {/* ============================================ */}
+              <div className="mb-3">
+                <label className="block text-xs font-semibold text-slate-300 mb-2">
+                  Variant Image
                 </label>
                 
-                <div className="relative">
-                  <input
-                    type="text"
-                    value={variant.sku}
-                    onChange={(e) => {
-                      const value = e.target.value.toUpperCase();
-                      updateProductVariant(variant.id, 'sku', value);
-                    }}
-                    placeholder="e.g., PROD-500ML"
-                    className={`w-full px-3 py-2 text-sm bg-slate-900 border rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:border-transparent transition-all ${
-                      variantSkuErrors[variant.id]
-                        ? 'border-red-500 focus:ring-red-500'
-                        : checkingVariantSku[variant.id]
-                        ? 'border-yellow-500 focus:ring-yellow-500'
-                        : 'border-slate-700 focus:ring-violet-500'
-                    }`}
-                  />
-
-                  {/* Loading Spinner */}
-                  {checkingVariantSku[variant.id] && (
-                    <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                      <svg className="animate-spin h-4 w-4 text-yellow-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                      </svg>
+                <div className="flex items-center gap-3">
+                  {/* Image Preview */}
+                  {variant.imageUrl && (
+                    <div className="relative">
+                      <img
+                        src={variant.imageUrl}
+                        alt={variant?.name || "Variant"}
+                        className="w-16 h-16 object-cover rounded-lg border-2 border-slate-700"
+                      />
+                      {variant.imageUrl.startsWith("blob:") && (
+                        <span className="absolute -top-1 -right-1 px-1.5 py-0.5 bg-orange-500 text-white text-[10px] rounded">
+                          Preview
+                        </span>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (variant.imageUrl?.startsWith('blob:')) {
+                            URL.revokeObjectURL(variant.imageUrl);
+                          }
+                          updateProductVariant(variant.id, 'imageUrl', null);
+                          updateProductVariant(variant.id, 'imageFile', undefined);
+                        }}
+                        className="absolute -top-1.5 -right-1.5 p-0.5 bg-red-500 hover:bg-red-600 text-white rounded-full"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
                     </div>
                   )}
-
-                  {/* Success Checkmark */}
-                  {!checkingVariantSku[variant.id] && variant.sku.length >= 2 && !variantSkuErrors[variant.id] && (
-                    <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                      <svg className="h-4 w-4 text-green-500" fill="currentColor" viewBox="0 0 20 20">
-                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                      </svg>
-                    </div>
-                  )}
-
-                  {/* Error Icon */}
-                  {variantSkuErrors[variant.id] && (
-                    <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                      <svg className="h-4 w-4 text-red-500" fill="currentColor" viewBox="0 0 20 20">
-                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-                      </svg>
-                    </div>
-                  )}
-                </div>
-
-                {/* Error Message */}
-                {variantSkuErrors[variant.id] && (
-                  <p className="mt-1.5 text-xs text-red-400 flex items-center gap-1">
-                    <svg className="w-3.5 h-3.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                    </svg>
-                    <span>{variantSkuErrors[variant.id]}</span>
-                  </p>
-                )}
-
-                {/* Success Message */}
-                {!checkingVariantSku[variant.id] && variant.sku.length >= 2 && !variantSkuErrors[variant.id] && (
-                  <p className="mt-1.5 text-xs text-green-400 flex items-center gap-1">
-                    <svg className="w-3.5 h-3.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                    </svg>
-                    <span>SKU available</span>
-                  </p>
-                )}
-              </div>
-            </div>
-
-            {/* ✅ PRICING & STOCK - 4 Columns Compact */}
-            <div className="grid grid-cols-4 gap-3 mb-3">
-              <div>
-                <label className="block text-xs font-medium text-slate-300 mb-1.5">
-                  Price (₹)
-                </label>
-                <input
-                  type="number"
-                  step="0.01"
-                  value={variant.price || ''}
-                  onChange={(e) => updateProductVariant(variant.id, 'price', e.target.value ? parseFloat(e.target.value) : null)}
-                  placeholder="99.99"
-                  className="w-full px-3 py-2 text-sm bg-slate-900 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-slate-300 mb-1.5">
-                  Compare Price
-                </label>
-                <input
-                  type="number"
-                  step="0.01"
-                  value={variant.compareAtPrice || ''}
-                  onChange={(e) => updateProductVariant(variant.id, 'compareAtPrice', e.target.value ? parseFloat(e.target.value) : null)}
-                  placeholder="129.99"
-                  className="w-full px-3 py-2 text-sm bg-slate-900 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-slate-300 mb-1.5">
-                  Weight (kg)
-                </label>
-                <input
-                  type="number"
-                  step="0.01"
-                  value={variant.weight || ''}
-                  onChange={(e) => updateProductVariant(variant.id, 'weight', e.target.value ? parseFloat(e.target.value) : null)}
-                  placeholder="0.55"
-                  className="w-full px-3 py-2 text-sm bg-slate-900 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-slate-300 mb-1.5">
-                  Stock Qty
-                </label>
-                <input
-                  type="number"
-                  value={variant.stockQuantity}
-                  onChange={(e) => updateProductVariant(variant.id, 'stockQuantity', parseInt(e.target.value) || 0)}
-                  placeholder="150"
-                  className="w-full px-3 py-2 text-sm bg-slate-900 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent"
-                />
-              </div>
-            </div>
-
-            {/* ✅ OPTION 1 - Compact */}
-            <div className="mb-3 bg-slate-900/50 border border-slate-700/50 rounded-lg p-3">
-              <div className="flex items-center gap-2 mb-2">
-                <div className="h-1.5 w-1.5 rounded-full bg-violet-500"></div>
-                <h5 className="text-xs font-semibold text-violet-400">Option 1</h5>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <input
-                  type="text"
-                  value={variant.option1Name || ''}
-                  onChange={(e) => updateProductVariant(variant.id, 'option1Name', e.target.value || null)}
-                  placeholder="Name (e.g., Size)"
-                  className="w-full px-3 py-2 text-sm bg-slate-900 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500"
-                />
-                <input
-                  type="text"
-                  value={variant.option1Value || ''}
-                  onChange={(e) => updateProductVariant(variant.id, 'option1Value', e.target.value || null)}
-                  placeholder="Value (e.g., 500ml)"
-                  className="w-full px-3 py-2 text-sm bg-slate-900 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500"
-                />
-              </div>
-            </div>
-
-            {/* ✅ OPTION 2 - Compact */}
-            <div className="mb-3 bg-slate-900/50 border border-slate-700/50 rounded-lg p-3">
-              <div className="flex items-center gap-2 mb-2">
-                <div className="h-1.5 w-1.5 rounded-full bg-cyan-500"></div>
-                <h5 className="text-xs font-semibold text-cyan-400">Option 2</h5>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <input
-                  type="text"
-                  value={variant.option2Name || ''}
-                  onChange={(e) => updateProductVariant(variant.id, 'option2Name', e.target.value || null)}
-                  placeholder="Name (e.g., Type)"
-                  className="w-full px-3 py-2 text-sm bg-slate-900 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500"
-                />
-                <input
-                  type="text"
-                  value={variant.option2Value || ''}
-                  onChange={(e) => updateProductVariant(variant.id, 'option2Value', e.target.value || null)}
-                  placeholder="Value (e.g., Original)"
-                  className="w-full px-3 py-2 text-sm bg-slate-900 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500"
-                />
-              </div>
-            </div>
-
-            {/* ✅ OPTION 3 - Collapsible (Optional) */}
-            <details className="mb-3">
-              <summary className="cursor-pointer text-xs font-semibold text-pink-400 hover:text-pink-300 flex items-center gap-2 mb-2">
-                <ChevronDown className="h-3.5 w-3.5" />
-                Option 3 (Optional)
-              </summary>
-              <div className="bg-slate-900/50 border border-slate-700/50 rounded-lg p-3 mt-2">
-                <div className="grid grid-cols-2 gap-3">
-                  <input
-                    type="text"
-                    value={variant.option3Name || ''}
-                    onChange={(e) => updateProductVariant(variant.id, 'option3Name', e.target.value || null)}
-                    placeholder="Name (e.g., Material)"
-                    className="w-full px-3 py-2 text-sm bg-slate-900 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-pink-500"
-                  />
-                  <input
-                    type="text"
-                    value={variant.option3Value || ''}
-                    onChange={(e) => updateProductVariant(variant.id, 'option3Value', e.target.value || null)}
-                    placeholder="Value (e.g., Premium)"
-                    className="w-full px-3 py-2 text-sm bg-slate-900 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-pink-500"
-                  />
-                </div>
-              </div>
-            </details>
-
-            {/* ✅ IMAGE UPLOAD - Compact */}
-            <div className="mb-3">
-              <label className="block text-xs font-medium text-slate-300 mb-2">Variant Image</label>
-              
-              <div className="flex items-center gap-3">
-                {/* Image Preview */}
-                {variant.imageUrl && (
-                  <div className="relative">
-                    <img
-                      src={variant.imageUrl}
-                      alt={variant?.name || "Variant"}
-                      className="w-16 h-16 object-cover rounded-lg border-2 border-slate-700"
+                  
+                  {/* Upload Button */}
+                  <div className="flex-1">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          if (file.size > 5 * 1024 * 1024) {
+                            toast.error("Maximum file size is 5MB");
+                            return;
+                          }
+                          if (!file.type.startsWith('image/')) {
+                            toast.error("Please select a valid image file");
+                            return;
+                          }
+                          handleVariantImageUpload(variant.id, file);
+                        }
+                      }}
+                      className="hidden"
+                      id={`variant-img-${variant.id}`}
                     />
-                    {variant.imageUrl.startsWith("blob:") && (
-                      <span className="absolute -top-1 -right-1 px-1.5 py-0.5 bg-orange-500 text-white text-[10px] rounded">
-                        Preview
+                    <label
+                      htmlFor={`variant-img-${variant.id}`}
+                      className="inline-flex items-center gap-2 px-3 py-2 bg-slate-700 hover:bg-slate-600 text-white text-xs font-medium rounded-lg transition-colors cursor-pointer"
+                    >
+                      <Upload className="h-3.5 w-3.5" />
+                      {variant.imageUrl ? "Change Image" : "Upload Image"}
+                    </label>
+                    {variant.imageUrl?.startsWith("blob:") && (
+                      <span className="ml-2 text-[11px] text-orange-400">
+                        ⚠️ Save product to upload
                       </span>
                     )}
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (variant.imageUrl?.startsWith('blob:')) {
-                          URL.revokeObjectURL(variant.imageUrl);
-                        }
-                        updateProductVariant(variant.id, 'imageUrl', null);
-                      }}
-                      className="absolute -top-1.5 -right-1.5 p-0.5 bg-red-500 hover:bg-red-600 text-white rounded-full"
-                    >
-                      <X className="h-3 w-3" />
-                    </button>
                   </div>
-                )}
-                
-                {/* Upload Button */}
-                <div className="flex-1">
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={(e) => {
-                      const file = e.target.files?.[0];
-                      if (file) {
-                        if (file.size > 5 * 1024 * 1024) {
-                          toast.error("Max 1MB allowed");
-                          return;
-                        }
-                        if (!file.type.startsWith('image/')) {
-                          toast.error("Invalid file type");
-                          return;
-                        }
-                        handleVariantImageUpload(variant.id, file);
-                      }
-                    }}
-                    className="hidden"
-                    id={`variant-img-${variant.id}`}
-                  />
-                  <label
-                    htmlFor={`variant-img-${variant.id}`}
-                    className="inline-flex items-center gap-2 px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-white text-xs rounded-lg transition-colors cursor-pointer"
-                  >
-                    <Upload className="h-3.5 w-3.5" />
-                    {variant.imageUrl ? "Change" : "Upload"}
-                  </label>
-                  {variant.imageUrl?.startsWith("blob:") && (
-                    <span className="ml-2 text-[11px] text-orange-400">⚠️ Save to upload</span>
-                  )}
                 </div>
               </div>
+
+              {/* ============================================ */}
+              {/* VARIANT SETTINGS - Checkboxes */}
+              {/* ============================================ */}
+              <div className="flex items-center gap-4 flex-wrap pt-3 border-t border-slate-700/50">
+                {/* Default Variant */}
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={variant.isDefault}
+                    onChange={(e) => {
+                      setProductVariants(productVariants.map(v => ({
+                        ...v,
+                        isDefault: v.id === variant.id ? e.target.checked : false
+                      })));
+                    }}
+                    className="w-4 h-4 rounded border-slate-700 bg-slate-900 text-violet-500 focus:ring-2 focus:ring-violet-500"
+                  />
+                  <span className="text-xs font-medium text-slate-300">Default</span>
+                </label>
+
+                {/* Track Inventory */}
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={variant.trackInventory}
+                    onChange={(e) => updateProductVariant(variant.id, 'trackInventory', e.target.checked)}
+                    className="w-4 h-4 rounded border-slate-700 bg-slate-900 text-violet-500 focus:ring-2 focus:ring-violet-500"
+                  />
+                  <span className="text-xs font-medium text-slate-300">Track Stock</span>
+                </label>
+
+                {/* Active Status */}
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={variant.isActive}
+                    onChange={(e) => updateProductVariant(variant.id, 'isActive', e.target.checked)}
+                    className="w-4 h-4 rounded border-slate-700 bg-slate-900 text-violet-500 focus:ring-2 focus:ring-violet-500"
+                  />
+                  <span className="text-xs font-medium text-slate-300">Active</span>
+                </label>
+              </div>
             </div>
-
-            {/* ✅ SETTINGS - Compact Checkboxes */}
-            <div className="flex items-center gap-4 flex-wrap pt-2 border-t border-slate-700/50">
-              <label className="flex items-center gap-1.5 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={variant.isDefault}
-                  onChange={(e) => {
-                    setProductVariants(productVariants.map(v => ({
-                      ...v,
-                      isDefault: v.id === variant.id ? e.target.checked : false
-                    })));
-                  }}
-                  className="w-3.5 h-3.5 rounded border-slate-700 bg-slate-900 text-violet-500 focus:ring-2 focus:ring-violet-500"
-                />
-                <span className="text-xs text-slate-300">Default</span>
-              </label>
-
-              <label className="flex items-center gap-1.5 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={variant.trackInventory}
-                  onChange={(e) => updateProductVariant(variant.id, 'trackInventory', e.target.checked)}
-                  className="w-3.5 h-3.5 rounded border-slate-700 bg-slate-900 text-violet-500 focus:ring-2 focus:ring-violet-500"
-                />
-                <span className="text-xs text-slate-300">Track Stock</span>
-              </label>
-
-              <label className="flex items-center gap-1.5 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={variant.isActive}
-                  onChange={(e) => updateProductVariant(variant.id, 'isActive', e.target.checked)}
-                  className="w-3.5 h-3.5 rounded border-slate-700 bg-slate-900 text-violet-500 focus:ring-2 focus:ring-violet-500"
-                />
-                <span className="text-xs text-slate-300">Active</span>
-              </label>
-            </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     )}
 
-    {/* ✅ HELP SECTION - Compact */}
+    {/* ============================================ */}
+    {/* HELP SECTION - Guidelines */}
+    {/* ============================================ */}
     <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-3">
       <div className="flex items-start gap-2">
         <Info className="h-4 w-4 text-blue-400 mt-0.5 flex-shrink-0" />
         <div>
-          <h4 className="font-semibold text-xs text-blue-400 mb-1">Variant Examples</h4>
+          <h4 className="font-semibold text-xs text-blue-400 mb-1">
+            Smart Variant System
+          </h4>
           <ul className="text-xs text-slate-400 space-y-0.5">
-            <li>• Option1: "Size" → "500ml" | Option2: "Type" → "Original"</li>
-            <li>• Option1: "Pack" → "12 Pack" | Option2: "Purchase" → "One-Time"</li>
-            <li>• Each variant needs a unique SKU</li>
+            <li>• <strong>First Variant (Master):</strong> Define option names in the table</li>
+            <li>• <strong>Other Variants:</strong> Names are locked, only fill values</li>
+            <li>• Each variant must have a unique SKU, GTIN, and Barcode</li>
+            <li>• Use "Add Variant" button on any card to create new variants</li>
           </ul>
         </div>
       </div>
     </div>
   </div>
 </TabsContent>
+
+
+
+
+
 
 
 

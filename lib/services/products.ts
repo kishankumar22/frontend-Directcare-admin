@@ -38,8 +38,9 @@ export interface VATRateData {
   isDefault?: boolean;
 }
 
+ // Find this interface in your code and update it:
+
 export interface ProductVariant {
-  gtin?: string | null;
   id: string;
   name: string;
   sku: string;
@@ -52,13 +53,15 @@ export interface ProductVariant {
   option1Value: string | null;
   option2Name: string | null;
   option2Value: string | null;
-  option3Name?: string | null;
-  option3Value?: string | null;
+  option3Name: string | null;
+  option3Value: string | null;
   imageUrl: string | null;
+  imageFile?: File; // For upload preview
   isDefault: boolean;
   displayOrder: number;
   isActive: boolean;
-  imageFile?: File;
+  gtin: string | null;
+  barcode: string | null; // ✅ ADD THIS LINE
 }
 
 export interface ProductsApiResponse {

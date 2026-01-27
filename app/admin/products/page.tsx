@@ -1844,7 +1844,7 @@ const formatOptionLabel = (option: SelectOption) => {
                   <th className="text-center py-3 px-4 text-slate-400 font-medium text-sm w-[80px]">
                     Stock
                   </th>
-                  <th className="text-center py-3 px-4 text-slate-400 font-medium text-sm w-[100px]">
+                  <th className="text-center py-3 px-4 text-slate-400 font-medium text-sm w-[160px]">
                     Status
                   </th>
                   <th className="text-center py-3 px-4 text-slate-400 font-medium text-sm w-[110px]">
