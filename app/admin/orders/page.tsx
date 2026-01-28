@@ -28,19 +28,17 @@ import {
   CheckCircle,
   Edit,
   MoreVertical,
-  XCircle,
   RefreshCw,
   CheckCircle2,
-  AlertCircle,
   CreditCard,
   PackageCheck,
   PackageX,
+  AlertCircle,
 } from 'lucide-react';
 import {
   orderService,
   Order,
   OrderStatus,
-  PaymentStatus,
   getOrderStatusInfo,
   getPaymentStatusInfo,
   formatCurrency,
@@ -63,7 +61,7 @@ interface Address {
   phoneNumber?: string;
 }
 
-// ✅ Get Available Actions based on Order Status (String-based)
+// ✅ Get Available Actions based on Order Status
 const getAvailableActions = (order: Order) => {
   const actions: string[] = [];
 
@@ -481,10 +479,17 @@ export default function OrdersListPage() {
     fetchOrders();
   };
 
-  // ✅ Calculate stats (String-based)
-  const pendingCount = orders.filter((o) => o.status === 'Pending').length;
-  const processingCount = orders.filter((o) => o.status === 'Processing' || o.status === 'Confirmed').length;
-  const completedCount = orders.filter((o) => o.status === 'Delivered').length;
+  // ✅ Calculate stats with proper typing
+  const allOrders = orders; // For stats calculation
+  const pendingCount = allOrders.filter((o: Order) => o.status === 'Pending').length;
+  const processingCount = allOrders.filter((o: Order) => o.status === 'Processing' || o.status === 'Confirmed').length;
+  const completedCount = allOrders.filter((o: Order) => o.status === 'Delivered').length;
+
+  // ✅ Quick filter handlers
+  const handleQuickFilter = (status: OrderStatus | '') => {
+    setFilters({ ...filters, status: status });
+    setCurrentPage(1);
+  };
 
   if (loading) {
     return (
@@ -498,14 +503,14 @@ export default function OrdersListPage() {
   }
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-2">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold bg-gradient-to-r from-violet-400 via-cyan-400 to-pink-400 bg-clip-text text-transparent">
             Order Management
           </h1>
-          <p className="text-slate-400 text-sm mt-1">Manage and track customer orders</p>
+          <p className="text-slate-400 text-sm mt-1">Manage and track customer orders efficiently</p>
         </div>
         <div className="flex items-center gap-2">
           {/* ✅ Bulk Export Button */}
@@ -568,9 +573,15 @@ export default function OrdersListPage() {
         </div>
       </div>
 
-      {/* Stats Cards */}
+      {/* ✅ Clickable Stats Cards with Quick Filters */}
       <div className="grid gap-3 md:grid-cols-4">
-        <div className="bg-gradient-to-br from-violet-500/10 to-purple-500/10 border border-violet-500/20 rounded-lg p-3">
+        <button
+          onClick={() => handleQuickFilter('')}
+          className={`bg-gradient-to-br from-violet-500/10 to-purple-500/10 border rounded-lg p-3 hover:shadow-lg transition-all text-left ${
+            filters.status === '' ? 'border-violet-500 shadow-lg shadow-violet-500/20' : 'border-violet-500/20'
+          }`}
+          title="View all orders"
+        >
           <div className="flex items-center gap-3">
             <div className="p-2 bg-gradient-to-br from-violet-500 to-purple-500 rounded-lg">
               <ShoppingCart className="w-4 h-4 text-white" />
@@ -580,8 +591,15 @@ export default function OrdersListPage() {
               <p className="text-xl font-bold text-white">{totalCount}</p>
             </div>
           </div>
-        </div>
-        <div className="bg-gradient-to-br from-cyan-500/10 to-blue-500/10 border border-cyan-500/20 rounded-lg p-3">
+        </button>
+
+        <button
+          onClick={() => handleQuickFilter('Pending')}
+          className={`bg-gradient-to-br from-cyan-500/10 to-blue-500/10 border rounded-lg p-3 hover:shadow-lg transition-all text-left ${
+            filters.status === 'Pending' ? 'border-cyan-500 shadow-lg shadow-cyan-500/20' : 'border-cyan-500/20'
+          }`}
+          title="View pending orders"
+        >
           <div className="flex items-center gap-3">
             <div className="p-2 bg-gradient-to-br from-cyan-500 to-blue-500 rounded-lg">
               <Clock className="w-4 h-4 text-white" />
@@ -591,8 +609,15 @@ export default function OrdersListPage() {
               <p className="text-xl font-bold text-white">{pendingCount}</p>
             </div>
           </div>
-        </div>
-        <div className="bg-gradient-to-br from-pink-500/10 to-rose-500/10 border border-pink-500/20 rounded-lg p-3">
+        </button>
+
+        <button
+          onClick={() => handleQuickFilter('Processing')}
+          className={`bg-gradient-to-br from-pink-500/10 to-rose-500/10 border rounded-lg p-3 hover:shadow-lg transition-all text-left ${
+            filters.status === 'Processing' ? 'border-pink-500 shadow-lg shadow-pink-500/20' : 'border-pink-500/20'
+          }`}
+          title="View processing orders"
+        >
           <div className="flex items-center gap-3">
             <div className="p-2 bg-gradient-to-br from-pink-500 to-rose-500 rounded-lg">
               <Package className="w-4 h-4 text-white" />
@@ -602,8 +627,15 @@ export default function OrdersListPage() {
               <p className="text-xl font-bold text-white">{processingCount}</p>
             </div>
           </div>
-        </div>
-        <div className="bg-gradient-to-br from-green-500/10 to-emerald-500/10 border border-green-500/20 rounded-lg p-3">
+        </button>
+
+        <button
+          onClick={() => handleQuickFilter('Delivered')}
+          className={`bg-gradient-to-br from-green-500/10 to-emerald-500/10 border rounded-lg p-3 hover:shadow-lg transition-all text-left ${
+            filters.status === 'Delivered' ? 'border-green-500 shadow-lg shadow-green-500/20' : 'border-green-500/20'
+          }`}
+          title="View completed orders"
+        >
           <div className="flex items-center gap-3">
             <div className="p-2 bg-gradient-to-br from-green-500 to-emerald-500 rounded-lg">
               <CheckCircle className="w-4 h-4 text-white" />
@@ -613,7 +645,7 @@ export default function OrdersListPage() {
               <p className="text-xl font-bold text-white">{completedCount}</p>
             </div>
           </div>
-        </div>
+        </button>
       </div>
 
       {/* Items Per Page */}
@@ -711,7 +743,8 @@ export default function OrdersListPage() {
               }`}
             >
               <option value="">All Payments</option>
-              <option value="Completed">Paid</option>
+              <option value="Successful">Successful</option>
+              <option value="Completed">Completed</option>
               <option value="Captured">Captured</option>
               <option value="Pending">Pending</option>
               <option value="Failed">Failed</option>

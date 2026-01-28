@@ -188,7 +188,7 @@ const [customerViewMode, setCustomerViewMode] = useState<"all" | "active" | "ina
     } finally {
       setLoading(false);
     }
-  }, [currentPage, pageSize, debouncedSearchTerm, filters, sortField, sortDirection, toast]);
+  }, [currentPage, pageSize, debouncedSearchTerm, filters, sortField, sortDirection]);
 
   useEffect(() => {
     fetchCustomers();

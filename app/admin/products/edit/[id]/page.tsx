@@ -3220,7 +3220,7 @@ const variantsArray = productVariants?.map(variant => {
         : null,
     };
 // ============================================
-// SECTION 22A - UPDATE EXISTING PRODUCT IMAGES
+// SECTION 22A - UPDATE EXISTING PRODUCT IMAGES (UPDATED)
 // ============================================
 setSubmitProgress({
   step: 'Updating product images...',
@@ -3228,59 +3228,80 @@ setSubmitProgress({
 });
 
 try {
+  // ✅ VALIDATION: Ensure at least one image has isMain: true
+  const hasMainImage = formData.productImages.some((img) => img.isMain === true);
+  
+  if (!hasMainImage && formData.productImages.length > 0) {
+    // ✅ Automatically set first image as main if none selected
+    formData.productImages[0].isMain = true;
+    toast.info('ℹ️ First image set as main image automatically');
+  }
+
   // Filter images that need to be updated (existing images with IDs)
+  const guidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  
   const imagesToUpdate = formData.productImages.filter((img) => {
     // Only update images that have been saved (have valid GUID IDs)
-    const guidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
     return guidRegex.test(img.id);
   });
 
   if (imagesToUpdate.length > 0) {
-    console.log(`Updating ${imagesToUpdate.length} product images...`);
+    console.log(`🖼️ Updating ${imagesToUpdate.length} product images...`);
     
-    // Update each image sequentially
+    let updateSuccessCount = 0;
+    let updateFailCount = 0;
+
+    // ✅ Update each image using productsService
     for (const image of imagesToUpdate) {
       try {
         const updatePayload = {
-          altText: image.altText || '',
+          altText: image.altText?.trim() || '',
           sortOrder: image.sortOrder || 0,
           isMain: image.isMain || false,
         };
 
         console.log(`Updating image ${image.id}:`, updatePayload);
 
-        const updateResponse = await fetch(
-          `${API_BASE_URL}/api/Products/${productId}/images/${image.id}`,
-          {
-            method: 'PUT',
-            headers: {
-              'Content-Type': 'application/json',
-              Authorization: `Bearer ${localStorage.getItem('authToken')}`,
-            },
-            body: JSON.stringify(updatePayload),
-          }
+        const response = await productsService.updateProductImage(
+          productId,
+          image.id,
+          updatePayload
         );
 
-        if (!updateResponse.ok) {
-          console.warn(`Failed to update image ${image.id}`, updateResponse.status);
-        } else {
+        if (response?.data?.success) {
+          updateSuccessCount++;
           console.log(`✅ Image ${image.id} updated successfully`);
+        } else {
+          updateFailCount++;
+          console.warn(`⚠️ Failed to update image ${image.id}:`, response?.data?.message);
         }
       } catch (imageError: any) {
-        console.error(`Error updating image ${image.id}:`, imageError);
+        updateFailCount++;
+        console.error(`❌ Error updating image ${image.id}:`, imageError);
         // Don't throw - continue updating other images
       }
     }
 
-    toast.success('Product images updated!', { autoClose: 2000 });
+    // ✅ Show summary toast
+    // if (updateSuccessCount > 0) {
+    //   toast.success(`✅ ${updateSuccessCount} image(s) updated successfully!`, { 
+    //     autoClose: 2000 
+    //   });
+    // }
+    
+    if (updateFailCount > 0) {
+      toast.warning(`⚠️ ${updateFailCount} image(s) failed to update`, { 
+        autoClose: 3000 
+      });
+    }
+  } else {
+    console.log('ℹ️ No existing images to update');
   }
 } catch (error: any) {
-  console.error('Image update error:', error);
-  toast.warning('Some images may not have been updated');
+  console.error('❌ Image update error:', error);
+  toast.warning('⚠️ Some images may not have been updated');
+  // Don't throw - continue with product update
 }
-
-
-
     // ✅ PROGRESS: 90% - Updating Product
     setSubmitProgress({
       step: isDraft ? 'Saving draft...' : 'Updating product...',
@@ -4199,11 +4220,13 @@ const updateProductAttribute = (id: string, field: keyof ProductAttribute, value
 };
 
 
-// ✅ ADD VARIANT WITH AUTO-SCROLL
+// ✅ ADD VARIANT WITH AUTO-SCROLL (FIXED)
 const addProductVariant = () => {
-  const newVariantId = Date.now();
-  const newVariant = {
-    id: newVariantId,
+  // ✅ Generate string-based ID instead of number
+  const newVariantId = `temp-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+  
+  const newVariant: ProductVariant = {
+    id: newVariantId, // ✅ Now it's a string
     name: '',
     sku: '',
     price: null,
@@ -4239,6 +4262,7 @@ const addProductVariant = () => {
     }
   }, 100);
 };
+
 
 
 
@@ -4432,6 +4456,41 @@ const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     toast.error("Please enter product name before uploading images");
     return;
   }
+// ============================================
+// SECTION 21B - IMAGE MAIN VALIDATION
+// ============================================
+
+// ✅ Ensure at least one image is marked as main
+if (formData.productImages && formData.productImages.length > 0) {
+  const hasMainImage = formData.productImages.some((img) => img.isMain === true);
+  
+  if (!hasMainImage) {
+    // Automatically set first image as main
+    formData.productImages[0].isMain = true;
+    toast.info('ℹ️ First image automatically set as main image', { autoClose: 3000 });
+  }
+
+  // ✅ Ensure only ONE image is marked as main
+  let mainImageCount = 0;
+  let lastMainIndex = -1;
+
+  formData.productImages.forEach((img, index) => {
+    if (img.isMain) {
+      mainImageCount++;
+      lastMainIndex = index;
+    }
+  });
+
+  if (mainImageCount > 1) {
+    // Reset all and set only the last selected one as main
+    formData.productImages.forEach((img, index) => {
+      img.isMain = index === lastMainIndex;
+    });
+    toast.warning('⚠️ Only one image can be main. Last selected image set as main.', { 
+      autoClose: 4000 
+    });
+  }
+}
 
   // ✅ Max images validation
   if (formData.productImages.length + files.length > MAX_IMAGES) {
@@ -7310,11 +7369,11 @@ const uploadImagesToProductDirect = async (
                     </span>
                   )}
                   {/* Show if saved */}
-                  {variant.variantId && (
+                  {/* {variant.id && (
                     <span className="px-2 py-0.5 bg-green-500/20 text-green-400 text-xs font-medium rounded border border-green-500/30">
                       Saved
                     </span>
-                  )}
+                  )} */}
                 </div>
                 
                 {/* Action Buttons */}
@@ -8154,9 +8213,9 @@ const uploadImagesToProductDirect = async (
                     <span className="text-[10px] text-slate-400">Main</span>
                   </label>
                 </div>
-                {!image.file && image.imageUrl && (
+                {/* {!image.file && image.imageUrl && (
                   <div className="text-[10px] text-green-400">✓</div>
-                )}
+                )} */}
               </div>
             </div>
           ))}

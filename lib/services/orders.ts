@@ -35,6 +35,7 @@ export type DeliveryMethod = 'HomeDelivery' | 'ClickAndCollect';
 export type PaymentStatus = 
   | 'Pending'
   | 'Processing'
+  | 'Successful'      // ✅ NEW: Added this
   | 'Completed'
   | 'Captured'
   | 'Failed'
@@ -372,17 +373,18 @@ export const getCollectionStatusInfo = (status: CollectionStatus) => {
 };
 
 /**
- * ✅ Get Payment Status Info
+ * ✅ Get Payment Status Info (Updated with "Successful")
  */
 export const getPaymentStatusInfo = (status: PaymentStatus) => {
   const statusMap: Record<PaymentStatus, { label: string; color: string; bgColor: string }> = {
     'Pending': { label: 'Pending', color: 'text-yellow-400', bgColor: 'bg-yellow-500/10' },
     'Processing': { label: 'Processing', color: 'text-blue-400', bgColor: 'bg-blue-500/10' },
-    'Completed': { label: 'Paid', color: 'text-green-400', bgColor: 'bg-green-500/10' },
-    'Captured': { label: 'Captured', color: 'text-green-400', bgColor: 'bg-green-500/10' },
+    'Successful': { label: 'Successful', color: 'text-green-400', bgColor: 'bg-green-500/10' },  // ✅ NEW
+    'Completed': { label: 'Completed', color: 'text-green-400', bgColor: 'bg-green-500/10' },
+    'Captured': { label: 'Captured', color: 'text-emerald-400', bgColor: 'bg-emerald-500/10' },
     'Failed': { label: 'Failed', color: 'text-red-400', bgColor: 'bg-red-500/10' },
     'Refunded': { label: 'Refunded', color: 'text-purple-400', bgColor: 'bg-purple-500/10' },
-    'PartiallyRefunded': { label: 'Partially Refunded', color: 'text-purple-400', bgColor: 'bg-purple-500/10' },
+    'PartiallyRefunded': { label: 'Partially Refunded', color: 'text-purple-300', bgColor: 'bg-purple-400/10' },
   };
   return statusMap[status] || statusMap['Pending'];
 };

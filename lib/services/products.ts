@@ -268,7 +268,7 @@ export interface ProductQueryParams {
   isPublished?: boolean;
   sortBy?: string;
   sortOrder?: 'asc' | 'desc';
-  productType?: 'simple' | 'grouped' | 'bundle';
+  productType?: 'simple' | 'grouped' ;
 }
 
 export interface PaginatedResponse<T> {
@@ -446,7 +446,21 @@ export const productsService = {
       }
     );
   },
-
+  /**
+   * Update product image metadata (altText, sortOrder, isMain)
+   * @param productId Product ID
+   * @param imageId Image ID
+   * @param data Image update data
+   */
+  updateProductImage: (productId: string, imageId: string, data: {
+    altText: string;
+    sortOrder: number;
+    isMain: boolean;
+  }) =>
+    apiClient.put<ApiResponse<any>>(
+      `${API_ENDPOINTS.products}/${productId}/images/${imageId}`,
+      data
+    ),
   // ==========================================
   // 📊 ADMIN COMMENT HISTORY
   // ==========================================

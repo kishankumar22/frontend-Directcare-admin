@@ -80,4 +80,10 @@ export const API_ENDPOINTS = {
     deleteImage: '/api/Editor/delete-image',
     deleteImageByUrl: '/api/Editor/delete-image-by-url',
   },
+    // ✅ Activity Logs
+  activityLogs: {
+    base: '/api/ActivityLogs',
+    delete: (id: string) => `/api/ActivityLogs/${id}`,
+    clear: '/api/ActivityLogs/clear',
+  },
 };

@@ -3,7 +3,21 @@
 'use client';
 
 import { useState, FormEvent, useEffect, JSX } from 'react';
-import { X, Loader2, Package, Truck, CheckCircle, XCircle, Clock, MapPin } from 'lucide-react';
+import { 
+  X, 
+  Loader2, 
+  Package, 
+  Truck, 
+  CheckCircle, 
+  XCircle, 
+  Clock, 
+  MapPin,
+  AlertTriangle,
+  Bell,
+  History,
+  CreditCard,
+  ShieldAlert
+} from 'lucide-react';
 import {
   orderService,
   Order,
@@ -13,7 +27,7 @@ import {
   CreateShipmentRequest,
   MarkDeliveredRequest,
   CancelOrderRequest,
-} from '../../../lib/services/orders';
+} from '../../../lib/services/orders'; // ✅ FIXED PATH
 import { useToast } from '@/components/CustomToast';
 
 interface OrderActionsModalProps {
@@ -98,6 +112,68 @@ const getStatusDisplayInfo = (status: OrderStatus) => {
   return statusMap[status] || statusMap['Pending'];
 };
 
+// ✅ NEW: Check if order is paid
+const isOrderPaid = (order: Order): boolean => {
+  if (!order.payments || order.payments.length === 0) return false;
+  
+  const firstPayment = order.payments[0];
+  const paidStatuses = ['Successful', 'Completed', 'Captured'];
+  
+  return paidStatuses.includes(firstPayment.status);
+};
+
+// ✅ NEW: Get payment status display
+const getPaymentStatusDisplay = (order: Order) => {
+  if (!order.payments || order.payments.length === 0) {
+    return { 
+      label: 'No Payment', 
+      color: 'text-red-400', 
+      icon: <AlertTriangle className="w-4 h-4" /> 
+    };
+  }
+
+  const payment = order.payments[0];
+  const statusMap: Record<string, { label: string; color: string; icon: JSX.Element }> = {
+    'Successful': { 
+      label: 'Paid', 
+      color: 'text-green-400', 
+      icon: <CheckCircle className="w-4 h-4" /> 
+    },
+    'Completed': { 
+      label: 'Paid', 
+      color: 'text-green-400', 
+      icon: <CheckCircle className="w-4 h-4" /> 
+    },
+    'Captured': { 
+      label: 'Captured', 
+      color: 'text-emerald-400', 
+      icon: <CheckCircle className="w-4 h-4" /> 
+    },
+    'Pending': { 
+      label: 'Payment Pending', 
+      color: 'text-yellow-400', 
+      icon: <Clock className="w-4 h-4" /> 
+    },
+    'Processing': { 
+      label: 'Processing Payment', 
+      color: 'text-blue-400', 
+      icon: <Loader2 className="w-4 h-4 animate-spin" /> 
+    },
+    'Failed': { 
+      label: 'Payment Failed', 
+      color: 'text-red-400', 
+      icon: <XCircle className="w-4 h-4" /> 
+    },
+    'Refunded': { 
+      label: 'Refunded', 
+      color: 'text-purple-400', 
+      icon: <XCircle className="w-4 h-4" /> 
+    },
+  };
+
+  return statusMap[payment.status] || statusMap['Pending'];
+};
+
 export default function OrderActionsModal({
   isOpen,
   onClose,
@@ -107,6 +183,7 @@ export default function OrderActionsModal({
 }: OrderActionsModalProps) {
   const toast = useToast();
   const [loading, setLoading] = useState(false);
+  const [showNotificationPreview, setShowNotificationPreview] = useState(false);
 
   // Mark Ready - no form needed
   const [readyConfirmed, setReadyConfirmed] = useState(false);
@@ -155,6 +232,10 @@ export default function OrderActionsModal({
   // ✅ Get available statuses dynamically based on delivery method
   const availableStatuses = getValidStatusTransitions(order.status, order.deliveryMethod);
 
+  // ✅ Check payment status
+  const isPaid = isOrderPaid(order);
+  const paymentDisplay = getPaymentStatusDisplay(order);
+
   // ✅ Initialize shipment items when modal opens for create-shipment action
   useEffect(() => {
     if (isOpen && action === 'create-shipment' && order.orderItems.length > 0) {
@@ -172,6 +253,7 @@ export default function OrderActionsModal({
   useEffect(() => {
     if (isOpen) {
       setReadyConfirmed(false);
+      setShowNotificationPreview(false);
       setCollectedData({
         collectedBy: '',
         collectorIDType: '',
@@ -190,14 +272,21 @@ export default function OrderActionsModal({
       setCancelData({
         cancellationReason: '',
         restoreInventory: true,
-        initiateRefund: true,
+        initiateRefund: isPaid, // ✅ Auto-check refund if order is paid
         cancelledBy: '',
       });
     }
-  }, [isOpen, action, order.status, order.shipments]);
+  }, [isOpen, action, order.status, order.shipments, isPaid]);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
+
+    // ✅ Payment validation for shipment/delivery actions
+    if (['create-shipment', 'mark-delivered'].includes(action) && !isPaid) {
+      toast.error('⚠️ Cannot proceed: Order payment is not completed');
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -209,7 +298,7 @@ export default function OrderActionsModal({
             return;
           }
           await orderService.markReady(order.id);
-          toast.success('Order marked as ready for collection');
+          toast.success('✅ Order marked as ready for collection');
           break;
 
         case 'mark-collected':
@@ -225,7 +314,7 @@ export default function OrderActionsModal({
             collectorIDNumber: collectedData.collectorIDNumber,
           };
           await orderService.markCollected(collectedRequest);
-          toast.success('Order marked as collected');
+          toast.success('✅ Order marked as collected');
           break;
 
         case 'update-status':
@@ -235,7 +324,7 @@ export default function OrderActionsModal({
             adminNotes: statusData.adminNotes || undefined,
           };
           await orderService.updateStatus(statusRequest);
-          toast.success('Order status updated successfully');
+          toast.success('✅ Order status updated successfully');
           break;
 
         case 'create-shipment':
@@ -253,7 +342,7 @@ export default function OrderActionsModal({
             shipmentItems: shipmentData.selectedItems,
           };
           await orderService.createShipment(shipmentRequest);
-          toast.success('Shipment created successfully');
+          toast.success('✅ Shipment created successfully');
           break;
 
         case 'mark-delivered':
@@ -270,7 +359,7 @@ export default function OrderActionsModal({
             receivedBy: deliveredData.receivedBy || undefined,
           };
           await orderService.markDelivered(deliveredRequest);
-          toast.success('Order marked as delivered');
+          toast.success('✅ Order marked as delivered');
           break;
 
         case 'cancel-order':
@@ -282,7 +371,7 @@ export default function OrderActionsModal({
             cancelledBy: cancelData.cancelledBy,
           };
           await orderService.cancelOrder(cancelRequest);
-          toast.success('Order cancelled successfully');
+          toast.success('✅ Order cancelled successfully');
           break;
 
         default:
@@ -308,7 +397,80 @@ export default function OrderActionsModal({
     }));
   };
 
+  // ✅ NEW: Get notification message preview
+  const getNotificationPreview = () => {
+    switch (action) {
+      case 'mark-ready':
+        return `Hi ${order.customerName}, your order ${order.orderNumber} is ready for collection at our store. Please bring a valid ID.`;
+      case 'mark-collected':
+        return `Hi ${order.customerName}, your order ${order.orderNumber} has been collected. Thank you for shopping with us!`;
+      case 'create-shipment':
+        return `Hi ${order.customerName}, your order ${order.orderNumber} has been shipped via ${shipmentData.carrier}. Tracking: ${shipmentData.trackingNumber}`;
+      case 'mark-delivered':
+        return `Hi ${order.customerName}, your order ${order.orderNumber} has been delivered. Thank you for your purchase!`;
+      case 'cancel-order':
+        return `Hi ${order.customerName}, your order ${order.orderNumber} has been cancelled. ${cancelData.initiateRefund ? 'A refund will be processed within 3-5 business days.' : ''}`;
+      default:
+        return '';
+    }
+  };
+
   const renderModalContent = () => {
+    // ✅ NEW: Payment Warning Banner (shown for shipment/delivery actions)
+    const PaymentWarning = () => {
+      if (!['create-shipment', 'mark-delivered'].includes(action)) return null;
+      
+      if (!isPaid) {
+        return (
+          <div className="mb-4 p-4 bg-red-500/10 border border-red-500/30 rounded-lg flex items-start gap-3">
+            <ShieldAlert className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
+            <div>
+              <p className="text-sm font-semibold text-red-400">Payment Not Completed</p>
+              <p className="text-xs text-red-300 mt-1">
+                This order's payment is <strong>{paymentDisplay.label}</strong>. You cannot proceed with shipment/delivery until payment is confirmed.
+              </p>
+            </div>
+          </div>
+        );
+      }
+
+      return (
+        <div className="mb-4 p-3 bg-green-500/10 border border-green-500/20 rounded-lg flex items-center gap-2">
+          <CreditCard className="w-4 h-4 text-green-400" />
+          <p className="text-xs text-green-400">
+            Payment Status: <strong>{paymentDisplay.label}</strong> ✅
+          </p>
+        </div>
+      );
+    };
+
+    // ✅ NEW: Notification Preview Toggle
+    const NotificationPreviewToggle = () => {
+      const hasNotification = ['mark-ready', 'mark-collected', 'create-shipment', 'mark-delivered', 'cancel-order'].includes(action);
+      
+      if (!hasNotification) return null;
+
+      return (
+        <div className="mt-4">
+          <button
+            type="button"
+            onClick={() => setShowNotificationPreview(!showNotificationPreview)}
+            className="flex items-center gap-2 text-xs text-cyan-400 hover:text-cyan-300 transition-colors"
+          >
+            <Bell className="w-3.5 h-3.5" />
+            {showNotificationPreview ? 'Hide' : 'Preview'} customer notification
+          </button>
+          
+          {showNotificationPreview && (
+            <div className="mt-2 p-3 bg-cyan-500/5 border border-cyan-500/20 rounded-lg">
+              <p className="text-xs text-slate-400 mb-1">Customer will receive:</p>
+              <p className="text-xs text-cyan-200 italic">"{getNotificationPreview()}"</p>
+            </div>
+          )}
+        </div>
+      );
+    };
+
     switch (action) {
       case 'mark-ready':
         // ✅ Only for Click & Collect
@@ -346,6 +508,8 @@ export default function OrderActionsModal({
                 I confirm this order is ready for collection
               </label>
             </div>
+
+            <NotificationPreviewToggle />
           </div>
         );
 
@@ -422,6 +586,8 @@ export default function OrderActionsModal({
                 required
               />
             </div>
+
+            <NotificationPreviewToggle />
           </div>
         );
 
@@ -460,6 +626,19 @@ export default function OrderActionsModal({
                       Home Delivery
                     </>
                   )}
+                </div>
+              </div>
+            </div>
+
+            {/* ✅ Payment Status Display */}
+            <div className="p-3 bg-slate-900/50 border border-slate-700 rounded-lg">
+              <div className="flex items-center gap-2">
+                {paymentDisplay.icon}
+                <div>
+                  <p className="text-xs text-slate-400">Payment Status</p>
+                  <p className={`text-sm font-medium ${paymentDisplay.color}`}>
+                    {paymentDisplay.label}
+                  </p>
                 </div>
               </div>
             </div>
@@ -540,6 +719,8 @@ export default function OrderActionsModal({
               </div>
             </div>
 
+            <PaymentWarning />
+
             <div className="grid md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-slate-300 mb-2">
@@ -554,6 +735,7 @@ export default function OrderActionsModal({
                   placeholder="e.g., 1Z999AA1234567890"
                   className="w-full px-3 py-2.5 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
                   required
+                  disabled={!isPaid}
                 />
               </div>
 
@@ -570,6 +752,7 @@ export default function OrderActionsModal({
                   placeholder="e.g., DHL, FedEx, UPS"
                   className="w-full px-3 py-2.5 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
                   required
+                  disabled={!isPaid}
                 />
               </div>
             </div>
@@ -587,6 +770,7 @@ export default function OrderActionsModal({
                 placeholder="e.g., Standard, Express"
                 className="w-full px-3 py-2.5 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
                 required
+                disabled={!isPaid}
               />
             </div>
 
@@ -598,6 +782,7 @@ export default function OrderActionsModal({
                 placeholder="Additional shipment notes..."
                 rows={2}
                 className="w-full px-3 py-2.5 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+                disabled={!isPaid}
               />
             </div>
 
@@ -628,6 +813,7 @@ export default function OrderActionsModal({
                           updateShipmentItemQuantity(item.id, Number(e.target.value))
                         }
                         className="w-20 px-2 py-1.5 bg-slate-800 border border-slate-600 rounded-lg text-white text-center focus:ring-2 focus:ring-violet-500"
+                        disabled={!isPaid}
                       />
                       <span className="text-slate-400 text-sm ml-2">/ {item.quantity}</span>
                     </div>
@@ -635,6 +821,8 @@ export default function OrderActionsModal({
                 })}
               </div>
             </div>
+
+            <NotificationPreviewToggle />
           </div>
         );
 
@@ -660,6 +848,8 @@ export default function OrderActionsModal({
               </div>
             </div>
 
+            <PaymentWarning />
+
             {order.shipments && order.shipments.length > 0 ? (
               <>
                 <div>
@@ -673,6 +863,7 @@ export default function OrderActionsModal({
                     }
                     className="w-full px-3 py-2.5 bg-slate-800/50 border border-slate-700 rounded-xl text-white focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
                     required
+                    disabled={!isPaid}
                   >
                     {order.shipments.map((shipment) => (
                       <option key={shipment.id} value={shipment.id}>
@@ -694,6 +885,7 @@ export default function OrderActionsModal({
                     }
                     className="w-full px-3 py-2.5 bg-slate-800/50 border border-slate-700 rounded-xl text-white focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
                     required
+                    disabled={!isPaid}
                   />
                 </div>
 
@@ -709,6 +901,7 @@ export default function OrderActionsModal({
                     }
                     placeholder="Name of person who received"
                     className="w-full px-3 py-2.5 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+                    disabled={!isPaid}
                   />
                 </div>
 
@@ -724,8 +917,11 @@ export default function OrderActionsModal({
                     placeholder="Additional delivery notes..."
                     rows={3}
                     className="w-full px-3 py-2.5 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+                    disabled={!isPaid}
                   />
                 </div>
+
+                <NotificationPreviewToggle />
               </>
             ) : (
               <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-lg">
@@ -749,6 +945,19 @@ export default function OrderActionsModal({
                 </p>
               </div>
             </div>
+
+            {/* ✅ Payment Status Info for Cancellation */}
+            {isPaid && (
+              <div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-lg flex items-start gap-2">
+                <AlertTriangle className="w-4 h-4 text-amber-400 flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-xs font-semibold text-amber-400">Payment Detected</p>
+                  <p className="text-xs text-amber-300 mt-1">
+                    This order has been paid ({paymentDisplay.label}). Consider initiating a refund.
+                  </p>
+                </div>
+              </div>
+            )}
 
             <div>
               <label className="block text-sm font-medium text-slate-300 mb-2">
@@ -802,9 +1011,13 @@ export default function OrderActionsModal({
                   }
                   className="rounded bg-slate-800/50 border-slate-700 text-violet-500 focus:ring-violet-500"
                 />
-                <span className="text-sm text-slate-300">Initiate refund</span>
+                <span className="text-sm text-slate-300">
+                  Initiate refund {isPaid && <span className="text-amber-400">(Recommended)</span>}
+                </span>
               </label>
             </div>
+
+            <NotificationPreviewToggle />
           </div>
         );
 
@@ -833,6 +1046,11 @@ export default function OrderActionsModal({
   };
 
   const isFormValid = () => {
+    // ✅ Payment check for shipment/delivery actions
+    if (['create-shipment', 'mark-delivered'].includes(action) && !isPaid) {
+      return false;
+    }
+
     switch (action) {
       case 'mark-ready':
         return readyConfirmed && order.deliveryMethod === 'ClickAndCollect';
@@ -913,6 +1131,7 @@ export default function OrderActionsModal({
               type="submit"
               disabled={loading || !isFormValid()}
               className="px-6 py-2 bg-violet-600 hover:bg-violet-700 disabled:bg-slate-600 disabled:cursor-not-allowed text-white rounded-lg transition-colors flex items-center gap-2"
+              title={!isFormValid() && !isPaid && ['create-shipment', 'mark-delivered'].includes(action) ? 'Payment must be completed first' : ''}
             >
               {loading ? (
                 <>

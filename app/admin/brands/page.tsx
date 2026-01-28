@@ -200,10 +200,10 @@ const handleSubmit = async (e: React.FormEvent) => {
   const description = formData.description.trim();
 
   // Min length
-  if (description.length < 10) {
-    toast.error(`❌ Description must be at least 10 characters. Current: ${description.length}`);
-    return;
-  }
+  // if (description.length < 10) {
+  //   toast.error(`❌ Description must be at least 10 characters. Current: ${description.length}`);
+  //   return;
+  // }
 
   // ✅ Max length (Industry Standard)
   if (description.length > 1000) {
