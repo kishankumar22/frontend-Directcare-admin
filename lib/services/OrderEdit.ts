@@ -4,23 +4,48 @@ import { apiClient } from '../api';
 import { API_ENDPOINTS } from '../api-config';
 
 // ===========================
+// ENUMS (Match API Documentation)
+// ===========================
+
+/**
+ * Order Edit Operation Types (MUST USE NUMERIC VALUES)
+ * @see API Documentation Section 7
+ */
+export enum OrderEditOperationType {
+  UpdateQuantity = 1,
+  UpdatePrice = 2,
+  RemoveItem = 3,
+  AddItem = 4,
+  ReplaceItem = 5,
+}
+
+/**
+ * Refund Reasons (MUST USE NUMERIC VALUES)
+ * @see API Documentation Section 2 & 3
+ */
+export enum RefundReason {
+  CustomerRequest = 1,
+  OrderCancellation = 2,
+  ItemOutOfStock = 3,
+  DamagedItem = 4,
+  WrongItemShipped = 5,
+  PriceAdjustment = 6,
+  DuplicateCharge = 7,
+  ServiceIssue = 8,
+  PartialOrderCancellation = 9,
+  QualityIssue = 10,
+  LateDelivery = 11,
+  Other = 99,
+}
+
+// ===========================
 // TYPES & INTERFACES
 // ===========================
 
-export type OperationType = 
-  | "UpdateQuantity" 
-  | "UpdatePrice" 
-  | "RemoveItem" 
-  | "AddItem" 
-  | "ReplaceItem";
-
-export type RefundReason = 
-  | "CustomerRequest" 
-  | "ProductDefect" 
-  | "WrongItemShipped" 
-  | "DamagedInTransit" 
-  | "Other";
-
+/**
+ * Address object structure
+ * @see API Documentation - Address Object Structure
+ */
 export interface Address {
   firstName: string;
   lastName: string;
@@ -34,72 +59,171 @@ export interface Address {
   phoneNumber: string;
 }
 
+/**
+ * Order Edit Operation
+ * @see API Documentation Section 1 - Operation Parameters
+ */
 export interface OrderEditOperation {
-  operationType: OperationType;
+  operationType: OrderEditOperationType; // ✅ Numeric enum
   orderItemId?: string;
   productId?: string;
-  productVariantId?: string;
+  productVariantId?: string | null;
   newQuantity?: number;
   newUnitPrice?: number;
   replacementProductId?: string;
-  replacementProductVariantId?: string;
+  replacementProductVariantId?: string | null;
 }
 
+/**
+ * Order Edit Request
+ * @see API Documentation Section 1 - Request Body
+ */
 export interface OrderEditRequest {
   orderId: string;
   operations: OrderEditOperation[];
-  editReason: string;
-  adminNotes?: string;
+  editReason?: string | null;
+  adminNotes?: string | null;
   recalculateTotals?: boolean;
   adjustInventory?: boolean;
   sendCustomerNotification?: boolean;
-  billingAddress?: Address;
-  shippingAddress?: Address;
-  currentUser?: string;
-  ipAddress?: string;
+  billingAddress?: Address | null;
+  shippingAddress?: Address | null;
 }
 
+/**
+ * Full Refund Request
+ * @see API Documentation Section 2
+ */
 export interface FullRefundRequest {
   orderId: string;
-  reason: RefundReason;
-  reasonDetails?: string;
-  adminNotes?: string;
+  reason: RefundReason; // ✅ Numeric enum
+  reasonDetails?: string | null;
+  adminNotes?: string | null;
   restoreInventory?: boolean;
   sendCustomerNotification?: boolean;
-  currentUser?: string;
-  ipAddress?: string;
 }
 
+/**
+ * Partial Refund Request
+ * @see API Documentation Section 3
+ */
 export interface PartialRefundRequest {
   orderId: string;
   refundAmount: number;
-  reason: RefundReason;
-  reasonDetails?: string;
-  adminNotes?: string;
+  reason: RefundReason; // ✅ Numeric enum
+  reasonDetails?: string | null;
+  adminNotes?: string | null;
   sendCustomerNotification?: boolean;
-  currentUser?: string;
-  ipAddress?: string;
 }
 
+/**
+ * Regenerate Invoice Request
+ * @see API Documentation Section 6
+ */
 export interface RegenerateInvoiceRequest {
   orderId: string;
-  notes?: string;
+  notes?: string | null;
   sendToCustomer?: boolean;
-  currentUser?: string;
 }
 
-export interface RefundItem {
+/**
+ * Order Item Change DTO
+ * @see API Documentation Section 8 - OrderItemChangeDto
+ */
+export interface OrderItemChange {
+  changeType: string; // "Added" | "Removed" | "Updated" | "Replaced" | "PriceAdjusted"
+  productName: string;
+  productSku: string;
+  oldQuantity: number | null;
+  newQuantity: number | null;
+  oldUnitPrice: number | null;
+  newUnitPrice: number | null;
+  oldTotalPrice: number | null;
+  newTotalPrice: number | null;
+}
+
+/**
+ * Inventory Adjustment DTO
+ * @see API Documentation Section 8 - InventoryAdjustmentDto
+ */
+export interface InventoryAdjustment {
+  productId: string;
+  productName: string;
+  productSku: string;
+  quantityAdjusted: number;
+  adjustmentType: string; // "Restored" | "Deducted"
+}
+
+/**
+ * Order Edit Result DTO
+ * @see API Documentation Section 8 - OrderEditResultDto
+ */
+export interface OrderEditResult {
+  orderId: string;
+  orderNumber: string;
+  success: boolean;
+  message: string;
+  
+  // Financial Summary
+  oldSubtotal: number;
+  newSubtotal: number;
+  oldTaxAmount: number;
+  newTaxAmount: number;
+  oldTotalAmount: number;
+  newTotalAmount: number;
+  priceDifference: number;
+  
+  // Changes
+  itemChanges: OrderItemChange[];
+  billingAddressChanged: boolean;
+  shippingAddressChanged: boolean;
+  inventoryAdjustments: InventoryAdjustment[];
+  
+  // Refund Recommendation
+  refundRecommended: boolean;
+  recommendedRefundAmount: number;
+  
+  // Updated Order
+  updatedOrder: any; // OrderDto
+}
+
+/**
+ * Refund Result DTO
+ * @see API Documentation Section 8 - RefundResultDto
+ */
+export interface RefundResult {
+  orderId: string;
+  orderNumber: string;
+  refundId: string;
+  refundAmount: number;
+  remainingRefundableAmount: number;
+  isFullyRefunded: boolean;
+  paymentStatus: string;
+  stockRestored: boolean;
+  loyaltyPointsReversed: number | null;
+  refundDate: string;
+}
+
+/**
+ * Refund Entry DTO
+ * @see API Documentation Section 8 - RefundEntryDto
+ */
+export interface RefundEntry {
   refundId: string;
   amount: number;
   currency: string;
   reason: string;
-  reasonDetails?: string;
+  reasonDetails: string | null;
   processedBy: string;
   processedAt: string;
   isPartial: boolean;
 }
 
-export interface RefundHistoryData {
+/**
+ * Refund History DTO
+ * @see API Documentation Section 8 - RefundHistoryDto
+ */
+export interface RefundHistory {
   orderId: string;
   orderNumber: string;
   originalOrderAmount: number;
@@ -107,43 +231,63 @@ export interface RefundHistoryData {
   remainingBalance: number;
   isFullyRefunded: boolean;
   paymentStatus: string;
-  refunds: RefundItem[];
+  refunds: RefundEntry[];
 }
 
-export interface EditHistoryItem {
+/**
+ * Order History DTO
+ * @see API Documentation Section 8 - OrderHistoryDto
+ */
+export interface OrderHistory {
   id: string;
   orderId: string;
   changeType: string;
   changedBy: string;
   changeDate: string;
-  changeDetails: string;
-  oldSubtotal: number;
-  newSubtotal: number;
-  oldTaxAmount: number;
-  newTaxAmount: number;
-  oldShippingAmount: number;
-  newShippingAmount: number;
-  oldTotalAmount: number;
-  newTotalAmount: number;
-  oldStatus: string;
-  newStatus: string;
-  notes?: string;
+  changeDetails: any;
+  oldSubtotal: number | null;
+  newSubtotal: number | null;
+  oldTaxAmount: number | null;
+  newTaxAmount: number | null;
+  oldShippingAmount: number | null;
+  newShippingAmount: number | null;
+  oldTotalAmount: number | null;
+  newTotalAmount: number | null;
+  oldStatus: string | null;
+  newStatus: string | null;
+  notes: string | null;
 }
 
-// ✅ API Response Interface
-interface ApiResponse<T = any> {
-  success?: boolean;
-  message?: string;
-  data?: T;
-  errors?: string[];
-}
-
-// ✅ Standard Service Response
-interface ServiceResponse<T = any> {
-  success: boolean;
-  message?: string;
-  data?: T;
-  errors?: string[];
+/**
+ * Invoice DTO
+ * @see API Documentation Section 8 - InvoiceDto
+ */
+export interface Invoice {
+  id: string;
+  invoiceNumber: string;
+  invoiceDate: string;
+  dueDate: string | null;
+  status: string;
+  subtotalAmount: number;
+  taxAmount: number;
+  shippingAmount: number;
+  discountAmount: number;
+  totalAmount: number;
+  currency: string;
+  customerEmail: string;
+  billingName: string;
+  billingAddress: string;
+  billingCity: string;
+  billingPostalCode: string;
+  billingCountry: string;
+  pdfUrl: string | null;
+  pdfFileSize: number | null;
+  notes: string | null;
+  emailedAt: string | null;
+  orderId: string;
+  orderNumber: string;
+  createdAt: string;
+  updatedAt: string | null;
 }
 
 // ===========================
@@ -152,204 +296,265 @@ interface ServiceResponse<T = any> {
 
 class OrderEditService {
   /**
-   * ✅ FIXED: Edit an existing order with proper null/undefined checks
-   * PUT /api/Orders/{orderId}/edit
+   * Edit an existing order
+   * PUT /api/orders/{orderId}/edit
+   * @see API Documentation Section 1
    */
-  async editOrder(request: OrderEditRequest): Promise<ServiceResponse> {
-    console.log('🔧 Order Edit Request:', {
-      orderId: request.orderId,
-      operationsCount: request.operations.length,
-      hasBillingAddress: !!request.billingAddress,
-      hasShippingAddress: !!request.shippingAddress,
-      editReason: request.editReason,
-    });
+  async editOrder(request: OrderEditRequest): Promise<OrderEditResult> {
+    try {
+      console.log('🔧 Order Edit Request:', {
+        orderId: request.orderId,
+        operationsCount: request.operations.length,
+        hasBillingAddress: !!request.billingAddress,
+        hasShippingAddress: !!request.shippingAddress,
+        editReason: request.editReason,
+      });
 
-    // ✅ USE WRAPPED API CLIENT (returns ApiResponse)
-    const response = await apiClient.put<any>(
-      `${API_ENDPOINTS.orders}/${request.orderId}/edit`,
-      request
-    );
+      // ✅ apiClient returns { data: T, error?: string, success?: boolean }
+      const response = await apiClient.put<any>(
+        `${API_ENDPOINTS.orders}/${request.orderId}/edit`,
+        request
+      );
 
-    console.log('📥 API Response:', response);
+      console.log('📥 Edit Order Response:', response);
 
-    // ✅ Check for errors from wrapped response
-    if (response.error) {
-      console.error('❌ Order Edit Failed:', response.error);
-      return {
-        success: false,
-        message: response.error,
-      };
+      // ✅ Check if apiClient wrapper had error
+      if (response.error) {
+        throw new Error(response.error);
+      }
+
+      // ✅ Extract actual data from wrapper
+      const actualData = response.data;
+
+      // ✅ Check if backend returned error in nested structure
+      if (actualData && actualData.success === false) {
+        throw new Error(
+          actualData.message || 
+          actualData.errors?.[0] || 
+          'Failed to edit order'
+        );
+      }
+
+      // ✅ Return the nested data object
+      return actualData.data as OrderEditResult;
+      
+    } catch (error: any) {
+      console.error('❌ Edit Order Error:', error);
+      throw new Error(
+        error.response?.data?.message ||
+        error.response?.data?.errors?.[0] ||
+        error.message ||
+        'Failed to edit order'
+      );
     }
-
-    // ✅ Check backend success flag
-    const responseData = response.data;
-    
-    if (responseData?.success === false) {
-      console.error('❌ Backend Error:', responseData);
-      return {
-        success: false,
-        message: responseData.message ?? 'Backend returned error',
-        errors: responseData.errors,
-      };
-    }
-
-    console.log('✅ Order Edit Success:', responseData);
-
-    return {
-      success: true,
-      message: responseData?.message ?? 'Order updated successfully',
-      data: responseData?.data,
-    };
   }
 
-
   /**
-   * ✅ FIXED: Process full refund with null checks
+   * Process full refund
+   * POST /api/orders/{orderId}/refund
+   * @see API Documentation Section 2
    */
-  async processFullRefund(request: FullRefundRequest): Promise<ServiceResponse> {
+  async processFullRefund(request: FullRefundRequest): Promise<RefundResult> {
     try {
-      const response = await apiClient.post<ApiResponse>(
+      console.log('💰 Full Refund Request:', request);
+
+      const response = await apiClient.post<any>(
         `${API_ENDPOINTS.orders}/${request.orderId}/refund`,
         request
       );
 
-      const responseData = response.data;
+      console.log('📥 Full Refund Response:', response);
 
-      return {
-        success: responseData?.success ?? true,
-        message: responseData?.message ?? 'Refund processed successfully',
-        data: responseData?.data,
-      };
+      if (response.error) {
+        throw new Error(response.error);
+      }
+
+      const actualData = response.data;
+
+      if (actualData && actualData.success === false) {
+        throw new Error(
+          actualData.message || 
+          actualData.errors?.[0] || 
+          'Failed to process refund'
+        );
+      }
+
+      return actualData.data as RefundResult;
+      
     } catch (error: any) {
       console.error('❌ Full Refund Error:', error);
-      
-      const errorData = error.response?.data as ApiResponse | undefined;
-      
-      return {
-        success: false,
-        message: errorData?.message ?? 'Failed to process refund',
-        errors: errorData?.errors,
-      };
+      throw new Error(
+        error.response?.data?.message ||
+        error.response?.data?.errors?.[0] ||
+        error.message ||
+        'Failed to process refund'
+      );
     }
   }
 
   /**
-   * ✅ FIXED: Process partial refund with null checks
+   * Process partial refund
+   * POST /api/orders/{orderId}/partial-refund
+   * @see API Documentation Section 3
    */
-  async processPartialRefund(request: PartialRefundRequest): Promise<ServiceResponse> {
+  async processPartialRefund(request: PartialRefundRequest): Promise<RefundResult> {
     try {
-      const response = await apiClient.post<ApiResponse>(
+      console.log('💵 Partial Refund Request:', request);
+
+      const response = await apiClient.post<any>(
         `${API_ENDPOINTS.orders}/${request.orderId}/partial-refund`,
         request
       );
 
-      const responseData = response.data;
+      console.log('📥 Partial Refund Response:', response);
 
-      return {
-        success: responseData?.success ?? true,
-        message: responseData?.message ?? 'Partial refund processed successfully',
-        data: responseData?.data,
-      };
+      if (response.error) {
+        throw new Error(response.error);
+      }
+
+      const actualData = response.data;
+
+      if (actualData && actualData.success === false) {
+        throw new Error(
+          actualData.message || 
+          actualData.errors?.[0] || 
+          'Failed to process partial refund'
+        );
+      }
+
+      return actualData.data as RefundResult;
+      
     } catch (error: any) {
       console.error('❌ Partial Refund Error:', error);
-      
-      const errorData = error.response?.data as ApiResponse | undefined;
-
-      return {
-        success: false,
-        message: errorData?.message ?? 'Failed to process partial refund',
-        errors: errorData?.errors,
-      };
+      throw new Error(
+        error.response?.data?.message ||
+        error.response?.data?.errors?.[0] ||
+        error.message ||
+        'Failed to process partial refund'
+      );
     }
   }
 
   /**
-   * ✅ FIXED: Get refund history with null checks
+   * Get refund history
+   * GET /api/orders/{orderId}/refund-history
+   * @see API Documentation Section 4
    */
-  async getRefundHistory(orderId: string): Promise<ServiceResponse<RefundHistoryData>> {
+  async getRefundHistory(orderId: string): Promise<RefundHistory> {
     try {
-      const response = await apiClient.get<ApiResponse<RefundHistoryData>>(
+      const response = await apiClient.get<any>(
         `${API_ENDPOINTS.orders}/${orderId}/refund-history`
       );
 
-      const responseData = response.data;
+      if (response.error) {
+        throw new Error(response.error);
+      }
 
-      return {
-        success: responseData?.success ?? true,
-        message: responseData?.message,
-        data: responseData?.data,
-      };
+      const actualData = response.data;
+
+      if (actualData && actualData.success === false) {
+        throw new Error(
+          actualData.message || 
+          'Failed to fetch refund history'
+        );
+      }
+
+      return actualData.data as RefundHistory;
+      
     } catch (error: any) {
       console.error('❌ Refund History Error:', error);
-      
-      const errorData = error.response?.data as ApiResponse | undefined;
-
-      return {
-        success: false,
-        message: errorData?.message ?? 'Failed to fetch refund history',
-      };
+      throw new Error(
+        error.response?.data?.message ||
+        error.message ||
+        'Failed to fetch refund history'
+      );
     }
   }
 
   /**
-   * ✅ FIXED: Get edit history with null checks
+   * Get edit history
+   * GET /api/orders/{orderId}/edit-history
+   * @see API Documentation Section 5
    */
-  async getEditHistory(orderId: string): Promise<ServiceResponse<EditHistoryItem[]>> {
+  async getEditHistory(orderId: string): Promise<OrderHistory[]> {
     try {
-      const response = await apiClient.get<ApiResponse<EditHistoryItem[]>>(
+      const response = await apiClient.get<any>(
         `${API_ENDPOINTS.orders}/${orderId}/edit-history`
       );
 
-      const responseData = response.data;
+      if (response.error) {
+        throw new Error(response.error);
+      }
 
-      return {
-        success: responseData?.success ?? true,
-        message: responseData?.message,
-        data: responseData?.data,
-      };
+      const actualData = response.data;
+
+      if (actualData && actualData.success === false) {
+        throw new Error(
+          actualData.message || 
+          'Failed to fetch edit history'
+        );
+      }
+
+      return actualData.data as OrderHistory[];
+      
     } catch (error: any) {
       console.error('❌ Edit History Error:', error);
-      
-      const errorData = error.response?.data as ApiResponse | undefined;
-
-      return {
-        success: false,
-        message: errorData?.message ?? 'Failed to fetch edit history',
-      };
+      throw new Error(
+        error.response?.data?.message ||
+        error.message ||
+        'Failed to fetch edit history'
+      );
     }
   }
 
   /**
-   * ✅ FIXED: Regenerate invoice with null checks
+   * Regenerate invoice
+   * POST /api/orders/{orderId}/regenerate-invoice
+   * @see API Documentation Section 6
    */
-  async regenerateInvoice(request: RegenerateInvoiceRequest): Promise<ServiceResponse> {
+  async regenerateInvoice(request: RegenerateInvoiceRequest): Promise<Invoice> {
     try {
-      const response = await apiClient.post<ApiResponse>(
+      console.log('📄 Regenerate Invoice Request:', request);
+
+      const response = await apiClient.post<any>(
         `${API_ENDPOINTS.orders}/${request.orderId}/regenerate-invoice`,
         request
       );
 
-      const responseData = response.data;
+      console.log('📥 Regenerate Invoice Response:', response);
 
-      return {
-        success: responseData?.success ?? true,
-        message: responseData?.message ?? 'Invoice regenerated successfully',
-        data: responseData?.data,
-      };
+      if (response.error) {
+        throw new Error(response.error);
+      }
+
+      const actualData = response.data;
+
+      if (actualData && actualData.success === false) {
+        throw new Error(
+          actualData.message || 
+          'Failed to regenerate invoice'
+        );
+      }
+
+      return actualData.data as Invoice;
+      
     } catch (error: any) {
       console.error('❌ Regenerate Invoice Error:', error);
-      
-      const errorData = error.response?.data as ApiResponse | undefined;
-
-      return {
-        success: false,
-        message: errorData?.message ?? 'Failed to regenerate invoice',
-      };
+      throw new Error(
+        error.response?.data?.message ||
+        error.message ||
+        'Failed to regenerate invoice'
+      );
     }
   }
 
+  // ===========================
+  // HELPER METHODS
+  // ===========================
+
   /**
-   * ✅ Helper: Validate and clean address data
+   * Validate and clean address data
+   * @returns Cleaned address or undefined if invalid
    */
   validateAndCleanAddress(address: Partial<Address>): Address | undefined {
     // Check if address has required fields with actual values
@@ -381,75 +586,139 @@ class OrderEditService {
   }
 
   /**
-   * Helper: Create update quantity operation
+   * Create update quantity operation
+   * @see API Documentation Section 1 - UpdateQuantity
    */
   createUpdateQuantityOperation(
     orderItemId: string,
     newQuantity: number
   ): OrderEditOperation {
     return {
-      operationType: "UpdateQuantity",
+      operationType: OrderEditOperationType.UpdateQuantity,
       orderItemId,
       newQuantity,
     };
   }
 
   /**
-   * Helper: Create update price operation
+   * Create update price operation
+   * @see API Documentation Section 1 - UpdatePrice
    */
   createUpdatePriceOperation(
     orderItemId: string,
     newUnitPrice: number
   ): OrderEditOperation {
     return {
-      operationType: "UpdatePrice",
+      operationType: OrderEditOperationType.UpdatePrice,
       orderItemId,
       newUnitPrice,
     };
   }
 
   /**
-   * Helper: Create remove item operation
+   * Create remove item operation
+   * @see API Documentation Section 1 - RemoveItem
    */
   createRemoveItemOperation(orderItemId: string): OrderEditOperation {
     return {
-      operationType: "RemoveItem",
+      operationType: OrderEditOperationType.RemoveItem,
       orderItemId,
     };
   }
 
   /**
-   * Helper: Create add item operation
+   * Create add item operation
+   * @see API Documentation Section 1 - AddItem
    */
   createAddItemOperation(
     productId: string,
     quantity: number,
-    unitPrice: number,
-    productVariantId?: string
+    unitPrice?: number,
+    productVariantId?: string | null
   ): OrderEditOperation {
-    return {
-      operationType: "AddItem",
+    const operation: OrderEditOperation = {
+      operationType: OrderEditOperationType.AddItem,
       productId,
-      productVariantId,
       newQuantity: quantity,
-      newUnitPrice: unitPrice,
+      productVariantId: productVariantId || null,
     };
+
+    // ✅ Only include newUnitPrice if provided (otherwise backend uses current price)
+    if (unitPrice !== undefined) {
+      operation.newUnitPrice = unitPrice;
+    }
+
+    return operation;
   }
 
   /**
-   * Helper: Create replace item operation
+   * Create replace item operation
+   * @see API Documentation Section 1 - ReplaceItem
    */
   createReplaceItemOperation(
     orderItemId: string,
     replacementProductId: string,
-    replacementProductVariantId?: string
+    newQuantity?: number,
+    newUnitPrice?: number,
+    replacementProductVariantId?: string | null
   ): OrderEditOperation {
     return {
-      operationType: "ReplaceItem",
+      operationType: OrderEditOperationType.ReplaceItem,
       orderItemId,
       replacementProductId,
-      replacementProductVariantId,
+      replacementProductVariantId: replacementProductVariantId || null,
+      newQuantity,
+      newUnitPrice,
     };
+  }
+
+  /**
+   * Get refund reason label
+   */
+  getRefundReasonLabel(reason: RefundReason): string {
+    const labels: Record<RefundReason, string> = {
+      [RefundReason.CustomerRequest]: 'Customer Request',
+      [RefundReason.OrderCancellation]: 'Order Cancellation',
+      [RefundReason.ItemOutOfStock]: 'Item Out of Stock',
+      [RefundReason.DamagedItem]: 'Damaged Item',
+      [RefundReason.WrongItemShipped]: 'Wrong Item Shipped',
+      [RefundReason.PriceAdjustment]: 'Price Adjustment',
+      [RefundReason.DuplicateCharge]: 'Duplicate Charge',
+      [RefundReason.ServiceIssue]: 'Service Issue',
+      [RefundReason.PartialOrderCancellation]: 'Partial Order Cancellation',
+      [RefundReason.QualityIssue]: 'Quality Issue',
+      [RefundReason.LateDelivery]: 'Late Delivery',
+      [RefundReason.Other]: 'Other',
+    };
+    return labels[reason] || 'Unknown';
+  }
+
+  /**
+   * Check if order can be edited based on status
+   * @see API Documentation - Business Rules
+   */
+  canEditOrder(orderStatus: number): boolean {
+    // Editable statuses: Pending (0), Confirmed (1), Processing (2), Shipped (3)
+    const EDITABLE_STATUSES = [0, 1, 2, 3];
+    return EDITABLE_STATUSES.includes(orderStatus);
+  }
+
+  /**
+   * Get order status label
+   */
+  getOrderStatusLabel(status: number): string {
+    const labels: Record<number, string> = {
+      0: 'Pending',
+      1: 'Confirmed',
+      2: 'Processing',
+      3: 'Shipped',
+      4: 'Delivered',
+      5: 'Cancelled',
+      6: 'Refunded',
+      7: 'OnHold',
+      8: 'Failed',
+    };
+    return labels[status] || 'Unknown';
   }
 }
 

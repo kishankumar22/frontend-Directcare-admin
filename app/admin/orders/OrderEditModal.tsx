@@ -15,7 +15,6 @@ import {
   Info,
   Edit3,
   ShoppingCart,
-  Hash,
   Check,
   XCircle,
   Filter,
@@ -27,17 +26,25 @@ import {
   CreditCard,
   ChevronDown,
   ChevronUp,
+  DollarSign,
 } from 'lucide-react';
 import { useToast } from '@/components/CustomToast';
 import Select from 'react-select';
 import { brandsService } from '@/lib/services/brands';
 import { categoriesService } from '@/lib/services/categories';
 import productsService from '@/lib/services/products';
-import { Address, OrderEditRequest, orderEditService } from '@/lib/services/OrderEdit';
+import {
+  Address,
+  OrderEditRequest,
+  orderEditService,
+  OrderEditOperationType,
+} from '@/lib/services/OrderEdit';
 import { Order } from '@/lib/services/orders';
 
+// ===========================
+// INTERFACES
+// ===========================
 
-// ✅ Product Types from Service
 interface Product {
   id: string;
   name: string;
@@ -95,7 +102,10 @@ interface OrderEditModalProps {
   onSuccess: () => void;
 }
 
-// ✅ React Select Custom Styles
+// ===========================
+// REACT SELECT STYLES
+// ===========================
+
 const selectStyles = {
   control: (base: any, state: any) => ({
     ...base,
@@ -147,6 +157,30 @@ const selectStyles = {
     color: 'white',
   }),
 };
+
+// ✅ Add this helper function at the top of component (after imports, before component)
+const getStatusAsNumber = (status: string | number): number => {
+  if (typeof status === 'number') return status;
+  
+  // Map string status to number
+  const statusMap: Record<string, number> = {
+    'Pending': 0,
+    'Confirmed': 1,
+    'Processing': 2,
+    'Shipped': 3,
+    'Delivered': 4,
+    'Cancelled': 5,
+    'Refunded': 6,
+    'OnHold': 7,
+    'Failed': 8,
+  };
+  
+  return statusMap[status] ?? 0;
+};
+
+// ===========================
+// MAIN COMPONENT
+// ===========================
 
 export default function OrderEditModal({
   isOpen,
@@ -220,49 +254,68 @@ export default function OrderEditModal({
   const [operations, setOperations] = useState<any[]>([]);
   const [editedItems, setEditedItems] = useState<Map<string, number>>(new Map());
 
-  // ✅ Load Brands, Categories & Products on mount
+  // ✅ Validation State
+  const [validationErrors, setValidationErrors] = useState<string[]>([]);
+
+  // ===========================
+  // LIFECYCLE & DATA LOADING
+  // ===========================
+
+  // ✅ Load data on modal open
   useEffect(() => {
     if (isOpen) {
       loadFilterOptions();
       loadProducts();
       prefillAddresses();
+      validateOrderStatus();
     }
   }, [isOpen]);
 
+  // ✅ FIXED: Validate if order can be edited
+  const validateOrderStatus = () => {
+    const statusNumber = getStatusAsNumber(order.status);
+    
+    if (!orderEditService.canEditOrder(statusNumber)) {
+      toast.error(
+        `Cannot edit order with status: ${orderEditService.getOrderStatusLabel(statusNumber)}`
+      );
+      setTimeout(() => onClose(), 2000);
+    }
+  };
+
+
   // ✅ Prefill Addresses from Order
-const prefillAddresses = () => {
-  if (order.billingAddress) {
-    // ✅ Only set if value exists, otherwise leave undefined
-    setBillingAddress({
-      firstName: order.billingAddress.firstName || '',
-      lastName: order.billingAddress.lastName || '',
-      company: order.billingAddress.company || '',
-      addressLine1: order.billingAddress.addressLine1 || '',
-      addressLine2: order.billingAddress.addressLine2 || '',
-      city: order.billingAddress.city || '',
-      state: order.billingAddress.state || '',
-      postalCode: order.billingAddress.postalCode || '',
-      country: order.billingAddress.country || '',
-      phoneNumber: order.billingAddress.phoneNumber || '',
-    });
-  }
+  const prefillAddresses = () => {
+    if (order.billingAddress) {
+      setBillingAddress({
+        firstName: order.billingAddress.firstName || '',
+        lastName: order.billingAddress.lastName || '',
+        company: order.billingAddress.company || '',
+        addressLine1: order.billingAddress.addressLine1 || '',
+        addressLine2: order.billingAddress.addressLine2 || '',
+        city: order.billingAddress.city || '',
+        state: order.billingAddress.state || '',
+        postalCode: order.billingAddress.postalCode || '',
+        country: order.billingAddress.country || '',
+        phoneNumber: order.billingAddress.phoneNumber || '',
+      });
+    }
 
-  if (order.shippingAddress) {
-    setShippingAddress({
-      firstName: order.shippingAddress.firstName || '',
-      lastName: order.shippingAddress.lastName || '',
-      company: order.shippingAddress.company || '',
-      addressLine1: order.shippingAddress.addressLine1 || '',
-      addressLine2: order.shippingAddress.addressLine2 || '',
-      city: order.shippingAddress.city || '',
-      state: order.shippingAddress.state || '',
-      postalCode: order.shippingAddress.postalCode || '',
-      country: order.shippingAddress.country || '',
-      phoneNumber: order.shippingAddress.phoneNumber || '',
-    });
-  }
-};
-
+    if (order.shippingAddress) {
+      setShippingAddress({
+        firstName: order.shippingAddress.firstName || '',
+        lastName: order.shippingAddress.lastName || '',
+        company: order.shippingAddress.company || '',
+        addressLine1: order.shippingAddress.addressLine1 || '',
+        addressLine2: order.shippingAddress.addressLine2 || '',
+        city: order.shippingAddress.city || '',
+        state: order.shippingAddress.state || '',
+        postalCode: order.shippingAddress.postalCode || '',
+        country: order.shippingAddress.country || '',
+        phoneNumber: order.shippingAddress.phoneNumber || '',
+      });
+    }
+  };
 
   // ✅ Recursive Category Sorting
   const sortCategoriesRecursive = (cats: Category[]): Category[] => {
@@ -284,7 +337,7 @@ const prefillAddresses = () => {
       });
   };
 
-  // ✅ Load Filter Options using Services
+  // ✅ Load Filter Options
   const loadFilterOptions = async () => {
     setLoadingFilters(true);
     try {
@@ -320,7 +373,7 @@ const prefillAddresses = () => {
     }
   };
 
-  // ✅ Load All Products using productsService
+  // ✅ Load All Products
   const loadProducts = async () => {
     try {
       const productsResponse = await productsService.getAll({
@@ -375,8 +428,13 @@ const prefillAddresses = () => {
       setShippingAddressChanged(false);
       setShowBillingAddress(false);
       setShowShippingAddress(false);
+      setValidationErrors([]);
     }
   }, [isOpen]);
+
+  // ===========================
+  // SEARCH & FILTER
+  // ===========================
 
   // ✅ Helper to get primary category name
   const getPrimaryCategoryName = (categories: any[]): string => {
@@ -433,15 +491,20 @@ const prefillAddresses = () => {
     return () => clearTimeout(timer);
   }, [searchQuery, filters, allProducts]);
 
+  // ===========================
+  // ITEM OPERATIONS
+  // ===========================
+
   // ✅ Update Item Quantity
   const updateItemQuantity = (itemId: string, currentQty: number, change: number) => {
     const newQty = Math.max(0, currentQty + change);
 
     if (newQty === 0) {
+      // Remove item
       setOperations((prev) => [
         ...prev.filter((op) => op.orderItemId !== itemId),
         {
-          operationType: 'RemoveItem',
+          operationType: OrderEditOperationType.RemoveItem,
           orderItemId: itemId,
         },
       ]);
@@ -451,10 +514,11 @@ const prefillAddresses = () => {
         return newMap;
       });
     } else {
+      // Update quantity
       setOperations((prev) => [
         ...prev.filter((op) => op.orderItemId !== itemId),
         {
-          operationType: 'UpdateQuantity',
+          operationType: OrderEditOperationType.UpdateQuantity,
           orderItemId: itemId,
           newQuantity: newQty,
         },
@@ -472,10 +536,17 @@ const prefillAddresses = () => {
     const finalPrice =
       variant?.price || product.salePrice || product.price || product.regularPrice || 0;
 
+    // ✅ Validation: Check stock
+    const availableStock = variant?.stockQuantity || product.stockQuantity;
+    if (availableStock < 1) {
+      toast.error('Product is out of stock');
+      return;
+    }
+
     const operation = {
-      operationType: 'AddItem',
+      operationType: OrderEditOperationType.AddItem,
       productId: product.id,
-      productVariantId: variant?.id,
+      productVariantId: variant?.id || null,
       newQuantity: 1,
       newUnitPrice: finalPrice,
     };
@@ -491,7 +562,7 @@ const prefillAddresses = () => {
     setOperations((prev) => [
       ...prev.filter((op) => op.orderItemId !== itemId),
       {
-        operationType: 'RemoveItem',
+        operationType: OrderEditOperationType.RemoveItem,
         orderItemId: itemId,
       },
     ]);
@@ -502,103 +573,159 @@ const prefillAddresses = () => {
     });
   };
 
-  // ✅ Check if there are address changes
-  const hasAddressChanges = () => {
-    return billingAddressChanged || shippingAddressChanged;
-  };
+  // ===========================
+  // VALIDATION
+  // ===========================
 
-  // ✅ Submit Edit using Service
-// ✅ FIXED: Submit Edit with proper validation and error handling
-const handleSubmit = async (e: FormEvent) => {
-  e.preventDefault();
+  // ✅ Validate form before submit
+  const validateForm = (): boolean => {
+    const errors: string[] = [];
 
-  // ✅ Validate: Must have changes
-  if (operations.length === 0 && !hasAddressChanges()) {
-    toast.warning('⚠️ No changes made to the order');
-    return;
-  }
+    // Check if any changes made
+    if (operations.length === 0 && !billingAddressChanged && !shippingAddressChanged) {
+      errors.push('No changes made to the order');
+    }
 
-  // ✅ Validate: Must have edit reason
-  if (!editData.editReason.trim()) {
-    toast.error('Please provide a reason for editing this order');
-    return;
-  }
+    // Check edit reason
+    if (!editData.editReason.trim()) {
+      errors.push('Edit reason is required');
+    }
 
-  setLoading(true);
-
-  try {
-    const editRequest: OrderEditRequest = {
-      orderId: order.id,
-      operations, // ✅ Can be empty if only address changed
-      editReason: editData.editReason.trim(),
-      adminNotes: editData.adminNotes?.trim() || undefined,
-      recalculateTotals: editData.recalculateTotals,
-      adjustInventory: editData.adjustInventory,
-      sendCustomerNotification: editData.sendCustomerNotification,
-      currentUser: 'Admin', // TODO: Get from auth context
-      ipAddress: '0.0.0.0', // TODO: Get actual IP
-    };
-
-    // ✅ Only add addresses if they changed AND are valid
+    // Validate addresses if changed
     if (billingAddressChanged) {
       const cleanedAddress = orderEditService.validateAndCleanAddress(billingAddress);
-      if (cleanedAddress) {
-        editRequest.billingAddress = cleanedAddress;
-      } else {
-        toast.error('Please fill all required billing address fields');
-        setLoading(false);
-        return;
+      if (!cleanedAddress) {
+        errors.push('Please fill all required billing address fields');
       }
     }
 
     if (shippingAddressChanged) {
       const cleanedAddress = orderEditService.validateAndCleanAddress(shippingAddress);
-      if (cleanedAddress) {
-        editRequest.shippingAddress = cleanedAddress;
-      } else {
-        toast.error('Please fill all required shipping address fields');
-        setLoading(false);
-        return;
+      if (!cleanedAddress) {
+        errors.push('Please fill all required shipping address fields');
       }
     }
 
-    console.log('📤 Sending Order Edit Request:', editRequest);
+    // Check if all items will be removed
+    const remainingItems = order.orderItems.filter((item) => {
+      const currentQty = editedItems.get(item.id);
+      return currentQty === undefined || currentQty > 0;
+    });
 
-    // ✅ Use service to edit order
-    const response = await orderEditService.editOrder(editRequest);
+    const newItemsCount = operations.filter(
+      (op) => op.operationType === OrderEditOperationType.AddItem
+    ).length;
 
-    console.log('📥 Order Edit Response:', response);
+    if (remainingItems.length === 0 && newItemsCount === 0) {
+      errors.push('Cannot remove all items from order');
+    }
 
-    if (response.success) {
-      toast.success('✅ Order updated successfully!');
+    setValidationErrors(errors);
+
+    if (errors.length > 0) {
+      toast.error(errors[0]);
+      return false;
+    }
+
+    return true;
+  };
+
+  // ===========================
+  // FORM SUBMISSION
+  // ===========================
+
+  // ✅ Submit Edit
+  const handleSubmit = async (e: FormEvent) => {
+    e.preventDefault();
+
+    // ✅ Validate form
+    if (!validateForm()) {
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      // ✅ Build request
+      const editRequest: OrderEditRequest = {
+        orderId: order.id,
+        operations,
+        editReason: editData.editReason.trim() || null,
+        adminNotes: editData.adminNotes?.trim() || null,
+        recalculateTotals: editData.recalculateTotals,
+        adjustInventory: editData.adjustInventory,
+        sendCustomerNotification: editData.sendCustomerNotification,
+        billingAddress: null,
+        shippingAddress: null,
+      };
+
+      // ✅ Add addresses if changed
+      if (billingAddressChanged) {
+        const cleanedAddress = orderEditService.validateAndCleanAddress(billingAddress);
+        if (cleanedAddress) {
+          editRequest.billingAddress = cleanedAddress;
+        }
+      }
+
+      if (shippingAddressChanged) {
+        const cleanedAddress = orderEditService.validateAndCleanAddress(shippingAddress);
+        if (cleanedAddress) {
+          editRequest.shippingAddress = cleanedAddress;
+        }
+      }
+
+      console.log('📤 Sending Order Edit Request:', editRequest);
+
+      // ✅ Call service
+      const result = await orderEditService.editOrder(editRequest);
+
+      console.log('📥 Order Edit Result:', result);
+
+      // ✅ Success
+      toast.success(`✅ ${result.message}`);
+
+      // ✅ Show price difference
+      if (result.priceDifference !== 0) {
+        const sign = result.priceDifference > 0 ? '+' : '';
+        toast.info(
+          `💰 Total: £${result.oldTotalAmount.toFixed(2)} → £${result.newTotalAmount.toFixed(2)} (${sign}£${result.priceDifference.toFixed(2)})`,
+        
+        );
+      }
+
+      // ✅ Show refund recommendation
+      if (result.refundRecommended && result.recommendedRefundAmount > 0) {
+        toast.warning(
+          `⚠️ Refund recommended: £${result.recommendedRefundAmount.toFixed(2)}`,
+       
+        );
+      }
+
+      // ✅ Show inventory adjustments
+      if (result.inventoryAdjustments.length > 0) {
+        const deducted = result.inventoryAdjustments.filter(
+          (a) => a.adjustmentType === 'Deducted'
+        ).length;
+        const restored = result.inventoryAdjustments.filter(
+          (a) => a.adjustmentType === 'Restored'
+        ).length;
+        toast.info(`📦 Stock: ${deducted} deducted, ${restored} restored`);
+      }
+
       onSuccess();
       onClose();
-    } else {
-      // ✅ Show specific error from backend
-      toast.error(response.message || 'Failed to update order');
+    } catch (error: any) {
+      console.error('❌ Edit order error:', error);
+      toast.error(error.message || 'Failed to update order');
+    } finally {
+      setLoading(false);
     }
-  } catch (error: any) {
-    console.error('❌ Edit order error:', error);
-    toast.error(error.message || 'An unexpected error occurred');
-  } finally {
-    setLoading(false);
-  }
-};
-
-  // ✅ Calculate stats
-  const getNewItemCount = () => {
-    return operations.filter((op) => op.operationType === 'AddItem').length;
   };
 
-  const getRemovedItemCount = () => {
-    return operations.filter((op) => op.operationType === 'RemoveItem').length;
-  };
+  // ===========================
+  // HELPER FUNCTIONS
+  // ===========================
 
-  const getUpdatedItemCount = () => {
-    return operations.filter((op) => op.operationType === 'UpdateQuantity').length;
-  };
-
-  // ✅ Get total changes count
   const getTotalChangesCount = () => {
     let count = operations.length;
     if (billingAddressChanged) count++;
@@ -606,7 +733,6 @@ const handleSubmit = async (e: FormEvent) => {
     return count;
   };
 
-  // ✅ Clear All Filters
   const clearFilters = () => {
     setFilters({
       productType: null,
@@ -618,7 +744,6 @@ const handleSubmit = async (e: FormEvent) => {
   const hasActiveFilters =
     filters.productType !== null || filters.brandId !== null || filters.categoryId !== null;
 
-  // ✅ Flatten categories for Select dropdown
   const flattenCategories = (
     cats: Category[],
     level = 0
@@ -640,28 +765,32 @@ const handleSubmit = async (e: FormEvent) => {
     return result;
   };
 
-  // ✅ Get display price
   const getDisplayPrice = (product: Product): number => {
     return product.salePrice || product.price || product.regularPrice || 0;
   };
 
   if (!isOpen) return null;
 
+  // ===========================
+  // RENDER
+  // ===========================
+
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-3">
       <div className="bg-slate-800 border border-slate-700 rounded-2xl max-w-6xl w-full max-h-[95vh] overflow-hidden shadow-2xl">
-        {/* Header */}
+        {/* ✅ Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-slate-700 bg-gradient-to-r from-violet-900/20 to-purple-900/20">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-violet-500/10 rounded-lg border border-violet-500/20">
               <Edit3 className="h-5 w-5 text-violet-400" />
             </div>
-            <div>
+           <div>
               <h2 className="text-lg font-semibold text-white">Edit Order</h2>
               <p className="text-xs text-slate-400 mt-0.5">
-                #{order.orderNumber} • {order.orderItems.length} items
+                #{order.orderNumber} • {order.orderItems.length} items • Status:{' '}
+                {orderEditService.getOrderStatusLabel(getStatusAsNumber(order.status))}
               </p>
-            </div>
+            </div>  
           </div>
           <button
             onClick={onClose}
@@ -672,9 +801,38 @@ const handleSubmit = async (e: FormEvent) => {
           </button>
         </div>
 
-        {/* Content */}
+        {/* ✅ Content */}
         <form onSubmit={handleSubmit}>
           <div className="p-5 overflow-y-auto max-h-[calc(95vh-180px)] space-y-5">
+            {/* ✅ Validation Errors */}
+            {validationErrors.length > 0 && (
+              <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-3">
+                <div className="flex items-start gap-2">
+                  <AlertTriangle className="h-4 w-4 text-red-400 mt-0.5 flex-shrink-0" />
+                  <div className="flex-1">
+                    <p className="text-sm font-semibold text-red-400">Validation Errors:</p>
+                    <ul className="text-xs text-red-300 mt-1 space-y-1">
+                      {validationErrors.map((error, idx) => (
+                        <li key={idx}>• {error}</li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* ✅ Changes Summary */}
+            {getTotalChangesCount() > 0 && (
+              <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-3">
+                <div className="flex items-center gap-2">
+                  <Info className="h-4 w-4 text-amber-400" />
+                  <p className="text-sm text-amber-300">
+                    <span className="font-semibold">{getTotalChangesCount()}</span> pending changes
+                  </p>
+                </div>
+              </div>
+            )}
+
             {/* ✅ Add New Product Section */}
             <div className="bg-slate-900/30 rounded-xl border border-slate-700 p-4">
               <div className="flex items-center gap-2 mb-3">
@@ -682,7 +840,7 @@ const handleSubmit = async (e: FormEvent) => {
                 <h3 className="text-sm font-semibold text-white">Add New Product</h3>
               </div>
 
-              {/* ✅ Filters Row - Compact */}
+              {/* Filters Row */}
               <div className="grid grid-cols-3 gap-2 mb-3">
                 <Select
                   value={filters.productType}
@@ -760,11 +918,10 @@ const handleSubmit = async (e: FormEvent) => {
                 )}
               </div>
 
-              {/* Search Results - Compact */}
+              {/* Search Results */}
               {searchResults.length > 0 && (
                 <div className="mt-2 bg-slate-900/50 border border-slate-700 rounded-lg overflow-hidden max-h-48 overflow-y-auto">
                   {searchResults.map((product) => {
-                    const categoryName = getPrimaryCategoryName(product.categories || []);
                     const displayPrice = getDisplayPrice(product);
 
                     return (
@@ -780,9 +937,7 @@ const handleSubmit = async (e: FormEvent) => {
                               {product.name}
                             </p>
                             <div className="flex items-center gap-1.5 mt-1 flex-wrap">
-                              <span className="text-xs text-slate-400">
-                                {product.sku}
-                              </span>
+                              <span className="text-xs text-slate-400">{product.sku}</span>
                               {product.brandName && (
                                 <span className="text-xs px-1.5 py-0.5 rounded bg-cyan-500/10 text-cyan-400">
                                   {product.brandName}
@@ -794,7 +949,11 @@ const handleSubmit = async (e: FormEvent) => {
                             <p className="text-green-400 font-semibold text-sm">
                               £{displayPrice.toFixed(2)}
                             </p>
-                            <p className="text-xs text-slate-400">
+                            <p
+                              className={`text-xs ${
+                                product.stockQuantity > 0 ? 'text-slate-400' : 'text-red-400'
+                              }`}
+                            >
                               Stock: {product.stockQuantity}
                             </p>
                           </div>
@@ -813,7 +972,7 @@ const handleSubmit = async (e: FormEvent) => {
               )}
             </div>
 
-            {/* Current Order Items - Compact */}
+            {/* ✅ Current Order Items */}
             <div className="bg-slate-900/30 rounded-xl border border-slate-700 p-4">
               <div className="flex items-center gap-2 mb-3">
                 <ShoppingCart className="h-4 w-4 text-cyan-400" />
@@ -904,412 +1063,388 @@ const handleSubmit = async (e: FormEvent) => {
               </div>
             </div>
 
-            {/* ✅ Billing Address Section - Collapsible */}
-            <div className="bg-slate-900/30 rounded-xl border border-slate-700">
-              <button
-                type="button"
-                onClick={() => setShowBillingAddress(!showBillingAddress)}
-                className="w-full px-4 py-3 flex items-center justify-between hover:bg-slate-800/50 transition-colors rounded-t-xl"
-              >
-                <div className="flex items-center gap-2">
-                  <CreditCard className="h-4 w-4 text-blue-400" />
-                  <h3 className="text-sm font-semibold text-white">Billing Address</h3>
-                  {billingAddressChanged && (
-                    <span className="px-1.5 py-0.5 text-xs bg-amber-500/10 text-amber-400 rounded">
-                      Modified
-                    </span>
+            {/* ✅ Addresses Section - Side by Side */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              {/* Billing Address */}
+              <div className="bg-slate-900/30 rounded-xl border border-slate-700">
+                <button
+                  type="button"
+                  onClick={() => setShowBillingAddress(!showBillingAddress)}
+                  className="w-full px-4 py-3 flex items-center justify-between hover:bg-slate-800/50 transition-colors rounded-t-xl"
+                >
+                  <div className="flex items-center gap-2">
+                    <CreditCard className="h-4 w-4 text-blue-400" />
+                    <h3 className="text-sm font-semibold text-white">Billing Address</h3>
+                    {billingAddressChanged && (
+                      <span className="px-1.5 py-0.5 text-xs bg-amber-500/10 text-amber-400 rounded">
+                        Modified
+                      </span>
+                    )}
+                  </div>
+                  {showBillingAddress ? (
+                    <ChevronUp className="h-4 w-4 text-slate-400" />
+                  ) : (
+                    <ChevronDown className="h-4 w-4 text-slate-400" />
                   )}
-                </div>
-                {showBillingAddress ? (
-                  <ChevronUp className="h-4 w-4 text-slate-400" />
-                ) : (
-                  <ChevronDown className="h-4 w-4 text-slate-400" />
+                </button>
+
+                {showBillingAddress && (
+                  <div className="p-4 border-t border-slate-700 space-y-3">
+                    <div className="grid grid-cols-2 gap-2">
+                      <input
+                        type="text"
+                        value={billingAddress.firstName}
+                        onChange={(e) => {
+                          setBillingAddress({ ...billingAddress, firstName: e.target.value });
+                          setBillingAddressChanged(true);
+                        }}
+                        placeholder="First Name *"
+                        className="px-3 py-2 bg-slate-900/50 border border-slate-700 rounded-lg text-sm text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500"
+                      />
+                      <input
+                        type="text"
+                        value={billingAddress.lastName}
+                        onChange={(e) => {
+                          setBillingAddress({ ...billingAddress, lastName: e.target.value });
+                          setBillingAddressChanged(true);
+                        }}
+                        placeholder="Last Name *"
+                        className="px-3 py-2 bg-slate-900/50 border border-slate-700 rounded-lg text-sm text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500"
+                      />
+                    </div>
+                    <input
+                      type="text"
+                      value={billingAddress.company || ''}
+                      onChange={(e) => {
+                        setBillingAddress({ ...billingAddress, company: e.target.value });
+                        setBillingAddressChanged(true);
+                      }}
+                      placeholder="Company (Optional)"
+                      className="w-full px-3 py-2 bg-slate-900/50 border border-slate-700 rounded-lg text-sm text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500"
+                    />
+                    <input
+                      type="text"
+                      value={billingAddress.addressLine1}
+                      onChange={(e) => {
+                        setBillingAddress({ ...billingAddress, addressLine1: e.target.value });
+                        setBillingAddressChanged(true);
+                      }}
+                      placeholder="Address Line 1 *"
+                      className="w-full px-3 py-2 bg-slate-900/50 border border-slate-700 rounded-lg text-sm text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500"
+                    />
+                    <input
+                      type="text"
+                      value={billingAddress.addressLine2 || ''}
+                      onChange={(e) => {
+                        setBillingAddress({ ...billingAddress, addressLine2: e.target.value });
+                        setBillingAddressChanged(true);
+                      }}
+                      placeholder="Address Line 2 (Optional)"
+                      className="w-full px-3 py-2 bg-slate-900/50 border border-slate-700 rounded-lg text-sm text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500"
+                    />
+                    <div className="grid grid-cols-2 gap-2">
+                      <input
+                        type="text"
+                        value={billingAddress.city}
+                        onChange={(e) => {
+                          setBillingAddress({ ...billingAddress, city: e.target.value });
+                          setBillingAddressChanged(true);
+                        }}
+                        placeholder="City *"
+                        className="px-3 py-2 bg-slate-900/50 border border-slate-700 rounded-lg text-sm text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500"
+                      />
+                      <input
+                        type="text"
+                        value={billingAddress.state}
+                        onChange={(e) => {
+                          setBillingAddress({ ...billingAddress, state: e.target.value });
+                          setBillingAddressChanged(true);
+                        }}
+                        placeholder="State/County *"
+                        className="px-3 py-2 bg-slate-900/50 border border-slate-700 rounded-lg text-sm text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500"
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <input
+                        type="text"
+                        value={billingAddress.postalCode}
+                        onChange={(e) => {
+                          setBillingAddress({ ...billingAddress, postalCode: e.target.value });
+                          setBillingAddressChanged(true);
+                        }}
+                        placeholder="Postal Code *"
+                        className="px-3 py-2 bg-slate-900/50 border border-slate-700 rounded-lg text-sm text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500"
+                      />
+                      <input
+                        type="text"
+                        value={billingAddress.country}
+                        onChange={(e) => {
+                          setBillingAddress({ ...billingAddress, country: e.target.value });
+                          setBillingAddressChanged(true);
+                        }}
+                        placeholder="Country *"
+                        className="px-3 py-2 bg-slate-900/50 border border-slate-700 rounded-lg text-sm text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500"
+                      />
+                    </div>
+                    <input
+                      type="tel"
+                      value={billingAddress.phoneNumber}
+                      onChange={(e) => {
+                        setBillingAddress({ ...billingAddress, phoneNumber: e.target.value });
+                        setBillingAddressChanged(true);
+                      }}
+                      placeholder="Phone Number *"
+                      className="w-full px-3 py-2 bg-slate-900/50 border border-slate-700 rounded-lg text-sm text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500"
+                    />
+                  </div>
                 )}
-              </button>
-
-              {showBillingAddress && (
-                <div className="p-4 border-t border-slate-700 grid grid-cols-2 gap-3">
-                  <input
-                    type="text"
-                    value={billingAddress.firstName}
-                    onChange={(e) => {
-                      setBillingAddress({ ...billingAddress, firstName: e.target.value });
-                      setBillingAddressChanged(true);
-                    }}
-                    placeholder="First Name"
-                    className="px-3 py-2 bg-slate-900/50 border border-slate-700 rounded-lg text-sm text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500"
-                  />
-                  <input
-                    type="text"
-                    value={billingAddress.lastName}
-                    onChange={(e) => {
-                      setBillingAddress({ ...billingAddress, lastName: e.target.value });
-                      setBillingAddressChanged(true);
-                    }}
-                    placeholder="Last Name"
-                    className="px-3 py-2 bg-slate-900/50 border border-slate-700 rounded-lg text-sm text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500"
-                  />
-                  <input
-                    type="text"
-                    value={billingAddress.company || ''}
-                    onChange={(e) => {
-                      setBillingAddress({ ...billingAddress, company: e.target.value });
-                      setBillingAddressChanged(true);
-                    }}
-                    placeholder="Company (Optional)"
-                    className="col-span-2 px-3 py-2 bg-slate-900/50 border border-slate-700 rounded-lg text-sm text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500"
-                  />
-                  <input
-                    type="text"
-                    value={billingAddress.addressLine1}
-                    onChange={(e) => {
-                      setBillingAddress({ ...billingAddress, addressLine1: e.target.value });
-                      setBillingAddressChanged(true);
-                    }}
-                    placeholder="Address Line 1"
-                    className="col-span-2 px-3 py-2 bg-slate-900/50 border border-slate-700 rounded-lg text-sm text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500"
-                  />
-                  <input
-                    type="text"
-                    value={billingAddress.addressLine2 || ''}
-                    onChange={(e) => {
-                      setBillingAddress({ ...billingAddress, addressLine2: e.target.value });
-                      setBillingAddressChanged(true);
-                    }}
-                    placeholder="Address Line 2 (Optional)"
-                    className="col-span-2 px-3 py-2 bg-slate-900/50 border border-slate-700 rounded-lg text-sm text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500"
-                  />
-                  <input
-                    type="text"
-                    value={billingAddress.city}
-                    onChange={(e) => {
-                      setBillingAddress({ ...billingAddress, city: e.target.value });
-                      setBillingAddressChanged(true);
-                    }}
-                    placeholder="City"
-                    className="px-3 py-2 bg-slate-900/50 border border-slate-700 rounded-lg text-sm text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500"
-                  />
-                  <input
-                    type="text"
-                    value={billingAddress.state}
-                    onChange={(e) => {
-                      setBillingAddress({ ...billingAddress, state: e.target.value });
-                      setBillingAddressChanged(true);
-                    }}
-                    placeholder="State/County"
-                    className="px-3 py-2 bg-slate-900/50 border border-slate-700 rounded-lg text-sm text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500"
-                  />
-                  <input
-                    type="text"
-                    value={billingAddress.postalCode}
-                    onChange={(e) => {
-                      setBillingAddress({ ...billingAddress, postalCode: e.target.value });
-                      setBillingAddressChanged(true);
-                    }}
-                    placeholder="Postal Code"
-                    className="px-3 py-2 bg-slate-900/50 border border-slate-700 rounded-lg text-sm text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500"
-                  />
-                  <input
-                    type="text"
-                    value={billingAddress.country}
-                    onChange={(e) => {
-                      setBillingAddress({ ...billingAddress, country: e.target.value });
-                      setBillingAddressChanged(true);
-                    }}
-                    placeholder="Country"
-                    className="px-3 py-2 bg-slate-900/50 border border-slate-700 rounded-lg text-sm text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500"
-                  />
-                  <input
-                    type="tel"
-                    value={billingAddress.phoneNumber}
-                    onChange={(e) => {
-                      setBillingAddress({ ...billingAddress, phoneNumber: e.target.value });
-                      setBillingAddressChanged(true);
-                    }}
-                    placeholder="Phone Number"
-                    className="col-span-2 px-3 py-2 bg-slate-900/50 border border-slate-700 rounded-lg text-sm text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500"
-                  />
-                </div>
-              )}
-            </div>
-
-            {/* ✅ Shipping Address Section - Collapsible */}
-            <div className="bg-slate-900/30 rounded-xl border border-slate-700">
-              <button
-                type="button"
-                onClick={() => setShowShippingAddress(!showShippingAddress)}
-                className="w-full px-4 py-3 flex items-center justify-between hover:bg-slate-800/50 transition-colors rounded-t-xl"
-              >
-                <div className="flex items-center gap-2">
-                  <Truck className="h-4 w-4 text-green-400" />
-                  <h3 className="text-sm font-semibold text-white">Shipping Address</h3>
-                  {shippingAddressChanged && (
-                    <span className="px-1.5 py-0.5 text-xs bg-amber-500/10 text-amber-400 rounded">
-                      Modified
-                    </span>
-                  )}
-                </div>
-                {showShippingAddress ? (
-                  <ChevronUp className="h-4 w-4 text-slate-400" />
-                ) : (
-                  <ChevronDown className="h-4 w-4 text-slate-400" />
-                )}
-              </button>
-
-              {showShippingAddress && (
-                <div className="p-4 border-t border-slate-700 grid grid-cols-2 gap-3">
-                  <input
-                    type="text"
-                    value={shippingAddress.firstName}
-                    onChange={(e) => {
-                      setShippingAddress({ ...shippingAddress, firstName: e.target.value });
-                      setShippingAddressChanged(true);
-                    }}
-                    placeholder="First Name"
-                    className="px-3 py-2 bg-slate-900/50 border border-slate-700 rounded-lg text-sm text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500"
-                  />
-                  <input
-                    type="text"
-                    value={shippingAddress.lastName}
-                    onChange={(e) => {
-                      setShippingAddress({ ...shippingAddress, lastName: e.target.value });
-                      setShippingAddressChanged(true);
-                    }}
-                    placeholder="Last Name"
-                    className="px-3 py-2 bg-slate-900/50 border border-slate-700 rounded-lg text-sm text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500"
-                  />
-                  <input
-                    type="text"
-                    value={shippingAddress.company || ''}
-                    onChange={(e) => {
-                      setShippingAddress({ ...shippingAddress, company: e.target.value });
-                      setShippingAddressChanged(true);
-                    }}
-                    placeholder="Company (Optional)"
-                    className="col-span-2 px-3 py-2 bg-slate-900/50 border border-slate-700 rounded-lg text-sm text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500"
-                  />
-                  <input
-                    type="text"
-                    value={shippingAddress.addressLine1}
-                    onChange={(e) => {
-                      setShippingAddress({ ...shippingAddress, addressLine1: e.target.value });
-                      setShippingAddressChanged(true);
-                    }}
-                    placeholder="Address Line 1"
-                    className="col-span-2 px-3 py-2 bg-slate-900/50 border border-slate-700 rounded-lg text-sm text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500"
-                  />
-                  <input
-                    type="text"
-                    value={shippingAddress.addressLine2 || ''}
-                    onChange={(e) => {
-                      setShippingAddress({ ...shippingAddress, addressLine2: e.target.value });
-                      setShippingAddressChanged(true);
-                    }}
-                    placeholder="Address Line 2 (Optional)"
-                    className="col-span-2 px-3 py-2 bg-slate-900/50 border border-slate-700 rounded-lg text-sm text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500"
-                  />
-                  <input
-                    type="text"
-                    value={shippingAddress.city}
-                    onChange={(e) => {
-                      setShippingAddress({ ...shippingAddress, city: e.target.value });
-                      setShippingAddressChanged(true);
-                    }}
-                    placeholder="City"
-                    className="px-3 py-2 bg-slate-900/50 border border-slate-700 rounded-lg text-sm text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500"
-                  />
-                  <input
-                    type="text"
-                    value={shippingAddress.state}
-                    onChange={(e) => {
-                      setShippingAddress({ ...shippingAddress, state: e.target.value });
-                      setShippingAddressChanged(true);
-                    }}
-                    placeholder="State/County"
-                    className="px-3 py-2 bg-slate-900/50 border border-slate-700 rounded-lg text-sm text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500"
-                  />
-                  <input
-                    type="text"
-                    value={shippingAddress.postalCode}
-                    onChange={(e) => {
-                      setShippingAddress({ ...shippingAddress, postalCode: e.target.value });
-                      setShippingAddressChanged(true);
-                    }}
-                    placeholder="Postal Code"
-                    className="px-3 py-2 bg-slate-900/50 border border-slate-700 rounded-lg text-sm text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500"
-                  />
-                  <input
-                    type="text"
-                    value={shippingAddress.country}
-                    onChange={(e) => {
-                      setShippingAddress({ ...shippingAddress, country: e.target.value });
-                      setShippingAddressChanged(true);
-                    }}
-                    placeholder="Country"
-                    className="px-3 py-2 bg-slate-900/50 border border-slate-700 rounded-lg text-sm text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500"
-                  />
-                  <input
-                    type="tel"
-                    value={shippingAddress.phoneNumber}
-                    onChange={(e) => {
-                      setShippingAddress({ ...shippingAddress, phoneNumber: e.target.value });
-                      setShippingAddressChanged(true);
-                    }}
-                    placeholder="Phone Number"
-                    className="col-span-2 px-3 py-2 bg-slate-900/50 border border-slate-700 rounded-lg text-sm text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500"
-                  />
-                </div>
-              )}
-            </div>
-
-            {/* Operations Summary */}
-            {(operations.length > 0 || hasAddressChanges()) && (
-              <div className="p-3 bg-blue-500/10 border border-blue-500/30 rounded-xl">
-                <p className="text-sm font-semibold text-blue-400 mb-2 flex items-center gap-2">
-                  <Info className="h-4 w-4" />
-                  Pending Changes ({getTotalChangesCount()})
-                </p>
-                <ul className="text-xs text-blue-300 space-y-1">
-                  {getNewItemCount() > 0 && (
-                    <li className="flex items-center gap-1">
-                      <Check className="h-3 w-3" />
-                      {getNewItemCount()} new item(s)
-                    </li>
-                  )}
-                  {getRemovedItemCount() > 0 && (
-                    <li className="flex items-center gap-1">
-                      <Check className="h-3 w-3" />
-                      {getRemovedItemCount()} removed item(s)
-                    </li>
-                  )}
-                  {getUpdatedItemCount() > 0 && (
-                    <li className="flex items-center gap-1">
-                      <Check className="h-3 w-3" />
-                      {getUpdatedItemCount()} quantity update(s)
-                    </li>
-                  )}
-                  {billingAddressChanged && (
-                    <li className="flex items-center gap-1">
-                      <Check className="h-3 w-3" />
-                      Billing address updated
-                    </li>
-                  )}
-                  {shippingAddressChanged && (
-                    <li className="flex items-center gap-1">
-                      <Check className="h-3 w-3" />
-                      Shipping address updated
-                    </li>
-                  )}
-                </ul>
               </div>
-            )}
 
-            {/* Edit Reason */}
-            <div>
-              <label className="block text-sm font-medium text-white mb-2">
-                Edit Reason <span className="text-red-500">*</span>
-              </label>
-              <textarea
-                value={editData.editReason}
-                onChange={(e) => setEditData({ ...editData, editReason: e.target.value })}
-                placeholder="Why are you editing this order?"
-                rows={2}
-                className="w-full px-3 py-2 bg-slate-900/50 border border-slate-700 rounded-lg text-sm text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500"
-                required
-              />
+              {/* Shipping Address */}
+              <div className="bg-slate-900/30 rounded-xl border border-slate-700">
+                <button
+                  type="button"
+                  onClick={() => setShowShippingAddress(!showShippingAddress)}
+                  className="w-full px-4 py-3 flex items-center justify-between hover:bg-slate-800/50 transition-colors rounded-t-xl"
+                >
+                  <div className="flex items-center gap-2">
+                    <Truck className="h-4 w-4 text-green-400" />
+                    <h3 className="text-sm font-semibold text-white">Shipping Address</h3>
+                    {shippingAddressChanged && (
+                      <span className="px-1.5 py-0.5 text-xs bg-amber-500/10 text-amber-400 rounded">
+                        Modified
+                      </span>
+                    )}
+                  </div>
+                  {showShippingAddress ? (
+                    <ChevronUp className="h-4 w-4 text-slate-400" />
+                  ) : (
+                    <ChevronDown className="h-4 w-4 text-slate-400" />
+                  )}
+                </button>
+
+                {showShippingAddress && (
+                  <div className="p-4 border-t border-slate-700 space-y-3">
+                    <div className="grid grid-cols-2 gap-2">
+                      <input
+                        type="text"
+                        value={shippingAddress.firstName}
+                        onChange={(e) => {
+                          setShippingAddress({ ...shippingAddress, firstName: e.target.value });
+                          setShippingAddressChanged(true);
+                        }}
+                        placeholder="First Name *"
+                        className="px-3 py-2 bg-slate-900/50 border border-slate-700 rounded-lg text-sm text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500"
+                      />
+                      <input
+                        type="text"
+                        value={shippingAddress.lastName}
+                        onChange={(e) => {
+                          setShippingAddress({ ...shippingAddress, lastName: e.target.value });
+                          setShippingAddressChanged(true);
+                        }}
+                        placeholder="Last Name *"
+                        className="px-3 py-2 bg-slate-900/50 border border-slate-700 rounded-lg text-sm text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500"
+                      />
+                    </div>
+                    <input
+                      type="text"
+                      value={shippingAddress.company || ''}
+                      onChange={(e) => {
+                        setShippingAddress({ ...shippingAddress, company: e.target.value });
+                        setShippingAddressChanged(true);
+                      }}
+                      placeholder="Company (Optional)"
+                      className="w-full px-3 py-2 bg-slate-900/50 border border-slate-700 rounded-lg text-sm text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500"
+                    />
+                    <input
+                      type="text"
+                      value={shippingAddress.addressLine1}
+                      onChange={(e) => {
+                        setShippingAddress({ ...shippingAddress, addressLine1: e.target.value });
+                        setShippingAddressChanged(true);
+                      }}
+                      placeholder="Address Line 1 *"
+                      className="w-full px-3 py-2 bg-slate-900/50 border border-slate-700 rounded-lg text-sm text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500"
+                    />
+                    <input
+                      type="text"
+                      value={shippingAddress.addressLine2 || ''}
+                      onChange={(e) => {
+                        setShippingAddress({ ...shippingAddress, addressLine2: e.target.value });
+                        setShippingAddressChanged(true);
+                      }}
+                      placeholder="Address Line 2 (Optional)"
+                      className="w-full px-3 py-2 bg-slate-900/50 border border-slate-700 rounded-lg text-sm text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500"
+                    />
+                    <div className="grid grid-cols-2 gap-2">
+                      <input
+                        type="text"
+                        value={shippingAddress.city}
+                        onChange={(e) => {
+                          setShippingAddress({ ...shippingAddress, city: e.target.value });
+                          setShippingAddressChanged(true);
+                        }}
+                        placeholder="City *"
+                        className="px-3 py-2 bg-slate-900/50 border border-slate-700 rounded-lg text-sm text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500"
+                      />
+                      <input
+                        type="text"
+                        value={shippingAddress.state}
+                        onChange={(e) => {
+                          setShippingAddress({ ...shippingAddress, state: e.target.value });
+                          setShippingAddressChanged(true);
+                        }}
+                        placeholder="State/County *"
+                        className="px-3 py-2 bg-slate-900/50 border border-slate-700 rounded-lg text-sm text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500"
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <input
+                        type="text"
+                        value={shippingAddress.postalCode}
+                        onChange={(e) => {
+                          setShippingAddress({ ...shippingAddress, postalCode: e.target.value });
+                          setShippingAddressChanged(true);
+                        }}
+                        placeholder="Postal Code *"
+                        className="px-3 py-2 bg-slate-900/50 border border-slate-700 rounded-lg text-sm text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500"
+                      />
+                      <input
+                        type="text"
+                        value={shippingAddress.country}
+                        onChange={(e) => {
+                          setShippingAddress({ ...shippingAddress, country: e.target.value });
+                          setShippingAddressChanged(true);
+                        }}
+                        placeholder="Country *"
+                        className="px-3 py-2 bg-slate-900/50 border border-slate-700 rounded-lg text-sm text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500"
+                      />
+                    </div>
+                    <input
+                      type="tel"
+                      value={shippingAddress.phoneNumber}
+                      onChange={(e) => {
+                        setShippingAddress({ ...shippingAddress, phoneNumber: e.target.value });
+                        setShippingAddressChanged(true);
+                      }}
+                      placeholder="Phone Number *"
+                      className="w-full px-3 py-2 bg-slate-900/50 border border-slate-700 rounded-lg text-sm text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500"
+                    />
+                  </div>
+                )}
+              </div>
             </div>
 
-            {/* Admin Notes */}
-            <div>
-              <label className="block text-sm font-medium text-white mb-2">
-                Admin Notes <span className="text-xs text-slate-400">(Internal)</span>
-              </label>
-              <textarea
-                value={editData.adminNotes}
-                onChange={(e) => setEditData({ ...editData, adminNotes: e.target.value })}
-                placeholder="Internal notes..."
-                rows={2}
-                className="w-full px-3 py-2 bg-slate-900/50 border border-slate-700 rounded-lg text-sm text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500"
-              />
-            </div>
-
-            {/* Options - Compact */}
-            <div className="flex flex-wrap gap-3 text-sm">
-              <label className="flex items-center gap-2 cursor-pointer group">
+            {/* ✅ Edit Reason & Notes */}
+            <div className="bg-slate-900/30 rounded-xl border border-slate-700 p-4 space-y-3">
+              <div>
+                <label className="block text-sm font-semibold text-white mb-2">
+                  Edit Reason <span className="text-red-400">*</span>
+                </label>
                 <input
-                  type="checkbox"
-                  checked={editData.recalculateTotals}
-                  onChange={(e) =>
-                    setEditData({ ...editData, recalculateTotals: e.target.checked })
-                  }
-                  className="rounded bg-slate-800 border-slate-600 text-violet-500 focus:ring-violet-500"
+                  type="text"
+                  value={editData.editReason}
+                  onChange={(e) => setEditData({ ...editData, editReason: e.target.value })}
+                  placeholder="e.g., Customer requested quantity change"
+                  className="w-full px-3 py-2 bg-slate-900/50 border border-slate-700 rounded-lg text-sm text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500"
+                  required
                 />
-                <span className="text-slate-300 group-hover:text-white transition-colors">
-                  Recalculate totals
-                </span>
-              </label>
+              </div>
 
-              <label className="flex items-center gap-2 cursor-pointer group">
-                <input
-                  type="checkbox"
-                  checked={editData.adjustInventory}
-                  onChange={(e) =>
-                    setEditData({ ...editData, adjustInventory: e.target.checked })
-                  }
-                  className="rounded bg-slate-800 border-slate-600 text-violet-500 focus:ring-violet-500"
+              <div>
+                <label className="block text-sm font-semibold text-white mb-2">
+                  Admin Notes (Optional)
+                </label>
+                <textarea
+                  value={editData.adminNotes}
+                  onChange={(e) => setEditData({ ...editData, adminNotes: e.target.value })}
+                  placeholder="Internal notes for reference..."
+                  rows={2}
+                  className="w-full px-3 py-2 bg-slate-900/50 border border-slate-700 rounded-lg text-sm text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 resize-none"
                 />
-                <span className="text-slate-300 group-hover:text-white transition-colors">
-                  Adjust inventory
-                </span>
-              </label>
+              </div>
 
-              <label className="flex items-center gap-2 cursor-pointer group">
-                <input
-                  type="checkbox"
-                  checked={editData.sendCustomerNotification}
-                  onChange={(e) =>
-                    setEditData({ ...editData, sendCustomerNotification: e.target.checked })
-                  }
-                  className="rounded bg-slate-800 border-slate-600 text-violet-500 focus:ring-violet-500"
-                />
-                <span className="text-slate-300 group-hover:text-white transition-colors">
-                  Notify customer
-                </span>
-              </label>
+              {/* Options */}
+              <div className="space-y-2 pt-2 border-t border-slate-700">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={editData.recalculateTotals}
+                    onChange={(e) =>
+                      setEditData({ ...editData, recalculateTotals: e.target.checked })
+                    }
+                    className="w-4 h-4 rounded border-slate-600 bg-slate-700 text-violet-500 focus:ring-2 focus:ring-violet-500"
+                  />
+                  <span className="text-sm text-slate-300">Recalculate totals automatically</span>
+                </label>
+
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={editData.adjustInventory}
+                    onChange={(e) =>
+                      setEditData({ ...editData, adjustInventory: e.target.checked })
+                    }
+                    className="w-4 h-4 rounded border-slate-600 bg-slate-700 text-violet-500 focus:ring-2 focus:ring-violet-500"
+                  />
+                  <span className="text-sm text-slate-300">Adjust inventory automatically</span>
+                </label>
+
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={editData.sendCustomerNotification}
+                    onChange={(e) =>
+                      setEditData({ ...editData, sendCustomerNotification: e.target.checked })
+                    }
+                    className="w-4 h-4 rounded border-slate-600 bg-slate-700 text-violet-500 focus:ring-2 focus:ring-violet-500"
+                  />
+                  <span className="text-sm text-slate-300">Send notification to customer</span>
+                </label>
+              </div>
             </div>
           </div>
 
-          {/* Footer */}
-          <div className="flex items-center justify-end gap-3 px-5 py-3 border-t border-slate-700 bg-slate-900/50">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-colors text-sm font-medium"
-              disabled={loading}
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={
-                loading ||
-                (operations.length === 0 && !hasAddressChanges()) ||
-                !editData.editReason.trim()
-              }
-              className="px-5 py-2 bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700 disabled:from-slate-600 disabled:to-slate-600 disabled:cursor-not-allowed text-white rounded-lg transition-all flex items-center gap-2 shadow-lg hover:shadow-xl text-sm font-medium"
-            >
-              {loading ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  Saving...
-                </>
+          {/* ✅ Footer */}
+          <div className="flex items-center justify-between px-5 py-4 border-t border-slate-700 bg-slate-900/30">
+            <div className="text-sm text-slate-400">
+              {getTotalChangesCount() > 0 ? (
+                <span className="text-amber-400 font-semibold">
+                  {getTotalChangesCount()} unsaved changes
+                </span>
               ) : (
-                <>
-                  <Check className="h-4 w-4" />
-                  Save Changes ({getTotalChangesCount()})
-                </>
+                'No changes made'
               )}
-            </button>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={onClose}
+                disabled={loading}
+                className="px-4 py-2 text-sm font-medium text-slate-300 hover:text-white bg-slate-700 hover:bg-slate-600 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={loading || getTotalChangesCount() === 0}
+                className="px-4 py-2 text-sm font-medium text-white bg-violet-600 hover:bg-violet-500 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+              >
+                {loading ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  <>
+                    <Check className="h-4 w-4" />
+                    Save Changes ({getTotalChangesCount()})
+                  </>
+                )}
+              </button>
+            </div>
           </div>
         </form>
       </div>
