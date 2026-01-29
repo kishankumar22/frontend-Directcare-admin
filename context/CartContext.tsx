@@ -48,6 +48,14 @@ hasBundleDiscount?: boolean;
 // ✅ NEXT DAY DELIVERY (ADD THESE)
   nextDayDeliveryEnabled?: boolean;
   nextDayDeliveryCharge?: number;
+  // 🔥 BUNDLE SUPPORT
+  purchaseContext?: "bundle" | "standalone";
+  bundleId?: string | null;
+  isBundleParent?: boolean;
+  bundleParentId?: string | null;
+  // 🔥 INSTANCE LEVEL BUNDLE ID (FRONTEND ONLY)
+  bundleInstanceId?: string;            // for bundle parent
+  bundleParentInstanceId?: string;      // for bundle children
 
 }
 // ================== CONTEXT TYPE ==================
@@ -123,34 +131,36 @@ export const CartProvider = ({ children }: { children: React.ReactNode }) => {
     }
 
     // ===================== NORMAL PRODUCT MERGE LOGIC =====================
- const existing = prev.find(
+const existing = prev.find(
   (p) =>
     p.productId === item.productId &&
     (p.variantId ?? null) === (item.variantId ?? null) &&
     (p.type ?? "one-time") === (item.type ?? "one-time") &&
-    p.parentProductId === item.parentProductId // 🔥 IMPORTANT
+    (p.purchaseContext ?? "standalone") ===
+      (item.purchaseContext ?? "standalone")
 );
 
 
 
-    if (existing) {
+
+   if (existing) {
   return prev.map((p) =>
-  p.productId === item.productId &&
-  (p.variantId ?? null) === (item.variantId ?? null) &&
-  (p.type ?? "one-time") === (item.type ?? "one-time") &&
-  p.parentProductId === item.parentProductId
-    ? {
-        ...p,
-        quantity: p.quantity + item.quantity,
-        sku: item.sku ?? p.sku,
-        finalPrice: item.finalPrice ?? p.finalPrice,
-        discountAmount: item.discountAmount ?? p.discountAmount,
-      }
-    : p
-);
+    p.productId === item.productId &&
+    (p.variantId ?? null) === (item.variantId ?? null) &&
+    (p.type ?? "one-time") === (item.type ?? "one-time") &&
+    (p.purchaseContext ?? "standalone") ===
+      (item.purchaseContext ?? "standalone")
+      ? {
+          ...p,
+          quantity: p.quantity + item.quantity,
+          sku: item.sku ?? p.sku,
+          finalPrice: item.finalPrice ?? p.finalPrice,
+          discountAmount: item.discountAmount ?? p.discountAmount,
+        }
+      : p
+  );
+}
 
-
-    }
 
     // ===================== ADD NEW ITEM =====================
     return [
@@ -169,30 +179,30 @@ export const CartProvider = ({ children }: { children: React.ReactNode }) => {
 
 
   // ================== REMOVE ITEM ==================
-  const removeFromCart = (id: string, type?: string) => {
+ const removeFromCart = (id: string, type?: string) => {
   setCart((prev) => {
-    // 🔹 find item being removed
     const itemToRemove = prev.find(
       (p) => p.id === id && (p.type ?? "one-time") === (type ?? p.type)
     );
 
     if (!itemToRemove) return prev;
 
-    // 🔥 if MAIN PRODUCT → remove itself + all grouped children
-    if (!itemToRemove.parentProductId) {
+    // 🔥 REMOVE ONLY THIS BUNDLE INSTANCE
+    if (itemToRemove.isBundleParent && itemToRemove.bundleInstanceId) {
       return prev.filter(
         (p) =>
           p.id !== id &&
-          p.parentProductId !== itemToRemove.productId
+          p.bundleParentInstanceId !== itemToRemove.bundleInstanceId
       );
     }
 
-    // 🔥 if GROUPED PRODUCT → remove only itself
+    // 🔥 normal standalone or child remove
     return prev.filter(
       (p) => !(p.id === id && (p.type ?? "one-time") === (type ?? p.type))
     );
   });
 };
+
 
 
 
@@ -231,9 +241,13 @@ const updateQuantity = (id: string, qty: number) => {
       }
 
       // 🔥 AUTO-SYNC GROUPED PRODUCTS
-      if (item.parentProductId === target.productId) {
-        return { ...item, quantity: finalQty };
-      }
+      if (
+  item.bundleParentInstanceId &&
+  item.bundleParentInstanceId === target.bundleInstanceId
+) {
+  return { ...item, quantity: finalQty };
+}
+
 
       return item;
     });

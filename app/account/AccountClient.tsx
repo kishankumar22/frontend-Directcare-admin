@@ -14,6 +14,7 @@ import {
   TabsContent
 } from "@/components/ui/tabs";
 import { Eye, EyeOff } from "lucide-react";
+import AccountDashboard from "./components/AccountDashboard";
 
 export default function AccountClient() {
   const router = useRouter();
@@ -21,7 +22,8 @@ export default function AccountClient() {
   const fromCheckout = searchParams.get("from") === "checkout";
   const fromBuyNow = searchParams.get("from") === "buy-now";
   const { cart } = useCart();
-  const { login, register } = useAuth();
+ const { login, register, isAuthenticated, user } = useAuth();
+
 
   const [showPassword, setShowPassword] = useState(false);
   const [showRegPassword, setShowRegPassword] = useState(false);
@@ -92,11 +94,12 @@ export default function AccountClient() {
 
     try {
       await login(loginEmail, loginPassword);
-     if (fromCheckout || fromBuyNow) {
-  router.push("/checkout");
+   if (fromCheckout || fromBuyNow) {
+  router.replace("/checkout");
 } else {
-  router.push("/account/profile");
+  router.replace("/account");
 }
+
 
 
     } catch (error: any) {
@@ -124,11 +127,12 @@ export default function AccountClient() {
         requireEmailConfirmation: true,
       });
 
-     if (fromCheckout || fromBuyNow) {
-  router.push("/checkout");
+  if (fromCheckout || fromBuyNow) {
+  router.replace("/checkout");
 } else {
-  router.push("/account/profile");
+  router.replace("/account");
 }
+
 
     } catch (error: any) {
       const msg = error?.errors?.[0] || "Registration failed";
@@ -138,6 +142,11 @@ export default function AccountClient() {
       setLoading(false);
     }
   };
+// 🔐 If user is logged in, show dashboard instead of login
+if (isAuthenticated && user) {
+  return <AccountDashboard />;
+}
+
 
   return (
     <div className="min-h-screen bg-gray-50 py-8 px-4">

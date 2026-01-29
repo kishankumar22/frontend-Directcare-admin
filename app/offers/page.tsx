@@ -3,21 +3,18 @@ import OffersClient from "./OffersClient";
 
 const PAGE_SIZE = 12;
 
-type SearchParams = Record<string, string | string[] | undefined>;
+interface OffersPageProps {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}
 
-export default async function OffersPage({
-  searchParams,
-}: {
-  searchParams?: Promise<SearchParams>;
-}) {
+export default async function OffersPage({ searchParams }: OffersPageProps) {
+  // ✅ NEXT 15 REQUIRED
+  const sp = await searchParams;
+
   const baseUrl = process.env.NEXT_PUBLIC_API_URL;
-
   if (!baseUrl) {
     throw new Error("NEXT_PUBLIC_API_URL is not defined");
   }
-
-  // ✅ IMPORTANT: await searchParams
-  const sp = (await searchParams) ?? {};
 
   const params = new URLSearchParams({
     page: "1",
@@ -44,7 +41,7 @@ export default async function OffersPage({
 
   if (!res.ok) {
     const err = await res.text();
-    console.error("Offers API server error:", err);
+    console.error("Offers API error:", err);
     throw new Error("Failed to load offers");
   }
 

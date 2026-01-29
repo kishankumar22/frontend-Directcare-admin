@@ -23,7 +23,7 @@ import ShareMenu from "@/components/share/ShareMenu";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { useToast } from "@/components/CustomToast";
+import { useToast } from "@/components/toast/CustomToast";
 import { useCart } from "@/context/CartContext"; // path tumhare folder structure ke hisab se
 import { useAuth } from "@/context/AuthContext";
 import { addRecentlyViewed } from "@/app/hooks/useRecentlyViewed";
@@ -99,6 +99,7 @@ interface Product {
   price: number;
   oldPrice: number;
   compareAtPrice?: number | null;
+  notReturnable?: boolean;
   stockQuantity: number;
  categories: {
     categoryId: string;
@@ -296,6 +297,19 @@ const [showCouponModal, setShowCouponModal] = useState(false);
 const [showNotifyModal, setShowNotifyModal] = useState(false);
 const [showShare, setShowShare] = useState(false);
 
+// 🔥 Coupon Available (but not applied)
+const hasCouponAvailable = useMemo(() => {
+  if (!product.assignedDiscounts) return false;
+
+  const now = new Date();
+
+  return product.assignedDiscounts.some(d =>
+    d.isActive &&
+    d.requiresCouponCode === true &&
+    new Date(d.startDate) <= now &&
+    new Date(d.endDate) >= now
+  );
+}, [product.assignedDiscounts]);
 
 const shareUrl =
   typeof window !== "undefined"
@@ -393,22 +407,7 @@ const requiredProductIds = useMemo(() => {
   if (!product.requiredProductIds) return [];
   return product.requiredProductIds.split(",").map(id => id.trim());
 }, [product.requiredProductIds]);
-useEffect(() => {
-  if (!isGroupedProduct) return;
 
-  setGroupedSelections(prev => {
-    const updated = { ...prev };
-
-    Object.keys(updated).forEach(pid => {
-      updated[pid] = {
-        ...updated[pid],
-        quantity: normalQty, // 🔥 SYNC
-      };
-    });
-
-    return updated;
-  });
-}, [normalQty, isGroupedProduct]);
 // 🔥 BUNDLE TOTALS (QUANTITY AWARE)
 const bundleIndividualTotal = useMemo(() => {
   if (!product.groupedProducts) return 0;
@@ -445,6 +444,58 @@ const [groupedSelections, setGroupedSelections] = useState<{
     quantity: number;
   };
 }>({});
+// 🔥 GROUPED STOCK AWARE MAX QTY
+const groupedMaxQty = useMemo(() => {
+  if (
+    !isGroupedProduct ||
+    !groupEnabled ||
+    !product.groupedProducts
+  ) {
+    return selectedVariant?.stockQuantity ?? product.stockQuantity;
+  }
+
+  const selectedGrouped = product.groupedProducts.filter(
+    gp => groupedSelections[gp.productId]?.selected
+  );
+
+  if (selectedGrouped.length === 0) {
+    return selectedVariant?.stockQuantity ?? product.stockQuantity;
+  }
+
+  const minGroupedStock = Math.min(
+    ...selectedGrouped.map(gp => gp.stockQuantity ?? Infinity)
+  );
+
+  const mainStock =
+    selectedVariant?.stockQuantity ?? product.stockQuantity;
+
+  return Math.min(mainStock, minGroupedStock);
+}, [
+  isGroupedProduct,
+  groupEnabled,
+  product.groupedProducts,
+  groupedSelections,
+  selectedVariant,
+  product.stockQuantity,
+]);
+
+useEffect(() => {
+  if (!isGroupedProduct || !groupEnabled) return;
+
+  setGroupedSelections(prev => {
+    const updated = { ...prev };
+
+    Object.keys(updated).forEach(pid => {
+      updated[pid] = {
+        ...updated[pid],
+        quantity: Math.min(normalQty, groupedMaxQty),
+      };
+    });
+
+    return updated;
+  });
+}, [normalQty, groupedMaxQty, isGroupedProduct, groupEnabled]);
+
 const pathname = usePathname();
 
   // ---- GENERIC OPTION SELECTION STATE ----
@@ -799,8 +850,18 @@ const fetchCrossSellProducts = async (crossIds: string) => {
     console.error("Error fetching cross-sell products:", error);
   }
 };
-  // Memoized calculations
-  
+const hasOutOfStockGroupedProduct = useMemo(() => {
+  if (!isGroupedProduct || !product.groupedProducts) return false;
+
+  return product.groupedProducts.some(
+    gp => gp.stockQuantity !== undefined && gp.stockQuantity <= 0
+  );
+}, [isGroupedProduct, product.groupedProducts]);
+useEffect(() => {
+  if (hasOutOfStockGroupedProduct) {
+    setGroupEnabled(false);
+  }
+}, [hasOutOfStockGroupedProduct]);
 
   const specifications = useMemo(() => {
     if (!product?.specificationAttributes) return [];
@@ -886,119 +947,194 @@ const handleThumbNext = () => {
     });
   }, []);
 
- const handleAddToCart = useCallback(() => {
+const handleAddToCart = useCallback(() => {
   const selected = selectedVariant ?? null;
-console.log("🔥 SELECTED VARIANT →", selectedVariant);
-console.log("🔥 PRODUCT SKU →", product.sku);
-console.log("🔥 VARIANT SKU →", selectedVariant?.sku);
-console.log("🔥 VARIANT IMAGE →", selectedVariant?.imageUrl);
-// alert(`
-// PRODUCT NAME → ${product.name}
-// PRODUCT SKU → ${product.sku}
 
-// VARIANT SELECTED → ${selectedVariant ? "YES" : "NO"}
-// VARIANT ID → ${selectedVariant?.id ?? "N/A"}
-// VARIANT SKU → ${selectedVariant?.sku ?? "N/A"}
-// VARIANT PRICE → £${selectedVariant?.price ?? "N/A"}
-
-// QUANTITY → ${normalQty}
-// `);
-
-  // ORIGINAL base price (without discount)
+  // BASE + FINAL PRICE
   const basePrice = selected ? selected.price : product.price;
-  // FINAL price (after applied coupon OR auto discount)
-  const final = finalPrice; 
+  const final = finalPrice;
+
   const variantTitle = selected
     ? `(${[
         selected.option1Value,
         selected.option2Value,
-        selected.option3Value
-      ].filter(Boolean).join(", ")})`
+        selected.option3Value,
+      ]
+        .filter(Boolean)
+        .join(", ")})`
     : "";
-const allowNextDay =
-  isUKUser && product.nextDayDeliveryEnabled === true;
-  addToCart({
-    id: `${product.id}-${selected?.id ?? "base"}-one`,
 
-type: "one-time",
-    productId: product.id,
-    // ⭐ PRODUCT NAME + ALL VARIANT VALUES
-    name: `${product.name} ${variantTitle}`,
-    // ⭐ REQUIRED FOR CART DISCOUNT SYSTEM
-    price: final,                    // price used in cart if no coupon removed
-    priceBeforeDiscount: basePrice,  // original price (for recalc on remove)
-    finalPrice: final,               // current price after discount
-    discountAmount: discountAmount ?? 0,
-    couponCode: appliedCoupon?.couponCode ?? null,
-    appliedDiscountId: appliedCoupon?.id ?? null,
-    quantity: normalQty,
-image: selectedVariant?.imageUrl
-  ? getImageUrl(selectedVariant.imageUrl)
-  : getImageUrl(
-      product.images.find(img => img.isMain)?.imageUrl ||
-      product.images[0]?.imageUrl
-    ),
-    sku: selected?.sku ?? product.sku,
-    variantId: selected?.id ?? null,
- slug: product.slug,  // ⭐ ADD THIS LINE
-  variantOptions: {
-      ...(selected?.option1Name && { [selected.option1Name]: selected.option1Value }),
-      ...(selected?.option2Name && { [selected.option2Name]: selected.option2Value }),
-      ...(selected?.option3Name && { [selected.option3Name]: selected.option3Value }),
-    },
-    nextDayDeliveryEnabled: allowNextDay,
-  nextDayDeliveryCharge: allowNextDay
-    ? product.nextDayDeliveryCharge ?? 0
-    : 0,
-    // ⭐ MOST IMPORTANT (for coupon validation on cart page)
-    productData: JSON.parse(JSON.stringify(product)),
+  const allowNextDay =
+    isUKUser && product.nextDayDeliveryEnabled === true;
 
-  });
-// 🔥 ADD GROUPED PRODUCTS
-if (isGroupedProduct && product.groupedProducts) {
-  product.groupedProducts.forEach(gp => {
-    const state = groupedSelections[gp.productId];
-    if (!state?.selected) return;
+  // 🔥 SPLIT QTY BETWEEN BUNDLE & STANDALONE
+  const bundleQty =
+    isGroupedProduct && groupEnabled
+      ? Math.min(normalQty, groupedMaxQty)
+      : 0;
 
+  const standaloneQty =
+    isGroupedProduct && groupEnabled
+      ? normalQty - bundleQty
+      : normalQty;
+
+  // ============================
+  // 🧩 1️⃣ ADD BUNDLE (PARENT + CHILDREN)
+  // ============================
+if (bundleQty > 0) {
+  // 🔥 UNIQUE INSTANCE ID (per add-to-cart click)
+  const bundleInstanceId = crypto.randomUUID();
+
+  const bundleId = `bundle:${product.id}:${selected?.id ?? "base"}`;
+
+
+    // 🔹 BUNDLE PARENT (MAIN PRODUCT)
     addToCart({
-      id: `${gp.productId}-grouped`,
+      id: bundleId,
       type: "one-time",
-      productId: gp.productId,
-      parentProductId: product.id, // 🔥 THIS LINE
-      name: gp.name,
-      price: gp.price,                    // ❌ original
-  finalPrice: gp.bundlePrice,          // ✅ bundle price
-  bundlePrice: gp.bundlePrice,         // 🔥 IMPORTANT
-  individualSavings: gp.individualSavings,
-  hasBundleDiscount: gp.hasBundleDiscount,
-      quantity: state.quantity,
-       image: gp.mainImageUrl
-        ? gp.mainImageUrl.startsWith("http")
-          ? gp.mainImageUrl
-          : `${process.env.NEXT_PUBLIC_API_URL}${gp.mainImageUrl}`
-        : "/placeholder-product.png",
-      sku: gp.sku,
-      slug: gp.slug,
-    nextDayDeliveryEnabled: allowNextDay,
-nextDayDeliveryCharge: allowNextDay
-  ? product.nextDayDeliveryCharge ?? 0
-  : 0,
-      productData: JSON.parse(JSON.stringify(gp)),
+      purchaseContext: "bundle",
+
+      productId: product.id,
+      variantId: selected?.id ?? null,
+
+      name: `${product.name} ${variantTitle} (Bundle)`,
+
+      price: final,
+      priceBeforeDiscount: basePrice,
+      finalPrice: final,
+      discountAmount: discountAmount ?? 0,
+
+      couponCode: appliedCoupon?.couponCode ?? null,
+      appliedDiscountId: appliedCoupon?.id ?? null,
+
+      quantity: bundleQty,
+      sku: selected?.sku ?? product.sku,
+      slug: product.slug,
+
+      image: selected?.imageUrl
+        ? getImageUrl(selected.imageUrl)
+        : getImageUrl(
+            product.images.find(img => img.isMain)?.imageUrl ||
+              product.images[0]?.imageUrl
+          ),
+
+      variantOptions: {
+        ...(selected?.option1Name && {
+          [selected.option1Name]: selected.option1Value,
+        }),
+        ...(selected?.option2Name && {
+          [selected.option2Name]: selected.option2Value,
+        }),
+        ...(selected?.option3Name && {
+          [selected.option3Name]: selected.option3Value,
+        }),
+      },
+
+      nextDayDeliveryEnabled: allowNextDay,
+      nextDayDeliveryCharge: allowNextDay
+        ? product.nextDayDeliveryCharge ?? 0
+        : 0,
+
+      isBundleParent: true,
+      bundleId,
+      bundleInstanceId, 
+
+      productData: JSON.parse(JSON.stringify(product)),
     });
-  });
-}
-  toast.success(`${normalQty} × ${product.name} added to cart! 🛒`);
-   // 🟢 AFTER ADD TO CART → show what's inside cart
-  setTimeout(() => {
-    const cartData = JSON.parse(localStorage.getItem("cart") || "[]");
-    // alert(
-    //   "🛒 CART DATA →\n\n" +
-    //   JSON.stringify(cartData, null, 2)
-    // );
-  }, 300);
+
+    // 🔹 BUNDLE CHILD PRODUCTS
+    product.groupedProducts?.forEach(gp => {
+      const state = groupedSelections[gp.productId];
+      if (!state?.selected) return;
+
+      addToCart({
+        id: `bundle-child:${bundleId}:${gp.productId}`,
+        type: "one-time",
+        purchaseContext: "bundle",
+        productId: gp.productId,
+        parentProductId: product.id,
+        bundleId,       
+        bundleParentId: bundleId,
+        bundleParentInstanceId: bundleInstanceId, // 🔥 NEW       
+        name: gp.name,
+        price: gp.bundlePrice ?? gp.price,
+        finalPrice: gp.bundlePrice ?? gp.price,
+        quantity: bundleQty,
+        sku: gp.sku,
+        slug: gp.slug,
+        image: gp.mainImageUrl
+          ? gp.mainImageUrl.startsWith("http")
+            ? gp.mainImageUrl
+            : `${process.env.NEXT_PUBLIC_API_URL}${gp.mainImageUrl}`
+          : "/placeholder-product.png",
+
+        hasBundleDiscount: gp.hasBundleDiscount,
+        individualSavings: gp.individualSavings,
+
+        productData: JSON.parse(JSON.stringify(gp)),
+      });
+    });
+  }
+
+  // ============================
+  // 🧍 2️⃣ ADD STANDALONE PRODUCT
+  // ============================
+  if (standaloneQty > 0) {
+    addToCart({
+      id: `standalone:${product.id}:${selected?.id ?? "base"}`,
+      type: "one-time",
+      purchaseContext: "standalone",
+
+      productId: product.id,
+      variantId: selected?.id ?? null,
+
+      name: `${product.name} ${variantTitle}`,
+
+      price: final,
+      priceBeforeDiscount: basePrice,
+      finalPrice: final,
+      discountAmount: discountAmount ?? 0,
+
+      couponCode: appliedCoupon?.couponCode ?? null,
+      appliedDiscountId: appliedCoupon?.id ?? null,
+
+      quantity: standaloneQty,
+      sku: selected?.sku ?? product.sku,
+      slug: product.slug,
+
+      image: selected?.imageUrl
+        ? getImageUrl(selected.imageUrl)
+        : getImageUrl(
+            product.images.find(img => img.isMain)?.imageUrl ||
+              product.images[0]?.imageUrl
+          ),
+
+      variantOptions: {
+        ...(selected?.option1Name && {
+          [selected.option1Name]: selected.option1Value,
+        }),
+        ...(selected?.option2Name && {
+          [selected.option2Name]: selected.option2Value,
+        }),
+        ...(selected?.option3Name && {
+          [selected.option3Name]: selected.option3Value,
+        }),
+      },
+
+      nextDayDeliveryEnabled: allowNextDay,
+      nextDayDeliveryCharge: allowNextDay
+        ? product.nextDayDeliveryCharge ?? 0
+        : 0,
+
+      productData: JSON.parse(JSON.stringify(product)),
+    });
+  }
+
+  toast.success(`${normalQty} × ${product.name} added to cart 🛒`);
 }, [
   addToCart,
   normalQty,
+  groupedMaxQty,
   product,
   selectedVariant,
   finalPrice,
@@ -1006,9 +1142,12 @@ nextDayDeliveryCharge: allowNextDay
   appliedCoupon,
   getImageUrl,
   toast,
-   groupedSelections,   // 🔥 MUST
-  isGroupedProduct 
+  groupedSelections,
+  isGroupedProduct,
+  groupEnabled,
+  isUKUser,
 ]);
+
 
 const handleBuyNow = () => {
   
@@ -1269,8 +1408,9 @@ src={activeMainImage}
 </div>
 
                     {/* discount badge (from oldPrice percent) */}
-                  {(() => {
-  // 🥇 Priority 1: Applied Coupon
+    {(() => {
+
+  // 🥇 PRIORITY 1: COUPON APPLIED → % OFF
   if (appliedCoupon) {
     const percent = appliedCoupon.usePercentage
       ? appliedCoupon.discountPercentage
@@ -1281,7 +1421,7 @@ src={activeMainImage}
 
     return (
       <div className="absolute top-3 left-4 z-20">
-        <div className="w-14 h-14 md:w-20 md:h-20 rounded-full bg-gradient-to-br from-red-500 to-red-700 flex items-center justify-center text-white shadow-lg ring-2 ring-white">         
+        <div className="w-14 h-14 md:w-20 md:h-20 rounded-full bg-gradient-to-br from-red-500 to-red-700 flex items-center justify-center text-white shadow-lg ring-2 ring-white">
           <div className="flex flex-col items-center leading-none">
             <span className="text-lg md:text-xl font-extrabold">
               {percent}%
@@ -1295,8 +1435,8 @@ src={activeMainImage}
     );
   }
 
-  // 🥈 Priority 2: Auto Discount (no coupon)
-  const active = product.assignedDiscounts?.find(
+  // 🥈 PRIORITY 2: AUTO DISCOUNT (NO COUPON REQUIRED)
+  const activeAutoDiscount = product.assignedDiscounts?.find(
     d =>
       d.isActive &&
       d.requiresCouponCode === false &&
@@ -1304,31 +1444,52 @@ src={activeMainImage}
       new Date() <= new Date(d.endDate)
   );
 
-  if (!active) return null;
+  if (activeAutoDiscount) {
+    const percent = activeAutoDiscount.usePercentage
+      ? activeAutoDiscount.discountPercentage
+      : Math.round(
+          (activeAutoDiscount.discountAmount /
+            (selectedVariant?.price ?? product.price)) * 100
+        );
 
-  const percent = active.usePercentage
-    ? active.discountPercentage
-    : Math.round(
-        (active.discountAmount /
-          (selectedVariant?.price ?? product.price)) * 100
-      );
+    return (
+      <div className="absolute top-3 left-4 z-20">
+        <div className="w-14 h-14 md:w-20 md:h-20 rounded-full bg-gradient-to-br from-red-500 to-red-700 flex items-center justify-center text-white shadow-lg ring-2 ring-white">
+          <div className="flex flex-col items-center leading-none">
+            <span className="text-lg md:text-xl font-extrabold">
+              {percent}%
+            </span>
+            <span className="text-[10px] md:text-sm font-semibold">
+              OFF
+            </span>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
+// 🥉 PRIORITY 3: COUPON AVAILABLE (NOT APPLIED)
+if (hasCouponAvailable) {
   return (
     <div className="absolute top-3 left-4 z-20">
       <div className="w-14 h-14 md:w-20 md:h-20 rounded-full bg-gradient-to-br from-red-500 to-red-700 flex items-center justify-center text-white shadow-lg ring-2 ring-white">
-       
         <div className="flex flex-col items-center leading-none">
-          <span className="text-lg md:text-xl font-extrabold">
-            {percent}%
+          <span className="text-[11px] md:text-sm font-extrabold tracking-wide">
+            COUPON
           </span>
-          <span className="text-[10px] md:text-sm font-semibold">
-            OFF
+          <span className="text-[9px] md:text-xs font-semibold">
+            AVAILABLE
           </span>
         </div>
       </div>
     </div>
   );
+}
+
+
+  return null;
 })()}
+
 
 
                     {product.images.length > 1 && (
@@ -1465,16 +1626,16 @@ bg-white/80 hover:bg-white shadow-md rounded-full p-2 backdrop-blur-sm transitio
 
   {/* ✅ HOVER TOOLTIP */}
   <div
-    className="absolute left-0 top-full z-50 hidden group-hover:block w-80 bg-white border rounded-xl shadow-lg p-3 mt-2"
+    className="absolute left-0 top-full z-50 hidden group-hover:block w-80 bg-white border rounded-xl shadow-lg p-3 mt-0"
     onClick={(e) => e.stopPropagation()}
   >
     {recentReviews.length === 0 ? (
-      <p className="text-sm text-gray-500 text-center py-2">
+      <p className="text-sm text-gray-500 text-center py-0">
         No reviews yet
       </p>
     ) : (
       recentReviews.map((r) => (
-        <div key={r.id} className="border-b last:border-b-0 py-2">
+        <div key={r.id} className="border-b last:border-b-0 py-0">
           <div className="flex items-center gap-1 text-yellow-500 text-sm">
             {"★".repeat(r.rating)}
             <span className="text-gray-300">
@@ -1504,7 +1665,7 @@ bg-white/80 hover:bg-white shadow-md rounded-full p-2 backdrop-blur-sm transitio
 
     {/* VAT Exempt */}
     {product.vatExempt && (
-      <div className="flex items-center gap-1 bg-green-100 text-green-800 px-2 py-1 rounded text-xs font-semibold">
+      <div className="flex items-center gap-1 text-green-700 bg-green-50 border border-green-200 px-2 py-1 rounded text-xs font-semibold">
         <BadgePercent className="h-3 w-3" />
         VAT Exempt
       </div>
@@ -1722,15 +1883,12 @@ bg-white/80 hover:bg-white shadow-md rounded-full p-2 backdrop-blur-sm transitio
 </div>
 
 
- {product.vatExempt ? (
-  <span className="text-sm text-green-700 bg-green-100 px-2 py-0.5 rounded font-semibold">
-    0% VAT
-  </span>
-) : vatRate !== null ? (
+{vatRate !== null && (
   <span className="text-sm text-green-700 bg-green-100 px-2 py-0.5 rounded font-semibold">
     {vatRate}% VAT
   </span>
-) : null}
+)}
+
 
                 </div>
 {/* 🎁 LOYALTY POINTS – BADGE STYLE */}
@@ -1749,22 +1907,33 @@ bg-white/80 hover:bg-white shadow-md rounded-full p-2 backdrop-blur-sm transitio
     <QuantitySelector
       quantity={normalQty}
       setQuantity={setNormalQty}
-      maxStock={selectedVariant?.stockQuantity ?? product.stockQuantity}
+     maxStock={groupedMaxQty}   // 🔥 HERE
       stockError={normalStockError}
       setStockError={setNormalStockError}
     />
 
-    {product.assignedDiscounts?.some(d => d.requiresCouponCode) && (
-      <button
-        type="button"
-        onClick={() => setShowCouponModal(true)}
-        className="mt-[-16px] text-sm font-medium text-[#445D41] hover:text-black flex items-center gap-1 leading-none"
-                   
-      >
-        <BadgePercent className="h-4 w-4" />
-        Click for offers
-      </button>
-    )}
+   {product.assignedDiscounts?.some(d => d.requiresCouponCode) && (
+  <button
+    type="button"
+    onClick={() => {
+      if (appliedCoupon) {
+        handleRemoveCoupon(); // 🔥 direct remove (no modal)
+      } else {
+        setShowCouponModal(true); // open apply modal
+      }
+    }}
+    className={`mt-[-16px] text-sm font-semibold flex items-center gap-1 leading-none
+      ${appliedCoupon
+        ? "text-red-600 hover:text-red-800"
+        : "text-[#445D41] hover:text-black"
+      }
+    `}
+  >
+    <BadgePercent className="h-4 w-4" />
+    {appliedCoupon ? "Click to remove coupon" : "Click to apply coupon"}
+  </button>
+)}
+
   </div>
 
   {/* Stock badge stays BELOW (as in your screenshot) */}
@@ -1882,42 +2051,37 @@ bg-white/80 hover:bg-white shadow-md rounded-full p-2 backdrop-blur-sm transitio
   </div>
 ) : (
   <>
-    {/* If no subscription then just show normal card */}
-    <Card className="mb-4 border border-gray-200 rounded-2xl shadow-sm ">
-      <CardContent className="p-5">
-         <div className="flex flex-col sm:flex-row sm:items-center sm:gap-3 mb-1">
-                  <span className="text-3xl font-bold text-[#445D41]">
-                 £{(finalPrice * normalQty).toFixed(2)}
+   <Card className="mb-4 border border-gray-200 rounded-2xl shadow-sm">
+  <CardContent className="p-5">
+    <div className="flex flex-wrap items-center gap-2 mb-2">
+      {/* FINAL PRICE */}
+      <span className="text-3xl font-bold text-[#445D41]">
+        £{(finalPrice * normalQty).toFixed(2)}
+      </span>
 
-                  </span>
-   
+      {/* CUT PRICE */}
+      {discountAmount > 0 && (
+        <span className="text-lg text-gray-400 line-through">
+          £{(selectedVariant?.price ?? product.price).toFixed(2)}
+        </span>
+      )}
 
-                  {/* Strike-through original (variant price if present) */}
-                  {(discountAmount > 0) && (
-                    <span className="text-lg text-gray-400 line-through">
-                      £{(selectedVariant?.price ?? product.price).toFixed(2)}
-                    </span>
-                  )}
-                  {product.vatExempt ? (
-    <span className="text-sm text-green-700 bg-green-100 px-2 py-0.5 rounded font-semibold ml-0 sm:ml-2">
-      0% VAT
-    </span>
-  ) : vatRate !== null ? (
-    <span className="text-sm text-green-700 bg-green-100 px-2 py-0.5 rounded font-semibold ml-0 sm:ml-2">
-      {vatRate}% VAT
-    </span>
-  ) : null}
-                </div>
+      {/* VAT */}
+      {vatRate !== null && (
+        <span className="text-xs text-green-700 bg-green-50 border border-green-200 px-2 py-0.5 rounded font-semibold">
+          {vatRate}% VAT
+        </span>
+      )}
 
-  {/* 🎁 LOYALTY POINTS (SHORT, NO MESSAGE) */}
-{(product as any).loyaltyPointsEnabled && (
-  <div className="mt-[-12px] inline-flex items-center gap-1.5 text-sm text-green-700 bg-green-50 border border-green-200 px-2 py-0.5 rounded-md">
-    <AwardIcon className="h-4 w-4 text-[#445D41]" />
-    <span>
-      Earn {(product as any).loyaltyPointsEarnable} points
-    </span>
-  </div>
-)}
+      {/* 🎁 LOYALTY POINTS – INLINE */}
+      {(product as any).loyaltyPointsEnabled && (
+        <span className="inline-flex items-center gap-1.5 text-xs text-green-700 bg-green-50 border border-green-200 px-2 py-0.5 rounded-md">
+          <AwardIcon className="h-3.5 w-3.5 text-[#445D41]" />
+          Earn {(product as any).loyaltyPointsEarnable} pts
+        </span>
+      )}
+    </div>
+
 
 
 
@@ -2008,11 +2172,11 @@ if (num > maxStock) {
   className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-semibold shadow-sm ${
     (selectedVariant?.stockQuantity ?? product.stockQuantity) === 0
       ? "bg-red-100 text-red-700"
-      : "bg-green-100 text-green-700"
+      : "bg-green-50 border border-green-200"
   }`}
 >
   <span
-    className={`inline-block w-2 h-2 rounded-full ${
+    className={`inline-block w-2 h-2 rounded-full  ${
       (selectedVariant?.stockQuantity ?? product.stockQuantity) === 0
         ? "bg-red-600"
         : "bg-green-600"
@@ -2026,13 +2190,23 @@ if (num > maxStock) {
 {product.assignedDiscounts?.some(d => d.requiresCouponCode) && (
   <button
     type="button"
-    onClick={() => setShowCouponModal(true)}
-    className="mt-0 text-base font-medium text-green-800 hover:text-black flex items-center gap-1"
+    onClick={() => {
+      if (appliedCoupon) {
+        handleRemoveCoupon(); // 🔥 direct remove
+      } else {
+        setShowCouponModal(true); // open modal
+      }
+    }}
+    className={`mt-0 text-sm font-semibold flex items-center gap-1 leading-none
+      ${appliedCoupon ? "text-red-600 hover:text-red-800" : "text-[#445D41] hover:text-black"}
+    `}
   >
     <BadgePercent className="h-4 w-4" />
-    Click to apply Coupon
+
+    {appliedCoupon ? "Click to remove coupon" : "Click to apply coupon"}
   </button>
 )}
+
 
                   </div>
                 </div>
@@ -2108,15 +2282,18 @@ if (num > maxStock) {
 
 {/* 🔥 GROUPED PRODUCTS + BUNDLE OFFER (SINGLE BOX) */}
 {purchaseType === "one" && isGroupedProduct && product.groupedProducts && (
-  <div className="mb-4 mt-3 border border-green-2 bg-white rounded-xl p-4">
-<div className="flex items-center gap-3 mb-4">
-  <input
-    type="checkbox"
-    className="w-5 h-5 accent-black cursor-pointer"
-    checked={groupEnabled}
-    disabled={product.automaticallyAddProducts}
-    onChange={(e) => setGroupEnabled(e.target.checked)}
-  />
+  <div className="mb-1 mt-3 border border-green-2 bg-white rounded-xl p-4">
+<div className="flex items-center gap-3 mb-1">
+ <input
+  type="checkbox"
+  className="w-5 h-5 accent-black cursor-pointer"
+  checked={groupEnabled}
+  disabled={
+    product.automaticallyAddProducts || hasOutOfStockGroupedProduct
+  }
+  onChange={(e) => setGroupEnabled(e.target.checked)}
+/>
+
 
   <span className="text-sm font-semibold text-gray-800 flex items-center gap-1">
     Include required products
@@ -2124,7 +2301,14 @@ if (num > maxStock) {
       <span className="text-xs text-gray-500">(required)</span>
     )}
   </span>
+ 
+
 </div>
+ {hasOutOfStockGroupedProduct && (
+  <p className="text-xs text-red-600 mb-1">
+    One or more required products are currently out of stock.
+  </p>
+)}
     {/* 🔥 BUNDLE OFFER MESSAGE */}
     {product.groupBundleDiscountType &&
       product.groupBundleDiscountType !== "None" && (
@@ -2168,10 +2352,10 @@ if (num > maxStock) {
             key={gp.productId}
             className="flex items-center justify-between gap-3 bg-white rounded-lg p-3 border"
           >
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
               {/* PRODUCT INFO */}
               {/* PRODUCT IMAGE */}
-<div className="w-14 h-14 flex-shrink-0 rounded-lg border bg-white overflow-hidden">
+<div className="w-14 h-16 flex-shrink-0 rounded-lg border bg-white overflow-hidden">
   <Link href={`/products/${gp.slug}`}>
 
   <img
@@ -2183,7 +2367,7 @@ if (num > maxStock) {
         : "/placeholder-product.png"
     }
     alt={"no img"}
-    className="w-full h-full object-contain p-1"
+    className="w-full h-full object-contain p-1 mt-2"
     loading="lazy"
   />
   </Link>
@@ -2218,11 +2402,12 @@ if (num > maxStock) {
             </div>
 
             {/* QUANTITY */}
-          <div className="flex items-center justify-center border rounded-lg px-3 py-1.5 bg-gray-50 min-w-[110px]">
+    <div className="flex items-center justify-center border rounded-lg px-3 py-1.5 bg-gray-50 min-w-[110px]">
   <span className="text-sm font-semibold text-gray-800 whitespace-nowrap">
     Quantity: {normalQty}
   </span>
 </div>
+
 
 
 
@@ -2271,29 +2456,52 @@ if (num > maxStock) {
             </Card>
 
             {/* Trust Badges */}
-            <div className="grid grid-cols-3 sm:grid-cols-3 gap-2 mb-4">
-              <Card>
-                <CardContent className="p-3 text-center">
-                  <Truck className="h-6 w-6 mx-auto mb-1 text-[#445D41]" />
-                  <p className="text-xs font-semibold">Free Shipping</p>
-                  <p className="text-xs text-gray-600">Over £35</p>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardContent className="p-3 text-center">
-                  <RotateCcw className="h-6 w-6 mx-auto mb-1 text-[#445D41]" />
-                  <p className="text-xs font-semibold">Easy Returns</p>
-                  <p className="text-xs text-gray-600">30 Days</p>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardContent className="p-3 text-center">
-                  <ShieldCheck className="h-6 w-6 mx-auto mb-1 text-[#445D41]" />
-                  <p className="text-xs font-semibold">Secure Payment</p>
-                  <p className="text-xs text-gray-600">SSL Encrypted</p>
-                </CardContent>
-              </Card>
-            </div>
+            {/* Trust Badges */}
+<div className="grid grid-cols-3 gap-2 mb-4">
+  {/* Shipping */}
+  <Card>
+    <CardContent className="p-3 text-center">
+      <Truck className="h-6 w-6 mx-auto mb-1 text-[#445D41]" />
+      <p className="text-xs font-semibold">Free Shipping</p>
+      <p className="text-xs text-gray-600">Over £35</p>
+    </CardContent>
+  </Card>
+
+  {/* 🔄 RETURN POLICY (BACKEND DRIVEN) */}
+  <Card>
+    <CardContent className="p-3 text-center">
+      <RotateCcw
+        className={`h-6 w-6 mx-auto mb-1 ${
+          product.notReturnable ? "text-red-700" : "text-[#445D41]"
+        }`}
+      />
+
+      <p
+        className={`text-xs font-semibold ${
+          product.notReturnable ? "text-red-700" : ""
+        }`}
+      >
+        {product.notReturnable ? "Non-Returnable" : "Easy Returns"}
+      </p>
+
+      <p className="text-xs text-gray-600">
+        {product.notReturnable
+          ? "This item cannot be returned"
+          : "30 Days"}
+      </p>
+    </CardContent>
+  </Card>
+
+  {/* Secure Payment */}
+  <Card>
+    <CardContent className="p-3 text-center">
+      <ShieldCheck className="h-6 w-6 mx-auto mb-1 text-[#445D41]" />
+      <p className="text-xs font-semibold">Secure Payment</p>
+      <p className="text-xs text-gray-600">SSL Encrypted</p>
+    </CardContent>
+  </Card>
+</div>
+
           </div>
         </div>
  {/* RELATED PRODUCTS */}

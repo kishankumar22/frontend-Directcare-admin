@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
-import { ToastProvider } from "@/components/CustomToast";
+import { ToastProvider } from "@/components/toast/CustomToast";
 import ConditionalLayout from "./ConditionalLayout";
 import { CartProvider } from "@/context/CartContext";
 import { AuthProvider } from "@/context/AuthContext";
@@ -40,7 +40,6 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={inter.className} suppressHydrationWarning>
-
         <ToastProvider>
           <AuthProvider>
             <CartProvider>
@@ -50,7 +49,6 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             </CartProvider>
           </AuthProvider>
         </ToastProvider>
-        
       </body>
     </html>
   );

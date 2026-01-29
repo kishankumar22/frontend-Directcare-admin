@@ -14,20 +14,22 @@ interface HomeBanner {
   title?: string;
 }
 
+interface HomeBannerSliderProps {
+  banners: HomeBanner[];
+  baseUrl: string;
+}
+
 export default function HomeBannerSlider({
   banners,
   baseUrl,
-}: {
-  banners: HomeBanner[];
-  baseUrl: string;
-}) {
+}: HomeBannerSliderProps) {
   if (!banners || banners.length === 0) return null;
 
   const enableLoop = banners.length > 2;
   const enableAutoplay = banners.length > 1;
 
   return (
-    <div className="relative w-full h-[138px] md:h-[500px]">
+    <div className="relative w-full">
       <Swiper
         modules={[Autoplay, Pagination]}
         slidesPerView={1}
@@ -42,27 +44,27 @@ export default function HomeBannerSlider({
             : false
         }
         pagination={enableAutoplay ? { clickable: true } : false}
-        className="h-full"
+        className="w-full"
       >
         {banners.map((banner) => (
           <SwiperSlide key={banner.id}>
             {banner.link ? (
               <Link
                 href={banner.link}
-                className="block w-full h-full cursor-pointer"
+                className="block w-full cursor-pointer"
               >
                 <img
                   src={`${baseUrl}${banner.imageUrl}`}
                   alt={banner.title || "Banner"}
-                  className="w-full h-full object-cover object-center"
+                  className="w-full h-auto object-contain"
                 />
               </Link>
             ) : (
-              <div className="block w-full h-full">
+              <div className="block w-full">
                 <img
                   src={`${baseUrl}${banner.imageUrl}`}
                   alt={banner.title || "Banner"}
-                  className="w-full h-full object-cover object-center"
+                  className="w-full h-auto object-contain"
                 />
               </div>
             )}

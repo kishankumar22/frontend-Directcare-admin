@@ -355,7 +355,7 @@ const ProductViewModal: React.FC<ProductViewModalProps> = ({
         <Copy size={14} />
       </button>
     </div>
-  </div>
+                      </div>
 
                     <InfoField label="SKU" value={product.sku} icon={<FileText className="w-3.5 h-3.5" />} />
                     <InfoField
@@ -365,7 +365,7 @@ const ProductViewModal: React.FC<ProductViewModalProps> = ({
                     />
                     <InfoField label="Status" value={'Active'} icon={<Activity className="w-3.5 h-3.5" />} />
                     <InfoField label="Brand" value={product.brandName} icon={<Star className="w-3.5 h-3.5" />} />
-                    <InfoField label="Category" value={product.categoryName} icon={<Filter className="w-3.5 h-3.5" />} />
+                    {/* <InfoField label="Category" value={product.categoryName} icon={<Filter className="w-3.5 h-3.5" />} /> */}
                     <InfoField
                       label="Display Order"
                       value={product.displayOrder?.toString() || '1'}
@@ -374,7 +374,7 @@ const ProductViewModal: React.FC<ProductViewModalProps> = ({
                   </div>
 
                   {/* Brands - Multiple */}
-                  {(product as any).brands &&
+                  {/* {(product as any).brands &&
                     Array.isArray((product as any).brands) &&
                     (product as any).brands.length > 0 && (
                       <div className="p-4 bg-purple-500/5 rounded-lg border border-purple-500/30 mb-4">
@@ -397,7 +397,7 @@ const ProductViewModal: React.FC<ProductViewModalProps> = ({
                           ))}
                         </div>
                       </div>
-                    )}
+                    )} */}
 
                   {/* Categories - Multiple */}
                   {(product as any).categories &&
@@ -500,7 +500,7 @@ const ProductViewModal: React.FC<ProductViewModalProps> = ({
                     {product.oldPrice && (
                       <div className="p-4 bg-slate-800/50 rounded-lg border border-slate-700">
                         <p className="text-xs text-slate-400 font-bold mb-1">Old Price</p>
-                        <p className="text-xl text-red-400 font-bold line-through">£{product.oldPrice}</p>
+                        <p className="text-xl text-red-400 font-bold ">£{product.oldPrice}</p>
                       </div>
                     )}
 

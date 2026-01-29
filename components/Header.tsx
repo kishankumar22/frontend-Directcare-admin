@@ -5,7 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { Menu, Search, Heart, ShoppingCart, User, X, ChevronDown, ChevronRight, Truck, Package, Bike, Star, BadgePercent } from "lucide-react";
 import MegaMenu from "./MegaMenu";
-import { useToast } from "@/components/CustomToast";
+import { useToast } from "@/components/toast/CustomToast";
 import { useCart } from "@/context/CartContext";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
@@ -27,7 +27,10 @@ export default function Header({
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [searchValue, setSearchValue] = useState("");
-  const [categories, setCategories] = useState<Category[]>(ssrCategories);
+ const [categories, setCategories] = useState<Category[]>(
+  ssrCategories.filter((c: any) => c.showOnHomepage === true)
+);
+
   const [activeCategory, setActiveCategory] = useState<Category | null>(null);
   const [hovered, setHovered] = useState(false);
   const [hideTopBar, setHideTopBar] = useState(false);
@@ -38,15 +41,13 @@ export default function Header({
   const toast = useToast();
   const { cartCount, isInitialized } = useCart();
   const router = useRouter();
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user } = useAuth();
 
-  const handleAccountClick = () => {
-    if (isAuthenticated) {
-      router.push("/account/profile");
-    } else {
-      router.push("/account");
-    }
-  };
+
+ const handleAccountClick = () => {
+  router.push("/account");
+};
+
 
   const mobileTopMessages = [
     {
@@ -212,8 +213,13 @@ useEffect(() => {
         );
         const json = await res.json();
         if (json.success) {
-          const topCategories = json.data.filter((cat: Category) => !cat.parentCategoryId);
-          setCategories(topCategories);
+          const topCategories = json.data
+  .filter((cat: Category) => !cat.parentCategoryId)
+  .filter((cat: any) => cat.showOnHomepage === true)
+  .sort((a: any, b: any) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
+
+setCategories(topCategories);
+
         }
       } catch (err) {
         console.error("Failed to load categories:", err);
@@ -377,16 +383,20 @@ useEffect(() => {
               )}
             </button>
            {/* USER STATUS UI */}
-{isAuthenticated ? (
-  // 🔵 USER LOGGED IN → show icon
-  <button onClick={handleAccountClick} className="text-gray-700 hover:text-green-800 transition">
-    <User size={22} />
+{isAuthenticated && user ? (
+  <button
+    onClick={handleAccountClick}
+    className="flex items-center gap-1 text-gray-700"
+  >
+    <User size={20} />
+    <span className="text-xs font-medium">
+      {user.firstName}
+    </span>
   </button>
 ) : (
-  // 🔴 USER NOT LOGGED IN → show LOGIN BUTTON
   <button
     onClick={() => router.push("/account")}
-    className="px-3 py-1 text-xs font-semibold text-[#445D41] border border-[#445D41] rounded-md hover:bg-[#445D41] hover:text-white transition"
+    className="px-3 py-1 text-xs font-semibold text-[#445D41] border border-[#445D41] rounded-md"
   >
     Login
   </button>
@@ -561,12 +571,15 @@ useEffect(() => {
                 )}
               </button>
             </Link>
-           {isAuthenticated ? (
+           {isAuthenticated && user ? (
   <button
     onClick={handleAccountClick}
-    className="hover:text-green-800 transition"
+    className="flex items-center gap-2 hover:text-green-800 transition"
   >
-    <User size={22} />
+    <User size={20} />
+    <span className="text-sm font-medium text-gray-700">
+       {user.fullName ?? "User"}
+    </span>
   </button>
 ) : (
   <button
@@ -576,6 +589,7 @@ useEffect(() => {
     Login
   </button>
 )}
+
 
           </div>
         </div>
@@ -591,6 +605,7 @@ useEffect(() => {
 >
 
          <nav className="flex items-center h-9 border-y-2 text-sm font-bold border-[#445d41] text-black pl-20 gap-6">
+          
             {categories.map((cat) => (
               <div
                 key={cat.id}
@@ -624,8 +639,14 @@ useEffect(() => {
                 </Link>
               </div>
             ))}
-           {/*  OFFERS — RIGHT END */} 
-            <Link href="/offers" className=" flex items-center gap-1 py-2 text-[#C62828] hover:text-red-700 transition-colors"  >    <BadgePercent size={14} />    Offers  </Link>
+             {/* 🔥 OFFERS — RIGHT END */}
+  <Link
+    href="/offers"
+    className=" flex items-center gap-1 py-2 text-[#c62828] hover:text-red-700 transition-colors"
+  >
+    <BadgePercent size={14} />
+    Offers
+  </Link>
           </nav>
 
           {/* Mega Menu */}
@@ -686,6 +707,7 @@ useEffect(() => {
           </div>
 
           <nav className="p-2">
+
             {categories.map((parent) => (
               <div key={parent.id} className="border-b">
                 {parent.subCategories && parent.subCategories.length > 0 ? (

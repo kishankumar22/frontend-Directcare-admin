@@ -3,6 +3,7 @@
 import { usePathname } from "next/navigation";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import ScrollToTop from "@/components/ScrollToTop";
 
 export default function ConditionalLayout({
   children,
@@ -21,14 +22,13 @@ export default function ConditionalLayout({
     "/reset-password",
     "/verify-email",
     "/onboarding",
-    "/checkout",
     "/payment-success",
     "/payment-failed"
   ];
 
-  // ✅ Admin routes ko completely exclude karo (NULL SAFE)
-  const isAdminRoute = pathname?.startsWith("/admin") || false;
-  const isAuthRoute = pathname ? hideLayoutRoutes.includes(pathname) : false;
+  // ✅ Admin routes ko completely exclude karo
+  const isAdminRoute = pathname.startsWith("/admin");
+  const isAuthRoute = hideLayoutRoutes.includes(pathname);
   
   const hideLayout = isAdminRoute || isAuthRoute;
 
@@ -37,12 +37,19 @@ export default function ConditionalLayout({
     return <>{children}</>;
   }
 
-  // ✅ Main site par Header + Footer dikhega
+  // ✅ Main site par Header + Footer dikhega with proper spacing
   return (
-    <>
-      <Header ssrCategories={categories} />
-      <main className="pt-[150px]">{children}</main>
-      <Footer />
-    </>
-  );
+  <div className="min-h-screen flex flex-col">
+    <Header ssrCategories={categories} />
+
+    {/* main will push footer to bottom */}
+    <main className="flex-1 pt-[150px]">
+      {children}
+    </main>
+
+    <Footer />
+    <ScrollToTop />
+  </div>
+);
+
 }

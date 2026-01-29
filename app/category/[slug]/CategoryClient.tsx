@@ -12,7 +12,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useCart } from "@/context/CartContext";
-import { useToast } from "@/components/CustomToast";
+import { useToast } from "@/components/toast/CustomToast";
 import { getDiscountBadge, getDiscountedPrice, } from "@/app/lib/discountHelpers";
 import GenderBadge from "@/components/shared/GenderBadge";
 // ---------- Types ----------
@@ -82,7 +82,7 @@ interface Brand {
 
 interface CategoryClientProps {
   category: Category | null;
-   // :compass: Breadcrumbs (NEW)
+   // 🧭 Breadcrumbs (NEW)
   breadcrumbs: BreadcrumbItem[];
   initialProducts: Product[];
   totalCount: number;
@@ -92,7 +92,7 @@ interface CategoryClientProps {
   initialSortBy: string;
   initialSortDirection: string;
   brands: Brand[];
-  discount?: number | null; // :white_check_mark: ADD THIS
+  discount?: number | null; // ✅ ADD THIS
 }
 
 // ---------- Debounce hook ----------
@@ -124,8 +124,8 @@ export default function CategoryClient({
   initialSortBy,
   initialSortDirection,
   brands,
-  vatRates, // :white_check_mark: SERVER SE AAYA
-  discount, // :white_check_mark: ADD THIS
+  vatRates, // ✅ SERVER SE AAYA
+  discount, // ✅ ADD THIS
 }: CategoryClientProps & { vatRates: any[] }) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -191,8 +191,8 @@ useEffect(() => {
   // ---------- Filtering + sorting ----------
   const filteredAndSortedProducts = useMemo(() => {
    const filtered = products.filter((product) => {
-    // :fire: OFFER DISCOUNT FILTER (NON-BREAKING)
-// :fire: OFFER / DISCOUNT FILTER (HYBRID – OPTION 3)
+    // 🔥 OFFER DISCOUNT FILTER (NON-BREAKING)
+// 🔥 OFFER / DISCOUNT FILTER (HYBRID – OPTION 3)
 
 // Case 1: exact discount selected (chip click)
 if (typeof discount === "number") {
@@ -218,7 +218,7 @@ else if (isOfferPage) {
 
   // must match category
 // Category + subcategory filtering
-// :white_check_mark: CATEGORY + SUBCATEGORY FILTER (FIXED)
+// ✅ CATEGORY + SUBCATEGORY FILTER (FIXED)
 const productCategoryIds =
   product.categories?.map((c) => c.categoryId) ?? [];
 
@@ -243,7 +243,7 @@ else {
 }
 
 
-// :white_check_mark: BRAND FILTER (FIXED FOR brands[])
+// ✅ BRAND FILTER (FIXED FOR brands[])
 if (selectedBrands.length > 0) {
   const productBrandIds =
     product.brands?.map((b) => b.brandId) ?? [];
@@ -441,8 +441,8 @@ const finalPrice = getDiscountedPrice(product, basePrice);
             defaultVariant.option3Value,
           ].filter(Boolean).join(", ")})`
         : product.name,
-     price: finalPrice,                 // :white_check_mark: cart uses discounted price
-  priceBeforeDiscount: basePrice,    // :white_check_mark: required for coupon logic
+     price: finalPrice,                 // ✅ cart uses discounted price
+  priceBeforeDiscount: basePrice,    // ✅ required for coupon logic
   finalPrice: finalPrice,
   discountAmount: basePrice - finalPrice,
       quantity: 1,
@@ -458,7 +458,7 @@ const finalPrice = getDiscountedPrice(product, basePrice);
       productData: JSON.parse(JSON.stringify(product)),
     });
 
-    toast.success(`${product.name} added to cart! :shopping_trolley:`);
+    toast.success(`${product.name} added to cart! 🛒`);
   },
   [toast, addToCart]
 );
@@ -478,9 +478,9 @@ const finalPrice = getDiscountedPrice(product, basePrice);
       )}
 
       <main className="max-w-7xl mx-auto px-4 py-4">
-        {/* :compass: Breadcrumbs */}
+        {/* 🧭 Breadcrumbs */}
 <div className="mb-2 flex items-center justify-between">
-  {/* :compass: Breadcrumbs – LEFT */}
+  {/* 🧭 Breadcrumbs – LEFT */}
   <nav className="flex items-center flex-wrap gap-1 text-sm text-gray-600">
     {breadcrumbs.map((crumb, index) => (
       <div key={index} className="flex items-center gap-1">
@@ -504,7 +504,7 @@ const finalPrice = getDiscountedPrice(product, basePrice);
     ))}
   </nav>
 
-  {/* :arrow_down_small: Sort – TOP RIGHT (same line) */}
+  {/* 🔽 Sort – TOP RIGHT (same line) */}
   <select
     value={`${sortBy}-${sortDirection}`}
     onChange={(e) => handleSortChange(e.target.value)}
@@ -780,8 +780,8 @@ const hasCoupon = (product as any).assignedDiscounts?.some(
 
               const defaultVariant = getDefaultVariant(product);
 
-  const basePrice = defaultVariant?.price ?? product.price;   // :white_check_mark: ADD
-  const finalPrice = getDiscountedPrice(product, basePrice);  // :white_check_mark: ADD
+  const basePrice = defaultVariant?.price ?? product.price;   // ✅ ADD
+  const finalPrice = getDiscountedPrice(product, basePrice);  // ✅ ADD
 const stock = defaultVariant?.stockQuantity ?? product.stockQuantity ?? 0;
 
 const mainImage = defaultVariant?.imageUrl
@@ -836,7 +836,21 @@ const mainImage = defaultVariant?.imageUrl
       </div>
     </div>
   </div>
-)}                       
+)}   
+{!discountBadge && hasCoupon && (
+  <div className="absolute top-3 right-3 z-20">
+    <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-gradient-to-br from-red-500 to-red-700 flex items-center justify-center text-white shadow-lg ring-2 ring-white">
+      <div className="flex flex-col items-center leading-none text-center px-1">
+        <span className="text-[9px] sm:text-[10px] font-extrabold leading-tight">
+          COUPON
+        </span>
+        <span className="text-[8px] sm:text-[9px] font-semibold leading-tight">
+          AVAILABLE
+        </span>
+      </div>
+    </div>
+  </div>
+)}                    
                            <GenderBadge gender={product.gender} />
                         </div>
                          </Link>
@@ -861,7 +875,7 @@ const mainImage = defaultVariant?.imageUrl
 
                         {/* Rating */}
                        <div className="flex items-center gap-2 mb-1 flex-wrap">
-  {/* :star: Rating */}
+  {/* ⭐ Rating */}
   <div className="flex items-center">
     <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
     <span className="text-sm ml-1 font-medium text-gray-700">
@@ -873,15 +887,13 @@ const mainImage = defaultVariant?.imageUrl
     ({product.reviewCount || 0} reviews)
   </span>
 
-  {/* :large_green_circle: VAT Relief badge — moved here */}
-  {product.vatExempt && (
-    <span className="flex items-center gap-1 text-[10px] font-semibold text-green-700 bg-green-50 border border-green-200 px-2 py-0.5 rounded whitespace-nowrap">
-                     
-                    
-      <BadgePercent className="h-3 w-3" />
-      VAT Relief
-    </span>
-  )}
+ {(product as any).loyaltyPointsEnabled && (
+  <span className="mt-0 inline-flex items-center gap-1.5 text-[11px] font-medium text-green-700 bg-green-50 border border-green-200 px-2 py-0.5 rounded-md w-fit leading-none">
+    <AwardIcon className="h-4 w-4 text-green-600" />
+    {(product as any).loyaltyPointsMessage ??
+      `Earn ${(product as any).loyaltyPointsEarnable} points`}
+  </span>
+)}
 </div>
 
 
@@ -899,17 +911,10 @@ const mainImage = defaultVariant?.imageUrl
     </span>
   )}
 
-  {/* COUPON AVAILABLE – ALWAYS WHEN EXISTS */}
-  {hasCoupon && (
-    <span className="text-xs font-semibold text-red-700 bg-red-100 px-2 py-0.5 rounded whitespace-nowrap">
-      Coupon!
-    </span>
-  )}
-
-
 {product.vatExempt ? (
-  <span className="text-xs font-semibold text-green-700 bg-green-50 border border-green-200 px-2 py-0.5 rounded-md whitespace-nowrap">
-    (0% VAT)
+  <span className="inline-flex items-center gap-1 text-xs font-semibold text-green-700 bg-green-50 border border-green-200 px-2 py-0.5 rounded-md whitespace-nowrap">
+    <BadgePercent className="h-3 w-3" />
+    VAT Relief
   </span>
 ) : vatRate !== null ? (
   <span className="text-xs font-semibold text-green-700 bg-green-50 border border-green-200 px-2 py-0.5 rounded-md whitespace-nowrap">
@@ -917,14 +922,9 @@ const mainImage = defaultVariant?.imageUrl
   </span>
 ) : null}
 
+
 </div>
-{(product as any).loyaltyPointsEnabled && (
-  <span className="mt-0 inline-flex items-center gap-1.5 text-[11px] font-medium text-green-700 bg-green-50 border border-green-200 px-2 py-0.5 rounded-md w-fit leading-none">
-    <AwardIcon className="h-4 w-4 text-green-600" />
-    {(product as any).loyaltyPointsMessage ??
-      `Earn ${(product as any).loyaltyPointsEarnable} points`}
-  </span>
-)}
+
                         {/* Add to Cart */}
                         <Button
                           onClick={() => handleAddToCart(product)}

@@ -81,7 +81,8 @@ export default function TopBrandsSlider({
       >
         {brands.map((brand: Brand) => (
           <SwiperSlide key={brand.id}>
-            <Link href={`/brand/${brand.slug}`}>
+          <Link href={`/brands/${brand.slug}`}>
+
 <Card
   className="w-full h-[200px] md:h-[230px] bg-white rounded-2xl 
              shadow-[0_4px_20px_rgba(0,0,0,0.08)] 
@@ -95,10 +96,12 @@ export default function TopBrandsSlider({
 <div className="w-[120px] h-[120px] md:w-[140px] md:h-[140px] flex items-center justify-center overflow-hidden">
   <img
     src={
-      brand.logoUrl.startsWith("http")
+    brand.logoUrl
+      ? brand.logoUrl.startsWith("http")
         ? brand.logoUrl
         : `${baseUrl}${brand.logoUrl}`
-    }
+      : "/placeholder.jpg"
+  }
     alt={brand.name}
     className="w-auto h-full object-contain"
   style={{ objectPosition: "center" }}

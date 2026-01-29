@@ -8,137 +8,57 @@ import { Star, SlidersHorizontal } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 
+interface OffersClientProps {
+  initialItems: any[];
+  initialHasMore: boolean;
+}
+
 export default function OffersClient({
   initialItems,
   initialHasMore,
-}: {
-  initialItems: any[];
-  initialHasMore: boolean;
-}) {
+}: OffersClientProps) {
   const vatRates = useVatRates();
 
   const [products, setProducts] = useState<any[]>(initialItems);
   const [filteredProducts, setFilteredProducts] =
     useState<any[]>(initialItems);
-const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
-const categories = useMemo(() => {
-  const map = new Map<string, any>();
 
-  products.forEach((p: any) => {
-    p.categories?.forEach((c: any) => {
-      if (!map.has(c.categoryId)) {
-        map.set(c.categoryId, {
-          id: c.categoryId,
-          name: c.categoryName,
-        });
-      }
-    });
-  });
-
-  return Array.from(map.values());
-}, [products]);
-const [sortBy, setSortBy] = useState<"name" | "price">("name");
-const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
-const handleSortChange = (value: string) => {
-  const [by, dir] = value.split("-");
-  setSortBy(by as "name" | "price");
-  setSortDirection(dir as "asc" | "desc");
-};
-
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [selectedBrands, setSelectedBrands] = useState<string[]>([]);
   const [priceRange, setPriceRange] = useState<[number, number]>([0, 0]);
   const [minPrice, setMinPrice] = useState(0);
   const [maxPrice, setMaxPrice] = useState(0);
   const [minRating, setMinRating] = useState(0);
 
-  // derive price range (SAME as category page)
-  useEffect(() => {
-    if (!products.length) return;
+  const [sortBy, setSortBy] = useState<"name" | "price">("name");
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
 
-    const prices = products.map((p: any) => p.price ?? 0);
-    const min = Math.floor(Math.min(...prices));
-    const max = Math.ceil(Math.max(...prices));
+  const handleSortChange = (value: string) => {
+    const [by, dir] = value.split("-");
+    setSortBy(by as "name" | "price");
+    setSortDirection(dir as "asc" | "desc");
+  };
 
-    setMinPrice(min);
-    setMaxPrice(max);
-    setPriceRange([min, max]);
+  // Categories
+  const categories = useMemo(() => {
+    const map = new Map<string, any>();
+    products.forEach((p) => {
+      p.categories?.forEach((c: any) => {
+        if (!map.has(c.categoryId)) {
+          map.set(c.categoryId, {
+            id: c.categoryId,
+            name: c.categoryName,
+          });
+        }
+      });
+    });
+    return Array.from(map.values());
   }, [products]);
 
-  // FILTER LOGIC (UNCHANGED)
-const filtered = useMemo(() => {
-  const result = products.filter((product: any) => {
-    // 🔥 OFFERS-only discount logic (unchanged)
-    const hasActiveDiscount =
-      Array.isArray(product.assignedDiscounts) &&
-      product.assignedDiscounts.some(
-        (d: any) =>
-          d.isActive === true &&
-          new Date(d.startDate) <= new Date() &&
-          new Date(d.endDate) >= new Date() &&
-          (
-            (d.usePercentage && d.discountPercentage > 0) ||
-            (!d.usePercentage && d.discountAmount > 0)
-          )
-      );
-
-    if (!hasActiveDiscount) return false;
-
-    // Category
-    if (selectedCategories.length > 0) {
-      const ids = product.categories?.map((c: any) => c.categoryId) ?? [];
-      if (!ids.some((id: string) => selectedCategories.includes(id))) return false;
-    }
-
-    // Brand
-    if (selectedBrands.length > 0) {
-      const ids = product.brands?.map((b: any) => b.brandId) ?? [];
-      if (!ids.some((id: string) => selectedBrands.includes(id))) return false;
-    }
-
-    // Price
-    if (product.price < priceRange[0] || product.price > priceRange[1])
-      return false;
-
-    // Rating
-    if ((product.averageRating ?? 0) < minRating) return false;
-
-    return true;
-  });
-
-  // 🔥 SORT (same logic as category)
-  return [...result].sort((a, b) => {
-    if (sortBy === "name") {
-      const cmp = a.name.localeCompare(b.name);
-      return sortDirection === "asc" ? cmp : -cmp;
-    }
-
-    if (sortBy === "price") {
-      const cmp = a.price - b.price;
-      return sortDirection === "asc" ? cmp : -cmp;
-    }
-
-    return 0;
-  });
-}, [
-  products,
-  selectedCategories,
-  selectedBrands,
-  priceRange,
-  minRating,
-  sortBy,
-  sortDirection,
-]);
-
-
-
-  useEffect(() => {
-    setFilteredProducts(filtered);
-  }, [filtered]);
-
-  // unique brands from products (UI helper only)
+  // Brands
   const brands = useMemo(() => {
     const map = new Map<string, any>();
-    products.forEach((p: any) => {
+    products.forEach((p) => {
       p.brands?.forEach((b: any) => {
         if (!map.has(b.brandId)) {
           map.set(b.brandId, {
@@ -151,17 +71,89 @@ const filtered = useMemo(() => {
     return Array.from(map.values());
   }, [products]);
 
- const resetFilters = () => {
-  setSelectedCategories([]);
-  setSelectedBrands([]);
-  setMinRating(0);
-  setPriceRange([minPrice, maxPrice]);
-};
+  // Price range derive
+  useEffect(() => {
+    if (!products.length) return;
+    const prices = products.map((p) => p.price ?? 0);
+    const min = Math.floor(Math.min(...prices));
+    const max = Math.ceil(Math.max(...prices));
+    setMinPrice(min);
+    setMaxPrice(max);
+    setPriceRange([min, max]);
+  }, [products]);
 
+  // Filtering + sorting
+  const filtered = useMemo(() => {
+    const result = products.filter((product) => {
+      const hasActiveDiscount =
+        Array.isArray(product.assignedDiscounts) &&
+        product.assignedDiscounts.some(
+          (d: any) =>
+            d.isActive &&
+            new Date(d.startDate) <= new Date() &&
+            new Date(d.endDate) >= new Date() &&
+            ((d.usePercentage && d.discountPercentage > 0) ||
+              (!d.usePercentage && d.discountAmount > 0))
+        );
+
+      if (!hasActiveDiscount) return false;
+
+      if (
+        selectedCategories.length &&
+        !product.categories?.some((c: any) =>
+          selectedCategories.includes(c.categoryId)
+        )
+      )
+        return false;
+
+      if (
+        selectedBrands.length &&
+        !product.brands?.some((b: any) =>
+          selectedBrands.includes(b.brandId)
+        )
+      )
+        return false;
+
+      if (product.price < priceRange[0] || product.price > priceRange[1])
+        return false;
+
+      if ((product.averageRating ?? 0) < minRating) return false;
+
+      return true;
+    });
+
+    return [...result].sort((a, b) => {
+      if (sortBy === "name") {
+        const cmp = a.name.localeCompare(b.name);
+        return sortDirection === "asc" ? cmp : -cmp;
+      }
+      const cmp = a.price - b.price;
+      return sortDirection === "asc" ? cmp : -cmp;
+    });
+  }, [
+    products,
+    selectedCategories,
+    selectedBrands,
+    priceRange,
+    minRating,
+    sortBy,
+    sortDirection,
+  ]);
+
+  useEffect(() => {
+    setFilteredProducts(filtered);
+  }, [filtered]);
+
+  const resetFilters = () => {
+    setSelectedCategories([]);
+    setSelectedBrands([]);
+    setMinRating(0);
+    setPriceRange([minPrice, maxPrice]);
+  };
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <main className="max-w-7xl mx-auto px-4 py-4">
+            <main className="max-w-7xl mx-auto px-4 py-4">
         {/* PAGE HEADER */}
       <div className="mb-2 flex items-center justify-between">
   {/* 🧭 Breadcrumbs */}

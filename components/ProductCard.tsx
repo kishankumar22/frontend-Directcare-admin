@@ -1,3 +1,4 @@
+//components\ProductCard.tsx
 "use client";
 
 import Image from "next/image";
@@ -5,7 +6,7 @@ import Link from "next/link";
 import { ShoppingCart, Star, BadgePercent, AwardIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useCart } from "@/context/CartContext";
-import { useToast } from "@/components/CustomToast";
+import { useToast } from "@/components/toast/CustomToast";
 import { getDiscountBadge, getDiscountedPrice } from "@/app/lib/discountHelpers";
 import { getVatRate } from "@/app/lib/vatHelpers";
 import GenderBadge from "./shared/GenderBadge";
@@ -151,6 +152,21 @@ const hasActiveCoupon = product.assignedDiscounts?.some((d: any) => {
               </div>
             </div>
           )}
+          {/* 🔥 COUPON REQUIRED BADGE (SAME CIRCULAR STYLE) */}
+{!discountBadge && hasActiveCoupon && (
+  <div className="absolute top-3 right-3 z-20">
+    <div className="w-14 h-14 rounded-full bg-gradient-to-br from-red-500 to-red-700 flex items-center justify-center text-white shadow-lg ring-2 ring-white">
+      <div className="flex flex-col items-center leading-none text-center px-1">
+        <span className="text-[10px] font-extrabold leading-tight">
+          COUPON
+        </span>
+        <span className="text-[9px] font-semibold leading-tight">
+          AVAILABLE
+        </span>
+      </div>
+    </div>
+  </div>
+)}
         </div>
       </Link>
 
@@ -184,12 +200,13 @@ const hasActiveCoupon = product.assignedDiscounts?.some((d: any) => {
             ({product.reviewCount || 0} reviews)
           </span>
 
-          {product.vatExempt && (
-            <span className="flex items-center gap-1 text-[10px] font-semibold text-green-700 bg-green-50 border border-green-200 px-2 py-0.5 rounded-md">
-              <BadgePercent className="h-3 w-3" />
-              VAT Relief
-            </span>
-          )}
+          {product.loyaltyPointsEnabled ? (
+    <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-green-700 bg-green-50 border border-green-200 px-2 py-0.5 rounded-md w-fit">
+      <AwardIcon className="h-4 w-4" />
+      {product.loyaltyPointsMessage ??
+        `Earn ${product.loyaltyPointsEarnable} points`}
+    </span>
+  ) : null}
         </div>
 
         {/* PRICE */}
@@ -204,34 +221,18 @@ const hasActiveCoupon = product.assignedDiscounts?.some((d: any) => {
             </span>
           )}
 
-          {product.vatExempt ? (
-            <span className="text-xs font-semibold text-green-700 bg-green-50 border border-green-200 px-2 py-0.5 rounded-md">
-              (0% VAT)
-            </span>
-          ) : vatRate !== null ? (
-            <span className="text-xs font-semibold text-green-700 bg-green-50 border border-green-200 px-2 py-0.5 rounded-md">
-              ({vatRate}% VAT)
-            </span>
-          ) : null}
-          {hasActiveCoupon && (
-  <span className="text-xs font-semibold text-red-700 bg-purple-100 px-2 py-0.5 rounded whitespace-nowrap">
-    Coupon!
+         {product.vatExempt ? (
+  <span className="inline-flex items-center gap-1 text-xs font-semibold text-green-700 bg-green-50 border border-green-200 px-2 py-0.5 rounded-md whitespace-nowrap">
+    <BadgePercent className="h-3 w-3" />
+    VAT Relief
   </span>
-)}
+) : vatRate !== null ? (
+  <span className="text-xs font-semibold text-green-700 bg-green-50 border border-green-200 px-2 py-0.5 rounded-md whitespace-nowrap">
+    ({vatRate}% VAT)
+  </span>
+) : null}
 
         </div>
-
-        {/* LOYALTY */}
-       <div className="min-h-[28px] mt-0">
-  {product.loyaltyPointsEnabled ? (
-    <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-green-700 bg-green-50 border border-green-200 px-2 py-0.5 rounded-md w-fit">
-      <AwardIcon className="h-4 w-4" />
-      {product.loyaltyPointsMessage ??
-        `Earn ${product.loyaltyPointsEarnable} points`}
-    </span>
-  ) : null}
-</div>
-
 
         {/* ADD TO CART */}
         <Button

@@ -9,7 +9,7 @@ import QuantitySelector from "@/components/shared/QuantitySelector";
 import { Star, BadgePercent, AwardIcon } from "lucide-react";
 import { useVatRates } from "@/app/hooks/useVatRates";
 import { getVatRate } from "@/app/lib/vatHelpers";
-import { useToast } from "@/components/CustomToast";
+import { useToast } from "@/components/toast/CustomToast";
 
 import {
   getDiscountBadge,
@@ -92,7 +92,7 @@ const hasActiveCoupon = (product as any).assignedDiscounts?.some((d: any) => {
 
   return (
      <Card className="border-0 shadow-md hover:shadow-xl transition-all duration-300 rounded-xl 
-                             h-[330px] md:h-[370px] flex flex-col justify-between">
+                             h-[330px] md:h-[355px] flex flex-col justify-between">
              <CardContent className="p-2 mt-3 flex flex-col h-full">
 
       {/* BADGES */}
@@ -126,7 +126,21 @@ const hasActiveCoupon = (product as any).assignedDiscounts?.some((d: any) => {
     </div>
   </div>
 )}
-
+{/* 🔥 COUPON REQUIRED BADGE (SAME CIRCULAR STYLE) */}
+{!discountBadge && hasActiveCoupon && (
+  <div className="absolute top-3 right-3 z-20">
+    <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-gradient-to-br from-red-500 to-red-700 flex items-center justify-center text-white shadow-lg ring-2 ring-white">
+      <div className="flex flex-col items-center leading-none text-center px-1">
+        <span className="text-[9px] sm:text-[10px] font-extrabold leading-tight">
+          COUPON
+        </span>
+        <span className="text-[8px] sm:text-[9px] font-semibold leading-tight">
+          AVAILABLE
+        </span>
+      </div>
+    </div>
+  </div>
+)}
 
       {/* IMAGE */}
        <div className="h-[140px] sm:h-[160px] md:h-[180px] flex items-center justify-center overflow-hidden bg-white rounded-t-xl pt-2 relative">
@@ -158,30 +172,32 @@ const hasActiveCoupon = (product as any).assignedDiscounts?.some((d: any) => {
                     </Link>
                   </div>
 
-      {/* RATING */}
-      <div className="flex items-center gap-2 min-h-[20px] mb-2">
+    <div className="flex items-center gap-2 min-h-[20px] mb-2 flex-wrap">
 
-  {/* ⭐ Flipkart-style rating badge */}
+  {/* ⭐ Rating */}
   <div className="flex items-center bg-green-600 text-white px-1.5 py-0.5 rounded-md text-[10px] font-semibold">
     <span>{product.averageRating?.toFixed(1)}</span>
     <Star className="h-3 w-3 ml-1 fill-white text-white" />
   </div>
 
-  {/* Review Count */}
+  {/* Reviews */}
   <span className="text-[11px] text-gray-600">
     ({product.reviewCount?.toLocaleString()})
   </span>
-  {/* Discount badge – small, Flipkart style */}
-{product.vatExempt && (
-  <span className="flex items-center gap-1 text-[11px] font-semibold text-green-700 whitespace-nowrap">
-    <BadgePercent className="h-3 w-3" />
-    VAT Free
-  </span>
-)}
+
+  {/* 🎁 LOYALTY POINTS – INLINE */}
+  {(product as any).loyaltyPointsEnabled && (
+    <span className="inline-flex items-center gap-1 text-[11px] font-medium text-green-700 bg-green-50 border border-green-200 px-2 py-0.5 rounded-md whitespace-nowrap">
+      <AwardIcon className="h-4 w-4 text-green-600" />
+      Earn {(product as any).loyaltyPointsEarnable} pts
+    </span>
+  )}
+
 </div>
+
       {/* PRICE & VAT */}
-      <div className="flex items-center gap-2 mb-0 flex-wrap">
-       <span className="text-lg font-bold text-[#445D41]">
+      <div className="flex items-center gap-1 mb-0 flex-wrap">
+       <span className="text-base font-bold text-[#445D41]">
   £{finalPrice.toFixed(2)}
 </span>
 {discountBadge && (
@@ -189,30 +205,21 @@ const hasActiveCoupon = (product as any).assignedDiscounts?.some((d: any) => {
     £{basePrice.toFixed(2)}
   </span>
 )}
-        {product.vatExempt ? (
-          <span className="text-[10px] font-semibold text-green-700 bg-green-100 px-1 py-0.5 rounded whitespace-nowrap">
-            (0% VAT)
-          </span>
-        ) : vatRate !== null ? (
-          <span className="text-[10px] font-semibold text-blue-700 bg-blue-100 px-1 py-0.5 rounded whitespace-nowrap">
-            ({vatRate}% VAT)
-          </span>
-        ) : null}
-        {hasActiveCoupon && (
-  <span className="text-[10px] font-semibold text-red-700 bg-red-100 px-1 py-0.5 rounded whitespace-nowrap">
-    Coupon!
+       {product.vatExempt ? (
+  <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-green-700 bg-green-50 border border-green-200 px-2 py-0.5 rounded-md whitespace-nowrap">
+    <BadgePercent className="h-3 w-3" />
+    VAT Exempt
   </span>
-)}
+) : vatRate !== null ? (
+  <span className="text-[10px] font-semibold text-green-700 bg-green-100 px-1 py-0.5 rounded whitespace-nowrap">
+    ({vatRate}% VAT)
+  </span>
+) : null}
+
 
       </div>
-{/* 🎁 LOYALTY POINTS – CROSS SELL CARD */}
-{(product as any).loyaltyPointsEnabled && (
-  <div className="inline-flex items-center gap-1 text-[11px] font-medium text-green-700 bg-green-50 border border-green-200 px-2 py-1 rounded-md w-fit">
-                                 
-    <AwardIcon className="h-4 w-4 text-green-600" />
-    Earn {(product as any).loyaltyPointsEarnable} points
-  </div>
-)}
+
+
 
       {/* QUANTITY + BUTTON */}
        <div className="flex items-center gap-0 mt-1">

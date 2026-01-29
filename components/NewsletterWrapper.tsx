@@ -1,3 +1,4 @@
+//components/NewsletterWrapper.tsx
 "use client";
 
 import NewsletterModal from "@/components/newsletter/NewsletterModal";

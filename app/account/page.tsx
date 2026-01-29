@@ -1,3 +1,4 @@
+//account/page.tsx
 import { Suspense } from "react";
 import AccountClient from "./AccountClient";
 

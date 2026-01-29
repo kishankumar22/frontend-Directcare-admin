@@ -1,9 +1,12 @@
+//app/page.tsx
 import Link from "next/link";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import HomeBannerSlider from "@/components/HomeBannerSlider";
 import FeaturedProductsSlider from "@/components/FeaturedProductsSlider";
+import NewArrivalsProductsSlider from "@/components/NewArrivalsProductsSlider";
+
 import TopBrandsSlider from "@/components/TopBrandsSlider";
 import CategorySlider from "@/components/CategorySlider";
 import NewsletterWrapper from "@/components/NewsletterWrapper";
@@ -100,7 +103,7 @@ async function getBanners(baseUrl: string): Promise<Banner[]> {
 async function getProducts(baseUrl: string) {
   try {
     const res = await fetch(
-      `${baseUrl}/api/Products?page=1&pageSize=100&sortDirection=asc`,
+      `${baseUrl}/api/Products?page=1&pageSize=100&sortDirection=asc&isPublished=true&showOnHomepage=true`,
       {
         cache: "no-store",
       }
@@ -177,9 +180,10 @@ const homeCategories = categories
   .filter((c: Category) => c.showOnHomepage)
   .sort((a: Category, b: Category) => a.sortOrder - b.sortOrder);
 
-const homeProducts = products.filter(
-  (p: Product) => p.showOnHomepage
+const homeProducts = [...products].sort(
+  (a: any, b: any) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0)
 );
+
 
 
  return (
@@ -199,32 +203,38 @@ const homeProducts = products.filter(
 <CategoryOffersSlider categories={categories} baseUrl={baseUrl} />
     {/* ===== PROMO BANNER ===== */}
  {seasonalBanners.length > 0 && (
-  <section className="w-full py-6 bg-white">
-    
-      {seasonalBanners.map(banner => {
-        const Wrapper = banner.link ? Link : "div";
+  <section className="w-full py-4 bg-white">
+   {seasonalBanners.map((banner) => (
+  banner.link ? (
+    <Link
+      key={banner.id}
+      href={banner.link}
+      className="block cursor-pointer"
+    >
+      <img
+        src={`${baseUrl}${banner.imageUrl}`}
+        alt={banner.title}
+        className="w-full h-auto object-cover"
+      />
+    </Link>
+  ) : (
+    <div key={banner.id}>
+      <img
+        src={`${baseUrl}${banner.imageUrl}`}
+        alt={banner.title}
+        className="w-full h-auto object-cover"
+      />
+    </div>
+  )
+))}
 
-        return (
-          <Wrapper
-            key={banner.id}
-            href={banner.link || ""}
-            className={banner.link ? "block cursor-pointer" : ""}
-          >
-            <img
-              src={`${baseUrl}${banner.imageUrl}`}
-              alt={banner.title}
-              className="w-full h-auto object-cover block cursor-pointer"
-            />
-          </Wrapper>
-        );
-      })}
     
   </section>
 )}
 
 
     {/* ===== FEATURED PRODUCTS ===== */}
-    <section className="w-full bg-gray-50 py-8">
+    <section className="w-full bg-gray-50 py-4">
       <div className="max-w-7xl mx-auto px-4">
        <FeaturedProductsSlider products={homeProducts} baseUrl={baseUrl} />
 
@@ -232,7 +242,7 @@ const homeProducts = products.filter(
     </section>
 
     {/* ===== CATEGORIES ===== */}
-    <section className="w-full bg-gray-100 py-8">
+    <section className="w-full bg-gray-100 py-4">
       <div className="max-w-7xl mx-auto px-4">
         <div className="text-center mb-6 md:mb-8">
           <h2 className="text-2xl md:text-3xl font-bold mb-1">Shop by Category</h2>
@@ -242,10 +252,18 @@ const homeProducts = products.filter(
 
       </div>
     </section>
+{/* ===== NEW ARRIVALS ===== */}
+<section className="w-full bg-gray-50 py-4">
+  <div className="max-w-7xl mx-auto px-4">
+    
+
+    <NewArrivalsProductsSlider baseUrl={baseUrl} />
+  </div>
+</section>
 
   
    {/* ===== TOP BRANDS ===== */}
-<section className="w-full bg-white py-8">
+<section className="w-full bg-white py-4">
   <div className="max-w-7xl mx-auto px-4">
     <div className="text-center mb-8">
       <h2 className="text-2xl md:text-3xl font-bold mb-1">Top Brands</h2>
@@ -262,7 +280,7 @@ const homeProducts = products.filter(
   </div>
 </section>
   {/* ===== WHY CHOOSE US ===== */}
-    <section className="w-full bg-gray-100 py-4">
+    <section className="w-full bg-gray-100 py-0">
       <div className="max-w-7xl mx-auto px-4">
         <WhyChooseUs />
       </div>

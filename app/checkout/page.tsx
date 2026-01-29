@@ -128,14 +128,6 @@ function CheckoutPayment({
   const elements = useElements();
   const [processing, setProcessing] = useState(false);
   const [cardError, setCardError] = useState<string | null>(null);
-useEffect(() => {
-  return () => {
-    // 🔥 Checkout chhodte hi Buy Now clear
-    sessionStorage.removeItem("buyNowItem");
-  };
-}, []);
-
-
   // 1️⃣ Create ORDER First
 async function createOrder() {
   const resp = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/Orders`, {
@@ -150,7 +142,7 @@ async function createOrder() {
   const status = resp.status;
   const raw = await resp.text();
 
-  alert("ORDER RAW RESPONSE:\nSTATUS: " + status + "\nBODY:\n" + raw);
+  // alert("ORDER RAW RESPONSE:\nSTATUS: " + status + "\nBODY:\n" + raw);
 
   let json: any;
   try {
@@ -199,13 +191,13 @@ async function createOrder() {
     });
 
     const json = await resp.json();
-    console.log("INTENT RESPONSE:", json);
-     alert("INTENT RESPONSE (parsed):\n" + JSON.stringify(json, null, 2));
-    // quick field check
-    alert(
-      "clientSecret: " + (json?.data?.clientSecret ?? "MISSING") + "\n" +
-      "paymentIntentId: " + (json?.data?.paymentIntentId ?? "MISSING")
-    );
+    // console.log("INTENT RESPONSE:", json);
+    //  alert("INTENT RESPONSE (parsed):\n" + JSON.stringify(json, null, 2));
+    // // quick field check
+    // alert(
+    //   "clientSecret: " + (json?.data?.clientSecret ?? "MISSING") + "\n" +
+    //   "paymentIntentId: " + (json?.data?.paymentIntentId ?? "MISSING")
+    // );
 
     if (!json?.data?.clientSecret || !json?.data?.paymentIntentId) {
       throw new Error("Payment Intent missing fields");
@@ -272,7 +264,7 @@ const handlePay = async () => {
     const finalPaymentIntentId = result.paymentIntent?.id;
     if (!finalPaymentIntentId) throw new Error("Missing final payment intent ID");
 
-    alert("FINAL PAYMENT INTENT ID: " + finalPaymentIntentId);
+    // alert("FINAL PAYMENT INTENT ID: " + finalPaymentIntentId);
     
     // 4️⃣ Confirm in backend WITH FINAL PAYMENT INTENT
   const confirmResp = await fetch(
@@ -286,7 +278,7 @@ const handlePay = async () => {
 );
 
 const rawConfirm = await confirmResp.text();
-alert("CONFIRM RAW RESPONSE: " + rawConfirm)
+// alert("CONFIRM RAW RESPONSE: " + rawConfirm)
 
     // Go to success page
   onPaymentSuccess({
@@ -376,7 +368,7 @@ const [addressSuggestions, setAddressSuggestions] = useState<AddressSuggestion[]
   const [fieldErrors, setFieldErrors] = useState<{ [key: string]: string }>({});
 
 
-  const [showPayment, setShowPayment] = useState(false);
+  // const [showPayment, setShowPayment] = useState(false);
   const [orderPayload, setOrderPayload] = useState<any>(null);
 const [orderSummary, setOrderSummary] = useState<{
   subtotalAmount: number;
@@ -389,6 +381,9 @@ const [orderSummary, setOrderSummary] = useState<{
 
   // Payment method state: 'card' or 'cod'
   const [paymentMethod, setPaymentMethod] = useState<"card" | "cod">("card");
+// ✅ Terms & Newsletter states
+const [acceptTerms, setAcceptTerms] = useState(true);
+const [subscribeNewsletter, setSubscribeNewsletter] = useState(false);
 
   // 🔹 BUY NOW ITEM (frontend-only)
 const buyNowItem =
@@ -543,8 +538,7 @@ const handleSelectSuggestion = async (s: AddressSuggestion) => {
   try {
    setShowSuggestions(false);
 setAddressSuggestions([]); // ⭐ ADD THIS
-setAddressQuery(s.text);
-
+setAddressQuery(""); // 🔥 clear search input after select
 
     const details = await fetchAddressDetails(s.id);
 
@@ -554,7 +548,13 @@ setAddressQuery(s.text);
       details.line3 ||
      s.text || "";
 
-    const city = details.city || "";
+    const city =
+  details.city ||
+  details.town ||
+  details.locality ||
+  details.administrativeArea ||
+  "";
+
     const state = details.province || "";
     const postcode = details.postalCode || "";
     const country = details.country || "United Kingdom";
@@ -580,7 +580,31 @@ setAddressQuery(s.text);
 };
 
 
- 
+ async function subscribeNewsletterAfterOrder(email: string) {
+  try {
+    const res = await fetch(
+      `${process.env.NEXT_PUBLIC_API_URL}/api/Newsletter/subscribe`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email,
+          source: "Checkout",
+          ipAddress: "0.0.0.0",
+        }),
+      }
+    );
+
+    const data = await res.json();
+
+    if (data?.success) {
+      localStorage.setItem("newsletterEmail", email);
+    }
+  } catch (err) {
+    console.error("Newsletter subscribe failed", err);
+  }
+}
+
 
   // Build order payload matching your sample
   const buildOrderPayload = () => {
@@ -624,7 +648,8 @@ setAddressQuery(s.text);
   };
 
 
-const handleProceedToPayment = async () => {
+const validateAndBuildPayload = async (): Promise<any | null> => {
+
   setError(null);
   setFieldErrors({});
 
@@ -639,82 +664,56 @@ const handleProceedToPayment = async () => {
   if (!billingFirstName.trim()) errors.billingFirstName = "First name is required";
   if (!billingLastName.trim()) errors.billingLastName = "Last name is required";
   if (!billingPhone.trim()) errors.billingPhone = "Phone number is required";
+
   if (deliveryMethod === "HomeDelivery") {
-  if (!billingAddress1.trim()) errors.billingAddress1 = "Address line 1 is required";
-  if (!billingPostalCode.trim()) errors.billingPostalCode = "Postcode is required";
-}
-  if (!billingAddress1.trim()) errors.billingAddress1 = "Address line 1 is required";
-  if (!billingPostalCode.trim()) errors.billingPostalCode = "Postcode is required";
+    if (!billingAddress1.trim()) errors.billingAddress1 = "Address line 1 is required";
+    if (!billingPostalCode.trim()) errors.billingPostalCode = "Postcode is required";
+  }
 
   if (Object.keys(errors).length > 0) {
     setFieldErrors(errors);
-    return;
+    return null;
   }
 
- const subscriptionMap: Record<string, string> = {};
+  // 🔁 subscription logic (AS IS – unchanged)
+  const subscriptionMap: Record<string, string> = {};
 
-for (const item of checkoutItems) {
-  if (item.type === "subscription") {
-    try {
-      console.log("Sending subscription payload:", {
-        productId: item.productId ?? item.id,
-        productVariantId: item.variantId ?? null,
-        quantity: item.quantity,
-        frequency: item.frequency,
-      });
+  for (const item of checkoutItems) {
+    if (item.type === "subscription") {
+      try {
+        const resp = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/Subscriptions`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...(isAuthenticated && { Authorization: `Bearer ${accessToken}` }),
+          },
+          body: JSON.stringify({
+            productId: item.productId ?? item.id,
+            productVariantId: item.variantId ?? null,
+            quantity: item.quantity,
+            frequency: item.frequencyPeriod,
+            shippingFirstName: shippingSameAsBilling ? billingFirstName : shippingFirstName,
+            shippingLastName: shippingSameAsBilling ? billingLastName : shippingLastName,
+            shippingAddressLine1: shippingSameAsBilling ? billingAddress1 : shippingAddress1,
+            shippingAddressLine2: shippingSameAsBilling ? billingAddress2 : shippingAddress2,
+            shippingCity: shippingSameAsBilling ? billingCity : shippingCity,
+            shippingState: shippingSameAsBilling ? billingState : shippingState,
+            shippingPostalCode: shippingSameAsBilling ? billingPostalCode : shippingPostalCode,
+            shippingCountry: shippingSameAsBilling ? billingCountry : shippingCountry,
+          }),
+        });
 
-      const resp = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/Subscriptions`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(isAuthenticated && { Authorization: `Bearer ${accessToken}` }),
-        },
-        body: JSON.stringify({
-          productId: item.productId ?? item.id,
-          productVariantId: item.variantId ?? null,
-          quantity: item.quantity,
-          frequency: item.frequencyPeriod,
-          shippingFirstName: shippingSameAsBilling ? billingFirstName : shippingFirstName,
-          shippingLastName: shippingSameAsBilling ? billingLastName : shippingLastName,
-          shippingAddressLine1: shippingSameAsBilling ? billingAddress1 : shippingAddress1,
-          shippingAddressLine2: shippingSameAsBilling ? billingAddress2 : shippingAddress2,
-          shippingCity: shippingSameAsBilling ? billingCity : shippingCity,
-          shippingState: shippingSameAsBilling ? billingState : shippingState,
-          shippingPostalCode: shippingSameAsBilling ? billingPostalCode : shippingPostalCode,
-          shippingCountry: shippingSameAsBilling ? billingCountry : shippingCountry,
-        }),
-      });
-
-      console.log("STATUS:", resp.status);
-
-      if (!resp.ok) {
-        console.log("❌ Subscription FAILED:", await resp.text());
-        alert("Subscription FAILED! Check console.");
-        continue;
+        if (resp.ok) {
+          const json = await resp.json();
+          if (json?.data?.id) subscriptionMap[item.id] = json.data.id;
+        }
+      } catch {
+        setError("Subscription setup failed. Try again.");
+        return false;
       }
-
-      const json = await resp.json();
-      console.log("Subscription CREATED:", json);
-      alert("Subscription Response:\n" + JSON.stringify(json, null, 2));
-
-      if (json?.data?.id) {
-        subscriptionMap[item.id] = json.data.id;
-      }
-
-    } catch (err) {
-      console.log("Catch ERROR:", err);
-      alert("Catch Error - Check Console");
-      setError("Subscription setup failed. Try again.");
-      return;
     }
   }
-}
 
-console.log("subscriptionMap:", subscriptionMap);
-alert("SUB MAP:\n" + JSON.stringify(subscriptionMap, null, 2));
-
-
-  // ⭐ Now build payload including subscriptionId per orderItem
   const payload = {
     ...buildOrderPayload(),
     orderItems: checkoutItems.map((c) => ({
@@ -722,31 +721,21 @@ alert("SUB MAP:\n" + JSON.stringify(subscriptionMap, null, 2));
       productVariantId: c.variantId ?? null,
       quantity: c.quantity,
       unitPrice: c.finalPrice ?? c.price,
-   subscriptionId: subscriptionMap[c.id] ?? null,
-    frequency: c.frequency, // <--- ADD THIS (important)
-
-// <--- MOST IMPORTANT
+      subscriptionId: subscriptionMap[c.id] ?? null,
+      frequency: c.frequency,
     })),
   };
 
-  
-  console.log("FINAL PAYLOAD:", payload);
-alert("PAYLOAD BEFORE PAYMENT:\n" + JSON.stringify(payload, null, 2));
+ setOrderPayload(payload); // card flow ke liye
+return payload;           // COD flow ke liye
 
-
-  setOrderPayload(payload);
-  setShowPayment(true);
-  
 };
 
 
   // NEW: place COD order directly (no stripe)
-  const handlePlaceOrderCOD = async () => {
-    if (!orderPayload) {
-      setError("Missing order details.");
-      return;
-    }
-    setError(null);
+  const handlePlaceOrderCOD = async (payload: any) => {
+  setError(null);
+
 
     try {
       const resp = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/Orders`, {
@@ -757,7 +746,7 @@ alert("PAYLOAD BEFORE PAYMENT:\n" + JSON.stringify(payload, null, 2));
 },
 
         body: JSON.stringify({
-          ...orderPayload,
+          ...payload,
           paymentMethod: "cod",
           paymentIntentId: null,
           isGuestOrder: !isAuthenticated,
@@ -778,22 +767,26 @@ userId: isAuthenticated ? user?.id : null,
  
 
 
-alert("COD ORDER FULL: " + JSON.stringify(createdOrder));
-alert("COD ORDER ID: " + createdOrder?.data?.id);
+// alert("COD ORDER FULL: " + JSON.stringify(createdOrder));
+// alert("COD ORDER ID: " + createdOrder?.data?.id);
 
-  const isBuyNowFlow = !!sessionStorage.getItem("buyNowItem");
+ const isBuyNowFlow = !!sessionStorage.getItem("buyNowItem");
 
-if (isBuyNowFlow) {
-  sessionStorage.removeItem("buyNowItem");
-  sessionStorage.setItem("preserveCart", "1");
-} else {
+// 🔥 DO NOT touch buyNowItem here
+if (!isBuyNowFlow) {
   clearCart();
 }
 
+if (subscribeNewsletter && billingEmail) {
+  subscribeNewsletterAfterOrder(billingEmail);
+}
+
+
 router.push(`/order/success?orderId=${createdOrder.data.id}`);
-
-
-
+if (isBuyNowFlow) {
+  sessionStorage.removeItem("buyNowItem");
+  sessionStorage.setItem("preserveCart", "1");
+}
 
     } catch (err: any) {
       console.error(err);
@@ -821,11 +814,11 @@ const onPaymentSuccess = (createdOrder: any) => {
   } else {
     clearCart();
   }
-
+ if (subscribeNewsletter && billingEmail) {
+    subscribeNewsletterAfterOrder(billingEmail);
+  }
   router.push(`/order/success?orderId=${createdOrder.data.id}`);
 };
-
-
 
   const onPaymentError = (err: any) => {
     setError(err?.message ?? "Payment failed");
@@ -993,7 +986,7 @@ if (!checkoutItems || checkoutItems.length === 0) {
 
 {/* Country */}
 <div className="flex flex-col space-y-1 col-span-2">
-  <label className="text-sm font-medium text-gray-700">Country / State</label>
+  <label className="text-sm font-medium text-gray-700">County / State</label>
   <input
     value={billingState}
     onChange={(e) => setBillingState(e.target.value)}
@@ -1002,6 +995,111 @@ if (!checkoutItems || checkoutItems.length === 0) {
 </div>     
           </div>
         </div>
+   {/* Shipping */}
+{deliveryMethod === "HomeDelivery" && (
+  <div className="bg-white p-6 rounded shadow">
+    <h2 className="text-lg font-semibold mb-3">Shipping details</h2>
+
+    <div className="flex items-center gap-3 mb-3">
+      <input
+        id="same"
+        checked={shippingSameAsBilling}
+        onChange={(e) => setShippingSameAsBilling(e.target.checked)}
+        type="checkbox"
+      />
+      <label htmlFor="same">Shipping same as billing</label>
+    </div>
+
+    {!shippingSameAsBilling ? (
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {/* First name */}
+        <div className="flex flex-col space-y-1 col-span-2">
+          <label className="text-sm font-medium text-gray-700">First name</label>
+          <input
+            value={shippingFirstName}
+            onChange={(e) => setShippingFirstName(e.target.value)}
+            className="w-full border border-gray-300 p-2 rounded focus:ring-2 focus:ring-[#445D41]/20 focus:border-[#445D41] transition-all"
+          />
+        </div>
+
+        {/* Last name */}
+        <div className="flex flex-col space-y-1 col-span-2">
+          <label className="text-sm font-medium text-gray-700">Last name</label>
+          <input
+            value={shippingLastName}
+            onChange={(e) => setShippingLastName(e.target.value)}
+            className="w-full border border-gray-300 p-2 rounded focus:ring-2 focus:ring-[#445D41]/20 focus:border-[#445D41] transition-all"
+          />
+        </div>
+
+        {/* Company */}
+        <div className="flex flex-col space-y-1 col-span-2">
+          <label className="text-sm font-medium text-gray-700">Company (optional)</label>
+          <input
+            value={shippingCompany}
+            onChange={(e) => setShippingCompany(e.target.value)}
+            className="w-full border border-gray-300 p-2 rounded focus:ring-2 focus:ring-[#445D41]/20 focus:border-[#445D41] transition-all"
+          />
+        </div>
+
+        {/* Address 1 */}
+        <div className="flex flex-col space-y-1 col-span-2">
+          <label className="text-sm font-medium text-gray-700">Address line 1 *</label>
+          <input
+            value={shippingAddress1}
+            onChange={(e) => setShippingAddress1(e.target.value)}
+            className="w-full border border-gray-300 p-2 rounded focus:ring-2 focus:ring-[#445D41]/20 focus:border-[#445D41] transition-all"
+          />
+        </div>
+
+        {/* Address 2 */}
+        <div className="flex flex-col space-y-1 col-span-2">
+          <label className="text-sm font-medium text-gray-700">Address line 2</label>
+          <input
+            value={shippingAddress2}
+            onChange={(e) => setShippingAddress2(e.target.value)}
+            className="w-full border border-gray-300 p-2 rounded focus:ring-2 focus:ring-[#445D41]/20 focus:border-[#445D41] transition-all"
+          />
+        </div>
+
+        {/* Postcode */}
+        <div className="flex flex-col space-y-1 col-span-2">
+          <label className="text-sm font-medium text-gray-700">Postcode</label>
+          <input
+            value={shippingPostalCode}
+            onChange={(e) => setShippingPostalCode(e.target.value)}
+            className="w-full border border-gray-300 p-2 rounded focus:ring-2 focus:ring-[#445D41]/20 focus:border-[#445D41] transition-all"
+          />
+        </div>
+
+        {/* City */}
+        <div className="flex flex-col space-y-1">
+          <label className="text-sm font-medium text-gray-700">City</label>
+          <input
+            value={shippingCity}
+            onChange={(e) => setShippingCity(e.target.value)}
+            className="w-full border border-gray-300 p-2 rounded focus:ring-2 focus:ring-[#445D41]/20 focus:border-[#445D41] transition-all"
+          />
+        </div>
+
+        {/* Country / State */}
+        <div className="flex flex-col space-y-1 col-span-2">
+          <label className="text-sm font-medium text-gray-700">County / State</label>
+          <input
+            value={shippingState}
+            onChange={(e) => setShippingState(e.target.value)}
+            className="w-full border border-gray-300 p-2 rounded focus:ring-2 focus:ring-[#445D41]/20 focus:border-[#445D41] transition-all"
+          />
+        </div>
+      </div>
+    ) : (
+      <div className="text-sm text-gray-600">
+        Shipping will use billing address.
+      </div>
+    )}
+  </div>
+)}
+
           {/* DELIVERY METHOD SELECTOR */}
 <div className="bg-white p-6 rounded shadow mb-6">
   <h2 className="text-lg font-semibold mb-3">Delivery method</h2>
@@ -1028,115 +1126,7 @@ if (!checkoutItems || checkoutItems.length === 0) {
     </label>
   </div>
 </div>
-          {/* Shipping */}
-<div className="bg-white p-6 rounded shadow">
-  <h2 className="text-lg font-semibold mb-3">Shipping details</h2>
-
-  {/* If Click & Collect → hide full shipping */}
-  {deliveryMethod === "ClickAndCollect" ? (
-    <div className="text-sm text-gray-600">
-      Click & Collect selected — shipping information is not required.
-    </div>
-  ) : (
-    <>
-      <div className="flex items-center gap-3 mb-3">
-        <input
-          id="same"
-          checked={shippingSameAsBilling}
-          onChange={(e) => setShippingSameAsBilling(e.target.checked)}
-          type="checkbox"
-        />
-        <label htmlFor="same">Shipping same as billing</label>
-      </div>
-
-      {!shippingSameAsBilling ? (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          {/* First name */}
-          <div className="flex flex-col space-y-1 col-span-2">
-            <label className="text-sm font-medium text-gray-700">First name</label>
-            <input
-              value={shippingFirstName}
-              onChange={(e) => setShippingFirstName(e.target.value)}
-              className="w-full border border-gray-300 p-2 rounded focus:ring-2 focus:ring-[#445D41]/20 focus:border-[#445D41] transition-all"
-            />
-          </div>
-
-          {/* Last name */}
-          <div className="flex flex-col space-y-1 col-span-2">
-            <label className="text-sm font-medium text-gray-700">Last name</label>
-            <input
-              value={shippingLastName}
-              onChange={(e) => setShippingLastName(e.target.value)}
-              className="w-full border border-gray-300 p-2 rounded focus:ring-2 focus:ring-[#445D41]/20 focus:border-[#445D41] transition-all"
-            />
-          </div>
-
-          {/* Company */}
-          <div className="flex flex-col space-y-1 col-span-2">
-            <label className="text-sm font-medium text-gray-700">Company (optional)</label>
-            <input
-              value={shippingCompany}
-              onChange={(e) => setShippingCompany(e.target.value)}
-              className="w-full border border-gray-300 p-2 rounded focus:ring-2 focus:ring-[#445D41]/20 focus:border-[#445D41] transition-all"
-            />
-          </div>
-
-          {/* Address 1 */}
-          <div className="flex flex-col space-y-1 col-span-2">
-            <label className="text-sm font-medium text-gray-700">Address line 1 *</label>
-            <input
-              value={shippingAddress1}
-              onChange={(e) => setShippingAddress1(e.target.value)}
-              className="w-full border border-gray-300 p-2 rounded focus:ring-2 focus:ring-[#445D41]/20 focus:border-[#445D41] transition-all"
-            />
-          </div>
-
-          {/* Address 2 */}
-          <div className="flex flex-col space-y-1 col-span-2">
-            <label className="text-sm font-medium text-gray-700">Address line 2</label>
-            <input
-              value={shippingAddress2}
-              onChange={(e) => setShippingAddress2(e.target.value)}
-              className="w-full border border-gray-300 p-2 rounded focus:ring-2 focus:ring-[#445D41]/20 focus:border-[#445D41] transition-all"
-            />
-          </div>
-
-          {/* Postcode */}
-          <div className="flex flex-col space-y-1 col-span-2">
-            <label className="text-sm font-medium text-gray-700">Postcode</label>
-            <input
-              value={shippingPostalCode}
-              onChange={(e) => setShippingPostalCode(e.target.value)}
-              className="w-full border border-gray-300 p-2 rounded focus:ring-2 focus:ring-[#445D41]/20 focus:border-[#445D41] transition-all"
-            />
-          </div>
-
-          {/* City */}
-          <div className="flex flex-col space-y-1">
-            <label className="text-sm font-medium text-gray-700">City</label>
-            <input
-              value={shippingCity}
-              onChange={(e) => setShippingCity(e.target.value)}
-              className="w-full border border-gray-300 p-2 rounded focus:ring-2 focus:ring-[#445D41]/20 focus:border-[#445D41] transition-all"
-            />
-          </div>
-
-          {/* Country / State */}
-          <div className="flex flex-col space-y-1 col-span-2">
-            <label className="text-sm font-medium text-gray-700">Country / State</label>
-            <input
-              value={shippingState}
-              onChange={(e) => setShippingState(e.target.value)}
-              className="w-full border border-gray-300 p-2 rounded focus:ring-2 focus:ring-[#445D41]/20 focus:border-[#445D41] transition-all"
-            />
-          </div>
-        </div>
-      ) : (
-        <div className="text-sm text-gray-600">Shipping will use billing address.</div>
-      )}
-    </>
-  )}
-</div>
+   
 
           {/* Order notes */}
           <div className="bg-white p-4 rounded shadow">
@@ -1165,13 +1155,14 @@ if (!checkoutItems || checkoutItems.length === 0) {
     {it.frequencyPeriod} • {it.subscriptionTotalCycles} cycles
   </p>
 )}
-                     <div className="text-xs text-gray-600">Qty: {it.quantity}</div>   {/* ← NEW */}
-                   <div className="text-xs text-gray-500">
-  {it.variantOptions?.option1 ?? ""}
-  {it.variantOptions?.option2 ? ` • ${it.variantOptions.option2}` : ""}
-  {it.variantOptions?.option3 ? ` • ${it.variantOptions.option3}` : ""}
+                    <div className="text-xs text-gray-600 flex items-center gap-2">
+  <span>Qty: {it.quantity}</span>
+  <span className="text-gray-400">•</span>
+  <span className="font-medium text-gray-800">
+    {formatCurrency((it.finalPrice ?? it.price) * it.quantity)}
+  </span>
 </div>
-                    <div className="text-sm font-semibold mt-1">{formatCurrency((it.finalPrice ?? it.price) * it.quantity)}</div>
+
                     {/* {it.discountAmount ? <div className="text-xs text-green-600">Saved £{(it.discountAmount).toFixed(2)}</div> : null} */}
                   </div>
                 </div>
@@ -1230,12 +1221,7 @@ if (!checkoutItems || checkoutItems.length === 0) {
 
 
               <div className="mt-4">
-                {!showPayment ? (
-                  <>
-                    {error && <div className="text-red-600 text-sm mb-2">{error}</div>}
-                    <button onClick={handleProceedToPayment} className="w-full bg-[#445D41] text-white py-3 rounded">Proceed to payment</button>
-                  </>
-                ) : (
+               
                   <>
                     {/* Payment method selector */}
                     <div className="mb-3">
@@ -1252,54 +1238,119 @@ if (!checkoutItems || checkoutItems.length === 0) {
                       </div>
                     </div>
 
-                    {/* Card flow */}
-                    {paymentMethod === "card" ? (
-                      <StripeWrapper>
-                        <div className="space-y-3">
-                          <div className="text-sm mb-1">Pay with card</div>
-                        <CheckoutPayment
-  orderPayload={{
-    ...orderPayload, // 👈 yahin backend ko full payload jayega
-    customerEmail: billingEmail,
-    customerPhone: `+44${billingPhone}`,
-    billingFirstName,
-    billingLastName,
-    billingCompany,
-    billingAddressLine1: billingAddress1,
-    billingAddressLine2: billingAddress2,
-    billingCity: billingCity,
-    billingPostalCode: billingPostalCode,
-    billingCountry: billingCountry,
-  }}
- payAmount={cartTotalAmount}
-  // ⭐⭐⭐ ADD THIS
-  onPaymentSuccess={onPaymentSuccess}
-  onError={onPaymentError}
-/>
+                   {/* Card flow */}
+{paymentMethod === "card" ? (
+  <StripeWrapper>
+    <div className="space-y-3">
 
-                          <div className="text-xs text-gray-500">You will be charged securely via Stripe.</div>
-                        </div>
-                      </StripeWrapper>
-                    ) : (
+      {/* STEP 1: Validation trigger */}
+      {!orderPayload && (
+        <button
+        disabled={!acceptTerms}
+          onClick={async () => {
+            const ok = await validateAndBuildPayload();
+            if (!ok) return;
+          }}
+          className="w-full bg-[#445D41] text-white py-3 rounded"
+        >
+          Continue to card payment
+        </button>
+      )}
+
+      {/* STEP 2: Stripe only after validation */}
+      {orderPayload && (
+        <>
+          <div className="text-sm mb-1">Pay with card</div>
+
+          <CheckoutPayment
+            orderPayload={{
+              ...orderPayload, // 👈 backend ko final payload yahin jayega
+              customerEmail: billingEmail,
+              customerPhone: `+44${billingPhone}`,
+              billingFirstName,
+              billingLastName,
+              billingCompany,
+              billingAddressLine1: billingAddress1,
+              billingAddressLine2: billingAddress2,
+              billingCity: billingCity,
+              billingPostalCode: billingPostalCode,
+              billingCountry: billingCountry,
+            }}
+            payAmount={cartTotalAmount}
+            onPaymentSuccess={onPaymentSuccess}
+            onError={onPaymentError}
+          />
+
+          <div className="text-xs text-gray-500">
+            You will be charged securely via Stripe.
+          </div>
+        </>
+      )}
+    </div>
+  </StripeWrapper>
+) : (
+
                       // COD flow
-                      <div className="space-y-3">
-                        {error && <div className="text-red-600 text-sm">{error}</div>}
-                        <div className="text-sm">You chose Cash on Delivery. Click below to place your order — you'll pay the delivery person when the order arrives.</div>
-                       <button
-  onClick={handlePlaceOrderCOD}
-  className="w-full bg-[#445D41] text-white py-3 rounded"
->
-  Place order (COD)
-</button>
-                      </div>
+          // COD flow
+<div className="space-y-3">
+  {error && <div className="text-red-600 text-sm">{error}</div>}
+
+  <div className="text-sm">
+    You chose Cash on Delivery. Click below to place your order — you'll pay the delivery person when the order arrives.
+  </div>
+
+  <button
+   disabled={!acceptTerms}
+   onClick={async () => {
+  const payload = await validateAndBuildPayload();
+  if (!payload) return;
+
+  await handlePlaceOrderCOD(payload);
+}}
+
+    className="w-full bg-[#445D41] text-white py-3 rounded"
+  >
+    Place order (COD)
+  </button>
+</div>
+
                     )}
                   </>
-                )}
+           
               </div>
 
-              <div className="mt-3 text-xs text-gray-500">
-                By placing the order you agree to our <Link href="/terms" className="text-blue-600">Terms</Link>.
-              </div>
+             {/* Terms & Newsletter */}
+<div className="mt-4 space-y-3">
+
+  {/* Terms */}
+  <label className="flex items-start gap-2 text-sm text-gray-700">
+    <input
+      type="checkbox"
+      checked={acceptTerms}
+      onChange={(e) => setAcceptTerms(e.target.checked)}
+      className="mt-1"
+    />
+    <span>
+      I agree to the{" "}
+      <Link href="/terms" className="text-blue-600 underline">
+        Terms & Conditions
+      </Link>
+    </span>
+  </label>
+
+  {/* Newsletter */}
+  <label className="flex items-start gap-2 text-sm text-gray-700">
+    <input
+      type="checkbox"
+      checked={subscribeNewsletter}
+      onChange={(e) => setSubscribeNewsletter(e.target.checked)}
+      className="mt-1"
+    />
+    <span>Subscribe to our newsletter for offers & updates</span>
+  </label>
+
+</div>
+
             </div>
           </div>
         </aside>

@@ -28,7 +28,7 @@ const reasons = [
 
 export default function WhyChooseUs() {
   return (
-    <section className=" py-4 md:py-16">
+    <section className=" py-4 md:py-12">
       <div className="max-w-7xl mx-auto px-4 flex flex-col md:flex-row items-center gap-10">
 
         {/* ✅ LEFT SIDE (Always visible) */}
@@ -57,7 +57,7 @@ export default function WhyChooseUs() {
         </div>
 
         {/* ✅ RIGHT IMAGE → HIDE IN MOBILE */}
-        <div className="flex-1 text-center mt-6 hidden md:block">
+        <div className="flex-1 text-center mt-2 hidden md:block">
           <img
             src="/whychoose.webp"
             alt="Direct Care"

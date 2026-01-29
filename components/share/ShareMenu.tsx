@@ -3,7 +3,7 @@
 import { useEffect, useRef } from "react";
 import { Mail, Facebook, Link2, X, MessageCircle } from "lucide-react";
 import { shareUrls, copyToClipboard } from "./shareUtils";
-import { useToast } from "@/components/CustomToast";
+import { useToast } from "@/components/toast/CustomToast";
 
 interface Props {
   url: string;

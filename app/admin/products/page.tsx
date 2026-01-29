@@ -1845,16 +1845,19 @@ const formatOptionLabel = (option: SelectOption) => {
                     Stock
                   </th>
                   <th className="text-center py-3 px-4 text-slate-400 font-medium text-sm w-[160px]">
-                    Status
+                   Stock Status
                   </th>
                   <th className="text-center py-3 px-4 text-slate-400 font-medium text-sm w-[110px]">
                     Visibility
                   </th>
-                  <th className="text-center py-3 px-4 text-slate-400 font-medium text-sm w-[90px]">
+                  {/* <th className="text-center py-3 px-4 text-slate-400 font-medium text-sm w-[90px]">
                     Discount
-                  </th>
+                  </th> */}
                   <th className="text-left py-3 px-4 text-slate-400 font-medium text-sm w-[120px]">
                     Updated
+                  </th>
+                  <th className="text-left py-3 px-4 text-slate-400 font-medium text-sm w-[120px]">
+                    Updated By
                   </th>
                   <th className="text-center py-3 px-4 text-slate-400 font-medium text-sm w-[150px]">
                     Actions
@@ -1983,7 +1986,7 @@ const formatOptionLabel = (option: SelectOption) => {
                     </td>
 
                     {/* ✅ Discount */}
-                    <td className="py-4 px-4 text-center">
+                    {/* <td className="py-4 px-4 text-center">
                       {product.hasDiscount ? (
                         <span className="inline-flex items-center gap-1 px-2 py-1 bg-pink-500/10 text-pink-400 rounded-lg text-xs font-medium">
                           <Percent className="w-3 h-3" />
@@ -1992,12 +1995,17 @@ const formatOptionLabel = (option: SelectOption) => {
                       ) : (
                         <span className="text-slate-500 text-xs">-</span>
                       )}
-                    </td>
+                    </td> */}
 
                     {/* Updated */}
                     <td className="py-4 px-4 text-slate-300 text-sm">
                       <div className="truncate" title={product.createdAt}>
                         {product.createdAt ? new Date(product.createdAt).toLocaleDateString() : "-"}
+                      </div>
+                    </td>
+                    <td className="py-4 px-4 text-slate-300 text-sm">
+                      <div className="truncate" title={product.updatedBy}>
+                        {product.updatedBy ? product.updatedBy : "-"}
                       </div>
                     </td>
 
@@ -2007,7 +2015,7 @@ const formatOptionLabel = (option: SelectOption) => {
                         <Link href={`/products/${product.slug}`} target="_blank">
                           <button
                             className="p-2 text-emerald-400 hover:bg-emerald-500/10 rounded-lg transition-all"
-                            title="View Product Page"
+                            title="View On Browser"
                           >
                             <ExternalLink className="h-4 w-4" />
                           </button>

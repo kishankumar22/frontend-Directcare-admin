@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { useToast } from "@/components/CustomToast";
+import { useToast } from "@/components/toast/CustomToast";
 import { useCart } from "@/context/CartContext";
 import QuantitySelector from "@/components/shared/QuantitySelector";
 import { AwardIcon } from "lucide-react";
@@ -136,15 +136,12 @@ image: selectedVariant?.imageUrl
     </span>
   
 
-  {product.vatExempt ? (
-    <span className="text-xs font-semibold text-green-700 bg-green-100 px-2 py-0.5 rounded ml-1">
-      0% VAT
-    </span>
-  ) : vatRate !== null ? (
-    <span className="text-xs font-semibold text-blue-700 bg-blue-100 px-2 py-0.5 rounded ml-2">
-      {vatRate}% VAT
-    </span>
-  ) : null}
+  {vatRate !== null && (
+  <span className="text-xs font-semibold text-green-700 bg-green-100 px-2 py-0.5 rounded ml-2">
+    {vatRate}% VAT
+  </span>
+)}
+
 
 </p>   
 {(product as any).loyaltyPointsEnabled && (

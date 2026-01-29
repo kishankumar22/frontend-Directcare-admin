@@ -4,7 +4,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { useCart } from "@/context/CartContext";
 import Link from "next/link";
 import { Trash2, GiftIcon } from "lucide-react";
-import { useToast } from "@/components/CustomToast";
+import { useToast } from "@/components/toast/CustomToast";
 import { useAuth } from "@/context/AuthContext";
 import { useRouter } from "next/navigation";
 import ProductOffersModal from "@/components/cart/ProductOffersModal";
@@ -292,6 +292,13 @@ const getItemStock = (item: any) => {
   // ❗Safety fallback — always high value, not zero
   return 9999;
 };
+// ================= BUNDLE HELPERS =================
+const isBundleParent = (item: any) => Boolean(item.isBundleParent && item.bundleId);
+const isBundleChild = (item: any) => Boolean(item.bundleParentId);
+
+const getBundleChildren = (bundleId: string) =>
+  cart.filter((i) => i.bundleParentId === bundleId);
+
 // ================= GROUPED PRODUCTS UI HELPERS =================
 const isGroupedChild = (item: any) => Boolean(item.parentProductId);
 
@@ -329,13 +336,15 @@ const getGroupedItems = (parentProductId?: string) => {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* LEFT: items */}
         <div className="lg:col-span-2 space-y-4">
-          {cart.map((item) => {
-  // ❌ grouped child yahan direct render nahi hoga
-  if (item.parentProductId) return null;
+        {cart.map((item) => {
+  // ❌ bundle child direct render nahi hoga
+  if (isBundleChild(item)) return null;
 
-  const groupedItems = cart.filter(
-    (i) => i.parentProductId === item.productId
-  );
+  const bundleChildren = isBundleParent(item)
+    ? item.bundleId ? getBundleChildren(item.bundleId) : []
+
+    : [];
+
 
   return (
     <React.Fragment
@@ -354,7 +363,20 @@ const getGroupedItems = (parentProductId?: string) => {
 
   {/* Remove icon */}
   <button
-    onClick={() => removeFromCart(item.id, item.type)}
+  onClick={() => {
+    // 🔥 remove bundle parent + children
+   if (
+  item.isBundleParent === true &&
+  item.purchaseContext === "bundle" &&
+  item.bundleId
+) {
+
+      bundleChildren.forEach((c) =>
+        removeFromCart(c.id, c.type)
+      );
+    }
+    removeFromCart(item.id, item.type);
+  }}
     className="absolute -top-2 -left-2 bg-white border border-gray-200 
                rounded-full p-1.5 text-red-500 
                hover:bg-red-50 hover:text-red-600
@@ -370,9 +392,11 @@ const getGroupedItems = (parentProductId?: string) => {
   <div className="flex items-start justify-between">
     <div>
       <Link href={`/products/${item.productData?.slug}`}>
-        <h2 className="font-semibold text-gray-900 leading-tight ">
-          {item.name}
-        </h2>
+       <h2 className="font-semibold text-gray-900 leading-tight 
+               line-clamp-2 max-w-[500px]">
+  {item.name}
+</h2>
+
       </Link>
 
                     {getItemStock(item) === 0 && (
@@ -405,37 +429,73 @@ const getGroupedItems = (parentProductId?: string) => {
 <div className="flex items-center gap-3">
   {/* Quantity controls */}
   <div className="flex items-center gap-2 border rounded-lg px-3 py-1.5">
-    <button
-      onClick={() =>
-        updateQuantity(item.id, Math.max(0, (item.quantity ?? 1) - 1))
-      }
-      disabled={(item.quantity ?? 1) <= 1}
-      className="text-gray-700 font-bold text-lg w-6 text-center"
-    >
-      -
-    </button>
+  <button
+    onClick={() => {
+      const newQty = Math.max(1, (item.quantity ?? 1) - 1);
+      updateQuantity(item.id, newQty);
 
-    <input
-      type="number"
-      className="w-12 text-center outline-none font-medium"
-      value={item.quantity === 0 ? "" : item.quantity}
-      onChange={(e) => {
-        let val = e.target.value;
-        if (!/^\d*$/.test(val)) return;
-        if (val === "") return updateQuantity(item.id, 0);
-        updateQuantity(item.id, parseInt(val, 10));
-      }}
-    />
+      // 🔥 sync children
+      if (
+  item.isBundleParent === true &&
+  item.purchaseContext === "bundle" &&
+  item.bundleId
+) {
+  bundleChildren.forEach((c) =>
+    updateQuantity(c.id, newQty)
+  );
+}
 
-    <button
-      onClick={() =>
-        updateQuantity(item.id, (item.quantity ?? 1) + 1)
-      }
-      className="text-gray-700 font-bold text-lg w-6 text-center"
-    >
-      +
-    </button>
-  </div>
+    }}
+    disabled={(item.quantity ?? 1) <= 1}
+    className="text-gray-700 font-bold text-lg w-6 text-center"
+  >
+    -
+  </button>
+
+  <input
+    type="number"
+    className="w-12 text-center outline-none font-medium"
+    value={item.quantity}
+    onChange={(e) => {
+      const val = parseInt(e.target.value || "1", 10);
+      if (val < 1) return;
+
+      updateQuantity(item.id, val);
+
+     if (
+  item.isBundleParent === true &&
+  item.purchaseContext === "bundle" &&
+  item.bundleId
+) {
+  bundleChildren.forEach((c) =>
+    updateQuantity(c.id, val)
+  );
+}
+
+    }}
+  />
+
+  <button
+    onClick={() => {
+      const newQty = (item.quantity ?? 1) + 1;
+      updateQuantity(item.id, newQty);
+
+    if (
+  item.isBundleParent === true &&
+  item.purchaseContext === "bundle" &&
+  item.bundleId
+) {
+  bundleChildren.forEach((c) =>
+    updateQuantity(c.id, newQty)
+  );
+}
+
+    }}
+    className="text-gray-700 font-bold text-lg w-6 text-center"
+  >
+    +
+  </button>
+</div>
 
 
 </div>
@@ -489,27 +549,15 @@ const getGroupedItems = (parentProductId?: string) => {
               </div>
             </div>
             {/* 🔥 GROUPED PRODUCTS (NESTED) */}
-{groupedItems.length > 0 && (
+{bundleChildren.length > 0 && (
   <div className="mt-3 ml-6 border-l-2 border-dashed border-gray-300 pl-4 space-y-3">
 {/* 🔥 SINGLE GROUP REMOVE BUTTON (TOP-LEFT) */}
 {!item.productData?.automaticallyAddProducts && (
   <div className="mb-2">
-    <button
-      onClick={() => {
-        groupedItems.forEach((gp) => {
-          removeFromCart(gp.id, gp.type);
-        });
-      }}
-      className="flex items-center gap-1 text-xs text-red-600 hover:underline font-medium"
-    >
-      <Trash2 size={14} />
-      <span>Remove grouped products</span>
-    </button>
+    
   </div>
 )}
-
-
-    {groupedItems.map((gp) => (
+    {bundleChildren.map((gp: any) => (
       <div
         key={gp.id}
         className="flex items-center justify-between bg-gray-50 rounded-lg p-3"
@@ -527,25 +575,29 @@ const getGroupedItems = (parentProductId?: string) => {
 </Link>
           <div>
             <Link href={`/products/${gp.slug}`}>
-            <p className="text-sm font-semibold text-gray-800">
-              {gp.name}
-            </p>
+           <p className="text-sm font-semibold text-gray-800 
+              line-clamp-2 max-w-[220px]">
+  {gp.name}
+</p>
+
 </Link>
            <div className="flex flex-col">
   {/* 🔥 BUNDLE PRICE */}
  {gp.hasBundleDiscount ? (
   <>
-    <p className="text-xs line-through text-gray-400">
-      £{(gp.price * gp.quantity).toFixed(2)}
-    </p>
+   
+    {/* FINAL PRICE + SAVING */}
+    <div className="flex items-center gap-2">
+      <p className="text-sm font-semibold text-green-700">
+        £{(gp.price * gp.quantity).toFixed(2)}
+      </p>
 
-    <p className="text-sm font-semibold text-green-700">
-      £{((gp.bundlePrice ?? gp.price) * gp.quantity).toFixed(2)}
-    </p>
-
-    <p className="text-[11px] text-green-600">
-      You save £{((gp.individualSavings ?? 0) * gp.quantity).toFixed(2)}
-    </p>
+      {(gp.individualSavings ?? 0) > 0 && (
+        <span className="text-[11px] text-green-600 whitespace-nowrap">
+          (You save £{(gp.individualSavings * gp.quantity).toFixed(2)})
+        </span>
+      )}
+    </div>
   </>
 ) : (
   <p className="text-sm font-semibold text-gray-800">

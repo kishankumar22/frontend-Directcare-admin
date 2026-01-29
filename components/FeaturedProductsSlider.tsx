@@ -1,3 +1,4 @@
+//components\FeaturedProductsSlider.tsx
 "use client";
 
 import Link from "next/link";
@@ -8,7 +9,7 @@ import { useState, useEffect } from "react";
 import { Swiper, SwiperSlide } from "swiper/react";
 import { Autoplay, Navigation, Pagination } from "swiper/modules";
 import { useCart } from "@/context/CartContext";
-import { useToast } from "@/components/CustomToast";
+import { useToast } from "@/components/toast/CustomToast";
 import {
   getDiscountBadge,
   getDiscountedPrice,
@@ -57,9 +58,11 @@ interface Product {
 export default function FeaturedProductsSlider({
   products,
   baseUrl,
+  title = "Top Selling Products",
 }: {
   products: Product[];
   baseUrl: string;
+  title?: string;
 }) {
   const toast = useToast();
   const { addToCart } = useCart();
@@ -186,7 +189,7 @@ useEffect(() => {
     <div className="relative w-full bg-gray-50">
 
       <h2 className="text-2xl md:text-3xl font-bold mb-8 text-gray-900 text-center">
-        Top Selling Products
+        {title}
       </h2>
 
       <button id="prevBtn" className="absolute -left-4 top-1/2 -translate-y-1/2 z-20 p-0 m-0">
@@ -252,7 +255,7 @@ const backorderState = getBackorderUIState({
        return (
           <SwiperSlide key={product.id}>
           <Card
-  className="group border-0 shadow-md hover:shadow-xl transition-all duration-300 hover:-translate-y-1 rounded-xl flex flex-col gap-1  h-[420px] sm:h-auto">
+  className="group border-0 shadow-md hover:shadow-xl transition-all duration-300 hover:-translate-y-1 rounded-xl flex flex-col gap-1  h-[410px] sm:h-auto">
             <CardContent className="p-0 flex flex-col h-full">
 
 
@@ -302,6 +305,21 @@ const backorderState = getBackorderUIState({
     </div>
   </div>
 )}
+{/* 🔥 COUPON REQUIRED BADGE (SAME CIRCULAR STYLE) */}
+{!discountBadge && hasActiveCoupon && (
+  <div className="absolute top-3 right-3 z-20">
+    <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-gradient-to-br from-red-500 to-red-700 flex items-center justify-center text-white shadow-lg ring-2 ring-white">
+      <div className="flex flex-col items-center leading-none text-center px-1">
+        <span className="text-[9px] sm:text-[10px] font-extrabold leading-tight">
+          COUPON
+        </span>
+        <span className="text-[8px] sm:text-[9px] font-semibold leading-tight">
+          AVAILABLE
+        </span>
+      </div>
+    </div>
+  </div>
+)}
                 </div>
                 </Link>
 
@@ -331,7 +349,7 @@ const backorderState = getBackorderUIState({
                   </div>
 
                   {/* RATING FIXED HEIGHT */}
-               <div className="flex items-center gap-2 min-h-[22px] max-h-[22px] mb-2">
+               <div className="flex items-center gap-2 min-h-[22px] max-h-[22px] mb-0">
 
   {/* ⭐ Flipkart-style rating badge */}
   <div className="flex items-center bg-green-600 text-white px-1.5 py-0.5 rounded-md text-[10px] font-semibold">
@@ -344,11 +362,12 @@ const backorderState = getBackorderUIState({
     ({product.reviewCount?.toLocaleString()})
   </span>
 
-  {/* Discount badge – small, Flipkart style */}
-{product.vatExempt && (
- <span className="inline-flex items-center gap-1 text-[11px] font-medium text-green-700 bg-green-50 px-2 py-0.5 rounded-md border border-green-100">
-    <BadgePercent className="h-3 w-3" />
-    VAT Relief
+{/* LOYALTY INLINE (NO EXTRA MARGIN) */}
+{(product as any).loyaltyPointsEnabled && (
+  <span className="mt-0 inline-flex items-center gap-1.5 text-[11px] font-medium text-green-700 bg-green-50 border border-green-200 px-2 py-0.5 rounded-md w-fit leading-none">
+    <AwardIcon className="h-4 w-4 text-green-600" />
+    {(product as any).loyaltyPointsMessage ??
+      `Earn ${(product as any).loyaltyPointsEarnable} points`}
   </span>
 )}
 
@@ -359,11 +378,11 @@ const backorderState = getBackorderUIState({
 
                   {/* PRICE ROW FIXED HEIGHT */}
             {/* PRICE + LOYALTY (SAME RESERVED SPACE) */}
-<div className="min-h-[42px] mb-3 flex flex-col justify-center">
+<div className="min-h-[42px] mb-0 flex flex-col justify-center">
 
   {/* PRICE ROW */}
   <div className="flex items-center gap-1 sm:gap-2 flex-wrap sm:flex-nowrap">
-    <span className="text-lg font-bold text-blue-600 leading-none">
+    <span className="text-lg font-bold text-[#445D41] leading-none">
       £{finalPrice.toFixed(2)}
     </span>
 
@@ -373,31 +392,23 @@ const backorderState = getBackorderUIState({
       </span>
     )}
 
-    {product.vatExempt ? (
-      <span className="text-[8px] sm:text-[10px] font-semibold text-green-700 bg-green-100 px-1 py-0.5 rounded whitespace-nowrap leading-none">
-        (0% VAT)
-      </span>
-    ) : vatRate !== null ? (
-      <span className="text-[8px] sm:text-[10px] font-semibold text-blue-700 bg-blue-100 px-1 py-0.5 rounded whitespace-nowrap leading-none">
-        ({vatRate}% VAT)
-      </span>
-    ) : null}
-    {hasActiveCoupon && (
-  <span className="text-[8px] sm:text-[10px] font-semibold text-red-700 bg-red-100 px-1 py-0.5 rounded whitespace-nowrap leading-none">
-    Coupon!
+    {/* VAT / VAT Relief badge */}
+{product.vatExempt ? (
+  <span className="inline-flex items-center gap-1 text-[9px] sm:text-[10px] font-semibold text-green-700 bg-green-50 border border-green-200 px-2 py-0.5 rounded-md  whitespace-nowrap leading-none">
+    <BadgePercent className="h-3 w-3" />
+    VAT Relief
   </span>
-)}
+) : vatRate !== null ? (
+  <span className="text-[8px] sm:text-[10px] font-semibold text-green-700 bg-green-100 px-1.5 py-0.5 rounded whitespace-nowrap leading-none">
+    ({vatRate}% VAT)
+  </span>
+) : null}
+
+
 
   </div>
 
-{/* LOYALTY INLINE (NO EXTRA MARGIN) */}
-{(product as any).loyaltyPointsEnabled && (
-  <span className="mt-2 inline-flex items-center gap-1.5 text-[11px] font-medium text-green-700 bg-green-50 border border-green-200 px-2 py-0.5 rounded-md w-fit leading-none">
-    <AwardIcon className="h-4 w-4 text-green-600" />
-    {(product as any).loyaltyPointsMessage ??
-      `Earn ${(product as any).loyaltyPointsEarnable} points`}
-  </span>
-)}
+
 
 </div>
 

@@ -54,6 +54,7 @@ import { cn } from "@/lib/utils";
 import { useTheme } from "@/context/theme-provider";
 import { authService } from "@/lib/services/auth";
 import ErrorBoundary from "@/components/ErrorBoundary";
+import ScrollToTopButton from "./products/ScrollToTopButton";
 
 interface NavigationItem {
   name: string;
@@ -937,6 +938,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
             <main className="flex-1 overflow-y-auto p-6 custom-scrollbar transition-colors duration-500">
               <div className="transition-all duration-150">
                 {children}
+                <ScrollToTopButton />
               </div>
             </main>
           </div>

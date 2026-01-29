@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/context/AuthContext";
-import { useToast } from "@/components/CustomToast";
+import { useToast } from "@/components/toast/CustomToast";
 import { timeFromNow } from "@/lib/date";
 
 import { Filter, ChevronDown, CheckCircle2  } from "lucide-react";
@@ -35,6 +35,9 @@ export interface Review {
   notHelpfulCount: number;
   createdAt: string;
   replies: ReviewReply[];
+  imageUrls?: string[];
+videoUrls?: string[];
+
 }
 
 export default function RatingReviews({ productId, allowCustomerReviews }: RatingReviewsProps) {
@@ -51,6 +54,125 @@ const recentReviews = useMemo(() => {
   const [title, setTitle] = useState("");
   const [comment, setComment] = useState("");
   const [loading, setLoading] = useState(false);
+// file selection
+const [imageFiles, setImageFiles] = useState<File[]>([]);
+const [videoFiles, setVideoFiles] = useState<File[]>([]);
+const [activeMedia, setActiveMedia] = useState<{
+  type: "image" | "video";
+  url: string;
+} | null>(null);
+
+// uploaded urls
+const [imageUrls, setImageUrls] = useState<string[]>([]);
+const [videoUrls, setVideoUrls] = useState<string[]>([]);
+
+// upload loading
+const [uploadingImages, setUploadingImages] = useState(false);
+const [uploadingVideos, setUploadingVideos] = useState(false);
+const handleImageSelect = (files: FileList | null) => {
+  if (!files) return;
+  const selected = Array.from(files);
+
+  if (selected.length > 5) {
+    toast.error("Maximum 5 images allowed");
+    return;
+  }
+
+  setImageFiles(selected);
+};
+
+const handleVideoSelect = (files: FileList | null) => {
+  if (!files) return;
+  const selected = Array.from(files);
+
+  if (selected.length > 1) {
+    toast.error("Only 1 video allowed");
+    return;
+  }
+
+  setVideoFiles(selected);
+};
+const uploadReviewImages = async (): Promise<string[]> => {
+  if (imageFiles.length === 0) return [];
+
+  try {
+    setUploadingImages(true);
+
+    const formData = new FormData();
+    imageFiles.forEach((file) => formData.append("images", file));
+
+    const res = await fetch(
+      "https://testapi.knowledgemarkg.com/api/ProductReviews/upload-images",
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: formData,
+      }
+    );
+
+    const json = await res.json();
+
+    if (!res.ok || !json.success) {
+      throw new Error(json?.message || "Image upload failed");
+    }
+
+    setImageUrls(json.data);
+    return json.data;
+  } finally {
+    setUploadingImages(false);
+  }
+};
+const uploadReviewVideos = async (): Promise<string[]> => {
+  if (videoFiles.length === 0) return [];
+
+  try {
+    setUploadingVideos(true);
+
+    const formData = new FormData();
+    videoFiles.forEach((file) => formData.append("videos", file));
+
+    const res = await fetch(
+      "https://testapi.knowledgemarkg.com/api/ProductReviews/upload-videos",
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: formData,
+      }
+    );
+
+    const json = await res.json();
+
+    if (!res.ok || !json.success) {
+      throw new Error(json?.message || "Video upload failed");
+    }
+
+    setVideoUrls(json.data);
+    return json.data;
+  } finally {
+    setUploadingVideos(false);
+  }
+};
+const imagePreviews = useMemo(
+  () => imageFiles.map((file) => URL.createObjectURL(file)),
+  [imageFiles]
+);
+
+const videoPreviews = useMemo(
+  () => videoFiles.map((file) => URL.createObjectURL(file)),
+  [videoFiles]
+);
+
+// cleanup (IMPORTANT)
+useEffect(() => {
+  return () => {
+    imagePreviews.forEach((url) => URL.revokeObjectURL(url));
+    videoPreviews.forEach((url) => URL.revokeObjectURL(url));
+  };
+}, [imagePreviews, videoPreviews]);
 
   // Filter UI states
   const [filterRating, setFilterRating] = useState<number | null>(null);
@@ -76,42 +198,73 @@ const recentReviews = useMemo(() => {
     fetchReviews();
   }, [fetchReviews]);
 
-  const handleSubmitReview = async () => {
-    if (!isAuthenticated) {
-      toast.error("Please login to add a review.");
-      return;
-    }
+const handleSubmitReview = async () => {
+  if (!isAuthenticated) {
+    toast.error("Please login to add a review.");
+    return;
+  }
 
-    try {
-      setLoading(true);
-      const res = await fetch("https://testapi.knowledgemarkg.com/api/ProductReviews", {
+  try {
+    setLoading(true);
+
+    // 1️⃣ upload media first
+    const [uploadedImages, uploadedVideos] = await Promise.all([
+      uploadReviewImages(),
+      uploadReviewVideos(),
+    ]);
+
+    // 2️⃣ submit review
+    const res = await fetch(
+      "https://testapi.knowledgemarkg.com/api/ProductReviews",
+      {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${accessToken}`,
         },
-        body: JSON.stringify({ productId, title, comment, rating }),
-      });
+        body: JSON.stringify({
+          productId,
+          title,
+          comment,
+          rating,
+          imageUrls: uploadedImages,
+          videoUrls: uploadedVideos,
+        }),
+      }
+    );
 
-        // 🎯 Backend error message show
     if (!res.ok) {
-      const errorData = await res.json().catch(() => null);
-      const message = errorData?.message || "Something went wrong";
-      toast.error(message);
-      setLoading(false);
+      const err = await res.json().catch(() => null);
+      toast.error(err?.message || "Failed to submit review");
       return;
     }
-      toast.success("Review submitted! It will be visible after admin approval.");
-      setRating(0);
-      setComment("");
-      setTitle("");
-      fetchReviews();
-    } catch {
-      toast.error("Error submitting review. Try again.");
-    } finally {
-      setLoading(false);
-    }
-  };
+
+    toast.success("Review submitted! Pending admin approval.");
+
+    // reset
+    setRating(0);
+    setTitle("");
+    setComment("");
+    setImageFiles([]);
+    setVideoFiles([]);
+    setImageUrls([]);
+    setVideoUrls([]);
+
+    fetchReviews();
+  } catch (e: any) {
+    toast.error(e.message || "Something went wrong");
+  } finally {
+    setLoading(false);
+  }
+};
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL!;
+
+const resolveMediaUrl = (url: string) => {
+  if (!url) return "";
+  if (url.startsWith("http")) return url;
+  return `${API_BASE_URL}${url}`;
+};
+
 
   const handleHelpful = (id: string) => console.log("Future helpful clicked for", id);
   const handleNotHelpful = (id: string) => console.log("Future not helpful clicked for", id);
@@ -133,6 +286,7 @@ const filteredReviews = useMemo(() => {
 
 
   return (
+     <>
    <section id="reviews-section" className="mt-12 bg-white p-8 rounded-2xl shadow-lg border border-gray-200 overflow-x-hidden w-full">
       <h2 className="text-3xl font-bold mb-6 text-gray-900">Ratings & Reviews</h2>
 
@@ -199,6 +353,7 @@ const filteredReviews = useMemo(() => {
             </div>
           </div>
 
+
           <input
             value={title}
             onChange={(e) => setTitle(e.target.value)}
@@ -213,7 +368,73 @@ const filteredReviews = useMemo(() => {
             placeholder="Share your experience..."
             className="w-full border rounded-lg p-3 text-sm shadow-sm"
           />
+{/* IMAGE UPLOAD */}
+<div className="mt-4">
+  <label className="text-sm font-medium">Upload Images</label>
+  <input
+    type="file"
+    accept="image/*"
+    multiple
+    onChange={(e) => handleImageSelect(e.target.files)}
+    className="mt-1 block w-full text-sm"
+  />
+</div>
+{imagePreviews.length > 0 && (
+  <div className="mt-3 grid grid-cols-3 sm:grid-cols-5 gap-2">
+   {imagePreviews.map((src, i) => (
+  <div key={`preview-image-${i}`} className="relative">
 
+        <img
+          src={src}
+          alt="Preview"
+          className="h-20 w-full object-cover rounded-lg border"
+        />
+        <button
+          type="button"
+          onClick={() =>
+            setImageFiles((prev) => prev.filter((_, idx) => idx !== i))
+          }
+          className="absolute -top-2 -right-2 bg-black text-white text-xs rounded-full h-5 w-5"
+        >
+          ✕
+        </button>
+      </div>
+    ))}
+  </div>
+)}
+
+{/* VIDEO UPLOAD */}
+<div className="mt-4">
+  <label className="text-sm font-medium">Upload Video</label>
+  <input
+    type="file"
+    accept="video/*"
+    onChange={(e) => handleVideoSelect(e.target.files)}
+    className="mt-1 block w-full text-sm"
+  />
+</div>
+{videoPreviews.length > 0 && (
+  <div className="mt-3">
+    {videoPreviews.map((src, i) => (
+  <div key={`preview-video-${i}`} className="relative w-40">
+
+        <video
+          src={src}
+          muted
+          preload="metadata"
+          className="rounded-lg border"
+        />
+        <button
+          type="button"
+          onClick={() => setVideoFiles([])}
+          className="absolute -top-2 -right-2 bg-black text-white text-xs rounded-full h-5 w-5"
+        >
+          ✕
+        </button>
+      </div>
+    ))}
+  </div>
+)}
           <Button
             onClick={handleSubmitReview}
             disabled={rating === 0 || comment.trim().length < 5 || loading}
@@ -250,6 +471,50 @@ const filteredReviews = useMemo(() => {
 
               <p className="font-semibold mt-2 text-gray-900">{r.title}</p>
               <p className="text-sm text-gray-700 mt-1">{r.comment}</p>
+{(r.imageUrls?.length || r.videoUrls?.length) && (
+  <div
+    className="mt-2 grid gap-1"
+    style={{
+      gridTemplateColumns: "repeat(auto-fit, minmax(64px, max-content))",
+    }}
+  >
+    {r.imageUrls?.map((url, i) => (
+      <div
+        key={`${r.id}-img-${i}`}
+        onClick={() =>
+          setActiveMedia({ type: "image", url: resolveMediaUrl(url) })
+        }
+        className="w-16 h-16 sm:w-18 sm:h-18 md:w-20 md:h-20 rounded-md border overflow-hidden cursor-pointer bg-black"
+      >
+        <img
+          src={resolveMediaUrl(url)}
+          alt="Review image"
+          className="w-full h-full object-contain bg-gray-50"
+        />
+      </div>
+    ))}
+
+    {r.videoUrls?.map((url, i) => (
+      <div
+        key={`${r.id}-vid-${i}`}
+        onClick={() =>
+          setActiveMedia({ type: "video", url: resolveMediaUrl(url) })
+        }
+        className="w-16 h-16 sm:w-18 sm:h-18 md:w-20 md:h-20 rounded-md border overflow-hidden cursor-pointer bg-black relative"
+      >
+        <video
+          src={resolveMediaUrl(url)}
+          muted
+          preload="metadata"
+          className="w-full h-full object-contain"
+        />
+        <div className="absolute inset-0 flex items-center justify-center bg-black/30">
+          <span className="text-white text-xs">▶</span>
+        </div>
+      </div>
+    ))}
+  </div>
+)}
 
            <p className="text-xs text-gray-400 mt-2">
   {timeFromNow(r.createdAt)}
@@ -267,8 +532,9 @@ const filteredReviews = useMemo(() => {
 
               {r.replies && r.replies.length > 0 && (
                 <div className="mt-4 pl-4 border-l-2 border-gray-200">
-                  {r.replies.map((reply, i) => (
-                    <div key={i} className="bg-gray-50 rounded-lg p-3 mt-2 text-sm">
+                 {r.replies.map((reply) => (
+  <div key={reply.id} className="bg-gray-50 rounded-lg p-3 mt-2 text-sm">
+
                       <p className="text-gray-800">{reply.comment}</p>
                       <p className="text-xs text-gray-500 mt-1">
                         — {reply.createdByName} •{" "}
@@ -283,8 +549,53 @@ const filteredReviews = useMemo(() => {
           ))}
         </div>
       )}
-    </section>
-  );
+       </section>
+
+    {/* 🔥 REVIEW IMAGE / VIDEO MODAL */}
+    {activeMedia && (
+      <div
+        className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center px-4"
+        onClick={() => setActiveMedia(null)}
+      >
+        <div
+          className="relative max-w-4xl w-full bg-black rounded-xl overflow-hidden"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {/* CLOSE BUTTON */}
+          <button
+            onClick={() => setActiveMedia(null)}
+            className="absolute top-3 right-3 z-10 bg-black/70 text-white rounded-full h-8 w-8 flex items-center justify-center"
+          >
+            ✕
+          </button>
+
+          {/* IMAGE */}
+          {activeMedia.type === "image" && (
+            <img
+              src={activeMedia.url}
+              alt="Review full"
+              className="w-full max-h-[80vh] object-contain bg-gray-100"
+            />
+          )}
+
+          {/* VIDEO */}
+          {activeMedia.type === "video" && (
+            <video
+              src={activeMedia.url}
+              controls
+              autoPlay
+              className="w-full max-h-[80vh] bg-gray-100"
+            />
+          )}
+        </div>
+      </div>
+    )}
+
+    
+    </>
+);
+
+  
 }
 // 🔹 PDP tooltip ke liye reusable helper
 export function getRecentApprovedReviews(reviews: Review[]) {

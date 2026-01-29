@@ -3262,6 +3262,79 @@ const uploadVariantImages = async (productResponse: any) => {
     </div>
   </div>
 )}
+
+  {/* Pre-order Section */}
+  <div className="space-y-4">
+    <h3 className="text-lg font-semibold text-white border-b border-slate-800 pb-2">Pre-order</h3>
+
+    <label className="flex items-center gap-2">
+      <input
+        type="checkbox"
+        name="availableForPreOrder"
+        checked={formData.availableForPreOrder}
+        onChange={handleChange}
+        className="rounded bg-slate-800/50 border-slate-700 text-violet-500 focus:ring-violet-500 focus:ring-offset-slate-900"
+      />
+      <span className="text-sm text-slate-300">Available for pre-order</span>
+    </label>
+
+    {formData.availableForPreOrder && (
+      <div>
+        <label className="block text-sm font-medium text-slate-300 mb-2">Pre-order Availability Start Date</label>
+        <input
+          type="datetime-local"
+          name="preOrderAvailabilityStartDate"
+          value={formData.preOrderAvailabilityStartDate}
+          onChange={handleChange}
+          className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+        />
+      </div>
+    )}
+  </div>
+
+  {/* Mark as New Section */}
+  <div className="space-y-4">
+    <h3 className="text-lg font-semibold text-white border-b border-slate-800 pb-2">Mark as New</h3>
+
+    <label className="flex items-center gap-2">
+      <input
+        type="checkbox"
+        name="markAsNew"
+        checked={formData.markAsNew}
+        onChange={handleChange}
+        className="rounded bg-slate-800/50 border-slate-700 text-violet-500 focus:ring-violet-500 focus:ring-offset-slate-900"
+      />
+      <span className="text-sm text-slate-300">Mark as new product</span>
+    </label>
+
+    {formData.markAsNew && (
+      <div className="grid md:grid-cols-2 gap-4 bg-slate-800/30 border border-slate-700 p-4 rounded-xl">
+        <div>
+          <label className="block text-sm font-medium text-slate-300 mb-2">Start Date</label>
+          <input
+            type="datetime-local"
+            name="markAsNewStartDate"
+            value={formData.markAsNewStartDate}
+            onChange={handleChange}
+            className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-slate-300 mb-2">End Date</label>
+          <input
+            type="datetime-local"
+            name="markAsNewEndDate"
+            value={formData.markAsNewEndDate}
+            onChange={handleChange}
+            className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+          />
+        </div>
+      </div>
+    )}
+  </div>
+
+
     </div>
   {/* ===== ✅ UPDATED RECURRING PRODUCT SECTION WITH GROUPED VALIDATION ===== */}
   <div className="space-y-4 mt-6">
@@ -3696,76 +3769,6 @@ const uploadVariantImages = async (productResponse: any) => {
     </div>
   </div>
 
-  {/* Pre-order Section */}
-  <div className="space-y-4">
-    <h3 className="text-lg font-semibold text-white border-b border-slate-800 pb-2">Pre-order</h3>
-
-    <label className="flex items-center gap-2">
-      <input
-        type="checkbox"
-        name="availableForPreOrder"
-        checked={formData.availableForPreOrder}
-        onChange={handleChange}
-        className="rounded bg-slate-800/50 border-slate-700 text-violet-500 focus:ring-violet-500 focus:ring-offset-slate-900"
-      />
-      <span className="text-sm text-slate-300">Available for pre-order</span>
-    </label>
-
-    {formData.availableForPreOrder && (
-      <div>
-        <label className="block text-sm font-medium text-slate-300 mb-2">Pre-order Availability Start Date</label>
-        <input
-          type="datetime-local"
-          name="preOrderAvailabilityStartDate"
-          value={formData.preOrderAvailabilityStartDate}
-          onChange={handleChange}
-          className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
-        />
-      </div>
-    )}
-  </div>
-
-  {/* Mark as New Section */}
-  <div className="space-y-4">
-    <h3 className="text-lg font-semibold text-white border-b border-slate-800 pb-2">Mark as New</h3>
-
-    <label className="flex items-center gap-2">
-      <input
-        type="checkbox"
-        name="markAsNew"
-        checked={formData.markAsNew}
-        onChange={handleChange}
-        className="rounded bg-slate-800/50 border-slate-700 text-violet-500 focus:ring-violet-500 focus:ring-offset-slate-900"
-      />
-      <span className="text-sm text-slate-300">Mark as new product</span>
-    </label>
-
-    {formData.markAsNew && (
-      <div className="grid md:grid-cols-2 gap-4 bg-slate-800/30 border border-slate-700 p-4 rounded-xl">
-        <div>
-          <label className="block text-sm font-medium text-slate-300 mb-2">Start Date</label>
-          <input
-            type="datetime-local"
-            name="markAsNewStartDate"
-            value={formData.markAsNewStartDate}
-            onChange={handleChange}
-            className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
-          />
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-slate-300 mb-2">End Date</label>
-          <input
-            type="datetime-local"
-            name="markAsNewEndDate"
-            value={formData.markAsNewEndDate}
-            onChange={handleChange}
-            className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
-          />
-        </div>
-      </div>
-    )}
-  </div>
 
   {/* Tax Section */}
 <div className="space-y-4">
@@ -4296,31 +4299,6 @@ const uploadVariantImages = async (productResponse: any) => {
         </div>
       </div>
 
-      {/* Multiple Warehouses Section */}
-      <div className="space-y-4">
-        <h3 className="text-lg font-semibold text-white border-b border-slate-800 pb-2">
-          Delivery Time Estimate
-        </h3>
-
-        <div>
-          <label className="block text-sm font-medium text-slate-300 mb-2">Product Availability Range</label>
-          <select
-            name="productAvailabilityRange"
-            value={formData.productAvailabilityRange}
-            onChange={handleChange}
-            className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
-          >
-            <option value="">None</option>
-            <option value="1-2-days">Ships in 1-2 days</option>
-            <option value="3-5-days">Ships in 3-5 days</option>
-            <option value="1-week">Ships in 1 week</option>
-            <option value="2-weeks">Ships in 2 weeks</option>
-          </select>
-          <p className="text-xs text-slate-400 mt-1">
-            Displayed to customers on product page
-          </p>
-        </div>
-      </div>
     </>
   )}
 
