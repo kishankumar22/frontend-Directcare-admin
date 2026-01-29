@@ -922,11 +922,11 @@ export default function OrdersListPage() {
                     Date
                   </th>
                   <th className="text-center py-3 px-3 text-slate-300 font-semibold text-xs">
-                    Status
+                   Order Status
                   </th>
                   {/* ✅ Payment Status Column */}
                   <th className="text-center py-3 px-3 text-slate-300 font-semibold text-xs">
-                    Payment
+                    Payment Status
                   </th>
                   <th className="text-center py-3 px-3 text-slate-300 font-semibold text-xs">
                     Delivery

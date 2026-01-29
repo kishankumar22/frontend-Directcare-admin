@@ -593,55 +593,35 @@ export default function OrderActionsModal({
 
       case 'update-status':
         return (
-          <div className="space-y-4">
-            <div className="flex items-center gap-3 p-4 bg-blue-500/10 border border-blue-500/20 rounded-lg">
+          <div className="space-y-2">
+            <div className="flex items-center gap-3 p-2 bg-blue-500/10 border border-blue-500/20 rounded-lg">
               <Clock className="h-6 w-6 text-blue-400" />
               <div>
                 <p className="text-white font-medium">Update Order Status</p>
                 <p className="text-sm text-slate-400">Change the current status of this order.</p>
               </div>
             </div>
+<div className="flex items-center justify-between gap-4 p-3 bg-slate-800/60 border border-white/10 rounded-lg">
+  {/* Left : Order Current Status */}
+  <div className="flex items-center gap-3">
+    <Clock className="h-5 w-5 text-amber-400" />
+    <div>
+      <p className="text-sm text-slate-400">Order Status</p>
+      <p className="text-base font-semibold text-amber-400">
+        Pending
+      </p>
+    </div>
+  </div>
 
-            {/* ✅ Current Status Display */}
-            <div className="p-3 bg-slate-900/50 border border-slate-700 rounded-lg">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xs text-slate-400 mb-1">Current Status</p>
-                  <div className="flex text-white items-center gap-2">
-                    {getStatusDisplayInfo(order.status).icon}
-                    <p className={`font-medium ${getStatusDisplayInfo(order.status).color}`}>
-                      {getStatusDisplayInfo(order.status).label}
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-1 text-xs text-slate-400">
-                  {order.deliveryMethod === 'ClickAndCollect' ? (
-                    <>
-                      <MapPin className="w-3 h-3" />
-                      Click & Collect
-                    </>
-                  ) : (
-                    <>
-                      <Truck className="w-3 h-3" />
-                      Home Delivery
-                    </>
-                  )}
-                </div>
-              </div>
-            </div>
+  {/* Right : Payment Status */}
+  <div className="text-right">
+    <p className="text-sm text-slate-400">Payment Status</p>
+    <p className="text-base font-semibold text-emerald-400">
+      Paid
+    </p>
+  </div>
+</div>
 
-            {/* ✅ Payment Status Display */}
-            <div className="p-3 bg-slate-900/50 border border-slate-700 rounded-lg">
-              <div className="flex items-center gap-2">
-                {paymentDisplay.icon}
-                <div>
-                  <p className="text-xs text-slate-400">Payment Status</p>
-                  <p className={`text-sm font-medium ${paymentDisplay.color}`}>
-                    {paymentDisplay.label}
-                  </p>
-                </div>
-              </div>
-            </div>
 
             <div>
               <label className="block text-sm font-medium text-slate-300 mb-2">

@@ -7,9 +7,6 @@ import { API_ENDPOINTS } from '../api-config';
 // TYPES & INTERFACES
 // ===========================
 
-/**
- * Operation types for order editing
- */
 export type OperationType = 
   | "UpdateQuantity" 
   | "UpdatePrice" 
@@ -17,9 +14,6 @@ export type OperationType =
   | "AddItem" 
   | "ReplaceItem";
 
-/**
- * Refund reasons
- */
 export type RefundReason = 
   | "CustomerRequest" 
   | "ProductDefect" 
@@ -27,9 +21,19 @@ export type RefundReason =
   | "DamagedInTransit" 
   | "Other";
 
-/**
- * Order edit operation
- */
+export interface Address {
+  firstName: string;
+  lastName: string;
+  company?: string;
+  addressLine1: string;
+  addressLine2?: string;
+  city: string;
+  state: string;
+  postalCode: string;
+  country: string;
+  phoneNumber: string;
+}
+
 export interface OrderEditOperation {
   operationType: OperationType;
   orderItemId?: string;
@@ -41,9 +45,6 @@ export interface OrderEditOperation {
   replacementProductVariantId?: string;
 }
 
-/**
- * Order edit request payload
- */
 export interface OrderEditRequest {
   orderId: string;
   operations: OrderEditOperation[];
@@ -52,13 +53,12 @@ export interface OrderEditRequest {
   recalculateTotals?: boolean;
   adjustInventory?: boolean;
   sendCustomerNotification?: boolean;
+  billingAddress?: Address;
+  shippingAddress?: Address;
   currentUser?: string;
   ipAddress?: string;
 }
 
-/**
- * Full refund request
- */
 export interface FullRefundRequest {
   orderId: string;
   reason: RefundReason;
@@ -70,9 +70,6 @@ export interface FullRefundRequest {
   ipAddress?: string;
 }
 
-/**
- * Partial refund request
- */
 export interface PartialRefundRequest {
   orderId: string;
   refundAmount: number;
@@ -84,9 +81,6 @@ export interface PartialRefundRequest {
   ipAddress?: string;
 }
 
-/**
- * Regenerate invoice request
- */
 export interface RegenerateInvoiceRequest {
   orderId: string;
   notes?: string;
@@ -94,9 +88,6 @@ export interface RegenerateInvoiceRequest {
   currentUser?: string;
 }
 
-/**
- * Refund item
- */
 export interface RefundItem {
   refundId: string;
   amount: number;
@@ -108,9 +99,6 @@ export interface RefundItem {
   isPartial: boolean;
 }
 
-/**
- * Refund history response
- */
 export interface RefundHistoryData {
   orderId: string;
   orderNumber: string;
@@ -122,9 +110,6 @@ export interface RefundHistoryData {
   refunds: RefundItem[];
 }
 
-/**
- * Edit history item
- */
 export interface EditHistoryItem {
   id: string;
   orderId: string;
@@ -145,13 +130,19 @@ export interface EditHistoryItem {
   notes?: string;
 }
 
-/**
- * Standard API response wrapper
- */
-interface ApiResponse<T> {
+// ✅ API Response Interface
+interface ApiResponse<T = any> {
+  success?: boolean;
+  message?: string;
+  data?: T;
+  errors?: string[];
+}
+
+// ✅ Standard Service Response
+interface ServiceResponse<T = any> {
   success: boolean;
-  message: string;
-  data: T;
+  message?: string;
+  data?: T;
   errors?: string[];
 }
 
@@ -161,127 +152,232 @@ interface ApiResponse<T> {
 
 class OrderEditService {
   /**
-   * Edit an existing order
-   * PUT /api/orders/{orderId}/edit
+   * ✅ FIXED: Edit an existing order with proper null/undefined checks
+   * PUT /api/Orders/{orderId}/edit
    */
-  async editOrder(request: OrderEditRequest) {
-    try {
-      const response = await apiClient.put<ApiResponse<any>>(
-        `${API_ENDPOINTS.orders}/${request.orderId}/edit`,
-        request
-      );
-      return response.data;
-    } catch (error: any) {
-      console.error("❌ Order Edit Error:", error);
-      throw new Error(
-        error.response?.data?.message || 
-        error.response?.data?.errors?.[0] || 
-        'Failed to edit order'
-      );
+  async editOrder(request: OrderEditRequest): Promise<ServiceResponse> {
+    console.log('🔧 Order Edit Request:', {
+      orderId: request.orderId,
+      operationsCount: request.operations.length,
+      hasBillingAddress: !!request.billingAddress,
+      hasShippingAddress: !!request.shippingAddress,
+      editReason: request.editReason,
+    });
+
+    // ✅ USE WRAPPED API CLIENT (returns ApiResponse)
+    const response = await apiClient.put<any>(
+      `${API_ENDPOINTS.orders}/${request.orderId}/edit`,
+      request
+    );
+
+    console.log('📥 API Response:', response);
+
+    // ✅ Check for errors from wrapped response
+    if (response.error) {
+      console.error('❌ Order Edit Failed:', response.error);
+      return {
+        success: false,
+        message: response.error,
+      };
     }
+
+    // ✅ Check backend success flag
+    const responseData = response.data;
+    
+    if (responseData?.success === false) {
+      console.error('❌ Backend Error:', responseData);
+      return {
+        success: false,
+        message: responseData.message ?? 'Backend returned error',
+        errors: responseData.errors,
+      };
+    }
+
+    console.log('✅ Order Edit Success:', responseData);
+
+    return {
+      success: true,
+      message: responseData?.message ?? 'Order updated successfully',
+      data: responseData?.data,
+    };
   }
 
+
   /**
-   * Process full refund for an order
-   * POST /api/orders/{orderId}/refund
+   * ✅ FIXED: Process full refund with null checks
    */
-  async processFullRefund(request: FullRefundRequest) {
+  async processFullRefund(request: FullRefundRequest): Promise<ServiceResponse> {
     try {
-      const response = await apiClient.post<ApiResponse<any>>(
+      const response = await apiClient.post<ApiResponse>(
         `${API_ENDPOINTS.orders}/${request.orderId}/refund`,
         request
       );
-      return response.data;
+
+      const responseData = response.data;
+
+      return {
+        success: responseData?.success ?? true,
+        message: responseData?.message ?? 'Refund processed successfully',
+        data: responseData?.data,
+      };
     } catch (error: any) {
-      console.error("❌ Full Refund Error:", error);
-      throw new Error(
-        error.response?.data?.message || 
-        error.response?.data?.errors?.[0] || 
-        'Failed to process refund'
-      );
+      console.error('❌ Full Refund Error:', error);
+      
+      const errorData = error.response?.data as ApiResponse | undefined;
+      
+      return {
+        success: false,
+        message: errorData?.message ?? 'Failed to process refund',
+        errors: errorData?.errors,
+      };
     }
   }
 
   /**
-   * Process partial refund for an order
-   * POST /api/orders/{orderId}/partial-refund
+   * ✅ FIXED: Process partial refund with null checks
    */
-  async processPartialRefund(request: PartialRefundRequest) {
+  async processPartialRefund(request: PartialRefundRequest): Promise<ServiceResponse> {
     try {
-      const response = await apiClient.post<ApiResponse<any>>(
+      const response = await apiClient.post<ApiResponse>(
         `${API_ENDPOINTS.orders}/${request.orderId}/partial-refund`,
         request
       );
-      return response.data;
+
+      const responseData = response.data;
+
+      return {
+        success: responseData?.success ?? true,
+        message: responseData?.message ?? 'Partial refund processed successfully',
+        data: responseData?.data,
+      };
     } catch (error: any) {
-      console.error("❌ Partial Refund Error:", error);
-      throw new Error(
-        error.response?.data?.message || 
-        error.response?.data?.errors?.[0] || 
-        'Failed to process partial refund'
-      );
+      console.error('❌ Partial Refund Error:', error);
+      
+      const errorData = error.response?.data as ApiResponse | undefined;
+
+      return {
+        success: false,
+        message: errorData?.message ?? 'Failed to process partial refund',
+        errors: errorData?.errors,
+      };
     }
   }
 
   /**
-   * Get refund history for an order
-   * GET /api/orders/{orderId}/refund-history
+   * ✅ FIXED: Get refund history with null checks
    */
-  async getRefundHistory(orderId: string) {
+  async getRefundHistory(orderId: string): Promise<ServiceResponse<RefundHistoryData>> {
     try {
       const response = await apiClient.get<ApiResponse<RefundHistoryData>>(
         `${API_ENDPOINTS.orders}/${orderId}/refund-history`
       );
-      return response.data;
+
+      const responseData = response.data;
+
+      return {
+        success: responseData?.success ?? true,
+        message: responseData?.message,
+        data: responseData?.data,
+      };
     } catch (error: any) {
-      console.error("❌ Refund History Error:", error);
-      throw new Error(
-        error.response?.data?.message || 
-        error.response?.data?.errors?.[0] || 
-        'Failed to fetch refund history'
-      );
+      console.error('❌ Refund History Error:', error);
+      
+      const errorData = error.response?.data as ApiResponse | undefined;
+
+      return {
+        success: false,
+        message: errorData?.message ?? 'Failed to fetch refund history',
+      };
     }
   }
 
   /**
-   * Get edit history for an order
-   * GET /api/orders/{orderId}/edit-history
+   * ✅ FIXED: Get edit history with null checks
    */
-  async getEditHistory(orderId: string) {
+  async getEditHistory(orderId: string): Promise<ServiceResponse<EditHistoryItem[]>> {
     try {
       const response = await apiClient.get<ApiResponse<EditHistoryItem[]>>(
         `${API_ENDPOINTS.orders}/${orderId}/edit-history`
       );
-      return response.data;
+
+      const responseData = response.data;
+
+      return {
+        success: responseData?.success ?? true,
+        message: responseData?.message,
+        data: responseData?.data,
+      };
     } catch (error: any) {
-      console.error("❌ Edit History Error:", error);
-      throw new Error(
-        error.response?.data?.message || 
-        error.response?.data?.errors?.[0] || 
-        'Failed to fetch edit history'
-      );
+      console.error('❌ Edit History Error:', error);
+      
+      const errorData = error.response?.data as ApiResponse | undefined;
+
+      return {
+        success: false,
+        message: errorData?.message ?? 'Failed to fetch edit history',
+      };
     }
   }
 
   /**
-   * Regenerate invoice for an order
-   * POST /api/orders/{orderId}/regenerate-invoice
+   * ✅ FIXED: Regenerate invoice with null checks
    */
-  async regenerateInvoice(request: RegenerateInvoiceRequest) {
+  async regenerateInvoice(request: RegenerateInvoiceRequest): Promise<ServiceResponse> {
     try {
-      const response = await apiClient.post<ApiResponse<any>>(
+      const response = await apiClient.post<ApiResponse>(
         `${API_ENDPOINTS.orders}/${request.orderId}/regenerate-invoice`,
         request
       );
-      return response.data;
+
+      const responseData = response.data;
+
+      return {
+        success: responseData?.success ?? true,
+        message: responseData?.message ?? 'Invoice regenerated successfully',
+        data: responseData?.data,
+      };
     } catch (error: any) {
-      console.error("❌ Regenerate Invoice Error:", error);
-      throw new Error(
-        error.response?.data?.message || 
-        error.response?.data?.errors?.[0] || 
-        'Failed to regenerate invoice'
-      );
+      console.error('❌ Regenerate Invoice Error:', error);
+      
+      const errorData = error.response?.data as ApiResponse | undefined;
+
+      return {
+        success: false,
+        message: errorData?.message ?? 'Failed to regenerate invoice',
+      };
     }
+  }
+
+  /**
+   * ✅ Helper: Validate and clean address data
+   */
+  validateAndCleanAddress(address: Partial<Address>): Address | undefined {
+    // Check if address has required fields with actual values
+    if (
+      !address.firstName?.trim() ||
+      !address.lastName?.trim() ||
+      !address.addressLine1?.trim() ||
+      !address.city?.trim() ||
+      !address.state?.trim() ||
+      !address.postalCode?.trim() ||
+      !address.country?.trim() ||
+      !address.phoneNumber?.trim()
+    ) {
+      return undefined;
+    }
+
+    return {
+      firstName: address.firstName.trim(),
+      lastName: address.lastName.trim(),
+      company: address.company?.trim() || undefined,
+      addressLine1: address.addressLine1.trim(),
+      addressLine2: address.addressLine2?.trim() || undefined,
+      city: address.city.trim(),
+      state: address.state.trim(),
+      postalCode: address.postalCode.trim(),
+      country: address.country.trim(),
+      phoneNumber: address.phoneNumber.trim(),
+    };
   }
 
   /**

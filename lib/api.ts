@@ -27,8 +27,8 @@ class ApiClient {
       timeout: 120000, // 2 minutes
       maxContentLength: Infinity,
       maxBodyLength: Infinity,
-      validateStatus: (status) => status < 500,
-      // ✅ Add withCredentials for CORS
+      // ✅ FIX: Remove validateStatus - let errors be errors!
+      // validateStatus: (status) => status < 500, // ❌ REMOVE THIS!
       withCredentials: false,
     });
 
@@ -60,11 +60,12 @@ class ApiClient {
       }
     );
 
-    // ✅ RESPONSE INTERCEPTOR - ENHANCED
+    // ✅ RESPONSE INTERCEPTOR - FIXED!
     this.client.interceptors.response.use(
       (response) => {
         console.log(`✅ API Response: ${response.status} ${response.config?.url}`);
 
+        // ✅ Log warnings for 4xx but don't reject
         if (response.status >= 400 && response.status < 500) {
           console.warn(`⚠️ Client error: ${response.status}`, response.data);
         }
@@ -111,6 +112,7 @@ class ApiClient {
           window.location.href = '/login';
         }
 
+        // ✅ FIX: MUST reject error for catch blocks to work!
         return Promise.reject(error);
       }
     );
@@ -134,9 +136,10 @@ class ApiClient {
         ...options,
       });
 
-      // ✅ Handle API success: false
+      // ✅ Handle API success: false in response body
       if (response.data?.success === false) {
         const apiError = response.data?.message || response.data?.error || 'API operation failed';
+        console.warn('⚠️ API returned success: false -', apiError);
         return {
           error: apiError,
           status: response.status,
@@ -144,14 +147,17 @@ class ApiClient {
         };
       }
 
-      // ✅ Handle 4xx errors
+      // ✅ This shouldn't happen now (removed validateStatus)
+      // But keep as safety check
       if (response.status >= 400 && response.status < 500) {
         const errorMessage = response.data?.message ||
           response.data?.error ||
           `Request failed with status ${response.status}`;
+        console.warn('⚠️ 4xx status code:', errorMessage);
         return {
           error: errorMessage,
-          status: response.status
+          status: response.status,
+          data: response.data
         };
       }
 
@@ -205,7 +211,7 @@ class ApiClient {
             errorMessage = 'Request too large. Server limit exceeded.';
             break;
           case 500:
-            errorMessage = 'Internal server error. Please try again later.';
+            errorMessage = errorData?.message || 'Internal server error. Please try again later.';
             break;
           case 502:
             errorMessage = 'Bad Gateway. Server is temporarily unavailable.';
@@ -219,13 +225,12 @@ class ApiClient {
         // ✅ Request made but no response
         switch (error.code) {
           case 'ERR_NETWORK':
-            errorMessage = '🔴 Network Error\n\n' +
-              'Cannot connect to server. Please check:\n\n' +
-              '1. ✅ Backend server is running\n' +
-              '2. ✅ API URL is correct: ' + this.client.defaults.baseURL + '\n' +
-              '3. ✅ CORS is enabled on backend\n' +
-              '4. ✅ Internet connection is active\n' +
-              '5. ✅ Firewall is not blocking';
+            errorMessage = '🔴 Network Error - Cannot connect to server.\n\nCheck:\n' +
+              '1. Backend server is running\n' +
+              '2. API URL: ' + this.client.defaults.baseURL + '\n' +
+              '3. CORS enabled on backend\n' +
+              '4. Internet connection active\n' +
+              '5. Firewall not blocking';
             break;
 
           case 'ERR_FR_MAX_BODY_LENGTH_EXCEEDED':
@@ -233,11 +238,11 @@ class ApiClient {
             break;
 
           case 'ECONNABORTED':
-            errorMessage = 'Request timeout (2 min). Connection is slow or data is too large.';
+            errorMessage = 'Request timeout (2 min). Connection slow or data too large.';
             break;
 
           case 'ECONNREFUSED':
-            errorMessage = 'Connection refused. Server is not running or not accessible.';
+            errorMessage = 'Connection refused. Server not running or not accessible.';
             break;
 
           case 'ENOTFOUND':
@@ -255,12 +260,13 @@ class ApiClient {
 
       return {
         error: errorMessage,
-        status
+        status,
+        data: error?.response?.data
       };
     }
   }
 
-  // ✅ HTTP METHODS
+  // ✅ HTTP METHODS - These return wrapped ApiResponse
   async get<T>(endpoint: string, options?: any): Promise<ApiResponse<T>> {
     return this.request<T>('GET', endpoint, undefined, options);
   }
@@ -400,6 +406,12 @@ class ApiClient {
         details
       };
     }
+  }
+
+  // ✅ DIRECT ACCESS TO RAW AXIOS INSTANCE
+  // Use this when you need direct axios access (like in orderEditService)
+  getRawClient(): AxiosInstance {
+    return this.client;
   }
 }
 

@@ -1,6 +1,6 @@
 'use client';
 
-import { JSX, useEffect, useState } from 'react';
+import { JSX, useEffect, useRef, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import {
   ArrowLeft,
@@ -33,7 +33,8 @@ import {
   Zap,
   Shield,
   TrendingUp,
-  Lock
+  Lock,
+  
 } from 'lucide-react';
 import {
   orderService,
@@ -271,8 +272,7 @@ const getCollectionStatusInfo = (status: CollectionStatus | undefined) => {
   };
   return status ? statusMap[status] : null;
 };
-
-// ✅ Status Badge Component with Tooltip
+// ✅ Status Badge Component with Fixed Tooltip
 const StatusBadge = ({ 
   statusInfo, 
   label 
@@ -281,30 +281,65 @@ const StatusBadge = ({
   label: string;
 }) => {
   const [showTooltip, setShowTooltip] = useState(false);
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  const handleMouseEnter = () => {
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+    }
+    setShowTooltip(true);
+  };
+
+  const handleMouseLeave = () => {
+    // ✅ Small delay before hiding
+    timeoutRef.current = setTimeout(() => {
+      setShowTooltip(false);
+    }, 100);
+  };
 
   return (
-    <div className="relative">
+    <div 
+      className="relative inline-block group"
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
+    >
+      {/* Badge */}
       <span
         className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border ${statusInfo.bgColor} ${statusInfo.color} ${statusInfo.bgColor.replace('/10', '/20')} cursor-help transition-all hover:scale-105`}
-        onMouseEnter={() => setShowTooltip(true)}
-        onMouseLeave={() => setShowTooltip(false)}
-        title={statusInfo.description}
       >
         {statusInfo.icon}
         {statusInfo.label}
         <Info className="h-3 w-3 opacity-50" />
       </span>
 
-      {/* ✅ Tooltip */}
+      {/* ✅ Tooltip with proper positioning */}
       {showTooltip && (
-        <div className="absolute z-50 w-80 top-full left-0 mt-2 p-3 bg-slate-800 border border-slate-600 rounded-lg shadow-2xl">
-          <div className="flex items-start gap-2 mb-2">
-            <div className={`p-1.5 rounded-lg ${statusInfo.bgColor}`}>
+        <div 
+          className="fixed z-[9999] w-80 p-3 bg-slate-800/95 backdrop-blur-sm border border-slate-600 rounded-lg shadow-2xl"
+          style={{
+            // ✅ Dynamic positioning to prevent overflow
+            top: 'auto',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            marginTop: '0.5rem'
+          }}
+          onMouseEnter={handleMouseEnter}
+          onMouseLeave={handleMouseLeave}
+        >
+          {/* Arrow indicator */}
+          <div className="absolute -top-2 left-1/2 -translate-x-1/2 w-0 h-0 border-l-8 border-r-8 border-b-8 border-l-transparent border-r-transparent border-b-slate-600" />
+          
+          <div className="flex items-start gap-2">
+            <div className={`p-1.5 rounded-lg ${statusInfo.bgColor} flex-shrink-0`}>
               {statusInfo.icon}
             </div>
-            <div className="flex-1">
-              <p className={`font-semibold text-sm ${statusInfo.color} mb-1`}>{label}: {statusInfo.label}</p>
-              <p className="text-xs text-slate-300 leading-relaxed">{statusInfo.description}</p>
+            <div className="flex-1 min-w-0">
+              <p className={`font-semibold text-sm ${statusInfo.color} mb-1`}>
+                {label}: {statusInfo.label}
+              </p>
+              <p className="text-xs text-slate-300 leading-relaxed">
+                {statusInfo.description}
+              </p>
               {statusInfo.nextAction && (
                 <div className="mt-2 pt-2 border-t border-slate-700">
                   <p className="text-xs text-cyan-400 flex items-center gap-1">
@@ -320,6 +355,9 @@ const StatusBadge = ({
     </div>
   );
 };
+
+
+
 
 // ✅ Get Available Actions based on Order Status & Delivery Method
 const getAvailableActions = (order: Order) => {

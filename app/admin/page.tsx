@@ -510,7 +510,7 @@ export default function AdminDashboard() {
           </button>
           <button 
             title="View detailed analytics reports"
-            onClick={() => router.push('/admin/analytics')}
+            onClick={() => router.push('#')}
             className="px-3 py-2 bg-gradient-to-r from-violet-500 to-cyan-500 text-white rounded-xl hover:shadow-lg hover:shadow-violet-500/50 transition-all text-sm flex items-center gap-2 font-semibold"
           >
             <ArrowUpRight className="h-4 w-4" />
@@ -847,41 +847,46 @@ export default function AdminDashboard() {
       </div>
 
       {/* Quick Navigation */}
-      <div className="relative rounded-2xl overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-r from-violet-500 via-purple-500 to-cyan-500" />
-        <div className="absolute inset-0 bg-black/5" />
+<div className="relative rounded-2xl border border-white/10 bg-gradient-to-br from-[#0b1220] via-[#0e1628] to-[#0a1020]">
+  <div className="p-3">
+    <h3 className="text-lg font-semibold text-slate-200 mb-2 tracking-wide">
+      Quick Navigation
+    </h3>
 
-        <div className="relative z-10 p-4">
-          <h3 className="text-xl font-bold text-white mb-3">Quick Navigation</h3>
+    <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-5 xl:grid-cols-10 gap-3">
+      {[
+        { icon: Package, label: "ProductS", path: "/admin/products" },
+        { icon: FolderTree, label: "Categories", path: "/admin/categories" },
+        { icon: Award, label: "Brands", path: "/admin/brands" },
+        { icon: ShoppingCart, label: "Orders", path: "/admin/order" },
+        { icon: Tag, label: "Discounts", path: "/admin/discounts" },
+        { icon: Star, label: "Reviews", path: "/admin/productReview" },
+        { icon: Eye, label: "Analytics", path: "#" },
+        { icon: Users, label: "Customers", path: "/admin/customers" },
+        { icon: Package, label: "Products", path: "/admin/products" },
+        { icon: Download, label: "Export", path: "#" },
+      ].map((item, idx) => (
+        <button
+          key={idx}
+          onClick={() => item.path !== "#" && router.push(item.path)}
+          className="
+            group flex items-center gap-2
+            rounded-xl px-3 py-2.5
+            bg-white/[0.03] border border-white/10
+            hover:bg-white/[0.08] hover:border-violet-400/40
+            transition-all duration-200
+          "
+        >
+          <item.icon className="h-4 w-4 text-violet-400 group-hover:text-cyan-400 transition-colors" />
+          <span className="text-sm font-medium text-slate-300 group-hover:text-white transition-colors">
+            {item.label}
+          </span>
+        </button>
+      ))}
+    </div>
+  </div>
+</div>
 
-          <div className="grid grid-cols-3 sm:grid-cols-5 lg:grid-cols-10 gap-2">
-            {[
-              { icon: Package, label: "Add Product", path: "/admin/products/add", tooltip: "Create a new product" },
-              { icon: FolderTree, label: "Categories", path: "/admin/categories", tooltip: "Manage product categories" },
-              { icon: Award, label: "Brands", path: "/admin/brands", tooltip: "Manage brands" },
-              { icon: ShoppingCart, label: "Orders", path: "/admin/order", tooltip: "View and manage orders" },
-              { icon: Tag, label: "Discounts", path: "/admin/discounts", tooltip: "Create and manage discounts" },
-              { icon: Star, label: "Reviews", path: "/admin/productReview", tooltip: "Manage product reviews" },
-              { icon: Eye, label: "Analytics", path: "/admin/analytics", tooltip: "View detailed analytics" },
-              { icon: Users, label: "Customers", path: "/admin/customers", tooltip: "Manage customers" },
-              { icon: Package, label: "Products", path: "/admin/products", tooltip: "View all products" },
-              { icon: Download, label: "Export", path: "#", tooltip: "Export data to CSV/Excel" },
-            ].map((item, idx) => (
-              <button
-                key={idx}
-                onClick={() => item.path !== "#" && router.push(item.path)}
-                title={item.tooltip}
-                className="group p-2.5 bg-white/15 backdrop-blur-xl border border-white/25 rounded-xl hover:bg-white hover:scale-105 transition-all"
-              >
-                <item.icon className="h-4 w-4 sm:h-5 sm:w-5 text-white group-hover:text-violet-600 mx-auto mb-1 transition-colors" />
-                <span className="text-xs text-white group-hover:text-violet-600 font-medium block text-center transition-colors">
-                  {item.label}
-                </span>
-              </button>
-            ))}
-          </div>
-        </div>
-      </div>
     </div>
   );
 }
