@@ -532,7 +532,8 @@ setCategories(topCategories);
 
 </div>
 {/* STOCK BADGE */}
-<div className="ml-auto">
+<div className="ml-auto flex-shrink-0 self-start">
+
   {item.inStock ? (
     <span className="text-[10px] px-2 py-1 rounded bg-green-100 text-green-700 font-semibold">
       In Stock

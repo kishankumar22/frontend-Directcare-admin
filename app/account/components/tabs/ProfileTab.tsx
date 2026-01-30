@@ -9,13 +9,14 @@ import {
   ShoppingBag,
   PoundSterling,
   ShieldCheck,
+  User2,
 } from "lucide-react";
 import Stat from "../ui/Stat";
 import Detail from "../ui/Detail";
 
 export default function ProfileTab({ user, initials }: any) {
   return (
-    <div className="space-y-6">
+    <div className="space-y-2">
 
       {/* PROFILE HEADER */}
       <div className="relative overflow-hidden rounded-2xl border shadow-sm bg-gradient-to-br from-[#445D41] to-black p-6 text-white">
@@ -82,6 +83,11 @@ export default function ProfileTab({ user, initials }: any) {
 
       {/* DETAILS */}
       <div className="bg-white rounded-xl border shadow-sm divide-y">
+        <Detail
+          icon={<User2 className="h-4 w-4 text-[#445D41]" />}
+          label="Full name"
+          value= {user.fullName || `${user.firstName} ${user.lastName}`}
+        />
         <Detail
           icon={<Mail className="h-4 w-4 text-[#445D41]" />}
           label="Email"

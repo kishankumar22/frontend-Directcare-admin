@@ -1523,7 +1523,7 @@ bg-white/80 hover:bg-white shadow-md rounded-full p-2 backdrop-blur-sm transitio
   )}
 
   {/* THUMBNAILS */}
-  <div className="flex gap-3 overflow-hidden px-1">
+ <div className="flex gap-3 overflow-visible px-1 py-2">
     {sortedImages
       .slice(thumbStart, thumbStart + THUMB_VISIBLE)
       .map((img, idx) => {
@@ -1533,19 +1533,19 @@ bg-white/80 hover:bg-white shadow-md rounded-full p-2 backdrop-blur-sm transitio
           <div
             key={img.id}
             onClick={() => setSelectedImage(realIndex)}
-            className={`cursor-pointer rounded-xl overflow-hidden w-24 h-20 flex-shrink-0 transition-all duration-200         
+           className={`cursor-pointer rounded-xl overflow-hidden w-24 h-24 flex-shrink-0 transition-all duration-200 border-2 bg-white         
               ${
                 selectedImage === realIndex
-                  ? "ring-2 ring-[#445D41] scale-90 shadow-md"
-                  : "ring-1 ring-gray-200  hover:scale-90"
+                  ? "border-[#445D41] shadow-lg"
+                  : "border-gray-200 hover:border-gray-300 hover:shadow-md"
               }`}
           >
-            <div className="relative w-full h-full bg-white">
+           <div className="relative w-full h-full bg-white p-1">
               <Image
                 src={getImageUrl(img.imageUrl)}
                 alt={img.altText || product.name}
                 fill
-                className="object-contain p-0"
+                className="object-contain p-1"
               />
             </div>
           </div>

@@ -33,9 +33,9 @@ export default function AccountDashboard() {
     `${user.firstName?.[0] ?? ""}${user.lastName?.[0] ?? ""}` || "U";
 
   return (
-    <div className="min-h-screen bg-[#f7f8fa] py-2">
+    <div className="min-h-screen bg-[#f7f8fa] py-1">
       <div className="max-w-7xl mx-auto px-4">
-        <h1 className="text-2xl font-semibold mb-2">My Account</h1>
+        <h1 className="text-xl font-semibold mb-1">My Account</h1>
 
         <div className="grid grid-cols-12 gap-6">
           {/* LEFT SIDEBAR */}

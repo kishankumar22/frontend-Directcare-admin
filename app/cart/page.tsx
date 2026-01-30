@@ -299,6 +299,22 @@ const isBundleChild = (item: any) => Boolean(item.bundleParentId);
 const getBundleChildren = (bundleId: string) =>
   cart.filter((i) => i.bundleParentId === bundleId);
 
+
+// 🔥 BUNDLE MAX QTY (GROUPED MIN STOCK)
+const getBundleMaxQty = (bundleParent: any, bundleChildren: any[]) => {
+  if (!bundleParent || !bundleChildren.length) return Infinity;
+
+  // main product stock
+  const mainStock = getItemStock(bundleParent);
+
+  // grouped products min stock
+  const groupedMinStock = Math.min(
+    ...bundleChildren.map((c) => getItemStock(c))
+  );
+
+  return Math.min(mainStock, groupedMinStock);
+};
+
 // ================= GROUPED PRODUCTS UI HELPERS =================
 const isGroupedChild = (item: any) => Boolean(item.parentProductId);
 
@@ -457,10 +473,27 @@ const getGroupedItems = (parentProductId?: string) => {
     className="w-12 text-center outline-none font-medium"
     value={item.quantity}
     onChange={(e) => {
-      const val = parseInt(e.target.value || "1", 10);
-      if (val < 1) return;
+     let val = parseInt(e.target.value || "1", 10);
+if (val < 1) return;
 
-      updateQuantity(item.id, val);
+if (isBundleParent(item)) {
+  const maxQty = getBundleMaxQty(item, bundleChildren);
+  if (val > maxQty) {
+    toast.error(
+      `Maximum allowed quantity is ${maxQty} due to grouped product stock`
+    );
+    val = maxQty;
+  }
+}
+
+updateQuantity(item.id, val);
+
+if (item.isBundleParent && item.bundleId) {
+  bundleChildren.forEach((c) =>
+    updateQuantity(c.id, val)
+  );
+}
+
 
      if (
   item.isBundleParent === true &&
@@ -476,21 +509,29 @@ const getGroupedItems = (parentProductId?: string) => {
   />
 
   <button
-    onClick={() => {
-      const newQty = (item.quantity ?? 1) + 1;
-      updateQuantity(item.id, newQty);
+   onClick={() => {
+  let newQty = (item.quantity ?? 1) + 1;
 
-    if (
-  item.isBundleParent === true &&
-  item.purchaseContext === "bundle" &&
-  item.bundleId
-) {
-  bundleChildren.forEach((c) =>
-    updateQuantity(c.id, newQty)
-  );
-}
+  if (isBundleParent(item)) {
+    const maxQty = getBundleMaxQty(item, bundleChildren);
 
-    }}
+    if (newQty > maxQty) {
+      toast.error(
+        `Only ${maxQty} items can be ordered due to grouped product stock`
+      );
+      return;
+    }
+  }
+
+  updateQuantity(item.id, newQty);
+
+  if (item.isBundleParent && item.bundleId) {
+    bundleChildren.forEach((c) =>
+      updateQuantity(c.id, newQty)
+    );
+  }
+}}
+
     className="text-gray-700 font-bold text-lg w-6 text-center"
   >
     +
