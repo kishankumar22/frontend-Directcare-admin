@@ -14,7 +14,7 @@ import { ProductAttribute, ProductVariant, DropdownsData, SimpleProduct, Product
 import { GroupedProductModal } from '../../GroupedProductModal';
 import { MultiBrandSelector } from "../../MultiBrandSelector";
 import React from "react";
-import { BackInStockSubscribers, LowStockAlert,AdminCommentHistoryModal } from "../../productModals";
+import { BackInStockSubscribers, LowStockAlert } from "../../productModals";
 import { VATRateApiResponse, vatratesService } from "@/lib/services/vatrates";
 import productLockService from "@/lib/services/productLockService";
 import { signalRService } from "@/lib/services/signalRService";
@@ -22,7 +22,17 @@ import TakeoverRequestModal from "../../TakeoverRequestModal";
 import { MultiCategorySelector } from "../../MultiCategorySelector";
 import RequestTakeoverModal from "../../RequestTakeoverModal";
 import ScrollToTopButton from "../../ScrollToTopButton";
+import { apiClient } from "@/lib/api";
 
+// ✅ ADD THIS INTERFACE (at the top with other interfaces)
+interface AdminCommentHistory {
+  id: string;
+  productId: string;
+  oldComment: string | null;
+  newComment: string | null;
+  changedBy: string;
+  changedAt: string;
+}
 
 
 
@@ -39,6 +49,12 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
 const [homepageCount, setHomepageCount] = useState<number | null>(null);
 const MAX_HOMEPAGE = 50;
 const [showTaxPreview, setShowTaxPreview] = useState(false);
+// ✅ ADD THESE STATES (around line 50-100, with other states)
+// ✅ CORRECT - Array type with brackets []
+const [commentHistory, setCommentHistory] = useState<AdminCommentHistory[]>([]);
+const [isCommentHistoryOpen, setIsCommentHistoryOpen] = useState(false);
+// const [commentHistory, setCommentHistory] = useState<AdminCommentHistory[]>([]);
+const [loadingHistory, setLoadingHistory] = useState(false);
 
 // ================================
 // ✅ LOADING STATE (Add after other useState)
@@ -82,6 +98,62 @@ const [checkingVariantSku, setCheckingVariantSku] = useState<Record<string, bool
   // Add these states after existing states
 const [simpleProducts, setSimpleProducts] = useState<SimpleProduct[]>([]);
 const [selectedGroupedProducts, setSelectedGroupedProducts] = useState<string[]>([]);
+// ✅ ADD THESE FUNCTIONS (around line 300-400, after other helper functions)
+
+const fetchCommentHistory = async () => {
+  if (!productId) return;
+  
+  setLoadingHistory(true);
+  try {
+    const response = await apiClient.get<any>(`/api/Products/${productId}/admin-comment-history`);
+    
+    if (response.data?.success && Array.isArray(response.data.data)) {
+      const sortedHistory = [...response.data.data].sort((a, b) => 
+        new Date(b.changedAt).getTime() - new Date(a.changedAt).getTime()
+      );
+      setCommentHistory(sortedHistory);
+    } else if (Array.isArray(response.data)) {
+      const sortedHistory = [...response.data].sort((a, b) => 
+        new Date(b.changedAt).getTime() - new Date(a.changedAt).getTime()
+      );
+      setCommentHistory(sortedHistory);
+    } else {
+      setCommentHistory([]);
+    }
+  } catch (error: any) {
+    if (error.response?.status === 404) {
+      setCommentHistory([]);
+    }
+  } finally {
+    setLoadingHistory(false);
+  }
+};
+
+const formatDateOnly = (dateString: string) => {
+  try {
+    const date = new Date(dateString);
+    return date.toLocaleString('en-GB', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric'
+    });
+  } catch {
+    return dateString;
+  }
+};
+
+const formatTime = (dateString: string) => {
+  try {
+    const date = new Date(dateString);
+    return date.toLocaleString('en-GB', {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true
+    });
+  } catch {
+    return '';
+  }
+};
 
 
 // ✅ Extract YouTube Video ID from URL
@@ -2108,13 +2180,14 @@ const handleSubmit = async (e?: React.FormEvent, isDraft: boolean = false, relea
       return;
     }
 
-    if (!formData.price || !formData.price.trim()) {
-      toast.error('❌ Price is required');
-      target.removeAttribute('data-submitting');
-      setIsSubmitting(false);
-      setSubmitProgress(null);
-      return;
-    }
+  if (!formData.price || Number(formData.price) <= 0) {
+  toast.error('❌ Price must be greater than zero');
+  target.removeAttribute('data-submitting');
+  setIsSubmitting(false);
+  setSubmitProgress(null);
+  return;
+}
+
     // If product is NOT VAT exempt, VAT rate is required
 if (!formData.vatExempt && (!formData.vatRateId || !formData.vatRateId.trim())) {
   toast.error('❌ VAT rate is required when product is taxable');
@@ -2224,13 +2297,23 @@ if (!formData.vatExempt && (!formData.vatRateId || !formData.vatRateId.trim())) 
       }
     }
 
-    if (formData.fullDescription) {
-      const length = getPlainText(formData.fullDescription).length;
-      if (length > 2000) {
-        formData.fullDescription = truncateHtmlByTextLength(formData.fullDescription, 2000);
-        toast.info('ℹ️ Full description trimmed to 2000 characters');
-      }
-    }
+    if (!formData.fullDescription || !getPlainText(formData.fullDescription).trim()) {
+  toast.error('❌ Full description is required');
+  target.removeAttribute('data-submitting');
+  setIsSubmitting(false);
+  setSubmitProgress(null);
+  return;
+}
+
+const length = getPlainText(formData.fullDescription).length;
+
+if (length > 2000) {
+  formData.fullDescription = truncateHtmlByTextLength(
+    formData.fullDescription,
+    2000
+  );
+  toast.info('ℹ️ Full description trimmed to 2000 characters');
+}
 
     // ═══════════════════════════════════════════════════════════════════════
     // SECTION 6: NUMBER PARSING HELPER
@@ -2273,6 +2356,13 @@ if (!formData.vatExempt && (!formData.vatRateId || !formData.vatRateId.trim())) 
       setSubmitProgress(null);
       return;
     }
+if (!formData.stockQuantity || Number(formData.stockQuantity) <= 0) {
+  toast.error('❌ Stock quantity must be greater than zero');
+  target.removeAttribute('data-submitting');
+  setIsSubmitting(false);
+  setSubmitProgress(null);
+  return;
+}
 
     if (parsedPrice > 10000000) {
       toast.error('⚠️ Price seems unusually high. Please verify.');
@@ -5181,7 +5271,7 @@ const uploadImagesToProductDirect = async (
 
 <div>
   <label className="flex items-center justify-between text-sm font-medium text-slate-300 mb-2">
-    <span>Brands</span>
+    <span>Brands</span> <span className="text-red-500">*</span>
     <span className="text-xs text-emerald-400 font-normal">
       {dropdownsData.brands.length} available
     </span>
@@ -5211,7 +5301,7 @@ const uploadImagesToProductDirect = async (
 <div>
   <label className="flex items-center justify-between text-sm font-medium text-slate-300 mb-2">
     <span className="flex items-center gap-2">
-      Categories *
+      Categories  <span className="text-red-500">*</span>
       
     </span>
     <span className="text-xs text-emerald-400 font-normal">
@@ -5817,7 +5907,28 @@ const uploadImagesToProductDirect = async (
       className="w-full px-3 py-2.5 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all resize-none"
     />
   </div>
-<AdminCommentHistoryModal productId={productId} />
+{/* ✅ REPLACE <AdminCommentHistoryModal productId={productId} /> WITH THIS */}
+<button
+  type="button"
+  onClick={(e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsCommentHistoryOpen(true);
+    fetchCommentHistory();
+  }}
+  className="flex items-center gap-2 px-4 py-2 bg-violet-500/10 hover:bg-violet-500/20 border border-violet-500/30 rounded-lg text-sm text-violet-400 hover:text-violet-300 transition-all"
+>
+  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+  </svg>
+  <span>View Comment History</span>
+  {commentHistory.length > 0 && (
+    <span className="px-2 py-0.5 bg-violet-500/20 rounded-full text-xs font-semibold">
+      {commentHistory.length}
+    </span>
+  )}
+</button>
+
 </div>
 
 
@@ -8488,6 +8599,129 @@ const uploadImagesToProductDirect = async (
     await handleSubmit(undefined, false, false);
   }}
 />
+{/* ✅ ADD THIS MODAL AT THE END (before last </div> of return) */}
+{isCommentHistoryOpen && (
+  <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm px-4">
+    <div 
+      className="relative bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 border-2 border-violet-500/30 rounded-2xl shadow-2xl max-w-6xl w-full overflow-hidden"
+      style={{ maxHeight: '90vh' }}
+    >
+      {/* Header */}
+      <div className="flex items-center justify-between px-6 py-4 border-b border-slate-700/50 bg-slate-800/50">
+        <div className="flex items-center gap-3">
+          <div className="w-12 h-12 rounded-xl bg-violet-500/10 border border-violet-500/30 flex items-center justify-center">
+            <svg className="w-6 h-6 text-violet-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </div>
+          <h2 className="text-xl font-bold text-white">Admin Comment History</h2>
+        </div>
+        <button
+          onClick={() => setIsCommentHistoryOpen(false)}
+          className="p-2 hover:bg-slate-700/50 rounded-lg transition-all text-slate-400 hover:text-white"
+        >
+          <X className="w-5 h-5" />
+        </button>
+      </div>
+
+      {/* Content */}
+      <div className="overflow-y-auto" style={{ maxHeight: 'calc(90vh - 140px)' }}>
+        {loadingHistory ? (
+          <div className="flex items-center justify-center py-24">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-14 w-14 border-t-4 border-b-4 border-violet-500 mx-auto mb-4"></div>
+              <p className="text-slate-400 text-sm">Loading history...</p>
+            </div>
+          </div>
+        ) : commentHistory.length === 0 ? (
+          <div className="flex items-center justify-center py-24">
+            <div className="text-center">
+              <div className="w-20 h-20 rounded-full bg-slate-800/50 flex items-center justify-center mx-auto mb-4">
+                <svg className="w-10 h-10 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+              </div>
+              <p className="text-slate-200 font-semibold text-lg mb-2">No comment history available</p>
+              <p className="text-slate-500 text-sm">Changes will appear here after admin comment updates</p>
+            </div>
+          </div>
+        ) : (
+          <div className="p-6">
+            <table className="w-full border-collapse">
+              <thead className="sticky top-0 bg-slate-800/95 backdrop-blur-sm z-10">
+                <tr className="border-b border-slate-700">
+                  <th className="text-left py-3 px-3 text-xs font-bold text-violet-300 uppercase">#</th>
+                  <th className="text-left py-3 px-3 text-xs font-bold text-violet-300 uppercase min-w-[150px]">Changed By</th>
+                  <th className="text-left py-3 px-3 text-xs font-bold text-violet-300 uppercase min-w-[120px]">Date & Time</th>
+                  <th className="text-left py-3 px-3 text-xs font-bold text-violet-300 uppercase min-w-[200px]">Old Comment</th>
+                  <th className="text-left py-3 px-3 text-xs font-bold text-violet-300 uppercase min-w-[200px]">New Comment</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-700/30">
+                {commentHistory.map((entry, index) => (
+                  <tr key={entry.id} className="hover:bg-slate-800/40 transition-colors">
+                    <td className="py-3 px-3">
+                      <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-violet-500/20 text-violet-300 text-xs font-bold">
+                        {index + 1}
+                      </span>
+                    </td>
+                    <td className="py-3 px-3">
+                      <div className="flex items-center gap-2">
+                        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-violet-500/30 to-purple-500/30 flex items-center justify-center">
+                          <span className="text-xs font-bold text-violet-300">
+                            {entry.changedBy.charAt(0).toUpperCase()}
+                          </span>
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-sm font-semibold text-slate-100 truncate">
+                            {entry.changedBy.split('@')[0]}
+                          </p>
+                          <p className="text-xs text-slate-500 truncate">{entry.changedBy}</p>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="py-3 px-3">
+                      <p className="text-sm text-slate-200">{formatDateOnly(entry.changedAt)}</p>
+                      <p className="text-xs text-slate-500">{formatTime(entry.changedAt)}</p>
+                    </td>
+                    <td className="py-3 px-3">
+                      {entry.oldComment ? (
+                        <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-2">
+                          <p className="text-xs text-slate-200 line-clamp-2">{entry.oldComment}</p>
+                        </div>
+                      ) : (
+                        <span className="text-xs text-slate-500 italic">No previous comment</span>
+                      )}
+                    </td>
+                    <td className="py-3 px-3">
+                      {entry.newComment ? (
+                        <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-2">
+                          <p className="text-xs text-slate-200 line-clamp-2">{entry.newComment}</p>
+                        </div>
+                      ) : (
+                        <span className="text-xs text-slate-500 italic">Comment removed</span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {/* Footer */}
+      {commentHistory.length > 0 && (
+        <div className="px-6 py-3 bg-slate-800/50 border-t border-slate-700 flex items-center justify-between">
+          <p className="text-sm text-slate-300">
+            Total Changes: <span className="font-bold text-violet-400">{commentHistory.length}</span>
+          </p>
+          <p className="text-xs text-slate-500">Latest changes shown first</p>
+        </div>
+      )}
+    </div>
+  </div>
+)}
 
 {/* ✅ FLOATING SCROLL TO TOP BUTTON */}
 <ScrollToTopButton />

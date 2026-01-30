@@ -13,6 +13,7 @@ import {
   ChevronRight,
   CreditCard,
   DollarSign,
+  AlertCircle,
 } from 'lucide-react';
 import { RefundHistory } from '@/lib/services/OrderEdit';
 import { formatCurrency, formatDate } from '@/lib/services/orders';
@@ -28,7 +29,6 @@ interface RefundHistorySectionProps {
 }
 
 export default function RefundHistorySection({
-  orderId,
   currency,
   refundHistory,
   loading,
@@ -36,6 +36,8 @@ export default function RefundHistorySection({
   onToggle,
   onFetch,
 }: RefundHistorySectionProps) {
+  // ✅ orderId removed from destructuring since it's only used by parent
+
   const handleToggle = () => {
     if (!isOpen) {
       onFetch();
@@ -85,17 +87,15 @@ export default function RefundHistorySection({
             <div className="flex items-center justify-center py-8">
               <Loader2 className="h-8 w-8 text-violet-500 animate-spin" />
             </div>
-          ) : !refundHistory || refundHistory.refunds.length === 0 ? (
+          ) : !refundHistory ? (
             <div className="text-center py-12">
-              <RotateCcw className="h-16 w-16 mx-auto mb-3 text-slate-600 opacity-50" />
-              <p className="text-slate-400 font-medium">No refunds processed yet</p>
-              <p className="text-slate-500 text-sm mt-1">
-                Refund history will appear here once processed
-              </p>
+              <AlertCircle className="h-16 w-16 mx-auto mb-3 text-red-500 opacity-50" />
+              <p className="text-red-400 font-medium">Failed to load refund history</p>
+              <p className="text-slate-500 text-sm mt-1">Please try again</p>
             </div>
           ) : (
             <>
-              {/* Summary Card */}
+              {/* ✅ ALWAYS SHOW SUMMARY (even when no refunds) */}
               <div className="mb-5 p-4 bg-gradient-to-r from-purple-500/10 to-pink-500/10 border border-purple-500/30 rounded-xl">
                 <div className="grid grid-cols-3 gap-4">
                   <div>
@@ -112,7 +112,7 @@ export default function RefundHistorySection({
                       <RotateCcw className="h-3 w-3" />
                       Total Refunded
                     </p>
-                    <p className="text-purple-400 font-bold text-lg">
+                    <p className={`font-bold text-lg ${refundHistory.totalRefunded > 0 ? 'text-purple-400' : 'text-slate-500'}`}>
                       {formatCurrency(refundHistory.totalRefunded, currency)}
                     </p>
                   </div>
@@ -126,107 +126,130 @@ export default function RefundHistorySection({
                     </p>
                   </div>
                 </div>
-                {refundHistory.isFullyRefunded && (
-                  <div className="mt-3 pt-3 border-t border-purple-500/30">
+
+                {/* Order Details */}
+                <div className="mt-3 pt-3 border-t border-purple-500/30 flex items-center justify-between">
+                  <div className="flex items-center gap-4 text-xs">
+                    <span className="text-slate-400">
+                      Order: <span className="text-white font-medium">{refundHistory.orderNumber}</span>
+                    </span>
+                    <span className="text-slate-400">
+                      Payment: <span className="text-white font-medium">{refundHistory.paymentStatus}</span>
+                    </span>
+                  </div>
+
+                  {refundHistory.isFullyRefunded && (
                     <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-500/10 text-red-400 text-xs font-semibold border border-red-500/20">
                       <CheckCircle className="h-3.5 w-3.5" />
                       Fully Refunded
                     </span>
-                  </div>
-                )}
+                  )}
+                </div>
               </div>
 
-              {/* Refund List */}
-              <div className="space-y-3">
-                {refundHistory.refunds.map((refund, index) => (
-                  <div
-                    key={refund.refundId}
-                    className="p-4 bg-slate-800/50 rounded-xl border border-slate-700 hover:border-purple-500/30 transition-all"
-                  >
-                    {/* Header */}
-                    <div className="flex items-start justify-between mb-3">
-                      <div className="flex items-center gap-2">
-                        <span className="w-8 h-8 rounded-lg bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white font-bold text-sm">
-                          {index + 1}
-                        </span>
-                        <div>
-                          <p className="text-white font-semibold text-sm">
-                            {/* {refund.refundNumber || refund.refundId} */}
+              {/* ✅ REFUND LIST or EMPTY STATE */}
+              {refundHistory.refunds.length === 0 ? (
+                <div className="text-center py-12">
+                  <RotateCcw className="h-16 w-16 mx-auto mb-3 text-slate-600 opacity-50" />
+                  <p className="text-slate-400 font-medium">No refunds processed yet</p>
+                  <p className="text-slate-500 text-sm mt-1">
+                    Refund history will appear here once processed
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {refundHistory.refunds.map((refund, index) => (
+                    <div
+                      key={refund.refundId}
+                      className="p-4 bg-slate-800/50 rounded-xl border border-slate-700 hover:border-purple-500/30 transition-all"
+                    >
+                      {/* Header */}
+                      <div className="flex items-start justify-between mb-3">
+                        <div className="flex items-center gap-2">
+                          <span className="w-8 h-8 rounded-lg bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white font-bold text-sm">
+                            {index + 1}
+                          </span>
+                          <div>
+                            <p className="text-white font-semibold text-sm">
+                              {/* {refund.refundNumber || `Refund #${index + 1}`} */}
+                            </p>
+                            <p className="text-xs text-slate-400 mt-0.5">{refund.reason}</p>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-purple-400 font-bold text-lg">
+                            {formatCurrency(refund.amount, currency)}
                           </p>
-                          <p className="text-xs text-slate-400 mt-0.5">{refund.reason}</p>
+                          <span
+                            className={`inline-block px-2 py-0.5 rounded-md text-xs font-medium mt-1 ${
+                              refund.isPartial
+                                ? 'bg-orange-500/10 text-orange-400 border border-orange-500/20'
+                                : 'bg-red-500/10 text-red-400 border border-red-500/20'
+                            }`}
+                          >
+                            {refund.isPartial ? 'Partial' : 'Full'}
+                          </span>
                         </div>
                       </div>
-                      <div className="text-right">
-                        <p className="text-purple-400 font-bold text-lg">
-                          {formatCurrency(refund.amount, currency)}
-                        </p>
-                        <span
-                          className={`inline-block px-2 py-0.5 rounded-md text-xs font-medium mt-1 ${
-                            refund.isPartial
-                              ? 'bg-orange-500/10 text-orange-400 border border-orange-500/20'
-                              : 'bg-red-500/10 text-red-400 border border-red-500/20'
-                          }`}
-                        >
-                          {refund.isPartial ? 'Partial' : 'Full'}
-                        </span>
-                      </div>
-                    </div>
 
-                    {/* Details Grid */}
-                    <div className="grid grid-cols-2 gap-3 text-xs">
-                      <div className="flex items-center gap-2 text-slate-400">
-                        <CreditCard className="h-3.5 w-3.5" />
-                        {/* <span className="text-white font-medium">{refund.paymentMethod}</span> */}
-                      </div>
-                      <div className="text-right text-slate-400">
-                        {formatDate(refund.processedAt)}
-                      </div>
-                    </div>
-
-                    {/* Reason Details */}
-                    {refund.reasonDetails && (
-                      <div className="mt-3 p-2.5 bg-slate-900/50 rounded-lg">
-                        <p className="text-xs text-slate-300 leading-relaxed">
-                          {refund.reasonDetails}
-                        </p>
-                      </div>
-                    )}
-
-                    {/* Admin Notes */}
-                    {/* {refund.adminNotes && (
-                      <div className="mt-2 p-2.5 bg-amber-500/5 border border-amber-500/20 rounded-lg">
-                        <p className="text-xs font-semibold text-amber-400 mb-1">Admin Notes:</p>
-                        <p className="text-xs text-amber-300/80">{refund.adminNotes}</p>
-                      </div>
-                    )} */}
-
-                    {/* Refunded Items */}
-                    {/* {refund.refundedItems && refund.refundedItems.length > 0 && (
-                      <div className="mt-3 pt-3 border-t border-slate-700">
-                        <p className="text-xs font-semibold text-slate-400 mb-2">
-                          Refunded Items:
-                        </p>
-                        <div className="space-y-1.5">
-                          {refund.refundedItems.map((item, idx) => (
-                            <div
-                              key={idx}
-                              className="flex items-center justify-between text-xs"
-                            >
-                              <span className="text-white flex items-center gap-1.5">
-                                <ChevronRight className="h-3 w-3 text-purple-400" />
-                                {item.productName} × {item.quantity}
-                              </span>
-                              <span className="text-purple-400 font-semibold">
-                                {formatCurrency(item.refundAmount, currency)}
-                              </span>
-                            </div>
-                          ))}
+                      {/* Details Grid */}
+                      <div className="grid grid-cols-2 gap-3 text-xs">
+                        <div className="flex items-center gap-2 text-slate-400">
+                          <CreditCard className="h-3.5 w-3.5" />
+                          {/* <span className="text-white font-medium">
+                            {refund.paymentMethod || 'Unknown'}
+                          </span> */}
+                        </div>
+                        <div className="text-right text-slate-400">
+                          {formatDate(refund.processedAt)}
                         </div>
                       </div>
-                    )} */}
-                  </div>
-                ))}
-              </div>
+
+                      {/* Reason Details */}
+                      {refund.reasonDetails && (
+                        <div className="mt-3 p-2.5 bg-slate-900/50 rounded-lg">
+                          <p className="text-xs text-slate-300 leading-relaxed">
+                            {refund.reasonDetails}
+                          </p>
+                        </div>
+                      )}
+
+                      {/* Admin Notes */}
+                      {/* {refund.adminNotes && (
+                        <div className="mt-2 p-2.5 bg-amber-500/5 border border-amber-500/20 rounded-lg">
+                          <p className="text-xs font-semibold text-amber-400 mb-1">Admin Notes:</p>
+                          <p className="text-xs text-amber-300/80">{refund.adminNotes}</p>
+                        </div>
+                      )} */}
+
+                      {/* Refunded Items */}
+                      {/* {refund.refundedItems && refund.refundedItems.length > 0 && (
+                        <div className="mt-3 pt-3 border-t border-slate-700">
+                          <p className="text-xs font-semibold text-slate-400 mb-2">
+                            Refunded Items:
+                          </p>
+                          <div className="space-y-1.5">
+                            {refund.refundedItems.map((item, idx) => (
+                              <div
+                                key={idx}
+                                className="flex items-center justify-between text-xs"
+                              >
+                                <span className="text-white flex items-center gap-1.5">
+                                  <ChevronRight className="h-3 w-3 text-purple-400" />
+                                  {item.productName} × {item.quantity}
+                                </span>
+                                <span className="text-purple-400 font-semibold">
+                                  {formatCurrency(item.refundAmount, currency)}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )} */}
+                    </div>
+                  ))}
+                </div>
+              )}
             </>
           )}
         </div>

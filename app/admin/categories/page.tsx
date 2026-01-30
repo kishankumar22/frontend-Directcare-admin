@@ -41,12 +41,13 @@ const [homepageCategories, setHomepageCategories] = useState<Category[]>([]);
   } | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   
-  const [stats, setStats] = useState<CategoryStats>({
-    totalCategories: 0,
-    totalSubCategories: 0,
-    totalProducts: 0,
-    activeCategories: 0
-  });
+const [stats, setStats] = useState<CategoryStats>({
+  totalCategories: 0,
+  totalProducts: 0,
+  activeCategories: 0,
+  homepageCategories: 0  // ✅ Add this
+});
+
 
   const [imageDeleteConfirm, setImageDeleteConfirm] = useState<{
     categoryId: string;
@@ -154,23 +155,26 @@ const fetchCategories = async () => {
 };
 
 
-  const calculateStats = (categoriesData: Category[]) => {
-    const totalCategories = categoriesData.length;
-    const totalSubCategories = categoriesData.reduce((count, cat) => {
-      return count + (cat.subCategories?.length || 0);
-    }, 0);
-    const totalProducts = categoriesData.reduce((count, cat) => {
-      return count + (cat.productCount || 0);
-    }, 0);
-    const activeCategories = categoriesData.filter(cat => cat.isActive).length;
+const calculateStats = (categoriesData: Category[]) => {
+  const totalCategories = categoriesData.length;
+  
+  const totalProducts = categoriesData.reduce((count, cat) => {
+    return count + (cat.productCount || 0);
+  }, 0);
+  
+  const activeCategories = categoriesData.filter(cat => cat.isActive).length;
+  
+  // ✅ NEW: Count homepage categories
+  const homepageCategories = categoriesData.filter(cat => cat.showOnHomepage).length;
 
-    setStats({
-      totalCategories,
-      totalSubCategories,
-      totalProducts,
-      activeCategories
-    });
-  };
+  setStats({
+    totalCategories,
+    totalProducts,
+    activeCategories,
+    homepageCategories  // ✅ Add this
+  });
+};
+
 
   const findCategoryById = (id: string, categories: Category[]): Category | null => {
     for (const cat of categories) {
@@ -1457,35 +1461,40 @@ useEffect(() => {
 
 
 {/* Stats Cards - COMPACT & CLEAN */}
-<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3"> 
+{/* Stats Cards - CLICKABLE FILTERS */}
+<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
   
-  {/* Total Categories */}
-  <div className="bg-gradient-to-br from-violet-500/10 to-violet-600/5 backdrop-blur-sm border border-violet-500/20 rounded-xl p-4">
+  {/* 1. Total Categories - CLICKABLE */}
+  <button
+    type="button"
+    onClick={() => {
+      if (statusFilter === 'all') setStatusFilter('active');
+      else if (statusFilter === 'active') setStatusFilter('inactive');
+      else setStatusFilter('all');
+    }}
+    className="bg-gradient-to-br from-violet-500/10 to-violet-600/5 backdrop-blur-sm border border-violet-500/20 rounded-xl p-4 hover:border-violet-500/40 transition-all cursor-pointer group relative text-left"
+  >
+    {/* Tooltip */}
+    <div className="absolute -top-10 left-1/2 -translate-x-1/2 bg-slate-800 text-white text-xs px-3 py-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-10 shadow-xl">
+      Filter: {statusFilter === 'all' ? 'All Categories' : statusFilter === 'active' ? 'Active Only' : 'Inactive Only'}
+      <div className="absolute bottom-0 left-1/2 -translate-x-1/2 translate-y-full w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-slate-800"></div>
+    </div>
+    
     <div className="flex items-center justify-between">
       <div>
         <p className="text-slate-400 text-xs font-medium">Total Categories</p>
         <p className="text-2xl font-bold text-white mt-1">{stats.totalCategories}</p>
+        <p className="text-xs text-violet-400 mt-1 font-medium">
+          {statusFilter === 'all' ? '● All' : statusFilter === 'active' ? '● Active' : '● Inactive'}
+        </p>
       </div>
-      <div className="w-10 h-10 bg-violet-500/20 rounded-lg flex items-center justify-center shrink-0">
+      <div className="w-10 h-10 bg-violet-500/20 rounded-lg flex items-center justify-center shrink-0 group-hover:bg-violet-500/30 transition-all">
         <FolderTree className="h-5 w-5 text-violet-400" />
       </div>
     </div>
-  </div>
+  </button>
 
-  {/* Subcategories */}
-  <div className="bg-gradient-to-br from-cyan-500/10 to-cyan-600/5 backdrop-blur-sm border border-cyan-500/20 rounded-xl p-4">
-    <div className="flex items-center justify-between">
-      <div>
-        <p className="text-slate-400 text-xs font-medium">Subcategories</p>
-        <p className="text-2xl font-bold text-white mt-1">{stats.totalSubCategories}</p>
-      </div>
-      <div className="w-10 h-10 bg-cyan-500/20 rounded-lg flex items-center justify-center shrink-0">
-        <FolderTree className="h-5 w-5 text-cyan-400" />
-      </div>
-    </div>
-  </div>
-
-  {/* Total Products */}
+  {/* 2. Total Products - NON-CLICKABLE */}
   <div className="bg-gradient-to-br from-pink-500/10 to-pink-600/5 backdrop-blur-sm border border-pink-500/20 rounded-xl p-4">
     <div className="flex items-center justify-between">
       <div>
@@ -1493,23 +1502,70 @@ useEffect(() => {
         <p className="text-2xl font-bold text-white mt-1">{stats.totalProducts}</p>
       </div>
       <div className="w-10 h-10 bg-pink-500/20 rounded-lg flex items-center justify-center shrink-0">
-        <Search className="h-5 w-5 text-pink-400" />
+        <Package className="h-5 w-5 text-pink-400" />
       </div>
     </div>
   </div>
 
-  {/* Active Categories */}
-  <div className="bg-gradient-to-br from-green-500/10 to-green-600/5 backdrop-blur-sm border border-green-500/20 rounded-xl p-4">
+  {/* 3. Active Categories - CLICKABLE (same filter as Total Categories) */}
+  <button
+    type="button"
+    onClick={() => {
+      if (statusFilter === 'all') setStatusFilter('active');
+      else if (statusFilter === 'active') setStatusFilter('inactive');
+      else setStatusFilter('all');
+    }}
+    className="bg-gradient-to-br from-green-500/10 to-green-600/5 backdrop-blur-sm border border-green-500/20 rounded-xl p-4 hover:border-green-500/40 transition-all cursor-pointer group relative text-left"
+  >
+    {/* Tooltip */}
+    <div className="absolute -top-10 left-1/2 -translate-x-1/2 bg-slate-800 text-white text-xs px-3 py-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-10 shadow-xl">
+      Filter: {statusFilter === 'all' ? 'All Categories' : statusFilter === 'active' ? 'Active Only' : 'Inactive Only'}
+      <div className="absolute bottom-0 left-1/2 -translate-x-1/2 translate-y-full w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-slate-800"></div>
+    </div>
+    
     <div className="flex items-center justify-between">
       <div>
-        <p className="text-slate-400 text-xs font-medium" >Active Categories</p>
+        <p className="text-slate-400 text-xs font-medium">Active Categories</p>
         <p className="text-2xl font-bold text-white mt-1">{stats.activeCategories}</p>
+        <p className="text-xs text-green-400 mt-1 font-medium">
+          {statusFilter === 'all' ? '● All' : statusFilter === 'active' ? '● Active' : '● Inactive'}
+        </p>
       </div>
-      <div className="w-10 h-10 bg-green-500/20 rounded-lg flex items-center justify-center shrink-0">
+      <div className="w-10 h-10 bg-green-500/20 rounded-lg flex items-center justify-center shrink-0 group-hover:bg-green-500/30 transition-all">
         <CheckCircle className="h-5 w-5 text-green-400" />
       </div>
     </div>
-  </div>
+  </button>
+
+  {/* 4. Show On Homepage - CLICKABLE */}
+  <button
+    type="button"
+    onClick={() => {
+      if (homepageFilter === 'all') setHomepageFilter('yes');
+      else if (homepageFilter === 'yes') setHomepageFilter('no');
+      else setHomepageFilter('all');
+    }}
+    className="bg-gradient-to-br from-cyan-500/10 to-cyan-600/5 backdrop-blur-sm border border-cyan-500/20 rounded-xl p-4 hover:border-cyan-500/40 transition-all cursor-pointer group relative text-left"
+  >
+    {/* Tooltip */}
+    <div className="absolute -top-10 left-1/2 -translate-x-1/2 bg-slate-800 text-white text-xs px-3 py-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-10 shadow-xl">
+      Filter: {homepageFilter === 'all' ? 'All Categories' : homepageFilter === 'yes' ? 'On Homepage' : 'Not On Homepage'}
+      <div className="absolute bottom-0 left-1/2 -translate-x-1/2 translate-y-full w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-slate-800"></div>
+    </div>
+    
+    <div className="flex items-center justify-between">
+      <div>
+        <p className="text-slate-400 text-xs font-medium">Show On Homepage</p>
+        <p className="text-2xl font-bold text-white mt-1">{stats.homepageCategories}</p>
+        <p className="text-xs text-cyan-400 mt-1 font-medium">
+          {homepageFilter === 'all' ? '● All' : homepageFilter === 'yes' ? '● Yes' : '● No'}
+        </p>
+      </div>
+      <div className="w-10 h-10 bg-cyan-500/20 rounded-lg flex items-center justify-center shrink-0 group-hover:bg-cyan-500/30 transition-all">
+        <Award className="h-5 w-5 text-cyan-400" />
+      </div>
+    </div>
+  </button>
 
 </div>
 

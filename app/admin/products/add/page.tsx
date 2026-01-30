@@ -38,7 +38,33 @@ const [submitProgress, setSubmitProgress] = useState<{
   // ✅ Check for variant SKU errors before submitting
 const hasVariantSkuErrors = Object.keys(variantSkuErrors).length > 0;
 const hasCheckingVariantSku = Object.values(checkingVariantSku).some(checking => checking);
+const getPlainText = (html: string) =>
+  html.replace(/<[^>]*>/g, '').trim();
 
+// ✂️ Utility: truncate HTML by plain text length
+const truncateHtmlByTextLength = (html: string, maxLength: number) => {
+  const div = document.createElement('div');
+  div.innerHTML = html;
+
+  let count = 0;
+  const walker = document.createTreeWalker(div, NodeFilter.SHOW_TEXT);
+
+  while (walker.nextNode()) {
+    const node = walker.currentNode as Text;
+    const remaining = maxLength - count;
+
+    if (remaining <= 0) {
+      node.textContent = '';
+    } else if (node.textContent!.length > remaining) {
+      node.textContent = node.textContent!.slice(0, remaining);
+      count = maxLength;
+    } else {
+      count += node.textContent!.length;
+    }
+  }
+
+  return div.innerHTML;
+};
 if (hasVariantSkuErrors) {
   toast.error("Please fix variant SKU errors before saving");
   return;
@@ -143,7 +169,7 @@ const checkPublishRequirements = (): { isValid: boolean; missing: string[] } => 
   // 1. Basic Info
   if (!formData.name?.trim()) missing.push('Product Name');
   if (!formData.sku?.trim()) missing.push('SKU');
-  if (!formData.shortDescription?.trim()) missing.push('Short Description');
+  // if (!formData.shortDescription?.trim()) missing.push('Short Description');X`
 
   // 2. Pricing
   if (!formData.price || parseFloat(formData.price.toString()) <= 0) {
@@ -791,8 +817,28 @@ const handleSubmit = async (e?: React.FormEvent, isDraft: boolean = false) => {
       return;
     }
 
-    // ✅ 1.3 SKU VALIDATION (Length)
-// ✅ FIND THIS SECTION IN handleSubmit AND REPLACE:
+// ✅ 1.X FULL DESCRIPTION VALIDATION (REQUIRED FOR PUBLISH)
+if (!isDraft) {
+  if (
+    !formData.fullDescription ||
+    !getPlainText(formData.fullDescription).trim()
+  ) {
+    toast.error('❌ Full description is required');
+    target.removeAttribute('data-submitting');
+    setIsSubmitting(false);
+    setSubmitProgress(null);
+    return;
+  }
+
+  const descLength = getPlainText(formData.fullDescription).length;
+  if (descLength > 2000) {
+    formData.fullDescription = truncateHtmlByTextLength(
+      formData.fullDescription,
+      2000
+    );
+    toast.info('ℹ️ Full description trimmed to 2000 characters');
+  }
+}
 
 // 1.3 SKU VALIDATION - Length
 if (formData.sku.length < 3) {
@@ -837,19 +883,34 @@ if (!skuValidation.isValid) {
       setSubmitProgress(null);
       return;
     }
+// ✅ 1.5 PRICE VALIDATION (REQUIRED FOR PUBLISH)
+if (!isDraft) {
+  const price = Number(formData.price);
 
-   
-// ✅ 1.6 STOCK VALIDATION - SKIP FOR DRAFT
-if (!isDraft && formData.manageInventory === 'track') {
-  const stock = parseInt(formData.stockQuantity.toString());
-  if (isNaN(stock) || stock < 0) {
-    toast.error('⚠️ Stock quantity must be a valid non-negative number.');
+  if (isNaN(price) || price <= 0) {
+    toast.error('❌ Price must be greater than zero');
     target.removeAttribute('data-submitting');
     setIsSubmitting(false);
     setSubmitProgress(null);
     return;
   }
 }
+
+   
+
+// ✅ 1.6 STOCK VALIDATION (REQUIRED WHEN TRACKING)
+if (!isDraft && formData.manageInventory === 'track') {
+  const stock = Number(formData.stockQuantity);
+
+  if (isNaN(stock) || stock < 0) {
+    toast.error('❌ Stock quantity must be 0 or greater');
+    target.removeAttribute('data-submitting');
+    setIsSubmitting(false);
+    setSubmitProgress(null);
+    return;
+  }
+}
+
 
 
     setSubmitProgress({
@@ -2989,36 +3050,43 @@ const uploadVariantImages = async (productResponse: any) => {
 
    {/* ✅ Multiple Brands Selector - ADD PAGE */}
 <div>
-  <label className="flex items-center justify-between text-sm font-medium text-slate-300 mb-2">
-    <span>Brands</span>
+  <div className="flex items-center justify-between mb-2">
+    {/* Left: Label + Required */}
+    <div className="flex items-center gap-1">
+      <span className="text-sm font-medium text-slate-300">
+        Brands
+      </span>
+      <span className="text-red-500">*</span>
+    </div>
+
+    {/* Right: Available count */}
     <span className="text-xs text-emerald-400 font-normal">
       ({dropdownsData.brands.length} available)
     </span>
-  </label>
-  
-{/* // Add Product Page */}
-<MultiBrandSelector
-  selectedBrands={formData.brandIds}
-  availableBrands={dropdownsData.brands}
-  onChange={(brandIds) => {
-    console.log('🔄 Brand selection changed:', brandIds);
-    setFormData(prev => ({
-      ...prev,
-      brandIds: brandIds,
-      brand: brandIds[0] || '',
-    }));
-  }}
-  placeholder="Select one brand..."
-  maxSelection={1}
-/>
-  
+  </div>
+
+  {/* Add Product Page */}
+  <MultiBrandSelector
+    selectedBrands={formData.brandIds}
+    availableBrands={dropdownsData.brands}
+    onChange={(brandIds) => {
+      setFormData(prev => ({
+        ...prev,
+        brandIds,
+        brand: brandIds[0] || "",
+      }));
+    }}
+    placeholder="Select one brand..."
+    maxSelection={1}
+  />
 </div>
+
 
 
 {/* ==================== CATEGORIES ==================== */}
 <div>
   <label className="flex items-center justify-between text-sm font-medium text-slate-300 mb-2">
-    <span className="flex items-center gap-2">Categories *
+    <span className="flex items-center gap-2">Categories <span className="text-red-500">*</span>
    
     </span>
     <span className="text-xs text-emerald-400 font-normal">

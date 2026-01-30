@@ -373,32 +373,7 @@ const ProductViewModal: React.FC<ProductViewModalProps> = ({
                     />
                   </div>
 
-                  {/* Brands - Multiple */}
-                  {/* {(product as any).brands &&
-                    Array.isArray((product as any).brands) &&
-                    (product as any).brands.length > 0 && (
-                      <div className="p-4 bg-purple-500/5 rounded-lg border border-purple-500/30 mb-4">
-                        <p className="text-xs text-purple-400 font-bold mb-2 flex items-center gap-2">
-                          <Star className="w-3.5 h-3.5" />
-                          Brands ({(product as any).brands.length})
-                        </p>
-                        <div className="flex flex-wrap gap-2">
-                          {(product as any).brands.map((brand: any, idx: number) => (
-                            <span
-                              key={idx}
-                              className={`px-3 py-1.5 rounded-lg text-xs font-bold ${
-                                brand.isPrimary
-                                  ? 'bg-purple-500 text-white'
-                                  : 'bg-purple-500/20 text-purple-300 border border-purple-500/40'
-                              }`}
-                            >
-                              {brand.brandName} {brand.isPrimary && '⭐'}
-                            </span>
-                          ))}
-                        </div>
-                      </div>
-                    )} */}
-
+          
                   {/* Categories - Multiple */}
                   {(product as any).categories &&
                     Array.isArray((product as any).categories) &&
@@ -637,9 +612,9 @@ const ProductViewModal: React.FC<ProductViewModalProps> = ({
                     </h4>
 
                     {/* Grid Layout */}
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                       {/* Same-Day Delivery Card */}
-                      <div className={`p-4 rounded-lg border transition-all ${
+                      {/* <div className={`p-4 rounded-lg border transition-all ${
                         (product as any).sameDayDeliveryEnabled
                           ? 'bg-green-500/10 border-green-500/40'
                           : 'bg-slate-800/50 border-slate-700'
@@ -675,7 +650,7 @@ const ProductViewModal: React.FC<ProductViewModalProps> = ({
                         {!(product as any).sameDayDeliveryEnabled && (
                           <p className="text-xs text-slate-500 mt-2">Not available</p>
                         )}
-                      </div>
+                      </div> */}
 
                       {/* Next-Day Delivery Card */}
                       <div className={`p-4 rounded-lg border transition-all ${

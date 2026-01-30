@@ -34,7 +34,6 @@ import {
   Shield,
   TrendingUp,
   Lock,
-  DollarSign,
   Receipt,
   History,
   RotateCcw,
@@ -59,16 +58,13 @@ import RefundHistorySection from '../RefundHistorySection';
 import EditHistorySection from '../EditHistorySection';
 import RefundModals from '../RefundModals';
 
-// ===========================
-// TYPES
-// ===========================
-
+// Types
 type CollectionStatus = 'Pending' | 'Ready' | 'Collected' | 'Expired';
 type OrderStatus = Order['status'];
 type PaymentStatus = Order['payments'][0]['status'];
 
 // ===========================
-// STATUS INFO (Your existing functions)
+// STATUS INFO FUNCTIONS
 // ===========================
 
 const getOrderStatusInfo = (status: OrderStatus) => {
@@ -290,7 +286,7 @@ const getCollectionStatusInfo = (status: CollectionStatus | undefined) => {
 };
 
 // ===========================
-// STATUS BADGE (Your existing component)
+// ✅ IMPROVED STATUS BADGE WITH VISIBLE LABEL
 // ===========================
 
 const StatusBadge = ({
@@ -318,13 +314,19 @@ const StatusBadge = ({
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
     >
-      <span
-        className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border ${statusInfo.bgColor} ${statusInfo.color} ${statusInfo.bgColor.replace('/10', '/20')} cursor-help transition-all hover:scale-105`}
-      >
-        {statusInfo.icon}
-        {statusInfo.label}
-        <Info className="h-3 w-3 opacity-50" />
-      </span>
+      {/* ✅ IMPROVED: Label visible above badge */}
+      <div className="flex flex-col gap-1">
+        <span className="text-[10px] text-slate-500 font-medium uppercase tracking-wide">
+          {label}
+        </span>
+        <span
+          className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border ${statusInfo.bgColor} ${statusInfo.color} ${statusInfo.bgColor.replace('/10', '/20')} cursor-help transition-all hover:scale-105`}
+        >
+          {statusInfo.icon}
+          {statusInfo.label}
+          <Info className="h-3 w-3 opacity-50" />
+        </span>
+      </div>
 
       {showTooltip && (
         <div
@@ -365,27 +367,30 @@ const StatusBadge = ({
 };
 
 // ===========================
-// GET AVAILABLE ACTIONS (Your existing function)
+// ✅ CONSOLIDATED ACTION BUTTONS (Merged Quick + Financial)
 // ===========================
 
-const getAvailableActions = (order: Order) => {
+const getAllAvailableActions = (order: Order, canRefund: boolean) => {
   const actions: Array<{
     label: string;
     action: string;
     icon: JSX.Element;
     color: string;
+    category: 'workflow' | 'financial' | 'edit';
   }> = [];
 
   const status = order.status;
   const deliveryMethod = order.deliveryMethod;
 
+  // ✅ Workflow Actions (Click & Collect)
   if (deliveryMethod === 'ClickAndCollect') {
     if (status === 'Processing' && order.collectionStatus !== 'Ready') {
       actions.push({
         label: 'Mark Ready',
         action: 'mark-ready',
-        icon: <PackageCheck className="h-4 w-4" />,
+        icon: <PackageCheck className="h-3.5 w-3.5" />,
         color: 'bg-cyan-600 hover:bg-cyan-700',
+        category: 'workflow',
       });
     }
 
@@ -393,12 +398,14 @@ const getAvailableActions = (order: Order) => {
       actions.push({
         label: 'Mark Collected',
         action: 'mark-collected',
-        icon: <CheckCircle2 className="h-4 w-4" />,
+        icon: <CheckCircle2 className="h-3.5 w-3.5" />,
         color: 'bg-emerald-600 hover:bg-emerald-700',
+        category: 'workflow',
       });
     }
   }
 
+  // ✅ Workflow Actions (Home Delivery)
   if (deliveryMethod === 'HomeDelivery') {
     if (
       (status === 'Confirmed' || status === 'Processing') &&
@@ -407,8 +414,9 @@ const getAvailableActions = (order: Order) => {
       actions.push({
         label: 'Create Shipment',
         action: 'create-shipment',
-        icon: <Truck className="h-4 w-4" />,
+        icon: <Truck className="h-3.5 w-3.5" />,
         color: 'bg-purple-600 hover:bg-purple-700',
+        category: 'workflow',
       });
     }
 
@@ -420,32 +428,199 @@ const getAvailableActions = (order: Order) => {
       actions.push({
         label: 'Mark Delivered',
         action: 'mark-delivered',
-        icon: <CheckCircle className="h-4 w-4" />,
+        icon: <CheckCircle className="h-3.5 w-3.5" />,
         color: 'bg-green-600 hover:bg-green-700',
+        category: 'workflow',
       });
     }
   }
 
+  // ✅ Status Update
   if (!['Delivered', 'Cancelled', 'Refunded', 'Returned'].includes(status)) {
     actions.push({
       label: 'Update Status',
       action: 'update-status',
-      icon: <Edit className="h-4 w-4" />,
+      icon: <Edit className="h-3.5 w-3.5" />,
       color: 'bg-blue-600 hover:bg-blue-700',
+      category: 'edit',
     });
   }
 
+  // ✅ Cancel Order
   if (!['Delivered', 'Cancelled', 'Refunded', 'Returned'].includes(status)) {
     actions.push({
       label: 'Cancel Order',
       action: 'cancel-order',
-      icon: <PackageX className="h-4 w-4" />,
+      icon: <PackageX className="h-3.5 w-3.5" />,
       color: 'bg-red-600 hover:bg-red-700',
+      category: 'edit',
+    });
+  }
+
+  // ✅ Financial Actions - Always available (regardless of status)
+  actions.push({
+    label: 'Regenerate Invoice',
+    action: 'regenerate-invoice',
+    icon: <Receipt className="h-3.5 w-3.5" />,
+    color: 'bg-indigo-600 hover:bg-indigo-700',
+    category: 'financial',
+  });
+
+  // ✅ View Histories
+  actions.push({
+    label: 'View Refund History',
+    action: 'view-refund-history',
+    icon: <History className="h-3.5 w-3.5" />,
+    color: 'bg-violet-600 hover:bg-violet-700',
+    category: 'financial',
+  });
+
+  actions.push({
+    label: 'View Edit History',
+    action: 'view-edit-history',
+    icon: <History className="h-3.5 w-3.5" />,
+    color: 'bg-slate-600 hover:bg-slate-700',
+    category: 'financial',
+  });
+
+  // ✅ Refund Actions (conditional)
+  if (canRefund) {
+    actions.push({
+      label: 'Full Refund',
+      action: 'full-refund',
+      icon: <RotateCcw className="h-3.5 w-3.5" />,
+      color: 'bg-red-600 hover:bg-red-700',
+      category: 'financial',
+    });
+
+    actions.push({
+      label: 'Partial Refund',
+      action: 'partial-refund',
+      icon: <Split className="h-3.5 w-3.5" />,
+      color: 'bg-orange-600 hover:bg-orange-700',
+      category: 'financial',
     });
   }
 
   return actions;
 };
+
+// ===========================
+// ✅ REGENERATE INVOICE MODAL
+// ===========================
+
+const RegenerateInvoiceModal = ({
+  isOpen,
+  onClose,
+  onConfirm,
+  loading,
+  orderNumber,
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  onConfirm: (sendToCustomer: boolean, notes: string) => void;
+  loading: boolean;
+  orderNumber: string;
+}) => {
+  const [sendToCustomer, setSendToCustomer] = useState(false);
+  const [notes, setNotes] = useState('');
+
+  // ✅ ADD: Reset function
+  const handleClose = () => {
+    // Reset form to default values
+    setSendToCustomer(false);
+    setNotes('');
+    // Then call parent onClose
+    onClose();
+  };
+
+  // ✅ ADD: Also reset on successful confirm
+  const handleConfirm = () => {
+    onConfirm(sendToCustomer, notes);
+    // Note: Don't reset here, let parent handle success and close
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+      <div className="bg-slate-900 border border-slate-700 rounded-xl p-6 max-w-lg w-full mx-4 shadow-2xl">
+        <div className="flex items-center gap-3 mb-4">
+          <div className="p-2 bg-indigo-500/10 rounded-lg">
+            <Receipt className="h-6 w-6 text-indigo-400" />
+          </div>
+          <div>
+            <h3 className="text-xl font-bold text-white">Regenerate Invoice</h3>
+            <p className="text-sm text-slate-400">Order #{orderNumber}</p>
+          </div>
+        </div>
+
+        <div className="space-y-4">
+          <div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-lg">
+            <p className="text-xs text-amber-400 flex items-center gap-2">
+              <AlertTriangle className="h-4 w-4" />
+              This will generate a new invoice PDF for this order.
+            </p>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-slate-300 mb-2">
+              Notes (Optional)
+            </label>
+            <textarea
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              placeholder="Reason for regeneration..."
+              rows={3}
+              className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+            />
+          </div>
+
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={sendToCustomer}
+              onChange={(e) => setSendToCustomer(e.target.checked)}
+              className="rounded bg-slate-800 border-slate-700 text-indigo-500 focus:ring-indigo-500"
+            />
+            <span className="text-sm text-slate-300">
+              Send updated invoice to customer via email
+            </span>
+          </label>
+        </div>
+
+        <div className="flex gap-3 mt-6">
+          {/* ✅ CHANGED: Use handleClose instead of onClose */}
+          <button
+            onClick={handleClose}
+            disabled={loading}
+            className="flex-1 px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-lg transition-all disabled:opacity-50"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleConfirm}
+            disabled={loading}
+            className="flex-1 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+          >
+            {loading ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Generating...
+              </>
+            ) : (
+              <>
+                <Receipt className="h-4 w-4" />
+                Regenerate
+              </>
+            )}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 
 // ===========================
 // MAIN COMPONENT
@@ -462,8 +637,10 @@ export default function OrderDetailPage() {
   const [actionModalOpen, setActionModalOpen] = useState(false);
   const [selectedAction, setSelectedAction] = useState('');
   const [editModalOpen, setEditModalOpen] = useState(false);
-
-  // ✅ NEW: Refund & History States
+  // ✅ ADD: Refs for auto-scroll
+  const refundHistoryRef = useRef<HTMLDivElement>(null);
+  const editHistoryRef = useRef<HTMLDivElement>(null);
+  // Refund & History States
   const [refundHistoryOpen, setRefundHistoryOpen] = useState(false);
   const [editHistoryOpen, setEditHistoryOpen] = useState(false);
   const [refundHistory, setRefundHistory] = useState<RefundHistory | null>(null);
@@ -471,7 +648,7 @@ export default function OrderDetailPage() {
   const [loadingRefundHistory, setLoadingRefundHistory] = useState(false);
   const [loadingEditHistory, setLoadingEditHistory] = useState(false);
 
-  // ✅ NEW: Refund Modal States
+  // Refund Modal States
   const [showFullRefundModal, setShowFullRefundModal] = useState(false);
   const [showPartialRefundModal, setShowPartialRefundModal] = useState(false);
   const [refundReason, setRefundReason] = useState<RefundReason>(RefundReason.CustomerRequest);
@@ -481,7 +658,8 @@ export default function OrderDetailPage() {
     Array<{ orderItemId: string; quantity: number; refundAmount: number }>
   >([]);
 
-  // ✅ NEW: Invoice Regeneration
+  // ✅ NEW: Invoice Regeneration Modal State
+  const [showRegenerateInvoiceModal, setShowRegenerateInvoiceModal] = useState(false);
   const [regeneratingInvoice, setRegeneratingInvoice] = useState(false);
 
   useEffect(() => {
@@ -503,7 +681,6 @@ export default function OrderDetailPage() {
     }
   };
 
-  // ✅ NEW: Fetch Refund History
   const fetchRefundHistory = async () => {
     try {
       setLoadingRefundHistory(true);
@@ -518,7 +695,6 @@ export default function OrderDetailPage() {
     }
   };
 
-  // ✅ NEW: Fetch Edit History
   const fetchEditHistory = async () => {
     try {
       setLoadingEditHistory(true);
@@ -533,30 +709,45 @@ export default function OrderDetailPage() {
     }
   };
 
-  // ✅ NEW: Regenerate Invoice
-  const handleRegenerateInvoice = async () => {
-    if (!confirm('Regenerate invoice for this order?')) return;
-
-    try {
-      setRegeneratingInvoice(true);
-      const result = await orderEditService.regenerateInvoice({
-        orderId,
-        notes: 'Admin requested invoice regeneration',
-        sendToCustomer: false,
-      });
-      toast.success(`✅ Invoice regenerated successfully`, { autoClose: 4000 });
-      if (result.pdfUrl) {
-        window.open(result.pdfUrl, '_blank');
-      }
-    } catch (error: any) {
-      console.error('Error regenerating invoice:', error);
-      toast.error(error.message || 'Failed to regenerate invoice', { autoClose: 5000 });
-    } finally {
-      setRegeneratingInvoice(false);
+// ✅ CORRECTED - Service expects single object parameter
+const handleRegenerateInvoice = async (sendToCustomer: boolean, notes: string) => {
+  try {
+    setRegeneratingInvoice(true);
+    
+    const result = await orderEditService.regenerateInvoice({
+      orderId: orderId,
+      notes: notes || "Admin requested invoice regeneration",
+      sendToCustomer: sendToCustomer,
+    });
+    
+    toast.success("Invoice regenerated successfully", { autoClose: 4000 });
+    
+    if (sendToCustomer) {
+      toast.info("Invoice sent to customer email", { autoClose: 4000 });
     }
-  };
+    
+    // ✅ Use env variable for API URL
+    if (result.pdfUrl) {
+      const fullUrl = result.pdfUrl.startsWith('http') 
+        ? result.pdfUrl 
+        : `${process.env.NEXT_PUBLIC_API_URL}${result.pdfUrl}`;
+      
+      window.open(fullUrl, "_blank");
+    }
+    
+    // ✅ Close modal - will auto-reset via handleClose
+    setShowRegenerateInvoiceModal(false);
+    
+  } catch (error: any) {
+    console.error("Error regenerating invoice", error);
+    toast.error(error.message || "Failed to regenerate invoice", { autoClose: 5000 });
+  } finally {
+    setRegeneratingInvoice(false);
+  }
+};
 
-  // ✅ NEW: Full Refund
+
+
   const handleFullRefund = async () => {
     if (!refundNotes.trim()) {
       toast.error('Please provide refund notes', { autoClose: 4000 });
@@ -597,7 +788,6 @@ export default function OrderDetailPage() {
     }
   };
 
-  // ✅ NEW: Partial Refund
   const handlePartialRefund = async () => {
     const selectedItems = partialRefundItems.filter((r) => r.quantity > 0);
 
@@ -648,10 +838,67 @@ export default function OrderDetailPage() {
     }
   };
 
-  const handleAction = (action: string) => {
-    setSelectedAction(action);
-    setActionModalOpen(true);
-  };
+  // ✅ UPDATED: Handle all actions including financial ones
+// ✅ UPDATED: Handle all actions including auto-scroll
+const handleAction = (action: string) => {
+  if (action === 'regenerate-invoice') {
+    setShowRegenerateInvoiceModal(true);
+    return;
+  }
+
+  if (action === 'view-refund-history') {
+    setRefundHistoryOpen(true);
+    if (!refundHistory) {
+      fetchRefundHistory();
+    }
+    // ✅ Auto-scroll after state update
+    setTimeout(() => {
+      refundHistoryRef.current?.scrollIntoView({ 
+        behavior: 'smooth', 
+        block: 'start' 
+      });
+    }, 100);
+    return;
+  }
+
+  if (action === 'view-edit-history') {
+    setEditHistoryOpen(true);
+    if (editHistory.length === 0) {
+      fetchEditHistory();
+    }
+    // ✅ Auto-scroll after state update
+    setTimeout(() => {
+      editHistoryRef.current?.scrollIntoView({ 
+        behavior: 'smooth', 
+        block: 'start' 
+      });
+    }, 100);
+    return;
+  }
+
+  if (action === 'full-refund') {
+    setShowFullRefundModal(true);
+    return;
+  }
+
+  if (action === 'partial-refund') {
+    if (order) {
+      setPartialRefundItems(
+        order.orderItems.map((item) => ({
+          orderItemId: item.id,
+          quantity: 0,
+          refundAmount: 0,
+        }))
+      );
+    }
+    setShowPartialRefundModal(true);
+    return;
+  }
+
+  setSelectedAction(action);
+  setActionModalOpen(true);
+};
+
 
   const handleActionSuccess = () => {
     setActionModalOpen(false);
@@ -670,7 +917,6 @@ export default function OrderDetailPage() {
     return editableStatuses.includes(order.status);
   };
 
-  // ✅ NEW: Check if refund is possible
   const canRefund = () => {
     if (!order) return false;
     const hasCompletedPayment = order.payments?.some(
@@ -714,17 +960,17 @@ export default function OrderDetailPage() {
   const collectionStatusInfo = order.collectionStatus
     ? getCollectionStatusInfo(order.collectionStatus as CollectionStatus)
     : null;
-  const availableActions = getAvailableActions(order);
+  const allActions = getAllAvailableActions(order, canRefund());
 
   return (
     <div className="space-y-3 pb-6">
-      {/* ===== TUMHARA EXISTING CODE YAHA SE START ===== */}
-      {/* Header */}
-      <div className="flex items-center justify-between flex-wrap gap-3">
+      {/* ✅ IMPROVED HEADER WITH VISIBLE LABELS */}
+      <div className="flex items-center justify-between flex-wrap gap-4">
         <div className="flex items-center gap-3">
           <button
             onClick={() => router.push('/admin/orders')}
             className="p-2 hover:bg-slate-800 rounded-lg transition-colors group"
+            title="Back to Orders List"
           >
             <ArrowLeft className="h-5 w-5 text-slate-400 group-hover:text-white transition-colors" />
           </button>
@@ -733,9 +979,7 @@ export default function OrderDetailPage() {
               <h1 className="text-2xl font-bold bg-gradient-to-r from-violet-400 via-cyan-400 to-pink-400 bg-clip-text text-transparent">
                 {order.orderNumber}
               </h1>
-              <span className="text-xs text-slate-500">
-                <Hash className="h-3 w-3 inline" />
-              </span>
+              <Hash className="h-3 w-3 text-slate-500" />
             </div>
             <p className="text-slate-400 text-sm mt-1 flex items-center gap-1.5">
               <Package className="h-3.5 w-3.5" />
@@ -744,13 +988,12 @@ export default function OrderDetailPage() {
           </div>
         </div>
 
-        <div className="flex items-center gap-2 flex-wrap">
-          <StatusBadge statusInfo={statusInfo} label="Order Status" />
-          {paymentStatusInfo && (
-            <StatusBadge statusInfo={paymentStatusInfo as any} label="Payment Status" />
-          )}
+        {/* ✅ STATUS BADGES WITH CLEAR LABELS */}
+        <div className="flex items-center gap-3 flex-wrap">
+          <StatusBadge statusInfo={statusInfo} label="Order" />
+          {paymentStatusInfo && <StatusBadge statusInfo={paymentStatusInfo as any} label="Payment" />}
           {order.deliveryMethod === 'ClickAndCollect' && collectionStatusInfo && (
-            <StatusBadge statusInfo={collectionStatusInfo as any} label="Collection Status" />
+            <StatusBadge statusInfo={collectionStatusInfo as any} label="Collection" />
           )}
         </div>
       </div>
@@ -771,94 +1014,34 @@ export default function OrderDetailPage() {
           </div>
         )}
 
-{/* ✅ MERGED: Financial Actions + Quick Actions - Side by Side */}
-<div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-
-
-  {availableActions.length > 0 && (
-    <div className="bg-gradient-to-r from-slate-900/80 to-slate-800/80 border border-slate-700 rounded-xl p-4 backdrop-blur-sm">
-      <div className="flex items-center gap-2 mb-3">
-        <div className="p-2 bg-cyan-500/10 rounded-lg border border-cyan-500/20">
-          <Zap className="h-4 w-4 text-cyan-400" />
+      {/* ✅ CONSOLIDATED ACTION BUTTONS (Single Row, Dynamic) */}
+      {allActions.length > 0 && (
+        <div className="bg-gradient-to-r from-slate-900/80 to-slate-800/80 border border-slate-700 rounded-xl p-4 backdrop-blur-sm">
+          <div className="flex items-center gap-2 mb-3">
+            <div className="p-2 bg-cyan-500/10 rounded-lg border border-cyan-500/20">
+              <Zap className="h-4 w-4 text-cyan-400" />
+            </div>
+            <h3 className="text-base font-bold text-white">Quick Actions</h3>
+            <span className="text-xs text-slate-500 ml-2">
+              ({allActions.length} actions available)
+            </span>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {allActions.map((btn, index) => (
+              <button
+                key={index}
+                onClick={() => handleAction(btn.action)}
+                className={`px-3 py-2 ${btn.color} text-white rounded-lg transition-all flex items-center gap-2 text-sm font-medium shadow-lg hover:shadow-xl hover:scale-105`}
+                title={`Click to ${btn.label.toLowerCase()}`}
+              >
+                {btn.icon}
+                {btn.label}
+              </button>
+            ))}
+          </div>
         </div>
-        <h3 className="text-base font-bold text-white">Quick Actions</h3>
-      </div>
-      <div className="flex flex-wrap gap-2">
-        {availableActions.map((btn, index) => (
-          <button
-            key={index}
-            onClick={() => handleAction(btn.action)}
-            className={`px-3 py-2 ${btn.color} text-white rounded-lg transition-all flex items-center gap-2 text-sm font-medium shadow-lg hover:shadow-xl hover:scale-105`}
-          >
-            {btn.icon}
-            {btn.label}
-          </button>
-        ))}
-      </div>
-    </div>
-  )}
-  {/* Left: Financial Actions */}
-  <div className="bg-gradient-to-r from-slate-900/80 to-slate-800/80 border border-slate-700 rounded-xl p-4 backdrop-blur-sm">
-    <div className="flex items-center gap-2 mb-3">
-      <div className="p-2 bg-green-500/10 rounded-lg border border-green-500/20">
-        <DollarSign className="h-4 w-4 text-green-400" />
-      </div>
-      <h3 className="text-base font-bold text-white">Financial Actions</h3>
-    </div>
-    <div className="flex flex-wrap gap-2">
-      {/* Regenerate Invoice */}
-      <button
-        onClick={handleRegenerateInvoice}
-        disabled={regeneratingInvoice}
-        className="px-3 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg transition-all flex items-center gap-2 text-sm font-medium shadow-lg hover:shadow-xl"
-      >
-        {regeneratingInvoice ? (
-          <Loader2 className="h-3.5 w-3.5 animate-spin" />
-        ) : (
-          <Receipt className="h-3.5 w-3.5" />
-        )}
-        Regenerate Invoice
-      </button>
-
-      {/* Full Refund */}
-      {canRefund() && (
-        <button
-          onClick={() => setShowFullRefundModal(true)}
-          className="px-3 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-all flex items-center gap-2 text-sm font-medium shadow-lg hover:shadow-xl"
-        >
-          <RotateCcw className="h-3.5 w-3.5" />
-          Full Refund
-        </button>
       )}
-
-      {/* Partial Refund */}
-      {canRefund() && (
-        <button
-          onClick={() => {
-            setPartialRefundItems(
-              order.orderItems.map((item) => ({
-                orderItemId: item.id,
-                quantity: 0,
-                refundAmount: 0,
-              }))
-            );
-            setShowPartialRefundModal(true);
-          }}
-          className="px-3 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-lg transition-all flex items-center gap-2 text-sm font-medium shadow-lg hover:shadow-xl"
-        >
-          <Split className="h-3.5 w-3.5" />
-          Partial Refund
-        </button>
-      )}
-    </div>
-  </div>
-    {/* Right: Quick Actions */}
-
-</div>
-  
-      {/* TUMHARE EXISTING SECTIONS YAHA SE CONTINUE KARENGE */}
-      {/* Customer Info, Order Summary, Items, Addresses, Payments, Shipments etc. */}
-      {/* ... (I'll include the complete code in part 2 due to character limit) ... */}
+ 
     {/* ✅ Order Info Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
         {/* Customer Information */}
@@ -1416,28 +1599,6 @@ export default function OrderDetailPage() {
           </p>
         </div>
       )}
-      {/* ✅ NEW: Refund History Section */}
-      <RefundHistorySection
-        orderId={orderId}
-        currency={order.currency}
-        refundHistory={refundHistory}
-        loading={loadingRefundHistory}
-        isOpen={refundHistoryOpen}
-        onToggle={() => setRefundHistoryOpen(!refundHistoryOpen)}
-        onFetch={fetchRefundHistory}
-      />
-
-      {/* ✅ NEW: Edit History Section */}
-      <EditHistorySection
-        orderId={orderId}
-        currency={order.currency}
-        editHistory={editHistory}
-        loading={loadingEditHistory}
-        isOpen={editHistoryOpen}
-        onToggle={() => setEditHistoryOpen(!editHistoryOpen)}
-        onFetch={fetchEditHistory}
-      />
-
       {/* Modals */}
       {editModalOpen && order && (
         <OrderEditModal
@@ -1461,7 +1622,16 @@ export default function OrderDetailPage() {
         />
       )}
 
-      {/* ✅ NEW: Refund Modals */}
+      {/* ✅ NEW: Regenerate Invoice Modal */}
+      <RegenerateInvoiceModal
+        isOpen={showRegenerateInvoiceModal}
+        onClose={() => setShowRegenerateInvoiceModal(false)}
+        onConfirm={handleRegenerateInvoice}
+        loading={regeneratingInvoice}
+        orderNumber={order.orderNumber}
+      />
+
+      {/* Refund Modals */}
       <RefundModals
         order={order}
         showFullRefundModal={showFullRefundModal}
@@ -1476,6 +1646,32 @@ export default function OrderDetailPage() {
           }
         }}
       />
+
+  {/* ✅ History Sections with Refs */}
+<div ref={refundHistoryRef}>
+  <RefundHistorySection
+    orderId={orderId}
+    currency={order.currency}
+    refundHistory={refundHistory}
+    loading={loadingRefundHistory}
+    isOpen={refundHistoryOpen}
+    onToggle={() => setRefundHistoryOpen(!refundHistoryOpen)}
+    onFetch={fetchRefundHistory}
+  />
+</div>
+
+<div ref={editHistoryRef}>
+  <EditHistorySection
+    orderId={orderId}
+    currency={order.currency}
+    editHistory={editHistory}
+    loading={loadingEditHistory}
+    isOpen={editHistoryOpen}
+    onToggle={() => setEditHistoryOpen(!editHistoryOpen)}
+    onFetch={fetchEditHistory}
+  />
+</div>
+
     </div>
   );
 }

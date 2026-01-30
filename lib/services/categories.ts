@@ -36,9 +36,9 @@ export interface CategoryApiResponse {
 
 export interface CategoryStats {
   totalCategories: number;
-  totalSubCategories: number;
   totalProducts: number;
   activeCategories: number;
+  homepageCategories: number;  // ✅ Add this
 }
 
 export interface CreateCategoryDto { name: string; description: string; }

@@ -838,62 +838,153 @@ const handleExportReviews = (type: string) => {
           </div>
         </div>
 
-        {/* Statistics Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-4 hover:border-violet-500/50 transition-all">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-xl bg-blue-500/10 flex items-center justify-center">
-                <Star className="h-6 w-6 text-blue-400" />
-              </div>
-              <div className="flex-1">
-                <p className="text-slate-400 text-sm font-medium mb-1">
-                  Total Reviews
-                </p>
-                <p className="text-white text-2xl font-bold">{stats.total}</p>
-              </div>
-            </div>
-          </div>
+{/* ✅ Statistics Cards - CLICKABLE FILTERS */}
+<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+  
+  {/* 1. Total Reviews - NON-CLICKABLE */}
+  <div className="bg-gradient-to-br from-blue-500/10 to-blue-600/5 backdrop-blur-sm border border-blue-500/20 rounded-xl p-3">
+    <div className="flex items-center justify-between">
+      <div>
+        <p className="text-slate-400 text-xs font-medium">Total Reviews</p>
+        <p className="text-2xl font-bold text-white mt-0.5">{stats.total}</p>
+      </div>
+      <div className="w-9 h-9 bg-blue-500/20 rounded-lg flex items-center justify-center shrink-0">
+        <Star className="h-4 w-4 text-blue-400" />
+      </div>
+    </div>
+  </div>
 
-          <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-4 hover:border-yellow-500/50 transition-all">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-xl bg-yellow-500/10 flex items-center justify-center">
-                <Clock className="h-6 w-6 text-yellow-400" />
-              </div>
-              <div className="flex-1">
-                <p className="text-slate-400 text-sm font-medium mb-1">Pending</p>
-                <p className="text-white text-2xl font-bold">{stats.pending}</p>
-              </div>
-            </div>
-          </div>
+  {/* 2. Status Filter - CLICKABLE */}
+  <button
+    type="button"
+    onClick={() => {
+      if (statusFilter === 'all') setStatusFilter('pending');
+      else if (statusFilter === 'pending') setStatusFilter('approved');
+      else setStatusFilter('all');
+    }}
+    className="bg-gradient-to-br from-yellow-500/10 to-yellow-600/5 backdrop-blur-sm border border-yellow-500/20 rounded-xl p-3 hover:border-yellow-500/40 transition-all cursor-pointer group relative text-left"
+  >
+    {/* Tooltip */}
+    <div className="absolute -top-9 left-1/2 -translate-x-1/2 bg-slate-800 text-white text-xs px-2.5 py-1 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-10 shadow-xl">
+      {statusFilter === 'all' ? 'All Reviews' : statusFilter === 'pending' ? 'Pending Only' : 'Approved Only'}
+      <div className="absolute bottom-0 left-1/2 -translate-x-1/2 translate-y-full w-0 h-0 border-l-[5px] border-r-[5px] border-t-[5px] border-transparent border-t-slate-800"></div>
+    </div>
+    
+    <div className="flex items-center justify-between">
+      <div>
+        <p className="text-slate-400 text-xs font-medium">
+          {statusFilter === 'all' ? 'All Status' : statusFilter === 'pending' ? 'Pending' : 'Approved'}
+        </p>
+        <p className="text-2xl font-bold text-white mt-0.5">
+          {statusFilter === 'all' ? stats.total : statusFilter === 'pending' ? stats.pending : stats.approved}
+        </p>
+        <p className="text-[10px] text-yellow-400 mt-0.5 font-medium">
+          {statusFilter === 'all' ? '● All' : statusFilter === 'pending' ? '● Pending' : '● Approved'}
+        </p>
+      </div>
+      <div className="w-9 h-9 bg-yellow-500/20 rounded-lg flex items-center justify-center shrink-0 group-hover:bg-yellow-500/30 transition-all">
+        {statusFilter === 'pending' ? (
+          <Clock className="h-4 w-4 text-yellow-400" />
+        ) : statusFilter === 'approved' ? (
+          <CheckCircle className="h-4 w-4 text-green-400" />
+        ) : (
+          <MessageSquare className="h-4 w-4 text-slate-400" />
+        )}
+      </div>
+    </div>
+  </button>
 
-          <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-4 hover:border-green-500/50 transition-all">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-xl bg-green-500/10 flex items-center justify-center">
-                <CheckCircle className="h-6 w-6 text-green-400" />
-              </div>
-              <div className="flex-1">
-                <p className="text-slate-400 text-sm font-medium mb-1">Approved</p>
-                <p className="text-white text-2xl font-bold">{stats.approved}</p>
-              </div>
-            </div>
-          </div>
+  {/* 3. Verified Filter - CLICKABLE */}
+  <button
+    type="button"
+    onClick={() => setVerifiedOnlyFilter(!verifiedOnlyFilter)}
+    className="bg-gradient-to-br from-green-500/10 to-green-600/5 backdrop-blur-sm border border-green-500/20 rounded-xl p-3 hover:border-green-500/40 transition-all cursor-pointer group relative text-left"
+  >
+    {/* Tooltip */}
+    <div className="absolute -top-9 left-1/2 -translate-x-1/2 bg-slate-800 text-white text-xs px-2.5 py-1 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-10 shadow-xl">
+      {verifiedOnlyFilter ? 'Verified Only' : 'All Reviews'}
+      <div className="absolute bottom-0 left-1/2 -translate-x-1/2 translate-y-full w-0 h-0 border-l-[5px] border-r-[5px] border-t-[5px] border-transparent border-t-slate-800"></div>
+    </div>
+    
+    <div className="flex items-center justify-between">
+      <div>
+        <p className="text-slate-400 text-xs font-medium">Verified Purchase</p>
+        <p className="text-2xl font-bold text-white mt-0.5">
+          {reviews.filter(r => r.isVerifiedPurchase).length}
+        </p>
+        <p className="text-[10px] text-green-400 mt-0.5 font-medium">
+          {verifiedOnlyFilter ? '● Verified Only' : '● All Reviews'}
+        </p>
+      </div>
+      <div className="w-9 h-9 bg-green-500/20 rounded-lg flex items-center justify-center shrink-0 group-hover:bg-green-500/30 transition-all">
+        <CheckCircle className="h-4 w-4 text-green-400" />
+      </div>
+    </div>
+  </button>
 
-          <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-4 hover:border-yellow-500/50 transition-all">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-xl bg-yellow-500/10 flex items-center justify-center">
-                <Award className="h-6 w-6 text-yellow-400" />
-              </div>
-              <div className="flex-1">
-                <p className="text-slate-400 text-sm font-medium mb-1">
-                  Avg Rating
-                </p>
-                <p className="text-white text-2xl font-bold">
-                  {stats.averageRating.toFixed(1)}
-                </p>
-              </div>
-            </div>
+  {/* 4. Avg Rating - Hover Stars + Click to Reset */}
+  <div className="bg-gradient-to-br from-yellow-500/10 to-yellow-600/5 backdrop-blur-sm border border-yellow-500/20 rounded-xl p-3 relative group">
+    <div className="flex items-center justify-between">
+      <div className="flex-1">
+        <p className="text-slate-400 text-xs font-medium">Avg Rating</p>
+        
+        {/* Reset Button */}
+        <button
+          type="button"
+          onClick={() => setRatingFilter('all')}
+          className="text-2xl font-bold text-white mt-0.5 hover:text-yellow-400 transition-colors"
+          title="Click to reset"
+        >
+          {stats.averageRating.toFixed(1)}
+        </button>
+        
+        {/* Stars - Hover to Show */}
+        <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+          <div className="flex items-center gap-0.5 mt-1"
+          >
+            {[1, 2, 3, 4, 5].map((star) => (
+              <button
+                key={star}
+                type="button"
+                onClick={() => {
+                  if (ratingFilter === star.toString()) {
+                    setRatingFilter('all');
+                  } else {
+                    setRatingFilter(star.toString());
+                  }
+                }}
+                className="transition-all hover:scale-110 focus:outline-none"
+                title={`${star}★`}
+              >
+                <Star 
+                  className={`h-3.5 w-3.5 transition-colors ${
+                    ratingFilter === star.toString()
+                      ? 'fill-yellow-400 text-yellow-400'
+                      : 'text-slate-600 hover:text-yellow-400'
+                  }`}
+                />
+              </button>
+            ))}
           </div>
+        
         </div>
+        
+        {/* Active Filter (when not hovering) */}
+        {ratingFilter !== 'all' && (
+          <p className="text-[10px] text-yellow-400 mt-0.5 font-medium group-hover:hidden">
+            ● Showing {ratingFilter}★
+          </p>
+        )}
+      </div>
+      
+      <div className="w-9 h-9 bg-yellow-500/20 rounded-lg flex items-center justify-center shrink-0">
+        <Award className="h-4 w-4 text-yellow-400" />
+      </div>
+    </div>
+  </div>
+
+</div>
+
 
         {/* Items Per Page */}
         <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-2xl p-3">

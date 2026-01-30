@@ -195,10 +195,8 @@ export default function OrderEditModal({
   const [searchResults, setSearchResults] = useState<Product[]>([]);
   const [searching, setSearching] = useState(false);
 
-  // ✅ Collapsible Sections State
-  const [showBillingAddress, setShowBillingAddress] = useState(false);
-  const [showShippingAddress, setShowShippingAddress] = useState(false);
-
+// ✅ ADD: Single state for both (default open)
+const [showAddresses, setShowAddresses] = useState(true);
   // ✅ Filters State
   const [filters, setFilters] = useState({
     productType: null as { value: string; label: string } | null,
@@ -406,31 +404,34 @@ export default function OrderEditModal({
   };
 
   // ✅ Reset on modal open
-  useEffect(() => {
-    if (isOpen) {
-      setOperations([]);
-      setEditedItems(new Map());
-      setEditData({
-        editReason: '',
-        adminNotes: '',
-        recalculateTotals: true,
-        adjustInventory: true,
-        sendCustomerNotification: true,
-      });
-      setSearchQuery('');
-      setSearchResults([]);
-      setFilters({
-        productType: null,
-        brandId: null,
-        categoryId: null,
-      });
-      setBillingAddressChanged(false);
-      setShippingAddressChanged(false);
-      setShowBillingAddress(false);
-      setShowShippingAddress(false);
-      setValidationErrors([]);
-    }
-  }, [isOpen]);
+useEffect(() => {
+  if (isOpen) {
+    setOperations([]);
+    setEditedItems(new Map());
+    setEditData({
+      editReason: '',
+      adminNotes: '',
+      recalculateTotals: true,
+      adjustInventory: true,
+      sendCustomerNotification: true,
+    });
+    setSearchQuery('');
+    setSearchResults([]);
+    setFilters({
+      productType: null,
+      brandId: null,
+      categoryId: null,
+    });
+    setBillingAddressChanged(false);
+    setShippingAddressChanged(false);
+    
+    // ✅ UPDATED: Single state for both addresses (open by default)
+    setShowAddresses(true);
+    
+    setValidationErrors([]);
+  }
+}, [isOpen]);
+
 
   // ===========================
   // SEARCH & FILTER
@@ -1064,277 +1065,406 @@ export default function OrderEditModal({
             </div>
 
             {/* ✅ Addresses Section - Side by Side */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-              {/* Billing Address */}
-              <div className="bg-slate-900/30 rounded-xl border border-slate-700">
-                <button
-                  type="button"
-                  onClick={() => setShowBillingAddress(!showBillingAddress)}
-                  className="w-full px-4 py-3 flex items-center justify-between hover:bg-slate-800/50 transition-colors rounded-t-xl"
-                >
-                  <div className="flex items-center gap-2">
-                    <CreditCard className="h-4 w-4 text-blue-400" />
-                    <h3 className="text-sm font-semibold text-white">Billing Address</h3>
-                    {billingAddressChanged && (
-                      <span className="px-1.5 py-0.5 text-xs bg-amber-500/10 text-amber-400 rounded">
-                        Modified
-                      </span>
-                    )}
-                  </div>
-                  {showBillingAddress ? (
-                    <ChevronUp className="h-4 w-4 text-slate-400" />
-                  ) : (
-                    <ChevronDown className="h-4 w-4 text-slate-400" />
-                  )}
-                </button>
+{/* ✅ Addresses Section - With Labels */}
+<div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+  {/* Billing Address */}
+  <div className="bg-slate-900/30 rounded-xl border border-slate-700">
+    <button
+      type="button"
+      onClick={() => setShowAddresses(!showAddresses)}
+      className="w-full px-4 py-3 flex items-center justify-between hover:bg-slate-800/50 transition-colors rounded-t-xl"
+    >
+      <div className="flex items-center gap-2">
+        <CreditCard className="h-4 w-4 text-blue-400" />
+        <h3 className="text-sm font-semibold text-white">Billing Address</h3>
+        {billingAddressChanged && (
+          <span className="px-1.5 py-0.5 text-xs bg-amber-500/10 text-amber-400 rounded">
+            Modified
+          </span>
+        )}
+      </div>
+      {showAddresses ? (
+        <ChevronUp className="h-4 w-4 text-slate-400" />
+      ) : (
+        <ChevronDown className="h-4 w-4 text-slate-400" />
+      )}
+    </button>
 
-                {showBillingAddress && (
-                  <div className="p-4 border-t border-slate-700 space-y-3">
-                    <div className="grid grid-cols-2 gap-2">
-                      <input
-                        type="text"
-                        value={billingAddress.firstName}
-                        onChange={(e) => {
-                          setBillingAddress({ ...billingAddress, firstName: e.target.value });
-                          setBillingAddressChanged(true);
-                        }}
-                        placeholder="First Name *"
-                        className="px-3 py-2 bg-slate-900/50 border border-slate-700 rounded-lg text-sm text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500"
-                      />
-                      <input
-                        type="text"
-                        value={billingAddress.lastName}
-                        onChange={(e) => {
-                          setBillingAddress({ ...billingAddress, lastName: e.target.value });
-                          setBillingAddressChanged(true);
-                        }}
-                        placeholder="Last Name *"
-                        className="px-3 py-2 bg-slate-900/50 border border-slate-700 rounded-lg text-sm text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500"
-                      />
-                    </div>
-                    <input
-                      type="text"
-                      value={billingAddress.company || ''}
-                      onChange={(e) => {
-                        setBillingAddress({ ...billingAddress, company: e.target.value });
-                        setBillingAddressChanged(true);
-                      }}
-                      placeholder="Company (Optional)"
-                      className="w-full px-3 py-2 bg-slate-900/50 border border-slate-700 rounded-lg text-sm text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500"
-                    />
-                    <input
-                      type="text"
-                      value={billingAddress.addressLine1}
-                      onChange={(e) => {
-                        setBillingAddress({ ...billingAddress, addressLine1: e.target.value });
-                        setBillingAddressChanged(true);
-                      }}
-                      placeholder="Address Line 1 *"
-                      className="w-full px-3 py-2 bg-slate-900/50 border border-slate-700 rounded-lg text-sm text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500"
-                    />
-                    <input
-                      type="text"
-                      value={billingAddress.addressLine2 || ''}
-                      onChange={(e) => {
-                        setBillingAddress({ ...billingAddress, addressLine2: e.target.value });
-                        setBillingAddressChanged(true);
-                      }}
-                      placeholder="Address Line 2 (Optional)"
-                      className="w-full px-3 py-2 bg-slate-900/50 border border-slate-700 rounded-lg text-sm text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500"
-                    />
-                    <div className="grid grid-cols-2 gap-2">
-                      <input
-                        type="text"
-                        value={billingAddress.city}
-                        onChange={(e) => {
-                          setBillingAddress({ ...billingAddress, city: e.target.value });
-                          setBillingAddressChanged(true);
-                        }}
-                        placeholder="City *"
-                        className="px-3 py-2 bg-slate-900/50 border border-slate-700 rounded-lg text-sm text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500"
-                      />
-                      <input
-                        type="text"
-                        value={billingAddress.state}
-                        onChange={(e) => {
-                          setBillingAddress({ ...billingAddress, state: e.target.value });
-                          setBillingAddressChanged(true);
-                        }}
-                        placeholder="State/County *"
-                        className="px-3 py-2 bg-slate-900/50 border border-slate-700 rounded-lg text-sm text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500"
-                      />
-                    </div>
-                    <div className="grid grid-cols-2 gap-2">
-                      <input
-                        type="text"
-                        value={billingAddress.postalCode}
-                        onChange={(e) => {
-                          setBillingAddress({ ...billingAddress, postalCode: e.target.value });
-                          setBillingAddressChanged(true);
-                        }}
-                        placeholder="Postal Code *"
-                        className="px-3 py-2 bg-slate-900/50 border border-slate-700 rounded-lg text-sm text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500"
-                      />
-                      <input
-                        type="text"
-                        value={billingAddress.country}
-                        onChange={(e) => {
-                          setBillingAddress({ ...billingAddress, country: e.target.value });
-                          setBillingAddressChanged(true);
-                        }}
-                        placeholder="Country *"
-                        className="px-3 py-2 bg-slate-900/50 border border-slate-700 rounded-lg text-sm text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500"
-                      />
-                    </div>
-                    <input
-                      type="tel"
-                      value={billingAddress.phoneNumber}
-                      onChange={(e) => {
-                        setBillingAddress({ ...billingAddress, phoneNumber: e.target.value });
-                        setBillingAddressChanged(true);
-                      }}
-                      placeholder="Phone Number *"
-                      className="w-full px-3 py-2 bg-slate-900/50 border border-slate-700 rounded-lg text-sm text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500"
-                    />
-                  </div>
-                )}
-              </div>
+    {showAddresses && (
+      <div className="p-4 border-t border-slate-700 space-y-3">
+        {/* First & Last Name */}
+        <div className="grid grid-cols-2 gap-2">
+          <div>
+            <label className="block text-xs font-medium text-slate-400 mb-1">
+              First Name *
+            </label>
+            <input
+              type="text"
+              value={billingAddress.firstName}
+              onChange={(e) => {
+                setBillingAddress({ ...billingAddress, firstName: e.target.value });
+                setBillingAddressChanged(true);
+              }}
+              placeholder="Enter first name"
+              className="w-full px-3 py-2 bg-slate-900/50 border border-slate-700 rounded-lg text-sm text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-slate-400 mb-1">
+              Last Name *
+            </label>
+            <input
+              type="text"
+              value={billingAddress.lastName}
+              onChange={(e) => {
+                setBillingAddress({ ...billingAddress, lastName: e.target.value });
+                setBillingAddressChanged(true);
+              }}
+              placeholder="Enter last name"
+              className="w-full px-3 py-2 bg-slate-900/50 border border-slate-700 rounded-lg text-sm text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500"
+            />
+          </div>
+        </div>
 
-              {/* Shipping Address */}
-              <div className="bg-slate-900/30 rounded-xl border border-slate-700">
-                <button
-                  type="button"
-                  onClick={() => setShowShippingAddress(!showShippingAddress)}
-                  className="w-full px-4 py-3 flex items-center justify-between hover:bg-slate-800/50 transition-colors rounded-t-xl"
-                >
-                  <div className="flex items-center gap-2">
-                    <Truck className="h-4 w-4 text-green-400" />
-                    <h3 className="text-sm font-semibold text-white">Shipping Address</h3>
-                    {shippingAddressChanged && (
-                      <span className="px-1.5 py-0.5 text-xs bg-amber-500/10 text-amber-400 rounded">
-                        Modified
-                      </span>
-                    )}
-                  </div>
-                  {showShippingAddress ? (
-                    <ChevronUp className="h-4 w-4 text-slate-400" />
-                  ) : (
-                    <ChevronDown className="h-4 w-4 text-slate-400" />
-                  )}
-                </button>
+        {/* Company */}
+        <div>
+          <label className="block text-xs font-medium text-slate-400 mb-1">
+            Company <span className="text-slate-500">(Optional)</span>
+          </label>
+          <input
+            type="text"
+            value={billingAddress.company || ''}
+            onChange={(e) => {
+              setBillingAddress({ ...billingAddress, company: e.target.value });
+              setBillingAddressChanged(true);
+            }}
+            placeholder="Enter company name"
+            className="w-full px-3 py-2 bg-slate-900/50 border border-slate-700 rounded-lg text-sm text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500"
+          />
+        </div>
 
-                {showShippingAddress && (
-                  <div className="p-4 border-t border-slate-700 space-y-3">
-                    <div className="grid grid-cols-2 gap-2">
-                      <input
-                        type="text"
-                        value={shippingAddress.firstName}
-                        onChange={(e) => {
-                          setShippingAddress({ ...shippingAddress, firstName: e.target.value });
-                          setShippingAddressChanged(true);
-                        }}
-                        placeholder="First Name *"
-                        className="px-3 py-2 bg-slate-900/50 border border-slate-700 rounded-lg text-sm text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500"
-                      />
-                      <input
-                        type="text"
-                        value={shippingAddress.lastName}
-                        onChange={(e) => {
-                          setShippingAddress({ ...shippingAddress, lastName: e.target.value });
-                          setShippingAddressChanged(true);
-                        }}
-                        placeholder="Last Name *"
-                        className="px-3 py-2 bg-slate-900/50 border border-slate-700 rounded-lg text-sm text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500"
-                      />
-                    </div>
-                    <input
-                      type="text"
-                      value={shippingAddress.company || ''}
-                      onChange={(e) => {
-                        setShippingAddress({ ...shippingAddress, company: e.target.value });
-                        setShippingAddressChanged(true);
-                      }}
-                      placeholder="Company (Optional)"
-                      className="w-full px-3 py-2 bg-slate-900/50 border border-slate-700 rounded-lg text-sm text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500"
-                    />
-                    <input
-                      type="text"
-                      value={shippingAddress.addressLine1}
-                      onChange={(e) => {
-                        setShippingAddress({ ...shippingAddress, addressLine1: e.target.value });
-                        setShippingAddressChanged(true);
-                      }}
-                      placeholder="Address Line 1 *"
-                      className="w-full px-3 py-2 bg-slate-900/50 border border-slate-700 rounded-lg text-sm text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500"
-                    />
-                    <input
-                      type="text"
-                      value={shippingAddress.addressLine2 || ''}
-                      onChange={(e) => {
-                        setShippingAddress({ ...shippingAddress, addressLine2: e.target.value });
-                        setShippingAddressChanged(true);
-                      }}
-                      placeholder="Address Line 2 (Optional)"
-                      className="w-full px-3 py-2 bg-slate-900/50 border border-slate-700 rounded-lg text-sm text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500"
-                    />
-                    <div className="grid grid-cols-2 gap-2">
-                      <input
-                        type="text"
-                        value={shippingAddress.city}
-                        onChange={(e) => {
-                          setShippingAddress({ ...shippingAddress, city: e.target.value });
-                          setShippingAddressChanged(true);
-                        }}
-                        placeholder="City *"
-                        className="px-3 py-2 bg-slate-900/50 border border-slate-700 rounded-lg text-sm text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500"
-                      />
-                      <input
-                        type="text"
-                        value={shippingAddress.state}
-                        onChange={(e) => {
-                          setShippingAddress({ ...shippingAddress, state: e.target.value });
-                          setShippingAddressChanged(true);
-                        }}
-                        placeholder="State/County *"
-                        className="px-3 py-2 bg-slate-900/50 border border-slate-700 rounded-lg text-sm text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500"
-                      />
-                    </div>
-                    <div className="grid grid-cols-2 gap-2">
-                      <input
-                        type="text"
-                        value={shippingAddress.postalCode}
-                        onChange={(e) => {
-                          setShippingAddress({ ...shippingAddress, postalCode: e.target.value });
-                          setShippingAddressChanged(true);
-                        }}
-                        placeholder="Postal Code *"
-                        className="px-3 py-2 bg-slate-900/50 border border-slate-700 rounded-lg text-sm text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500"
-                      />
-                      <input
-                        type="text"
-                        value={shippingAddress.country}
-                        onChange={(e) => {
-                          setShippingAddress({ ...shippingAddress, country: e.target.value });
-                          setShippingAddressChanged(true);
-                        }}
-                        placeholder="Country *"
-                        className="px-3 py-2 bg-slate-900/50 border border-slate-700 rounded-lg text-sm text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500"
-                      />
-                    </div>
-                    <input
-                      type="tel"
-                      value={shippingAddress.phoneNumber}
-                      onChange={(e) => {
-                        setShippingAddress({ ...shippingAddress, phoneNumber: e.target.value });
-                        setShippingAddressChanged(true);
-                      }}
-                      placeholder="Phone Number *"
-                      className="w-full px-3 py-2 bg-slate-900/50 border border-slate-700 rounded-lg text-sm text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500"
-                    />
-                  </div>
-                )}
-              </div>
-            </div>
+        {/* Address Line 1 */}
+        <div>
+          <label className="block text-xs font-medium text-slate-400 mb-1">
+            Address Line 1 *
+          </label>
+          <input
+            type="text"
+            value={billingAddress.addressLine1}
+            onChange={(e) => {
+              setBillingAddress({ ...billingAddress, addressLine1: e.target.value });
+              setBillingAddressChanged(true);
+            }}
+            placeholder="Street address, P.O. box"
+            className="w-full px-3 py-2 bg-slate-900/50 border border-slate-700 rounded-lg text-sm text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500"
+          />
+        </div>
+
+        {/* Address Line 2 */}
+        <div>
+          <label className="block text-xs font-medium text-slate-400 mb-1">
+            Address Line 2 <span className="text-slate-500">(Optional)</span>
+          </label>
+          <input
+            type="text"
+            value={billingAddress.addressLine2 || ''}
+            onChange={(e) => {
+              setBillingAddress({ ...billingAddress, addressLine2: e.target.value });
+              setBillingAddressChanged(true);
+            }}
+            placeholder="Apartment, suite, unit, building"
+            className="w-full px-3 py-2 bg-slate-900/50 border border-slate-700 rounded-lg text-sm text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500"
+          />
+        </div>
+
+        {/* City & State */}
+        <div className="grid grid-cols-2 gap-2">
+          <div>
+            <label className="block text-xs font-medium text-slate-400 mb-1">
+              City *
+            </label>
+            <input
+              type="text"
+              value={billingAddress.city}
+              onChange={(e) => {
+                setBillingAddress({ ...billingAddress, city: e.target.value });
+                setBillingAddressChanged(true);
+              }}
+              placeholder="Enter city"
+              className="w-full px-3 py-2 bg-slate-900/50 border border-slate-700 rounded-lg text-sm text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-slate-400 mb-1">
+              State/County *
+            </label>
+            <input
+              type="text"
+              value={billingAddress.state}
+              onChange={(e) => {
+                setBillingAddress({ ...billingAddress, state: e.target.value });
+                setBillingAddressChanged(true);
+              }}
+              placeholder="Enter state/county"
+              className="w-full px-3 py-2 bg-slate-900/50 border border-slate-700 rounded-lg text-sm text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500"
+            />
+          </div>
+        </div>
+
+        {/* Postal Code & Country */}
+        <div className="grid grid-cols-2 gap-2">
+          <div>
+            <label className="block text-xs font-medium text-slate-400 mb-1">
+              Postal Code *
+            </label>
+            <input
+              type="text"
+              value={billingAddress.postalCode}
+              onChange={(e) => {
+                setBillingAddress({ ...billingAddress, postalCode: e.target.value });
+                setBillingAddressChanged(true);
+              }}
+              placeholder="Enter postal code"
+              className="w-full px-3 py-2 bg-slate-900/50 border border-slate-700 rounded-lg text-sm text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-slate-400 mb-1">
+              Country *
+            </label>
+            <input
+              type="text"
+              value={billingAddress.country}
+              onChange={(e) => {
+                setBillingAddress({ ...billingAddress, country: e.target.value });
+                setBillingAddressChanged(true);
+              }}
+              placeholder="Enter country"
+              className="w-full px-3 py-2 bg-slate-900/50 border border-slate-700 rounded-lg text-sm text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500"
+            />
+          </div>
+        </div>
+
+        {/* Phone Number */}
+        <div>
+          <label className="block text-xs font-medium text-slate-400 mb-1">
+            Phone Number *
+          </label>
+          <input
+            type="tel"
+            value={billingAddress.phoneNumber}
+            onChange={(e) => {
+              setBillingAddress({ ...billingAddress, phoneNumber: e.target.value });
+              setBillingAddressChanged(true);
+            }}
+            placeholder="Enter phone number"
+            className="w-full px-3 py-2 bg-slate-900/50 border border-slate-700 rounded-lg text-sm text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500"
+          />
+        </div>
+      </div>
+    )}
+  </div>
+
+  {/* Shipping Address */}
+  <div className="bg-slate-900/30 rounded-xl border border-slate-700">
+    <button
+      type="button"
+      onClick={() => setShowAddresses(!showAddresses)}
+      className="w-full px-4 py-3 flex items-center justify-between hover:bg-slate-800/50 transition-colors rounded-t-xl"
+    >
+      <div className="flex items-center gap-2">
+        <Truck className="h-4 w-4 text-green-400" />
+        <h3 className="text-sm font-semibold text-white">Shipping Address</h3>
+        {shippingAddressChanged && (
+          <span className="px-1.5 py-0.5 text-xs bg-amber-500/10 text-amber-400 rounded">
+            Modified
+          </span>
+        )}
+      </div>
+      {showAddresses ? (
+        <ChevronUp className="h-4 w-4 text-slate-400" />
+      ) : (
+        <ChevronDown className="h-4 w-4 text-slate-400" />
+      )}
+    </button>
+
+    {showAddresses && (
+      <div className="p-4 border-t border-slate-700 space-y-3">
+        {/* First & Last Name */}
+        <div className="grid grid-cols-2 gap-2">
+          <div>
+            <label className="block text-xs font-medium text-slate-400 mb-1">
+              First Name *
+            </label>
+            <input
+              type="text"
+              value={shippingAddress.firstName}
+              onChange={(e) => {
+                setShippingAddress({ ...shippingAddress, firstName: e.target.value });
+                setShippingAddressChanged(true);
+              }}
+              placeholder="Enter first name"
+              className="w-full px-3 py-2 bg-slate-900/50 border border-slate-700 rounded-lg text-sm text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-slate-400 mb-1">
+              Last Name *
+            </label>
+            <input
+              type="text"
+              value={shippingAddress.lastName}
+              onChange={(e) => {
+                setShippingAddress({ ...shippingAddress, lastName: e.target.value });
+                setShippingAddressChanged(true);
+              }}
+              placeholder="Enter last name"
+              className="w-full px-3 py-2 bg-slate-900/50 border border-slate-700 rounded-lg text-sm text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500"
+            />
+          </div>
+        </div>
+
+        {/* Company */}
+        <div>
+          <label className="block text-xs font-medium text-slate-400 mb-1">
+            Company <span className="text-slate-500">(Optional)</span>
+          </label>
+          <input
+            type="text"
+            value={shippingAddress.company || ''}
+            onChange={(e) => {
+              setShippingAddress({ ...shippingAddress, company: e.target.value });
+              setShippingAddressChanged(true);
+            }}
+            placeholder="Enter company name"
+            className="w-full px-3 py-2 bg-slate-900/50 border border-slate-700 rounded-lg text-sm text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500"
+          />
+        </div>
+
+        {/* Address Line 1 */}
+        <div>
+          <label className="block text-xs font-medium text-slate-400 mb-1">
+            Address Line 1 *
+          </label>
+          <input
+            type="text"
+            value={shippingAddress.addressLine1}
+            onChange={(e) => {
+              setShippingAddress({ ...shippingAddress, addressLine1: e.target.value });
+              setShippingAddressChanged(true);
+            }}
+            placeholder="Street address, P.O. box"
+            className="w-full px-3 py-2 bg-slate-900/50 border border-slate-700 rounded-lg text-sm text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500"
+          />
+        </div>
+
+        {/* Address Line 2 */}
+        <div>
+          <label className="block text-xs font-medium text-slate-400 mb-1">
+            Address Line 2 <span className="text-slate-500">(Optional)</span>
+          </label>
+          <input
+            type="text"
+            value={shippingAddress.addressLine2 || ''}
+            onChange={(e) => {
+              setShippingAddress({ ...shippingAddress, addressLine2: e.target.value });
+              setShippingAddressChanged(true);
+            }}
+            placeholder="Apartment, suite, unit, building"
+            className="w-full px-3 py-2 bg-slate-900/50 border border-slate-700 rounded-lg text-sm text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500"
+          />
+        </div>
+
+        {/* City & State */}
+        <div className="grid grid-cols-2 gap-2">
+          <div>
+            <label className="block text-xs font-medium text-slate-400 mb-1">
+              City *
+            </label>
+            <input
+              type="text"
+              value={shippingAddress.city}
+              onChange={(e) => {
+                setShippingAddress({ ...shippingAddress, city: e.target.value });
+                setShippingAddressChanged(true);
+              }}
+              placeholder="Enter city"
+              className="w-full px-3 py-2 bg-slate-900/50 border border-slate-700 rounded-lg text-sm text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-slate-400 mb-1">
+              State/County *
+            </label>
+            <input
+              type="text"
+              value={shippingAddress.state}
+              onChange={(e) => {
+                setShippingAddress({ ...shippingAddress, state: e.target.value });
+                setShippingAddressChanged(true);
+              }}
+              placeholder="Enter state/county"
+              className="w-full px-3 py-2 bg-slate-900/50 border border-slate-700 rounded-lg text-sm text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500"
+            />
+          </div>
+        </div>
+
+        {/* Postal Code & Country */}
+        <div className="grid grid-cols-2 gap-2">
+          <div>
+            <label className="block text-xs font-medium text-slate-400 mb-1">
+              Postal Code *
+            </label>
+            <input
+              type="text"
+              value={shippingAddress.postalCode}
+              onChange={(e) => {
+                setShippingAddress({ ...shippingAddress, postalCode: e.target.value });
+                setShippingAddressChanged(true);
+              }}
+              placeholder="Enter postal code"
+              className="w-full px-3 py-2 bg-slate-900/50 border border-slate-700 rounded-lg text-sm text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-slate-400 mb-1">
+              Country *
+            </label>
+            <input
+              type="text"
+              value={shippingAddress.country}
+              onChange={(e) => {
+                setShippingAddress({ ...shippingAddress, country: e.target.value });
+                setShippingAddressChanged(true);
+              }}
+              placeholder="Enter country"
+              className="w-full px-3 py-2 bg-slate-900/50 border border-slate-700 rounded-lg text-sm text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500"
+            />
+          </div>
+        </div>
+
+        {/* Phone Number */}
+        <div>
+          <label className="block text-xs font-medium text-slate-400 mb-1">
+            Phone Number *
+          </label>
+          <input
+            type="tel"
+            value={shippingAddress.phoneNumber}
+            onChange={(e) => {
+              setShippingAddress({ ...shippingAddress, phoneNumber: e.target.value });
+              setShippingAddressChanged(true);
+            }}
+            placeholder="Enter phone number"
+            className="w-full px-3 py-2 bg-slate-900/50 border border-slate-700 rounded-lg text-sm text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500"
+          />
+        </div>
+      </div>
+    )}
+  </div>
+</div>
+
+
 
             {/* ✅ Edit Reason & Notes */}
             <div className="bg-slate-900/30 rounded-xl border border-slate-700 p-4 space-y-3">

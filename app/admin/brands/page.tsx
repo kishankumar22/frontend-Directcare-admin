@@ -691,62 +691,113 @@ const handleSubmit = async (e: React.FormEvent) => {
       </div>
 
       
-    {/* ✅ Statistics Cards - NEW */}
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-      {/* Total Brands */}
-      <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-6 hover:border-violet-500/50 transition-all">
-        <div className="flex items-center gap-4">
-          <div className="w-12 h-12 rounded-xl bg-violet-500/10 flex items-center justify-center">
-            <Tag className="h-6 w-6 text-violet-400" />
-          </div>
-          <div className="flex-1">
-            <p className="text-slate-400 text-sm font-medium mb-1">Total Brands</p>
-            <p className="text-white text-2xl font-bold">{stats.totalBrands}</p>
-          </div>
-        </div>
+{/* ✅ Statistics Cards - CLICKABLE FILTERS */}
+<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+  
+  {/* 1. Total Brands - CLICKABLE */}
+  <button
+    type="button"
+    onClick={() => {
+      if (publishedFilter === 'all') setPublishedFilter('published');
+      else if (publishedFilter === 'published') setPublishedFilter('unpublished');
+      else setPublishedFilter('all');
+    }}
+    className="bg-gradient-to-br from-violet-500/10 to-violet-600/5 backdrop-blur-sm border border-violet-500/20 rounded-xl p-4 hover:border-violet-500/40 transition-all cursor-pointer group relative text-left"
+  >
+    {/* Tooltip */}
+    <div className="absolute -top-10 left-1/2 -translate-x-1/2 bg-slate-800 text-white text-xs px-3 py-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-10 shadow-xl">
+      Filter: {publishedFilter === 'all' ? 'All Brands' : publishedFilter === 'published' ? 'Published Only' : 'Unpublished Only'}
+      <div className="absolute bottom-0 left-1/2 -translate-x-1/2 translate-y-full w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-slate-800"></div>
+    </div>
+    
+    <div className="flex items-center justify-between">
+      <div>
+        <p className="text-slate-400 text-xs font-medium">Total Brands</p>
+        <p className="text-2xl font-bold text-white mt-1">{stats.totalBrands}</p>
+        <p className="text-xs text-violet-400 mt-1 font-medium">
+          {publishedFilter === 'all' ? '● All' : publishedFilter === 'published' ? '● Published' : '● Unpublished'}
+        </p>
       </div>
-
-      {/* Published Brands */}
-      <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-6 hover:border-green-500/50 transition-all">
-        <div className="flex items-center gap-4">
-          <div className="w-12 h-12 rounded-xl bg-green-500/10 flex items-center justify-center">
-            <CheckCircle className="h-6 w-6 text-green-400" />
-          </div>
-          <div className="flex-1">
-            <p className="text-slate-400 text-sm font-medium mb-1">Published</p>
-            <p className="text-white text-2xl font-bold">{stats.publishedBrands}</p>
-          </div>
-        </div>
-      </div>
-
-      {/* Homepage Brands */}
-      <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-6 hover:border-cyan-500/50 transition-all">
-        <div className="flex items-center gap-4">
-          <div className="w-12 h-12 rounded-xl bg-cyan-500/10 flex items-center justify-center">
-            <Eye className="h-6 w-6 text-cyan-400" />
-          </div>
-          <div className="flex-1">
-            <p className="text-slate-400 text-sm font-medium mb-1">On Homepage</p>
-            <p className="text-white text-2xl font-bold">{stats.homepageBrands}</p>
-          </div>
-        </div>
-      </div>
-
-      {/* Total Products */}
-      <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-6 hover:border-pink-500/50 transition-all">
-        <div className="flex items-center gap-4">
-          <div className="w-12 h-12 rounded-xl bg-pink-500/10 flex items-center justify-center">
-            <svg className="h-6 w-6 text-pink-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-            </svg>
-          </div>
-          <div className="flex-1">
-            <p className="text-slate-400 text-sm font-medium mb-1">Total Products</p>
-            <p className="text-white text-2xl font-bold">{stats.totalProducts}</p>
-          </div>
-        </div>
+      <div className="w-10 h-10 bg-violet-500/20 rounded-lg flex items-center justify-center shrink-0 group-hover:bg-violet-500/30 transition-all">
+        <Tag className="h-5 w-5 text-violet-400" />
       </div>
     </div>
+  </button>
+
+  {/* 2. Published Brands - CLICKABLE (same filter as Total) */}
+  <button
+    type="button"
+    onClick={() => {
+      if (publishedFilter === 'all') setPublishedFilter('published');
+      else if (publishedFilter === 'published') setPublishedFilter('unpublished');
+      else setPublishedFilter('all');
+    }}
+    className="bg-gradient-to-br from-green-500/10 to-green-600/5 backdrop-blur-sm border border-green-500/20 rounded-xl p-4 hover:border-green-500/40 transition-all cursor-pointer group relative text-left"
+  >
+    {/* Tooltip */}
+    <div className="absolute -top-10 left-1/2 -translate-x-1/2 bg-slate-800 text-white text-xs px-3 py-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-10 shadow-xl">
+      Filter: {publishedFilter === 'all' ? 'All Brands' : publishedFilter === 'published' ? 'Published Only' : 'Unpublished Only'}
+      <div className="absolute bottom-0 left-1/2 -translate-x-1/2 translate-y-full w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-slate-800"></div>
+    </div>
+    
+    <div className="flex items-center justify-between">
+      <div>
+        <p className="text-slate-400 text-xs font-medium">Published</p>
+        <p className="text-2xl font-bold text-white mt-1">{stats.publishedBrands}</p>
+        <p className="text-xs text-green-400 mt-1 font-medium">
+          {publishedFilter === 'all' ? '● All' : publishedFilter === 'published' ? '● Published' : '● Unpublished'}
+        </p>
+      </div>
+      <div className="w-10 h-10 bg-green-500/20 rounded-lg flex items-center justify-center shrink-0 group-hover:bg-green-500/30 transition-all">
+        <CheckCircle className="h-5 w-5 text-green-400" />
+      </div>
+    </div>
+  </button>
+
+  {/* 3. Homepage Brands - CLICKABLE */}
+  <button
+    type="button"
+    onClick={() => {
+      if (homepageFilter === 'all') setHomepageFilter('yes');
+      else if (homepageFilter === 'yes') setHomepageFilter('no');
+      else setHomepageFilter('all');
+    }}
+    className="bg-gradient-to-br from-cyan-500/10 to-cyan-600/5 backdrop-blur-sm border border-cyan-500/20 rounded-xl p-4 hover:border-cyan-500/40 transition-all cursor-pointer group relative text-left"
+  >
+    {/* Tooltip */}
+    <div className="absolute -top-10 left-1/2 -translate-x-1/2 bg-slate-800 text-white text-xs px-3 py-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-10 shadow-xl">
+      Filter: {homepageFilter === 'all' ? 'All Brands' : homepageFilter === 'yes' ? 'On Homepage' : 'Not On Homepage'}
+      <div className="absolute bottom-0 left-1/2 -translate-x-1/2 translate-y-full w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-slate-800"></div>
+    </div>
+    
+    <div className="flex items-center justify-between">
+      <div>
+        <p className="text-slate-400 text-xs font-medium">On Homepage</p>
+        <p className="text-2xl font-bold text-white mt-1">{stats.homepageBrands}</p>
+        <p className="text-xs text-cyan-400 mt-1 font-medium">
+          {homepageFilter === 'all' ? '● All' : homepageFilter === 'yes' ? '● Yes' : '● No'}
+        </p>
+      </div>
+      <div className="w-10 h-10 bg-cyan-500/20 rounded-lg flex items-center justify-center shrink-0 group-hover:bg-cyan-500/30 transition-all">
+        <Eye className="h-5 w-5 text-cyan-400" />
+      </div>
+    </div>
+  </button>
+
+  {/* 4. Total Products - NON-CLICKABLE */}
+  <div className="bg-gradient-to-br from-pink-500/10 to-pink-600/5 backdrop-blur-sm border border-pink-500/20 rounded-xl p-4">
+    <div className="flex items-center justify-between">
+      <div>
+        <p className="text-slate-400 text-xs font-medium">Total Products</p>
+        <p className="text-2xl font-bold text-white mt-1">{stats.totalProducts}</p>
+      </div>
+      <div className="w-10 h-10 bg-pink-500/20 rounded-lg flex items-center justify-center shrink-0">
+        <Package className="h-5 w-5 text-pink-400" />
+      </div>
+    </div>
+  </div>
+
+</div>
 
 
       {/* Items Per Page Selector */}
