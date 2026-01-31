@@ -1665,7 +1665,7 @@ For any questions or issues:
 
 | Table | Purpose | Key Columns |
 |-------|---------|-------------|
-| ProductBrands | Multiple brands per product | ProductId, BrandId, IsPrimary |
+| ProductBrands   | Multiple brands per product | ProductId, BrandId, IsPrimary |
 | ProductAdminCommentHistories | Audit trail | OldComment, NewComment, ChangedBy |
 | ProductEditLocks | Edit locking | ProductId, LockedBy, ExpiresAt |
 | BackInStockSubscriptions | Customer notifications | ProductId, CustomerEmail, IsNotified |
