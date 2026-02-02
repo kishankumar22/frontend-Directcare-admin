@@ -35,7 +35,7 @@ export function useNewsletter() {
   async function checkSubscription(email: string) {
     try {
       const res = await fetch(
-        `https://testapi.knowledgemarkg.com/api/Newsletter/check?email=${email}`
+        `https://warehouseapi.mezzex.com/api/Newsletter/check?email=${email}`
       );
       const data = await res.json();
 
@@ -52,7 +52,7 @@ export function useNewsletter() {
   async function submitEmail(email: string) {
     try {
       const res = await fetch(
-        "https://testapi.knowledgemarkg.com/api/Newsletter/subscribe",
+        "https://warehouseapi.mezzex.com/api/Newsletter/subscribe",
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },

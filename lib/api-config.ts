@@ -1,5 +1,5 @@
 // lib/api-config.ts
-export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://testapi.knowledgemarkg.com';
+export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://warehouseapi.mezzex.com';
 
 export const API_ENDPOINTS = {
   // Auth

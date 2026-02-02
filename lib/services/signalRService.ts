@@ -47,7 +47,7 @@ class SignalRService {
     try {
       console.log('==================== 🚀 SIGNALR INIT ====================');
       
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://testapi.knowledgemarkg.com';
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://warehouseapi.mezzex.com';
       const token = localStorage.getItem('authToken') || localStorage.getItem('accessToken');
       
       console.log('📍 API URL:', apiUrl);

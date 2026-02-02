@@ -102,7 +102,7 @@ const uploadReviewImages = async (): Promise<string[]> => {
     imageFiles.forEach((file) => formData.append("images", file));
 
     const res = await fetch(
-      "https://testapi.knowledgemarkg.com/api/ProductReviews/upload-images",
+      "https://warehouseapi.mezzex.com/api/ProductReviews/upload-images",
       {
         method: "POST",
         headers: {
@@ -134,7 +134,7 @@ const uploadReviewVideos = async (): Promise<string[]> => {
     videoFiles.forEach((file) => formData.append("videos", file));
 
     const res = await fetch(
-      "https://testapi.knowledgemarkg.com/api/ProductReviews/upload-videos",
+      "https://warehouseapi.mezzex.com/api/ProductReviews/upload-videos",
       {
         method: "POST",
         headers: {
@@ -185,7 +185,7 @@ useEffect(() => {
   const fetchReviews = useCallback(async () => {
     try {
       const res = await fetch(
-        `https://testapi.knowledgemarkg.com/api/ProductReviews/product/${productId}`
+        `https://warehouseapi.mezzex.com/api/ProductReviews/product/${productId}`
       );
       const json = await res.json();
       setReviews(json?.data ?? []);
@@ -215,7 +215,7 @@ const handleSubmitReview = async () => {
 
     // 2️⃣ submit review
     const res = await fetch(
-      "https://testapi.knowledgemarkg.com/api/ProductReviews",
+      "https://warehouseapi.mezzex.com/api/ProductReviews",
       {
         method: "POST",
         headers: {

@@ -426,7 +426,7 @@ export default function AdminDashboard() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-slate-950">
+      <div className="flex items-center justify-center min-h-screen bg-slate-950/10">
         <div className="text-center">
           <Loader2 className="h-12 w-12 animate-spin text-violet-500 mx-auto mb-4" />
           <p className="text-slate-400 text-lg">Loading dashboard data...</p>

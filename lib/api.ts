@@ -1,7 +1,7 @@
 // lib/api.ts
 import axios, { AxiosInstance, AxiosError } from 'axios';
 
-export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://testapi.knowledgemarkg.com';
+export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://warehouseapi.mezzex.com';
 
 export interface ApiResponse<T> {
   data?: T;
@@ -17,7 +17,7 @@ class ApiClient {
     // ✅ Validate and log base URL
     if (!baseURL || baseURL === 'undefined') {
       console.error('❌ Invalid API_BASE_URL:', baseURL);
-      baseURL = 'https://testapi.knowledgemarkg.com';
+      baseURL = 'https://warehouseapi.mezzex.com';
     }
 
     console.log('🔧 API Client initialized with URL:', baseURL);
