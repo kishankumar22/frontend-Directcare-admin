@@ -44,6 +44,11 @@ const config: Config = {
           foreground: "hsl(var(--card-foreground))",
         },
       },
+       animation: {
+        shimmer: 'shimmer 2s infinite',
+          fadeIn: 'fadeIn 0.2s ease-out',
+        slideUp: 'slideUp 0.3s ease-out',
+      },
       borderRadius: {
         lg: "var(--radius)",
         md: "calc(var(--radius) - 2px)",

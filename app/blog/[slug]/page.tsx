@@ -7,7 +7,7 @@ import * as LucideIcons from "lucide-react";
 const API_BASE =
   process.env.API_BASE_URL ||
   process.env.NEXT_PUBLIC_API_URL ||
-  "https://warehouseapi.mezzex.com";
+  "https://testapi.knowledgemarkg.com";
 
 // ⭐ FIX: params is now Promise in Next.js 15
 export async function generateMetadata({

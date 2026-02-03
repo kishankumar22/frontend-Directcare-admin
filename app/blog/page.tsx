@@ -6,7 +6,7 @@ import * as LucideIcons from "lucide-react";
 
 
 
-const API_BASE = process.env.API_BASE_URL || process.env.NEXT_PUBLIC_API_BASE_URL || "https://warehouseapi.mezzex.com";
+const API_BASE = process.env.API_BASE_URL || process.env.NEXT_PUBLIC_API_BASE_URL || "https://testapi.knowledgemarkg.com";
 
 async function fetchJSON(url: string) {
   const res = await fetch(url, { next: { revalidate: 60 } });

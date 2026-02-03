@@ -139,7 +139,7 @@ function findCategoryPath(
  const productsRes = await getProducts(searchParamsResolved, slug);
 
   const vatRatesRes = await fetch(
-  "https://warehouseapi.mezzex.com/api/VATRates?activeOnly=true",
+  "https://testapi.knowledgemarkg.com/api/VATRates?activeOnly=true",
   { next: { revalidate: 600 } }
 ).then((res) => res.json());
 

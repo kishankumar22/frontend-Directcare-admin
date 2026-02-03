@@ -25,7 +25,11 @@ export default function AddProductPage() {
 const [checkingVariantSku, setCheckingVariantSku] = useState<Record<string, boolean>>({});
 const [variantSkuErrors, setVariantSkuErrors] = useState<Record<string, string>>({});
 const [showTaxPreview, setShowTaxPreview] = useState(false);
-
+// ============================================================
+// ADD THESE STATES (After other useState declarations)
+// ============================================================
+const [showUnsavedModal, setShowUnsavedModal] = useState(false);
+const [pendingNavigation, setPendingNavigation] = useState<string | null>(null);
 // ================================
 // ✅ LOADING & SUBMISSION STATES
 // ================================
@@ -80,6 +84,14 @@ const [availableProducts, setAvailableProducts] = useState<Array<{id: string, na
 const [uploadingImages, setUploadingImages] = useState(false);
 const [vatSearch, setVatSearch] = useState('');
 const [showVatDropdown, setShowVatDropdown] = useState(false);
+
+  
+  // ============ NEW STATES FOR DRAFT/EDIT MODE ============
+  const [productId, setProductId] = useState<string | null>(null); // Track created product ID
+  const [isEditMode, setIsEditMode] = useState<boolean>(false); // Track if in edit mode
+  const [lastSavedData, setLastSavedData] = useState<any>(null); // Track last saved state
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState<boolean>(false)
+
 const [dropdownsData, setDropdownsData] = useState<DropdownsData>({
   brands: [],
   categories: [],
@@ -89,6 +101,10 @@ const [dropdownsData, setDropdownsData] = useState<DropdownsData>({
   const [isGroupedModalOpen, setIsGroupedModalOpen] = useState(false);
 const [missingFields, setMissingFields] = useState<string[]>([]);
 const [validationErrors, setValidationErrors] = useState<{[key: string]: string}>({});
+// ============================================================
+// ADD THIS NEW STATE (After other useState declarations)
+// ============================================================
+const [initialFormData, setInitialFormData] = useState<any>(null);
 
 // ✅ ADD THESE TWO STATES
 const [simpleProducts, setSimpleProducts] = useState<SimpleProduct[]>([]);
@@ -124,6 +140,85 @@ function debounce<T extends (...args: any[]) => any>(
 
   return debounced;
 }
+
+// ============================================================
+// ADD THIS useEffect AFTER YOUR OTHER useEffect HOOKS
+// (Near your other useEffect declarations, NOT inside JSX)
+// ============================================================
+
+// ESC Key Support for Modal
+useEffect(() => {
+  const handleEscape = (e: KeyboardEvent) => {
+    if (e.key === 'Escape' && showUnsavedModal) {
+      handleModalCancel();
+    }
+  };
+  
+  if (showUnsavedModal) {
+    window.addEventListener('keydown', handleEscape);
+  }
+  
+  return () => {
+    window.removeEventListener('keydown', handleEscape);
+  };
+}, [showUnsavedModal]);
+
+// ============================================================
+// ADD THIS HANDLER FOR MODAL ACTIONS
+// ============================================================
+const handleModalSaveDraft = async () => {
+  setShowUnsavedModal(false);
+  
+  // Trigger draft save
+  const fakeEvent = { preventDefault: () => {} } as React.FormEvent;
+  await handleDraftSave(fakeEvent);
+  
+  // After save, navigate
+  if (pendingNavigation) {
+    setTimeout(() => {
+      router.push(pendingNavigation);
+      setPendingNavigation(null);
+    }, 500);
+  }
+};
+
+const handleModalCreateProduct = async () => {
+  setShowUnsavedModal(false);
+  
+  // Trigger publish
+  const fakeEvent = { preventDefault: () => {} } as React.FormEvent;
+  await handlePublish(fakeEvent);
+  
+  // Navigation will happen automatically in handleSubmit
+  setPendingNavigation(null);
+};
+
+const handleModalDiscard = () => {
+  setShowUnsavedModal(false);
+  setHasUnsavedChanges(false); // Clear flag to prevent further warnings
+  
+  if (pendingNavigation) {
+    router.push(pendingNavigation);
+    setPendingNavigation(null);
+  }
+};
+
+const handleModalCancel = () => {
+  setShowUnsavedModal(false);
+  setPendingNavigation(null);
+};
+
+// ============================================================
+// UPDATE handleNavigateAway FUNCTION
+// ============================================================
+const handleNavigateAway = useCallback((targetPath?: string) => {
+  if (hasUnsavedChanges) {
+    setPendingNavigation(targetPath || '/admin/products');
+    setShowUnsavedModal(true);
+  } else {
+    router.push(targetPath || '/admin/products');
+  }
+}, [hasUnsavedChanges, router]);
 /**
  * ✅ CHECK DRAFT REQUIREMENTS (Minimal)
  * Only basic fields required to save as draft
@@ -170,12 +265,6 @@ const checkPublishRequirements = (): { isValid: boolean; missing: string[] } => 
   if (!formData.name?.trim()) missing.push('Product Name');
   if (!formData.sku?.trim()) missing.push('SKU');
   // if (!formData.shortDescription?.trim()) missing.push('Short Description');X`
-
-  // 2. Pricing
-  if (!formData.price || parseFloat(formData.price.toString()) <= 0) {
-    missing.push('Price (must be greater than 0)');
-  }
-
   // 3. Categories
   if (!formData.categoryIds || formData.categoryIds.length === 0) {
     missing.push('Category (at least 1)');
@@ -188,9 +277,9 @@ const checkPublishRequirements = (): { isValid: boolean; missing: string[] } => 
   }
 
   // 5. Images
-  if (!formData.productImages || formData.productImages.length < 3) {
-    missing.push(`Product Images (minimum 3, current: ${formData.productImages?.length || 0})`);
-  }
+  // if (!formData.productImages || formData.productImages.length < 3) {
+  //   missing.push(`Product Images (minimum 3, current: ${formData.productImages?.length || 0})`);
+  // }
 
   // 6. Stock (if tracking)
   if (formData.manageInventory === 'track') {
@@ -574,34 +663,112 @@ useEffect(() => {
 /**
  * ✅ HANDLE DRAFT SAVE
  */
+
+// ============ HANDLE DRAFT SAVE - NO REDIRECT ============
 const handleDraftSave = (e: React.FormEvent) => {
   e.preventDefault();
-
+  
+  // Check draft requirements (minimal fields only)
   const { isValid, missing } = checkDraftRequirements();
-
   if (!isValid) {
     showMissingFieldsToast(missing, true);
     return;
   }
-
-  handleSubmit(e, true); // Proceed with draft save
+  
+  // Pass: isDraft = true, shouldRedirect = false
+  handleSubmit(e, true, false);
 };
 
-/**
- * ✅ HANDLE PUBLISH/CREATE
- */
+// ============ HANDLE PUBLISH - WITH REDIRECT ============
 const handlePublish = (e: React.FormEvent) => {
   e.preventDefault();
-
+  
+  // Check FULL requirements for publishing
   const { isValid, missing } = checkPublishRequirements();
-
   if (!isValid) {
     showMissingFieldsToast(missing, false);
     return;
   }
-
-  handleSubmit(e, false); // Proceed with publish
+  
+  // Pass: isDraft = false, shouldRedirect = true
+  handleSubmit(e, false, true);
 };
+// ============ FIX 3: Add Navigation Guard ============
+// Add this useEffect for unsaved changes warning:
+useEffect(() => {
+  const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+    if (hasUnsavedChanges) {
+      e.preventDefault();
+      e.returnValue = 'You have unsaved changes. Are you sure you want to leave?';
+    }
+  };
+
+  window.addEventListener('beforeunload', handleBeforeUnload);
+  return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+}, [hasUnsavedChanges]);
+
+useEffect(() => {
+  const urlParams = new URLSearchParams(window.location.search);
+  const id = urlParams.get('id');
+  if (id) {
+    setProductId(id);
+    setIsEditMode(true);
+  }
+}, []);
+
+
+// ============================================================
+// REPLACE YOUR EXISTING "TRACK UNSAVED CHANGES" useEffect WITH THIS:
+// ============================================================
+
+// CAPTURE INITIAL STATE ON MOUNT
+useEffect(() => {
+  if (!initialFormData) {
+    setInitialFormData(JSON.parse(JSON.stringify(formData)));
+    console.log('📸 Initial form state captured');
+  }
+}, []); // Run once only
+
+// TRACK UNSAVED CHANGES (Works for BOTH Create & Edit)
+useEffect(() => {
+  if (!initialFormData) return;
+  
+  // In EDIT mode: compare with lastSavedData
+  // In CREATE mode: compare with initial empty state
+  const compareWith = (isEditMode && lastSavedData) 
+    ? lastSavedData 
+    : initialFormData;
+  
+  const hasChanges = JSON.stringify(formData) !== JSON.stringify(compareWith);
+  setHasUnsavedChanges(hasChanges);
+  
+  // Debug log
+  console.log('🔍 Change Detection:', {
+    mode: isEditMode ? 'EDIT' : 'CREATE',
+    hasChanges,
+    formDataName: formData.name,
+    compareWithName: compareWith?.name
+  });
+}, [formData, lastSavedData, isEditMode, initialFormData]);
+
+// ============================================================
+// BROWSER CLOSE/REFRESH WARNING (Keep existing)
+// ============================================================
+useEffect(() => {
+  const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+    if (hasUnsavedChanges) {
+      e.preventDefault();
+      e.returnValue = 'You have unsaved changes. Are you sure you want to leave?';
+      return e.returnValue;
+    }
+  };
+
+  window.addEventListener('beforeunload', handleBeforeUnload);
+  return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+}, [hasUnsavedChanges]);
+
+
+
 // ✅ Extract YouTube Video ID from URL
 const getYouTubeVideoId = (url: string): string | null => {
   if (!url) return null;
@@ -782,356 +949,334 @@ useEffect(() => {
 }, [formData.sku]);
 
 
-const handleSubmit = async (e?: React.FormEvent, isDraft: boolean = false) => {
-  if (e) {
-    e.preventDefault();
-  }
+// ============ COMPLETE handleSubmit FUNCTION WITH ALL VALIDATIONS ============
+const handleSubmit = async (
+  e?: React.FormEvent,
+  isDraft: boolean = false,
+  shouldRedirect: boolean = true // NEW PARAMETER
+) => {
+  if (e) e.preventDefault();
 
   const target = (e?.target as HTMLElement) || document.body;
 
-  // ================================
   // DUPLICATE SUBMISSION PREVENTION
-  // ================================
-  if (target.hasAttribute('data-submitting')) {
-    toast.info('⏳ Already submitting... Please wait!');
+  if (target.hasAttribute("data-submitting")) {
+    toast.info("Already submitting... Please wait!");
     return;
   }
 
-  target.setAttribute('data-submitting', 'true');
-  setIsSubmitting(true); // ✅ START LOADER
+  target.setAttribute("data-submitting", "true");
+  setIsSubmitting(true); // START LOADER
 
   try {
-    console.log('🚀 ==================== PRODUCT SUBMISSION START ====================');
-    console.log('📋 Form Mode:', isDraft ? 'DRAFT' : 'PUBLISH');
+    console.log("🚀 PRODUCT SUBMISSION START");
+    console.log("📋 Form Mode:", isDraft ? "DRAFT" : "PUBLISH");
+    console.log("🔄 Edit Mode:", isEditMode);
+    console.log("🆔 Product ID:", productId);
 
-    // ✅ SHOW PROGRESS
+    // SHOW PROGRESS
     setSubmitProgress({
-      step: isDraft ? 'Validating draft data...' : 'Validating product data...',
+      step: isDraft ? "Validating draft data..." : "Validating product data...",
       percentage: 10,
     });
 
-    // ═══════════════════════════════════════════════════════════════════════
+    // ============================================================
     // SECTION 1: BASIC VALIDATION
-    // ═══════════════════════════════════════════════════════════════════════
+    // ============================================================
 
-    // ✅ 1.1 Required Fields
+    // 1.1 Required Fields
     if (!formData.name || !formData.sku) {
-      toast.warning('⚠️ Please fill in required fields: Product Name and SKU');
-      target.removeAttribute('data-submitting');
-      setIsSubmitting(false);
-      setSubmitProgress(null);
-      return;
-    }
-
-    // ✅ 1.2 NAME VALIDATION
-    const PRODUCT_NAME_REGEX = /^[A-Za-z0-9\u00C0-\u024F\s.,()'"'\-\/&+%]+$/;
-
-    if (!PRODUCT_NAME_REGEX.test(formData.name)) {
-      toast.error("⚠️ Product name contains unsupported characters.");
+      toast.warning("Please fill in required fields: Product Name and SKU");
       target.removeAttribute("data-submitting");
       setIsSubmitting(false);
       setSubmitProgress(null);
       return;
     }
 
-// ✅ 1.X FULL DESCRIPTION VALIDATION (REQUIRED FOR PUBLISH)
-if (!isDraft) {
-  if (
-    !formData.fullDescription ||
-    !getPlainText(formData.fullDescription).trim()
-  ) {
-    toast.error('❌ Full description is required');
-    target.removeAttribute('data-submitting');
-    setIsSubmitting(false);
-    setSubmitProgress(null);
-    return;
-  }
+    // 1.2 NAME VALIDATION
+    const PRODUCT_NAME_REGEX = /^[A-Za-z0-9\u00C0-\u024F\s.,\-]+$/;
+    if (!PRODUCT_NAME_REGEX.test(formData.name)) {
+      toast.error("Product name contains unsupported characters.");
+      target.removeAttribute("data-submitting");
+      setIsSubmitting(false);
+      setSubmitProgress(null);
+      return;
+    }
 
-  const descLength = getPlainText(formData.fullDescription).length;
-  if (descLength > 2000) {
-    formData.fullDescription = truncateHtmlByTextLength(
-      formData.fullDescription,
-      2000
-    );
-    toast.info('ℹ️ Full description trimmed to 2000 characters');
-  }
-}
+    // 1.X FULL DESCRIPTION VALIDATION (REQUIRED FOR PUBLISH)
+    if (!isDraft) {
+      if (!formData.fullDescription || !getPlainText(formData.fullDescription).trim()) {
+        toast.error("Full description is required");
+        target.removeAttribute("data-submitting");
+        setIsSubmitting(false);
+        setSubmitProgress(null);
+        return;
+      }
 
-// 1.3 SKU VALIDATION - Length
-if (formData.sku.length < 3) {
-  toast.error('SKU must be at least 3 characters long.');
-  target.removeAttribute('data-submitting');
-  setIsSubmitting(false);
-  setSubmitProgress(null);
-  return;
-}
+      const descLength = getPlainText(formData.fullDescription).length;
+      if (descLength > 2000) {
+        formData.fullDescription = truncateHtmlByTextLength(formData.fullDescription, 2000);
+        toast.info("Full description trimmed to 2000 characters");
+      }
+    }
 
-// ✅ ADD THIS NEW VALIDATION BEFORE LENGTH CHECK:
-const skuValidation = validateSkuFormat(formData.sku);
-if (!skuValidation.isValid) {
-  toast.error(skuValidation.error, { autoClose: 5000 });
-  target.removeAttribute('data-submitting');
-  setIsSubmitting(false);
-  setSubmitProgress(null);
-  return;
-}
+    // 1.3 SKU VALIDATION - Length
+    if (formData.sku.length < 3) {
+      toast.error("SKU must be at least 3 characters long.");
+      target.removeAttribute("data-submitting");
+      setIsSubmitting(false);
+      setSubmitProgress(null);
+      return;
+    }
 
+    // ADD THIS NEW VALIDATION BEFORE LENGTH CHECK
+    const skuValidation = validateSkuFormat(formData.sku);
+    if (!skuValidation.isValid) {
+      toast.error(skuValidation.error, { autoClose: 5000 });
+      target.removeAttribute("data-submitting");
+      setIsSubmitting(false);
+      setSubmitProgress(null);
+      return;
+    }
 
     setSubmitProgress({
-      step: 'Checking SKU availability...',
+      step: "Checking SKU availability...",
       percentage: 20,
     });
 
-    // ✅ 1.4 SKU VALIDATION (Uniqueness)
-    const skuExists = await checkSkuExists(formData.sku);
-    if (skuExists) {
-      toast.error('❌ SKU already exists. Please use a unique SKU.');
-      target.removeAttribute('data-submitting');
-      setIsSubmitting(false);
-      setSubmitProgress(null);
-      return;
+    // 1.4 SKU VALIDATION - Uniqueness (SKIP IN EDIT MODE)
+    if (!isEditMode) {
+      const skuExists = await checkSkuExists(formData.sku);
+      if (skuExists) {
+        toast.error("SKU already exists. Please use a unique SKU.");
+        target.removeAttribute("data-submitting");
+        setIsSubmitting(false);
+        setSubmitProgress(null);
+        return;
+      }
     }
 
-    // ✅ 1.5 PRICE VALIDATION
+    // 1.5 PRICE VALIDATION
     if (formData.price && parseFloat(formData.price.toString()) < 0) {
-      toast.error('⚠️ Price cannot be negative.');
-      target.removeAttribute('data-submitting');
+      toast.error("Price cannot be negative.");
+      target.removeAttribute("data-submitting");
       setIsSubmitting(false);
       setSubmitProgress(null);
       return;
     }
-// ✅ 1.5 PRICE VALIDATION (REQUIRED FOR PUBLISH)
-if (!isDraft) {
-  const price = Number(formData.price);
 
-  if (isNaN(price) || price <= 0) {
-    toast.error('❌ Price must be greater than zero');
-    target.removeAttribute('data-submitting');
-    setIsSubmitting(false);
-    setSubmitProgress(null);
-    return;
-  }
-}
+    // 1.5 PRICE VALIDATION (REQUIRED FOR PUBLISH)
+    if (!isDraft) {
+      const price = Number(formData.price);
+      if (isNaN(price) ) {
+        toast.error("Price is required");
+        target.removeAttribute("data-submitting");
+        setIsSubmitting(false);
+        setSubmitProgress(null);
+        return;
+      }
+    }
 
-   
-
-// ✅ 1.6 STOCK VALIDATION (REQUIRED WHEN TRACKING)
-if (!isDraft && formData.manageInventory === 'track') {
-  const stock = Number(formData.stockQuantity);
-
-  if (isNaN(stock) || stock < 0) {
-    toast.error('❌ Stock quantity must be 0 or greater');
-    target.removeAttribute('data-submitting');
-    setIsSubmitting(false);
-    setSubmitProgress(null);
-    return;
-  }
-}
-
-
+    // 1.6 STOCK VALIDATION (REQUIRED WHEN TRACKING)
+    if (!isDraft && formData.manageInventory === "track") {
+      const stock = Number(formData.stockQuantity);
+      if (isNaN(stock)) {
+        toast.error("Stock quantity is required when inventory is tracked.");
+        target.removeAttribute("data-submitting");
+        setIsSubmitting(false);
+        setSubmitProgress(null);
+        return;
+      }
+    }
 
     setSubmitProgress({
-      step: 'Validating homepage settings...',
+      step: "Validating homepage settings...",
       percentage: 30,
     });
 
     // If product is NOT VAT exempt, VAT rate is required
-if (!isDraft && !formData.vatExempt && (!formData.vatRateId || !formData.vatRateId.trim())) {
-  toast.error('❌ VAT rate is required when product is taxable');
-  target.removeAttribute('data-submitting');
-  setIsSubmitting(false);
-  setSubmitProgress(null);
-  return;
-}
-
-    // ═══════════════════════════════════════════════════════════════════════
-    // SECTION 2: HOMEPAGE VALIDATION
-    // ═══════════════════════════════════════════════════════════════════════
-
-    if (!isDraft && formData.showOnHomepage) {
-      if (homepageCount !== null && homepageCount >= MAX_HOMEPAGE) {
-        toast.error(
-          `❌ Maximum ${MAX_HOMEPAGE} products can be shown on homepage. Current: ${homepageCount}`,
-          { autoClose: 8000 }
-        );
-        target.removeAttribute('data-submitting');
-        setIsSubmitting(false);
-        setSubmitProgress(null);
-        return;
-      }
-    }
-
-    // ═══════════════════════════════════════════════════════════════════════
-    // SECTION 3: GROUPED PRODUCT VALIDATION
-    // ═══════════════════════════════════════════════════════════════════════
-
-    if (formData.productType === 'grouped' && formData.requireOtherProducts) {
-      if (!formData.requiredProductIds || formData.requiredProductIds.trim() === '') {
-        toast.error('⚠️ Please select at least one product for grouped product.');
-        target.removeAttribute('data-submitting');
-        setIsSubmitting(false);
-        setSubmitProgress(null);
-        return;
-      }
-    }
-
-    // ═══════════════════════════════════════════════════════════════════════
-    // SECTION 4: BUNDLE DISCOUNT VALIDATION
-    // ═══════════════════════════════════════════════════════════════════════
-
-    if (formData.productType === 'grouped' && formData.groupBundleDiscountType !== 'None') {
-      if (formData.groupBundleDiscountType === 'Percentage') {
-        const percentage = formData.groupBundleDiscountPercentage;
-        if (percentage < 0 || percentage > 100) {
-          toast.error('❌ Discount percentage must be between 0 and 100');
-          target.removeAttribute('data-submitting');
-          setIsSubmitting(false);
-          setSubmitProgress(null);
-          return;
-        }
-      }
-
-      if (formData.groupBundleDiscountType === 'FixedAmount') {
-        const amount = formData.groupBundleDiscountAmount;
-        if (amount < 0) {
-          toast.error('❌ Discount amount cannot be negative');
-          target.removeAttribute('data-submitting');
-          setIsSubmitting(false);
-          setSubmitProgress(null);
-          return;
-        }
-      }
-
-      if (formData.groupBundleDiscountType === 'SpecialPrice') {
-        const specialPrice = formData.groupBundleSpecialPrice;
-        if (specialPrice < 0) {
-          toast.error('❌ Special price cannot be negative');
-          target.removeAttribute('data-submitting');
-          setIsSubmitting(false);
-          setSubmitProgress(null);
-          return;
-        }
-      }
-    }
-
-    // ============================================
-    // ✅ SECTION 4A: GROUPED + SUBSCRIPTION CONFLICT VALIDATION
-    // ============================================
-
-    // ❌ BLOCK: Grouped products cannot have subscription enabled
-    if (formData.productType === 'grouped' && formData.isRecurring) {
-      toast.error('❌ Grouped products cannot have subscription/recurring enabled. Please disable subscription first.', {
-        autoClose: 8000,
-        position: 'top-center',
-      });
-      target.removeAttribute('data-submitting');
+    if (!isDraft && !formData.vatExempt && (!formData.vatRateId || !formData.vatRateId.trim())) {
+      toast.error("VAT rate is required when product is taxable");
+      target.removeAttribute("data-submitting");
       setIsSubmitting(false);
       setSubmitProgress(null);
       return;
     }
 
-    // ⚠️ WARN: If somehow subscription data exists for grouped product, clear it
-    if (formData.productType === 'grouped') {
-      if (formData.recurringCycleLength ||
+    // ============================================================
+    // SECTION 2: HOMEPAGE VALIDATION
+    // ============================================================
+    if (!isDraft && formData.showOnHomepage) {
+      if (homepageCount !== null && homepageCount >= MAX_HOMEPAGE) {
+        toast.error(`Maximum ${MAX_HOMEPAGE} products can be shown on homepage. Current: ${homepageCount}`, {
+          autoClose: 8000,
+        });
+        target.removeAttribute("data-submitting");
+        setIsSubmitting(false);
+        setSubmitProgress(null);
+        return;
+      }
+    }
+
+    // ============================================================
+    // SECTION 3: GROUPED PRODUCT VALIDATION
+    // ============================================================
+    if (formData.productType === "grouped" && formData.requireOtherProducts) {
+      if (!formData.requiredProductIds || !formData.requiredProductIds.trim()) {
+        toast.error("Please select at least one product for grouped product.");
+        target.removeAttribute("data-submitting");
+        setIsSubmitting(false);
+        setSubmitProgress(null);
+        return;
+      }
+    }
+
+    // ============================================================
+    // SECTION 4: BUNDLE DISCOUNT VALIDATION
+    // ============================================================
+    if (formData.productType === "grouped" && formData.groupBundleDiscountType !== "None") {
+      if (formData.groupBundleDiscountType === "Percentage") {
+        const percentage = formData.groupBundleDiscountPercentage;
+        if (percentage < 0 || percentage > 100) {
+          toast.error("Discount percentage must be between 0 and 100");
+          target.removeAttribute("data-submitting");
+          setIsSubmitting(false);
+          setSubmitProgress(null);
+          return;
+        }
+      }
+
+      if (formData.groupBundleDiscountType === "FixedAmount") {
+        const amount = formData.groupBundleDiscountAmount;
+        if (amount < 0) {
+          toast.error("Discount amount cannot be negative");
+          target.removeAttribute("data-submitting");
+          setIsSubmitting(false);
+          setSubmitProgress(null);
+          return;
+        }
+      }
+
+      if (formData.groupBundleDiscountType === "SpecialPrice") {
+        const specialPrice = formData.groupBundleSpecialPrice;
+        if (specialPrice < 0) {
+          toast.error("Special price cannot be negative");
+          target.removeAttribute("data-submitting");
+          setIsSubmitting(false);
+          setSubmitProgress(null);
+          return;
+        }
+      }
+    }
+
+    // ============================================================
+    // SECTION 4A: GROUPED SUBSCRIPTION CONFLICT VALIDATION BLOCK
+    // ============================================================
+    // Grouped products cannot have subscription enabled
+    if (formData.productType === "grouped" && formData.isRecurring) {
+      toast.error("Grouped products cannot have subscription/recurring enabled. Please disable subscription first.", {
+        autoClose: 8000,
+        position: "top-center",
+      });
+      target.removeAttribute("data-submitting");
+      setIsSubmitting(false);
+      setSubmitProgress(null);
+      return;
+    }
+
+    // WARN: If somehow subscription data exists for grouped product, clear it
+    if (formData.productType === "grouped") {
+      if (
+        formData.recurringCycleLength ||
         formData.recurringTotalCycles ||
         formData.subscriptionDiscountPercentage ||
         formData.allowedSubscriptionFrequencies ||
-        formData.subscriptionDescription) {
-
-        console.warn('⚠️ Grouped product has subscription data. Clearing...');
-
+        formData.subscriptionDescription
+      ) {
+        console.warn("⚠️ Grouped product has subscription data. Clearing...");
         // Force clear subscription fields
         formData.isRecurring = false;
-        formData.recurringCycleLength = '';
-        formData.recurringCyclePeriod = 'days';
-        formData.recurringTotalCycles = '';
-        formData.subscriptionDiscountPercentage = '';
-        formData.allowedSubscriptionFrequencies = '';
-        formData.subscriptionDescription = '';
-
-        toast.info('ℹ️ Subscription data cleared for grouped product', {
-          autoClose: 3000,
-        });
+        formData.recurringCycleLength = "";
+        formData.recurringCyclePeriod = "days";
+        formData.recurringTotalCycles = "";
+        formData.subscriptionDiscountPercentage = "";
+        formData.allowedSubscriptionFrequencies = "";
+        formData.subscriptionDescription = "";
+        toast.info("Subscription data cleared for grouped product", { autoClose: 3000 });
       }
     }
 
     setSubmitProgress({
-      step: 'Validating product variants...',
+      step: "Validating product variants...",
       percentage: 40,
     });
 
-    // ═══════════════════════════════════════════════════════════════════════
+    // ============================================================
     // SECTION 5: VARIANT VALIDATION
-    // ═══════════════════════════════════════════════════════════════════════
-
+    // ============================================================
     if (productVariants.length > 0) {
-      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-      console.log('🔍 SECTION 5: VARIANT VALIDATION');
-      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      console.log("==========================================");
+      console.log("SECTION 5: VARIANT VALIDATION");
+      console.log("==========================================");
 
-      // ✅ 5.1 Check Empty Name/SKU/Price
+      // 5.1 Check Empty Name/SKU/Price
       for (const variant of productVariants) {
         if (!variant.name || !variant.name.trim()) {
-          toast.error(`❌ All variants must have a name`);
-          target.removeAttribute('data-submitting');
+          toast.error("All variants must have a name");
+          target.removeAttribute("data-submitting");
           setIsSubmitting(false);
           setSubmitProgress(null);
           return;
         }
 
         if (!variant.sku || !variant.sku.trim()) {
-          toast.error(`❌ Variant "${variant.name}" must have a SKU`);
-          target.removeAttribute('data-submitting');
+          toast.error(`Variant "${variant.name}" must have a SKU`);
+          target.removeAttribute("data-submitting");
           setIsSubmitting(false);
           setSubmitProgress(null);
           return;
         }
 
-        const variantPrice = parseFloat(variant.price?.toString() || '0');
-        if (variantPrice < 0) {
-          toast.error(`❌ Variant "${variant.name}" has invalid price`);
-          target.removeAttribute('data-submitting');
+        const variantPrice = parseFloat(variant.price?.toString() || "0");
+        if (variantPrice <= 0) {
+          toast.error(`Variant "${variant.name}" has invalid price`);
+          target.removeAttribute("data-submitting");
           setIsSubmitting(false);
           setSubmitProgress(null);
           return;
         }
       }
 
-      // ✅ 5.2 Check Duplicate SKUs Within Product
-      const variantSkus = productVariants.map(v => v.sku.toUpperCase());
+      // 5.2 Check Duplicate SKUs Within Product
+      const variantSkus = productVariants.map((v) => v.sku.toUpperCase());
       const duplicateVariant = variantSkus.find((sku, index) => variantSkus.indexOf(sku) !== index);
-
       if (duplicateVariant) {
-        const duplicateVariantName = productVariants.find(
-          v => v.sku.toUpperCase() === duplicateVariant
-        )?.name;
-        toast.error(
-          `❌ Duplicate SKU "${duplicateVariant}" found in variant "${duplicateVariantName}"`,
-          { autoClose: 8000 }
-        );
-        target.removeAttribute('data-submitting');
+        const duplicateVariantName = productVariants.find((v) => v.sku.toUpperCase() === duplicateVariant)?.name;
+        toast.error(`Duplicate SKU "${duplicateVariant}" found in variant "${duplicateVariantName}"`, {
+          autoClose: 8000,
+        });
+        target.removeAttribute("data-submitting");
         setIsSubmitting(false);
         setSubmitProgress(null);
         return;
       }
 
-      // ✅ 5.3 Check Variant SKU Matches Product SKU
+      // 5.3 Check Variant SKU Matches Product SKU
       for (const variant of productVariants) {
         if (variant.sku.toUpperCase() === formData.sku.toUpperCase()) {
-          toast.error(
-            `❌ Variant "${variant.name}" SKU cannot be same as main product SKU`,
-            { autoClose: 8000 }
-          );
-          target.removeAttribute('data-submitting');
+          toast.error(`Variant "${variant.name}" SKU cannot be same as main product SKU`, {
+            autoClose: 8000,
+          });
+          target.removeAttribute("data-submitting");
           setIsSubmitting(false);
           setSubmitProgress(null);
           return;
         }
       }
 
-      // ✅ 5.4 Check Against Database
+      // 5.4 Check Against Database
       try {
-        console.log('🔍 Validating variant SKUs against database...');
+        console.log("Validating variant SKUs against database...");
         const allProductsResponse = await productsService.getAll({ pageSize: 100 });
         const allProducts = allProductsResponse.data?.data?.items || [];
 
@@ -1139,16 +1284,12 @@ if (!isDraft && !formData.vatExempt && (!formData.vatRateId || !formData.vatRate
           const variantSkuUpper = variant.sku.toUpperCase();
 
           // Check against product SKUs
-          const productSkuConflict = allProducts.find(
-            (p: any) => p.sku?.toUpperCase() === variantSkuUpper
-          );
-
+          const productSkuConflict = allProducts.find((p: any) => p.sku?.toUpperCase() === variantSkuUpper);
           if (productSkuConflict) {
-            toast.error(
-              `❌ Variant "${variant.name}" SKU conflicts with product "${productSkuConflict.name}"`,
-              { autoClose: 8000 }
-            );
-            target.removeAttribute('data-submitting');
+            toast.error(`Variant "${variant.name}" SKU conflicts with product "${productSkuConflict.name}"`, {
+              autoClose: 8000,
+            });
+            target.removeAttribute("data-submitting");
             setIsSubmitting(false);
             setSubmitProgress(null);
             return;
@@ -1157,16 +1298,15 @@ if (!isDraft && !formData.vatExempt && (!formData.vatRateId || !formData.vatRate
           // Check against variant SKUs
           for (const product of allProducts) {
             if (product.variants && Array.isArray(product.variants)) {
-              const variantSkuConflict = product.variants.find(
-                (v: any) => v.sku?.toUpperCase() === variantSkuUpper
-              );
-
+              const variantSkuConflict = product.variants.find((v: any) => v.sku?.toUpperCase() === variantSkuUpper);
               if (variantSkuConflict) {
                 toast.error(
-                  `❌ Variant "${variant.name}" SKU conflicts with "${product.name}" - Variant "${variantSkuConflict.name}"`,
-                  { autoClose: 8000 }
+                  `Variant "${variant.name}" SKU conflicts with "${product.name}" - Variant "${variantSkuConflict.name}"`,
+                  {
+                    autoClose: 8000,
+                  }
                 );
-                target.removeAttribute('data-submitting');
+                target.removeAttribute("data-submitting");
                 setIsSubmitting(false);
                 setSubmitProgress(null);
                 return;
@@ -1175,37 +1315,35 @@ if (!isDraft && !formData.vatExempt && (!formData.vatRateId || !formData.vatRate
           }
         }
 
-        console.log('✅ All variant SKUs are unique!');
+        console.log("✅ All variant SKUs are unique!");
       } catch (error) {
-        console.warn('⚠️ Failed to validate variant SKUs against database:', error);
-        toast.warning('⚠️ Could not verify variant SKUs. Proceeding...', { autoClose: 3000 });
+        console.warn("Failed to validate variant SKUs against database:", error);
+        toast.warning("Could not verify variant SKUs. Proceeding...", { autoClose: 3000 });
       }
     }
 
     setSubmitProgress({
-      step: 'Processing categories and brands...',
+      step: "Processing categories and brands...",
       percentage: 50,
     });
 
-    // ═══════════════════════════════════════════════════════════════════════
+    // ============================================================
     // SECTION 6: CATEGORY & BRAND VALIDATION
-    // ═══════════════════════════════════════════════════════════════════════
-
+    // ============================================================
     const guidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
     let categoryIdsArray: string[] = [];
-
     if (formData.categoryIds && Array.isArray(formData.categoryIds) && formData.categoryIds.length > 0) {
-      categoryIdsArray = formData.categoryIds.filter(id => {
-        if (!id || typeof id !== 'string') return false;
+      categoryIdsArray = formData.categoryIds.filter((id) => {
+        if (!id || typeof id !== "string") return false;
         return guidRegex.test(id.trim());
       });
     }
 
     if (categoryIdsArray.length === 0) {
-      console.error('❌ [VALIDATION] No valid categories selected');
-      toast.error('❌ Please select at least one category');
-      target.removeAttribute('data-submitting');
+      console.error("❌ VALIDATION: No valid categories selected");
+      toast.error("Please select at least one category");
+      target.removeAttribute("data-submitting");
       setIsSubmitting(false);
       setSubmitProgress(null);
       return;
@@ -1214,15 +1352,14 @@ if (!isDraft && !formData.vatExempt && (!formData.vatRateId || !formData.vatRate
     const categoriesArray = categoryIdsArray.map((categoryId, index) => ({
       categoryId: categoryId,
       isPrimary: index === 0,
-      displayOrder: index + 1
+      displayOrder: index + 1,
     }));
 
     // BRAND VALIDATION
     let brandIdsArray: string[] = [];
-
     if (formData.brandIds && Array.isArray(formData.brandIds) && formData.brandIds.length > 0) {
-      brandIdsArray = formData.brandIds.filter(id => {
-        if (!id || typeof id !== 'string') return false;
+      brandIdsArray = formData.brandIds.filter((id) => {
+        if (!id || typeof id !== "string") return false;
         return guidRegex.test(id.trim());
       });
     } else if (formData.brand && formData.brand.trim()) {
@@ -1233,8 +1370,8 @@ if (!isDraft && !formData.vatExempt && (!formData.vatRateId || !formData.vatRate
     }
 
     if (brandIdsArray.length === 0) {
-      toast.error('❌ Please select at least one brand');
-      target.removeAttribute('data-submitting');
+      toast.error("Please select at least one brand");
+      target.removeAttribute("data-submitting");
       setIsSubmitting(false);
       setSubmitProgress(null);
       return;
@@ -1243,133 +1380,128 @@ if (!isDraft && !formData.vatExempt && (!formData.vatRateId || !formData.vatRate
     const brandsArray = brandIdsArray.map((brandId, index) => ({
       brandId: brandId,
       isPrimary: index === 0,
-      displayOrder: index + 1
+      displayOrder: index + 1,
     }));
 
     setSubmitProgress({
-      step: 'Validating product images...',
+      step: "Validating product images...",
       percentage: 55,
     });
 
-    // ═══════════════════════════════════════════════════════════════════════
+    // ============================================================
     // SECTION 7: IMAGE VALIDATION
-    // ═══════════════════════════════════════════════════════════════════════
-
+    // ============================================================
     if (!isDraft && formData.productImages.length < 3) {
-      toast.error('❌ Please upload at least 3 product images before saving');
-      target.removeAttribute('data-submitting');
+      toast.error("Please upload at least 3 product images before saving");
+      target.removeAttribute("data-submitting");
       setIsSubmitting(false);
       setSubmitProgress(null);
       return;
     }
 
     if (formData.productImages.length > 10) {
-      toast.error('❌ Maximum 10 images allowed');
-      target.removeAttribute('data-submitting');
+      toast.error("Maximum 10 images allowed");
+      target.removeAttribute("data-submitting");
       setIsSubmitting(false);
       setSubmitProgress(null);
       return;
     }
 
     setSubmitProgress({
-      step: 'Preparing product data...',
+      step: "Preparing product data...",
       percentage: 60,
     });
 
-    // ═══════════════════════════════════════════════════════════════════════
+    // ============================================================
     // SECTION 8: BUILD PRODUCT DATA
-    // ═══════════════════════════════════════════════════════════════════════
-
+    // ============================================================
     const attributesArray = productAttributes
-      .filter(attr => attr.name && attr.value)
-      .map(attr => ({
+      .filter((attr) => attr.name && attr.value)
+      .map((attr) => ({
         id: attr.id,
         name: attr.name,
         value: attr.value,
         displayName: attr.name,
-        sortOrder: attr.displayOrder || 1
+        sortOrder: attr.displayOrder + 1,
       }));
 
-// ✅ SECTION 8: BUILD PRODUCT DATA - CLEAN VARIANTS BEFORE MAPPING
+    // SECTION 8: BUILD PRODUCT DATA - CLEAN VARIANTS BEFORE MAPPING
+    const firstVariant = productVariants[0]; // Get master variant
+    const variantsArray = productVariants.map((variant) => {
+      // CLEAN VARIANT OPTIONS FIRST
+      const cleanedVariant = cleanVariantOptions(variant, firstVariant);
 
-const firstVariant = productVariants[0]; // Get master variant
-
-const variantsArray = productVariants.map((variant) => {
-  // ✅ CLEAN VARIANT OPTIONS FIRST
-  const cleanedVariant = cleanVariantOptions(variant, firstVariant);
-
-  return {
-    name: cleanedVariant.name,
-    sku: cleanedVariant.sku,
-    price: parseFloat(cleanedVariant.price?.toString() ?? '0') || 0,
-    compareAtPrice: cleanedVariant.compareAtPrice ? parseFloat(cleanedVariant.compareAtPrice.toString()) : null,
-    weight: cleanedVariant.weight ? parseFloat(cleanedVariant.weight.toString()) : null,
-    stockQuantity: parseInt(cleanedVariant.stockQuantity.toString()) || 0,
-    trackInventory: cleanedVariant.trackInventory ?? true,
-    
-    // ✅ USE CLEANED OPTIONS (null if incomplete)
-    option1Name: cleanedVariant.option1Name,
-    option1Value: cleanedVariant.option1Value,
-    option2Name: cleanedVariant.option2Name,
-    option2Value: cleanedVariant.option2Value,
-    option3Name: cleanedVariant.option3Name,
-    option3Value: cleanedVariant.option3Value,
-    
-    imageUrl: null,
-    isDefault: cleanedVariant.isDefault || false,
-    displayOrder: cleanedVariant.displayOrder || 0,
-    isActive: cleanedVariant.isActive ?? true,
-    gtin: cleanedVariant.gtin || null,
-    barcode: cleanedVariant.barcode || null,
-  };
-});
+      return {
+        name: cleanedVariant.name,
+        sku: cleanedVariant.sku,
+        price: parseFloat(cleanedVariant.price?.toString() ?? "0") || 0,
+        compareAtPrice: cleanedVariant.compareAtPrice ? parseFloat(cleanedVariant.compareAtPrice.toString()) : null,
+        weight: cleanedVariant.weight ? parseFloat(cleanedVariant.weight.toString()) : null,
+        stockQuantity: parseInt(cleanedVariant.stockQuantity.toString()) || 0,
+        trackInventory: cleanedVariant.trackInventory ?? true,
+        // USE CLEANED OPTIONS (null if incomplete)
+        option1Name: cleanedVariant.option1Name,
+        option1Value: cleanedVariant.option1Value,
+        option2Name: cleanedVariant.option2Name,
+        option2Value: cleanedVariant.option2Value,
+        option3Name: cleanedVariant.option3Name,
+        option3Value: cleanedVariant.option3Value,
+        imageUrl: null,
+        isDefault: cleanedVariant.isDefault || false,
+        displayOrder: cleanedVariant.displayOrder || 0,
+        isActive: cleanedVariant.isActive ?? true,
+        gtin: cleanedVariant.gtin || null,
+        barcode: cleanedVariant.barcode || null,
+      };
+    });
 
     const productData: any = {
       // Basic Info
       name: formData.name.trim(),
       description: formData.fullDescription || formData.shortDescription || `${formData.name} - Product description`,
-      shortDescription: formData.shortDescription?.trim() || '',
+      shortDescription: formData.shortDescription?.trim() || "",
       sku: formData.sku.trim(),
       displayOrder: parseInt(formData.displayOrder.toString()) || 1,
 
       // Status & Visibility
-      isPublished: isDraft ? false : (formData.published ?? true),
-      status: isDraft ? 1 : (formData.published ? 2 : 1),
+      isPublished: isDraft ? false : formData.published ?? true,
+      status: isDraft ? 1 : formData.published ? 2 : 1,
       visibleIndividually: formData.visibleIndividually ?? true,
       showOnHomepage: formData.showOnHomepage ?? false,
 
       // Product Type & Grouped Product
-      productType: formData.productType || 'simple',
-      requireOtherProducts: formData.productType === 'grouped' ? formData.requireOtherProducts : false,
-      requiredProductIds: formData.productType === 'grouped' && formData.requireOtherProducts && formData.requiredProductIds?.trim()
-        ? formData.requiredProductIds.trim()
-        : null,
-      automaticallyAddProducts: formData.productType === 'grouped' && formData.requireOtherProducts
-        ? formData.automaticallyAddProducts
-        : false,
+      productType: formData.productType || "simple",
+      requireOtherProducts: formData.productType === "grouped" ? formData.requireOtherProducts : false,
+      requiredProductIds:
+        formData.productType === "grouped" && formData.requireOtherProducts && formData.requiredProductIds?.trim()
+          ? formData.requiredProductIds.trim()
+          : null,
+      automaticallyAddProducts:
+        formData.productType === "grouped" && formData.requireOtherProducts ? formData.automaticallyAddProducts : false,
 
       // Bundle Discount
-      groupBundleDiscountType: formData.productType === 'grouped'
-        ? formData.groupBundleDiscountType
-        : 'None',
-      groupBundleDiscountPercentage: formData.productType === 'grouped' && formData.groupBundleDiscountType === 'Percentage'
-        ? formData.groupBundleDiscountPercentage
-        : null,
-      groupBundleDiscountAmount: formData.productType === 'grouped' && formData.groupBundleDiscountType === 'FixedAmount'
-        ? formData.groupBundleDiscountAmount
-        : null,
-      groupBundleSpecialPrice: formData.productType === 'grouped' && formData.groupBundleDiscountType === 'SpecialPrice'
-        ? formData.groupBundleSpecialPrice
-        : null,
-      groupBundleSavingsMessage: formData.productType === 'grouped' && formData.groupBundleDiscountType !== 'None'
-        ? formData.groupBundleSavingsMessage?.trim() || null
-        : null,
-      showIndividualPrices: formData.productType === 'grouped'
-        ? formData.showIndividualPrices
-        : true,
-      applyDiscountToAllItems: formData.productType === 'grouped' && formData.groupBundleDiscountType !== 'None'
-        ? formData.applyDiscountToAllItems
-        : false,
+      groupBundleDiscountType: formData.productType === "grouped" ? formData.groupBundleDiscountType : "None",
+      groupBundleDiscountPercentage:
+        formData.productType === "grouped" && formData.groupBundleDiscountType === "Percentage"
+          ? formData.groupBundleDiscountPercentage
+          : null,
+      groupBundleDiscountAmount:
+        formData.productType === "grouped" && formData.groupBundleDiscountType === "FixedAmount"
+          ? formData.groupBundleDiscountAmount
+          : null,
+      groupBundleSpecialPrice:
+        formData.productType === "grouped" && formData.groupBundleDiscountType === "SpecialPrice"
+          ? formData.groupBundleSpecialPrice
+          : null,
+      groupBundleSavingsMessage:
+        formData.productType === "grouped" && formData.groupBundleDiscountType !== "None"
+          ? formData.groupBundleSavingsMessage?.trim()
+          : null,
+      showIndividualPrices: formData.productType === "grouped" ? formData.showIndividualPrices : true,
+      applyDiscountToAllItems:
+        formData.productType === "grouped" && formData.groupBundleDiscountType !== "None"
+          ? formData.applyDiscountToAllItems
+          : false,
 
       // Pricing
       price: parseFloat(formData.price.toString()) || 0,
@@ -1384,17 +1516,15 @@ const variantsArray = productVariants.map((variant) => {
 
       // Inventory
       stockQuantity: parseInt(formData.stockQuantity.toString()) || 0,
-      trackQuantity: formData.manageInventory === 'track',
+      trackQuantity: formData.manageInventory === "track",
       manageInventoryMethod: formData.manageInventory,
       minStockQuantity: parseInt(formData.minStockQuantity.toString()) || 0,
       notifyAdminForQuantityBelow: formData.notifyAdminForQuantityBelow ?? false,
-      notifyQuantityBelow: formData.notifyAdminForQuantityBelow
-        ? (parseInt(formData.notifyQuantityBelow.toString()) || 10)
-        : null,
+      notifyQuantityBelow: formData.notifyAdminForQuantityBelow ? parseInt(formData.notifyQuantityBelow.toString()) || 10 : null,
       displayStockAvailability: formData.displayStockAvailability,
       displayStockQuantity: formData.displayStockQuantity,
       allowBackorder: formData.allowBackorder ?? false,
-      backorderMode: formData.backorderMode || 'no-backorders',
+      backorderMode: formData.backorderMode || "no-backorders",
       allowBackInStockSubscriptions: formData.allowBackInStockSubscriptions,
 
       // Cart Quantities
@@ -1416,18 +1546,14 @@ const variantsArray = productVariants.map((variant) => {
     if (formData.gtin?.trim()) productData.gtin = formData.gtin.trim();
     if (formData.manufacturerPartNumber?.trim()) productData.manufacturerPartNumber = formData.manufacturerPartNumber.trim();
     if (formData.adminComment?.trim()) productData.adminComment = formData.adminComment.trim();
-    if (formData.gender?.trim()) {
-      productData.gender = formData.gender.trim();
-    } else {
-      productData.gender = "";
-    }
+    if (formData.gender?.trim()) productData.gender = formData.gender.trim();
+    else productData.gender = "";
 
     if (formData.oldPrice) {
       productData.oldPrice = parseFloat(formData.oldPrice.toString());
       productData.compareAtPrice = parseFloat(formData.oldPrice.toString());
     }
     if (formData.cost) productData.costPrice = parseFloat(formData.cost.toString());
-
     if (formData.disableBuyButton) productData.disableBuyButton = true;
     if (formData.disableWishlistButton) productData.disableWishlistButton = true;
 
@@ -1450,9 +1576,8 @@ const variantsArray = productVariants.map((variant) => {
     // Pre-order
     if (formData.availableForPreOrder) {
       productData.availableForPreOrder = true;
-      if (formData.preOrderAvailabilityStartDate) {
+      if (formData.preOrderAvailabilityStartDate)
         productData.preOrderAvailabilityStartDate = formData.preOrderAvailabilityStartDate;
-      }
     }
 
     // Availability Dates
@@ -1477,18 +1602,23 @@ const variantsArray = productVariants.map((variant) => {
       if (formData.length) productData.length = parseFloat(formData.length.toString());
       if (formData.width) productData.width = parseFloat(formData.width.toString());
       if (formData.height) productData.height = parseFloat(formData.height.toString());
-
-      // Delivery Options
-      if (formData.sameDayDeliveryEnabled !== undefined) productData.sameDayDeliveryEnabled = formData.sameDayDeliveryEnabled;
-      if (formData.nextDayDeliveryEnabled !== undefined) productData.nextDayDeliveryEnabled = formData.nextDayDeliveryEnabled;
-      if (formData.standardDeliveryEnabled !== undefined) productData.standardDeliveryEnabled = formData.standardDeliveryEnabled;
-      if (formData.sameDayDeliveryCutoffTime?.trim()) productData.sameDayDeliveryCutoffTime = formData.sameDayDeliveryCutoffTime.trim();
-      if (formData.nextDayDeliveryCutoffTime?.trim()) productData.nextDayDeliveryCutoffTime = formData.nextDayDeliveryCutoffTime.trim();
-      if (formData.standardDeliveryDays) productData.standardDeliveryDays = parseInt(formData.standardDeliveryDays) || 5;
-      if (formData.sameDayDeliveryCharge) productData.sameDayDeliveryCharge = parseFloat(formData.sameDayDeliveryCharge.toString()) || 0;
-      if (formData.nextDayDeliveryCharge) productData.nextDayDeliveryCharge = parseFloat(formData.nextDayDeliveryCharge.toString()) || 0;
-      if (formData.standardDeliveryCharge) productData.standardDeliveryCharge = parseFloat(formData.standardDeliveryCharge.toString()) || 0;
     }
+
+    // Delivery Options
+    if (formData.sameDayDeliveryEnabled !== undefined) productData.sameDayDeliveryEnabled = formData.sameDayDeliveryEnabled;
+    if (formData.nextDayDeliveryEnabled !== undefined) productData.nextDayDeliveryEnabled = formData.nextDayDeliveryEnabled;
+    if (formData.standardDeliveryEnabled !== undefined) productData.standardDeliveryEnabled = formData.standardDeliveryEnabled;
+    if (formData.sameDayDeliveryCutoffTime?.trim())
+      productData.sameDayDeliveryCutoffTime = formData.sameDayDeliveryCutoffTime.trim();
+    if (formData.nextDayDeliveryCutoffTime?.trim())
+      productData.nextDayDeliveryCutoffTime = formData.nextDayDeliveryCutoffTime.trim();
+    if (formData.standardDeliveryDays) productData.standardDeliveryDays = parseInt(formData.standardDeliveryDays) || 5;
+    if (formData.sameDayDeliveryCharge)
+      productData.sameDayDeliveryCharge = parseFloat(formData.sameDayDeliveryCharge.toString()) || 0;
+    if (formData.nextDayDeliveryCharge)
+      productData.nextDayDeliveryCharge = parseFloat(formData.nextDayDeliveryCharge.toString()) || 0;
+    if (formData.standardDeliveryCharge)
+      productData.standardDeliveryCharge = parseFloat(formData.standardDeliveryCharge.toString()) || 0;
 
     // Pack Product
     if (formData.isPack) {
@@ -1502,8 +1632,10 @@ const variantsArray = productVariants.map((variant) => {
       if (formData.recurringCycleLength) productData.recurringCycleLength = parseInt(formData.recurringCycleLength.toString());
       if (formData.recurringCyclePeriod) productData.recurringCyclePeriod = formData.recurringCyclePeriod;
       if (formData.recurringTotalCycles) productData.recurringTotalCycles = parseInt(formData.recurringTotalCycles.toString());
-      if (formData.subscriptionDiscountPercentage) productData.subscriptionDiscountPercentage = parseFloat(formData.subscriptionDiscountPercentage.toString());
-      if (formData.allowedSubscriptionFrequencies) productData.allowedSubscriptionFrequencies = formData.allowedSubscriptionFrequencies;
+      if (formData.subscriptionDiscountPercentage)
+        productData.subscriptionDiscountPercentage = parseFloat(formData.subscriptionDiscountPercentage.toString());
+      if (formData.allowedSubscriptionFrequencies)
+        productData.allowedSubscriptionFrequencies = formData.allowedSubscriptionFrequencies;
       if (formData.subscriptionDescription) productData.subscriptionDescription = formData.subscriptionDescription;
     }
 
@@ -1518,7 +1650,8 @@ const variantsArray = productVariants.map((variant) => {
     if (formData.isGiftCard) {
       productData.isGiftCard = true;
       if (formData.giftCardType) productData.giftCardType = formData.giftCardType;
-      if (formData.overriddenGiftCardAmount) productData.overriddenGiftCardAmount = parseFloat(formData.overriddenGiftCardAmount.toString());
+      if (formData.overriddenGiftCardAmount)
+        productData.overriddenGiftCardAmount = parseFloat(formData.overriddenGiftCardAmount.toString());
     }
 
     // Downloadable
@@ -1529,7 +1662,8 @@ const variantsArray = productVariants.map((variant) => {
       if (!formData.unlimitedDownloads && formData.maxNumberOfDownloads) {
         productData.maxNumberOfDownloads = parseInt(formData.maxNumberOfDownloads.toString());
       }
-      if (formData.downloadExpirationDays) productData.downloadExpirationDays = parseInt(formData.downloadExpirationDays.toString());
+      if (formData.downloadExpirationDays)
+        productData.downloadExpirationDays = parseInt(formData.downloadExpirationDays.toString());
       if (formData.downloadActivationType) productData.downloadActivationType = formData.downloadActivationType;
       if (formData.hasUserAgreement) {
         productData.hasUserAgreement = true;
@@ -1545,16 +1679,15 @@ const variantsArray = productVariants.map((variant) => {
     if (formData.metaTitle?.trim()) productData.metaTitle = formData.metaTitle.trim();
     if (formData.metaDescription?.trim()) productData.metaDescription = formData.metaDescription.trim();
     if (formData.metaKeywords?.trim()) productData.metaKeywords = formData.metaKeywords.trim();
-    if (formData.searchEngineFriendlyPageName?.trim()) {
+    if (formData.searchEngineFriendlyPageName?.trim())
       productData.searchEngineFriendlyPageName = formData.searchEngineFriendlyPageName.trim();
-    }
 
     // Related Products
     if (Array.isArray(formData.relatedProducts) && formData.relatedProducts.length > 0) {
-      productData.relatedProductIds = formData.relatedProducts.join(',');
+      productData.relatedProductIds = formData.relatedProducts.join(",");
     }
     if (Array.isArray(formData.crossSellProducts) && formData.crossSellProducts.length > 0) {
-      productData.crossSellProductIds = formData.crossSellProducts.join(',');
+      productData.crossSellProductIds = formData.crossSellProducts.join(",");
     }
 
     // Tags
@@ -1562,196 +1695,189 @@ const variantsArray = productVariants.map((variant) => {
 
     // Videos
     if (Array.isArray(formData.videoUrls) && formData.videoUrls.length > 0) {
-      productData.videoUrls = formData.videoUrls.join(',');
+      productData.videoUrls = formData.videoUrls.join(",");
     }
 
     // Reviews
     if (formData.allowCustomerReviews) productData.allowCustomerReviews = true;
 
-    console.log('📦 ==================== FINAL PAYLOAD ====================');
+    console.log("📦 FINAL PAYLOAD:");
     console.log(JSON.stringify(productData, null, 2));
 
-    // ═══════════════════════════════════════════════════════════════════════
-    // SECTION 9: CREATE PRODUCT
-    // ═══════════════════════════════════════════════════════════════════════
-
+    // ============================================================
+    // SECTION 9: DYNAMIC CREATE OR UPDATE
+    // ============================================================
     setSubmitProgress({
-      step: isDraft ? 'Saving draft...' : 'Creating product...',
+      step: isEditMode ? "Updating product..." : isDraft ? "Saving draft..." : "Creating product...",
       percentage: 70,
     });
 
-    console.log('🚀 Creating product using service...');
-    const response = await productsService.create(productData);
+    let response: any;
+    let currentProductId: string;
 
-    console.log('✅ Product created successfully');
-    console.log('📥 Response:', response);
+    if (isEditMode && productId) {
+      // ✅ UPDATE MODE - Use PUT/PATCH endpoint
+      console.log("🔄 Updating existing product:", productId);
+      response = await productsService.update(productId, productData);
+      currentProductId = productId;
 
-    // ═══════════════════════════════════════════════════════════════════════
-    // SECTION 10: EXTRACT PRODUCT ID
-    // ═══════════════════════════════════════════════════════════════════════
+      toast.success(isDraft ? "Draft updated successfully!" : "Product updated successfully!", {
+        autoClose: 2000,
+      });
+    } else {
+      // ✅ CREATE MODE - Use POST endpoint
+      console.log("➕ Creating new product...");
+      response = await productsService.create(productData);
 
-    const productId: string | null =
-      (response.data as any)?.data?.id ||
-      (response.data as any)?.id ||
-      (response as any)?.id ||
-      null;
+      // Extract product ID from response
+      currentProductId = (response.data as any)?.data?.id || (response.data as any)?.id || (response as any)?.id || null;
 
-    console.log('🆔 Extracted Product ID:', productId);
+      if (!currentProductId) {
+        console.error("Failed to extract product ID from response");
+        toast.error("Product created but ID not found. Cannot upload images.");
+        setIsSubmitting(false);
+        setSubmitProgress(null);
+        setTimeout(() => router.push("/admin/products"), 2000);
+        return;
+      }
 
-    if (!productId) {
-      console.error('❌ Failed to extract product ID from response');
-      toast.error('❌ Product created but ID not found. Cannot upload images.');
-      setIsSubmitting(false);
-      setSubmitProgress(null);
+      // ✅ SWITCH TO EDIT MODE after first save
+      setProductId(currentProductId);
+      setIsEditMode(true);
 
-      setTimeout(() => {
-        router.push('/admin/products');
-      }, 2000);
-      return;
+      console.log("✅ Product created with ID:", currentProductId);
+      toast.success(isDraft ? "Draft saved! Now in edit mode." : "Product created successfully!", {
+        autoClose: 2000,
+      });
     }
 
-    console.log('✅ Product ID confirmed:', productId);
-
-    // ═══════════════════════════════════════════════════════════════════════
-    // SECTION 11: UPLOAD PRODUCT IMAGES
-    // ═══════════════════════════════════════════════════════════════════════
-
-    const imagesToUpload = formData.productImages.filter(img => img.file);
-
+    // ============================================================
+    // SECTION 10: UPLOAD PRODUCT IMAGES
+    // ============================================================
+    const imagesToUpload = formData.productImages.filter((img) => img.file);
     if (imagesToUpload.length > 0) {
       setSubmitProgress({
         step: `Uploading ${imagesToUpload.length} product images...`,
         percentage: 80,
       });
 
-      console.log(`📤 Uploading ${imagesToUpload.length} product images...`);
+      console.log(`📸 Uploading ${imagesToUpload.length} product images...`);
 
       try {
-        const uploadedImages = await uploadImagesToProduct(productId, imagesToUpload);
-
+        const uploadedImages = await uploadImagesToProduct(currentProductId, imagesToUpload);
         if (uploadedImages && uploadedImages.length > 0) {
-          console.log('✅ Product images uploaded:', uploadedImages.length);
+          console.log(`✅ Product images uploaded: ${uploadedImages.length}`);
         }
       } catch (imageError) {
-        console.error('❌ Error uploading product images:', imageError);
-        toast.warning('⚠️ Product created but some images failed to upload.');
+        console.error("Error uploading product images:", imageError);
+        toast.warning("Product created but some images failed to upload.");
       }
     }
 
-    // ═══════════════════════════════════════════════════════════════════════
-    // SECTION 12: UPLOAD VARIANT IMAGES
-    // ═══════════════════════════════════════════════════════════════════════
-
+    // ============================================================
+    // SECTION 11: UPLOAD VARIANT IMAGES
+    // ============================================================
     if (productVariants.length > 0) {
-      const variantsWithImages = productVariants.filter(v => v.imageFile);
-
+      const variantsWithImages = productVariants.filter((v) => v.imageFile);
       if (variantsWithImages.length > 0) {
         setSubmitProgress({
           step: `Uploading ${variantsWithImages.length} variant images...`,
           percentage: 90,
         });
 
-        console.log(`🖼️ Uploading ${variantsWithImages.length} variant images...`);
+        console.log(`🎨 Uploading ${variantsWithImages.length} variant images...`);
 
         try {
-          const createdVariants = (response.data as any)?.data?.variants ||
-            (response.data as any)?.variants ||
-            [];
-
-          if (createdVariants.length > 0) {
+          const createdVariants = (response.data as any)?.data?.variants || (response.data as any)?.variants;
+          if (createdVariants && createdVariants.length > 0) {
             await uploadVariantImages({ variants: createdVariants });
           } else {
-            console.warn('⚠️ No variants found in response');
+            console.warn("⚠️ No variants found in response");
           }
         } catch (variantError) {
-          console.error('❌ Error uploading variant images:', variantError);
-          toast.warning('⚠️ Some variant images failed to upload.');
+          console.error("Error uploading variant images:", variantError);
+          toast.warning("Some variant images failed to upload.");
         }
       }
     }
 
-    console.log('✅ ==================== PRODUCT SUBMISSION SUCCESS ====================');
+    console.log("✅ PRODUCT SUBMISSION SUCCESS");
 
-    // ═══════════════════════════════════════════════════════════════════════
-    // ✅ SECTION 13: SUCCESS & REDIRECT
-    // ═══════════════════════════════════════════════════════════════════════
-
+    // ============================================================
+    // SECTION 12: SUCCESS & REDIRECT
+    // ============================================================
     setSubmitProgress({
-      step: isDraft ? 'Draft saved successfully!' : 'Product created successfully!',
+      step: isDraft ? "Draft saved successfully!" : "Product created successfully!",
       percentage: 100,
     });
 
-    toast.success(
-      isDraft
-        ? '💾 Product saved as draft!'
-        : '✅ Product created successfully!',
-      { autoClose: 3000 }
-    );
+    // Store last saved data for change tracking
+    setLastSavedData({ ...formData });
 
-    // ✅ REDIRECT AFTER 1.5 SECONDS
-    setTimeout(() => {
-      console.log('Redirecting to /admin/products...');
-      router.push('/admin/products');
-    }, 1500);
-
+    // ============ CONDITIONAL REDIRECT ============
+    if (shouldRedirect) {
+      setTimeout(() => {
+        console.log("Redirecting to /admin/products...");
+        router.push("/admin/products");
+      }, 1500);
+    } else {
+      // Stay on page - clear progress after delay
+      setTimeout(() => {
+        setSubmitProgress(null);
+      }, 2000);
+    }
   } catch (error: any) {
-    console.error('❌ ==================== ERROR SUBMITTING FORM ====================');
-    console.error('Error object:', error);
-
+    console.error("❌ ERROR SUBMITTING FORM");
+    console.error("Error object:", error);
     setSubmitProgress(null);
 
     if (error.response) {
       const errorData = error.response.data;
       const status = error.response.status;
 
-      console.error('📋 Error details:', {
-        status,
-        statusText: error.response.statusText,
-        data: errorData
-      });
+      console.error("Error details:", { status, statusText: error.response.statusText, data: errorData });
 
       if (status === 400 && errorData?.errors) {
-        let errorMessage = '⚠️ Validation Errors:\n';
+        let errorMessage = "Validation Errors:\n";
         for (const [field, messages] of Object.entries(errorData.errors)) {
-          const fieldName = field.replace('$', '').replace('.', ' ').trim();
-          const msg = Array.isArray(messages) ? messages.join(', ') : messages;
-          errorMessage += `\n• ${fieldName}: ${msg}`;
-          console.error(`❌ ${fieldName}:`, msg);
+          const fieldName = field.replace(/\./g, " ").replace(/_/g, " ").trim();
+          const msg = Array.isArray(messages) ? messages.join(", ") : messages;
+          errorMessage += `• ${fieldName}: ${msg}\n`;
+          console.error(`${fieldName}:`, msg);
         }
         toast.warning(errorMessage, { autoClose: 10000 });
       } else if (status === 400) {
-        const msg = errorData?.message || errorData?.title || 'Bad request. Please check your data.';
-        console.error('❌ 400 Error:', msg);
+        const msg = errorData?.message || errorData?.title || "Bad request. Please check your data.";
+        console.error("400 Error:", msg);
         toast.error(msg);
       } else if (status === 401) {
-        console.error('❌ 401: Unauthorized');
-        toast.error('🔒 Session expired. Please login again.');
-        setTimeout(() => {
-          router.push('/login');
-        }, 2000);
+        console.error("401: Unauthorized");
+        toast.error("Session expired. Please login again.");
+        setTimeout(() => router.push("/login"), 2000);
       } else if (status === 404) {
-        console.error('❌ 404: Endpoint not found');
-        toast.error('❌ API endpoint not found. Please check the server configuration.');
+        console.error("404: Endpoint not found");
+        toast.error("API endpoint not found. Please check the server configuration.");
       } else {
-        console.error(`❌ ${status}:`, errorData?.message || error.response.statusText);
+        console.error(status, errorData?.message || error.response.statusText);
         toast.error(`Error ${status}: ${errorData?.message || error.response.statusText}`);
       }
     } else if (error.request) {
-      console.error('❌ Network error - No response from server');
-      console.error('Request:', error.request);
-      toast.error('🌐 Network error: No response from server.');
+      console.error("Network error - No response from server");
+      console.error("Request:", error.request);
+      toast.error("Network error: No response from server.");
     } else {
-      console.error('❌ Error:', error.message);
-      toast.error(`❌ Error: ${error.message}`);
+      console.error("Error:", error.message);
+      toast.error(`Error: ${error.message}`);
     }
 
-    console.error('❌ ==================== END ERROR LOG ====================');
+    console.error("========== END ERROR LOG ==========");
   } finally {
-    target.removeAttribute('data-submitting');
+    target.removeAttribute("data-submitting");
     setIsSubmitting(false);
     setSubmitProgress(null);
   }
 };
+
 
 // ✅ ADD THIS useEffect AFTER OTHER useEffect HOOKS
 
@@ -2577,6 +2703,35 @@ const uploadVariantImages = async (productResponse: any) => {
   }
 };
 
+// ============================================================
+// ADD THIS useEffect FOR SIDEBAR CLICK PROTECTION
+// ============================================================
+useEffect(() => {
+  const handleLinkClick = (e: MouseEvent) => {
+    const target = e.target as HTMLElement;
+    const link = target.closest('a');
+    
+    if (link && hasUnsavedChanges) {
+      const href = link.getAttribute('href');
+      
+      // Check if it's an internal link (not current page)
+      if (href && href !== window.location.pathname && !href.startsWith('http')) {
+        e.preventDefault();
+        e.stopPropagation();
+        
+        setPendingNavigation(href);
+        setShowUnsavedModal(true);
+      }
+    }
+  };
+  
+  // Attach to document to catch all clicks
+  document.addEventListener('click', handleLinkClick, true);
+  
+  return () => {
+    document.removeEventListener('click', handleLinkClick, true);
+  };
+}, [hasUnsavedChanges]);
 
   const handleBrowseClick = () => {
     fileInputRef.current?.click();
@@ -2593,36 +2748,71 @@ const uploadVariantImages = async (productResponse: any) => {
   return (
     <div className="space-y-2 ">
 {/* ✅ MINIMAL COMPACT HEADER - Hover Tooltips + Badges */}
-<div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-2xl p-2">
+{/* ============================================================ */}
+{/* ✅ COMPLETE HEADER WITH EDIT MODE & VALIDATION */}
+{/* ============================================================ */}
+<div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-2xl p-4">
   <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-    {/* Left Side - Title */}
+    {/* ========== Left Side - Title & Status ========== */}
     <div className="flex items-center gap-4">
-      <Link href="/admin/products">
-        <button 
-          className="p-2.5 text-slate-400 hover:text-white hover:bg-slate-800 rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-          disabled={isSubmitting}
-          title="Back to Products"
-        >
-          <ArrowLeft className="h-5 w-5" />
-        </button>
-      </Link>
+{/* ========== BACK BUTTON ========== */}
+<Link 
+  href="/admin/products"
+  onClick={(e) => {
+    if (hasUnsavedChanges) {
+      e.preventDefault();
+      handleNavigateAway('/admin/products');
+    }
+  }}
+>
+  <button 
+    className="p-2.5 text-slate-400 hover:text-white hover:bg-slate-800 rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+    disabled={isSubmitting}
+    title="Back to Products"
+  >
+    <ArrowLeft className="h-5 w-5" />
+  </button>
+</Link>
+
+
+      {/* Title Section */}
       <div>
         <div className="flex items-center gap-3 flex-wrap">
-  <h1 className="text-2xl lg:text-3xl font-bold tracking-tight bg-gradient-to-r from-violet-400 via-cyan-400 to-pink-400 bg-clip-text text-transparent">
-    Create New Product
-  </h1>
-  
-  {/* ✅ PRODUCT NAME - Inline Display */}
-  {formData.name && (
-    <div className="flex items-center gap-2">
-      <span className="text-slate-600">•</span>
-      <span className="text-lg font-semibold text-white truncate max-w-xs" title={formData.name}>
-        {formData.name}
-      </span>
-    </div>
-  )}
-</div>
+          {/* Main Title */}
+          <h1 className="text-2xl lg:text-3xl font-bold tracking-tight bg-gradient-to-r from-violet-400 via-cyan-400 to-pink-400 bg-clip-text text-transparent">
+            {isEditMode ? "Edit Product" : "Create New Product"}
+          </h1>
 
+          {/* Product Name Display */}
+          {formData.name && (
+            <div className="flex items-center gap-2">
+              <span className="text-slate-600">•</span>
+              <span className="text-lg font-semibold text-white truncate max-w-xs" title={formData.name}>
+                {formData.name}
+              </span>
+            </div>
+          )}
+
+          {/* Edit Mode Badge */}
+          {isEditMode && productId && (
+            <div className="flex items-center gap-2 px-3 py-1 bg-cyan-500/10 border border-cyan-500/30 rounded-lg">
+              <div className="w-2 h-2 bg-cyan-400 rounded-full animate-pulse"></div>
+              <span className="text-xs font-medium text-cyan-400">
+                Edit Mode • ID: {productId.slice(0, 8)}...
+              </span>
+            </div>
+          )}
+
+          {/* Unsaved Changes Indicator */}
+          {hasUnsavedChanges && isEditMode && (
+            <div className="flex items-center gap-2 px-3 py-1.5 bg-amber-500/10 border border-amber-500/30 rounded-lg">
+              <div className="w-2 h-2 bg-amber-400 rounded-full"></div>
+              <span className="text-xs font-medium text-amber-400">Unsaved changes</span>
+            </div>
+          )}
+        </div>
+
+        {/* Status Text */}
         <p className="text-sm text-slate-400 mt-1">
           {isSubmitting 
             ? submitProgress?.step || 'Processing...' 
@@ -2634,57 +2824,58 @@ const uploadVariantImages = async (productResponse: any) => {
       </div>
     </div>
 
-    {/* Right Side - Action Buttons */}
+    {/* ========== Right Side - Action Buttons ========== */}
     <div className="flex items-center gap-3 flex-wrap sm:flex-nowrap">
-      {/* ✅ Save as Draft Button - WITH BADGE + TOOLTIP */}
+      {/* ========== SAVE AS DRAFT BUTTON ========== */}
       <button
         type="button"
         onClick={handleDraftSave}
         disabled={isSubmitting || !checkDraftRequirements().isValid}
-        className="px-4 py-2.5 rounded-xl bg-slate-800/50 border border-slate-700 text-slate-300 hover:bg-slate-800 hover:border-slate-600 transition-all text-sm font-medium flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+        className="px-4 py-2.5 rounded-xl bg-slate-800/50 border border-slate-700 text-slate-300 hover:bg-slate-800 hover:border-slate-600 transition-all text-sm font-medium flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed relative group"
         title={
           isSubmitting 
             ? "Processing..." 
-            : checkDraftRequirements().isValid 
-            ? "Save as draft for later" 
-            : `Missing: ${checkDraftRequirements().missing.join(', ')}`
+            : !checkDraftRequirements().isValid
+            ? `Missing: ${checkDraftRequirements().missing.join(', ')}`
+            : "Save as draft for later"
         }
       >
-        {isSubmitting && submitProgress?.step?.includes('draft') ? (
+        {isSubmitting && submitProgress?.step?.toLowerCase().includes('draft') ? (
           <>
             <div className="w-4 h-4 border-2 border-slate-400 border-t-transparent rounded-full animate-spin"></div>
-            <span className="hidden sm:inline">Saving...</span>
+            <span className="hidden sm:inline">{isEditMode ? "Updating..." : "Saving..."}</span>
             <span className="sm:hidden">Draft...</span>
           </>
         ) : (
           <>
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
-            </svg>
-            <span className="hidden sm:inline">Save as</span>
-            <span>Draft</span>
-            {/* ✅ ALWAYS SHOW BADGE */}
-            {checkDraftRequirements().missing.length > 0 && (
-              <span className="ml-1 px-1.5 py-0.5 bg-orange-500/20 text-orange-400 rounded text-xs font-bold">
-                {checkDraftRequirements().missing.length}
-              </span>
-            )}
+            <Save className="w-4 h-4" />
+            <span className="hidden sm:inline">{isEditMode ? "Update Draft" : "Save as Draft"}</span>
+            <span className="sm:hidden">Draft</span>
           </>
+        )}
+
+        {/* Badge - Show missing count */}
+        {!checkDraftRequirements().isValid && checkDraftRequirements().missing.length > 0 && (
+          <span className="ml-1 px-1.5 py-0.5 bg-orange-500/20 text-orange-400 rounded text-xs font-bold">
+            {checkDraftRequirements().missing.length}
+          </span>
         )}
       </button>
 
-      {/* ✅ Cancel Button */}
-      <button
-        type="button"
-        onClick={() => router.push('/admin/products')}
-        disabled={isSubmitting}
-        className="px-5 py-2.5 bg-slate-800/50 border border-slate-700 rounded-xl text-slate-300 hover:bg-slate-800 hover:border-slate-600 transition-all text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-        title="Discard changes"
-      >
-        Cancel
-      </button>
+  
+{/* ========== CANCEL BUTTON ========== */}
+<button
+  type="button"
+  onClick={() => handleNavigateAway('/admin/products')}
+  disabled={isSubmitting}
+  className="px-5 py-2.5 bg-slate-800/50 border border-slate-700 rounded-xl text-slate-300 hover:bg-slate-800 hover:border-slate-600 transition-all text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+  title="Discard changes"
+>
+  Cancel
+</button>
 
-      {/* ✅ CREATE PRODUCT Button - WITH BADGE + TOOLTIP */}
+
+      {/* ========== CREATE / UPDATE PRODUCT BUTTON ========== */}
       <button
         type="button"
         onClick={handlePublish}
@@ -2693,34 +2884,38 @@ const uploadVariantImages = async (productResponse: any) => {
         title={
           isSubmitting 
             ? "Creating product..." 
-            : missingFields.length === 0 
-            ? "Create and publish product" 
-            : `Missing: ${missingFields.join(', ')}`
+            : missingFields.length > 0
+            ? `Missing: ${missingFields.join(', ')}`
+            : isEditMode 
+            ? "Update and publish product"
+            : "Create and publish product"
         }
       >
-        {isSubmitting && !submitProgress?.step?.includes('draft') ? (
+        {isSubmitting && !submitProgress?.step?.toLowerCase().includes('draft') ? (
           <>
             <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-            <span>Creating...</span>
+            <span>{isEditMode ? "Updating..." : "Creating..."}</span>
           </>
         ) : (
           <>
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
             </svg>
-            <span>Create</span>
-            {/* ✅ ALWAYS SHOW BADGE */}
-            {missingFields.length > 0 && (
-              <span className="ml-1 px-1.5 py-0.5 bg-red-500/80 text-white rounded text-xs font-bold">
-                {missingFields.length}
-              </span>
-            )}
+            <span>{isEditMode ? "Update Product" : "Create"}</span>
           </>
         )}
 
+        {/* Badge - Show missing count */}
+        {missingFields.length > 0 && (
+          <span className="ml-1 px-1.5 py-0.5 bg-red-500/80 text-white rounded text-xs font-bold">
+            {missingFields.length}
+          </span>
+        )}
+
         {/* Progress Bar Overlay */}
-        {isSubmitting && submitProgress && !submitProgress.step?.includes('draft') && (
-          <div className="absolute bottom-0 left-0 h-1 bg-white/30 transition-all duration-500"
+        {isSubmitting && submitProgress && !submitProgress.step?.toLowerCase().includes('draft') && (
+          <div 
+            className="absolute bottom-0 left-0 h-1 bg-white/30 transition-all duration-500"
             style={{ width: `${submitProgress.percentage}%` }}
           ></div>
         )}
@@ -2728,7 +2923,7 @@ const uploadVariantImages = async (productResponse: any) => {
     </div>
   </div>
 
-  {/* ✅ Progress Bar - Only during submission */}
+  {/* ========== Progress Bar - Only during submission ========== */}
   {isSubmitting && submitProgress && (
     <div className="mt-4 pt-4 border-t border-slate-800">
       <div className="flex items-center justify-between mb-2">
@@ -2751,8 +2946,6 @@ const uploadVariantImages = async (productResponse: any) => {
     </div>
   )}
 </div>
-
-
 
 {/* ================================ */}
 {/* ✅ INDUSTRY-LEVEL LOADING OVERLAY */}
@@ -2778,8 +2971,8 @@ const uploadVariantImages = async (productResponse: any) => {
       {/* Dynamic Title */}
       <h3 className="text-2xl font-bold text-white text-center mb-2">
         {submitProgress?.step?.toLowerCase().includes('draft')
-          ? 'Saving as Draft'
-          : 'Creating Product'
+          ? isEditMode ? 'Updating Draft' : 'Saving as Draft'
+          : isEditMode ? 'Updating Product' : 'Creating Product'
         }
       </h3>
 
@@ -2852,6 +3045,10 @@ const uploadVariantImages = async (productResponse: any) => {
     </div>
   </div>
 )}
+
+
+
+
 
 
       {/* Main Content */}
@@ -6249,6 +6446,307 @@ const uploadVariantImages = async (productResponse: any) => {
     }));
   }}
 />
+{/* ============================================================ */}
+{showUnsavedModal && (
+  <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[100] flex items-center justify-center p-4 animate-fadeIn">
+    {/* Modal Container */}
+    <div className="bg-slate-900 border-2 border-amber-500/50 rounded-2xl shadow-2xl max-w-2xl w-full animate-slideUp">
+      {/* Header */}
+      <div className="px-6 py-5 border-b border-slate-800">
+        <div className="flex items-center gap-3">
+          {/* Warning Icon */}
+          <div className="w-12 h-12 bg-amber-500/20 rounded-full flex items-center justify-center flex-shrink-0">
+            <svg className="w-6 h-6 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+          </div>
+          
+          <div className="flex-1">
+            <h3 className="text-xl font-bold text-white">Unsaved Changes Detected</h3>
+            <p className="text-sm text-slate-400 mt-0.5">You have made changes that haven't been saved yet</p>
+          </div>
+
+          {/* Close Button */}
+          <button 
+            onClick={handleModalCancel}
+            className="text-slate-500 hover:text-white transition-colors p-1"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+      </div>
+
+      {/* Body */}
+      <div className="px-6 py-5">
+        <p className="text-slate-300 text-sm mb-4">
+          Choose how you want to proceed with your changes:
+        </p>
+{/* Changed Fields Summary - COMPLETE VERSION */}
+{(() => {
+  const changes: string[] = [];
+  
+  if (initialFormData) {
+    // ========== BASIC INFO ==========
+    if (formData.name !== initialFormData.name) changes.push('Product Name');
+    if (formData.sku !== initialFormData.sku) changes.push('SKU');
+    if (formData.shortDescription !== initialFormData.shortDescription) changes.push('Short Description');
+    if (formData.fullDescription !== initialFormData.fullDescription) changes.push('Full Description');
+    if (formData.productType !== initialFormData.productType) changes.push('Product Type');
+    if (formData.gender !== initialFormData.gender) changes.push('Gender');
+    
+    // ========== PRICING ==========
+    if (formData.price !== initialFormData.price) changes.push('Price');
+    if (formData.oldPrice !== initialFormData.oldPrice) changes.push('Old Price');
+    if (formData.cost !== initialFormData.cost) changes.push('Cost');
+    
+    // ========== CATEGORIES & BRANDS ==========
+    if (JSON.stringify(formData.categoryIds) !== JSON.stringify(initialFormData.categoryIds)) 
+      changes.push('Categories');
+    if (JSON.stringify(formData.brandIds) !== JSON.stringify(initialFormData.brandIds)) 
+      changes.push('Brands');
+    
+    // ========== INVENTORY ==========
+    if (formData.stockQuantity !== initialFormData.stockQuantity) changes.push('Stock');
+    if (formData.manageInventory !== initialFormData.manageInventory) changes.push('Inventory Management');
+    if (formData.minStockQuantity !== initialFormData.minStockQuantity) changes.push('Min Stock');
+    if (formData.allowBackorder !== initialFormData.allowBackorder) changes.push('Backorder Settings');
+    if (formData.displayStockAvailability !== initialFormData.displayStockAvailability) 
+      changes.push('Stock Display');
+    
+    // ========== IMAGES & MEDIA ==========
+    if (formData.productImages.length !== initialFormData.productImages.length) 
+      changes.push('Product Images');
+    if (JSON.stringify(formData.videoUrls) !== JSON.stringify(initialFormData.videoUrls)) 
+      changes.push('Video URLs');
+    
+    // ========== SHIPPING ==========
+    if (formData.isShipEnabled !== initialFormData.isShipEnabled) changes.push('Shipping Enabled');
+    if (formData.weight !== initialFormData.weight) changes.push('Weight');
+    if (formData.length !== initialFormData.length) changes.push('Length');
+    if (formData.width !== initialFormData.width) changes.push('Width');
+    if (formData.height !== initialFormData.height) changes.push('Height');
+    if (formData.sameDayDeliveryEnabled !== initialFormData.sameDayDeliveryEnabled) 
+      changes.push('Same Day Delivery');
+    if (formData.nextDayDeliveryEnabled !== initialFormData.nextDayDeliveryEnabled) 
+      changes.push('Next Day Delivery');
+    
+    // ========== TAX (VAT) ==========
+    if (formData.vatExempt !== initialFormData.vatExempt) changes.push('VAT Exempt');
+    // if (formData.vatRateId !== initialFormData.vatRateId) changes.push('VAT Rate');
+    
+    // ========== ATTRIBUTES & VARIANTS ==========
+    if (JSON.stringify(productAttributes) !== JSON.stringify([])) 
+      changes.push('Product Attributes');
+    if (JSON.stringify(productVariants) !== JSON.stringify([])) 
+      changes.push('Product Variants');
+    
+    // ========== SUBSCRIPTION ==========
+    if (formData.isRecurring !== initialFormData.isRecurring) changes.push('Subscription');
+    if (formData.recurringCycleLength !== initialFormData.recurringCycleLength) 
+      changes.push('Subscription Cycle');
+    
+    // ========== GROUPED PRODUCTS ==========
+    if (formData.requireOtherProducts !== initialFormData.requireOtherProducts) 
+      changes.push('Grouped Product');
+    if (formData.requiredProductIds !== initialFormData.requiredProductIds) 
+      changes.push('Required Products');
+    if (formData.groupBundleDiscountType !== initialFormData.groupBundleDiscountType) 
+      changes.push('Bundle Discount');
+    
+    // ========== GIFT CARD ==========
+    if (formData.isGiftCard !== initialFormData.isGiftCard) changes.push('Gift Card');
+    
+    // ========== DOWNLOADABLE ==========
+    if (formData.isDownload !== initialFormData.isDownload) changes.push('Downloadable');
+    
+    // ========== RENTAL ==========
+    if (formData.isRental !== initialFormData.isRental) changes.push('Rental');
+    
+    // ========== PACK ==========
+    if (formData.isPack !== initialFormData.isPack) changes.push('Pack Product');
+    
+    // ========== SEO ==========
+    if (formData.metaTitle !== initialFormData.metaTitle) changes.push('Meta Title');
+    if (formData.metaDescription !== initialFormData.metaDescription) changes.push('Meta Description');
+    if (formData.metaKeywords !== initialFormData.metaKeywords) changes.push('Meta Keywords');
+    // if (formData.searchEngineFriendlyPageName !== initialFormData.searchEngineFriendlyPageName) 
+    //   changes.push('SEO Slug');
+    
+    // ========== DISPLAY ==========
+    if (formData.showOnHomepage !== initialFormData.showOnHomepage) changes.push('Show on Homepage');
+    if (formData.visibleIndividually !== initialFormData.visibleIndividually) changes.push('Visibility');
+    if (formData.displayOrder !== initialFormData.displayOrder) changes.push('Display Order');
+    
+    // ========== CART SETTINGS ==========
+    if (formData.minCartQuantity !== initialFormData.minCartQuantity) changes.push('Min Cart Qty');
+    if (formData.maxCartQuantity !== initialFormData.maxCartQuantity) changes.push('Max Cart Qty');
+    if (formData.disableBuyButton !== initialFormData.disableBuyButton) changes.push('Buy Button');
+    
+    // ========== MARK AS NEW ==========
+    if (formData.markAsNew !== initialFormData.markAsNew) changes.push('Mark as New');
+    if (formData.markAsNewStartDate !== initialFormData.markAsNewStartDate) 
+      changes.push('New Badge Start Date');
+    
+    // ========== RELATED PRODUCTS ==========
+    if (JSON.stringify(formData.relatedProducts) !== JSON.stringify(initialFormData.relatedProducts)) 
+      changes.push('Related Products');
+    if (JSON.stringify(formData.crossSellProducts) !== JSON.stringify(initialFormData.crossSellProducts)) 
+      changes.push('Cross-Sell Products');
+  }
+  
+  return changes.length > 0 ? (
+    <div className="mb-5 p-4 bg-slate-800/50 border border-slate-700 rounded-xl max-h-32 overflow-y-auto scrollbar-thin scrollbar-thumb-slate-600">
+      <div className="flex items-start gap-2">
+        <Info className="w-4 h-4 text-cyan-400 mt-0.5 flex-shrink-0" />
+        <div className="flex-1">
+          <p className="text-xs font-semibold text-cyan-400 mb-1.5">
+            Modified Fields ({changes.length})
+          </p>
+          <div className="flex flex-wrap gap-1.5">
+            {changes.slice(0, 15).map((field, idx) => (
+              <span 
+                key={idx} 
+                className="px-2 py-1 bg-cyan-500/10 border border-cyan-500/30 text-cyan-300 text-xs rounded-md"
+              >
+                {field}
+              </span>
+            ))}
+            {changes.length > 15 && (
+              <span className="px-2 py-1 bg-cyan-500/10 border border-cyan-500/30 text-cyan-300 text-xs rounded-md font-semibold">
+                +{changes.length - 15} more
+              </span>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  ) : null;
+})()}
+
+        {/* Missing Fields Warning */}
+        {missingFields.length > 0 && (
+          <div className="mb-5 p-4 bg-orange-500/10 border border-orange-500/30 rounded-xl">
+            <div className="flex items-start gap-2">
+              <svg className="w-4 h-4 text-orange-400 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+              </svg>
+              <div className="flex-1">
+                <p className="text-xs font-semibold text-orange-300">
+                  ⚠️ {missingFields.length} required field{missingFields.length !== 1 ? 's' : ''} missing for publishing
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Action Buttons Grid - 2x2 Layout */}
+        <div className="grid grid-cols-2 gap-3">
+          {/* Save as Draft Button */}
+          <button
+            onClick={handleModalSaveDraft}
+            disabled={!checkDraftRequirements().isValid || isSubmitting}
+            className="group p-4 bg-slate-700 hover:bg-slate-600 border-2 border-transparent hover:border-slate-500 text-left rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:border-transparent"
+          >
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 bg-slate-600 group-hover:bg-slate-500 rounded-lg flex items-center justify-center flex-shrink-0 transition-colors">
+                <Save className="w-5 h-5 text-white" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <h4 className="font-semibold text-white text-sm mb-1">
+                  {isEditMode ? 'Update Draft' : 'Save as Draft'}
+                </h4>
+                <p className="text-xs text-slate-400 leading-relaxed">
+                  Save progress and leave. You can publish later.
+                </p>
+              </div>
+            </div>
+          </button>
+
+          {/* Create/Update Product Button */}
+          <button
+            onClick={handleModalCreateProduct}
+            disabled={missingFields.length > 0 || isSubmitting}
+            className="group p-4 bg-gradient-to-br from-violet-600 to-cyan-600 hover:from-violet-500 hover:to-cyan-500 border-2 border-transparent hover:border-violet-400 text-left rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:border-transparent shadow-lg"
+          >
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 bg-white/20 group-hover:bg-white/30 rounded-lg flex items-center justify-center flex-shrink-0 transition-colors">
+                <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+              </div>
+              <div className="flex-1 min-w-0">
+                <h4 className="font-semibold text-white text-sm mb-1">
+                  {isEditMode ? 'Update Product' : 'Create Product'}
+                </h4>
+                <p className="text-xs text-white/80 leading-relaxed">
+                  {missingFields.length > 0 
+                    ? `${missingFields.length} field${missingFields.length !== 1 ? 's' : ''} required`
+                    : 'Publish now and leave'
+                  }
+                </p>
+              </div>
+            </div>
+          </button>
+
+          {/* Discard Changes Button */}
+          <button
+            onClick={handleModalDiscard}
+            disabled={isSubmitting}
+            className="group p-4 bg-red-500/10 hover:bg-red-500/20 border-2 border-red-500/30 hover:border-red-500/50 text-left rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 bg-red-500/20 group-hover:bg-red-500/30 rounded-lg flex items-center justify-center flex-shrink-0 transition-colors">
+                <X className="w-5 h-5 text-red-400" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <h4 className="font-semibold text-red-400 text-sm mb-1">
+                  Discard Changes
+                </h4>
+                <p className="text-xs text-red-300/70 leading-relaxed">
+                  Leave without saving. All changes will be lost.
+                </p>
+              </div>
+            </div>
+          </button>
+
+          {/* Cancel - Stay on Page Button */}
+          <button
+            onClick={handleModalCancel}
+            disabled={isSubmitting}
+            className="group p-4 bg-slate-800/50 hover:bg-slate-700/50 border-2 border-slate-700 hover:border-slate-600 text-left rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 bg-slate-700 group-hover:bg-slate-600 rounded-lg flex items-center justify-center flex-shrink-0 transition-colors">
+                <svg className="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                </svg>
+              </div>
+              <div className="flex-1 min-w-0">
+                <h4 className="font-semibold text-slate-300 text-sm mb-1">
+                  Stay on Page
+                </h4>
+                <p className="text-xs text-slate-500 leading-relaxed">
+                  Continue editing. Don't leave yet.
+                </p>
+              </div>
+            </div>
+          </button>
+        </div>
+      </div>
+
+      {/* Footer Hint */}
+      <div className="px-6 py-3 bg-slate-800/30 rounded-b-2xl border-t border-slate-800">
+        <p className="text-xs text-slate-500 text-center">
+          💡 Tip: Press <kbd className="px-1.5 py-0.5 bg-slate-700 rounded text-slate-400">Esc</kbd> to stay on page
+        </p>
+      </div>
+    </div>
+  </div>
+)}
+
+
+
+
 <ScrollToTopButton />
     </div>
   );

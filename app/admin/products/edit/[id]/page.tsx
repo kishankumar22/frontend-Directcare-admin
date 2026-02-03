@@ -1,6 +1,6 @@
 // Edit Product  work Fine
 "use client";
-import { useState, use, useEffect, useRef, JSX } from "react";
+import { useState, use, useEffect, useRef, JSX, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ArrowLeft, Save,Plus , Upload, X, Info, Search, Image, Package, Tag,BarChart3, Globe, Settings, Truck, Users, PoundSterling, Link as LinkIcon, ShoppingCart, Video, Play, ChevronDown, Clock, Send, Bell } from "lucide-react";
@@ -49,11 +49,17 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
 const [homepageCount, setHomepageCount] = useState<number | null>(null);
 const MAX_HOMEPAGE = 50;
 const [showTaxPreview, setShowTaxPreview] = useState(false);
-// ✅ ADD THESE STATES (around line 50-100, with other states)
+
+// Unsaved Changes Modal
+const [showUnsavedModal, setShowUnsavedModal] = useState(false);
+const [pendingNavigation, setPendingNavigation] = useState<string | null>(null);
+const [initialFormData, setInitialFormData] = useState<any>(null);
+const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+const [lastSavedData, setLastSavedData] = useState<any>(null);
 // ✅ CORRECT - Array type with brackets []
 const [commentHistory, setCommentHistory] = useState<AdminCommentHistory[]>([]);
 const [isCommentHistoryOpen, setIsCommentHistoryOpen] = useState(false);
-// const [commentHistory, setCommentHistory] = useState<AdminCommentHistory[]>([]);
+
 const [loadingHistory, setLoadingHistory] = useState(false);
 
 // ================================
@@ -94,6 +100,95 @@ const [isGroupedModalOpen, setIsGroupedModalOpen] = useState(false);
 const [variantSkuErrors, setVariantSkuErrors] = useState<Record<string, string>>({});
 const [checkingVariantSku, setCheckingVariantSku] = useState<Record<string, boolean>>({});
 
+// ============================================================
+// VALIDATION FUNCTIONS - Add after useState
+// ============================================================
+
+// Check Draft Requirements (Minimal)
+const checkDraftRequirements = (): { isValid: boolean; missing: string[] } => {
+  const missing: string[] = [];
+  
+  if (!formData.name?.trim()) missing.push('Product Name');
+  if (!formData.sku?.trim()) missing.push('SKU');
+  if (!formData.categoryIds || formData.categoryIds.length === 0) missing.push('Category');
+  
+  const hasBrand = (formData.brandIds && formData.brandIds.length > 0) || formData.brand?.trim();
+  if (!hasBrand) missing.push('Brand');
+  
+  return { isValid: missing.length === 0, missing };
+};
+
+// Check Publish Requirements (Complete)
+const checkPublishRequirements = (): { isValid: boolean; missing: string[] } => {
+  const missing: string[] = [];
+  
+  // 1. Basic Info
+  if (!formData.name?.trim()) missing.push('Product Name');
+  if (!formData.sku?.trim()) missing.push('SKU');
+  if (!formData.shortDescription?.trim()) missing.push('Short Description');
+  
+  // 2. Price
+  const price = Number(formData.price);
+  if (isNaN(price) || price <= 0) missing.push('Price');
+  
+  // 3. Categories
+  if (!formData.categoryIds || formData.categoryIds.length === 0) {
+    missing.push('Category (at least 1)');
+  }
+  
+  // 4. Brands
+  const hasBrand = (formData.brandIds && formData.brandIds.length > 0) || formData.brand?.trim();
+  if (!hasBrand) missing.push('Brand (at least 1)');
+  
+  // 5. Images (minimum 3)
+  if (!formData.productImages || formData.productImages.length < 3) {
+    missing.push(`Product Images (minimum 3, current: ${formData.productImages?.length || 0})`);
+  }
+  
+  // 6. Stock (if tracking)
+  if (formData.manageInventory === 'track') {
+    const stock = parseInt(formData.stockQuantity?.toString() || '0');
+    if (isNaN(stock) || stock < 0) {
+      missing.push('Stock Quantity (valid number)');
+    }
+  }
+  
+  // 7. Weight (if shipping enabled)
+  if (formData.isShipEnabled) {
+    if (!formData.weight || parseFloat(formData.weight.toString()) <= 0) {
+      missing.push('Weight (required for shipping)');
+    }
+  }
+  
+  // 8. Grouped Products
+  if (formData.productType === 'grouped' && formData.requireOtherProducts) {
+    if (!formData.requiredProductIds?.trim()) {
+      missing.push('Grouped Products (at least 1)');
+    }
+  }
+  
+  // 9. VAT Rate (if not exempt)
+  if (formData.vatExempt === false) {
+    if (!formData.vatRateId || !formData.vatRateId.trim()) {
+      missing.push('VAT Rate (required when product is taxable)');
+    }
+  }
+  
+  return { isValid: missing.length === 0, missing };
+};
+
+// Show Missing Fields Toast
+const showMissingFieldsToast = (missing: string[], isDraft: boolean) => {
+  const title = isDraft ? 'Draft Requirements' : 'Required Fields Missing';
+  const message = missing.length === 1 
+    ? `Missing: ${missing[0]}` 
+    : `Missing ${missing.length} fields:\n${missing.map((f, i) => `${i + 1}. ${f}`).join('\n')}`;
+  
+  toast.warning(message, {
+    autoClose: 8000,
+    position: 'top-center'
+  });
+};
 
   // Add these states after existing states
 const [simpleProducts, setSimpleProducts] = useState<SimpleProduct[]>([]);
@@ -422,6 +517,33 @@ const [formData, setFormData] = useState({
   metaDescription: '',
   searchEngineFriendlyPageName: '',
 });
+
+
+const [missingFields, setMissingFields] = useState<string[]>([]);
+
+// Update missing fields on form change
+useEffect(() => {
+  const { missing } = checkPublishRequirements();
+  setMissingFields(missing);
+}, [
+  formData.name,
+  formData.sku,
+  formData.shortDescription,
+  formData.price,
+  formData.categoryIds,
+  formData.brandIds,
+  formData.brand,
+  formData.productImages,
+  formData.stockQuantity,
+  formData.manageInventory,
+  formData.isShipEnabled,
+  formData.weight,
+  formData.productType,
+  formData.requireOtherProducts,
+  formData.requiredProductIds,
+  formData.vatExempt,
+  formData.vatRateId
+]);
 
 const [productLock, setProductLock] = useState<{
   isLocked: boolean;
@@ -873,7 +995,6 @@ categoryIds: (() => {
         specifications: []
       });
 
-      
       console.log('✅ Form data populated');
       console.log('🎁 Bundle discount loaded:', {
         type: productData.groupBundleDiscountType || 'None',
@@ -953,6 +1074,7 @@ if (productData.variants && Array.isArray(productData.variants)) {
 
       setLoading(false);
       console.log('✅ ==================== PRODUCT DATA LOADED SUCCESSFULLY ====================');
+
 
     } catch (error: any) {
       console.error('❌ ==================== ERROR FETCHING PRODUCT ====================');
@@ -1455,6 +1577,151 @@ useEffect(() => {
 }, [productVariants.map((v) => `${v.id}-${v.sku}`).join(",")]); // Smart dependency
 
 
+// ============================================================
+// ADD THIS useEffect - Track unsaved changes
+// ============================================================
+
+useEffect(() => {
+  if (!initialFormData) return;
+  
+  // Compare with last saved data (after update) or initial data
+  const compareWith = lastSavedData || initialFormData;
+  
+  const hasChanges = JSON.stringify(formData) !== JSON.stringify(compareWith);
+  setHasUnsavedChanges(hasChanges);
+  
+  console.log('📊 Edit Mode - Change Detection:', {
+    hasChanges,
+    productName: formData.name,
+    compareWithName: compareWith?.name
+  });
+}, [formData, lastSavedData, initialFormData]);
+// ============================================================
+// BROWSER CLOSE WARNING
+// ============================================================
+// Fix #2: Move initialFormData to useEffect (Add after line 850)
+useEffect(() => {
+  if (!loading && formData.name && !initialFormData) {
+    setInitialFormData(JSON.parse(JSON.stringify(formData)));
+    console.log('✅ Initial form state captured:', formData.name);
+  }
+}, [loading, formData.name, initialFormData]);
+useEffect(() => {
+  const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+    if (hasUnsavedChanges) {
+      e.preventDefault();
+      e.returnValue = 'You have unsaved changes.';
+    }
+  };
+  
+  window.addEventListener('beforeunload', handleBeforeUnload);
+  return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+}, [hasUnsavedChanges]);
+// ============================================================
+// NAVIGATION GUARD HANDLER
+// ============================================================
+
+const handleNavigateAway = useCallback((targetPath?: string) => {
+  if (hasUnsavedChanges) {
+    setPendingNavigation(targetPath || '/admin/products');
+    setShowUnsavedModal(true);
+  } else {
+    router.push(targetPath || '/admin/products');
+  }
+}, [hasUnsavedChanges, router]);
+// ============================================================
+// MODAL ACTION HANDLERS
+// ============================================================
+
+const handleModalSaveDraft = async () => {
+  setShowUnsavedModal(false);
+  
+  // Trigger draft update
+  const fakeEvent = { preventDefault: () => {} } as React.FormEvent;
+  await handleSubmit(fakeEvent, true, false); // isDraft=true, shouldRedirect=false
+  
+  // After save, navigate
+  if (pendingNavigation) {
+    setTimeout(() => {
+      router.push(pendingNavigation);
+      setPendingNavigation(null);
+    }, 500);
+  }
+};
+
+const handleModalUpdateProduct = async () => {
+  setShowUnsavedModal(false);
+  
+  // Trigger publish
+  const fakeEvent = { preventDefault: () => {} } as React.FormEvent;
+  await handleSubmit(fakeEvent, false, false); // isDraft=false, shouldRedirect=false
+  
+  if (pendingNavigation) {
+    setTimeout(() => {
+      router.push(pendingNavigation);
+      setPendingNavigation(null);
+    }, 500);
+  }
+};
+
+const handleModalDiscard = () => {
+  setShowUnsavedModal(false);
+  setHasUnsavedChanges(false);
+  
+  if (pendingNavigation) {
+    router.push(pendingNavigation);
+    setPendingNavigation(null);
+  }
+};
+
+const handleModalCancel = () => {
+  setShowUnsavedModal(false);
+  setPendingNavigation(null);
+};
+// ============================================================
+// ESC KEY HANDLER
+// ============================================================
+
+useEffect(() => {
+  const handleEscape = (e: KeyboardEvent) => {
+    if (e.key === 'Escape' && showUnsavedModal) {
+      handleModalCancel();
+    }
+  };
+  
+  if (showUnsavedModal) {
+    window.addEventListener('keydown', handleEscape);
+  }
+  
+  return () => {
+    window.removeEventListener('keydown', handleEscape);
+  };
+}, [showUnsavedModal]);
+// ============================================================
+// SIDEBAR CLICK PROTECTION
+// ============================================================
+
+useEffect(() => {
+  const handleLinkClick = (e: MouseEvent) => {
+    const target = e.target as HTMLElement;
+    const link = target.closest('a');
+    
+    if (link && hasUnsavedChanges) {
+      const href = link.getAttribute('href');
+      
+      if (href && href !== window.location.pathname && !href.startsWith('http')) {
+        e.preventDefault();
+        e.stopPropagation();
+        
+        setPendingNavigation(href);
+        setShowUnsavedModal(true);
+      }
+    }
+  };
+  
+  document.addEventListener('click', handleLinkClick, true);
+  return () => document.removeEventListener('click', handleLinkClick, true);
+}, [hasUnsavedChanges]);
 
 // ============================================
 // ✅ CONNECTION STATUS DISPLAY (Optional)
@@ -1832,11 +2099,10 @@ useEffect(() => {
           lockTimerRef.current = null;
         }
 
-        // Show saving message
-        toast.info('💾 Lock expired!  your Chnages will be discorded', {
-          autoClose: 3000,
-          position: 'top-center'
-        });
+     toast.warning('Lock expired! Your changes will be discarded. Please save before editing again.', {
+  autoClose: 5000,
+  position: 'top-center'
+});
         return 0;
       }
 
@@ -4900,14 +5166,20 @@ const uploadImagesToProductDirect = async (
     
     {/* ========== LEFT SIDE - Title + Product Name ========== */}
     <div className="flex items-center gap-4">
-      <Link href="/admin/products">
-        <button 
-          className="p-2.5 text-slate-400 hover:text-white hover:bg-slate-800 rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-          disabled={isSubmitting}
-        >
-          <ArrowLeft className="h-5 w-5" />
-        </button>
-      </Link>
+      {/* ========== BACK BUTTON ========== */}
+<Link 
+  href="/admin/products"
+  onClick={(e) => {
+    if (hasUnsavedChanges) {
+      e.preventDefault();
+      handleNavigateAway('/admin/products');
+    }
+  }}
+>
+  <button className="p-2.5 text-slate-400 hover:text-white hover:bg-slate-800 rounded-xl transition-all">
+    <ArrowLeft className="h-5 w-5" />
+  </button>
+</Link>
       
       <div>
         <div className="flex items-center gap-3">
@@ -4982,15 +5254,16 @@ const uploadImagesToProductDirect = async (
 
 
 
-      {/* ✅ CANCEL BUTTON */}
-      <button
-        type="button"
-        onClick={() => handleCancel()}
-        disabled={isSubmitting}
-        className="px-5 py-2.5 bg-slate-800/50 border border-slate-700 rounded-xl text-slate-300 hover:bg-slate-800 hover:border-slate-600 transition-all text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-      >
-        Cancel
-      </button>
+   
+{/* ========== CANCEL BUTTON ========== */}
+<button
+  type="button"
+  onClick={() => handleNavigateAway('/admin/products')}
+  disabled={isSubmitting}
+  className="px-5 py-2.5 bg-slate-800/50 border border-slate-700 rounded-xl text-slate-300 hover:bg-slate-800"
+>
+  Cancel
+</button>
 
       {/* ✅ UPDATE BUTTON */}
       <button
@@ -8944,6 +9217,295 @@ const uploadImagesToProductDirect = async (
         </div>
       )}
     </div>
+  </div>
+)}
+{/* ============================================================ */}
+{/* UNSAVED CHANGES MODAL - FIXED & COMPLETE */}
+{/* ============================================================ */}
+{showUnsavedModal && (
+  <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[100] flex items-center justify-center p-4 animate-fadeIn">
+    <div className="bg-slate-900 border-2 border-amber-500/50 rounded-2xl shadow-2xl max-w-2xl w-full animate-slideUp">
+      {/* Header */}
+      <div className="px-6 py-5 border-b border-slate-800">
+        <div className="flex items-center gap-3">
+          <div className="w-12 h-12 bg-amber-500/20 rounded-full flex items-center justify-center flex-shrink-0">
+            <svg className="w-6 h-6 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+          </div>
+          
+          <div className="flex-1">
+            <h3 className="text-xl font-bold text-white">Unsaved Changes Detected</h3>
+            <p className="text-sm text-slate-400 mt-0.5">You have made changes that haven't been saved yet</p>
+          </div>
+
+          <button onClick={handleModalCancel} className="text-slate-500 hover:text-white transition-colors p-1">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+      </div>
+
+      {/* Body */}
+      <div className="px-6 py-5">
+        <p className="text-slate-300 text-sm mb-4">
+          Choose how you want to proceed with your changes:
+        </p>
+        
+        {/* Changed Fields Summary - COMPLETE VERSION */}
+        {(() => {
+          const changes: string[] = [];
+          
+          if (initialFormData) {
+            // ========== BASIC INFO ==========
+            if (formData.name !== initialFormData.name) changes.push('Product Name');
+            if (formData.sku !== initialFormData.sku) changes.push('SKU');
+            if (formData.shortDescription !== initialFormData.shortDescription) changes.push('Short Description');
+            if (formData.fullDescription !== initialFormData.fullDescription) changes.push('Full Description');
+            if (formData.productType !== initialFormData.productType) changes.push('Product Type');
+            if (formData.gender !== initialFormData.gender) changes.push('Gender');
+            if (formData.gtin !== initialFormData.gtin) changes.push('GTIN');
+            if (formData.manufacturerPartNumber !== initialFormData.manufacturerPartNumber) changes.push('MPN');
+            
+            // ========== PRICING ==========
+            if (formData.price !== initialFormData.price) changes.push('Price');
+            if (formData.oldPrice !== initialFormData.oldPrice) changes.push('Old Price');
+            if (formData.cost !== initialFormData.cost) changes.push('Cost');
+            
+            // ========== CATEGORIES & BRANDS ==========
+            if (JSON.stringify(formData.categoryIds) !== JSON.stringify(initialFormData.categoryIds)) 
+              changes.push('Categories');
+            if (JSON.stringify(formData.brandIds) !== JSON.stringify(initialFormData.brandIds)) 
+              changes.push('Brands');
+            
+            // ========== INVENTORY ==========
+            if (formData.stockQuantity !== initialFormData.stockQuantity) changes.push('Stock');
+            if (formData.manageInventory !== initialFormData.manageInventory) changes.push('Inventory Management');
+            if (formData.minStockQuantity !== initialFormData.minStockQuantity) changes.push('Min Stock');
+            if (formData.allowBackorder !== initialFormData.allowBackorder) changes.push('Backorder');
+            if (formData.displayStockAvailability !== initialFormData.displayStockAvailability) 
+              changes.push('Stock Display');
+            
+            // ========== IMAGES & MEDIA ==========
+            if (formData.productImages.length !== initialFormData.productImages.length) 
+              changes.push('Product Images');
+            if (JSON.stringify(formData.videoUrls) !== JSON.stringify(initialFormData.videoUrls)) 
+              changes.push('Video URLs');
+            
+            // ========== SHIPPING ==========
+            if (formData.isShipEnabled !== initialFormData.isShipEnabled) changes.push('Shipping Enabled');
+            if (formData.weight !== initialFormData.weight) changes.push('Weight');
+            if (formData.length !== initialFormData.length) changes.push('Length');
+            if (formData.width !== initialFormData.width) changes.push('Width');
+            if (formData.height !== initialFormData.height) changes.push('Height');
+            if (formData.sameDayDeliveryEnabled !== initialFormData.sameDayDeliveryEnabled) 
+              changes.push('Same Day Delivery');
+            if (formData.nextDayDeliveryEnabled !== initialFormData.nextDayDeliveryEnabled) 
+              changes.push('Next Day Delivery');
+            
+            // ========== TAX (VAT) ==========
+            if (formData.vatExempt !== initialFormData.vatExempt) changes.push('VAT Exempt');
+            if (formData.vatRateId !== initialFormData.vatRateId) changes.push('VAT Rate');
+            
+            // ========== ATTRIBUTES & VARIANTS ==========
+            if (JSON.stringify(productAttributes) !== JSON.stringify(initialFormData.attributes || [])) 
+              changes.push('Attributes');
+            if (JSON.stringify(productVariants) !== JSON.stringify(initialFormData.variants || [])) 
+              changes.push('Variants');
+            
+            // ========== SUBSCRIPTION ==========
+            if (formData.isRecurring !== initialFormData.isRecurring) changes.push('Subscription');
+            if (formData.recurringCycleLength !== initialFormData.recurringCycleLength) 
+              changes.push('Subscription Cycle');
+            
+            // ========== GROUPED PRODUCTS ==========
+            if (formData.requireOtherProducts !== initialFormData.requireOtherProducts) 
+              changes.push('Grouped Product');
+            if (formData.requiredProductIds !== initialFormData.requiredProductIds) 
+              changes.push('Required Products');
+            if (formData.groupBundleDiscountType !== initialFormData.groupBundleDiscountType) 
+              changes.push('Bundle Discount');
+            
+            // ========== SEO ==========
+            if (formData.metaTitle !== initialFormData.metaTitle) changes.push('Meta Title');
+            if (formData.metaDescription !== initialFormData.metaDescription) changes.push('Meta Description');
+            if (formData.metaKeywords !== initialFormData.metaKeywords) changes.push('Meta Keywords');
+            if (formData.searchEngineFriendlyPageName !== initialFormData.searchEngineFriendlyPageName) 
+              changes.push('SEO Slug');
+            
+            // ========== DISPLAY ==========
+            if (formData.showOnHomepage !== initialFormData.showOnHomepage) changes.push('Show on Homepage');
+            if (formData.visibleIndividually !== initialFormData.visibleIndividually) changes.push('Visibility');
+            if (formData.displayOrder !== initialFormData.displayOrder) changes.push('Display Order');
+            
+            // ========== CART SETTINGS ==========
+            if (formData.minCartQuantity !== initialFormData.minCartQuantity) changes.push('Min Cart Qty');
+            if (formData.maxCartQuantity !== initialFormData.maxCartQuantity) changes.push('Max Cart Qty');
+            if (formData.disableBuyButton !== initialFormData.disableBuyButton) changes.push('Buy Button');
+            
+            // ========== MARK AS NEW ==========
+            if (formData.markAsNew !== initialFormData.markAsNew) changes.push('Mark as New');
+            
+            // ========== RELATED PRODUCTS ==========
+            if (JSON.stringify(formData.relatedProducts) !== JSON.stringify(initialFormData.relatedProducts)) 
+              changes.push('Related Products');
+            if (JSON.stringify(formData.crossSellProducts) !== JSON.stringify(initialFormData.crossSellProducts)) 
+              changes.push('Cross-Sell Products');
+            
+            // ========== ADMIN COMMENT ==========
+            if (formData.adminComment !== initialFormData.adminComment) changes.push('Admin Comment');
+          }
+          
+          return changes.length > 0 ? (
+            <div className="mb-5 p-4 bg-slate-800/50 border border-slate-700 rounded-xl max-h-32 overflow-y-auto scrollbar-thin scrollbar-thumb-slate-600">
+              <div className="flex items-start gap-2">
+                <Info className="w-4 h-4 text-cyan-400 mt-0.5 flex-shrink-0" />
+                <div className="flex-1">
+                  <p className="text-xs font-semibold text-cyan-400 mb-1.5">
+                    Modified Fields ({changes.length})
+                  </p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {changes.slice(0, 15).map((field, idx) => (
+                      <span 
+                        key={idx} 
+                        className="px-2 py-1 bg-cyan-500/10 border border-cyan-500/30 text-cyan-300 text-xs rounded-md"
+                      >
+                        {field}
+                      </span>
+                    ))}
+                    {changes.length > 15 && (
+                      <span className="px-2 py-1 bg-cyan-500/10 border border-cyan-500/30 text-cyan-300 text-xs rounded-md font-semibold">
+                        +{changes.length - 15} more
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          ) : null;
+        })()}
+
+        {/* Missing Fields Warning */}
+        {missingFields.length > 0 && (
+          <div className="mb-5 p-4 bg-orange-500/10 border border-orange-500/30 rounded-xl">
+            <div className="flex items-start gap-2">
+              <svg className="w-4 h-4 text-orange-400 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+              </svg>
+              <div className="flex-1">
+                <p className="text-xs font-semibold text-orange-300">
+                  ⚠️ {missingFields.length} required field{missingFields.length !== 1 ? 's' : ''} missing for publishing
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Action Buttons Grid - 2x2 CONSISTENT LAYOUT */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          {/* Update Draft Button */}
+          <button
+            onClick={handleModalSaveDraft}
+            disabled={!checkDraftRequirements().isValid || isSubmitting}
+            className="group p-4 bg-slate-700 hover:bg-slate-600 border-2 border-transparent hover:border-slate-500 text-left rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:border-transparent"
+          >
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 bg-slate-600 group-hover:bg-slate-500 rounded-lg flex items-center justify-center flex-shrink-0 transition-colors">
+                <Save className="w-5 h-5 text-white" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <h4 className="font-semibold text-white text-sm mb-1">Update Draft</h4>
+                <p className="text-xs text-slate-400 leading-relaxed">
+                  Save changes and leave. Publish later.
+                </p>
+              </div>
+            </div>
+          </button>
+
+          {/* Update Product Button */}
+          <button
+            onClick={handleModalUpdateProduct}
+            disabled={missingFields.length > 0 || isSubmitting}
+            className="group p-4 bg-gradient-to-br from-violet-600 to-cyan-600 hover:from-violet-500 hover:to-cyan-500 border-2 border-transparent hover:border-violet-400 text-left rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:border-transparent shadow-lg"
+          >
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 bg-white/20 group-hover:bg-white/30 rounded-lg flex items-center justify-center flex-shrink-0 transition-colors">
+                <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+              </div>
+              <div className="flex-1 min-w-0">
+                <h4 className="font-semibold text-white text-sm mb-1">Update Product</h4>
+                <p className="text-xs text-white/80 leading-relaxed">
+                  {missingFields.length > 0 
+                    ? `${missingFields.length} field${missingFields.length !== 1 ? 's' : ''} required`
+                    : 'Publish changes and leave'
+                  }
+                </p>
+              </div>
+            </div>
+          </button>
+
+          {/* Discard Changes Button */}
+          <button
+            onClick={handleModalDiscard}
+            disabled={isSubmitting}
+            className="group p-4 bg-red-500/10 hover:bg-red-500/20 border-2 border-red-500/30 hover:border-red-500/50 text-left rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 bg-red-500/20 group-hover:bg-red-500/30 rounded-lg flex items-center justify-center flex-shrink-0 transition-colors">
+                <X className="w-5 h-5 text-red-400" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <h4 className="font-semibold text-red-400 text-sm mb-1">Discard Changes</h4>
+                <p className="text-xs text-red-300/70 leading-relaxed">
+                  Leave without saving. All changes lost.
+                </p>
+              </div>
+            </div>
+          </button>
+
+          {/* Stay on Page Button */}
+          <button
+            onClick={handleModalCancel}
+            disabled={isSubmitting}
+            className="group p-4 bg-slate-800/50 hover:bg-slate-700/50 border-2 border-slate-700 hover:border-slate-600 text-left rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 bg-slate-700 group-hover:bg-slate-600 rounded-lg flex items-center justify-center flex-shrink-0 transition-colors">
+                <svg className="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                </svg>
+              </div>
+              <div className="flex-1 min-w-0">
+                <h4 className="font-semibold text-slate-300 text-sm mb-1">Stay on Page</h4>
+                <p className="text-xs text-slate-500 leading-relaxed">
+                  Continue editing. Don't leave yet.
+                </p>
+              </div>
+            </div>
+          </button>
+        </div>
+      </div>
+
+      {/* Footer Hint */}
+      <div className="px-6 py-3 bg-slate-800/30 rounded-b-2xl border-t border-slate-800">
+        <p className="text-xs text-slate-500 text-center">
+          💡 Tip: Press <kbd className="px-1.5 py-0.5 bg-slate-700 rounded text-slate-400">Esc</kbd> to stay on page
+        </p>
+      </div>
+    </div>
+  </div>
+)}
+
+{/* Missing Fields Badge (in header) */}
+{missingFields.length > 0 && (
+  <div className="flex items-center gap-2 px-3 py-1.5 bg-orange-500/10 border border-orange-500/30 rounded-lg">
+    <svg className="w-4 h-4 text-orange-400" fill="currentColor" viewBox="0 0 20 20">
+      <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+    </svg>
+    <span className="text-xs font-medium text-orange-400">
+      {missingFields.length} field{missingFields.length !== 1 ? 's' : ''} required
+    </span>
   </div>
 )}
 

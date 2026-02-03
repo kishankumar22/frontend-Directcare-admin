@@ -1,5 +1,5 @@
 // lib/api-config.ts
-export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://warehouseapi.mezzex.com';
+export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://testapi.knowledgemarkg.com';
 
 export const API_ENDPOINTS = {
   // Auth
@@ -87,4 +87,20 @@ export const API_ENDPOINTS = {
     delete: (id: string) => `/api/ActivityLogs/${id}`,
     clear: '/api/ActivityLogs/clear',
   },
+
+   // Loyalty Config
+  loyaltyConfig: '/api/admin/loyalty-config',
+   loyaltyPoints: {
+    balance: '/api/loyalty/balance',
+    history: '/api/loyalty/history',
+    // Note: calculate, redeem, bonus APIs are for customer frontend, not admin panel
+    // calculate: '/api/loyalty/redeem/calculate',
+    // redeem: '/api/loyalty/redeem',
+    // reviewBonus: '/api/loyalty/bonus/review',
+    // Admin APIs
+    adminUsers: '/api/admin/loyalty/users',
+    adminUserBalance: '/api/admin/loyalty/user',
+    adminUserHistory: '/api/admin/loyalty/user',
+  },
+
 };

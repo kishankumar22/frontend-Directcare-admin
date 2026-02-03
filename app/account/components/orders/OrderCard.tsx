@@ -20,7 +20,7 @@ const handleDownloadInvoice = async () => {
     setInvoiceLoading(true);
 
     const res = await fetch(
-      `https://warehouseapi.mezzex.com/api/orders/${order.id}/regenerate-invoice`,
+      `https://testapi.knowledgemarkg.com/api/orders/${order.id}/regenerate-invoice`,
       {
         method: "POST",
         headers: {
@@ -65,7 +65,7 @@ const handleDownloadInvoice = async () => {
 
   try {
     const res = await fetch(
-      `https://warehouseapi.mezzex.com/api/Orders/${order.id}/cancel`,
+      `https://testapi.knowledgemarkg.com/api/Orders/${order.id}/cancel`,
       {
         method: "POST",
         headers: {

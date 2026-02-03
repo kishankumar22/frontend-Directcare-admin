@@ -91,7 +91,7 @@ const [profileLoading, setProfileLoading] = useState(false);
     setProfileLoading(true);
     try {
       const res = await fetch(
-        `https://warehouseapi.mezzex.com/api/Customers/by-email/${encodeURIComponent(user.email)}`,
+        `https://testapi.knowledgemarkg.com/api/Customers/by-email/${encodeURIComponent(user.email)}`,
         {
           headers: {
             Authorization: `Bearer ${accessToken}`,
@@ -124,7 +124,7 @@ const [profileLoading, setProfileLoading] = useState(false);
   // 🔐 LOGIN (UNCHANGED)
   const login = async (email: string, password: string) => {
     const res = await fetch(
-      "https://warehouseapi.mezzex.com/api/Auth/login",
+      "https://testapi.knowledgemarkg.com/api/Auth/login",
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -155,7 +155,7 @@ const [profileLoading, setProfileLoading] = useState(false);
   // 🔐 REGISTER (UNCHANGED)
   const register = async (regData: any) => {
     const res = await fetch(
-      "https://warehouseapi.mezzex.com/api/Auth/register",
+      "https://testapi.knowledgemarkg.com/api/Auth/register",
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },

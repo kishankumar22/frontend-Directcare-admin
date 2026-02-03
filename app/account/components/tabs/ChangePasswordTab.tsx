@@ -42,7 +42,7 @@ const [showConfirm, setShowConfirm] = useState(false);
 
     try {
       const res = await fetch(
-        "https://warehouseapi.mezzex.com/api/Auth/change-password",
+        "https://testapi.knowledgemarkg.com/api/Auth/change-password",
         {
           method: "POST",
           headers: {

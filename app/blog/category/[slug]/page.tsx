@@ -4,7 +4,7 @@ import Link from "next/link";
 const API_BASE =
   process.env.API_BASE_URL ||
   process.env.NEXT_PUBLIC_API_URL ||
-  "https://warehouseapi.mezzex.com";
+  "https://testapi.knowledgemarkg.com";
 
 function absoluteUrl(path?: string | null) {
   if (!path) return null;

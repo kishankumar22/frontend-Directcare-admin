@@ -574,7 +574,7 @@ const [reviews, setReviews] = useState<Review[]>([]);
 useEffect(() => {
   if (!product?.id) return;
 
-  fetch(`https://warehouseapi.mezzex.com/api/ProductReviews/product/${product.id}`)
+  fetch(`https://testapi.knowledgemarkg.com/api/ProductReviews/product/${product.id}`)
     .then(res => res.json())
     .then(json => {
       setReviews(json?.data ?? []);
@@ -709,7 +709,7 @@ if (autoMatch) {
 useEffect(() => {
   const fetchVatRates = async () => {
     try {
-      const res = await fetch("https://warehouseapi.mezzex.com/api/VATRates?activeOnly=true");
+      const res = await fetch("https://testapi.knowledgemarkg.com/api/VATRates?activeOnly=true");
       const json = await res.json();
       setVatRates(json.data || []);
     } catch (err) {

@@ -363,7 +363,7 @@ export const SelfHostedTinyMCE: React.FC<SelfHostedTinyMCEProps> = ({
             try {
               const file = blobInfo.blob();
               const result = await uploadEditorImage(file);
-              const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://warehouseapi.mezzex.com';
+              const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://testapi.knowledgemarkg.com';
               resolve(`${apiUrl}${result.location}`);
             } catch (error: any) {
               console.error('Upload error:', error);
@@ -394,7 +394,7 @@ export const SelfHostedTinyMCE: React.FC<SelfHostedTinyMCEProps> = ({
                 }
                 
                 const result = await uploadEditorImage(file);
-                const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://warehouseapi.mezzex.com';
+                const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://testapi.knowledgemarkg.com';
                 const imageUrl = `${apiUrl}${result.location}`;
                 
                 callback(imageUrl, {

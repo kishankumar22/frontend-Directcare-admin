@@ -174,7 +174,7 @@ discountAmount: discountAmount,
 useEffect(() => {
   const fetchVatRates = async () => {
     try {
-      const res = await fetch("https://warehouseapi.mezzex.com/api/VATRates?activeOnly=true");
+      const res = await fetch("https://testapi.knowledgemarkg.com/api/VATRates?activeOnly=true");
       const json = await res.json();
       setVatRates(json.data || []);
     } catch (error) {
@@ -245,8 +245,6 @@ const backorderState = getBackorderUIState({
   allowBackorder: product.allowBackorder,
   backorderMode: product.backorderMode,
 });
-
-
   const vatRate =
     !product.vatExempt && (product as any).vatRateId
       ? vatRates.find(v => v.id === (product as any).vatRateId)?.rate
