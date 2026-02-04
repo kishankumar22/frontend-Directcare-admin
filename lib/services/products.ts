@@ -217,13 +217,36 @@ export interface BrandData {
   displayOrder?: number;
 }
 
+// lib/services/products.ts (or wherever SimpleProduct is defined)
+
 export interface SimpleProduct {
   id: string;
   name: string;
   sku: string;
   price: number;
   stockQuantity: number;
+  
+  // ✅ ADD THESE PROPERTIES
+  brandId?: string;
+  brandName?: string;
+  
+  categories?: {
+    categoryId: string;
+    categoryName: string;
+    categorySlug?: string;
+    isPrimary?: boolean;
+    displayOrder?: number;
+  }[];
+  
+  images?: {
+    id: string;
+    imageUrl: string;
+    altText?: string;
+    sortOrder?: number;
+    isMain?: boolean;
+  }[];
 }
+
 
 export interface CreateProductDto {
   name: string;

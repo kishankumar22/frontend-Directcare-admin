@@ -2,7 +2,7 @@
 
 import { apiClient } from '../api';
 import { API_ENDPOINTS } from '../api-config';
-import { Customer, customersService } from './costomers';
+import { customersService, Customer } from './costomers';
 
 // ============================================================
 // LOYALTY POINTS INTERFACES
@@ -63,13 +63,11 @@ export interface LoyaltyHistoryQueryParams {
 }
 
 // ============================================================
-// ADMIN INTERFACES
+// ADMIN INTERFACES - ✅ FIXED: Extends Customer properly
 // ============================================================
 
-export interface AdminLoyaltyUser {
-  userId: string;
-  userEmail: string;
-  userName: string;
+export interface AdminLoyaltyUser extends Customer {
+  // Loyalty fields added to Customer type
   currentBalance: number;
   redemptionValue: number;
   totalPointsEarned: number;
@@ -77,28 +75,7 @@ export interface AdminLoyaltyUser {
   tierLevel: 'Bronze' | 'Silver' | 'Gold';
   lastEarnedAt: string | null;
   lastRedeemedAt: string | null;
-  customerDetails?: Customer | null;
-}
-
-export interface AdminLoyaltyUsersApiResponse {
-  success: boolean;
-  message: string;
-  data?: {
-    items: AdminLoyaltyUser[];
-    totalCount: number;
-    currentPage: number;
-    pageSize: number;
-  };
-  errors?: string[] | null;
-}
-
-export interface AdminLoyaltyQueryParams {
-  pageNumber?: number;
-  pageSize?: number;
-  searchTerm?: string;
-  tierLevel?: string;
-  sortBy?: 'balance' | 'earned' | 'redeemed' | 'lastActivity';
-  sortDirection?: 'asc' | 'desc';
+  loyaltyBalance: LoyaltyBalance | null;
 }
 
 // ============================================================
@@ -134,127 +111,137 @@ export const loyaltyPointsService = {
   },
 
   /**
-   * ADMIN: Get all users' loyalty balances (raw data without customer details)
-   * GET /api/admin/loyalty/users
+   * ✅ ADMIN: Get all customers with their loyalty data
+   * Uses customers API + fetches loyalty balance for each
    */
-  getAllUsers: (params?: AdminLoyaltyQueryParams, config: any = {}) => {
-    const queryParams = new URLSearchParams();
-    
-    if (params?.pageNumber) queryParams.append('pageNumber', params.pageNumber.toString());
-    if (params?.pageSize) queryParams.append('pageSize', params.pageSize.toString());
-    if (params?.searchTerm) queryParams.append('searchTerm', params.searchTerm);
-    if (params?.tierLevel) queryParams.append('tierLevel', params.tierLevel);
-    if (params?.sortBy) queryParams.append('sortBy', params.sortBy);
-    if (params?.sortDirection) queryParams.append('sortDirection', params.sortDirection);
-
-    const endpoint = queryParams.toString()
-      ? `${API_ENDPOINTS.loyaltyPoints.adminUsers}?${queryParams.toString()}`
-      : API_ENDPOINTS.loyaltyPoints.adminUsers;
-
-    return apiClient.get<AdminLoyaltyUsersApiResponse>(endpoint, config);
-  },
-
-  /**
-   * ✅ BEST METHOD: Get all users with customer details (OPTIMIZED BATCH FETCH)
-   * Fetches loyalty data + enriches with customer details in 2 API calls
-   */
-  getAllUsersWithDetails: async (params?: AdminLoyaltyQueryParams) => {
+  getAllCustomersWithLoyalty: async (params?: {
+    page?: number;
+    pageSize?: number;
+    searchTerm?: string;
+    isActive?: boolean;
+    sortBy?: string;
+    sortDirection?: 'asc' | 'desc';
+  }) => {
     try {
-      // Step 1: Fetch loyalty data
-      const loyaltyResponse = await loyaltyPointsService.getAllUsers(params);
-
-      if (!loyaltyResponse.data?.success || !loyaltyResponse.data.data) {
-        return loyaltyResponse;
-      }
-
-      const loyaltyUsers = loyaltyResponse.data.data.items;
-
-      // If no users, return early
-      if (loyaltyUsers.length === 0) {
-        return loyaltyResponse;
-      }
-
-      // Step 2: Fetch ALL customers in one call (batch fetch)
+      // Step 1: Get all customers
       const customersResponse = await customersService.getAll({
-        page: 1,
-        pageSize: 1000, // Adjust based on your customer count
-        sortDirection: 'desc',
+        page: params?.page || 1,
+        pageSize: params?.pageSize || 25,
+        searchTerm: params?.searchTerm,
+        isActive: params?.isActive,
+        sortBy: params?.sortBy,
+        sortDirection: params?.sortDirection || 'desc',
       });
 
-      const customers = customersResponse.data?.data?.items || [];
+      if (!customersResponse.data?.success || !customersResponse.data.data) {
+        return {
+          success: false,
+          message: 'Failed to fetch customers',
+          data: null,
+        };
+      }
 
-      // Step 3: Create customer lookup map for O(1) access
-      const customerMap = new Map<string, Customer>(
-        customers.map(customer => [customer.id, customer])
+      const customers = customersResponse.data.data.items;
+
+      // Step 2: Fetch loyalty balance for each customer
+      const customersWithLoyalty = await Promise.all(
+        customers.map(async (customer): Promise<AdminLoyaltyUser> => {
+          try {
+            // Try to get loyalty balance for this customer
+            const loyaltyResponse = await apiClient.get<LoyaltyBalanceApiResponse>(
+              `${API_ENDPOINTS.loyaltyPoints.balance}?userId=${customer.id}`
+            );
+
+            if (loyaltyResponse.data?.success && loyaltyResponse.data.data) {
+              const loyalty = loyaltyResponse.data.data;
+              
+              return {
+                ...customer,
+                currentBalance: loyalty.currentBalance,
+                redemptionValue: loyalty.redemptionValue,
+                totalPointsEarned: loyalty.totalPointsEarned,
+                totalPointsRedeemed: loyalty.totalPointsRedeemed,
+                tierLevel: loyalty.tierLevel,
+                lastEarnedAt: loyalty.lastEarnedAt,
+                lastRedeemedAt: loyalty.lastRedeemedAt,
+                loyaltyBalance: loyalty,
+              };
+            }
+          } catch (error) {
+            // If loyalty API fails, customer has no loyalty data
+            console.log(`No loyalty data for customer ${customer.id}`);
+          }
+
+          // Return customer with default loyalty values
+          return {
+            ...customer,
+            currentBalance: 0,
+            redemptionValue: 0,
+            totalPointsEarned: 0,
+            totalPointsRedeemed: 0,
+            tierLevel: 'Bronze',
+            lastEarnedAt: null,
+            lastRedeemedAt: null,
+            loyaltyBalance: null,
+          };
+        })
       );
 
-      // Step 4: Enrich loyalty users with customer details
-      const enrichedUsers = loyaltyUsers.map(loyaltyUser => {
-        const customer = customerMap.get(loyaltyUser.userId);
-
-        if (customer) {
-          return {
-            ...loyaltyUser,
-            userName: customer.fullName || `${customer.firstName} ${customer.lastName}`.trim(),
-            userEmail: customer.email || 'N/A',
-            customerDetails: customer,
-          };
-        }
-
-        // Fallback for users not found in customer list
-        return {
-          ...loyaltyUser,
-          userName: loyaltyUser.userName || 'Unknown User',
-          userEmail: loyaltyUser.userEmail || 'N/A',
-          customerDetails: null,
-        };
-      });
-
-      // Step 5: Return enriched data
       return {
-        ...loyaltyResponse,
+        success: true,
+        message: 'Customers with loyalty data fetched successfully',
         data: {
-          ...loyaltyResponse.data,
-          data: {
-            ...loyaltyResponse.data.data,
-            items: enrichedUsers,
-          },
+          items: customersWithLoyalty,
+          totalCount: customersResponse.data.data.totalCount,
+          currentPage: customersResponse.data.data.page,
+          pageSize: customersResponse.data.data.pageSize,
+          totalPages: customersResponse.data.data.totalPages,
         },
       };
     } catch (error) {
-      console.error('Error fetching users with details:', error);
+      console.error('Error fetching customers with loyalty:', error);
       throw error;
     }
   },
 
   /**
-   * ADMIN: Get specific user's balance
-   * GET /api/admin/loyalty/user/{userId}/balance
+   * Get specific user's balance by userId
    */
-  getUserBalance: (userId: string, config: any = {}) =>
-    apiClient.get<LoyaltyBalanceApiResponse>(
-      `${API_ENDPOINTS.loyaltyPoints.adminUserBalance}/${userId}/balance`,
-      config
-    ),
+  getUserBalance: async (userId: string) => {
+    try {
+      // Try with userId parameter
+      const response = await apiClient.get<LoyaltyBalanceApiResponse>(
+        `${API_ENDPOINTS.loyaltyPoints.balance}?userId=${userId}`
+      );
+      return response;
+    } catch (error) {
+      console.error(`Failed to get balance for user ${userId}:`, error);
+      throw error;
+    }
+  },
 
   /**
-   * ADMIN: Get specific user's history
-   * GET /api/admin/loyalty/user/{userId}/history
+   * Get specific user's history by userId
    */
-  getUserHistory: (userId: string, params?: LoyaltyHistoryQueryParams, config: any = {}) => {
-    const queryParams = new URLSearchParams();
-    
-    if (params?.pageNumber) queryParams.append('pageNumber', params.pageNumber.toString());
-    if (params?.pageSize) queryParams.append('pageSize', params.pageSize.toString());
-    if (params?.transactionType) queryParams.append('transactionType', params.transactionType);
-    if (params?.startDate) queryParams.append('startDate', params.startDate);
-    if (params?.endDate) queryParams.append('endDate', params.endDate);
+  getUserHistory: async (userId: string, params?: LoyaltyHistoryQueryParams) => {
+    try {
+      const queryParams = new URLSearchParams();
+      queryParams.append('userId', userId);
+      
+      if (params?.pageNumber) queryParams.append('pageNumber', params.pageNumber.toString());
+      if (params?.pageSize) queryParams.append('pageSize', params.pageSize.toString());
+      if (params?.transactionType) queryParams.append('transactionType', params.transactionType);
+      if (params?.startDate) queryParams.append('startDate', params.startDate);
+      if (params?.endDate) queryParams.append('endDate', params.endDate);
 
-    const endpoint = queryParams.toString()
-      ? `${API_ENDPOINTS.loyaltyPoints.adminUserHistory}/${userId}/history?${queryParams.toString()}`
-      : `${API_ENDPOINTS.loyaltyPoints.adminUserHistory}/${userId}/history`;
+      const endpoint = `${API_ENDPOINTS.loyaltyPoints.history}?${queryParams.toString()}`;
 
-    return apiClient.get<LoyaltyHistoryApiResponse>(endpoint, config);
+      const response = await apiClient.get<LoyaltyHistoryApiResponse>(endpoint);
+      return response;
+    } catch (error) {
+      console.error(`Failed to get history for user ${userId}:`, error);
+      throw error;
+    }
   },
 };
 

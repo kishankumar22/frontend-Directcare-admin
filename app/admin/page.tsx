@@ -41,6 +41,7 @@ import {
 } from "recharts";
 import { productsService, orderService } from "@/lib/services";
 import { customersService } from "@/lib/services/costomers";
+type DateRange = "7d" | "1m" | "6m" | "1y";
 
 // ===========================
 // INTERFACES & TYPES
@@ -108,6 +109,13 @@ export default function AdminDashboard() {
   const [categoryData, setCategoryData] = useState<CategorySales[]>([]);
   const [recentOrders, setRecentOrders] = useState<RecentOrder[]>([]);
   const [topProducts, setTopProducts] = useState<TopProduct[]>([]);
+const [dateRange, setDateRange] = useState<DateRange>("7d");
+const rangeConfig = {
+  "7d": { days: 7, label: "Last 7 days" },
+  "1m": { days: 30, label: "Last 1 month" },
+  "6m": { days: 180, label: "Last 6 months" },
+  "1y": { days: 365, label: "Last 1 year" },
+};
 
   // ===========================
   // FETCH ALL DATA
@@ -265,7 +273,8 @@ export default function AdminDashboard() {
         customersChange: Math.round(customersChange * 10) / 10,
       });
 
-      setSalesData(generateSalesTrend(orders));
+ setSalesData(generateSalesTrend(orders, dateRange));
+
       setCategoryData(generateCategoryDistribution(products));
       setRecentOrders(generateRecentOrders(orders));
       setTopProducts(generateTopProducts(products, orders));
@@ -277,43 +286,49 @@ export default function AdminDashboard() {
     }
   };
 
-  useEffect(() => {
-    fetchDashboardData();
-  }, []);
+useEffect(() => {
+  fetchDashboardData();
+}, [dateRange]);
+
 
   // ===========================
   // HELPER FUNCTIONS
   // ===========================
-  const generateSalesTrend = (orders: any[]): SalesData[] => {
-    const last7Days = Array.from({ length: 7 }, (_, i) => {
-      const date = new Date();
-      date.setDate(date.getDate() - (6 - i));
-      return {
-        name: date.toLocaleDateString("en-US", { month: "short", day: "numeric" }),
-        fullDate: date.toISOString().split("T")[0],
-        sales: 0,
-        orders: 0,
-        revenue: 0,
-      };
-    });
+const generateSalesTrend = (orders: any[], range: DateRange): SalesData[] => {
+  const days = rangeConfig[range].days;
 
-    orders.forEach((order: any) => {
-      const orderDate = new Date(order.orderDate).toISOString().split("T")[0];
-      const dayIndex = last7Days.findIndex((day) => day.fullDate === orderDate);
-      if (dayIndex !== -1) {
-        last7Days[dayIndex].orders += 1;
-        last7Days[dayIndex].revenue += order.totalAmount || 0;
-        last7Days[dayIndex].sales += order.subtotalAmount || 0;
-      }
-    });
+  const data = Array.from({ length: days }, (_, i) => {
+    const date = new Date();
+    date.setDate(date.getDate() - (days - 1 - i));
 
-    return last7Days.map(({ name, sales, orders, revenue }) => ({
-      name,
-      sales: Math.round(sales),
-      orders,
-      revenue: Math.round(revenue),
-    }));
-  };
+    return {
+      name: date.toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+      fullDate: date.toISOString().split("T")[0],
+      sales: 0,
+      orders: 0,
+      revenue: 0,
+    };
+  });
+
+  orders.forEach((order: any) => {
+    const orderDate = new Date(order.orderDate).toISOString().split("T")[0];
+    const index = data.findIndex((d) => d.fullDate === orderDate);
+
+    if (index !== -1) {
+      data[index].orders += 1;
+      data[index].revenue += order.totalAmount || 0;
+      data[index].sales += order.subtotalAmount || 0;
+    }
+  });
+
+  return data.map(({ name, sales, orders, revenue }) => ({
+    name,
+    sales: Math.round(sales),
+    orders,
+    revenue: Math.round(revenue),
+  }));
+};
+
 
   const generateCategoryDistribution = (products: any[]): CategorySales[] => {
     const categoryCounts: { [key: string]: number } = {};
@@ -591,16 +606,32 @@ export default function AdminDashboard() {
       <div className="grid gap-3 md:grid-cols-7">
         {/* Revenue Chart */}
         <div className="col-span-4 bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-2xl p-4">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h3 className="text-lg font-bold text-white">Revenue Analytics</h3>
-              <p className="text-xs text-slate-400 mt-1">Last 7 days revenue and order trends</p>
-            </div>
-            <div className="px-2 py-1 bg-violet-500/10 border border-violet-500/20 rounded-lg text-violet-400 text-xs font-medium flex items-center gap-1">
-              <Activity className="h-3 w-3" />
-              Live
-            </div>
-          </div>
+   <div className="flex items-center justify-between mb-4">
+  <div>
+    <h3 className="text-lg font-bold text-white">Revenue Analytics</h3>
+    <p className="text-xs text-slate-400 mt-1">
+      {rangeConfig[dateRange].label} revenue and order trends
+    </p>
+  </div>
+
+  <div className="flex gap-1 bg-slate-800/60 border border-slate-700 rounded-lg p-1">
+    {(["7d", "1m", "6m", "1y"] as DateRange[]).map((r) => (
+      <button
+        key={r}
+        onClick={() => setDateRange(r)}
+        className={`px-2.5 py-1 text-xs rounded-md transition-all
+          ${
+            dateRange === r
+              ? "bg-violet-500 text-white"
+              : "text-slate-400 hover:text-white hover:bg-slate-700"
+          }`}
+      >
+        {rangeConfig[r].label}
+      </button>
+    ))}
+  </div>
+</div>
+
           <ResponsiveContainer width="100%" height={280}>
             <AreaChart data={salesData}>
               <defs>

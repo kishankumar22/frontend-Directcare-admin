@@ -69,6 +69,7 @@ interface ApiResponse<T> {
 }
 
 interface PaginatedResponse {
+  page: any;
   items: Customer[];
   totalCount: number;
   pageSize: number;

@@ -48,7 +48,10 @@ import {
   Ship,
   Truck,
   Activity, // ✅ NEW ICON FOR ACTIVITY LOGS
-  Shield, // ✅ NEW ICON FOR SYSTEM GROUP
+  Shield,
+  Award,
+  Coins,
+  Sliders, // ✅ NEW ICON FOR SYSTEM GROUP
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTheme } from "@/context/theme-provider";
@@ -64,6 +67,7 @@ interface NavigationItem {
 }
 
 // ✅ UPDATED NAVIGATION WITH ACTIVITY LOGS IN SYSTEM GROUP
+// ✅ UPDATED NAVIGATION WITH LOYALTY PROGRAM GROUP
 const navigation: NavigationItem[] = [
   { 
     name: 'Dashboard', 
@@ -112,7 +116,25 @@ const navigation: NavigationItem[] = [
       { name: 'VAT Rates', href: '/admin/vatRates', icon: Receipt },
       { name: "NewsLetter", href: "/admin/newsletter", icon: Mail },
     ],
-  },  
+  },
+// ✅ BEST PROFESSIONAL SETUP
+{
+  name: 'Loyalty Program',        // Clear name
+  icon: Award,                    // Award badge icon (professional)
+  children: [
+    { 
+      name: 'Loyalty Points',     // Customer points management
+      href: '/admin/loyalty-points', 
+      icon: Coins                 // Coins icon (represents points)
+    },
+    { 
+      name: 'Loyalty Config',     // Configuration settings
+      href: '/admin/loyalty-config', 
+      icon: Sliders               // Sliders icon (represents settings)
+    },
+  ],
+},
+
   {
     name: 'Configuration',
     icon: Cog,
@@ -129,7 +151,7 @@ const navigation: NavigationItem[] = [
       { name: 'Blog Comments', href: '/admin/comments', icon: MessageSquare },
     ],
   },
-  // ✅ NEW SYSTEM GROUP WITH ACTIVITY LOGS
+  // ✅ SYSTEM GROUP WITH ACTIVITY LOGS
   {
     name: 'System',
     icon: Shield,
@@ -138,6 +160,7 @@ const navigation: NavigationItem[] = [
     ],
   },
 ];
+
 
 export default function AdminLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname();
@@ -433,7 +456,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
             </div>
 
             {/* ✅ NAVIGATION WITH HOVER AUTO-EXPAND */}
-            <nav className="flex-1 p-2 space-y-1 overflow-y-auto custom-scrollbar">
+            <nav className="flex-1 p-1.5 space-y-1 overflow-y-auto custom-scrollbar">
               {navigation.map((item) => {
                 const hasChildren = item.children && item.children.length > 0;
                 const isExpanded = expandedMenus[item.name];

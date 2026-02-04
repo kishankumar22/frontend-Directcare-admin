@@ -1,8 +1,7 @@
-// GroupedProductModal.tsx - ⭐ PROFESSIONAL INDUSTRY-LEVEL CODE ⭐
+// components/admin/GroupedProductModal.tsx - WITH SEARCHABLE BRAND & CATEGORY FILTERS
 import { SimpleProduct } from '@/lib/services';
-import { X, Package, Gift, TrendingDown, DollarSign, Calculator, ShoppingBag, AlertCircle } from 'lucide-react';
-import Select from 'react-select';
-import { useState, useEffect } from 'react';
+import { X, Package, Gift, TrendingDown, DollarSign, Calculator, AlertCircle, Search, Filter, Check, ChevronDown } from 'lucide-react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 
 interface GroupedProductModalProps {
   isOpen: boolean;
@@ -22,7 +21,7 @@ interface GroupedProductModalProps {
   showIndividualPrices?: boolean;
   applyDiscountToAllItems?: boolean;
   
-  onProductsChange: (selectedOptions: any) => void;
+  onProductsChange: (selectedProductIds: string[]) => void;
   onAutoAddChange: (checked: boolean) => void;
   
   onBundleDiscountChange: (discount: {
@@ -37,13 +36,6 @@ interface GroupedProductModalProps {
     showIndividualPrices: boolean;
     applyDiscountToAllItems: boolean;
   }) => void;
-}
-
-interface ProductOption {
-  value: string;
-  label: string;
-  data: SimpleProduct;
-  fullName: string;
 }
 
 export const GroupedProductModal = ({
@@ -66,6 +58,7 @@ export const GroupedProductModal = ({
   onBundleDiscountChange,
   onDisplaySettingsChange
 }: GroupedProductModalProps) => {
+  // DISCOUNT STATE
   const [localDiscountType, setLocalDiscountType] = useState(bundleDiscountType);
   const [localPercentage, setLocalPercentage] = useState(bundleDiscountPercentage);
   const [localAmount, setLocalAmount] = useState(bundleDiscountAmount);
@@ -74,7 +67,22 @@ export const GroupedProductModal = ({
   const [localShowPrices, setLocalShowPrices] = useState(showIndividualPrices);
   const [localApplyToAll, setLocalApplyToAll] = useState(applyDiscountToAllItems);
 
-  // ⭐⭐⭐ VALIDATION ERRORS STATE ⭐⭐⭐
+  // ⭐⭐⭐ FILTER STATE ⭐⭐⭐
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedBrand, setSelectedBrand] = useState<string>('all');
+  const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const [selectedProducts, setSelectedProducts] = useState<string[]>(selectedGroupedProducts);
+
+  // ⭐⭐⭐ SEARCHABLE DROPDOWN STATE ⭐⭐⭐
+  const [brandSearchTerm, setBrandSearchTerm] = useState('');
+  const [categorySearchTerm, setCategorySearchTerm] = useState('');
+  const [showBrandDropdown, setShowBrandDropdown] = useState(false);
+  const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
+
+  const brandDropdownRef = useRef<HTMLDivElement>(null);
+  const categoryDropdownRef = useRef<HTMLDivElement>(null);
+
+  // VALIDATION ERRORS STATE
   const [errors, setErrors] = useState({
     percentage: '',
     amount: '',
@@ -91,20 +99,138 @@ export const GroupedProductModal = ({
     setLocalApplyToAll(applyDiscountToAllItems);
   }, [bundleDiscountType, bundleDiscountPercentage, bundleDiscountAmount, bundleSpecialPrice, bundleSavingsMessage, showIndividualPrices, applyDiscountToAllItems]);
 
-  // ⭐⭐⭐ CALCULATE BUNDLE PRICE ⭐⭐⭐
-  const calculateBundlePrice = () => {
-    const selectedProducts = simpleProducts.filter(p => 
-      selectedGroupedProducts.includes(p.id)
+  useEffect(() => {
+    setSelectedProducts(selectedGroupedProducts);
+  }, [selectedGroupedProducts]);
+
+  // ⭐ CLOSE DROPDOWNS ON OUTSIDE CLICK
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (brandDropdownRef.current && !brandDropdownRef.current.contains(event.target as Node)) {
+        setShowBrandDropdown(false);
+      }
+      if (categoryDropdownRef.current && !categoryDropdownRef.current.contains(event.target as Node)) {
+        setShowCategoryDropdown(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  // ⭐⭐⭐ EXTRACT UNIQUE BRANDS & CATEGORIES ⭐⭐⭐
+  const brands = useMemo(() => {
+    const brandSet = new Map<string, string>();
+    simpleProducts.forEach(product => {
+      if (product.brandId && product.brandName) {
+        brandSet.set(product.brandId, product.brandName);
+      }
+    });
+    return Array.from(brandSet, ([id, name]) => ({ id, name }));
+  }, [simpleProducts]);
+
+  const categories = useMemo(() => {
+    const categorySet = new Map<string, string>();
+    simpleProducts.forEach(product => {
+      if (product.categories && product.categories.length > 0) {
+        const primaryCategory = product.categories.find(c => c.isPrimary) || product.categories[0];
+        if (primaryCategory) {
+          categorySet.set(primaryCategory.categoryId, primaryCategory.categoryName);
+        }
+      }
+    });
+    return Array.from(categorySet, ([id, name]) => ({ id, name }));
+  }, [simpleProducts]);
+
+  // ⭐ FILTERED BRANDS & CATEGORIES (FOR SEARCHABLE DROPDOWN)
+  const filteredBrands = useMemo(() => {
+    return brands.filter(brand =>
+      brand.name.toLowerCase().includes(brandSearchTerm.toLowerCase())
     );
+  }, [brands, brandSearchTerm]);
+
+  const filteredCategories = useMemo(() => {
+    return categories.filter(category =>
+      category.name.toLowerCase().includes(categorySearchTerm.toLowerCase())
+    );
+  }, [categories, categorySearchTerm]);
+
+  // ⭐⭐⭐ FILTERED PRODUCTS ⭐⭐⭐
+  const filteredProducts = useMemo(() => {
+    return simpleProducts.filter(product => {
+      const matchesSearch = searchTerm === '' || 
+        product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        product.sku.toLowerCase().includes(searchTerm.toLowerCase());
+
+      const matchesBrand = selectedBrand === 'all' || product.brandId === selectedBrand;
+
+      const matchesCategory = selectedCategory === 'all' || 
+        (product.categories && product.categories.some(c => c.categoryId === selectedCategory));
+
+      return matchesSearch && matchesBrand && matchesCategory;
+    });
+  }, [simpleProducts, searchTerm, selectedBrand, selectedCategory]);
+
+  // ⭐⭐⭐ HANDLE BRAND SELECTION ⭐⭐⭐
+  const handleBrandSelect = (brandId: string, brandName: string) => {
+    setSelectedBrand(brandId);
+    setBrandSearchTerm(brandName);
+    setShowBrandDropdown(false);
+  };
+
+  // ⭐⭐⭐ HANDLE CATEGORY SELECTION ⭐⭐⭐
+  const handleCategorySelect = (categoryId: string, categoryName: string) => {
+    setSelectedCategory(categoryId);
+    setCategorySearchTerm(categoryName);
+    setShowCategoryDropdown(false);
+  };
+
+  // ⭐⭐⭐ GET DISPLAY NAMES ⭐⭐⭐
+  const selectedBrandName = useMemo(() => {
+    if (selectedBrand === 'all') return '';
+    return brands.find(b => b.id === selectedBrand)?.name || '';
+  }, [selectedBrand, brands]);
+
+  const selectedCategoryName = useMemo(() => {
+    if (selectedCategory === 'all') return '';
+    return categories.find(c => c.id === selectedCategory)?.name || '';
+  }, [selectedCategory, categories]);
+
+  // Update search terms when selection changes
+  useEffect(() => {
+    setBrandSearchTerm(selectedBrandName);
+  }, [selectedBrandName]);
+
+  useEffect(() => {
+    setCategorySearchTerm(selectedCategoryName);
+  }, [selectedCategoryName]);
+
+  // ⭐⭐⭐ HANDLE PRODUCT SELECTION ⭐⭐⭐
+  const handleProductToggle = (productId: string) => {
+    setSelectedProducts(prev => {
+      if (prev.includes(productId)) {
+        return prev.filter(id => id !== productId);
+      } else {
+        return [...prev, productId];
+      }
+    });
+  };
+
+  const handleDeselectAll = () => {
+    setSelectedProducts([]);
+  };
+
+  // CALCULATE BUNDLE PRICE
+  const calculateBundlePrice = () => {
+    const selected = simpleProducts.filter(p => selectedProducts.includes(p.id));
     
-    const bundleItemsTotal = selectedProducts.reduce((sum, p) => 
+    const bundleItemsTotal = selected.reduce((sum, p) => 
       sum + parseFloat(p.price.toString()), 0
     );
     
     let discount = 0;
     let finalBundlePrice = bundleItemsTotal;
     
-    // ✅ DISCOUNT ONLY ON BUNDLE ITEMS (NOT MAIN PRODUCT)
     if (localDiscountType === 'Percentage' && localPercentage > 0) {
       discount = (bundleItemsTotal * localPercentage) / 100;
       finalBundlePrice = bundleItemsTotal - discount;
@@ -116,7 +242,6 @@ export const GroupedProductModal = ({
       finalBundlePrice = localSpecialPrice;
     }
     
-    // Final = (Bundle Items - Discount) + Main Product
     const totalWithMainProduct = finalBundlePrice + mainProductPrice;
     
     return { 
@@ -126,13 +251,13 @@ export const GroupedProductModal = ({
       finalBundlePrice,
       totalWithMainProduct,
       savingsPercentage: bundleItemsTotal > 0 ? ((discount / bundleItemsTotal) * 100) : 0,
-      selectedProducts
+      selectedProducts: selected
     };
   };
 
   const priceData = calculateBundlePrice();
 
-  // ⭐⭐⭐ REAL-TIME VALIDATION WITH MANDATORY VALUE CHECK ⭐⭐⭐
+  // VALIDATION
   const validateInputs = () => {
     const newErrors = {
       percentage: '',
@@ -141,7 +266,6 @@ export const GroupedProductModal = ({
     };
 
     if (localDiscountType === 'Percentage') {
-      // ✅ MUST ENTER VALUE
       if (!localPercentage || localPercentage === 0) {
         newErrors.percentage = 'Please enter a percentage value';
       } else if (localPercentage < 0) {
@@ -152,7 +276,6 @@ export const GroupedProductModal = ({
     }
 
     if (localDiscountType === 'FixedAmount') {
-      // ✅ MUST ENTER VALUE
       if (!localAmount || localAmount === 0) {
         newErrors.amount = 'Please enter a discount amount';
       } else if (localAmount < 0) {
@@ -163,7 +286,6 @@ export const GroupedProductModal = ({
     }
 
     if (localDiscountType === 'SpecialPrice') {
-      // ✅ MUST ENTER VALUE
       if (!localSpecialPrice || localSpecialPrice === 0) {
         newErrors.specialPrice = 'Please enter a special price';
       } else if (localSpecialPrice < 0) {
@@ -177,18 +299,19 @@ export const GroupedProductModal = ({
     return !newErrors.percentage && !newErrors.amount && !newErrors.specialPrice;
   };
 
-  // Run validation whenever inputs change
   useEffect(() => {
-    if (selectedGroupedProducts.length > 0) {
+    if (selectedProducts.length > 0) {
       validateInputs();
     }
-  }, [localDiscountType, localPercentage, localAmount, localSpecialPrice, selectedGroupedProducts]);
+  }, [localDiscountType, localPercentage, localAmount, localSpecialPrice, selectedProducts]);
 
   const handleSave = () => {
     if (!validateInputs()) {
       return;
     }
 
+    onProductsChange(selectedProducts);
+    
     onBundleDiscountChange({
       type: localDiscountType,
       percentage: localDiscountType === 'Percentage' ? localPercentage : undefined,
@@ -205,35 +328,14 @@ export const GroupedProductModal = ({
     onClose();
   };
 
-  const truncateText = (text: string, maxLength: number = 25): string => {
-    if (text.length <= maxLength) return text;
-    return `${text.substring(0, maxLength)}...`;
-  };
-
-  const productOptions: ProductOption[] = simpleProducts.map(p => ({
-    value: p.id,
-    label: `${truncateText(p.name, 25)} (${p.sku}) - £${p.price}`,
-    data: p,
-    fullName: p.name
-  }));
-
-  const selectedOptions: ProductOption[] = simpleProducts
-    .filter(p => selectedGroupedProducts.includes(p.id))
-    .map(p => ({
-      value: p.id,
-      label: `${truncateText(p.name, 25)} (${p.sku}) - £${p.price}`,
-      data: p,
-      fullName: p.name
-    }));
-
   const hasValidationErrors = errors.percentage || errors.amount || errors.specialPrice;
-  const canSave = selectedGroupedProducts.length > 0 && !hasValidationErrors;
+  const canSave = selectedProducts.length > 0 && !hasValidationErrors;
 
   if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-      <div className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
+      <div className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-5xl max-h-[90vh] overflow-hidden flex flex-col">
         
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-slate-800">
@@ -243,7 +345,7 @@ export const GroupedProductModal = ({
             </div>
             <div>
               <h2 className="text-lg font-semibold text-white">Configure Grouped Product</h2>
-              <p className="text-xs text-slate-400">Select required products and bundle pricing</p>
+              <p className="text-xs text-slate-400">Filter and select required products with bundle pricing</p>
             </div>
           </div>
           <button onClick={onClose} className="p-1.5 hover:bg-slate-800 rounded-lg transition-colors">
@@ -254,118 +356,304 @@ export const GroupedProductModal = ({
         {/* Body */}
         <div className="flex-1 overflow-y-auto p-4 space-y-4">
           
-          {/* Product Selection */}
-<div>
-  <label className="block text-sm font-medium text-slate-300 mb-2">
-    Select Required Products <span className="text-red-500">*</span>
-  </label>
-  
-  <Select<ProductOption, true>
-    isMulti
-    options={productOptions}
-    value={selectedOptions}
-    onChange={onProductsChange}
-    className="react-select-container"
-    classNamePrefix="react-select"
-    placeholder="Search and select products..."
-    styles={{
-      control: (base) => ({
-        ...base,
-        background: 'rgba(15, 23, 42, 0.5)',
-        borderColor: 'rgba(100, 116, 139, 0.5)',
-        minHeight: '42px',
-        borderRadius: '12px',
-        '&:hover': { borderColor: 'rgba(139, 92, 246, 0.5)' }
-      }),
-      menu: (base) => ({
-        ...base,
-        background: 'rgb(30, 41, 59)',
-        border: '1px solid rgba(100, 116, 139, 0.5)',
-        borderRadius: '12px',
-        overflow: 'hidden',
-        zIndex: 9999
-      }),
-      option: (base, state) => ({
-        ...base,
-        background: state.isFocused ? 'rgba(139, 92, 246, 0.2)' : 'transparent',
-        color: 'rgb(226, 232, 240)',
-        padding: '8px 12px',
-        fontSize: '13px',
-        '&:hover': { background: 'rgba(139, 92, 246, 0.3)' }
-      }),
-      multiValue: (base) => ({
-        ...base,
-        background: 'rgba(139, 92, 246, 0.2)',
-        borderRadius: '6px'
-      }),
-      multiValueLabel: (base) => ({
-        ...base,
-        color: 'rgb(226, 232, 240)',
-        fontSize: '13px',
-        padding: '2px 6px'
-      }),
-      multiValueRemove: (base) => ({
-        ...base,
-        color: 'rgb(226, 232, 240)',
-        '&:hover': {
-          background: 'rgba(239, 68, 68, 0.3)',
-          color: 'rgb(248, 113, 113)'
-        }
-      }),
-      valueContainer: (base) => ({
-        ...base,
-        padding: '2px 8px',
-        maxHeight: '100px',
-        overflowY: 'auto'
-      })
-    }}
-    formatOptionLabel={(option) => (
-      <div title={option.fullName}>{option.label}</div>
-    )}
-    
-  />
+          {/* ⭐⭐⭐ FILTERS SECTION WITH SEARCHABLE DROPDOWNS ⭐⭐⭐ */}
+          <div className="bg-slate-800/30 border border-slate-700 rounded-xl p-3">
+       
 
-  {/* ✅ IMPROVED MESSAGE SECTION */}
-  {selectedGroupedProducts.length === 0 ? (
-    <div className="mt-2 p-3 h-72 flex items-center justify-center bg-amber-500/10 border border-amber-500/30 rounded-lg">
-      <div className="flex items-center gap-2">
-        <AlertCircle className="w-4 h-4 text-amber-400 mt-0.5 shrink-0" />
-        <div>
-          <p className="text-sm font-medium text-amber-400">
-            No products selected
-          </p>
-          <p className="text-xs text-amber-300/80 mt-0.5">
-            Please select at least one product to create a bundle/grouped product
-          </p>
-        </div>
-      </div>
-    </div>
-  ) : (
-    <div className="mt-2 p-2.5 bg-violet-500/10 border border-violet-500/30 rounded-lg">
-      <div className="flex items-center gap-2">
-        <svg className="w-4 h-4 text-violet-400" fill="currentColor" viewBox="0 0 20 20">
-          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-        </svg>
-        <p className="text-xs font-medium text-violet-300">
-          Selected: <span className="text-white font-semibold">{selectedGroupedProducts.length}</span> product{selectedGroupedProducts.length !== 1 ? 's' : ''}
-        </p>
-      </div>
-    </div>
-  )}
-</div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              {/* Search */}
+              <div>
+                <label className="block text-xs font-medium text-slate-300 mb-1.5">Search</label>
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                  <input
+                    type="text"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    placeholder="Search by name or SKU..."
+                    className="w-full pl-9 pr-3 py-2 bg-slate-900/70 border border-slate-600 rounded-lg text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500"
+                  />
+                </div>
+              </div>
+
+              {/* ⭐ SEARCHABLE BRAND FILTER ⭐ */}
+              <div className="relative" ref={brandDropdownRef}>
+                <label className="block text-xs font-medium text-slate-300 mb-1.5">Brand</label>
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={brandSearchTerm}
+                    onChange={(e) => {
+                      setBrandSearchTerm(e.target.value);
+                      setShowBrandDropdown(true);
+                    }}
+                    onFocus={() => setShowBrandDropdown(true)}
+                    placeholder={`Search brands... (${brands.length})`}
+                    className="w-full px-3 py-2 pr-8 bg-slate-900/70 border border-slate-600 rounded-lg text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500"
+                  />
+                  <ChevronDown 
+                    className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 cursor-pointer"
+                    onClick={() => setShowBrandDropdown(!showBrandDropdown)}
+                  />
+                </div>
+
+                {/* Brand Dropdown */}
+                {showBrandDropdown && (
+                  <div className="absolute z-50 w-full mt-1 bg-slate-800 border border-slate-600 rounded-lg shadow-xl max-h-60 overflow-y-auto">
+                    <div
+                      onClick={() => handleBrandSelect('all', '')}
+                      className="px-3 py-2 text-sm text-slate-300 hover:bg-violet-500/20 cursor-pointer border-b border-slate-700"
+                    >
+                      All Brands ({brands.length})
+                    </div>
+                    {filteredBrands.length > 0 ? (
+                      filteredBrands.map(brand => (
+                        <div
+                          key={brand.id}
+                          onClick={() => handleBrandSelect(brand.id, brand.name)}
+                          className={`px-3 py-2 text-sm cursor-pointer hover:bg-violet-500/20 ${
+                            selectedBrand === brand.id ? 'bg-violet-500/20 text-violet-300' : 'text-slate-300'
+                          }`}
+                        >
+                          {brand.name}
+                        </div>
+                      ))
+                    ) : (
+                      <div className="px-3 py-2 text-sm text-slate-500 italic">No brands found</div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* ⭐ SEARCHABLE CATEGORY FILTER ⭐ */}
+              <div className="relative" ref={categoryDropdownRef}>
+                <label className="block text-xs font-medium text-slate-300 mb-1.5">Category</label>
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={categorySearchTerm}
+                    onChange={(e) => {
+                      setCategorySearchTerm(e.target.value);
+                      setShowCategoryDropdown(true);
+                    }}
+                    onFocus={() => setShowCategoryDropdown(true)}
+                    placeholder={`Search categories... (${categories.length})`}
+                    className="w-full px-3 py-2 pr-8 bg-slate-900/70 border border-slate-600 rounded-lg text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500"
+                  />
+                  <ChevronDown 
+                    className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 cursor-pointer"
+                    onClick={() => setShowCategoryDropdown(!showCategoryDropdown)}
+                  />
+                </div>
+
+                {/* Category Dropdown */}
+                {showCategoryDropdown && (
+                  <div className="absolute z-50 w-full mt-1 bg-slate-800 border border-slate-600 rounded-lg shadow-xl max-h-60 overflow-y-auto">
+                    <div
+                      onClick={() => handleCategorySelect('all', '')}
+                      className="px-3 py-2 text-sm text-slate-300 hover:bg-violet-500/20 cursor-pointer border-b border-slate-700"
+                    >
+                      All Categories ({categories.length})
+                    </div>
+                    {filteredCategories.length > 0 ? (
+                      filteredCategories.map(category => (
+                        <div
+                          key={category.id}
+                          onClick={() => handleCategorySelect(category.id, category.name)}
+                          className={`px-3 py-2 text-sm cursor-pointer hover:bg-violet-500/20 ${
+                            selectedCategory === category.id ? 'bg-violet-500/20 text-violet-300' : 'text-slate-300'
+                          }`}
+                        >
+                          {category.name}
+                        </div>
+                      ))
+                    ) : (
+                      <div className="px-3 py-2 text-sm text-slate-500 italic">No categories found</div>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Filter Summary */}
+            <div className="mt-3 flex items-center justify-between text-xs">
+              <div className="flex items-center gap-2 flex-wrap">
+                <p className="text-slate-400">
+                  Showing <span className="text-white font-semibold">{filteredProducts.length}</span> of <span className="text-white font-semibold">{simpleProducts.length}</span> products
+                </p>
+                {selectedBrand !== 'all' && (
+                  <span className="px-2 py-0.5 bg-cyan-500/20 text-cyan-300 rounded text-xs">
+                    Brand: {selectedBrandName}
+                    <button
+                      onClick={() => {
+                        setSelectedBrand('all');
+                        setBrandSearchTerm('');
+                      }}
+                      className="ml-1 text-cyan-400 hover:text-cyan-200"
+                    >
+                      ×
+                    </button>
+                  </span>
+                )}
+                {selectedCategory !== 'all' && (
+                  <span className="px-2 py-0.5 bg-violet-500/20 text-violet-300 rounded text-xs">
+                    Category: {selectedCategoryName}
+                    <button
+                      onClick={() => {
+                        setSelectedCategory('all');
+                        setCategorySearchTerm('');
+                      }}
+                      className="ml-1 text-violet-400 hover:text-violet-200"
+                    >
+                      ×
+                    </button>
+                  </span>
+                )}
+              </div>
+              <button
+                onClick={handleDeselectAll}
+                disabled={selectedProducts.length === 0}
+                className="px-2.5 py-1 bg-slate-700/50 hover:bg-slate-700 text-slate-300 rounded text-xs font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Deselect All
+              </button>
+            </div>
+          </div>
 
 
-          {/* ⭐⭐⭐ BUNDLE DISCOUNT SETTINGS - 2 ROW GRID ⭐⭐⭐ */}
-          {selectedGroupedProducts.length > 0 && (
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <label className="block text-sm font-medium text-slate-300">
+                Select Required Products <span className="text-red-500">*</span>
+              </label>
+              {selectedProducts.length > 0 && (
+                <span className="px-2.5 py-1 bg-violet-500/20 border border-violet-500/30 rounded-lg text-xs font-semibold text-violet-300">
+                  {selectedProducts.length} Selected
+                </span>
+              )}
+            </div>
+
+            {filteredProducts.length === 0 ? (
+              <div className="p-6 bg-amber-500/10 border border-amber-500/30 rounded-lg text-center">
+                <AlertCircle className="w-8 h-8 text-amber-400 mx-auto mb-2" />
+                <p className="text-sm font-medium text-amber-400">No products found</p>
+                <p className="text-xs text-amber-300/80 mt-1">Try adjusting your filters</p>
+              </div>
+            ) : (
+              <div className="border border-slate-700 rounded-xl bg-slate-900/50 max-h-90 h-64 overflow-y-auto">
+                {filteredProducts.map((product) => {
+                  const isSelected = selectedProducts.includes(product.id);
+                  const primaryCategory = product.categories?.find(c => c.isPrimary) || product.categories?.[0];
+                  
+                  return (
+                    <label
+                      key={product.id}
+                      className={`flex items-center gap-3 p-3 border-b border-slate-800 last:border-b-0 cursor-pointer transition-colors ${
+                        isSelected 
+                          ? 'bg-violet-500/10 hover:bg-violet-500/15' 
+                          : 'hover:bg-slate-800/50'
+                      }`}
+                    >
+                      {/* Checkbox */}
+                      <div className="relative flex items-center">
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={() => handleProductToggle(product.id)}
+                          className="w-5 h-5 rounded border-2 border-slate-600 bg-slate-900 text-violet-500 focus:ring-2 focus:ring-violet-500 focus:ring-offset-0 cursor-pointer"
+                        />
+                        {isSelected && (
+                          <Check className="absolute left-0.5 top-0.5 w-4 h-4 text-white pointer-events-none" />
+                        )}
+                      </div>
+
+                      {/* Product Image */}
+                      {product.images && product.images.length > 0 && (
+                        <img
+                          src={product.images.find(img => img.isMain)?.imageUrl || product.images[0].imageUrl}
+                          alt={product.name}
+                          className="w-12 h-12 rounded-lg object-cover border border-slate-700"
+                        />
+                      )}
+
+                      {/* Product Info */}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex-1 min-w-0">
+                            <h4 className="text-sm font-medium text-white truncate" title={product.name}>
+                              {product.name}
+                            </h4>
+                            <div className="flex items-center gap-2 mt-1">
+                              <span className="text-xs text-slate-400">SKU: {product.sku}</span>
+                              {product.brandName && (
+                                <>
+                                  <span className="text-slate-600">•</span>
+                                  <span className="text-xs text-cyan-400">{product.brandName}</span>
+                                </>
+                              )}
+                              {primaryCategory && (
+                                <>
+                                  <span className="text-slate-600">•</span>
+                                  <span className="text-xs text-violet-400">{primaryCategory.categoryName}</span>
+                                </>
+                              )}
+                            </div>
+                          </div>
+                          
+                          {/* Price */}
+                          <div className="text-right shrink-0">
+                            <p className="text-base font-bold text-green-400">£{parseFloat(product.price.toString()).toFixed(2)}</p>
+                            {product.stockQuantity !== undefined && (
+                              <p className={`text-xs ${
+                                product.stockQuantity > 10 
+                                  ? 'text-green-400' 
+                                  : product.stockQuantity > 0 
+                                  ? 'text-amber-400' 
+                                  : 'text-red-400'
+                              }`}>
+                                Stock: {product.stockQuantity}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </label>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Selection Message */}
+            {selectedProducts.length === 0 ? (
+              <div className="mt-2 p-3 bg-amber-500/10 border border-amber-500/30 rounded-lg">
+                <div className="flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 text-amber-400 shrink-0" />
+                  <p className="text-xs font-medium text-amber-300">
+                    Please select at least one product to create a bundle/grouped product
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <div className="mt-2 p-2.5 bg-violet-500/10 border border-violet-500/30 rounded-lg">
+                <div className="flex items-center gap-2">
+                  <Check className="w-4 h-4 text-violet-400" />
+                  <p className="text-xs font-medium text-violet-300">
+                    Selected: <span className="text-white font-semibold">{selectedProducts.length}</span> product{selectedProducts.length !== 1 ? 's' : ''}
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* BUNDLE DISCOUNT SETTINGS */}
+          {selectedProducts.length > 0 && (
             <div className="p-3 bg-gradient-to-br from-violet-500/10 to-cyan-500/10 rounded-xl border border-violet-500/30">
               <div className="flex items-center gap-2 mb-3">
                 <Gift className="w-4 h-4 text-violet-400" />
                 <h3 className="text-sm font-semibold text-white">Bundle Discount Settings</h3>
               </div>
 
-              {/* ✅ ROW 1: Discount Type + Value Input (2 Columns) */}
               <div className="grid md:grid-cols-2 gap-3 mb-3">
-                {/* Discount Type */}
                 <div>
                   <label className="block text-xs font-medium text-slate-300 mb-1.5">Discount Type</label>
                   <select
@@ -380,7 +668,6 @@ export const GroupedProductModal = ({
                   </select>
                 </div>
 
-                {/* Dynamic Input Based on Discount Type */}
                 <div>
                   {localDiscountType === 'Percentage' && (
                     <>
@@ -424,7 +711,7 @@ export const GroupedProductModal = ({
                           min="0"
                           max={priceData.bundleItemsTotal}
                           step="0.01"
-                          placeholder="500"
+                          placeholder="10"
                           className={`w-full px-3 py-2 pr-9 bg-slate-900/70 border rounded-lg text-sm text-white focus:outline-none focus:ring-2 ${
                             errors.amount ? 'border-red-500 focus:ring-red-500' : 'border-slate-600 focus:ring-violet-500'
                           }`}
@@ -453,7 +740,7 @@ export const GroupedProductModal = ({
                           min="0"
                           max={priceData.bundleItemsTotal - 0.01}
                           step="0.01"
-                          placeholder="2999"
+                          placeholder="50"
                           className={`w-full px-3 py-2 pr-9 bg-slate-900/70 border rounded-lg text-sm text-white focus:outline-none focus:ring-2 ${
                             errors.specialPrice ? 'border-red-500 focus:ring-red-500' : 'border-slate-600 focus:ring-violet-500'
                           }`}
@@ -477,7 +764,6 @@ export const GroupedProductModal = ({
                 </div>
               </div>
 
-              {/* ✅ ROW 2: Savings Message (Full Width) */}
               {localDiscountType !== 'None' && (
                 <div>
                   <label className="block text-xs font-medium text-slate-300 mb-1.5">
@@ -487,15 +773,7 @@ export const GroupedProductModal = ({
                     type="text"
                     value={localMessage}
                     onChange={(e) => setLocalMessage(e.target.value)}
-                    placeholder={
-                      localDiscountType === 'Percentage' && priceData.discount > 0
-                        ? `Save ${localPercentage.toFixed(0)}% (£${priceData.discount.toFixed(2)}) when you buy this bundle!`
-                        : localDiscountType === 'FixedAmount' && priceData.discount > 0
-                        ? `Save £${priceData.discount.toFixed(2)} on this bundle pack!`
-                        : localDiscountType === 'SpecialPrice' && priceData.discount > 0
-                        ? `Special bundle price! Save £${priceData.discount.toFixed(2)} (${priceData.savingsPercentage.toFixed(0)}% off)`
-                        : 'Enter custom savings message...'
-                    }
+                    placeholder="e.g., Save 15% when you buy this bundle!"
                     maxLength={100}
                     className="w-full px-3 py-2 bg-slate-900/70 border border-slate-600 rounded-lg text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500"
                   />
@@ -508,139 +786,122 @@ export const GroupedProductModal = ({
           )}
 
           {/* Display & Cart Settings */}
-          {selectedGroupedProducts.length > 0 && (
+          {selectedProducts.length > 0 && (
             <div className="space-y-2 pt-3 border-t border-slate-700">
               <h3 className="text-xs font-semibold text-slate-300 mb-2">Display & Cart Settings</h3>
               
-              {/* ✅ ROW 1: 2 COLUMNS GRID */}
               <div className="grid md:grid-cols-2 gap-3">
-                {/* Column 1: Display Individual Prices */}
                 <label className="flex items-center gap-2 p-2 bg-slate-800/30 border border-slate-700 rounded-lg cursor-pointer hover:bg-slate-800/50 transition-colors">
                   <input
                     type="checkbox"
                     checked={localShowPrices}
                     onChange={(e) => setLocalShowPrices(e.target.checked)}
-                    className="mt-0.5 w-4 h-4 rounded border-slate-600 bg-slate-900 text-violet-500 focus:ring-violet-500 focus:ring-offset-slate-900"
+                    className="w-4 h-4 rounded border-slate-600 bg-slate-900 text-violet-500 focus:ring-violet-500"
                   />
                   <span className="text-xs font-medium text-slate-200">
-                    Display each product's price separately in the bundle
+                    Display each product's price separately
                   </span>
                 </label>
 
-                {/* Column 2: Apply Discount to All */}
                 <label className="flex items-center gap-2 p-2 bg-slate-800/30 border border-slate-700 rounded-lg cursor-pointer hover:bg-slate-800/50 transition-colors">
                   <input
                     type="checkbox"
                     checked={localApplyToAll}
                     onChange={(e) => setLocalApplyToAll(e.target.checked)}
-                    className="mt-0.5 w-4 h-4 rounded border-slate-600 bg-slate-900 text-violet-500 focus:ring-violet-500 focus:ring-offset-slate-900"
+                    className="w-4 h-4 rounded border-slate-600 bg-slate-900 text-violet-500 focus:ring-violet-500"
                   />
                   <div>
-                    <span className="text-xs font-medium text-slate-200">Apply Same Discount to All Items</span>
-                    <p className="text-xs text-slate-400 mt-0.5">Distribute discount across all bundle items proportionally</p>
+                    <span className="text-xs font-medium text-slate-200">Apply discount to all items</span>
+                    <p className="text-xs text-slate-400 mt-0.5">Distribute proportionally</p>
                   </div>
                 </label>
               </div>
 
-              {/* ✅ ROW 2: FULL WIDTH */}
               <label className="flex items-center gap-2 p-2 bg-slate-800/30 border border-slate-700 rounded-lg cursor-pointer hover:bg-slate-800/50 transition-colors">
                 <input
                   type="checkbox"
                   checked={automaticallyAddProducts}
                   onChange={(e) => onAutoAddChange(e.target.checked)}
-                  className="mt-0.5 w-4 h-4 rounded border-slate-600 bg-slate-900 text-violet-500 focus:ring-violet-500 focus:ring-offset-slate-900"
+                  className="w-4 h-4 rounded border-slate-600 bg-slate-900 text-violet-500 focus:ring-violet-500"
                 />
                 <div>
-                  <span className="text-xs font-medium text-slate-200">Automatically Add Required Products to Cart</span>
-                  <p className="text-xs text-slate-400 mt-0.5">When enabled, required products will be automatically added when customer adds this product to cart</p>
+                  <span className="text-xs font-medium text-slate-200">Automatically Add to Cart</span>
+                  <p className="text-xs text-slate-400 mt-0.5">Auto-add required products when main product is added</p>
                 </div>
               </label>
             </div>
           )}
 
-          {/* ⭐⭐⭐ BUNDLE PRICING PREVIEW - SAME AS ADD/EDIT PAGE ⭐⭐⭐ */}
-          {selectedGroupedProducts.length > 0 && (
-            <div className="mt-2 border border-slate-700 rounded-xl bg-slate-900 p-2 space-y-2">
+          {/* PRICING PREVIEW */}
+{selectedProducts.length > 0 && (
+  <div className="border border-slate-700 rounded-xl bg-slate-900 p-3 space-y-2">
+    <div className="flex justify-between items-center">
+      <h4 className="text-sm font-semibold text-white">💰 Pricing Breakdown</h4>
+      <span className="px-2.5 py-1 bg-violet-500/20 border border-violet-500/30 rounded-lg text-xs font-medium text-violet-300">
+        📦 Bundle Preview
+      </span>
+    </div>
 
-              {/* Header */}
-              <div className="flex justify-between items-center">
-                <h4 className="text-sm font-semibold text-white">
-                  💰 Pricing Breakdown
-                </h4>
-                <span className="px-2.5 py-1 bg-violet-500/20 border border-violet-500/30 rounded-lg text-xs font-medium text-violet-300">
-                  📦 Bundle Preview
-                </span>
-              </div>
+    {/* ✅ 1. MAIN PRODUCT - TOP */}
+    <div className="space-y-1 text-sm">
+      <div className="flex justify-between text-slate-300 pb-2 border-b border-dashed border-slate-700">
+        <span className="text-emerald-400 font-medium">
+          {mainProductName}
+          <span className="ml-1 text-xs font-bold text-purple-500">(Main Product)</span>
+        </span>
+        <span className="text-white flex items-center gap-1">
+          <span className="text-green-400 font-bold">+</span>
+          £{priceData.mainProductPrice.toFixed(2)}
+        </span>
+      </div>
+    </div>
 
-              {/* Bundle Items */}
-              <div className="space-y-1 text-sm">
-                <div className="text-cyan-400 font-medium">Bundle Items</div>
+    {/* ✅ 2. BUNDLE ITEMS LIST */}
+    <div className="space-y-1 text-sm">
+      <div className="text-cyan-400 font-medium">Bundle Items</div>
 
-                {priceData.selectedProducts.map((p, i) => (
-                  <div key={p.id} className="flex justify-between text-slate-300">
-                    <span>{i + 1}. {p.name}</span>
-                    <span className="text-white">£{parseFloat(p.price.toString()).toFixed(2)}</span>
-                  </div>
-                ))}
+      {priceData.selectedProducts.map((p, i) => (
+        <div key={p.id} className="flex justify-between text-slate-300">
+          <span className="truncate">{i + 1}. {p.name}</span>
+          <span className="text-white shrink-0 ml-2">£{parseFloat(p.price.toString()).toFixed(2)}</span>
+        </div>
+      ))}
 
-                <div className="flex justify-between pt-2 mt-2 border-t border-dashed border-slate-700">
-                  <span className="text-slate-400 font-medium">Bundle Items Subtotal</span>
-                  <span className="text-cyan-400 font-medium">
-                    £{priceData.bundleItemsTotal.toFixed(2)}
-                  </span>
-                </div>
-              </div>
+      {/* ✅ 3. BUNDLE ITEMS SUBTOTAL - BELOW ITEMS */}
+      <div className="flex justify-between pt-2 mt-2 border-t border-dashed border-slate-700">
+        <span className="text-slate-400 font-medium">Bundle Items Subtotal</span>
+        <span className="text-cyan-400 font-medium">
+          £{priceData.bundleItemsTotal.toFixed(2)}
+        </span>
+      </div>
+    </div>
 
-              {/* Discount (Applied on Bundle Items Only) */}
-              {priceData.discount > 0 && (
-                <div className="flex justify-between text-sm">
-                  <span className="text-slate-400">
-                    Discount ({localDiscountType})
-                  </span>
-                  <span className="text-red-400 font-medium">
-                    −£{priceData.discount.toFixed(2)}
-                  </span>
-                </div>
-              )}
+    {/* ✅ 4. DISCOUNT (if applicable) */}
+    {priceData.discount > 0 && (
+      <div className="flex justify-between text-sm">
+        <span className="text-slate-400">Discount ({localDiscountType})</span>
+        <span className="text-red-400 font-medium">−£{priceData.discount.toFixed(2)}</span>
+      </div>
+    )}
 
-              {/* Main Product (with + icon) */}
-              <div className="space-y-1 text-sm">
-                <div className="flex justify-between text-slate-300">
-                  <span className="text-slate-300">
-                    <span className="text-emerald-400 font-medium">
-                      {mainProductName}
-                    </span>
-                    <span className="ml-1 text-xs font-bold text-purple-500">
-                      (Main Product)
-                    </span>
-                  </span>
-                  <span className="text-white flex items-center gap-1">
-                    <span className="text-green-400 font-bold text-sm">+</span>
-                    £{priceData.mainProductPrice.toFixed(2)}
-                  </span>
-                </div>
-              </div>
+    {/* ✅ 5. FINAL BUNDLE PRICE */}
+    <div className="flex justify-between items-center pt-3 border-t border-slate-700">
+      <span className="text-base font-semibold text-white">
+        Final Bundle Price
+      </span>
+      <span className="text-xl font-bold text-green-400">
+        £{priceData.totalWithMainProduct.toFixed(2)}
+      </span>
+    </div>
 
-              {/* Final Bundle Price */}
-              <div className="flex justify-between items-center pt-3 border-t border-slate-700">
-                <span className="text-base font-semibold text-white">
-                  Final Bundle Price (with Main Product)
-                </span>
-                <span className="text-xl font-bold text-green-400">
-                  £{priceData.totalWithMainProduct.toFixed(2)}
-                </span>
-              </div>
-
-              {/* Savings */}
-              {priceData.discount > 0 && (
-                <div className="text-center text-xs text-green-400 bg-green-500/10 border border-green-500/20 rounded-md py-1.5">
-                  🎉 You Save £{priceData.discount.toFixed(2)} (
-                  {priceData.savingsPercentage.toFixed(1)}% off)
-                </div>
-              )}
-
-            </div>
-          )}
+    {/* ✅ 6. SAVINGS MESSAGE */}
+    {priceData.discount > 0 && (
+      <div className="text-center text-xs text-green-400 bg-green-500/10 border border-green-500/20 rounded-md py-1.5">
+        🎉 You Save £{priceData.discount.toFixed(2)} ({priceData.savingsPercentage.toFixed(1)}% off)
+      </div>
+    )}
+  </div>
+)}
 
         </div>
 
@@ -655,13 +916,12 @@ export const GroupedProductModal = ({
           <button
             onClick={handleSave}
             disabled={!canSave}
-            className="px-4 py-2 bg-gradient-to-r from-violet-500 to-cyan-500 text-white text-sm font-medium rounded-lg hover:shadow-lg hover:shadow-violet-500/50 transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:shadow-none"
+            className="px-4 py-2 bg-gradient-to-r from-violet-500 to-cyan-500 text-white text-sm font-medium rounded-lg hover:shadow-lg hover:shadow-violet-500/50 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {hasValidationErrors ? 'Fix Errors to Save' : 'Save Configuration'}
+            {hasValidationErrors ? 'Fix Errors to Save' : `Save Configuration (${selectedProducts.length})`}
           </button>
         </div>
       </div>
     </div>
   );
 };
- 

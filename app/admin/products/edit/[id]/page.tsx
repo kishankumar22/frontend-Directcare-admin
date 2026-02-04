@@ -650,53 +650,66 @@ useEffect(() => {
       }
 
       // ✅ Process SIMPLE products from service
-      if (simpleProductsResponse.status === 'fulfilled') {
-        const simpleItems = extractProducts(simpleProductsResponse.value);
+  // ✅ Process SIMPLE products from service
+if (simpleProductsResponse.status === 'fulfilled') {
+  const simpleItems = extractProducts(simpleProductsResponse.value);
+  
+  if (simpleItems.length > 0) {
+    // Filter out current product
+    const simpleProductsList = simpleItems
+      .filter((p: any) => p.id !== productId)
+      .map((p: any) => ({
+        id: p.id,
+        name: p.name,
+        sku: p.sku,
+        price: typeof p.price === 'number' ? p.price.toFixed(2) : '0.00',
+        stockQuantity: p.stockQuantity || 0,
         
-        if (simpleItems.length > 0) {
-          // Filter out current product
-          const simpleProductsList = simpleItems
-            .filter((p: any) => p.id !== productId)
-            .map((p: any) => ({
-              id: p.id,
-              name: p.name,
-              sku: p.sku,
-              price: typeof p.price === 'number' ? p.price.toFixed(2) : '0.00',
-              stockQuantity: p.stockQuantity || 0
-            }));
+        // ✅ ADD THESE 3 LINES FOR BRAND & CATEGORY
+        brandId: p.brandId || p.brands?.[0]?.brandId || null,
+        brandName: p.brandName || p.brands?.[0]?.brandName || 'Unknown Brand',
+        categories: p.categories || []
+      }));
 
-          setSimpleProducts(simpleProductsList);
-          console.log('✅ Simple products loaded:', simpleProductsList.length);
-        } else {
-          console.warn('⚠️ Simple products endpoint returned no data');
-          setSimpleProducts([]);
-        }
-      } else {
+    setSimpleProducts(simpleProductsList);
+    console.log('✅ Simple products loaded:', simpleProductsList.length);
+  } else {
+    console.warn('⚠️ Simple products endpoint returned no data');
+    setSimpleProducts([]);
+  }
+}
+ else {
         console.warn('⚠️ Failed to fetch simple products, falling back to filtering');
         
-        // ✅ FALLBACK: Filter from all products if separate endpoint fails
-        if (allProductsResponse.status === 'fulfilled') {
-          const allItems = extractProducts(allProductsResponse.value);
-          
-          const simpleProductsList = allItems
-            .filter((product: any) => 
-              product.productType === 'simple' && 
-              product.isPublished === true &&
-              product.id !== productId
-            )
-            .map((product: any) => ({
-              id: product.id,
-              name: product.name,
-              sku: product.sku,
-              price: typeof product.price === 'number' ? product.price.toFixed(2) : '0.00',
-              stockQuantity: product.stockQuantity || 0
-            }));
+// ✅ FALLBACK: Filter from all products if separate endpoint fails
+if (allProductsResponse.status === 'fulfilled') {
+  const allItems = extractProducts(allProductsResponse.value);
+  
+  const simpleProductsList = allItems
+    .filter((product: any) => 
+      product.productType === 'simple' && 
+      product.isPublished === true &&
+      product.id !== productId
+    )
+    .map((product: any) => ({
+      id: product.id,
+      name: product.name,
+      sku: product.sku,
+      price: typeof product.price === 'number' ? product.price.toFixed(2) : '0.00',
+      stockQuantity: product.stockQuantity || 0,
+      
+      // ✅ ADD THESE 3 LINES FOR BRAND & CATEGORY
+      brandId: product.brandId || product.brands?.[0]?.brandId || null,
+      brandName: product.brandName || product.brands?.[0]?.brandName || 'Unknown Brand',
+      categories: product.categories || []
+    }));
 
-          setSimpleProducts(simpleProductsList);
-          console.log('✅ Simple products loaded (fallback):', simpleProductsList.length);
-        } else {
-          setSimpleProducts([]);
-        }
+  setSimpleProducts(simpleProductsList);
+  console.log('✅ Simple products loaded (fallback):', simpleProductsList.length);
+} else {
+  setSimpleProducts([]);
+}
+
       }
 
       // ✅ Extract product data from service response
@@ -2446,7 +2459,7 @@ const handleSubmit = async (e?: React.FormEvent, isDraft: boolean = false, relea
       return;
     }
 
-  if (!formData.price || Number(formData.price) <= 0) {
+  if (!formData.price ) {
   toast.error('❌ Price must be greater than zero');
   target.removeAttribute('data-submitting');
   setIsSubmitting(false);
@@ -2622,7 +2635,7 @@ if (length > 2000) {
       setSubmitProgress(null);
       return;
     }
-if (!formData.stockQuantity || Number(formData.stockQuantity) <= 0) {
+if (!formData.stockQuantity ) {
   toast.error('❌ Stock quantity must be greater than zero');
   target.removeAttribute('data-submitting');
   setIsSubmitting(false);
@@ -6309,120 +6322,120 @@ const uploadImagesToProductDirect = async (
   const priceForVat = isGrouped ? finalBundlePrice : mainPrice;
 
   return (
-    <div className="mt-2 border border-slate-700 rounded-xl bg-slate-900 p-2 space-y-2">
+<div className="mt-2 border border-slate-700 rounded-xl bg-slate-900 p-2 space-y-2">
 
-      {/* Header */}
-      <div className="flex justify-between items-center">
-        <h4 className="text-sm font-semibold text-white">
-          Pricing Breakdown
-        </h4>
-        <button
-          type="button"
-          onClick={() => setIsGroupedModalOpen(true)}
-          className="relative px-2.5 py-1 bg-violet-500/20 hover:bg-violet-500/30 border border-violet-500/30 hover:border-violet-500/50 rounded-lg text-xs font-medium text-violet-300 transition-all group cursor-pointer"
+  {/* Header */}
+  <div className="flex justify-between items-center">
+    <h4 className="text-sm font-semibold text-white">
+      💰 Pricing Breakdown
+    </h4>
+    <button
+      type="button"
+      onClick={() => setIsGroupedModalOpen(true)}
+      className="relative px-2.5 py-1 bg-violet-500/20 hover:bg-violet-500/30 border border-violet-500/30 hover:border-violet-500/50 rounded-lg text-xs font-medium text-violet-300 transition-all group cursor-pointer"
+    >
+      <span className="flex items-center gap-1">
+        📦 Bundle
+        <svg 
+          className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" 
+          fill="none" 
+          stroke="currentColor" 
+          viewBox="0 0 24 24"
         >
-          <span className="flex items-center gap-1">
-            📦 Bundle
-            <svg 
-              className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" 
-              fill="none" 
-              stroke="currentColor" 
-              viewBox="0 0 24 24"
-            >
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-            </svg>
-          </span>
-          
-          <div className="absolute -bottom-10 right-0 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
-            <div className="bg-slate-900 border border-violet-500/50 rounded-lg px-3 py-1.5 text-xs text-violet-300 whitespace-nowrap shadow-xl">
-              Click to edit bundle or add more products
-            </div>
-          </div>
-        </button>
-      </div>
-
-      {/* Bundle Items Section */}
-      {selectedGroupedProducts.length > 0 ? (
-        <>
-          {/* Bundle Items */}
-          <div className="space-y-1 text-sm">
-            <div className="text-cyan-400 font-medium">Bundle Items</div>
-
-            {selectedGroupedProducts.map((id, i) => {
-              const p = simpleProducts.find(x => x.id === id);
-              if (!p) return null;
-              return (
-                <div key={id} className="flex justify-between text-slate-300">
-                  <span>{i + 1}. {p.name}</span>
-                  <span className="text-white">£{parsePrice(p.price).toFixed(2)}</span>
-                </div>
-              );
-            })}
-
-            <div className="flex justify-between pt-2 mt-2 border-t border-dashed border-slate-700">
-              <span className="text-slate-400 font-medium">Bundle Items Subtotal</span>
-              <span className="text-cyan-400 font-medium">
-                £{bundleItemsTotal.toFixed(2)}
-              </span>
-            </div>
-          </div>
-
-          {/* Discount (Applied on Bundle Items Only) */}
-          {bundleDiscount > 0 && (
-            <div className="flex justify-between text-sm">
-              <span className="text-slate-400">
-                Discount ({formData.groupBundleDiscountType})
-              </span>
-              <span className="text-red-400 font-medium">
-                −£{bundleDiscount.toFixed(2)}
-              </span>
-            </div>
-          )}
-        </>
-      ) : (
-        <div className="text-center py-4 text-slate-400 text-sm border border-dashed border-slate-700 rounded-lg">
-          <p className="mb-1">No bundle items selected</p>
-          <p className="text-xs text-slate-500">Click the "📦 Bundle" button above to add products</p>
-        </div>
-      )}
-
-      {/* Main Product (with + icon) */}
-      <div className="space-y-1 text-sm">
-        <div className="flex justify-between text-slate-300">
-          <span className="text-slate-300">
-            <span className="text-emerald-400 font-medium">
-              {formData.name || 'Main Product'}
-            </span>
-            <span className="ml-1 text-xs font-bold text-purple-500">
-              (Main Product)
-            </span>
-          </span>
-          <span className="text-white flex items-center gap-1">
-            <span className="text-green-400 font-bold text-sm">+</span>
-            £{mainPrice.toFixed(2)}
-          </span>
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+        </svg>
+      </span>
+      
+      <div className="absolute -bottom-10 right-0 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
+        <div className="bg-slate-900 border border-violet-500/50 rounded-lg px-3 py-1.5 text-xs text-violet-300 whitespace-nowrap shadow-xl">
+          Click to edit bundle or add more products
         </div>
       </div>
+    </button>
+  </div>
 
-      {/* Final Bundle Price */}
-      <div className="flex justify-between items-center pt-3 border-t border-slate-700">
-        <span className="text-base font-semibold text-white">
-          Final Bundle Price (with Main Product)
+  {/* ✅ 1. MAIN PRODUCT - FIRST (TOP) */}
+  <div className="space-y-1 text-sm pb-2 border-b border-dashed border-slate-700">
+    <div className="flex justify-between text-slate-300">
+      <span className="text-emerald-400 font-medium">
+        {formData.name || 'Main Product'}
+        <span className="ml-1 text-xs font-bold text-purple-500">
+          (Main Product)
         </span>
-        <span className="text-xl font-bold text-green-400">
-          £{finalBundlePrice.toFixed(2)}
-        </span>
-      </div>
-
-      {/* Savings */}
-      {bundleDiscount > 0 && (
-        <div className="text-center text-xs text-green-400 bg-green-500/10 border border-green-500/20 rounded-md py-1.5">
-          You Save £{bundleDiscount.toFixed(2)} (
-          {((bundleDiscount / bundleItemsTotal) * 100).toFixed(1)}% off)
-        </div>
-      )}
-
+      </span>
+      <span className="text-white flex items-center gap-1">
+        <span className="text-green-400 font-bold text-sm">+</span>
+        £{mainPrice.toFixed(2)}
+      </span>
     </div>
+  </div>
+
+  {/* ✅ 2. BUNDLE ITEMS SECTION - BELOW MAIN PRODUCT */}
+  {selectedGroupedProducts.length > 0 ? (
+    <>
+      {/* Bundle Items List */}
+      <div className="space-y-1 text-sm">
+        <div className="text-cyan-400 font-medium">Bundle Items</div>
+
+        {selectedGroupedProducts.map((id, i) => {
+          const p = simpleProducts.find(x => x.id === id);
+          if (!p) return null;
+          return (
+            <div key={id} className="flex justify-between text-slate-300">
+              <span className="truncate">{i + 1}. {p.name}</span>
+              <span className="text-white shrink-0 ml-2">£{parsePrice(p.price).toFixed(2)}</span>
+            </div>
+          );
+        })}
+
+        {/* Bundle Items Subtotal */}
+        <div className="flex justify-between pt-2 mt-2 border-t border-dashed border-slate-700">
+          <span className="text-slate-400 font-medium">Bundle Items Subtotal</span>
+          <span className="text-cyan-400 font-medium">
+            £{bundleItemsTotal.toFixed(2)}
+          </span>
+        </div>
+      </div>
+
+      {/* Discount (Applied on Bundle Items Only) */}
+      {bundleDiscount > 0 && (
+        <div className="flex justify-between text-sm">
+          <span className="text-slate-400">
+            Discount ({formData.groupBundleDiscountType})
+          </span>
+          <span className="text-red-400 font-medium">
+            −£{bundleDiscount.toFixed(2)}
+          </span>
+        </div>
+      )}
+    </>
+  ) : (
+    <div className="text-center py-4 text-slate-400 text-sm border border-dashed border-slate-700 rounded-lg">
+      <p className="mb-1">No bundle items selected</p>
+      <p className="text-xs text-slate-500">Click the "📦 Bundle" button above to add products</p>
+    </div>
+  )}
+
+  {/* ✅ 3. FINAL BUNDLE PRICE */}
+  <div className="flex justify-between items-center pt-3 border-t border-slate-700">
+    <span className="text-base font-semibold text-white">
+      Final Bundle Price
+    </span>
+    <span className="text-xl font-bold text-green-400">
+      £{finalBundlePrice.toFixed(2)}
+    </span>
+  </div>
+
+  {/* ✅ 4. SAVINGS MESSAGE */}
+  {bundleDiscount > 0 && (
+    <div className="text-center text-xs text-green-400 bg-green-500/10 border border-green-500/20 rounded-md py-1.5">
+      🎉 You Save £{bundleDiscount.toFixed(2)} (
+      {((bundleDiscount / bundleItemsTotal) * 100).toFixed(1)}% off)
+    </div>
+  )}
+
+</div>
+
   );
 })()}
 
@@ -7189,7 +7202,7 @@ const uploadImagesToProductDirect = async (
     />
     <div className="flex-1">
       <span className="text-sm text-slate-300 group-hover:text-white transition-colors">
-        Allow "Notify me when available" subscriptions
+        Allow "Notify me when available" 
       </span>
       <p className="text-xs text-slate-500 mt-0.5">
         Let customers subscribe to back-in-stock email alerts
@@ -8908,25 +8921,22 @@ const uploadImagesToProductDirect = async (
         </div>
       </div>
 {/* Add this before the final closing </div> of your return statement */}
+{/* ⭐ ADD SAFE CHECKS IN MODAL PROPS ⭐ */}
 <GroupedProductModal
   isOpen={isGroupedModalOpen}
   onClose={() => setIsGroupedModalOpen(false)}
-  simpleProducts={simpleProducts}
-  selectedGroupedProducts={selectedGroupedProducts}
-  automaticallyAddProducts={formData.automaticallyAddProducts}
-   // ⭐ PASS MAIN PRODUCT DATA
-  mainProductPrice={parseFloat(formData.price) || 0}
+  simpleProducts={simpleProducts || []} // ← Safe default
+ selectedGroupedProducts={selectedGroupedProducts || []} // ✅ CORRECT (add 's')
+  automaticallyAddProducts={formData.automaticallyAddProducts || false}
+  mainProductPrice={parseFloat(String(formData.price || 0))}
   mainProductName={formData.name || 'Main Product'}
-  // ✅ NEW: Bundle Discount Props
-  bundleDiscountType={formData.groupBundleDiscountType}
-  bundleDiscountPercentage={formData.groupBundleDiscountPercentage}
-  bundleDiscountAmount={formData.groupBundleDiscountAmount}
-  bundleSpecialPrice={formData.groupBundleSpecialPrice}
-  bundleSavingsMessage={formData.groupBundleSavingsMessage}
-  showIndividualPrices={formData.showIndividualPrices}
-  applyDiscountToAllItems={formData.applyDiscountToAllItems}
-  
-  // Existing handlers
+  bundleDiscountType={formData.groupBundleDiscountType || 'None'}
+  bundleDiscountPercentage={formData.groupBundleDiscountPercentage || 0}
+  bundleDiscountAmount={formData.groupBundleDiscountAmount || 0}
+  bundleSpecialPrice={formData.groupBundleSpecialPrice || 0}
+  bundleSavingsMessage={formData.groupBundleSavingsMessage || ''}
+  showIndividualPrices={formData.showIndividualPrices !== undefined ? formData.showIndividualPrices : true}
+  applyDiscountToAllItems={formData.applyDiscountToAllItems || false}
   onProductsChange={handleGroupedProductsChange}
   onAutoAddChange={(checked) => {
     setFormData(prev => ({
@@ -8934,20 +8944,16 @@ const uploadImagesToProductDirect = async (
       automaticallyAddProducts: checked
     }));
   }}
-  
-  // ✅ NEW: Bundle Discount Handler
   onBundleDiscountChange={(discount) => {
     setFormData(prev => ({
       ...prev,
-      groupBundleDiscountType: discount.type,
+      groupBundleDiscountType: discount.type || 'None',
       groupBundleDiscountPercentage: discount.percentage || 0,
       groupBundleDiscountAmount: discount.amount || 0,
       groupBundleSpecialPrice: discount.specialPrice || 0,
       groupBundleSavingsMessage: discount.savingsMessage || ''
     }));
   }}
-  
-  // ✅ NEW: Display Settings Handler
   onDisplaySettingsChange={(settings) => {
     setFormData(prev => ({
       ...prev,
@@ -8956,6 +8962,7 @@ const uploadImagesToProductDirect = async (
     }));
   }}
 />
+
 
 {/* ==================== PRODUCT LOCK MODAL (FIXED SYNTAX) ==================== */}
 {isLockModalOpen && (

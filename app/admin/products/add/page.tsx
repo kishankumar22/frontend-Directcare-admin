@@ -12,6 +12,7 @@ import { MultiBrandSelector } from "../MultiBrandSelector";
 import { VATRateApiResponse, vatratesService } from "@/lib/services/vatrates";
 import { MultiCategorySelector } from "../MultiCategorySelector";
 import ScrollToTopButton from "../ScrollToTopButton";
+import RelatedProductsSelector from "../RelatedProductsSelector";
 
 export default function AddProductPage() {
   const router = useRouter();
@@ -430,22 +431,28 @@ useEffect(() => {
       }
 
       // ==================== SIMPLE PRODUCTS ====================
-      const extractProducts = (response: any): any[] => {
-        const data = response?.data?.data || response?.data || {};
-        return data.items || (Array.isArray(data) ? data : []);
-      };
+  const extractProducts = (response: any): any[] => {
+  const data = response?.data?.data || response?.data || {};
+  return data.items || (Array.isArray(data) ? data : []);
+};
+const simpleItems = extractProducts(simpleProductsResponse);
 
-      const simpleItems = extractProducts(simpleProductsResponse);
-      if (simpleItems.length > 0) {
-        setSimpleProducts(simpleItems.map((p: any) => ({
-          id: p.id,
-          name: p.name,
-          sku: p.sku,
-          price: p.price || 0,
-          stockQuantity: p.stockQuantity || 0
-        })));
-        console.log('✅ Simple products:', simpleItems.length);
-      }
+if (simpleItems.length > 0) {
+  setSimpleProducts(simpleItems.map((p: any) => ({
+    id: p.id,
+    name: p.name,
+    sku: p.sku,
+    price: typeof p.price === 'number' ? p.price.toFixed(2) : '0.00',
+    stockQuantity: p.stockQuantity || 0,
+    
+    // ✅ ADD THESE 3 LINES FOR BRAND & CATEGORY
+    brandId: p.brandId || p.brands?.[0]?.brandId || null,
+    brandName: p.brandName || p.brands?.[0]?.brandName || 'Unknown Brand',
+    categories: p.categories || []
+  })));
+  
+  console.log('✅ Simple products:', simpleItems.length);
+}
 
       // ==================== ALL PRODUCTS ====================
       const allItems = extractProducts(allProductsResponse);
@@ -3894,119 +3901,118 @@ useEffect(() => {
   const priceForVat = isGrouped ? finalBundlePrice : mainPrice;
 
   return (
-    <div className="mt-2 border border-slate-700 rounded-xl bg-slate-900 p-2 space-y-2">
+<div className="mt-2 border border-slate-700 rounded-xl bg-slate-900 p-2 space-y-2">
 
-      {/* Header */}
-      <div className="flex justify-between items-center">
-        <h4 className="text-sm font-semibold text-white">
-          Pricing Breakdown
-        </h4>
-        <button
-          type="button"
-          onClick={() => setIsGroupedModalOpen(true)}
-          className="relative px-2.5 py-1 bg-violet-500/20 hover:bg-violet-500/30 border border-violet-500/30 hover:border-violet-500/50 rounded-lg text-xs font-medium text-violet-300 transition-all group cursor-pointer"
+  {/* Header */}
+  <div className="flex justify-between items-center">
+    <h4 className="text-sm font-semibold text-white">
+      💰 Pricing Breakdown
+    </h4>
+    <button
+      type="button"
+      onClick={() => setIsGroupedModalOpen(true)}
+      className="relative px-2.5 py-1 bg-violet-500/20 hover:bg-violet-500/30 border border-violet-500/30 hover:border-violet-500/50 rounded-lg text-xs font-medium text-violet-300 transition-all group cursor-pointer"
+    >
+      <span className="flex items-center gap-1">
+        📦 Bundle
+        <svg 
+          className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" 
+          fill="none" 
+          stroke="currentColor" 
+          viewBox="0 0 24 24"
         >
-          <span className="flex items-center gap-1">
-            📦 Bundle
-            <svg 
-              className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" 
-              fill="none" 
-              stroke="currentColor" 
-              viewBox="0 0 24 24"
-            >
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-            </svg>
-          </span>
-          
-          <div className="absolute -bottom-10 right-0 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
-            <div className="bg-slate-900 border border-violet-500/50 rounded-lg px-3 py-1.5 text-xs text-violet-300 whitespace-nowrap shadow-xl">
-              Click to edit bundle or add more products
-            </div>
-          </div>
-        </button>
-      </div>
-
-      {/* Bundle Items */}
-      {selectedGroupedProducts.length > 0 ? (
-        <>
-          <div className="space-y-1 text-sm">
-            <div className="text-cyan-400 font-medium">Bundle Items</div>
-
-            {selectedGroupedProducts.map((id, i) => {
-              const p = simpleProducts.find(x => x.id === id);
-              if (!p) return null;
-              return (
-                <div key={id} className="flex justify-between text-slate-300">
-                  <span>{i + 1}. {p.name}</span>
-                  <span className="text-white">£{parsePrice(p.price).toFixed(2)}</span>
-                </div>
-              );
-            })}
-
-            <div className="flex justify-between pt-2 mt-2 border-t border-dashed border-slate-700">
-              <span className="text-slate-400 font-medium">Bundle Items Subtotal</span>
-              <span className="text-cyan-400 font-medium">
-                £{bundleItemsTotal.toFixed(2)}
-              </span>
-            </div>
-          </div>
-
-          {/* Discount (Applied on Bundle Items Only) */}
-          {bundleDiscount > 0 && (
-            <div className="flex justify-between text-sm">
-              <span className="text-slate-400">
-                Discount ({formData.groupBundleDiscountType})
-              </span>
-              <span className="text-red-400 font-medium">
-                −£{bundleDiscount.toFixed(2)}
-              </span>
-            </div>
-          )}
-        </>
-      ) : (
-        <div className="text-center py-4 text-slate-400 text-sm border border-dashed border-slate-700 rounded-lg">
-          <p className="mb-1">No bundle items selected</p>
-          <p className="text-xs text-slate-500">Click the "📦 Bundle" button above to add products</p>
-        </div>
-      )}
-
-      {/* Main Product (with + icon) */}
-      <div className="space-y-1 text-sm">
-        <div className="flex justify-between text-slate-300">
-          <span className="text-slate-300">
-            <span className="text-emerald-400 font-medium">
-              {formData.name || 'Main Product'}
-            </span>
-            <span className="ml-1 text-xs font-bold text-purple-500">
-              (Main Product)
-            </span>
-          </span>
-          <span className="text-white flex items-center gap-1">
-            <span className="text-green-400 font-bold text-sm">+</span>
-            £{mainPrice.toFixed(2)}
-          </span>
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+        </svg>
+      </span>
+      
+      <div className="absolute -bottom-10 right-0 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
+        <div className="bg-slate-900 border border-violet-500/50 rounded-lg px-3 py-1.5 text-xs text-violet-300 whitespace-nowrap shadow-xl">
+          Click to edit bundle or add more products
         </div>
       </div>
+    </button>
+  </div>
 
-      {/* Final Bundle Price */}
-      <div className="flex justify-between items-center pt-3 border-t border-slate-700">
-        <span className="text-base font-semibold text-white">
-          Final Bundle Price (with Main Product)
+  {/* ✅ 1. MAIN PRODUCT - TOP (FIRST) */}
+  <div className="space-y-1 text-sm pb-2 border-b border-dashed border-slate-700">
+    <div className="flex justify-between text-slate-300">
+      <span className="text-emerald-400 font-medium">
+        {formData.name || 'Main Product'}
+        <span className="ml-1 text-xs font-bold text-purple-500">
+          (Main Product)
         </span>
-        <span className="text-xl font-bold text-green-400">
-          £{finalBundlePrice.toFixed(2)}
-        </span>
-      </div>
-
-      {/* Savings */}
-      {bundleDiscount > 0 && (
-        <div className="text-center text-xs text-green-400 bg-green-500/10 border border-green-500/20 rounded-md py-1.5">
-          You Save £{bundleDiscount.toFixed(2)} (
-          {((bundleDiscount / bundleItemsTotal) * 100).toFixed(1)}% off)
-        </div>
-      )}
-
+      </span>
+      <span className="text-white flex items-center gap-1">
+        <span className="text-green-400 font-bold text-sm">+</span>
+        £{mainPrice.toFixed(2)}
+      </span>
     </div>
+  </div>
+
+  {/* ✅ 2. BUNDLE ITEMS SECTION */}
+  {selectedGroupedProducts.length > 0 ? (
+    <>
+      <div className="space-y-1 text-sm">
+        <div className="text-cyan-400 font-medium">Bundle Items</div>
+
+        {selectedGroupedProducts.map((id, i) => {
+          const p = simpleProducts.find(x => x.id === id);
+          if (!p) return null;
+          return (
+            <div key={id} className="flex justify-between text-slate-300">
+              <span className="truncate">{i + 1}. {p.name}</span>
+              <span className="text-white shrink-0 ml-2">£{parsePrice(p.price).toFixed(2)}</span>
+            </div>
+          );
+        })}
+
+        <div className="flex justify-between pt-2 mt-2 border-t border-dashed border-slate-700">
+          <span className="text-slate-400 font-medium">Bundle Items Subtotal</span>
+          <span className="text-cyan-400 font-medium">
+            £{bundleItemsTotal.toFixed(2)}
+          </span>
+        </div>
+      </div>
+
+      {/* Discount (Applied on Bundle Items Only) */}
+      {bundleDiscount > 0 && (
+        <div className="flex justify-between text-sm">
+          <span className="text-slate-400">
+            Discount ({formData.groupBundleDiscountType})
+          </span>
+          <span className="text-red-400 font-medium">
+            −£{bundleDiscount.toFixed(2)}
+          </span>
+        </div>
+      )}
+    </>
+  ) : (
+    <div className="text-center py-4 text-slate-400 text-sm border border-dashed border-slate-700 rounded-lg">
+      <p className="mb-1">No bundle items selected</p>
+      <p className="text-xs text-slate-500">Click the "📦 Bundle" button above to add products</p>
+    </div>
+  )}
+
+  {/* ✅ 3. FINAL BUNDLE PRICE */}
+  <div className="flex justify-between items-center pt-3 border-t border-slate-700">
+    <span className="text-base font-semibold text-white">
+      Final Bundle Price
+    </span>
+    <span className="text-xl font-bold text-green-400">
+      £{finalBundlePrice.toFixed(2)}
+    </span>
+  </div>
+
+  {/* ✅ 4. SAVINGS MESSAGE */}
+  {bundleDiscount > 0 && (
+    <div className="text-center text-xs text-green-400 bg-green-500/10 border border-green-500/20 rounded-md py-1.5">
+      🎉 You Save £{bundleDiscount.toFixed(2)} (
+      {((bundleDiscount / bundleItemsTotal) * 100).toFixed(1)}% off)
+    </div>
+  )}
+
+</div>
+
   );
 })()}
 
@@ -5033,214 +5039,31 @@ useEffect(() => {
   )}
 </TabsContent>
 
+{/* Related Products Tab */}
+<TabsContent value="related-products" className="space-y-6 mt-2">
+  <RelatedProductsSelector
+    type="related"
+    selectedProductIds={formData.relatedProducts}
+    availableProducts={availableProducts}
+    brands={dropdownsData.brands}
+    categories={dropdownsData.categories}
+    onProductsChange={(productIds) => {
+      setFormData(prev => ({ ...prev, relatedProducts: productIds }));
+    }}
+  />
 
+  <RelatedProductsSelector
+    type="cross-sell"
+    selectedProductIds={formData.crossSellProducts}
+    availableProducts={availableProducts}
+    brands={dropdownsData.brands}
+    categories={dropdownsData.categories}
+    onProductsChange={(productIds) => {
+      setFormData(prev => ({ ...prev, crossSellProducts: productIds }));
+    }}
+  />
+</TabsContent>
 
-              {/* Related Products Tab */}
-              <TabsContent value="related-products" className="space-y-2 mt-2">
-                {/* Related Products Section */}
-                <div className="space-y-4">
-                  <h3 className="text-lg font-semibold text-white border-b border-slate-800 pb-2">Related Products</h3>
-                  <p className="text-sm text-slate-400">
-                    These products will be shown on the product details page as recommended items
-                  </p>
-
-                  {/* Selected Related Products */}
-                  {formData.relatedProducts.length > 0 && (
-                    <div className="space-y-2">
-                      <label className="block text-sm font-medium text-slate-300">Selected Products</label>
-                      <div className="border border-slate-700 rounded-xl p-4 space-y-2 bg-slate-800/30">
-                        {formData.relatedProducts.map((productId) => {
-                          const product = availableProducts.find(p => p.id === productId);
-                          return product ? (
-                            <div
-                              key={productId}
-                              className="flex items-center justify-between p-3 bg-slate-800/50 border border-slate-700 rounded-lg"
-                            >
-                              <div className="flex items-center gap-3">
-                                <div className="w-10 h-10 bg-slate-700/50 rounded flex items-center justify-center">
-                                  <Package className="h-5 w-5 text-slate-400" />
-                                </div>
-                                <div>
-                                  <p className="font-medium text-sm text-white">{product.name}</p>
-                                  <p className="text-xs text-slate-400">
-                                    SKU: {product.sku} • {product.price}
-                                  </p>
-                                </div>
-                              </div>
-                              <button
-                                onClick={() => removeRelatedProduct(productId)}
-                                className="p-2 text-slate-400 hover:text-red-400 hover:bg-slate-700/50 rounded-lg transition-all"
-                              >
-                                <X className="h-4 w-4" />
-                              </button>
-                            </div>
-                          ) : null;
-                        })}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Search and Add */}
-                  <div>
-                    <label className="block text-sm font-medium text-slate-300 mb-2">Add Related Products</label>
-                    <div className="relative">
-                      <Search className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
-                      <input
-                        type="text"
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        placeholder="Search products by name or SKU..."
-                        className="w-full pl-10 pr-4 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
-                      />
-                    </div>
-
-                    {/* Search Results */}
-                    {searchTerm && (
-                      <div className="mt-2 border border-slate-700 rounded-xl max-h-64 overflow-y-auto bg-slate-800/30">
-                        {filteredProducts.length > 0 ? (
-                          filteredProducts.map((product) => (
-                            <div
-                              key={product.id}
-                              className="flex items-center justify-between p-3 hover:bg-slate-800/50 cursor-pointer border-b border-slate-700 last:border-0 transition-all"
-                              onClick={() => addRelatedProduct(product.id)}
-                            >
-                              <div className="flex items-center gap-3">
-                                <div className="w-10 h-10 bg-slate-700/50 rounded flex items-center justify-center">
-                                  <Package className="h-5 w-5 text-slate-400" />
-                                </div>
-                                <div>
-                                  <p className="font-medium text-sm text-white">{product.name}</p>
-                                  <p className="text-xs text-slate-400">
-                                    SKU: {product.sku} • {product.price}
-                                  </p>
-                                </div>
-                              </div>
-                              {formData.relatedProducts.includes(product.id) ? (
-                                <span className="px-2 py-1 bg-violet-500/20 text-violet-400 text-xs rounded-lg border border-violet-500/30">Added</span>
-                              ) : (
-                                <button className="px-3 py-1 bg-slate-800/50 border border-slate-700 text-slate-300 hover:bg-slate-700 rounded-lg text-xs transition-all">
-                                  Add
-                                </button>
-                              )}
-                            </div>
-                          ))
-                        ) : (
-                          <div className="p-4 text-center text-sm text-slate-400">
-                            No products found
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* Cross-sell Products Section */}
-                <div className="space-y-4">
-                  <h3 className="text-lg font-semibold text-white border-b border-slate-800 pb-2">Cross-sell Products</h3>
-                  <p className="text-sm text-slate-400">
-                    These products will be shown in the shopping cart as additional items
-                  </p>
-
-                  {/* Selected Cross-sell Products */}
-                  {formData.crossSellProducts.length > 0 && (
-                    <div className="space-y-2">
-                      <label className="block text-sm font-medium text-slate-300">Selected Products</label>
-                      <div className="border border-slate-700 rounded-xl p-4 space-y-2 bg-slate-800/30">
-                        {formData.crossSellProducts.map((productId) => {
-                          const product = availableProducts.find(p => p.id === productId);
-                          return product ? (
-                            <div
-                              key={productId}
-                              className="flex items-center justify-between p-3 bg-cyan-500/10 border border-cyan-500/30 rounded-lg"
-                            >
-                              <div className="flex items-center gap-3">
-                                <div className="w-10 h-10 bg-cyan-500/20 rounded flex items-center justify-center">
-                                  <ShoppingCart className="h-5 w-5 text-cyan-400" />
-                                </div>
-                                <div>
-                                  <p className="font-medium text-sm text-white">{product.name}</p>
-                                  <p className="text-xs text-slate-400">
-                                    SKU: {product.sku} • {product.price}
-                                  </p>
-                                </div>
-                              </div>
-                              <button
-                                onClick={() => removeCrossSellProduct(productId)}
-                                className="p-2 text-slate-400 hover:text-red-400 hover:bg-slate-700/50 rounded-lg transition-all"
-                              >
-                                <X className="h-4 w-4" />
-                              </button>
-                            </div>
-                          ) : null;
-                        })}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Search and Add */}
-                  <div>
-                    <label className="block text-sm font-medium text-slate-300 mb-2">Add Cross-sell Products</label>
-                    <div className="relative">
-                      <Search className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
-                      <input
-                        type="text"
-                        value={searchTermCross}
-                        onChange={(e) => setSearchTermCross(e.target.value)}
-                        placeholder="Search products by name or SKU..."
-                        className="w-full pl-10 pr-4 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
-                      />
-                    </div>
-
-                    {/* Search Results */}
-                    {searchTermCross && (
-                      <div className="mt-2 border border-slate-700 rounded-xl max-h-64 overflow-y-auto bg-slate-800/30">
-                        {filteredProductsCross.length > 0 ? (
-                          filteredProductsCross.map((product) => (
-                            <div
-                              key={product.id}
-                              className="flex items-center justify-between p-3 hover:bg-slate-800/50 cursor-pointer border-b border-slate-700 last:border-0 transition-all"
-                              onClick={() => addCrossSellProduct(product.id)}
-                            >
-                              <div className="flex items-center gap-3">
-                                <div className="w-10 h-10 bg-slate-700/50 rounded flex items-center justify-center">
-                                  <ShoppingCart className="h-5 w-5 text-slate-400" />
-                                </div>
-                                <div>
-                                  <p className="font-medium text-sm text-white">{product.name}</p>
-                                  <p className="text-xs text-slate-400">
-                                    SKU: {product.sku} • {product.price}
-                                  </p>
-                                </div>
-                              </div>
-                              {formData.crossSellProducts.includes(product.id) ? (
-                                <span className="px-2 py-1 bg-violet-500/20 text-violet-400 text-xs rounded-lg border border-violet-500/30">Added</span>
-                              ) : (
-                                <button className="px-3 py-1 bg-slate-800/50 border border-slate-700 text-slate-300 hover:bg-slate-700 rounded-lg text-xs transition-all">
-                                  Add
-                                </button>
-                              )}
-                            </div>
-                          ))
-                        ) : (
-                          <div className="p-4 text-center text-sm text-slate-400">
-                            No products found
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* Info Box */}
-                <div className="bg-violet-500/10 border border-violet-500/30 rounded-xl p-4">
-                  <h4 className="font-semibold text-sm text-violet-400 mb-2">Tips</h4>
-                  <ul className="text-sm text-slate-300 space-y-1">
-                    <li>• <strong className="text-white">Related Products:</strong> Shown on product detail page to encourage additional purchases</li>
-                    <li>• <strong className="text-white">Cross-sell Products:</strong> Displayed in the cart to suggest complementary items</li>
-                    <li>• Select products that complement or enhance the main product</li>
-                  </ul>
-                </div>
-              </TabsContent>
 
               {/* Product Attributes Tab */}
               <TabsContent value="product-attributes" className="space-y-2 mt-2">
@@ -6400,44 +6223,45 @@ useEffect(() => {
           </div>
         </div>
       </div>
+{/* ✅ GROUPED PRODUCT MODAL - ADD PAGE */}
 <GroupedProductModal
   isOpen={isGroupedModalOpen}
   onClose={() => setIsGroupedModalOpen(false)}
-  simpleProducts={simpleProducts}
-  selectedGroupedProducts={selectedGroupedProducts}
-  automaticallyAddProducts={formData.automaticallyAddProducts}
-   // ⭐ PASS MAIN PRODUCT DATA
-  mainProductPrice={parseFloat(formData.price) || 0}
+  simpleProducts={simpleProducts || []} // ✅ Safe default
+  selectedGroupedProducts={selectedGroupedProducts || []} // ✅ Correct (with 's')
+  automaticallyAddProducts={formData.automaticallyAddProducts || false}
+  mainProductPrice={parseFloat(String(formData.price || 0))} // ✅ SAFE
   mainProductName={formData.name || 'Main Product'}
-  // ✅ ADD THESE NEW PROPS
-  bundleDiscountType={formData.groupBundleDiscountType}
-  bundleDiscountPercentage={formData.groupBundleDiscountPercentage}
-  bundleDiscountAmount={formData.groupBundleDiscountAmount}
-  bundleSpecialPrice={formData.groupBundleSpecialPrice}
-  bundleSavingsMessage={formData.groupBundleSavingsMessage}
-  showIndividualPrices={formData.showIndividualPrices}
-  applyDiscountToAllItems={formData.applyDiscountToAllItems}
-  
-  onProductsChange={handleGroupedProductsChange}
+  bundleDiscountType={formData.groupBundleDiscountType || 'None'}
+  bundleDiscountPercentage={formData.groupBundleDiscountPercentage || 0}
+  bundleDiscountAmount={formData.groupBundleDiscountAmount || 0}
+  bundleSpecialPrice={formData.groupBundleSpecialPrice || 0}
+  bundleSavingsMessage={formData.groupBundleSavingsMessage || ''}
+  showIndividualPrices={formData.showIndividualPrices !== undefined ? formData.showIndividualPrices : true}
+  applyDiscountToAllItems={formData.applyDiscountToAllItems || false}
+  onProductsChange={(selectedProductIds) => {
+    setSelectedGroupedProducts(selectedProductIds);
+    setFormData(prev => ({
+      ...prev,
+      requiredProductIds: selectedProductIds.join(',')
+    }));
+  }}
   onAutoAddChange={(checked) => {
     setFormData(prev => ({
       ...prev,
       automaticallyAddProducts: checked
     }));
   }}
-  
-  // ✅ ADD THESE NEW HANDLERS
   onBundleDiscountChange={(discount) => {
     setFormData(prev => ({
       ...prev,
-      groupBundleDiscountType: discount.type,
+      groupBundleDiscountType: discount.type || 'None',
       groupBundleDiscountPercentage: discount.percentage || 0,
       groupBundleDiscountAmount: discount.amount || 0,
       groupBundleSpecialPrice: discount.specialPrice || 0,
       groupBundleSavingsMessage: discount.savingsMessage || ''
     }));
   }}
-  
   onDisplaySettingsChange={(settings) => {
     setFormData(prev => ({
       ...prev,
@@ -6446,6 +6270,7 @@ useEffect(() => {
     }));
   }}
 />
+
 {/* ============================================================ */}
 {showUnsavedModal && (
   <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[100] flex items-center justify-center p-4 animate-fadeIn">

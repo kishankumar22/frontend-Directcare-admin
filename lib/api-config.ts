@@ -92,15 +92,7 @@ export const API_ENDPOINTS = {
   loyaltyConfig: '/api/admin/loyalty-config',
    loyaltyPoints: {
     balance: '/api/loyalty/balance',
-    history: '/api/loyalty/history',
-    // Note: calculate, redeem, bonus APIs are for customer frontend, not admin panel
-    // calculate: '/api/loyalty/redeem/calculate',
-    // redeem: '/api/loyalty/redeem',
-    // reviewBonus: '/api/loyalty/bonus/review',
-    // Admin APIs
-    adminUsers: '/api/admin/loyalty/users',
-    adminUserBalance: '/api/admin/loyalty/user',
-    adminUserHistory: '/api/admin/loyalty/user',
+    history: '/api/loyalty/history'  
   },
 
 };
