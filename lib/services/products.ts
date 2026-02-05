@@ -37,32 +37,77 @@ export interface VATRateData {
   region?: string
   isDefault?: boolean;
 }
+// ==========================================
+// PRODUCT OPTION INTERFACES (ADD THESE)
+// ==========================================
 
- // Find this interface in your code and update it:
+/**
+ * Product Option - Defines selectable option types for a product
+ * Example: Color, Size, Pack Size
+ */
+export interface ProductOption {
+  id: string;
+  name: string;              // "Color", "Size", "Pack Size"
+  values: string[];          // ["Red", "Blue", "Green"]
+  displayType: string;       // "dropdown", "swatch", "buttons", "radio"
+  position: number;          // Display order (1, 2, 3...)
+  isActive: boolean;         // Whether option is active
+}
+
+/**
+ * Product Option Create DTO - For creating/updating product options via API
+ * Note: values is sent as comma-separated string to API
+ */
+export interface ProductOptionCreate {
+  name: string;              // "Color", "Size"
+  values: string;            // "Red,Blue,Green" (comma-separated for API)
+  displayType: string;       // "dropdown", "swatch", "buttons", "radio"
+  position: number;          // Display order
+  isActive: boolean;         // Whether option is active
+}
+
+/**
+ * Product Option Update DTO - For updating existing options
+ */
+export interface ProductOptionUpdate extends Partial<ProductOptionCreate> {
+  id?: string;
+}
 
 export interface ProductVariant {
   id: string;
   name: string;
   sku: string;
+  slug?: string;                    // ✅ ADD THIS (from your API response)
   price: number | null;
   compareAtPrice: number | null;
   weight: number | null;
   stockQuantity: number;
   trackInventory: boolean;
+  
+  // NEW: Option values as array matching ProductOptions order
+  optionValues: string[];           // ✅ ["Red", "L"] - IMPORTANT FOR OPTIONS SYSTEM
+  
+  // Legacy option fields (for backward compatibility)
   option1Name: string | null;
   option1Value: string | null;
   option2Name: string | null;
   option2Value: string | null;
   option3Name: string | null;
   option3Value: string | null;
+  
   imageUrl: string | null;
-  imageFile?: File; // For upload preview
+  imageFile?: File;                 // For upload preview
   isDefault: boolean;
   displayOrder: number;
   isActive: boolean;
   gtin: string | null;
-  barcode: string | null; // ✅ ADD THIS LINE
+  barcode: string | null;
+  
+  // Loyalty Points (calculated)
+  loyaltyPointsEarnable?: number;   // ✅ ADD THIS (from your API response)
+  loyaltyPointsMessage?: string;    // ✅ ADD THIS (from your API response)
 }
+
 
 export interface ProductsApiResponse {
   success: boolean;
@@ -202,9 +247,11 @@ export interface Product {
   images?: ProductImage[];
   attributes?: ProductAttribute[];
   variants?: ProductVariant[];
+  options?: ProductOption[];        // ✅ ADD THIS LINE
   relatedProducts?: RelatedProduct[];
   crossSellProducts?: RelatedProduct[];
 }
+
 
 export interface BrandData {
   id: string;
@@ -421,6 +468,61 @@ export const productsService = {
       attribute
     );
   },
+
+    // ... existing methods ...
+  
+  // ==========================================
+  // PRODUCT OPTIONS MANAGEMENT
+  // ==========================================
+  
+  /**
+   * Get all options for a product
+   */
+  getOptions: async (productId: string) => {
+    return apiClient.get<ApiResponse<ProductOption[]>>(
+      `${API_ENDPOINTS.products}/${productId}/options`
+    );
+  },
+  
+  /**
+   * Add a new option to a product
+   */
+  addOption: async (productId: string, option: ProductOptionCreate) => {
+    return apiClient.post<ApiResponse<ProductOption>>(
+      `${API_ENDPOINTS.products}/${productId}/options`,
+      option
+    );
+  },
+  
+  /**
+   * Update an existing product option
+   */
+  updateOption: async (productId: string, optionId: string, option: Partial<ProductOptionCreate>) => {
+    return apiClient.put<ApiResponse<ProductOption>>(
+      `${API_ENDPOINTS.products}/${productId}/options/${optionId}`,
+      option
+    );
+  },
+  
+  /**
+   * Delete a product option
+   */
+  deleteOption: async (productId: string, optionId: string) => {
+    return apiClient.delete<ApiResponse<void>>(
+      `${API_ENDPOINTS.products}/${productId}/options/${optionId}`
+    );
+  },
+  
+  /**
+   * Generate all variant combinations from product options
+   * Creates Cartesian product of all option values
+   */
+  generateVariants: async (productId: string) => {
+    return apiClient.post<ApiResponse<ProductVariant[]>>(
+      `${API_ENDPOINTS.products}/${productId}/generate-variants`
+    );
+  },
+  
 
   // ==========================================
   // 🗑️ VARIANT MANAGEMENT
