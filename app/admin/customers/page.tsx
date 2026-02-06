@@ -45,7 +45,7 @@ import {
   UserPlus,
 } from "lucide-react";
 
-import { useToast } from "@/components/CustomToast";
+import { useToast } from "@/app/admin/_component/CustomToast";
 import { Customer, CustomerQueryParams, customersService } from "@/lib/services/costomers";
 
 // ✅ Types

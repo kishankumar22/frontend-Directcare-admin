@@ -1,17 +1,18 @@
 'use client';
 
-import { useState, useRef } from 'react';
-import { Plus, X, Upload, Package, ChevronDown, ChevronUp } from 'lucide-react';
+import { useState } from 'react';
+import { Plus, X, Upload, Package, ChevronDown, ChevronUp, AlertTriangle } from 'lucide-react';
 import { ProductVariant, ProductOption } from '@/lib/services';
-import { useToast } from '@/components/CustomToast';
+import { useToast } from '@/app/admin/_component/CustomToast';
 import { API_BASE_URL } from '@/lib/api-config';
+import ConfirmDialog from '@/app/admin/_component/ConfirmDialog';
 
 interface ProductVariantsManagerProps {
   variants: ProductVariant[];
   options: ProductOption[];
   productSku: string;
   productId?: string;
-    productName?: string;  // ✅ ADD THIS
+  productName?: string;
   onVariantsChange: (variants: ProductVariant[]) => void;
   disabled?: boolean;
   variantSkuErrors?: Record<string, string>;
@@ -22,7 +23,7 @@ export default function ProductVariantsManager({
   variants,
   options,
   productSku,
-  productName = '',  // ✅ ADD THIS
+  productName = '',
   productId,
   onVariantsChange,
   disabled = false,
@@ -30,9 +31,17 @@ export default function ProductVariantsManager({
   onVariantImageUpload,
 }: ProductVariantsManagerProps) {
   const toast = useToast();
-  const [uploadingVariantId, setUploadingVariantId] = useState<string | null>(null);
   const [collapsedVariants, setCollapsedVariants] = useState<Set<string>>(new Set());
-
+  
+  const [deleteModal, setDeleteModal] = useState<{
+    isOpen: boolean;
+    variantId: string | null;
+    variantName: string | null;
+  }>({
+    isOpen: false,
+    variantId: null,
+    variantName: null,
+  });
   // Toggle collapse state
   const toggleCollapse = (variantId: string) => {
     setCollapsedVariants((prev) => {
@@ -46,6 +55,31 @@ export default function ProductVariantsManager({
     });
   };
 
+  // ✅ Open delete modal
+  const openDeleteModal = (id: string, name: string) => {
+    setDeleteModal({
+      isOpen: true,
+      variantId: id,
+      variantName: name,
+    });
+  };
+
+  // ✅ Confirm delete
+  const confirmDelete = () => {
+    if (deleteModal.variantId) {
+      onVariantsChange(variants.filter((v) => v.id !== deleteModal.variantId));
+      toast.success('Variant deleted successfully');
+      setDeleteModal({ isOpen: false, variantId: null, variantName: null });
+    }
+  };
+
+  // ✅ Cancel delete
+  const cancelDelete = () => {
+    setDeleteModal({ isOpen: false, variantId: null, variantName: null });
+  };
+const closeDeleteModal = () => {
+    setDeleteModal({ isOpen: false, variantId: null, variantName: null });
+  };
   // Add variant with options
   const addVariantWithOptions = () => {
     const newVariantId = `temp-${Date.now()}-${Math.random()
@@ -140,140 +174,127 @@ export default function ProductVariantsManager({
   };
 
   // Auto-generate variant name from option values
-const autoGenerateVariantName = (variant: ProductVariant) => {
-  // Collect non-empty option values
-  const optionVals = variant.optionValues?.filter(v => v && v.trim()) || [];
-  
-  if (optionVals.length === 0) {
-    return productName || '';
-  }
-  
-  return `${productName || 'Product'} (${optionVals.join(', ')})`;
-};
-// Generate all variant combinations from options
-const generateAllVariants = (productName: string, productSku: string) => {
-  if (options.length === 0) {
-    toast.warning('Please add at least one option first (e.g., Color, Size)');
-    return;
-  }
-
-  // Validate all options have values
-  const invalidOptions = options.filter(opt => !opt.values || opt.values.length === 0);
-  if (invalidOptions.length > 0) {
-    toast.error(`Please add values for: ${invalidOptions.map(o => o.name || 'Unnamed option').join(', ')}`);
-    return;
-  }
-
-  // Generate Cartesian product of all option values
-  const generateCombinations = (arrays: string[][]): string[][] => {
-    if (arrays.length === 0) return [[]];
-    const result: string[][] = [];
-    const rest = generateCombinations(arrays.slice(1));
-    for (const item of arrays[0]) {
-      for (const combo of rest) {
-        result.push([item, ...combo]);
-      }
+  const autoGenerateVariantName = (variant: ProductVariant) => {
+    const optionVals = variant.optionValues?.filter(v => v && v.trim()) || [];
+    
+    if (optionVals.length === 0) {
+      return productName || '';
     }
-    return result;
+    
+    return `${productName || 'Product'} (${optionVals.join(', ')})`;
   };
 
-  const optionValues = options.map(opt => opt.values);
-  const combinations = generateCombinations(optionValues);
-
-  // Filter out existing combinations
-  const existingCombos = new Set(
-    variants.map(v => v.optionValues?.join(',').toLowerCase() || '')
-  );
-
-  const newVariants: ProductVariant[] = [];
-  let skippedCount = 0;
-
-  for (const combo of combinations) {
-    const comboKey = combo.join(',').toLowerCase();
-    if (existingCombos.has(comboKey)) {
-      skippedCount++;
-      continue;
+  // Generate all variant combinations from options
+  const generateAllVariants = (productName: string, productSku: string) => {
+    if (options.length === 0) {
+      toast.warning('Please add at least one option first (e.g., Color, Size)');
+      return;
     }
 
-    // Generate SKU from combination
-    const skuSuffix = combo.map(v => v.replace(/\s/g, '').toUpperCase()).join('-');
-    const baseSku = productSku || 'PROD';
+    const invalidOptions = options.filter(opt => !opt.values || opt.values.length === 0);
+    if (invalidOptions.length > 0) {
+      toast.error(`Please add values for: ${invalidOptions.map(o => o.name || 'Unnamed option').join(', ')}`);
+      return;
+    }
 
-    const newVariant: ProductVariant = {
-      id: `temp-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
-      name: `${productName || 'Product'} (${combo.join(', ')})`,
-      sku: `${baseSku}-${skuSuffix}`,
-      price: null,
-      compareAtPrice: null,
-      weight: null,
-      stockQuantity: 0,
-      trackInventory: true,
-      optionValues: combo,
-      option1Name: options[0]?.name || null,
-      option1Value: combo[0] || null,
-      option2Name: options[1]?.name || null,
-      option2Value: combo[1] || null,
-      option3Name: options[2]?.name || null,
-      option3Value: combo[2] || null,
-      imageUrl: null,
-      imageFile: undefined,
-      isDefault: variants.length === 0 && newVariants.length === 0,
-      displayOrder: variants.length + newVariants.length,
-      isActive: true,
-      gtin: null,
-      barcode: null
+    const generateCombinations = (arrays: string[][]): string[][] => {
+      if (arrays.length === 0) return [[]];
+      const result: string[][] = [];
+      const rest = generateCombinations(arrays.slice(1));
+      for (const item of arrays[0]) {
+        for (const combo of rest) {
+          result.push([item, ...combo]);
+        }
+      }
+      return result;
     };
 
-    newVariants.push(newVariant);
-  }
+    const optionValues = options.map(opt => opt.values);
+    const combinations = generateCombinations(optionValues);
 
-  if (newVariants.length === 0) {
-    toast.info(skippedCount > 0
-      ? `All ${skippedCount} combinations already exist`
-      : 'No new variants to generate');
-    return;
-  }
+    const existingCombos = new Set(
+      variants.map(v => v.optionValues?.join(',').toLowerCase() || '')
+    );
 
-  onVariantsChange([...variants, ...newVariants]);
-  toast.success(`Generated ${newVariants.length} new variants${skippedCount > 0 ? ` (${skippedCount} skipped)` : ''}`);
-};
+    const newVariants: ProductVariant[] = [];
+    let skippedCount = 0;
 
-  // Update variant option value
-// Update variant option value AND auto-generate name
-const updateVariantOptionValue = (
-  variantId: string,
-  optionIndex: number,
-  value: string
-) => {
-  onVariantsChange(
-    variants.map((variant) => {
-      if (variant.id !== variantId) return variant;
+    for (const combo of combinations) {
+      const comboKey = combo.join(',').toLowerCase();
+      if (existingCombos.has(comboKey)) {
+        skippedCount++;
+        continue;
+      }
 
-      const newOptionValues = [...(variant.optionValues || [])];
-      newOptionValues[optionIndex] = value;
+      const skuSuffix = combo.map(v => v.replace(/\s/g, '').toUpperCase()).join('-');
+      const baseSku = productSku || 'PROD';
 
-      const updates: Partial<ProductVariant> = {
-        optionValues: newOptionValues,
+      const newVariant: ProductVariant = {
+        id: `temp-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
+        name: `${productName || 'Product'} (${combo.join(', ')})`,
+        sku: `${baseSku}-${skuSuffix}`,
+        price: null,
+        compareAtPrice: null,
+        weight: null,
+        stockQuantity: 0,
+        trackInventory: true,
+        optionValues: combo,
+        option1Name: options[0]?.name || null,
+        option1Value: combo[0] || null,
+        option2Name: options[1]?.name || null,
+        option2Value: combo[1] || null,
+        option3Name: options[2]?.name || null,
+        option3Value: combo[2] || null,
+        imageUrl: null,
+        imageFile: undefined,
+        isDefault: variants.length === 0 && newVariants.length === 0,
+        displayOrder: variants.length + newVariants.length,
+        isActive: true,
+        gtin: null,
+        barcode: null
       };
 
-      if (optionIndex === 0) updates.option1Value = value || null;
-      if (optionIndex === 1) updates.option2Value = value || null;
-      if (optionIndex === 2) updates.option3Value = value || null;
-
-      // ✅ AUTO-GENERATE NAME when any option value changes
-      const updatedVariant = { ...variant, ...updates };
-      updates.name = autoGenerateVariantName(updatedVariant);
-
-      return { ...variant, ...updates };
-    })
-  );
-};
-
-  // Remove variant
-  const removeProductVariant = (id: string) => {
-    if (confirm('Are you sure you want to delete this variant?')) {
-      onVariantsChange(variants.filter((v) => v.id !== id));
+      newVariants.push(newVariant);
     }
+
+    if (newVariants.length === 0) {
+      toast.info(skippedCount > 0
+        ? `All ${skippedCount} combinations already exist`
+        : 'No new variants to generate');
+      return;
+    }
+
+    onVariantsChange([...variants, ...newVariants]);
+    toast.success(`Generated ${newVariants.length} new variants${skippedCount > 0 ? ` (${skippedCount} skipped)` : ''}`);
+  };
+
+  // Update variant option value AND auto-generate name
+  const updateVariantOptionValue = (
+    variantId: string,
+    optionIndex: number,
+    value: string
+  ) => {
+    onVariantsChange(
+      variants.map((variant) => {
+        if (variant.id !== variantId) return variant;
+
+        const newOptionValues = [...(variant.optionValues || [])];
+        newOptionValues[optionIndex] = value;
+
+        const updates: Partial<ProductVariant> = {
+          optionValues: newOptionValues,
+        };
+
+        if (optionIndex === 0) updates.option1Value = value || null;
+        if (optionIndex === 1) updates.option2Value = value || null;
+        if (optionIndex === 2) updates.option3Value = value || null;
+
+        const updatedVariant = { ...variant, ...updates };
+        updates.name = autoGenerateVariantName(updatedVariant);
+
+        return { ...variant, ...updates };
+      })
+    );
   };
 
   // Handle variant image upload
@@ -311,7 +332,8 @@ const updateVariantOptionValue = (
           Add Variant
         </button>
       </div>
-  {/* ✅✅✅ ADD THIS ENTIRE SECTION HERE ✅✅✅ */}
+
+      {/* Generate All Variants Section */}
       {options.length > 0 && options.some(o => o.values.length > 0) && (
         <div className="mb-4 p-3 bg-gradient-to-r from-emerald-500/10 to-green-500/10 border border-emerald-500/30 rounded-lg flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -338,7 +360,6 @@ const updateVariantOptionValue = (
           </button>
         </div>
       )}
-      {/* ✅✅✅ END OF NEW SECTION ✅✅✅ */}
 
       {/* Variants List */}
       {variants.length === 0 ? (
@@ -433,16 +454,16 @@ const updateVariantOptionValue = (
                     )}
                   </div>
 
-                  {/* Delete Button (hidden when collapsed) */}
+                  {/* ✅ Delete Button (FIXED) */}
                   {!isCollapsed && (
                     <button
-                      type="button"
-                      onClick={() => removeProductVariant(variant.id)}
-                      disabled={disabled}
-                      className="p-1.5 text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-lg transition-colors disabled:opacity-50"
-                    >
-                      <X className="h-4 w-4" />
-                    </button>
+        type="button"
+        onClick={() => openDeleteModal(variant.id, variant.name || `Variant #${index + 1}`)}
+        disabled={disabled}
+        className="p-1.5 text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-lg transition-colors disabled:opacity-50"
+      >
+        <X className="h-4 w-4" />
+      </button>
                   )}
                 </div>
 
@@ -755,6 +776,21 @@ const updateVariantOptionValue = (
           })}
         </div>
       )}
+
+
+      {/* ✅ CONFIRM DIALOG */}
+      <ConfirmDialog
+        isOpen={deleteModal.isOpen}
+        onClose={closeDeleteModal}
+        onConfirm={confirmDelete}
+        title="Delete Variant?"
+        message={`Are you sure you want to delete "${deleteModal.variantName}"? This action cannot be undone.`}
+        confirmText="Delete"
+        cancelText="Cancel"
+        icon={AlertTriangle}
+        iconColor="text-red-400"
+        confirmButtonStyle="bg-gradient-to-r from-red-500 to-rose-600 hover:shadow-lg hover:shadow-red-500/50"
+      />
     </>
   );
 }

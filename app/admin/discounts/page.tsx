@@ -28,7 +28,7 @@ import {
 } from "lucide-react";
 
 
-import { useToast } from "@/components/CustomToast";
+import { useToast } from "@/app/admin/_component/CustomToast";
 
 import {
   Discount,
@@ -40,7 +40,7 @@ import { categoriesService, Category } from "@/lib/services/categories";
 import { Product, productsService } from "@/lib/services";
 import { DiscountUsageHistory } from "@/lib/services/discounts";
 import DiscountModals from "./DiscountModals";
-import ConfirmDialog from "@/components/ConfirmDialog";
+import ConfirmDialog from "@/app/admin/_component/ConfirmDialog";
 
 
 // ========== INTERFACES ==========

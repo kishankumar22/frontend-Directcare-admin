@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { useAuth } from "@/context/AuthContext";
+import { useAuth } from "@/app/admin/_context/AuthContext";
 
 import ProfileTab from "./tabs/ProfileTab";
 import OrdersTab from "./tabs/OrdersTab";

@@ -4,14 +4,14 @@ import { useRouter } from "next/navigation";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ArrowLeft, Save, Upload, X, Info, Search, Image, Package, Tag,  Globe,  Truck, PoundSterling, Link as LinkIcon, ShoppingCart, Video, Play, Plus, Settings, ChevronDown } from "lucide-react";
 import Link from "next/link"
-import { ProductDescriptionEditor } from "@/app/admin/products/SelfHostedEditor";
-import { useToast } from "@/components/CustomToast";
+import { ProductDescriptionEditor } from "@/app/admin/_component/SelfHostedEditor";
+import { useToast } from "@/app/admin/_component/CustomToast";
 import {  BrandApiResponse, brandsService, categoriesService, CategoryApiResponse, CategoryData, DropdownsData, ProductAttribute, ProductImage, ProductItem, ProductOption, ProductsApiResponse, productsService, ProductVariant, SimpleProduct,  VATRateData } from '@/lib/services';
 import { GroupedProductModal } from '../GroupedProductModal';
 import { MultiBrandSelector } from "../MultiBrandSelector";
 import { VATRateApiResponse, vatratesService } from "@/lib/services/vatrates";
 import { MultiCategorySelector } from "../MultiCategorySelector";
-import ScrollToTopButton from "../ScrollToTopButton";
+import ScrollToTopButton from "../../_component/ScrollToTopButton";
 import RelatedProductsSelector from "../RelatedProductsSelector";
 import ProductVariantsManager from "../ProductVariantsManager";
 import ProductOptionsManager from "../ProductOptionsManager";
@@ -725,9 +725,11 @@ notifyQuantityBelow: "",          // ✅ User input threshold
   productAvailabilityRange: '',
   
   // Cart Limits
-  minCartQuantity: '1',
-  maxCartQuantity: '10',
-  allowedQuantities: '',
+// Cart Limits
+orderMinimumQuantity: '1',      // ✅ NEW (matches API)
+orderMaximumQuantity: '10',     // ✅ NEW (matches API)
+allowedQuantities: '',
+
   allowAddingOnlyExistingAttributeCombinations: false,
   notReturnable: false,
 
@@ -1587,6 +1589,17 @@ const handleSubmit = async (
       };
     });
 
+    // Clean cart quantities based on active mode
+const cleanedCartData = {
+  orderMinimumQuantity: formData.allowedQuantities?.trim() 
+    ? null 
+    : (parseInt(formData.orderMinimumQuantity) || 1),    // ✅ CHANGED
+  orderMaximumQuantity: formData.allowedQuantities?.trim() 
+    ? null 
+    : (parseInt(formData.orderMaximumQuantity) || 10),   // ✅ CHANGED
+  allowedQuantities: formData.allowedQuantities?.trim() || null
+};
+
     const productData: any = {
       // Basic Info
       name: formData.name.trim(),
@@ -1659,10 +1672,12 @@ const handleSubmit = async (
       backorderMode: formData.backorderMode || "no-backorders",
       allowBackInStockSubscriptions: formData.allowBackInStockSubscriptions,
 
-      // Cart Quantities
-      orderMinimumQuantity: parseInt(formData.minCartQuantity.toString()) || 1,
-      orderMaximumQuantity: parseInt(formData.maxCartQuantity.toString()) || 10000,
-      allowedQuantities: formData.allowedQuantities?.trim() || null,
+
+// Cart Quantities - Use cleaned data
+orderMinimumQuantity: cleanedCartData.orderMinimumQuantity,      // ✅ CHANGED
+orderMaximumQuantity: cleanedCartData.orderMaximumQuantity,      // ✅ CHANGED
+allowedQuantities: cleanedCartData.allowedQuantities,
+
 
       // Other
       lowStockActivity: formData.lowStockActivity || null,
@@ -4810,70 +4825,139 @@ useEffect(() => {
     </>
   )}
 
-  {/* Cart Settings */}
-  <div className="space-y-4">
-    <h3 className="text-lg font-semibold text-white border-b border-slate-800 pb-2">Cart Settings</h3>
 
-    <div className="grid md:grid-cols-2 gap-4">
-      <div>
-        <label className="block text-sm font-medium text-slate-300 mb-2">Minimum Cart Quantity</label>
-        <input
-          type="number"
-          name="minCartQuantity"
-          value={formData.minCartQuantity}
-          onChange={handleChange}
-          placeholder="1"
-          min="1"
-          className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
-        />
-        <p className="text-xs text-slate-400 mt-1">
-          Customer must order at least this quantity
-        </p>
-      </div>
+{/* Cart Settings */}
+<div className="space-y-4">
+  <h3 className="text-lg font-semibold text-white border-b border-slate-800 pb-2">
+    Cart Settings
+  </h3>
 
-      <div>
-        <label className="block text-sm font-medium text-slate-300 mb-2">Maximum Cart Quantity</label>
-        <input
-          type="number"
-          name="maxCartQuantity"
-          value={formData.maxCartQuantity}
-          onChange={handleChange}
-          placeholder="10000"
-          min="1"
-          className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
-        />
-        <p className="text-xs text-slate-400 mt-1">
-          Maximum quantity per order
-        </p>
-      </div>
-    </div>
-
-    <div>
-      <label className="block text-sm font-medium text-slate-300 mb-2">Allowed Quantities</label>
-      <input
-        type="text"
-        name="allowedQuantities"
-        value={formData.allowedQuantities}
-        onChange={handleChange}
-        placeholder="e.g., 1, 5, 10, 20"
-        className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
-      />
-      <p className="text-xs text-slate-400 mt-1">
-        Restrict to specific quantities only (comma-separated). Leave empty to allow any quantity.
-      </p>
-    </div>
-
-    <label className="flex items-center gap-2 cursor-pointer">
-      <input
-        type="checkbox"
-        name="notReturnable"
-        checked={formData.notReturnable}
-        onChange={handleChange}
-        className="rounded bg-slate-800/50 border-slate-700 text-violet-500 focus:ring-violet-500 focus:ring-offset-slate-900"
-      />
-      <span className="text-sm text-slate-300">Not returnable (no refunds/returns allowed)</span>
+  {/* SIMPLE INLINE RADIO SELECTOR */}
+  <div>
+    <label className="block text-sm font-medium text-slate-300 mb-2">
+      Quantity Control
     </label>
+    
+    <div className="flex gap-4 mb-3">
+      {/* Range Mode Radio */}
+      <label className="flex items-center gap-2 cursor-pointer">
+        <input
+          type="radio"
+          name="quantityMode"
+          checked={!(!formData.orderMinimumQuantity && !formData.orderMaximumQuantity)}
+          onChange={() => {
+            setFormData(prev => ({
+              ...prev,
+              allowedQuantities: '',
+              orderMinimumQuantity: prev.orderMinimumQuantity || '1',
+              orderMaximumQuantity: prev.orderMaximumQuantity || '10'
+            }));
+          }}
+          className="w-4 h-4 text-violet-500 focus:ring-violet-500 focus:ring-offset-slate-900"
+        />
+        <span className="text-sm text-slate-300">Min - Max Range</span>
+      </label>
+
+      {/* Fixed Quantities Radio */}
+      <label className="flex items-center gap-2 cursor-pointer">
+        <input
+          type="radio"
+          name="quantityMode"
+          checked={!formData.orderMinimumQuantity && !formData.orderMaximumQuantity}
+          onChange={() => {
+            setFormData(prev => ({
+              ...prev,
+              orderMinimumQuantity: '',
+              orderMaximumQuantity: '',
+              allowedQuantities: prev.allowedQuantities || ''
+            }));
+          }}
+          className="w-4 h-4 text-emerald-500 focus:ring-emerald-500 focus:ring-offset-slate-900"
+        />
+        <span className="text-sm text-slate-300">Fixed Quantities</span>
+      </label>
+    </div>
+
+    {/* MIN-MAX RANGE FIELDS */}
+    {!(!formData.orderMinimumQuantity && !formData.orderMaximumQuantity) && (
+      <div className="grid grid-cols-2 gap-4 p-4 bg-slate-800/50 border border-slate-700 rounded-xl">
+        <div>
+          <label className="block text-sm font-medium text-slate-300 mb-2">
+            Minimum Cart Quantity
+          </label>
+          <input
+            type="number"
+            name="orderMinimumQuantity"
+            value={formData.orderMinimumQuantity}
+            onChange={handleChange}
+            min="1"
+            placeholder="1"
+            className="w-full px-3 py-2.5 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-slate-300 mb-2">
+            Maximum Cart Quantity
+          </label>
+          <input
+            type="number"
+            name="orderMaximumQuantity"
+            value={formData.orderMaximumQuantity}
+            onChange={handleChange}
+            min={formData.orderMinimumQuantity || '1'}
+            placeholder="100"
+            className="w-full px-3 py-2.5 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+          />
+        </div>
+      </div>
+    )}
+
+    {/* FIXED QUANTITIES FIELD */}
+    {!formData.orderMinimumQuantity && !formData.orderMaximumQuantity && (
+      <div className="p-4 bg-slate-800/50 border border-slate-700 rounded-xl">
+        <label className="block text-sm font-medium text-slate-300 mb-2">
+          Allowed Cart Quantities
+        </label>
+        <input
+          type="text"
+          name="allowedQuantities"
+          value={formData.allowedQuantities}
+          onChange={handleChange}
+          placeholder="1, 5, 10, 20, 50"
+          className="w-full px-3 py-2.5 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all"
+        />
+        <p className="text-xs text-slate-400 mt-2">Enter comma-separated values</p>
+        
+        {formData.allowedQuantities && (
+          <div className="mt-3 flex flex-wrap gap-1.5">
+            {formData.allowedQuantities.split(',').map((qty, i) => {
+              const val = qty.trim();
+              return val ? (
+                <span key={i} className="px-2 py-1 bg-emerald-500/20 text-emerald-300 text-xs rounded border border-emerald-500/30">
+                  {val}
+                </span>
+              ) : null;
+            })}
+          </div>
+        )}
+      </div>
+    )}
   </div>
+
+  {/* NOT RETURNABLE */}
+  <label className="flex items-center gap-2 cursor-pointer">
+    <input
+      type="checkbox"
+      name="notReturnable"
+      checked={formData.notReturnable}
+      onChange={handleChange}
+      className="w-4 h-4 rounded bg-slate-800/50 border-slate-700 text-red-500 focus:ring-red-500 focus:ring-offset-slate-900"
+    />
+    <span className="text-sm text-slate-300">Not Returnable</span>
+  </label>
+</div>
+
+
 </TabsContent>
 
 
@@ -6031,8 +6115,8 @@ useEffect(() => {
     if (formData.displayOrder !== initialFormData.displayOrder) changes.push('Display Order');
     
     // ========== CART SETTINGS ==========
-    if (formData.minCartQuantity !== initialFormData.minCartQuantity) changes.push('Min Cart Qty');
-    if (formData.maxCartQuantity !== initialFormData.maxCartQuantity) changes.push('Max Cart Qty');
+    if (formData.orderMinimumQuantity !== initialFormData.orderMinimumQuantity) changes.push('Min Cart Qty');
+    if (formData.orderMaximumQuantity !== initialFormData.orderMaximumQuantity) changes.push('Max Cart Qty');
     if (formData.disableBuyButton !== initialFormData.disableBuyButton) changes.push('Buy Button');
     
     // ========== MARK AS NEW ==========
@@ -6200,7 +6284,7 @@ useEffect(() => {
 
 
 
-<ScrollToTopButton />
+
     </div>
   );
 }

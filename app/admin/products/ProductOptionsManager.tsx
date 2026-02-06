@@ -1,9 +1,11 @@
 'use client';
 
 import { useState } from 'react';
-import { Plus, X, Settings } from 'lucide-react';
+import { Plus, X, Settings, AlertTriangle } from 'lucide-react';
 import { ProductOption } from '@/lib/services';
-import { useToast } from '@/components/CustomToast';
+import { useToast } from '@/app/admin/_component/CustomToast';
+import ConfirmDialog from '../_component/ConfirmDialog';
+
 
 interface ProductOptionsManagerProps {
   options: ProductOption[];
@@ -22,8 +24,17 @@ export default function ProductOptionsManager({
   
   // ✅ Track raw input for each option
   const [inputValues, setInputValues] = useState<Record<string, string>>({});
-const [optionToDelete, setOptionToDelete] = useState<string | null>(null);
-
+  
+  // ✅ DELETE MODAL STATE
+  const [deleteModal, setDeleteModal] = useState<{
+    isOpen: boolean;
+    optionId: string | null;
+    optionName: string | null;
+  }>({
+    isOpen: false,
+    optionId: null,
+    optionName: null,
+  });
 
   // Add new option
   const addOption = () => {
@@ -76,19 +87,32 @@ const [optionToDelete, setOptionToDelete] = useState<string | null>(null);
     return option.values.join(', ');
   };
 
-  const requestRemoveOption = (id: string) => {
-  setOptionToDelete(id);
-};
-
-  // Remove option
-  const removeOption = (id: string) => {
-    onOptionsChange(options.filter((opt) => opt.id !== id));
-    // Clean up input state
-    setInputValues((prev) => {
-      const newState = { ...prev };
-      delete newState[id];
-      return newState;
+  // ✅ Open delete modal
+  const openDeleteModal = (id: string, name: string) => {
+    setDeleteModal({
+      isOpen: true,
+      optionId: id,
+      optionName: name,
     });
+  };
+
+  // ✅ Confirm delete
+  const confirmDelete = () => {
+    if (deleteModal.optionId) {
+      onOptionsChange(options.filter((opt) => opt.id !== deleteModal.optionId));
+      // Clean up input state
+      setInputValues((prev) => {
+        const newState = { ...prev };
+        delete newState[deleteModal.optionId!];
+        return newState;
+      });
+      toast.success('Option deleted successfully');
+    }
+  };
+
+  // ✅ Close delete modal
+  const closeDeleteModal = () => {
+    setDeleteModal({ isOpen: false, optionId: null, optionName: null });
   };
 
   return (
@@ -156,70 +180,48 @@ const [optionToDelete, setOptionToDelete] = useState<string | null>(null);
                   />
                 </div>
 
-                {/* Option Values - ✅ FIXED: Now allows typing freely */}
-           <div className="col-span-5 relative group">
-  <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-    Values <span className="text-red-500">*</span>
-    <span className="text-slate-500 font-normal ml-1">
-      (comma or space separated)
-    </span>
-  </label>
+                {/* Option Values */}
+                <div className="col-span-5 relative group">
+                  <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                    Values <span className="text-red-500">*</span>
+                    <span className="text-slate-500 font-normal ml-1">
+                      (comma or space separated)
+                    </span>
+                  </label>
 
-  <input
-    type="text"
-    value={getInputValue(option)}
-    onChange={(e) => handleInputChange(option.id, e.target.value)}
-    onBlur={() => {
-      setInputValues((prev) => {
-        const newState = { ...prev };
-        delete newState[option.id];
-        return newState;
-      });
-    }}
-    placeholder="e.g., Red Blue Green or Red, Blue, Green"
-    disabled={disabled}
-    className="w-full px-3 py-2 text-sm bg-slate-800 border border-slate-600 rounded-lg text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 disabled:opacity-50"
-  />
+                  <input
+                    type="text"
+                    value={getInputValue(option)}
+                    onChange={(e) => handleInputChange(option.id, e.target.value)}
+                    onBlur={() => {
+                      setInputValues((prev) => {
+                        const newState = { ...prev };
+                        delete newState[option.id];
+                        return newState;
+                      });
+                    }}
+                    placeholder="e.g., Red Blue Green or Red, Blue, Green"
+                    disabled={disabled}
+                    className="w-full px-3 py-2 text-sm bg-slate-800 border border-slate-600 rounded-lg text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 disabled:opacity-50"
+                  />
 
-  {option.values.length > 0 && (
-    <div
-      className="
-        absolute
-        left-0
-        top-full
-        mt-2
-        z-50
-        hidden
-        group-hover:flex
-        flex-wrap
-        gap-1
-        max-w-full
-        bg-slate-900
-        border border-slate-700
-        rounded-lg
-        p-2
-        shadow-xl
-        transition-all
-        duration-150
-        ease-out
-        opacity-0
-        translate-y-1
-        group-hover:opacity-100
-        group-hover:translate-y-0
-      "
-    >
-      {option.values.map((val, i) => (
-        <span
-          key={i}
-          className="px-2 py-0.5 bg-violet-500/20 text-violet-300 text-xs rounded border border-violet-500/30 whitespace-nowrap"
-        >
-      {val}
-        </span>
-      ))}
-    </div>
-  )}
-</div>
-
+                  {option.values.length > 0 && (
+                    <div
+                      className="
+                        absolute left-0 top-full mt-2 z-50 hidden group-hover:flex flex-wrap gap-1 max-w-full bg-slate-900 border border-slate-700 rounded-lg p-2 shadow-xl transition-all duration-150 ease-out opacity-0 translate-y-1 group-hover:opacity-100 group-hover:translate-y-0
+                      "
+                    >
+                      {option.values.map((val, i) => (
+                        <span
+                          key={i}
+                          className="px-2 py-0.5 bg-violet-500/20 text-violet-300 text-xs rounded border border-violet-500/30 whitespace-nowrap"
+                        >
+                          {val}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
 
                 {/* Display Type */}
                 <div className="col-span-3">
@@ -242,59 +244,35 @@ const [optionToDelete, setOptionToDelete] = useState<string | null>(null);
 
                 {/* Delete Button */}
                 <div className="col-span-1 flex justify-end pt-6">
-                 <button
-  type="button"
-  onClick={() => setOptionToDelete(option.id)}
-  disabled={disabled}
-  className="p-2 text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-lg transition-colors disabled:opacity-50"
-  title="Remove option"
->
-  <X className="h-4 w-4" />
-</button>
-
+                  <button
+                    type="button"
+                    onClick={() => openDeleteModal(option.id, option.name || `Option ${index + 1}`)}
+                    disabled={disabled}
+                    className="p-2 text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-lg transition-colors disabled:opacity-50"
+                    title="Remove option"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
                 </div>
               </div>
             </div>
           ))}
         </div>
       )}
-      {/* 🔴 DELETE CONFIRMATION MODAL */}
-{optionToDelete && (
-  <div className="fixed inset-0 z-50 flex items-start pt-32 justify-center  bg-black/60">
-    <div className="bg-slate-900 border border-slate-700 rounded-xl p-5 w-full max-w-sm">
-      
-      <h3 className="text-sm font-semibold text-white mb-2">
-        Delete option?
-      </h3>
 
-      <p className="text-sm text-slate-400 mb-4">
-        Are you sure you want to delete this option?  
-        This action cannot be undone.
-      </p>
-
-      <div className="flex justify-end gap-2">
-        <button
-          onClick={() => setOptionToDelete(null)}
-          className="px-3 py-1.5 text-sm rounded bg-slate-700 text-white hover:bg-slate-600"
-        >
-          Cancel
-        </button>
-
-        <button
-          onClick={() => {
-            removeOption(optionToDelete);
-            setOptionToDelete(null);
-          }}
-          className="px-3 py-1.5 text-sm rounded bg-red-600 text-white hover:bg-red-500"
-        >
-          Delete
-        </button>
-      </div>
-
-    </div>
-  </div>
-)}
-
+      {/* ✅ CONFIRM DIALOG */}
+      <ConfirmDialog
+        isOpen={deleteModal.isOpen}
+        onClose={closeDeleteModal}
+        onConfirm={confirmDelete}
+        title="Delete Option?"
+        message={`Are you sure you want to delete "${deleteModal.optionName}"? This will affect all variants using this option. This action cannot be undone.`}
+        confirmText="Delete"
+        cancelText="Cancel"
+        icon={AlertTriangle}
+        iconColor="text-red-400"
+        confirmButtonStyle="bg-gradient-to-r from-red-500 to-rose-600 hover:shadow-lg hover:shadow-red-500/50"
+      />
     </>
   );
 }

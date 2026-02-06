@@ -11,7 +11,7 @@ import {
 } from "@stripe/react-stripe-js";
 import { useCart } from "@/context/CartContext";
 import Link from "next/link";
-import { useAuth } from "@/context/AuthContext";
+import { useAuth } from "@/app/admin/_context/AuthContext";
 import { useRouter } from "next/navigation";
 import EmptyCart from "@/components/cart/EmptyCart";
 import { ShoppingBag } from "lucide-react";

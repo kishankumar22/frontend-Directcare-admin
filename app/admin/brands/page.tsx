@@ -3,9 +3,9 @@
 import { useState, useEffect } from "react";
 import { Plus, Edit, Trash2, Search, Tag, Eye, CheckCircle, Upload, Filter, FilterX, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, AlertCircle, Loader2, X, Package, FolderTree, Copy } from "lucide-react";
 import { API_ENDPOINTS, API_BASE_URL } from "@/lib/api-config";
-import { ProductDescriptionEditor } from "../products/SelfHostedEditor";
-import { useToast } from "@/components/CustomToast";
-import ConfirmDialog from "@/components/ConfirmDialog";
+import { ProductDescriptionEditor } from "../_component/SelfHostedEditor";
+import { useToast } from "@/app/admin/_component/CustomToast";
+import ConfirmDialog from "@/app/admin/_component/ConfirmDialog";
 import { Brand, brandsService, BrandStats } from "@/lib/services/brands";
 import { useRouter } from "next/navigation";
 
@@ -32,8 +32,27 @@ export default function BrandsPage() {
   });
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(25);
-  const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; name: string } | null>(null);
-  const [isDeleting, setIsDeleting] = useState(false);
+
+  const [selectedBrand, setSelectedBrand] = useState<{
+  id: string;
+  name: string;
+  isDeleted: boolean;
+} | null>(null);
+
+const [isProcessing, setIsProcessing] = useState(false);
+
+  const openBrandActionModal = (brand: {
+  id: string;
+  name: string;
+  isDeleted: boolean;
+}) => {
+  setSelectedBrand({
+    id: brand.id,
+    name: brand.name,
+    isDeleted: brand.isDeleted,
+  });
+};
+
   // After imports, before component
 const MAX_HOMEPAGE_BRANDS = 50;
 // ✅ Homepage brands counter
@@ -68,6 +87,35 @@ const [homepageBrandsCounter, setHomepageBrandsCounter] = useState<Brand[]>([]);
     const parts = imageUrl.split('/');
     return parts[parts.length - 1];
   };
+const handleConfirmBrandAction = async () => {
+  if (!selectedBrand) return;
+
+  setIsProcessing(true);
+
+  try {
+    if (selectedBrand.isDeleted) {
+      // ♻️ RESTORE
+      await brandsService.restore(selectedBrand.id);
+      toast.success('Brand restored successfully!');
+    } else {
+      // 🗑️ DELETE
+      await brandsService.delete(selectedBrand.id);
+      toast.success('Brand deleted successfully!');
+    }
+
+    await fetchBrands();
+  } catch (error: any) {
+    console.error('Brand action error:', error);
+    toast.error(
+      selectedBrand.isDeleted
+        ? 'Failed to restore brand'
+        : 'Failed to delete brand'
+    );
+  } finally {
+    setIsProcessing(false);
+    setSelectedBrand(null);
+  }
+};
 
   // ✅ Service-based Image Delete
   const handleDeleteImage = async (brandId: string, imageUrl: string) => {
@@ -106,7 +154,6 @@ const [homepageBrandsCounter, setHomepageBrandsCounter] = useState<Brand[]>([]);
     setStats({ totalBrands, publishedBrands, homepageBrands, totalProducts });
   };
 
-  // ✅ Service-based Fetch
 // ✅ Service-based Fetch with Date Sorting
 const fetchBrands = async () => {
   setLoading(true);
@@ -503,27 +550,6 @@ const handleSubmit = async (e: React.FormEvent) => {
   }
 };
 
-
-  // ✅ Service-based Delete
-  const handleDelete = async (id: string) => {
-    setIsDeleting(true);
-    try {
-      const response = await brandsService.delete(id);
-      if (!response.error && (response.status === 200 || response.status === 204)) {
-        toast.success("Brand deleted successfully! 🗑️");
-        await fetchBrands();
-      } else {
-        toast.error(response.error || "Failed to delete brand");
-      }
-    } catch (error: any) {
-      console.error("Error deleting brand:", error);
-      toast.error(error?.response?.data?.message || "Failed to delete brand");
-    } finally {
-      setIsDeleting(false);
-      setDeleteConfirm(null);
-    }
-  };
-
   const handleEdit = (brand: Brand) => {
     setEditingBrand(brand);
     setFormData({
@@ -900,137 +926,184 @@ const handleSubmit = async (e: React.FormEvent) => {
             <p className="text-slate-400">No brands found</p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-slate-800">
-                  <th className="text-left py-3 px-4 text-slate-400 font-medium text-sm">Brand Name</th>
-                  <th className="text-center py-3 px-4 text-slate-400 font-medium text-sm">Products</th>
-                  <th className="text-center py-3 px-4 text-slate-400 font-medium text-sm">Status</th>
-                  <th className="text-center py-3 px-4 text-slate-400 font-medium text-sm">Homepage</th>
-                  <th className="text-center py-3 px-4 text-slate-400 font-medium text-sm">Order</th>
-                  <th className="text-left py-3 px-4 text-slate-400 font-medium text-sm">Created At</th>
-                  <th className="text-left py-3 px-4 text-slate-400 font-medium text-sm">Updated At</th>
-                  <th className="text-left py-3 px-4 text-slate-400 font-medium text-sm">Updated By</th>
-                  <th className="text-center py-3 px-4 text-slate-400 font-medium text-sm">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {currentData.map((brand) => (
-                  <tr key={brand.id} className="border-b border-slate-800 hover:bg-slate-800/30 transition-colors">
-                    <td className="py-4 px-4">
-                      <div className="flex items-center gap-3">
-                        {brand.logoUrl ? (
-                          <div
-                            className="w-10 h-10 rounded-lg overflow-hidden border border-slate-700 cursor-pointer hover:ring-2 hover:ring-violet-500 transition-all"
-                            onClick={() => setSelectedImageUrl(getImageUrl(brand.logoUrl))}
-                          >
-                            <img
-                              src={getImageUrl(brand.logoUrl)}
-                              alt={brand.name}
-                              className="w-full h-full object-cover"
-                              
-                            />
-                          </div>
-                        ) : (
-                          <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-violet-500 to-pink-500 flex items-center justify-center">
-                            <Tag className="h-5 w-5 text-white" />
-                          </div>
-                        )}
-                        <div>
-                          <p
-                            className="text-white font-medium cursor-pointer hover:text-violet-400 transition-colors"
-                            onClick={() => setViewingBrand(brand)}
-                          >
-                            {brand.name}
-                          </p>
-                          <p className="text-xs text-slate-500">{brand.slug}</p>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="py-4 px-4 text-center">
-                      <span className="px-3 py-1 bg-cyan-500/10 text-cyan-400 rounded-lg text-sm font-medium">
-                        {brand.productCount}
-                      </span>
-                    </td>
-                    <td className="py-4 px-4 text-center">
-                      <span className={`px-3 py-1 rounded-lg text-xs font-medium ${
-                        brand.isPublished
-                          ? 'bg-green-500/10 text-green-400'
-                          : 'bg-red-500/10 text-red-400'
-                      }`}>
-                        {brand.isPublished ? 'Published' : 'Unpublished'}
-                      </span>
-                    </td>
-                    <td className="py-4 px-4 text-center">
-                      <span className={`px-3 py-1 rounded-lg text-xs font-medium ${
-                        brand.showOnHomepage
-                          ? 'bg-violet-500/10 text-violet-400'
-                          : 'bg-slate-500/10 text-slate-400'
-                      }`}>
-                        {brand.showOnHomepage ? 'Yes' : 'No'}
-                      </span>
-                    </td>
-                    <td className="py-4 px-4 text-center text-slate-300">{brand.displayOrder}</td>
-                    <td className="py-4 px-4 text-slate-300 text-sm">
-                      {brand.createdAt ? new Date(brand.createdAt).toLocaleString() : '-'}
-                    </td>
-                    <td className="py-4 px-4 text-slate-300 text-sm">
-                      {brand.updatedAt ? new Date(brand.updatedAt).toLocaleString() : '-'}
-                    </td>
-                  <td className="py-2.5 px-3">
-  {brand.updatedBy ? (
-    <div className="flex items-center gap-1.5">
-      <div
-        className="w-6 h-6 rounded-full flex items-center justify-center
-                   text-xs font-bold text-white shrink-0
-                   bg-gradient-to-br from-violet-500 to-cyan-500"
-      >
-        {brand.updatedBy.charAt(0).toUpperCase()}
-      </div>
+    <div className="overflow-x-auto">
+  <table className="w-full text-sm">
+    <thead>
+      <tr className="border-b border-slate-800">
+        <th className="text-left py-2 px-3 text-slate-400 font-medium">Brand</th>
+        <th className="text-center py-2 px-3 text-slate-400 font-medium">Products</th>
+        <th className="text-center py-2 px-3 text-slate-400 font-medium">Status</th>
+        <th className="text-center py-2 px-3 text-slate-400 font-medium">Homepage</th>
+        <th className="text-center py-2 px-3 text-slate-400 font-medium">Order By</th>
+        <th className="text-left py-2 px-3 text-slate-400 font-medium">Updated</th>
+        <th className="text-left py-2 px-3 text-slate-400 font-medium">Updated By</th>
+        <th className="text-center py-2 px-3 text-slate-400 font-medium">Actions</th>
+      </tr>
+    </thead>
 
-      <span
-        className="text-xs truncate max-w-[120px] text-slate-300"
-        title={brand.updatedBy}
-      >
-        {brand.updatedBy}
-      </span>
-    </div>
-  ) : (
-    <span className="text-slate-500 text-xs">-</span>
-  )}
-</td>
+    <tbody>
+      {currentData.map((brand) => {
+        const isBusy =
+          isProcessing && selectedBrand?.id === brand.id;
 
-                    <td className="py-4 px-4">
-                      <div className="flex items-center justify-center gap-2">
-                        <button
-                          onClick={() => setViewingBrand(brand)}
-                          className="p-2 text-violet-400 hover:bg-violet-500/10 rounded-lg transition-all"
-                          title="View Details"
-                        >
-                          <Eye className="h-4 w-4" />
-                        </button>
-                        <button
-                          onClick={() => handleEdit(brand)}
-                          className="p-2 text-cyan-400 hover:bg-cyan-500/10 rounded-lg transition-all"
-                          title="Edit"
-                        >
-                          <Edit className="h-4 w-4" />
-                        </button>
-                        <button
-                          onClick={() => setDeleteConfirm({ id: brand.id, name: brand.name })}
-                          className="p-2 text-red-400 hover:bg-red-500/10 rounded-lg transition-all"
-                          title="Delete"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+        return (
+          <tr
+            key={brand.id}
+            className={`border-b border-slate-800 transition-colors
+              ${brand.isDeleted ? 'opacity-60 grayscale bg-red-500/5' : 'hover:bg-slate-800/30'}
+              ${isBusy ? 'pointer-events-none' : ''}
+            `}
+          >
+            {/* BRAND */}
+            <td className="py-2 px-3">
+              <div className="flex items-center gap-2">
+                {brand.logoUrl ? (
+                  <img
+                    src={getImageUrl(brand.logoUrl)}
+                    alt={brand.name}
+                    className="w-9 h-9 rounded-md border border-slate-700 object-cover cursor-pointer"
+                    onClick={() =>
+                      setSelectedImageUrl(getImageUrl(brand.logoUrl))
+                    }
+                  />
+                ) : (
+                  <div className="w-9 h-9 rounded-md bg-gradient-to-br from-violet-500 to-pink-500 flex items-center justify-center">
+                    <Tag className="h-4 w-4 text-white" />
+                  </div>
+                )}
+
+                <div className="min-w-0">
+                  <p
+                    className="text-white font-medium truncate cursor-pointer hover:text-violet-400"
+                    onClick={() => setViewingBrand(brand)}
+                    title={brand.name}
+                  >
+                    {brand.name}
+                  </p>
+                  <p className="text-xs text-slate-500 truncate">
+                    {brand.slug}
+                  </p>
+                </div>
+              </div>
+            </td>
+
+            {/* PRODUCTS */}
+            <td className="py-2 px-3 text-center">
+              <span className="px-2 py-0.5 bg-cyan-500/10 text-cyan-400 rounded-md text-xs font-medium">
+                {brand.productCount}
+              </span>
+            </td>
+
+            {/* STATUS */}
+            <td className="py-2 px-3 text-center">
+              <span
+                className={`px-2 py-0.5 rounded-md text-xs font-medium ${
+                  brand.isPublished
+                    ? 'bg-green-500/10 text-green-400'
+                    : 'bg-red-500/10 text-red-400'
+                }`}
+              >
+                {brand.isPublished ? 'Published' : 'Unpublished'}
+              </span>
+            </td>
+
+            {/* HOMEPAGE */}
+            <td className="py-2 px-3 text-center">
+              <span
+                className={`px-2 py-0.5 rounded-md text-xs font-medium ${
+                  brand.showOnHomepage
+                    ? 'bg-violet-500/10 text-violet-400'
+                    : 'bg-slate-500/10 text-slate-400'
+                }`}
+              >
+                {brand.showOnHomepage ? 'Yes' : 'No'}
+              </span>
+            </td>
+
+            {/* ORDER */}
+            <td className="py-2 px-3 text-center text-slate-300">
+              {brand.displayOrder}
+            </td>
+
+            {/* UPDATED */}
+            <td className="py-2 px-3 text-slate-300 text-xs">
+              {brand.updatedAt
+                ? new Date(brand.updatedAt).toLocaleDateString()
+                : '-'}
+            </td>
+
+            {/* UPDATED BY */}
+            <td className="py-2 px-3">
+              {brand.updatedBy ? (
+                <div className="flex items-center gap-1.5">
+                  <div className="w-6 h-6 rounded-full bg-gradient-to-br from-violet-500 to-cyan-500 text-white text-xs font-bold flex items-center justify-center">
+                    {brand.updatedBy.charAt(0).toUpperCase()}
+                  </div>
+                  <span
+                    className="text-xs truncate max-w-[100px] text-slate-300"
+                    title={brand.updatedBy}
+                  >
+                    {brand.updatedBy}
+                  </span>
+                </div>
+              ) : (
+                <span className="text-xs text-slate-500">-</span>
+              )}
+            </td>
+
+            {/* ACTIONS */}
+            <td className="py-2 px-3">
+              <div className="flex items-center justify-center gap-1">
+                <button
+                  onClick={() => setViewingBrand(brand)}
+                  className="p-1.5 text-violet-400 hover:bg-violet-500/10 rounded-md"
+                  title="View"
+                >
+                  <Eye className="h-4 w-4" />
+                </button>
+
+                <button
+                  onClick={() => handleEdit(brand)}
+                  className="p-1.5 text-cyan-400 hover:bg-cyan-500/10 rounded-md"
+                  title="Edit"
+                >
+                  <Edit className="h-4 w-4" />
+                </button>
+
+                <button
+                  onClick={() =>
+                    openBrandActionModal({
+                      id: brand.id,
+                      name: brand.name,
+                      isDeleted: brand.isDeleted,
+                    })
+                  }
+                  className={`p-1.5 rounded-md transition-all ${
+                    brand.isDeleted
+                      ? 'text-emerald-400 hover:bg-emerald-500/10'
+                      : 'text-red-400 hover:bg-red-500/10'
+                  }`}
+                  title={
+                    brand.isDeleted ? 'Restore Brand' : 'Delete Brand'
+                  }
+                >
+                  {isBusy ? (
+                    <div className="h-4 w-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                  ) : brand.isDeleted ? (
+                    <CheckCircle className="h-4 w-4" />
+                  ) : (
+                    <Trash2 className="h-4 w-4" />
+                  )}
+                </button>
+              </div>
+            </td>
+          </tr>
+        );
+      })}
+    </tbody>
+  </table>
+</div>
+
         )}
       </div>
 
@@ -1781,19 +1854,30 @@ const handleSubmit = async (e: React.FormEvent) => {
 )}
 
       {/* Brand Delete Confirmation Dialog */}
-      <ConfirmDialog
-        isOpen={!!deleteConfirm}
-        onClose={() => setDeleteConfirm(null)}
-        onConfirm={() => deleteConfirm && handleDelete(deleteConfirm.id)}
-        title="Delete Brand"
-        message={`Are you sure you want to delete "${deleteConfirm?.name}"? This action cannot be undone.`}
-        confirmText="Delete Brand"
-        cancelText="Cancel"
-        icon={AlertCircle}
-        iconColor="text-red-400"
-        confirmButtonStyle="bg-gradient-to-r from-red-500 to-rose-500 hover:shadow-lg hover:shadow-red-500/50"
-        isLoading={isDeleting}
-      />
+<ConfirmDialog
+  isOpen={!!selectedBrand}
+  onClose={() => setSelectedBrand(null)}
+  onConfirm={handleConfirmBrandAction}
+  title={selectedBrand?.isDeleted ? 'Restore Brand' : 'Delete Brand'}
+  message={
+    selectedBrand?.isDeleted
+      ? `Do you want to restore "${selectedBrand?.name}"?`
+      : `Are you sure you want to delete "${selectedBrand?.name}"?`
+  }
+  confirmText={selectedBrand?.isDeleted ? 'Restore Brand' : 'Delete Brand'}
+  cancelText="Cancel"
+  icon={AlertCircle}
+  iconColor={
+    selectedBrand?.isDeleted ? 'text-emerald-400' : 'text-red-400'
+  }
+  confirmButtonStyle={
+    selectedBrand?.isDeleted
+      ? 'bg-gradient-to-r from-emerald-500 to-green-500'
+      : 'bg-gradient-to-r from-red-500 to-rose-500'
+  }
+  isLoading={isProcessing}
+/>
+
 
       {/* NEW - Image Delete Confirmation Dialog */}
       <ConfirmDialog

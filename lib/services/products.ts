@@ -402,7 +402,11 @@ export const productsService = {
   delete: async (id: string) => {
     return apiClient.delete<ApiResponse<void>>(`${API_ENDPOINTS.products}/${id}`);
   },
-
+restore: async (id: string) => {
+  return apiClient.post<ApiResponse<void>>(
+    `${API_ENDPOINTS.products}/${id}/restore`
+  );
+},
   getByCategory: async (categoryId: string, params?: Omit<ProductQueryParams, 'categoryId'>) => {
     return productsService.getAll({ ...params, categoryId });
   },

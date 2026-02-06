@@ -5,7 +5,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { shippingService } from "@/lib/services/shipping";
 import { ShippingZone, CreateZoneDto } from "@/lib/types/shipping";
 import { countriesService, Country } from "@/lib/services/countries";
-import { useToast } from "@/components/CustomToast";
+import { useToast } from "@/app/admin/_component/CustomToast";
 import {
   Plus,
   Edit,

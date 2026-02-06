@@ -10,7 +10,7 @@ import {
   Percent,
   FileSpreadsheet
 } from "lucide-react";
-import { useToast } from "@/components/CustomToast";
+import { useToast } from "@/app/admin/_component/CustomToast";
 import { API_BASE_URL } from "@/lib/api-config";
 import { productLockService, TakeoverRequestData } from "@/lib/services/productLockService";
 import ProductViewModal from "./ProductViewModal";
@@ -20,13 +20,14 @@ import { useRouter } from "next/navigation";
 
 import { categoriesService } from "@/lib/services/categories";
 import { brandsService } from "@/lib/services/brands";
-import ConfirmDialog from "@/components/ConfirmDialog";
+import ConfirmDialog from "@/app/admin/_component/ConfirmDialog";
 import MediaViewerModal, { MediaItem } from "./MediaViewerModal";
 import { RelatedProduct, Product, productsService, productHelpers } from "@/lib/services";
-
+type ActionType = 'delete' | 'restore';
 // ✅ INTERFACES
 interface FormattedProduct {
   id: string;
+    isDeleted: boolean; // ✅ ADD THIS
   name: string;
   categoryName: string;
   price: number;
@@ -164,11 +165,10 @@ export default function ProductsPage() {
   const [brands, setBrands] = useState<BrandData[]>([]);
   const [loading, setLoading] = useState(true);
   const [viewingProduct, setViewingProduct] = useState<Product | null>(null);
-  const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; name: string } | null>(null);
-  const [isDeleting, setIsDeleting] = useState(false);
+
   const [loadingDetails, setLoadingDetails] = useState(false);
-// Export menu state
-const [showExportMenu, setShowExportMenu] = useState(false);
+ // Export menu state
+ const [showExportMenu, setShowExportMenu] = useState(false);
 
   // Filter states
   const [searchTerm, setSearchTerm] = useState("");
@@ -284,6 +284,26 @@ const [showExportMenu, setShowExportMenu] = useState(false);
     });
   };
 
+const [selectedProduct, setSelectedProduct] = useState<{
+  id: string;
+  name: string;
+  isDeleted: boolean;
+} | null>(null);
+
+const openProductActionModal = (product: {
+  id: string;
+  name: string;
+  isDeleted: boolean;
+}) => {
+  setSelectedProduct({
+    id: product.id,
+    name: product.name,
+    isDeleted: product.isDeleted,
+  });
+};
+
+
+const [isProcessing, setIsProcessing] = useState(false);
   const getProductImage = (images: any[]): string => {
     if (!images || images.length === 0) return "";
     const mainImage = images.find((img: any) => img.isMain) || images[0];
@@ -297,6 +317,31 @@ const [showExportMenu, setShowExportMenu] = useState(false);
     const primaryCategory = categories.find((cat: any) => cat.isPrimary === true);
     return primaryCategory?.categoryName || categories[0]?.categoryName || "Uncategorized";
   };
+const handleConfirmProductAction = async () => {
+  if (!selectedProduct) return;
+
+  setIsProcessing(true);
+
+  try {
+    if (selectedProduct.isDeleted) {
+      // RESTORE
+      await productsService.restore(selectedProduct.id);
+      toast.success('Product restored successfully!');
+    } else {
+      // DELETE
+      await productsService.delete(selectedProduct.id);
+      toast.success('Product deleted successfully!');
+    }
+
+    await fetchProducts();
+  } catch (err) {
+    console.error('Product action error:', err);
+    toast.error('Action failed');
+  } finally {
+    setIsProcessing(false);
+    setSelectedProduct(null);
+  }
+};
 
   // ✅ FETCH PRODUCTS
   const fetchProducts = async () => {
@@ -353,6 +398,7 @@ const [showExportMenu, setShowExportMenu] = useState(false);
             sameDayDeliveryEnabled: p.sameDayDeliveryEnabled === true,
             hasDiscount,
             discountPercentage,
+            isDeleted: p.isDeleted === true, // ✅ VERY IMPORTANT
           };
         });
 
@@ -443,21 +489,7 @@ const [showExportMenu, setShowExportMenu] = useState(false);
     }
   };
 
-  // ✅ DELETE PRODUCT
-  const handleDelete = async (id: string) => {
-    setIsDeleting(true);
-    try {
-      await productsService.delete(id);
-      toast.success("Product deleted successfully!");
-      await fetchProducts();
-    } catch (err) {
-      console.error("Delete error:", err);
-      toast.error("Failed to delete product");
-    } finally {
-      setIsDeleting(false);
-      setDeleteConfirm(null);
-    }
-  };
+
 
   // ✅ MEDIA VIEWER
   const openMediaViewer = (media: MediaItem | MediaItem[], startIndex = 0) => {
@@ -1828,230 +1860,210 @@ const formatOptionLabel = (option: SelectOption) => {
             <p className="text-slate-400">No products found</p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full table-fixed">
-              <thead>
-                <tr className="border-b border-slate-800">
-                  <th className="text-left py-3 px-4 text-slate-400 font-medium text-sm w-[280px]">
-                    Product
-                  </th>
-                  <th className="text-center py-3 px-4 text-slate-400 font-medium text-sm w-[120px]">
-                    SKU
-                  </th>
-                  <th className="text-center py-3 px-4 text-slate-400 font-medium text-sm w-[90px]">
-                    Price
-                  </th>
-                  <th className="text-center py-3 px-4 text-slate-400 font-medium text-sm w-[80px]">
-                    Stock
-                  </th>
-                  <th className="text-center py-3 px-4 text-slate-400 font-medium text-sm w-[160px]">
-                   Stock Status
-                  </th>
-                  <th className="text-center py-3 px-4 text-slate-400 font-medium text-sm w-[110px]">
-                    Visibility
-                  </th>
-                  {/* <th className="text-center py-3 px-4 text-slate-400 font-medium text-sm w-[90px]">
-                    Discount
-                  </th> */}
-                  <th className="text-left py-3 px-4 text-slate-400 font-medium text-sm w-[120px]">
-                    Updated
-                  </th>
-                  <th className="text-left py-3 px-4 text-slate-400 font-medium text-sm w-[120px]">
-                    Updated By
-                  </th>
-                  <th className="text-center py-3 px-4 text-slate-400 font-medium text-sm w-[150px]">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {currentData.map((product) => (
-                  <tr
-                    key={product.id}
-                    className="border-b border-slate-800 hover:bg-slate-800/30 transition-colors"
+<div className="overflow-x-auto">
+  <table className="w-full table-fixed text-sm">
+    <thead>
+      <tr className="border-b border-slate-800">
+        <th className="text-left py-2 px-3 text-slate-400 w-[260px]">Product</th>
+        <th className="text-center py-2 px-3 text-slate-400 w-[110px]">SKU</th>
+        <th className="text-center py-2 px-3 text-slate-400 w-[80px]">Price</th>
+        <th className="text-center py-2 px-3 text-slate-400 w-[70px]">Stock</th>
+        <th className="text-center py-2 px-3 text-slate-400 w-[140px]">Stock Status</th>
+        <th className="text-center py-2 px-3 text-slate-400 w-[100px]">Visibility</th>
+        <th className="text-left py-2 px-3 text-slate-400 w-[110px]">Updated</th>
+        <th className="text-left py-2 px-3 text-slate-400 w-[110px]">Updated By</th>
+        <th className="text-center py-2 px-3 text-slate-400 w-[140px]">Actions</th>
+      </tr>
+    </thead>
+
+    <tbody>
+      {currentData.map((product) => {
+        const isBusy =
+          isProcessing && selectedProduct?.id === product.id;
+
+        return (
+          <tr
+            key={product.id}
+            className={`border-b border-slate-800 transition-colors
+              ${product.isDeleted ? 'opacity-60 grayscale bg-red-500/5' : 'hover:bg-slate-800/30'}
+              ${isBusy ? 'pointer-events-none' : ''}
+            `}
+          >
+            {/* PRODUCT */}
+            <td className="py-2 px-3">
+              <div className="flex items-center gap-2">
+                <div className="w-10 h-10 rounded-md bg-gradient-to-br from-violet-500 to-pink-500 overflow-hidden flex-shrink-0">
+                  {product.image ? (
+                    <img
+                      src={product.image}
+                      alt={product.name}
+                      className="w-full h-full object-cover cursor-pointer hover:opacity-80"
+                      onClick={async (e) => {
+                        e.stopPropagation();
+                        try {
+                          const res = await productsService.getById(product.id);
+                          if (res.data?.success && res.data?.data?.images) {
+                            viewProductImages(res.data.data.images, product.name, 0);
+                          }
+                        } catch {}
+                      }}
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center text-white">
+                      📦
+                    </div>
+                  )}
+                </div>
+
+                <div className="min-w-0 flex-1">
+                  <p
+                    className="text-white font-medium truncate cursor-pointer hover:text-violet-400"
+                    onClick={() => fetchProductDetails(product.id)}
+                    title={product.name}
                   >
-                    {/* Product */}
-                    <td className="py-4 px-4">
-                      <div className="flex items-center gap-3">
-                        <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-violet-500 to-pink-500 flex items-center justify-center overflow-hidden flex-shrink-0">
-                          {product.image && product.image.trim() !== "" ? (
-                            <img
-                              src={product.image}
-                              alt={product.name}
-                              className="w-full h-full object-cover cursor-pointer hover:opacity-80 transition-opacity"
-                              onClick={async (e) => {
-                                e.stopPropagation();
-                                try {
-                                  const response = await productsService.getById(product.id);
-                                  if (response.data?.success && response.data?.data?.images) {
-                                    viewProductImages(response.data.data.images, product.name, 0);
-                                  }
-                                } catch (error) {
-                                  console.error("Error loading images:", error);
-                                }
-                              }}
-                            />
-                          ) : (
-                            <span className="text-lg">📦</span>
-                          )}
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <p
-                            className="text-white font-medium cursor-pointer hover:text-violet-400 transition-colors truncate"
-                            onClick={() => fetchProductDetails(product.id)}
-                            title={product.name}
-                          >
-                            {product.name}
-                          </p>
-                          <div className="flex items-center gap-2 mt-1">
-                            <p className="text-xs text-slate-500 truncate" title={product.categoryName}>
-                              {product.categoryName}
-                            </p>
-                            <span
-                              className="text-xs text-cyan-400 bg-cyan-400/10 px-2 py-0.5 rounded truncate"
-                              title={product.brandName}
-                            >
-                              {product.brandName}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                    </td>
+                    {product.name}
+                  </p>
+                  <div className="flex items-center gap-1 mt-0.5">
+                    <span className="text-xs text-slate-500 truncate">
+                      {product.categoryName}
+                    </span>
+                    <span className="text-xs text-cyan-400 bg-cyan-400/10 px-1.5 py-0.5 rounded">
+                      {product.brandName}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </td>
 
-                    {/* SKU */}
-                    <td className="py-4 px-4 text-center">
-                      <span className="text-slate-400 text-sm font-mono bg-slate-800/50 px-2 py-1 rounded truncate block">
-                        {product.sku}
-                      </span>
-                    </td>
+            {/* SKU */}
+            <td className="py-2 px-3 text-center">
+              <span className="text-xs font-mono text-slate-300 bg-slate-800/50 px-2 py-0.5 rounded">
+                {product.sku}
+              </span>
+            </td>
 
-                    {/* Price */}
-                    <td className="py-4 px-4 text-center">
-                      <div className="flex items-center justify-center gap-1">
-                        <span className="text-green-400">£</span>
-                        <span className="text-white font-semibold">{product.price.toFixed(2)}</span>
-                      </div>
-                    </td>
+            {/* PRICE */}
+            <td className="py-2 px-3 text-center font-semibold text-white">
+              £{product.price.toFixed(2)}
+            </td>
 
-                    {/* Stock */}
-                    <td className="py-4 px-4 text-center">
-                      <span
-                        className={`px-2 py-1 rounded-lg text-sm font-medium ${
-                          product.stockQuantity > 10
-                            ? "bg-cyan-500/10 text-cyan-400"
-                            : product.stockQuantity > 0
-                            ? "bg-orange-500/10 text-orange-400"
-                            : "bg-red-500/10 text-red-400"
-                        }`}
-                      >
-                        {product.stockQuantity}
-                      </span>
-                    </td>
+            {/* STOCK */}
+            <td className="py-2 px-3 text-center">
+              <span
+                className={`px-2 py-0.5 rounded-md text-xs font-medium ${
+                  product.stockQuantity > 10
+                    ? 'bg-cyan-500/10 text-cyan-400'
+                    : product.stockQuantity > 0
+                    ? 'bg-orange-500/10 text-orange-400'
+                    : 'bg-red-500/10 text-red-400'
+                }`}
+              >
+                {product.stockQuantity}
+              </span>
+            </td>
 
-                    {/* Status */}
-                    <td className="py-4 px-4 text-center">
-                      <div className="flex justify-center">
-                        {product.status === "In Stock" ? (
-                          <span className="inline-flex items-center gap-1 px-2 py-1 bg-green-500/10 text-green-400 rounded-lg text-xs font-medium">
-                            <div className="w-2 h-2 bg-green-400 rounded-full"></div>
-                            In Stock
-                          </span>
-                        ) : product.status === "Low Stock" ? (
-                          <span className="inline-flex items-center gap-1 px-2 py-1 bg-orange-500/10 text-orange-400 rounded-lg text-xs font-medium">
-                            <div className="w-2 h-2 bg-orange-400 rounded-full"></div>
-                            Low Stock
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1 px-2 py-1 bg-red-500/10 text-red-400 rounded-lg text-xs font-medium">
-                            <div className="w-2 h-2 bg-red-400 rounded-full"></div>
-                            Out of Stock
-                          </span>
-                        )}
-                      </div>
-                    </td>
+            {/* STOCK STATUS */}
+            <td className="py-2 px-3 text-center">
+              <span
+                className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-medium ${
+                  product.status === 'In Stock'
+                    ? 'bg-green-500/10 text-green-400'
+                    : product.status === 'Low Stock'
+                    ? 'bg-orange-500/10 text-orange-400'
+                    : 'bg-red-500/10 text-red-400'
+                }`}
+              >
+                <span className="w-2 h-2 rounded-full bg-current" />
+                {product.status}
+              </span>
+            </td>
 
-                    {/* Visibility */}
-                    <td className="py-4 px-4 text-center">
-                      {product.isPublished ? (
-                        <span className="flex items-center justify-center gap-1 px-2 py-1 bg-green-500/10 text-green-400 rounded-lg text-xs font-medium">
-                          <CheckCircle className="w-3 h-3" />
-                          Published
-                        </span>
-                      ) : (
-                        <span className="flex items-center justify-center gap-1 px-2 py-1 bg-slate-500/10 text-slate-400 rounded-lg text-xs font-medium">
-                          <XCircle className="w-3 h-3" />
-                          Unpublished
-                        </span>
-                      )}
-                    </td>
+            {/* VISIBILITY */}
+            <td className="py-2 px-3 text-center">
+              <span
+                className={`px-2 py-0.5 rounded-md text-xs font-medium ${
+                  product.isPublished
+                    ? 'bg-green-500/10 text-green-400'
+                    : 'bg-slate-500/10 text-slate-400'
+                }`}
+              >
+                {product.isPublished ? 'Published' : 'Unpublished'}
+              </span>
+            </td>
 
-                    {/* ✅ Discount */}
-                    {/* <td className="py-4 px-4 text-center">
-                      {product.hasDiscount ? (
-                        <span className="inline-flex items-center gap-1 px-2 py-1 bg-pink-500/10 text-pink-400 rounded-lg text-xs font-medium">
-                          <Percent className="w-3 h-3" />
-                          {product.discountPercentage}%
-                        </span>
-                      ) : (
-                        <span className="text-slate-500 text-xs">-</span>
-                      )}
-                    </td> */}
+            {/* UPDATED */}
+            <td className="py-2 px-3 text-xs text-slate-300">
+              {product.updatedAt
+                ? new Date(product.updatedAt).toLocaleDateString()
+                : '-'}
+            </td>
 
-                    {/* Updated */}
-                    <td className="py-4 px-4 text-slate-300 text-sm">
-                      <div className="truncate" title={product.createdAt}>
-                        {product.createdAt ? new Date(product.createdAt).toLocaleDateString() : "-"}
-                      </div>
-                    </td>
-                    <td className="py-4 px-4 text-slate-300 text-sm">
-                      <div className="truncate" title={product.updatedBy}>
-                        {product.updatedBy ? product.updatedBy : "-"}
-                      </div>
-                    </td>
+            {/* UPDATED BY */}
+            <td className="py-2 px-3 text-xs text-slate-300 truncate">
+              {product.updatedBy || '-'}
+            </td>
 
-                    {/* Actions */}
-                    <td className="py-4 px-4">
-                      <div className="flex items-center justify-center gap-1">
-                        <Link href={`/products/${product.slug}`} target="_blank">
-                          <button
-                            className="p-2 text-emerald-400 hover:bg-emerald-500/10 rounded-lg transition-all"
-                            title="View On Browser"
-                          >
-                            <ExternalLink className="h-4 w-4" />
-                          </button>
-                        </Link>
+            {/* ACTIONS */}
+            <td className="py-2 px-3">
+              <div className="flex items-center justify-center gap-1">
+                <Link href={`/products/${product.slug}`} target="_blank">
+                  <button className="p-1.5 text-emerald-400 hover:bg-emerald-500/10 rounded-md"
+                    title="View On Browser">
+                    <ExternalLink className="h-4 w-4" />
+                  </button>
+                </Link>
 
-                        <button
-                          onClick={() => fetchProductDetails(product.id)}
-                          className="p-2 text-violet-400 hover:bg-violet-500/10 rounded-lg transition-all"
-                          title="View Details"
-                        >
-                          <Eye className="h-4 w-4" />
-                        </button>
+                <button
+                  onClick={() => fetchProductDetails(product.id)}
+                  className="p-1.5 text-violet-400 hover:bg-violet-500/10 rounded-md"
+                  title="View Details"
+                >
+                  <Eye className="h-4 w-4" />
+                </button>
 
-                        <Link href={`/admin/products/edit/${product.id}`}>
-                          <button
-                            className="p-2 text-cyan-400 hover:bg-cyan-500/10 rounded-lg transition-all"
-                            title="Edit Product"
-                          >
-                            <Edit className="h-4 w-4" />
-                          </button>
-                        </Link>
+                <Link href={`/admin/products/edit/${product.id}`}>
+                  <button className="p-1.5 text-cyan-400 hover:bg-cyan-500/10 rounded-md"
+                    title="Edit Product">
+                    <Edit className="h-4 w-4" />
+                  </button>
+                </Link>
 
-                        <button
-                          onClick={() => setDeleteConfirm({ id: product.id, name: product.name })}
-                          className="p-2 text-red-400 hover:bg-red-500/10 rounded-lg transition-all"
-                          title="Delete Product"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                <button
+                  onClick={() =>
+                    openProductActionModal({
+                      id: product.id,
+                      name: product.name,
+                      isDeleted: product.isDeleted,
+                    })
+                  }
+                  className={`p-1.5 rounded-md ${
+                    product.isDeleted
+                      ? 'text-emerald-400 hover:bg-emerald-500/10'
+                      : 'text-red-400 hover:bg-red-500/10'
+                  }`}
+                  title={
+                    product.isDeleted
+                      ? 'Restore Product'
+                      : 'Delete Product'
+                  }
+                >
+                  {isBusy ? (
+                    <div className="h-4 w-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                  ) : product.isDeleted ? (
+                    <CheckCircle className="h-4 w-4" />
+                  ) : (
+                    <Trash2 className="h-4 w-4" />
+                  )}
+                </button>
+              </div>
+            </td>
+          </tr>
+        );
+      })}
+    </tbody>
+  </table>
+</div>
+
         )}
       </div>
 
@@ -2289,19 +2301,31 @@ const formatOptionLabel = (option: SelectOption) => {
         baseUrl={API_BASE_URL.replace("/api", "")}
       />
 
-      <ConfirmDialog
-        isOpen={!!deleteConfirm}
-        onClose={() => setDeleteConfirm(null)}
-        onConfirm={() => deleteConfirm && handleDelete(deleteConfirm.id)}
-        title="Delete Product"
-        message={`Are you sure you want to delete "${deleteConfirm?.name}"? This action cannot be undone.`}
-        confirmText="Delete Product"
-        cancelText="Cancel"
-        icon={AlertCircle}
-        iconColor="text-red-400"
-        confirmButtonStyle="bg-gradient-to-r from-red-500 to-rose-500 hover:shadow-lg hover:shadow-red-500/50"
-        isLoading={isDeleting}
-      />
+<ConfirmDialog
+  isOpen={!!selectedProduct}
+  onClose={() => setSelectedProduct(null)}
+  onConfirm={handleConfirmProductAction}
+  title={selectedProduct?.isDeleted ? 'Restore Product' : 'Delete Product'}
+  message={
+    selectedProduct?.isDeleted
+      ? `Do you want to restore "${selectedProduct?.name}"?`
+      : `Are you sure you want to delete "${selectedProduct?.name}"?`
+  }
+  confirmText={selectedProduct?.isDeleted ? 'Restore Product' : 'Delete Product'}
+  cancelText="Cancel"
+  icon={AlertCircle}
+  iconColor={
+    selectedProduct?.isDeleted ? 'text-emerald-400' : 'text-red-400'
+  }
+  confirmButtonStyle={
+    selectedProduct?.isDeleted
+      ? 'bg-gradient-to-r from-emerald-500 to-green-500'
+      : 'bg-gradient-to-r from-red-500 to-rose-500'
+  }
+  isLoading={isProcessing}
+/>
+
+
     </div>
   );
 }

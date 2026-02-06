@@ -4,9 +4,9 @@ import { useState, useEffect } from "react";
 import { Plus, Edit, Trash2, Search, CheckCircle, Image as ImageIcon, Eye, Upload, Filter, FilterX, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, AlertCircle, Calendar, ExternalLink, Tag } from "lucide-react";
 import { API_ENDPOINTS, API_BASE_URL } from "@/lib/api-config";
 import { apiClient } from "@/lib/api";
-import { useToast } from "@/components/CustomToast";
-import ConfirmDialog from "@/components/ConfirmDialog";
-import { ProductDescriptionEditor } from "../products/SelfHostedEditor";
+import { useToast } from "@/app/admin/_component/CustomToast";
+import ConfirmDialog from "@/app/admin/_component/ConfirmDialog";
+import { ProductDescriptionEditor } from "../_component/SelfHostedEditor";
 import { Banner, bannersService, BannerStats } from "@/lib/services";
 
 export default function ManageBanners() {

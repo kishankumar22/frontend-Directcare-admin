@@ -1,4 +1,4 @@
-// components/SelfHostedTinyMCE.tsx - PROFESSIONAL GRADE
+// components/SelfHostedTinyMCE.tsx - PRODUCTION-READY WITH SECURITY
 'use client';
 
 import { extractFileName, deleteEditorImage, uploadEditorImage } from '@/lib/services/editorService';
@@ -20,6 +20,153 @@ declare global {
     tinymce: any;
   }
 }
+
+// ✅ NATIVE XSS PROTECTION - NO EXTERNAL LIBRARY
+const sanitizeHTML = (html: string): string => {
+  if (!html) return '';
+  
+  // Create a temporary DOM element
+  const temp = document.createElement('div');
+  temp.innerHTML = html;
+  
+  // Allowed tags
+  const allowedTags = new Set([
+    'P', 'BR', 'STRONG', 'B', 'EM', 'I', 'U', 'S', 'STRIKE',
+    'H1', 'H2', 'H3', 'H4', 'H5', 'H6',
+    'UL', 'OL', 'LI',
+    'A', 'IMG',
+    'TABLE', 'THEAD', 'TBODY', 'TR', 'TH', 'TD',
+    'BLOCKQUOTE', 'CODE', 'PRE',
+    'SPAN', 'DIV', 'HR'
+  ]);
+  
+  // Allowed attributes per tag
+  const allowedAttributes: Record<string, Set<string>> = {
+    'A': new Set(['href', 'title', 'target', 'rel']),
+    'IMG': new Set(['src', 'alt', 'title', 'width', 'height']),
+    'TD': new Set(['colspan', 'rowspan']),
+    'TH': new Set(['colspan', 'rowspan']),
+    'SPAN': new Set(['style']),
+    'DIV': new Set(['style']),
+    'P': new Set(['style'])
+  };
+  
+  // Allowed CSS properties (for style attribute)
+  const allowedStyles = new Set([
+    'color', 'background-color', 'font-size', 'font-weight',
+    'text-align', 'text-decoration', 'font-style'
+  ]);
+  
+  // Recursive sanitization
+  const sanitizeNode = (node: Node): Node | null => {
+    // Text nodes are safe
+    if (node.nodeType === Node.TEXT_NODE) {
+      return node.cloneNode(false);
+    }
+    
+    // Only allow element nodes
+    if (node.nodeType !== Node.ELEMENT_NODE) {
+      return null;
+    }
+    
+    const element = node as Element;
+    const tagName = element.tagName.toUpperCase();
+    
+    // Block dangerous tags
+    if (!allowedTags.has(tagName)) {
+      return null;
+    }
+    
+    // Create clean element
+    const cleanElement = document.createElement(tagName);
+    
+    // Copy allowed attributes
+    const allowedAttrs = allowedAttributes[tagName] || new Set();
+    
+    Array.from(element.attributes).forEach(attr => {
+      const attrName = attr.name.toLowerCase();
+      const attrValue = attr.value;
+      
+      if (allowedAttrs.has(attrName)) {
+        // Special handling for dangerous attributes
+        if (attrName === 'href' || attrName === 'src') {
+          // Block javascript:, data:, vbscript: URLs
+          const value = attrValue.trim().toLowerCase();
+          if (value.startsWith('javascript:') || 
+              value.startsWith('data:') || 
+              value.startsWith('vbscript:') ||
+              value.startsWith('file:')) {
+            return; // Skip this attribute
+          }
+        }
+        
+        // Special handling for style attribute
+        if (attrName === 'style') {
+          const sanitizedStyle = sanitizeStyle(attrValue);
+          if (sanitizedStyle) {
+            cleanElement.setAttribute(attrName, sanitizedStyle);
+          }
+          return;
+        }
+        
+        cleanElement.setAttribute(attrName, attrValue);
+      }
+    });
+    
+    // Force safe attributes for links
+    if (tagName === 'A') {
+      cleanElement.setAttribute('rel', 'noopener noreferrer');
+      if (cleanElement.getAttribute('target') === '_blank') {
+        cleanElement.setAttribute('target', '_blank');
+      }
+    }
+    
+    // Recursively sanitize children
+    Array.from(element.childNodes).forEach(child => {
+      const sanitizedChild = sanitizeNode(child);
+      if (sanitizedChild) {
+        cleanElement.appendChild(sanitizedChild);
+      }
+    });
+    
+    return cleanElement;
+  };
+  
+  // Sanitize CSS
+  const sanitizeStyle = (style: string): string => {
+    const styles: string[] = [];
+    const declarations = style.split(';');
+    
+    declarations.forEach(decl => {
+      const [property, value] = decl.split(':').map(s => s.trim());
+      if (property && value && allowedStyles.has(property.toLowerCase())) {
+        // Block expressions and URLs in CSS
+        if (!value.toLowerCase().includes('expression') && 
+            !value.toLowerCase().includes('javascript:') &&
+            !value.toLowerCase().includes('import')) {
+          styles.push(`${property}: ${value}`);
+        }
+      }
+    });
+    
+    return styles.join('; ');
+  };
+  
+  // Sanitize all nodes
+  const fragment = document.createDocumentFragment();
+  Array.from(temp.childNodes).forEach(child => {
+    const sanitized = sanitizeNode(child);
+    if (sanitized) {
+      fragment.appendChild(sanitized);
+    }
+  });
+  
+  // Convert back to HTML
+  const container = document.createElement('div');
+  container.appendChild(fragment);
+  
+  return container.innerHTML;
+};
 
 export const SelfHostedTinyMCE: React.FC<SelfHostedTinyMCEProps> = ({
   value,
@@ -49,7 +196,6 @@ export const SelfHostedTinyMCE: React.FC<SelfHostedTinyMCEProps> = ({
     setIsMounted(true);
   }, []);
 
-  // ✅ Get plain text length (NO trim - count all characters)
   const getPlainTextLength = (html: string): number => {
     if (!html) return 0;
     const tmp = document.createElement('div');
@@ -58,7 +204,6 @@ export const SelfHostedTinyMCE: React.FC<SelfHostedTinyMCEProps> = ({
     return text.length;
   };
 
-  // ✅ Smart HTML truncation with empty tag removal
   const truncateHTML = (html: string, maxChars: number): string => {
     const tmp = document.createElement('div');
     tmp.innerHTML = html;
@@ -82,7 +227,6 @@ export const SelfHostedTinyMCE: React.FC<SelfHostedTinyMCEProps> = ({
         const children = Array.from(node.childNodes);
         for (let i = 0; i < children.length; i++) {
           if (!processNode(children[i])) {
-            // Remove all subsequent siblings
             for (let j = i + 1; j < children.length; j++) {
               node.removeChild(children[j]);
             }
@@ -96,7 +240,6 @@ export const SelfHostedTinyMCE: React.FC<SelfHostedTinyMCEProps> = ({
     
     processNode(tmp);
     
-    // Remove empty tags
     const removeEmptyTags = (element: Element) => {
       const children = Array.from(element.children);
       children.forEach(child => {
@@ -372,12 +515,13 @@ export const SelfHostedTinyMCE: React.FC<SelfHostedTinyMCEProps> = ({
           });
         },
         
+        // ✅ DIRECT FILE PICKER - NO MODAL
         file_picker_types: 'image',
         file_picker_callback: (callback: any, value: any, meta: any) => {
           if (meta.filetype === 'image') {
             const input = document.createElement('input');
             input.setAttribute('type', 'file');
-            input.setAttribute('accept', 'image/webp');
+            input.setAttribute('accept', 'image/webp,image/png,image/jpg,image/jpeg');
             input.style.display = 'none';
             
             document.body.appendChild(input);
@@ -430,7 +574,7 @@ export const SelfHostedTinyMCE: React.FC<SelfHostedTinyMCEProps> = ({
           
           // ✅ BLOCK TYPING when limit reached
           editor.on('keydown', (e: any) => {
-            const allowedKeys = [8, 46, 37, 38, 39, 40, 35, 36, 33, 34]; // Backspace, Delete, Arrows, Home, End, PgUp, PgDn
+            const allowedKeys = [8, 46, 37, 38, 39, 40, 35, 36, 33, 34];
             
             if (allowedKeys.includes(e.keyCode) || e.ctrlKey || e.metaKey) {
               return;
@@ -452,62 +596,142 @@ export const SelfHostedTinyMCE: React.FC<SelfHostedTinyMCEProps> = ({
             }
           });
           
-          // ✅ TINYMCE BUILT-IN PASTE PREPROCESSOR (Most reliable!)
-          editor.on('PastePreProcess', (e: any) => {
-            if (maxLength === Infinity) return;
-            
-            const pastedText = e.content.replace(/<[^>]*>/g, ''); // Strip HTML
-            const currentContent = editor.getContent();
-            const currentLength = getPlainTextLength(currentContent);
-            const pastedLength = pastedText.length;
-            const totalLength = currentLength + pastedLength;
-            
-            if (totalLength > maxLength) {
-              const allowedLength = maxLength - currentLength;
-              
-              if (allowedLength <= 0) {
-                e.preventDefault();
-                e.content = '';
-                
-                showNotification(
-                  editor,
-                  `❌ Cannot paste! Character limit (${maxLength}) already reached.`,
-                  'error',
-                  4000
-                );
-                return;
-              }
-              
-              // Truncate pasted content
-              const truncatedText = pastedText.substring(0, allowedLength);
-              e.content = truncatedText;
-              
-              showNotification(
-                editor,
-                `⚠️ Pasted content truncated! Only ${allowedLength} of ${pastedLength} characters pasted. Limit: ${maxLength}`,
-                'warning',
-                4000
-              );
-            }
-          });
+          // ✅ PASTE HANDLER WITH SECURITY
+// Replace ONLY the PastePreProcess event in your existing code:
+
+editor.on('PastePreProcess', (e: any) => {
+  if (maxLength === Infinity) {
+    e.content = sanitizeHTML(e.content);
+    return;
+  }
+  
+  const pastedHTML = e.content;
+  const pastedLength = getPlainTextLength(pastedHTML);
+  
+  const currentContent = editor.getContent();
+  const currentLength = getPlainTextLength(currentContent);
+  
+  // ✅ SMART REPLACE: Limit reached but paste is smaller
+  if (currentLength >= maxLength && pastedLength <= maxLength) {
+    const truncatedHTML = pastedLength > maxLength 
+      ? truncateHTML(pastedHTML, maxLength) 
+      : pastedHTML;
+    
+    const sanitized = sanitizeHTML(truncatedHTML);
+    
+    e.content = sanitized;
+    
+    setTimeout(() => {
+      if (editorRef.current) {
+        editorRef.current.setContent(sanitized);
+        
+        showNotification(
+          editorRef.current,
+          `✅ Content replaced! Old: ${currentLength} chars → New: ${getPlainTextLength(sanitized)} chars`,
+          'success',
+          4000
+        );
+      }
+    }, 0);
+    
+    return;
+  }
+  
+  // ✅ LARGE REPLACE: Limit reached and paste is also large
+  if (currentLength >= maxLength && pastedLength > maxLength) {
+    const shouldReplace = confirm(
+      `⚠️ LIMIT REACHED!\n\n` +
+      `Current: ${currentLength} characters (limit: ${maxLength})\n` +
+      `Pasting: ${pastedLength} characters\n\n` +
+      `Do you want to REPLACE all content with new content?\n` +
+      `(New content will be truncated to ${maxLength} characters)`
+    );
+    
+    if (shouldReplace) {
+      const truncatedHTML = truncateHTML(pastedHTML, maxLength);
+      const sanitized = sanitizeHTML(truncatedHTML);
+      
+      e.content = sanitized;
+      
+      setTimeout(() => {
+        if (editorRef.current) {
+          editorRef.current.setContent(sanitized);
           
-          // ✅ FINAL SAFETY CHECK - Enforce limit on any content change
+          showNotification(
+            editorRef.current,
+            `✅ Content replaced and truncated! ${pastedLength} → ${maxLength} chars`,
+            'success',
+            4000
+          );
+        }
+      }, 0);
+    } else {
+      e.preventDefault();
+      e.content = '';
+      
+      showNotification(
+        editor,
+        `❌ Paste cancelled. Content unchanged.`,
+        'info',
+        3000
+      );
+    }
+    
+    return;
+  }
+  
+  // ✅ NORMAL PASTE: Within limits
+  const totalLength = currentLength + pastedLength;
+  
+  if (totalLength > maxLength) {
+    const allowedLength = maxLength - currentLength;
+    
+    if (allowedLength <= 0) {
+      e.preventDefault();
+      e.content = '';
+      
+      showNotification(
+        editor,
+        `❌ Cannot paste! Character limit (${maxLength}) already reached.`,
+        'error',
+        4000
+      );
+      return;
+    }
+    
+    const truncatedHTML = truncateHTML(pastedHTML, allowedLength);
+    e.content = sanitizeHTML(truncatedHTML);
+    
+    showNotification(
+      editor,
+      `⚠️ Pasted content truncated! Only ${allowedLength} of ${pastedLength} characters pasted.`,
+      'warning',
+      4000
+    );
+  } else {
+    e.content = sanitizeHTML(e.content);
+  }
+});
+
+          
+          // ✅ FINAL SAFETY CHECK with sanitization
           editor.on('input change', () => {
             const content = editor.getContent();
             const textLength = getPlainTextLength(content);
             
             if (maxLength !== Infinity && textLength > maxLength) {
               const truncatedContent = truncateHTML(content, maxLength);
+              const sanitizedContent = sanitizeHTML(truncatedContent);
               
               isUpdatingRef.current = true;
-              editor.setContent(truncatedContent);
+              editor.setContent(sanitizedContent);
               
               setTimeout(() => {
                 isUpdatingRef.current = false;
               }, 50);
               
               setCharCount(maxLength);
-              onChangeRef.current(truncatedContent);
+              onChangeRef.current(sanitizedContent);
               
               showNotification(
                 editor,
@@ -516,15 +740,77 @@ export const SelfHostedTinyMCE: React.FC<SelfHostedTinyMCEProps> = ({
                 3000
               );
             } else {
+              // ✅ SANITIZE on every change
+              const sanitizedContent = sanitizeHTML(content);
+              
               setCharCount(textLength);
               
               if (!isUpdatingRef.current) {
                 isUpdatingRef.current = true;
-                onChangeRef.current(content);
+                onChangeRef.current(sanitizedContent);
                 setTimeout(() => {
                   isUpdatingRef.current = false;
                 }, 50);
               }
+            }
+          });
+          
+          // ✅ ALT+0 - SHOW STATISTICS
+          editor.on('keydown', (e: any) => {
+            if (e.altKey && e.keyCode === 48) {
+              e.preventDefault();
+              
+              const content = editor.getContent();
+              const plainText = editor.getContent({ format: 'text' });
+              const wordCount = plainText.trim().split(/\s+/).filter(Boolean).length;
+              const paragraphs = content.split(/<\/p>/gi).length - 1;
+              const images = (content.match(/<img/gi) || []).length;
+              const links = (content.match(/<a /gi) || []).length;
+              
+              const stats = `
+📊 EDITOR STATISTICS
+━━━━━━━━━━━━━━━━━━━━
+📝 Characters: ${charCount}${maxLength !== Infinity ? ` / ${maxLength}` : ''}
+${maxLength !== Infinity ? `✅ Remaining: ${maxLength - charCount}\n` : ''}📄 Words: ${wordCount}
+¶  Paragraphs: ${paragraphs}
+🖼️ Images: ${images}
+🔗 Links: ${links}
+🔒 XSS Protection: ACTIVE
+━━━━━━━━━━━━━━━━━━━━
+💡 Press Alt+0 to view stats
+              `.trim();
+              
+              editor.windowManager.open({
+                title: '📊 Editor Statistics',
+                body: {
+                  type: 'panel',
+                  items: [
+                    {
+                      type: 'htmlpanel',
+                      html: `<pre style="
+                        font-family: 'SF Mono', Monaco, Consolas, monospace;
+                        font-size: 13px;
+                        line-height: 1.6;
+                        color: #e2e8f0;
+                        background: #1e293b;
+                        padding: 16px;
+                        border-radius: 8px;
+                        border: 1px solid #475569;
+                        white-space: pre-wrap;
+                      ">${stats}</pre>`
+                    }
+                  ]
+                },
+                buttons: [
+                  {
+                    type: 'cancel',
+                    text: 'Close'
+                  }
+                ],
+                initialData: {}
+              });
+              
+              return false;
             }
           });
           
@@ -549,7 +835,8 @@ export const SelfHostedTinyMCE: React.FC<SelfHostedTinyMCEProps> = ({
                       
                       isUpdatingRef.current = true;
                       const content = editor.getContent();
-                      onChangeRef.current(content);
+                      const sanitized = sanitizeHTML(content);
+                      onChangeRef.current(sanitized);
                       setTimeout(() => isUpdatingRef.current = false, 100);
                       
                       showNotification(editor, '✅ Image deleted successfully', 'success', 2000);
@@ -587,7 +874,8 @@ export const SelfHostedTinyMCE: React.FC<SelfHostedTinyMCEProps> = ({
                       
                       isUpdatingRef.current = true;
                       const content = editor.getContent();
-                      onChangeRef.current(content);
+                      const sanitized = sanitizeHTML(content);
+                      onChangeRef.current(sanitized);
                       setTimeout(() => isUpdatingRef.current = false, 100);
                       
                       showNotification(editor, '✅ Image deleted successfully', 'success', 2000);
@@ -604,16 +892,16 @@ export const SelfHostedTinyMCE: React.FC<SelfHostedTinyMCEProps> = ({
           editor.on('init', () => {
             setIsReady(true);
             
-            // ✅ Set and validate initial content
             if (value) {
               const initialLength = getPlainTextLength(value);
               
               if (maxLength !== Infinity && initialLength > maxLength) {
                 const truncatedValue = truncateHTML(value, maxLength);
-                editor.setContent(truncatedValue);
-                setCharCount(getPlainTextLength(truncatedValue));
+                const sanitizedValue = sanitizeHTML(truncatedValue);
+                editor.setContent(sanitizedValue);
+                setCharCount(getPlainTextLength(sanitizedValue));
                 
-                onChangeRef.current(truncatedValue);
+                onChangeRef.current(sanitizedValue);
                 
                 setTimeout(() => {
                   showNotification(
@@ -624,7 +912,8 @@ export const SelfHostedTinyMCE: React.FC<SelfHostedTinyMCEProps> = ({
                   );
                 }, 500);
               } else {
-                editor.setContent(value);
+                const sanitizedValue = sanitizeHTML(value);
+                editor.setContent(sanitizedValue);
                 setCharCount(initialLength);
               }
             }
@@ -713,7 +1002,7 @@ export const SelfHostedTinyMCE: React.FC<SelfHostedTinyMCEProps> = ({
     };
   }, [isMounted, editorId, placeholder, height, minLength, maxLength]);
 
-  // ✅ Handle external value changes
+  // ✅ Handle external value changes with sanitization
   useEffect(() => {
     if (editorRef.current && isReady && !isUpdatingRef.current) {
       const currentContent = editorRef.current.getContent();
@@ -723,11 +1012,13 @@ export const SelfHostedTinyMCE: React.FC<SelfHostedTinyMCEProps> = ({
         
         if (maxLength !== Infinity && incomingLength > maxLength) {
           const truncatedValue = truncateHTML(value || '', maxLength);
-          editorRef.current.setContent(truncatedValue);
-          setCharCount(getPlainTextLength(truncatedValue));
-          onChangeRef.current(truncatedValue);
+          const sanitizedValue = sanitizeHTML(truncatedValue);
+          editorRef.current.setContent(sanitizedValue);
+          setCharCount(getPlainTextLength(sanitizedValue));
+          onChangeRef.current(sanitizedValue);
         } else {
-          editorRef.current.setContent(value || '');
+          const sanitizedValue = sanitizeHTML(value || '');
+          editorRef.current.setContent(sanitizedValue);
           setCharCount(incomingLength);
         }
       }
@@ -814,6 +1105,12 @@ export const SelfHostedTinyMCE: React.FC<SelfHostedTinyMCEProps> = ({
                 Limit reached
               </span>
             )}
+            
+            <span className="text-xs text-green-500 flex items-center gap-1">
+              🔒 XSS Protected
+            </span>
+            
+            <span className="text-xs text-slate-500">• Alt+0 for stats</span>
           </div>
           
           {maxLength !== Infinity && (

@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { shippingService, shippingHelpers } from "@/lib/services/shipping";
 import { ShippingMethod, CreateMethodDto } from "@/lib/types/shipping";
-import { useToast } from "@/components/CustomToast";
+import { useToast } from "@/app/admin/_component/CustomToast";
 import { useRouter } from "next/navigation"; // ✅ App Router import
 import {
   Plus,

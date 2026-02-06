@@ -27,7 +27,7 @@ import {
   AlertTriangle,
   Loader2
 } from "lucide-react";
-import { useToast } from "@/components/CustomToast";
+import { useToast } from "@/app/admin/_component/CustomToast";
 import { VATRate, vatratesService, CreateVATRateDto, DeleteVATRateResponse } from "@/lib/services/vatrates";
 import { countriesService, Country } from "@/lib/services/countries";
 import { toDate } from "date-fns";

@@ -3,8 +3,8 @@
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { MessageSquare, Clock, CheckCircle, X, Search, FilterX, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Eye, Trash2, AlertCircle, Ban, Filter, Reply, Shield, ShieldOff, AlertTriangle, CornerDownRight, User, ChevronDown, RefreshCw, Plus, FolderTree, FileText } from "lucide-react";
-import { useToast } from "@/components/CustomToast";
-import ConfirmDialog from "@/components/ConfirmDialog";
+import { useToast } from "@/app/admin/_component/CustomToast";
+import ConfirmDialog from "@/app/admin/_component/ConfirmDialog";
 import { blogCommentsService, BlogComment, BlogPost } from "@/lib/services/blogComments";
 
 

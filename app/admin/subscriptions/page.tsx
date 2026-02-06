@@ -29,8 +29,8 @@ import {
   SkipForward,
   ChevronDown,
 } from "lucide-react";
-import { useToast } from "@/components/CustomToast";
-import ConfirmDialog from "@/components/ConfirmDialog";
+import { useToast } from "@/app/admin/_component/CustomToast";
+import ConfirmDialog from "@/app/admin/_component/ConfirmDialog";
 import { subscriptionsService, Subscription } from "@/lib/services/subscriptions";
 
 // ✅ Product interface

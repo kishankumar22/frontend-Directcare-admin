@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Eye, EyeOff, LockKeyhole, X } from "lucide-react";
 import { authService } from "@/lib/services/auth";
 import { cn } from "@/lib/utils";
-import { useToast } from "@/components/CustomToast";
+import { useToast } from "@/app/admin/_component/CustomToast";
 
 interface ChangePasswordModalProps {
   open: boolean;

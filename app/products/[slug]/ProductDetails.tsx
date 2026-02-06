@@ -25,7 +25,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/toast/CustomToast";
 import { useCart } from "@/context/CartContext"; // path tumhare folder structure ke hisab se
-import { useAuth } from "@/context/AuthContext";
+import { useAuth } from "@/app/admin/_context/AuthContext";
 import { addRecentlyViewed } from "@/app/hooks/useRecentlyViewed";
 import { normalizePrice } from "@/lib/price";
 import CouponModal from "@/components/product/CouponModal";

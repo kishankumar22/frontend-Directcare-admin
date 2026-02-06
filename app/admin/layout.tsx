@@ -1,7 +1,7 @@
 import { ReactNode } from "react";
 import AdminLayoutComponent from "./AdminLayout";
-import { ThemeProvider } from "@/context/theme-provider";
-import { ToastProvider } from "@/components/CustomToast";
+import { ThemeProvider } from "@/app/admin/_context/theme-provider";
+import { ToastProvider } from "@/app/admin/_component/CustomToast";
 
 export default function AdminLayout({ children }: { children: ReactNode }) {
   return (

@@ -9,6 +9,7 @@ export interface Brand {
   slug: string;
   logoUrl?: string;
   isPublished: boolean;
+  isDeleted: boolean; 
   showOnHomepage: boolean;
   displayOrder: number;
   productCount: number;
@@ -61,6 +62,8 @@ export const brandsService = {
   delete: (id: string, config: any = {}) =>
     apiClient.delete<void>(`${API_ENDPOINTS.brands}/${id}`, config),
 
+restore: (id: string) =>
+  apiClient.post<void>(`${API_ENDPOINTS.brands}/${id}/restore`),
   // ---- Logo Upload (Brand) ----
 uploadLogo: async (file: File, params?: Record<string, any>) => {
   const formData = new FormData();

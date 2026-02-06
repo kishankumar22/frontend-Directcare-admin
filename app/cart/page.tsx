@@ -5,7 +5,7 @@ import { useCart } from "@/context/CartContext";
 import Link from "next/link";
 import { Trash2, GiftIcon } from "lucide-react";
 import { useToast } from "@/components/toast/CustomToast";
-import { useAuth } from "@/context/AuthContext";
+import { useAuth } from "@/app/admin/_context/AuthContext";
 import { useRouter } from "next/navigation";
 import ProductOffersModal from "@/components/cart/ProductOffersModal";
 

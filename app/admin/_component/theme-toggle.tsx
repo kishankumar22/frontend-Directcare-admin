@@ -1,6 +1,6 @@
 "use client";
 
-import { useTheme } from "@/context/theme-provider";
+import { useTheme } from "@/app/admin/_context/theme-provider";
 import { Moon, Sun, MonitorCog } from "lucide-react";
 
 export default function ThemeToggle() {

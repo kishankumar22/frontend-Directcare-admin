@@ -3,9 +3,9 @@
 
 import { ReactNode, useState, useEffect, useRef } from "react";
 import Link from "next/link";
-import { useToast } from "@/components/CustomToast";
+import { useToast } from "@/app/admin/_component/CustomToast";
 import { usePathname, useRouter } from "next/navigation";
-import ChangePasswordModal from "@/components/ChangePasswordModal";
+import ChangePasswordModal from "@/app/admin/_component/ChangePasswordModal";
 
 import {
   FolderKanban,
@@ -54,10 +54,10 @@ import {
   Sliders, // ✅ NEW ICON FOR SYSTEM GROUP
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useTheme } from "@/context/theme-provider";
+import { useTheme } from "@/app/admin/_context/theme-provider";
 import { authService } from "@/lib/services/auth";
-import ErrorBoundary from "@/components/ErrorBoundary";
-import ScrollToTopButton from "./products/ScrollToTopButton";
+import ErrorBoundary from "@/app/admin/_component/ErrorBoundary";
+import ScrollToTopButton from "./_component/ScrollToTopButton";
 
 interface NavigationItem {
   name: string;

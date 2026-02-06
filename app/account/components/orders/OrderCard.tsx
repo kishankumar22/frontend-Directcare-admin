@@ -4,7 +4,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import Info from "../ui/Info";
 import { getOrderStatusBadge } from "./orderUtils";
-import { useAuth } from "@/context/AuthContext";
+import { useAuth } from "@/app/admin/_context/AuthContext";
 import { useState } from "react";
 
 

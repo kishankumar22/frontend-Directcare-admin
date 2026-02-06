@@ -5,8 +5,8 @@ import { useRouter } from "next/navigation";
 import { Plus, Edit, Trash2, Search, FileText, Eye, Filter, FilterX, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, AlertCircle, CheckCircle, Edit3, Star, MessageSquare, RotateCcw, Shield, Clock, TrendingUp, FolderTree } from "lucide-react";
 import { API_BASE_URL } from "@/lib/api-config";
 import { BlogPost, blogPostsService, BlogCategory } from "@/lib/services/blogPosts";
-import { useToast } from "@/components/CustomToast";
-import ConfirmDialog from "@/components/ConfirmDialog";
+import { useToast } from "@/app/admin/_component/CustomToast";
+import ConfirmDialog from "@/app/admin/_component/ConfirmDialog";
 
 
 export default function BlogPostsPage() {

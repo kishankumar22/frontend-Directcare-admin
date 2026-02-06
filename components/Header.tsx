@@ -8,7 +8,7 @@ import MegaMenu from "./MegaMenu";
 import { useToast } from "@/components/toast/CustomToast";
 import { useCart } from "@/context/CartContext";
 import { useRouter } from "next/navigation";
-import { useAuth } from "@/context/AuthContext";
+import { useAuth } from "@/app/admin/_context/AuthContext";
 import { useDebounce } from "@/app/hooks/useDebounce";
 import { usePathname } from "next/navigation";
 interface Category {

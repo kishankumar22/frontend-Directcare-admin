@@ -17,7 +17,7 @@ import {
 import GenderBadge from "@/components/shared/GenderBadge";
 
 import { useRouter } from "next/navigation";
-import { useAuth } from "@/context/AuthContext";
+import { useAuth } from "@/app/admin/_context/AuthContext";
 import { getBackorderUIState } from "@/app/lib/backorderHelpers";
 import BackInStockModal from "@/components/backorder/BackInStockModal";
 import "swiper/css";

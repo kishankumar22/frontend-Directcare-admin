@@ -21,9 +21,9 @@ import {
   Trash2
 } from "lucide-react";
 import { API_ENDPOINTS, API_BASE_URL } from "@/lib/api-config";
-import { useToast } from "@/components/CustomToast";
+import { useToast } from "@/app/admin/_component/CustomToast";
 import { apiClient } from "@/lib/api";
-import { ProductDescriptionEditor } from "@/app/admin/products/SelfHostedEditor";
+import { ProductDescriptionEditor } from "@/app/admin/_component/SelfHostedEditor";
 
 
 interface Label {

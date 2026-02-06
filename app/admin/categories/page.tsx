@@ -2,9 +2,9 @@
 
 import { useState, useEffect } from "react";
 import { Plus, Edit, Trash2, Search, FolderTree, Eye, Upload, Filter, FilterX, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, AlertCircle, CheckCircle, ChevronDown, ChevronRight as ChevronRightIcon, X, Award, Package, Copy } from "lucide-react";
-import { ProductDescriptionEditor } from "../products/SelfHostedEditor";
-import { useToast } from "@/components/CustomToast";
-import ConfirmDialog from "@/components/ConfirmDialog";
+import { ProductDescriptionEditor } from "../_component/SelfHostedEditor";
+import { useToast } from "@/app/admin/_component/CustomToast";
+import ConfirmDialog from "@/app/admin/_component/ConfirmDialog";
 import { API_BASE_URL } from "@/lib/api";
 import { categoriesService, Category, CategoryStats } from "@/lib/services/categories";
 import { useRouter } from "next/navigation";
