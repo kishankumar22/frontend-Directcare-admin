@@ -23,7 +23,7 @@ export interface CartItem {
 
   sku?: string;
   variantId?: string | null;
-slug?: string;
+slug: string;
 
   variantOptions?: {
     option1?: string | null;
@@ -56,6 +56,7 @@ hasBundleDiscount?: boolean;
   // 🔥 INSTANCE LEVEL BUNDLE ID (FRONTEND ONLY)
   bundleInstanceId?: string;            // for bundle parent
   bundleParentInstanceId?: string;      // for bundle children
+shipSeparately?: boolean;
 
 }
 // ================== CONTEXT TYPE ==================
@@ -124,6 +125,7 @@ export const CartProvider = ({ children }: { children: React.ReactNode }) => {
                 frequencyPeriod: item.frequencyPeriod,
                 subscriptionTotalCycles: item.subscriptionTotalCycles,
                 sku: item.sku ?? p.sku,
+                
               }
             : p
         );
@@ -203,9 +205,6 @@ const existing = prev.find(
   });
 };
 
-
-
-
   // ================== UPDATE QUANTITY ==================
 const updateQuantity = (id: string, qty: number) => {
   setCart((prev) => {
@@ -228,11 +227,15 @@ const updateQuantity = (id: string, qty: number) => {
       product?.stockQuantity ??
       9999;
 
-    let finalQty = qty;
+   const mainMin = product?.orderMinimumQuantity ?? 1;
+const mainMax = product?.orderMaximumQuantity ?? Infinity;
 
-    if (qty === 0) finalQty = 0;
-    else if (qty > maxStock) finalQty = maxStock;
-    else if (qty < 1) finalQty = 1;
+let finalQty = qty;
+
+if (qty === 0) finalQty = 0;
+else if (qty < mainMin) finalQty = mainMin;
+else if (qty > mainMax) finalQty = mainMax;
+else if (qty > maxStock) finalQty = maxStock;
 
     return prev.map((item) => {
       // 🔥 MAIN PRODUCT
@@ -253,14 +256,10 @@ const updateQuantity = (id: string, qty: number) => {
     });
   });
 };
-
-
-
   // ================== UPDATE CART (COUPON APPLY) ==================
   const updateCart = (updatedItems: CartItem[]) => {
     setCart(updatedItems);
   };
-
   // ================== CLEAR CART ==================
   const clearCart = () => {
   // 🔥 BUY NOW PROTECTION
@@ -311,7 +310,6 @@ const updateQuantity = (id: string, qty: number) => {
     </CartContext.Provider>
   );
 };
-
 // ================== CUSTOM HOOK ==================
 export const useCart = () => {
   const context = useContext(CartContext);

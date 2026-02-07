@@ -3,7 +3,6 @@
 @import "swiper/css/pagination";
 @import "swiper/css/autoplay";
 
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -144,6 +143,6 @@ input[type="number"] {
 input[type="date"]::-webkit-calendar-picker-indicator,
 input[type="time"]::-webkit-calendar-picker-indicator,
 input[type="datetime-local"]::-webkit-calendar-picker-indicator {
-  filter: invert(1) brightness(1.2);
-  cursor: pointer;
+filter: invert(1) brightness(1.2);
+cursor: pointer;
 }

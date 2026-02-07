@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { Button } from "@/components/ui/button";
-import { useAuth } from "@/app/admin/_context/AuthContext";
+import { useAuth } from "@/context/AuthContext";
 import { useToast } from "@/components/toast/CustomToast";
 import { timeFromNow } from "@/lib/date";
 
@@ -11,6 +11,7 @@ import { Filter, ChevronDown, CheckCircle2  } from "lucide-react";
 interface RatingReviewsProps {
   productId: string;
   allowCustomerReviews: boolean;
+  highlightReviewId?: string | null; // 🔥 ADD
 }
 
 interface ReviewReply {
@@ -40,7 +41,7 @@ videoUrls?: string[];
 
 }
 
-export default function RatingReviews({ productId, allowCustomerReviews }: RatingReviewsProps) {
+export default function RatingReviews({ productId, allowCustomerReviews,highlightReviewId }: RatingReviewsProps) {
   const [reviews, setReviews] = useState<Review[]>([]);
 const recentReviews = useMemo(() => {
   return reviews
@@ -165,6 +166,56 @@ const videoPreviews = useMemo(
   () => videoFiles.map((file) => URL.createObjectURL(file)),
   [videoFiles]
 );
+useEffect(() => {
+  if (!highlightReviewId) return;
+
+  const el = document.getElementById(`review-${highlightReviewId}`);
+  if (!el) return;
+
+  el.scrollIntoView({ behavior: "instant", block: "start" });
+
+  el.classList.add(
+    "ring-2",
+    "ring-[#445D41]",
+    "bg-green-50"
+  );
+
+  const timeout = setTimeout(() => {
+    el.classList.remove(
+      "ring-2",
+      "ring-[#445D41]",
+      "bg-green-50"
+    );
+  }, 2500);
+
+  return () => clearTimeout(timeout);
+}, [highlightReviewId]);
+useEffect(() => {
+  const raw = sessionStorage.getItem("pendingReviewDraft");
+  if (!raw) return;
+
+  try {
+    const data = JSON.parse(raw);
+
+    // 🔒 safety: wrong product ka draft ignore
+    if (data.productId !== productId) return;
+
+    setRating(data.rating ?? 0);
+    setTitle(data.title ?? "");
+    setComment(data.comment ?? "");
+
+    // cleanup so it doesn't re-apply
+    sessionStorage.removeItem("pendingReviewDraft");
+
+    // auto scroll to review form
+    setTimeout(() => {
+      const el = document.getElementById("reviews-section");
+      el?.scrollIntoView({ behavior: "instant" });
+    }, 300);
+  } catch {
+    sessionStorage.removeItem("pendingReviewDraft");
+  }
+}, [productId]);
 
 // cleanup (IMPORTANT)
 useEffect(() => {
@@ -199,10 +250,25 @@ useEffect(() => {
   }, [fetchReviews]);
 
 const handleSubmitReview = async () => {
-  if (!isAuthenticated) {
-    toast.error("Please login to add a review.");
-    return;
-  }
+ if (!isAuthenticated) {
+  // 🔥 SAVE TEXT-ONLY DRAFT
+  sessionStorage.setItem(
+    "pendingReviewDraft",
+    JSON.stringify({
+      productId,
+      productSlug: window.location.pathname.split("/products/")[1],
+      rating,
+      title,
+      comment,
+    })
+  );
+
+  toast.info("Please login to submit your review");
+
+  // 🔁 redirect to login with return hint
+  window.location.href = `/account?from=review&productId=${productId}`;
+  return;
+}
 
   try {
     setLoading(true);
@@ -245,6 +311,8 @@ const handleSubmitReview = async () => {
     setRating(0);
     setTitle("");
     setComment("");
+    sessionStorage.removeItem("pendingReviewDraft");
+
     setImageFiles([]);
     setVideoFiles([]);
     setImageUrls([]);
@@ -451,9 +519,13 @@ const filteredReviews = useMemo(() => {
       {filteredReviews.length === 0 ? (
         <p className="text-gray-500 italic">No reviews matching filters.</p>
       ) : (
-        <div className="space-y-6">
-          {filteredReviews.map((r) => (
-            <div key={r.id} className="p-5 rounded-xl border bg-white shadow-sm w-full break-words overflow-hidden">
+       <div id="reviews-list" className="space-y-6 scroll-mt-24">
+         {filteredReviews.map((r) => (
+  <div
+    key={r.id}
+    id={`review-${r.id}`}   // 🔥 IMPORTANT
+    className="p-5 rounded-xl border bg-white shadow-sm scroll-mt-24"
+  >
              <div className="flex flex-wrap items-center gap-2 w-full">
                 <div className="flex flex-wrap gap-1 text-yellow-500">
                   {"★".repeat(r.rating)}{" "}
@@ -471,8 +543,9 @@ const filteredReviews = useMemo(() => {
 
               <p className="font-semibold mt-2 text-gray-900">{r.title}</p>
               <p className="text-sm text-gray-700 mt-1">{r.comment}</p>
-{(r.imageUrls?.length || r.videoUrls?.length) && (
-  <div
+{((r.imageUrls?.length ?? 0) > 0 ||
+  (r.videoUrls?.length ?? 0) > 0) && (
+ <div
     className="mt-2 grid gap-1"
     style={{
       gridTemplateColumns: "repeat(auto-fit, minmax(64px, max-content))",
@@ -515,6 +588,7 @@ const filteredReviews = useMemo(() => {
     ))}
   </div>
 )}
+
 
            <p className="text-xs text-gray-400 mt-2">
   {timeFromNow(r.createdAt)}

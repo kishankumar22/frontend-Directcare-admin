@@ -3,12 +3,12 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useCart } from "@/context/CartContext";
 import Link from "next/link";
-import { Trash2, GiftIcon } from "lucide-react";
+import { Trash2, GiftIcon, AwardIcon } from "lucide-react";
 import { useToast } from "@/components/toast/CustomToast";
-import { useAuth } from "@/app/admin/_context/AuthContext";
+import { useAuth } from "@/context/AuthContext";
 import { useRouter } from "next/navigation";
 import ProductOffersModal from "@/components/cart/ProductOffersModal";
-
+import ConfirmRemoveModal from "@/components/ui/ConfirmRemoveModal";
 
 export default function CartPage() {
   const toast = useToast();
@@ -35,8 +35,7 @@ router.push("/checkout");
     router.push("/account?from=checkout");
   }
 };
-
-
+const [removeTarget, setRemoveTarget] = useState<any | null>(null);
   // Single input to try a coupon (applies to every eligible product)
   const [couponInput, setCouponInput] = useState("");
   const [offersItem, setOffersItem] = useState<any | null>(null);
@@ -63,6 +62,26 @@ const [selectedItem, setSelectedItem] = useState<any | null>(null);
       return false;
     }
   };
+// 🎁 Loyalty points per cart item
+const getItemLoyaltyPoints = (item: any) => {
+  const pd = item.productData;
+  if (!pd || pd.excludeFromLoyaltyPoints) return 0;
+
+  // variant priority
+  if (item.variantId && pd.variants?.length) {
+    const v = pd.variants.find((x: any) => x.id === item.variantId);
+    if (v?.loyaltyPointsEarnable) {
+      return v.loyaltyPointsEarnable;
+    }
+  }
+
+  // product fallback
+  if (pd.loyaltyPointsEarnable) {
+    return pd.loyaltyPointsEarnable;
+  }
+
+  return 0;
+};
 
   // -------------------------
   // BUILD list of available coupon-able discounts from cart (for UI hint)
@@ -248,6 +267,17 @@ const applyCouponForItem = (item: any, code: string) => {
     updateCart(updated);
     toast.success("Coupon removed from item.");
   };
+// 🎁 TOTAL LOYALTY POINTS (ORDER LEVEL)
+// 🎁 TOTAL LOYALTY POINTS (PER PRODUCT LINE)
+const totalLoyaltyPoints = useMemo(() => {
+  return cart.reduce((sum, item) => {
+    const pts = getItemLoyaltyPoints(item);
+    if (!pts) return sum;
+    return sum + pts; // ❗ no quantity multiplication
+  }, 0);
+}, [cart]);
+
+
 
   // -------------------------
   // Group applied coupons for right side UI
@@ -292,6 +322,7 @@ const getItemStock = (item: any) => {
   // ❗Safety fallback — always high value, not zero
   return 9999;
 };
+
 // ================= BUNDLE HELPERS =================
 const isBundleParent = (item: any) => Boolean(item.isBundleParent && item.bundleId);
 const isBundleChild = (item: any) => Boolean(item.bundleParentId);
@@ -314,7 +345,12 @@ const getBundleMaxQty = (bundleParent: any, bundleChildren: any[]) => {
 
   return Math.min(mainStock, groupedMinStock);
 };
-
+// 🔹 Count only visible purchasable items (exclude bundle children)
+const purchasableItemCount = useMemo(() => {
+  return cart.filter(
+    (i) => !isBundleChild(i)
+  ).length;
+}, [cart]);
 // ================= GROUPED PRODUCTS UI HELPERS =================
 const isGroupedChild = (item: any) => Boolean(item.parentProductId);
 
@@ -369,71 +405,69 @@ const getGroupedItems = (parentProductId?: string) => {
 
             <div key={item.id + (item.variantId ?? "") + (item.type ?? "")} className="bg-white rounded-xl border border-gray-200 p-4 flex flex-col sm:flex-row gap-4 shadow-sm">
            <div className="relative w-24 h-24 flex-shrink-0">
-  <Link href={`/products/${item.productData?.slug}`}>
+  <Link href={`/products/${item.slug}`}>
+
     <img
       src={item.image}
       alt="no image"
       className="w-24 h-24 object-cover rounded-md border bg-gray-50"
     />
+ 
+
   </Link>
 
   {/* Remove icon */}
-  <button
+ <button
   onClick={() => {
-    // 🔥 remove bundle parent + children
-   if (
-  item.isBundleParent === true &&
-  item.purchaseContext === "bundle" &&
-  item.bundleId
-) {
-
-      bundleChildren.forEach((c) =>
-        removeFromCart(c.id, c.type)
-      );
-    }
-    removeFromCart(item.id, item.type);
+    setRemoveTarget({
+      item,
+      bundleChildren,
+    });
   }}
-    className="absolute -top-2 -left-2 bg-white border border-gray-200 
-               rounded-full p-1.5 text-red-500 
-               hover:bg-red-50 hover:text-red-600
-               shadow-sm transition"
-    aria-label="Remove item"
-  >
-    <Trash2 size={14} />
-  </button>
+  className="absolute -top-2 -left-2 bg-white border border-gray-200 rounded-full p-1.5 text-red-500 hover:bg-red-50 hover:text-red-600 shadow-sm transition" aria-label="Remove item" >
+  <Trash2 size={14} />
+</button>
 </div>
-
-
 <div className="flex flex-col flex-1">
   <div className="flex items-start justify-between">
     <div>
-      <Link href={`/products/${item.productData?.slug}`}>
+      <Link href={`/products/${item.slug}`}>
+
        <h2 className="font-semibold text-gray-900 leading-tight 
-               line-clamp-2 max-w-[500px]">
+               line-clamp-2 max-w-[430px]">
   {item.name}
 </h2>
-
       </Link>
-
                     {getItemStock(item) === 0 && (
   <p className="text-red-600 text-xs font-semibold mt-1">
     Out of Stock — Please remove this item
   </p>
 )}
-
                     {item.type === "subscription" && (
                       <p className="text-xs font-semibold text-indigo-600 mt-1">
-                        Subscription • Every {item.frequency ?? ""} {item.frequencyPeriod ?? ""} • {item.subscriptionTotalCycles ?? ""}
+                        Subscription • Every {item.frequency ?? ""} {item.frequencyPeriod ?? ""} • {item.subscriptionTotalCycles ?? ""} Cycles
                       </p>
                     )}
                   </div>
+           <div className="flex items-center justify-end gap-2 text-right">
+  {/* Price */}
+  <p className="text-gray-800 font-semibold">
+    £{((item.finalPrice ?? item.price) * (item.quantity ?? 1)).toFixed(2)}
+  </p>
 
-                  <div className="text-right">
-                    <p className="text-gray-800 font-semibold">
-                      £{((item.finalPrice ?? item.price) * (item.quantity ?? 1)).toFixed(2)}
-                    </p>
-                    {/* {(item.discountAmount ?? 0) > 0 && <p className="text-xs text-green-600 font-medium">Saved £{((item.discountAmount ?? 0) * (item.quantity ?? 1)).toFixed(2)}</p>} */}
-                  </div>
+  {/* % OFF badge */}
+  {(item.discountAmount ?? 0) > 0 && (
+    <span className="text-[12px] font-semibold text-green-700">
+      (
+      {Math.round(
+        ((item.discountAmount ?? 0) /
+          (item.priceBeforeDiscount ?? item.price)) *
+          100
+      )}
+      % OFF)
+    </span>
+  )}
+</div>
                 </div>
 
                 {/* VARIANT / SKU / small meta could go here */}
@@ -447,7 +481,15 @@ const getGroupedItems = (parentProductId?: string) => {
   <div className="flex items-center gap-2 border rounded-lg px-3 py-1.5">
   <button
     onClick={() => {
-      const newQty = Math.max(1, (item.quantity ?? 1) - 1);
+      const minQty = item.productData?.orderMinimumQuantity ?? 1;
+
+if ((item.quantity ?? 1) <= minQty) {
+  toast.error(`Minimum order quantity is ${minQty}`);
+  return;
+}
+
+const newQty = (item.quantity ?? 1) - 1;
+
       updateQuantity(item.id, newQty);
 
       // 🔥 sync children
@@ -504,7 +546,6 @@ if (item.isBundleParent && item.bundleId) {
     updateQuantity(c.id, val)
   );
 }
-
     }}
   />
 
@@ -537,11 +578,7 @@ if (item.isBundleParent && item.bundleId) {
     +
   </button>
 </div>
-
-
 </div>
-
-
                     {/* applied coupon badge */}
                     {item.couponCode ? (
                       <div className="flex items-center gap-2 bg-green-50 text-green-800 px-3 py-1 rounded-full text-xs font-semibold">
@@ -574,15 +611,25 @@ if (item.isBundleParent && item.bundleId) {
                     )}
                   </div>
 
-                  <div className="flex flex-col items-end gap-2 mt-[-30px]">
+                  <div className="flex flex-col items-end gap-2 mt-[-20px]">
                     {/* <button onClick={() => removeFromCart(item.id, item.type)} className="flex items-center gap-1 text-red-500 hover:text-red-700 text-sm font-medium">
                       <Trash2 size={16} /> Remove
                     </button> */}
 
-  {(item.discountAmount ?? 0) > 0 && (
-    <p className="text-xs text-green-600 font-medium">
-      Saved £{((item.discountAmount ?? 0) * (item.quantity ?? 1)).toFixed(2)}
-    </p>
+  
+  {getItemLoyaltyPoints(item) > 0 && (
+  <div className="mt-2 inline-flex items-center gap-1.5 text-[11px] font-medium text-green-700 bg-green-50 border border-green-200 px-0.5 py-0.5 rounded-md">
+    <AwardIcon className="h-4 w-4 text-green-600" />
+   Earn {getItemLoyaltyPoints(item)} points
+
+  </div>
+)}
+ {item.shipSeparately === true && purchasableItemCount > 1 && (
+    <div className="inline-flex items-center gap-1.5 text-[13px]
+      text-amber-700 bg-amber-50 border border-amber-200
+      px-2 py-0.5 rounded-md font-medium w-fit">
+      📦 This item will be shipped separately
+    </div>
   )}
                     {stockError[item.id] && <p className="text-red-600 text-xs">{stockError[item.id]}</p>}
                   </div>
@@ -678,7 +725,7 @@ if (item.isBundleParent && item.bundleId) {
         <div className="lg:col-span-1">
           <div className="bg-white border border-gray-200 rounded-xl shadow-md p-5 sticky top-24">
             {/* Inline coupon input */}
-            <div className="border border-gray-300 rounded-lg p-4 mb-5">
+            <div className="border border-gray-300 rounded-lg p-4 mb-2">
               <h3 className="text-sm font-semibold mb-2">Apply Coupon</h3>
 
               <div className="flex gap-2">
@@ -694,50 +741,19 @@ if (item.isBundleParent && item.bundleId) {
                 </button>
               </div>
 
-              {/* show small list of available coupons as hints */}
-              {/* {availableCoupons.length > 0 && (
-                <div className="mt-3 text-xs text-gray-600">
-                  <div className="font-medium text-xs mb-1">Available coupons in cart:</div>
-                  <div className="flex flex-wrap gap-2">
-                    {availableCoupons.map((c) => (
-                      <div key={c.code} className="text-xs bg-gray-100 px-2 py-1 rounded-md">
-                        {c.code.toUpperCase()} • {c.productIds.length} item(s)
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )} */}
+             
             </div>
-
-            {/* Applied coupons grouped */}
-            {/* <div className="mb-4">
-              <h3 className="text-sm font-semibold mb-2">Applied Offers</h3>
-
-              {groupedApplied.length === 0 ? (
-                <div className="text-xs text-gray-500">No coupons applied</div>
-              ) : (
-                groupedApplied.map((g) => (
-                  <div key={g.code} className="mb-2 border p-2 rounded-md">
-                    <div className="flex justify-between items-center text-sm">
-                      <div>
-                        <div className="font-medium">{g.code.toUpperCase()}</div>
-                        <div className="text-xs text-gray-600">{g.items.length} item(s)</div>
-                      </div>
-                      <div className="text-sm text-green-600 font-semibold">- £{g.totalDiscount.toFixed(2)}</div>
-                    </div>
-
-                    <div className="mt-2 text-xs text-gray-700">
-                      {g.items.map((it) => (
-                        <div key={it.id} className="flex justify-between">
-                          <span className="truncate">{it.name}</span>
-                          <span>£{it.amount.toFixed(2)}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                ))
-              )}
-            </div> */}
+            {totalLoyaltyPoints > 0 && (
+  <div className="flex items-center justify-between text-sm text-green-700 bg-green-50 border border-green-200 px-3 py-2 rounded-lg mb-3">
+    <div className="flex items-center gap-2">
+      
+      <span>🎁Total Loyalty Points</span>
+    </div>
+    <span className="font-semibold">
+      {totalLoyaltyPoints} points
+    </span>
+  </div>
+)}
 
             {/* Price details */}
             <h3 className="text-lg font-semibold mb-3">Price Details</h3>
@@ -789,6 +805,33 @@ if (item.isBundleParent && item.bundleId) {
     isDiscountActive={isDiscountActive}
   />
 )}
+<ConfirmRemoveModal
+  open={!!removeTarget}
+  title="Remove item from cart?"
+  description="This item will be permanently removed from your shopping bag."
+  onCancel={() => setRemoveTarget(null)}
+  onConfirm={() => {
+    if (!removeTarget) return;
+
+    const { item, bundleChildren } = removeTarget;
+
+    // 🔥 bundle parent → remove children first
+    if (
+      item.isBundleParent === true &&
+      item.purchaseContext === "bundle" &&
+      item.bundleId
+    ) {
+      bundleChildren.forEach((c: any) =>
+        removeFromCart(c.id, c.type)
+      );
+    }
+
+    removeFromCart(item.id, item.type);
+
+    setRemoveTarget(null);
+    toast.success("Item removed from cart");
+  }}
+/>
 
           </div>
         </div>

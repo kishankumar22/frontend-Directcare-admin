@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useCart } from "@/context/CartContext";
 import { Button } from "@/components/ui/button";
 import QuantitySelector from "@/components/shared/QuantitySelector";
@@ -22,6 +22,8 @@ import "swiper/css/autoplay";
 import { Swiper, SwiperSlide } from "swiper/react";
 import { Autoplay, Navigation, Pagination } from "swiper/modules";
 import GenderBadge from "../shared/GenderBadge";
+import { useRef } from "react";
+import PharmaQuestionsModal from "@/components/pharma/PharmaQuestionsModal";
 
 const getRelatedProductImage = (
   product: any,
@@ -63,8 +65,9 @@ const getRelatedProductImage = (
 };
 
 export default function RelatedProductCard({ product, getImageUrl }: any) {
-  const { addToCart } = useCart();
-  const [qty, setQty] = useState(1);
+const { addToCart, cart } = useCart();
+ const minQty = product.orderMinimumQuantity ?? 1;
+const [qty, setQty] = useState(minQty);
   const [stockError, setStockError] = useState<string | null>(null);
 const toast = useToast();
 
@@ -73,7 +76,17 @@ const toast = useToast();
     product.variants?.[0] ??
     null;
   const stock = defaultVariant?.stockQuantity ?? product.stockQuantity ?? 0;
-const basePrice = defaultVariant?.price ?? product.price;
+  useEffect(() => {
+  if (qty < minQty) {
+    setQty(minQty);
+  }
+}, [minQty]);
+
+const basePrice =
+  typeof defaultVariant?.price === "number" && defaultVariant.price > 0
+    ? defaultVariant.price
+    : product.price;
+
 const discountBadge = getDiscountBadge(product);
 const finalPrice = getDiscountedPrice(product, basePrice);
 // ---------- Active Coupon Indicator ----------
@@ -87,10 +100,118 @@ const hasActiveCoupon = (product as any).assignedDiscounts?.some((d: any) => {
 
   return true;
 });
+// 🎁 Loyalty Points Logic (NEW – production safe)
+const getLoyaltyPoints = () => {
+  // ❌ excluded
+  if ((product as any).excludeFromLoyaltyPoints) return 0;
+
+  // ✅ variant priority
+  if (defaultVariant?.loyaltyPointsEarnable) {
+    return defaultVariant.loyaltyPointsEarnable;
+  }
+
+  // ✅ product fallback
+  if ((product as any).loyaltyPointsEarnable) {
+    return (product as any).loyaltyPointsEarnable;
+  }
+
+  return 0;
+};
 
   // VAT Rate / Exempt Logic
   const vatRates = useVatRates(); // 👈 yaha dalna
 const vatRate = getVatRate(vatRates, (product as any).vatRateId, product.vatExempt);
+const [showPharmaModal, setShowPharmaModal] = useState(false);
+const [pendingAction, setPendingAction] = useState<"cart" | null>(null);
+
+// 🔒 double-submit protection
+const pharmaApprovedRef = useRef(false);
+const handlePharmaGuard = (action: "cart") => {
+  // already approved in this flow
+  if (pharmaApprovedRef.current) return true;
+
+  if (product.isPharmaProduct) {
+    setPendingAction(action);
+    setShowPharmaModal(true);
+    return false;
+  }
+  return true;
+};
+const handleAddToCart = () => {
+  if (!handlePharmaGuard("cart")) return;
+if (product.disableBuyButton) return;
+  const variantId = defaultVariant?.id ?? null;
+
+  const existingCartQty = cart
+    .filter(
+      (c) =>
+        c.productId === product.id &&
+        (c.variantId ?? null) === variantId
+    )
+    .reduce((sum, c) => sum + (c.quantity ?? 0), 0);
+
+  const stockQty =
+    defaultVariant?.stockQuantity ??
+    product.stockQuantity ??
+    0;
+
+  const maxQty = product.orderMaximumQuantity ?? Infinity;
+  const allowedMaxQty = Math.min(stockQty, maxQty);
+
+  if (qty < minQty) {
+    toast.error(`Minimum order quantity is ${minQty}`);
+    return;
+  }
+
+  if (existingCartQty + qty > allowedMaxQty) {
+    toast.error(`Maximum allowed quantity is ${allowedMaxQty}`);
+    return;
+  }
+
+  addToCart({
+    id: `standalone:${product.id}:${variantId ?? "base"}`,
+    type: "one-time",
+    purchaseContext: "standalone",
+
+    productId: product.id,
+    variantId,
+
+    name: defaultVariant
+      ? `${product.name} (${[
+          defaultVariant.option1Value,
+          (defaultVariant as any)?.option2Value,
+          (defaultVariant as any)?.option3Value,
+        ].filter(Boolean).join(", ")})`
+      : product.name,
+
+    price: finalPrice,
+    priceBeforeDiscount: basePrice,
+    finalPrice,
+    discountAmount: discountBadge
+      ? discountBadge.type === "percent"
+        ? +(basePrice * discountBadge.value / 100).toFixed(2)
+        : discountBadge.value
+      : 0,
+
+    quantity: qty,
+
+    image: getRelatedProductImage(product, defaultVariant),
+    sku: defaultVariant?.sku ?? product.sku,
+    slug: product.slug,
+
+    variantOptions: {
+      option1: defaultVariant?.option1Value ?? null,
+      option2: (defaultVariant as any)?.option2Value ?? null,
+      option3: (defaultVariant as any)?.option3Value ?? null,
+    },
+
+    shipSeparately: product.shipSeparately,
+
+    productData: JSON.parse(JSON.stringify(product)),
+  });
+
+  toast.success(`${qty} × ${product.name} added to cart 🛒`);
+};
 
 
   return (
@@ -190,12 +311,13 @@ const vatRate = getVatRate(vatRates, (product as any).vatRateId, product.vatExem
   </span>
 
   {/* 🎁 LOYALTY POINTS – INLINE WITH RATING */}
-  {(product as any).loyaltyPointsEnabled && (
-    <span className="inline-flex items-center gap-1 text-[11px] font-medium text-green-700 bg-green-50 border border-green-200 px-2 py-0.5 rounded-md whitespace-nowrap">
-      <AwardIcon className="h-4 w-4 text-green-600" />
-      Earn {(product as any).loyaltyPointsEarnable} pts
-    </span>
-  )}
+ {getLoyaltyPoints() > 0 && (
+  <span className="inline-flex items-center gap-1 text-[11px] font-medium text-green-700 bg-green-50 border border-green-200 px-2 py-0.5 rounded-md whitespace-nowrap">
+    <AwardIcon className="h-4 w-4 text-green-600" />
+    Earn {getLoyaltyPoints()} pts
+  </span>
+)}
+
 
 </div>
 
@@ -240,56 +362,55 @@ const vatRate = getVatRate(vatRates, (product as any).vatRateId, product.vatExem
           />
         </div>
 
-        <Button
-          disabled={stock === 0}
-         onClick={() => {
-  addToCart({
-    id: `${defaultVariant?.id ?? product.id}-one`,
-    productId: product.id,
-    name: defaultVariant
-      ? `${product.name} (${[
-          defaultVariant.option1Value,
-          (defaultVariant as any).option2Value,
-          (defaultVariant as any).option3Value,
-        ].filter(Boolean).join(", ")})`
-      : product.name,
-    price: finalPrice,
-    priceBeforeDiscount: basePrice,
-    finalPrice: finalPrice,
-    discountAmount: discountBadge
-      ? discountBadge.type === "percent"
-        ? +(basePrice * discountBadge.value / 100).toFixed(2)
-        : discountBadge.value
-      : 0,
-    quantity: qty,
-    image: getRelatedProductImage(product, defaultVariant),
-    sku: defaultVariant?.sku ?? product.sku,
-    variantId: defaultVariant?.id ?? null,
-    slug: product.slug,
-    variantOptions: {
-      option1: defaultVariant?.option1Value ?? null,
-      option2: (defaultVariant as any)?.option2Value ?? null,
-      option3: (defaultVariant as any)?.option3Value ?? null,
-    },
-    productData: JSON.parse(JSON.stringify(product)),
-  });
+    <Button
+  disabled={stock === 0 || product.disableBuyButton === true}
+  onClick={handleAddToCart}
+  className={`flex-1 h-[32px] text-sm rounded-xl font-semibold mt-[-12px] ${
+    stock === 0
+      ? "bg-gray-400 cursor-not-allowed"
+      : "bg-[#445D41] hover:bg-black text-white"
+  }`}
+>
+  Add to Cart
+</Button>
 
-  // ✅ TOAST YAHAN DALNA HAI
-  toast.success(`${qty} × ${product.name} added to cart 🛒`);
+{showPharmaModal && (
+  <PharmaQuestionsModal
+    open={showPharmaModal}
+    productId={product.id} // ✅ MAIN PRODUCT ID
+    onClose={() => {
+      setShowPharmaModal(false);
+      setPendingAction(null);
+    }}
+    onSuccess={(messageFromBackend) => {
+  pharmaApprovedRef.current = true;
+
+
+
+  setShowPharmaModal(false);
+
+  if (pendingAction === "cart") {
+    setPendingAction(null);
+
+    // 🔥 THIS IS THE KEY
+    handleAddToCart();
+  }
+
+  // reset for next product
+  setTimeout(() => {
+    pharmaApprovedRef.current = false;
+  }, 0);
 }}
 
-          
-          className={`flex-1 h-[32px] text-sm rounded-xl font-semibold mt-[-12px] ${
-            stock === 0
-              ? "bg-gray-400 cursor-not-allowed"
-              : "bg-[#445D41] hover:bg-black text-white"
-          }`}
-        >
-          Add to Cart
-        </Button>
+  />
+)}
+
       </div>
        </CardContent>
             </Card>
+
+
+
    
   );
 }

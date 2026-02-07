@@ -31,7 +31,7 @@ const ToastContext = createContext<ToastContextType | null>(null);
 /* ================= STYLES ================= */
 const toastStyles: Record<ToastType, string> = {
   success:
-    "bg-gradient-to-r from-black via-[#445D41] to-black text-white",
+    "bg-green-700 text-white",
   error:
     "bg-gradient-to-r from-red-600 to-red-700 text-white",
   info:

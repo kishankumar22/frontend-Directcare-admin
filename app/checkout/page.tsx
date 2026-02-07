@@ -11,7 +11,7 @@ import {
 } from "@stripe/react-stripe-js";
 import { useCart } from "@/context/CartContext";
 import Link from "next/link";
-import { useAuth } from "@/app/admin/_context/AuthContext";
+import { useAuth } from "@/context/AuthContext";
 import { useRouter } from "next/navigation";
 import EmptyCart from "@/components/cart/EmptyCart";
 import { ShoppingBag } from "lucide-react";
@@ -366,8 +366,13 @@ const [addressSuggestions, setAddressSuggestions] = useState<AddressSuggestion[]
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<{ [key: string]: string }>({});
-
-
+const clearFieldError = (key: string) => {
+  setFieldErrors(prev => {
+    if (!prev[key]) return prev;
+    const { [key]: _, ...rest } = prev;
+    return rest;
+  });
+};
   // const [showPayment, setShowPayment] = useState(false);
   const [orderPayload, setOrderPayload] = useState<any>(null);
 const [orderSummary, setOrderSummary] = useState<{
@@ -410,6 +415,36 @@ const cartSubtotal = useMemo(() => {
     return sum + base * item.quantity;
   }, 0);
 }, [checkoutItems]);
+// 🎁 Loyalty points helpers (CHECKOUT)
+const isLoyaltyEligible = (item: any) => {
+  if (!item?.productData) return false;
+  if (item.productData.excludeFromLoyaltyPoints === true) return false;
+  return true;
+};
+
+const getItemLoyaltyPoints = (item: any) => {
+  if (!isLoyaltyEligible(item)) return 0;
+
+  // Variant priority
+  if (item.variantId && Array.isArray(item.productData?.variants)) {
+    const v = item.productData.variants.find(
+      (x: any) => x.id === item.variantId
+    );
+    return v?.loyaltyPointsEarnable ?? 0;
+  }
+
+  // Product level fallback
+  return item.productData?.loyaltyPointsEarnable ?? 0;
+};
+// 🎁 TOTAL LOYALTY POINTS (PER PRODUCT, NOT PER QTY)
+const totalLoyaltyPoints = useMemo(() => {
+  return checkoutItems.reduce((sum, item) => {
+    const pts = getItemLoyaltyPoints(item);
+    if (!pts) return sum;
+    return sum + pts; // ❌ no quantity multiplication
+  }, 0);
+}, [checkoutItems]);
+
 
 const cartBundleDiscount = useMemo(() => {
   return checkoutItems.reduce((sum, item) => {
@@ -531,6 +566,30 @@ useEffect(() => {
   debouncedAutocomplete(addressQuery);
 }, [addressQuery, debouncedAutocomplete]);
 
+useEffect(() => {
+  if (!shippingSameAsBilling) return;
+
+  setShippingFirstName(billingFirstName);
+  setShippingLastName(billingLastName);
+  setShippingCompany(billingCompany);
+  setShippingAddress1(billingAddress1);
+  setShippingAddress2(billingAddress2);
+  setShippingCity(billingCity);
+  setShippingState(billingState);
+  setShippingPostalCode(billingPostalCode);
+  setShippingCountry(billingCountry);
+}, [
+  shippingSameAsBilling,
+  billingFirstName,
+  billingLastName,
+  billingCompany,
+  billingAddress1,
+  billingAddress2,
+  billingCity,
+  billingState,
+  billingPostalCode,
+  billingCountry,
+]);
 
 
   // When user selects suggestion -> autofill fields
@@ -662,7 +721,7 @@ const validateAndBuildPayload = async (): Promise<any | null> => {
   }
 
   if (!billingFirstName.trim()) errors.billingFirstName = "First name is required";
-  if (!billingLastName.trim()) errors.billingLastName = "Last name is required";
+  
   if (!billingPhone.trim()) errors.billingPhone = "Phone number is required";
 
   if (deliveryMethod === "HomeDelivery") {
@@ -845,43 +904,45 @@ if (!checkoutItems || checkoutItems.length === 0) {
    <div className="flex flex-col space-y-1 col-span-2">
   <label className="text-sm font-medium text-gray-700">Email *</label>
   <input
-    value={billingEmail}
-    onChange={(e) => setBillingEmail(e.target.value)}
-    className="w-full border border-gray-300 p-2 rounded focus:ring-2 focus:ring-[#445D41]/20 focus:border-[#445D41] transition-all"
-  />
-  <ErrorText error={fieldErrors.billingEmail} />
+  value={billingEmail}
+  onChange={(e) => {
+    setBillingEmail(e.target.value);
+    clearFieldError("billingEmail");
+  }}
+  className="w-full border border-gray-300 p-2 rounded focus:ring-2 focus:ring-[#445D41]/20 focus:border-[#445D41] transition-all"
+/>
+<ErrorText error={fieldErrors.billingEmail} />
+
 </div>
-               
+             
           <div className="flex flex-col space-y-1 col-span-2">
   <label className="text-sm font-medium text-gray-700">First name *</label>
   <input
-    value={billingFirstName}
-    onChange={(e) => setBillingFirstName(e.target.value)}
-    className="w-full border border-gray-300 p-2 rounded focus:ring-2 focus:ring-[#445D41]/20 focus:border-[#445D41] transition-all"
-  />
-  <ErrorText error={fieldErrors.billingFirstName} />
+  value={billingFirstName}
+  onChange={(e) => {
+    setBillingFirstName(e.target.value);
+    clearFieldError("billingFirstName");
+  }}
+  className="w-full border border-gray-300 p-2 rounded focus:ring-2 focus:ring-[#445D41]/20 focus:border-[#445D41] transition-all"
+/>
+<ErrorText error={fieldErrors.billingFirstName} />
 </div>
-
 <div className="flex flex-col space-y-1 col-span-2">
-  <label className="text-sm font-medium text-gray-700">Last name *</label>
+  <label className="text-sm font-medium text-gray-700">Last name</label>
   <input
     value={billingLastName}
     onChange={(e) => setBillingLastName(e.target.value)}
     className="w-full border border-gray-300 p-2 rounded focus:ring-2 focus:ring-[#445D41]/20 focus:border-[#445D41] transition-all"
   />
-  <ErrorText error={fieldErrors.billingLastName} />
 </div>
-
 {/* Phone */}
 <div className="flex flex-col space-y-1 col-span-2">
   <label className="text-sm font-medium text-gray-700">Phone (UK) *</label>
-
   <div className="flex">
     {/* Fixed +44 prefix */}
     <span className="flex items-center bg-gray-100 border border-r-0 border-gray-300 px-3 rounded-l text-gray-700">
       +44
     </span>
-
     {/* User enters only digits */}
     <input
       type="tel"
@@ -889,22 +950,20 @@ if (!checkoutItems || checkoutItems.length === 0) {
       onChange={(e) => {
         const cleaned = e.target.value.replace(/\D/g, ""); // allow digits only
         setBillingPhone(cleaned);
+         clearFieldError("billingPhone");
       }}
       placeholder="7xxxxxxxxx"
       className="w-full border border-gray-300 p-2 rounded-r focus:ring-2 focus:ring-[#445D41]/20 focus:border-[#445D41] transition-all"
      
       maxLength={10} // UK number without +44 is 10 digits
-    />
-   
+    />  
   </div>
    <ErrorText error={fieldErrors.billingPhone} />
 </div>
-
-
 {/* Company */}
 <div className="flex flex-col space-y-1 col-span-2">
 
-  <label className="text-sm font-medium text-gray-700">Company (optional)</label>
+  <label className="text-sm font-medium text-gray-700">Company Name</label>
   <input
     value={billingCompany}
     onChange={(e) => setBillingCompany(e.target.value)}
@@ -920,11 +979,9 @@ if (!checkoutItems || checkoutItems.length === 0) {
   type="text"
   value={addressQuery}
   onChange={(e) => setAddressQuery(e.target.value)}
-  placeholder="Start typing city, postcode or address"
+  placeholder="Start typing city, postcode or address to see suggestions"
   className="w-full border p-2 rounded"
 />
-
-
               {showSuggestions && addressSuggestions.length > 0 && (
                 <div className="absolute left-0 right-0 bg-white border mt-1 rounded max-h-48 overflow-auto z-40">
                 {addressSuggestions.map((s) => (
@@ -936,23 +993,21 @@ if (!checkoutItems || checkoutItems.length === 0) {
     {s.text}
   </button>
 ))}
-
                 </div>
               )}
             </div>
-
             <div className="flex flex-col space-y-1 col-span-2">
-
   <label className="text-sm font-medium text-gray-700">Address line 1 *</label>
   <input
-    value={billingAddress1}
-    onChange={(e) => setBillingAddress1(e.target.value)}
-    className="w-full border border-gray-300 p-2 rounded focus:ring-2 focus:ring-[#445D41]/20 focus:border-[#445D41] transition-all"
-  />
-  <ErrorText error={fieldErrors.billingAddress1} />
+  value={billingAddress1}
+  onChange={(e) => {
+    setBillingAddress1(e.target.value);
+    clearFieldError("billingAddress1");
+  }}
+  className="w-full border border-gray-300 p-2 rounded focus:ring-2 focus:ring-[#445D41]/20 focus:border-[#445D41] transition-all"
+/>
+<ErrorText error={fieldErrors.billingAddress1} />
 </div>
-
-
 {/* Billing Address Line 2 */}
 <div className="flex flex-col space-y-1 col-span-2">
   <label className="text-sm font-medium text-gray-700">Address line 2 (optional)</label>
@@ -963,16 +1018,17 @@ if (!checkoutItems || checkoutItems.length === 0) {
   />
 </div>
          <div className="flex flex-col space-y-1 col-span-2">
-
   <label className="text-sm font-medium text-gray-700">Postcode *</label>
-  <input
-    value={billingPostalCode}
-    onChange={(e) => setBillingPostalCode(e.target.value)}
-    className="w-full border border-gray-300 p-2 rounded focus:ring-2 focus:ring-[#445D41]/20 focus:border-[#445D41] transition-all"
-  />
-  <ErrorText error={fieldErrors.billingPostalCode} />
+ <input
+  value={billingPostalCode}
+  onChange={(e) => {
+    setBillingPostalCode(e.target.value);
+    clearFieldError("billingPostalCode");
+  }}
+  className="w-full border border-gray-300 p-2 rounded focus:ring-2 focus:ring-[#445D41]/20 focus:border-[#445D41] transition-all"
+/>
+<ErrorText error={fieldErrors.billingPostalCode} />
 </div>
-
         {/* City */}
 <div className="flex flex-col space-y-1">
 
@@ -1001,15 +1057,29 @@ if (!checkoutItems || checkoutItems.length === 0) {
     <h2 className="text-lg font-semibold mb-3">Shipping details</h2>
 
     <div className="flex items-center gap-3 mb-3">
-      <input
-        id="same"
-        checked={shippingSameAsBilling}
-        onChange={(e) => setShippingSameAsBilling(e.target.checked)}
-        type="checkbox"
-      />
+     <input
+  id="same"
+  checked={shippingSameAsBilling}
+  onChange={(e) => {
+    const checked = e.target.checked;
+    setShippingSameAsBilling(checked);
+
+    if (checked) {
+      setShippingFirstName(billingFirstName);
+      setShippingLastName(billingLastName);
+      setShippingCompany(billingCompany);
+      setShippingAddress1(billingAddress1);
+      setShippingAddress2(billingAddress2);
+      setShippingCity(billingCity);
+      setShippingState(billingState);
+      setShippingPostalCode(billingPostalCode);
+      setShippingCountry(billingCountry);
+    }
+  }}
+  type="checkbox"
+/>
       <label htmlFor="same">Shipping same as billing</label>
     </div>
-
     {!shippingSameAsBilling ? (
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* First name */}
@@ -1031,7 +1101,6 @@ if (!checkoutItems || checkoutItems.length === 0) {
             className="w-full border border-gray-300 p-2 rounded focus:ring-2 focus:ring-[#445D41]/20 focus:border-[#445D41] transition-all"
           />
         </div>
-
         {/* Company */}
         <div className="flex flex-col space-y-1 col-span-2">
           <label className="text-sm font-medium text-gray-700">Company (optional)</label>
@@ -1041,7 +1110,6 @@ if (!checkoutItems || checkoutItems.length === 0) {
             className="w-full border border-gray-300 p-2 rounded focus:ring-2 focus:ring-[#445D41]/20 focus:border-[#445D41] transition-all"
           />
         </div>
-
         {/* Address 1 */}
         <div className="flex flex-col space-y-1 col-span-2">
           <label className="text-sm font-medium text-gray-700">Address line 1 *</label>
@@ -1051,7 +1119,6 @@ if (!checkoutItems || checkoutItems.length === 0) {
             className="w-full border border-gray-300 p-2 rounded focus:ring-2 focus:ring-[#445D41]/20 focus:border-[#445D41] transition-all"
           />
         </div>
-
         {/* Address 2 */}
         <div className="flex flex-col space-y-1 col-span-2">
           <label className="text-sm font-medium text-gray-700">Address line 2</label>
@@ -1061,7 +1128,6 @@ if (!checkoutItems || checkoutItems.length === 0) {
             className="w-full border border-gray-300 p-2 rounded focus:ring-2 focus:ring-[#445D41]/20 focus:border-[#445D41] transition-all"
           />
         </div>
-
         {/* Postcode */}
         <div className="flex flex-col space-y-1 col-span-2">
           <label className="text-sm font-medium text-gray-700">Postcode</label>
@@ -1071,7 +1137,6 @@ if (!checkoutItems || checkoutItems.length === 0) {
             className="w-full border border-gray-300 p-2 rounded focus:ring-2 focus:ring-[#445D41]/20 focus:border-[#445D41] transition-all"
           />
         </div>
-
         {/* City */}
         <div className="flex flex-col space-y-1">
           <label className="text-sm font-medium text-gray-700">City</label>
@@ -1081,7 +1146,6 @@ if (!checkoutItems || checkoutItems.length === 0) {
             className="w-full border border-gray-300 p-2 rounded focus:ring-2 focus:ring-[#445D41]/20 focus:border-[#445D41] transition-all"
           />
         </div>
-
         {/* Country / State */}
         <div className="flex flex-col space-y-1 col-span-2">
           <label className="text-sm font-medium text-gray-700">County / State</label>
@@ -1099,11 +1163,9 @@ if (!checkoutItems || checkoutItems.length === 0) {
     )}
   </div>
 )}
-
           {/* DELIVERY METHOD SELECTOR */}
 <div className="bg-white p-6 rounded shadow mb-6">
   <h2 className="text-lg font-semibold mb-3">Delivery method</h2>
-
   <div className="flex flex-col gap-2">
     <label className="flex items-center gap-2">
       <input
@@ -1114,7 +1176,6 @@ if (!checkoutItems || checkoutItems.length === 0) {
       />
       <span>Home Delivery</span>
     </label>
-
     <label className="flex items-center gap-2">
       <input
         type="radio"
@@ -1126,15 +1187,12 @@ if (!checkoutItems || checkoutItems.length === 0) {
     </label>
   </div>
 </div>
-   
-
           {/* Order notes */}
           <div className="bg-white p-4 rounded shadow">
             <label className="block text-sm font-medium mb-1">Order notes (optional)</label>
             <textarea value={notes} onChange={(e)=>setNotes(e.target.value)} placeholder="Order notes" className="w-full border p-2 rounded" />
           </div>
         </div>
-
         {/* RIGHT: Summary + coupon */}
        <aside className="lg:col-span-1 mt-6 lg:mt-0">
           <div className="bg-white p-4 rounded shadow lg:sticky lg:top-6 lg:min-h-[600px] flex flex-col">
@@ -1145,7 +1203,7 @@ if (!checkoutItems || checkoutItems.length === 0) {
                 <div key={it.id + (it.variantId || "")} className="flex gap-[2.75rem] items-start">
                   <img src={it.image} alt={"no img"} className="w-14 h-14 object-cover rounded" />
                   <div className="flex-1">
-                    <div className="font-medium text-sm">{it.name}</div>
+                    <div className="font-medium text-sm">{it.name}</div>                 
                    {it.type === "subscription" && (
   <p className="text-xs font-semibold text-indigo-600 mt-1">
     Subscription • Every{" "}
@@ -1161,25 +1219,35 @@ if (!checkoutItems || checkoutItems.length === 0) {
   <span className="font-medium text-gray-800">
     {formatCurrency((it.finalPrice ?? it.price) * it.quantity)}
   </span>
+  {getItemLoyaltyPoints(it) > 0 && (
+  <div className="text-[11px] text-green-700 font-medium">
+   ( Earn {getItemLoyaltyPoints(it)} loyalty points)
+  </div>
+)}
 </div>
-
                     {/* {it.discountAmount ? <div className="text-xs text-green-600">Saved £{(it.discountAmount).toFixed(2)}</div> : null} */}
                   </div>
                 </div>
-              ))}
-            </div>
-
-            {/* Coupon box (prefilled if present) */}
+              ))}              
+            </div>           
             <div className="border-t pt-3">
+              {totalLoyaltyPoints > 0 && (
+  <div className="mt-2 flex items-center justify-between text-sm bg-green-50 border border-green-200 rounded-lg px-3 py-2">
+    <span className="flex items-center gap-2 text-green-700 font-medium">
+      🎁  Total Loyalty points
+    </span>
+    <span className="font-semibold text-green-800">
+      +{totalLoyaltyPoints} points
+    </span>
+  </div>
+)}
               {/* ===== PRICE SUMMARY ===== */}
 <div className="mt-4 rounded-lg border bg-gray-50 p-4 space-y-3 text-sm">
-
   {/* Subtotal */}
   <div className="flex items-center justify-between">
     <span className="text-gray-600">Subtotal</span>
     <span className="font-medium">{formatCurrency(cartSubtotal)}</span>
   </div>
-
   {/* Bundle Discount */}
   {cartBundleDiscount > 0 && (
     <div className="flex items-center justify-between text-green-700">
@@ -1189,7 +1257,6 @@ if (!checkoutItems || checkoutItems.length === 0) {
       </span>
     </div>
   )}
-
   {/* Coupon / Normal Discount */}
   {cartDiscount > 0 && (
     <div className="flex items-center justify-between text-green-700">
@@ -1208,7 +1275,6 @@ if (!checkoutItems || checkoutItems.length === 0) {
     </span>
   </div>
 )}
-
   {/* Divider + Total */}
   <div className="border-t pt-3 mt-2 flex items-center justify-between">
     <span className="text-base font-semibold text-gray-900">Total</span>
@@ -1216,12 +1282,8 @@ if (!checkoutItems || checkoutItems.length === 0) {
       {formatCurrency(cartTotalAmount)}
     </span>
   </div>
-
 </div>
-
-
-              <div className="mt-4">
-               
+              <div className="mt-4">               
                   <>
                     {/* Payment method selector */}
                     <div className="mb-3">
@@ -1237,12 +1299,10 @@ if (!checkoutItems || checkoutItems.length === 0) {
                         </label>
                       </div>
                     </div>
-
                    {/* Card flow */}
 {paymentMethod === "card" ? (
   <StripeWrapper>
     <div className="space-y-3">
-
       {/* STEP 1: Validation trigger */}
       {!orderPayload && (
         <button
@@ -1256,12 +1316,10 @@ if (!checkoutItems || checkoutItems.length === 0) {
           Continue to card payment
         </button>
       )}
-
       {/* STEP 2: Stripe only after validation */}
       {orderPayload && (
         <>
           <div className="text-sm mb-1">Pay with card</div>
-
           <CheckoutPayment
             orderPayload={{
               ...orderPayload, // 👈 backend ko final payload yahin jayega
@@ -1288,9 +1346,7 @@ if (!checkoutItems || checkoutItems.length === 0) {
       )}
     </div>
   </StripeWrapper>
-) : (
-
-                      // COD flow
+) : (                   
           // COD flow
 <div className="space-y-3">
   {error && <div className="text-red-600 text-sm">{error}</div>}
@@ -1307,21 +1363,16 @@ if (!checkoutItems || checkoutItems.length === 0) {
 
   await handlePlaceOrderCOD(payload);
 }}
-
     className="w-full bg-[#445D41] text-white py-3 rounded"
   >
     Place order (COD)
   </button>
 </div>
-
                     )}
-                  </>
-           
+                  </>          
               </div>
-
              {/* Terms & Newsletter */}
 <div className="mt-4 space-y-3">
-
   {/* Terms */}
   <label className="flex items-start gap-2 text-sm text-gray-700">
     <input
@@ -1337,7 +1388,6 @@ if (!checkoutItems || checkoutItems.length === 0) {
       </Link>
     </span>
   </label>
-
   {/* Newsletter */}
   <label className="flex items-start gap-2 text-sm text-gray-700">
     <input
@@ -1348,9 +1398,7 @@ if (!checkoutItems || checkoutItems.length === 0) {
     />
     <span>Subscribe to our newsletter for offers & updates</span>
   </label>
-
 </div>
-
             </div>
           </div>
         </aside>

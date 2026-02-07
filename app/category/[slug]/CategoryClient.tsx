@@ -15,6 +15,9 @@ import { useCart } from "@/context/CartContext";
 import { useToast } from "@/components/toast/CustomToast";
 import { getDiscountBadge, getDiscountedPrice, } from "@/app/lib/discountHelpers";
 import GenderBadge from "@/components/shared/GenderBadge";
+import { flattenProductsForListing } from "@/app/lib/flattenProductsForListing";
+import PharmaQuestionsModal from "@/components/pharma/PharmaQuestionsModal";
+
 // ---------- Types ----------
 interface ProductImage {
   id: string;
@@ -50,6 +53,13 @@ interface Product {
     categorySlug: string;
     isPrimary: boolean;
   }[];
+  disableBuyButton?: boolean;
+    excludeFromLoyaltyPoints?: boolean;
+  loyaltyPointsEarnable?: number;
+  loyaltyPointsMessage?: string;
+  shipSeparately?: boolean;
+orderMinimumQuantity?: number;
+orderMaximumQuantity?: number;
 }
 
 interface Category {
@@ -290,6 +300,21 @@ if (selectedBrands.length > 0) {
 allSubCategories,
 
   ]);
+const flattenedProducts = useMemo(() => {
+  const flat = flattenProductsForListing(filteredAndSortedProducts);
+
+  const seen = new Set<string>();
+
+  return flat.filter((item) => {
+    const key = `${item.productData.id}-${item.variantForCard?.id ?? "parent"}`;
+
+    if (seen.has(key)) return false;
+
+    seen.add(key);
+    return true;
+  });
+}, [filteredAndSortedProducts]);
+
 
   // ---------- Helpers ----------
 
@@ -357,7 +382,7 @@ useEffect(() => {
 
 
 
-  const getDefaultVariant = (product: any) => {
+  const getDefaultVariant = (product: any, cardSlug?: string)=> {
   if (product.variants?.length > 0) {
     return product.variants.find((v: any) => v.isDefault) ?? product.variants[0];
   }
@@ -392,6 +417,29 @@ useEffect(() => {
     setSortBy(newSortBy);
     setSortDirection(newDirection as "asc" | "desc");
   }, []);
+const [showPharmaModal, setShowPharmaModal] = useState(false);
+const [pendingProduct, setPendingProduct] = useState<{
+  product: any;
+  cardSlug?: string;
+} | null>(null);
+
+// 🔒 double-submit protection
+const pharmaApprovedRef = useRef(false);
+const handlePharmaGuard = (
+  product: any,
+  cardSlug?: string
+): boolean => {
+  // already approved → allow
+  if (pharmaApprovedRef.current) return true;
+
+  if (product.isPharmaProduct) {
+    setPendingProduct({ product, cardSlug });
+    setShowPharmaModal(true);
+    return false;
+  }
+
+  return true;
+};
 
   
 
@@ -407,65 +455,111 @@ if (discount) params.set("discount", String(discount));
 router.push(`/category/${category?.slug}?${params.toString()}`);
 
   }, [router, category?.slug]);
-
-
-
-  const { addToCart } = useCart();
-
+  
+const { addToCart, cart } = useCart();
 const handleAddToCart = useCallback(
-  (product: any) => {
+(product: any, cardSlug?: string) => {
+    // if (product.disableBuyButton) return;
+
+  // 🔥 PHARMA GUARD
+  if (!handlePharmaGuard(product, cardSlug)) return;
     const defaultVariant: any = getDefaultVariant(product);
 
-    const basePrice = defaultVariant?.price ?? product.price;
-const finalPrice = getDiscountedPrice(product, basePrice);
+    const basePrice =
+      typeof defaultVariant?.price === "number" && defaultVariant.price > 0
+        ? defaultVariant.price
+        : product.price;
+
+    const finalPrice = getDiscountedPrice(product, basePrice);
 
     const imageUrl = defaultVariant?.imageUrl
-      ? (defaultVariant.imageUrl.startsWith("http")
-          ? defaultVariant.imageUrl
-          : `${process.env.NEXT_PUBLIC_API_URL}${defaultVariant.imageUrl}`)
+      ? defaultVariant.imageUrl.startsWith("http")
+        ? defaultVariant.imageUrl
+        : `${process.env.NEXT_PUBLIC_API_URL}${defaultVariant.imageUrl}`
       : product.images?.[0]?.imageUrl
-      ? (product.images[0].imageUrl.startsWith("http")
-          ? product.images[0].imageUrl
-          : `${process.env.NEXT_PUBLIC_API_URL}${product.images[0].imageUrl}`)
+      ? product.images[0].imageUrl.startsWith("http")
+        ? product.images[0].imageUrl
+        : `${process.env.NEXT_PUBLIC_API_URL}${product.images[0].imageUrl}`
       : "/placeholder-product.jpg";
 
-    const stock = defaultVariant?.stockQuantity ?? product.stockQuantity ?? 0;
+    // ============================
+    // ⭐ MIN / MAX / STOCK LOGIC
+    // ============================
+
+    const minQty = product.orderMinimumQuantity ?? 1;
+    const maxQty = product.orderMaximumQuantity ?? Infinity;
+    const requestedQty = 1;
+    const finalQty = Math.max(requestedQty, minQty);
+
+    const variantId = defaultVariant?.id ?? null;
+
+    const existingCartQty = cart
+      .filter(
+        (c) =>
+          c.productId === product.id &&
+          (c.variantId ?? null) === variantId
+      )
+      .reduce((sum, c) => sum + (c.quantity ?? 0), 0);
+
+    const stockQty =
+      defaultVariant?.stockQuantity ?? product.stockQuantity ?? 0;
+
+    const allowedMaxQty = Math.min(stockQty, maxQty);
+
+    if (existingCartQty + finalQty > allowedMaxQty) {
+      toast.error(`Maximum allowed quantity is ${allowedMaxQty}`);
+      return;
+    }
+
+    // ============================
+    // ⭐ ADD TO CART
+    // ============================
 
     addToCart({
-      id: `${defaultVariant?.id ?? product.id}-one`,
+      id: `${variantId ?? product.id}-one`,
       productId: product.id,
       name: defaultVariant
         ? `${product.name} (${[
             defaultVariant.option1Value,
             defaultVariant.option2Value,
             defaultVariant.option3Value,
-          ].filter(Boolean).join(", ")})`
+          ]
+            .filter(Boolean)
+            .join(", ")})`
         : product.name,
-     price: finalPrice,                 // ✅ cart uses discounted price
-  priceBeforeDiscount: basePrice,    // ✅ required for coupon logic
-  finalPrice: finalPrice,
-  discountAmount: basePrice - finalPrice,
-      quantity: 1,
+      price: finalPrice,
+      priceBeforeDiscount: basePrice,
+      finalPrice: finalPrice,
+      discountAmount: basePrice - finalPrice,
+      quantity: finalQty,
       image: imageUrl,
       sku: defaultVariant?.sku ?? product.sku,
-      variantId: defaultVariant?.id ?? null,
-      slug: product.slug,
+      variantId: variantId,
+      slug: cardSlug ?? product.slug,
       variantOptions: {
         option1: defaultVariant?.option1Value ?? null,
         option2: defaultVariant?.option2Value ?? null,
         option3: defaultVariant?.option3Value ?? null,
       },
+      shipSeparately: product.shipSeparately,
       productData: JSON.parse(JSON.stringify(product)),
     });
 
-    toast.success(`${product.name} added to cart! 🛒`);
+    // ============================
+    // ⭐ TOAST UX
+    // ============================
+
+    if (finalQty !== requestedQty) {
+      toast.warning(
+        `Minimum order quantity is ${minQty}. Added ${finalQty} items to cart.`
+      );
+    } else {
+      toast.success(`${product.name} added to cart! 🛒`);
+    }
   },
-  [toast, addToCart]
+  [toast, addToCart, cart]
 );
-
-
   // ---------- JSX ----------
-
   return (
     <div className="min-h-screen bg-gray-50">
       {isPending && (
@@ -608,9 +702,9 @@ const finalPrice = getDiscountedPrice(product, basePrice);
                           <span className="text-sm text-gray-700 truncate group-hover:text-[#445D41] transition">
                             {brand.name}
                           </span>
-                          <span className="text-xs text-gray-400 ml-2 flex-shrink-0">
+                          {/* <span className="text-xs text-gray-400 ml-2 flex-shrink-0">
                             ({brand.productCount})
-                          </span>
+                          </span> */}
                         </div>
                       </label>
                     ))}
@@ -630,9 +724,7 @@ const finalPrice = getDiscountedPrice(product, basePrice);
     onChange={(v) => setPriceRange(v)}
   />
 )}
-
 </div>
-
                 {/* Rating Filter */}
                 <div className="mb-6">
                   <h3 className="font-bold text-sm text-gray-900 mb-3">
@@ -759,12 +851,12 @@ const finalPrice = getDiscountedPrice(product, basePrice);
                 gridCols === 3 ? "md:grid-cols-3" : "md:grid-cols-2"
               } gap-6 mb-8`}
             >
-             {filteredAndSortedProducts
-  .filter(
-    (product, index, self) =>
-      index === self.findIndex((p) => p.id === product.id)
-  )
-  .map((product, index) => {
+{flattenedProducts.map((item, index) => {
+
+  const product = item.productData;
+  const variantForCard = item.variantForCard;
+  const cardSlug = item.cardSlug;
+
 
                 // VAT rate finder like featured slider
 const discountBadge = getDiscountBadge(product);
@@ -778,9 +870,29 @@ const hasCoupon = (product as any).assignedDiscounts?.some(
 );
 
 
-              const defaultVariant = getDefaultVariant(product);
+              const defaultVariant =
+  variantForCard ?? getDefaultVariant(product);
 
-  const basePrice = defaultVariant?.price ?? product.price;   // ✅ ADD
+// 🎁 LOYALTY POINTS (PRODUCT + VARIANT AWARE)
+const loyaltyPoints = (() => {
+  if (product.excludeFromLoyaltyPoints) return null;
+
+  if (defaultVariant?.loyaltyPointsEarnable) {
+    return defaultVariant.loyaltyPointsEarnable;
+  }
+
+  if (product.loyaltyPointsEarnable) {
+    return product.loyaltyPointsEarnable;
+  }
+
+  return null;
+})();
+
+ const basePrice =
+  typeof defaultVariant?.price === "number" && defaultVariant.price > 0
+    ? defaultVariant.price
+    : product.price;
+  // ✅ ADD
   const finalPrice = getDiscountedPrice(product, basePrice);  // ✅ ADD
 const stock = defaultVariant?.stockQuantity ?? product.stockQuantity ?? 0;
 
@@ -791,13 +903,15 @@ const mainImage = defaultVariant?.imageUrl
 
                 return (
                   <Card
-                   key={`${product.id}-${index}`}
+               key={`${product.id}-${variantForCard?.id ?? "parent"}`}
+
+
 
                     className="group hover:shadow-xl transition-all duration-300 border border-gray-200"
                   >
                     <CardContent className="p-0">
                       {/* Image */}
-                     <Link href={`/products/${product.slug}`}>
+                     <Link href={`/products/${cardSlug}`}>
                         <div className="relative bg-gray-50 h-64 overflow-hidden rounded-t-lg">
                           <Image
                             src={mainImage}
@@ -845,7 +959,7 @@ const mainImage = defaultVariant?.imageUrl
           COUPON
         </span>
         <span className="text-[8px] sm:text-[9px] font-semibold leading-tight">
-          AVAILABLE
+          Available
         </span>
       </div>
     </div>
@@ -860,7 +974,7 @@ const mainImage = defaultVariant?.imageUrl
                       <div className="p-4">
 
 
-                         <Link href={`/products/${product.slug}`}>
+                         <Link href={`/products/${cardSlug}`}>
                           <h3 className="font-semibold text-base mb-0 line-clamp-2 hover:text-[#445D41] transition-colors text-gray-900 min-h-[48px]">
   {defaultVariant
     ? `${product.name} (${[
@@ -887,13 +1001,13 @@ const mainImage = defaultVariant?.imageUrl
     ({product.reviewCount || 0} reviews)
   </span>
 
- {(product as any).loyaltyPointsEnabled && (
+{loyaltyPoints && (
   <span className="mt-0 inline-flex items-center gap-1.5 text-[11px] font-medium text-green-700 bg-green-50 border border-green-200 px-2 py-0.5 rounded-md w-fit leading-none">
     <AwardIcon className="h-4 w-4 text-green-600" />
-    {(product as any).loyaltyPointsMessage ??
-      `Earn ${(product as any).loyaltyPointsEarnable} points`}
+    Earn {loyaltyPoints} points
   </span>
 )}
+
 </div>
 
 
@@ -926,16 +1040,22 @@ const mainImage = defaultVariant?.imageUrl
 </div>
 
                         {/* Add to Cart */}
-                        <Button
-                          onClick={() => handleAddToCart(product)}
-                          className="w-full bg-[#445D41] hover:bg-[#334a2c] text-white transition-colors"
-                          disabled={stock === 0}
-                        >
-                          <ShoppingCart className="mr-2 h-4 w-4" />
-                          {stock > 0
-                            ? "Add to Cart"
-                            : "Out of Stock"}
-                        </Button>
+                       <Button
+  onClick={() => {
+    if (product.disableBuyButton) return;
+   handleAddToCart(product, cardSlug);
+  }}
+  disabled={stock === 0 || product.disableBuyButton === true}
+  className="w-full bg-[#445D41] hover:bg-[#334a2c] text-white transition-colors
+    disabled:opacity-60 disabled:cursor-not-allowed"
+>
+  <ShoppingCart className="mr-2 h-4 w-4" />
+  {product.disableBuyButton
+    ? "Not available"
+    : stock > 0
+    ? "Add to Cart"
+    : "Out of Stock"}
+</Button>
                       </div>
                     </CardContent>
                   </Card>
@@ -976,6 +1096,37 @@ const mainImage = defaultVariant?.imageUrl
             )}
           </div>
         </div>
+{showPharmaModal && pendingProduct && (
+  <PharmaQuestionsModal
+    open={showPharmaModal}
+    productId={pendingProduct.product.id}
+    onClose={() => {
+      setShowPharmaModal(false);
+      setPendingProduct(null);
+    }}
+    onSuccess={(messageFromBackend) => {
+      // 🔒 mark approved
+      pharmaApprovedRef.current = true;
+
+    
+
+      setShowPharmaModal(false);
+
+      // 🔁 resume original add-to-cart
+      handleAddToCart(
+        pendingProduct.product,
+        pendingProduct.cardSlug
+      );
+
+      setPendingProduct(null);
+
+      // reset for next product
+      setTimeout(() => {
+        pharmaApprovedRef.current = false;
+      }, 0);
+    }}
+  />
+)}
 
         {/* Custom scrollbar + dual slider CSS */}
         <style jsx>{`

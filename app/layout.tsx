@@ -4,7 +4,7 @@ import "./globals.css";
 import { ToastProvider } from "@/components/toast/CustomToast";
 import ConditionalLayout from "./ConditionalLayout";
 import { CartProvider } from "@/context/CartContext";
-import { AuthProvider } from "@/app/admin/_context/AuthContext";
+import { AuthProvider } from "@/context/AuthContext";
 
 const inter = Inter({ subsets: ["latin"] });
 

@@ -7,6 +7,7 @@ import PremiumPriceSlider from "@/components/filters/PremiumPriceSlider";
 import { SlidersHorizontal, Star } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { flattenProductsForListing } from "@/app/lib/flattenProductsForListing";
 
 const PAGE_SIZE = 20;
 
@@ -101,6 +102,9 @@ export default function BrandsClient({
     sortBy,
     sortDirection,
   ]);
+const flattenedProducts = useMemo(() => {
+  return flattenProductsForListing(filteredProducts);
+}, [filteredProducts]);
 
   const loadMore = async () => {
     if (loading || !hasMore) return;
@@ -251,15 +255,19 @@ export default function BrandsClient({
 
           {/* PRODUCTS */}
           <div className="flex-1">
+            
             <div className="grid grid-cols-2 md:grid-cols-3 gap-6">
-              {filteredProducts.map((product) => (
-                <ProductCard
-                  key={product.id}
-                  product={product}
-                  vatRates={vatRates}
-                />
-              ))}
-            </div>
+  {flattenedProducts.map((item) => (
+    <ProductCard
+      key={item.variantForCard?.id ?? item.productData.id}
+      product={item.productData}
+      vatRates={vatRates}
+      variantForCard={item.variantForCard}
+      cardSlug={item.cardSlug}
+    />
+  ))}
+</div>
+
 
             {filteredProducts.length === 0 && (
               <div className="py-12 text-center text-gray-500">

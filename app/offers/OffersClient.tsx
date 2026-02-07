@@ -7,6 +7,7 @@ import PremiumPriceSlider from "@/components/filters/PremiumPriceSlider";
 import { Star, SlidersHorizontal } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { flattenProductsForListing } from "@/app/lib/flattenProductsForListing";
 
 interface OffersClientProps {
   initialItems: any[];
@@ -22,6 +23,9 @@ export default function OffersClient({
   const [products, setProducts] = useState<any[]>(initialItems);
   const [filteredProducts, setFilteredProducts] =
     useState<any[]>(initialItems);
+const flattenedProducts = useMemo(() => {
+  return flattenProductsForListing(filteredProducts);
+}, [filteredProducts]);
 
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [selectedBrands, setSelectedBrands] = useState<string[]>([]);
@@ -29,6 +33,7 @@ export default function OffersClient({
   const [minPrice, setMinPrice] = useState(0);
   const [maxPrice, setMaxPrice] = useState(0);
   const [minRating, setMinRating] = useState(0);
+
 
   const [sortBy, setSortBy] = useState<"name" | "price">("name");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
@@ -325,13 +330,16 @@ export default function OffersClient({
           {/* PRODUCT GRID */}
           <div className="flex-1">
             <div className="grid grid-cols-2 gap-6 md:grid-cols-3 lg:grid-cols-3 mb-8">
-              {filteredProducts.map((product: any) => (
-                <ProductCard
-                  key={product.id}
-                  product={product}
-                  vatRates={vatRates}
-                />
-              ))}
+             {flattenedProducts.map((item) => (
+  <ProductCard
+    key={item.variantForCard?.id ?? item.productData.id}
+    product={item.productData}
+    vatRates={vatRates}
+    variantForCard={item.variantForCard}
+    cardSlug={item.cardSlug}
+  />
+))}
+
             </div>
 
             {filteredProducts.length === 0 && (

@@ -5,11 +5,12 @@ import Link from "next/link";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Star, ShoppingCart, ChevronLeft, ChevronRight,  BadgePercent, Zap,BellRing, Heart, CircleOff, PackageX, Award, Badge, Coins, AwardIcon } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useState, useEffect,useMemo } from "react";
 import { Swiper, SwiperSlide } from "swiper/react";
 import { Autoplay, Navigation, Pagination } from "swiper/modules";
 import { useCart } from "@/context/CartContext";
 import { useToast } from "@/components/toast/CustomToast";
+import PharmaQuestionsModal from "@/components/pharma/PharmaQuestionsModal";
 import {
   getDiscountBadge,
   getDiscountedPrice,
@@ -17,9 +18,10 @@ import {
 import GenderBadge from "@/components/shared/GenderBadge";
 
 import { useRouter } from "next/navigation";
-import { useAuth } from "@/app/admin/_context/AuthContext";
+import { useAuth } from "@/context/AuthContext";
 import { getBackorderUIState } from "@/app/lib/backorderHelpers";
 import BackInStockModal from "@/components/backorder/BackInStockModal";
+import { flattenProductsForListing } from "@/app/lib/flattenProductsForListing";
 import "swiper/css";
 import "swiper/css/navigation";
 import "swiper/css/autoplay";
@@ -35,8 +37,12 @@ interface Variant {
   displayOrder?: number;
   isDefault?: boolean;
   imageUrl?: string;
+    loyaltyPointsEarnable?: number;
+  loyaltyPointsMessage?: string;
 }
 interface Product {
+  orderMinimumQuantity?: number;
+orderMaximumQuantity?: number;
   id: string;
   name: string;
   slug: string;
@@ -52,6 +58,13 @@ interface Product {
   sku?: string;           // for simple product
    allowBackorder?: boolean;
   backorderMode?: string;
+    disableBuyButton?: boolean;
+  disableWishlistButton?: boolean;
+    excludeFromLoyaltyPoints?: boolean;
+  loyaltyPointsEarnable?: number;
+  loyaltyPointsMessage?: string;
+  shipSeparately?: boolean;
+isPharmaProduct?: boolean;
 }
 
 
@@ -64,14 +77,28 @@ export default function FeaturedProductsSlider({
   baseUrl: string;
   title?: string;
 }) {
+  
   const toast = useToast();
-  const { addToCart } = useCart();
+ const { addToCart, cart } = useCart();
   const router = useRouter();
 const { isAuthenticated } = useAuth();
+const flattenedProducts = useMemo(() => {
+  return flattenProductsForListing(products);
+}, [products]);
+
 const [vatRates, setVatRates] = useState<any[]>([]);
 const [notifyProduct, setNotifyProduct] = useState<{
   productId: string;
   variantId?: string | null;
+} | null>(null);
+const [pharmaModal, setPharmaModal] = useState<{
+  product: Product;
+  variant?: Variant;
+  action: "ADD_TO_CART" | "BUY_NOW";
+  basePrice: number;
+  finalPrice: number;
+  discountAmount: number;
+  cardSlug: string;
 } | null>(null);
 
 const getProductDisplayImage = (
@@ -118,10 +145,13 @@ const handleBuyNow = (
   defaultVariant: Variant | undefined,
   basePrice: number,
   finalPrice: number,
-  discountAmount: number
+  discountAmount: number,
+   cardSlug: string
 ) => {
+  const minQty = (product as any).orderMinimumQuantity ?? 1;
+  const requestedQty = 1;
+  const finalQty = Math.max(requestedQty, minQty);
 
-  // 🔒 Save buy-now product (cart ko touch nahi karta)
   sessionStorage.setItem(
     "buyNowItem",
     JSON.stringify({
@@ -137,23 +167,15 @@ const handleBuyNow = (
             .filter(Boolean)
             .join(", ")})`
         : product.name,
-     price: finalPrice,                  // ⭐ important
-priceBeforeDiscount: basePrice,
-finalPrice: finalPrice,
-discountAmount: discountAmount,
-      quantity: 1,
-      image: defaultVariant?.imageUrl
-        ? defaultVariant.imageUrl.startsWith("http")
-          ? defaultVariant.imageUrl
-          : `${baseUrl}${defaultVariant.imageUrl}`
-        : product.images?.[0]?.imageUrl
-        ? product.images[0].imageUrl.startsWith("http")
-          ? product.images[0].imageUrl
-          : `${baseUrl}${product.images[0].imageUrl}`
-        : "/placeholder.jpg",
+      price: finalPrice,
+      priceBeforeDiscount: basePrice,
+      finalPrice: finalPrice,
+      discountAmount: discountAmount,
+      quantity: finalQty,
+      image: getProductDisplayImage(product, defaultVariant),
       sku: defaultVariant?.sku ?? product.sku,
       variantId: defaultVariant?.id ?? null,
-      slug: product.slug,
+      slug: cardSlug,
       variantOptions: {
         option1: defaultVariant?.option1Value ?? null,
         option2: (defaultVariant as any)?.option2Value ?? null,
@@ -162,13 +184,19 @@ discountAmount: discountAmount,
     })
   );
 
-  // 🔐 Auth-safe redirect
+  if (finalQty !== requestedQty) {
+    toast.warning(
+      `Minimum order quantity is ${minQty}. Proceeding with ${finalQty}.`
+    );
+  }
+
   if (!isAuthenticated) {
     router.push("/account?from=buy-now");
   } else {
     router.push("/checkout");
   }
 };
+
 
 
 useEffect(() => {
@@ -216,10 +244,36 @@ useEffect(() => {
         pagination={{ clickable: true, dynamicBullets: true }}
         loop={true}
       >
-        {products.map((product) =>  {
-          const defaultVariant = (product as any).variants?.find((v: any) => v.isDefault);
-          
-const basePrice = defaultVariant?.price ?? product.price;
+        {flattenedProducts.map((item) =>  {
+
+  const product = item.productData;
+  const variantForCard = item.variantForCard;
+  const cardSlug = item.cardSlug;
+
+       const defaultVariant =
+  variantForCard ??
+  (product as any).variants?.find((v: any) => v.isDefault);
+
+          // 🎁 LOYALTY POINTS (PRODUCT + VARIANT AWARE)
+const loyaltyPoints = (() => {
+  if (product.excludeFromLoyaltyPoints) return null;
+
+  if (defaultVariant?.loyaltyPointsEarnable) {
+    return defaultVariant.loyaltyPointsEarnable;
+  }
+
+  if (product.loyaltyPointsEarnable) {
+    return product.loyaltyPointsEarnable;
+  }
+
+  return null;
+})();
+
+const basePrice =
+  typeof defaultVariant?.price === "number" && defaultVariant.price > 0
+    ? defaultVariant.price
+    : product.price;
+
 const discountBadge = getDiscountBadge(product);
 const finalPrice = getDiscountedPrice(product, basePrice);
 // ---------- Active Coupon (indicator only) ----------
@@ -245,20 +299,23 @@ const backorderState = getBackorderUIState({
   allowBackorder: product.allowBackorder,
   backorderMode: product.backorderMode,
 });
+
+
   const vatRate =
     !product.vatExempt && (product as any).vatRateId
       ? vatRates.find(v => v.id === (product as any).vatRateId)?.rate
       : null;
         
        return (
-          <SwiperSlide key={product.id}>
+          <SwiperSlide key={variantForCard?.id ?? product.id}>
+
           <Card
   className="group border-0 shadow-md hover:shadow-xl transition-all duration-300 hover:-translate-y-1 rounded-xl flex flex-col gap-1  h-[410px] sm:h-auto">
             <CardContent className="p-0 flex flex-col h-full">
 
 
                 {/* Product Image */}
-                <Link href={`/products/${product.slug}`}>
+                <Link href={`/products/${cardSlug}`}>
                   
                   {/* UNISEX Badge */}
                 <GenderBadge gender={product.gender} />
@@ -312,7 +369,7 @@ const backorderState = getBackorderUIState({
           COUPON
         </span>
         <span className="text-[8px] sm:text-[9px] font-semibold leading-tight">
-          AVAILABLE
+          Available
         </span>
       </div>
     </div>
@@ -326,7 +383,7 @@ const backorderState = getBackorderUIState({
 
                   {/* FIXED TITLE HEIGHT */}
                  <div className="min-h-[42px] max-h-[42px] sm:min-h-[38px] sm:max-h-[38px] mb-2">
-                    <Link href={`/products/${product.slug}`} className="block">
+                    <Link href={`/products/${cardSlug}`} className="block">
                      <h3
   className="
     font-semibold text-xs md:text-sm text-gray-800 line-clamp-2
@@ -361,13 +418,13 @@ const backorderState = getBackorderUIState({
   </span>
 
 {/* LOYALTY INLINE (NO EXTRA MARGIN) */}
-{(product as any).loyaltyPointsEnabled && (
+{loyaltyPoints && (
   <span className="mt-0 inline-flex items-center gap-1.5 text-[11px] font-medium text-green-700 bg-green-50 border border-green-200 px-2 py-0.5 rounded-md w-fit leading-none">
     <AwardIcon className="h-4 w-4 text-green-600" />
-    {(product as any).loyaltyPointsMessage ??
-      `Earn ${(product as any).loyaltyPointsEarnable} points`}
+    Earn {loyaltyPoints} points
   </span>
 )}
+
 
 
 </div>
@@ -418,76 +475,154 @@ const backorderState = getBackorderUIState({
     <>
       {/* ADD TO CART */}
       <Button
-        onClick={() => {
-          addToCart({
-            id: defaultVariant ? `${defaultVariant.id}-one` : product.id,
-            type: "one-time",
-            productId: product.id,
-            name: defaultVariant
-              ? `${product.name} (${[
-                  defaultVariant.option1Value,
-                  (defaultVariant as any)?.option2Value,
-                  (defaultVariant as any)?.option3Value,
-                ]
-                  .filter(Boolean)
-                  .join(", ")})`
-              : product.name,
-           price: finalPrice,                 // ⭐ cart calculation ke liye
-priceBeforeDiscount: basePrice,    // ⭐ original reference
-finalPrice: finalPrice,            // ⭐ discounted price
-discountAmount: discountAmount,    // ⭐ actual discount
+       disabled={product.disableBuyButton === true}
+ onClick={() => {
+  if (product.disableBuyButton) return;
+ // 🔥 PHARMA PRODUCT GUARD
+  if (product.isPharmaProduct) {
+    setPharmaModal({
+      product,
+      variant: defaultVariant,
+      action: "ADD_TO_CART",
+      basePrice,
+      finalPrice,
+      discountAmount,
+      cardSlug,
+    });
+    return;
+  }
+  const minQty = (product as any).orderMinimumQuantity ?? 1;
+  const requestedQty = 1;
 
-            quantity: 1,
-            image: defaultVariant?.imageUrl
-              ? defaultVariant.imageUrl.startsWith("http")
-                ? defaultVariant.imageUrl
-                : `${baseUrl}${defaultVariant.imageUrl}`
-              : product.images?.[0]?.imageUrl
-              ? product.images[0].imageUrl.startsWith("http")
-                ? product.images[0].imageUrl
-                : `${baseUrl}${product.images[0].imageUrl}`
-              : "/placeholder.jpg",
-            sku: defaultVariant?.sku ?? product.sku,
-            variantId: defaultVariant?.id ?? null,
-            slug: product.slug,
-            variantOptions: {
-              option1: defaultVariant?.option1Value ?? null,
-              option2: (defaultVariant as any)?.option2Value ?? null,
-              option3: (defaultVariant as any)?.option3Value ?? null,
-            },
-            productData: JSON.parse(JSON.stringify(product)),
-          });
+  const defaultVarId = defaultVariant?.id ?? null;
 
-          toast.success(`${product.name} added to cart!`);
-        }}
-        className="flex-1 text-xs md:text-sm rounded-lg py-2 flex items-center justify-center gap-2 bg-[#445D41] hover:bg-black text-white"
-      >
+  const existingCartQty = cart
+    .filter(
+      (c) =>
+        c.productId === product.id &&
+        (c.variantId ?? null) === defaultVarId
+    )
+    .reduce((sum, c) => sum + (c.quantity ?? 0), 0);
+
+  const stockQty =
+    defaultVariant?.stockQuantity ??
+    (product as any).stockQuantity ??
+    0;
+
+  const finalQty = Math.max(requestedQty, minQty);
+const maxQty = (product as any).orderMaximumQuantity ?? Infinity;
+
+// 🔥 MAX ORDER CHECK
+if (existingCartQty + finalQty > maxQty) {
+  toast.error(`Maximum order quantity is ${maxQty}`);
+  return;
+}
+
+  // 🔥 STOCK PROTECTION
+  if (existingCartQty + finalQty > stockQty) {
+    toast.error(
+      `Only ${stockQty - existingCartQty} items left in stock`
+    );
+    return;
+  }
+
+  addToCart({
+    id: defaultVariant ? `${defaultVariant.id}-one` : product.id,
+    type: "one-time",
+    productId: product.id,
+    name: defaultVariant
+      ? `${product.name} (${[
+          defaultVariant.option1Value,
+          (defaultVariant as any)?.option2Value,
+          (defaultVariant as any)?.option3Value,
+        ]
+          .filter(Boolean)
+          .join(", ")})`
+      : product.name,
+    price: finalPrice,
+    priceBeforeDiscount: basePrice,
+    finalPrice: finalPrice,
+    discountAmount: discountAmount,
+    quantity: finalQty,
+    image: getProductDisplayImage(product, defaultVariant),
+    sku: defaultVariant?.sku ?? product.sku,
+    shipSeparately: product.shipSeparately,
+    variantId: defaultVariant?.id ?? null,
+    slug: cardSlug,
+    variantOptions: {
+      option1: defaultVariant?.option1Value ?? null,
+      option2: (defaultVariant as any)?.option2Value ?? null,
+      option3: (defaultVariant as any)?.option3Value ?? null,
+    },
+    productData: JSON.parse(JSON.stringify(product)),
+  });
+
+  if (finalQty !== requestedQty) {
+    toast.warning(
+      `Minimum order quantity is ${minQty}. Added ${finalQty} items to cart.`
+    );
+  } else {
+    toast.success(`${product.name} added to cart!`);
+  }
+}}
+
+        className="flex-1 text-xs md:text-sm rounded-lg py-2 flex items-center justify-center gap-2
+    bg-[#445D41] hover:bg-black text-white
+    disabled:opacity-60 disabled:cursor-not-allowed"
+>
         <ShoppingCart className="h-4 w-4" />
         Add
       </Button>
 
       {/* BUY NOW */}
-      <Button
-       onClick={() =>
-  handleBuyNow(
-    product,
-    defaultVariant,
-    basePrice,
-    finalPrice,
-    discountAmount
-  )
-}
+     <Button
+  disabled={product.disableBuyButton === true}
+  onClick={() => {
+    if (product.disableBuyButton) return;
 
-        className="flex-1 text-xs md:text-sm rounded-lg py-2 bg-black border border-[#445D41] text-white hover:bg-[#445D41] disabled:bg-gray-300 disabled:text-gray-600 disabled:border-gray-300"
-      >
+  // 🔥 PHARMA PRODUCT GUARD
+  if (product.isPharmaProduct) {
+    setPharmaModal({
+      product,
+      variant: defaultVariant,
+      action: "BUY_NOW",
+      basePrice,
+      finalPrice,
+      discountAmount,
+      cardSlug,
+    });
+    return;
+  }
+    handleBuyNow(
+      product,
+      defaultVariant,
+      basePrice,
+      finalPrice,
+      discountAmount,
+      cardSlug
+    );
+  }}
+  className="flex-1 text-xs md:text-sm rounded-lg py-2
+    bg-black border border-[#445D41] text-white hover:bg-[#445D41]
+    disabled:opacity-60 disabled:cursor-not-allowed"
+>
         <Zap className="h-4 w-4" />
         Buy
       </Button>
        {/* ❤️ WISHLIST ICON RIGHT SIDE */}
-  <button
-    onClick={() => toast.success("Added to wishlist!")}
-    className="p-2 rounded-md border border-gray-300 hover:bg-black hover:text-white transition flex-shrink-0"
-  >
+ <button
+  disabled={product.disableWishlistButton === true}
+  onClick={() => {
+    if (product.disableWishlistButton) return;
+    toast.success("Added to wishlist!");
+  }}
+  className={`p-2 rounded-md border border-gray-300 transition flex-shrink-0
+    ${product.disableWishlistButton
+      ? "opacity-50 cursor-not-allowed"
+      : "hover:bg-black hover:text-white"
+    }`}
+>
+
     <Heart className="h-4 w-4" />
   </button>
   
@@ -565,6 +700,104 @@ discountAmount: discountAmount,    // ⭐ actual discount
         onClose={() => setNotifyProduct(null)}
       />
     )}
+    {pharmaModal && (
+  <PharmaQuestionsModal
+    open={true}
+    productId={pharmaModal.product.id}
+    onClose={() => setPharmaModal(null)}
+    onSuccess={() => {
+      const {
+        product,
+        variant,
+        action,
+        basePrice,
+        finalPrice,
+        discountAmount,
+        cardSlug,
+      } = pharmaModal;
+
+     if (action === "ADD_TO_CART") {
+  const minQty = (product as any).orderMinimumQuantity ?? 1;
+  const requestedQty = 1;
+  const finalQty = Math.max(requestedQty, minQty);
+
+  const defaultVarId = variant?.id ?? null;
+
+  const existingCartQty = cart
+    .filter(
+      (c) =>
+        c.productId === product.id &&
+        (c.variantId ?? null) === defaultVarId
+    )
+    .reduce((sum, c) => sum + (c.quantity ?? 0), 0);
+
+  const stockQty =
+    variant?.stockQuantity ??
+    (product as any).stockQuantity ??
+    0;
+
+  const maxQty = (product as any).orderMaximumQuantity ?? Infinity;
+
+  // 🔥 MAX ORDER CHECK
+  if (existingCartQty + finalQty > maxQty) {
+    toast.error(`Maximum order quantity is ${maxQty}`);
+    return;
+  }
+
+  // 🔥 STOCK CHECK
+  if (existingCartQty + finalQty > stockQty) {
+    toast.error(`Only ${stockQty - existingCartQty} items left in stock`);
+    return;
+  }
+
+  addToCart({
+    id: variant ? `${variant.id}-one` : product.id,
+    type: "one-time",
+    productId: product.id,
+    name: variant
+      ? `${product.name} (${[
+          variant.option1Value,
+          (variant as any)?.option2Value,
+          (variant as any)?.option3Value,
+        ].filter(Boolean).join(", ")})`
+      : product.name,
+    price: finalPrice,
+    priceBeforeDiscount: basePrice,
+    finalPrice,
+    discountAmount,
+    quantity: finalQty,
+    image: getProductDisplayImage(product, variant),
+    sku: variant?.sku ?? product.sku,
+    shipSeparately: product.shipSeparately, // ✅ IMPORTANT
+    variantId: variant?.id ?? null,
+    slug: cardSlug,
+    variantOptions: {
+      option1: variant?.option1Value ?? null,
+      option2: (variant as any)?.option2Value ?? null,
+      option3: (variant as any)?.option3Value ?? null,
+    },
+    productData: JSON.parse(JSON.stringify(product)),
+  });
+
+  toast.success("Added to cart!");
+}
+
+      if (action === "BUY_NOW") {
+        handleBuyNow(
+          product,
+          variant,
+          basePrice,
+          finalPrice,
+          discountAmount,
+          cardSlug
+        );
+      }
+
+      setPharmaModal(null);
+    }}
+  />
+)}
+
     </div>
   );
 }

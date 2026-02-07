@@ -44,10 +44,55 @@ export default function SubscriptionPurchaseCard({
   const toast = useToast();
 
 const basePrice = selectedVariant?.price ?? product.price;
+// ✅ STOCK (variant aware)
+const stock =
+  selectedVariant?.stockQuantity ?? product.stockQuantity ?? 0;
+
+// ✅ STOCK DISPLAY LOGIC (same as PDP)
+const stockDisplay = (() => {
+  // ❌ Always dominant
+  if (stock === 0) {
+    return {
+      show: true,
+      text: "Out of Stock",
+      type: "out",
+    };
+  }
+
+  // ✅ Exact quantity priority
+  if (product.displayStockQuantity === true) {
+    if (stock <= 5) {
+      return {
+        show: true,
+        text: `Only ${stock} left`,
+        type: "low",
+      };
+    }
+
+    return {
+      show: true,
+      text: `${stock} available`,
+      type: "in",
+    };
+  }
+
+  // ✅ Generic availability
+  if (product.displayStockAvailability === true) {
+    return {
+      show: true,
+      text: "In Stock",
+      type: "in",
+    };
+  }
+
+  return {
+    show: false,
+    text: "",
+    type: "none",
+  };
+})();
 
 const subscriptionPrice = basePrice - (basePrice * product.subscriptionDiscountPercentage) / 100;
-
-
   // ----------------- NEW STATE FOR DROPDOWN -----------------
   const [selectedFrequency, setSelectedFrequency] = useState<string>(
     `${product.recurringCycleLength} ${product.recurringCyclePeriod}`
@@ -83,7 +128,8 @@ if (selectedFrequency.includes(" ")) {
       price: subscriptionPrice,
       quantity,
       variantId: selectedVariant?.id ?? null,
-      slug: product.slug,
+      slug: product.slug ?? "",
+
       frequency: (cycleLength),
       frequencyPeriod: cyclePeriod,
       subscriptionTotalCycles: product.recurringTotalCycles,
@@ -209,25 +255,30 @@ image: selectedVariant?.imageUrl
 
   </div>
 
+ {stockDisplay.show && (
   <div
     className={`flex-shrink-0 flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold shadow-sm mb-[15px] ${
-      (selectedVariant?.stockQuantity ?? product.stockQuantity) === 0
+      stockDisplay.type === "out"
         ? "bg-red-100 text-red-700"
+        : stockDisplay.type === "low"
+        ? "bg-yellow-100 text-yellow-800"
         : "bg-green-100 text-green-700"
     }`}
   >
     <span
       className={`inline-block w-2 h-2 rounded-full ${
-        (selectedVariant?.stockQuantity ?? product.stockQuantity) === 0
+        stockDisplay.type === "out"
           ? "bg-red-600"
+          : stockDisplay.type === "low"
+          ? "bg-yellow-600"
           : "bg-green-600"
       }`}
     ></span>
 
-    {(selectedVariant?.stockQuantity ?? product.stockQuantity) === 0
-      ? "Out of Stock"
-      : `${selectedVariant?.stockQuantity ?? product.stockQuantity} Available`}
+    {stockDisplay.text}
   </div>
+)}
+
 
 </div>
 
