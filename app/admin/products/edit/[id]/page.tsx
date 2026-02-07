@@ -2714,13 +2714,13 @@ const handleSubmit = async (e?: React.FormEvent, isDraft: boolean = false, relea
       return;
     }
 
-  if (!formData.price || Number(formData.price) <= 0) {
-  toast.error('❌ Price must be greater than zero');
-  target.removeAttribute('data-submitting');
-  setIsSubmitting(false);
-  setSubmitProgress(null);
-  return;
-}
+//   if (!formData.price) {
+//   toast.error('❌ Price is required');
+//   target.removeAttribute('data-submitting');
+//   setIsSubmitting(false);
+//   setSubmitProgress(null);
+//   return;
+// }
 
     // If product is NOT VAT exempt, VAT rate is required
 if (!formData.vatExempt && (!formData.vatRateId || !formData.vatRateId.trim())) {
@@ -2890,13 +2890,13 @@ if (length > 2000) {
       setSubmitProgress(null);
       return;
     }
-if (!formData.stockQuantity || Number(formData.stockQuantity) <= 0) {
-  toast.error('❌ Stock quantity must be greater than zero');
-  target.removeAttribute('data-submitting');
-  setIsSubmitting(false);
-  setSubmitProgress(null);
-  return;
-}
+// if (!formData.stockQuantity ) {
+//   toast.error('❌ Stock quantity is required');
+//   target.removeAttribute('data-submitting');
+//   setIsSubmitting(false);
+//   setSubmitProgress(null);
+//   return;
+// }
 
     if (parsedPrice > 10000000) {
       toast.error('⚠️ Price seems unusually high. Please verify.');

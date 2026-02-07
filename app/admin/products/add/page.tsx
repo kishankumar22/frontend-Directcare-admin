@@ -120,32 +120,8 @@ const [selectedGroupedProducts, setSelectedGroupedProducts] = useState<string[]>
 // Homepage Count State
 const [homepageCount, setHomepageCount] = useState<number | null>(null);
 const MAX_HOMEPAGE = 50;
-// ✅ DEBOUNCE UTILITY FUNCTION - Add at TOP of file (after imports)
-function debounce<T extends (...args: any[]) => any>(
-  func: T,
-  wait: number
-): T & { cancel: () => void } {
-  let timeout: NodeJS.Timeout | null = null;
 
-  const debounced = function (this: any, ...args: Parameters<T>) {
-    const later = () => {
-      timeout = null;
-      func.apply(this, args);
-    };
 
-    if (timeout) clearTimeout(timeout);
-    timeout = setTimeout(later, wait);
-  } as T & { cancel: () => void };
-
-  debounced.cancel = () => {
-    if (timeout) {
-      clearTimeout(timeout);
-      timeout = null;
-    }
-  };
-
-  return debounced;
-}
 
 // ============================================================
 // ADD THIS useEffect AFTER YOUR OTHER useEffect HOOKS
@@ -3257,7 +3233,7 @@ useEffect(() => {
     // minLength={50}
     maxLength={2000}
     showCharCount={true}
-    showHelpText="Detailed product information with formatting (50-2000 characters)"
+    // showHelpText="Detailed product information with formatting (50-2000 characters)"
   />
 
 </div>

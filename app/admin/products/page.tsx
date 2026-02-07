@@ -1265,236 +1265,312 @@ const formatOptionLabel = (option: SelectOption) => {
   return (
     <div className="space-y-2">
       {/* HEADER */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight bg-gradient-to-r from-violet-400 via-cyan-400 to-pink-400 bg-clip-text text-transparent">
-            Product Management
-          </h1>
-          <p className="text-slate-400">Manage your product inventory</p>
-        </div>
+{/* ================= HEADER ================= */}
+{/* ================= HEADER ================= */}
+<div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+  {/* Title */}
+  <div>
+    <h1 className="text-2xl font-bold tracking-tight bg-gradient-to-r from-violet-400 via-cyan-400 to-pink-400 bg-clip-text text-transparent">
+      Product Management
+    </h1>
+    <p className="text-sm text-slate-400">Manage your product inventory</p>
+  </div>
 
-        <div className="flex flex-wrap items-center gap-2">
-          <button
-            onClick={() => router.push("/admin/categories")}
-            className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-violet-500 to-purple-500 hover:from-violet-600 hover:to-purple-600 text-white rounded-xl font-semibold shadow-lg hover:shadow-violet-500/50 transition-all"
-          >
-            <FolderTree className="w-4 h-4" />
-            Categories
-          </button>
+  {/* Actions */}
+  <div className="flex flex-wrap items-center gap-2">
+    {/* Categories */}
+    <button
+      onClick={() => router.push("/admin/categories")}
+      className="flex items-center gap-2 px-3 py-1.5 text-sm
+      bg-gradient-to-r from-violet-500 to-purple-500
+      hover:from-violet-600 hover:to-purple-600
+      text-white rounded-lg font-semibold shadow
+      hover:shadow-violet-500/40 transition-all"
+    >
+      <FolderTree className="w-4 h-4" />
+      Categories
+    </button>
 
-          <button
-            onClick={() => router.push("/admin/brands")}
-            className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-600 hover:to-blue-600 text-white rounded-xl font-semibold shadow-lg hover:shadow-cyan-500/50 transition-all"
-          >
-            <Award className="w-4 h-4" />
-            Brands
-          </button>
+    {/* Brands */}
+    <button
+      onClick={() => router.push("/admin/brands")}
+      className="flex items-center gap-2 px-3 py-1.5 text-sm
+      bg-gradient-to-r from-cyan-500 to-blue-500
+      hover:from-cyan-600 hover:to-blue-600
+      text-white rounded-lg font-semibold shadow
+      hover:shadow-cyan-500/40 transition-all"
+    >
+      <Award className="w-4 h-4" />
+      Brands
+    </button>
 
-          <button
-            onClick={() => router.push("/admin/discounts")}
-            className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-pink-500 to-rose-500 hover:from-pink-600 hover:to-rose-600 text-white rounded-xl font-semibold shadow-lg hover:shadow-pink-500/50 transition-all"
-          >
-            <Tag className="w-4 h-4" />
-            Discounts
-          </button>
+    {/* Discounts */}
+    <button
+      onClick={() => router.push("/admin/discounts")}
+      className="flex items-center gap-2 px-3 py-1.5 text-sm
+      bg-gradient-to-r from-pink-500 to-rose-500
+      hover:from-pink-600 hover:to-rose-600
+      text-white rounded-lg font-semibold shadow
+      hover:shadow-pink-500/40 transition-all"
+    >
+      <Tag className="w-4 h-4" />
+      Discounts
+    </button>
 
-          <button
-            onClick={() => router.push("/admin/orders")}
-            className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white rounded-xl font-semibold shadow-lg hover:shadow-emerald-500/50 transition-all"
-          >
-            <ShoppingCart className="w-4 h-4" />
-            Orders
-          </button>
+    {/* Orders */}
+    <button
+      onClick={() => router.push("/admin/orders")}
+      className="flex items-center gap-2 px-3 py-1.5 text-sm
+      bg-gradient-to-r from-emerald-500 to-teal-500
+      hover:from-emerald-600 hover:to-teal-600
+      text-white rounded-lg font-semibold shadow
+      hover:shadow-emerald-500/40 transition-all"
+    >
+      <ShoppingCart className="w-4 h-4" />
+      Orders
+    </button>
 
-          <button
-            onClick={() => router.push("/admin/productReview")}
-            className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white rounded-xl font-semibold shadow-lg hover:shadow-amber-500/50 transition-all"
-          >
-            <Star className="w-4 h-4" />
-            Reviews
-          </button>
+    {/* Reviews */}
+    <button
+      onClick={() => router.push("/admin/productReview")}
+      className="flex items-center gap-2 px-3 py-1.5 text-sm
+      bg-gradient-to-r from-amber-500 to-orange-500
+      hover:from-amber-600 hover:to-orange-600
+      text-white rounded-lg font-semibold shadow
+      hover:shadow-amber-500/40 transition-all"
+    >
+      <Star className="w-4 h-4" />
+      Reviews
+    </button>
 
-          <div className="relative">
+    {/* My Requests */}
+    <button
+      onClick={() => setShowTakeoverPanel(true)}
+      className={`flex items-center gap-2 px-3 py-1.5 text-sm rounded-lg font-semibold
+      shadow transition-all relative ${
+        statusCounts.Pending > 0
+          ? "bg-gradient-to-r from-orange-500 to-red-500 text-white animate-pulse shadow-orange-500/40"
+          : "bg-gradient-to-r from-blue-500 to-blue-600 text-white hover:shadow-blue-500/40"
+      }`}
+    >
+      <Send className="w-4 h-4" />
+      Requests
+      {statusCounts.Pending > 0 && (
+        <span className="ml-1 inline-flex h-4 w-4 items-center justify-center rounded-full bg-white text-orange-600 text-[10px] font-bold">
+          {statusCounts.Pending}
+        </span>
+      )}
+    </button>
+
+    {/* Export */}
+    <div className="relative">
+      <button
+        onClick={() => setShowExportMenu(!showExportMenu)}
+        className="flex items-center gap-2 px-3 py-1.5 text-sm
+        bg-gradient-to-r from-green-600 to-emerald-600
+        text-white rounded-lg font-semibold shadow
+        hover:shadow-green-500/40 transition-all"
+      >
+        <FileSpreadsheet className="w-4 h-4" />
+        Export
+      </button>
+
+      {showExportMenu && (
+        <>
+          <div
+            className="fixed inset-0 z-10"
+            onClick={() => setShowExportMenu(false)}
+          />
+          <div className="absolute right-0 mt-2 w-60 bg-slate-800 border border-slate-700 rounded-xl shadow-xl z-20">
             <button
-              onClick={() => setShowTakeoverPanel(true)}
-              className={`flex items-center gap-2 px-4 py-2 rounded-xl transition-all shadow-lg relative overflow-hidden ${
-                statusCounts.Pending > 0
-                  ? "bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white animate-pulse shadow-orange-500/50"
-                  : "bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white hover:shadow-blue-500/30"
-              }`}
+              onClick={() => {
+                handleExport(false);
+                setShowExportMenu(false);
+              }}
+              className="w-full px-4 py-2 text-left text-sm text-white hover:bg-slate-700"
             >
-              <Send className="w-4 h-4" />
-              My Requests
-              {statusCounts.Pending > 0 && (
-                <span className="relative flex h-5 w-5 ml-1">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-5 w-5 bg-white text-orange-600 items-center justify-center text-xs font-bold">
-                    {statusCounts.Pending}
-                  </span>
-                </span>
-              )}
+              Export Filtered ({filteredProducts.length})
+            </button>
+
+            <button
+              onClick={() => {
+                handleExport(true);
+                setShowExportMenu(false);
+              }}
+              className="w-full px-4 py-2 text-left text-sm text-white hover:bg-slate-700"
+            >
+              Export All ({products.length})
             </button>
           </div>
-{/* EXPORT BUTTON */}
-<div className="relative">
-  <button
-    onClick={() => setShowExportMenu(!showExportMenu)}
-    className="px-4 py-2 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-xl hover:shadow-lg hover:shadow-green-500/50 transition-all flex items-center gap-2 font-semibold"
-  >
-    <FileSpreadsheet className="w-5 h-5" />
-    Export
-  </button>
+        </>
+      )}
+    </div>
 
-  {showExportMenu && (
-    <>
-      <div className="fixed inset-0 z-10" onClick={() => setShowExportMenu(false)}></div>
-      <div className="absolute right-0 mt-2 w-64 bg-slate-800 border border-slate-700 rounded-xl shadow-2xl shadow-black/50 z-20 overflow-hidden">
-        <button
-          onClick={() => {
-            handleExport(false);
-            setShowExportMenu(false);
-          }}
-          disabled={filteredProducts.length === 0}
-          className="w-full px-4 py-3 text-left text-white hover:bg-slate-700 transition-all flex items-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed border-b border-slate-700"
-        >
-          <FileSpreadsheet className="w-4 h-4 text-green-400" />
-          <div>
-            <p className="text-sm font-medium">Export Filtered</p>
-            <p className="text-xs text-slate-400">{filteredProducts.length} products</p>
-          </div>
-        </button>
-
-        <button
-          onClick={() => {
-            handleExport(true);
-            setShowExportMenu(false);
-          }}
-          disabled={products.length === 0}
-          className="w-full px-4 py-3 text-left text-white hover:bg-slate-700 transition-all flex items-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          <FileSpreadsheet className="w-4 h-4 text-cyan-400" />
-          <div>
-            <p className="text-sm font-medium">Export All</p>
-            <p className="text-xs text-slate-400">{products.length} products</p>
-          </div>
-        </button>
-      </div>
-    </>
-  )}
+    {/* Add Product */}
+    <Link href="/admin/products/add">
+      <button className="flex items-center gap-2 px-3 py-1.5 text-sm
+      bg-gradient-to-r from-violet-500 to-cyan-500
+      text-white rounded-lg font-semibold shadow
+      hover:shadow-violet-500/40 transition-all">
+        <Plus className="w-4 h-4" />
+        Add Product
+      </button>
+    </Link>
+  </div>
 </div>
 
-          <Link href="/admin/products/add">
-            <button className="px-4 py-2 bg-gradient-to-r from-violet-500 to-cyan-500 text-white rounded-xl hover:shadow-lg hover:shadow-violet-500/50 transition-all flex items-center gap-2 font-semibold">
-              <Plus className="h-4 w-4" />
-              Add Product
-            </button>
-          </Link>
-        </div>
+
+{/* ================= STATS ================= */}
+<div className="grid gap-3 md:grid-cols-4">
+  {/* Total */}
+  <div
+    onClick={() => handleStatClick("total")}
+    className="bg-gradient-to-br from-violet-500/10 to-purple-500/10
+    border border-violet-500/20 rounded-xl p-3
+    hover:shadow-lg hover:shadow-violet-500/10 transition-all cursor-pointer"
+  >
+    <div className="flex items-center gap-3">
+      <div className="p-2 bg-gradient-to-br from-violet-500 to-purple-500 rounded-lg">
+        <Package className="w-4 h-4 text-white" />
       </div>
-
-      {/* STATS */}
-      <div className="grid gap-4 md:grid-cols-4">
-        <div
-          onClick={() => handleStatClick("total")}
-          className="bg-gradient-to-br from-violet-500/10 to-purple-500/10 backdrop-blur-xl border border-violet-500/20 rounded-xl p-4 hover:shadow-lg hover:shadow-violet-500/10 transition-all group cursor-pointer"
-        >
-          <div className="flex items-center gap-3">
-            <div className="p-2.5 bg-gradient-to-br from-violet-500 to-purple-500 rounded-lg group-hover:scale-110 transition-transform">
-              <Package className="w-5 h-5 text-white" />
-            </div>
-            <div className="flex-1">
-              <p className="text-xs text-slate-400 mb-0.5">Total Products</p>
-              <div className="flex items-baseline gap-2">
-                <p className="text-2xl font-bold text-white">{stats.totalCount}</p>
-                <span className="text-xs text-violet-400 flex items-center gap-0.5">
-                  <TrendingUp className="w-3 h-3" />
-                  All Categories
-                </span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div
-          onClick={() => handleStatClick("published")}
-          className="bg-gradient-to-br from-green-500/10 to-emerald-500/10 backdrop-blur-xl border border-green-500/20 rounded-xl p-4 hover:shadow-lg hover:shadow-green-500/10 transition-all group cursor-pointer"
-        >
-          <div className="flex items-center gap-3">
-            <div className="p-2.5 bg-gradient-to-br from-green-500 to-emerald-500 rounded-lg group-hover:scale-110 transition-transform">
-              <CheckCircle className="w-5 h-5 text-white" />
-            </div>
-            <div className="flex-1">
-              <p className="text-xs text-slate-400 mb-0.5">Published</p>
-              <div className="flex items-baseline gap-2">
-                <p className="text-2xl font-bold text-white">{stats.publishedCount}</p>
-                <span className="text-xs text-green-400">Live Products</span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div
-          onClick={() => handleStatClick("lowStock")}
-          className="bg-gradient-to-br from-orange-500/10 to-amber-500/10 backdrop-blur-xl border border-orange-500/20 rounded-xl p-4 hover:shadow-lg hover:shadow-orange-500/10 transition-all group cursor-pointer"
-        >
-          <div className="flex items-center gap-3">
-            <div className="p-2.5 bg-gradient-to-br from-orange-500 to-amber-500 rounded-lg group-hover:scale-110 transition-transform">
-              <AlertCircle className="w-5 h-5 text-white" />
-            </div>
-            <div className="flex-1">
-              <p className="text-xs text-slate-400 mb-0.5">Low Stock</p>
-              <div className="flex items-baseline gap-2">
-                <p className="text-2xl font-bold text-white">{stats.lowStockCount}</p>
-                <span className="text-xs text-orange-400">Need Restocking</span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div
-          onClick={() => handleStatClick("outOfStock")}
-          className="bg-gradient-to-br from-red-500/10 to-rose-500/10 backdrop-blur-xl border border-red-500/20 rounded-xl p-4 hover:shadow-lg hover:shadow-red-500/10 transition-all group cursor-pointer"
-        >
-          <div className="flex items-center gap-3">
-            <div className="p-2.5 bg-gradient-to-br from-red-500 to-rose-500 rounded-lg group-hover:scale-110 transition-transform">
-              <XCircle className="w-5 h-5 text-white" />
-            </div>
-            <div className="flex-1">
-              <p className="text-xs text-slate-400 mb-0.5">Out of Stock</p>
-              <div className="flex items-baseline gap-2">
-                <p className="text-2xl font-bold text-white">{stats.outOfStockCount}</p>
-                <span className="text-xs text-red-400">Urgent Attention</span>
-              </div>
-            </div>
-          </div>
-        </div>
+      <div>
+        <p className="text-xs text-slate-400">Total Products</p>
+        <p className="text-xl font-bold text-white">{stats.totalCount}</p>
       </div>
+    </div>
+  </div>
 
-      {/* ITEMS PER PAGE */}
-      <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-2xl p-2">
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <span className="text-sm text-slate-400">Show</span>
-            <select
-              value={itemsPerPage}
-              onChange={(e) => handleItemsPerPageChange(Number(e.target.value))}
-              className="px-3 py-2 bg-slate-800/50 border border-slate-600 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all"
-            >
-              <option value={25}>25</option>
-              <option value={50}>50</option>
-              <option value={75}>75</option>
-              <option value={100}>100</option>
-            </select>
-            <span className="text-sm text-slate-400">entries per page</span>
-          </div>
-          <div className="text-sm text-slate-400">
-            Showing {startIndex + 1} to {Math.min(endIndex, totalItems)} of {totalItems} entries
-          </div>
-        </div>
+  {/* Published */}
+  <div
+    onClick={() => handleStatClick("published")}
+    className="bg-gradient-to-br from-green-500/10 to-emerald-500/10
+    border border-green-500/20 rounded-xl p-3
+    hover:shadow-lg hover:shadow-green-500/10 transition-all cursor-pointer"
+  >
+    <div className="flex items-center gap-3">
+      <div className="p-2 bg-gradient-to-br from-green-500 to-emerald-500 rounded-lg">
+        <CheckCircle className="w-4 h-4 text-white" />
       </div>
+      <div>
+        <p className="text-xs text-slate-400">Published</p>
+        <p className="text-xl font-bold text-white">{stats.publishedCount}</p>
+      </div>
+    </div>
+  </div>
+
+  {/* Low Stock */}
+  <div
+    onClick={() => handleStatClick("lowStock")}
+    className="bg-gradient-to-br from-orange-500/10 to-amber-500/10
+    border border-orange-500/20 rounded-xl p-3
+    hover:shadow-lg hover:shadow-orange-500/10 transition-all cursor-pointer"
+  >
+    <div className="flex items-center gap-3">
+      <div className="p-2 bg-gradient-to-br from-orange-500 to-amber-500 rounded-lg">
+        <AlertCircle className="w-4 h-4 text-white" />
+      </div>
+      <div>
+        <p className="text-xs text-slate-400">Low Stock</p>
+        <p className="text-xl font-bold text-white">{stats.lowStockCount}</p>
+      </div>
+    </div>
+  </div>
+
+  {/* Out of Stock */}
+  <div
+    onClick={() => handleStatClick("outOfStock")}
+    className="bg-gradient-to-br from-red-500/10 to-rose-500/10
+    border border-red-500/20 rounded-xl p-3
+    hover:shadow-lg hover:shadow-red-500/10 transition-all cursor-pointer"
+  >
+    <div className="flex items-center gap-3">
+      <div className="p-2 bg-gradient-to-br from-red-500 to-rose-500 rounded-lg">
+        <XCircle className="w-4 h-4 text-white" />
+      </div>
+      <div>
+        <p className="text-xs text-slate-400">Out of Stock</p>
+        <p className="text-xl font-bold text-white">{stats.outOfStockCount}</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+{/* ================= ITEMS PER PAGE + RESULTS COUNT ================= */}
+<div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-xl px-3 py-2">
+  <div className="flex items-center justify-between gap-3">
+
+    {/* LEFT: Items per page */}
+    <div className="flex items-center gap-2">
+      <span className="text-xs text-slate-400">Show</span>
+
+      <select
+        value={itemsPerPage}
+        onChange={(e) => handleItemsPerPageChange(Number(e.target.value))}
+        className="px-2 py-1 bg-slate-800/60 border border-slate-600
+        rounded-md text-white text-xs
+        focus:outline-none focus:ring-1 focus:ring-violet-500"
+      >
+        <option value={25}>25</option>
+        <option value={50}>50</option>
+        <option value={75}>75</option>
+        <option value={100}>100</option>
+      </select>
+
+      <span className="text-xs text-slate-400">entries</span>
+    </div>
+
+    {/* RIGHT: Result + Active filters */}
+    <div className="text-xs text-slate-400 whitespace-nowrap">
+      Showing {totalItems === 0 ? 0 : startIndex + 1} to{" "}
+      {Math.min(endIndex, totalItems)} of {totalItems} product
+      {totalItems !== 1 ? "s" : ""}
+      {hasActiveFilters && (
+        <span className="text-violet-400">
+          {" "}.{" "}
+          {[
+            searchTerm !== "",
+            selectedCategory.value !== "all",
+            selectedBrand.value !== "all",
+            selectedHomepage.value !== "all",
+            selectedType.value !== "all",
+            statusFilter.value !== "all",
+            publishedFilter.value !== "all",
+            deliveryFilter.value !== "all",
+            markAsNewFilter.value !== "all",
+            notReturnableFilter.value !== "all",
+            inventoryFilter.value !== "all",
+            recurringFilter.value !== "all",
+            vatFilter.value !== "all",
+            discountFilter.value !== "all",
+          ].filter(Boolean).length} active filter
+          {[
+            searchTerm !== "",
+            selectedCategory.value !== "all",
+            selectedBrand.value !== "all",
+            selectedHomepage.value !== "all",
+            selectedType.value !== "all",
+            statusFilter.value !== "all",
+            publishedFilter.value !== "all",
+            deliveryFilter.value !== "all",
+            markAsNewFilter.value !== "all",
+            notReturnableFilter.value !== "all",
+            inventoryFilter.value !== "all",
+            recurringFilter.value !== "all",
+            vatFilter.value !== "all",
+            discountFilter.value !== "all",
+          ].filter(Boolean).length !== 1 && "s"}
+        </span>
+      )}
+    </div>
+
+  </div>
+</div>
+
+
 
 {/* ✅ FILTERS SECTION - ROW 1 */}
-<div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-2xl p-2">
+<div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-xl p-1.5">
+
   <div className="flex items-center gap-3">
     {/* <Filter className="h-5 w-5 text-slate-400 flex-shrink-0" /> */}
 
@@ -1805,52 +1881,7 @@ const formatOptionLabel = (option: SelectOption) => {
 
     
 
-      {/* Results Count */}
-      <div className="text-sm text-slate-400 flex items-center justify-between px-2">
-        <span>
-          {totalItems} product{totalItems !== 1 ? "s" : ""} found
-        </span>
-        {hasActiveFilters && (
-          <span className="text-violet-400">
-            {[
-              searchTerm !== "",
-              selectedCategory.value !== "all",
-              selectedBrand.value !== "all",
-              selectedHomepage.value !== "all",
-              selectedType.value !== "all",
-              statusFilter.value !== "all",
-              publishedFilter.value !== "all",
-              deliveryFilter.value !== "all",
-              markAsNewFilter.value !== "all",
-              notReturnableFilter.value !== "all",
-              inventoryFilter.value !== "all",
-              recurringFilter.value !== "all",
-              vatFilter.value !== "all",
-              discountFilter.value !== "all",
-            ].filter(Boolean).length}{" "}
-            filter
-            {[
-              searchTerm !== "",
-              selectedCategory.value !== "all",
-              selectedBrand.value !== "all",
-              selectedHomepage.value !== "all",
-              selectedType.value !== "all",
-              statusFilter.value !== "all",
-              publishedFilter.value !== "all",
-              deliveryFilter.value !== "all",
-              markAsNewFilter.value !== "all",
-              notReturnableFilter.value !== "all",
-              inventoryFilter.value !== "all",
-              recurringFilter.value !== "all",
-              vatFilter.value !== "all",
-              discountFilter.value !== "all",
-            ].filter(Boolean).length !== 1
-              ? "s"
-              : ""}{" "}
-            active
-          </span>
-        )}
-      </div>
+
 
       {/* ✅ PRODUCTS TABLE WITH DISCOUNT COLUMN */}
       <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-2xl p-2">

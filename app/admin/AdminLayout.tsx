@@ -51,7 +51,8 @@ import {
   Shield,
   Award,
   Coins,
-  Sliders, // ✅ NEW ICON FOR SYSTEM GROUP
+  Sliders,
+  ClipboardList, // ✅ NEW ICON FOR SYSTEM GROUP
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTheme } from "@/app/admin/_context/theme-provider";
@@ -66,7 +67,7 @@ interface NavigationItem {
   children?: NavigationItem[];
 }
 
-// ✅ UPDATED NAVIGATION WITH ACTIVITY LOGS IN SYSTEM GROUP
+
 // ✅ UPDATED NAVIGATION WITH LOYALTY PROGRAM GROUP
 const navigation: NavigationItem[] = [
   { 
@@ -82,6 +83,7 @@ const navigation: NavigationItem[] = [
       { name: 'Categories', href: '/admin/categories', icon: FolderTree },
       { name: 'Brands', href: '/admin/brands', icon: Tag },
       { name: 'Product Reviews', href: '/admin/productReview', icon: Star },
+      { name: 'Pharmacy Questions', href: '/admin/pharmacy-questions', icon: ClipboardList }, // ✅ NEW
     ],
   },
   {
@@ -117,24 +119,22 @@ const navigation: NavigationItem[] = [
       { name: "NewsLetter", href: "/admin/newsletter", icon: Mail },
     ],
   },
-// ✅ BEST PROFESSIONAL SETUP
-{
-  name: 'Loyalty Program',        // Clear name
-  icon: Award,                    // Award badge icon (professional)
-  children: [
-    { 
-      name: 'Loyalty Points',     // Customer points management
-      href: '/admin/loyalty-points', 
-      icon: Coins                 // Coins icon (represents points)
-    },
-    { 
-      name: 'Loyalty Config',     // Configuration settings
-      href: '/admin/loyalty-config', 
-      icon: Sliders               // Sliders icon (represents settings)
-    },
-  ],
-},
-
+  {
+    name: 'Loyalty Program',
+    icon: Award,
+    children: [
+      { 
+        name: 'Loyalty Points',
+        href: '/admin/loyalty-points', 
+        icon: Coins
+      },
+      { 
+        name: 'Loyalty Config',
+        href: '/admin/loyalty-config', 
+        icon: Sliders
+      },
+    ],
+  },
   {
     name: 'Configuration',
     icon: Cog,
@@ -151,7 +151,6 @@ const navigation: NavigationItem[] = [
       { name: 'Blog Comments', href: '/admin/comments', icon: MessageSquare },
     ],
   },
-  // ✅ SYSTEM GROUP WITH ACTIVITY LOGS
   {
     name: 'System',
     icon: Shield,
@@ -160,6 +159,7 @@ const navigation: NavigationItem[] = [
     ],
   },
 ];
+
 
 
 export default function AdminLayout({ children }: { children: ReactNode }) {

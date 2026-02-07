@@ -253,7 +253,7 @@ const handleImageFileChange = (file: File) => {
   setImageFile(file);
   const previewUrl = URL.createObjectURL(file);
   setImagePreview(previewUrl);
-  toast.success("Image selected! Click Create/Update to upload.");
+
 };
 
   const handleAddSubcategory = (parentId: string, parentName: string) => {
@@ -637,7 +637,7 @@ if (description.length > 1000) {
         }
 
         finalImageUrl = uploadResponse.data.data;
-        toast.success("✅ Image uploaded successfully!");
+
         
         // Delete old image if exists (in edit mode)
         if (
@@ -1681,7 +1681,7 @@ useEffect(() => {
                 <th className="py-4 px-4 text-left text-sm font-semibold text-slate-300">Category Name</th>
                 <th className="py-4 px-4 text-center text-sm font-semibold text-slate-300">Products</th>
                 <th className="py-4 px-4 text-center text-sm font-semibold text-slate-300">Status</th>
-                <th className="py-4 px-4 text-center text-sm font-semibold text-slate-300">Order</th>
+                <th className="py-4 px-4 text-center text-sm font-semibold text-slate-300">Order by </th>
                 <th className="py-4 px-4 text-left text-sm font-semibold text-slate-300">Created At</th>
                 <th className="py-4 px-4 text-left text-sm font-semibold text-slate-300">Updated At</th>
                 <th className="py-4 px-4 text-left text-sm font-semibold text-slate-300">Updated By</th>

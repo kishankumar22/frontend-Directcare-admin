@@ -20,6 +20,7 @@ export const API_ENDPOINTS = {
 
   // Products
   products: '/api/Products',
+  PharmacyQuestions:'/api/pharmacy-questions',
   
   // 🆕 Product Lock & Takeover System
   productLock: {

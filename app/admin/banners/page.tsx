@@ -311,7 +311,7 @@ const handleSubmit = async (e: React.FormEvent) => {
         }
 
         finalImageUrl = uploadResponse.data.data;
-        toast.success("Image uploaded successfully!");
+    
 
         // Delete old image if editing
         if (editingBanner?.imageUrl && editingBanner.imageUrl !== finalImageUrl) {
