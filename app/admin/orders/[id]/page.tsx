@@ -181,6 +181,13 @@ const getPaymentStatusInfo = (status: PaymentStatus) => {
       icon: <Clock className="h-3 w-3" />,
       description: 'Payment is being processed.',
     },
+    Authorized: {
+      label: 'Authorized',
+      color: 'text-blue-300',
+      bgColor: 'bg-blue-400/10',
+      icon: <CheckCircle className="h-3 w-3" />,
+      description: 'Payment has been authorized.',
+    },
     Processing: {
       label: 'Processing',
       color: 'text-blue-400',
@@ -215,6 +222,13 @@ const getPaymentStatusInfo = (status: PaymentStatus) => {
       bgColor: 'bg-red-500/10',
       icon: <XCircle className="h-3 w-3" />,
       description: 'Payment failed.',
+    },
+    Cancelled: {
+      label: 'Cancelled',
+      color: 'text-red-300',
+      bgColor: 'bg-red-400/10',
+      icon: <XCircle className="h-3 w-3" />,
+      description: 'Payment was cancelled.',
     },
     Refunded: {
       label: 'Refunded',
@@ -384,7 +398,8 @@ const getAllAvailableActions = (order: Order, canRefund: boolean) => {
 
   // ✅ Workflow Actions (Click & Collect)
   if (deliveryMethod === 'ClickAndCollect') {
-    if (status === 'Processing' && order.collectionStatus !== 'Ready') {
+    // Mark Ready: Confirmed or Processing, not already Ready/Collected
+    if ((status === 'Confirmed' || status === 'Processing') && order.collectionStatus !== 'Ready' && order.collectionStatus !== 'Collected') {
       actions.push({
         label: 'Mark Ready',
         action: 'mark-ready',
@@ -394,7 +409,8 @@ const getAllAvailableActions = (order: Order, canRefund: boolean) => {
       });
     }
 
-    if (order.collectionStatus === 'Ready' && status !== 'Delivered') {
+    // Mark Collected: Only when Ready
+    if (order.collectionStatus === 'Ready') {
       actions.push({
         label: 'Mark Collected',
         action: 'mark-collected',
@@ -407,10 +423,8 @@ const getAllAvailableActions = (order: Order, canRefund: boolean) => {
 
   // ✅ Workflow Actions (Home Delivery)
   if (deliveryMethod === 'HomeDelivery') {
-    if (
-      (status === 'Confirmed' || status === 'Processing') &&
-      (!order.shipments || order.shipments.length === 0)
-    ) {
+    // Create Shipment: Confirmed/Processing/PartiallyShipped, not Cancelled/Refunded/Delivered
+    if (['Confirmed', 'Processing', 'PartiallyShipped'].includes(status)) {
       actions.push({
         label: 'Create Shipment',
         action: 'create-shipment',
@@ -420,6 +434,7 @@ const getAllAvailableActions = (order: Order, canRefund: boolean) => {
       });
     }
 
+    // Mark Delivered: Only when Shipped or PartiallyShipped with shipments
     if (
       (status === 'Shipped' || status === 'PartiallyShipped') &&
       order.shipments &&
@@ -435,8 +450,9 @@ const getAllAvailableActions = (order: Order, canRefund: boolean) => {
     }
   }
 
-  // ✅ Status Update
-  if (!['Delivered', 'Cancelled', 'Refunded', 'Returned'].includes(status)) {
+  // ✅ Update Status - Available for all except Refunded (backend blocks it)
+  // Backend: Delivered → Returned/Refunded, Cancelled → Refunded, Refunded → BLOCKED
+  if (status !== 'Refunded') {
     actions.push({
       label: 'Update Status',
       action: 'update-status',
@@ -446,8 +462,9 @@ const getAllAvailableActions = (order: Order, canRefund: boolean) => {
     });
   }
 
-  // ✅ Cancel Order
-  if (!['Delivered', 'Cancelled', 'Refunded', 'Returned'].includes(status)) {
+  // ✅ Cancel Order - Pending, Confirmed, Processing, Shipped, PartiallyShipped
+  // Backend: Cannot cancel Delivered (use Return), Cancelled, Refunded, Returned
+  if (['Pending', 'Confirmed', 'Processing', 'Shipped', 'PartiallyShipped'].includes(status)) {
     actions.push({
       label: 'Cancel Order',
       action: 'cancel-order',
@@ -457,7 +474,7 @@ const getAllAvailableActions = (order: Order, canRefund: boolean) => {
     });
   }
 
-  // ✅ Financial Actions - Always available (regardless of status)
+  // ✅ Regenerate Invoice - Always available (backend has no status restriction)
   actions.push({
     label: 'Regenerate Invoice',
     action: 'regenerate-invoice',
@@ -466,24 +483,31 @@ const getAllAvailableActions = (order: Order, canRefund: boolean) => {
     category: 'financial',
   });
 
-  // ✅ View Histories
-  actions.push({
-    label: 'View Refund History',
-    action: 'view-refund-history',
-    icon: <History className="h-3.5 w-3.5" />,
-    color: 'bg-violet-600 hover:bg-violet-700',
-    category: 'financial',
-  });
+  // ✅ View Refund History - Only when order has been refunded or has refund-related payment
+  const hasRefundActivity = order.status === 'Refunded' || order.status === 'Returned' ||
+    order.payments?.some(p => p.status === 'Refunded' || p.status === 'PartiallyRefunded');
+  if (hasRefundActivity) {
+    actions.push({
+      label: 'View Refund History',
+      action: 'view-refund-history',
+      icon: <History className="h-3.5 w-3.5" />,
+      color: 'bg-violet-600 hover:bg-violet-700',
+      category: 'financial',
+    });
+  }
 
-  actions.push({
-    label: 'View Edit History',
-    action: 'view-edit-history',
-    icon: <History className="h-3.5 w-3.5" />,
-    color: 'bg-slate-600 hover:bg-slate-700',
-    category: 'financial',
-  });
+  // ✅ View Edit History - Only for orders that have been modified (not brand new pending)
+  if (order.updatedAt && order.updatedAt !== order.createdAt) {
+    actions.push({
+      label: 'View Edit History',
+      action: 'view-edit-history',
+      icon: <History className="h-3.5 w-3.5" />,
+      color: 'bg-slate-600 hover:bg-slate-700',
+      category: 'financial',
+    });
+  }
 
-  // ✅ Refund Actions (conditional)
+  // ✅ Refund Actions - Only when payment is Successful/Completed/Captured and not already Refunded
   if (canRefund) {
     actions.push({
       label: 'Full Refund',
@@ -955,8 +979,8 @@ const handleAction = (action: string) => {
   }
 
   const statusInfo = getOrderStatusInfo(order.status);
-  const firstPayment = order.payments && order.payments.length > 0 ? order.payments[0] : null;
-  const paymentStatusInfo = firstPayment ? getPaymentStatusInfo(firstPayment.status) : null;
+  const paymentStatusStr = order.paymentStatus || (order.payments?.[0]?.status);
+  const paymentStatusInfo = paymentStatusStr ? getPaymentStatusInfo(paymentStatusStr as PaymentStatus) : null;
   const collectionStatusInfo = order.collectionStatus
     ? getCollectionStatusInfo(order.collectionStatus as CollectionStatus)
     : null;
@@ -1167,7 +1191,7 @@ const handleAction = (action: string) => {
               Delivery Method
             </p>
             {order.deliveryMethod === 'ClickAndCollect' ? (
-              <span 
+              <span
                 className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-cyan-500/10 text-cyan-400 text-sm border border-cyan-500/20 cursor-help"
                 title="Customer will collect order from store location"
               >
@@ -1175,7 +1199,7 @@ const handleAction = (action: string) => {
                 Click & Collect
               </span>
             ) : (
-              <span 
+              <span
                 className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-purple-500/10 text-purple-400 text-sm border border-purple-500/20 cursor-help"
                 title="Order will be shipped to customer address"
               >
@@ -1183,6 +1207,31 @@ const handleAction = (action: string) => {
                 Home Delivery
               </span>
             )}
+          </div>
+
+          {/* Payment Method */}
+          <div className="mt-3 pt-3 border-t border-slate-700">
+            <p className="text-xs text-slate-400 mb-2 flex items-center gap-1">
+              <CreditCard className="h-3 w-3" />
+              Payment Method
+            </p>
+            {(() => {
+              const method = order.paymentMethod || order.payments?.[0]?.paymentMethod;
+              const isStripe = method?.toLowerCase() === 'stripe';
+              return (
+                <span
+                  className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm border cursor-help ${
+                    isStripe
+                      ? 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20'
+                      : 'bg-amber-500/10 text-amber-400 border-amber-500/20'
+                  }`}
+                  title={isStripe ? 'Payment via Stripe card processing' : 'Cash on Delivery - payment upon receipt'}
+                >
+                  {isStripe ? <CreditCard className="h-4 w-4" /> : <PoundSterling className="h-4 w-4" />}
+                  {isStripe ? 'Stripe' : 'Cash on Delivery'}
+                </span>
+              );
+            })()}
           </div>
         </div>
 

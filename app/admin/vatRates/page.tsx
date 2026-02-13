@@ -25,12 +25,14 @@ import {
   Hash,
   Star,
   AlertTriangle,
-  Loader2
+  Loader2,
+  RotateCcw
 } from "lucide-react";
 import { useToast } from "@/app/admin/_component/CustomToast";
 import { VATRate, vatratesService, CreateVATRateDto, DeleteVATRateResponse } from "@/lib/services/vatrates";
 import { countriesService, Country } from "@/lib/services/countries";
-import { toDate } from "date-fns";
+
+
 
 export default function VATRatesPage() {
   const toast = useToast();
@@ -48,10 +50,83 @@ export default function VATRatesPage() {
   const [deletingRate, setDeletingRate] = useState<VATRate | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
-  
+  const [deletedFilter, setDeletedFilter] = useState<"notDeleted" | "deleted">("notDeleted");
+const [statusConfirm, setStatusConfirm] = useState<VATRate | null>(null);
+const [restoreConfirm, setRestoreConfirm] = useState<VATRate | null>(null);
+
   // ✅ Country search state
   const [countrySearchTerm, setCountrySearchTerm] = useState("");
   const [showCountryDropdown, setShowCountryDropdown] = useState(false);
+const ConfirmationModal = ({
+  title,
+  description,
+  onConfirm,
+  onCancel,
+}: {
+  title: string;
+  description: string;
+  onConfirm: () => void;
+  onCancel: () => void;
+}) => {
+  const [loading, setLoading] = useState(false);
+
+  const handleConfirm = async () => {
+    setLoading(true);
+    try {
+      await onConfirm();
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-[80] flex items-center justify-center p-4">
+      <div className="bg-gradient-to-br from-slate-900 via-slate-900 to-slate-800 border border-violet-500/30 rounded-2xl max-w-md w-full shadow-2xl">
+
+        {/* Header */}
+        <div className="p-5 border-b border-slate-700">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-yellow-500/20 rounded-full">
+              <AlertTriangle className="w-6 h-6 text-yellow-400" />
+            </div>
+            <h2 className="text-xl font-bold text-white">{title}</h2>
+          </div>
+        </div>
+
+        {/* Body */}
+        <div className="p-5">
+          <p className="text-slate-300">{description}</p>
+        </div>
+
+        {/* Footer */}
+        <div className="p-5 border-t border-slate-700 flex gap-3">
+          <button
+            onClick={onCancel}
+            disabled={loading}
+            className="flex-1 px-4 py-2 bg-slate-800 text-white rounded-xl hover:bg-slate-700 transition-all disabled:opacity-50"
+          >
+            Cancel
+          </button>
+
+          <button
+            onClick={handleConfirm}
+            disabled={loading}
+            className="flex-1 px-4 py-2 bg-gradient-to-r from-violet-600 to-purple-600 text-white rounded-xl hover:shadow-lg hover:shadow-violet-500/50 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+          >
+            {loading ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Processing...
+              </>
+            ) : (
+              "Confirm"
+            )}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
 
   // Form state
   const [formData, setFormData] = useState<CreateVATRateDto>({
@@ -84,24 +159,46 @@ export default function VATRatesPage() {
   };
 
   // Fetch VAT Rates
-  const fetchVATRates = async () => {
-    try {
-      setLoading(true);
-      const response = await vatratesService.getAll({ params: { activeOnly: false } });
-      
-      if (response?.data?.success && response.data.data) {
-        setVatRates(response.data.data);
-      } else {
-        setVatRates([]);
+ const fetchVATRates = async () => {
+  try {
+    setLoading(true);
+
+    const params: any = {};
+
+    // ✅ Deleted filter
+    if (deletedFilter === "deleted") {
+      params.isDeleted = true;
+    } else {
+      params.isDeleted = false;
+
+      // status filter only when notDeleted
+      if (statusFilter === "Active") {
+        params.activeOnly = true;
       }
-    } catch (error: any) {
-      console.error("Error fetching VAT rates:", error);
-      toast.error("Failed to load VAT rates");
-      setVatRates([]);
-    } finally {
-      setLoading(false);
+
+      if (statusFilter === "Inactive") {
+        params.activeOnly = false;
+      }
     }
-  };
+
+    console.log("🔥 VAT API PARAMS:", params);
+
+    const response = await vatratesService.getAll({ params });
+
+    if (response?.data?.success) {
+      setVatRates(response.data.data || []);
+    } else {
+      setVatRates([]);
+    }
+
+  } catch (error) {
+    toast.error("Failed to load VAT rates");
+    setVatRates([]);
+  } finally {
+    setLoading(false);
+  }
+};
+
 
   // Fetch Countries
   const fetchCountries = async () => {
@@ -114,30 +211,31 @@ export default function VATRatesPage() {
     }
   };
 
-  useEffect(() => {
-    fetchVATRates();
+  useEffect(() => {  
     fetchCountries();
   }, []);
+  useEffect(() => {
+  fetchVATRates();
+}, [deletedFilter, statusFilter]);
 
-  // Filter VAT rates
-  const filteredRates = useMemo(() => {
-    return vatRates.filter((rate) => {
-      const matchesSearch =
-        rate.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        rate.country.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        rate.description.toLowerCase().includes(searchTerm.toLowerCase());
+// ✅ Backend handles status + deleted
+// Frontend handles only search + country
 
-      const matchesStatus =
-        statusFilter === "All Status" ||
-        (statusFilter === "Active" && rate.isActive) ||
-        (statusFilter === "Inactive" && !rate.isActive);
+const filteredRates = useMemo(() => {
+  return vatRates.filter((rate) => {
+    const matchesSearch =
+      rate.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      rate.country?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      rate.description?.toLowerCase().includes(searchTerm.toLowerCase());
 
-      const matchesCountry =
-        countryFilter === "All Countries" || rate.country === countryFilter;
+    const matchesCountry =
+      countryFilter === "All Countries" ||
+      rate.country === countryFilter;
 
-      return matchesSearch && matchesStatus && matchesCountry;
-    });
-  }, [vatRates, searchTerm, statusFilter, countryFilter]);
+    return matchesSearch && matchesCountry;
+  });
+}, [vatRates, searchTerm, countryFilter]);
+
 
   // Calculate stats
   const totalRates = vatRates.length;
@@ -202,6 +300,44 @@ if (formData.rate === 0) {
     setFormErrors(errors);
     return Object.keys(errors).length === 0;
   };
+
+const handleStatusToggle = async () => {
+  if (!statusConfirm) return;
+
+  try {
+    await vatratesService.update(statusConfirm.id, {
+      name: statusConfirm.name,
+      description: statusConfirm.description,
+      rate: statusConfirm.rate,
+      isDefault: statusConfirm.isDefault,
+      isActive: !statusConfirm.isActive, // 👈 only this changes
+      country: statusConfirm.country,
+      region: statusConfirm.region,
+      displayOrder: statusConfirm.displayOrder
+    });
+
+    toast.success("Status updated successfully");
+    setStatusConfirm(null);
+    fetchVATRates();
+  } catch (error) {
+    toast.error("Failed to update status");
+  }
+};
+
+
+const handleRestore = async () => {
+  if (!restoreConfirm) return;
+
+  try {
+    await vatratesService.restore(restoreConfirm.id);
+    toast.success("VAT Rate restored successfully");
+    setRestoreConfirm(null);
+    fetchVATRates();
+  } catch {
+    toast.error("Failed to restore VAT Rate");
+  }
+};
+
 
 // Handle Create
 const handleCreate = async (e: React.FormEvent) => {
@@ -398,6 +534,21 @@ const handleUpdate = async (e: React.FormEvent) => {
     }
   };
 
+
+  const hasActiveFilters =
+  searchTerm ||
+  statusFilter !== "All Status" ||
+  deletedFilter !== "notDeleted" ||
+  countryFilter !== "All Countries";
+
+const clearFilters = () => {
+  setSearchTerm("");
+  setStatusFilter("All Status");
+  setDeletedFilter("notDeleted");
+  setCountryFilter("All Countries");
+  setCurrentPage(1);
+};
+
   // Pagination functions
   const goToPage = useCallback((page: number) => {
     setCurrentPage(Math.max(1, Math.min(page, totalPages)));
@@ -564,65 +715,123 @@ const handleUpdate = async (e: React.FormEvent) => {
       </div>
 
       {/* Items Per Page */}
-      <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-2xl p-4">
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <span className="text-sm text-slate-400">Show</span>
-            <select
-              value={itemsPerPage}
-              onChange={(e) => { setItemsPerPage(Number(e.target.value)); setCurrentPage(1); }}
-              className="px-3 py-2 bg-slate-800/50 border border-slate-600 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all"
-            >
-              <option value={25}>25</option>
-              <option value={50}>50</option>
-              <option value={75}>75</option>
-              <option value={100}>100</option>
-            </select>
-            <span className="text-sm text-slate-400">entries per page</span>
-          </div>
-          
-          <div className="text-sm text-slate-400">
-            Showing {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, filteredRates.length)} of {filteredRates.length} entries
-          </div>
-        </div>
-      </div>
+{/* Items Per Page */}
+<div className="bg-slate-900/40 border border-slate-800 rounded-xl p-3">
+  <div className="flex flex-wrap items-center justify-between gap-3">
+
+    <div className="flex items-center gap-2 text-sm text-slate-400">
+      <span>Show</span>
+      <select
+        value={itemsPerPage}
+        onChange={(e) => {
+          setItemsPerPage(Number(e.target.value));
+          setCurrentPage(1);
+        }}
+        className="px-2 py-1.5 bg-slate-800 border border-slate-600 rounded-md text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
+      >
+        <option value={25}>25</option>
+        <option value={50}>50</option>
+        <option value={75}>75</option>
+        <option value={100}>100</option>
+      </select>
+      <span>entries</span>
+    </div>
+
+    <div className="text-sm text-slate-400">
+      Showing{" "}
+      {filteredRates.length === 0
+        ? 0
+        : (currentPage - 1) * itemsPerPage + 1}{" "}
+      to {Math.min(currentPage * itemsPerPage, filteredRates.length)} of{" "}
+      {filteredRates.length}
+    </div>
+  </div>
+</div>
 
       {/* Search and Filter */}
       <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-2xl p-4">
-        <div className="flex items-center gap-4 mb-2">
-          <div className="relative flex-1">
-            <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-slate-400 w-5 h-5" />
-            <input
-              type="text"
-              placeholder="Search by name, country, or description..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-12 pr-4 py-3 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all"
-            />
-          </div>
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            className="px-4 py-3 bg-slate-800/90 border border-slate-700 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all"
-          >
-            <option>All Status</option>
-            <option>Active</option>
-            <option>Inactive</option>
-          </select>
-          <select
-            value={countryFilter}
-            onChange={(e) => setCountryFilter(e.target.value)}
-            className="px-4 py-3 bg-slate-800/90 border border-slate-700 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all"
-          >
-            <option>All Countries</option>
-            {Array.from(new Set(vatRates.map(r => r.country))).sort().map(country => (
-              <option key={country} value={country}>{country}</option>
-            ))}
-          </select>
-          <div className="text-sm text-slate-400">
-            {filteredRates.length} rate{filteredRates.length !== 1 ? "s" : ""}
-          </div>
-        </div>
+      {/* Search and Filters */}
+<div className="bg-slate-900/40 border border-slate-800 rounded-xl p-3">
+  <div className="flex flex-wrap items-center gap-3">
+
+    {/* Search */}
+    <div className="relative flex-1 min-w-[240px]">
+      <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 w-4 h-4" />
+      <input
+        type="text"
+        placeholder="Search VAT rates..."
+        value={searchTerm}
+        onChange={(e) => {
+          setSearchTerm(e.target.value);
+          setCurrentPage(1);
+        }}
+        className="w-full pl-9 pr-3 py-2 bg-slate-800 border border-slate-700 rounded-md text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
+      />
+    </div>
+
+    {/* Status Filter */}
+    <select
+      value={statusFilter}
+      onChange={(e) => {
+        setStatusFilter(e.target.value);
+        setCurrentPage(1);
+      }}
+      className="px-3 py-2 bg-slate-800 border border-slate-700 rounded-md text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
+    >
+      <option>All Status</option>
+      <option>Active</option>
+      <option>Inactive</option>
+    </select>
+
+    {/* Deleted Filter */}
+    <select
+      value={deletedFilter}
+      onChange={(e) => {
+        setDeletedFilter(e.target.value as any);
+        setCurrentPage(1);
+      }}
+      className="px-3 py-2 bg-slate-800 border border-slate-700 rounded-md text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
+    >
+      <option value="notDeleted">Active VAT Rates</option>
+      <option value="deleted">Deleted VAT Rates</option>
+    </select>
+
+    {/* Country Filter */}
+    <select
+      value={countryFilter}
+      onChange={(e) => {
+        setCountryFilter(e.target.value);
+        setCurrentPage(1);
+      }}
+      className="px-3 py-2 bg-slate-800 border border-slate-700 rounded-md text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
+    >
+      <option>All Countries</option>
+      {Array.from(new Set(vatRates.map(r => r.country)))
+        .sort()
+        .map(country => (
+          <option key={country} value={country}>
+            {country}
+          </option>
+        ))}
+    </select>
+
+    {/* Clear Filter Button */}
+    {hasActiveFilters && (
+      <button
+        onClick={clearFilters}
+        className="px-3 py-2 bg-red-500/10 border border-red-500/40 text-red-400 rounded-md text-sm hover:bg-red-500/20 transition"
+      >
+        Clear Filters
+      </button>
+    )}
+
+    <div className="ml-auto text-sm text-slate-400">
+      {filteredRates.length} rate
+      {filteredRates.length !== 1 ? "s" : ""}
+    </div>
+  </div>
+</div>
+
 
         {/* VAT Rates Table */}
         {paginatedRates.length === 0 ? (
@@ -632,99 +841,131 @@ const handleUpdate = async (e: React.FormEvent) => {
           </div>
         ) : (
           <div className="overflow-x-auto max-h-[75vh]">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-slate-700">
-                  <th className="text-left py-4 px-4 text-slate-300 font-semibold">Name</th>
-                  <th className="text-left py-4 px-4 text-slate-300 font-semibold">Country</th>
-                  <th className="text-center py-4 px-4 text-slate-300 font-semibold">Rate (%)</th>
-                  <th className="text-left py-4 px-4 text-slate-300 font-semibold">Region</th>
-                  <th className="text-center py-4 px-4 text-slate-300 font-semibold">Status</th>
-                  <th className="text-center py-4 px-4 text-slate-300 font-semibold">Default</th>
-                  <th className="text-center py-4 px-4 text-slate-300 font-semibold">Display Order</th>
-                  <th className="text-center py-4 px-4 text-slate-300 font-semibold">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {paginatedRates.map((rate) => (
-                  <tr key={rate.id} className={`border-b border-slate-800 hover:bg-slate-800/30 transition-colors ${rate.isDefault ? 'bg-yellow-500/5' : ''}`}>
-                    <td className="py-4 px-4">
-                      <p className="text-white font-semibold flex items-center gap-2">
-                        {rate.name}
-                        {rate.isDefault && <Star className="w-4 h-4 text-yellow-400 fill-yellow-400" />}
-                      </p>
-                      <p className="text-xs text-slate-500">{rate.description}</p>
-                    </td>
-                    <td className="py-4 px-4">
-                      <div className="flex items-center gap-2">
-                        <Globe className="w-4 h-4 text-cyan-400" />
-                        <span className="text-white">{rate.country}</span>
-                      </div>
-                    </td>
-                    <td className="py-4 px-4 text-center">
-                      <span className="px-3 py-1 bg-violet-500/10 text-violet-400 rounded-lg text-sm font-bold">
-                        {rate.rate}%
-                      </span>
-                    </td>
-                    <td className="py-4 px-4">
-                      <div className="flex items-center gap-2 text-slate-300">
-                        <MapPin className="w-4 h-4 text-slate-400" />
-                        {rate.region || "N/A"}
-                      </div>
-                    </td>
-                    <td className="py-4 px-4 text-center">
-                      <span className={`px-3 py-1 rounded-lg text-xs font-medium ${
-                        rate.isActive ? "bg-green-500/10 text-green-400" : "bg-red-500/10 text-red-400"
-                      }`}>
-                        {rate.isActive ? "Active" : "Inactive"}
-                      </span>
-                    </td>
-                    <td className="py-4 px-4 text-center">
-                      {rate.isDefault ? (
-                        <Star className="w-5 h-5 text-yellow-400 mx-auto fill-yellow-400" />
-                      ) : (
-                        <span className="text-slate-600">—</span>
-                      )}
-                    </td>
-                    <td className="py-4 px-4 text-center">
-                      <span className="px-3 py-1 bg-slate-500/10 text-slate-400 rounded-lg text-sm">
-                        {rate.displayOrder}
-                      </span>
-                    </td>
-                    <td className="py-4 px-4">
-                      <div className="flex items-center justify-center gap-2">
-                        <button
-                          onClick={() => setViewingRate(rate)}
-                          className="p-2 text-violet-400 hover:bg-violet-500/10 rounded-lg transition-all"
-                          title="View Details"
-                        >
-                          <Eye className="h-4 w-4" />
-                        </button>
-                        <button
-                          onClick={() => openEditModal(rate)}
-                          className="p-2 text-cyan-400 hover:bg-cyan-500/10 rounded-lg transition-all"
-                          title="Edit"
-                        >
-                          <Edit className="h-4 w-4" />
-                        </button>
-                        <button
-                          onClick={() => confirmDelete(rate)}
-                          disabled={rate.isDefault}
-                          className={`p-2 rounded-lg transition-all ${
-                            rate.isDefault 
-                              ? 'text-slate-600 cursor-not-allowed opacity-50' 
-                              : 'text-red-400 hover:bg-red-500/10'
-                          }`}
-                          title={rate.isDefault ? "Cannot delete default VAT rate" : "Delete"}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+              <table className="w-full text-sm">
+      <thead>
+        <tr className="border-b border-slate-700 text-slate-400">
+          <th className="text-left py-2 px-3 font-medium">Name</th>
+          <th className="text-left py-2 px-3 font-medium">Country</th>
+          <th className="text-center py-2 px-3 font-medium">Rate (%)</th>
+          <th className="text-left py-2 px-3 font-medium">Region</th>
+          <th className="text-center py-2 px-3 font-medium">Status</th>
+          <th className="text-center py-2 px-3 font-medium">Default</th>
+          <th className="text-center py-2 px-3 font-medium">Order</th>
+          <th className="text-center py-2 px-3 font-medium">Actions</th>
+        </tr>
+      </thead>
+
+      <tbody>
+        {paginatedRates.map((rate) => (
+          <tr
+            key={rate.id}
+            className={`border-b border-slate-800 hover:bg-slate-800/40 transition ${
+              rate.isDefault ? "bg-yellow-500/5" : ""
+            }`}
+          >
+            {/* Name */}
+            <td className="py-2 px-3">
+              <div className="flex items-center gap-2">
+                <span className="text-white font-medium">
+                  {rate.name}
+                </span>
+                {rate.isDefault && (
+                  <Star className="w-3.5 h-3.5 text-yellow-400 fill-yellow-400" />
+                )}
+              </div>
+              <p className="text-xs text-slate-500 truncate max-w-[220px]">
+                {rate.description}
+              </p>
+            </td>
+
+            {/* Country */}
+            <td className="py-2 px-3">
+              <div className="flex items-center gap-1.5">
+                <Globe className="w-3.5 h-3.5 text-cyan-400" />
+                <span className="text-white">{rate.country}</span>
+              </div>
+            </td>
+
+            {/* Rate */}
+            <td className="py-2 px-3 text-center">
+              <span className="px-2 py-0.5 bg-violet-500/10 text-violet-400 rounded-md text-xs font-semibold">
+                {rate.rate}%
+              </span>
+            </td>
+
+            {/* Region */}
+            <td className="py-2 px-3 text-slate-300">
+              {rate.region || "N/A"}
+            </td>
+
+            {/* Status Toggle */}
+            <td className="py-2 px-3 text-center">
+              <button
+                onClick={() => setStatusConfirm(rate)}
+                className={`px-2.5 py-0.5 rounded-md text-xs font-semibold transition ${
+                  rate.isActive
+                    ? "bg-green-500/10 text-green-400 hover:bg-green-500/20"
+                    : "bg-red-500/10 text-red-400 hover:bg-red-500/20"
+                }`}
+              >
+                {rate.isActive ? "Active" : "Inactive"}
+              </button>
+            </td>
+
+            {/* Default */}
+            <td className="py-2 px-3 text-center">
+              {rate.isDefault ? (
+                <Star className="w-4 h-4 text-yellow-400 fill-yellow-400 mx-auto" />
+              ) : (
+                <span className="text-slate-600 text-xs">—</span>
+              )}
+            </td>
+
+            {/* Display Order */}
+            <td className="py-2 px-3 text-center">
+              <span className="text-slate-400 text-xs">
+                {rate.displayOrder}
+              </span>
+            </td>
+
+            {/* Actions */}
+            <td className="py-2 px-3">
+              <div className="flex items-center justify-center gap-1">
+                <button
+                  onClick={() => setViewingRate(rate)}
+                  className="p-1.5 text-violet-400 hover:bg-violet-500/10 rounded-md transition"
+                >
+                  <Eye className="h-4 w-4" />
+                </button>
+
+                <button
+                  onClick={() => openEditModal(rate)}
+                  className="p-1.5 text-cyan-400 hover:bg-cyan-500/10 rounded-md transition"
+                >
+                  <Edit className="h-4 w-4" />
+                </button>
+
+                {deletedFilter === "deleted" ? (
+                  <button
+                    onClick={() => setRestoreConfirm(rate)}
+                    className="p-1.5 text-green-400 hover:bg-green-500/10 rounded-md transition"
+                  >
+                    <RotateCcw className="h-4 w-4" />
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => confirmDelete(rate)}
+                    className="p-1.5 text-red-400 hover:bg-red-500/10 rounded-md transition"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                )}
+              </div>
+            </td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
           </div>
         )}
       </div>
@@ -1133,6 +1374,25 @@ const handleUpdate = async (e: React.FormEvent) => {
           </div>
         </div>
       )}
+      {restoreConfirm && (
+  <ConfirmationModal
+    title="Restore VAT Rate"
+    description="Are you sure you want to restore this VAT rate?"
+    onConfirm={handleRestore}
+    onCancel={() => setRestoreConfirm(null)}
+  />
+)}
+
+{statusConfirm && (
+  <ConfirmationModal
+    title="Change VAT Status"
+    description={`Are you sure you want to ${
+      statusConfirm.isActive ? "deactivate" : "activate"
+    } this VAT rate?`}
+    onConfirm={handleStatusToggle}
+    onCancel={() => setStatusConfirm(null)}
+  />
+)}
 
       {/* View Details Modal */}
       {viewingRate && (

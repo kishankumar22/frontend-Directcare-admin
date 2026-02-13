@@ -19,6 +19,7 @@ export interface Banner {
   imageUrl: string;
   link: string;
   description: string;
+  isDeleted: boolean;
   bannerType: string; // or BannerType if you want strict typing
   offerCode?: string | null;
   discountPercentage?: number | null;
@@ -93,7 +94,9 @@ export const bannersService = {
   // Delete banner by ID
   delete: (id: string) =>
     apiClient.delete<void>(`${API_ENDPOINTS.banners}/${id}`),
-
+  // ✅ RESTORE
+  restore: (id: string) =>
+    apiClient.post(`${API_ENDPOINTS.banners}/${id}/restore`),
 
   // ---- Banner Image Upload (with title in params) ----
   uploadImage: async (file: File, params?: Record<string, any>) => {

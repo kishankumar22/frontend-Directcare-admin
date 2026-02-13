@@ -35,7 +35,6 @@ export const SelfHostedTinyMCE: React.FC<SelfHostedTinyMCEProps> = ({
   const onChangeRef = useRef(onChange);
   const isUpdatingRef = useRef(false);
   const lastNotificationTimeRef = useRef<number>(0);
-  const contentFromEditorRef = useRef<string>('');
   const [isLoaded, setIsLoaded] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
   const [isReady, setIsReady] = useState(false);
@@ -50,60 +49,22 @@ export const SelfHostedTinyMCE: React.FC<SelfHostedTinyMCEProps> = ({
     setIsMounted(true);
   }, []);
 
-  // ✅ Block-level tags that produce newlines in TinyMCE's text extraction
-  const NEWLINE_TAGS = new Set([
-    'P', 'DIV', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6',
-    'LI', 'TR', 'BLOCKQUOTE', 'PRE', 'ADDRESS', 'DT', 'DD'
-  ]);
-
-  // ✅ Clean inter-tag whitespace from TinyMCE HTML output
-  const cleanInterTagWhitespace = (html: string): string => {
-    return html.replace(/>\s*\n\s*</g, '><');
-  };
-
-  // ✅ Count text length matching TinyMCE's getContent({format:'text'})
-  // Counts block boundaries and <br> as newline characters
+  // ✅ Get plain text length (NO trim - count all characters)
   const getPlainTextLength = (html: string): number => {
     if (!html) return 0;
     const tmp = document.createElement('div');
-    tmp.innerHTML = cleanInterTagWhitespace(html);
-
-    let length = 0;
-
-    const walk = (node: Node) => {
-      if (node.nodeType === Node.TEXT_NODE) {
-        length += (node.textContent || '').length;
-      } else if (node.nodeType === Node.ELEMENT_NODE) {
-        const el = node as Element;
-
-        // <br> = newline character
-        if (el.tagName === 'BR') {
-          length++;
-          return;
-        }
-
-        // Block element boundary = newline (only after we've already counted some content)
-        if (NEWLINE_TAGS.has(el.tagName) && length > 0) {
-          length++;
-        }
-
-        for (const child of Array.from(node.childNodes)) {
-          walk(child);
-        }
-      }
-    };
-
-    walk(tmp);
-    return length;
+    tmp.innerHTML = html;
+    const text = tmp.textContent || tmp.innerText || '';
+    return text.length;
   };
 
-  // ✅ Truncate HTML to maxChars, counting block boundaries + <br> as newlines
+  // ✅ Smart HTML truncation with empty tag removal
   const truncateHTML = (html: string, maxChars: number): string => {
     const tmp = document.createElement('div');
-    tmp.innerHTML = cleanInterTagWhitespace(html);
-
+    tmp.innerHTML = html;
+    
     let charCount = 0;
-
+    
     const processNode = (node: Node): boolean => {
       if (node.nodeType === Node.TEXT_NODE) {
         const text = node.textContent || '';
@@ -116,64 +77,42 @@ export const SelfHostedTinyMCE: React.FC<SelfHostedTinyMCEProps> = ({
         charCount += text.length;
         return true;
       }
-
+      
       if (node.nodeType === Node.ELEMENT_NODE) {
-        const el = node as Element;
-
-        // <br> counts as a newline character
-        if (el.tagName === 'BR') {
-          charCount++;
-          return charCount < maxChars;
-        }
-
-        // Block boundary = newline character (only after first content)
-        if (NEWLINE_TAGS.has(el.tagName) && charCount > 0) {
-          charCount++;
-          if (charCount >= maxChars) {
-            el.remove();
-            return false;
-          }
-        }
-
         const children = Array.from(node.childNodes);
         for (let i = 0; i < children.length; i++) {
           if (!processNode(children[i])) {
             // Remove all subsequent siblings
-            for (let j = children.length - 1; j > i; j--) {
-              if (children[j].parentNode === node) {
-                node.removeChild(children[j]);
-              }
+            for (let j = i + 1; j < children.length; j++) {
+              node.removeChild(children[j]);
             }
             return false;
           }
         }
       }
-
+      
       return true;
     };
-
+    
     processNode(tmp);
-
-    // Remove empty tags (but keep structural elements like BR, HR, IMG)
-    const preserveTags = new Set(['BR', 'HR', 'IMG', 'INPUT', 'IFRAME', 'VIDEO', 'AUDIO', 'SOURCE', 'EMBED']);
+    
+    // Remove empty tags
     const removeEmptyTags = (element: Element) => {
       const children = Array.from(element.children);
       children.forEach(child => {
         removeEmptyTags(child);
-
-        if (preserveTags.has(child.tagName)) return;
-
-        const hasText = (child.textContent || '').length > 0;
-        const hasMedia = child.querySelector('img, video, audio, iframe, br, hr');
-
-        if (!hasText && !hasMedia) {
+        
+        const hasText = (child.textContent || '').trim().length > 0;
+        const hasImage = child.tagName === 'IMG' || child.querySelector('img');
+        
+        if (!hasText && !hasImage) {
           child.remove();
         }
       });
     };
-
+    
     removeEmptyTags(tmp);
-
+    
     return tmp.innerHTML;
   };
 
@@ -259,14 +198,6 @@ export const SelfHostedTinyMCE: React.FC<SelfHostedTinyMCEProps> = ({
         
         skin: 'oxide-dark',
         content_css: 'dark',
-
-        // Paste settings - preserve formatting exactly as copied
-        paste_as_text: false,
-        paste_retain_style_properties: 'all',
-        paste_data_images: true,
-        paste_merge_formats: true,
-        paste_tab_spaces: 4,
-        smart_paste: true,
         
         content_style: `
           body { 
@@ -500,17 +431,18 @@ export const SelfHostedTinyMCE: React.FC<SelfHostedTinyMCEProps> = ({
           // ✅ BLOCK TYPING when limit reached
           editor.on('keydown', (e: any) => {
             const allowedKeys = [8, 46, 37, 38, 39, 40, 35, 36, 33, 34]; // Backspace, Delete, Arrows, Home, End, PgUp, PgDn
-
+            
             if (allowedKeys.includes(e.keyCode) || e.ctrlKey || e.metaKey) {
               return;
             }
-
-            const textLength = getPlainTextLength(editor.getContent());
-
+            
+            const content = editor.getContent();
+            const textLength = getPlainTextLength(content);
+            
             if (maxLength !== Infinity && textLength >= maxLength) {
               e.preventDefault();
               e.stopPropagation();
-
+              
               showNotification(
                 editor,
                 `⚠️ Character limit reached! You cannot add more text. (${maxLength} characters maximum)`,
@@ -520,96 +452,77 @@ export const SelfHostedTinyMCE: React.FC<SelfHostedTinyMCEProps> = ({
             }
           });
           
-          // ✅ PASTE PRE-CHECK - Only block if editor is completely full
+          // ✅ TINYMCE BUILT-IN PASTE PREPROCESSOR (Preserves formatting!)
           editor.on('PastePreProcess', (e: any) => {
             if (maxLength === Infinity) return;
 
-            const currentLength = getPlainTextLength(editor.getContent());
-            const selectedLength = getPlainTextLength(editor.selection.getContent());
-            const effectiveLength = currentLength - selectedLength;
+            const pastedTextLength = getPlainTextLength(e.content);
+            const currentContent = editor.getContent();
+            const currentLength = getPlainTextLength(currentContent);
+            const totalLength = currentLength + pastedTextLength;
 
-            // Only block if there's truly zero room left
-            if (effectiveLength >= maxLength) {
-              e.preventDefault();
-              e.content = '';
-              showNotification(
-                editor,
-                `❌ Cannot paste! Character limit (${maxLength}) already reached.`,
-                'error',
-                4000
-              );
-            }
-            // Otherwise let paste through - PastePostProcess will truncate on CLEAN html
-          });
+            if (totalLength > maxLength) {
+              const allowedLength = maxLength - currentLength;
 
-          // ✅ AFTER PASTE - Truncate using block-boundary-aware counting
-          editor.on('PastePostProcess', () => {
-            setTimeout(() => {
-              const content = editor.getContent();
-              const textLen = getPlainTextLength(content);
-
-              if (maxLength !== Infinity && textLen > maxLength) {
-                const truncated = truncateHTML(content, maxLength);
-
-                isUpdatingRef.current = true;
-                editor.setContent(truncated);
-                setTimeout(() => { isUpdatingRef.current = false; }, 100);
-
-                const finalLen = getPlainTextLength(editor.getContent());
-                setCharCount(finalLen);
-                const finalContent = editor.getContent();
-                contentFromEditorRef.current = finalContent;
-                onChangeRef.current(finalContent);
+              if (allowedLength <= 0) {
+                e.preventDefault();
+                e.content = '';
 
                 showNotification(
                   editor,
-                  `⚠️ Content truncated to ${maxLength} character limit.`,
-                  'warning',
-                  3000
+                  `❌ Cannot paste! Character limit (${maxLength}) already reached.`,
+                  'error',
+                  4000
                 );
-              } else {
-                setCharCount(textLen);
-                contentFromEditorRef.current = content;
-                onChangeRef.current(content);
+                return;
               }
-            }, 10);
-          });
 
-          // ✅ CONTENT CHANGE HANDLER - Block-boundary-aware counting
+              // Truncate pasted content while preserving HTML formatting
+              e.content = truncateHTML(e.content, allowedLength);
+
+              showNotification(
+                editor,
+                `⚠️ Pasted content truncated! Only ${allowedLength} of ${pastedTextLength} characters pasted. Limit: ${maxLength}`,
+                'warning',
+                4000
+              );
+            }
+          });
+          
+          // ✅ FINAL SAFETY CHECK - Enforce limit on any content change
           editor.on('input change', () => {
             const content = editor.getContent();
-            const textLen = getPlainTextLength(content);
-
-            // ALWAYS update character count regardless of isUpdatingRef
-            setCharCount(maxLength !== Infinity && textLen > maxLength ? maxLength : textLen);
-
-            // Skip onChange if we're in a programmatic update (prevents loop)
-            if (isUpdatingRef.current) return;
-
-            if (maxLength !== Infinity && textLen > maxLength) {
+            const textLength = getPlainTextLength(content);
+            
+            if (maxLength !== Infinity && textLength > maxLength) {
               const truncatedContent = truncateHTML(content, maxLength);
-
+              
               isUpdatingRef.current = true;
-              const bookmark = editor.selection.getBookmark(2);
               editor.setContent(truncatedContent);
-              try { editor.selection.moveToBookmark(bookmark); } catch (_) { /* cursor at end is fine */ }
-
+              
               setTimeout(() => {
                 isUpdatingRef.current = false;
-              }, 100);
-
-              const finalLen = getPlainTextLength(editor.getContent());
-              setCharCount(finalLen);
-              const finalContent = editor.getContent();
-              contentFromEditorRef.current = finalContent;
-              onChangeRef.current(finalContent);
+              }, 50);
+              
+              setCharCount(maxLength);
+              onChangeRef.current(truncatedContent);
+              
+              showNotification(
+                editor,
+                `⚠️ Content exceeded limit and was automatically truncated to ${maxLength} characters`,
+                'warning',
+                3000
+              );
             } else {
-              isUpdatingRef.current = true;
-              contentFromEditorRef.current = content;
-              onChangeRef.current(content);
-              setTimeout(() => {
-                isUpdatingRef.current = false;
-              }, 100);
+              setCharCount(textLength);
+              
+              if (!isUpdatingRef.current) {
+                isUpdatingRef.current = true;
+                onChangeRef.current(content);
+                setTimeout(() => {
+                  isUpdatingRef.current = false;
+                }, 50);
+              }
             }
           });
           
@@ -631,13 +544,12 @@ export const SelfHostedTinyMCE: React.FC<SelfHostedTinyMCEProps> = ({
                     if (deleted) {
                       editor.dom.remove(selectedImg);
                       editor.nodeChanged();
-
+                      
                       isUpdatingRef.current = true;
                       const content = editor.getContent();
-                      contentFromEditorRef.current = content;
                       onChangeRef.current(content);
                       setTimeout(() => isUpdatingRef.current = false, 100);
-
+                      
                       showNotification(editor, '✅ Image deleted successfully', 'success', 2000);
                     }
                   } catch (error) {
@@ -670,13 +582,12 @@ export const SelfHostedTinyMCE: React.FC<SelfHostedTinyMCEProps> = ({
                     if (deleted) {
                       editor.dom.remove(selectedNode);
                       editor.nodeChanged();
-
+                      
                       isUpdatingRef.current = true;
                       const content = editor.getContent();
-                      contentFromEditorRef.current = content;
                       onChangeRef.current(content);
                       setTimeout(() => isUpdatingRef.current = false, 100);
-
+                      
                       showNotification(editor, '✅ Image deleted successfully', 'success', 2000);
                     }
                   } catch (error) {
@@ -690,33 +601,29 @@ export const SelfHostedTinyMCE: React.FC<SelfHostedTinyMCEProps> = ({
           // ✅ INIT EVENT
           editor.on('init', () => {
             setIsReady(true);
-
+            
             // ✅ Set and validate initial content
             if (value) {
-              editor.setContent(value);
-              const content = editor.getContent();
-              const textLen = getPlainTextLength(content);
-
-              if (maxLength !== Infinity && textLen > maxLength) {
-                const truncated = truncateHTML(content, maxLength);
-                editor.setContent(truncated);
-
-                const finalLen = getPlainTextLength(editor.getContent());
-                setCharCount(finalLen);
-                contentFromEditorRef.current = editor.getContent();
-                onChangeRef.current(contentFromEditorRef.current);
-
+              const initialLength = getPlainTextLength(value);
+              
+              if (maxLength !== Infinity && initialLength > maxLength) {
+                const truncatedValue = truncateHTML(value, maxLength);
+                editor.setContent(truncatedValue);
+                setCharCount(getPlainTextLength(truncatedValue));
+                
+                onChangeRef.current(truncatedValue);
+                
                 setTimeout(() => {
                   showNotification(
                     editor,
-                    `⚠️ Content was ${textLen} characters. Truncated to ${maxLength} character limit.`,
+                    `⚠️ Content was ${initialLength} characters. Truncated to ${maxLength} character limit.`,
                     'warning',
                     5000
                   );
                 }, 500);
               } else {
-                setCharCount(textLen);
-                contentFromEditorRef.current = value;
+                editor.setContent(value);
+                setCharCount(initialLength);
               }
             }
             
@@ -804,37 +711,25 @@ export const SelfHostedTinyMCE: React.FC<SelfHostedTinyMCEProps> = ({
     };
   }, [isMounted, editorId, placeholder, height, minLength, maxLength]);
 
-  // ✅ Handle external value changes (only from outside, NOT from editor itself)
+  // ✅ Handle external value changes
   useEffect(() => {
-    if (!editorRef.current || !isReady || isUpdatingRef.current) return;
-
-    // Skip if value originated from the editor itself (prevents reset loop)
-    if (value === contentFromEditorRef.current) return;
-
-    const currentContent = editorRef.current.getContent();
-    if (value === currentContent) return;
-
-    isUpdatingRef.current = true;
-    editorRef.current.setContent(value || '');
-    const content = editorRef.current.getContent();
-    const textLen = getPlainTextLength(content);
-
-    if (maxLength !== Infinity && textLen > maxLength) {
-      const truncated = truncateHTML(content, maxLength);
-      editorRef.current.setContent(truncated);
-
-      const finalLen = getPlainTextLength(editorRef.current.getContent());
-      setCharCount(finalLen);
-      contentFromEditorRef.current = editorRef.current.getContent();
-      onChangeRef.current(contentFromEditorRef.current);
-    } else {
-      setCharCount(textLen);
-      contentFromEditorRef.current = value || '';
+    if (editorRef.current && isReady && !isUpdatingRef.current) {
+      const currentContent = editorRef.current.getContent();
+      
+      if (value !== currentContent) {
+        const incomingLength = getPlainTextLength(value || '');
+        
+        if (maxLength !== Infinity && incomingLength > maxLength) {
+          const truncatedValue = truncateHTML(value || '', maxLength);
+          editorRef.current.setContent(truncatedValue);
+          setCharCount(getPlainTextLength(truncatedValue));
+          onChangeRef.current(truncatedValue);
+        } else {
+          editorRef.current.setContent(value || '');
+          setCharCount(incomingLength);
+        }
+      }
     }
-
-    setTimeout(() => {
-      isUpdatingRef.current = false;
-    }, 100);
   }, [value, isReady, maxLength]);
 
   if (!isMounted) {

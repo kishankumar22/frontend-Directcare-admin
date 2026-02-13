@@ -26,6 +26,8 @@ import { apiClient } from "@/lib/api";
 import RelatedProductsSelector from "../../RelatedProductsSelector";
 import ProductVariantsManager from "../../ProductVariantsManager";
 import ProductOptionsManager from "../../ProductOptionsManager";
+import PharmacyQuestionAssignModal from "../../PharmacyQuestionAssignModal";
+import { AssignProductPharmacyQuestionDto, pharmacyQuestionsService } from "@/lib/services/PharmacyQuestions";
 
 // ✅ ADD THIS INTERFACE (at the top with other interfaces)
 interface AdminCommentHistory {
@@ -64,6 +66,8 @@ const [commentHistory, setCommentHistory] = useState<AdminCommentHistory[]>([]);
 const [isCommentHistoryOpen, setIsCommentHistoryOpen] = useState(false);
 
 const [loadingHistory, setLoadingHistory] = useState(false);
+const [showPharmacyModal, setShowPharmacyModal] = useState(false);
+const [pharmacyQuestions, setPharmacyQuestions] = useState<AssignProductPharmacyQuestionDto[]>([]);
 
 // ================================
 // ✅ LOADING STATE (Add after other useState)
@@ -182,18 +186,7 @@ const checkPublishRequirements = (): { isValid: boolean; missing: string[] } => 
   return { isValid: missing.length === 0, missing };
 };
 
-// Show Missing Fields Toast
-const showMissingFieldsToast = (missing: string[], isDraft: boolean) => {
-  const title = isDraft ? 'Draft Requirements' : 'Required Fields Missing';
-  const message = missing.length === 1 
-    ? `Missing: ${missing[0]}` 
-    : `Missing ${missing.length} fields:\n${missing.map((f, i) => `${i + 1}. ${f}`).join('\n')}`;
-  
-  toast.warning(message, {
-    autoClose: 8000,
-    position: 'top-center'
-  });
-};
+
 
   // Add these states after existing states
 const [simpleProducts, setSimpleProducts] = useState<SimpleProduct[]>([]);
@@ -498,11 +491,7 @@ useEffect(() => {
   // Cleanup
   return () => clearInterval(timer);
 }, [takeoverRequest?.id]); // Re-run when request changes
-// Filter VAT rates based on search
-const filteredVATRates = dropdownsData.vatRates.filter(vat =>
-  vat.name.toLowerCase().includes(vatSearch.toLowerCase()) ||
-  vat.rate.toString().includes(vatSearch)
-)
+
 
   // Available products for related/cross-sell (from API)
   const [availableProducts, setAvailableProducts] = useState<Array<{id: string, name: string, sku: string, price: string}>>([]);
@@ -581,6 +570,10 @@ const [formData, setFormData] = useState({
   // ===== TAX =====
   vatExempt: false,
   vatRateId: '',
+
+  // ===== LOYALTY & PHARMA =====
+  loyaltyPointsEnabled: true,
+  isPharmaProduct: false,
 
   // ===== RECURRING / SUBSCRIPTION =====
   isRecurring: false,
@@ -938,16 +931,19 @@ if (allProductsResponse.status === 'fulfilled') {
       }
 
       // ✅ Date parser
-      const parseDate = (dateString: string | null | undefined): string => {
-        if (!dateString) return '';
-        try {
-          const date = new Date(dateString);
-          if (isNaN(date.getTime())) return '';
-          return date.toISOString().split('T')[0];
-        } catch {
-          return '';
-        }
-      };
+const toDateTimeLocal = (isoString?: string | null) => {
+  if (!isoString) return "";
+
+  const date = new Date(isoString);
+  if (isNaN(date.getTime())) return "";
+
+  const offset = date.getTimezoneOffset();
+  const localDate = new Date(date.getTime() - offset * 60000);
+
+  return localDate.toISOString().slice(0, 16);
+};
+
+
 
       // ✅ SET FORM DATA (WITH BUNDLE DISCOUNT FIELDS)
       setFormData({
@@ -1038,22 +1034,26 @@ categoryIds: (() => {
         
         // ===== MARK AS NEW =====
         markAsNew: productData.markAsNew ?? false,
-        markAsNewStartDate: parseDate(productData.markAsNewStartDate),
-        markAsNewEndDate: parseDate(productData.markAsNewEndDate),
+        markAsNewStartDate: toDateTimeLocal(productData.markAsNewStartDate),
+        markAsNewEndDate: toDateTimeLocal(productData.markAsNewEndDate),
         
         // ===== PRE-ORDER =====
         availableForPreOrder: productData.availableForPreOrder ?? false,
-        preOrderAvailabilityStartDate: parseDate(productData.preOrderAvailabilityStartDate),
+        preOrderAvailabilityStartDate: toDateTimeLocal(productData.preOrderAvailabilityStartDate),
         
         // ===== AVAILABILITY =====
-        availableStartDate: parseDate(productData.availableStartDate),
-        availableEndDate: parseDate(productData.availableEndDate),
+        availableStartDate: toDateTimeLocal(productData.availableStartDate),
+        availableEndDate: toDateTimeLocal(productData.availableEndDate),
         hasDiscountsApplied: false,
         
         // ===== TAX =====
         vatExempt: productData.vatExempt ?? false,
         vatRateId: productData.vatRateId || '',
-        
+
+        // ===== LOYALTY & PHARMA =====
+        loyaltyPointsEnabled: productData.loyaltyPointsEnabled ?? true,
+        isPharmaProduct: productData.isPharmaProduct ?? false,
+
         // ===== INVENTORY =====
         stockQuantity: productData.stockQuantity?.toString() || '0',
         manageInventory: productData.manageInventoryMethod || 'track',
@@ -1254,6 +1254,23 @@ if (productData.variants && Array.isArray(productData.variants)) {
           }));
         setFormData(prev => ({ ...prev, productImages: imgs }));
         console.log('✅ Images loaded:', imgs.length);
+      }
+
+      // Load pharmacy questions if pharma product
+      if (productData.isPharmaProduct) {
+        try {
+          const pharmaResponse = await pharmacyQuestionsService.getProductQuestions(productId);
+          const pharmaData = pharmaResponse.data?.data || [];
+          setPharmacyQuestions(pharmaData.map((pq: any) => ({
+            pharmacyQuestionId: pq.pharmacyQuestionId,
+            answerType: pq.answerType || "Options",
+            isRequired: pq.isRequired,
+            displayOrder: pq.displayOrder,
+          })));
+          console.log('✅ Pharmacy questions loaded:', pharmaData.length);
+        } catch (pharmaError) {
+          console.error('Error loading pharmacy questions:', pharmaError);
+        }
       }
 
       setLoading(false);
@@ -1707,7 +1724,6 @@ useEffect(() => {
         });
         lockAcquiredRef.current = true;
         setIsAcquiringLock(false);
-        toast.info('Already editing in another tab - you can continue here');
         return;
       }
 
@@ -2426,7 +2442,7 @@ const acquireProductLock = async (productId: string, isRefresh: boolean = false)
           dateStyle: 'medium',
           timeStyle: 'short'
         });
-        toast.success(`✅ Lock acquired! Expires at ${expiryTime} IST`);
+        // toast.success(`✅ Lock acquired! Expires at ${expiryTime} IST`);
       }
       
       setIsAcquiringLock(false);
@@ -2693,6 +2709,8 @@ const handleSubmit = async (e?: React.FormEvent, isDraft: boolean = false, relea
       step: isDraft ? 'Validating draft data...' : 'Validating product data...',
       percentage: 10,
     });
+    const isPublishing = !isDraft;
+
 
     // ═══════════════════════════════════════════════════════════════════════
     // SECTION 2: BASIC REQUIRED FIELDS
@@ -3199,34 +3217,55 @@ if (length > 2000) {
     // SECTION 13: DATE VALIDATIONS
     // ═══════════════════════════════════════════════════════════════════════
 
-    if (formData.markAsNew) {
-      if (!formData.markAsNewStartDate) {
-        toast.error('❌ Please set "Mark as New" start date');
-        target.removeAttribute('data-submitting');
-        setIsSubmitting(false);
-        setSubmitProgress(null);
-        return;
-      }
+// ==========================================
+// MARK AS NEW VALIDATION (Strict)
+// ==========================================
 
-      if (!formData.markAsNewEndDate) {
-        toast.error('❌ Please set "Mark as New" end date');
-        target.removeAttribute('data-submitting');
-        setIsSubmitting(false);
-        setSubmitProgress(null);
-        return;
-      }
+if (formData.markAsNew) {
 
-      const startDate = new Date(formData.markAsNewStartDate);
-      const endDate = new Date(formData.markAsNewEndDate);
+  const startRaw = formData.markAsNewStartDate;
+  const endRaw = formData.markAsNewEndDate;
 
-      if (endDate <= startDate) {
-        toast.error('❌ "Mark as New" end date must be after start date');
-        target.removeAttribute('data-submitting');
-        setIsSubmitting(false);
-        setSubmitProgress(null);
-        return;
-      }
-    }
+  // 1️⃣ Required check
+  if (!startRaw || !endRaw) {
+    toast.error('❌ Please set both "Mark as New" start and end date & time');
+    target.removeAttribute('data-submitting');
+    setIsSubmitting(false);
+    setSubmitProgress(null);
+    return;
+  }
+
+  // 2️⃣ Ensure date + time selected
+  if (!startRaw.includes('T') || !endRaw.includes('T')) {
+    toast.error('❌ Please select both date AND time for "Mark as New"');
+    target.removeAttribute('data-submitting');
+    setIsSubmitting(false);
+    setSubmitProgress(null);
+    return;
+  }
+
+  const startDate = new Date(startRaw);
+  const endDate = new Date(endRaw);
+
+  // 3️⃣ Invalid date check
+  if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+    toast.error('❌ Invalid date or time selected');
+    target.removeAttribute('data-submitting');
+    setIsSubmitting(false);
+    setSubmitProgress(null);
+    return;
+  }
+
+  // 4️⃣ End must be after start
+  if (endDate <= startDate) {
+    toast.error('❌ "Mark as New" end date must be after start date');
+    target.removeAttribute('data-submitting');
+    setIsSubmitting(false);
+    setSubmitProgress(null);
+    return;
+  }
+}
+
 
     if (formData.availableStartDate && formData.availableEndDate) {
       const availStart = new Date(formData.availableStartDate);
@@ -3248,6 +3287,7 @@ if (length > 2000) {
       setSubmitProgress(null);
       return;
     }
+    
 
     // ✅ PROGRESS: 50% - Grouped Product Validation
     setSubmitProgress({
@@ -3573,8 +3613,8 @@ const variantsArray = productVariants?.map(variant => {
 
   // Price validation
   const variantPrice = typeof variant.price === 'number' ? variant.price : parseNumber(variant.price, 'variant.price') ?? 0;
-  if (variantPrice < 0) {
-    toast.error(`Variant "${variant.name}" price cannot be negative`);
+  if (variantPrice <= 0) {
+    toast.error(`Variant "${variant.name}" price must be greater than 0`);
     throw new Error('Invalid variant price');
   }
 
@@ -3809,6 +3849,8 @@ const cleanedCartData = {
         : null,
       vatExempt: formData.vatExempt ?? false,
       vatRateId: formData.vatRateId || null,
+      loyaltyPointsEnabled: formData.loyaltyPointsEnabled ?? true,
+      isPharmaProduct: formData.isPharmaProduct ?? false,
       trackQuantity: formData.manageInventory === 'track',
       manageInventoryMethod: formData.manageInventory || 'track',
       stockQuantity: parseInt(formData.stockQuantity as any) || 0,
@@ -7399,6 +7441,66 @@ const uploadImagesToProductDirect = async (
     />
     <span className="text-sm text-slate-300">Not Returnable</span>
   </label>
+
+  {/* LOYALTY POINTS & PHARMA PRODUCT */}
+  <div className="mt-4 space-y-3 bg-slate-800/30 border border-slate-700 p-4 rounded-xl">
+    <h4 className="text-sm font-semibold text-white">Loyalty & Product Classification</h4>
+
+    {/* Loyalty Points Toggle */}
+    <div className="flex items-center justify-between">
+      <div>
+        <span className="text-sm text-slate-300">Loyalty Points</span>
+        <p className="text-xs text-slate-500">Enable or disable loyalty points earning for this product</p>
+      </div>
+      <button
+        type="button"
+        onClick={() => setFormData(prev => ({ ...prev, loyaltyPointsEnabled: !prev.loyaltyPointsEnabled }))}
+        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 ${
+          formData.loyaltyPointsEnabled ? 'bg-emerald-500' : 'bg-slate-600'
+        }`}
+      >
+        <span
+          className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform duration-200 ${
+            formData.loyaltyPointsEnabled ? 'translate-x-6' : 'translate-x-1'
+          }`}
+        />
+      </button>
+    </div>
+
+    {/* Is Pharma Product */}
+    <div className="space-y-2">
+      <label className="flex items-center gap-2 cursor-pointer">
+        <input
+          type="checkbox"
+          name="isPharmaProduct"
+          checked={formData.isPharmaProduct}
+          onChange={handleChange}
+          className="w-4 h-4 rounded bg-slate-800/50 border-slate-700 text-blue-500 focus:ring-blue-500 focus:ring-offset-slate-900"
+        />
+        <div>
+          <span className="text-sm text-slate-300">Pharma Product</span>
+          <p className="text-xs text-slate-500">Mark this product as a pharmaceutical product</p>
+        </div>
+      </label>
+
+      {formData.isPharmaProduct && (
+        <div className="ml-6 flex items-center gap-3">
+          <button
+            type="button"
+            onClick={() => setShowPharmacyModal(true)}
+            className="px-4 py-2 bg-violet-500/10 border border-violet-500/50 text-violet-400 rounded-lg hover:bg-violet-500/20 transition-all text-sm font-semibold"
+          >
+            Configure Questions
+          </button>
+          {pharmacyQuestions.length > 0 && (
+            <span className="px-2 py-1 bg-violet-500/20 text-violet-300 rounded-full text-xs font-semibold">
+              {pharmacyQuestions.length} question{pharmacyQuestions.length !== 1 ? "s" : ""} assigned
+            </span>
+          )}
+        </div>
+      )}
+    </div>
+  </div>
 </div>
 
 
@@ -8383,6 +8485,15 @@ const uploadImagesToProductDirect = async (
       applyDiscountToAllItems: settings.applyDiscountToAllItems
     }));
   }}
+/>
+
+{/* PHARMACY QUESTION ASSIGN MODAL */}
+<PharmacyQuestionAssignModal
+  isOpen={showPharmacyModal}
+  onClose={() => setShowPharmacyModal(false)}
+  productId={productId}
+  initialSelections={pharmacyQuestions}
+  onSave={(selections) => setPharmacyQuestions(selections)}
 />
 
 {/* ==================== PRODUCT LOCK MODAL (FIXED SYNTAX) ==================== */}

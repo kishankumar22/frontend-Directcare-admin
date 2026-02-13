@@ -28,7 +28,7 @@ import {
 
 import { useToast } from "@/app/admin/_component/CustomToast";
 import ConfirmDialog from "@/app/admin/_component/ConfirmDialog";
-import { PharmacyQuestion, pharmacyQuestionsService } from "@/lib/PharmacyQuestions";
+import { PharmacyQuestion, pharmacyQuestionsService } from "@/lib/services/PharmacyQuestions";
 import PharmacyQuestionFormModal from "./PharmacyQuestionFormModal";
 import { useDebounce } from "@/app/hooks/useDebounce";
 
@@ -585,6 +585,7 @@ const clearFilters = () => {
                       {getSortIcon("createdAt")}
                     </button>
                   </th>
+                  <th className="text-left py-2 px-3 text-slate-400 font-medium text-sm">Created By</th>
 
                   <th className="text-center py-2 px-3 text-slate-400 font-medium text-sm">Actions</th>
                 </tr>
@@ -628,6 +629,9 @@ const clearFilters = () => {
 
                     <td className="py-2.5 px-3">
                       <p className="text-sm text-slate-300">{formatDate(question.createdAt)}</p>
+                    </td>
+                    <td className="py-2.5 px-3">
+                      <p className="text-sm text-slate-300">{question.createdBy}</p>
                     </td>
 
                     <td className="py-2.5 px-3">

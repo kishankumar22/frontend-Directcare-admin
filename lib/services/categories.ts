@@ -17,6 +17,7 @@ export interface Category {
   metaKeywords?: string;
   parentCategoryId?: string;
   parentCategoryName?:string;
+  isDeleted: boolean;
   showOnHomepage: boolean; 
   createdAt?: string;
   updatedAt?: string;
@@ -24,15 +25,23 @@ export interface Category {
   updatedBy?: string;
   subCategories?: Category[];
 }
-export interface CreateCategoryDto {
+export interface UpdateCategoryDto {
   name: string;
   description: string;
+  imageUrl?: string;
+  isActive: boolean;
+  showOnHomepage: boolean;
+  sortOrder: number;
+  parentCategoryId?: string | null;
+  metaTitle?: string;
+  metaDescription?: string;
+  metaKeywords?: string;
 }
-export interface CategoryApiResponse {
-  success: boolean;
-  message?: string;
-  data: Category[];
-}
+
+
+
+
+
 
 export interface CategoryStats {
   totalCategories: number;
@@ -41,16 +50,29 @@ export interface CategoryStats {
   homepageCategories: number;  // ✅ Add this
 }
 
-export interface CreateCategoryDto { name: string; description: string; }
+export interface CreateCategoryDto {
+  name: string;
+  description: string;
+  imageUrl?: string;
+  isActive?: boolean;
+  showOnHomepage?: boolean;
+  sortOrder?: number;
+  parentCategoryId?: string | null;
+  metaTitle?: string;
+  metaDescription?: string;
+  metaKeywords?: string;
+}
+
 export interface CategoryApiResponse { success: boolean; message?: string; data: Category[]; }
 
 export const categoriesService = {
   // Get all categories (optionally allow config for params, headers)
 getAll: (config: any = {}) =>
-    apiClient.get<CategoryApiResponse>(
-      `${API_ENDPOINTS.categories}?includeInactive=true&includeSubCategories=true`,
-      config
-    ),
+  apiClient.get<CategoryApiResponse>(
+    API_ENDPOINTS.categories,
+    config
+  ),
+
   // Get category by ID
   getById: (id: string, config: any = {}) =>
     apiClient.get<Category>(`${API_ENDPOINTS.categories}/${id}`, config),
@@ -59,9 +81,18 @@ getAll: (config: any = {}) =>
   create: (data: CreateCategoryDto, config: any = {}) =>
     apiClient.post<Category>(API_ENDPOINTS.categories, data, config),
 
-  // Update
-  update: (id: string, data: Partial<CreateCategoryDto>, config: any = {}) =>
-    apiClient.put<Category>(`${API_ENDPOINTS.categories}/${id}`, data, config),
+  // Update (Full Update - PUT)
+update: (
+  id: string,
+  data: UpdateCategoryDto,
+  config: any = {}
+) =>
+  apiClient.put<Category>(
+    `${API_ENDPOINTS.categories}/${id}`,
+    data,
+    config
+  ),
+
 
   // Delete
   delete: (id: string, config: any = {}) =>
@@ -81,5 +112,12 @@ uploadImage: async (file: File, params?: Record<string, any>) => {
   // Make sure deleteBlogCategoryImage endpoint exists and is correct for categories
  deleteImage: (imageUrl: string) =>
   apiClient.delete<void>(API_ENDPOINTS.deleteBlogCategoryImage, { params: { imageUrl } }),
+// Restore Category (Soft Delete Restore)
+restore: (id: string, config: any = {}) =>
+  apiClient.post<void>(
+    `${API_ENDPOINTS.categories}/${id}/restore`,
+    {},
+    config
+  ),
 
 };

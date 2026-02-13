@@ -15,6 +15,8 @@ import ScrollToTopButton from "../../_component/ScrollToTopButton";
 import RelatedProductsSelector from "../RelatedProductsSelector";
 import ProductVariantsManager from "../ProductVariantsManager";
 import ProductOptionsManager from "../ProductOptionsManager";
+import PharmacyQuestionAssignModal from "../PharmacyQuestionAssignModal";
+import { AssignProductPharmacyQuestionDto, pharmacyQuestionsService } from "@/lib/services/PharmacyQuestions";
 
 export default function AddProductPage() {
   const router = useRouter();
@@ -36,6 +38,8 @@ const [isGeneratingVariants, setIsGeneratingVariants] = useState(false);
 // ============================================================
 const [showUnsavedModal, setShowUnsavedModal] = useState(false);
 const [pendingNavigation, setPendingNavigation] = useState<string | null>(null);
+const [showPharmacyModal, setShowPharmacyModal] = useState(false);
+const [pharmacyQuestions, setPharmacyQuestions] = useState<AssignProductPharmacyQuestionDto[]>([]);
 // ================================
 // ✅ LOADING & SUBMISSION STATES
 // ================================
@@ -665,6 +669,10 @@ useEffect(() => {
   // ===== TAX =====
   vatExempt: false,
   vatRateId: '',
+
+  // ===== LOYALTY & PHARMA =====
+  loyaltyPointsEnabled: true,
+  isPharmaProduct: false,
 
 
   // ===== RECURRING / SUBSCRIPTION =====
@@ -1349,7 +1357,7 @@ const handleSubmit = async (
 
         const variantPrice = parseFloat(variant.price?.toString() || "0");
         if (variantPrice <= 0) {
-          toast.error(`Variant "${variant.name}" has invalid price`);
+          toast.error(`Variant "${variant.name}" must have a price greater than 0`);
           target.removeAttribute("data-submitting");
           setIsSubmitting(false);
           setSubmitProgress(null);
@@ -1717,6 +1725,10 @@ allowedQuantities: cleanedCartData.allowedQuantities,
       }
     }
 
+    // Loyalty & Pharma
+    productData.loyaltyPointsEnabled = formData.loyaltyPointsEnabled ?? true;
+    productData.isPharmaProduct = formData.isPharmaProduct ?? false;
+
     // Shipping
     if (formData.isShipEnabled) {
       productData.requiresShipping = true;
@@ -1921,6 +1933,26 @@ allowedQuantities: cleanedCartData.allowedQuantities,
           console.error("Error uploading variant images:", variantError);
           toast.warning("Some variant images failed to upload.");
         }
+      }
+    }
+
+    // ============================================================
+    // SECTION 11B: ASSIGN PHARMACY QUESTIONS
+    // ============================================================
+    if (formData.isPharmaProduct && pharmacyQuestions.length > 0 && currentProductId) {
+      setSubmitProgress({
+        step: "Assigning pharmacy questions...",
+        percentage: 92,
+      });
+
+      try {
+        await pharmacyQuestionsService.assignProductQuestions(currentProductId, {
+          questions: pharmacyQuestions,
+        });
+        console.log("✅ Pharmacy questions assigned");
+      } catch (pharmaError) {
+        console.error("Error assigning pharmacy questions:", pharmaError);
+        toast.warning("Product created but pharmacy questions failed to assign.");
       }
     }
 
@@ -2876,12 +2908,12 @@ useEffect(() => {
           )}
 
           {/* Unsaved Changes Indicator */}
-          {hasUnsavedChanges && isEditMode && (
+          {/* {hasUnsavedChanges && isEditMode && (
             <div className="flex items-center gap-2 px-3 py-1.5 bg-amber-500/10 border border-amber-500/30 rounded-lg">
               <div className="w-2 h-2 bg-amber-400 rounded-full"></div>
               <span className="text-xs font-medium text-amber-400">Unsaved changes</span>
             </div>
-          )}
+          )} */}
         </div>
 
         {/* Status Text */}
@@ -4931,6 +4963,66 @@ useEffect(() => {
     />
     <span className="text-sm text-slate-300">Not Returnable</span>
   </label>
+
+  {/* LOYALTY POINTS & PHARMA PRODUCT */}
+  <div className="mt-4 space-y-3 bg-slate-800/30 border border-slate-700 p-4 rounded-xl">
+    <h4 className="text-sm font-semibold text-white">Loyalty & Product Classification</h4>
+
+    {/* Loyalty Points Toggle */}
+    <div className="flex items-center justify-between">
+      <div>
+        <span className="text-sm text-slate-300">Loyalty Points</span>
+        <p className="text-xs text-slate-500">Enable or disable loyalty points earning for this product</p>
+      </div>
+      <button
+        type="button"
+        onClick={() => setFormData(prev => ({ ...prev, loyaltyPointsEnabled: !prev.loyaltyPointsEnabled }))}
+        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 ${
+          formData.loyaltyPointsEnabled ? 'bg-emerald-500' : 'bg-slate-600'
+        }`}
+      >
+        <span
+          className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform duration-200 ${
+            formData.loyaltyPointsEnabled ? 'translate-x-6' : 'translate-x-1'
+          }`}
+        />
+      </button>
+    </div>
+
+    {/* Is Pharma Product */}
+    <div className="space-y-2">
+      <label className="flex items-center gap-2 cursor-pointer">
+        <input
+          type="checkbox"
+          name="isPharmaProduct"
+          checked={formData.isPharmaProduct}
+          onChange={handleChange}
+          className="w-4 h-4 rounded bg-slate-800/50 border-slate-700 text-blue-500 focus:ring-blue-500 focus:ring-offset-slate-900"
+        />
+        <div>
+          <span className="text-sm text-slate-300">Pharma Product</span>
+          <p className="text-xs text-slate-500">Mark this product as a pharmaceutical product</p>
+        </div>
+      </label>
+
+      {formData.isPharmaProduct && (
+        <div className="ml-6 flex items-center gap-3">
+          <button
+            type="button"
+            onClick={() => setShowPharmacyModal(true)}
+            className="px-4 py-2 bg-violet-500/10 border border-violet-500/50 text-violet-400 rounded-lg hover:bg-violet-500/20 transition-all text-sm font-semibold"
+          >
+            Configure Questions
+          </button>
+          {pharmacyQuestions.length > 0 && (
+            <span className="px-2 py-1 bg-violet-500/20 text-violet-300 rounded-full text-xs font-semibold">
+              {pharmacyQuestions.length} question{pharmacyQuestions.length !== 1 ? "s" : ""} assigned
+            </span>
+          )}
+        </div>
+      )}
+    </div>
+  </div>
 </div>
 
 
@@ -5957,6 +6049,15 @@ useEffect(() => {
       applyDiscountToAllItems: settings.applyDiscountToAllItems
     }));
   }}
+/>
+
+{/* PHARMACY QUESTION ASSIGN MODAL */}
+<PharmacyQuestionAssignModal
+  isOpen={showPharmacyModal}
+  onClose={() => setShowPharmacyModal(false)}
+  productId={null}
+  initialSelections={pharmacyQuestions}
+  onSave={(selections) => setPharmacyQuestions(selections)}
 />
 
 {/* ============================================================ */}

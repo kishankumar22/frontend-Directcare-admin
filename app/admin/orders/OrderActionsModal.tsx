@@ -38,18 +38,18 @@ interface OrderActionsModalProps {
   onSuccess: () => void;
 }
 
-// ✅ Valid status transitions based on current status AND delivery method
+// ✅ Valid status transitions matching backend UpdateOrderStatusCommandHandler
 const getValidStatusTransitions = (currentStatus: OrderStatus, deliveryMethod: string): OrderStatus[] => {
   const baseTransitions: Record<OrderStatus, OrderStatus[]> = {
-    'Pending': ['Confirmed', 'Cancelled'],
-    'Confirmed': deliveryMethod === 'ClickAndCollect' 
+    'Pending': ['Confirmed', 'Processing', 'Cancelled'],
+    'Confirmed': deliveryMethod === 'ClickAndCollect'
       ? ['Processing', 'Cancelled']
       : ['Processing', 'Shipped', 'Cancelled'],
     'Processing': deliveryMethod === 'ClickAndCollect'
-      ? ['Cancelled'] // Click & Collect will go to Ready via mark-ready action
+      ? ['Cancelled']
       : ['Shipped', 'PartiallyShipped', 'Cancelled'],
-    'Shipped': ['Delivered', 'PartiallyShipped', 'Cancelled'],
-    'PartiallyShipped': ['Delivered', 'Cancelled'],
+    'Shipped': ['Delivered', 'Returned', 'Cancelled'],
+    'PartiallyShipped': ['Shipped', 'Delivered', 'Cancelled'],
     'Delivered': ['Returned', 'Refunded'],
     'Cancelled': ['Refunded'],
     'Returned': ['Refunded'],

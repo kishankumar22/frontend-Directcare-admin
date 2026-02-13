@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Plus, Edit, Trash2, Search, FolderTree, Eye, Upload, Filter, FilterX, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, AlertCircle, CheckCircle, ChevronDown, ChevronRight as ChevronRightIcon, X, Award, Package, Copy } from "lucide-react";
+import { Plus, Edit, Trash2, Search, FolderTree, Eye, Upload, Filter, FilterX, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, AlertCircle, CheckCircle, ChevronDown, ChevronRight as ChevronRightIcon, X, Award, Package, Copy, RotateCcw } from "lucide-react";
 import { ProductDescriptionEditor } from "../_component/SelfHostedEditor";
 import { useToast } from "@/app/admin/_component/CustomToast";
 import ConfirmDialog from "@/app/admin/_component/ConfirmDialog";
@@ -23,7 +23,28 @@ export default function CategoriesPage() {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [levelFilter, setLevelFilter] = useState<string>("all");
   const [homepageFilter, setHomepageFilter] = useState<'all' | 'yes' | 'no'>('all');
+const [deletedFilter, setDeletedFilter] = useState<'all' | 'deleted' | 'notDeleted'>('all');
+const handleRestore = async (category: Category) => {
+  setIsRestoring(true);
 
+  try {
+    const response = await categoriesService.restore(category.id);
+
+    if (!response.error) {
+      toast.success("Category restored successfully! 🎉");
+      await fetchCategories();
+    } else {
+      toast.error(response.error || "Failed to restore category");
+    }
+  } catch (error: any) {
+    toast.error(
+      error?.response?.data?.message || "Restore failed"
+    );
+  } finally {
+    setIsRestoring(false);
+    setRestoreConfirm(null);
+  }
+};
   const MAX_HOMEPAGE_CATEGORIES = 50;
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
   const [selectedParentId, setSelectedParentId] = useState<string>("");
@@ -108,72 +129,141 @@ const getMaxDepthOfSubtree = (category: Category, allCategories: Category[]): nu
   return maxDepth;
 };
 
-  useEffect(() => {
-    fetchCategories();
-  }, []);
+useEffect(() => {
+  fetchCategories();
+}, [statusFilter, homepageFilter, levelFilter, searchTerm, deletedFilter]);
+
+
 
 const fetchCategories = async () => {
   try {
-    const response = await categoriesService.getAll({
-      params: { includeInactive: true, includeSubCategories: true }
-    });
-    
-    const categoriesData = response.data?.data || [];
-    
-    // ✅ Recursive function to sort categories and subcategories
+    setLoading(true);
+
+    // ==============================
+    // DEFAULT PARAMS (ADMIN PANEL)
+    // ==============================
+    const params: any = {
+      includeSubCategories: true,
+      includeInactive: true, // admin can see inactive
+      isActive: true, // ✅ default active only
+    };
+
+    // ==============================
+    // FILTER OVERRIDES
+    // ==============================
+
+    // 🔥 Deleted filter has highest priority
+    if (deletedFilter === "deleted") {
+      params.isDeleted = true;
+      delete params.isActive; // deleted me active filter remove
+    } 
+    else if (deletedFilter === "notDeleted") {
+      params.isDeleted = false;
+    }
+
+    // Status filter (override default isActive)
+    if (statusFilter === "active") {
+      params.isActive = true;
+    } 
+    else if (statusFilter === "inactive") {
+      params.isActive = false;
+    } 
+    else if (statusFilter === "all") {
+      delete params.isActive; // show all
+    }
+
+    // Homepage filter
+    if (homepageFilter === "yes") {
+      params.showOnHomepage = true;
+    } 
+    else if (homepageFilter === "no") {
+      params.showOnHomepage = false;
+    }
+
+    // Search filter
+    if (searchTerm?.trim()) {
+      params.search = searchTerm.trim();
+    }
+
+    // Level filter
+    if (levelFilter !== "all") {
+      params.level = Number(levelFilter.replace("level", ""));
+    }
+
+    // ==============================
+    // API CALL
+    // ==============================
+    const response = await categoriesService.getAll({ params });
+    const categoriesData: Category[] = response.data?.data || [];
+
+    // ==============================
+    // RECURSIVE SORTING
+    // ==============================
     const sortRecursive = (cats: Category[]): Category[] => {
       return cats
         .map(cat => ({
           ...cat,
-          // ✅ Fixed: Check if subCategories exists and has length
-          subCategories: cat.subCategories && cat.subCategories.length > 0 
-            ? sortRecursive(cat.subCategories) 
-            : (cat.subCategories || []) // ✅ Fixed: Default to empty array if undefined
+          subCategories:
+            cat.subCategories && cat.subCategories.length > 0
+              ? sortRecursive(cat.subCategories)
+              : [],
         }))
         .sort((a, b) => {
-          // Active categories first
+          // Active first
           if (a.isActive !== b.isActive) {
             return a.isActive ? -1 : 1;
           }
-          // Then by creation date (newest first)
+
+          // Then newest first
           const dateA = new Date(a.createdAt || 0).getTime();
           const dateB = new Date(b.createdAt || 0).getTime();
+
           return dateB - dateA;
         });
     };
-    
+
     const sortedCategories = sortRecursive(categoriesData);
-    
-    setCategories([...sortedCategories]);
+
+    setCategories(sortedCategories);
     calculateStats(sortedCategories);
-    
+
   } catch (error) {
     console.error("Error fetching categories:", error);
   } finally {
     setLoading(false);
   }
 };
-
-
 const calculateStats = (categoriesData: Category[]) => {
-  const totalCategories = categoriesData.length;
-  
-  const totalProducts = categoriesData.reduce((count, cat) => {
+  // Recursive flatten
+  const flatten = (cats: Category[]): Category[] => {
+    return cats.flatMap(cat => [
+      cat,
+      ...(cat.subCategories && cat.subCategories.length > 0
+        ? flatten(cat.subCategories)
+        : [])
+    ]);
+  };
+
+  const allCategories = flatten(categoriesData);
+
+  const totalCategories = allCategories.length;
+
+  const totalProducts = allCategories.reduce((count, cat) => {
     return count + (cat.productCount || 0);
   }, 0);
-  
-  const activeCategories = categoriesData.filter(cat => cat.isActive).length;
-  
-  // ✅ NEW: Count homepage categories
-  const homepageCategories = categoriesData.filter(cat => cat.showOnHomepage).length;
+
+  const activeCategories = allCategories.filter(cat => cat.isActive).length;
+
+  const homepageCategories = allCategories.filter(cat => cat.showOnHomepage).length;
 
   setStats({
     totalCategories,
     totalProducts,
     activeCategories,
-    homepageCategories  // ✅ Add this
+    homepageCategories
   });
 };
+
 
 
   const findCategoryById = (id: string, categories: Category[]): Category | null => {
@@ -241,13 +331,13 @@ const calculateStats = (categoriesData: Category[]) => {
     return availableParents;
   };
 
-  useEffect(() => {
-    const handleFocus = () => {
-      fetchCategories();
-    };
-    window.addEventListener('focus', handleFocus);
-    return () => window.removeEventListener('focus', handleFocus);
-  }, []);
+  // useEffect(() => {
+  //   const handleFocus = () => {
+  //     fetchCategories();
+  //   };
+  //   window.addEventListener('focus', handleFocus);
+  //   return () => window.removeEventListener('focus', handleFocus);
+  // }, []);
 
 const handleImageFileChange = (file: File) => {
   setImageFile(file);
@@ -825,11 +915,13 @@ const getParentCategoryOptions = () => {
 const clearFilters = () => {
   setStatusFilter("all");
   setLevelFilter("all");
-  setHomepageFilter("all");          // ← this is what you actually want
+  setHomepageFilter("all");
+  setDeletedFilter("all");   // ✅ ADD THIS
   setSearchTerm("");
   setCurrentPage(1);
   setExpandedCategories(new Set());
 };
+
   // CategoryRow Component
   type CategoryRowProps = {
     category: Category;
@@ -843,12 +935,21 @@ const clearFilters = () => {
     onAddSubcategory: (parentId: string, parentName: string) => void;
     getImageUrl: (url?: string) => string;
     setImageDeleteConfirm: (data: any) => void;
+    onStatusToggle: (category: Category) => void; // ✅ NEW
+    onRestore: (category: Category) => void;
   };
+const [statusConfirm, setStatusConfirm] = useState<Category | null>(null);
+const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
+const [restoreConfirm, setRestoreConfirm] = useState<Category | null>(null);
+const [isRestoring, setIsRestoring] = useState(false);
+
+const handleStatusToggle = (category: Category) => {
+  setStatusConfirm(category);
+};
 
 const CategoryRow: React.FC<CategoryRowProps> = ({
   category,
   level,
-  allCategories,
   expandedCategories,
   onToggleExpand,
   onEdit,
@@ -856,15 +957,36 @@ const CategoryRow: React.FC<CategoryRowProps> = ({
   onView,
   onAddSubcategory,
   getImageUrl,
-  setImageDeleteConfirm,
+  onStatusToggle,
+  onRestore
+  
 }) => {
-  const hasChildren = category.subCategories && category.subCategories.length > 0;
+  const hasChildren =
+    category.subCategories && category.subCategories.length > 0;
+
   const isExpanded = expandedCategories.has(category.id);
   const isInactive = !category.isActive;
-  const indent = level * 24; // ✅ Reduced from 32 to 24
+  const indent = level * 24;
+const totalSubCategories = getTotalSubCategories(category);
+const levelLabel = `L${level + 1}`;
 
   const MAX_LEVEL = 2;
   const canAddSubcategory = level < MAX_LEVEL;
+
+
+  const handleStatusClick = () => {
+    const confirmAction = window.confirm(
+      `Are you sure you want to ${
+        category.isActive ? "Deactivate" : "Activate"
+      } this category?`
+    );
+
+    if (confirmAction) {
+      onStatusToggle(category);
+    }
+  };
+
+  
 
   return (
     <tr
@@ -872,382 +994,198 @@ const CategoryRow: React.FC<CategoryRowProps> = ({
         level === 0 ? "bg-slate-800/10" : ""
       } ${
         isInactive
-          ? "opacity-50 hover:opacity-60 grayscale-30"
+          ? "opacity-60 hover:opacity-70"
           : "hover:bg-slate-800/30"
       }`}
     >
-      {/* ✅ REDUCED PADDING: py-4 → py-2.5, px-4 → px-3 */}
+      {/* CATEGORY NAME COLUMN */}
       <td className="py-2.5 px-3">
-        <div className="flex items-center gap-2" style={{ paddingLeft: `${indent}px` }}>
+        <div
+          className="flex items-center gap-2"
+          style={{ paddingLeft: `${indent}px` }}
+        >
           {hasChildren ? (
             <button
               onClick={() => onToggleExpand(category.id)}
-              className={`p-1 rounded-lg transition-all shrink-0 ${
-                isInactive
-                  ? "hover:bg-slate-700/30 cursor-not-allowed"
-                  : "hover:bg-slate-700/50"
-              }`}
-              disabled={isInactive}
-              title={
-                isInactive
-                  ? "Inactive category"
-                  : isExpanded
-                  ? "Collapse"
-                  : "Expand"
-              }
+              className="p-1 rounded-lg hover:bg-slate-700/50"
             >
               {isExpanded ? (
-                <ChevronDown
-                  className={`h-4 w-4 ${
-                    isInactive ? "text-slate-600" : "text-violet-400"
-                  }`}
-                />
+                <ChevronDown className="h-4 w-4 text-violet-400" />
               ) : (
-                <ChevronRightIcon
-                  className={`h-4 w-4 ${
-                    isInactive ? "text-slate-600" : "text-slate-400"
-                  }`}
-                />
+                <ChevronRightIcon className="h-4 w-4 text-slate-400" />
               )}
             </button>
           ) : (
-            <div className="w-6 shrink-0"></div>
+            <div className="w-6" />
           )}
 
-          {level > 0 && (
-            <div className="flex items-center shrink-0 -ml-3 mr-1" style={{ width: "24px", height: "32px" }}>
-              <div className="relative w-full h-full">
-                <div
-                  className={`absolute left-2 top-0 w-px h-1/2 bg-gradient-to-b ${
-                    isInactive
-                      ? "from-slate-600/30 to-slate-600/40"
-                      : "from-cyan-500/40 to-cyan-500/60"
-                  }`}
-                ></div>
-                <div
-                  className={`absolute left-2 top-1/2 w-2.5 h-px bg-gradient-to-r ${
-                    isInactive
-                      ? "from-slate-600/40 to-slate-600/30"
-                      : "from-cyan-500/60 to-cyan-500/40"
-                  }`}
-                ></div>
-                <div
-                  className={`absolute left-5 top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full ${
-                    isInactive ? "bg-slate-600/40" : "bg-cyan-400/60"
-                  }`}
-                ></div>
-              </div>
-            </div>
-          )}
-
-          {/* ✅ REDUCED IMAGE SIZE: w-10 h-10 → w-8 h-8 */}
           {category.imageUrl ? (
-            <div
-              className={`w-8 h-8 rounded-lg overflow-hidden border cursor-pointer transition-all shrink-0 relative ${
-                isInactive 
-                  ? 'border-slate-700/50 hover:ring-1 hover:ring-slate-600' 
-                  : 'border-slate-700 hover:ring-2 hover:ring-violet-500'
-              }`}
-              onClick={(e) => {
-                e.stopPropagation();
-                if (!isInactive) {
-                  setSelectedImageUrl(getImageUrl(category.imageUrl));
-                }
-              }}
-            >
+            <div className="w-8 h-8 rounded-lg overflow-hidden border border-slate-700">
               <img
                 src={getImageUrl(category.imageUrl)}
                 alt={category.name}
-                className={`w-full h-full object-cover ${isInactive ? 'grayscale' : ''}`}
-                onError={(e) => {
-                  e.currentTarget.style.display = 'none';
-                }}
+                className="w-full h-full object-cover"
               />
-              
-              {isInactive && (
-                <div className="absolute inset-0 bg-slate-900/60 flex items-center justify-center">
-                  <svg className="h-4 w-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 715.636 5.636m12.728 12.728L5.636 5.636" />
-                  </svg>
-                </div>
-              )}
             </div>
           ) : (
-            <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
-              isInactive 
-                ? 'bg-slate-700/50' 
-                : 'bg-gradient-to-br from-violet-500 to-pink-500'
-            }`}>
-              <FolderTree className={`h-4 w-4 ${isInactive ? 'text-slate-500' : 'text-white'}`} />
+            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-violet-500 to-pink-500 flex items-center justify-center">
+              <FolderTree className="h-4 w-4 text-white" />
             </div>
           )}
 
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-1.5 flex-wrap">
-              <p
-                className={`font-medium text-sm cursor-pointer transition-colors ${
-                  isInactive
-                    ? "text-slate-500 hover:text-slate-400"
-                    : "text-white hover:text-violet-400"
-                }`}
-                onClick={() => onView(category)}
-              >
-                {category.name}
-              </p>
+   <div>
+  <div className="flex items-center gap-2">
+    <p
+      className={`font-medium text-sm cursor-pointer ${
+        isInactive ? "text-slate-500" : "text-white"
+      }`}
+      onClick={() => onView(category)}
+    >
+      {category.name}
+    </p>
 
-              <span
-                className={`shrink-0 px-1.5 py-0.5 rounded text-xs font-medium border ${
-                  isInactive
-                    ? "bg-slate-700/50 text-slate-600 border-slate-600/50"
-                    : "bg-slate-700/50 text-slate-400 border-slate-600/50"
-                }`}
-              >
-                L{level + 1}
-              </span>
+    {/* ✅ Level Badge */}
+    <span className={`px-2 py-0.5 text-[10px] font-semibold rounded-md border ${
+      level === 0
+        ? "bg-violet-500/10 text-violet-400 border-violet-500/20"
+        : level === 1
+        ? "bg-cyan-500/10 text-cyan-400 border-cyan-500/20"
+        : "bg-blue-500/10 text-blue-400 border-blue-500/20"
+    }`}>
+      {levelLabel}
+    </span>
 
-              {hasChildren && (
-                <span
-                  className={`shrink-0 px-1.5 py-0.5 rounded text-xs font-medium border ${
-                    isInactive
-                      ? "bg-slate-700/50 text-slate-500 border-slate-600/50"
-                      : "bg-violet-500/10 text-violet-400 border-violet-500/20"
-                  }`}
-                >
-                  {category.subCategories?.length} sub
-                </span>
-              )}
+    {/* ✅ Total Subcategories Count */}
+    {totalSubCategories > 0 && (
+      <span className="px-2 py-0.5 text-[10px] font-semibold rounded-md bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+        {totalSubCategories} Sub
+      </span>
+    )}
+  </div>
 
-              {isInactive && (
-                <span className="shrink-0 px-1.5 py-0.5 bg-amber-500/10 text-amber-500 rounded text-xs font-medium border border-amber-500/20 flex items-center gap-1">
-                  <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 715.636 5.636m12.728 12.728L5.636 5.636" />
-                  </svg>
-                  Archived
-                </span>
-              )}
-            </div>
+  <span className="text-xs text-slate-500">
+    {category.slug}
+  </span>
+</div>
 
-            {/* ✅ REDUCED GAP & MARGIN: gap-2 → gap-1.5, mt-1 → mt-0.5 */}
-            <div className="flex items-center gap-1.5 mt-0.5">
-              {category.parentCategoryName ? (
-                <div className="flex items-center gap-1">
-                  <svg className={`h-3 w-3 ${isInactive ? "text-slate-600" : "text-slate-500"}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
-                  </svg>
-                  <span className={`text-xs ${isInactive ? "text-slate-600" : "text-slate-400"}`}>
-                    in
-                  </span>
-                  <span className={`text-xs font-medium ${isInactive ? "text-slate-600" : "text-cyan-400"}`}>
-                    {category.parentCategoryName}
-                  </span>
-                  <span className={`text-xs ${isInactive ? "text-slate-700" : "text-slate-600"}`}>•</span>
-                  <span className={`text-xs ${isInactive ? "text-slate-600" : "text-slate-500"}`}>
-                    {category.slug}
-                  </span>
-                </div>
-              ) : (
-                <span className={`text-xs ${isInactive ? "text-slate-600" : "text-slate-500"}`}>
-                  {category.slug}
-                </span>
-              )}
-            </div>
-          </div>
         </div>
       </td>
 
-      {/* ✅ ALL CELLS: py-4 px-4 → py-2.5 px-3 */}
+      {/* PRODUCT COUNT */}
       <td className="py-2.5 px-3 text-center">
-        <span
-          className={`inline-flex items-center px-2 py-0.5 rounded-lg text-xs font-medium ${
-            isInactive
-              ? "bg-slate-700/30 text-slate-600"
-              : category.productCount > 0
-              ? "bg-cyan-500/10 text-cyan-400"
-              : "bg-slate-700/30 text-slate-500"
-          }`}
-        >
+        <span className="text-sm text-cyan-400">
           {category.productCount}
         </span>
       </td>
 
-      <td className="py-2.5 px-3 text-center">
-        <span
-          className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-xs font-medium ${
-            category.isActive
-              ? "bg-green-500/10 text-green-400 border border-green-500/20"
-              : "bg-red-500/10 text-red-400 border border-red-500/20"
-          }`}
-        >
-          <span
-            className={`w-1.5 h-1.5 rounded-full ${
-              category.isActive ? "bg-green-400" : "bg-red-400"
-            }`}
-          ></span>
-          {category.isActive ? "Active" : "Inactive"}
-        </span>
-      </td>
+      {/* STATUS COLUMN */}
+<td className="py-2.5 px-3 text-center">
+  <button
+    onClick={() => onStatusToggle(category)}
+    className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-xs font-medium border transition-all hover:scale-105 ${
+      category.isActive
+        ? "bg-green-500/10 text-green-400 border-green-500/20 hover:bg-green-500/20"
+        : "bg-red-500/10 text-red-400 border-red-500/20 hover:bg-red-500/20"
+    }`}
+  >
+    <span
+      className={`w-1.5 h-1.5 rounded-full ${
+        category.isActive ? "bg-green-400" : "bg-red-400"
+      }`}
+    ></span>
+    {category.isActive ? "Active" : "Inactive"}
+  </button>
+</td>
 
+
+      {/* SORT ORDER */}
       <td className="py-2.5 px-3 text-center">
-        <span
-          className={`font-mono text-xs ${
-            isInactive ? "text-slate-600" : "text-slate-300"
-          }`}
-        >
+        <span className="text-xs text-slate-300">
           {category.sortOrder}
         </span>
       </td>
 
-      <td className="py-2.5 px-3 text-xs">
-        {category.createdAt ? (
-          <div className="flex flex-col">
-            <span
-              className={`font-medium ${
-                isInactive ? "text-slate-600" : "text-slate-300"
-              }`}
-            >
-              {new Date(category.createdAt).toLocaleDateString("en-GB", {
-                day: "2-digit",
-                month: "short",
-                year: "numeric",
-              })}
-            </span>
-            <span
-              className={`text-xs ${
-                isInactive ? "text-slate-700" : "text-slate-500"
-              }`}
-            >
-              {new Date(category.createdAt).toLocaleTimeString("en-GB", {
-                hour: "2-digit",
-                minute: "2-digit",
-              })}
-            </span>
-          </div>
-        ) : (
-          "-"
-        )}
+      {/* CREATED AT */}
+      <td className="py-2.5 px-3 text-xs text-slate-400">
+        {category.createdAt
+          ? new Date(category.createdAt).toLocaleDateString("en-GB")
+          : "-"}
       </td>
 
-      <td className="py-2.5 px-3 text-xs">
-        {category.updatedAt ? (
-          <div className="flex flex-col">
-            <span
-              className={`font-medium ${
-                isInactive ? "text-slate-600" : "text-slate-300"
-              }`}
-            >
-              {new Date(category.updatedAt).toLocaleDateString("en-GB", {
-                day: "2-digit",
-                month: "short",
-                year: "numeric",
-              })}
-            </span>
-            <span
-              className={`text-xs ${
-                isInactive ? "text-slate-700" : "text-slate-500"
-              }`}
-            >
-              {new Date(category.updatedAt).toLocaleTimeString("en-GB", {
-                hour: "2-digit",
-                minute: "2-digit",
-              })}
-            </span>
-          </div>
-        ) : (
-          "-"
-        )}
+      {/* UPDATED AT */}
+      <td className="py-2.5 px-3 text-xs text-slate-400">
+        {category.updatedAt
+          ? new Date(category.updatedAt).toLocaleDateString("en-GB")
+          : "-"}
       </td>
-
-      <td className="py-2.5 px-3">
+      <td className="py-2.5 px-3 text-xs text-slate-400">
         {category.updatedBy ? (
-          <div className="flex items-center gap-1.5">
-            <div
-              className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold text-white shrink-0 ${
-                isInactive
-                  ? "bg-slate-600"
-                  : "bg-gradient-to-br from-violet-500 to-cyan-500"
-              }`}
-            >
-              {category.updatedBy.charAt(0).toUpperCase()}
-            </div>
-            <span
-              className={`text-xs truncate max-w-[120px] ${
-                isInactive ? "text-slate-600" : "text-slate-300"
-              }`}
-              title={category.updatedBy}
-            >
-              {category.updatedBy}
-            </span>
-          </div>
+          <span className="text-slate-300">{category.updatedBy}</span>
         ) : (
-          <span className="text-slate-500 text-xs">-</span>
+          <span className="text-slate-500">-</span>
         )}
       </td>
 
-      <td className="py-2.5 px-3">
-        <div className="flex items-center justify-center gap-1.5">
+      {/* ACTIONS */}
+      <td className="py-2.5 px-3 text-center">
+        <div className="flex items-center justify-center gap-2">
           <button
-            onClick={() => canAddSubcategory && onAddSubcategory(category.id, category.name)}
-            disabled={!canAddSubcategory || isInactive}
-            className={`p-1.5 rounded-lg transition-all relative z-10 ${
-              canAddSubcategory && !isInactive
-                ? "text-green-400 hover:bg-green-500/10"
-                : "text-slate-600 cursor-not-allowed opacity-50"
-            }`}
-            title={
-              !canAddSubcategory
-                ? "🚫 Maximum 3 levels reached"
-                : isInactive
-                ? "Cannot add to inactive category"
-                : `Add subcategory to ${category.name}`
+            onClick={() =>
+              canAddSubcategory &&
+              onAddSubcategory(category.id, category.name)
             }
+            disabled={!canAddSubcategory}
+            className="p-1.5 text-green-400 hover:bg-green-500/10 rounded-lg"
           >
             <Plus className="h-4 w-4" />
           </button>
 
           <button
             onClick={() => onView(category)}
-            className="p-1.5 text-violet-400 hover:bg-violet-500/10 rounded-lg transition-all relative z-10"
-            title={isInactive ? "View archived category" : "View details"}
+            className="p-1.5 text-violet-400 hover:bg-violet-500/10 rounded-lg"
           >
             <Eye className="h-4 w-4" />
           </button>
 
           <button
             onClick={() => onEdit(category)}
-            className="p-1.5 text-cyan-400 hover:bg-cyan-500/10 rounded-lg transition-all relative z-10"
-            title={isInactive ? "Edit archived category" : "Edit category"}
+            className="p-1.5 text-cyan-400 hover:bg-cyan-500/10 rounded-lg"
           >
             <Edit className="h-4 w-4" />
           </button>
 
-          <button
-            onClick={() => !isInactive && onDelete(category.id, category.name)}
-            disabled={isInactive}
-            className={`p-1.5 rounded-lg transition-all relative z-10 ${
-              isInactive
-                ? "text-slate-600 cursor-not-allowed"
-                : "text-red-400 hover:bg-red-500/10"
-            }`}
-            title={
-              isInactive
-                ? "Delete disabled for archived categories"
-                : "Delete category"
-            }
-          >
-            <Trash2 className="h-4 w-4" />
-          </button>
+          {category.isDeleted ? (
+  <button
+    onClick={() => onRestore(category)}
+    className="p-1.5 text-emerald-400 hover:bg-emerald-500/10 rounded-lg"
+    title="Restore Category"
+  >
+    <RotateCcw className="h-4 w-4" />
+  </button>
+) : (
+  <button
+    onClick={() => onDelete(category.id, category.name)}
+    className="p-1.5 text-red-400 hover:bg-red-500/10 rounded-lg"
+  >
+    <Trash2 className="h-4 w-4" />
+  </button>
+)}
+
         </div>
       </td>
     </tr>
   );
 };
 
+
   // ✅ FIXED - Only ONE filteredCategories definition
 const hasActiveFilters =
   searchTerm ||
   levelFilter !== 'all' ||
   statusFilter !== 'all' ||
-  homepageFilter !== 'all';
+  homepageFilter !== 'all' ||
+  deletedFilter !== 'all';
+
 
 
   // ✅ Smart search in hierarchy
@@ -1256,8 +1194,14 @@ const searchInHierarchy = (
   searchTerm: string,
   statusFilter: string,
   levelFilter: string,
-  homepageFilter: 'all' | 'yes' | 'no'   // ← add this parameter
+  homepageFilter: 'all' | 'yes' | 'no',
+  deletedFilter: 'all' | 'deleted' | 'notDeleted'   // ✅ ADD
 ): boolean => {
+const deletedMatch =
+  deletedFilter === 'all' ||
+  (deletedFilter === 'deleted' && category.isDeleted === true) ||
+  (deletedFilter === 'notDeleted' && category.isDeleted === false);
+
   const nameMatch = category.name.toLowerCase().includes(searchTerm.toLowerCase());
 
   const statusMatch =
@@ -1277,9 +1221,10 @@ const searchInHierarchy = (
     (homepageFilter === 'no'  && category.showOnHomepage === false);
 
   // All conditions must pass
-  if (nameMatch && statusMatch && levelMatch && homepageMatch) {
-    return true;
-  }
+  if (nameMatch && statusMatch && levelMatch && homepageMatch && deletedMatch) {
+  return true;
+}
+
 
   // Recurse into children if any
   if (category.subCategories && category.subCategories.length > 0) {
@@ -1289,7 +1234,8 @@ const searchInHierarchy = (
         searchTerm,
         statusFilter,
         levelFilter,
-        homepageFilter   // ← pass it down!
+        homepageFilter,
+        deletedFilter
       )
     );
   }
@@ -1299,7 +1245,7 @@ const searchInHierarchy = (
 
 // NEW – pass the 5th argument
 const filteredCategories = categories.filter(category =>
-  searchInHierarchy(category, searchTerm, statusFilter, levelFilter, homepageFilter)
+  searchInHierarchy(category, searchTerm, statusFilter, levelFilter, homepageFilter,deletedFilter)
 );
 
   // ✅ Auto-expand parents when children match search
@@ -1355,12 +1301,16 @@ const filteredCategories = categories.filter(category =>
     return flattened;
   };
 
-  const totalItems = filteredCategories.length;
-  const totalPages = Math.ceil(totalItems / itemsPerPage);
-  const startIndex = (currentPage - 1) * itemsPerPage;
-  const endIndex = startIndex + itemsPerPage;
-  
-  const currentData = getFlattenedCategories().slice(startIndex, endIndex);
+const flattenedData = getFlattenedCategories();
+
+const totalItems = flattenedData.length;
+const totalPages = Math.ceil(totalItems / itemsPerPage);
+
+const startIndex = (currentPage - 1) * itemsPerPage;
+const endIndex = startIndex + itemsPerPage;
+
+const currentData = flattenedData.slice(startIndex, endIndex);
+
 
   const goToPage = (page: number) => {
     setCurrentPage(Math.max(1, Math.min(page, totalPages)));
@@ -1370,11 +1320,56 @@ const filteredCategories = categories.filter(category =>
   const goToLastPage = () => setCurrentPage(totalPages);
   const goToPreviousPage = () => setCurrentPage(prev => Math.max(1, prev - 1));
   const goToNextPage = () => setCurrentPage(prev => Math.min(totalPages, prev + 1));
+// ✅ Get total subcategories recursively
+const getTotalSubCategories = (category: Category): number => {
+  if (!category.subCategories || category.subCategories.length === 0) {
+    return 0;
+  }
+
+  let count = category.subCategories.length;
+
+  category.subCategories.forEach(child => {
+    count += getTotalSubCategories(child);
+  });
+
+  return count;
+};
 
   const handleItemsPerPageChange = (newItemsPerPage: number) => {
     setItemsPerPage(newItemsPerPage);
     setCurrentPage(1);
   };
+const handleStatusUpdate = async (category: Category) => {
+  try {
+    const updatedPayload = {
+      id: category.id,
+      name: category.name,
+      description: category.description,
+      imageUrl: category.imageUrl,
+      sortOrder: category.sortOrder,
+      parentCategoryId: category.parentCategoryId,
+      metaTitle: category.metaTitle,
+      metaDescription: category.metaDescription,
+      metaKeywords: category.metaKeywords,
+      showOnHomepage: category.showOnHomepage,
+      isActive: !category.isActive, // ✅ only change
+    };
+
+    await categoriesService.update(category.id, updatedPayload);
+
+    toast.success(
+      `Category ${
+        updatedPayload.isActive ? "Activated" : "Deactivated"
+      } successfully`
+    );
+
+    fetchCategories(); // refresh list
+  } catch (error: any) {
+    toast.error(
+      error?.response?.data?.message || "Failed to update status"
+    );
+  }
+};
 
   const getPageNumbers = () => {
     const pages = [];
@@ -1613,6 +1608,28 @@ useEffect(() => {
         <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
       </div>
     </div>
+{/* Is Deleted Filter */}
+<div className="w-full md:w-48 min-w-[160px]">
+  <div className="relative">
+    <Filter className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
+    <select
+      value={deletedFilter}
+      onChange={(e) =>
+        setDeletedFilter(e.target.value as 'all' | 'deleted' | 'notDeleted')
+      }
+      className={`w-full pl-9 pr-8 py-2 bg-slate-900/90 border rounded-lg text-white text-sm appearance-none cursor-pointer focus:outline-none transition-all ${
+        deletedFilter !== 'all'
+          ? 'border-red-500 ring-2 ring-red-500/30'
+          : 'border-slate-700 focus:ring-2 focus:ring-violet-500/50'
+      }`}
+    >
+      <option value="all">Deleted: All</option>
+      <option value="notDeleted">Deleted: No</option>
+      <option value="deleted">Deleted: Yes</option>
+    </select>
+    <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
+  </div>
+</div>
 
     {/* Status Filter */}
     <div className="w-full md:w-40 min-w-[140px]">
@@ -1714,6 +1731,8 @@ useEffect(() => {
                     onAddSubcategory={handleAddSubcategory}
                     getImageUrl={getImageUrl}
                     setImageDeleteConfirm={setImageDeleteConfirm}
+                    onStatusToggle={handleStatusToggle}
+                    onRestore={handleRestore}
                   />
                 ))
               )}
@@ -2702,6 +2721,45 @@ useEffect(() => {
   </div>
 )}
 
+<ConfirmDialog
+  isOpen={!!statusConfirm}
+  onClose={() => setStatusConfirm(null)}
+  onConfirm={async () => {
+    if (!statusConfirm) return;
+
+    setIsUpdatingStatus(true);
+
+    try {
+      await categoriesService.update(statusConfirm.id, {
+        ...statusConfirm,
+        isActive: !statusConfirm.isActive,
+      });
+
+      toast.success(
+        `Category ${
+          statusConfirm.isActive ? "deactivated" : "activated"
+        } successfully`
+      );
+
+      await fetchCategories();
+    } catch (error: any) {
+      toast.error(
+        error?.response?.data?.message || "Failed to update status"
+      );
+    } finally {
+      setIsUpdatingStatus(false);
+      setStatusConfirm(null);
+    }
+  }}
+  title={statusConfirm?.isActive ? "Deactivate Category" : "Activate Category"}
+  message={`Are you sure you want to ${
+    statusConfirm?.isActive ? "deactivate" : "activate"
+  } "${statusConfirm?.name}"?`}
+  confirmText={statusConfirm?.isActive ? "Deactivate" : "Activate"}
+  isLoading={isUpdatingStatus}
+/>
+
+
       {/* Image Delete Confirmation */}
       <ConfirmDialog
         isOpen={!!imageDeleteConfirm}
@@ -2716,6 +2774,15 @@ useEffect(() => {
         confirmText="Delete Image"
         isLoading={isDeletingImage}
       />
+<ConfirmDialog
+  isOpen={!!restoreConfirm}
+  onClose={() => setRestoreConfirm(null)}
+  onConfirm={() => restoreConfirm && handleRestore(restoreConfirm)}
+  title="Restore Category"
+  message={`Are you sure you want to restore "${restoreConfirm?.name}"?`}
+  confirmText="Restore"
+  isLoading={isRestoring}
+/>
 
     </div>
   );

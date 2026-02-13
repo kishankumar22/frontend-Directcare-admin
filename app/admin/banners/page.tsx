@@ -22,6 +22,8 @@ export default function ManageBanners() {
   const [bannerTypeFilter, setBannerTypeFilter] = useState<string>("all");
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
+const [deletedFilter, setDeletedFilter] = useState("notDeleted");
+const [statusConfirm, setStatusConfirm] = useState<Banner | null>(null);
 
   const [stats, setStats] = useState<BannerStats>({
     totalBanners: 0,
@@ -34,6 +36,15 @@ type BannerStatus =
   | 'INACTIVE'
   | 'EXPIRED'
   | 'SCHEDULED';
+const handleRestore = async (id: string) => {
+  try {
+    await bannersService.restore(id);
+    toast.success("Banner restored successfully!");
+    fetchBanners();
+  } catch (error: any) {
+    toast.error(error?.response?.data?.message || "Restore failed");
+  }
+};
 
 function getBannerStatus(banner: any): BannerStatus {
   const now = new Date();
@@ -122,25 +133,54 @@ function getBannerStatus(banner: any): BannerStatus {
     toast.success("Image selected! Old image will be replaced on save.");
   };
 
-  const fetchBanners = async () => {
-    try {
-      setLoading(true);
-      const response = await bannersService.getAll({
-        params: { includeInactive: true }
-      });
-      const bannersData = response.data?.data && Array.isArray(response.data.data)
-        ? response.data.data
-        : [];
-      setBanners(bannersData);
-      calculateStats(bannersData);
-    } catch (error) {
-      console.error("Error fetching banners:", error);
-      toast.error("Failed to fetch banners");
-      setBanners([]);
-    } finally {
-      setLoading(false);
+const fetchBanners = async () => {
+  try {
+    setLoading(true);
+
+    const params: any = {
+      includeInactive: true, // ALWAYS TRUE
+    };
+
+    if (statusFilter === "active") {
+      params.isActive = true;
     }
-  };
+
+    if (statusFilter === "inactive") {
+      params.isActive = false;
+    }
+
+    if (deletedFilter === "deleted") {
+      params.isDeleted = true;
+    }
+
+    if (deletedFilter === "notDeleted") {
+      params.isDeleted = false;
+    }
+
+    const response = await bannersService.getAll({ params });
+
+    const rawData = response.data?.data;
+
+const bannersData: Banner[] = Array.isArray(rawData)
+  ? rawData
+  : rawData
+  ? [rawData]
+  : [];
+
+
+    setBanners(bannersData);
+    calculateStats(bannersData);
+  } catch (error) {
+    toast.error("Failed to fetch banners");
+  } finally {
+    setLoading(false);
+  }
+};
+useEffect(() => {
+  fetchBanners();
+}, [statusFilter, bannerTypeFilter, deletedFilter]);
+
+
 
 const handleSubmit = async (e: React.FormEvent) => {
   e.preventDefault();
@@ -700,6 +740,15 @@ const handleSubmit = async (e: React.FormEvent) => {
               <option value="Seasonal">Seasonal</option>
               <option value="FlashSale">Flash Sale</option>
             </select>
+            <select
+  value={deletedFilter}
+  onChange={(e) => setDeletedFilter(e.target.value)}
+  className="px-3 py-3 bg-slate-800 border border-slate-600 rounded-xl text-white"
+>
+  <option value="notDeleted">Not Deleted</option>
+  <option value="deleted">Deleted</option>
+</select>
+
 
             {hasActiveFilters && (
               <button
@@ -805,34 +854,50 @@ const handleSubmit = async (e: React.FormEvent) => {
                         {banner.bannerType || 'Homepage'}
                       </span>
                     </td>
-                <td className="py-4 px-4 text-center">
-  {(() => {
-    const status = getBannerStatus(banner);
+<td className="py-4 px-4 text-center">
+  <div className="flex flex-col items-center gap-2">
 
-    const statusStyles = {
-      LIVE: 'bg-green-500/15 text-green-400',
-      INACTIVE: 'bg-slate-500/15 text-slate-400',
-      EXPIRED: 'bg-red-500/15 text-red-400',
-      SCHEDULED: 'bg-yellow-500/15 text-yellow-400',
-    };
+    {/* Active / Inactive Badge (Clickable) */}
+    <button
+      onClick={() => setStatusConfirm(banner)}
+      className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all ${
+        banner.isActive
+          ? "bg-green-500/15 text-green-400 hover:bg-green-500/25"
+          : "bg-slate-500/15 text-slate-400 hover:bg-slate-500/25"
+      }`}
+      title="Click to change status"
+    >
+      {banner.isActive ? "Active" : "Inactive"}
+    </button>
 
-    const statusLabels = {
-      LIVE: 'Live',
-      INACTIVE: 'Inactive',
-      EXPIRED: 'Expired',
-      SCHEDULED: 'Scheduled',
-    };
+    {/* Live / Expired / Scheduled */}
+    {(() => {
+      const status = getBannerStatus(banner);
 
-    return (
-      <span
-        className={`px-3 py-1 rounded-lg text-xs font-semibold ${statusStyles[status]}`}
-        title={`Status: ${statusLabels[status]}`}
-      >
-        {statusLabels[status]}
-      </span>
-    );
-  })()}
+      const map = {
+        LIVE: "text-green-400",
+        EXPIRED: "text-red-400",
+        SCHEDULED: "text-yellow-400",
+        INACTIVE: "text-slate-500",
+      };
+
+      const labelMap = {
+        LIVE: "Live",
+        EXPIRED: "Expired",
+        SCHEDULED: "Scheduled",
+        INACTIVE: "Inactive",
+      };
+
+      return (
+        <span className={`text-xs font-medium ${map[status]}`}>
+          {labelMap[status]}
+        </span>
+      );
+    })()}
+  </div>
 </td>
+
+
 
                     <td className="py-4 px-4 text-center text-slate-300">{banner.displayOrder || 0}</td>
                     <td className="py-4 px-4 text-slate-300 text-sm">
@@ -860,13 +925,26 @@ const handleSubmit = async (e: React.FormEvent) => {
                         >
                           <Edit className="h-4 w-4" />
                         </button>
-                        <button
-                          onClick={() => setDeleteConfirm({ id: banner.id, title: banner.title || 'Untitled Banner' })}
-                          className="p-2 text-red-400 hover:bg-red-500/10 rounded-lg transition-all"
-                          title="Delete"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
+                        {banner.isDeleted ? (
+  <button
+    onClick={() => handleRestore(banner.id)}
+    className="p-2 text-green-400 hover:bg-green-500/10 rounded-lg"
+    title="Restore"
+  >
+   <CheckCircle className="h-4 w-4" />
+  </button>
+) : (
+  <button
+    onClick={() =>
+      setDeleteConfirm({ id: banner.id, title: banner.title })
+    }
+    className="p-2 text-red-400 hover:bg-red-500/10 rounded-lg"
+    title="Delete"
+  >
+    <Trash2 className="h-4 w-4" />
+  </button>
+)}
+
                       </div>
                     </td>
                   </tr>
@@ -1591,6 +1669,26 @@ const handleSubmit = async (e: React.FormEvent) => {
         confirmButtonStyle="bg-gradient-to-r from-red-500 to-rose-500 hover:shadow-lg hover:shadow-red-500/50"
         isLoading={isDeleting}
       />
+
+      <ConfirmDialog
+  isOpen={!!statusConfirm}
+  onClose={() => setStatusConfirm(null)}
+  onConfirm={async () => {
+    if (!statusConfirm) return;
+
+    await bannersService.update(statusConfirm.id, {
+      isActive: !statusConfirm.isActive
+    });
+
+    toast.success("Status updated!");
+    setStatusConfirm(null);
+    fetchBanners();
+  }}
+  title="Change Status"
+  message="Are you sure you want to change banner status?"
+  confirmText="Yes, Change"
+/>
+
 
       {/* Image Preview Modal */}
       {selectedImageUrl && (

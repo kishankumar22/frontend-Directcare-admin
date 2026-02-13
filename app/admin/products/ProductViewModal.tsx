@@ -556,8 +556,8 @@ const ProductViewModal: React.FC<ProductViewModalProps> = ({
                   <div className="p-4 bg-cyan-500/10 rounded-lg border border-cyan-500/30">
                     <p className="text-xs text-cyan-400 font-bold mb-3">Cart Limits</p>
                     <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                      <InfoField label="Min Quantity" value={product.orderMinimumQuantity?.toString() || '1'} />
-                      <InfoField label="Max Quantity" value={product.orderMaximumQuantity?.toString() || '10000'} />
+                      <InfoField label="Min Quantity" value={product.orderMinimumQuantity?.toString() || ''} />
+                      <InfoField label="Max Quantity" value={product.orderMaximumQuantity?.toString() || ''} />
                       <InfoField label="Allowed Quantities" value={product.allowedQuantities || 'Any'} />
                     </div>
                   </div>

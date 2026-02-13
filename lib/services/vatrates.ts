@@ -78,7 +78,11 @@ export const vatratesService = {
   // Update VAT rate by ID
   update: (id: string, data: Partial<CreateVATRateDto>, config?: any) =>
     apiClient.put<UpdateVATRateResponse>(`${API_ENDPOINTS.vatrates}/${id}`, data, config),
-
+ // ==============================
+  // RESTORE (NEW)
+  // ==============================
+  restore: (id: string) =>
+    apiClient.post(`${API_ENDPOINTS.vatrates}/${id}/restore`),
   // Delete VAT rate by ID
   delete: (id: string, config?: any) =>
     apiClient.delete<DeleteVATRateResponse>(`${API_ENDPOINTS.vatrates}/${id}`, config),

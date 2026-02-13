@@ -54,6 +54,7 @@ const [activeTab, setActiveTab] = useState<'basic' | 'image' | 'seo' | 'settings
     description: "",
     logoUrl: "",
     isPublished: true,
+     isActive: true,  
     showOnHomepage: false,
     displayOrder: 1,
     metaTitle: "",
@@ -79,6 +80,7 @@ const [activeTab, setActiveTab] = useState<'basic' | 'image' | 'seo' | 'settings
         logoUrl: editingBrand.logoUrl || "",
         isPublished: editingBrand.isPublished,
         showOnHomepage: editingBrand.showOnHomepage,
+         isActive: true,  
         displayOrder: editingBrand.displayOrder,
         metaTitle: editingBrand.metaTitle || "",
         metaDescription: editingBrand.metaDescription || "",
@@ -91,9 +93,11 @@ const [activeTab, setActiveTab] = useState<'basic' | 'image' | 'seo' | 'settings
         name: "",
         description: "",
         logoUrl: "",
+         isActive: true,  
         isPublished: true,
         showOnHomepage: false,
         displayOrder: 1,
+        
         metaTitle: "",
         metaDescription: "",
         metaKeywords: ""
@@ -135,6 +139,8 @@ const handleDeleteImage = async (brandId: string, imageUrl: string) => {
     setImageDeleteConfirm(null);
   }
 };
+
+
 
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -402,6 +408,7 @@ const handleDeleteImage = async (brandId: string, imageUrl: string) => {
         logoUrl: finalLogoUrl,
         isPublished: formData.isPublished,
         showOnHomepage: formData.showOnHomepage,
+        isActive: formData.isActive,  // ✅ ADD THIS
         displayOrder: formData.displayOrder,
         metaTitle: formData.metaTitle?.trim() || undefined,
         metaDescription: formData.metaDescription?.trim() || undefined,
@@ -807,6 +814,53 @@ const handleDeleteImage = async (brandId: string, imageUrl: string) => {
                 {/* TAB 4: Settings */}
                 {activeTab === 'settings' && (
                   <div className="space-y-3 animate-fadeIn">
+
+                    {/* Active Status */}
+<div>
+  <label className="block text-sm text-slate-300 font-semibold mb-2">
+    Active Status
+  </label>
+  <button
+    type="button"
+    onClick={() =>
+      setFormData({ ...formData, isActive: !formData.isActive })
+    }
+    className={`w-full px-4 py-3 rounded-lg font-semibold transition-all flex items-center justify-between ${
+      formData.isActive
+        ? "bg-emerald-500/10 border-2 border-emerald-500/50 text-emerald-400"
+        : "bg-slate-500/10 border-2 border-slate-500/50 text-slate-400"
+    }`}
+    disabled={isSubmitting}
+  >
+    <div className="flex items-center gap-2">
+      <CheckCircle className="h-5 w-5" />
+      <div className="text-left">
+        <p className="font-bold text-sm">
+          {formData.isActive ? "Active" : "Inactive"}
+        </p>
+        <p className="text-xs opacity-75">
+          {formData.isActive
+            ? "Brand is operational"
+            : "Brand is temporarily disabled"}
+        </p>
+      </div>
+    </div>
+    <div
+      className={`w-11 h-6 rounded-full transition-all ${
+        formData.isActive ? "bg-emerald-500" : "bg-slate-600"
+      }`}
+    >
+      <div
+        className={`w-5 h-5 bg-white rounded-full transition-all shadow-lg ${
+          formData.isActive
+            ? "translate-x-5 mt-0.5"
+            : "translate-x-0.5 mt-0.5"
+        }`}
+      ></div>
+    </div>
+  </button>
+</div>
+
                     {/* Published Status */}
                     <div>
                       <label className="block text-sm text-slate-300 font-semibold mb-2">
@@ -1126,6 +1180,43 @@ const handleDeleteImage = async (brandId: string, imageUrl: string) => {
                           )}
                         </span>
                       </div>
+                      {/* Active Status */}
+<div className="bg-slate-900/50 p-3 rounded-lg flex items-center justify-between">
+  <span className="text-slate-300 text-sm">Active Status</span>
+  <span
+    className={`px-2.5 py-1 rounded-lg text-xs font-semibold flex items-center gap-1.5 ${
+      viewingBrand.isActive
+        ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
+        : "bg-slate-500/10 text-slate-400 border border-slate-500/20"
+    }`}
+  >
+    <span
+      className={`w-1.5 h-1.5 rounded-full ${
+        viewingBrand.isActive ? "bg-emerald-400" : "bg-slate-400"
+      }`}
+    ></span>
+    {viewingBrand.isActive ? "Active" : "Inactive"}
+  </span>
+</div>
+{/* Record State (Soft Delete Status) */}
+<div className="bg-slate-900/50 p-3 rounded-lg flex items-center justify-between">
+  <span className="text-slate-300 text-sm">Record State</span>
+  <span
+    className={`px-2.5 py-1 rounded-lg text-xs font-semibold flex items-center gap-1.5 ${
+      viewingBrand.isDeleted
+        ? "bg-red-500/10 text-red-400 border border-red-500/20"
+        : "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
+    }`}
+  >
+    <span
+      className={`w-1.5 h-1.5 rounded-full ${
+        viewingBrand.isDeleted ? "bg-red-400" : "bg-emerald-400"
+      }`}
+    ></span>
+    {viewingBrand.isDeleted ? "Deleted" : "Live"}
+  </span>
+</div>
+
                     </div>
                   </div>
 

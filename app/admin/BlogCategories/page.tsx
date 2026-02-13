@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Plus, Edit, Trash2, Search, FolderTree, Eye, Upload, Filter, FilterX, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, AlertCircle, CheckCircle, Tag, FileText, TrendingUp, Clock, ChevronDown, MessageSquare } from "lucide-react";
+import { Plus, Edit, Trash2, Search, FolderTree, Eye, Upload, Filter, FilterX, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, AlertCircle, CheckCircle, Tag, FileText, TrendingUp, Clock, ChevronDown, MessageSquare, RotateCcw } from "lucide-react";
 import { ProductDescriptionEditor } from "../_component/SelfHostedEditor";
 import { useToast } from "@/app/admin/_component/CustomToast";
 import ConfirmDialog from "@/app/admin/_component/ConfirmDialog";
@@ -26,13 +26,25 @@ export default function BlogCategoriesPage() {
   const [editingBlogCategory, setEditingBlogCategory] = useState<BlogCategory | null>(null);
   const [selectedImageUrl, setSelectedImageUrl] = useState<string | null>(null);
   const [viewingBlogCategory, setViewingBlogCategory] = useState<BlogCategory | null>(null);
-  const [statusFilter, setStatusFilter] = useState<string>("all");
+  
   
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
+const [visibilityFilter, setVisibilityFilter] = useState<
+  "all" | "archived"
+>("all");
+
+const [statusFilter, setStatusFilter] = useState<
+  "all" | "active" | "inactive"
+>("all");
+
+
+const [statusConfirm, setStatusConfirm] = useState<BlogCategory | null>(null);
+const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
+
 
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(25);
@@ -111,52 +123,79 @@ export default function BlogCategoriesPage() {
 
 const fetchBlogCategories = async () => {
   try {
-    const response = await blogCategoriesService.getAll();
-    const allCategoriesData = response.data?.data || [];
-    
-    // ✅ Type-safe filtering
-    const rootCategories = allCategoriesData.filter(
-      (category): category is BlogCategory => !category.parentCategoryId
-    );
-    
-    // ✅ Type-safe hierarchy building
-    const categoriesWithHierarchy: BlogCategory[] = rootCategories.map(rootCategory => {
-      // Find direct children
-      const directChildren = allCategoriesData.filter(
-        cat => cat.parentCategoryId === rootCategory.id
-      );
-      
-      // Ensure subCategories is BlogCategory[], not string[]
-      const existingSubCategories = Array.isArray(rootCategory.subCategories) 
-        ? rootCategory.subCategories.filter((sub): sub is BlogCategory => 
-            typeof sub === 'object' && sub !== null && 'id' in sub
-          )
-        : [];
-      
-      // Merge unique subcategories
-      const allSubCategories: BlogCategory[] = [
-        ...existingSubCategories,
-        ...directChildren.filter(child => 
-          !existingSubCategories.some(sub => sub.id === child.id)
-        )
-      ];
-      
-      return {
-        ...rootCategory,
-        subCategories: allSubCategories
-      } as BlogCategory;
-    });
-    
-    setBlogCategories(categoriesWithHierarchy);
-    calculateStats(allCategoriesData);
-    
+    setLoading(true);
+
+ const params: any = {
+  includeSubCategories: true,
+};
+
+// ARCHIVED
+if (visibilityFilter === "archived") {
+  params.isDeleted = true;
+  params.includeInactive = true;
+} else {
+  params.isDeleted = false;
+  params.includeInactive = true;
+
+  if (statusFilter === "active") {
+    params.isActive = true;
+    params.includeInactive = false;
+  }
+
+  if (statusFilter === "inactive") {
+    params.isActive = false;
+  }
+}
+
+
+    // ===============================
+    // ARCHIVED FILTER
+    // ===============================
+    if (visibilityFilter === "archived") {
+      params.isDeleted = true;
+      params.includeInactive = true; // archived me sab show karo
+    } else {
+      params.isDeleted = false;
+
+      // ===============================
+      // STATUS FILTER
+      // ===============================
+      if (statusFilter === "active") {
+        params.isActive = true;
+        params.includeInactive = false;
+      }
+
+      if (statusFilter === "inactive") {
+        params.isActive = false;
+        params.includeInactive = true;
+      }
+
+      if (statusFilter === "all") {
+        params.includeInactive = true;
+      }
+    }
+
+    console.log("🔥 API PARAMS:", params);
+
+    const response = await blogCategoriesService.getAll(params);
+    const data = response.data?.data || [];
+
+    setBlogCategories(data);
+    calculateStats(data);
+
   } catch (error) {
-    console.error("Error fetching blog categories:", error);
     toast.error("Failed to load blog categories");
   } finally {
     setLoading(false);
   }
 };
+
+
+
+useEffect(() => {
+  fetchBlogCategories();
+}, [statusFilter, visibilityFilter]);
+
 
 
 const calculateStats = (allCategoriesData: BlogCategory[]) => {
@@ -205,6 +244,32 @@ const calculateStats = (allCategoriesData: BlogCategory[]) => {
     setImagePreview(previewUrl);
     toast.success("Image selected! Click Create/Update to upload.");
   };
+const handleStatusToggle = async () => {
+  if (!statusConfirm) return;
+
+  try {
+    setIsUpdatingStatus(true);
+
+  await blogCategoriesService.update(statusConfirm.id, {
+  ...statusConfirm,
+  isActive: !statusConfirm.isActive,
+});
+
+
+    toast.success(
+      `Category ${
+        statusConfirm.isActive ? "deactivated" : "activated"
+      } successfully`
+    );
+
+    fetchBlogCategories();
+  } catch {
+    toast.error("Failed to update status");
+  } finally {
+    setIsUpdatingStatus(false);
+    setStatusConfirm(null);
+  }
+};
 
   const handleDeleteImage = async (categoryId: string, imageUrl: string) => {
     setIsDeletingImage(true);
@@ -556,7 +621,7 @@ const handleSubmit = async (e: React.FormEvent) => {
         }
 
         finalImageUrl = uploadResponse.data.data;
-        toast.success("✅ WebP image uploaded successfully!");
+        // toast.success("✅ WebP image uploaded successfully!");
         
         // Delete old image if exists
         if (
@@ -728,21 +793,33 @@ const handleSubmit = async (e: React.FormEvent) => {
     });
   };
 
-  const clearFilters = () => {
-    setStatusFilter("all");
-    setSearchTerm("");
-    setCurrentPage(1);
-  };
+const clearFilters = () => {
+  setStatusFilter("all");
+  setVisibilityFilter("all");
+  setSearchTerm("");
+  setCurrentPage(1);
+};
 
-  const hasActiveFilters = statusFilter !== "all" || searchTerm.trim() !== "";
 
-  const filteredBlogCategories = blogCategories.filter(blogCategory => {
-    const matchesSearch = blogCategory.name.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus = statusFilter === "all" || 
-                         (statusFilter === "active" && blogCategory.isActive) ||
-                         (statusFilter === "inactive" && !blogCategory.isActive);
-    return matchesSearch && matchesStatus;
-  });
+ const hasActiveFilters =
+  statusFilter !== "all" ||
+  visibilityFilter !== "all" ||
+  searchTerm.trim() !== "";
+
+
+const filteredBlogCategories = blogCategories
+  .filter(category =>
+    category.name.toLowerCase().includes(searchTerm.toLowerCase())
+  )
+  .map(category => ({
+    ...category,
+    subCategories: category.subCategories?.filter(sub =>
+      sub.name.toLowerCase().includes(searchTerm.toLowerCase())
+    ) || []
+  }));
+
+
+
 
 // ✅ FIXED - getFlattenedCategories function
 const getFlattenedCategories = () => {
@@ -770,6 +847,15 @@ const getFlattenedCategories = () => {
   return flattened;
 };
 
+const handleRestore = async (id: string) => {
+  try {
+    await blogCategoriesService.restore(id);
+    toast.success("Category restored successfully");
+    fetchBlogCategories();
+  } catch {
+    toast.error("Failed to restore category");
+  }
+};
 
   const totalItems = filteredBlogCategories.length;
   const totalPages = Math.ceil(totalItems / itemsPerPage);
@@ -967,19 +1053,25 @@ const getFlattenedCategories = () => {
           <div className="flex items-center gap-3">
             <Filter className="h-4 w-4 text-slate-400" />
             
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className={`px-3 py-3 bg-slate-800/90 border rounded-xl text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all min-w-32 ${
-                statusFilter !== "all" 
-                  ? "border-blue-500 bg-blue-500/10 ring-2 ring-blue-500/50" 
-                  : "border-slate-600"
-              }`}
-            >
-              <option value="all">All Status</option>
-              <option value="active">Active</option>
-              <option value="inactive">Inactive</option>
-            </select>
+<select
+  value={statusFilter}
+  onChange={(e) => setStatusFilter(e.target.value as any)}
+  className="px-3 py-3 bg-slate-800 border border-slate-600 rounded-xl text-white"
+>
+  <option value="all">All Status</option>
+  <option value="active">Active</option>
+  <option value="inactive">Inactive</option>
+</select>
+
+<select
+  value={visibilityFilter}
+  onChange={(e) => setVisibilityFilter(e.target.value as any)}
+  className="px-3 py-3 bg-slate-800 border border-slate-600 rounded-xl text-white"
+>
+  <option value="all">Active Records</option>
+  <option value="archived">Archived Records</option>
+</select>
+
 
             {hasActiveFilters && (
               <button
@@ -1194,18 +1286,24 @@ const getFlattenedCategories = () => {
 
                       
                       {/* Status */}
-                      <td className="py-4 px-4 text-center">
-                        <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-medium ${
-                          blogCategory.isActive
-                            ? 'bg-green-500/10 text-green-400 border border-green-500/20'
-                            : 'bg-red-500/10 text-red-400 border border-red-500/20'
-                        }`}>
-                          <span className={`w-1.5 h-1.5 rounded-full ${
-                            blogCategory.isActive ? 'bg-green-400' : 'bg-red-400'
-                          }`}></span>
-                          {blogCategory.isActive ? 'Active' : 'Inactive'}
-                        </span>
-                      </td>
+<td className="py-4 px-4 text-center">
+  <button
+    onClick={() => setStatusConfirm(blogCategory)}
+    className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-medium transition-all ${
+      blogCategory.isActive
+        ? 'bg-green-500/10 text-green-400 border border-green-500/20 hover:bg-green-500/20'
+        : 'bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20'
+    }`}
+  >
+    <span
+      className={`w-1.5 h-1.5 rounded-full ${
+        blogCategory.isActive ? 'bg-green-400' : 'bg-red-400'
+      }`}
+    ></span>
+    {blogCategory.isActive ? 'Active' : 'Inactive'}
+  </button>
+</td>
+
                       
                       {/* Display Order */}
                       <td className="py-4 px-4 text-center">
@@ -1297,22 +1395,29 @@ const getFlattenedCategories = () => {
                             <Edit className="h-4 w-4" />
                           </button>
 
-                          <button
-                            onClick={() => !isInactive && setDeleteConfirm({ 
-                              id: blogCategory.id, 
-                              name: blogCategory.name 
-                            })}
-                            disabled={isInactive}
-                            className={`p-2 rounded-lg transition-all relative z-10 ${
-                              isInactive 
-                                ? 'text-slate-600 cursor-not-allowed' 
-                                : 'text-red-400 hover:bg-red-500/10'
-                            }`}
-                            style={{ opacity: 1 }}  
-                            title={isInactive ? "Delete disabled for archived categories" : "Delete category"}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
+                        {blogCategory.isDeleted ? (
+  <button
+    onClick={() => handleRestore(blogCategory.id)}
+    className="p-2 text-green-400 hover:bg-green-500/10 rounded-lg transition-all"
+    title="Restore Category"
+  >
+    <RotateCcw className="h-4 w-4" />
+  </button>
+) : (
+  <button
+    onClick={() =>
+      setDeleteConfirm({
+        id: blogCategory.id,
+        name: blogCategory.name,
+      })
+    }
+    className="p-2 text-red-400 hover:bg-red-500/10 rounded-lg transition-all"
+    title="Archive Category"
+  >
+    <Trash2 className="h-4 w-4" />
+  </button>
+)}
+
                         </div>
                       </td>
                     </tr>
@@ -1949,6 +2054,21 @@ const getFlattenedCategories = () => {
         confirmButtonStyle="bg-gradient-to-r from-red-500 to-rose-500 hover:shadow-lg hover:shadow-red-500/50"
         isLoading={isDeletingImage}
       />
+<ConfirmDialog
+  isOpen={!!statusConfirm}
+  onClose={() => setStatusConfirm(null)}
+  onConfirm={handleStatusToggle}
+  title="Change Category Status"
+  message={`Are you sure you want to ${
+    statusConfirm?.isActive ? "deactivate" : "activate"
+  } "${statusConfirm?.name}"?`}
+  confirmText={statusConfirm?.isActive ? "Deactivate" : "Activate"}
+  cancelText="Cancel"
+  icon={AlertCircle}
+  iconColor="text-yellow-400"
+  confirmButtonStyle="bg-gradient-to-r from-yellow-500 to-orange-500"
+  isLoading={isUpdatingStatus}
+/>
 
       {/* Image Preview Modal */}
       {selectedImageUrl && (

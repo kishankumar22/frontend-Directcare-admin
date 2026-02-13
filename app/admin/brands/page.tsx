@@ -9,7 +9,6 @@ import { Brand, brandsService, BrandStats } from "@/lib/services/brands";
 import { useRouter } from "next/navigation";
 import BrandModals from "./BrandModals";
 
-
 export default function BrandsPage() {
   const toast = useToast();
   const router = useRouter();
@@ -20,9 +19,13 @@ export default function BrandsPage() {
   const [editingBrand, setEditingBrand] = useState<Brand | null>(null);
   const [selectedImageUrl, setSelectedImageUrl] = useState<string | null>(null);
   const [viewingBrand, setViewingBrand] = useState<Brand | null>(null);
+  
+  // ✅ UPDATED FILTERS - Using "all" | "true" | "false"
   const [publishedFilter, setPublishedFilter] = useState<string>("all");
+  const [activeFilter, setActiveFilter] = useState<string>("all");
+  const [deletedFilter, setDeletedFilter] = useState<string>("all");
   const [homepageFilter, setHomepageFilter] = useState<string>("all");
-  const [deletedFilter, setDeletedFilter] = useState<string>("all"); // ✅ NEW FILTER
+  
   const [stats, setStats] = useState<BrandStats>({
     totalBrands: 0,
     publishedBrands: 0,
@@ -31,6 +34,13 @@ export default function BrandsPage() {
   });
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(25);
+const [statusConfirm, setStatusConfirm] = useState<{
+  id: string;
+  name: string;
+  currentStatus: boolean;
+} | null>(null);
+
+const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
 
   const [selectedBrand, setSelectedBrand] = useState<{
     id: string;
@@ -51,6 +61,57 @@ export default function BrandsPage() {
       isDeleted: brand.isDeleted,
     });
   };
+const handleStatusUpdate = async () => {
+  if (!statusConfirm) return;
+
+  setIsUpdatingStatus(true);
+
+  try {
+    // 🔎 Find full brand object from list
+    const brand = brands.find(b => b.id === statusConfirm.id);
+
+    if (!brand) {
+      toast.error("Brand not found");
+      return;
+    }
+
+    // 🛡 Build FULL payload (IMPORTANT)
+    const payload = {
+      id: brand.id, // ⚠ required to avoid ID mismatch
+      name: brand.name,
+      description: brand.description,
+      logoUrl: brand.logoUrl,
+      isPublished: brand.isPublished,
+      isActive: !brand.isActive, // ✅ only this changes
+      showOnHomepage: brand.showOnHomepage,
+      displayOrder: brand.displayOrder,
+      metaTitle: brand.metaTitle || undefined,
+      metaDescription: brand.metaDescription || undefined,
+      metaKeywords: brand.metaKeywords || undefined,
+    };
+
+    await brandsService.update(brand.id, payload);
+
+    toast.success(
+      `Brand ${
+        brand.isActive ? "deactivated" : "activated"
+      } successfully`
+    );
+
+    await fetchBrands();
+
+  } catch (error: any) {
+    toast.error(
+      error?.response?.data?.message || "Failed to update status"
+    );
+  } finally {
+    setIsUpdatingStatus(false);
+    setStatusConfirm(null);
+  }
+};
+
+
+
 
   const getImageUrl = (imageUrl?: string) => {
     if (!imageUrl) return "";
@@ -89,7 +150,7 @@ export default function BrandsPage() {
 
   useEffect(() => {
     fetchBrands();
-  }, []);
+  }, [publishedFilter, activeFilter, deletedFilter]); // ✅ Re-fetch when filters change
 
   const calculateStats = (brandsData: Brand[]) => {
     const totalBrands = brandsData.length;
@@ -99,12 +160,28 @@ export default function BrandsPage() {
     setStats({ totalBrands, publishedBrands, homepageBrands, totalProducts });
   };
 
+  // ✅ MODIFIED fetchBrands with API parameters
   const fetchBrands = async () => {
     setLoading(true);
     try {
-      const response = await brandsService.getAll({
-        params: { includeInactive: true }
-      });
+      const params: any = {};
+
+      // ✅ Add API parameters based on filters
+      if (publishedFilter !== "all") {
+        params.includeUnpublished = publishedFilter === "false"; // true means include unpublished
+      } else {
+        params.includeUnpublished = true; // Show all
+      }
+
+      if (activeFilter !== "all") {
+        params.isActive = activeFilter === "true";
+      }
+
+      if (deletedFilter !== "all") {
+        params.isDeleted = deletedFilter === "true";
+      }
+
+      const response = await brandsService.getAll({ params });
 
       const brandsData = response.data?.data || [];
 
@@ -138,32 +215,30 @@ export default function BrandsPage() {
 
   const clearFilters = () => {
     setPublishedFilter("all");
+    setActiveFilter("all");
+    setDeletedFilter("all");
     setHomepageFilter("all");
-    setDeletedFilter("all"); // ✅ RESET NEW FILTER
     setSearchTerm("");
     setCurrentPage(1);
   };
 
-  const hasActiveFilters = publishedFilter !== "all" || homepageFilter !== "all" || deletedFilter !== "all" || searchTerm.trim() !== "";
+  const hasActiveFilters = 
+    publishedFilter !== "all" || 
+    activeFilter !== "all" || 
+    deletedFilter !== "all" || 
+    homepageFilter !== "all" || 
+    searchTerm.trim() !== "";
 
-  // ✅ UPDATED FILTER LOGIC
+  // ✅ CLIENT-SIDE FILTERING (for search and homepage only)
   const filteredBrands = brands.filter(brand => {
     const matchesSearch = brand.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          brand.description.toLowerCase().includes(searchTerm.toLowerCase());
 
-    const matchesPublished = publishedFilter === "all" ||
-                            (publishedFilter === "published" && brand.isPublished) ||
-                            (publishedFilter === "unpublished" && !brand.isPublished);
-
     const matchesHomepage = homepageFilter === "all" ||
-                           (homepageFilter === "yes" && brand.showOnHomepage) ||
-                           (homepageFilter === "no" && !brand.showOnHomepage);
+                           (homepageFilter === "true" && brand.showOnHomepage) ||
+                           (homepageFilter === "false" && !brand.showOnHomepage);
 
-    const matchesDeleted = deletedFilter === "all" ||
-                          (deletedFilter === "true" && brand.isDeleted) ||
-                          (deletedFilter === "false" && !brand.isDeleted);
-
-    return matchesSearch && matchesPublished && matchesHomepage && matchesDeleted;
+    return matchesSearch && matchesHomepage;
   });
 
   const totalItems = filteredBrands.length;
@@ -211,7 +286,7 @@ export default function BrandsPage() {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm, publishedFilter, homepageFilter, deletedFilter]);
+  }, [searchTerm, homepageFilter]);
 
   if (loading) {
     return (
@@ -270,8 +345,8 @@ export default function BrandsPage() {
         <button
           type="button"
           onClick={() => {
-            if (publishedFilter === 'all') setPublishedFilter('published');
-            else if (publishedFilter === 'published') setPublishedFilter('unpublished');
+            if (publishedFilter === 'all') setPublishedFilter('true');
+            else if (publishedFilter === 'true') setPublishedFilter('false');
             else setPublishedFilter('all');
           }}
           className="bg-gradient-to-br from-violet-500/10 to-violet-600/5 backdrop-blur-sm border border-violet-500/20 rounded-xl p-4 hover:border-violet-500/40 transition-all cursor-pointer group relative text-left"
@@ -281,7 +356,7 @@ export default function BrandsPage() {
               <p className="text-slate-400 text-xs font-medium">Total Brands</p>
               <p className="text-2xl font-bold text-white mt-1">{stats.totalBrands}</p>
               <p className="text-xs text-violet-400 mt-1 font-medium">
-                {publishedFilter === 'all' ? '● All' : publishedFilter === 'published' ? '● Published' : '● Unpublished'}
+                {publishedFilter === 'all' ? '● All' : publishedFilter === 'true' ? '● Published' : '● Unpublished'}
               </p>
             </div>
             <div className="w-10 h-10 bg-violet-500/20 rounded-lg flex items-center justify-center shrink-0 group-hover:bg-violet-500/30 transition-all">
@@ -293,18 +368,20 @@ export default function BrandsPage() {
         <button
           type="button"
           onClick={() => {
-            if (publishedFilter === 'all') setPublishedFilter('published');
-            else if (publishedFilter === 'published') setPublishedFilter('unpublished');
-            else setPublishedFilter('all');
+            if (activeFilter === 'all') setActiveFilter('true');
+            else if (activeFilter === 'true') setActiveFilter('false');
+            else setActiveFilter('all');
           }}
           className="bg-gradient-to-br from-green-500/10 to-green-600/5 backdrop-blur-sm border border-green-500/20 rounded-xl p-4 hover:border-green-500/40 transition-all cursor-pointer group relative text-left"
         >
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-slate-400 text-xs font-medium">Published</p>
-              <p className="text-2xl font-bold text-white mt-1">{stats.publishedBrands}</p>
+              <p className="text-slate-400 text-xs font-medium">Active Status</p>
+              <p className="text-2xl font-bold text-white mt-1">
+                {brands.filter(b => b.isActive).length}
+              </p>
               <p className="text-xs text-green-400 mt-1 font-medium">
-                {publishedFilter === 'all' ? '● All' : publishedFilter === 'published' ? '● Published' : '● Unpublished'}
+                {activeFilter === 'all' ? '● All' : activeFilter === 'true' ? '● Active' : '● Inactive'}
               </p>
             </div>
             <div className="w-10 h-10 bg-green-500/20 rounded-lg flex items-center justify-center shrink-0 group-hover:bg-green-500/30 transition-all">
@@ -316,8 +393,8 @@ export default function BrandsPage() {
         <button
           type="button"
           onClick={() => {
-            if (homepageFilter === 'all') setHomepageFilter('yes');
-            else if (homepageFilter === 'yes') setHomepageFilter('no');
+            if (homepageFilter === 'all') setHomepageFilter('true');
+            else if (homepageFilter === 'true') setHomepageFilter('false');
             else setHomepageFilter('all');
           }}
           className="bg-gradient-to-br from-cyan-500/10 to-cyan-600/5 backdrop-blur-sm border border-cyan-500/20 rounded-xl p-4 hover:border-cyan-500/40 transition-all cursor-pointer group relative text-left"
@@ -327,7 +404,7 @@ export default function BrandsPage() {
               <p className="text-slate-400 text-xs font-medium">On Homepage</p>
               <p className="text-2xl font-bold text-white mt-1">{stats.homepageBrands}</p>
               <p className="text-xs text-cyan-400 mt-1 font-medium">
-                {homepageFilter === 'all' ? '● All' : homepageFilter === 'yes' ? '● Yes' : '● No'}
+                {homepageFilter === 'all' ? '● All' : homepageFilter === 'true' ? '● Yes' : '● No'}
               </p>
             </div>
             <div className="w-10 h-10 bg-cyan-500/20 rounded-lg flex items-center justify-center shrink-0 group-hover:bg-cyan-500/30 transition-all">
@@ -373,82 +450,99 @@ export default function BrandsPage() {
         </div>
       </div>
 
-      {/* Search and Filters */}
-      <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-2xl p-2">
-        <div className="flex flex-wrap items-center gap-4">
-          <div className="relative flex-1 min-w-80">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-500" />
-            <input
-              type="search"
-              placeholder="Search brands..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-11 pr-4 py-3 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
-            />
-          </div>
+{/* Search and Filters */}
+<div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-2xl p-2">
+  <div className="flex flex-wrap items-center gap-4">
+    <div className="relative flex-1 min-w-80">
+      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-500" />
+      <input
+        type="search"
+        placeholder="Search brands..."
+        value={searchTerm}
+        onChange={(e) => setSearchTerm(e.target.value)}
+        className="w-full pl-11 pr-4 py-3 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+      />
+    </div>
 
-          <div className="flex items-center gap-3">
-            <Filter className="h-4 w-4 text-slate-400" />
+    <div className="flex items-center gap-3">
+      <Filter className="h-4 w-4 text-slate-400" />
 
-            <select
-              value={publishedFilter}
-              onChange={(e) => setPublishedFilter(e.target.value)}
-              className={`px-3 py-3 bg-slate-800/90 border rounded-xl text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all min-w-32 ${
-                publishedFilter !== "all"
-                  ? "border-blue-500 bg-blue-500/10 ring-2 ring-blue-500/50"
-                  : "border-slate-600"
-              }`}
-            >
-              <option value="all">All Status</option>
-              <option value="published">Published</option>
-              <option value="unpublished">Unpublished</option>
-            </select>
+      {/* Published */}
+      <select
+        value={publishedFilter}
+        onChange={(e) => setPublishedFilter(e.target.value)}
+        className={`px-3 py-3 bg-slate-800/90 border rounded-xl text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all min-w-36 ${
+          publishedFilter !== "all"
+            ? "border-blue-500 bg-blue-500/10 ring-2 ring-blue-500/50"
+            : "border-slate-600"
+        }`}
+      >
+        <option value="all">All Published</option>
+        <option value="true">Published</option>
+        <option value="false">Unpublished</option>
+      </select>
 
-            <select
-              value={homepageFilter}
-              onChange={(e) => setHomepageFilter(e.target.value)}
-              className={`px-3 py-3 bg-slate-800/90 border rounded-xl text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all min-w-36 ${
-                homepageFilter !== "all"
-                  ? "border-blue-500 bg-blue-500/10 ring-2 ring-blue-500/50"
-                  : "border-slate-600"
-              }`}
-            >
-              <option value="all">All Homepage</option>
-              <option value="yes">On Homepage</option>
-              <option value="no">Not on Homepage</option>
-            </select>
+      {/* Status (isActive) */}
+      <select
+        value={activeFilter}
+        onChange={(e) => setActiveFilter(e.target.value)}
+        className={`px-3 py-3 bg-slate-800/90 border rounded-xl text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all min-w-32 ${
+          activeFilter !== "all"
+            ? "border-blue-500 bg-blue-500/10 ring-2 ring-blue-500/50"
+            : "border-slate-600"
+        }`}
+      >
+        <option value="all">All Status</option>
+        <option value="true">Active</option>
+        <option value="false">Inactive</option>
+      </select>
 
-            {/* ✅ NEW DELETED FILTER */}
-            <select
-              value={deletedFilter}
-              onChange={(e) => setDeletedFilter(e.target.value)}
-              className={`px-3 py-3 bg-slate-800/90 border rounded-xl text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all min-w-32 ${
-                deletedFilter !== "all"
-                  ? "border-blue-500 bg-blue-500/10 ring-2 ring-blue-500/50"
-                  : "border-slate-600"
-              }`}
-            >
-              <option value="all">All Brands</option>
-              <option value="false">Active</option>
-              <option value="true">Deleted</option>
-            </select>
+      {/* Homepage */}
+      <select
+        value={homepageFilter}
+        onChange={(e) => setHomepageFilter(e.target.value)}
+        className={`px-3 py-3 bg-slate-800/90 border rounded-xl text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all min-w-36 ${
+          homepageFilter !== "all"
+            ? "border-blue-500 bg-blue-500/10 ring-2 ring-blue-500/50"
+            : "border-slate-600"
+        }`}
+      >
+        <option value="all">All Homepage</option>
+        <option value="true">On Homepage</option>
+        <option value="false">Not on Homepage</option>
+      </select>
 
-            {hasActiveFilters && (
-              <button
-                onClick={clearFilters}
-                className="px-3 py-3 bg-red-500/10 border border-red-500/50 text-red-400 rounded-xl hover:bg-red-500/20 transition-all text-sm font-medium flex items-center gap-2 whitespace-nowrap"
-              >
-                <FilterX className="h-4 w-4" />
-                Clear
-              </button>
-            )}
-          </div>
+      {/* Record State (Soft Delete) */}
+      <select
+        value={deletedFilter}
+        onChange={(e) => setDeletedFilter(e.target.value)}
+        className={`px-3 py-3 bg-slate-800/90 border rounded-xl text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all min-w-36 ${
+          deletedFilter !== "all"
+            ? "border-blue-500 bg-blue-500/10 ring-2 ring-blue-500/50"
+            : "border-slate-600"
+        }`}
+      >
+        <option value="all">All Records</option>
+        <option value="false">Live Records</option>
+        <option value="true">Deleted Records</option>
+      </select>
 
-          <div className="text-sm text-slate-400 whitespace-nowrap ml-auto">
-            {totalItems} brand{totalItems !== 1 ? 's' : ''}
-          </div>
-        </div>
-      </div>
+      {hasActiveFilters && (
+        <button
+          onClick={clearFilters}
+          className="px-3 py-3 bg-red-500/10 border border-red-500/50 text-red-400 rounded-xl hover:bg-red-500/20 transition-all text-sm font-medium flex items-center gap-2 whitespace-nowrap"
+        >
+          <FilterX className="h-4 w-4" />
+          Clear
+        </button>
+      )}
+    </div>
+
+    <div className="text-sm text-slate-400 whitespace-nowrap ml-auto">
+      {totalItems} brand{totalItems !== 1 ? "s" : ""}
+    </div>
+  </div>
+</div>
 
       {/* Brands Table */}
       <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-2xl p-2">
@@ -464,8 +558,10 @@ export default function BrandsPage() {
                 <tr className="border-b border-slate-800">
                   <th className="text-left py-2 px-3 text-slate-400 font-medium">Brand</th>
                   <th className="text-center py-2 px-3 text-slate-400 font-medium">Products</th>
-                  <th className="text-center py-2 px-3 text-slate-400 font-medium">Status</th>
+                  <th className="text-center py-2 px-3 text-slate-400 font-medium">Published</th>
+                  <th className="text-center py-2 px-3 text-slate-400 font-medium">Active</th>
                   <th className="text-center py-2 px-3 text-slate-400 font-medium">Homepage</th>
+                  <th className="text-center py-2 px-3 text-slate-400 font-medium">Deleted</th>
                   <th className="text-center py-2 px-3 text-slate-400 font-medium">Order By</th>
                   <th className="text-left py-2 px-3 text-slate-400 font-medium">Updated</th>
                   <th className="text-left py-2 px-3 text-slate-400 font-medium">Updated By</th>
@@ -529,8 +625,28 @@ export default function BrandsPage() {
                               : 'bg-red-500/10 text-red-400'
                           }`}
                         >
-                          {brand.isPublished ? 'Published' : 'Unpublished'}
+                          {brand.isPublished ? 'Yes' : 'No'}
                         </span>
+                      </td>
+
+                      <td className="py-2 px-3 text-center">
+                  <button
+  onClick={() =>
+    setStatusConfirm({
+      id: brand.id,
+      name: brand.name,
+      currentStatus: brand.isActive,
+    })
+  }
+  className={`px-3 py-1.5 rounded-lg text-xs font-semibold ${
+    brand.isActive
+      ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
+      : "bg-slate-500/10 text-slate-400 border border-slate-500/20"
+  }`}
+>
+  {brand.isActive ? "Active" : "Inactive"}
+</button>
+
                       </td>
 
                       <td className="py-2 px-3 text-center">
@@ -542,6 +658,18 @@ export default function BrandsPage() {
                           }`}
                         >
                           {brand.showOnHomepage ? 'Yes' : 'No'}
+                        </span>
+                      </td>
+
+                      <td className="py-2 px-3 text-center">
+                        <span
+                          className={`px-2 py-0.5 rounded-md text-xs font-medium ${
+                            brand.isDeleted
+                              ? 'bg-red-500/10 text-red-400'
+                              : 'bg-green-500/10 text-green-400'
+                          }`}
+                        >
+                          {brand.isDeleted ? 'Yes' : 'No'}
                         </span>
                       </td>
 
@@ -710,6 +838,35 @@ export default function BrandsPage() {
         fetchBrands={fetchBrands}
         getImageUrl={getImageUrl}
       />
+<ConfirmDialog
+  isOpen={!!statusConfirm}
+  onClose={() => setStatusConfirm(null)}
+  onConfirm={handleStatusUpdate}
+  title={
+    statusConfirm?.currentStatus
+      ? "Deactivate Brand"
+      : "Activate Brand"
+  }
+  message={`Are you sure you want to ${
+    statusConfirm?.currentStatus ? "deactivate" : "activate"
+  } "${statusConfirm?.name}"?`}
+  confirmText={
+    statusConfirm?.currentStatus ? "Deactivate" : "Activate"
+  }
+  cancelText="Cancel"
+  icon={AlertCircle}
+  iconColor={
+    statusConfirm?.currentStatus
+      ? "text-red-400"
+      : "text-emerald-400"
+  }
+  confirmButtonStyle={
+    statusConfirm?.currentStatus
+      ? "bg-gradient-to-r from-red-500 to-rose-500"
+      : "bg-gradient-to-r from-emerald-500 to-green-500"
+  }
+  isLoading={isUpdatingStatus}
+/>
 
       {/* Brand Delete Confirmation */}
       <ConfirmDialog

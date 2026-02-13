@@ -1,9 +1,9 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Plus, Edit, X, AlertCircle, ToggleLeft, ToggleRight } from "lucide-react";
+import { Plus, Edit, X, AlertCircle, ToggleLeft, ToggleRight, List, Type } from "lucide-react";
 import { useToast } from "@/app/admin/_component/CustomToast";
-import { PharmacyQuestion, CreatePharmacyQuestionDto, UpdatePharmacyQuestionDto, pharmacyQuestionsService } from "@/lib/PharmacyQuestions";
+import { PharmacyQuestion, CreatePharmacyQuestionDto, UpdatePharmacyQuestionDto, pharmacyQuestionsService } from "@/lib/services/PharmacyQuestions";
 
 
 interface PharmacyQuestionFormModalProps {
@@ -30,6 +30,7 @@ export default function PharmacyQuestionFormModal({
     questionText: "",
     isActive: true,
     displayOrder: nextDisplayOrder,
+    answerType: "Options",
     options: [
       { optionText: "Yes", isDisqualifying: false, displayOrder: 1 },
       { optionText: "No", isDisqualifying: false, displayOrder: 2 },
@@ -45,6 +46,7 @@ export default function PharmacyQuestionFormModal({
           questionText: question.questionText,
           isActive: question.isActive,
           displayOrder: question.displayOrder,
+          answerType: question.answerType || "Options",
           options: question.options.map((opt) => ({
             optionText: opt.optionText,
             isDisqualifying: opt.isDisqualifying,
@@ -56,6 +58,7 @@ export default function PharmacyQuestionFormModal({
           questionText: "",
           isActive: true,
           displayOrder: nextDisplayOrder,
+          answerType: "Options",
           options: [
             { optionText: "Yes", isDisqualifying: false, displayOrder: 1 },
             { optionText: "No", isDisqualifying: false, displayOrder: 2 },
@@ -77,15 +80,17 @@ export default function PharmacyQuestionFormModal({
       errors.displayOrder = "Display order must be at least 1";
     }
 
-    if (formData.options.length < 2) {
-      errors.options = "At least 2 options are required";
-    }
-
-    formData.options.forEach((opt, index) => {
-      if (!opt.optionText.trim()) {
-        errors[`option_${index}`] = "Option text is required";
+    if (formData.answerType === "Options") {
+      if (formData.options.length < 2) {
+        errors.options = "At least 2 options are required";
       }
-    });
+
+      formData.options.forEach((opt, index) => {
+        if (!opt.optionText.trim()) {
+          errors[`option_${index}`] = "Option text is required";
+        }
+      });
+    }
 
     setFormErrors(errors);
     return Object.keys(errors).length === 0;
@@ -106,7 +111,8 @@ export default function PharmacyQuestionFormModal({
           questionText: formData.questionText,
           isActive: formData.isActive,
           displayOrder: formData.displayOrder,
-          options: formData.options.map((opt, index) => {
+          answerType: formData.answerType,
+          options: formData.answerType === "Text" ? [] : formData.options.map((opt, index) => {
             const existingOption = question.options[index];
             return {
               id: existingOption?.id || crypto.randomUUID(),
@@ -120,7 +126,11 @@ export default function PharmacyQuestionFormModal({
         await pharmacyQuestionsService.update(question.id, updateData);
         toast.success("Question updated successfully");
       } else {
-        await pharmacyQuestionsService.create(formData);
+        const createData = {
+          ...formData,
+          options: formData.answerType === "Text" ? [] : formData.options,
+        };
+        await pharmacyQuestionsService.create(createData);
         toast.success("Question created successfully");
       }
 
@@ -165,7 +175,7 @@ export default function PharmacyQuestionFormModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-[60] flex items-center justify-center p-4">
       <div className="bg-gradient-to-br from-slate-900 via-slate-900 to-slate-800 border border-violet-500/20 rounded-2xl max-w-3xl w-full max-h-[90vh] overflow-hidden flex flex-col shadow-2xl shadow-violet-500/10">
         <div className="p-4 border-b border-violet-500/20 bg-gradient-to-r from-violet-500/10 to-cyan-500/10">
           <div className="flex items-center justify-between">
@@ -211,6 +221,39 @@ export default function PharmacyQuestionFormModal({
             )}
           </div>
 
+          {/* Answer Type Toggle */}
+          <div>
+            <label className="block text-sm text-slate-300 font-semibold mb-2">
+              Answer Type <span className="text-red-400">*</span>
+            </label>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setFormData({ ...formData, answerType: "Options" })}
+                type="button"
+                className={`flex-1 px-4 py-2.5 rounded-lg font-semibold transition-all flex items-center justify-center gap-2 ${
+                  formData.answerType === "Options"
+                    ? "bg-violet-500/20 border-2 border-violet-500/50 text-violet-400"
+                    : "bg-slate-800/50 border-2 border-slate-600 text-slate-400 hover:text-white hover:border-slate-500"
+                }`}
+              >
+                <List className="h-4 w-4" />
+                Multiple Choice
+              </button>
+              <button
+                onClick={() => setFormData({ ...formData, answerType: "Text" })}
+                type="button"
+                className={`flex-1 px-4 py-2.5 rounded-lg font-semibold transition-all flex items-center justify-center gap-2 ${
+                  formData.answerType === "Text"
+                    ? "bg-cyan-500/20 border-2 border-cyan-500/50 text-cyan-400"
+                    : "bg-slate-800/50 border-2 border-slate-600 text-slate-400 hover:text-white hover:border-slate-500"
+                }`}
+              >
+                <Type className="h-4 w-4" />
+                Text Answer
+              </button>
+            </div>
+          </div>
+
           <div className="grid grid-cols-2 gap-3">
             {/* Display Order */}
             <div>
@@ -249,64 +292,76 @@ export default function PharmacyQuestionFormModal({
             </div>
           </div>
 
-          {/* Answer Options */}
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <label className="text-sm text-slate-300 font-semibold">
-                Answer Options <span className="text-red-400">*</span>
-              </label>
-              <button
-                onClick={addOption}
-                type="button"
-                className="px-3 py-1.5 bg-cyan-500/10 border border-cyan-500/50 text-cyan-400 rounded-lg hover:bg-cyan-500/20 transition-all text-xs font-semibold flex items-center gap-1.5"
-              >
-                <Plus className="h-3.5 w-3.5" />
-                Add Option
-              </button>
-            </div>
+          {/* Answer Options - only shown for Options type */}
+          {formData.answerType === "Options" ? (
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <label className="text-sm text-slate-300 font-semibold">
+                  Answer Options <span className="text-red-400">*</span>
+                </label>
+                <button
+                  onClick={addOption}
+                  type="button"
+                  className="px-3 py-1.5 bg-cyan-500/10 border border-cyan-500/50 text-cyan-400 rounded-lg hover:bg-cyan-500/20 transition-all text-xs font-semibold flex items-center gap-1.5"
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                  Add Option
+                </button>
+              </div>
 
-            <div className="space-y-2">
-              {formData.options.map((option, index) => (
-                <div key={index} className="flex items-center gap-2">
-                  <span className="w-8 h-8 rounded-full bg-violet-500/20 text-violet-400 flex items-center justify-center text-sm font-bold shrink-0">
-                    {index + 1}
-                  </span>
-                  <input
-                    type="text"
-                    value={option.optionText}
-                    onChange={(e) => updateOption(index, "optionText", e.target.value)}
-                    placeholder="Option text"
-                    className={`flex-1 px-3 py-2 bg-slate-800/50 border rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all ${
-                      formErrors[`option_${index}`] ? "border-red-500" : "border-slate-600"
-                    }`}
-                  />
-                  <button
-                    onClick={() => updateOption(index, "isDisqualifying", !option.isDisqualifying)}
-                    type="button"
-                    className={`px-3 py-2 rounded-lg text-xs font-semibold transition-all ${
-                      option.isDisqualifying
-                        ? "bg-orange-500/10 border border-orange-500/50 text-orange-400"
-                        : "bg-slate-800/50 border border-slate-600 text-slate-400 hover:text-white"
-                    }`}
-                    title="Toggle Disqualifying"
-                  >
-                    <AlertCircle className="h-4 w-4" />
-                  </button>
-                  {formData.options.length > 2 && (
+              <div className="space-y-2">
+                {formData.options.map((option, index) => (
+                  <div key={index} className="flex items-center gap-2">
+                    <span className="w-8 h-8 rounded-full bg-violet-500/20 text-violet-400 flex items-center justify-center text-sm font-bold shrink-0">
+                      {index + 1}
+                    </span>
+                    <input
+                      type="text"
+                      value={option.optionText}
+                      onChange={(e) => updateOption(index, "optionText", e.target.value)}
+                      placeholder="Option text"
+                      className={`flex-1 px-3 py-2 bg-slate-800/50 border rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all ${
+                        formErrors[`option_${index}`] ? "border-red-500" : "border-slate-600"
+                      }`}
+                    />
                     <button
-                      onClick={() => removeOption(index)}
+                      onClick={() => updateOption(index, "isDisqualifying", !option.isDisqualifying)}
                       type="button"
-                      className="p-2 text-red-400 hover:bg-red-500/10 rounded-lg transition-all"
-                      title="Remove Option"
+                      className={`px-3 py-2 rounded-lg text-xs font-semibold transition-all ${
+                        option.isDisqualifying
+                          ? "bg-orange-500/10 border border-orange-500/50 text-orange-400"
+                          : "bg-slate-800/50 border border-slate-600 text-slate-400 hover:text-white"
+                      }`}
+                      title="Toggle Disqualifying"
                     >
-                      <X className="h-4 w-4" />
+                      <AlertCircle className="h-4 w-4" />
                     </button>
-                  )}
-                </div>
-              ))}
+                    {formData.options.length > 2 && (
+                      <button
+                        onClick={() => removeOption(index)}
+                        type="button"
+                        className="p-2 text-red-400 hover:bg-red-500/10 rounded-lg transition-all"
+                        title="Remove Option"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+              {formErrors.options && <p className="text-red-400 text-xs mt-1">{formErrors.options}</p>}
             </div>
-            {formErrors.options && <p className="text-red-400 text-xs mt-1">{formErrors.options}</p>}
-          </div>
+          ) : (
+            <div className="p-4 bg-cyan-500/5 border border-cyan-500/20 rounded-lg">
+              <div className="flex items-center gap-2 text-cyan-400">
+                <Type className="h-5 w-5" />
+                <span className="font-semibold">Text Answer</span>
+              </div>
+              <p className="text-slate-400 text-sm mt-1">
+                Customers will type their answer in a free-text field. No predefined options needed.
+              </p>
+            </div>
+          )}
 
           {/* Form Actions */}
           <div className="flex gap-3 pt-2">

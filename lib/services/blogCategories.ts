@@ -11,6 +11,7 @@ export interface BlogCategory {
   slug: string;
   imageUrl?: string;
   isActive: boolean;
+  isDeleted: boolean;
   displayOrder: number;
   metaTitle?: string;
   metaDescription?: string;
@@ -59,8 +60,12 @@ export interface BlogCategoryApiResponse {
 // --- Main Service ---
 export const blogCategoriesService = {
   // Get all blog categories
-  getAll: (config: any = {}) =>
-    apiClient.get<BlogCategoryApiResponse>(API_ENDPOINTS.blogCategories, config),
+ getAll: (params: any = {}) =>
+  apiClient.get<BlogCategoryApiResponse>(
+    API_ENDPOINTS.blogCategories,
+    { params }
+  ),
+
 
   // Get blog category by ID
   getById: (id: string, config: any = {}) =>
@@ -71,13 +76,23 @@ export const blogCategoriesService = {
     apiClient.post<ApiResponse<BlogCategory>>(API_ENDPOINTS.blogCategories, data, config),
 
   // ✅ FIXED: Update returns ApiResponse<BlogCategory>
-  update: (id: string, data: Partial<CreateBlogCategoryDto>, config: any = {}) =>
-    apiClient.put<ApiResponse<BlogCategory>>(`${API_ENDPOINTS.blogCategories}/${id}`, data, config),
+update: (id: string, data: Partial<BlogCategory>, config: any = {}) =>
+  apiClient.put<ApiResponse<BlogCategory>>(
+    `${API_ENDPOINTS.blogCategories}/${id}`,
+    data,
+    config
+  ),
+
+
 
   // Delete blog category by ID
   delete: (id: string) =>
     apiClient.delete<void>(`${API_ENDPOINTS.blogCategories}/${id}`),
-
+ // ==============================
+  // RESTORE (NEW)
+  // ==============================
+  restore: (id: string) =>
+    apiClient.post(`${API_ENDPOINTS.blogCategories}/${id}/restore`),
   // Upload blog category image
   uploadImage: async (file: File, params?: Record<string, any>) => {
     const formData = new FormData();

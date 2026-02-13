@@ -41,6 +41,7 @@ import {
   OrderStatus,
   getOrderStatusInfo,
   getPaymentStatusInfo,
+  getPaymentMethodInfo,
   formatCurrency,
   formatDate,
 } from '../../../lib/services/orders';
@@ -61,7 +62,7 @@ interface Address {
   phoneNumber?: string;
 }
 
-// ✅ Get Available Actions based on Order Status
+// ✅ Get Available Actions based on Order Status (matching backend rules)
 const getAvailableActions = (order: Order) => {
   const actions: string[] = [];
 
@@ -84,16 +85,19 @@ const getAvailableActions = (order: Order) => {
       }
       break;
     case 'Shipped':
-      actions.push('mark-delivered', 'update-status');
+      actions.push('mark-delivered', 'update-status', 'cancel-order');
       break;
     case 'PartiallyShipped':
-      actions.push('mark-delivered', 'update-status');
+      actions.push('create-shipment', 'mark-delivered', 'update-status', 'cancel-order');
       break;
     case 'Delivered':
+      actions.push('update-status'); // Delivered → Returned/Refunded
+      break;
     case 'Cancelled':
-    case 'Refunded':
     case 'Returned':
-      // No actions for completed/cancelled orders
+      actions.push('update-status'); // Cancelled/Returned → Refunded
+      break;
+    case 'Refunded':
       break;
     default:
       actions.push('update-status');
@@ -130,6 +134,7 @@ export default function OrdersListPage() {
     fromDate: '',
     toDate: '',
     deliveryMethod: '',
+    paymentMethod: '',
     paymentStatus: '',
   });
 
@@ -184,11 +189,19 @@ export default function OrdersListPage() {
           );
         }
 
-        // ✅ Filter by payment status
+        // ✅ Filter by payment method
+        if (filters.paymentMethod) {
+          filteredOrders = filteredOrders.filter((o) => {
+            const method = o.paymentMethod || o.payments?.[0]?.paymentMethod || '';
+            return method.toLowerCase() === filters.paymentMethod.toLowerCase();
+          });
+        }
+
+        // ✅ Filter by payment status (uses top-level paymentStatus from backend)
         if (filters.paymentStatus) {
           filteredOrders = filteredOrders.filter((o) => {
-            const firstPayment = o.payments && o.payments.length > 0 ? o.payments[0] : null;
-            return firstPayment && firstPayment.status === filters.paymentStatus;
+            const status = o.paymentStatus || (o.payments && o.payments.length > 0 ? o.payments[0]?.status : null);
+            return status === filters.paymentStatus;
           });
         }
 
@@ -245,15 +258,18 @@ export default function OrdersListPage() {
       'Total',
       'Status',
       'Delivery Method',
+      'Payment Method',
       'Payment Status',
       'Order Date',
     ];
 
     const csvData = ordersToExport.map((order) => {
-      const firstPayment = order.payments && order.payments.length > 0 ? order.payments[0] : null;
-      const paymentStatusLabel = firstPayment
-        ? getPaymentStatusInfo(firstPayment.status).label
-        : 'N/A';
+      const paymentMethodLabel = getPaymentMethodInfo(order.paymentMethod).label;
+      const paymentStatusLabel = order.paymentStatus
+        ? getPaymentStatusInfo(order.paymentStatus as any).label
+        : (order.payments && order.payments.length > 0
+          ? getPaymentStatusInfo(order.payments[0].status).label
+          : 'N/A');
 
       return [
         order.orderNumber,
@@ -268,6 +284,7 @@ export default function OrdersListPage() {
         order.totalAmount,
         getOrderStatusInfo(order.status).label,
         order.deliveryMethod === 'ClickAndCollect' ? 'Click & Collect' : 'Home Delivery',
+        paymentMethodLabel,
         paymentStatusLabel,
         formatDate(order.orderDate),
       ];
@@ -308,7 +325,7 @@ export default function OrdersListPage() {
       }
 
       if (ordersToExport.length === 0) {
-        toast.warning('⚠️ No orders to export');
+        toast.warning('No orders to export');
         return;
       }
 
@@ -325,15 +342,18 @@ export default function OrdersListPage() {
         'Total',
         'Status',
         'Delivery Method',
+        'Payment Method',
         'Payment Status',
         'Order Date',
       ];
 
       const csvData = ordersToExport.map((order) => {
-        const firstPayment = order.payments && order.payments.length > 0 ? order.payments[0] : null;
-        const paymentStatusLabel = firstPayment
-          ? getPaymentStatusInfo(firstPayment.status).label
-          : 'N/A';
+        const paymentMethodLabel = getPaymentMethodInfo(order.paymentMethod).label;
+        const paymentStatusLabel = order.paymentStatus
+          ? getPaymentStatusInfo(order.paymentStatus as any).label
+          : (order.payments && order.payments.length > 0
+            ? getPaymentStatusInfo(order.payments[0].status).label
+            : 'N/A');
 
         return [
           order.orderNumber,
@@ -348,6 +368,7 @@ export default function OrdersListPage() {
           order.totalAmount,
           getOrderStatusInfo(order.status).label,
           order.deliveryMethod === 'ClickAndCollect' ? 'Click & Collect' : 'Home Delivery',
+          paymentMethodLabel,
           paymentStatusLabel,
           formatDate(order.orderDate),
         ];
@@ -417,6 +438,7 @@ export default function OrdersListPage() {
       fromDate: '',
       toDate: '',
       deliveryMethod: '',
+      paymentMethod: '',
       paymentStatus: '',
     });
     setCurrentPage(1);
@@ -428,6 +450,7 @@ export default function OrdersListPage() {
     filters.fromDate ||
     filters.toDate ||
     filters.deliveryMethod ||
+    filters.paymentMethod ||
     filters.paymentStatus;
 
   const getDateRangeLabel = () => {
@@ -731,18 +754,37 @@ export default function OrdersListPage() {
             <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400 pointer-events-none" />
           </div>
 
+          {/* ✅ Payment Method Filter */}
+          <div className="relative">
+            <select
+              value={filters.paymentMethod}
+              onChange={(e) => setFilters({ ...filters, paymentMethod: e.target.value })}
+              className={`pl-9 pr-8 py-2 rounded-lg bg-slate-800/90 text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/50 transition-all appearance-none cursor-pointer min-w-[140px] ${
+                filters.paymentMethod
+                  ? 'bg-amber-500/20 border-2 border-amber-500/50'
+                  : 'bg-slate-800/50 border border-slate-700'
+              }`}
+            >
+              <option value="">All Methods</option>
+              <option value="CashOnDelivery">Cash on Delivery</option>
+              <option value="Stripe">Stripe</option>
+            </select>
+            <PoundSterling className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
+            <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400 pointer-events-none" />
+          </div>
+
           {/* ✅ Payment Status Filter */}
           <div className="relative">
             <select
               value={filters.paymentStatus}
               onChange={(e) => setFilters({ ...filters, paymentStatus: e.target.value })}
-              className={`pl-9 pr-8 py-2 rounded-lg  bg-slate-800/90 text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/50 transition-all appearance-none cursor-pointer min-w-[140px] ${
+              className={`pl-9 pr-8 py-2 rounded-lg bg-slate-800/90 text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/50 transition-all appearance-none cursor-pointer min-w-[140px] ${
                 filters.paymentStatus
                   ? 'bg-green-500/20 border-2 border-green-500/50'
                   : 'bg-slate-800/50 border border-slate-700'
               }`}
             >
-              <option value="">All Payments</option>
+              <option value="">All Status</option>
               <option value="Successful">Successful</option>
               <option value="Completed">Completed</option>
               <option value="Captured">Captured</option>
@@ -924,9 +966,9 @@ export default function OrdersListPage() {
                   <th className="text-center py-3 px-3 text-slate-300 font-semibold text-xs">
                    Order Status
                   </th>
-                  {/* ✅ Payment Status Column */}
+                  {/* ✅ Payment Method Column */}
                   <th className="text-center py-3 px-3 text-slate-300 font-semibold text-xs">
-                    Payment Status
+                    Payment
                   </th>
                   <th className="text-center py-3 px-3 text-slate-300 font-semibold text-xs">
                     Delivery
@@ -939,15 +981,15 @@ export default function OrdersListPage() {
               <tbody>
                 {orders.map((order) => {
                   const statusInfo = getOrderStatusInfo(order.status);
-                  
-                  // ✅ Get payment status from payments array
-                  const firstPayment = order.payments && order.payments.length > 0 
-                    ? order.payments[0] 
+
+                  // ✅ Get payment info from top-level fields (fallback to payments array)
+                  const paymentMethodStr = order.paymentMethod || (order.payments?.[0]?.paymentMethod);
+                  const paymentStatusStr = order.paymentStatus || (order.payments?.[0]?.status);
+                  const methodInfo = getPaymentMethodInfo(paymentMethodStr);
+                  const paymentInfo = paymentStatusStr
+                    ? getPaymentStatusInfo(paymentStatusStr as any)
                     : null;
-                  const paymentInfo = firstPayment
-                    ? getPaymentStatusInfo(firstPayment.status)
-                    : null;
-                  
+
                   const availableActions = getAvailableActions(order);
 
                   return (
@@ -1006,17 +1048,27 @@ export default function OrdersListPage() {
                           {statusInfo.label}
                         </span>
                       </td>
-                      {/* ✅ Payment Status */}
+                      {/* ✅ Payment Method + Status */}
                       <td className="py-3 px-3 text-center">
-                        {paymentInfo ? (
+                        <div className="flex flex-col items-center gap-1">
                           <span
-                            className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium ${paymentInfo.bgColor} ${paymentInfo.color} border ${paymentInfo.bgColor.replace('/10', '/20')}`}
+                            className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-xs font-medium ${methodInfo.bgColor} ${methodInfo.color} border ${methodInfo.bgColor.replace('/10', '/20')}`}
                           >
-                            {paymentInfo.label}
+                            {methodInfo.icon === 'card' ? (
+                              <CreditCard className="h-3 w-3" />
+                            ) : (
+                              <PoundSterling className="h-3 w-3" />
+                            )}
+                            {methodInfo.label}
                           </span>
-                        ) : (
-                          <span className="text-slate-500 text-xs">N/A</span>
-                        )}
+                          {paymentInfo && (
+                            <span
+                              className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium ${paymentInfo.bgColor} ${paymentInfo.color}`}
+                            >
+                              {paymentInfo.label}
+                            </span>
+                          )}
+                        </div>
                       </td>
                       <td className="py-3 px-3 text-center">
                         {getDeliveryMethodBadge(order.deliveryMethod)}
@@ -1231,6 +1283,20 @@ export default function OrdersListPage() {
                   icon={<Calendar className="w-4 h-4 text-orange-400" />}
                   label="Order Date"
                   value={formatDate(viewingOrder.orderDate)}
+                />
+                <InfoCard
+                  icon={<CreditCard className="w-4 h-4 text-indigo-400" />}
+                  label="Payment Method"
+                  value={getPaymentMethodInfo(viewingOrder.paymentMethod).label}
+                />
+                <InfoCard
+                  icon={<CheckCircle className="w-4 h-4 text-emerald-400" />}
+                  label="Payment Status"
+                  value={viewingOrder.paymentStatus
+                    ? getPaymentStatusInfo(viewingOrder.paymentStatus as any).label
+                    : (viewingOrder.payments?.[0]
+                      ? getPaymentStatusInfo(viewingOrder.payments[0].status).label
+                      : 'N/A')}
                 />
               </div>
               <div className="bg-slate-800/30 rounded-lg p-4 border border-slate-700">

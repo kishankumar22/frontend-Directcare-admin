@@ -224,7 +224,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
       setHoveredMenu(menuName);
       // Close all other menus and open only the hovered one
       setExpandedMenus({ [menuName]: true });
-    }, 200); // 200ms delay for smooth UX
+    }, 12000); // 200ms delay for smooth UX
   };
 
   const handleMenuLeave = () => {

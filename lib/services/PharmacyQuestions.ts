@@ -1,5 +1,5 @@
-import { apiClient } from "./api";
-import { API_ENDPOINTS } from "./api-config";
+import { apiClient } from "../api";
+import { API_ENDPOINTS } from "../api-config";
 
 // --- PharmacyQuestion TypeScript Interfaces ---
 export interface PharmacyQuestionOption {
@@ -15,7 +15,9 @@ export interface PharmacyQuestion {
   questionText: string;
   isActive: boolean;
   displayOrder: number;
+  answerType: string;
   createdAt: string;
+  createdBy?: string;
   updatedAt?: string;
   options: PharmacyQuestionOption[];
 }
@@ -38,6 +40,7 @@ export interface CreatePharmacyQuestionDto {
   questionText: string;
   isActive: boolean;
   displayOrder: number;
+  answerType: string;
   options: {
     optionText: string;
     isDisqualifying: boolean;
@@ -47,10 +50,11 @@ export interface CreatePharmacyQuestionDto {
 
 export interface UpdatePharmacyQuestionDto {
   id: string;
-  command?: string; // ✅ Add optional command field
+  command?: string;
   questionText: string;
   isActive: boolean;
   displayOrder: number;
+  answerType: string;
   options: {
     id: string;
     optionText: string;
@@ -71,6 +75,32 @@ export interface RestorePharmacyQuestionApiResponse {
   success: boolean;
   message?: string;
   data: boolean;
+  errors?: string[];
+}
+
+// --- Product Pharmacy Question Interfaces ---
+export interface ProductPharmacyQuestionDto {
+  id: string;
+  productId: string;
+  pharmacyQuestionId: string;
+  questionText: string;
+  answerType: string;
+  isRequired: boolean;
+  displayOrder: number;
+  options: PharmacyQuestionOption[];
+}
+
+export interface AssignProductPharmacyQuestionDto {
+  pharmacyQuestionId: string;
+  answerType: string;
+  isRequired: boolean;
+  displayOrder: number;
+}
+
+export interface ProductPharmacyQuestionsApiResponse {
+  success: boolean;
+  message?: string;
+  data: ProductPharmacyQuestionDto[];
   errors?: string[];
 }
 
@@ -115,6 +145,25 @@ export const pharmacyQuestionsService = {
     apiClient.post<RestorePharmacyQuestionApiResponse>(
       `${API_ENDPOINTS.PharmacyQuestions}/${id}/restore`,
       {},
+      config
+    ),
+
+  // Get pharmacy questions assigned to a product
+  getProductQuestions: (productId: string, config: any = {}) =>
+    apiClient.get<ProductPharmacyQuestionsApiResponse>(
+      `${API_ENDPOINTS.products}/${productId}/pharmacy-questions`,
+      config
+    ),
+
+  // Assign pharmacy questions to a product
+  assignProductQuestions: (
+    productId: string,
+    data: { questions: AssignProductPharmacyQuestionDto[] },
+    config: any = {}
+  ) =>
+    apiClient.post<ProductPharmacyQuestionsApiResponse>(
+      `${API_ENDPOINTS.products}/${productId}/pharmacy-questions`,
+      data,
       config
     ),
 };

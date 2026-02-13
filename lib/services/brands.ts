@@ -10,6 +10,7 @@ export interface Brand {
   logoUrl?: string;
   isPublished: boolean;
   isDeleted: boolean; 
+  isActive: boolean;
   showOnHomepage: boolean;
   displayOrder: number;
   productCount: number;
@@ -25,7 +26,29 @@ export interface Brand {
 export interface CreateBrandDto {
   name: string;
   description: string;
+  logoUrl?: string;
+  isPublished?: boolean;
+  isActive?: boolean;  // ✅ ADD THIS
+  showOnHomepage?: boolean;
+  displayOrder?: number;
+  metaTitle?: string;
+  metaDescription?: string;
+  metaKeywords?: string;
 }
+export interface CreateBrandDto {
+  id?: string;
+  name: string;
+  description: string;
+  logoUrl?: string;
+  isPublished?: boolean;
+  isActive?: boolean;  // ✅ ADD THIS
+  showOnHomepage?: boolean;
+  displayOrder?: number;
+  metaTitle?: string;
+  metaDescription?: string;
+  metaKeywords?: string;
+}
+
 
  export interface BrandApiResponse {
   success: boolean;

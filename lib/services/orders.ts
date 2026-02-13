@@ -32,13 +32,15 @@ export type DeliveryMethod = 'HomeDelivery' | 'ClickAndCollect';
 /**
  * ✅ Payment Status (Backend returns strings)
  */
-export type PaymentStatus = 
+export type PaymentStatus =
   | 'Pending'
+  | 'Authorized'
   | 'Processing'
-  | 'Successful'      // ✅ NEW: Added this
+  | 'Successful'
   | 'Completed'
   | 'Captured'
   | 'Failed'
+  | 'Cancelled'
   | 'Refunded'
   | 'PartiallyRefunded';
 
@@ -135,6 +137,11 @@ export interface Order {
   collectedBy?: string;
   collectorIDType?: string;
   collectionExpiryDate?: string;
+
+  // Payment summary fields (from backend OrderDto)
+  paymentMethod?: string;
+  paymentStatus?: string;
+
   orderItems: OrderItem[];
   payments: Payment[];
   shipments: Shipment[];
@@ -378,15 +385,30 @@ export const getCollectionStatusInfo = (status: CollectionStatus) => {
 export const getPaymentStatusInfo = (status: PaymentStatus) => {
   const statusMap: Record<PaymentStatus, { label: string; color: string; bgColor: string }> = {
     'Pending': { label: 'Pending', color: 'text-yellow-400', bgColor: 'bg-yellow-500/10' },
+    'Authorized': { label: 'Authorized', color: 'text-blue-300', bgColor: 'bg-blue-400/10' },
     'Processing': { label: 'Processing', color: 'text-blue-400', bgColor: 'bg-blue-500/10' },
-    'Successful': { label: 'Successful', color: 'text-green-400', bgColor: 'bg-green-500/10' },  // ✅ NEW
+    'Successful': { label: 'Successful', color: 'text-green-400', bgColor: 'bg-green-500/10' },
     'Completed': { label: 'Completed', color: 'text-green-400', bgColor: 'bg-green-500/10' },
     'Captured': { label: 'Captured', color: 'text-emerald-400', bgColor: 'bg-emerald-500/10' },
     'Failed': { label: 'Failed', color: 'text-red-400', bgColor: 'bg-red-500/10' },
+    'Cancelled': { label: 'Cancelled', color: 'text-red-300', bgColor: 'bg-red-400/10' },
     'Refunded': { label: 'Refunded', color: 'text-purple-400', bgColor: 'bg-purple-500/10' },
     'PartiallyRefunded': { label: 'Partially Refunded', color: 'text-purple-300', bgColor: 'bg-purple-400/10' },
   };
   return statusMap[status] || statusMap['Pending'];
+};
+
+/**
+ * Get Payment Method Info
+ */
+export const getPaymentMethodInfo = (method?: string | null) => {
+  if (!method) return { label: 'N/A', color: 'text-slate-400', bgColor: 'bg-slate-500/10', icon: 'cash' as const };
+
+  const normalized = method.toLowerCase();
+  if (normalized === 'stripe') {
+    return { label: 'Stripe', color: 'text-indigo-400', bgColor: 'bg-indigo-500/10', icon: 'card' as const };
+  }
+  return { label: 'Cash on Delivery', color: 'text-amber-400', bgColor: 'bg-amber-500/10', icon: 'cash' as const };
 };
 
 /**
