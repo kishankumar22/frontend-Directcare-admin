@@ -1,6 +1,6 @@
 // components/admin/GroupedProductModal.tsx - WITH SEARCHABLE BRAND & CATEGORY FILTERS
 import { SimpleProduct } from '@/lib/services';
-import { X, Package, Gift, TrendingDown, DollarSign, Calculator, AlertCircle, Search, Filter, Check, ChevronDown } from 'lucide-react';
+import { X, Package, Gift, TrendingDown, PoundSterling, Calculator, AlertCircle, Search, Filter, Check, ChevronDown } from 'lucide-react';
 import { useState, useEffect, useMemo, useRef } from 'react';
 
 interface GroupedProductModalProps {
@@ -716,7 +716,7 @@ export const GroupedProductModal = ({
                             errors.amount ? 'border-red-500 focus:ring-red-500' : 'border-slate-600 focus:ring-violet-500'
                           }`}
                         />
-                        <DollarSign className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                        <PoundSterling className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                       </div>
                       {errors.amount && (
                         <p className="mt-1 text-xs text-red-400 flex items-center gap-1">

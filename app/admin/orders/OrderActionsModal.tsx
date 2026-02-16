@@ -601,26 +601,38 @@ export default function OrderActionsModal({
                 <p className="text-sm text-slate-400">Change the current status of this order.</p>
               </div>
             </div>
-<div className="flex items-center justify-between gap-4 p-3 bg-slate-800/60 border border-white/10 rounded-lg">
-  {/* Left : Order Current Status */}
-  <div className="flex items-center gap-3">
-    <Clock className="h-5 w-5 text-amber-400" />
-    <div>
-      <p className="text-sm text-slate-400">Order Status</p>
-      <p className="text-base font-semibold text-amber-400">
-        Pending
-      </p>
-    </div>
-  </div>
+{(() => {
+  const currentStatusInfo = getStatusDisplayInfo(order.status);
+  const paymentInfo = getPaymentStatusDisplay(order);
 
-  {/* Right : Payment Status */}
-  <div className="text-right">
-    <p className="text-sm text-slate-400">Payment Status</p>
-    <p className="text-base font-semibold text-emerald-400">
-      Paid
-    </p>
-  </div>
-</div>
+  return (
+    <div className="flex items-center justify-between gap-4 p-3 bg-slate-800/60 border border-white/10 rounded-lg">
+      
+      {/* Left : Order Current Status */}
+      <div className="flex items-center gap-3">
+        <div className={currentStatusInfo.color}>
+          {currentStatusInfo.icon}
+        </div>
+        <div>
+          <p className="text-sm text-slate-400">Order Status</p>
+          <p className={`text-base font-semibold ${currentStatusInfo.color}`}>
+            {currentStatusInfo.label}
+          </p>
+        </div>
+      </div>
+
+      {/* Right : Payment Status */}
+      <div className="text-right">
+        <p className="text-sm text-slate-400">Payment Status</p>
+        <div className={`flex items-center justify-end gap-2 text-base font-semibold ${paymentInfo.color}`}>
+          {paymentInfo.icon}
+          <span>{paymentInfo.label}</span>
+        </div>
+      </div>
+    </div>
+  );
+})()}
+
 
 
             <div>

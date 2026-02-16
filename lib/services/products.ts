@@ -174,6 +174,10 @@ export interface Product {
   slug?: string;
   sku: string;
   gtin?: string;
+  isActive?: boolean;
+  isDeleted?: boolean;
+  isPharmaProduct?: boolean;
+  excludeFromLoyaltyPoints?: boolean;
   manufacturerPartNumber?: string;
   shortDescription: string;
   description: string;

@@ -9,6 +9,7 @@ import { useAuth } from "@/context/AuthContext";
 import { useRouter } from "next/navigation";
 import EmptyCart from "@/components/cart/EmptyCart";
 import { ShoppingBag } from "lucide-react";
+import SavedAddressesSection from "@/components/checkout/SavedAddressesSection";
 
 // ---------- Types ----------
 type AddressSuggestion = {
@@ -336,6 +337,55 @@ const clearFieldError = (key: string) => {
     return rest;
   });
 };
+const handleAddressSelect = (addr: any | null) => {
+  if (!addr) {
+    // Clear form for new address
+    setBillingFirstName("");
+    setBillingLastName("");
+    setBillingPhone("");
+    setBillingCompany("");
+    setBillingAddress1("");
+    setBillingAddress2("");
+    setBillingCity("");
+    setBillingState("");
+    setBillingPostalCode("");
+    setBillingCountry("United Kingdom");
+    return;
+  }
+
+  setBillingFirstName(addr.firstName);
+  setBillingLastName(addr.lastName);
+  
+  setBillingCompany(addr.company || "");
+  setBillingAddress1(addr.addressLine1);
+  setBillingAddress2(addr.addressLine2 || "");
+  setBillingCity(addr.city);
+  setBillingState(addr.state);
+  setBillingPostalCode(addr.postalCode);
+  setBillingCountry(addr.country || "United Kingdom");
+ // 🔥 FIXED PHONE LOGIC (UK Safe)
+    // 🔥 SAFE PHONE
+  const phoneRaw = addr.phoneNumber ?? "";
+
+  const cleaned = phoneRaw
+    .replace("+44", "")
+    .replace(/^0/, "")
+    .replace(/\D/g, "");
+
+  setBillingPhone(cleaned);
+  if (shippingSameAsBilling) {
+    setShippingFirstName(addr.firstName);
+    setShippingLastName(addr.lastName);
+    setShippingCompany(addr.company || "");
+    setShippingAddress1(addr.addressLine1);
+    setShippingAddress2(addr.addressLine2 || "");
+    setShippingCity(addr.city);
+    setShippingState(addr.state);
+    setShippingPostalCode(addr.postalCode);
+    setShippingCountry(addr.country || "United Kingdom");
+  }
+};
+
   // const [showPayment, setShowPayment] = useState(false);
   const [orderPayload, setOrderPayload] = useState<any>(null);
 const [orderSummary, setOrderSummary] = useState<{
@@ -827,6 +877,10 @@ if (!checkoutItems || checkoutItems.length === 0) {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* LEFT: Billing + Shipping */}
         <div className="lg:col-span-2 space-y-6">
+          {isAuthenticated && (
+  <SavedAddressesSection onSelect={handleAddressSelect} />
+)}
+
           <div className="bg-white p-6 rounded shadow">
             <h2 className="text-lg font-semibold mb-3">Billing details</h2>
            <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 lg:gap-4">       
@@ -1321,7 +1375,7 @@ if (!checkoutItems || checkoutItems.length === 0) {
 
   await handlePlaceOrderCOD(payload);
 }}
-    className="w-full bg-[#445D41] text-white py-3 rounded"
+    className="w-full bg-[#445D41] text-white py-3 hover:bg-black rounded"
   >
     Place order (COD)
   </button>

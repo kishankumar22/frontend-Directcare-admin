@@ -67,7 +67,7 @@ const POPULAR_ICONS = [
   "Heart", "ThumbsUp", "ThumbsDown", "MessageSquare", "Eye", "Share2",
   
   // E-commerce
-  "ShoppingCart", "ShoppingBag", "CreditCard", "DollarSign", "Tag", "Package",
+  "ShoppingCart", "ShoppingBag", "CreditCard", "PoundSterling", "Tag", "Package",
   "Gift", "Truck", "PercentSquare", "Receipt",
   
   // Blog Categories
@@ -1724,7 +1724,7 @@ const handleSlugChange = (value: string) => {
   <div className="flex flex-wrap gap-2 mb-3">
     {["Star", "Fire", "Zap", "Heart", "Trophy", "Crown", "ThumbsUp", "Share2", "Eye", "Image",
       "Video", "Music", "ShoppingCart", "Gift", "Package", "Sun", "Moon", "Cloud", "CloudRain", 
-      "Leaf", "Flower", "Building", "DollarSign", "CreditCard", "Clock", "Calendar"].map((icon) => (
+      "Leaf", "Flower", "Building", "PoundSterling", "CreditCard", "Clock", "Calendar"].map((icon) => (
       <button
         key={icon}
         onClick={() => setLabelInput({ ...labelInput, icon })}

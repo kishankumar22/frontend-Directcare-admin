@@ -5,7 +5,7 @@ import { shippingService, shippingHelpers } from "@/lib/services/shipping";
 import { ShippingMethod, CreateMethodDto } from "@/lib/types/shipping";
 import { useToast } from "@/app/admin/_component/CustomToast";
 import { useRouter } from "next/navigation"; // ✅ App Router import
-import { Plus, Edit, Trash2, Search, Truck, CheckCircle, XCircle, Loader2, AlertCircle, X, Save, Clock, FileSignature, Navigation, ChevronLeft, ChevronRight, Eye, ChevronDown, FilterX, Package, MapPin, Calendar, Hash, DollarSign, RotateCcw, } from "lucide-react";
+import { Plus, Edit, Trash2, Search, Truck, CheckCircle, XCircle, Loader2, AlertCircle, X, Save, Clock, FileSignature, Navigation, ChevronLeft, ChevronRight, Eye, ChevronDown, FilterX, Package, MapPin, Calendar, Hash, PoundSterling, RotateCcw,} from "lucide-react";
 import { cn } from "@/lib/utils";
 import ConfirmDialog from "../../_component/ConfirmDialog";
 
@@ -652,6 +652,7 @@ const handleRestore = async () => {
             <button
               onClick={() => router.push('/admin/shipping/zones')}
               className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-violet-500 to-purple-500 hover:from-violet-600 hover:to-purple-600 text-white rounded-lg font-medium shadow-lg hover:shadow-xl transition-all duration-200"
+              title="go to zones page"
             >
               <MapPin className="w-4 h-4" />
               Zones
@@ -661,8 +662,9 @@ const handleRestore = async () => {
             <button
               onClick={() => router.push('/admin/shipping/rates')}
               className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-600 hover:to-blue-600 text-white rounded-lg font-medium shadow-lg hover:shadow-xl transition-all duration-200"
+            title="go to rates page"
             >
-              <DollarSign className="w-4 h-4" />
+              <PoundSterling className="w-4 h-4" />
               Rates
             </button>
 
@@ -670,6 +672,7 @@ const handleRestore = async () => {
             <button
               onClick={handleCreate}
               className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white rounded-lg font-medium shadow-lg hover:shadow-xl transition-all duration-200"
+            title="Add a new shipping method"
             >
               <Plus className="w-4 h-4" />
               Add Method

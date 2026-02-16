@@ -12,7 +12,7 @@ import {
   TrendingUp,
   Calendar,
   Percent,
-  DollarSign,
+  PoundSterling,
   ShoppingBag,
   Users,
   Crown,

@@ -7,14 +7,11 @@ import { Input } from "@/components/ui/input";
 import clsx from "clsx";
 import { useCart } from "@/context/CartContext";
 import { useAuth } from "@/context/AuthContext";
-import {
-  Tabs,
-  TabsList,
-  TabsTrigger,
-  TabsContent
-} from "@/components/ui/tabs";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Eye, EyeOff } from "lucide-react";
 import AccountDashboard from "./components/AccountDashboard";
+import { forgotPassword } from "@/app/lib/api/auth";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, } from "@/components/ui/dialog";
 
 export default function AccountClient() {
   const router = useRouter();
@@ -36,6 +33,13 @@ export default function AccountClient() {
   const [loginEmail, setLoginEmail] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
   const [loginError, setLoginError] = useState("");
+// Forgot Password
+const [forgotOpen, setForgotOpen] = useState(false);
+const [forgotEmail, setForgotEmail] = useState("");
+const [forgotLoading, setForgotLoading] = useState(false);
+const [forgotSubmitted, setForgotSubmitted] = useState(false);
+const [forgotError, setForgotError] = useState("");
+const [forgotSuccessMessage, setForgotSuccessMessage] = useState("");
 
   // Register
   const [regFirstName, setRegFirstName] = useState("");
@@ -150,6 +154,58 @@ const isValidPassword = (password: string) =>
       setLoading(false);
     }
   };
+const handleForgotPassword = async (e: React.FormEvent) => {
+  e.preventDefault();
+  setForgotError("");
+  setForgotSuccessMessage("");
+
+  if (!forgotEmail.trim()) {
+    setForgotError("Email is required");
+    return;
+  }
+
+  const emailRegex =
+    /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+
+  if (!emailRegex.test(forgotEmail.trim())) {
+    setForgotError("Enter a valid email address");
+    return;
+  }
+
+  try {
+    setForgotLoading(true);
+
+    const data = await forgotPassword(forgotEmail.trim());
+
+    // ✅ Backend ka actual message show karo
+    setForgotSuccessMessage(
+      data?.message ||
+        "If an account with that email exists, a password reset link has been sent."
+    );
+
+    // Modal auto close after 2 seconds
+    setTimeout(() => {
+      setForgotOpen(false);
+      setForgotEmail("");
+      setForgotSuccessMessage("");
+    }, 2000);
+
+  } catch (error: any) {
+    // 🔐 Security: still show generic success
+    setForgotSuccessMessage(
+      "If an account with that email exists, a password reset link has been sent."
+    );
+
+    setTimeout(() => {
+      setForgotOpen(false);
+      setForgotEmail("");
+      setForgotSuccessMessage("");
+    }, 2000);
+  } finally {
+    setForgotLoading(false);
+  }
+};
+
 
   // REGISTER SUBMIT
   const handleRegister = async (e: React.FormEvent) => {
@@ -333,6 +389,20 @@ if (isAuthenticated && user) {
                 >
                   {loading ? "Please wait..." : "Login"}
                 </Button>
+                <div className="text-right">
+  <button
+    type="button"
+    onClick={() => {
+      setForgotOpen(true);
+      setForgotSubmitted(false);
+      setForgotEmail(loginEmail); // auto-fill if typed
+    }}
+    className="text-sm text-[#445D41] hover:underline"
+  >
+    Forgot Password?
+  </button>
+</div>
+
               </form>
             </TabsContent>
 
@@ -536,6 +606,50 @@ if (isAuthenticated && user) {
           </Tabs>
         </div>
       </div>
+      <Dialog open={forgotOpen} onOpenChange={setForgotOpen}>
+  <DialogContent className="sm:max-w-md">
+    <DialogHeader>
+      <DialogTitle>Reset your password</DialogTitle>
+    </DialogHeader>
+
+ {forgotSuccessMessage ? (
+  <p className="text-sm text-green-600">
+    {forgotSuccessMessage}
+  </p>
+) : (
+
+      <form onSubmit={handleForgotPassword} className="space-y-4">
+        <div>
+          <label className="text-sm font-medium">Email address</label>
+          <Input
+            type="email"
+            value={forgotEmail}
+            onChange={(e) => {
+              setForgotEmail(e.target.value);
+              if (forgotError) setForgotError("");
+            }}
+            className="h-11"
+          />
+          {forgotError && (
+            <p className="text-xs text-red-600 mt-1">
+              {forgotError}
+            </p>
+          )}
+        </div>
+
+        <Button
+          type="submit"
+          disabled={forgotLoading}
+          className="w-full h-11 bg-[#445D41] hover:bg-black text-white"
+        >
+          {forgotLoading ? "Sending..." : "Send Reset Link"}
+        </Button>
+      </form>
+    )}
+  </DialogContent>
+</Dialog>
+
     </div>
+
   );
 }

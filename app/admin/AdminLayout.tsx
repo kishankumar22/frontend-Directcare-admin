@@ -43,7 +43,7 @@ import {
   LockKeyhole,
   User,
   Mail,
-  DollarSign,
+
   MapPin,
   Ship,
   Truck,
@@ -52,7 +52,8 @@ import {
   Award,
   Coins,
   Sliders,
-  ClipboardList, // ✅ NEW ICON FOR SYSTEM GROUP
+  ClipboardList,
+  PoundSterling, // ✅ NEW ICON FOR SYSTEM GROUP
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTheme } from "@/app/admin/_context/theme-provider";
@@ -106,7 +107,7 @@ const navigation: NavigationItem[] = [
     children: [
       { name: 'Zones', href: '/admin/shipping/zones', icon: MapPin },
       { name: 'Methods', href: '/admin/shipping/methods', icon: Truck },
-      { name: 'Rates', href: '/admin/shipping/rates', icon: DollarSign },
+      { name: 'Rates', href: '/admin/shipping/rates', icon: PoundSterling },
     ],
   },
   {
@@ -115,7 +116,7 @@ const navigation: NavigationItem[] = [
     children: [
       { name: 'Discounts', href: '/admin/discounts', icon: Percent },
       { name: 'Subscriptions', href: '/admin/subscriptions', icon: PackageOpen },
-      { name: 'VAT Rates', href: '/admin/vatRates', icon: Receipt },
+      { name: 'VAT Rates', href: '/admin/vatRates', icon: PoundSterling },
       { name: "NewsLetter", href: "/admin/newsletter", icon: Mail },
     ],
   },

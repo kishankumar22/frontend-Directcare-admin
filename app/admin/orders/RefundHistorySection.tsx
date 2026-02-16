@@ -12,8 +12,9 @@ import {
   CheckCircle,
   ChevronRight,
   CreditCard,
-  DollarSign,
+
   AlertCircle,
+  PoundSterling,
 } from 'lucide-react';
 import { RefundHistory } from '@/lib/services/OrderEdit';
 import { formatCurrency, formatDate } from '@/lib/services/orders';
@@ -100,7 +101,7 @@ export default function RefundHistorySection({
                 <div className="grid grid-cols-3 gap-4">
                   <div>
                     <p className="text-xs text-slate-400 mb-1 flex items-center gap-1">
-                      <DollarSign className="h-3 w-3" />
+                      <PoundSterling className="h-3 w-3" />
                       Original Amount
                     </p>
                     <p className="text-white font-bold text-lg">

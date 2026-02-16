@@ -107,84 +107,13 @@ const [takeoverResponseMessage, setTakeoverResponseMessage] = useState('');
 const [isGroupedModalOpen, setIsGroupedModalOpen] = useState(false);
 // Add after existing useState declarations (around line 50-100)
 const [variantSkuErrors, setVariantSkuErrors] = useState<Record<string, string>>({});
-const [checkingVariantSku, setCheckingVariantSku] = useState<Record<string, boolean>>({});
+
 
 // ============================================================
 // VALIDATION FUNCTIONS - Add after useState
 // ============================================================
 
-// Check Draft Requirements (Minimal)
-const checkDraftRequirements = (): { isValid: boolean; missing: string[] } => {
-  const missing: string[] = [];
-  
-  if (!formData.name?.trim()) missing.push('Product Name');
-  if (!formData.sku?.trim()) missing.push('SKU');
-  if (!formData.categoryIds || formData.categoryIds.length === 0) missing.push('Category');
-  
-  const hasBrand = (formData.brandIds && formData.brandIds.length > 0) || formData.brand?.trim();
-  if (!hasBrand) missing.push('Brand');
-  
-  return { isValid: missing.length === 0, missing };
-};
 
-// Check Publish Requirements (Complete)
-const checkPublishRequirements = (): { isValid: boolean; missing: string[] } => {
-  const missing: string[] = [];
-  
-  // 1. Basic Info
-  if (!formData.name?.trim()) missing.push('Product Name');
-  if (!formData.sku?.trim()) missing.push('SKU');
-  if (!formData.shortDescription?.trim()) missing.push('Short Description');
-  
-  // 2. Price
-  const price = Number(formData.price);
-  if (isNaN(price) || price <= 0) missing.push('Price');
-  
-  // 3. Categories
-  if (!formData.categoryIds || formData.categoryIds.length === 0) {
-    missing.push('Category (at least 1)');
-  }
-  
-  // 4. Brands
-  const hasBrand = (formData.brandIds && formData.brandIds.length > 0) || formData.brand?.trim();
-  if (!hasBrand) missing.push('Brand (at least 1)');
-  
-  // 5. Images (minimum 3)
-  if (!formData.productImages || formData.productImages.length < 3) {
-    missing.push(`Product Images (minimum 3, current: ${formData.productImages?.length || 0})`);
-  }
-  
-  // 6. Stock (if tracking)
-  if (formData.manageInventory === 'track') {
-    const stock = parseInt(formData.stockQuantity?.toString() || '0');
-    if (isNaN(stock) || stock < 0) {
-      missing.push('Stock Quantity (valid number)');
-    }
-  }
-  
-  // 7. Weight (if shipping enabled)
-  if (formData.isShipEnabled) {
-    if (!formData.weight || parseFloat(formData.weight.toString()) <= 0) {
-      missing.push('Weight (required for shipping)');
-    }
-  }
-  
-  // 8. Grouped Products
-  if (formData.productType === 'grouped' && formData.requireOtherProducts) {
-    if (!formData.requiredProductIds?.trim()) {
-      missing.push('Grouped Products (at least 1)');
-    }
-  }
-  
-  // 9. VAT Rate (if not exempt)
-  if (formData.vatExempt === false) {
-    if (!formData.vatRateId || !formData.vatRateId.trim()) {
-      missing.push('VAT Rate (required when product is taxable)');
-    }
-  }
-  
-  return { isValid: missing.length === 0, missing };
-};
 
 
 
@@ -666,33 +595,102 @@ const [formData, setFormData] = useState({
   metaDescription: '',
   searchEngineFriendlyPageName: '',
 });
+const isEmpty = (val: any) => !val || !val.toString().trim();
 
 
 const [missingFields, setMissingFields] = useState<string[]>([]);
+// Check Draft Requirements (Minimal)
+
+const checkDraftRequirements = (): { isValid: boolean; missing: string[] } => {
+  const missing: string[] = [];
+
+  if (isEmpty(formData.name)) missing.push('Product Name');
+  if (isEmpty(formData.sku)) missing.push('SKU');
+
+  if (!formData.categoryIds || formData.categoryIds.length === 0) {
+    missing.push('Category');
+  }
+
+  const hasBrand =
+    (formData.brandIds && formData.brandIds.length > 0) ||
+    !isEmpty(formData.brand);
+
+  if (!hasBrand) missing.push('Brand');
+
+  return { isValid: missing.length === 0, missing };
+};
+
+
+// Check Publish Requirements (Complete)
+const checkPublishRequirements = (): { isValid: boolean; missing: string[] } => {
+  const missing: string[] = [];
+
+  // Basic Info
+  if (isEmpty(formData.name)) missing.push('Product Name');
+  if (isEmpty(formData.sku)) missing.push('SKU');
+  if (isEmpty(formData.fullDescription)) missing.push('Full Description');
+
+  // Price
+  const price = Number(formData.price);
+  if (isNaN(price) || price <= 0) missing.push('Valid Price');
+
+  // Categories
+  if (!formData.categoryIds || formData.categoryIds.length === 0) {
+    missing.push('Category (min 1)');
+  }
+
+  // Brand
+  const hasBrand =
+    (formData.brandIds && formData.brandIds.length > 0) ||
+    !isEmpty(formData.brand);
+
+  if (!hasBrand) missing.push('Brand (min 1)');
+
+  // Images
+  if (!formData.productImages || formData.productImages.length < 3) {
+    missing.push(
+      `Product Images (min 3, current: ${formData.productImages?.length || 0})`
+    );
+  }
+
+  // Stock
+  if (formData.manageInventory === 'track') {
+    const stock = parseInt(formData.stockQuantity?.toString() || '0');
+    if (isNaN(stock) || stock < 0) {
+      missing.push('Valid Stock Quantity');
+    }
+  }
+
+  // Weight
+  if (formData.isShipEnabled) {
+    const weight = parseFloat(formData.weight?.toString() || '0');
+    if (isNaN(weight) || weight <= 0) {
+      missing.push('Weight (required for shipping)');
+    }
+  }
+
+  // Grouped
+  if (formData.productType === 'grouped' && formData.requireOtherProducts) {
+    if (isEmpty(formData.requiredProductIds)) {
+      missing.push('Grouped Products (min 1)');
+    }
+  }
+
+  // VAT
+  if (!formData.vatExempt) {
+    if (isEmpty(formData.vatRateId)) {
+      missing.push('VAT Rate');
+    }
+  }
+
+  return { isValid: missing.length === 0, missing };
+};
 
 // Update missing fields on form change
 useEffect(() => {
   const { missing } = checkPublishRequirements();
   setMissingFields(missing);
-}, [
-  formData.name,
-  formData.sku,
-  formData.shortDescription,
-  formData.price,
-  formData.categoryIds,
-  formData.brandIds,
-  formData.brand,
-  formData.productImages,
-  formData.stockQuantity,
-  formData.manageInventory,
-  formData.isShipEnabled,
-  formData.weight,
-  formData.productType,
-  formData.requireOtherProducts,
-  formData.requiredProductIds,
-  formData.vatExempt,
-  formData.vatRateId
-]);
+}, [formData]);
 
 const [productLock, setProductLock] = useState<{
   isLocked: boolean;
@@ -2908,13 +2906,13 @@ if (length > 2000) {
       setSubmitProgress(null);
       return;
     }
-// if (!formData.stockQuantity ) {
-//   toast.error('❌ Stock quantity is required');
-//   target.removeAttribute('data-submitting');
-//   setIsSubmitting(false);
-//   setSubmitProgress(null);
-//   return;
-// }
+if (!formData.minStockQuantity) {
+  toast.error('❌ Stock quantity is required');
+  target.removeAttribute('data-submitting');
+  setIsSubmitting(false);
+  setSubmitProgress(null);
+  return;
+}
 
     if (parsedPrice > 10000000) {
       toast.error('⚠️ Price seems unusually high. Please verify.');
@@ -3615,7 +3613,8 @@ const variantsArray = productVariants?.map(variant => {
   const variantPrice = typeof variant.price === 'number' ? variant.price : parseNumber(variant.price, 'variant.price') ?? 0;
   if (variantPrice <= 0) {
     toast.error(`Variant "${variant.name}" price must be greater than 0`);
-    throw new Error('Invalid variant price');
+    return null; // ⬅ stop this variant
+
   }
 
   // ========== ✅ CLEAN VARIANT OPTIONS BEFORE BUILDING ==========
@@ -4899,15 +4898,6 @@ const handleGroupedProductsChange = (selectedOptions: any) => {
     });
   };
 
-  const filteredProducts = availableProducts.filter(p =>
-    p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    p.sku.toLowerCase().includes(searchTerm.toLowerCase())
-  );
-
-  const filteredProductsCross = availableProducts.filter(p =>
-    p.name.toLowerCase().includes(searchTermCross.toLowerCase()) ||
-    p.sku.toLowerCase().includes(searchTermCross.toLowerCase())
-  );
 
 // Product Attribute handlers (matching backend ProductAttributeCreateDto)
 const addProductAttribute = () => {
@@ -5484,12 +5474,27 @@ const uploadImagesToProductDirect = async (
       <div className="w-full">
         {/* Missing Fields Badge (in header) */}
 {missingFields.length > 0 && (
-  <div className="flex items-center gap-2 mb-2 px-3 py-1.5 bg-orange-500/10 border border-orange-500/30 rounded-lg">
-    <svg className="w-4 h-4 text-orange-400" fill="currentColor" viewBox="0 0 20 20">
-      <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+  <div className="flex items-center gap-2 mb-2 px-1 py-1 bg-orange-500/10 border border-orange-500/30 rounded-lg flex-wrap">
+    
+    <svg
+      className="w-4 h-4 text-orange-400 flex-shrink-0"
+      fill="currentColor"
+      viewBox="0 0 20 20"
+    >
+      <path
+        fillRule="evenodd"
+        d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"
+        clipRule="evenodd"
+      />
     </svg>
+
     <span className="text-xs font-medium text-orange-400">
-      {missingFields.length} field{missingFields.length !== 1 ? 's' : ''} required
+      {missingFields.length} required field
+      {missingFields.length !== 1 ? "s" : ""}:
+    </span>
+
+    <span className="text-xs text-orange-300">
+      {missingFields.join(", ")}
     </span>
   </div>
 )}

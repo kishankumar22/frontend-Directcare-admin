@@ -9,8 +9,7 @@ import {
   Search,
   X,
   Calendar,
-  ShoppingBag,
-  DollarSign,
+  ShoppingBag,  
   User,
   ChevronLeft,
   ChevronRight,
@@ -43,6 +42,7 @@ import {
   LogIn,
   ShoppingCart,
   UserPlus,
+  PoundSterling,
 } from "lucide-react";
 
 import { useToast } from "@/app/admin/_component/CustomToast";
@@ -1667,7 +1667,7 @@ const [customerViewMode, setCustomerViewMode] = useState<"all" | "active" | "ina
           <div className="bg-gradient-to-br from-green-500/10 to-green-600/5 border border-green-500/20 rounded-xl p-4">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 bg-green-500/20 rounded-lg flex items-center justify-center">
-                <DollarSign className="h-5 w-5 text-green-400" />
+                <PoundSterling className="h-5 w-5 text-green-400" />
               </div>
               <div>
                 <p className="text-slate-400 text-xs font-medium">Total Spent</p>
@@ -2049,7 +2049,7 @@ const [customerViewMode, setCustomerViewMode] = useState<"all" | "active" | "ina
                         {/* Order Summary */}
                         <div className="bg-slate-800/50 p-3 rounded-lg border border-slate-700/50">
                           <div className="flex items-center gap-2 mb-2">
-                            <DollarSign className="h-4 w-4 text-green-400" />
+                            <PoundSterling className="h-4 w-4 text-green-400" />
                             <p className="text-xs text-slate-300 font-semibold">Order Summary</p>
                           </div>
                           <div className="space-y-2 text-xs">

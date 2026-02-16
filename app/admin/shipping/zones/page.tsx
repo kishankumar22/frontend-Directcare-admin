@@ -6,7 +6,7 @@ import { shippingService } from "@/lib/services/shipping";
 import { ShippingZone, CreateZoneDto } from "@/lib/types/shipping";
 import { countriesService, Country } from "@/lib/services/countries";
 import { useToast } from "@/app/admin/_component/CustomToast";
-import { Plus, Edit, Trash2, Search, MapPin, Globe, CheckCircle, XCircle, Loader2, AlertCircle, X, Save, ChevronLeft, ChevronRight, Eye, Flag, Info, Package, DollarSign, RotateCcw, } from "lucide-react";
+import { Plus, Edit, Trash2, Search, MapPin, Globe, CheckCircle, XCircle, Loader2, AlertCircle, X, Save, ChevronLeft, ChevronRight, Eye, Flag, Info, Package, PoundSterling, RotateCcw, } from "lucide-react";
 import { cn } from "@/lib/utils";
 import ConfirmDialog from "../../_component/ConfirmDialog";
 
@@ -482,23 +482,26 @@ const stats = {
         <button
             onClick={() => router.push('/admin/shipping/rates')}
             className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-600 hover:to-blue-600 text-white rounded-lg font-medium shadow-lg hover:shadow-xl transition-all duration-200"
-          >
-            <DollarSign className="w-4 h-4" />
+          
+           title="go to rates page">
+            <PoundSterling className="w-4 h-4" />
             Add Rates
           </button>
 
           <button
             onClick={() => router.push('/admin/shipping/methods')}
             className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white rounded-lg font-medium shadow-lg hover:shadow-xl transition-all duration-200"
+            title="go to method page"
           >
             <Package className="w-4 h-4" />
-            Add Shipping
+            Add Method
           </button>
            {/* ✅ CHANGED: Opens modal instead of routing */}
   <button 
     onClick={handleCreate}
     className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-violet-500 to-purple-500 hover:from-violet-600 hover:to-purple-600 text-white rounded-lg font-medium shadow-lg hover:shadow-xl transition-all duration-200"
-  >
+  
+   title="Create new shipping zone">
     <Plus className="w-4 h-4" />
     Add Zones
   </button>

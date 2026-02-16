@@ -149,10 +149,8 @@ export default function AccountDashboard() {
 
             {activeTab === "change-password" && <ChangePasswordTab />}
 
-            {activeTab === "addresses" && (
-              <AddressesTab addresses={user.addresses ?? []} />
+          {activeTab === "addresses" && <AddressesTab />}
 
-            )}
           {activeTab === "loyalty" && (
   <LoyaltyPointsTab loyalty={user.loyaltyPoints} />
 )}

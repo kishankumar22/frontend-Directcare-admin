@@ -363,9 +363,24 @@ const ProductViewModal: React.FC<ProductViewModalProps> = ({
                       value={product.productType?.toUpperCase()}
                       icon={<Package className="w-3.5 h-3.5" />}
                     />
-                    <InfoField label="Status" value={'Active'} icon={<Activity className="w-3.5 h-3.5" />} />
+                    <InfoField
+  label="Status"
+  value={product.isActive ? "Active" : "Inactive"}
+  icon={<Activity className="w-3.5 h-3.5" />}
+/>
+
+
+
+<InfoField
+  label="Deleted"
+  value={product.isDeleted ? "Yes" : "No"}
+  icon={<AlertCircle className="w-3.5 h-3.5" />}
+/>
+
+
                     <InfoField label="Brand" value={product.brandName} icon={<Star className="w-3.5 h-3.5" />} />
-                    {/* <InfoField label="Category" value={product.categoryName} icon={<Filter className="w-3.5 h-3.5" />} /> */}
+                    <InfoField label="Pharma Product" value={product.isPharmaProduct ? 'Yes' : 'No'} icon={<Filter className="w-3.5 h-3.5" />} />
+                    <InfoField label="Exclude From Loyalty Points" value={product.excludeFromLoyaltyPoints ? 'Yes' : 'No'} icon={<Filter className="w-3.5 h-3.5" />} />
                     <InfoField
                       label="Display Order"
                       value={product.displayOrder?.toString() || '1'}

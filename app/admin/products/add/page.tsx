@@ -31,7 +31,7 @@ const [checkingVariantSku, setCheckingVariantSku] = useState<Record<string, bool
 const [variantSkuErrors, setVariantSkuErrors] = useState<Record<string, string>>({});
 const [showTaxPreview, setShowTaxPreview] = useState(false);
 const [productOptions, setProductOptions] = useState<ProductOption[]>([]);
-const [isGeneratingVariants, setIsGeneratingVariants] = useState(false);
+
 
 // ============================================================
 // ADD THESE STATES (After other useState declarations)
@@ -415,7 +415,7 @@ const showMissingFieldsToast = (missing: string[], isDraft: boolean) => {
   });
 };
 
-// ✅ ADD THIS FUNCTION AFTER useState DECLARATIONS (around line 100)
+
 
 /**
  * ✅ CLEAN VARIANT OPTIONS - Save only if BOTH name AND value exist

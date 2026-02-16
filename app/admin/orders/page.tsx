@@ -255,7 +255,7 @@ export default function OrdersListPage() {
       'Tax',
       'Shipping',
       'Discount',
-      'Total',
+      'Total Amount',
       'Status',
       'Delivery Method',
       'Payment Method',
@@ -339,7 +339,7 @@ export default function OrdersListPage() {
         'Tax',
         'Shipping',
         'Discount',
-        'Total',
+        'Total Amount',
         'Status',
         'Delivery Method',
         'Payment Method',
@@ -672,27 +672,76 @@ export default function OrdersListPage() {
       </div>
 
       {/* Items Per Page */}
-      <div className="bg-slate-900/50 border border-slate-800 rounded-lg p-3">
-        <div className="flex flex-wrap items-center justify-between gap-3 text-sm">
-          <div className="flex items-center gap-2">
-            <span className="text-slate-400 text-xs">Show</span>
-            <select
-              value={itemsPerPage}
-              onChange={(e) => handleItemsPerPageChange(Number(e.target.value))}
-              className="px-2 py-1 bg-slate-800/50 border border-slate-600 rounded-lg text-white text-xs focus:outline-none focus:ring-2 focus:ring-violet-500"
-            >
-              <option value={25}>25</option>
-              <option value={50}>50</option>
-              <option value={75}>75</option>
-              <option value={100}>100</option>
-            </select>
-            <span className="text-slate-400 text-xs">entries</span>
-          </div>
-          <div className="text-xs text-slate-400">
-            Page {currentPage} of {totalPages}
-          </div>
-        </div>
+   <div className="bg-slate-900/50 border border-slate-800 rounded-lg px-4 py-3">
+  <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 text-xs">
+    
+    {/* LEFT SIDE */}
+    <div className="flex flex-wrap items-center gap-4">
+      
+      {/* Show Entries */}
+      <div className="flex items-center gap-2">
+        <span className="text-slate-400">Show</span>
+        <select
+          value={itemsPerPage}
+          onChange={(e) =>
+            handleItemsPerPageChange(Number(e.target.value))
+          }
+          className="px-2 py-1 bg-slate-800/50 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-violet-500"
+        >
+          <option value={25}>25</option>
+          <option value={50}>50</option>
+          <option value={75}>75</option>
+          <option value={100}>100</option>
+        </select>
+        <span className="text-slate-400">entries</span>
       </div>
+
+      {/* Showing Info */}
+      <div className="text-slate-400">
+        Showing{" "}
+        <span className="text-white font-semibold">
+          {orders.length}
+        </span>{" "}
+        of{" "}
+        <span className="text-white font-semibold">
+          {totalCount}
+        </span>
+      </div>
+
+      {/* Selected Count */}
+      {selectedOrders.length > 0 && (
+        <span className="text-blue-400 font-medium">
+          ({selectedOrders.length} selected)
+        </span>
+      )}
+    </div>
+
+    {/* RIGHT SIDE */}
+    <div className="flex items-center gap-4 text-slate-400">
+      
+      {/* Page Info */}
+      <span>
+        Page{" "}
+        <span className="text-white font-semibold">
+          {currentPage}
+        </span>{" "}
+        of{" "}
+        <span className="text-white font-semibold">
+          {totalPages}
+        </span>
+      </span>
+
+      {/* Filter Indicator */}
+      {hasActiveFilters && (
+        <span className="text-violet-400 flex items-center gap-1">
+          <span className="w-1.5 h-1.5 bg-violet-400 rounded-full animate-pulse"></span>
+          Filters active
+        </span>
+      )}
+    </div>
+  </div>
+</div>
+
 
       {/* Inline Filters */}
       <div className="bg-slate-900/50 border border-slate-800 rounded-lg p-3 z-50">
@@ -906,25 +955,7 @@ export default function OrdersListPage() {
             </button>
           )}
         </div>
-
-        {/* Results Summary */}
-        <div className="mt-3 pt-3 border-t border-slate-700/50 flex items-center justify-between text-xs">
-          <span className="text-slate-400">
-            Showing <span className="text-white font-semibold">{orders.length}</span> of{' '}
-            <span className="text-white font-semibold">{totalCount}</span> orders
-            {selectedOrders.length > 0 && (
-              <span className="ml-2 text-blue-400">
-                ({selectedOrders.length} selected)
-              </span>
-            )}
-          </span>
-          {hasActiveFilters && (
-            <span className="text-violet-400 flex items-center gap-1">
-              <div className="w-1.5 h-1.5 bg-violet-400 rounded-full animate-pulse"></div>
-              Filters active
-            </span>
-          )}
-        </div>
+      
       </div>
 
       {/* Orders Table */}
@@ -958,10 +989,10 @@ export default function OrdersListPage() {
                     Items
                   </th>
                   <th className="text-left py-3 px-3 text-slate-300 font-semibold text-xs">
-                    Total
+                    Total Amount
                   </th>
                   <th className="text-left py-3 px-3 text-slate-300 font-semibold text-xs">
-                    Date
+                   Order Date
                   </th>
                   <th className="text-center py-3 px-3 text-slate-300 font-semibold text-xs">
                    Order Status

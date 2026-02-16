@@ -18,7 +18,7 @@ import {
   Edit,
   Trash2,
   Search,
-  DollarSign,
+  PoundSterling,
   CheckCircle,
   XCircle,
   Loader2,
@@ -895,7 +895,8 @@ const validateUpdateForm = (): boolean => {
             <button
               onClick={() => router.push('/admin/shipping/zones')}
               className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-violet-500 to-purple-500 hover:from-violet-600 hover:to-purple-600 text-white rounded-lg font-medium shadow-lg hover:shadow-xl transition-all duration-200"
-            >
+           
+             title="go to zones page">
               <MapPin className="w-4 h-4" />
               Zones
             </button>
@@ -904,7 +905,8 @@ const validateUpdateForm = (): boolean => {
             <button
               onClick={() => router.push('/admin/shipping/methods')}
               className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white rounded-lg font-medium shadow-lg hover:shadow-xl transition-all duration-200"
-            >
+               title="go to method page"
+           >
               <Package className="w-4 h-4" />
               Methods
             </button>
@@ -914,6 +916,7 @@ const validateUpdateForm = (): boolean => {
               onClick={handleCreate}
               disabled={!selectedZoneId || loadingZones}
               className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-600 hover:to-blue-600 text-white rounded-lg font-medium shadow-lg hover:shadow-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+              title="Add a new shipping rate"
             >
               <Plus className="w-4 h-4" />
               Add Rate
@@ -930,7 +933,7 @@ const validateUpdateForm = (): boolean => {
                 <p className="text-2xl font-bold text-white mt-1">{stats.totalRates}</p>
               </div>
               <div className="w-12 h-12 bg-violet-500/10 rounded-lg flex items-center justify-center">
-                <DollarSign className="w-6 h-6 text-violet-400" />
+                <PoundSterling className="w-6 h-6 text-violet-400" />
               </div>
             </div>
           </div>
@@ -1148,7 +1151,7 @@ const validateUpdateForm = (): boolean => {
         <div className="bg-slate-900/50 dark:bg-gray-900/50 backdrop-blur-xl border border-slate-800 dark:border-gray-800 rounded-xl p-12">
           <div className="flex flex-col items-center justify-center text-center">
             <div className="w-16 h-16 bg-slate-800/50 dark:bg-gray-800/50 rounded-full flex items-center justify-center mb-4">
-              <DollarSign className="w-8 h-8 text-slate-600 dark:text-gray-600" />
+              <PoundSterling className="w-8 h-8 text-slate-600 dark:text-gray-600" />
             </div>
             <h3 className="text-lg font-semibold text-white mb-2">No Rates Found</h3>
             <p className="text-slate-400 dark:text-gray-500 max-w-sm mb-4">
@@ -1248,7 +1251,7 @@ const validateUpdateForm = (): boolean => {
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="flex items-center gap-1">
-                            <DollarSign className="w-4 h-4 text-green-400" />
+                            <PoundSterling className="w-4 h-4 text-green-400" />
                             <span className="text-sm font-semibold text-green-400">
                               £{rate.baseRate.toFixed(2)}
                             </span>
@@ -1475,7 +1478,7 @@ const validateUpdateForm = (): boolean => {
               {/* Pricing Details */}
               <div>
                 <h4 className="text-sm font-semibold text-slate-300 uppercase tracking-wider mb-3 flex items-center gap-2">
-                  <DollarSign className="w-4 h-4 text-cyan-400" />
+                  <PoundSterling className="w-4 h-4 text-cyan-400" />
                   Pricing Structure
                 </h4>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -2044,7 +2047,7 @@ const validateUpdateForm = (): boolean => {
                   {/* Pricing */}
                   <div>
                     <label className=" text-sm font-medium text-slate-300 dark:text-gray-400 mb-2 flex items-center gap-2">
-                      <DollarSign className="w-4 h-4 text-green-400" />
+                      <PoundSterling className="w-4 h-4 text-green-400" />
                       Pricing Structure
                     </label>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
@@ -2267,7 +2270,7 @@ const validateUpdateForm = (): boolean => {
                   {/* Pricing - Edit Mode */}
                   <div>
                     <label className=" text-sm font-medium text-slate-300 dark:text-gray-400 mb-2 flex items-center gap-2">
-                      <DollarSign className="w-4 h-4 text-green-400" />
+                      <PoundSterling className="w-4 h-4 text-green-400" />
                       Pricing Structure
                     </label>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-5">

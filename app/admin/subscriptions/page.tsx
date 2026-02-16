@@ -21,7 +21,7 @@ import {
   Play,
   Ban,
   Calendar,
-  DollarSign,
+  PoundSterling,
   TrendingUp,
   User,
   MapPin,
@@ -479,7 +479,7 @@ export default function SubscriptionsPage() {
           <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-6 hover:border-violet-500/50 transition-all">
             <div className="flex items-center gap-4">
               <div className="w-12 h-12 rounded-xl bg-violet-500/10 flex items-center justify-center">
-                <DollarSign className="h-6 w-6 text-violet-400" />
+                <PoundSterling className="h-6 w-6 text-violet-400" />
               </div>
               <div className="flex-1">
                 <p className="text-slate-400 text-sm font-medium mb-1">Monthly Revenue</p>
@@ -1169,7 +1169,7 @@ export default function SubscriptionsPage() {
                   {/* Pricing */}
                   <div className="bg-slate-800/30 p-4 rounded-xl border border-slate-700/50">
                     <h3 className="text-white font-medium mb-3 flex items-center gap-2">
-                      <DollarSign className="h-4 w-4 text-yellow-400" />
+                      <PoundSterling className="h-4 w-4 text-yellow-400" />
                       Pricing
                     </h3>
                     <div className="grid grid-cols-2 gap-4">
