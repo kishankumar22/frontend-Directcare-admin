@@ -2,7 +2,6 @@
 export function detectUKRegion(): boolean {
   // SSR / non-browser safety
   if (typeof window === "undefined") return false;
-
   try {
     // 1️⃣ Timezone (primary signal)
     const tz =
@@ -13,7 +12,6 @@ export function detectUKRegion(): boolean {
     if (typeof tz === "string" && tz.startsWith("Europe/London")) {
       return true;
     }
-
     // 2️⃣ Language fallback (secondary signal)
     const languages: string[] =
       Array.isArray(navigator.languages)

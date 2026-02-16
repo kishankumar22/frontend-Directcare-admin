@@ -35,7 +35,7 @@ export default async function OffersPage({ searchParams }: OffersPageProps) {
   }
 
   const res = await fetch(
-    `${baseUrl}/api/Products/discounted?${params.toString()}`,
+    `${baseUrl}/api/Products/discounted?${params.toString()}&isPublished=true`,
     { cache: "no-store" }
   );
 

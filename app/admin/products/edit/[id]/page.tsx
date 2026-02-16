@@ -7470,13 +7470,23 @@ const uploadImagesToProductDirect = async (
     {/* Is Pharma Product */}
     <div className="space-y-2">
       <label className="flex items-center gap-2 cursor-pointer">
-        <input
-          type="checkbox"
-          name="isPharmaProduct"
-          checked={formData.isPharmaProduct}
-          onChange={handleChange}
-          className="w-4 h-4 rounded bg-slate-800/50 border-slate-700 text-blue-500 focus:ring-blue-500 focus:ring-offset-slate-900"
-        />
+       <input
+  type="checkbox"
+  name="isPharmaProduct"
+  checked={formData.isPharmaProduct}
+  onChange={(e) => {
+    const isChecked = e.target.checked;
+
+    handleChange(e);
+
+    // ✅ Open modal only when switching from false → true
+    if (isChecked && !formData.isPharmaProduct) {
+      setShowPharmacyModal(true);
+    }
+  }}
+  className="w-4 h-4 rounded bg-slate-800/50 border-slate-700 text-blue-500 focus:ring-blue-500 focus:ring-offset-slate-900"
+/>
+
         <div>
           <span className="text-sm text-slate-300">Pharma Product</span>
           <p className="text-xs text-slate-500">Mark this product as a pharmaceutical product</p>

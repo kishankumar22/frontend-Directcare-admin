@@ -559,7 +559,7 @@ const handleStatusUpdate = async () => {
                   <th className="text-left py-2 px-3 text-slate-400 font-medium">Brand</th>
                   <th className="text-center py-2 px-3 text-slate-400 font-medium">Products</th>
                   <th className="text-center py-2 px-3 text-slate-400 font-medium">Published</th>
-                  <th className="text-center py-2 px-3 text-slate-400 font-medium">Active</th>
+                  <th className="text-center py-2 px-3 text-slate-400 font-medium">Status</th>
                   <th className="text-center py-2 px-3 text-slate-400 font-medium">Homepage</th>
                   <th className="text-center py-2 px-3 text-slate-400 font-medium">Deleted</th>
                   <th className="text-center py-2 px-3 text-slate-400 font-medium">Order By</th>

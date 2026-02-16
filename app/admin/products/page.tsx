@@ -8,7 +8,9 @@ import {
   ChevronRight, ChevronsLeft, ChevronsRight, Send, FolderTree,
   Award, ShoppingCart, Star, Tag, ExternalLink, ChevronDown, ChevronUp,
   Percent,
-  FileSpreadsheet
+  FileSpreadsheet,
+  Upload,
+  Download
 } from "lucide-react";
 import { useToast } from "@/app/admin/_component/CustomToast";
 import { API_BASE_URL } from "@/lib/api-config";
@@ -23,6 +25,7 @@ import { brandsService } from "@/lib/services/brands";
 import ConfirmDialog from "@/app/admin/_component/ConfirmDialog";
 import MediaViewerModal, { MediaItem } from "./MediaViewerModal";
 import { RelatedProduct, Product, productsService, productHelpers } from "@/lib/services";
+import ProductExcelImportModal from "./ProductExcelImportModal";
 type ActionType = 'delete' | 'restore';
 // ✅ INTERFACES
 interface FormattedProduct {
@@ -36,6 +39,7 @@ interface FormattedProduct {
   status: string;
   image: string;
   sales: number;
+  isActive: boolean;
   shortDescription: string;
   sku: string;
   createdAt: string;
@@ -190,6 +194,10 @@ export default function ProductsPage() {
 
   const [showMoreFilters, setShowMoreFilters] = useState(false);
 
+const [showImportModal, setShowImportModal] = useState(false);
+
+
+
   // Media states
   const [mediaViewerOpen, setMediaViewerOpen] = useState(false);
   const [mediaToView, setMediaToView] = useState<MediaItem[]>([]);
@@ -302,6 +310,15 @@ const openProductActionModal = (product: {
   });
 };
 
+const deletedOptions = [
+  { value: "all", label: "All Records" },
+  { value: "false", label: "Active Only" },
+  { value: "true", label: "Deleted Only" },
+];
+
+const [deletedFilter, setDeletedFilter] = useState(deletedOptions[0]);
+
+
 
 const [isProcessing, setIsProcessing] = useState(false);
   const getProductImage = (images: any[]): string => {
@@ -342,12 +359,23 @@ const handleConfirmProductAction = async () => {
     setSelectedProduct(null);
   }
 };
+useEffect(() => {
+  fetchProducts();
+}, [deletedFilter]);
 
   // ✅ FETCH PRODUCTS
   const fetchProducts = async () => {
     setLoading(true);
     try {
-      const response = await productsService.getAll({ page: 1, pageSize: 1000 });
+      const response = await productsService.getAll({
+  page: 1,
+  pageSize: 1000,
+  isDeleted:
+    deletedFilter.value === "all"
+      ? undefined
+      : deletedFilter.value === "true",
+});
+
 
       if (response.data?.success && response.data?.data?.items) {
         const items = response.data.data.items;
@@ -387,6 +415,7 @@ const handleConfirmProductAction = async () => {
             productType: p.productType || "simple",
             brandName: p.brandName || "No Brand",
             slug: p.slug || "",
+            isActive:p.isActive=== true,
             showOnHomepage: p.showOnHomepage === true,
             markAsNew: p.markAsNew === true,
             notReturnable: p.notReturnable === true,
@@ -915,58 +944,72 @@ const getStatusColor = (status: string) => {
   }, []);
 
   // ✅ CLEAR FILTERS
-  const clearFilters = useCallback(() => {
-    setSelectedCategory({ value: "all", label: "All Categories" });
-    setSelectedBrand({ value: "all", label: "All Brands" });
-    setSelectedHomepage({ value: "all", label: "Homepage: All" });
-    setSelectedType({ value: "all", label: "All Types" });
-    setStatusFilter({ value: "all", label: "All Status" });
-    setPublishedFilter({ value: "all", label: "All Visibility" });
-    setDeliveryFilter({ value: "all", label: "All Delivery" });
-    setMarkAsNewFilter({ value: "all", label: "Mark as New: All" });
-    setNotReturnableFilter({ value: "all", label: "Returnable: All" });
-    setInventoryFilter({ value: "all", label: "Inventory: All" });
-    setRecurringFilter({ value: "all", label: "Subscription: All" });
-    setVatFilter({ value: "all", label: "VAT: All" });
-    setDiscountFilter({ value: "all", label: "Discount: All" });
-    setSearchTerm("");
-    setCurrentPage(1);
-  }, []);
+const clearFilters = useCallback(() => {
+  setSelectedCategory({ value: "all", label: "All Categories" });
+  setSelectedBrand({ value: "all", label: "All Brands" });
+  setSelectedHomepage({ value: "all", label: "Homepage: All" });
+  setSelectedType({ value: "all", label: "All Types" });
+  setStatusFilter({ value: "all", label: "All Status" });
+  setPublishedFilter({ value: "all", label: "All Visibility" });
+  setDeliveryFilter({ value: "all", label: "All Delivery" });
+  setMarkAsNewFilter({ value: "all", label: "Mark as New: All" });
+  setNotReturnableFilter({ value: "all", label: "Returnable: All" });
+  setInventoryFilter({ value: "all", label: "Inventory: All" });
+  setRecurringFilter({ value: "all", label: "Subscription: All" });
+  setVatFilter({ value: "all", label: "VAT: All" });
+  setDiscountFilter({ value: "all", label: "Discount: All" });
+
+  // ✅ ADD THIS
+  setDeletedFilter({ value: "all", label: "All Records" });
+
+  setSearchTerm("");
+  setCurrentPage(1);
+}, []);
+
 
   // ✅ CHECK ACTIVE FILTERS
-  const hasActiveFilters = useMemo(
-    () =>
-      selectedCategory.value !== "all" ||
-      selectedBrand.value !== "all" ||
-      selectedHomepage.value !== "all" ||
-      selectedType.value !== "all" ||
-      statusFilter.value !== "all" ||
-      publishedFilter.value !== "all" ||
-      deliveryFilter.value !== "all" ||
-      markAsNewFilter.value !== "all" ||
-      notReturnableFilter.value !== "all" ||
-      inventoryFilter.value !== "all" ||
-      recurringFilter.value !== "all" ||
-      vatFilter.value !== "all" ||
-      discountFilter.value !== "all" ||
-      searchTerm.trim() !== "",
-    [
-      selectedCategory,
-      selectedBrand,
-      selectedHomepage,
-      selectedType,
-      statusFilter,
-      publishedFilter,
-      deliveryFilter,
-      markAsNewFilter,
-      notReturnableFilter,
-      inventoryFilter,
-      recurringFilter,
-      vatFilter,
-      discountFilter,
-      searchTerm,
-    ]
-  );
+const hasActiveFilters = useMemo(
+  () =>
+    selectedCategory.value !== "all" ||
+    selectedBrand.value !== "all" ||
+    selectedHomepage.value !== "all" ||
+    selectedType.value !== "all" ||
+    statusFilter.value !== "all" ||
+    publishedFilter.value !== "all" ||
+    deliveryFilter.value !== "all" ||
+    markAsNewFilter.value !== "all" ||
+    notReturnableFilter.value !== "all" ||
+    inventoryFilter.value !== "all" ||
+    recurringFilter.value !== "all" ||
+    vatFilter.value !== "all" ||
+    discountFilter.value !== "all" ||
+
+    // ✅ ADD THIS
+    deletedFilter.value !== "all" ||
+
+    searchTerm.trim() !== "",
+  [
+    selectedCategory,
+    selectedBrand,
+    selectedHomepage,
+    selectedType,
+    statusFilter,
+    publishedFilter,
+    deliveryFilter,
+    markAsNewFilter,
+    notReturnableFilter,
+    inventoryFilter,
+    recurringFilter,
+    vatFilter,
+    discountFilter,
+
+    // ✅ ADD THIS
+    deletedFilter,
+
+    searchTerm,
+  ]
+);
+
 
 // ✅ FLATTEN CATEGORIES WITH FULL PATH
 const categoryOptions: SelectOption[] = useMemo(() => {
@@ -1098,6 +1141,11 @@ const formatOptionLabel = (option: SelectOption) => {
         discountFilter.value === "all" ||
         (discountFilter.value === "yes" && product.hasDiscount) ||
         (discountFilter.value === "no" && !product.hasDiscount);
+        const matchesDeleted =
+  deletedFilter.value === "all" ||
+  (deletedFilter.value === "true" && product.isDeleted) ||
+  (deletedFilter.value === "false" && !product.isDeleted);
+
 
       return (
         matchesSearch &&
@@ -1113,7 +1161,8 @@ const formatOptionLabel = (option: SelectOption) => {
         matchesInventory &&
         matchesRecurring &&
         matchesVat &&
-        matchesDiscount
+        matchesDiscount &&
+        matchesDeleted
       );
     });
   }, [
@@ -1189,6 +1238,10 @@ const formatOptionLabel = (option: SelectOption) => {
 
     return pages;
   }, [currentPage, totalPages]);
+
+
+
+
 
   useEffect(() => {
     setCurrentPage(1);
@@ -1278,8 +1331,8 @@ const formatOptionLabel = (option: SelectOption) => {
 
   {/* Actions */}
   <div className="flex flex-wrap items-center gap-2">
-    {/* Categories */}
-    <button
+    
+    {/* <button
       onClick={() => router.push("/admin/categories")}
       className="flex items-center gap-2 px-3 py-1.5 text-sm
       bg-gradient-to-r from-violet-500 to-purple-500
@@ -1289,10 +1342,10 @@ const formatOptionLabel = (option: SelectOption) => {
     >
       <FolderTree className="w-4 h-4" />
       Categories
-    </button>
+    </button> */}
 
     {/* Brands */}
-    <button
+    {/* <button
       onClick={() => router.push("/admin/brands")}
       className="flex items-center gap-2 px-3 py-1.5 text-sm
       bg-gradient-to-r from-cyan-500 to-blue-500
@@ -1302,7 +1355,7 @@ const formatOptionLabel = (option: SelectOption) => {
     >
       <Award className="w-4 h-4" />
       Brands
-    </button>
+    </button> */}
 
     {/* Discounts */}
     <button
@@ -1330,6 +1383,19 @@ const formatOptionLabel = (option: SelectOption) => {
       Orders
     </button>
 
+{/* Import Excel */}
+<button
+  onClick={() => setShowImportModal(true)}
+  className="flex items-center gap-2 px-3 py-1.5 text-sm
+  bg-gradient-to-r from-emerald-600 to-green-600
+  text-white rounded-lg font-semibold shadow
+  hover:shadow-emerald-500/40 transition-all"
+>
+  <Upload className="w-4 h-4" />
+  Import Excel
+</button>
+
+
     {/* Reviews */}
     <button
       onClick={() => router.push("/admin/productReview")}
@@ -1344,6 +1410,7 @@ const formatOptionLabel = (option: SelectOption) => {
     </button>
 
     {/* My Requests */}
+    {statusCounts.Pending > 0 && (
     <button
       onClick={() => setShowTakeoverPanel(true)}
       className={`flex items-center gap-2 px-3 py-1.5 text-sm rounded-lg font-semibold
@@ -1361,6 +1428,7 @@ const formatOptionLabel = (option: SelectOption) => {
         </span>
       )}
     </button>
+      )}
 
     {/* Export */}
     <div className="relative">
@@ -1638,26 +1706,54 @@ const formatOptionLabel = (option: SelectOption) => {
     </div>
 
     {/* Type - Normal Select */}
-    <div className="flex-1 max-w-[140px]">
-      <select
-        value={selectedType.value}
-        onChange={(e) => {
-          const option = typeOptions.find(opt => opt.value === e.target.value);
-          if (option) setSelectedType(option);
-        }}
-        className={`w-full px-3 py-2.5 bg-slate-800/90 border rounded-xl text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all ${
-          selectedType.value !== "all"
-            ? "border-blue-500 bg-blue-500/10 ring-2 ring-blue-500/50"
-            : "border-slate-600"
-        }`}
-      >
-        {typeOptions.map((opt) => (
-          <option key={opt.value} value={opt.value}>
-            {opt.label}
-          </option>
-        ))}
-      </select>
-    </div>
+<div className="flex gap-3">
+
+  {/* Type Filter */}
+  <div className="max-w-[140px] w-full">
+    <select
+      value={selectedType.value}
+      onChange={(e) => {
+        const option = typeOptions.find(opt => opt.value === e.target.value);
+        if (option) setSelectedType(option);
+      }}
+      className={`w-full px-3 py-2.5 bg-slate-800/90 border rounded-xl text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all ${
+        selectedType.value !== "all"
+          ? "border-blue-500 bg-blue-500/10 ring-2 ring-blue-500/50"
+          : "border-slate-600"
+      }`}
+    >
+      {typeOptions.map((opt) => (
+        <option key={opt.value} value={opt.value}>
+          {opt.label}
+        </option>
+      ))}
+    </select>
+  </div>
+
+  {/* Deleted Filter */}
+  <div className="max-w-[150px] w-full">
+    <select
+      value={deletedFilter.value}
+      onChange={(e) => {
+        const option = deletedOptions.find(opt => opt.value === e.target.value);
+        if (option) setDeletedFilter(option);
+      }}
+      className={`w-full px-3 py-2.5 bg-slate-800/90 border rounded-xl text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all ${
+        deletedFilter.value !== "all"
+          ? "border-blue-500 bg-blue-500/10 ring-2 ring-blue-500/50"
+          : "border-slate-600"
+      }`}
+    >
+      {deletedOptions.map((opt) => (
+        <option key={opt.value} value={opt.value}>
+          {opt.label}
+        </option>
+      ))}
+    </select>
+  </div>
+
+</div>
+
 
     {/* Clear & Hide Buttons */}
     <div className="flex items-center gap-2 ml-auto flex-shrink-0">
@@ -1898,6 +1994,7 @@ const formatOptionLabel = (option: SelectOption) => {
         <th className="text-left py-2 px-3 text-slate-400 w-[260px]">Product</th>
         <th className="text-center py-2 px-3 text-slate-400 w-[110px]">SKU</th>
         <th className="text-center py-2 px-3 text-slate-400 w-[80px]">Price</th>
+        {/* <th className="text-center py-2 px-3 text-slate-400 w-[80px]">status</th> */}
         <th className="text-center py-2 px-3 text-slate-400 w-[70px]">Stock</th>
         <th className="text-center py-2 px-3 text-slate-400 w-[140px]">Stock Status</th>
         <th className="text-center py-2 px-3 text-slate-400 w-[100px]">Visibility</th>
@@ -1977,6 +2074,9 @@ const formatOptionLabel = (option: SelectOption) => {
             <td className="py-2 px-3 text-center font-semibold text-white">
               £{product.price.toFixed(2)}
             </td>
+            {/* <td className="py-2 px-3 text-center font-semibold text-blue-400">
+              {product.isActive ? 'Active' : 'Inactive'}
+            </td> */}
 
             {/* STOCK */}
             <td className="py-2 px-3 text-center">
@@ -2316,6 +2416,18 @@ const formatOptionLabel = (option: SelectOption) => {
   </div>
 )}
 
+{showImportModal && (
+  <ProductExcelImportModal
+    onClose={() => setShowImportModal(false)}
+    onSuccess={() => {
+      fetchProducts(); // refresh list after import
+      setShowImportModal(false);
+    }}
+  />
+)}
+
+
+
       {/* MODALS */}
       <ProductViewModal
         product={viewingProduct}
@@ -2355,6 +2467,8 @@ const formatOptionLabel = (option: SelectOption) => {
   }
   isLoading={isProcessing}
 />
+
+
 
 
     </div>

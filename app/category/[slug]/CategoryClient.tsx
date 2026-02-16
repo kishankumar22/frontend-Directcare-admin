@@ -206,24 +206,42 @@ useEffect(() => {
 
 // Case 1: exact discount selected (chip click)
 if (typeof discount === "number") {
+  const now = new Date();
+
   const hasExactDiscount = (product as any).assignedDiscounts?.some(
     (d: any) =>
       d.isActive === true &&
       d.usePercentage === true &&
-      d.discountPercentage === discount
+      d.discountPercentage === discount &&
+      (!d.startDate || now >= new Date(d.startDate)) &&
+      (!d.endDate || now <= new Date(d.endDate))
   );
 
   if (!hasExactDiscount) return false;
 }
 
+
 // Case 2: offer page → show ALL discounted products
 else if (isOfferPage) {
-  const hasAnyDiscount = (product as any).assignedDiscounts?.some(
-    (d: any) => d.isActive === true
+  const now = new Date();
+
+  const hasValidDiscount = (product as any).assignedDiscounts?.some(
+    (d: any) => {
+      if (!d.isActive) return false;
+
+      const start = d.startDate ? new Date(d.startDate) : null;
+      const end = d.endDate ? new Date(d.endDate) : null;
+
+      const started = !start || now >= start;
+      const notEnded = !end || now <= end;
+
+      return started && notEnded;
+    }
   );
 
-  if (!hasAnyDiscount) return false;
+  if (!hasValidDiscount) return false;
 }
+
 
 
   // must match category
@@ -440,6 +458,20 @@ const handlePharmaGuard = (
 
   return true;
 };
+const getInitialQty = (product: any) => {
+  // 🔥 Priority 1: Allowed Quantities
+  if (product.allowedQuantities) {
+    const arr = product.allowedQuantities
+      .split(",")
+      .map((q: string) => Number(q.trim()))
+      .filter((q: number) => !isNaN(q) && q > 0);
+
+    if (arr.length > 0) return arr[0];
+  }
+
+  // 🔥 Priority 2: Order Minimum Quantity
+  return product.orderMinimumQuantity ?? 1;
+};
 
   
 
@@ -485,11 +517,9 @@ const handleAddToCart = useCallback(
     // ============================
     // ⭐ MIN / MAX / STOCK LOGIC
     // ============================
+const maxQty = product.orderMaximumQuantity ?? Infinity;
+const finalQty = getInitialQty(product);
 
-    const minQty = product.orderMinimumQuantity ?? 1;
-    const maxQty = product.orderMaximumQuantity ?? Infinity;
-    const requestedQty = 1;
-    const finalQty = Math.max(requestedQty, minQty);
 
     const variantId = defaultVariant?.id ?? null;
 
@@ -510,6 +540,11 @@ const handleAddToCart = useCallback(
       toast.error(`Maximum allowed quantity is ${allowedMaxQty}`);
       return;
     }
+const vatRate = getVatRate(
+  vatRates,
+  (product as any).vatRateId,
+  product.vatExempt
+);
 
     // ============================
     // ⭐ ADD TO CART
@@ -535,6 +570,9 @@ const handleAddToCart = useCallback(
       image: imageUrl,
       sku: defaultVariant?.sku ?? product.sku,
       variantId: variantId,
+      vatRate: vatRate,
+vatIncluded: vatRate !== null,
+
       slug: cardSlug ?? product.slug,
       variantOptions: {
         option1: defaultVariant?.option1Value ?? null,
@@ -545,17 +583,14 @@ const handleAddToCart = useCallback(
       productData: JSON.parse(JSON.stringify(product)),
     });
 
-    // ============================
-    // ⭐ TOAST UX
-    // ============================
+   if (!product.allowedQuantities && product.orderMinimumQuantity > 1) {
+  toast.warning(
+    `Minimum order quantity is ${product.orderMinimumQuantity}. Added ${finalQty} items to cart.`
+  );
+} else {
+  toast.success(`${product.name} added to cart! 🛒`);
+}
 
-    if (finalQty !== requestedQty) {
-      toast.warning(
-        `Minimum order quantity is ${minQty}. Added ${finalQty} items to cart.`
-      );
-    } else {
-      toast.success(`${product.name} added to cart! 🛒`);
-    }
   },
   [toast, addToCart, cart]
 );
@@ -570,7 +605,6 @@ const handleAddToCart = useCallback(
           />
         </div>
       )}
-
       <main className="max-w-7xl mx-auto px-4 py-4">
         {/* 🧭 Breadcrumbs */}
 <div className="mb-2 flex items-center justify-between">
@@ -581,7 +615,6 @@ const handleAddToCart = useCallback(
         {index > 0 && (
           <ChevronRight className="h-4 w-4 text-gray-400" />
         )}
-
         {crumb.href ? (
           <Link
             href={crumb.href}
@@ -597,33 +630,28 @@ const handleAddToCart = useCallback(
       </div>
     ))}
   </nav>
-
   {/* 🔽 Sort – TOP RIGHT (same line) */}
   <select
     value={`${sortBy}-${sortDirection}`}
     onChange={(e) => handleSortChange(e.target.value)}
-    className="px-4 py-1 border border-gray-300 rounded-lg bg-white text-sm font-medium text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#445D41]"
-  >
+    className="px-4 py-1 border border-gray-300 rounded-lg bg-white text-sm font-medium text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#445D41]" >
     <option value="name-asc">Name: A-Z</option>
     <option value="name-desc">Name: Z-A</option>
     <option value="price-asc">Price: Low to High</option>
     <option value="price-desc">Price: High to Low</option>
   </select>
 </div>
-
-
         {/* Category header */}
-       
-
         <div className="flex gap-8">
        
-          <aside className="hidden lg:block w-64 flex-shrink-0">
-  <div className="sticky top-24">
+        <aside className=" hidden lg:block w-64 flex-shrink-0 sticky top-24 h-[calc(100vh-96px)] overflow-y-auto overscroll-contain pr-2 hide-scrollbar " >
 
-            <Card className="sticky top-24 shadow-sm">
-              <CardContent className="p-6">
+  <Card className="shadow-sm">
+    <CardContent className="p-6">
+      {/* 🔽 FILTER CONTENT AS-IS */}
+
                 {/* Header */}
-                <div className="flex items-center justify-between pb-4 border-b mb-6">
+                <div className="flex items-center justify-between pb-4 border-b mb-2">
                   <div className="flex items-center gap-2">
                     <SlidersHorizontal className="h-5 w-5 text-[#445D41]" />
                     <h2 className="font-bold text-base text-gray-900">
@@ -635,23 +663,21 @@ const handleAddToCart = useCallback(
                     size="sm"
                     onClick={resetFilters}
                     disabled={isPending}
-                    className="text-xs text-blue-600 hover:text-blue-700 hover:bg-blue-50"
-                  >
+                    className="text-xs text-blue-600 hover:text-blue-700 hover:bg-blue-50" >
                     Reset
                   </Button>
                 </div>
 
               {/* Subcategory Filter */}
 {allSubCategories.length > 0 && (
-  <div className="mb-6">
-    <h3 className="font-bold text-sm text-gray-900 mb-3">Subcategories</h3>
+  <div className="mb-1">
+    <h3 className="font-bold text-sm text-gray-900 mb-0">Subcategories</h3>
 
     <div className="space-y-2 max-h-64 overflow-y-auto custom-scrollbar pr-2">
       {allSubCategories.map((sub) => (
         <label
           key={sub.id}
-          className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 p-2 rounded-md transition"
-        >
+          className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 p-1 rounded-md transition" >
           <input
             type="checkbox"
             className="w-4 h-4 text-[#445D41]"
@@ -682,7 +708,7 @@ const handleAddToCart = useCallback(
 
                       <label
                         key={brand.id}
-                        className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 p-2 rounded-md transition group"
+                        className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 p-1 rounded-md transition group"
                         title={brand.name}
                       >
                         <input
@@ -757,7 +783,7 @@ const handleAddToCart = useCallback(
                 </div>
               </CardContent>
             </Card>
-            </div>
+            
           </aside>
 
           {/* MAIN CONTENT */}

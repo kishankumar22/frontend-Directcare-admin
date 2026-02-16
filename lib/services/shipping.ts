@@ -239,6 +239,19 @@ export const shippingService = {
     }
   },
 
+
+
+/**
+ * Restore Soft Deleted Zone
+ */
+restoreZone: async (id: string) => {
+  if (!id?.trim()) throw new Error("Zone ID is required");
+
+  return await apiClient.post(
+    `${API_ENDPOINTS.shipping}/admin/zones/${id}/restore`
+  );
+},
+
   // ==================== METHODS ====================
 
   /**
@@ -347,7 +360,20 @@ export const shippingService = {
       throw error;
     }
   },
+  
 
+// ==============================
+// restoreMethod: async (id: string) => 
+// ==============================
+restoreMethod: async (id: string) => {
+  if (!id?.trim()) {
+    throw new Error("Method ID is required");
+  }
+
+  return await apiClient.post(
+    `${API_ENDPOINTS.shipping}/admin/methods/${id}/restore`
+  );
+},
   // ==================== RATES ====================
 
   /**

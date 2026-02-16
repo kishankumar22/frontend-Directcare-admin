@@ -15,6 +15,13 @@ export default function CartPage() {
   const { cart, updateQuantity, removeFromCart, updateCart, cartTotal } = useCart();
   const router = useRouter();
   const { isAuthenticated } = useAuth();
+useEffect(() => {
+  console.log("CART VAT DEBUG:", cart.map(i => ({
+    name: i.name,
+    vatRate: i.vatRate,
+    vatIncluded: i.vatIncluded,
+  })));
+}, [cart]);
 
  const handleCheckout = () => {
   const inStockItems = cart.filter(item => getItemStock(item) > 0);
@@ -45,7 +52,6 @@ const [selectedItem, setSelectedItem] = useState<any | null>(null);
 
   // map itemId->error for stock/qty UI (keeps your existing state shape)
   const [stockError, setStockError] = useState<{ [key: string]: string | null }>({});
-
   // -------------------------
   // Helpers: determine if discount object is valid now
   // -------------------------
@@ -82,7 +88,6 @@ const getItemLoyaltyPoints = (item: any) => {
 
   return 0;
 };
-
   // -------------------------
   // BUILD list of available coupon-able discounts from cart (for UI hint)
   // -------------------------
@@ -360,6 +365,44 @@ const getGroupedItems = (parentProductId?: string) => {
     (i) => i.parentProductId === parentProductId
   );
 };
+const orderVatAmount = useMemo(() => {
+  return cart.reduce((sum, item) => {
+    const rate =
+      typeof item.vatRate === "number" ? item.vatRate : 0;
+
+    // line total (VAT inclusive)
+    const lineTotal =
+      (item.finalPrice ?? item.price) * (item.quantity ?? 1);
+
+    if (rate <= 0) return sum;
+
+    // VAT-inclusive formula
+    const vat = (lineTotal * rate) / (100 + rate);
+    return sum + vat;
+  }, 0);
+}, [cart]);
+
+const getAllowedQtyArray = (item: any): number[] => {
+  const allowed: string | undefined =
+    item.productData?.allowedQuantities;
+
+  if (!allowed) return [];
+
+  const stock: number = getItemStock(item);
+
+  return allowed
+    .split(",")
+    .map((q: string) => Number(q.trim()))
+    .filter(
+      (q: number) =>
+        !isNaN(q) &&
+        q > 0 &&
+        q <= stock
+    )
+    .sort((a: number, b: number) => a - b);
+};
+
+
   // UI render
   // -------------------------
   if (!cart || cart.length === 0) {
@@ -425,7 +468,7 @@ const getGroupedItems = (parentProductId?: string) => {
     });
   }}
   className="absolute -top-2 -left-2 bg-white border border-gray-200 rounded-full p-1.5 text-red-500 hover:bg-red-50 hover:text-red-600 shadow-sm transition" aria-label="Remove item" >
-  <Trash2 size={14} />
+  <Trash2 size={18} />
 </button>
 </div>
 <div className="flex flex-col flex-1">
@@ -478,106 +521,125 @@ const getGroupedItems = (parentProductId?: string) => {
                     {/* Quantity + Saved row */}
 <div className="flex items-center gap-3">
   {/* Quantity controls */}
-  <div className="flex items-center gap-2 border rounded-lg px-3 py-1.5">
-  <button
-    onClick={() => {
-      const minQty = item.productData?.orderMinimumQuantity ?? 1;
+ {(() => {
+  const allowedQtyArray = getAllowedQtyArray(item);
 
-if ((item.quantity ?? 1) <= minQty) {
-  toast.error(`Minimum order quantity is ${minQty}`);
-  return;
-}
+  // 🔥 IF ALLOWED QUANTITIES EXIST → DROPDOWN
+  if (allowedQtyArray.length > 0) {
+    return (
+      <div className="flex items-center gap-2 border rounded-lg px-3 py-1.5">
+        <select
+          value={item.quantity}
+          onChange={(e) => {
+            const val = Number(e.target.value);
 
-const newQty = (item.quantity ?? 1) - 1;
+            updateQuantity(item.id, val);
 
-      updateQuantity(item.id, newQty);
-
-      // 🔥 sync children
-      if (
-  item.isBundleParent === true &&
-  item.purchaseContext === "bundle" &&
-  item.bundleId
-) {
-  bundleChildren.forEach((c) =>
-    updateQuantity(c.id, newQty)
-  );
-}
-
-    }}
-    disabled={(item.quantity ?? 1) <= 1}
-    className="text-gray-700 font-bold text-lg w-6 text-center"
-  >
-    -
-  </button>
-
-  <input
-    type="number"
-    className="w-12 text-center outline-none font-medium"
-    value={item.quantity}
-    onChange={(e) => {
-     let val = parseInt(e.target.value || "1", 10);
-if (val < 1) return;
-
-if (isBundleParent(item)) {
-  const maxQty = getBundleMaxQty(item, bundleChildren);
-  if (val > maxQty) {
-    toast.error(
-      `Maximum allowed quantity is ${maxQty} due to grouped product stock`
-    );
-    val = maxQty;
-  }
-}
-
-updateQuantity(item.id, val);
-
-if (item.isBundleParent && item.bundleId) {
-  bundleChildren.forEach((c) =>
-    updateQuantity(c.id, val)
-  );
-}
-
-
-     if (
-  item.isBundleParent === true &&
-  item.purchaseContext === "bundle" &&
-  item.bundleId
-) {
-  bundleChildren.forEach((c) =>
-    updateQuantity(c.id, val)
-  );
-}
-    }}
-  />
-
-  <button
-   onClick={() => {
-  let newQty = (item.quantity ?? 1) + 1;
-
-  if (isBundleParent(item)) {
-    const maxQty = getBundleMaxQty(item, bundleChildren);
-
-    if (newQty > maxQty) {
-      toast.error(
-        `Only ${maxQty} items can be ordered due to grouped product stock`
-      );
-      return;
-    }
-  }
-
-  updateQuantity(item.id, newQty);
-
-  if (item.isBundleParent && item.bundleId) {
-    bundleChildren.forEach((c) =>
-      updateQuantity(c.id, newQty)
+            // 🔥 bundle sync
+            if (item.isBundleParent && item.bundleId) {
+              bundleChildren.forEach((c) =>
+                updateQuantity(c.id, val)
+              );
+            }
+          }}
+          className="outline-none bg-transparent font-medium"
+        >
+          {allowedQtyArray.map((qty: number) => (
+            <option key={qty} value={qty}>
+              {qty}
+            </option>
+          ))}
+        </select>
+      </div>
     );
   }
-}}
 
-    className="text-gray-700 font-bold text-lg w-6 text-center"
-  >
-    +
-  </button>
-</div>
+  // 🔥 OTHERWISE → EXISTING LOGIC SAME
+  return (
+    <div className="flex items-center gap-2 border rounded-lg px-3 py-1.5">
+      {(item.quantity ?? 1) === 1 ? (
+        <button
+          onClick={() =>
+            setRemoveTarget({ item, bundleChildren })
+          }
+          className="text-black hover:text-red-600 w-6 flex justify-center"
+        >
+          <Trash2 size={16} />
+        </button>
+      ) : (
+        <button
+          onClick={() => {
+            const minQty =
+              item.productData?.orderMinimumQuantity ?? 1;
+
+            if ((item.quantity ?? 1) <= minQty) {
+              toast.error(
+                `Minimum order quantity is ${minQty}`
+              );
+              return;
+            }
+
+            const newQty = (item.quantity ?? 1) - 1;
+            updateQuantity(item.id, newQty);
+
+            if (
+              item.isBundleParent &&
+              item.bundleId
+            ) {
+              bundleChildren.forEach((c) =>
+                updateQuantity(c.id, newQty)
+              );
+            }
+          }}
+          className="text-gray-700 font-bold text-lg w-6 text-center"
+        >
+          -
+        </button>
+      )}
+
+      <input
+        type="number"
+        className="w-12 text-center outline-none font-medium"
+        value={item.quantity}
+        onChange={(e) => {
+          let val = parseInt(e.target.value || "1", 10);
+          if (val < 1) return;
+
+          updateQuantity(item.id, val);
+
+          if (
+            item.isBundleParent &&
+            item.bundleId
+          ) {
+            bundleChildren.forEach((c) =>
+              updateQuantity(c.id, val)
+            );
+          }
+        }}
+      />
+
+      <button
+        onClick={() => {
+          let newQty = (item.quantity ?? 1) + 1;
+          updateQuantity(item.id, newQty);
+
+          if (
+            item.isBundleParent &&
+            item.bundleId
+          ) {
+            bundleChildren.forEach((c) =>
+              updateQuantity(c.id, newQty)
+            );
+          }
+        }}
+        className="text-gray-700 font-bold text-lg w-6 text-center"
+      >
+        +
+      </button>
+    </div>
+  );
+})()}
+
 </div>
                     {/* applied coupon badge */}
                     {item.couponCode ? (
@@ -723,12 +785,12 @@ if (item.isBundleParent && item.bundleId) {
 
         {/* RIGHT: order summary + coupon input */}
         <div className="lg:col-span-1">
-          <div className="bg-white border border-gray-200 rounded-xl shadow-md p-5 sticky top-24">
+          <div className="bg-white border border-gray-200 rounded-xl shadow-md p-2 sticky top-24">
             {/* Inline coupon input */}
             <div className="border border-gray-300 rounded-lg p-4 mb-2">
               <h3 className="text-sm font-semibold mb-2">Apply Coupon</h3>
 
-              <div className="flex gap-2">
+              <div className="flex gap-1">
                 <input
                   type="text"
                   value={couponInput}
@@ -762,6 +824,10 @@ if (item.isBundleParent && item.bundleId) {
   <span>Subtotal</span>
   <span>£{subtotalBeforeDiscount.toFixed(2)}</span>
 </div>
+<div className="flex justify-between">
+  <span>Includes VAT</span>
+  <span>£{orderVatAmount.toFixed(2)}</span>
+</div>
 {bundleSavings > 0 && (
   <div className="flex justify-between text-green-700">
     <span>Bundle Savings</span>
@@ -783,8 +849,6 @@ if (item.isBundleParent && item.bundleId) {
     <span>- £{totalCombinedDiscount.toFixed(2)}</span>
   </div>
 )}
-
-
               <div className="flex justify-between font-semibold text-gray-900 border-t pt-3">
                 <span>Total Amount</span>
                 <span>£{cartTotal.toFixed(2)}</span>

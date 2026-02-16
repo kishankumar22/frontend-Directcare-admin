@@ -5,33 +5,9 @@ import { shippingService, shippingHelpers } from "@/lib/services/shipping";
 import { ShippingMethod, CreateMethodDto } from "@/lib/types/shipping";
 import { useToast } from "@/app/admin/_component/CustomToast";
 import { useRouter } from "next/navigation"; // ✅ App Router import
-import {
-  Plus,
-  Edit,
-  Trash2,
-  Search,
-  Truck,
-  CheckCircle,
-  XCircle,
-  Loader2,
-  AlertCircle,
-  X,
-  Save,
-  Clock,
-  FileSignature,
-  Navigation,
-  ChevronLeft,
-  ChevronRight,
-  Eye,
-  ChevronDown,
-  FilterX,
-  Package,
-  MapPin,
-  Calendar,
-  Hash,
-  DollarSign,
-} from "lucide-react";
+import { Plus, Edit, Trash2, Search, Truck, CheckCircle, XCircle, Loader2, AlertCircle, X, Save, Clock, FileSignature, Navigation, ChevronLeft, ChevronRight, Eye, ChevronDown, FilterX, Package, MapPin, Calendar, Hash, DollarSign, RotateCcw, } from "lucide-react";
 import { cn } from "@/lib/utils";
+import ConfirmDialog from "../../_component/ConfirmDialog";
 
 // ==================== UTILITY FUNCTIONS ====================
 
@@ -105,6 +81,9 @@ export default function ShippingMethodsPage() {
   const statusDropdownRef = useRef<HTMLDivElement>(null);
   const trackingDropdownRef = useRef<HTMLDivElement>(null);
   const sortDropdownRef = useRef<HTMLDivElement>(null);
+const [deletedFilter, setDeletedFilter] = useState<"notDeleted" | "deleted">("notDeleted");
+const [statusConfirm, setStatusConfirm] = useState<ShippingMethod | null>(null);
+const [restoreConfirm, setRestoreConfirm] = useState<ShippingMethod | null>(null);
 
   // Debounced Search
   const debouncedSearchTerm = useDebounce(searchTerm, 500);
@@ -205,41 +184,93 @@ export default function ShippingMethodsPage() {
 
   // ==================== API CALLS WITH RETRY ====================
 
-  const fetchMethods = async () => {
-    try {
-      setLoading(true);
-      abortControllerRef.current = new AbortController();
+const fetchMethods = async () => {
+  try {
+    setLoading(true);
 
-      const response = await fetchWithRetry(() =>
-        shippingService.getAllMethods({
-          params: { includeInactive: true },
-        })
-      );
+    const params: any = {
+      includeInactive: true,
+    };
 
-      if (response.data && response.data.success) {
-        setMethods(response.data.data || []);
-      } else {
-        toast.error("Failed to fetch methods");
+    if (deletedFilter === "deleted") {
+      params.isDeleted = true;
+    } else {
+      params.isDeleted = false;
+
+      if (filterStatus === "active") {
+        params.isActive = true;
       }
-    } catch (error: any) {
-      if (error.name !== "AbortError") {
-        console.error("Error fetching methods:", error);
 
-        // Enhanced Error Handling
-        if (error.response?.status === 401) {
-          toast.error("Session expired. Please login again");
-        } else if (error.response?.status === 403) {
-          toast.error("Access denied. Insufficient permissions");
-        } else if (error.response?.status === 500) {
-          toast.error("Server error. Please try again later");
-        } else {
-          toast.error(error.message || "Failed to fetch methods");
-        }
+      if (filterStatus === "inactive") {
+        params.isActive = false;
       }
-    } finally {
-      setLoading(false);
     }
-  };
+
+    console.log("🔥 METHODS API PARAMS:", params);
+
+    const response = await shippingService.getAllMethods({ params });
+
+    if (response.data?.success) {
+      setMethods(response.data.data || []);
+    } else {
+      setMethods([]);
+    }
+  } catch (error: any) {
+    toast.error(error.message || "Failed to fetch methods");
+  } finally {
+    setLoading(false);
+  }
+};
+
+useEffect(() => {
+  fetchMethods();
+}, [filterStatus, deletedFilter]);
+
+const handleStatusToggle = async () => {
+  if (!statusConfirm) return;
+
+  try {
+    const method = methods.find(m => m.id === statusConfirm.id);
+    if (!method) {
+      toast.error("Method not found");
+      return;
+    }
+
+    await shippingService.updateMethod(method.id, {
+      name: method.name,
+      displayName: method.displayName,
+      description: method.description,
+      carrierCode: method.carrierCode,
+      serviceCode: method.serviceCode,
+      deliveryTimeMinDays: method.deliveryTimeMinDays,
+      deliveryTimeMaxDays: method.deliveryTimeMaxDays,
+      trackingSupported: method.trackingSupported,
+      signatureRequired: method.signatureRequired,
+      isActive: !method.isActive,
+      displayOrder: method.displayOrder,
+    });
+
+    toast.success("Status updated successfully");
+    setStatusConfirm(null);
+    fetchMethods();
+
+  } catch (error: any) {
+    toast.error(error.message || "Failed to update status");
+  }
+};
+
+const handleRestore = async () => {
+  if (!restoreConfirm) return;
+
+  try {
+    await shippingService.restoreMethod(restoreConfirm.id);
+    toast.success("Method restored successfully");
+    setRestoreConfirm(null);
+    fetchMethods();
+  } catch (error: any) {
+    toast.error(error.message || "Failed to restore method");
+  }
+};
 
   // ==================== ENHANCED FORM VALIDATION ====================
 
@@ -492,7 +523,13 @@ export default function ShippingMethodsPage() {
   }, []);
 
   // Check if filters are active
-  const hasActiveFilters = searchTerm !== "" || filterStatus !== "all" || filterTracking !== "all";
+ const hasActiveFilters =
+  searchTerm !== "" ||
+  filterStatus !== "all" ||
+  filterTracking !== "all" ||
+  deletedFilter !== "notDeleted" ||
+  sortBy !== "order";
+ 
 
   // ==================== FILTERING & SORTING WITH MEMOIZATION ====================
 
@@ -667,6 +704,7 @@ export default function ShippingMethodsPage() {
               </div>
             </div>
           </div>
+          
 
           {/* With Tracking */}
           <div className="bg-slate-900/50 dark:bg-gray-900/50 backdrop-blur-xl border border-slate-800 dark:border-gray-800 rounded-xl p-4">
@@ -698,254 +736,104 @@ export default function ShippingMethodsPage() {
 
 
       {/* FILTERS SECTION - ALL IN ONE ROW */}
-      <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-xl p-4 overflow-visible relative z-20">
-        <div className="flex items-end gap-4">
-          {/* Search */}
-          <div className="flex-1">
-            <label className="text-sm font-medium text-slate-300 mb-2 flex items-center gap-2">
-              <Search className="w-4 h-4 text-cyan-400" />
-              Search Methods
-            </label>
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500" />
-              <input
-                type="text"
-                placeholder="Search by name, carrier, or description..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(sanitizeInput(e.target.value))}
-                className="w-full pl-10 pr-4 py-2.5 bg-slate-800/50 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500"
-              />
-              {searchTerm !== "" && debouncedSearchTerm !== searchTerm && (
-                <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                  <Loader2 className="w-4 h-4 text-cyan-400 animate-spin" />
-                </div>
-              )}
-            </div>
-          </div>
+   <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-xl px-3 py-2 relative z-20">
+  <div className="flex flex-wrap items-center gap-4">
 
-          {/* Results Count */}
-          <div className="flex-shrink-0 pt-6">
-            <div className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-cyan-500/10 to-violet-500/10 border border-cyan-500/30 rounded-lg">
-              <div className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse"></div>
-              <p className="text-sm whitespace-nowrap">
-                <span className="font-bold text-cyan-400">{filteredAndSortedMethods.length}</span>
-                <span className="text-slate-400 ml-1">
-                  {filteredAndSortedMethods.length === 1 ? "result" : "results"}
-                </span>
-              </p>
-            </div>
-          </div>
-
-          {/* Status Filter Dropdown */}
-          <div className="flex-shrink-0 relative" ref={statusDropdownRef}>
-            <label className="text-sm font-medium text-slate-300 mb-2">Filter Status</label>
-            <button
-              onClick={() => setShowStatusDropdown(!showStatusDropdown)}
-              className={cn(
-                "flex items-center justify-between gap-3 px-4 py-2.5 rounded-lg font-medium text-sm w-40 ring-2",
-                filterStatus === "all"
-                  ? "bg-violet-500/10 text-violet-400 ring-violet-500/50"
-                  : filterStatus === "active"
-                  ? "bg-green-500/10 text-green-400 ring-green-500/50"
-                  : "bg-red-500/10 text-red-400 ring-red-500/50"
-              )}
-            >
-              <span className="capitalize">{filterStatus}</span>
-              <ChevronDown
-                className={cn("w-4 h-4 transition-transform", showStatusDropdown && "rotate-180")}
-              />
-            </button>
-
-            {showStatusDropdown && (
-              <div className="absolute w-full mt-2 bg-slate-800 border border-slate-700 rounded-lg shadow-xl z-[9999]">
-                {["all", "active", "inactive"].map((status) => (
-                  <button
-                    key={status}
-                    onClick={() => {
-                      setFilterStatus(status as any);
-                      setShowStatusDropdown(false);
-                    }}
-                    className={cn(
-                      "w-full px-4 py-2.5 text-left hover:bg-slate-700/50 flex items-center gap-2",
-                      filterStatus === status
-                        ? status === "all"
-                          ? "bg-violet-500/10"
-                          : status === "active"
-                          ? "bg-green-500/10"
-                          : "bg-red-500/10"
-                        : ""
-                    )}
-                  >
-                    <div
-                      className={cn(
-                        "w-2 h-2 rounded-full",
-                        filterStatus === status
-                          ? status === "all"
-                            ? "bg-violet-400"
-                            : status === "active"
-                            ? "bg-green-400"
-                            : "bg-red-400"
-                          : "bg-slate-600"
-                      )}
-                    ></div>
-                    <span
-                      className={cn(
-                        "text-sm font-medium capitalize",
-                        filterStatus === status
-                          ? status === "all"
-                            ? "text-violet-400"
-                            : status === "active"
-                            ? "text-green-400"
-                            : "text-red-400"
-                          : "text-slate-300"
-                      )}
-                    >
-                      {status}
-                    </span>
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* Tracking Filter Dropdown */}
-          <div className="flex-shrink-0 relative" ref={trackingDropdownRef}>
-            <label className="text-sm font-medium text-slate-300 mb-2">Tracking</label>
-            <button
-              onClick={() => setShowTrackingDropdown(!showTrackingDropdown)}
-              className={cn(
-                "flex items-center justify-between gap-3 px-4 py-2.5 rounded-lg font-medium text-sm w-40 ring-2",
-                filterTracking === "all"
-                  ? "bg-cyan-500/10 text-cyan-400 ring-cyan-500/50"
-                  : filterTracking === "tracked"
-                  ? "bg-green-500/10 text-green-400 ring-green-500/50"
-                  : "bg-orange-500/10 text-orange-400 ring-orange-500/50"
-              )}
-            >
-              <span className="capitalize">
-                {filterTracking === "all" ? "All" : filterTracking === "tracked" ? "With Tracking" : "No Tracking"}
-              </span>
-              <ChevronDown
-                className={cn("w-4 h-4 transition-transform", showTrackingDropdown && "rotate-180")}
-              />
-            </button>
-
-            {showTrackingDropdown && (
-              <div className="absolute w-full mt-2 bg-slate-800 border border-slate-700 rounded-lg shadow-xl z-[9999]">
-                {["all", "tracked", "untracked"].map((tracking) => (
-                  <button
-                    key={tracking}
-                    onClick={() => {
-                      setFilterTracking(tracking as any);
-                      setShowTrackingDropdown(false);
-                    }}
-                    className={cn(
-                      "w-full px-4 py-2.5 text-left hover:bg-slate-700/50 flex items-center gap-2",
-                      filterTracking === tracking
-                        ? tracking === "all"
-                          ? "bg-cyan-500/10"
-                          : tracking === "tracked"
-                          ? "bg-green-500/10"
-                          : "bg-orange-500/10"
-                        : ""
-                    )}
-                  >
-                    <Navigation
-                      className={cn(
-                        "w-4 h-4",
-                        filterTracking === tracking
-                          ? tracking === "all"
-                            ? "text-cyan-400"
-                            : tracking === "tracked"
-                            ? "text-green-400"
-                            : "text-orange-400"
-                          : "text-slate-600"
-                      )}
-                    />
-                    <span
-                      className={cn(
-                        "text-sm font-medium",
-                        filterTracking === tracking
-                          ? tracking === "all"
-                            ? "text-cyan-400"
-                            : tracking === "tracked"
-                            ? "text-green-400"
-                            : "text-orange-400"
-                          : "text-slate-300"
-                      )}
-                    >
-                      {tracking === "all" ? "All" : tracking === "tracked" ? "With Tracking" : "No Tracking"}
-                    </span>
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* Sort Order Dropdown */}
-          <div className="flex-shrink-0 relative" ref={sortDropdownRef}>
-            <label className="text-sm font-medium text-slate-300 mb-2">Sort By</label>
-            <button
-              onClick={() => setShowSortDropdown(!showSortDropdown)}
-              className="flex items-center justify-between gap-3 px-4 py-2.5 bg-slate-800/50 border border-slate-700 rounded-lg text-white font-medium text-sm w-48 ring-2 ring-transparent hover:ring-violet-500/50"
-            >
-              <span>
-                {sortBy === "name"
-                  ? "Name"
-                  : sortBy === "carrier"
-                  ? "Carrier"
-                  : sortBy === "deliveryTime"
-                  ? "Delivery Time"
-                  : "Display Order"}
-              </span>
-              <ChevronDown
-                className={cn("w-4 h-4 transition-transform", showSortDropdown && "rotate-180")}
-              />
-            </button>
-
-            {showSortDropdown && (
-              <div className="absolute w-full mt-2 bg-slate-800 border border-slate-700 rounded-lg shadow-xl z-[9999]">
-                {[
-                  { value: "order", label: "Display Order" },
-                  { value: "name", label: "Name" },
-                  { value: "carrier", label: "Carrier" },
-                  { value: "deliveryTime", label: "Delivery Time" },
-                ].map((option) => (
-                  <button
-                    key={option.value}
-                    onClick={() => {
-                      setSortBy(option.value as any);
-                      setShowSortDropdown(false);
-                    }}
-                    className={cn(
-                      "w-full px-4 py-2.5 text-left hover:bg-slate-700/50 flex items-center gap-2",
-                      sortBy === option.value && "bg-violet-500/10"
-                    )}
-                  >
-                    <Hash className={cn("w-4 h-4", sortBy === option.value ? "text-violet-400" : "text-slate-600")} />
-                    <span className={cn("text-sm font-medium", sortBy === option.value ? "text-violet-400" : "text-slate-300")}>
-                      {option.label}
-                    </span>
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* Clear Button */}
-          {hasActiveFilters && (
-            <div className="flex-shrink-0 pt-6">
-              <button
-                onClick={handleClearFilters}
-                className="flex items-center gap-2 px-4 py-2.5 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-lg font-medium ring-2 ring-red-500/50"
-              >
-                <FilterX className="w-4 h-4" />
-                Clear Filters
-              </button>
-            </div>
-          )}
-        </div>
+    {/* ================= SEARCH ================= */}
+    <div className="flex-1 min-w-[280px]">
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500" />
+        <input
+          type="text"
+          placeholder="Search by name, carrier, or description..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(sanitizeInput(e.target.value))}
+          className="w-full pl-10 pr-4 py-1.5 bg-slate-800/50 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500"
+        />
+        {searchTerm !== "" && debouncedSearchTerm !== searchTerm && (
+          <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-cyan-400 animate-spin" />
+        )}
       </div>
+    </div>
+
+    {/* ================= RESULTS COUNT ================= */}
+    <div className="flex items-center gap-2 px-3 py-2 bg-cyan-500/10 border border-cyan-500/30 rounded-lg whitespace-nowrap">
+      <div className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
+      <span className="text-sm">
+        <span className="font-bold text-cyan-400">
+          {filteredAndSortedMethods.length}
+        </span>
+        <span className="text-slate-400 ml-1">
+          {filteredAndSortedMethods.length === 1 ? "result" : "results"}
+        </span>
+      </span>
+    </div>
+
+    {/* ================= STATUS FILTER ================= */}
+    <select
+      value={filterStatus}
+      onChange={(e) => setFilterStatus(e.target.value as any)}
+      className={cn(
+        "px-4 py-2.5 rounded-lg text-sm font-medium border focus:outline-none focus:ring-2",
+        filterStatus === "all"
+          ? "bg-violet-500/10 text-violet-400 border-violet-500/30 focus:ring-violet-500/50"
+          : filterStatus === "active"
+          ? "bg-green-500/10 text-green-400 border-green-500/30 focus:ring-green-500/50"
+          : "bg-red-500/10 text-red-400 border-red-500/30 focus:ring-red-500/50"
+      )}
+    >
+      <option value="all">All Status</option>
+      <option value="active">Active</option>
+      <option value="inactive">Inactive</option>
+    </select>
+
+    {/* ================= DELETED FILTER ================= */}
+    <select
+      value={deletedFilter}
+      onChange={(e) => setDeletedFilter(e.target.value as any)}
+      className="px-4 py-2.5 bg-slate-800 border border-slate-700 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
+    >
+      <option value="notDeleted">Active Methods</option>
+      <option value="deleted">Deleted Methods</option>
+    </select>
+
+    {/* ================= TRACKING FILTER ================= */}
+    <select
+      value={filterTracking}
+      onChange={(e) => setFilterTracking(e.target.value as any)}
+      className="px-4 py-2.5 bg-slate-800 border border-slate-700 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500"
+    >
+      <option value="all">All Tracking</option>
+      <option value="tracked">With Tracking</option>
+      <option value="untracked">No Tracking</option>
+    </select>
+
+    {/* ================= SORT ================= */}
+    <select
+      value={sortBy}
+      onChange={(e) => setSortBy(e.target.value as any)}
+      className="px-4 py-2.5 bg-slate-800 border border-slate-700 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
+    >
+      <option value="order">Display Order</option>
+      <option value="name">Name</option>
+      <option value="carrier">Carrier</option>
+      <option value="deliveryTime">Delivery Time</option>
+    </select>
+
+    {/* ================= CLEAR FILTERS ================= */}
+    {hasActiveFilters && (
+      <button
+        onClick={handleClearFilters}
+        className="flex items-center gap-2 px-4 py-2.5 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/40 rounded-lg text-sm font-medium whitespace-nowrap"
+      >
+        <FilterX className="w-4 h-4" />
+        Clear
+      </button>
+    )}
+
+  </div>
+</div>
+
 
       {/* Table */}
       <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-xl overflow-hidden">
@@ -1045,21 +933,21 @@ export default function ShippingMethodsPage() {
                           )}
                         </div>
                       </td>
-                      <td className="px-6 py-4">
-                        <div className="flex justify-center">
-                          {method.isActive ? (
-                            <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-green-500/10 text-green-400 rounded-full text-xs font-medium">
-                              <CheckCircle className="w-3.5 h-3.5" />
-                              Active
-                            </span>
-                          ) : (
-                            <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-red-500/10 text-red-400 rounded-full text-xs font-medium">
-                              <XCircle className="w-3.5 h-3.5" />
-                              Inactive
-                            </span>
-                          )}
-                        </div>
-                      </td>
+<td className="px-6 py-4 text-center">
+  {deletedFilter === "notDeleted" && (
+    <button
+      onClick={() => setStatusConfirm(method)}
+      className={`px-3 py-1 rounded-full text-xs font-medium ${
+        method.isActive
+          ? "bg-green-500/10 text-green-400"
+          : "bg-red-500/10 text-red-400"
+      }`}
+    >
+      {method.isActive ? "Active" : "Inactive"}
+    </button>
+  )}
+</td>
+
                       <td className="px-6 py-4">
                         <div className="flex items-center justify-center gap-2">
                           <button
@@ -1076,13 +964,22 @@ export default function ShippingMethodsPage() {
                           >
                             <Edit className="w-4 h-4" />
                           </button>
-                          <button
-                            onClick={() => setDeleteConfirmId(method.id)}
-                            className="p-2 text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
-                            title="Delete Method"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
+                         {deletedFilter === "deleted" ? (
+  <button
+    onClick={() => setRestoreConfirm(method)}
+    className="p-2 text-green-400 hover:bg-green-500/10 rounded-lg"
+  >
+    <RotateCcw className="w-4 h-4" />
+  </button>
+) : (
+  <button
+    onClick={() => setDeleteConfirmId(method.id)}
+    className="p-2 text-red-400 hover:bg-red-500/10 rounded-lg"
+  >
+    <Trash2 className="w-4 h-4" />
+  </button>
+)}
+
                         </div>
                       </td>
                     </tr>
@@ -1777,41 +1674,42 @@ export default function ShippingMethodsPage() {
       )}
 
       {/* DELETE CONFIRMATION MODAL */}
-      {deleteConfirmId && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-slate-900 border border-red-500/20 rounded-xl max-w-md w-full p-6">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-12 h-12 bg-red-500/10 rounded-lg flex items-center justify-center">
-                <AlertCircle className="w-6 h-6 text-red-400" />
-              </div>
-              <div>
-                <h3 className="text-lg font-bold text-white">Delete Method</h3>
-                <p className="text-sm text-slate-400">This action cannot be undone</p>
-              </div>
-            </div>
+<ConfirmDialog
+  isOpen={!!deleteConfirmId}
+  onClose={() => setDeleteConfirmId(null)}
+  onConfirm={() => handleDelete(deleteConfirmId!)}
+  title="Delete Method?"
+  message="This action cannot be undone."
+  confirmText="Delete"
+  iconColor="text-red-400"
+  confirmButtonStyle="bg-red-500 hover:bg-red-600"
+/>
 
-            <p className="text-slate-300 mb-6">
-              Are you sure you want to delete this shipping method? This will permanently remove it from the
-              system. Make sure to delete all associated rates first.
-            </p>
+<ConfirmDialog
+  isOpen={!!statusConfirm}
+  onClose={() => setStatusConfirm(null)}
+  onConfirm={handleStatusToggle}
+  title="Change Status?"
+  message={`Are you sure you want to ${
+    statusConfirm?.isActive ? "deactivate" : "activate"
+  } this method?`}
+  confirmText="Confirm"
+  iconColor="text-yellow-400"
+  confirmButtonStyle="bg-yellow-500 hover:bg-yellow-600"
+/>
 
-            <div className="flex gap-3">
-              <button
-                onClick={() => handleDelete(deleteConfirmId)}
-                className="flex-1 px-4 py-2.5 bg-red-500 hover:bg-red-600 text-white rounded-lg font-medium transition-colors"
-              >
-                Delete
-              </button>
-              <button
-                onClick={() => setDeleteConfirmId(null)}
-                className="flex-1 px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-white rounded-lg font-medium transition-colors"
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+<ConfirmDialog
+  isOpen={!!restoreConfirm}
+  onClose={() => setRestoreConfirm(null)}
+  onConfirm={handleRestore}
+  title="Restore Method?"
+  message="Are you sure you want to restore this method?"
+  confirmText="Restore"
+  iconColor="text-green-400"
+  confirmButtonStyle="bg-green-500 hover:bg-green-600"
+/>
+
+
     </div>
   );
 }

@@ -127,6 +127,20 @@ const handlePharmaGuard = (): boolean => {
 
   return true;
 };
+const getInitialQty = (product: any) => {
+  // 🔥 Priority 1: Allowed Quantities
+  if (product.allowedQuantities) {
+    const arr = product.allowedQuantities
+      .split(",")
+      .map((q: string) => Number(q.trim()))
+      .filter((q: number) => !isNaN(q) && q > 0);
+
+    if (arr.length > 0) return arr[0];
+  }
+
+  // 🔥 Priority 2: Order Minimum Quantity
+  return product.orderMinimumQuantity ?? 1;
+};
 
   // ---------- Add to Cart ----------
  const handleAddToCart = () => {
@@ -135,11 +149,9 @@ const handlePharmaGuard = (): boolean => {
   if (!handlePharmaGuard()) return;
   const variantId = defaultVariant?.id ?? null;
 
-  const minQty = product.orderMinimumQuantity ?? 1;
-  const maxQty = product.orderMaximumQuantity ?? Infinity;
+const maxQty = product.orderMaximumQuantity ?? Infinity;
+const finalQty = getInitialQty(product);
 
-  const requestedQty = 1;
-  const finalQty = Math.max(requestedQty, minQty);
 
   const existingCartQty = cart
     .filter(
@@ -182,6 +194,8 @@ const handlePharmaGuard = (): boolean => {
     image: mainImage,
     sku: defaultVariant?.sku ?? product.sku,
     variantId: variantId,
+    vatRate: vatRate,
+vatIncluded: vatRate !== null,
    slug: cardSlug,
     variantOptions: {
       option1: defaultVariant?.option1Value ?? null,
@@ -193,13 +207,14 @@ const handlePharmaGuard = (): boolean => {
   });
 
   // ⭐ UX TOAST
-  if (finalQty !== requestedQty) {
-    toast.warning(
-      `Minimum order quantity is ${minQty}. Added ${finalQty} items to cart.`
-    );
-  } else {
-    toast.success(`${product.name} added to cart 🛒`);
-  }
+ if (!product.allowedQuantities && product.orderMinimumQuantity > 1) {
+  toast.warning(
+    `Minimum order quantity is ${product.orderMinimumQuantity}. Added ${finalQty} items to cart.`
+  );
+} else {
+  toast.success(`${product.name} added to cart 🛒`);
+}
+
 };
 
 

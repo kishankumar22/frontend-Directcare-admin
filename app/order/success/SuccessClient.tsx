@@ -9,6 +9,39 @@ import { MapPin } from "lucide-react";
 function formatCurrency(n = 0) {
   return `£${n.toFixed(2)}`;
 }
+function getStatusColor(status?: string) {
+  if (!status) return "text-gray-600";
+
+  const value = status.toLowerCase();
+
+  if (value.includes("successful") || value.includes("paid") || value.includes("completed")) {
+    return "text-green-600 font-semibold";
+  }
+
+  if (value.includes("pending") || value.includes("processing")) {
+    return "text-orange-600 font-semibold";
+  }
+
+  if (value.includes("failed") || value.includes("cancelled") || value.includes("error")) {
+    return "text-red-600 font-semibold";
+  }
+
+  return "text-gray-700 font-medium";
+}
+
+export function resolveImageUrl(url?: string | null) {
+  if (!url || url === "string") {
+    return "/placeholder-product.png";
+  }
+
+  // absolute already
+  if (url.startsWith("http")) {
+    return url;
+  }
+
+  // relative path from backend
+  return `${process.env.NEXT_PUBLIC_API_URL}${url}`;
+}
 
 export default function SuccessClient() {
   const searchParams = useSearchParams();
@@ -104,7 +137,6 @@ const loyaltyPointsEarned = order.loyaltyPointsEarned ?? 0;
   <span className="text-xl leading-none">
     {loyaltyPointsEarned > 0 ? "🎁" : "ℹ️"}
   </span>
-
   <span className="tracking-tight">
     You have earned{" "}
     <span className="font-bold">
@@ -113,12 +145,9 @@ const loyaltyPointsEarned = order.loyaltyPointsEarned ?? 0;
     loyalty points on this order
   </span>
 </div>
-
 </div>
-
         {/* GRID */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-
           {/* LEFT */}
           <div className="lg:col-span-2 space-y-6">
 
@@ -132,15 +161,25 @@ const loyaltyPointsEarned = order.loyaltyPointsEarned ?? 0;
                   <span>Order Number:</span>
                   <span className="font-medium">{order.orderNumber}</span>
                 </div>
-                <div className="flex justify-between">
-                  <span>Order Status:</span>
-                  <span className="font-medium">{order.status}</span>
-                </div>
-                <div className="flex justify-between">
-                  
-                   <span>Date:</span>
-                  <span>{new Date(order.orderDate).toLocaleString()}</span>
-                </div>
+               <div className="flex justify-between">
+  <span>Order Status:</span>
+  <span className={getStatusColor(order.status)}>
+    {order.status}
+  </span>
+</div>
+
+              <div className="flex justify-between">
+  <span>Date:</span>
+  <span>{new Date(order.orderDate).toLocaleString()}</span>
+</div>
+
+<div className="flex justify-between">
+  <span>Delivery Method:</span>
+  <span className="font-medium">
+    {order.deliveryMethod}
+  </span>
+</div>
+
               </div>
             </section>
 
@@ -180,66 +219,74 @@ const loyaltyPointsEarned = order.loyaltyPointsEarned ?? 0;
                   </div>
                 )}
 
-                {order.deliveryMethod === "ClickAndCollect" && (
-                  <>
-                    <div className="flex gap-3">
-                      <MapPin className="w-4 h-4 mt-1 text-gray-500" />
-                      <div className="text-sm">
-                        <p className="font-medium">Store location</p>
-                        <p>Spacebox Business Park Unit E 38</p>
-                        <p>Plume Street, Birmingham</p>
-                        <p>B6 7RT</p>
-                      </div>
-                    </div>
+              {order.deliveryMethod === "ClickAndCollect" && (
+  <>
+    {/* STORE CARD */}
+    <div className="flex gap-3">
+      <MapPin className="w-5 h-5 mt-1 text-gray-500" />
+      <div className="text-sm">
+        <p className="font-semibold  text-lg mb-1">Store Location</p>
+        <p className="font-medium">Spacebox Business Park Unit E 38</p>
+        <p>Plume Street, Birmingham</p>
+        <p>B6 7RT</p>
+      </div>
+    </div>
 
-                    {order.collectionStatus && (
-                      <div className="flex justify-between">
-                        <span>Collection Status</span>
-                        <span>{order.collectionStatus}</span>
-                      </div>
-                    )}
+    {/* COLLECTION INFO CARD */}
+    <div className="text-sm space-y-2">
+      <p 
+      className="font-semibold mb-1 text-lg">Collection Details</p>
 
-                    {order.collectionExpiryDate && (
-                      <div className="flex justify-between">
-                        <span>Collect before</span>
-                        <span>
-                          {new Date(order.collectionExpiryDate).toLocaleString()}
-                        </span>
-                      </div>
-                    )}
+      {order.collectionStatus && (
+        <div className="flex justify-between">
+          <span>Collection Status</span>
+          <span className={getStatusColor(order.collectionStatus)}>
+            {order.collectionStatus}
+          </span>
+        </div>
+      )}
 
-                    {order.readyForCollectionAt && (
-                      <div className="flex justify-between">
-                        <span>Ready at</span>
-                        <span>
-                          {new Date(order.readyForCollectionAt).toLocaleString()}
-                        </span>
-                      </div>
-                    )}
+      {order.collectionExpiryDate && (
+        <div className="flex justify-between">
+          <span>Collect Before</span>
+          <span>
+            {new Date(order.collectionExpiryDate).toLocaleString()}
+          </span>
+        </div>
+      )}
 
-                    {order.collectedAt && (
-                      <div className="flex justify-between">
-                        <span>Collected at</span>
-                        <span>
-                          {new Date(order.collectedAt).toLocaleString()}
-                        </span>
-                      </div>
-                    )}
+      {order.readyForCollectionAt && (
+        <div className="flex justify-between">
+          <span>Ready At</span>
+          <span>
+            {new Date(order.readyForCollectionAt).toLocaleString()}
+          </span>
+        </div>
+      )}
 
-                    <div className="flex justify-between">
-                      <span>Click & Collect fee</span>
-                      <span>
-                        {formatCurrency(order.clickAndCollectFee)}
-                      </span>
-                    </div>
-                  </>
-                )}
+      {order.collectedAt && (
+        <div className="flex justify-between">
+          <span>Collected At</span>
+          <span>
+            {new Date(order.collectedAt).toLocaleString()}
+          </span>
+        </div>
+      )}
+
+      <div className="flex justify-between">
+        <span>Click & Collect Fee</span>
+        <span>{formatCurrency(order.clickAndCollectFee)}</span>
+      </div>
+    </div>
+  </>
+)}
+
                 {/* BILLING */}
 {order.billingAddress && (
   <div className="flex gap-3">
-    <MapPin className="w-4 h-4 mt-1 text-gray-500" />
+    <MapPin className="w-5 h-5 mt-1 text-gray-500" />
     <div className="text-sm">
-      <p className="font-semibold mb-1">Billing Address</p>
+      <p className="font-semibold mb-1 text-lg">Billing Address</p>
 
       <p className="font-medium">
         {order.billingAddress.firstName}{" "}
@@ -286,14 +333,12 @@ const loyaltyPointsEarned = order.loyaltyPointsEarned ?? 0;
                     className="flex gap-4 p-4 items-start"
                   >
                     <Link href={`/products/${item.productSlug}`}>
-                      <img
-                        src={
-                          item.productImageUrl?.startsWith("http")
-                            ? item.productImageUrl
-                            : `${process.env.NEXT_PUBLIC_API_URL}${item.productImageUrl}`
-                        }
-                        className="w-20 h-20 object-contain border rounded bg-white"
-                      />
+                    <img
+  src={resolveImageUrl(item.productImageUrl)}
+  alt={item.productName}
+  className="w-20 h-20 object-contain border rounded bg-white"
+/>
+
                     </Link>
 
                     <div className="flex-1 min-w-0">
@@ -320,7 +365,7 @@ const loyaltyPointsEarned = order.loyaltyPointsEarned ?? 0;
                   </div>
                 ))}
               </div>
-            </section>09874
+            </section>
           </div>
 
           {/* RIGHT */}
@@ -341,7 +386,10 @@ const loyaltyPointsEarned = order.loyaltyPointsEarned ?? 0;
                       </div>
                       <div className="flex justify-between">
                         <span className="text-black">Payment Status:</span>
-                        <span className="text-orange-600">Pay on delivery</span>
+                      <span className={getStatusColor("pending")}>
+  Pay on delivery
+</span>
+
                       </div>
                     </>
                   )}
@@ -356,10 +404,13 @@ const loyaltyPointsEarned = order.loyaltyPointsEarned ?? 0;
                         <span>Amount:</span>
                         <span>{formatCurrency(payment.amount)}</span>
                       </div>
-                      <div className="flex justify-between">
-                        <span>Payment Status:</span>
-                        <span className="text-green-600">{payment.status}</span>
-                      </div>
+                     <div className="flex justify-between">
+  <span>Payment Status:</span>
+  <span className={getStatusColor(payment.status)}>
+    {payment.status}
+  </span>
+</div>
+
                     </>
                   )}
                 </div>
@@ -375,6 +426,13 @@ const loyaltyPointsEarned = order.loyaltyPointsEarned ?? 0;
                     <span>Subtotal</span>
                     <span>{formatCurrency(order.subtotalAmount)}</span>
                   </div>
+                  {order.taxAmount > 0 && (
+  <div className="flex justify-between text-sm text-gray-600">
+    <span>VAT (included)</span>
+    <span>{formatCurrency(order.taxAmount)}</span>
+  </div>
+)}
+
                   <div className="flex justify-between">
                     <span>Shipping</span>
                     <span>{formatCurrency(order.shippingAmount)}</span>

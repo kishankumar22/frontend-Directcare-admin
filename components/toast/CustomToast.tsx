@@ -6,6 +6,7 @@ import React, {
   useState,
   ReactNode,
   useEffect,
+  useRef,
 } from "react";
 import { CheckCircle, XCircle, Info, AlertTriangle, X } from "lucide-react";
 
@@ -57,14 +58,53 @@ const ToastItem = ({
 }) => {
   const Icon = toastIcons[toast.type];
 
+  const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const startTimeRef = useRef<number>(Date.now());
+  const remainingRef = useRef<number>(toast.duration);
+
+  const clearTimer = () => {
+    if (timerRef.current) {
+      clearTimeout(timerRef.current);
+      timerRef.current = null;
+    }
+  };
+
+  const startTimer = () => {
+    startTimeRef.current = Date.now();
+    clearTimer();
+
+    timerRef.current = setTimeout(() => {
+      onRemove(toast.id);
+    }, remainingRef.current);
+  };
+
   useEffect(() => {
-    const timer = setTimeout(() => onRemove(toast.id), toast.duration);
-    return () => clearTimeout(timer);
-  }, [toast.id, toast.duration, onRemove]);
+    startTimer();
+    return clearTimer;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const handleMouseEnter = () => {
+    const elapsed = Date.now() - startTimeRef.current;
+    remainingRef.current = Math.max(
+      remainingRef.current - elapsed,
+      0
+    );
+    clearTimer();
+  };
+
+  const handleMouseLeave = () => {
+    if (remainingRef.current > 0) {
+      startTimer();
+    }
+  };
 
   return (
     <div
-      className={` flex items-center gap-3 px-4 py-3 rounded-xl min-w-[320px] max-w-[420px] shadow-[0_12px_30px_rgba(0,0,0,0.18)] backdrop-blur-md border border-white/20 text-sm font-medium animate-toastIn ${toastStyles[toast.type]} `} >
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
+      className={`flex items-center gap-3 px-4 py-3 rounded-xl min-w-[320px] max-w-[420px] shadow-[0_12px_30px_rgba(0,0,0,0.18)] backdrop-blur-md border border-white/20 text-sm font-medium animate-toastIn ${toastStyles[toast.type]}`}
+    >
       {/* ICON */}
       <Icon className="w-5 h-5 shrink-0 opacity-90" />
 
@@ -76,12 +116,15 @@ const ToastItem = ({
       {/* CLOSE */}
       <button
         onClick={() => onRemove(toast.id)}
-        className=" ml-1 rounded-full p-1 opacity-60 hover:opacity-100 hover:bg-white/20 transition " aria-label="Close toast" >
+        className="ml-1 rounded-full p-1 opacity-60 hover:opacity-100 hover:bg-white/20 transition"
+        aria-label="Close toast"
+      >
         <X className="w-4 h-4" />
       </button>
     </div>
   );
 };
+
 
 /* ================= PROVIDER ================= */
 export const ToastProvider = ({ children }: { children: ReactNode }) => {
@@ -94,7 +137,7 @@ export const ToastProvider = ({ children }: { children: ReactNode }) => {
   const showToast = (
     message: ReactNode,
     type: ToastType,
-    duration = 2200
+    duration = 3200
   ) => {
     const id = crypto.randomUUID();
     setToasts((prev) => [...prev, { id, message, type, duration }]);

@@ -49,6 +49,7 @@ useEffect(() => {
 
     return result;
   }, [orders, statusFilter, fromDate, toDate]);
+const filteredCount = filteredOrders.length;
 
   return (
     <div className="space-y-2">
@@ -97,8 +98,20 @@ useEffect(() => {
               onChange={(e) => setToDate(e.target.value)}
               className="h-10 rounded-lg border px-3 text-sm focus:outline-none focus:ring-2 focus:ring-green-600"
             />
+            
           </div>
-
+        {/* FILTERED COUNT */}
+<div className="mb-2">
+  <p className="text-sm text-gray-600">
+    Showing{" "}
+    <span className="font-semibold text-gray-900">
+      {filteredCount}
+    </span>{" "}
+    {statusFilter === "all"
+      ? "orders"
+      : `${statusFilter} orders`}
+  </p>
+</div>
           {/* CLEAR */}
           {(fromDate || toDate || statusFilter !== "all") && (
             <button
@@ -113,7 +126,10 @@ useEffect(() => {
               Clear filters
             </button>
           )}
+          
         </div>
+
+
       </div>
 
       {/* ORDERS LIST */}

@@ -26,7 +26,6 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         next: { revalidate: 600 }, // ⭐ FIXED — NO MORE DYNAMIC SERVER ERROR
       }
     );
-
     if (res.ok) {
       const json = await res.json();
       if (json?.success && Array.isArray(json.data)) {

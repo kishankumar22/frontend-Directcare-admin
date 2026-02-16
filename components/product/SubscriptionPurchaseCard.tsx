@@ -110,6 +110,24 @@ if (selectedFrequency.includes(" ")) {
   cycleLength = selectedFrequency; // weekly, monthly, yearly
   cyclePeriod = selectedFrequency;
 }
+const stockQty =
+  selectedVariant?.stockQuantity ??
+  product.stockQuantity ??
+  0;
+
+const maxQty = product.orderMaximumQuantity ?? 1;
+
+// 🔥 STOCK CHECK
+if (quantity > stockQty) {
+  toast.error(`Only ${stockQty} items available`);
+  return;
+}
+
+// 🔥 MAX ORDER CHECK
+if (quantity > maxQty) {
+  toast.error(`Maximum order quantity is ${maxQty}`);
+  return;
+}
 
 
     addToCart({
@@ -129,7 +147,8 @@ if (selectedFrequency.includes(" ")) {
       quantity,
       variantId: selectedVariant?.id ?? null,
       slug: product.slug ?? "",
-
+  vatRate: vatRate,
+  vatIncluded: vatRate !== null,
       frequency: (cycleLength),
       frequencyPeriod: cyclePeriod,
       subscriptionTotalCycles: product.recurringTotalCycles,
@@ -242,22 +261,23 @@ image: selectedVariant?.imageUrl
   </div>
 </div>
         )}
-<div className="flex items-center gap-[-0.5rem] mt-2 mb-0">
+<div className="flex items-center gap-[0.5rem] mt-2 mb-0">
 
-  <div className="flex-shrink-0 w-[8rem]">
+  <div className="flex-shrink-0 w-[7rem]">
    <QuantitySelector
   quantity={quantity}
   setQuantity={setQuantity}
   maxStock={backorderState.canBuy ? (selectedVariant?.stockQuantity ?? product.stockQuantity) : 0}
   stockError={stockError}
   setStockError={setStockError}
+  allowedQuantities={product.allowedQuantities}
 />
 
   </div>
 
  {stockDisplay.show && (
   <div
-    className={`flex-shrink-0 flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold shadow-sm mb-[15px] ${
+    className={`flex-shrink-0 flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold shadow-sm mb-1 ${
       stockDisplay.type === "out"
         ? "bg-red-100 text-red-700"
         : stockDisplay.type === "low"
@@ -287,7 +307,7 @@ image: selectedVariant?.imageUrl
        {selectedPurchaseType === "subscription" && backorderState.canBuy && (
   <Button
     onClick={handleAddSubscriptionToCart}
-    className="w-full py-3 rounded-xl text-sm font-semibold mt-[-0.75rem]
+    className="w-full py-3 rounded-xl text-sm font-semibold mt-2
       bg-black hover:bg-[#445D41] text-white"
   >
     Add Subscription to Cart

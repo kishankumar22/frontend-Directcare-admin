@@ -148,9 +148,32 @@ const handleBuyNow = (
   discountAmount: number,
    cardSlug: string
 ) => {
-  const minQty = (product as any).orderMinimumQuantity ?? 1;
-  const requestedQty = 1;
-  const finalQty = Math.max(requestedQty, minQty);
+ const finalQty = getInitialQty(product);
+
+const vatRate =
+  !product.vatExempt && (product as any).vatRateId
+    ? vatRates.find(v => v.id === (product as any).vatRateId)?.rate ?? null
+    : null;
+const selected = defaultVariant ?? null;
+
+const stockQty =
+  selected?.stockQuantity ??
+  (product as any).stockQuantity ??
+  0;
+
+const maxQty = (product as any).orderMaximumQuantity ?? Infinity;
+
+// 🔥 STOCK CHECK
+if (finalQty > stockQty) {
+  toast.error(`Only ${stockQty} items available`);
+  return;
+}
+
+// 🔥 MAX ORDER CHECK
+if (finalQty > maxQty) {
+  toast.error(`Maximum order quantity is ${maxQty}`);
+  return;
+}
 
   sessionStorage.setItem(
     "buyNowItem",
@@ -172,9 +195,12 @@ const handleBuyNow = (
       finalPrice: finalPrice,
       discountAmount: discountAmount,
       quantity: finalQty,
+        vatRate: vatRate,
+  vatIncluded: vatRate !== null,
       image: getProductDisplayImage(product, defaultVariant),
       sku: defaultVariant?.sku ?? product.sku,
       variantId: defaultVariant?.id ?? null,
+      
       slug: cardSlug,
       variantOptions: {
         option1: defaultVariant?.option1Value ?? null,
@@ -184,11 +210,12 @@ const handleBuyNow = (
     })
   );
 
-  if (finalQty !== requestedQty) {
-    toast.warning(
-      `Minimum order quantity is ${minQty}. Proceeding with ${finalQty}.`
-    );
-  }
+ if (shouldShowMinWarning(product)) {
+  toast.warning(
+    `Minimum order quantity is ${product.orderMinimumQuantity}. Proceeding with ${finalQty}.`
+  );
+}
+
 
   if (!isAuthenticated) {
     router.push("/account?from=buy-now");
@@ -212,6 +239,29 @@ useEffect(() => {
 
   fetchVatRates();
 }, []);
+const getInitialQty = (product: any) => {
+  // 🔥 Allowed Quantities priority
+  if (product.allowedQuantities) {
+    const arr = product.allowedQuantities
+      .split(",")
+      .map((q: string) => Number(q.trim()))
+      .filter((q: number) => !isNaN(q) && q > 0);
+
+    if (arr.length > 0) return arr[0];
+  }
+
+  // 🔥 Fallback to min order
+  return product.orderMinimumQuantity ?? 1;
+};
+const shouldShowMinWarning = (product: any) => {
+  // Agar allowedQuantities hai → warning nahi
+  if (product.allowedQuantities) return false;
+
+  return (
+    product.orderMinimumQuantity &&
+    product.orderMinimumQuantity > 1
+  );
+};
 
   return (
     <div className="relative w-full bg-gray-50">
@@ -491,8 +541,7 @@ const backorderState = getBackorderUIState({
     });
     return;
   }
-  const minQty = (product as any).orderMinimumQuantity ?? 1;
-  const requestedQty = 1;
+
 
   const defaultVarId = defaultVariant?.id ?? null;
 
@@ -509,7 +558,8 @@ const backorderState = getBackorderUIState({
     (product as any).stockQuantity ??
     0;
 
-  const finalQty = Math.max(requestedQty, minQty);
+  const finalQty = getInitialQty(product);
+
 const maxQty = (product as any).orderMaximumQuantity ?? Infinity;
 
 // 🔥 MAX ORDER CHECK
@@ -544,6 +594,9 @@ if (existingCartQty + finalQty > maxQty) {
     finalPrice: finalPrice,
     discountAmount: discountAmount,
     quantity: finalQty,
+      // ✅ ADD THESE 👇
+ vatRate: vatRate,
+vatIncluded: vatRate !== null,
     image: getProductDisplayImage(product, defaultVariant),
     sku: defaultVariant?.sku ?? product.sku,
     shipSeparately: product.shipSeparately,
@@ -557,13 +610,14 @@ if (existingCartQty + finalQty > maxQty) {
     productData: JSON.parse(JSON.stringify(product)),
   });
 
-  if (finalQty !== requestedQty) {
-    toast.warning(
-      `Minimum order quantity is ${minQty}. Added ${finalQty} items to cart.`
-    );
-  } else {
-    toast.success(`${product.name} added to cart!`);
-  }
+  if (shouldShowMinWarning(product)) {
+  toast.warning(
+    `Minimum order quantity is ${product.orderMinimumQuantity}. Added ${finalQty} items to cart.`
+  );
+} else {
+  toast.success(`${product.name} added to cart!`);
+}
+
 }}
 
         className="flex-1 text-xs md:text-sm rounded-lg py-2 flex items-center justify-center gap-2
@@ -717,9 +771,8 @@ if (existingCartQty + finalQty > maxQty) {
       } = pharmaModal;
 
      if (action === "ADD_TO_CART") {
-  const minQty = (product as any).orderMinimumQuantity ?? 1;
-  const requestedQty = 1;
-  const finalQty = Math.max(requestedQty, minQty);
+const finalQty = getInitialQty(product);
+
 
   const defaultVarId = variant?.id ?? null;
 
@@ -749,6 +802,10 @@ if (existingCartQty + finalQty > maxQty) {
     toast.error(`Only ${stockQty - existingCartQty} items left in stock`);
     return;
   }
+const modalVatRate =
+  !product.vatExempt && (product as any).vatRateId
+    ? vatRates.find(v => v.id === (product as any).vatRateId)?.rate ?? null
+    : null;
 
   addToCart({
     id: variant ? `${variant.id}-one` : product.id,
@@ -766,6 +823,9 @@ if (existingCartQty + finalQty > maxQty) {
     finalPrice,
     discountAmount,
     quantity: finalQty,
+      // ✅ ADD THESE 👇
+   vatRate: modalVatRate,
+  vatIncluded: modalVatRate !== null,
     image: getProductDisplayImage(product, variant),
     sku: variant?.sku ?? product.sku,
     shipSeparately: product.shipSeparately, // ✅ IMPORTANT
@@ -783,6 +843,25 @@ if (existingCartQty + finalQty > maxQty) {
 }
 
       if (action === "BUY_NOW") {
+        const stockQty =
+  variant?.stockQuantity ??
+  (product as any).stockQuantity ??
+  0;
+
+const finalQty = getInitialQty(product);
+
+const maxQty = (product as any).orderMaximumQuantity ?? Infinity;
+
+if (finalQty > stockQty) {
+  toast.error(`Only ${stockQty} items available`);
+  return;
+}
+
+if (finalQty > maxQty) {
+  toast.error(`Maximum order quantity is ${maxQty}`);
+  return;
+}
+
         handleBuyNow(
           product,
           variant,

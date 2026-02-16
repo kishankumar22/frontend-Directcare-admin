@@ -159,26 +159,24 @@ const ConfirmationModal = ({
   };
 
   // Fetch VAT Rates
- const fetchVATRates = async () => {
+const fetchVATRates = async () => {
   try {
     setLoading(true);
 
     const params: any = {};
 
-    // ✅ Deleted filter
+    // ✅ Deleted View
     if (deletedFilter === "deleted") {
       params.isDeleted = true;
     } else {
-      params.isDeleted = false;
-
-      // status filter only when notDeleted
+      // ✅ Default behavior
       if (statusFilter === "Active") {
         params.activeOnly = true;
-      }
-
-      if (statusFilter === "Inactive") {
+      } 
+      else if (statusFilter === "Inactive") {
         params.activeOnly = false;
       }
+      // If "All Status" → send nothing
     }
 
     console.log("🔥 VAT API PARAMS:", params);
@@ -198,6 +196,8 @@ const ConfirmationModal = ({
     setLoading(false);
   }
 };
+
+
 
 
   // Fetch Countries
@@ -223,6 +223,7 @@ const ConfirmationModal = ({
 
 const filteredRates = useMemo(() => {
   return vatRates.filter((rate) => {
+
     const matchesSearch =
       rate.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       rate.country?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -232,9 +233,15 @@ const filteredRates = useMemo(() => {
       countryFilter === "All Countries" ||
       rate.country === countryFilter;
 
-    return matchesSearch && matchesCountry;
+    const matchesStatus =
+      statusFilter === "All Status" ||
+      (statusFilter === "Active" && rate.isActive === true) ||
+      (statusFilter === "Inactive" && rate.isActive === false);
+
+    return matchesSearch && matchesCountry && matchesStatus;
   });
-}, [vatRates, searchTerm, countryFilter]);
+}, [vatRates, searchTerm, countryFilter, statusFilter]);
+
 
 
   // Calculate stats

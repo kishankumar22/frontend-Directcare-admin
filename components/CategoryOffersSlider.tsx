@@ -9,13 +9,16 @@ import "swiper/css";
 import "swiper/css/navigation";
 
 /* ================= TYPES ================= */
-
 interface Discount {
+  isActive: boolean;
   usePercentage: boolean;
   discountPercentage: number;
   requiresCouponCode: boolean;
   couponCode: string;
+  startDate: string;
+  endDate: string;
 }
+
 
 interface Category {
   id: string;
@@ -34,9 +37,31 @@ export default function CategoryOffersSlider({
   categories: Category[];
   baseUrl: string;
 }) {
-  const offerCategories = categories.filter(
-    (c) => c.assignedDiscounts && c.assignedDiscounts.length > 0
+  const isDiscountValid = (discount: Discount) => {
+  if (!discount?.isActive) return false;
+
+  const now = new Date();
+
+  // If backend UTC nahi bhej raha to Z append karna safe hai
+  const start = new Date(discount.startDate + "Z");
+  const end = new Date(discount.endDate + "Z");
+
+  if (now < start) return false;
+  if (now > end) return false;
+
+  return true;
+};
+
+const offerCategories = categories.filter((c) => {
+  if (!c.assignedDiscounts?.length) return false;
+
+  const validDiscount = c.assignedDiscounts.find((d) =>
+    isDiscountValid(d)
   );
+
+  return !!validDiscount;
+});
+
 
   if (offerCategories.length === 0) return null;
 
@@ -98,9 +123,14 @@ export default function CategoryOffersSlider({
           }}
         >
           {offerCategories.map((cat) => {
-            const percentageDiscounts = cat.assignedDiscounts
-              .filter((d) => d.usePercentage)
-              .map((d) => d.discountPercentage);
+           const validDiscounts = cat.assignedDiscounts.filter((d) =>
+  isDiscountValid(d)
+);
+
+const percentageDiscounts = validDiscounts
+  .filter((d) => d.usePercentage)
+  .map((d) => d.discountPercentage);
+
 
             const maxDiscount =
               percentageDiscounts.length > 0

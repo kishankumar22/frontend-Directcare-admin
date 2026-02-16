@@ -1,6 +1,7 @@
 "use client";
 
 import React, { createContext, useContext, useState, useEffect } from "react";
+import { useToast } from "@/components/toast/CustomToast";
 
 // ================== CART ITEM TYPE ==================
 export interface CartItem {
@@ -35,7 +36,8 @@ slug: string;
  frequency?: number | string | null;
   frequencyPeriod?: string | null;
   subscriptionTotalCycles?: number | null;
-
+  vatRate?: number | null;
+  vatIncluded?: boolean;
   // ⭐ FULL PRODUCT DATA REQUIRED FOR CART COUPON LOGIC
   productData?: any; // store product JSON here
   maxStock?: number;
@@ -80,6 +82,20 @@ const CartContext = createContext<CartContextType | undefined>(undefined);
 export const CartProvider = ({ children }: { children: React.ReactNode }) => {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [isInitialized, setIsInitialized] = useState(false);
+const toast = useToast();
+const isAllowedQuantity = (product: any, qty: number) => {
+  if (!product?.allowedQuantities) return true;
+
+  const allowed = product.allowedQuantities
+    .split(",")
+    .map((q: string) => Number(q.trim()))
+    .filter((q: number) => !isNaN(q));
+
+  if (!allowed.length) return true;
+
+  return allowed.includes(qty);
+};
+
 
   // Load cart from localStorage
   useEffect(() => {
@@ -101,8 +117,15 @@ export const CartProvider = ({ children }: { children: React.ReactNode }) => {
   }, [cart, isInitialized]);
 
   // ================== ADD TO CART ==================
-  const addToCart = (item: CartItem) => {
+const addToCart = (item: CartItem) => {
+
+ if (!isAllowedQuantity(item.productData, item.quantity)) {
+  return; // silently block
+}
+
+
   setCart((prev) => {
+
 
     // ===================== SUBSCRIPTION MERGE LOGIC =====================
     if (item.type === "subscription") {
@@ -231,6 +254,11 @@ const updateQuantity = (id: string, qty: number) => {
 const mainMax = product?.orderMaximumQuantity ?? Infinity;
 
 let finalQty = qty;
+// 🔥 Allowed Quantities Check (DO NOT TOUCH min/max logic)
+if (!isAllowedQuantity(product, finalQty)) {
+  return prev; // silently block
+}
+
 
 if (qty === 0) finalQty = 0;
 else if (qty < mainMin) finalQty = mainMin;

@@ -6,6 +6,7 @@ import Info from "../ui/Info";
 import { getOrderStatusBadge } from "./orderUtils";
 import { useAuth } from "@/context/AuthContext";
 import { useState } from "react";
+import { useToast } from "@/components/toast/CustomToast";
 
 const CANCELLATION_REASONS = [
   "Ordered by mistake",
@@ -19,6 +20,7 @@ const MIN_OTHER_REASON_LENGTH = 10;
 
 export default function OrderCard({ order }: { order: any }) {
   const { accessToken, user } = useAuth();
+const toast = useToast();
 
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [selectedReason, setSelectedReason] = useState("");
@@ -74,55 +76,72 @@ export default function OrderCard({ order }: { order: any }) {
      CANCEL ORDER
   ========================== */
   const handleConfirmCancel = async () => {
-    const finalReason =
-      selectedReason === "Other"
-        ? customReason.trim()
-        : selectedReason;
+  const finalReason =
+    selectedReason === "Other"
+      ? customReason.trim()
+      : selectedReason;
 
-    if (!finalReason) return;
+  if (!finalReason) return;
 
-    if (
-      selectedReason === "Other" &&
-      finalReason.length < MIN_OTHER_REASON_LENGTH
-    ) {
-      alert(
-        `Please enter at least ${MIN_OTHER_REASON_LENGTH} characters.`
-      );
-      return;
-    }
+  if (
+    selectedReason === "Other" &&
+    finalReason.length < MIN_OTHER_REASON_LENGTH
+  ) {
+    toast.error(
+      `Please enter at least ${MIN_OTHER_REASON_LENGTH} characters`
+    );
+    return;
+  }
 
-    setCancelLoading(true);
+  setCancelLoading(true);
 
-    try {
-      const res = await fetch(
-        `https://testapi.knowledgemarkg.com/api/Orders/${order.id}/cancel`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${accessToken}`,
-          },
-          body: JSON.stringify({
-            orderId: order.id,
-            cancellationReason: finalReason,
-            restoreInventory: true,
-            initiateRefund: true,
-            cancelledBy: "Customer",
-            currentUser: user?.email,
-          }),
-        }
-      );
-
-      const json = await res.json();
-
-      if (json.success) {
-        setShowCancelModal(false);
-        window.location.reload();
+  try {
+    const res = await fetch(
+      `https://testapi.knowledgemarkg.com/api/Orders/${order.id}/cancel`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({
+          orderId: order.id,
+          cancellationReason: finalReason,
+          restoreInventory: true,
+          initiateRefund: true,
+          cancelledBy: "Customer",
+          currentUser: user?.email,
+        }),
       }
-    } finally {
-      setCancelLoading(false);
+    );
+
+    const json = await res.json();
+
+    if (!res.ok || !json.success) {
+      throw new Error(json?.message || "Cancellation failed");
     }
-  };
+
+    // ✅ SUCCESS TOAST (BACKEND MESSAGE)
+    toast.success(json.message || "Order cancelled successfully");
+
+    // ✅ CLOSE MODAL
+    setShowCancelModal(false);
+
+    // ✅ RESET STATE
+    setSelectedReason("");
+    setCustomReason("");
+
+    // ✅ OPTIONAL: update order object locally
+    order.status = "Cancelled";
+    order.statusName = "Cancelled";
+
+  } catch (err: any) {
+    toast.error(err.message || "Unable to cancel order");
+  } finally {
+    setCancelLoading(false);
+  }
+};
+
 
   return (
     <div className="bg-white rounded-xl border shadow-sm p-5 space-y-4">

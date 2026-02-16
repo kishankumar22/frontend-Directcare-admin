@@ -339,6 +339,7 @@ export interface ProductQueryParams {
   sortBy?: string;
   sortOrder?: 'asc' | 'desc';
   productType?: 'simple' | 'grouped' ;
+  isDeleted?: boolean; // ✅ ADD THIS
 }
 
 export interface PaginatedResponse<T> {
@@ -370,22 +371,29 @@ export const productsService = {
   // BASIC CRUD OPERATIONS
   // ==========================================
 
-  getAll: async (params?: ProductQueryParams) => {
-    const queryParams = new URLSearchParams();
-    
-    if (params?.page) queryParams.append('page', params.page.toString());
-    if (params?.pageSize) queryParams.append('pageSize', params.pageSize.toString());
-    if (params?.categoryId) queryParams.append('categoryId', params.categoryId);
-    if (params?.brandId) queryParams.append('brandId', params.brandId);
-    if (params?.search) queryParams.append('search', params.search);
-    if (params?.isPublished !== undefined) queryParams.append('isPublished', params.isPublished.toString());
-    if (params?.sortBy) queryParams.append('sortBy', params.sortBy);
-    if (params?.sortOrder) queryParams.append('sortOrder', params.sortOrder);
+getAll: async (params?: ProductQueryParams) => {
+  const queryParams = new URLSearchParams();
+  
+  if (params?.page) queryParams.append('page', params.page.toString());
+  if (params?.pageSize) queryParams.append('pageSize', params.pageSize.toString());
+  if (params?.categoryId) queryParams.append('categoryId', params.categoryId);
+  if (params?.brandId) queryParams.append('brandId', params.brandId);
+  if (params?.search) queryParams.append('search', params.search);
+  if (params?.isPublished !== undefined) queryParams.append('isPublished', params.isPublished.toString());
+  if (params?.sortBy) queryParams.append('sortBy', params.sortBy);
+  if (params?.sortOrder) queryParams.append('sortOrder', params.sortOrder);
 
-    const url = `${API_ENDPOINTS.products}${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
-    
-    return apiClient.get<PaginatedResponse<Product>>(url);
-  },
+  // ✅ ADD THIS
+  if (params?.isDeleted !== undefined)
+    queryParams.append('isDeleted', params.isDeleted.toString());
+
+  const url = `${API_ENDPOINTS.products}${
+    queryParams.toString() ? `?${queryParams.toString()}` : ''
+  }`;
+
+  return apiClient.get<PaginatedResponse<Product>>(url);
+},
+
 
   getById: async (id: string) => {
     return apiClient.get<ApiResponse<Product>>(`${API_ENDPOINTS.products}/${id}`);
@@ -473,8 +481,55 @@ restore: async (id: string) => {
     );
   },
 
-    // ... existing methods ...
-  
+  // ==========================================
+// 📥 IMPORT PRODUCTS (EXCEL)
+// ==========================================
+
+/**
+ * Download Product Import Template
+ * GET: /api/Products/import-template
+ */
+downloadImportTemplate: async () => {
+  return apiClient.get(
+    `${API_ENDPOINTS.products}/import-template`,
+    {
+      responseType: "blob",   // ✅ VERY IMPORTANT
+    }
+  );
+},
+
+
+/**
+ * Upload Product Excel File
+ * POST: /api/Products/import-excel
+ * Body: multipart/form-data (excelFile)
+ */
+importExcel: async (file: File) => {
+  const formData = new FormData();
+  formData.append("excelFile", file);
+
+  return apiClient.post<{
+    success: boolean;
+    message: string;
+    data?: {
+      totalRows: number;
+      successCount: number;
+      failedCount: number;
+      errors: string[];
+      warnings: string[];
+    };
+  }>(
+    `${API_ENDPOINTS.products}/import-excel`,
+    formData,
+    {
+      headers: {
+        "Content-Type": "multipart/form-data",
+      },
+    }
+  );
+},
+
+
   // ==========================================
   // PRODUCT OPTIONS MANAGEMENT
   // ==========================================

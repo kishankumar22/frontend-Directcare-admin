@@ -6,28 +6,9 @@ import { shippingService } from "@/lib/services/shipping";
 import { ShippingZone, CreateZoneDto } from "@/lib/types/shipping";
 import { countriesService, Country } from "@/lib/services/countries";
 import { useToast } from "@/app/admin/_component/CustomToast";
-import {
-  Plus,
-  Edit,
-  Trash2,
-  Search,
-  MapPin,
-  Globe,
-  CheckCircle,
-  XCircle,
-  Loader2,
-  AlertCircle,
-  X,
-  Save,
-  ChevronLeft,
-  ChevronRight,
-  Eye,
-  Flag,
-  Info,
-  Package,
-  DollarSign,
-} from "lucide-react";
+import { Plus, Edit, Trash2, Search, MapPin, Globe, CheckCircle, XCircle, Loader2, AlertCircle, X, Save, ChevronLeft, ChevronRight, Eye, Flag, Info, Package, DollarSign, RotateCcw, } from "lucide-react";
 import { cn } from "@/lib/utils";
+import ConfirmDialog from "../../_component/ConfirmDialog";
 
 
 // ==================== CUSTOM HOOKS ====================
@@ -73,6 +54,10 @@ export default function ShippingZonesPage() {
   const [countrySearch, setCountrySearch] = useState("");
   const [showCountryDropdown, setShowCountryDropdown] = useState(false);
   const [loadingCountries, setLoadingCountries] = useState(false);
+const [statusFilter, setStatusFilter] = useState<"all" | "active" | "inactive">("all");
+const [deletedFilter, setDeletedFilter] = useState<"notDeleted" | "deleted">("notDeleted");
+const [statusConfirm, setStatusConfirm] = useState<ShippingZone | null>(null);
+const [restoreConfirm, setRestoreConfirm] = useState<ShippingZone | null>(null);
 
   // Modal States
   const [showModal, setShowModal] = useState(false);
@@ -141,32 +126,50 @@ export default function ShippingZonesPage() {
   }, [showCountryDropdown]);
 
   // ==================== API CALLS ====================
-  const fetchZones = async () => {
-    try {
-      setLoading(true);
-      
-      // Create new AbortController
-      abortControllerRef.current = new AbortController();
-      
-      const response = await shippingService.getAllZones({
-        params: { includeInactive: true },
-      });
+const fetchZones = async () => {
+  try {
+    setLoading(true);
 
-      if (response.data && response.data.success) {
-        setZones(response.data.data || []);
-      } else {
-        toast.error("Failed to fetch zones");
+    const params: any = {
+      includeInactive: true,
+    };
+
+    // ✅ Deleted Filter
+    if (deletedFilter === "deleted") {
+      params.isDeleted = true;
+    } else {
+      params.isDeleted = false;
+
+      // ✅ Status filter only when not deleted
+      if (statusFilter === "active") {
+        params.isActive = true;
       }
-    } catch (error: any) {
-      // Don't show error if request was aborted
-      if (error.name !== "AbortError") {
-        console.error("Error fetching zones:", error);
-        toast.error(error.message || "Failed to fetch zones");
+
+      if (statusFilter === "inactive") {
+        params.isActive = false;
       }
-    } finally {
-      setLoading(false);
     }
-  };
+
+    console.log("🔥 ZONES API PARAMS:", params);
+
+    const response = await shippingService.getAllZones({ params });
+
+    if (response.data?.success) {
+     setZones(Array.isArray(response.data?.data) ? response.data.data : []);
+
+    } else {
+      setZones([]);
+    }
+  } catch (error: any) {
+    toast.error(error.message || "Failed to fetch zones");
+  } finally {
+    setLoading(false);
+  }
+};
+
+useEffect(() => {
+  fetchZones();
+}, [statusFilter, deletedFilter]);
 
   const fetchCountries = async () => {
     try {
@@ -220,6 +223,36 @@ export default function ShippingZonesPage() {
     setFormErrors(errors);
     return Object.keys(errors).length === 0;
   };
+const handleStatusToggle = async () => {
+  if (!statusConfirm) return;
+
+  try {
+    const zone = zones.find(z => z.id === statusConfirm.id);
+    if (!zone) {
+      toast.error("Zone not found");
+      return;
+    }
+
+    // 🔥 Use SAME updateZone API like Edit Form
+    const response = await shippingService.updateZone(zone.id, {
+      name: zone.name,
+      description: zone.description,
+      country: zone.country,
+      displayOrder: zone.displayOrder,
+      isActive: !zone.isActive,
+    });
+
+    if (response.data?.success) {
+      toast.success("Status updated successfully");
+      setStatusConfirm(null);
+      fetchZones();
+    }
+
+  } catch (error: any) {
+    toast.error(error.message || "Failed to update status");
+  }
+};
+
 
   // ==================== HANDLERS ====================
   const handleCreate = () => {
@@ -239,13 +272,14 @@ export default function ShippingZonesPage() {
   const handleEdit = (zone: ShippingZone) => {
     setModalMode("edit");
     setSelectedZone(zone);
-    setFormData({
-      name: zone.name,
-      description: zone.description,
-      country: zone.country,
-      isActive: zone.isActive,
-      displayOrder: zone.displayOrder,
-    });
+setFormData({
+  name: zone.name || "",
+  description: zone.description || "",
+  country: zone.country || "",
+  isActive: zone.isActive ?? true,
+  displayOrder: zone.displayOrder ?? 0,
+});
+
     const selectedCountry = countries.find((c) => c.cca2 === zone.country);
     setCountrySearch(selectedCountry ? selectedCountry.name.common : zone.country);
     setFormErrors({});
@@ -307,6 +341,19 @@ export default function ShippingZonesPage() {
       setSubmitting(false);
     }
   };
+  const handleRestore = async () => {
+  if (!restoreConfirm) return;
+
+  try {
+    await shippingService.restoreZone(restoreConfirm.id);
+    toast.success("Zone restored successfully");
+    setRestoreConfirm(null);
+    fetchZones();
+  } catch (error: any) {
+    toast.error(error.message || "Failed to restore zone");
+  }
+};
+
 
   const handleDelete = async (id: string) => {
     try {
@@ -359,7 +406,8 @@ export default function ShippingZonesPage() {
     });
 
   // ==================== PAGINATION ====================
-  const totalItems = filteredAndSortedZones.length;
+  const totalItems = filteredAndSortedZones?.length || 0;
+
   const totalPages = Math.ceil(totalItems / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
   const endIndex = startIndex + itemsPerPage;
@@ -407,11 +455,12 @@ export default function ShippingZonesPage() {
   };
 
   // ==================== STATS ====================
-  const stats = {
-    total: zones.length,
-    active: zones.filter((z) => z.isActive).length,
-    inactive: zones.filter((z) => !z.isActive).length,
-  };
+const stats = {
+  total: zones?.length || 0,
+  active: zones?.filter((z) => z.isActive)?.length || 0,
+  inactive: zones?.filter((z) => !z.isActive)?.length || 0,
+};
+
 
   // ==================== RENDER ====================
   return (
@@ -516,41 +565,30 @@ export default function ShippingZonesPage() {
             )}
           </div>
 
-          <div className="flex gap-2">
-            <button
-              onClick={() => setFilterActive("all")}
-              className={cn(
-                "px-4 py-2.5 rounded-lg font-medium transition-all",
-                filterActive === "all"
-                  ? "bg-violet-500 text-white"
-                  : "bg-slate-800/50 dark:bg-gray-800/50 text-slate-400 hover:text-white"
-              )}
-            >
-              All
-            </button>
-            <button
-              onClick={() => setFilterActive("active")}
-              className={cn(
-                "px-4 py-2.5 rounded-lg font-medium transition-all",
-                filterActive === "active"
-                  ? "bg-green-500 text-white"
-                  : "bg-slate-800/50 dark:bg-gray-800/50 text-slate-400 hover:text-white"
-              )}
-            >
-              Active
-            </button>
-            <button
-              onClick={() => setFilterActive("inactive")}
-              className={cn(
-                "px-4 py-2.5 rounded-lg font-medium transition-all",
-                filterActive === "inactive"
-                  ? "bg-red-500 text-white"
-                  : "bg-slate-800/50 dark:bg-gray-800/50 text-slate-400 hover:text-white"
-              )}
-            >
-              Inactive
-            </button>
-          </div>
+        <div className="flex gap-3">
+
+  {/* Status Filter */}
+  <select
+    value={statusFilter}
+    onChange={(e) => setStatusFilter(e.target.value as any)}
+    className="px-4 py-2.5 bg-slate-800 border border-slate-700 rounded-lg text-white"
+  >
+    <option value="all">All Status</option>
+    <option value="active">Active</option>
+    <option value="inactive">Inactive</option>
+  </select>
+
+  {/* Deleted Filter */}
+  <select
+    value={deletedFilter}
+    onChange={(e) => setDeletedFilter(e.target.value as any)}
+    className="px-4 py-2.5 bg-slate-800 border border-slate-700 rounded-lg text-white"
+  >
+    <option value="notDeleted">Active Zones</option>
+    <option value="deleted">Deleted Zones</option>
+  </select>
+
+</div>
 
           <select
             value={`${sortBy}-${sortOrder}`}
@@ -660,21 +698,22 @@ export default function ShippingZonesPage() {
                             </div>
                           </div>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="flex justify-center">
-                            {zone.isActive ? (
-                              <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-green-500/10 text-green-400 rounded-full text-xs font-medium">
-                                <CheckCircle className="w-3.5 h-3.5" />
-                                Active
-                              </span>
-                            ) : (
-                              <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-red-500/10 text-red-400 rounded-full text-xs font-medium">
-                                <XCircle className="w-3.5 h-3.5" />
-                                Inactive
-                              </span>
-                            )}
-                          </div>
-                        </td>
+<td className="px-6 py-4 text-center">
+  {deletedFilter === "notDeleted" && (
+    <button
+      onClick={() => setStatusConfirm(zone)}
+      className={`px-3 py-1 rounded-full text-xs font-medium transition ${
+        zone.isActive
+          ? "bg-green-500/10 text-green-400 hover:bg-green-500/20"
+          : "bg-red-500/10 text-red-400 hover:bg-red-500/20"
+      }`}
+    >
+      {zone.isActive ? "Active" : "Inactive"}
+    </button>
+  )}
+</td>
+
+
                         <td className="px-6 py-4 whitespace-nowrap text-center">
                           <span className="inline-flex items-center justify-center w-8 h-8 bg-slate-800/50 dark:bg-gray-800/50 rounded-lg text-sm font-semibold text-slate-300 dark:text-gray-400">
                             {zone.displayOrder}
@@ -696,13 +735,25 @@ export default function ShippingZonesPage() {
                             >
                               <Edit className="w-4 h-4" />
                             </button>
-                            <button
-                              onClick={() => setDeleteConfirmId(zone.id)}
-                              className="p-2 text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
-                              title="Delete Zone"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
+                            {deletedFilter === "deleted" ? (
+      // 🔥 RESTORE BUTTON
+  <button
+  onClick={() => setRestoreConfirm(zone)}
+  className="p-2 text-green-400 hover:bg-green-500/10 rounded-lg"
+>
+  <RotateCcw className="w-4 h-4" />
+</button>
+
+    ) : (
+      // 🔥 DELETE BUTTON (Soft Delete)
+      <button
+        onClick={() => setDeleteConfirmId(zone.id)}
+        className="p-2 text-red-400 hover:bg-red-500/10 rounded-lg"
+        title="Delete Zone"
+      >
+        <Trash2 className="w-4 h-4" />
+      </button>
+    )}
                           </div>
                         </td>
                       </tr>
@@ -781,8 +832,22 @@ export default function ShippingZonesPage() {
           </>
         )}
       </div>
+<ConfirmDialog
+  isOpen={!!statusConfirm}
+  onClose={() => setStatusConfirm(null)}
+  onConfirm={handleStatusToggle}
+  title="Change Status?"
+  message={`Are you sure you want to ${
+    statusConfirm?.isActive ? "deactivate" : "activate"
+  } this zone?`}
+  confirmText="Confirm"
+  cancelText="Cancel"
+  iconColor="text-yellow-400"
+  confirmButtonStyle="bg-yellow-500 hover:bg-yellow-600"
+/>
 
-    
+
+
 
       {/* View Modal */}
       {showViewModal && selectedZone && (
@@ -920,38 +985,35 @@ export default function ShippingZonesPage() {
           </div>
         </div>
       )}
+<ConfirmDialog
+  isOpen={!!restoreConfirm}
+  onClose={() => setRestoreConfirm(null)}
+  onConfirm={handleRestore}
+  title="Restore Zone?"
+  message="Are you sure you want to restore this zone?"
+  confirmText="Restore"
+  cancelText="Cancel"
+  iconColor="text-green-400"
+  confirmButtonStyle="bg-green-500 hover:bg-green-600"
+/>
+
+<ConfirmDialog
+  isOpen={!!deleteConfirmId}
+  onClose={() => setDeleteConfirmId(null)}
+  onConfirm={() => {
+    if (deleteConfirmId) handleDelete(deleteConfirmId);
+  }}
+  title="Delete Zone?"
+  message="Are you sure you want to delete this zone? This action cannot be undone."
+  confirmText="Delete"
+  cancelText="Cancel"
+  iconColor="text-red-400"
+  confirmButtonStyle="bg-red-500 hover:bg-red-600"
+/>
 
       {/* Delete Confirmation Modal */}
-      {deleteConfirmId && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-slate-900 border border-red-500/20 rounded-xl max-w-md w-full shadow-2xl">
-            <div className="p-6">
-              <div className="w-12 h-12 mx-auto mb-4 flex items-center justify-center rounded-full bg-red-500/10">
-  <AlertCircle className="w-6 h-6 text-red-400" />
-</div>
 
-              <h3 className="text-xl font-bold text-center text-white mb-2">Delete Zone?</h3>
-              <p className="text-slate-400 mb-6">
-                Are you sure you want to delete this zone? This action cannot be undone.
-              </p>
-              <div className="flex gap-3">
-                <button
-                  onClick={() => setDeleteConfirmId(null)}
-                  className="flex-1 px-4 py-2.5 bg-slate-800 text-white rounded-lg hover:bg-slate-700 transition-colors font-medium"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={() => handleDelete(deleteConfirmId)}
-                  className="flex-1 px-4 py-2.5 bg-red-500 hover:bg-red-600 text-white rounded-lg transition-colors font-medium"
-                >
-                  Delete
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+
 {/* Create/Edit Modal */}
 {showModal && (
   <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-2">

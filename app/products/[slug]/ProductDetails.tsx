@@ -24,7 +24,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/toast/CustomToast";
-import { useCart } from "@/context/CartContext"; // path tumhare folder structure ke hisab se
+import { useCart } from "@/context/CartContext"; 
 import { useAuth } from "@/context/AuthContext";
 import { addRecentlyViewed } from "@/app/hooks/useRecentlyViewed";
 import { normalizePrice } from "@/lib/price";
@@ -50,15 +50,15 @@ interface Variant {
   price: number;
   compareAtPrice?: number | null;
   stockQuantity: number;
-  option1Name: string;     // <-- ADD
+  option1Name: string;     
   option1Value: string;
-   option2Name: string;     // <-- ADD
+   option2Name: string;     
   option2Value: string;
-   option3Name: string;     // <-- ADD
-  option3Value: string;    // <-- ADD
+   option3Name: string;    
+  option3Value: string;    
   imageUrl?: string | null;
   isDefault?: boolean;
-    displayOrder: number;   // <-- ADD THIS
+    displayOrder: number;   
     slug: string;
     loyaltyPointsEarnable?: number;
   loyaltyPointsMessage?: string;
@@ -93,6 +93,7 @@ interface GroupedProduct {
   bundlePrice?: number;
 }
 interface Product {
+  allowedQuantities: string | undefined;
   orderMaximumQuantity?: number;
   orderMinimumQuantity?: number;
   id: string;
@@ -127,7 +128,7 @@ interface Product {
   relatedProductIds: string;
   crossSellProductIds: string;
   variants?: Variant[];
-  assignedDiscounts?: AssignedDiscount[]; // <-- added
+  assignedDiscounts?: AssignedDiscount[]; 
     vatExempt?: boolean;
      vatRateId?: string | null;
 gender?: string;
@@ -182,6 +183,7 @@ interface RelatedProduct {
   price: number;
   oldPrice: number;
   images: ProductImage[];
+  isPublished?: boolean;
 }
 interface CrossSellProduct {
   id: string;
@@ -190,6 +192,7 @@ interface CrossSellProduct {
   price: number;
   oldPrice: number;
   images: ProductImage[];
+  isPublished?: boolean;
 }
 interface ProductDetailsProps {
   product: Product | null;
@@ -226,6 +229,19 @@ function buildCategoryBreadcrumb(
   }
   return chain;
 }
+const resolveBasePrice = (
+  product: Product,
+  variant?: Variant | null
+) => {
+  if (
+    variant &&
+    typeof variant.price === "number" &&
+    variant.price > 0
+  ) {
+    return variant.price;
+  }
+  return product.price;
+};
 // ---------- Discount function (variant-aware) ----------
 function calculateDiscount(basePrice: number, product: Product, couponInput?: string) {
   if (!product.assignedDiscounts || product.assignedDiscounts.length === 0) {
@@ -254,7 +270,6 @@ function calculateDiscount(basePrice: number, product: Product, couponInput?: st
 }
 // ---------- Component ----------
 export default function ProductDetails({ product, initialVariantId }: ProductDetailsProps & { initialVariantId?: string }) {
-
 if (!product) {
   return (
     <div className="min-h-screen flex items-center justify-center">
@@ -304,7 +319,6 @@ const hasCouponAvailable = useMemo(() => {
     new Date(d.endDate) >= now
   );
 }, [product.assignedDiscounts]);
-
 const shareUrl =
   typeof window !== "undefined"
     ? window.location.href
@@ -389,17 +403,13 @@ const handlePharmaGuard = (action: "cart" | "buy") => {
   if (pharmaApprovedRef.current) {
     return true;
   }
-
   if (product.isPharmaProduct) {
     setPendingAction(action);
     setShowPharmaModal(true);
     return false;
   }
-
   return true;
 };
-
-
 // 🔹 GROUPED PRODUCT FLAGS
 const isGroupedProduct =
   product.productType === "grouped" &&
@@ -409,11 +419,9 @@ const requiredProductIds = useMemo(() => {
   if (!product.requiredProductIds) return [];
   return product.requiredProductIds.split(",").map(id => id.trim());
 }, [product.requiredProductIds]);
-
 // 🔥 BUNDLE TOTALS (QUANTITY AWARE)
 const bundleIndividualTotal = useMemo(() => {
   if (!product.groupedProducts) return 0;
-
   return product.groupedProducts.reduce(
     (sum, gp) => sum + gp.price * normalQty,
     0
@@ -488,7 +496,6 @@ useEffect(() => {
     return updated;
   });
 }, [normalQty, groupedMaxQty, isGroupedProduct, groupEnabled]);
-
 const pathname = usePathname();
 // GENERIC dynamic selected options
 const [selectedOptions, setSelectedOptions] = useState<{
@@ -574,7 +581,6 @@ useEffect(() => {
     })
     .catch(() => {});
 }, [product.id]);
-
 const recentReviews = useMemo(
   () => getRecentApprovedReviews(reviews),
   [reviews]
@@ -690,17 +696,30 @@ useEffect(() => {
   setVatRate(rateValue ?? null);
 }, [vatRates, product]);
   // Reset state when product changes
-  useEffect(() => {
-    setSelectedImage(0);
-   setNormalQty(product.orderMinimumQuantity ?? 1);
-    setShowImageModal(false); 
-    setActiveTab("description");
-    setRelatedProducts([]);
-    setCouponCode("");
-    setAppliedCoupon(null);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  }, [product.id]);
+useEffect(() => {
+  setSelectedImage(0);
+  // 🔥 Quantity initialization logic (safe universal)
+  if (product.allowedQuantities) {
+    const arr = product.allowedQuantities
+      .split(",")
+      .map(q => Number(q.trim()))
+      .filter(q => !isNaN(q) && q > 0);
 
+    if (arr.length > 0) {
+      setNormalQty(arr[0]);
+    } else {
+      setNormalQty(1);
+    }
+  } else {
+    setNormalQty(product.orderMinimumQuantity ?? 1);
+  }
+  setShowImageModal(false); 
+  setActiveTab("description");
+  setRelatedProducts([]);
+  setCouponCode("");
+  setAppliedCoupon(null);
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}, [product.id]);
 const basePrice = useMemo(() => {
   if (selectedVariant && typeof selectedVariant.price === "number" && selectedVariant.price > 0) {
     return selectedVariant.price;
@@ -810,9 +829,9 @@ useEffect(() => {
         }).then(res => res.json())
       );
       const results = await Promise.all(promises);
-      const validProducts = results
-        .filter((r: any) => r.success)
-        .map((r: any) => r.data);      
+    const validProducts = results
+  .filter((r: any) => r.success && r.data?.isPublished === true)
+  .map((r: any) => r.data);    
       setRelatedProducts(
         validProducts.filter(
           (p: any, index: number, self: any[]) => index === self.findIndex(x => x.id === p.id)
@@ -833,9 +852,9 @@ const fetchCrossSellProducts = async (crossIds: string) => {
       }).then(res => res.json())
     );
     const results = await Promise.all(promises);
-    const validProducts = results
-      .filter((r: any) => r.success)
-      .map((r: any) => r.data);
+   const validProducts = results
+  .filter((r: any) => r.success && r.data?.isPublished === true)
+  .map((r: any) => r.data);
     setCrossSellProducts(
       validProducts.filter(
         (p: any, index: number, self: any[]) => index === self.findIndex(x => x.id === p.id)
@@ -865,7 +884,6 @@ useEffect(() => {
       return [];
     }
   }, [product.specificationAttributes]);
-
   // Memoized image URL generator
   const getImageUrl = useCallback((imageUrl: string) => {
     if (!imageUrl) return '/placeholder-product.jpg';
@@ -921,6 +939,22 @@ const handleThumbNext = () => {
     Math.min(prev + 1, sortedImages.length - THUMB_VISIBLE)
   );
 };
+const allowedQtyArray = useMemo(() => {
+  if (!product.allowedQuantities) return [];
+
+  return product.allowedQuantities
+    .split(",")
+    .map(q => Number(q.trim()))
+    .filter(q =>
+      !isNaN(q) &&
+      q > 0 &&
+      q <= (selectedVariant?.stockQuantity ?? product.stockQuantity)
+    )
+    .sort((a, b) => a - b);
+}, [product.allowedQuantities, selectedVariant, product.stockQuantity]);
+
+const hasAllowedQuantities = allowedQtyArray.length > 0;
+
   // Handlers
   const handleRelatedProductClick = useCallback((slug: string) => {
     router.push(`/products/${slug}`);
@@ -934,7 +968,6 @@ const handleThumbNext = () => {
       behavior: 'smooth'
     });
   }, []);
-
 const handleAddToCart = useCallback(() => {
     // 🔥 PHARMA GUARD
   if (!handlePharmaGuard("cart")) return;
@@ -942,7 +975,6 @@ const handleAddToCart = useCallback(() => {
   // ============================
 // ⭐ EXISTING CART QTY CHECK
 // ============================
-
 const existingCartQty = cart
   .filter(
     (c) =>
@@ -960,27 +992,17 @@ if (existingCartQty + normalQty > stockQty) {
   );
   return;
 }
-
-
-
 const mainMin = product.orderMinimumQuantity ?? 1;
 const mainMax = product.orderMaximumQuantity ?? Infinity;
-
 if (normalQty < mainMin) {
   toast.error(`Minimum order quantity is ${mainMin}`);
   return;
 }
-
 if (normalQty > mainMax) {
   toast.error(`Maximum order quantity is ${mainMax}`);
   return;
 }
-
-
-// ============================
 // ⭐ GROUPED PRODUCTS STOCK VALIDATION
-// ============================
-
 if (isGroupedProduct && groupEnabled && product.groupedProducts) {
   const selectedGrouped = product.groupedProducts.filter(
     gp => groupedSelections[gp.productId]?.selected
@@ -989,7 +1011,6 @@ if (isGroupedProduct && groupEnabled && product.groupedProducts) {
   const insufficient = selectedGrouped.find(
     gp => (gp.stockQuantity ?? 0) < normalQty
   );
-
   if (insufficient) {
     toast.error(
       `${insufficient.name} has only ${insufficient.stockQuantity} items available`
@@ -998,9 +1019,8 @@ if (isGroupedProduct && groupEnabled && product.groupedProducts) {
   }
 }
   // BASE + FINAL PRICE
-  const basePrice = selected ? selected.price : product.price;
+ const basePrice = resolveBasePrice(product, selected);
   const final = finalPrice;
-
   const variantTitle = selected
     ? `(${[
         selected.option1Value,
@@ -1010,10 +1030,8 @@ if (isGroupedProduct && groupEnabled && product.groupedProducts) {
         .filter(Boolean)
         .join(", ")})`
     : "";
-
   const allowNextDay =
     isUKUser && product.nextDayDeliveryEnabled === true;
-
   // 🔥 SPLIT QTY BETWEEN BUNDLE & STANDALONE
   const bundleQty =
   isGroupedProduct && groupEnabled
@@ -1024,17 +1042,11 @@ if (isGroupedProduct && groupEnabled && product.groupedProducts) {
     isGroupedProduct && groupEnabled
       ? normalQty - bundleQty
       : normalQty;
-
-  // ============================
   // 🧩 1️⃣ ADD BUNDLE (PARENT + CHILDREN)
-  // ============================
 if (bundleQty > 0) {
   // 🔥 UNIQUE INSTANCE ID (per add-to-cart click)
   const bundleInstanceId = crypto.randomUUID();
-
   const bundleId = `bundle:${product.id}:${selected?.id ?? "base"}`;
-
-
     // 🔹 BUNDLE PARENT (MAIN PRODUCT)
     addToCart({
       id: bundleId,
@@ -1052,6 +1064,8 @@ if (bundleQty > 0) {
       quantity: bundleQty,
       sku: selected?.sku ?? product.sku,
       slug: product.slug,
+       vatRate: vatRate,
+  vatIncluded: vatRate !== null,
       image: selected?.imageUrl
         ? getImageUrl(selected.imageUrl)
         : getImageUrl(
@@ -1102,7 +1116,6 @@ if (bundleQty > 0) {
             ? gp.mainImageUrl
             : `${process.env.NEXT_PUBLIC_API_URL}${gp.mainImageUrl}`
           : "/placeholder-product.png",
-
         hasBundleDiscount: gp.hasBundleDiscount,
         individualSavings: gp.individualSavings,
 shipSeparately: product.shipSeparately,
@@ -1110,40 +1123,32 @@ shipSeparately: product.shipSeparately,
       });
     });
   }
-
-  // ============================
   // 🧍 2️⃣ ADD STANDALONE PRODUCT
-  // ============================
   if (standaloneQty > 0) {
     addToCart({
       id: `standalone:${product.id}:${selected?.id ?? "base"}`,
       type: "one-time",
       purchaseContext: "standalone",
-
       productId: product.id,
       variantId: selected?.id ?? null,
-
       name: `${product.name} ${variantTitle}`,
-
       price: final,
       priceBeforeDiscount: basePrice,
       finalPrice: final,
       discountAmount: discountAmount ?? 0,
-
       couponCode: appliedCoupon?.couponCode ?? null,
       appliedDiscountId: appliedCoupon?.id ?? null,
-
       quantity: standaloneQty,
+       vatRate: vatRate,
+  vatIncluded: vatRate !== null,
       sku: selected?.sku ?? product.sku,
       slug: product.slug || "",
-
       image: selected?.imageUrl
         ? getImageUrl(selected.imageUrl)
         : getImageUrl(
             product.images.find(img => img.isMain)?.imageUrl ||
               product.images[0]?.imageUrl
           ),
-
       variantOptions: {
         ...(selected?.option1Name && {
           [selected.option1Name]: selected.option1Value,
@@ -1164,7 +1169,6 @@ shipSeparately: product.shipSeparately,
       productData: JSON.parse(JSON.stringify(product)),
     });
   }
-
   toast.success(`${normalQty} × ${product.name} added to cart 🛒`);
 }, [
   addToCart,
@@ -1181,29 +1185,23 @@ shipSeparately: product.shipSeparately,
   isGroupedProduct,
   groupEnabled,
   isUKUser,
+  vatRate,
 ]);
-
 const handleBuyNow = () => {
    // 🔥 PHARMA GUARD
   if (!handlePharmaGuard("buy")) return;
   const selected = selectedVariant ?? null;
-
-  const stockQty =
-    selected?.stockQuantity ?? product.stockQuantity ?? 0;
-
+  const stockQty = selected?.stockQuantity ?? product.stockQuantity ?? 0;
   const mainMin = product.orderMinimumQuantity ?? 1;
   const mainMax = product.orderMaximumQuantity ?? Infinity;
-
   if (normalQty < mainMin) {
     toast.error(`Minimum order quantity is ${mainMin}`);
     return;
   }
-
   if (normalQty > mainMax) {
     toast.error(`Maximum order quantity is ${mainMax}`);
     return;
   }
-
   if (normalQty > stockQty) {
     toast.error(`Only ${stockQty} items available`);
     return;
@@ -1222,7 +1220,7 @@ const handleBuyNow = () => {
       return;
     }
   }
-  const basePrice = selected ? selected.price : product.price;
+ const basePrice = resolveBasePrice(product, selected);
   const final = finalPrice;
   const allowNextDay =
     isUKUser && product.nextDayDeliveryEnabled === true;
@@ -1230,7 +1228,6 @@ const handleBuyNow = () => {
     id: `${product.id}-${selected?.id ?? "base"}-one`,
     type: "one-time",
     productId: product.id,
-
     name: `${product.name}${
       selected
         ? ` (${[
@@ -1242,22 +1239,19 @@ const handleBuyNow = () => {
             .join(", ")})`
         : ""
     }`,
-
     price: final,
     priceBeforeDiscount: basePrice,
     finalPrice: final,
     discountAmount: discountAmount ?? 0,
-
     quantity: normalQty,
-
+     vatRate: vatRate,
+  vatIncluded: vatRate !== null,
     image: selected?.imageUrl
       ? getImageUrl(selected.imageUrl)
       : getImageUrl(product.images[0]?.imageUrl),
-
     sku: selected?.sku ?? product.sku,
     variantId: selected?.id ?? null,
     slug: product.slug,
-
     variantOptions: {
       ...(selected?.option1Name && {
         [selected.option1Name]: selected.option1Value,
@@ -1269,17 +1263,13 @@ const handleBuyNow = () => {
         [selected.option3Name]: selected.option3Value,
       }),
     },
-
     nextDayDeliveryEnabled: allowNextDay,
     nextDayDeliveryCharge: allowNextDay
       ? product.nextDayDeliveryCharge ?? 0
       : 0,
-
     productData: JSON.parse(JSON.stringify(product)),
   };
-
   sessionStorage.setItem("buyNowItem", JSON.stringify(buyNowItem));
-
   if (!isAuthenticated) {
     router.push("/account?from=buy-now");
   } else {
@@ -1292,8 +1282,6 @@ const handleBuyNow = () => {
   const y = ((e.clientY - rect.top) / rect.height) * 100;
   setZoomPos({ x, y });
 };
-
-
   const handlePrevImage = useCallback(() => {
     setSelectedImage((prev) => (prev > 0 ? prev - 1 : product.images.length - 1));
   }, [product.images.length]);
@@ -1301,48 +1289,37 @@ const handleBuyNow = () => {
   const handleNextImage = useCallback(() => {
     setSelectedImage((prev) => (prev < product.images.length - 1 ? prev + 1 : 0));
   }, [product.images.length]);
-
  const handleVariantSelect = (variant: Variant) => {
   setSelectedVariant(variant);
  setNormalQty(product.orderMinimumQuantity ?? 1);
-
-
 if (variant.slug) updateVariantInUrl(variant);
 // <-- ONLY HERE URL UPDATES
-
   setSelectedOptions({
     option1: variant.option1Value,
     option2: variant.option2Value,
     option3: variant.option3Value,
   });
 };
-
-
   // Coupon apply handler
  const handleApplyCoupon = (code?: string) => {
   if (appliedCoupon) {
     toast.error("Coupon already applied");
     return;
   }
-
   const input = (code ?? couponCode).trim();
   if (!input) {
     toast.error("Enter a coupon code");
     return;
   }
-
   const result = calculateDiscount(basePrice, product, input);
-
   if (!result.applied || !result.applied.requiresCouponCode) {
     toast.error("Invalid or expired coupon");
     return;
   }
-
   setAppliedCoupon(result.applied);
   setFinalPrice(result.final);
   setDiscountAmount(result.discountAmount);
   setCouponCode(input);
-
   toast.success("Coupon applied successfully");
   // 🔥 AUTO CLOSE MODAL ON SUCCESS
   setShowCouponModal(false);
@@ -1353,10 +1330,6 @@ const handleRemoveCoupon = () => {
   setFinalPrice(basePrice);
   setDiscountAmount(0);
 };
-
-
-
-
   return (
     <div className="min-h-screen bg-white">
       {/* Breadcrumb */}
@@ -1364,26 +1337,22 @@ const handleRemoveCoupon = () => {
         <div className="max-w-7xl mx-auto px-4 py-3">
           <nav
       aria-label="Breadcrumb"
-      className="flex flex-wrap items-center gap-2 text-sm text-gray-600"
-    >
+      className="flex flex-wrap items-center gap-2 text-sm text-gray-600" >
       {/* Home */}
       <Link href="/" className="hover:text-[#445D41]">
         Home
       </Link>
-
       {/* Categories */}
       {buildCategoryBreadcrumb(product.categories).map(cat => (
         <span key={cat.slug} className="flex items-center gap-2">
           <span>/</span>
           <Link
             href={`/category/${cat.slug}`}
-            className="hover:text-[#445D41]"
-          >
+            className="hover:text-[#445D41]" >
             {cat.name}
           </Link>
         </span>
       ))}
-
       {/* Product */}
       <span>/</span>
       <span
@@ -1395,16 +1364,11 @@ const handleRemoveCoupon = () => {
     </nav>
         </div>
       </div>
-
       <main className="max-w-7xl mx-auto px-4 py-4">
         {/* PRODUCT LAYOUT */}
        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
           {/* LEFT: Image Gallery */}
-        <div className="flex flex-col gap-3 w-full lg:sticky lg:top-24 lg:self-start">
-
-
-            {/* Thumbnails */}
-           
+        <div className="flex flex-col gap-3 w-full lg:sticky lg:top-24 lg:self-start">          
             {/* Main Image */}
             <div className="flex-1">
               <div className="relative mb-3 bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-sm">
@@ -1421,11 +1385,8 @@ const handleRemoveCoupon = () => {
   onClick={() => setShowImageModal(true)}
   className="absolute inset-0 z-10 cursor-zoom-in"
  />
-
-                    <Image
-src={activeMainImage}
-
-
+                  <Image
+                   src={activeMainImage}
                       alt={product.name}
                       fill
                      className="object-contain p-6 pointer-events-none" // 🔥 ADD THIS
@@ -1438,14 +1399,11 @@ src={activeMainImage}
   style={{
     opacity: showZoom ? 1 : 0,
  backgroundImage: `url(${activeMainImage})`,
-
-
     backgroundRepeat: "no-repeat",
     backgroundSize: "170%",
     backgroundPosition: `${zoomPos.x}% ${zoomPos.y}%`,
   }}
 />
-
 <div className="absolute top-3 right-3 flex flex-col gap-2 z-30">
 {/* Wishlist */}
 <Button
@@ -1475,7 +1433,6 @@ src={activeMainImage}
 >
   <Share2 className="h-5 w-5 text-gray-700" />
 </Button>
-
     {showShare && (
       <ShareMenu
         url={shareUrl}
@@ -1485,10 +1442,8 @@ src={activeMainImage}
     )}
   </div>
 </div>
-
                     {/* discount badge (from oldPrice percent) */}
     {(() => {
-
   // 🥇 PRIORITY 1: COUPON APPLIED → % OFF
   if (appliedCoupon) {
     const percent = appliedCoupon.usePercentage
@@ -1497,7 +1452,6 @@ src={activeMainImage}
           (appliedCoupon.discountAmount /
             (selectedVariant?.price ?? product.price)) * 100
         );
-
     return (
       <div className="absolute top-3 left-4 z-20">
         <div className="w-14 h-14 md:w-20 md:h-20 rounded-full bg-gradient-to-br from-red-500 to-red-700 flex items-center justify-center text-white shadow-lg ring-2 ring-white">
@@ -1513,7 +1467,6 @@ src={activeMainImage}
       </div>
     );
   }
-
   // 🥈 PRIORITY 2: AUTO DISCOUNT (NO COUPON REQUIRED)
   const activeAutoDiscount = product.assignedDiscounts?.find(
     d =>
@@ -1522,7 +1475,6 @@ src={activeMainImage}
       new Date() >= new Date(d.startDate) &&
       new Date() <= new Date(d.endDate)
   );
-
   if (activeAutoDiscount) {
     const percent = activeAutoDiscount.usePercentage
       ? activeAutoDiscount.discountPercentage
@@ -1530,7 +1482,6 @@ src={activeMainImage}
           (activeAutoDiscount.discountAmount /
             (selectedVariant?.price ?? product.price)) * 100
         );
-
     return (
       <div className="absolute top-3 left-4 z-20">
         <div className="w-14 h-14 md:w-20 md:h-20 rounded-full bg-gradient-to-br from-red-500 to-red-700 flex items-center justify-center text-white shadow-lg ring-2 ring-white">
@@ -1546,7 +1497,6 @@ src={activeMainImage}
       </div>
     );
   }
-
 // 🥉 PRIORITY 3: COUPON AVAILABLE (NOT APPLIED)
 if (hasCouponAvailable) {
   return (
@@ -1564,13 +1514,8 @@ if (hasCouponAvailable) {
     </div>
   );
 }
-
-
   return null;
 })()}
-
-
-
                     {product.images.length > 1 && (
                       <>
                         <Button size="icon" variant="secondary" className="absolute left-3 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 
@@ -1583,12 +1528,9 @@ bg-white/80 hover:bg-white shadow-md rounded-full p-2 backdrop-blur-sm transitio
                         </Button>
                       </>
                     )}
-
                     <Button size="sm" variant="secondary" className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition text-xs" onClick={() => setShowImageModal(true)}>
                       Fullscreen
-                    </Button>
-
-                  
+                    </Button>                 
                   </div>
                </div>
 <div className="relative w-full mt-4 px-8 group">
@@ -1600,14 +1542,12 @@ bg-white/80 hover:bg-white shadow-md rounded-full p-2 backdrop-blur-sm transitio
       <ChevronLeft className="h-5 w-5" />
     </button>
   )}
-
   {/* THUMBNAILS */}
  <div className="flex gap-3 overflow-visible px-1 py-2">
     {sortedImages
       .slice(thumbStart, thumbStart + THUMB_VISIBLE)
       .map((img, idx) => {
         const realIndex = thumbStart + idx;
-
         return (
           <div
             key={img.id}
@@ -1631,28 +1571,21 @@ bg-white/80 hover:bg-white shadow-md rounded-full p-2 backdrop-blur-sm transitio
         );
       })}
   </div>
-
   {/* RIGHT ARROW */}
   {thumbStart + THUMB_VISIBLE < sortedImages.length && (
     <button
       onClick={handleThumbNext}
-      className="absolute right-1 top-1/2 -translate-y-1/2 z-10 bg-white shadow-md rounded-full p-1.5 opacity-0 group-hover:opacity-100  transition-opacity duration-200">
-            
+      className="absolute right-1 top-1/2 -translate-y-1/2 z-10 bg-white shadow-md rounded-full p-1.5 opacity-0 group-hover:opacity-100  transition-opacity duration-200">           
       <ChevronRight className="h-5 w-5" />
     </button>
   )}
 </div>
-
-
             </div>
           </div>
-
           {/* RIGHT: Product Info */}
           <div>
-
   {/* TITLE + BADGES (same line on desktop, stacked on mobile) */}
   <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-0">
-
     {/* PRODUCT NAME */}
  <h1 className="text-2xl font-bold">
   {selectedVariant
@@ -1664,17 +1597,13 @@ bg-white/80 hover:bg-white shadow-md rounded-full p-2 backdrop-blur-sm transitio
     : product.name}
 </h1>
      </div>
-
  <div className="flex flex-wrap items-center gap-3 mb-2">
-
   {/* Brand */}
   {product.brandName && (
     <p className="text-sm text-gray-600">
       by <span className="font-semibold text-[#445D41]">{product.brandName}</span>
     </p>
   )}
-
-
 {/* Rating + Reviews */}
 <div className="flex items-center gap-2">
   <div className="flex items-center gap-1">
@@ -1689,11 +1618,9 @@ bg-white/80 hover:bg-white shadow-md rounded-full p-2 backdrop-blur-sm transitio
       />
     ))}
   </div>
-
   <span className="text-sm font-medium">
     {(product.averageRating ?? 0).toFixed(1)}
   </span>
-
   <div
     className="relative group inline-block"
     onClick={() => {
@@ -1704,7 +1631,6 @@ bg-white/80 hover:bg-white shadow-md rounded-full p-2 backdrop-blur-sm transitio
     <span className="text-sm text-[#445D41] cursor-pointer">
       ({product.reviewCount || 0} reviews)
     </span>
-
     {/* ✅ HOVER TOOLTIP */}
     <div
       className="absolute left-0 top-full z-50 hidden group-hover:block w-80 bg-white border rounded-xl shadow-lg p-3"
@@ -1738,11 +1664,9 @@ bg-white/80 hover:bg-white shadow-md rounded-full p-2 backdrop-blur-sm transitio
                   {"☆".repeat(5 - r.rating)}
                 </span>
               </div>
-
               <p className="text-xs font-semibold text-gray-800">
                 {r.customerName}
               </p>
-
               <p className="text-xs text-gray-600 line-clamp-2">
                 {r.comment}
               </p>
@@ -1766,7 +1690,6 @@ bg-white/80 hover:bg-white shadow-md rounded-full p-2 backdrop-blur-sm transitio
     </div>
   </div>
 </div>
-
   {/* BADGES WRAP SAFELY BELOW ON MOBILE */}
   <div className="flex flex-wrap items-center gap-2 sm:ml-3">
     {/* VAT Exempt */}
@@ -1799,7 +1722,6 @@ bg-white/80 hover:bg-white shadow-md rounded-full p-2 backdrop-blur-sm transitio
           {nextDayTimeLeft}
         </p>
       </div>
-
       {/* LINE */}
       <div className="mx-2 h-px flex-1 bg-gradient-to-r from-emerald-200 via-emerald-300 to-emerald-200" />
       {/* SHIPS */}
@@ -1814,7 +1736,6 @@ bg-white/80 hover:bg-white shadow-md rounded-full p-2 backdrop-blur-sm transitio
   Today • {shipDate}
 </p>
       </div>
-
       {/* LINE */}
       <div className="mx-2 h-px flex-1 bg-gradient-to-r from-emerald-200 via-emerald-300 to-emerald-200" />
 
@@ -1904,7 +1825,6 @@ bg-white/80 hover:bg-white shadow-md rounded-full p-2 backdrop-blur-sm transitio
         </div>
       </div>
     )}
-
     {/* OPTION 3 */}
     {product.variants?.some(v => v.option3Name && v.option3Value) && (
       <div className="flex flex-wrap items-center gap-3 mb-4">
@@ -1943,15 +1863,12 @@ bg-white/80 hover:bg-white shadow-md rounded-full p-2 backdrop-blur-sm transitio
     )}
   </>
 )}
-
-
             {/* Price Card */}
             <Card className="mb-4">
               <CardContent className="p-4">
                 {/* PURCHASE MODE CARDS SIDE BY SIDE */}
 {product.isRecurring ? (
   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-0">
-
     {/* LEFT NORMAL PURCHASE CARD */}
     <div
   id="normal-purchase-card"
@@ -1982,7 +1899,6 @@ bg-white/80 hover:bg-white shadow-md rounded-full p-2 backdrop-blur-sm transitio
   <span className="text-xl font-bold text-[#445D41]">
     £{(finalPrice * normalQty).toFixed(2)}
   </span>
-
   {/* CUT PRICE */}
   {discountAmount > 0 && (
     <span className="text-base text-gray-400 line-through">
@@ -1990,15 +1906,11 @@ bg-white/80 hover:bg-white shadow-md rounded-full p-2 backdrop-blur-sm transitio
     </span>
   )}
 </div>
-
-
 {vatRate !== null && (
-  <span className="text-sm text-green-700 bg-green-100 px-2 py-0.5 rounded font-semibold">
+  <span className="text-sm text-green-700 bg-green-100 px-1 py-0.5 rounded font-semibold">
     {vatRate}% VAT
   </span>
 )}
-
-
                 </div>
 {/* 🎁 LOYALTY POINTS – BADGE STYLE */}
 {loyaltyPoints && (
@@ -2007,8 +1919,6 @@ bg-white/80 hover:bg-white shadow-md rounded-full p-2 backdrop-blur-sm transitio
     Earn {loyaltyPoints} points
   </div>
 )}
-
-
             {/* Quantity */}
    <div className="mb-2">
   {/* Quantity + Offers row */}
@@ -2019,6 +1929,9 @@ bg-white/80 hover:bg-white shadow-md rounded-full p-2 backdrop-blur-sm transitio
      maxStock={groupedMaxQty}   // 🔥 HERE
       stockError={normalStockError}
       setStockError={setNormalStockError}
+      minQty={product.orderMinimumQuantity ?? 1}
+  maxQty={product.orderMaximumQuantity}
+  allowedQuantities={product.allowedQuantities}
     />
 
    {product.assignedDiscounts?.some(d => d.requiresCouponCode) && (
@@ -2042,13 +1955,11 @@ bg-white/80 hover:bg-white shadow-md rounded-full p-2 backdrop-blur-sm transitio
     {appliedCoupon ? "Click to remove coupon" : "Click to apply coupon"}
   </button>
 )}
-
   </div>
-
   {/* Stock badge stays BELOW (as in your screenshot) */}
 {stockDisplay.show && (
   <div
-    className={`mt-0 w-fit flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold ${
+    className={`mt-1 w-fit flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold ${
       stockDisplay.type === "out"
         ? "bg-red-100 text-red-700"
         : stockDisplay.type === "low"
@@ -2065,16 +1976,11 @@ bg-white/80 hover:bg-white shadow-md rounded-full p-2 backdrop-blur-sm transitio
           : "bg-green-600"
       }`}
     ></span>
-
     {stockDisplay.text}
   </div>
 )}
-
-</div>
-
-               
+</div>        
   <div className="flex items-center justify-center mt-2 space-x-3">
-
   {/* ADD TO CART */}
   <div className="flex-1">
     {purchaseType === "one" && backorderState.canBuy && (
@@ -2091,10 +1997,8 @@ bg-white/80 hover:bg-white shadow-md rounded-full p-2 backdrop-blur-sm transitio
   <ShoppingCart className="h-5 w-5" />
   Add to Cart
 </Button>
-
     )}
   </div>
-
   {/* BUY NOW */}
   <div className="flex-1">
     {purchaseType === "one" && backorderState.canBuy && (
@@ -2111,7 +2015,6 @@ bg-white/80 hover:bg-white shadow-md rounded-full p-2 backdrop-blur-sm transitio
 </Button>
     )}
   </div>
-
   {/* OUT OF STOCK (NO BACKORDER, NO NOTIFY) */}
   {purchaseType === "one" &&
     !backorderState.canBuy &&
@@ -2123,7 +2026,6 @@ bg-white/80 hover:bg-white shadow-md rounded-full p-2 backdrop-blur-sm transitio
         Out of Stock
       </Button>
     )}
-
   {/* NOTIFY MODE */}
   {purchaseType === "one" && backorderState.showNotify && (
     <Button
@@ -2134,18 +2036,11 @@ bg-white/80 hover:bg-white shadow-md rounded-full p-2 backdrop-blur-sm transitio
       Notify me when available
     </Button>
   )}
-
 </div>
-
-  
               </CardContent>
             </Card>
-
           </div>
-
     {/* RIGHT SUBSCRIPTION CARD */}
-  
-
     <div
   id="subscription-card"
    onClick={() => setPurchaseType("subscription")}
@@ -2167,9 +2062,7 @@ bg-white/80 hover:bg-white shadow-md rounded-full p-2 backdrop-blur-sm transitio
   vatRate={vatRate}   // 🟢 Add this
   backorderState={backorderState}   // ⭐ REQUIRED
 />
-
     </div>
-
   </div>
 ) : (
   <>
@@ -2180,21 +2073,18 @@ bg-white/80 hover:bg-white shadow-md rounded-full p-2 backdrop-blur-sm transitio
       <span className="text-3xl font-bold text-[#445D41]">
         £{(finalPrice * normalQty).toFixed(2)}
       </span>
-
       {/* CUT PRICE */}
       {discountAmount > 0 && (
         <span className="text-lg text-gray-400 line-through">
-          £{(selectedVariant?.price ?? product.price).toFixed(2)}
+        £{resolveBasePrice(product, selectedVariant).toFixed(2)}
         </span>
       )}
-
       {/* VAT */}
       {vatRate !== null && (
         <span className="text-xs text-green-700 bg-green-50 border border-green-200 px-2 py-0.5 rounded font-semibold">
           {vatRate}% VAT
         </span>
       )}
-
       {/* 🎁 LOYALTY POINTS – INLINE */}
      {loyaltyPoints && (
   <span className="inline-flex items-center gap-1.5 text-xs text-green-700 bg-green-50 border border-green-200 px-2 py-0.5 rounded-md">
@@ -2202,91 +2092,113 @@ bg-white/80 hover:bg-white shadow-md rounded-full p-2 backdrop-blur-sm transitio
     Earn {loyaltyPoints} points
   </span>
 )}
-
     </div>
-
             {/* Quantity */}
                 <div className="mb-4">
                   <label className="block text-sm font-semibold mb-2">Quantity:</label>
                   <div className="flex flex-wrap items-center gap-3">
-                   <div className="flex items-center border-2 border-gray-300 rounded-lg">
-  
-  {/* - Button */}
-  <Button
-    variant="ghost"
-    size="sm"
-    onClick={() => setNormalQty(Math.max(1, normalQty - 1))}
-    disabled={normalQty <= 1}
+                 {hasAllowedQuantities ? (
+  <select
+    value={normalQty}
+    onChange={(e) => setNormalQty(Number(e.target.value))}
+    className="bg-transparent border-2 border-gray-300 rounded-lg px-3 py-1.5 font-semibold"
   >
+    {allowedQtyArray.map(q => (
+      <option key={q} value={q}>
+        {q}
+      </option>
+    ))}
+  </select>
+) : (
+  <div className="flex items-center border-2 border-gray-300 rounded-lg">
+
+  {/* - Button */}
+<Button
+  variant="ghost"
+  size="sm"
+  onClick={() => {
+    const minQty = product.orderMinimumQuantity ?? 1;
+    if (normalQty <= minQty) {
+      toast.error(`Minimum order quantity is ${minQty}`);
+      return;
+    }
+    setNormalQty(normalQty - 1);
+  }}
+>
     <Minus className="h-4 w-4" />
   </Button>
-
   {/* Quantity Input */}
  <input
   type="number"
   className="w-14 text-center font-semibold outline-none border-l border-r border-gray-300"
   value={normalQty === 0 ? "" : normalQty}
-  onChange={(e) => {
-    let val = e.target.value;
-
-    // Allow only digits
-    if (!/^\d*$/.test(val)) return;
-
-    if (val === "") {
-      setNormalQty(0);
-      return;
-    }
-
-    let num = parseInt(val, 10);
-    const maxStock = selectedVariant?.stockQuantity ?? product.stockQuantity;
-// Prevent exceeding stock while typing
-if (num > maxStock) {
-  num = maxStock;
-  setNormalStockError(`Only ${maxStock} items available`);
-} else {
-  setNormalStockError(null);
-}
-
-    // Prevent exceeding stock while typing
-  
-    setNormalQty(num);
-  }}
+ onChange={(e) => {
+  let val = e.target.value;
+  if (!/^\d*$/.test(val)) return;
+  if (val === "") {
+    setNormalQty(0);
+    return;
+  }
+  let num = parseInt(val, 10);
+  const minQty = product.orderMinimumQuantity ?? 1;
+  const maxStock =
+    selectedVariant?.stockQuantity ?? product.stockQuantity;
+  const maxQty =
+    product.orderMaximumQuantity ?? maxStock;
+  const limit = Math.min(maxQty, maxStock);
+  if (num < minQty) {
+    toast.error(`Minimum order quantity is ${minQty}`);
+    setNormalQty(minQty);
+    return;
+  }
+  if (num > limit) {
+    toast.error(`Maximum order quantity is ${limit}`);
+    setNormalQty(limit);
+    return;
+  }
+  setNormalQty(num);
+}}
   onBlur={() => {
-    const maxStock = selectedVariant?.stockQuantity ?? product.stockQuantity;
-    let val = normalQty;
-
-    if (!val || val < 1) val = 1;
-    if (val > maxStock) val = maxStock;
-
-    setNormalQty(val);
-  }}
+  const minQty = product.orderMinimumQuantity ?? 1;
+  const maxStock =
+    selectedVariant?.stockQuantity ?? product.stockQuantity;
+  const maxQty =
+    product.orderMaximumQuantity ?? maxStock;
+  const limit = Math.min(maxQty, maxStock);
+  let val = normalQty;
+  if (!val || val < minQty) val = minQty;
+  if (val > limit) val = limit;
+  setNormalQty(val);
+}}
   inputMode="numeric"
   min={1}
   max={selectedVariant?.stockQuantity ?? product.stockQuantity}
 />
-
-
-
   {/* + Button */}
-  <Button
-    variant="ghost"
-    size="sm"
-    onClick={() => {
-      const maxStock =
-        selectedVariant?.stockQuantity ?? product.stockQuantity;
-      setNormalQty(Math.min(normalQty + 1, maxStock));
-    }}
-    disabled={normalQty >= (selectedVariant?.stockQuantity ?? product.stockQuantity)}
-  >
+ <Button
+  variant="ghost"
+  size="sm"
+  onClick={() => {
+    const maxStock =
+      selectedVariant?.stockQuantity ?? product.stockQuantity;
+    const maxQty =
+      product.orderMaximumQuantity ?? maxStock;
+    const limit = Math.min(maxQty, maxStock);
+    if (normalQty >= limit) {
+      toast.error(`Maximum order quantity is ${limit}`);
+      return;
+    }
+    setNormalQty(normalQty + 1);
+  }}
+>
     <Plus className="h-4 w-4" />
   </Button>
- 
+  </div>
+)}
 
-</div>
  {normalStockError && (
   <p className="text-red-600 text-xs mt-1">{normalStockError}</p>
 )}
-
                     {/* ⭐ PREMIUM Stock Badge */}
    {stockDisplay.show && (
   <div
@@ -2307,7 +2219,6 @@ if (num > maxStock) {
           : "bg-green-600"
       }`}
     ></span>
-
     {stockDisplay.text}
   </div>
 )}
@@ -2330,16 +2241,9 @@ if (num > maxStock) {
     {appliedCoupon ? "Click to remove coupon" : "Click to apply coupon"}
   </button>
 )}
-
-
                   </div>
-                </div>
-
-
-
-               
+                </div>              
 <div className="flex items-center justify-center mt-2 space-x-3">
-
   {/* ADD TO CART */}
   <div className="flex-1">
     {purchaseType === "one" && backorderState.canBuy && (
@@ -2355,7 +2259,6 @@ if (num > maxStock) {
 </Button>
     )}
   </div>
-
   {/* BUY NOW */}
   <div className="flex-1">
     {purchaseType === "one" && backorderState.canBuy && (
@@ -2372,7 +2275,6 @@ if (num > maxStock) {
 </Button>
     )}
   </div>
-
   {/* OUT OF STOCK (NO BACKORDER, NO NOTIFY) */}
   {purchaseType === "one" &&
     !backorderState.canBuy &&
@@ -2384,7 +2286,6 @@ if (num > maxStock) {
         Out of Stock
       </Button>
     )}
-
   {/* NOTIFY MODE */}
  {purchaseType === "one" && backorderState.showNotify && (
   <div className="w-full mt-2">
@@ -2398,17 +2299,11 @@ if (num > maxStock) {
     </Button>
   </div>
 )}
-
-
-
 </div>
-
-
       </CardContent>
     </Card>
   </>
 )}
-
 {/* 🔥 GROUPED PRODUCTS + BUNDLE OFFER (SINGLE BOX) */}
 {purchaseType === "one" && isGroupedProduct && product.groupedProducts && (
   <div className="mb-1 mt-3 border border-green-2 bg-white rounded-xl p-4">
@@ -2422,16 +2317,12 @@ if (num > maxStock) {
   }
   onChange={(e) => setGroupEnabled(e.target.checked)}
 />
-
-
   <span className="text-sm font-semibold text-gray-800 flex items-center gap-1">
     Include required products
     {product.automaticallyAddProducts && (
       <span className="text-xs text-gray-500">(required)</span>
     )}
   </span>
- 
-
 </div>
  {hasOutOfStockGroupedProduct && (
   <p className="text-xs text-red-600 mb-1">
@@ -2453,7 +2344,6 @@ if (num > maxStock) {
               {product.groupBundleSavingsMessage}
             </p>
           )}
-
           {product.totalSavings && (
             <p className="text-xs text-green-700 mt-1">
               You save £{product.totalSavings.toFixed(2)} on this bundle
@@ -2461,21 +2351,15 @@ if (num > maxStock) {
           )}
         </div>
       )}
-
-
-
-
     {/* TITLE */}
     <p className="text-sm font-semibold text-yellow-800 mb-3">
       This product must be purchased with:
     </p>
-
     {/* GROUPED ITEMS */}
     <div className="space-y-3">
       {product.groupedProducts.map(gp => {
         const state = groupedSelections[gp.productId];
         if (!state) return null;
-
         return (
           <div
             key={gp.productId}
@@ -2486,7 +2370,6 @@ if (num > maxStock) {
               {/* PRODUCT IMAGE */}
 <div className="w-14 h-16 flex-shrink-0 rounded-lg border bg-white overflow-hidden">
   <Link href={`/products/${gp.slug}`}>
-
   <img
     src={
       gp.mainImageUrl
@@ -2501,50 +2384,39 @@ if (num > maxStock) {
   />
   </Link>
 </div>
-
               <div>
                <Link href={`/products/${gp.slug}`}>
                 <p className="text-sm font-semibold">{gp.name}</p>
                 </Link>
-
                 <p className="text-sm font-semibold text-gray-900">
                   £{((gp.bundlePrice ?? gp.price) * normalQty).toFixed(2)}
                 </p>
-
                 {gp.hasBundleDiscount && (
                   <>
                     <p className="text-xs text-gray-400 line-through">
   £{(gp.price * normalQty).toFixed(2)}
 </p>
-
-
                    {typeof gp.individualSavings === "number" && (
   <p className="text-xs text-green-700">
   You save £{(gp.individualSavings * normalQty).toFixed(2)}
 </p>
 
 )}
-
                   </>
                 )}
               </div>
             </div>
-
             {/* QUANTITY */}
     <div className="flex items-center justify-center border rounded-lg px-3 py-1.5 bg-gray-50 min-w-[110px]">
   <span className="text-sm font-semibold text-gray-800 whitespace-nowrap">
     Quantity: {normalQty}
   </span>
 </div>
-
           </div>
         );
-      })}
-    
-
+      })} 
     </div>
-
-    {/* 🔥 BUNDLE TOTAL SUMMARY */}
+  {/* 🔥 BUNDLE TOTAL SUMMARY */}
    <div className="mt-4 pt-3 border-t space-y-1">
   <div className="flex justify-between text-sm text-gray-600">
     <span>Individual total</span>
@@ -2560,16 +2432,9 @@ if (num > maxStock) {
     <span>Bundle price</span>
     <span>£{bundleTotalPrice.toFixed(2)}</span>
   </div>
-
- 
 </div>
-
   </div>
 )}
-
-
-
-
               {/* Short description */}
 {product.shortDescription && (
   <div className="mb-3 mt-3 p-4 bg-white rounded-lg">
@@ -2589,7 +2454,6 @@ if (num > maxStock) {
       <p className="text-xs text-gray-600">Over £35</p>
     </CardContent>
   </Card>
-
   {/* 🔄 RETURN POLICY (BACKEND DRIVEN) */}
   <Card>
     <CardContent className="p-3 text-center">
@@ -2598,7 +2462,6 @@ if (num > maxStock) {
           product.notReturnable ? "text-red-700" : "text-[#445D41]"
         }`}
       />
-
       <p
         className={`text-xs font-semibold ${
           product.notReturnable ? "text-red-700" : ""
@@ -2606,7 +2469,6 @@ if (num > maxStock) {
       >
         {product.notReturnable ? "Non-Returnable" : "Easy Returns"}
       </p>
-
       <p className="text-xs text-gray-600">
         {product.notReturnable
           ? "This item cannot be returned"
@@ -2614,7 +2476,6 @@ if (num > maxStock) {
       </p>
     </CardContent>
   </Card>
-
   {/* Secure Payment */}
   <Card>
     <CardContent className="p-3 text-center">
@@ -2624,7 +2485,6 @@ if (num > maxStock) {
     </CardContent>
   </Card>
 </div>
-
           </div>
         </div>
  {/* RELATED PRODUCTS */}
@@ -2643,7 +2503,6 @@ if (num > maxStock) {
     >
       <ChevronLeft className="w-8 h-8 text-gray-700" />
     </button>
-
     {/* RIGHT CHEVRON */}
     <button
       ref={relatedNextRef}
@@ -2651,7 +2510,6 @@ if (num > maxStock) {
     >
       <ChevronRight className="w-8 h-8 text-gray-700" />
     </button>
-
     <Swiper
       modules={[Autoplay, Navigation, Pagination]}
       onBeforeInit={(swiper) => {
@@ -2694,8 +2552,6 @@ if (num > maxStock) {
       Frequently Bought Together
     </h2>
   </div>
-
-
   <div className="relative">
     {/* LEFT CHEVRON */}
     <button
@@ -2704,7 +2560,6 @@ if (num > maxStock) {
     >
       <ChevronLeft className="w-8 h-8 text-gray-700" />
     </button>
-
     {/* RIGHT CHEVRON */}
     <button
       ref={crossNextRef}
@@ -2712,7 +2567,6 @@ if (num > maxStock) {
     >
       <ChevronRight className="w-8 h-8 text-gray-700" />
     </button>
-
     <Swiper
       modules={[Autoplay, Navigation, Pagination]}
       onBeforeInit={(swiper) => {
@@ -2736,8 +2590,7 @@ if (num > maxStock) {
           1024: { slidesPerView: 4, spaceBetween: 22 },
           1280: { slidesPerView: 5, spaceBetween: 24 },
       }}
-      className="pb-10 "
-    >
+      className="pb-10 " >
       {crossSellProducts.map((crossProduct) => (
         <SwiperSlide key={crossProduct.id}>
           <CrossSellProductCard
@@ -2755,7 +2608,6 @@ if (num > maxStock) {
   getImageUrl={getImageUrl}
   currentProductId={product.id}
 />
-
         {/* TABS, RELATED PRODUCTS and rest remain unchanged */}
         <Card className="mb-0 mt-5">
           <CardContent className="p-0">
@@ -2763,21 +2615,17 @@ if (num > maxStock) {
               <button onClick={() => setActiveTab("description")} className={`px-4 sm:px-6 py-3 text-sm sm:text-base font-semibold whitespace-nowrap transition ${activeTab === "description" ? "border-b-2 border-[#445D41] text-[#445D41]" : "text-gray-600 hover:text-[#445D41]"}`}>
                 Product Description
               </button>
-
               <button onClick={() => setActiveTab("specifications")} className={`px-4 sm:px-6 py-3 text-sm sm:text-base font-semibold whitespace-nowrap transition ${activeTab === "specifications" ? "border-b-2 border-[#445D41] text-[#445D41]" : "text-gray-600 hover:text-[#445D41]"}`}>
                 Specifications
               </button>
-
               <button onClick={() => setActiveTab("delivery")} className={`px-4 sm:px-6 py-3 text-sm sm:text-base font-semibold whitespace-nowrap transition ${activeTab === "delivery" ? "border-b-2 border-[#445D41] text-[#445D41]" : "text-gray-600 hover:text-[#445D41]"}`}>
                 Delivery
               </button>
             </div>
-
             <div className="p-4 sm:p-6">
               {activeTab === "description" && (
                 <div className="prose prose-sm max-w-none text-gray-700" dangerouslySetInnerHTML={{ __html: product.description }} />
               )}
-
              {activeTab === "specifications" && (
   <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
     {(product.attributes && product.attributes.length > 0 ? (
@@ -2793,7 +2641,6 @@ if (num > maxStock) {
             <span className="text-sm font-semibold text-gray-700">
               {attr.displayName || attr.name}
             </span>
-
             <span className="text-sm text-gray-600 text-right max-w-[60%]">
               {attr.value}
             </span>
@@ -2807,7 +2654,6 @@ if (num > maxStock) {
             {product.weight} {product.weightUnit}
           </span>
         </div>
-
         <div className="flex justify-between px-4 py-3">
           <span className="text-sm font-semibold text-gray-700">SKU</span>
           <span className="text-sm text-gray-600">{product.sku}</span>
@@ -2816,7 +2662,6 @@ if (num > maxStock) {
     ))}
   </div>
 )}
-
               {activeTab === "delivery" && (
                 <div className="space-y-6">
                   <div className="border-l-4 border-[#445D41] pl-4">
@@ -2837,14 +2682,12 @@ if (num > maxStock) {
             </div>
           </CardContent>
         </Card>
-
        {product.allowCustomerReviews && (
  <RatingReviews
   productId={product.id}
   allowCustomerReviews={product.allowCustomerReviews}
   highlightReviewId={highlightReviewId}
 />
-
 )}
 {showPharmaModal && (
   <PharmaQuestionsModal
@@ -2856,28 +2699,21 @@ if (num > maxStock) {
     }}
  onSuccess={() => {
   pharmaApprovedRef.current = true; // 🔥 VERY IMPORTANT
-
   setShowPharmaModal(false);
-
   if (pendingAction === "cart") {
     handleAddToCart();
   }
-
   if (pendingAction === "buy") {
     handleBuyNow();
   }
-
   setPendingAction(null);
-
   // 🔄 reset for next product / next flow
   setTimeout(() => {
     pharmaApprovedRef.current = false;
   }, 0);
 }}
-
   />
 )}
-
 {showNotifyModal && (
   <BackInStockModal
    open={showNotifyModal}
@@ -2901,7 +2737,6 @@ if (num > maxStock) {
 {showImageModal && (
   <ProductImageModal
     images={sortedImages}
-
     activeIndex={selectedImage}
     onClose={() => setShowImageModal(false)}
     onPrev={handlePrevImage}

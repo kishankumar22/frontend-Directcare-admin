@@ -185,9 +185,9 @@ const flattenedProducts = useMemo(() => {
 
         <div className="flex gap-8">
           {/* LEFT FILTERS – CATEGORY PAGE UI */}
-          <aside className="hidden lg:block w-64 flex-shrink-0">
-            <div className="sticky top-24">
-              <Card className="shadow-sm">
+          <aside className=" hidden lg:block w-64 flex-shrink-0 sticky top-24 h-[calc(100vh-96px)] overflow-y-auto overscroll-contain pr-2 hide-scrollbar " >
+  <Card className="shadow-sm">
+
                 <CardContent className="p-6">
                   {/* Header */}
                   <div className="flex items-center justify-between pb-4 border-b mb-6">
@@ -217,7 +217,7 @@ const flattenedProducts = useMemo(() => {
       {categories.map((cat) => (
         <label
           key={cat.id}
-          className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 p-2 rounded-md transition"
+          className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 p-1 rounded-md transition"
         >
           <input
             type="checkbox"
@@ -251,7 +251,7 @@ const flattenedProducts = useMemo(() => {
                       {brands.map((brand) => (
                         <label
                           key={brand.id}
-                          className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 p-2 rounded-md transition"
+                          className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 p-1 rounded-md transition"
                         >
                           <input
                             type="checkbox"
@@ -324,7 +324,7 @@ const flattenedProducts = useMemo(() => {
                   </div>
                 </CardContent>
               </Card>
-            </div>
+           
           </aside>
 
           {/* PRODUCT GRID */}

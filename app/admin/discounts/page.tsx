@@ -1,36 +1,12 @@
 "use client";
 import { useState, useEffect, useMemo } from "react";
-import {
-  Plus,
-  Edit,
-  Trash2,
-  Search,
-  Percent,
-  Eye,
-  Filter,
-  History,
-  FilterX,
-  ChevronLeft,
-  ChevronRight,
-  ChevronsLeft,
-  ChevronsRight,
-  AlertCircle,
-  Calendar,
-  Gift,
-  Target,
-  Clock,
-  TrendingUp,
-  Users,
-  Infinity as InfinityIcon,
-  CalendarRange,
-  ChevronDown,
-  Package,
-} from "lucide-react";
+import { Plus, Edit, Trash2, Search, Percent, Eye, Filter, History, FilterX, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, AlertCircle, Calendar, Gift, Target, Clock, TrendingUp, Users, Infinity as InfinityIcon, CalendarRange, ChevronDown, Package, RotateCcw, } from "lucide-react";
 
 
 import { useToast } from "@/app/admin/_component/CustomToast";
 
 import {
+  CreateDiscountDto,
   Discount,
   DiscountLimitationType,
   discountsService,
@@ -41,6 +17,7 @@ import { Product, productsService } from "@/lib/services";
 import { DiscountUsageHistory } from "@/lib/services/discounts";
 import DiscountModals from "./DiscountModals";
 import ConfirmDialog from "@/app/admin/_component/ConfirmDialog";
+import { useDebounce } from "../hooks/useDebounce";
 
 
 // ========== INTERFACES ==========
@@ -278,6 +255,12 @@ export default function DiscountsPage() {
   const [dateRangeFilter, setDateRangeFilter] = useState({ startDate: "", endDate: "" });
   const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; name: string } | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+const [deletedFilter, setDeletedFilter] = useState<"notDeleted" | "deleted">("notDeleted");
+const [statusConfirm, setStatusConfirm] = useState<Discount | null>(null);
+const [restoreConfirm, setRestoreConfirm] = useState<Discount | null>(null);
+const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
+const [isRestoring, setIsRestoring] = useState(false);
+const debouncedSearch = useDebounce(searchTerm, 400);
 
   const [formData, setFormData] = useState<FormData>({
     name: "",
@@ -336,19 +319,87 @@ export default function DiscountsPage() {
   };
 
   // Fetch discounts
-  const fetchDiscounts = async () => {
-    setLoading(true);
-    try {
-      const response = await discountsService.getAll({ params: { includeInactive: true } });
-      const discountsData = response.data?.data || [];
-      setDiscounts(discountsData);
-    } catch (error) {
-      console.error("Error fetching discounts:", error);
-      setDiscounts([]);
-    } finally {
-      setLoading(false);
-    }
-  };
+const fetchDiscounts = async () => {
+  setLoading(true);
+  try {
+    const response = await discountsService.getAll({
+      params: {
+        includeInactive: true, // always fetch both active/inactive
+        isDeleted: deletedFilter === "deleted", // backend control
+      },
+    });
+
+    setDiscounts(response.data?.data || []);
+  } catch (error) {
+    console.error("Error fetching discounts:", error);
+    setDiscounts([]);
+  } finally {
+    setLoading(false);
+  }
+};
+useEffect(() => {
+  fetchDiscounts();
+}, [deletedFilter]);
+
+
+useEffect(() => {
+  setCurrentPage(1);
+}, [debouncedSearch, activeFilter, typeFilter, deletedFilter]);
+
+
+const handleStatusToggle = async () => {
+  if (!statusConfirm) return;
+
+  setIsUpdatingStatus(true);
+
+  try {
+    const payload = {
+      ...statusConfirm,
+      id: statusConfirm.id, // ✅ MUST match URL id
+      isActive: !statusConfirm.isActive,
+
+      // null → undefined fix
+      couponCode: statusConfirm.couponCode ?? undefined,
+      maximumDiscountAmount: statusConfirm.maximumDiscountAmount ?? undefined,
+      limitationTimes: statusConfirm.limitationTimes ?? undefined,
+      maximumDiscountedQuantity:
+        statusConfirm.maximumDiscountedQuantity ?? undefined,
+    };
+
+    await discountsService.update(statusConfirm.id, payload);
+
+    toast.success("Status updated successfully!");
+    await fetchDiscounts();
+
+  } catch (error: any) {
+    toast.error(error?.response?.data?.message || "Failed to update status");
+  } finally {
+    setIsUpdatingStatus(false);
+    setStatusConfirm(null);
+  }
+};
+
+
+
+
+
+const handleRestore = async () => {
+  if (!restoreConfirm) return;
+
+  setIsRestoring(true);
+  try {
+    await discountsService.restore(restoreConfirm.id);
+
+    toast.success("Discount restored successfully");
+    await fetchDiscounts();
+  } catch (error: any) {
+    toast.error(error?.response?.data?.message || "Failed to restore discount");
+  } finally {
+    setIsRestoring(false);
+    setRestoreConfirm(null);
+  }
+};
+
 
   // Handle discount type change
   const handleDiscountTypeChange = (newType: DiscountType) => {
@@ -548,15 +599,20 @@ export default function DiscountsPage() {
     }
   };
 
-  // Utility functions
-  const clearFilters = () => {
-    setActiveFilter("all");
-    setTypeFilter("all");
-    setSearchTerm("");
-    setCurrentPage(1);
-  };
+const clearFilters = () => {
+  setActiveFilter("all");
+  setTypeFilter("all");
+  setDeletedFilter("notDeleted"); // ✅ reset deleted filter
+  setSearchTerm("");
+  setCurrentPage(1);
+};
 
-  const hasActiveFilters = activeFilter !== "all" || typeFilter !== "all" || searchTerm.trim() !== "";
+const hasActiveFilters =
+  activeFilter !== "all" ||
+  typeFilter !== "all" ||
+  deletedFilter !== "notDeleted" ||   // ✅ ADD THIS
+  searchTerm.trim() !== "";
+
 
   const getDiscountTypeLabel = (type: DiscountType): string => {
     const labels: Record<DiscountType, string> = {
@@ -588,6 +644,25 @@ export default function DiscountsPage() {
     }
     return `£${discount.discountAmount}`;
   };
+const getDiscountStatus = (discount: Discount) => {
+  const now = new Date();
+  const start = new Date(discount.startDate);
+  const end = new Date(discount.endDate);
+
+  if (!discount.isActive) {
+    return { label: "Inactive", color: "red" };
+  }
+
+  if (now > end) {
+    return { label: "Expired", color: "gray" };
+  }
+
+  if (now < start) {
+    return { label: "Scheduled", color: "orange" };
+  }
+
+  return { label: "Active", color: "green" };
+};
 
   const isDiscountActive = (discount: Discount): boolean => {
     if (!discount.isActive) return false;
@@ -598,22 +673,25 @@ export default function DiscountsPage() {
   };
 
   // Filter data
-  const filteredDiscounts = discounts.filter((discount) => {
-    const matchesSearch =
-      discount.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      discount.adminComment.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (discount.couponCode &&
-        discount.couponCode.toLowerCase().includes(searchTerm.toLowerCase()));
+const filteredDiscounts = discounts.filter((discount) => {
+  const search = debouncedSearch.toLowerCase();
 
-    const matchesActive =
-      activeFilter === "all" ||
-      (activeFilter === "active" && discount.isActive) ||
-      (activeFilter === "inactive" && !discount.isActive);
+  const matchesSearch =
+    (discount.name ?? "").toLowerCase().includes(search) ||
+    (discount.adminComment ?? "").toLowerCase().includes(search) ||
+    (discount.couponCode ?? "").toLowerCase().includes(search);
 
-    const matchesType = typeFilter === "all" || discount.discountType === typeFilter;
+  const matchesActive =
+    activeFilter === "all" ||
+    (activeFilter === "active" && discount.isActive) ||
+    (activeFilter === "inactive" && !discount.isActive);
 
-    return matchesSearch && matchesActive && matchesType;
-  });
+  const matchesType =
+    typeFilter === "all" || discount.discountType === typeFilter;
+
+  return matchesSearch && matchesActive && matchesType;
+});
+
 
   // Pagination
   const totalItems = filteredDiscounts.length;
@@ -784,16 +862,25 @@ export default function DiscountsPage() {
       {/* Search and filters */}
       <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-2xl p-2">
         <div className="flex flex-wrap items-center gap-4">
-          <div className="relative flex-1 min-w-80">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-500" />
-            <input
-              type="search"
-              placeholder="Search discounts, comments, coupon codes..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-11 pr-4 py-3 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
-            />
-          </div>
+      <div className="relative flex-1 min-w-80">
+  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-500" />
+
+  <input
+    type="search"
+    placeholder="Search discounts, comments, coupon codes..."
+    value={searchTerm}
+    onChange={(e) => setSearchTerm(e.target.value)}
+    className="w-full pl-11 pr-10 py-3 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+  />
+
+  {/* 🔥 Typing Loader */}
+  {searchTerm !== debouncedSearch && (
+    <div className="absolute right-3 top-1/2 -translate-y-1/2">
+      <div className="w-4 h-4 border-2 border-violet-500 border-t-transparent rounded-full animate-spin"></div>
+    </div>
+  )}
+</div>
+
 
           <div className="flex items-center gap-3">
             <Filter className="h-4 w-4 text-slate-400" />
@@ -824,9 +911,17 @@ export default function DiscountsPage() {
               <option value="AssignedToOrderTotal">Order Total</option>
               <option value="AssignedToProducts">Products</option>
               <option value="AssignedToCategories">Categories</option>
-              <option value="AssignedToManufacturers">Manufacturers</option>
               <option value="AssignedToShipping">Shipping</option>
             </select>
+            <select
+  value={deletedFilter}
+  onChange={(e) => setDeletedFilter(e.target.value as any)}
+  className="px-3 py-3 bg-slate-800 border border-slate-600 rounded-xl text-white"
+>
+  <option value="notDeleted">Active Discounts</option>
+  <option value="deleted">Deleted Discounts</option>
+</select>
+
 
             {hasActiveFilters && (
               <button
@@ -858,11 +953,11 @@ export default function DiscountsPage() {
               <thead>
                 <tr className="border-b border-slate-800">
                   <th className="text-left py-3 px-4 text-slate-400 font-medium text-sm">
-                    Discount
+                    Discount  Name
                   </th>
-                  <th className="text-center py-3 px-4 text-slate-400 font-medium text-sm">Type</th>
+                  <th className="text-center py-3 px-4 text-slate-400 font-medium text-sm">Discount Type</th>
                   <th className="text-center py-3 px-4 text-slate-400 font-medium text-sm">
-                    Value
+                    Discount value
                   </th>
                   <th className="text-center py-3 px-4 text-slate-400 font-medium text-sm">
                     Status
@@ -921,27 +1016,74 @@ export default function DiscountsPage() {
                         <p className="text-xs text-slate-400">max £{discount.maximumDiscountAmount}</p>
                       )}
                     </td>
+<td className="py-4 px-4 text-center">
+  <div className="flex flex-col items-center gap-1">
 
-                    <td className="py-4 px-4 text-center">
-                      <div className="flex flex-col items-center gap-1">
-                        {isDiscountActive(discount) ? (
-                          <span className="px-2 py-1 bg-green-500/10 text-green-400 rounded-lg text-xs font-medium flex items-center gap-1">
-                            <div className="w-2 h-2 bg-green-400 rounded-full"></div>
-                            Active
-                          </span>
-                        ) : discount.isActive ? (
-                          <span className="px-2 py-1 bg-orange-500/10 text-orange-400 rounded-lg text-xs font-medium flex items-center gap-1">
-                            <div className="w-2 h-2 bg-orange-400 rounded-full"></div>
-                            Scheduled
-                          </span>
-                        ) : (
-                          <span className="px-2 py-1 bg-red-500/10 text-red-400 rounded-lg text-xs font-medium flex items-center gap-1">
-                            <div className="w-2 h-2 bg-red-400 rounded-full"></div>
-                            Inactive
-                          </span>
-                        )}
-                      </div>
-                    </td>
+    {(() => {
+      const status = getDiscountStatus(discount);
+
+      const colorClasses =
+        status.color === "green"
+          ? "bg-green-500/10 text-green-400 hover:bg-green-500/20"
+          : status.color === "orange"
+          ? "bg-orange-500/10 text-orange-400 hover:bg-orange-500/20"
+          : status.color === "red"
+          ? "bg-red-500/10 text-red-400 hover:bg-red-500/20"
+          : "bg-gray-500/10 text-gray-400 cursor-not-allowed";
+
+      const dotColor =
+        status.color === "green"
+          ? "bg-green-400"
+          : status.color === "orange"
+          ? "bg-orange-400"
+          : status.color === "red"
+          ? "bg-red-400"
+          : "bg-gray-400";
+
+      return (
+        <>
+          <button
+            onClick={() => {
+              if (status.label !== "Expired") {
+                setStatusConfirm(discount);
+              }
+            }}
+            title={
+              status.label === "Active"
+                ? "Click to deactivate discount"
+                : status.label === "Inactive"
+                ? "Click to activate discount"
+                : status.label === "Scheduled"
+                ? "Click to deactivate before start date"
+                : "Expired discount cannot be modified"
+            }
+            className={`px-3 py-1 rounded-lg text-xs font-medium flex items-center gap-2 transition-all duration-200 ${colorClasses}`}
+          >
+            <div className={`w-2 h-2 rounded-full ${dotColor}`} />
+            {status.label}
+          </button>
+
+          {/* Extra info for Scheduled */}
+          {status.label === "Scheduled" && (
+            <span className="text-[10px] text-slate-400">
+              Starts on {new Date(discount.startDate).toLocaleDateString()}
+            </span>
+          )}
+
+          {/* Extra info for Expired */}
+          {status.label === "Expired" && (
+            <span className="text-[10px] text-slate-500">
+              Expired on {new Date(discount.endDate).toLocaleDateString()}
+            </span>
+          )}
+        </>
+      );
+    })()}
+
+  </div>
+</td>
+
+
 
                     <td className="py-4 px-4 text-center">
                       <div className="text-xs text-slate-300">
@@ -965,54 +1107,46 @@ export default function DiscountsPage() {
 {/* Actions column mein History button add karo */}
 <td className="py-4 px-4">
   <div className="flex items-center justify-center gap-2">
+
     <button
       onClick={() => setViewingDiscount(discount)}
-      className="p-2 text-violet-400 hover:bg-violet-500/10 rounded-lg transition-all"
-      title="View Details"
+      className="p-2 text-violet-400 hover:bg-violet-500/10 rounded-lg"
     >
       <Eye className="h-4 w-4" />
     </button>
 
-    <button
-      onClick={() => handleEdit(discount)}
-      className="p-2 text-cyan-400 hover:bg-cyan-500/10 rounded-lg transition-all"
-      title="Edit Discount"
-    >
-      <Edit className="h-4 w-4" />
-    </button>
+    {deletedFilter === "notDeleted" && (
+      <>
+        <button
+          onClick={() => handleEdit(discount)}
+          className="p-2 text-cyan-400 hover:bg-cyan-500/10 rounded-lg"
+        >
+          <Edit className="h-4 w-4" />
+        </button>
 
-    {/* ✅ NEW: Usage History Button */}
-    <button
-      onClick={async () => {
-        setSelectedDiscountHistory(discount);
-        setUsageHistoryModal(true);
-        setLoadingHistory(true);
-        try {
-          const response = await discountsService.getUsageHistory(discount.id);
-          setUsageHistory(response.data?.data || []);
-        } catch (error) {
-          console.error("Error fetching usage history:", error);
-          toast.error("Failed to load usage history");
-          setUsageHistory([]);
-        } finally {
-          setLoadingHistory(false);
-        }
-      }}
-      className="p-2 text-blue-400 hover:bg-blue-500/10 rounded-lg transition-all"
-      title="View Usage History"
-    >
-      <History className="h-4 w-4" />
-    </button>
 
+        <button
+          onClick={() => setDeleteConfirm({ id: discount.id, name: discount.name })}
+          className="p-2 text-red-400 hover:bg-red-500/10 rounded-lg"
+        >
+          <Trash2 className="h-4 w-4" />
+        </button>
+      </>
+    )}
+
+    {deletedFilter === "deleted" && (
     <button
-      onClick={() => setDeleteConfirm({ id: discount.id, name: discount.name })}
-      className="p-2 text-red-400 hover:bg-red-500/10 rounded-lg transition-all"
-      title="Delete Discount"
-    >
-      <Trash2 className="h-4 w-4" />
-    </button>
+  onClick={() => setRestoreConfirm(discount)}
+  title="Restore Discount"
+  className="p-2 text-green-400 hover:bg-green-500/10 rounded-lg transition-all flex items-center justify-center"
+>
+  <RotateCcw className="h-4 w-4" />
+</button>
+
+    )}
   </div>
 </td>
+
 
                   </tr>
                 ))}
@@ -1140,6 +1274,29 @@ export default function DiscountsPage() {
         dateRangeFilter={dateRangeFilter}
         setDateRangeFilter={setDateRangeFilter}
       />
+      <ConfirmDialog
+  isOpen={!!statusConfirm}
+  onClose={() => setStatusConfirm(null)}
+  onConfirm={handleStatusToggle}
+  title="Change Status"
+  message={`Are you sure you want to ${
+    statusConfirm?.isActive ? "deactivate" : "activate"
+  } "${statusConfirm?.name}"?`}
+  confirmText="Confirm"
+  cancelText="Cancel"
+  isLoading={isUpdatingStatus}
+/>
+<ConfirmDialog
+  isOpen={!!restoreConfirm}
+  onClose={() => setRestoreConfirm(null)}
+  onConfirm={handleRestore}
+  title="Restore Discount"
+  message={`Are you sure you want to restore "${restoreConfirm?.name}"?`}
+  confirmText="Restore"
+  cancelText="Cancel"
+  isLoading={isRestoring}
+/>
+
     </div>
   );
 }

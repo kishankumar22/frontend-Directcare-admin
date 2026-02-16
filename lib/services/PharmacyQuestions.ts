@@ -14,6 +14,7 @@ export interface PharmacyQuestion {
   id: string;
   questionText: string;
   isActive: boolean;
+  isDeleted: boolean;
   displayOrder: number;
   answerType: string;
   createdAt: string;
@@ -107,8 +108,15 @@ export interface ProductPharmacyQuestionsApiResponse {
 // --- Main PharmacyQuestions Service ---
 export const pharmacyQuestionsService = {
   // Get all pharmacy questions (with optional config: params/headers)
-  getAll: (config: any = {}) =>
-    apiClient.get<PharmacyQuestionApiResponse>(API_ENDPOINTS.PharmacyQuestions, config),
+  getAll: (params?: {
+    onlyActive?: boolean;
+    includeDeleted?: boolean;
+  }) =>
+    apiClient.get<PharmacyQuestionApiResponse>(
+      API_ENDPOINTS.PharmacyQuestions,
+      { params }
+    ),
+
 
   // Get single pharmacy question by ID
   getById: (id: string, config: any = {}) =>

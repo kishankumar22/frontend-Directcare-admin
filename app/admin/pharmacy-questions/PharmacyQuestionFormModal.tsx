@@ -69,32 +69,59 @@ export default function PharmacyQuestionFormModal({
     }
   }, [isOpen, isEditMode, question, nextDisplayOrder]);
 
-  const validateForm = (): boolean => {
-    const errors: Record<string, string> = {};
+const validateForm = (): boolean => {
+  const errors: Record<string, string> = {};
 
-    if (!formData.questionText.trim()) {
-      errors.questionText = "Question text is required";
+  if (!formData.questionText.trim()) {
+    errors.questionText = "Question text is required";
+  }
+
+  if (formData.displayOrder < 1) {
+    errors.displayOrder = "Display order must be at least 1";
+  }
+
+  if (formData.answerType === "Options") {
+
+    if (formData.options.length < 2) {
+      errors.options = "At least 2 options are required";
     }
 
-    if (formData.displayOrder < 1) {
-      errors.displayOrder = "Display order must be at least 1";
-    }
-
-    if (formData.answerType === "Options") {
-      if (formData.options.length < 2) {
-        errors.options = "At least 2 options are required";
+    formData.options.forEach((opt, index) => {
+      if (!opt.optionText.trim()) {
+        errors[`option_${index}`] = "Option text is required";
       }
+    });
 
-      formData.options.forEach((opt, index) => {
-        if (!opt.optionText.trim()) {
-          errors[`option_${index}`] = "Option text is required";
-        }
-      });
+    const optionTexts = formData.options.map(o =>
+      o.optionText.trim().toLowerCase()
+    );
+
+    if (new Set(optionTexts).size !== optionTexts.length) {
+      errors.options = "Duplicate options are not allowed";
     }
 
-    setFormErrors(errors);
-    return Object.keys(errors).length === 0;
-  };
+    // ✅ EXACTLY ONE SAFE required
+    const safeCount = formData.options.filter(
+      opt => !opt.isDisqualifying
+    ).length;
+
+    if (safeCount === 0) {
+      errors.options = "Exactly one safe option is required";
+    }
+
+    if (safeCount > 1) {
+      errors.options = "Only one safe option is allowed";
+    }
+  }
+
+  setFormErrors(errors);
+  return Object.keys(errors).length === 0;
+};
+
+
+
+
+
 
   const handleSubmit = async () => {
     if (!validateForm()) {
@@ -166,11 +193,26 @@ export default function PharmacyQuestionFormModal({
     setFormData({ ...formData, options: newOptions });
   };
 
-  const updateOption = (index: number, field: string, value: any) => {
-    const newOptions = [...formData.options];
-    newOptions[index] = { ...newOptions[index], [field]: value };
-    setFormData({ ...formData, options: newOptions });
-  };
+ const updateOption = (index: number, field: string, value: any) => {
+  const newOptions = [...formData.options];
+
+  // 🔒 Disqualifying protection
+  if (field === "isDisqualifying" && value === true) {
+
+    const alreadyHasDisqualifying = newOptions.some(
+      (opt, i) => opt.isDisqualifying && i !== index
+    );
+
+    if (alreadyHasDisqualifying) {
+      toast.error("Only one disqualifying option is allowed");
+      return;
+    }
+  }
+
+  newOptions[index] = { ...newOptions[index], [field]: value };
+  setFormData({ ...formData, options: newOptions });
+};
+
 
   if (!isOpen) return null;
 
@@ -292,76 +334,108 @@ export default function PharmacyQuestionFormModal({
             </div>
           </div>
 
-          {/* Answer Options - only shown for Options type */}
-          {formData.answerType === "Options" ? (
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <label className="text-sm text-slate-300 font-semibold">
-                  Answer Options <span className="text-red-400">*</span>
-                </label>
-                <button
-                  onClick={addOption}
-                  type="button"
-                  className="px-3 py-1.5 bg-cyan-500/10 border border-cyan-500/50 text-cyan-400 rounded-lg hover:bg-cyan-500/20 transition-all text-xs font-semibold flex items-center gap-1.5"
-                >
-                  <Plus className="h-3.5 w-3.5" />
-                  Add Option
-                </button>
-              </div>
+{/* Answer Options - only shown for Options type */}
+{formData.answerType === "Options" ? (
+  <div>
+    <div className="flex items-center justify-between mb-2">
+      <label className="text-sm text-slate-300 font-semibold">
+        Answer Options <span className="text-red-400">*</span>
+      </label>
+      <button
+        onClick={addOption}
+        type="button"
+        className="px-3 py-1.5 bg-cyan-500/10 border border-cyan-500/50 text-cyan-400 rounded-lg hover:bg-cyan-500/20 transition-all text-xs font-semibold flex items-center gap-1.5"
+      >
+        <Plus className="h-3.5 w-3.5" />
+        Add Option
+      </button>
+    </div>
 
-              <div className="space-y-2">
-                {formData.options.map((option, index) => (
-                  <div key={index} className="flex items-center gap-2">
-                    <span className="w-8 h-8 rounded-full bg-violet-500/20 text-violet-400 flex items-center justify-center text-sm font-bold shrink-0">
-                      {index + 1}
-                    </span>
-                    <input
-                      type="text"
-                      value={option.optionText}
-                      onChange={(e) => updateOption(index, "optionText", e.target.value)}
-                      placeholder="Option text"
-                      className={`flex-1 px-3 py-2 bg-slate-800/50 border rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all ${
-                        formErrors[`option_${index}`] ? "border-red-500" : "border-slate-600"
-                      }`}
-                    />
-                    <button
-                      onClick={() => updateOption(index, "isDisqualifying", !option.isDisqualifying)}
-                      type="button"
-                      className={`px-3 py-2 rounded-lg text-xs font-semibold transition-all ${
-                        option.isDisqualifying
-                          ? "bg-orange-500/10 border border-orange-500/50 text-orange-400"
-                          : "bg-slate-800/50 border border-slate-600 text-slate-400 hover:text-white"
-                      }`}
-                      title="Toggle Disqualifying"
-                    >
-                      <AlertCircle className="h-4 w-4" />
-                    </button>
-                    {formData.options.length > 2 && (
-                      <button
-                        onClick={() => removeOption(index)}
-                        type="button"
-                        className="p-2 text-red-400 hover:bg-red-500/10 rounded-lg transition-all"
-                        title="Remove Option"
-                      >
-                        <X className="h-4 w-4" />
-                      </button>
-                    )}
-                  </div>
-                ))}
-              </div>
-              {formErrors.options && <p className="text-red-400 text-xs mt-1">{formErrors.options}</p>}
-            </div>
-          ) : (
-            <div className="p-4 bg-cyan-500/5 border border-cyan-500/20 rounded-lg">
-              <div className="flex items-center gap-2 text-cyan-400">
-                <Type className="h-5 w-5" />
-                <span className="font-semibold">Text Answer</span>
-              </div>
-              <p className="text-slate-400 text-sm mt-1">
-                Customers will type their answer in a free-text field. No predefined options needed.
-              </p>
-            </div>
+    <div className="space-y-2">
+      {formData.options.map((option, index) => (
+        <div
+          key={index}
+          className={`flex items-center gap-2 p-2 rounded-lg border transition-all ${
+            option.isDisqualifying
+              ? "border-orange-500/40 bg-orange-500/5"
+              : "border-slate-700 bg-slate-900/40"
+          }`}
+        >
+          {/* Index */}
+          <span className="w-8 h-8 rounded-full bg-violet-500/20 text-violet-400 flex items-center justify-center text-sm font-bold shrink-0">
+            {index + 1}
+          </span>
+
+          {/* Option Text */}
+          <input
+            type="text"
+            value={option.optionText}
+            onChange={(e) =>
+              updateOption(index, "optionText", e.target.value)
+            }
+            placeholder="Option text"
+            className={`flex-1 px-3 py-2 bg-slate-800/50 border rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all ${
+              formErrors[`option_${index}`]
+                ? "border-red-500"
+                : "border-slate-600"
+            }`}
+          />
+
+          {/* Disqualifying Selector (Radio Style) */}
+<button
+  onClick={() => {
+    const newOptions = formData.options.map((opt, i) => ({
+      ...opt,
+      isDisqualifying: i !== index, // 👈 Reverse logic
+    }));
+
+    setFormData({ ...formData, options: newOptions });
+  }}
+  type="button"
+  className={`px-3 py-2 rounded-lg text-xs font-semibold transition-all flex items-center gap-1 ${
+    !option.isDisqualifying
+      ? "bg-green-500/10 border border-green-500/50 text-green-400"
+      : "bg-orange-500/10 border border-orange-500/50 text-orange-400"
+  }`}
+  title="Mark as Safe"
+>
+  <AlertCircle className="h-4 w-4" />
+  {!option.isDisqualifying ? "Safe" : "Disqualifying"}
+</button>
+
+
+          {/* Remove Option */}
+          {formData.options.length > 2 && (
+            <button
+              onClick={() => removeOption(index)}
+              type="button"
+              className="p-2 text-red-400 hover:bg-red-500/10 rounded-lg transition-all"
+              title="Remove Option"
+            >
+              <X className="h-4 w-4" />
+            </button>
           )}
+        </div>
+      ))}
+    </div>
+
+    {formErrors.options && (
+      <p className="text-red-400 text-xs mt-1">{formErrors.options}</p>
+    )}
+  </div>
+) : (
+  <div className="p-4 bg-cyan-500/5 border border-cyan-500/20 rounded-lg">
+    <div className="flex items-center gap-2 text-cyan-400">
+      <Type className="h-5 w-5" />
+      <span className="font-semibold">Text Answer</span>
+    </div>
+    <p className="text-slate-400 text-sm mt-1">
+      Customers will type their answer in a free-text field. No predefined
+      options needed.
+    </p>
+  </div>
+)}
+
 
           {/* Form Actions */}
           <div className="flex gap-3 pt-2">

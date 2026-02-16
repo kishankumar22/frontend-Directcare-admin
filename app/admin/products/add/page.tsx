@@ -4992,13 +4992,20 @@ useEffect(() => {
     {/* Is Pharma Product */}
     <div className="space-y-2">
       <label className="flex items-center gap-2 cursor-pointer">
-        <input
-          type="checkbox"
-          name="isPharmaProduct"
-          checked={formData.isPharmaProduct}
-          onChange={handleChange}
-          className="w-4 h-4 rounded bg-slate-800/50 border-slate-700 text-blue-500 focus:ring-blue-500 focus:ring-offset-slate-900"
-        />
+     <input
+  type="checkbox"
+  name="isPharmaProduct"
+  checked={formData.isPharmaProduct}
+  onChange={(e) => {
+    handleChange(e);
+
+    if (e.target.checked) {
+      setShowPharmacyModal(true); // ✅ Auto open modal
+    }
+  }}
+  className="w-4 h-4 rounded bg-slate-800/50 border-slate-700 text-blue-500 focus:ring-blue-500 focus:ring-offset-slate-900"
+/>
+
         <div>
           <span className="text-sm text-slate-300">Pharma Product</span>
           <p className="text-xs text-slate-500">Mark this product as a pharmaceutical product</p>

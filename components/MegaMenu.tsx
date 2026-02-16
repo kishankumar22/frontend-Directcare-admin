@@ -188,14 +188,9 @@ const MegaMenu: React.FC<MegaMenuProps> = ({ activeMainCategory }) => {
   const bannerCategory = activeSubCategory || activeMainCategory;
   const maxDiscount = getMaxDiscount(activeMainCategory);
 
-  const theme =
-    bannerThemes[
-      getThemeIndex(
-        activeSubCategory
-          ? activeSubCategory.slug
-          : activeMainCategory.slug
-      )
-    ];
+const theme =
+  bannerThemes[getThemeIndex(activeMainCategory.slug)];
+
 
   return (
     <div className="absolute left-0 right-0 top-full z-50 overflow-hidden">
@@ -210,16 +205,17 @@ const MegaMenu: React.FC<MegaMenuProps> = ({ activeMainCategory }) => {
                   sub.subCategories.length > 0;
 
                 return (
-                  <Link
-                    key={sub.id}
-                    href={`/category/${activeMainCategory.slug}/${sub.slug}`}
-                    onMouseEnter={() => setActiveSubCategory(sub)}
-                    className={`flex items-center justify-between p-2 transition cursor-pointer hover:bg-white hover:font-semibold ${
-                      activeSubCategory?.id === sub.id
-                        ? "bg-white font-semibold text-[#445D41]"
-                        : "text-gray-800"
-                    }`}
-                  >
+                 <Link
+  key={sub.id}
+  href={`/category/${sub.slug}`}
+  onMouseEnter={() => setActiveSubCategory(sub)}
+  className={`flex items-center justify-between p-2 transition cursor-pointer hover:bg-white hover:font-semibold ${
+    activeSubCategory?.id === sub.id
+      ? "bg-white font-semibold text-[#445D41]"
+      : "text-gray-800"
+  }`}
+>
+
                     <span>{sub.name}</span>
                     {hasChildren && (
                       <ChevronRight
@@ -245,11 +241,12 @@ const MegaMenu: React.FC<MegaMenuProps> = ({ activeMainCategory }) => {
             {activeSubCategory?.subCategories?.length ? (
               <div className="max-h-[260px] overflow-y-auto pr-2 space-y-2 scrollbar-hide">
                 {activeSubCategory.subCategories.map((child) => (
-                  <Link
-                    key={child.id}
-                    href={`/category/${activeMainCategory.slug}/${activeSubCategory.slug}/${child.slug}`}
-                    className="block text-base text-gray-700 hover:text-[#445D41] hover:font-medium transition"
-                  >
+                 <Link
+  key={child.id}
+  href={`/category/${child.slug}`}
+  className="block text-base text-gray-700 hover:text-[#445D41] hover:font-medium transition"
+>
+
                     {child.name ?? "Unnamed"}
                   </Link>
                 ))}
@@ -278,23 +275,22 @@ const MegaMenu: React.FC<MegaMenuProps> = ({ activeMainCategory }) => {
                     >
                       Limited Offer
                     </span>
+                    
                   </div>
-
                  <div className="relative z-10">
   <p className="text-xl font-semibold text-white/90">
     UP TO {maxDiscount}% OFF
   </p>
-
   <div className="mt-1">
-    <span className="inline-block bg-white/90 text-gray-900 text-xs font-semibold px-3 py-1 rounded-md shadow backdrop-blur">
-      {bannerCategory.name}
-    </span>
+  <span className="inline-block bg-white/90 text-gray-900 text-lg font-semibold px-3 py-1 rounded-md shadow backdrop-blur">
+  {activeMainCategory.name}
+</span>
+
   </div>
 </div>
-
                   <div className="relative z-10">
-                    <span className="inline-block bg-white text-gray-900 text-sm font-semibold px-5 py-2 rounded shadow-md hover:bg-gray-100 transition">
-                      Shop Deals
+                    <span className="inline-block bg-white text-gray-900 text-sm font-semibold px-3 py-1 rounded shadow-md hover:bg-gray-100 transition">
+                      Shop Now →
                     </span>
                   </div>
                 </div>
@@ -306,10 +302,8 @@ const MegaMenu: React.FC<MegaMenuProps> = ({ activeMainCategory }) => {
             )}
           </div>
         </div>
-
         {/* BRAND ROW */}
 <div className="relative border-t border-gray-200 bg-white px-8 py-4 group">
-
          <button
   onClick={() => scrollBrands("left")}
   className="absolute left-2 top-1/2 -translate-y-1/2 z-10 bg-white shadow-md rounded-full p-2 hover:bg-gray-100 opacity-0 group-hover:opacity-100 transition-opacity duration-300" >
@@ -320,7 +314,7 @@ const MegaMenu: React.FC<MegaMenuProps> = ({ activeMainCategory }) => {
             className="flex gap-16 overflow-x-auto px-6 scrollbar-hide"
           >
             {brands.map((brand) => (
-              <Link href={`/brand/${brand.slug}`} key={brand.id}>
+              <Link href={`/brands/${brand.slug}`} key={brand.id}>
                 <div className="w-20 h-20 relative flex-shrink-0 hover:scale-105 transition">
                   <Image
                     src={getImageUrl(
@@ -335,17 +329,14 @@ const MegaMenu: React.FC<MegaMenuProps> = ({ activeMainCategory }) => {
               </Link>
             ))}
           </div>
-
          <button
   onClick={() => scrollBrands("right")}
   className="absolute right-2 top-1/2 -translate-y-1/2 z-10 bg-white shadow-md rounded-full p-2 hover:bg-gray-100 opacity-0 group-hover:opacity-100 transition-opacity duration-300" >
   <ChevronRight className="h-5 w-5 text-gray-700"/>
 </button>
-
         </div>
       </div>
     </div>
   );
 };
-
 export default MegaMenu;

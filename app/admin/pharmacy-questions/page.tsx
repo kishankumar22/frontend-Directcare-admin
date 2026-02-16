@@ -28,7 +28,7 @@ import {
 
 import { useToast } from "@/app/admin/_component/CustomToast";
 import ConfirmDialog from "@/app/admin/_component/ConfirmDialog";
-import { PharmacyQuestion, pharmacyQuestionsService } from "@/lib/services/PharmacyQuestions";
+import { PharmacyQuestion, pharmacyQuestionsService, UpdatePharmacyQuestionDto } from "@/lib/services/PharmacyQuestions";
 import PharmacyQuestionFormModal from "./PharmacyQuestionFormModal";
 import { useDebounce } from "@/app/hooks/useDebounce";
 
@@ -54,6 +54,8 @@ export default function PharmacyQuestionsPage() {
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const [isFormModalOpen, setIsFormModalOpen] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
+const [includeDeleted, setIncludeDeleted] = useState(false);
+
 
   const [confirmDialog, setConfirmDialog] = useState({
     isOpen: false,
@@ -82,35 +84,100 @@ useEffect(() => {
 
   const debouncedSearchTerm = useDebounce(searchTerm, 500);
 
-  const fetchQuestions = useCallback(async () => {
-    try {
-      setLoading(true);
-      const response = await pharmacyQuestionsService.getAll();
+const fetchQuestions = useCallback(async () => {
+  try {
+    setLoading(true);
 
-      if (response?.data?.success) {
-        const fetchedQuestions = response.data.data || [];
-        setAllQuestions(fetchedQuestions);
+const response = await pharmacyQuestionsService.getAll({
+  includeDeleted,
+});
 
-        let filteredQuestions = applyFilters(fetchedQuestions);
-        filteredQuestions = applySorting(filteredQuestions);
 
-        setTotalCount(filteredQuestions.length);
+    if (response?.data?.success) {
+      let fetchedQuestions = response.data.data || [];
+// ✅ ACTIVE FILTER (Frontend Controlled)
+if (statusFilter === "active") {
+  fetchedQuestions = fetchedQuestions.filter(q => q.isActive);
+} 
+else if (statusFilter === "inactive") {
+  fetchedQuestions = fetchedQuestions.filter(q => !q.isActive);
+}
 
-        const startIndex = (currentPage - 1) * pageSize;
-        const paginatedQuestions = filteredQuestions.slice(startIndex, startIndex + pageSize);
-        setQuestions(paginatedQuestions);
+// ✅ VIEW MODE FILTER (Stats Cards)
+if (viewMode === "active") {
+  fetchedQuestions = fetchedQuestions.filter(q => q.isActive);
+}
+else if (viewMode === "inactive") {
+  fetchedQuestions = fetchedQuestions.filter(q => !q.isActive);
+}
+
+      // ✅ SEARCH FILTER
+      if (debouncedSearchTerm) {
+        fetchedQuestions = fetchedQuestions.filter((q: PharmacyQuestion) =>
+          q.questionText
+            .toLowerCase()
+            .includes(debouncedSearchTerm.toLowerCase())
+        );
       }
-    } catch (error: any) {
-      toast.error(error?.response?.data?.message || "Failed to fetch questions");
-    } finally {
-      setLoading(false);
+
+      // ✅ SORTING APPLY HERE
+      fetchedQuestions.sort((a, b) => {
+        let comparison = 0;
+
+        switch (sortField) {
+          case "questionText":
+            comparison = a.questionText.localeCompare(b.questionText);
+            break;
+          case "displayOrder":
+            comparison = a.displayOrder - b.displayOrder;
+            break;
+          case "createdAt":
+            comparison =
+              new Date(a.createdAt).getTime() -
+              new Date(b.createdAt).getTime();
+            break;
+          case "optionsCount":
+            comparison = a.options.length - b.options.length;
+            break;
+        }
+
+        return sortDirection === "asc" ? comparison : -comparison;
+      });
+
+      setAllQuestions(fetchedQuestions);
+      setTotalCount(fetchedQuestions.length);
+
+      const startIndex = (currentPage - 1) * pageSize;
+      const paginatedQuestions = fetchedQuestions.slice(
+        startIndex,
+        startIndex + pageSize
+      );
+
+      setQuestions(paginatedQuestions);
     }
-  }, [currentPage, pageSize, debouncedSearchTerm, viewMode, sortField, sortDirection]);
+  } catch (error: any) {
+    toast.error(
+      error?.response?.data?.message ||
+        "Failed to fetch questions"
+    );
+  } finally {
+    setLoading(false);
+  }
+}, [
+  currentPage,
+  pageSize,
+  statusFilter,
+  includeDeleted,
+  viewMode,    
+  debouncedSearchTerm,
+  sortField,
+  sortDirection, // ⚠️ IMPORTANT add this
+]);
 
-  useEffect(() => {
-    fetchQuestions();
-  }, [fetchQuestions]);
 
+
+
+ 
 // ✅ Update applyFilters function
 const applyFilters = (questionsList: PharmacyQuestion[]) => {
   let filtered = [...questionsList];
@@ -196,6 +263,9 @@ const clearFilters = () => {
       <ArrowDown className="h-3.5 w-3.5 text-violet-400" />
     );
   };
+ useEffect(() => {
+    fetchQuestions();
+  }, [fetchQuestions]);
 
   const calculateStats = () => {
     const total = allQuestions.length;
@@ -259,6 +329,87 @@ const clearFilters = () => {
     });
   };
 
+  const handleStatusToggle = (question: PharmacyQuestion) => {
+  setConfirmDialog({
+    isOpen: true,
+    title: `${question.isActive ? "Deactivate" : "Activate"} Question`,
+    message: `Are you sure you want to ${
+      question.isActive ? "deactivate" : "activate"
+    } "${question.questionText}"?`,
+    icon: AlertCircle,
+    iconColor: question.isActive ? "text-red-400" : "text-green-400",
+    confirmButtonStyle: question.isActive
+      ? "bg-gradient-to-r from-red-500 to-rose-500"
+      : "bg-gradient-to-r from-green-500 to-emerald-500",
+    isLoading: false,
+  onConfirm: async () => {
+  try {
+    setConfirmDialog((prev) => ({ ...prev, isLoading: true }));
+
+    // 🚨 VALIDATION CHECK BEFORE STATUS CHANGE
+    if (question.answerType === "Options") {
+
+      const hasSafeOption = question.options.some(
+        opt => !opt.isDisqualifying
+      );
+
+      const hasDisqualifyingOption = question.options.some(
+        opt => opt.isDisqualifying
+      );
+
+      if (!hasSafeOption) {
+        toast.error("Cannot update status: At least one non-disqualifying option is required");
+        return;
+      }
+
+      if (!hasDisqualifyingOption) {
+        toast.error("Cannot update status: At least one disqualifying option is required");
+        return;
+      }
+    }
+
+    const updateData: UpdatePharmacyQuestionDto = {
+      id: question.id,
+      questionText: question.questionText,
+      isActive: !question.isActive,
+      displayOrder: question.displayOrder,
+      answerType: question.answerType,
+      options:
+        question.answerType === "Text"
+          ? []
+          : question.options.map((opt) => ({
+              id: opt.id,
+              optionText: opt.optionText,
+              isDisqualifying: opt.isDisqualifying,
+              displayOrder: opt.displayOrder,
+            })),
+    };
+
+    await pharmacyQuestionsService.update(question.id, updateData);
+
+    toast.success(
+      `Question ${question.isActive ? "deactivated" : "activated"} successfully`
+    );
+
+    fetchQuestions();
+  } catch (error: any) {
+    toast.error(
+      error?.response?.data?.message ||
+      "Failed to update question status"
+    );
+  } finally {
+    setConfirmDialog((prev) => ({
+      ...prev,
+      isOpen: false,
+      isLoading: false,
+    }));
+  }
+}
+,
+  });
+};
+
+
   const openCreateModal = () => {
     setSelectedQuestion(null);
     setIsEditMode(false);
@@ -277,7 +428,12 @@ const clearFilters = () => {
 
 
 
-  const hasActiveFilters = searchTerm.trim() || viewMode !== "all";
+const hasActiveFilters =
+  searchTerm.trim() ||
+  viewMode !== "all" ||
+  statusFilter !== "all" ||
+  includeDeleted;
+
 
   const totalPages = Math.ceil(totalCount / pageSize);
   const startIndex = (currentPage - 1) * pageSize;
@@ -473,12 +629,11 @@ const clearFilters = () => {
           </div>
         </div>
       </div>
-
-      {/* Search and Filters */}
-{/* ✅ Search and Filters - UPDATED */}
+{/* Search and Filters */}
 <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-xl p-2.5">
   <div className="flex flex-wrap items-center gap-2">
-    {/* Search Input with Loading */}
+
+    {/* Search Input */}
     <div className="relative flex-1 min-w-[280px]">
       <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
       <input
@@ -489,42 +644,58 @@ const clearFilters = () => {
           setSearchTerm(e.target.value);
           setCurrentPage(1);
         }}
-        className="w-full pl-9 pr-10 py-2 bg-slate-800/50 border border-slate-700 rounded-lg text-white text-sm placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+        className="w-full pl-9 pr-10 py-2 bg-slate-800/50 border border-slate-700 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all"
       />
-      {/* Loading Spinner */}
-      {isSearching && searchTerm && (
-        <div className="absolute right-2.5 top-1/2 -translate-y-1/2">
-          <div className="w-4 h-4 border-2 border-violet-500/30 border-t-violet-500 rounded-full animate-spin"></div>
-        </div>
-      )}
     </div>
 
-    {/* Status Dropdown Filter */}
+    {/* Status Filter */}
     <div className="relative">
       <select
         value={statusFilter}
         onChange={(e) => {
-          setStatusFilter(e.target.value as "all" | "active" | "inactive");
+          setStatusFilter(
+            e.target.value as "all" | "active" | "inactive"
+          );
           setCurrentPage(1);
         }}
-        className="pl-3 pr-8 py-2 bg-slate-800/50 border border-slate-600 rounded-lg text-white text-sm font-medium focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all appearance-none cursor-pointer hover:border-violet-500/50"
+        className="pl-3 pr-8 py-2 bg-slate-800/50 border border-slate-600 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 appearance-none cursor-pointer"
       >
         <option value="all">All Status</option>
         <option value="active">Active Only</option>
         <option value="inactive">Inactive Only</option>
       </select>
-      {/* Custom dropdown icon */}
       <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
     </div>
 
-    {/* Clear Filters Button */}
-    {hasActiveFilters && (
+    {/* 🗑 Deleted Filter */}
+    <div className="relative">
+      <select
+        value={includeDeleted ? "true" : "false"}
+        onChange={(e) => {
+          setIncludeDeleted(e.target.value === "true");
+          setCurrentPage(1);
+        }}
+        className="pl-3 pr-8 py-2 bg-slate-800/50 border border-slate-600 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 appearance-none cursor-pointer"
+      >
+        <option value="false">Hide Deleted</option>
+        <option value="true">Show Deleted</option>
+      </select>
+      <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
+    </div>
+
+    {/* Clear Button */}
+    {(searchTerm || statusFilter !== "all" || includeDeleted) && (
       <button
-        onClick={clearFilters}
+        onClick={() => {
+          setSearchTerm("");
+          setStatusFilter("all");
+          setIncludeDeleted(false);
+          setCurrentPage(1);
+        }}
         className="px-3 py-2 bg-red-500/10 border border-red-500/50 text-red-400 rounded-lg hover:bg-red-500/20 transition-all text-xs font-semibold flex items-center gap-1.5"
       >
         <FilterX className="h-3.5 w-3.5" />
-        Clear Filters
+        Clear
       </button>
     )}
   </div>
@@ -613,19 +784,25 @@ const clearFilters = () => {
                       </span>
                     </td>
 
-                    <td className="py-2.5 px-3 text-center">
-                      {question.isActive ? (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-xs font-medium bg-green-500/10 text-green-400 border border-green-500/20">
-                          <span className="w-1.5 h-1.5 rounded-full bg-green-400"></span>
-                          Active
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-xs font-medium bg-red-500/10 text-red-400 border border-red-500/20">
-                          <span className="w-1.5 h-1.5 rounded-full bg-red-400"></span>
-                          Inactive
-                        </span>
-                      )}
-                    </td>
+                <td className="py-2.5 px-3 text-center">
+  <button
+    onClick={() => handleStatusToggle(question)}
+    className="transition-all"
+  >
+    {question.isActive ? (
+      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-xs font-medium bg-green-500/10 text-green-400 border border-green-500/20 hover:bg-green-500/20">
+        <span className="w-1.5 h-1.5 rounded-full bg-green-400"></span>
+        Active
+      </span>
+    ) : (
+      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-xs font-medium bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20">
+        <span className="w-1.5 h-1.5 rounded-full bg-red-400"></span>
+        Inactive
+      </span>
+    )}
+  </button>
+</td>
+
 
                     <td className="py-2.5 px-3">
                       <p className="text-sm text-slate-300">{formatDate(question.createdAt)}</p>
@@ -655,23 +832,26 @@ const clearFilters = () => {
                           <Edit className="h-4 w-4" />
                         </button>
 
-                        {question.isActive ? (
-                          <button
-                            onClick={() => handleDelete(question)}
-                            className="p-1.5 text-red-400 hover:bg-red-500/10 hover:text-red-300 rounded-lg transition-all"
-                            title="Delete Question"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
-                        ) : (
-                          <button
-                            onClick={() => handleRestore(question)}
-                            className="p-1.5 text-green-400 hover:bg-green-500/10 hover:text-green-300 rounded-lg transition-all"
-                            title="Restore Question"
-                          >
-                            <RotateCcw className="h-4 w-4" />
-                          </button>
-                        )}
+ {question.isDeleted ? (
+  // ✅ If already deleted → show Restore
+  <button
+    onClick={() => handleRestore(question)}
+    className="p-1.5 text-green-400 hover:bg-green-500/10 hover:text-green-300 rounded-lg transition-all"
+    title="Restore Question"
+  >
+    <RotateCcw className="h-4 w-4" />
+  </button>
+) : (
+  // ✅ If NOT deleted → show Delete
+  <button
+    onClick={() => handleDelete(question)}
+    className="p-1.5 text-red-400 hover:bg-red-500/10 hover:text-red-300 rounded-lg transition-all"
+    title="Delete Question"
+  >
+    <Trash2 className="h-4 w-4" />
+  </button>
+)}
+
                       </div>
                     </td>
                   </tr>
@@ -835,6 +1015,12 @@ const clearFilters = () => {
                     <div>
                       <p className="text-slate-400 mb-1">Updated At</p>
                       <p className="text-white font-medium">{formatDate(selectedQuestion.updatedAt)}</p>
+                    </div>
+                  )}
+                  {selectedQuestion.isDeleted && (
+                    <div>
+                      <p className="text-slate-400 mb-1">Deleted</p>
+                      <p className="text-white font-medium">{selectedQuestion.isDeleted ? "Yes" : "No"}</p>
                     </div>
                   )}
                 </div>

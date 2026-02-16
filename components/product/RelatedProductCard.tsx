@@ -194,7 +194,8 @@ if (product.disableBuyButton) return;
       : 0,
 
     quantity: qty,
-
+  vatRate: vatRate,
+  vatIncluded: vatRate !== null,
     image: getRelatedProductImage(product, defaultVariant),
     sku: defaultVariant?.sku ?? product.sku,
     slug: product.slug,
@@ -350,7 +351,7 @@ if (product.disableBuyButton) return;
 
 
       {/* QUANTITY + BUTTON */}
-     <div className="flex items-center gap-0 mt-1">
+     <div className="flex items-center gap-1 mt-2">
 
         <div className="flex-shrink-0 scale-90 -ml-1">
           <QuantitySelector
@@ -359,13 +360,14 @@ if (product.disableBuyButton) return;
             maxStock={stock}
             stockError={stockError}
             setStockError={setStockError}
+            allowedQuantities={product.allowedQuantities}
           />
         </div>
 
     <Button
   disabled={stock === 0 || product.disableBuyButton === true}
   onClick={handleAddToCart}
-  className={`flex-1 h-[32px] text-sm rounded-xl font-semibold mt-[-12px] ${
+  className={`flex-1 h-[32px] text-sm rounded-xl font-semibold  ${
     stock === 0
       ? "bg-gray-400 cursor-not-allowed"
       : "bg-[#445D41] hover:bg-black text-white"

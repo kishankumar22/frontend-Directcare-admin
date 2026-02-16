@@ -245,6 +245,23 @@ export const discountsService = {
     }
   },
 
+  restore: async (id: string, config: any = {}) => {
+  if (!id?.trim()) {
+    throw new Error("Discount ID is required");
+  }
+
+  try {
+    return await apiClient.post(
+      `${API_ENDPOINTS.discounts}/${id}/restore`,
+      {},
+      config
+    );
+  } catch (error: any) {
+    console.error(`Error restoring discount ${id}:`, error);
+    throw error;
+  }
+},
+
   /**
    * Delete discount by ID
    * @param id - Discount ID
