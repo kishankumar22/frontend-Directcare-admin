@@ -329,34 +329,45 @@ const generateSalesTrend = (orders: any[], range: DateRange): SalesData[] => {
   }));
 };
 
+const generateCategoryDistribution = (products: any[]): CategorySales[] => {
+  const categoryCounts: { [key: string]: number } = {};
 
-  const generateCategoryDistribution = (products: any[]): CategorySales[] => {
-    const categoryCounts: { [key: string]: number } = {};
+  products.forEach((product: any) => {
+    const categories = product.categories || [];
 
-    products.forEach((product: any) => {
-      const categories = product.categories || [];
-      if (categories.length === 0) {
-        categoryCounts["Uncategorized"] = (categoryCounts["Uncategorized"] || 0) + 1;
-      } else {
-        categories.forEach((cat: any) => {
-          const catName = cat.categoryName || "Uncategorized";
-          categoryCounts[catName] = (categoryCounts[catName] || 0) + 1;
-        });
-      }
-    });
+    if (categories.length === 0) {
+      categoryCounts["Uncategorized"] =
+        (categoryCounts["Uncategorized"] || 0) + 1;
+    } else {
+      categories.forEach((cat: any) => {
+        const catName = cat.categoryName || "Uncategorized";
+        categoryCounts[catName] =
+          (categoryCounts[catName] || 0) + 1;
+      });
+    }
+  });
 
-    const colors = ["#8b5cf6", "#06b6d4", "#ec4899", "#f59e0b", "#10b981", "#ef4444"];
-    return Object.entries(categoryCounts)
-      .map(
-        ([name, value], index): CategorySales => ({
-          name,
-          value,
-          color: colors[index % colors.length],
-        })
-      )
-      .sort((a, b) => b.value - a.value)
-      .slice(0, 6);
+  // ✅ Stable Professional Color Mapping
+  const categoryColorMap: Record<string, string> = {
+    "Beauty & Cosmetics": "#06B6D4",   // Cyan
+    "Baby & Child": "#F59E0B",         // Amber
+    "Toiletries": "#10B981",           // Emerald
+    "Stop Smoking": "#F97316",         // Orange
+    "Vitamins": "#6366F1",             // Indigo
+    "Clothing": "#EF4444",             // Red
+    "Uncategorized": "#64748B",        // Slate
   };
+
+  return Object.entries(categoryCounts)
+    .map(([name, value]) => ({
+      name,
+      value,
+      color: categoryColorMap[name] || "#8b5cf6", // fallback color
+    }))
+    .sort((a, b) => b.value - a.value)
+    .slice(0, 6);
+};
+
 
   const generateRecentOrders = (orders: any[]): RecentOrder[] => {
     return orders.slice(0, 5).map((order: any, index: number) => ({
@@ -877,46 +888,7 @@ const generateSalesTrend = (orders: any[], range: DateRange): SalesData[] => {
         </div>
       </div>
 
-      {/* Quick Navigation */}
-<div className="relative rounded-2xl border border-white/10 bg-gradient-to-br from-[#0b1220] via-[#0e1628] to-[#0a1020]">
-  <div className="p-3">
-    <h3 className="text-lg font-semibold text-slate-200 mb-2 tracking-wide">
-      Quick Navigation
-    </h3>
 
-    <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-5 xl:grid-cols-10 gap-3">
-      {[
-        { icon: Package, label: "ProductS", path: "/admin/products" },
-        { icon: FolderTree, label: "Categories", path: "/admin/categories" },
-        { icon: Award, label: "Brands", path: "/admin/brands" },
-        { icon: ShoppingCart, label: "Orders", path: "/admin/order" },
-        { icon: Tag, label: "Discounts", path: "/admin/discounts" },
-        { icon: Star, label: "Reviews", path: "/admin/productReview" },
-        { icon: Eye, label: "Analytics", path: "#" },
-        { icon: Users, label: "Customers", path: "/admin/customers" },
-        { icon: Package, label: "Products", path: "/admin/products" },
-        { icon: Download, label: "Export", path: "#" },
-      ].map((item, idx) => (
-        <button
-          key={idx}
-          onClick={() => item.path !== "#" && router.push(item.path)}
-          className="
-            group flex items-center gap-2
-            rounded-xl px-3 py-2.5
-            bg-white/[0.03] border border-white/10
-            hover:bg-white/[0.08] hover:border-violet-400/40
-            transition-all duration-200
-          "
-        >
-          <item.icon className="h-4 w-4 text-violet-400 group-hover:text-cyan-400 transition-colors" />
-          <span className="text-sm font-medium text-slate-300 group-hover:text-white transition-colors">
-            {item.label}
-          </span>
-        </button>
-      ))}
-    </div>
-  </div>
-</div>
 
     </div>
   );

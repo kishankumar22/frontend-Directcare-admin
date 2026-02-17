@@ -661,9 +661,7 @@ export default function OrderDetailPage() {
   const [actionModalOpen, setActionModalOpen] = useState(false);
   const [selectedAction, setSelectedAction] = useState('');
   const [editModalOpen, setEditModalOpen] = useState(false);
-  // ✅ ADD: Refs for auto-scroll
-  const refundHistoryRef = useRef<HTMLDivElement>(null);
-  const editHistoryRef = useRef<HTMLDivElement>(null);
+
   // Refund & History States
   const [refundHistoryOpen, setRefundHistoryOpen] = useState(false);
   const [editHistoryOpen, setEditHistoryOpen] = useState(false);
@@ -710,7 +708,7 @@ export default function OrderDetailPage() {
       setLoadingRefundHistory(true);
       const result = await orderEditService.getRefundHistory(orderId);
       setRefundHistory(result);
-      toast.success(`✅ Loaded ${result.refunds.length} refund records`, { autoClose: 3000 });
+
     } catch (error: any) {
       console.error('Error fetching refund history:', error);
       toast.error(error.message || 'Failed to load refund history', { autoClose: 5000 });
@@ -724,7 +722,7 @@ export default function OrderDetailPage() {
       setLoadingEditHistory(true);
       const result = await orderEditService.getEditHistory(orderId);
       setEditHistory(result);
-      toast.success(`✅ Loaded ${result.length} edit records`, { autoClose: 3000 });
+   
     } catch (error: any) {
       console.error('Error fetching edit history:', error);
       toast.error(error.message || 'Failed to load edit history', { autoClose: 5000 });
@@ -862,9 +860,8 @@ const handleRegenerateInvoice = async (sendToCustomer: boolean, notes: string) =
     }
   };
 
-  // ✅ UPDATED: Handle all actions including financial ones
-// ✅ UPDATED: Handle all actions including auto-scroll
 const handleAction = (action: string) => {
+
   if (action === 'regenerate-invoice') {
     setShowRegenerateInvoiceModal(true);
     return;
@@ -875,13 +872,6 @@ const handleAction = (action: string) => {
     if (!refundHistory) {
       fetchRefundHistory();
     }
-    // ✅ Auto-scroll after state update
-    setTimeout(() => {
-      refundHistoryRef.current?.scrollIntoView({ 
-        behavior: 'smooth', 
-        block: 'start' 
-      });
-    }, 100);
     return;
   }
 
@@ -890,13 +880,6 @@ const handleAction = (action: string) => {
     if (editHistory.length === 0) {
       fetchEditHistory();
     }
-    // ✅ Auto-scroll after state update
-    setTimeout(() => {
-      editHistoryRef.current?.scrollIntoView({ 
-        behavior: 'smooth', 
-        block: 'start' 
-      });
-    }, 100);
     return;
   }
 
@@ -927,7 +910,7 @@ const handleAction = (action: string) => {
   const handleActionSuccess = () => {
     setActionModalOpen(false);
     fetchOrderDetails();
-    toast.success('✅ Action completed successfully!', { autoClose: 3000 });
+  
   };
 
   const isCollectionExpired = () => {
@@ -1149,7 +1132,7 @@ const handleAction = (action: string) => {
               </span>
             </div>
             <div className="flex justify-between" title="Value Added Tax (VAT)">
-              <span className="text-slate-400">Tax</span>
+              <span className="text-slate-400">Tax(included)</span>
               <span className="text-white font-medium">
                 {formatCurrency(order.taxAmount, order.currency)}
               </span>
@@ -1467,7 +1450,9 @@ const handleAction = (action: string) => {
         </div>
 
         {/* Shipping Address */}
-        <div className="bg-slate-900/50 border border-slate-800 rounded-lg p-4 hover:border-purple-500/30 transition-all group">
+
+        {order.deliveryMethod === 'HomeDelivery' && (
+  <div className="bg-slate-900/50 border border-slate-800 rounded-lg p-4 hover:border-purple-500/30 transition-all group">
           <div className="flex items-center gap-2 mb-3">
             <div className="p-2 bg-gradient-to-br from-purple-500 to-pink-500 rounded-lg group-hover:scale-110 transition-transform">
               <Truck className="h-4 w-4 text-white" />
@@ -1496,6 +1481,8 @@ const handleAction = (action: string) => {
             <p className="text-slate-400 font-medium">{order.shippingAddress.country}</p>
           </div>
         </div>
+        )}
+      
       </div>
 
       {/* ✅ Payments */}
@@ -1695,11 +1682,7 @@ const handleAction = (action: string) => {
           }
         }}
       />
-
-  {/* ✅ History Sections with Refs */}
-<div ref={refundHistoryRef}>
-  <RefundHistorySection
-    orderId={orderId}
+ <RefundHistorySection 
     currency={order.currency}
     refundHistory={refundHistory}
     loading={loadingRefundHistory}
@@ -1707,11 +1690,7 @@ const handleAction = (action: string) => {
     onToggle={() => setRefundHistoryOpen(!refundHistoryOpen)}
     onFetch={fetchRefundHistory}
   />
-</div>
-
-<div ref={editHistoryRef}>
-  <EditHistorySection
-    orderId={orderId}
+    <EditHistorySection  
     currency={order.currency}
     editHistory={editHistory}
     loading={loadingEditHistory}
@@ -1719,7 +1698,7 @@ const handleAction = (action: string) => {
     onToggle={() => setEditHistoryOpen(!editHistoryOpen)}
     onFetch={fetchEditHistory}
   />
-</div>
+
 
     </div>
   );

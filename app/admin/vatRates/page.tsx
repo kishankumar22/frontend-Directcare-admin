@@ -165,18 +165,23 @@ const fetchVATRates = async () => {
 
     const params: any = {};
 
-    // ✅ Deleted View
+    // ✅ DEFAULT always send activeOnly=false
+    params.activeOnly = false;
+
+    // ✅ Status Filter Handling
+    if (statusFilter === "Active") {
+      params.activeOnly = true;
+    } 
+    else if (statusFilter === "Inactive") {
+      params.activeOnly = false;
+    }
+    // If "All Status" → keep default activeOnly=false
+
+    // ✅ Deleted Filter Handling
     if (deletedFilter === "deleted") {
       params.isDeleted = true;
     } else {
-      // ✅ Default behavior
-      if (statusFilter === "Active") {
-        params.activeOnly = true;
-      } 
-      else if (statusFilter === "Inactive") {
-        params.activeOnly = false;
-      }
-      // If "All Status" → send nothing
+      params.isDeleted = false;
     }
 
     console.log("🔥 VAT API PARAMS:", params);
@@ -200,6 +205,7 @@ const fetchVATRates = async () => {
 
 
 
+
   // Fetch Countries
   const fetchCountries = async () => {
     try {
@@ -214,12 +220,11 @@ const fetchVATRates = async () => {
   useEffect(() => {  
     fetchCountries();
   }, []);
+  
   useEffect(() => {
   fetchVATRates();
 }, [deletedFilter, statusFilter]);
 
-// ✅ Backend handles status + deleted
-// Frontend handles only search + country
 
 const filteredRates = useMemo(() => {
   return vatRates.filter((rate) => {
@@ -922,7 +927,7 @@ const clearFilters = () => {
             {/* Default */}
             <td className="py-2 px-3 text-center">
               {rate.isDefault ? (
-                <Star className="w-4 h-4 text-yellow-400 fill-yellow-400 mx-auto" />
+                   <span className="text-green-400 text-xs font-medium">Yes</span>
               ) : (
                 <span className="text-slate-600 text-xs">—</span>
               )}

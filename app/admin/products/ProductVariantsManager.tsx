@@ -550,7 +550,7 @@ const closeDeleteModal = () => {
                       </div>
                       <div>
                         <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                          Price (₹)
+                          Price (£)
                         </label>
                         <input
                           type="number"
@@ -728,7 +728,7 @@ const closeDeleteModal = () => {
                               alt={variant?.name || 'Variant'}
                               className="w-16 h-16 object-cover rounded-lg border-2 border-slate-700"
                             />
-                            <button
+                            {/* <button
                               type="button"
                               onClick={() => {
                                 if (variant.imageUrl?.startsWith('blob:'))
@@ -740,7 +740,7 @@ const closeDeleteModal = () => {
                               className="absolute -top-1.5 -right-1.5 p-0.5 bg-red-500 hover:bg-red-600 text-white rounded-full disabled:opacity-50"
                             >
                               <X className="h-3 w-3" />
-                            </button>
+                            </button> */}
                           </div>
                         )}
 

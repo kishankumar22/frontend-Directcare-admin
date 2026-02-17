@@ -14,7 +14,7 @@ function getStatusColor(status?: string) {
 
   const value = status.toLowerCase();
 
-  if (value.includes("successful") || value.includes("paid") || value.includes("completed")) {
+  if (value.includes("successful") || value.includes("confirmed") || value.includes("paid") || value.includes("completed")) {
     return "text-green-600 font-semibold";
   }
 
@@ -131,7 +131,7 @@ const loyaltyPointsEarned = order.loyaltyPointsEarned ?? 0;
   className={`flex items-center gap-2 rounded-md px-4 py-2 text-sm font-semibold whitespace-nowrap shadow-sm ${
     loyaltyPointsEarned > 0
       ? "bg-gradient-to-br from-green-600 to-[#445D41] text-white"
-      : "bg-orange-100 text-orange-700 text-black"
+      : "bg-orange-100 text-orange-700 "
   }`}
 >
   <span className="text-xl leading-none">
@@ -169,7 +169,7 @@ const loyaltyPointsEarned = order.loyaltyPointsEarned ?? 0;
 </div>
 
               <div className="flex justify-between">
-  <span>Date:</span>
+  <span>Ordered On:</span>
   <span>{new Date(order.orderDate).toLocaleString()}</span>
 </div>
 
@@ -193,9 +193,9 @@ const loyaltyPointsEarned = order.loyaltyPointsEarned ?? 0;
 
                 {order.deliveryMethod === "HomeDelivery" && order.shippingAddress && (
                   <div className="flex gap-3">
-                    <MapPin className="w-4 h-4 mt-1 text-gray-500" />
+                    <MapPin className="w-5 h-5 mt-1 text-gray-500" />
                     <div className="text-sm">
-      <p className="font-semibold mb-1">Shipping Address</p>
+      <p className="font-semibold mb-1 text-lg">Shipping Address</p>
                       <p className="font-medium">
                         {order.shippingAddress.firstName}{" "}
                         {order.shippingAddress.lastName}
@@ -433,10 +433,17 @@ const loyaltyPointsEarned = order.loyaltyPointsEarned ?? 0;
   </div>
 )}
 
-                  <div className="flex justify-between">
-                    <span>Shipping</span>
-                    <span>{formatCurrency(order.shippingAmount)}</span>
-                  </div>
+                 {order.deliveryMethod === "ClickAndCollect" ? (
+  <div className="flex justify-between">
+    <span>Click & Collect Fee</span>
+    <span>{formatCurrency(order.clickAndCollectFee)}</span>
+  </div>
+) : (
+  <div className="flex justify-between">
+    <span>Shipping</span>
+    <span>{formatCurrency(order.shippingAmount)}</span>
+  </div>
+)}
                   <div className="flex justify-between">
                     <span>Discount</span>
                     <span>-{formatCurrency(order.discountAmount)}</span>

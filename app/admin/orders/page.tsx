@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState, useRef } from 'react';
+import { useCallback, useEffect, useState, useRef, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Package,
@@ -126,6 +126,7 @@ export default function OrdersListPage() {
 
   // ✅ Bulk Selection
   const [selectedOrders, setSelectedOrders] = useState<string[]>([]);
+const [isSearching, setIsSearching] = useState(false);
 
   // Filters
   const [filters, setFilters] = useState({
@@ -143,6 +144,7 @@ export default function OrdersListPage() {
   const [viewingOrder, setViewingOrder] = useState<Order | null>(null);
   const [actionMenuOrder, setActionMenuOrder] = useState<string | null>(null);
   const datePickerRef = useRef<HTMLDivElement>(null);
+const [debouncedSearch, setDebouncedSearch] = useState(filters.searchTerm);
 
   // ✅ Order Actions Modal
   const [modalState, setModalState] = useState<{
@@ -165,57 +167,88 @@ export default function OrdersListPage() {
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
+useEffect(() => {
+  if (!filters.searchTerm) {
+    setDebouncedSearch("");
+    return;
+  }
+
+  setIsSearching(true); // 👈 start loader while typing
+
+  const handler = setTimeout(() => {
+    setDebouncedSearch(filters.searchTerm);
+  }, 500);
+
+  return () => clearTimeout(handler);
+}, [filters.searchTerm]);;
 
   // Fetch orders
-  const fetchOrders = useCallback(async () => {
-    try {
-      setLoading(true);
-      const response = await orderService.getAllOrders({
-        page: currentPage,
-        pageSize: itemsPerPage,
-        status: filters.status || undefined,
-        fromDate: filters.fromDate || undefined,
-        toDate: filters.toDate || undefined,
-        searchTerm: filters.searchTerm || undefined,
-      });
+const fetchOrders = useCallback(async () => {
+  try {
+    setLoading(true);
 
-      if (response?.data) {
-        let filteredOrders = response.data.items || [];
+    const response = await orderService.getAllOrders({
+      page: currentPage,
+      pageSize: itemsPerPage,
+      status: filters.status || undefined,
+      fromDate: filters.fromDate || undefined,
+      toDate: filters.toDate || undefined,
+      searchTerm: debouncedSearch || undefined,
+    });
 
-        // ✅ Client-side filters
-        if (filters.deliveryMethod) {
-          filteredOrders = filteredOrders.filter(
-            (o) => o.deliveryMethod === filters.deliveryMethod
-          );
-        }
+    if (response?.data) {
+      let filteredOrders = response.data.items || [];
 
-        // ✅ Filter by payment method
-        if (filters.paymentMethod) {
-          filteredOrders = filteredOrders.filter((o) => {
-            const method = o.paymentMethod || o.payments?.[0]?.paymentMethod || '';
-            return method.toLowerCase() === filters.paymentMethod.toLowerCase();
-          });
-        }
-
-        // ✅ Filter by payment status (uses top-level paymentStatus from backend)
-        if (filters.paymentStatus) {
-          filteredOrders = filteredOrders.filter((o) => {
-            const status = o.paymentStatus || (o.payments && o.payments.length > 0 ? o.payments[0]?.status : null);
-            return status === filters.paymentStatus;
-          });
-        }
-
-        setOrders(filteredOrders);
-        setTotalCount(response.data.totalCount || 0);
-        setTotalPages(response.data.totalPages || 0);
+      if (filters.deliveryMethod) {
+        filteredOrders = filteredOrders.filter(
+          (o) => o.deliveryMethod === filters.deliveryMethod
+        );
       }
-    } catch (error: any) {
-      console.error('Error fetching orders:', error);
-      toast.error(error.message || 'Failed to load orders');
-    } finally {
-      setLoading(false);
+
+      if (filters.paymentMethod) {
+        filteredOrders = filteredOrders.filter((o) => {
+          const method =
+            o.paymentMethod || o.payments?.[0]?.paymentMethod || "";
+          return (
+            method.toLowerCase() ===
+            filters.paymentMethod.toLowerCase()
+          );
+        });
+      }
+
+      if (filters.paymentStatus) {
+        filteredOrders = filteredOrders.filter((o) => {
+          const status =
+            o.paymentStatus ||
+            (o.payments && o.payments.length > 0
+              ? o.payments[0]?.status
+              : null);
+          return status === filters.paymentStatus;
+        });
+      }
+
+      setOrders(filteredOrders);
+      setTotalCount(response.data.totalCount || 0);
+      setTotalPages(response.data.totalPages || 0);
     }
-  }, [currentPage, itemsPerPage, filters, toast]);
+  } catch (error: any) {
+    toast.error(error.message || "Failed to load orders");
+  } finally {
+    setLoading(false);
+    setIsSearching(false); // 👈 stop loader after API
+  }
+}, [
+  currentPage,
+  itemsPerPage,
+  filters.status,
+  filters.fromDate,
+  filters.toDate,
+  filters.deliveryMethod,
+  filters.paymentMethod,
+  filters.paymentStatus,
+  debouncedSearch,
+]);
+
 
   useEffect(() => {
     fetchOrders();
@@ -444,14 +477,15 @@ export default function OrdersListPage() {
     setCurrentPage(1);
   };
 
-  const hasActiveFilters =
-    filters.searchTerm ||
-    filters.status ||
-    filters.fromDate ||
-    filters.toDate ||
-    filters.deliveryMethod ||
-    filters.paymentMethod ||
-    filters.paymentStatus;
+const hasActiveFilters = useMemo(() => {
+  return Object.values(filters).some((value) => {
+    if (typeof value === "string") {
+      return value.trim() !== "";
+    }
+    return Boolean(value);
+  });
+}, [filters]);
+
 
   const getDateRangeLabel = () => {
     if (!filters.fromDate && !filters.toDate) return 'Select Date Range';
@@ -501,6 +535,7 @@ export default function OrdersListPage() {
     closeActionModal();
     fetchOrders();
   };
+
 
   // ✅ Calculate stats with proper typing
   const allOrders = orders; // For stats calculation
@@ -747,16 +782,27 @@ export default function OrdersListPage() {
       <div className="bg-slate-900/50 border border-slate-800 rounded-lg p-3 z-50">
         <div className="flex flex-wrap items-center gap-2">
           {/* Search */}
-          <div className="relative flex-1 min-w-[180px]">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-            <input
-              type="text"
-              placeholder="Search orders..."
-              value={filters.searchTerm}
-              onChange={(e) => setFilters({ ...filters, searchTerm: e.target.value })}
-              className="w-full pl-9 pr-3 py-2 bg-slate-800/50 border border-slate-700 rounded-lg text-white text-sm placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500/50"
-            />
-          </div>
+   <div className="relative flex-1 min-w-[180px]">
+  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+
+  <input
+    type="text"
+    placeholder="Search orders..."
+    value={filters.searchTerm}
+    onChange={(e) =>
+      setFilters({ ...filters, searchTerm: e.target.value })
+    }
+    className="w-full pl-9 pr-9 py-2 bg-slate-800/50 border border-slate-700 rounded-lg text-white text-sm placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500/50"
+  />
+
+  {/* 🔥 Loader */}
+  {isSearching && (
+    <div className="absolute right-3 top-1/2 -translate-y-1/2">
+      <div className="h-4 w-4 border-2 border-violet-400 border-t-transparent rounded-full animate-spin"></div>
+    </div>
+  )}
+</div>
+
 
           {/* Status Filter */}
           <div className="relative">

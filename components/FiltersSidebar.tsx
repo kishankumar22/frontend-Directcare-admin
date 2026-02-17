@@ -122,7 +122,7 @@ export default function FiltersSidebar({
         <h4 className="font-semibold mb-2">Price</h4>
 
         <div className="text-xs mb-1">
-          ₹{filters.minPrice ?? 0} – ₹{filters.maxPrice ?? maxProductPrice}
+          £{filters.minPrice ?? 0} – £{filters.maxPrice ?? maxProductPrice}
         </div>
 
         <input

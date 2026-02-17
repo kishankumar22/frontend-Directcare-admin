@@ -167,6 +167,144 @@ export default function RelatedProductsSelector({
 
       {/* Main Filter Row */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+
+        
+        {/* Category Filter - Right */}
+        <div className="lg:col-span-1" ref={categoryRef}>
+          <label className="block text-sm font-medium text-slate-300 mb-2">
+            🔍 Filter by Category
+          </label>
+          <div className="relative">
+            <input
+              type="text"
+              value={categorySearch}
+              onChange={e => setCategorySearch(e.target.value)}
+              onClick={() => setShowCategoryDropdown(true)}
+              placeholder="Select categories to filter products..."
+              className="w-full px-3 py-2.5 pr-10 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all cursor-pointer"
+            />
+            <div className="absolute right-3 top-3 flex items-center gap-2">
+              {selectedCategories.length > 0 && (
+                <span className="px-2 py-0.5 bg-violet-500/20 text-violet-400 text-xs rounded-full">
+                  {selectedCategories.length}
+                </span>
+              )}
+              <ChevronDown className="h-5 w-5 text-slate-400 pointer-events-none" />
+            </div>
+
+            {/* Category Dropdown */}
+            {showCategoryDropdown && (
+              <div className="absolute z-50 w-full mt-2 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl max-h-80 overflow-hidden">
+                {/* Header */}
+                <div className="sticky top-0 bg-slate-800 border-b border-slate-700 px-4 py-2 flex justify-between items-center">
+                  <span className="text-xs text-slate-400">
+                    {filteredCategories.length} categor{filteredCategories.length !== 1 ? 'ies' : 'y'}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setShowCategoryDropdown(false)}
+                    className="text-slate-400 hover:text-white"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+
+                {/* Category List */}
+                <div className="max-h-64 overflow-y-auto">
+                  {filteredCategories.length > 0 ? (
+                    filteredCategories.map(category => (
+                      <label
+                        key={category.id}
+                        className="flex items-center gap-3 px-4 py-2.5 hover:bg-slate-800/50 cursor-pointer border-b border-slate-700/50 last:border-0 transition-colors"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={selectedCategories.includes(category.id)}
+                          onChange={() => toggleCategory(category.id)}
+                          className="rounded bg-slate-800/50 border-slate-700 text-violet-500 focus:ring-violet-500 focus:ring-offset-slate-900"
+                        />
+                        <span className="text-sm text-slate-300">{category.name}</span>
+                      </label>
+                    ))
+                  ) : (
+                    <div className="px-4 py-8 text-center text-sm text-slate-400">
+                      No categories found
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+                {/* Brand Filter - Middle */}
+        <div className="lg:col-span-1" ref={brandRef}>
+          <label className="block text-sm font-medium text-slate-300 mb-2">
+            🔍 Filter by Brand
+          </label>
+          <div className="relative">
+            <input
+              type="text"
+              value={brandSearch}
+              onChange={e => setBrandSearch(e.target.value)}
+              onClick={() => setShowBrandDropdown(true)}
+              placeholder="Select brands to filter products..."
+              className="w-full px-3 py-2.5 pr-10 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all cursor-pointer"
+            />
+            <div className="absolute right-3 top-3 flex items-center gap-2">
+              {selectedBrands.length > 0 && (
+                <span className="px-2 py-0.5 bg-violet-500/20 text-violet-400 text-xs rounded-full">
+                  {selectedBrands.length}
+                </span>
+              )}
+              <ChevronDown className="h-5 w-5 text-slate-400 pointer-events-none" />
+            </div>
+
+            {/* Brand Dropdown */}
+            {showBrandDropdown && (
+              <div className="absolute z-50 w-full mt-2 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl max-h-80 overflow-hidden">
+                {/* Header */}
+                <div className="sticky top-0 bg-slate-800 border-b border-slate-700 px-4 py-2 flex justify-between items-center">
+                  <span className="text-xs text-slate-400">
+                    {filteredBrands.length} brand{filteredBrands.length !== 1 ? 's' : ''}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setShowBrandDropdown(false)}
+                    className="text-slate-400 hover:text-white"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+
+                {/* Brand List */}
+                <div className="max-h-64 overflow-y-auto">
+                  {filteredBrands.length > 0 ? (
+                    filteredBrands.map(brand => (
+                      <label
+                        key={brand.id}
+                        className="flex items-center gap-3 px-4 py-2.5 hover:bg-slate-800/50 cursor-pointer border-b border-slate-700/50 last:border-0 transition-colors"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={selectedBrands.includes(brand.id)}
+                          onChange={() => toggleBrand(brand.id)}
+                          className="rounded bg-slate-800/50 border-slate-700 text-violet-500 focus:ring-violet-500 focus:ring-offset-slate-900"
+                        />
+                        <span className="text-sm text-slate-300">{brand.name}</span>
+                      </label>
+                    ))
+                  ) : (
+                    <div className="px-4 py-8 text-center text-sm text-slate-400">
+                      No brands found
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
         {/* Product Selector - Left */}
         <div className="lg:col-span-1" ref={productRef}>
           <label className="block text-sm font-medium text-slate-300 mb-2">
@@ -240,141 +378,7 @@ export default function RelatedProductsSelector({
           </div>
         </div>
 
-        {/* Brand Filter - Middle */}
-        <div className="lg:col-span-1" ref={brandRef}>
-          <label className="block text-sm font-medium text-slate-300 mb-2">
-            🔍 Filter by Brand
-          </label>
-          <div className="relative">
-            <input
-              type="text"
-              value={brandSearch}
-              onChange={e => setBrandSearch(e.target.value)}
-              onClick={() => setShowBrandDropdown(true)}
-              placeholder="Select brands to filter products..."
-              className="w-full px-3 py-2.5 pr-10 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all cursor-pointer"
-            />
-            <div className="absolute right-3 top-3 flex items-center gap-2">
-              {selectedBrands.length > 0 && (
-                <span className="px-2 py-0.5 bg-violet-500/20 text-violet-400 text-xs rounded-full">
-                  {selectedBrands.length}
-                </span>
-              )}
-              <ChevronDown className="h-5 w-5 text-slate-400 pointer-events-none" />
-            </div>
 
-            {/* Brand Dropdown */}
-            {showBrandDropdown && (
-              <div className="absolute z-50 w-full mt-2 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl max-h-80 overflow-hidden">
-                {/* Header */}
-                <div className="sticky top-0 bg-slate-800 border-b border-slate-700 px-4 py-2 flex justify-between items-center">
-                  <span className="text-xs text-slate-400">
-                    {filteredBrands.length} brand{filteredBrands.length !== 1 ? 's' : ''}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => setShowBrandDropdown(false)}
-                    className="text-slate-400 hover:text-white"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
-                </div>
-
-                {/* Brand List */}
-                <div className="max-h-64 overflow-y-auto">
-                  {filteredBrands.length > 0 ? (
-                    filteredBrands.map(brand => (
-                      <label
-                        key={brand.id}
-                        className="flex items-center gap-3 px-4 py-2.5 hover:bg-slate-800/50 cursor-pointer border-b border-slate-700/50 last:border-0 transition-colors"
-                      >
-                        <input
-                          type="checkbox"
-                          checked={selectedBrands.includes(brand.id)}
-                          onChange={() => toggleBrand(brand.id)}
-                          className="rounded bg-slate-800/50 border-slate-700 text-violet-500 focus:ring-violet-500 focus:ring-offset-slate-900"
-                        />
-                        <span className="text-sm text-slate-300">{brand.name}</span>
-                      </label>
-                    ))
-                  ) : (
-                    <div className="px-4 py-8 text-center text-sm text-slate-400">
-                      No brands found
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Category Filter - Right */}
-        <div className="lg:col-span-1" ref={categoryRef}>
-          <label className="block text-sm font-medium text-slate-300 mb-2">
-            🔍 Filter by Category
-          </label>
-          <div className="relative">
-            <input
-              type="text"
-              value={categorySearch}
-              onChange={e => setCategorySearch(e.target.value)}
-              onClick={() => setShowCategoryDropdown(true)}
-              placeholder="Select categories to filter products..."
-              className="w-full px-3 py-2.5 pr-10 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all cursor-pointer"
-            />
-            <div className="absolute right-3 top-3 flex items-center gap-2">
-              {selectedCategories.length > 0 && (
-                <span className="px-2 py-0.5 bg-violet-500/20 text-violet-400 text-xs rounded-full">
-                  {selectedCategories.length}
-                </span>
-              )}
-              <ChevronDown className="h-5 w-5 text-slate-400 pointer-events-none" />
-            </div>
-
-            {/* Category Dropdown */}
-            {showCategoryDropdown && (
-              <div className="absolute z-50 w-full mt-2 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl max-h-80 overflow-hidden">
-                {/* Header */}
-                <div className="sticky top-0 bg-slate-800 border-b border-slate-700 px-4 py-2 flex justify-between items-center">
-                  <span className="text-xs text-slate-400">
-                    {filteredCategories.length} categor{filteredCategories.length !== 1 ? 'ies' : 'y'}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => setShowCategoryDropdown(false)}
-                    className="text-slate-400 hover:text-white"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
-                </div>
-
-                {/* Category List */}
-                <div className="max-h-64 overflow-y-auto">
-                  {filteredCategories.length > 0 ? (
-                    filteredCategories.map(category => (
-                      <label
-                        key={category.id}
-                        className="flex items-center gap-3 px-4 py-2.5 hover:bg-slate-800/50 cursor-pointer border-b border-slate-700/50 last:border-0 transition-colors"
-                      >
-                        <input
-                          type="checkbox"
-                          checked={selectedCategories.includes(category.id)}
-                          onChange={() => toggleCategory(category.id)}
-                          className="rounded bg-slate-800/50 border-slate-700 text-violet-500 focus:ring-violet-500 focus:ring-offset-slate-900"
-                        />
-                        <span className="text-sm text-slate-300">{category.name}</span>
-                      </label>
-                    ))
-                  ) : (
-                    <div className="px-4 py-8 text-center text-sm text-slate-400">
-                      No categories found
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
       </div>
 
       {/* Active Filters */}
@@ -480,15 +484,7 @@ export default function RelatedProductsSelector({
         </div>
       )}
 
-      {/* Info Box */}
-      <div className="bg-violet-500/10 border border-violet-500/30 rounded-xl p-4">
-        <h4 className="font-semibold text-sm text-violet-400 mb-2">💡 Tips</h4>
-        <ul className="text-sm text-slate-300 space-y-1">
-          <li>• Click on any input to show dropdown with multiple checkboxes</li>
-          <li>• Use Brand and Category filters to narrow down products</li>
-          <li>• Select products that complement or enhance the main product</li>
-        </ul>
-      </div>
+  
     </div>
   );
 }

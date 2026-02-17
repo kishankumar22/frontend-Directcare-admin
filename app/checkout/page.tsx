@@ -425,6 +425,11 @@ const cartSubtotal = useMemo(() => {
     return sum + base * item.quantity;
   }, 0);
 }, [checkoutItems]);
+const clickAndCollectFee = useMemo(() => {
+  if (deliveryMethod !== "ClickAndCollect") return 0;
+  return cartSubtotal >= 30 ? 0 : 1;
+}, [deliveryMethod, cartSubtotal]);
+
 // 🎁 Loyalty points helpers (CHECKOUT)
 const isLoyaltyEligible = (item: any) => {
   if (!item?.productData) return false;
@@ -498,13 +503,15 @@ const cartTotalAmount = useMemo(() => {
     cartSubtotal -
     cartBundleDiscount -
     cartDiscount +
-    nextDayDeliveryCharge
+   nextDayDeliveryCharge +
+    clickAndCollectFee
   );
 }, [
   cartSubtotal,
   cartBundleDiscount,
   cartDiscount,
   nextDayDeliveryCharge,
+  clickAndCollectFee
 ]);
 const checkoutVatAmount = useMemo(() => {
   return checkoutItems.reduce((sum, item) => {
@@ -670,10 +677,11 @@ setAddressQuery(""); // 🔥 clear search input after select
       productId: c.productId ?? c.id,
       productVariantId: c.variantId ?? null,
       quantity: c.quantity,
-     unitPrice: c.finalPrice ?? c.price ?? c.priceBeforeDiscount,
+   unitPrice: c.priceBeforeDiscount ?? c.price ?? c.finalPrice,
     }));
     return {
       deliveryMethod,  // ADD THIS LINE
+      paymentMethod: paymentMethod === "card" ? "Card" : "CashOnDelivery", // 🔥 ADD THIS
       customerEmail: billingEmail,
       customerPhone: `+44${billingPhone}`,
       isGuestOrder: !isAuthenticated,
@@ -786,7 +794,7 @@ if (deliveryMethod === "HomeDelivery" && !shippingSameAsBilling) {
       productId: c.productId ?? c.id,
       productVariantId: c.variantId ?? null,
       quantity: c.quantity,
-      unitPrice: c.finalPrice ?? c.price,
+     unitPrice: c.priceBeforeDiscount ?? c.price ?? c.finalPrice,
       subscriptionId: subscriptionMap[c.id] ?? null,
       frequency: c.frequency,
     })),
@@ -950,7 +958,7 @@ if (!checkoutItems || checkoutItems.length === 0) {
   />
 </div>
             {/* Postcode autocomplete suggestions */}
-         <div className="flex flex-col space-y-1 col-span-2 relative">
+       <div className="flex flex-col space-y-1 col-span-2 relative z-50">
   <label className="text-sm font-medium text-gray-700">
     Search address or postcode
   </label>
@@ -962,13 +970,12 @@ if (!checkoutItems || checkoutItems.length === 0) {
   className="w-full border p-2 rounded"
 />
               {showSuggestions && addressSuggestions.length > 0 && (
-                <div className="absolute left-0 right-0 bg-white border mt-1 rounded max-h-48 overflow-auto z-40">
+              <div className="absolute top-full left-0 right-0 mt-1 bg-white border rounded max-h-60 overflow-auto shadow-lg z-50">
                 {addressSuggestions.map((s) => (
   <button
     key={s.id}
     onClick={() => handleSelectSuggestion(s)}
-    className="w-full text-left px-3 py-2 hover:bg-gray-100"
-  >
+    className="w-full text-left px-3 py-2 hover:bg-gray-100" >
     {s.text}
   </button>
 ))}
@@ -1262,6 +1269,17 @@ if (!checkoutItems || checkoutItems.length === 0) {
   <span>Includes VAT</span>
   <span>{formatCurrency(checkoutVatAmount)}</span>
 </div>
+{deliveryMethod === "ClickAndCollect" && (
+  <div className="flex items-center justify-between text-sm">
+    <span>Click & Collect Fee</span>
+    <span>
+      {clickAndCollectFee === 0
+        ? "Free"
+        : formatCurrency(clickAndCollectFee)}
+    </span>
+  </div>
+)}
+
   {/* Bundle Discount */}
   {cartBundleDiscount > 0 && (
     <div className="flex items-center justify-between text-green-700">
@@ -1280,6 +1298,7 @@ if (!checkoutItems || checkoutItems.length === 0) {
       </span>
     </div>
   )}
+
 {/* Next-Day Delivery */}
 {hasNextDayDelivery && (
   <div className="flex items-center justify-between text-sm text-emerald-700">

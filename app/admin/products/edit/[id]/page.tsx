@@ -662,12 +662,12 @@ const checkPublishRequirements = (): { isValid: boolean; missing: string[] } => 
   }
 
   // Weight
-  if (formData.isShipEnabled) {
-    const weight = parseFloat(formData.weight?.toString() || '0');
-    if (isNaN(weight) || weight <= 0) {
-      missing.push('Weight (required for shipping)');
-    }
-  }
+  // if (formData.isShipEnabled) {
+  //   const weight = parseFloat(formData.weight?.toString() || '0');
+  //   if (isNaN(weight) || weight <= 0) {
+  //     missing.push('Weight (required for shipping)');
+  //   }
+  // }
 
   // Grouped
   if (formData.productType === 'grouped' && formData.requireOtherProducts) {
@@ -2707,7 +2707,7 @@ const handleSubmit = async (e?: React.FormEvent, isDraft: boolean = false, relea
       step: isDraft ? 'Validating draft data...' : 'Validating product data...',
       percentage: 10,
     });
-    const isPublishing = !isDraft;
+
 
 
     // ═══════════════════════════════════════════════════════════════════════
@@ -3519,7 +3519,7 @@ if (formData.markAsNew) {
 
         if (optData.name.length > 50) {
           toast.error(`❌ Option name "${optData.name}" is too long (max 50 chars)`);
-          throw new Error('Invalid option name');
+         return null;
         }
 
         if (isExistingOpt) {
@@ -3545,12 +3545,12 @@ if (formData.markAsNew) {
 
         if (attrData.name.length > 100) {
           toast.error(`❌ Attribute name "${attrData.name}" is too long (max 100 chars)`);
-          throw new Error('Invalid attribute name');
+          return null;
         }
 
         if (attrData.value.length > 500) {
           toast.error(`❌ Attribute value for "${attrData.name}" is too long (max 500 chars)`);
-          throw new Error('Invalid attribute value');
+          return null;
         }
 
         if (isExistingAttr) {
@@ -3570,24 +3570,18 @@ if (formData.markAsNew) {
     // SECTION 20: VARIANTS VALIDATION
     // ═══════════════════════════════════════════════════════════════════════
 
-// ============================================
-// 🔥 COMPLETE VARIANT PAYLOAD CREATION
-// ============================================
-
-// ✅ SECTION 20: VARIANTS VALIDATION - WITH CLEANING
-
 const firstVariant = productVariants[0]; // Get master variant
 
 const variantsArray = productVariants?.map(variant => {
   // ========== VALIDATION (SAME AS BEFORE) ==========
   if (!variant.name || variant.name.trim().length === 0) {
     toast.error('All variants must have a name');
-    throw new Error('Invalid variant name');
+   return null;
   }
   
   if (!variant.sku || variant.sku.trim().length === 0) {
     toast.error(`Variant "${variant.name}" must have a SKU`);
-    throw new Error('Invalid variant SKU');
+  return null;
   }
 
   // Check duplicate variant SKU
@@ -3598,7 +3592,7 @@ const variantsArray = productVariants?.map(variant => {
     toast.error(`Duplicate variant SKU "${variant.sku}" is already used by variant "${duplicateVariant.name}"`, {
       autoClose: 8000
     });
-    throw new Error('Duplicate variant SKU');
+   return null;
   }
 
   // Check if variant SKU matches product SKU
@@ -3606,16 +3600,16 @@ const variantsArray = productVariants?.map(variant => {
     toast.error(`Variant SKU "${variant.sku}" cannot be the same as main product SKU`, {
       autoClose: 8000
     });
-    throw new Error('Variant SKU matches product SKU');
+    return null;
   }
 
   // Price validation
-  const variantPrice = typeof variant.price === 'number' ? variant.price : parseNumber(variant.price, 'variant.price') ?? 0;
-  if (variantPrice <= 0) {
-    toast.error(`Variant "${variant.name}" price must be greater than 0`);
-    return null; // ⬅ stop this variant
+  // const variantPrice = typeof variant.price === 'number' ? variant.price : parseNumber(variant.price, 'variant.price') ?? 0;
+  // if (variantPrice <= 0) {
+  //   toast.error(`Variant "${variant.name}" price must be greater than 0`);
+  //   return null; // ⬅ stop this variant
 
-  }
+  // }
 
   // ========== ✅ CLEAN VARIANT OPTIONS BEFORE BUILDING ==========
   const cleanedVariant = cleanVariantOptions(variant, firstVariant);
@@ -3628,7 +3622,7 @@ const variantsArray = productVariants?.map(variant => {
   const variantData: any = {
     name: cleanedVariant.name.trim(),
     sku: cleanedVariant.sku.trim().toUpperCase(),
-    price: variantPrice,
+    price: cleanedVariant.price,
     compareAtPrice: typeof cleanedVariant.compareAtPrice === 'number'
       ? cleanedVariant.compareAtPrice
       : parseNumber(cleanedVariant.compareAtPrice, 'cleanedVariant.compareAtPrice'),
@@ -3695,7 +3689,7 @@ const variantsArray = productVariants?.map(variant => {
               `❌ Variant SKU "${variant.sku}" conflicts with product "${productSkuConflict.name}" SKU "${productSkuConflict.sku}"`,
               { autoClose: 10000 }
             );
-            throw new Error('Variant SKU conflicts with product SKU');
+            return null;
           }
 
           for (const product of allProducts) {
@@ -3711,7 +3705,7 @@ const variantsArray = productVariants?.map(variant => {
                   `❌ Variant SKU "${variant.sku}" conflicts with "${product.name}" - Variant "${variantSkuConflict.name}"`,
                   { autoClose: 10000 }
                 );
-                throw new Error('Variant SKU conflicts with another product\'s variant');
+                return null;
               }
             }
           }
@@ -4061,7 +4055,7 @@ try {
         throw new Error(apiResponse.message || 'Update failed');
       }
     } else {
-      throw new Error('No response received from server');
+      return null;
     }
 
   } catch (error: any) {
@@ -5410,7 +5404,7 @@ const uploadImagesToProductDirect = async (
 {/* ========== CANCEL BUTTON ========== */}
 <button
   type="button"
-  onClick={() => handleNavigateAway('/admin/products')}
+  onClick={() => handleCancel()}
   disabled={isSubmitting}
   className="px-5 py-2.5 bg-slate-800/50 border border-slate-700 rounded-xl text-slate-300 hover:bg-slate-800"
 >
@@ -5472,33 +5466,31 @@ const uploadImagesToProductDirect = async (
 
       {/* Main Content */}
       <div className="w-full">
-        {/* Missing Fields Badge (in header) */}
-{missingFields.length > 0 && (
-  <div className="flex items-center gap-2 mb-2 px-1 py-1 bg-orange-500/10 border border-orange-500/30 rounded-lg flex-wrap">
-    
-    <svg
-      className="w-4 h-4 text-orange-400 flex-shrink-0"
-      fill="currentColor"
-      viewBox="0 0 20 20"
-    >
-      <path
-        fillRule="evenodd"
-        d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"
-        clipRule="evenodd"
-      />
-    </svg>
+          {missingFields.length > 0 && (
+          <div className="flex items-center gap-2 mb-2 px-1 py-1 bg-orange-500/10 border border-orange-500/30 rounded-lg flex-wrap">
+            
+            <svg
+              className="w-4 h-4 text-orange-400 flex-shrink-0"
+              fill="currentColor"
+              viewBox="0 0 20 20"
+            >
+              <path
+                fillRule="evenodd"
+                d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"
+                clipRule="evenodd"
+              />
+            </svg>
 
-    <span className="text-xs font-medium text-orange-400">
-      {missingFields.length} required field
-      {missingFields.length !== 1 ? "s" : ""}:
-    </span>
+            <span className="text-xs font-medium text-orange-400">
+              {missingFields.length} required field
+              {missingFields.length !== 1 ? "s" : ""}:
+            </span>
 
-    <span className="text-xs text-orange-300">
-      {missingFields.join(", ")}
-    </span>
-  </div>
-)}
-
+            <span className="text-xs text-orange-300">
+              {missingFields.join(", ")}
+            </span>
+          </div>
+          )}
         {/* Main Form */}
         <div className="w-full">
           <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-2xl p-2">
@@ -7560,7 +7552,15 @@ const uploadImagesToProductDirect = async (
       }));
     }}
   />
-
+    {/* Info Box */}
+      <div className="bg-violet-500/10 border border-violet-500/30 rounded-xl p-4">
+        <h4 className="font-semibold text-sm text-violet-400 mb-2">💡 Tips</h4>
+        <ul className="text-sm text-slate-300 space-y-1">
+          <li>• Click on any input to show dropdown with multiple checkboxes</li>
+          <li>• Use Brand and Category filters to narrow down products</li>
+          <li>• Select products that complement or enhance the main product</li>
+        </ul>
+      </div>
 
 </TabsContent>
 {/* ========== SHIPPING TAB ========== */}

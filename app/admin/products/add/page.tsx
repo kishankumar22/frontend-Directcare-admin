@@ -1112,7 +1112,8 @@ const handleSubmit = async (
     }
 
     // 1.2 NAME VALIDATION
-    const PRODUCT_NAME_REGEX = /^[A-Za-z0-9\u00C0-\u024F\s.,\-]+$/;
+   const PRODUCT_NAME_REGEX =/^[A-Za-z0-9\u00C0-\u024F\s.,()'"\/&+%\-]+$/;
+
     if (!PRODUCT_NAME_REGEX.test(formData.name)) {
       toast.error("Product name contains unsupported characters.");
       target.removeAttribute("data-submitting");
@@ -2851,7 +2852,6 @@ useEffect(() => {
 
   return (
     <div className="space-y-2 ">
-{/* ✅ MINIMAL COMPACT HEADER - Hover Tooltips + Badges */}
 {/* ============================================================ */}
 {/* ✅ COMPLETE HEADER WITH EDIT MODE & VALIDATION */}
 {/* ============================================================ */}
@@ -5125,7 +5125,7 @@ useEffect(() => {
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-slate-400 mb-1">
-                    Delivery Charge (₹)
+                    Delivery Charge (£)
                   </label>
                   <input
                     type="number"
@@ -5175,7 +5175,7 @@ useEffect(() => {
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-slate-400 mb-1">
-                    Delivery Charge (₹)
+                    Delivery Charge (£)
                   </label>
                   <input
                     type="number"
@@ -5227,7 +5227,7 @@ useEffect(() => {
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-slate-400 mb-1">
-                    Delivery Charge (₹)
+                    Delivery Charge (£)
                   </label>
                   <input
                     type="number"
@@ -5253,13 +5253,13 @@ useEffect(() => {
                 <p className="font-semibold mb-1">Active Delivery Options:</p>
                 <ul className="space-y-1 text-slate-300">
                   {formData.sameDayDeliveryEnabled && (
-                    <li>• Same-Day: ₹{formData.sameDayDeliveryCharge || '0'} (Before {formData.sameDayDeliveryCutoffTime || '--:--'})</li>
+                    <li>• Same-Day: £{formData.sameDayDeliveryCharge || '0'} (Before {formData.sameDayDeliveryCutoffTime || '--:--'})</li>
                   )}
                   {formData.nextDayDeliveryEnabled && (
-                    <li>• Next-Day: ₹{formData.nextDayDeliveryCharge || '0'} (Before {formData.nextDayDeliveryCutoffTime || '--:--'})</li>
+                    <li>• Next-Day: £{formData.nextDayDeliveryCharge || '0'} (Before {formData.nextDayDeliveryCutoffTime || '--:--'})</li>
                   )}
                   {formData.standardDeliveryEnabled && (
-                    <li>• Standard: ₹{formData.standardDeliveryCharge || '0'} ({formData.standardDeliveryDays || '5'} days)</li>
+                    <li>• Standard: £{formData.standardDeliveryCharge || '0'} ({formData.standardDeliveryDays || '5'} days)</li>
                   )}
                 </ul>
               </div>
@@ -5369,6 +5369,16 @@ useEffect(() => {
       setFormData(prev => ({ ...prev, crossSellProducts: productIds }));
     }}
   />
+
+      {/* Info Box */}
+      <div className="bg-violet-500/10 border border-violet-500/30 rounded-xl p-4">
+        <h4 className="font-semibold text-sm text-violet-400 mb-2">💡 Tips</h4>
+        <ul className="text-sm text-slate-300 space-y-1">
+          <li>• Click on any input to show dropdown with multiple checkboxes</li>
+          <li>• Use Brand and Category filters to narrow down products</li>
+          <li>• Select products that complement or enhance the main product</li>
+        </ul>
+      </div>
 </TabsContent>
 
 

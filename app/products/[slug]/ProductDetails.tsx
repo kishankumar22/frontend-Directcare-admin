@@ -1902,7 +1902,7 @@ bg-white/80 hover:bg-white shadow-md rounded-full p-2 backdrop-blur-sm transitio
   {/* CUT PRICE */}
   {discountAmount > 0 && (
     <span className="text-base text-gray-400 line-through">
-      £{basePrice.toFixed(2)}
+      £{(basePrice * normalQty).toFixed(2)}
     </span>
   )}
 </div>
@@ -2005,11 +2005,7 @@ bg-white/80 hover:bg-white shadow-md rounded-full p-2 backdrop-blur-sm transitio
      <Button
   onClick={handleBuyNow}
   disabled={product.disableBuyButton}
-  className="w-full py-4 rounded-xl font-semibold
-    bg-[#445D41] hover:bg-black text-white
-    flex items-center justify-center gap-2
-    disabled:opacity-60 disabled:cursor-not-allowed"
->
+  className="w-full py-4 rounded-xl font-semibold bg-[#445D41] hover:bg-black text-white flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed" >
   <Zap className="h-4 w-4" />
   Buy Now
 </Button>
@@ -2076,7 +2072,7 @@ bg-white/80 hover:bg-white shadow-md rounded-full p-2 backdrop-blur-sm transitio
       {/* CUT PRICE */}
       {discountAmount > 0 && (
         <span className="text-lg text-gray-400 line-through">
-        £{resolveBasePrice(product, selectedVariant).toFixed(2)}
+        £{(basePrice * normalQty).toFixed(2)}
         </span>
       )}
       {/* VAT */}

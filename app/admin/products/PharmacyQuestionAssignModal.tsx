@@ -49,10 +49,44 @@ useEffect(() => {
   return () => clearTimeout(timer);
 }, [searchTerm]);
 
+const fetchAssignedQuestions = async () => {
+  try {
+    const response = await pharmacyQuestionsService.getProductQuestions(productId!);
+
+    const assigned = response.data?.data || [];
+
+    const prefilledMap = new Map();
+
+    assigned.forEach((item: any) => {
+      prefilledMap.set(item.pharmacyQuestionId, {
+        isRequired: item.isRequired,
+        displayOrder: item.displayOrder,
+        answerType: item.answerType,
+      });
+    });
+
+    setSelections(prefilledMap);
+
+  } catch (error) {
+    console.error("Failed to fetch assigned questions");
+  }
+};
+
+
 useEffect(() => {
   if (!isOpen) return;
-  fetchQuestions();
+
+  const loadData = async () => {
+    await fetchQuestions();
+
+    if (productId) {
+      await fetchAssignedQuestions();
+    }
+  };
+
+  loadData();
 }, [isOpen]);
+
 
 
 
@@ -88,12 +122,13 @@ const fetchQuestions = async () => {
     });
 
     setQuestions(response.data?.data || []);
-  } catch (error: any) {
+  } catch {
     toast.error("Failed to load pharmacy questions");
   } finally {
     setLoading(false);
   }
 };
+
 
 
 

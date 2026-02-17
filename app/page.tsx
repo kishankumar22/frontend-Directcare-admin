@@ -139,7 +139,7 @@ async function getCategories(baseUrl: string) {
 async function getBrands(baseUrl: string) {
   try {
     const res = await fetch(
-      `${baseUrl}/api/Brands?includeUnpublished=false`,
+      `${baseUrl}/api/Brands?includeUnpublished=false&isActive=true&isDeleted=false`,
       {
         cache: "no-store",
       }

@@ -963,7 +963,7 @@ const filteredDiscounts = discounts.filter((discount) => {
                     Status
                   </th>
                   <th className="text-center py-3 px-4 text-slate-400 font-medium text-sm">
-                    Period
+                    Validity
                   </th>
                   <th className="text-center py-3 px-4 text-slate-400 font-medium text-sm">
                     Usage

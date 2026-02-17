@@ -987,7 +987,7 @@ const handleExportReviews = (type: string) => {
 
 
         {/* Items Per Page */}
-        <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-2xl p-3">
+        <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-2xl p-2">
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div className="flex items-center gap-3">
               <span className="text-sm text-slate-400">Show</span>
@@ -1020,79 +1020,8 @@ const handleExportReviews = (type: string) => {
         {/* Reviews Section */}
         <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-2xl p-2">
           {/* Filter Section */}
-          <div className="space-y-4 mb-6">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              <div>
-                <h2 className="text-2xl font-bold text-white">All Reviews</h2>
-                <p className="text-slate-400 text-sm mt-1">
-                  Manage and moderate customer reviews
-                  {products.length > 0 && (
-                    <span className="ml-2 text-slate-500">
-                      • {products.length} products available
-                    </span>
-                  )}
-                </p>
-              </div>
-
-              {hasActiveFilters && (
-                <div className="flex items-center gap-2">
-                  <span className="px-3 py-1 bg-violet-500/10 border border-violet-500/30 rounded-full text-violet-400 text-xs font-medium">
-                    Filters Active
-                  </span>
-                  <button
-                    onClick={clearFilters}
-                    className="px-3 py-1.5 bg-red-500/10 border border-red-500/50 text-red-400 rounded-lg hover:bg-red-500/20 transition-all text-xs font-medium flex items-center gap-1.5"
-                  >
-                    <FilterX className="h-3.5 w-3.5" />
-                    Clear All
-                  </button>
-                </div>
-              )}
-            </div>
-
-            <div className="flex flex-col lg:flex-row gap-3">
               <div className="flex flex-wrap items-center gap-3 flex-1">
-                {/* Status Filter */}
-                <div className="relative">
-                  <select
-                    value={statusFilter}
-                    onChange={(e) => setStatusFilter(e.target.value)}
-                    className={`px-4 py-2.5 bg-slate-800/90 border rounded-xl text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all min-w-[160px] appearance-none cursor-pointer ${
-                      statusFilter !== "all"
-                        ? "border-blue-500 bg-blue-500/10 ring-2 ring-blue-500/50"
-                        : "border-slate-600 hover:border-slate-500"
-                    }`}
-                  >
-                    <option value="all">All Status</option>
-                    <option value="approved">✓ Approved</option>
-                    <option value="pending">⏱ Pending</option>
-                  </select>
-                  <Filter className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
-                </div>
-
-                {/* Rating Filter */}
-                <div className="relative">
-                  <select
-                    value={ratingFilter}
-                    onChange={(e) => setRatingFilter(e.target.value)}
-                    className={`px-4 py-2.5 bg-slate-800/90 border rounded-xl w-44 text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all min-w-[140px] appearance-none cursor-pointer ${
-                      ratingFilter !== "all"
-                        ? "border-gray-500 bg-slate-800/50  ring-2 border  ring-purple-500/50  "
-                        : "border-slate-600 hover:border-slate-500"
-                    }`}
-                  >
-                    <option value="all">All Ratings</option>
-                    <option value="5">⭐⭐⭐⭐⭐ (5)</option>
-                    <option value="4">⭐⭐⭐⭐ (4)</option>
-                    <option value="3">⭐⭐⭐ (3)</option>
-                    <option value="2">⭐⭐ (2)</option>
-                    <option value="1">⭐ (1)</option>
-                  </select>
-                  <Star className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
-                </div>
-
-                {/* Product Filter */}
-<div className="relative flex-1 lg:flex-initial lg:min-w-[280px]" ref={productDropdownRef}>
+<div className="relative flex-1 lg:flex-initial lg:min-w-[180px]" ref={productDropdownRef}>
   <div className="relative">
     <input
       type="text"
@@ -1186,9 +1115,65 @@ const handleExportReviews = (type: string) => {
     </div>
   )}
 </div>
+  {/* Search */}
+              <div className="relative lg:w-40">
+                <input
+                  type="text"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  placeholder="Search reviews..."
+                  className="w-full px-4 py-2.5 pl-10 pr-4 bg-slate-800/50 border border-slate-600 rounded-xl text-white text-sm placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 hover:border-slate-500 transition-all"
+                />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                {searchTerm && (
+                  <button
+                    onClick={() => setSearchTerm("")}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 p-1 hover:bg-slate-700 rounded transition-all"
+                  >
+                    <X className="h-3.5 w-3.5 text-slate-400 hover:text-white" />
+                  </button>
+                )}
+              </div>
+                {/* Status Filter */}
+                <div className="relative">
+                  <select
+                    value={statusFilter}
+                    onChange={(e) => setStatusFilter(e.target.value)}
+                    className={`px-4 py-2.5 bg-slate-800/90 border rounded-xl text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all min-w-[160px] appearance-none cursor-pointer ${
+                      statusFilter !== "all"
+                        ? "border-blue-500 bg-blue-500/10 ring-2 ring-blue-500/50"
+                        : "border-slate-600 hover:border-slate-500"
+                    }`}
+                  >
+                    <option value="all">All Status</option>
+                    <option value="approved">✓ Approved</option>
+                    <option value="pending">⏱ Pending</option>
+                  </select>
+                  <Filter className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
+                </div>
 
-                {/* Verified Purchase Filter */}
-                <label className="flex items-center gap-2 px-4 py-2.5 bg-slate-800/50 border border-slate-600 rounded-xl hover:border-slate-500 cursor-pointer transition-all">
+                {/* Rating Filter */}
+                <div className="relative">
+                  <select
+                    value={ratingFilter}
+                    onChange={(e) => setRatingFilter(e.target.value)}
+                    className={`px-4 py-2.5 bg-slate-800/90 border rounded-xl w-44 text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all min-w-[140px] appearance-none cursor-pointer ${
+                      ratingFilter !== "all"
+                        ? "border-gray-500 bg-slate-800/50  ring-2 border  ring-purple-500/50  "
+                        : "border-slate-600 hover:border-slate-500"
+                    }`}
+                  >
+                    <option value="all">All Ratings</option>
+                    <option value="5">⭐⭐⭐⭐⭐ (5)</option>
+                    <option value="4">⭐⭐⭐⭐ (4)</option>
+                    <option value="3">⭐⭐⭐ (3)</option>
+                    <option value="2">⭐⭐ (2)</option>
+                    <option value="1">⭐ (1)</option>
+                  </select>
+                  <Star className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
+                </div>
+       {/* Verified Purchase Filter */}
+                <label className="flex items-center gap-2 px-2 py-2.5  bg-slate-800/50 border border-slate-600 rounded-xl hover:border-slate-500 cursor-pointer transition-all">
                   <input
                     type="checkbox"
                     checked={verifiedOnlyFilter}
@@ -1197,10 +1182,10 @@ const handleExportReviews = (type: string) => {
                   />
                   <span className="text-sm text-slate-300">Verified Only</span>
                 </label>
-                {/* ✅ Add this AFTER "Verified Only" filter and BEFORE Search input */}
+          
 
-{/* Date Range Filter */}
-<div className="relative lg:min-w-[240px]" ref={datePickerRef}>
+                  {/* Date Range Filter */}
+                    <div className="relative  lg:min-w-[200px]" ref={datePickerRef}>
   <div className="relative">
     <button
       onClick={() => setShowDatePicker(!showDatePicker)}
@@ -1237,6 +1222,7 @@ const handleExportReviews = (type: string) => {
     ) : (
       <ChevronDown className={`absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none transition-transform ${showDatePicker ? "rotate-180" : ""}`} />
     )}
+    
   </div>
 
   {/* Date Picker Dropdown */}
@@ -1317,116 +1303,22 @@ const handleExportReviews = (type: string) => {
       </div>
     </div>
   )}
-</div>
-
-              </div>
-
-              {/* Search */}
-              <div className="relative lg:w-80">
-                <input
-                  type="text"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  placeholder="Search reviews..."
-                  className="w-full px-4 py-2.5 pl-10 pr-4 bg-slate-800/50 border border-slate-600 rounded-xl text-white text-sm placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 hover:border-slate-500 transition-all"
-                />
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-                {searchTerm && (
+  
+  
+                     </div>
+                      {hasActiveFilters && (
+                <div className="relative  gap-2">
+                  
                   <button
-                    onClick={() => setSearchTerm("")}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 p-1 hover:bg-slate-700 rounded transition-all"
+                    onClick={clearFilters}
+                    className="px-3 py-2 bg-red-500/10 border border-red-500/50 text-red-400 rounded-lg hover:bg-red-500/20 transition-all text-xs font-medium flex items-center gap-1.5"
                   >
-                    <X className="h-3.5 w-3.5 text-slate-400 hover:text-white" />
+                    <FilterX className="h-3.5 w-3.5" />
+                    Clear All
                   </button>
-                )}
+                </div>
+              )}
               </div>
-            </div>
-
-            {/* Filter Summary */}
-            {hasActiveFilters && (
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="text-xs text-slate-500 font-medium">
-                  Active Filters:
-                </span>
-
-                {statusFilter !== "all" && (
-                  <span className="px-2 py-1 bg-blue-500/10 border border-blue-500/30 rounded-md text-blue-400 text-xs font-medium flex items-center gap-1">
-                    Status: {statusFilter}
-                    <button
-                      onClick={() => setStatusFilter("all")}
-                      className="hover:text-blue-300"
-                    >
-                      <X className="h-3 w-3" />
-                    </button>
-                  </span>
-                )}
-
-                {ratingFilter !== "all" && (
-                  <span className="px-2 py-1 bg-yellow-500/10 border border-yellow-500/30 rounded-md text-yellow-400 text-xs font-medium flex items-center gap-1">
-                    Rating: {ratingFilter} ⭐
-                    <button
-                      onClick={() => setRatingFilter("all")}
-                      className="hover:text-yellow-300"
-                    >
-                      <X className="h-3 w-3" />
-                    </button>
-                  </span>
-                )}
-{/* ✅ Add this in your "Active Filters" section */}
-{(dateRange.startDate || dateRange.endDate) && (
-  <span className="px-2 py-1 bg-green-500/10 border border-green-500/30 rounded-md text-green-400 text-xs font-medium flex items-center gap-1">
-    Date: {getDateRangeLabel()}
-    <button
-      onClick={() => setDateRange({ startDate: "", endDate: "" })}
-      className="hover:text-green-300"
-    >
-      <X className="h-3 w-3" />
-    </button>
-  </span>
-)}
-
-                {productFilter !== "all" && (
-                  <span className="px-2 py-1 bg-purple-500/10 border border-purple-500/30 rounded-md text-purple-400 text-xs font-medium flex items-center gap-1">
-                    Product:{" "}
-                    {products.find((p) => p.id === productFilter)?.name.substring(0, 30) ||
-                      "Selected"}
-                    ...
-                    <button
-                      onClick={() => setProductFilter("all")}
-                      className="hover:text-purple-300"
-                    >
-                      <X className="h-3 w-3" />
-                    </button>
-                  </span>
-                )}
-
-                {verifiedOnlyFilter && (
-                  <span className="px-2 py-1 bg-green-500/10 border border-green-500/30 rounded-md text-green-400 text-xs font-medium flex items-center gap-1">
-                    Verified Purchases Only
-                    <button
-                      onClick={() => setVerifiedOnlyFilter(false)}
-                      className="hover:text-green-300"
-                    >
-                      <X className="h-3 w-3" />
-                    </button>
-                  </span>
-                )}
-
-                {searchTerm && (
-                  <span className="px-2 py-1 bg-violet-500/10 border border-violet-500/30 rounded-md text-violet-400 text-xs font-medium flex items-center gap-1">
-                    Search: "{searchTerm.substring(0, 20)}
-                    {searchTerm.length > 20 ? "..." : ""}"
-                    <button
-                      onClick={() => setSearchTerm("")}
-                      className="hover:text-violet-300"
-                    >
-                      <X className="h-3 w-3" />
-                    </button>
-                  </span>
-                )}
-              </div>
-            )}
-          </div>
 
           {/* Loading State */}
           {loadingReviews ? (
@@ -2058,7 +1950,7 @@ const handleExportReviews = (type: string) => {
                   )}
                 </div>
                 {product.price && (
-                  <div className="text-emerald-400 font-semibold">₹{product.price}</div>
+                  <div className="text-emerald-400 font-semibold">£{product.price}</div>
                 )}
               </div>
             </button>
