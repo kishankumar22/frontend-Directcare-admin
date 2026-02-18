@@ -3,7 +3,7 @@ import { useState, useEffect, useMemo } from "react";
 import { Plus, Edit, Trash2, Search, Percent, Eye, Filter, History, FilterX, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, AlertCircle, Calendar, Gift, Target, Clock, TrendingUp, Users, Infinity as InfinityIcon, CalendarRange, ChevronDown, Package, RotateCcw, } from "lucide-react";
 
 
-import { useToast } from "@/app/admin/_component/CustomToast";
+import { useToast } from "@/app/admin/_components/CustomToast";
 
 import {
   CreateDiscountDto,
@@ -16,8 +16,8 @@ import { categoriesService, Category } from "@/lib/services/categories";
 import { Product, productsService } from "@/lib/services";
 import { DiscountUsageHistory } from "@/lib/services/discounts";
 import DiscountModals from "./DiscountModals";
-import ConfirmDialog from "@/app/admin/_component/ConfirmDialog";
-import { useDebounce } from "../hooks/useDebounce";
+import ConfirmDialog from "@/app/admin/_components/ConfirmDialog";
+import { useDebounce } from "../_hooks/useDebounce";
 
 
 // ========== INTERFACES ==========

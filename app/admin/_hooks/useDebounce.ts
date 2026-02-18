@@ -1,4 +1,4 @@
-// hooks/useDebounce.ts
+// _hooks/useDebounce.ts
 
 import { useEffect, useState } from 'react';
 

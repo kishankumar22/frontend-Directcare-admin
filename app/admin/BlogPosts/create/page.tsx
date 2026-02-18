@@ -18,9 +18,9 @@ import {
   Loader2
 } from "lucide-react";
 import { API_ENDPOINTS, API_BASE_URL } from "@/lib/api-config";
-import { useToast } from "@/app/admin/_component/CustomToast";
+import { useToast } from "@/app/admin/_components/CustomToast";
 import { apiClient } from "@/lib/api";
-import { ProductDescriptionEditor } from "../../_component/SelfHostedEditor";
+import { ProductDescriptionEditor } from "../../_components/SelfHostedEditor";
 import { blogPostsService } from "@/lib/services/blogPosts";
 import { blogCategoriesService } from "@/lib/services";
 

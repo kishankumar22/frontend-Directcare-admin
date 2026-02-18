@@ -3,9 +3,9 @@
 import { useState } from 'react';
 import { Plus, X, Upload, Package, ChevronDown, ChevronUp, AlertTriangle } from 'lucide-react';
 import { ProductVariant, ProductOption } from '@/lib/services';
-import { useToast } from '@/app/admin/_component/CustomToast';
+import { useToast } from '@/app/admin/_components/CustomToast';
 import { API_BASE_URL } from '@/lib/api-config';
-import ConfirmDialog from '@/app/admin/_component/ConfirmDialog';
+import ConfirmDialog from '@/app/admin/_components/ConfirmDialog';
 
 interface ProductVariantsManagerProps {
   variants: ProductVariant[];

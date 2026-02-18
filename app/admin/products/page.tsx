@@ -12,7 +12,7 @@ import {
   Upload,
   Download
 } from "lucide-react";
-import { useToast } from "@/app/admin/_component/CustomToast";
+import { useToast } from "@/app/admin/_components/CustomToast";
 import { API_BASE_URL } from "@/lib/api-config";
 import { productLockService, TakeoverRequestData } from "@/lib/services/productLockService";
 import ProductViewModal from "./ProductViewModal";
@@ -22,7 +22,7 @@ import { useRouter } from "next/navigation";
 
 import { categoriesService } from "@/lib/services/categories";
 import { brandsService } from "@/lib/services/brands";
-import ConfirmDialog from "@/app/admin/_component/ConfirmDialog";
+import ConfirmDialog from "@/app/admin/_components/ConfirmDialog";
 import MediaViewerModal, { MediaItem } from "./MediaViewerModal";
 import { RelatedProduct, Product, productsService, productHelpers } from "@/lib/services";
 import ProductExcelImportModal from "./ProductExcelImportModal";
@@ -60,9 +60,12 @@ interface FormattedProduct {
   nextDayDeliveryEnabled: boolean;
   standardDeliveryEnabled: boolean;
   sameDayDeliveryEnabled: boolean;
+
   hasDiscount: boolean;
-  discountPercentage: number;
+  discountLabel: string;
+  discountTitle: string;
 }
+
 
 interface CategoryData {
   id: string;
@@ -281,17 +284,22 @@ const [showImportModal, setShowImportModal] = useState(false);
   ];
 
   // ✅ HELPERS
-  const formatDate = (dateString: string): string => {
-    if (!dateString) return "N/A";
-    return new Date(dateString).toLocaleDateString("en-US", {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  };
+const formatDate = (dateString?: string | null): string => {
+  if (!dateString) return "N/A";
 
+  const date = new Date(dateString);
+
+  if (isNaN(date.getTime())) return "N/A";
+
+  return date.toLocaleString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+};
+ 
 const [selectedProduct, setSelectedProduct] = useState<{
   id: string;
   name: string;
@@ -364,97 +372,145 @@ useEffect(() => {
 }, [deletedFilter]);
 
   // ✅ FETCH PRODUCTS
-  const fetchProducts = async () => {
-    setLoading(true);
-    try {
-      const response = await productsService.getAll({
-  page: 1,
-  pageSize: 1000,
-  isDeleted:
-    deletedFilter.value === "all"
-      ? undefined
-      : deletedFilter.value === "true",
-});
+const fetchProducts = async () => {
+  setLoading(true);
 
+  try {
+    const response = await productsService.getAll({
+      page: 1,
+      pageSize: 1000,
+      isDeleted:
+        deletedFilter.value === "all"
+          ? undefined
+          : deletedFilter.value === "true",
+    });
 
-      if (response.data?.success && response.data?.data?.items) {
-        const items = response.data.data.items;
+    if (response.data?.success && response.data?.data?.items) {
+      const items = response.data.data.items;
 
-        const formattedProducts: FormattedProduct[] = items.map((p: any) => {
-          const primaryCategoryName = getPrimaryCategoryName(p.categories);
-          
-          // Check if product has discount
-          const hasDiscount = p.appliedDiscounts && p.appliedDiscounts.length > 0;
-          let discountPercentage = 0;
-          
-          if (hasDiscount) {
-            const maxDiscount = Math.max(
-              ...p.appliedDiscounts.map((d: any) => d.discountPercentage || 0)
-            );
-            discountPercentage = maxDiscount;
-          }
+      const formattedProducts: FormattedProduct[] = items.map((p: any) => {
+        const primaryCategoryName = getPrimaryCategoryName(p.categories);
 
-          return {
-            id: p.id,
-            name: p.name,
-            categoryName: primaryCategoryName,
-            price: p.price || 0,
-            stock: p.stockQuantity || 0,
-            stockQuantity: p.stockQuantity || 0,
-            status: productHelpers.getStockStatus(p.stockQuantity),
-            image: getProductImage(p.images),
-            sales: 0,
-            shortDescription: p.shortDescription || "",
-            sku: p.sku || "",
-            createdAt: formatDate(p.createdAt),
-            updatedAt: p.updatedAt ? formatDate(p.updatedAt) : "N/A",
-            updatedBy: p.updatedBy || "N/A",
-            description: p.description || p.shortDescription || "",
-            category: primaryCategoryName,
-            isPublished: p.isPublished === true,
-            productType: p.productType || "simple",
-            brandName: p.brandName || "No Brand",
-            slug: p.slug || "",
-            isActive:p.isActive=== true,
-            showOnHomepage: p.showOnHomepage === true,
-            markAsNew: p.markAsNew === true,
-            notReturnable: p.notReturnable === true,
-            manageInventoryMethod: p.manageInventoryMethod || "track",
-            isRecurring: p.isRecurring === true,
-            vatExempt: p.vatExempt === true,
-            nextDayDeliveryEnabled: p.nextDayDeliveryEnabled === true,
-            standardDeliveryEnabled: p.standardDeliveryEnabled === true,
-            sameDayDeliveryEnabled: p.sameDayDeliveryEnabled === true,
-            hasDiscount,
-            discountPercentage,
-            isDeleted: p.isDeleted === true, // ✅ VERY IMPORTANT
-          };
+        // ===============================
+        // ✅ DISCOUNT LOGIC (CLEAN)
+        // ===============================
+        const now = new Date();
+
+        const discountsArray = Array.isArray(p.assignedDiscounts)
+          ? p.assignedDiscounts
+          : [];
+
+        const activeDiscounts = discountsArray.filter((d: any) => {
+          if (!d?.isActive) return false;
+
+          const start = d.startDate ? new Date(d.startDate) : null;
+          const end = d.endDate ? new Date(d.endDate) : null;
+
+          if (start && now < start) return false;
+          if (end && now > end) return false;
+
+          return true;
         });
 
-        setProducts(formattedProducts);
+        const hasDiscount = activeDiscounts.length > 0;
 
-        const productMap = new Map<string, RelatedProduct>();
-        items.forEach((p: any) => {
-          productMap.set(p.id, {
-            id: p.id,
-            name: p.name,
-            price: p.price || 0,
-            sku: p.sku || "",
-            image: getProductImage(p.images),
+        let discountLabel = "";
+        let discountTitle = "";
+
+        if (hasDiscount) {
+          const bestDiscount = activeDiscounts.reduce((prev: any, current: any) => {
+            const prevValue = prev.usePercentage
+              ? prev.discountPercentage
+              : prev.discountAmount;
+
+            const currValue = current.usePercentage
+              ? current.discountPercentage
+              : current.discountAmount;
+
+            return currValue > prevValue ? current : prev;
           });
+
+          discountLabel = bestDiscount.usePercentage
+            ? `${bestDiscount.discountPercentage}%`
+            : `£${bestDiscount.discountAmount}`;
+
+          discountTitle = `${bestDiscount.name} (${bestDiscount.discountType})`;
+        }
+
+        // ===============================
+        // ✅ RETURN FORMATTED PRODUCT
+        // ===============================
+        return {
+          id: p.id,
+          name: p.name,
+          categoryName: primaryCategoryName,
+          price: p.price || 0,
+          stock: p.stockQuantity || 0,
+          stockQuantity: p.stockQuantity || 0,
+          status: productHelpers.getStockStatus(p.stockQuantity),
+          image: getProductImage(p.images),
+          sales: 0,
+          shortDescription: p.shortDescription || "",
+          sku: p.sku || "",
+          createdAt: formatDate(p.createdAt),
+          updatedAt: p.updatedAt ? formatDate(p.updatedAt) : "N/A",
+          updatedBy: p.updatedBy || "N/A",
+          description: p.description || p.shortDescription || "",
+          category: primaryCategoryName,
+          isPublished: p.isPublished === true,
+          productType: p.productType || "simple",
+          brandName: p.brandName || "No Brand",
+          slug: p.slug || "",
+          isActive: p.isActive === true,
+          showOnHomepage: p.showOnHomepage === true,
+          markAsNew: p.markAsNew === true,
+          notReturnable: p.notReturnable === true,
+          manageInventoryMethod: p.manageInventoryMethod || "track",
+          isRecurring: p.isRecurring === true,
+          vatExempt: p.vatExempt === true,
+          nextDayDeliveryEnabled: p.nextDayDeliveryEnabled === true,
+          standardDeliveryEnabled: p.standardDeliveryEnabled === true,
+          sameDayDeliveryEnabled: p.sameDayDeliveryEnabled === true,
+
+          // 🔥 DISCOUNT FIELDS
+          hasDiscount,
+          discountLabel,
+          discountTitle,
+
+          isDeleted: p.isDeleted === true,
+        };
+      });
+
+      setProducts(formattedProducts);
+
+      // ===============================
+      // ✅ Related Products Map
+      // ===============================
+      const productMap = new Map<string, RelatedProduct>();
+
+      items.forEach((p: any) => {
+        productMap.set(p.id, {
+          id: p.id,
+          name: p.name,
+          price: p.price || 0,
+          sku: p.sku || "",
+          image: getProductImage(p.images),
         });
-        setAllProductsMap(productMap);
-      } else {
-        toast.warning("No products found.");
-        setProducts([]);
-      }
-    } catch (err) {
-      console.error("Error fetching products:", err);
-      toast.error("Failed to load products.");
-    } finally {
-      setLoading(false);
+      });
+
+      setAllProductsMap(productMap);
+    } else {
+      toast.warning("No products found.");
+      setProducts([]);
     }
-  };
+  } catch (err) {
+    console.error("Error fetching products:", err);
+    toast.error("Failed to load products.");
+  } finally {
+    setLoading(false);
+  }
+};
+
 
   // ✅ FETCH CATEGORIES
   const fetchCategories = async () => {
@@ -1317,8 +1373,7 @@ const formatOptionLabel = (option: SelectOption) => {
   // ✅ MAIN RENDER
   return (
     <div className="space-y-2">
-      {/* HEADER */}
-{/* ================= HEADER ================= */}
+
 {/* ================= HEADER ================= */}
 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
   {/* Title */}
@@ -1974,11 +2029,6 @@ const formatOptionLabel = (option: SelectOption) => {
     </div>
   )}
 </div>
-
-    
-
-
-
       {/* ✅ PRODUCTS TABLE WITH DISCOUNT COLUMN */}
       <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-2xl p-2">
         {currentData.length === 0 ? (
@@ -1994,9 +2044,10 @@ const formatOptionLabel = (option: SelectOption) => {
         <th className="text-left py-2 px-3 text-slate-400 w-[260px]">Product</th>
         <th className="text-center py-2 px-3 text-slate-400 w-[110px]">SKU</th>
         <th className="text-center py-2 px-3 text-slate-400 w-[80px]">Price</th>
-        {/* <th className="text-center py-2 px-3 text-slate-400 w-[80px]">status</th> */}
-        <th className="text-center py-2 px-3 text-slate-400 w-[70px]">Stock</th>
-        <th className="text-center py-2 px-3 text-slate-400 w-[140px]">Stock Status</th>
+        <th className="text-center py-2 px-3 text-slate-400 w-[70px]">Status</th>
+       <th className="text-center py-2 px-3 text-slate-400 w-[140px]">Stock Status</th>
+        <th className="text-center py-2 px-3 text-slate-400 w-[70px]">Discount</th>
+      
         <th className="text-center py-2 px-3 text-slate-400 w-[100px]">Visibility</th>
         <th className="text-left py-2 px-3 text-slate-400 w-[110px]">Updated</th>
         <th className="text-left py-2 px-3 text-slate-400 w-[110px]">Updated By</th>
@@ -2074,41 +2125,75 @@ const formatOptionLabel = (option: SelectOption) => {
             <td className="py-2 px-3 text-center font-semibold text-white">
               £{product.price.toFixed(2)}
             </td>
-            {/* <td className="py-2 px-3 text-center font-semibold text-blue-400">
-              {product.isActive ? 'Active' : 'Inactive'}
-            </td> */}
+         <td className="py-2 px-3 text-center"
+         title={product.isActive ? "Product is enabled" : "Product is disabled"}
+>
+  <span
+    className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold border ${
+      product.isActive
+        ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30"
+        : "bg-red-500/10 text-red-400 border-red-500/30"
+    }`}
+  >
+    <span
+      className={`w-1.5 h-1.5 rounded-full mr-1.5 ${
+        product.isActive ? "bg-emerald-400" : "bg-red-400"
+      }`}
+    />
+    {product.isActive ? "Active" : "Inactive"}
+  </span>
+</td>
+
+          
 
             {/* STOCK */}
-            <td className="py-2 px-3 text-center">
-              <span
-                className={`px-2 py-0.5 rounded-md text-xs font-medium ${
-                  product.stockQuantity > 10
-                    ? 'bg-cyan-500/10 text-cyan-400'
-                    : product.stockQuantity > 0
-                    ? 'bg-orange-500/10 text-orange-400'
-                    : 'bg-red-500/10 text-red-400'
-                }`}
-              >
-                {product.stockQuantity}
-              </span>
-            </td>
+<td className="py-2 px-3 text-center">
+  {(() => {
+    const qty = product.stockQuantity || 0;
 
-            {/* STOCK STATUS */}
-            <td className="py-2 px-3 text-center">
-              <span
-                className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-medium ${
-                  product.status === 'In Stock'
-                    ? 'bg-green-500/10 text-green-400'
-                    : product.status === 'Low Stock'
-                    ? 'bg-orange-500/10 text-orange-400'
-                    : 'bg-red-500/10 text-red-400'
-                }`}
-              >
-                <span className="w-2 h-2 rounded-full bg-current" />
-                {product.status}
-              </span>
-            </td>
+    const status =
+      qty > 10
+        ? { label: "In Stock", color: "emerald" }
+        : qty > 0
+        ? { label: "Low Stock", color: "orange" }
+        : { label: "Out of Stock", color: "red" };
 
+    return (
+      <div
+        className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all
+        ${
+          status.color === "emerald"
+            ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30"
+            : status.color === "orange"
+            ? "bg-orange-500/10 text-orange-400 border-orange-500/30"
+            : "bg-red-500/10 text-red-400 border-red-500/30"
+        }`}
+        title={`${qty} units available`}
+      >
+        <span className="w-1.5 h-1.5 rounded-full bg-current" />
+        {status.label}
+      </div>
+    );
+  })()}
+</td>
+
+
+
+           <td className="py-2 px-3 text-center">
+  {product.hasDiscount ? (
+    <span
+      title={product.discountTitle}
+      className="px-2 py-1 text-xs font-semibold rounded bg-green-500/10 text-green-400 border border-green-500/30 cursor-help"
+    >
+      {product.discountLabel}
+    </span>
+  ) : (
+    <span className="text-slate-500 text-xs">No</span>
+  )}
+</td>
+
+
+     
             {/* VISIBILITY */}
             <td className="py-2 px-3 text-center">
               <span
@@ -2122,12 +2207,10 @@ const formatOptionLabel = (option: SelectOption) => {
               </span>
             </td>
 
-            {/* UPDATED */}
-            <td className="py-2 px-3 text-xs text-slate-300">
-              {product.updatedAt
-                ? new Date(product.updatedAt).toLocaleDateString()
-                : '-'}
-            </td>
+<td className="py-2 px-3 text-xs text-slate-300">
+  {formatDate(product.updatedAt)}
+</td>
+
 
             {/* UPDATED BY */}
             <td className="py-2 px-3 text-xs text-slate-300 truncate">

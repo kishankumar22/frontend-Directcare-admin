@@ -28,7 +28,7 @@ import {
   MarkDeliveredRequest,
   CancelOrderRequest,
 } from '../../../lib/services/orders'; // ✅ FIXED PATH
-import { useToast } from '@/app/admin/_component/CustomToast';
+import { useToast } from '@/app/admin/_components/CustomToast';
 
 interface OrderActionsModalProps {
   isOpen: boolean;

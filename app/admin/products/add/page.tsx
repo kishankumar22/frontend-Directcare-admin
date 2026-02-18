@@ -4,14 +4,14 @@ import { useRouter } from "next/navigation";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ArrowLeft, Save, Upload, X, Info, Search, Image, Package, Tag,  Globe,  Truck, PoundSterling, Link as LinkIcon, ShoppingCart, Video, Play, Plus, Settings, ChevronDown } from "lucide-react";
 import Link from "next/link"
-import { ProductDescriptionEditor } from "@/app/admin/_component/SelfHostedEditor";
-import { useToast } from "@/app/admin/_component/CustomToast";
+import { ProductDescriptionEditor } from "@/app/admin/_components/SelfHostedEditor";
+import { useToast } from "@/app/admin/_components/CustomToast";
 import {  BrandApiResponse, brandsService, categoriesService, CategoryApiResponse, CategoryData, DropdownsData, ProductAttribute, ProductImage, ProductItem, ProductOption, ProductsApiResponse, productsService, ProductVariant, SimpleProduct,  VATRateData } from '@/lib/services';
 import { GroupedProductModal } from '../GroupedProductModal';
 import { MultiBrandSelector } from "../MultiBrandSelector";
 import { VATRateApiResponse, vatratesService } from "@/lib/services/vatrates";
 import { MultiCategorySelector } from "../MultiCategorySelector";
-import ScrollToTopButton from "../../_component/ScrollToTopButton";
+import ScrollToTopButton from "../../_components/ScrollToTopButton";
 import RelatedProductsSelector from "../RelatedProductsSelector";
 import ProductVariantsManager from "../ProductVariantsManager";
 import ProductOptionsManager from "../ProductOptionsManager";
@@ -3887,7 +3887,72 @@ useEffect(() => {
       </div>
     </div>
   </div>
+  {/* LOYALTY POINTS & PHARMA PRODUCT */}
+  <div className="mt-4 space-y-3 bg-slate-800/30 border border-slate-700 p-4 rounded-xl">
+    <h4 className="text-sm font-semibold text-white">Loyalty & Product Classification</h4>
 
+    {/* Loyalty Points Toggle */}
+    <div className="flex items-center justify-between">
+      <div>
+        <span className="text-sm text-slate-300">Loyalty Points</span>
+        <p className="text-xs text-slate-500">Enable or disable loyalty points earning for this product</p>
+      </div>
+      <button
+        type="button"
+        onClick={() => setFormData(prev => ({ ...prev, loyaltyPointsEnabled: !prev.loyaltyPointsEnabled }))}
+        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 ${
+          formData.loyaltyPointsEnabled ? 'bg-emerald-500' : 'bg-slate-600'
+        }`}
+      >
+        <span
+          className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform duration-200 ${
+            formData.loyaltyPointsEnabled ? 'translate-x-6' : 'translate-x-1'
+          }`}
+        />
+      </button>
+    </div>
+
+    {/* Is Pharma Product */}
+    <div className="space-y-2">
+      <label className="flex items-center gap-2 cursor-pointer">
+     <input
+  type="checkbox"
+  name="isPharmaProduct"
+  checked={formData.isPharmaProduct}
+  onChange={(e) => {
+    handleChange(e);
+
+    if (e.target.checked) {
+      setShowPharmacyModal(true); // ✅ Auto open modal
+    }
+  }}
+  className="w-4 h-4 rounded bg-slate-800/50 border-slate-700 text-blue-500 focus:ring-blue-500 focus:ring-offset-slate-900"
+/>
+
+        <div>
+          <span className="text-sm text-slate-300">Pharma Product</span>
+          <p className="text-xs text-slate-500">Mark this product as a pharmaceutical product</p>
+        </div>
+      </label>
+
+      {formData.isPharmaProduct && (
+        <div className="ml-6 flex items-center gap-3">
+          <button
+            type="button"
+            onClick={() => setShowPharmacyModal(true)}
+            className="px-4 py-2 bg-violet-500/10 border border-violet-500/50 text-violet-400 rounded-lg hover:bg-violet-500/20 transition-all text-sm font-semibold"
+          >
+            Configure Questions
+          </button>
+          {pharmacyQuestions.length > 0 && (
+            <span className="px-2 py-1 bg-violet-500/20 text-violet-300 rounded-full text-xs font-semibold">
+              {pharmacyQuestions.length} question{pharmacyQuestions.length !== 1 ? "s" : ""} assigned
+            </span>
+          )}
+        </div>
+      )}
+    </div>
+  </div>
   {/* Admin Comment */}
   <div className="space-y-4">
     <h3 className="text-lg font-semibold text-white border-b border-slate-800 pb-2">Admin Comment</h3>
@@ -4964,72 +5029,7 @@ useEffect(() => {
     <span className="text-sm text-slate-300">Not Returnable</span>
   </label>
 
-  {/* LOYALTY POINTS & PHARMA PRODUCT */}
-  <div className="mt-4 space-y-3 bg-slate-800/30 border border-slate-700 p-4 rounded-xl">
-    <h4 className="text-sm font-semibold text-white">Loyalty & Product Classification</h4>
 
-    {/* Loyalty Points Toggle */}
-    <div className="flex items-center justify-between">
-      <div>
-        <span className="text-sm text-slate-300">Loyalty Points</span>
-        <p className="text-xs text-slate-500">Enable or disable loyalty points earning for this product</p>
-      </div>
-      <button
-        type="button"
-        onClick={() => setFormData(prev => ({ ...prev, loyaltyPointsEnabled: !prev.loyaltyPointsEnabled }))}
-        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 ${
-          formData.loyaltyPointsEnabled ? 'bg-emerald-500' : 'bg-slate-600'
-        }`}
-      >
-        <span
-          className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform duration-200 ${
-            formData.loyaltyPointsEnabled ? 'translate-x-6' : 'translate-x-1'
-          }`}
-        />
-      </button>
-    </div>
-
-    {/* Is Pharma Product */}
-    <div className="space-y-2">
-      <label className="flex items-center gap-2 cursor-pointer">
-     <input
-  type="checkbox"
-  name="isPharmaProduct"
-  checked={formData.isPharmaProduct}
-  onChange={(e) => {
-    handleChange(e);
-
-    if (e.target.checked) {
-      setShowPharmacyModal(true); // ✅ Auto open modal
-    }
-  }}
-  className="w-4 h-4 rounded bg-slate-800/50 border-slate-700 text-blue-500 focus:ring-blue-500 focus:ring-offset-slate-900"
-/>
-
-        <div>
-          <span className="text-sm text-slate-300">Pharma Product</span>
-          <p className="text-xs text-slate-500">Mark this product as a pharmaceutical product</p>
-        </div>
-      </label>
-
-      {formData.isPharmaProduct && (
-        <div className="ml-6 flex items-center gap-3">
-          <button
-            type="button"
-            onClick={() => setShowPharmacyModal(true)}
-            className="px-4 py-2 bg-violet-500/10 border border-violet-500/50 text-violet-400 rounded-lg hover:bg-violet-500/20 transition-all text-sm font-semibold"
-          >
-            Configure Questions
-          </button>
-          {pharmacyQuestions.length > 0 && (
-            <span className="px-2 py-1 bg-violet-500/20 text-violet-300 rounded-full text-xs font-semibold">
-              {pharmacyQuestions.length} question{pharmacyQuestions.length !== 1 ? "s" : ""} assigned
-            </span>
-          )}
-        </div>
-      )}
-    </div>
-  </div>
 </div>
 
 

@@ -3,8 +3,8 @@
 import { useState, useEffect } from "react";
 import { Plus, Edit, Trash2, Search, Tag, Eye, CheckCircle, Filter, FilterX, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, AlertCircle, Package, FolderTree, Copy, Loader2 } from "lucide-react";
 import { API_BASE_URL } from "@/lib/api-config";
-import { useToast } from "@/app/admin/_component/CustomToast";
-import ConfirmDialog from "@/app/admin/_component/ConfirmDialog";
+import { useToast } from "@/app/admin/_components/CustomToast";
+import ConfirmDialog from "@/app/admin/_components/ConfirmDialog";
 import { Brand, brandsService, BrandStats } from "@/lib/services/brands";
 import { useRouter } from "next/navigation";
 import BrandModals from "./BrandModals";

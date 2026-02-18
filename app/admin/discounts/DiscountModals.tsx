@@ -20,7 +20,7 @@ import {
   X,
 } from "lucide-react";
 import Select from "react-select";
-import { ProductDescriptionEditor } from "../_component/SelfHostedEditor";
+import { ProductDescriptionEditor } from "../_components/SelfHostedEditor";
 import { Discount, DiscountType, DiscountLimitationType, DiscountUsageHistory } from "@/lib/services/discounts";
 import { Product } from "@/lib/services";
 import { Category } from "@/lib/services/categories";

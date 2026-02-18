@@ -30,8 +30,8 @@ import {
 import ExcelImportModal from "./ExcelImportModal";
 import { Upload } from "lucide-react";
 
-import { useToast } from "@/app/admin/_component/CustomToast";
-import ConfirmDialog from "@/app/admin/_component/ConfirmDialog";
+import { useToast } from "@/app/admin/_components/CustomToast";
+import ConfirmDialog from "@/app/admin/_components/ConfirmDialog";
 import {
   productReviewsService,
   ProductReview,

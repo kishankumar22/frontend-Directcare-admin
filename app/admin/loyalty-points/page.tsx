@@ -40,7 +40,7 @@ import {
   Check,
   Minus,
 } from 'lucide-react';
-import { useToast } from '@/app/admin/_component/CustomToast';
+import { useToast } from '@/app/admin/_components/CustomToast';
 import {
   loyaltyPointsService,
   AdminLoyaltyUser,

@@ -13,7 +13,7 @@ import {
   Search 
 } from 'lucide-react';
 import { productLockService, TakeoverRequestData } from '@/lib/services/productLockService';
-import { useToast } from '@/app/admin/_component/CustomToast';
+import { useToast } from '@/app/admin/_components/CustomToast';
 
 interface MyTakeoverRequestsPanelProps {
   isOpen: boolean;

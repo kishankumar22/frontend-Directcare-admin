@@ -3,9 +3,9 @@
 import { useState, useEffect } from "react";
 import { X, Plus, Edit, Tag, Trash2, Upload, CheckCircle, AlertCircle, Loader2, Eye, Copy } from "lucide-react";
 import { API_BASE_URL } from "@/lib/api-config";
-import { ProductDescriptionEditor } from "../_component/SelfHostedEditor";
-import { useToast } from "@/app/admin/_component/CustomToast";
-import ConfirmDialog from "@/app/admin/_component/ConfirmDialog";
+import { ProductDescriptionEditor } from "../_components/SelfHostedEditor";
+import { useToast } from "@/app/admin/_components/CustomToast";
+import ConfirmDialog from "@/app/admin/_components/ConfirmDialog";
 import { Brand, brandsService } from "@/lib/services/brands";
 
 const MAX_HOMEPAGE_BRANDS = 50;

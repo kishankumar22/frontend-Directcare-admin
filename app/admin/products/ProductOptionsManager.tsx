@@ -3,8 +3,8 @@
 import { useState } from 'react';
 import { Plus, X, Settings, AlertTriangle } from 'lucide-react';
 import { ProductOption } from '@/lib/services';
-import { useToast } from '@/app/admin/_component/CustomToast';
-import ConfirmDialog from '../_component/ConfirmDialog';
+import { useToast } from '@/app/admin/_components/CustomToast';
+import ConfirmDialog from '../_components/ConfirmDialog';
 
 
 interface ProductOptionsManagerProps {

@@ -28,7 +28,7 @@ import {
   ChevronDown,
   ChevronUp,
 } from 'lucide-react';
-import { useToast } from '@/app/admin/_component/CustomToast';
+import { useToast } from '@/app/admin/_components/CustomToast';
 import { 
   loyaltyConfigService, 
   LoyaltyConfig,

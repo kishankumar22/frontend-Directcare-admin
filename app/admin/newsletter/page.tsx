@@ -4,8 +4,8 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { Search, Mail, CheckCircle, XCircle, Filter, FilterX, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, AlertCircle, Loader2, UserPlus, Download, ChevronDown, FileSpreadsheet } from "lucide-react";
-import { useToast } from "@/app/admin/_component/CustomToast";
-import ConfirmDialog from "@/app/admin/_component/ConfirmDialog";
+import { useToast } from "@/app/admin/_components/CustomToast";
+import ConfirmDialog from "@/app/admin/_components/ConfirmDialog";
 import { newsletterService, NewsletterSubscription, NewsletterStats } from "@/lib/services/newsletter";
 import * as XLSX from 'xlsx';
 

@@ -10,7 +10,7 @@ import {
   CreateRateDto,
   UpdateRateDto,
 } from "@/lib/types/shipping";
-import { useToast } from "@/app/admin/_component/CustomToast";
+import { useToast } from "@/app/admin/_components/CustomToast";
 // ✅ FIX: App Router import
 import { useRouter } from "next/navigation";
 import {

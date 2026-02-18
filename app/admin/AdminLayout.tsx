@@ -3,9 +3,9 @@
 
 import { ReactNode, useState, useEffect, useRef } from "react";
 import Link from "next/link";
-import { useToast } from "@/app/admin/_component/CustomToast";
+import { useToast } from "@/app/admin/_components/CustomToast";
 import { usePathname, useRouter } from "next/navigation";
-import ChangePasswordModal from "@/app/admin/_component/ChangePasswordModal";
+import ChangePasswordModal from "@/app/admin/_components/ChangePasswordModal";
 
 import {
   FolderKanban,
@@ -58,8 +58,8 @@ import {
 import { cn } from "@/lib/utils";
 import { useTheme } from "@/app/admin/_context/theme-provider";
 import { authService } from "@/lib/services/auth";
-import ErrorBoundary from "@/app/admin/_component/ErrorBoundary";
-import ScrollToTopButton from "./_component/ScrollToTopButton";
+import ErrorBoundary from "@/app/admin/_components/ErrorBoundary";
+import ScrollToTopButton from "./_components/ScrollToTopButton";
 
 interface NavigationItem {
   name: string;

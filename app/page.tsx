@@ -1,8 +1,6 @@
 //app/page.tsx
 import Link from "next/link";
-import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+
 import HomeBannerSlider from "@/components/HomeBannerSlider";
 import FeaturedProductsSlider from "@/components/FeaturedProductsSlider";
 import NewArrivalsProductsSlider from "@/components/NewArrivalsProductsSlider";
@@ -12,7 +10,7 @@ import CategorySlider from "@/components/CategorySlider";
 import NewsletterWrapper from "@/components/NewsletterWrapper";
 import CategoryOffersSlider from "@/components/CategoryOffersSlider";
 import { getActiveBanners } from "@/lib/bannerUtils";
-import { ShoppingCart, Star, TrendingUp, Zap, Gift, Shield, } from "lucide-react";
+import { TrendingUp, Zap, Gift, Shield, } from "lucide-react";
 import WhyChooseUs from "@/components/WhyChooseUs";
 export const dynamic = "force-dynamic";
 
@@ -103,7 +101,7 @@ async function getBanners(baseUrl: string): Promise<Banner[]> {
 async function getProducts(baseUrl: string) {
   try {
     const res = await fetch(
-      `${baseUrl}/api/Products?page=1&pageSize=100&sortDirection=asc&isPublished=true&showOnHomepage=true`,
+      `${baseUrl}/api/Products?page=1&pageSize=100&sortDirection=asc&isPublished=true&showOnHomepage=true&isDeleted=false`,
       {
         cache: "no-store",
       }
@@ -119,7 +117,7 @@ async function getProducts(baseUrl: string) {
 async function getCategories(baseUrl: string) {
   try {
     const res = await fetch(
-      `${baseUrl}/api/Categories?includeInactive=false&includeSubCategories=true`,
+      `${baseUrl}/api/Categories?includeInactive=false&includeSubCategories=true&isDeleted=false`,
       {
         cache: "no-store",
       }

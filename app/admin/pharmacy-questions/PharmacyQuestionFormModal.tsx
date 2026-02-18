@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { Plus, Edit, X, AlertCircle, ToggleLeft, ToggleRight, List, Type } from "lucide-react";
-import { useToast } from "@/app/admin/_component/CustomToast";
+import { useToast } from "@/app/admin/_components/CustomToast";
 import { PharmacyQuestion, CreatePharmacyQuestionDto, UpdatePharmacyQuestionDto, pharmacyQuestionsService } from "@/lib/services/PharmacyQuestions";
 
 

@@ -28,7 +28,7 @@ import {
   ChevronUp,
 
 } from 'lucide-react';
-import { useToast } from '@/app/admin/_component/CustomToast';
+import { useToast } from '@/app/admin/_components/CustomToast';
 import Select from 'react-select';
 import { brandsService } from '@/lib/services/brands';
 import { categoriesService } from '@/lib/services/categories';

@@ -45,7 +45,7 @@ import {
   formatCurrency,
   formatDate,
 } from '../../../lib/services/orders';
-import { useToast } from '@/app/admin/_component/CustomToast';
+import { useToast } from '@/app/admin/_components/CustomToast';
 import React from 'react';
 import OrderActionsModal from './OrderActionsModal';
 

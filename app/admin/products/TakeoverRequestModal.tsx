@@ -4,7 +4,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Send, X, CheckCircle, XCircle, Clock, AlertCircle } from 'lucide-react';
 import { productLockService } from '@/lib/services/productLockService';
-import { useToast } from '@/app/admin/_component/CustomToast';
+import { useToast } from '@/app/admin/_components/CustomToast';
 import { cn } from '@/lib/utils';
 import { useRouter } from 'next/navigation';
 

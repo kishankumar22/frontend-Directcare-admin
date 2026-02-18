@@ -28,7 +28,7 @@ import {
   Loader2,
   RotateCcw
 } from "lucide-react";
-import { useToast } from "@/app/admin/_component/CustomToast";
+import { useToast } from "@/app/admin/_components/CustomToast";
 import { VATRate, vatratesService, CreateVATRateDto, DeleteVATRateResponse } from "@/lib/services/vatrates";
 import { countriesService, Country } from "@/lib/services/countries";
 

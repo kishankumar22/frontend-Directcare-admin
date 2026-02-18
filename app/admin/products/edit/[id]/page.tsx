@@ -6,8 +6,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ArrowLeft, Save,Plus , Upload, X, Info, Search, Image, Package, Tag,BarChart3, Globe, Settings, Truck, Users, PoundSterling, Link as LinkIcon, ShoppingCart, Video, Play, ChevronDown, Clock, Send, Bell } from "lucide-react";
 
 import Link from "next/link";
-import { ProductDescriptionEditor } from "@/app/admin/_component/SelfHostedEditor";
-import  {useToast } from "@/app/admin/_component/CustomToast";
+import { ProductDescriptionEditor } from "@/app/admin/_components/SelfHostedEditor";
+import  {useToast } from "@/app/admin/_components/CustomToast";
 import { API_BASE_URL } from "@/lib/api-config";
 import { cn } from "@/lib/utils";
 import { ProductAttribute, ProductVariant, ProductOption, ProductOptionCreate, DropdownsData, SimpleProduct, ProductImage, CategoryData, BrandApiResponse, CategoryApiResponse,  productsService, brandsService, categoriesService } from '@/lib/services';
@@ -21,7 +21,6 @@ import { signalRService } from "@/lib/services/signalRService";
 import TakeoverRequestModal from "../../TakeoverRequestModal";
 import { MultiCategorySelector } from "../../MultiCategorySelector";
 import RequestTakeoverModal from "../../RequestTakeoverModal";
-import ScrollToTopButton from "../../../_component/ScrollToTopButton";
 import { apiClient } from "@/lib/api";
 import RelatedProductsSelector from "../../RelatedProductsSelector";
 import ProductVariantsManager from "../../ProductVariantsManager";
@@ -113,11 +112,6 @@ const [variantSkuErrors, setVariantSkuErrors] = useState<Record<string, string>>
 // VALIDATION FUNCTIONS - Add after useState
 // ============================================================
 
-
-
-
-
-  // Add these states after existing states
 const [simpleProducts, setSimpleProducts] = useState<SimpleProduct[]>([]);
 const [selectedGroupedProducts, setSelectedGroupedProducts] = useState<string[]>([]);
 // ✅ ADD THESE FUNCTIONS (around line 300-400, after other helper functions)
@@ -348,7 +342,6 @@ const getYouTubeVideoId = (url: string): string | null => {
   }
   return null;
 };
-// ✅ ADD THIS FUNCTION AFTER useState DECLARATIONS (around line 250-300)
 
 /**
  * ✅ CLEAN VARIANT OPTIONS - Save only if BOTH name AND value exist
@@ -406,7 +399,6 @@ useEffect(() => {
   const timer = setInterval(() => {
     setTakeoverTimeLeft((prev) => {
       if (prev <= 1) {
-        // Timer expired
         clearInterval(timer);
         setHasPendingTakeover(false);
         setTakeoverRequest(null);
@@ -478,7 +470,7 @@ const [formData, setFormData] = useState({
   disableWishlistButton: false,
   availableForPreOrder: false,
   preOrderAvailabilityStartDate: '',
-  
+  isActive: true,
   // Base Price
   basepriceEnabled: false,
   basepriceAmount: '',
@@ -954,10 +946,7 @@ const toDateTimeLocal = (isoString?: string | null) => {
         manufacturerPartNumber: productData.manufacturerPartNumber || '',
         adminComment: productData.adminComment || '',
         gender: productData.gender || '',
-// Inside fetchAllData(), around line 520-550, REPLACE:
-
-// ❌ OLD CODE:
-// categories: productData.categoryId || '',
+      isActive: productData.isActive ?? true,
 
 // ✅ NEW CODE:
 categoryIds: (() => {
@@ -1758,105 +1747,6 @@ useEffect(() => {
   };
 }, [productId]); // ✅ ONLY productId dependency
 
-// // ==================== GENERATE VARIANTS (Cartesian Product) ====================
-// const generateAllVariants = async () => {
-//   if (productOptions.length === 0) {
-//     toast.error('Please add at least one option first (e.g., Color, Size)');
-//     return;
-//   }
-
-//   // Validate all options have values
-//   const invalidOptions = productOptions.filter(opt => !opt.values || opt.values.length === 0);
-//   if (invalidOptions.length > 0) {
-//     toast.error(`Please add values for: ${invalidOptions.map(o => o.name || 'Unnamed option').join(', ')}`);
-//     return;
-//   }
-
-//   setIsGeneratingVariants(true);
-
-//   try {
-//     // Generate Cartesian product of all option values
-//     const generateCombinations = (arrays: string[][]): string[][] => {
-//       if (arrays.length === 0) return [[]];
-//       const result: string[][] = [];
-//       const rest = generateCombinations(arrays.slice(1));
-//       for (const item of arrays[0]) {
-//         for (const combo of rest) {
-//           result.push([item, ...combo]);
-//         }
-//       }
-//       return result;
-//     };
-
-//     const optionValues = productOptions.map(opt => opt.values);
-//     const combinations = generateCombinations(optionValues);
-
-//     // Filter out existing combinations
-//     const existingCombos = new Set(
-//       productVariants.map(v => v.optionValues?.join(',').toLowerCase() || '')
-//     );
-
-//     const newVariants: ProductVariant[] = [];
-//     let skippedCount = 0;
-
-//     for (const combo of combinations) {
-//       const comboKey = combo.join(',').toLowerCase();
-//       if (existingCombos.has(comboKey)) {
-//         skippedCount++;
-//         continue;
-//       }
-
-//       // Generate SKU from combination
-//       const skuSuffix = combo.map(v => v.replace(/\s/g, '').toUpperCase()).join('-');
-//       const baseSku = formData.sku || 'PROD';
-
-//       const newVariant: ProductVariant = {
-//         id: `temp-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
-//         // ✅ UPDATED: Better format with parentheses and comma separation
-//         name: `${formData.name || 'Product'} (${combo.join(', ')})`,
-//         sku: `${baseSku}-${skuSuffix}`,
-//         price: null,
-//         compareAtPrice: null,
-//         weight: null,
-//         stockQuantity: 0,
-//         trackInventory: true,
-//         optionValues: combo,
-//         // Legacy fields for backward compatibility
-//         option1Name: productOptions[0]?.name || null,
-//         option1Value: combo[0] || null,
-//         option2Name: productOptions[1]?.name || null,
-//         option2Value: combo[1] || null,
-//         option3Name: productOptions[2]?.name || null,
-//         option3Value: combo[2] || null,
-//         imageUrl: null,
-//         imageFile: undefined,
-//         isDefault: productVariants.length === 0 && newVariants.length === 0,
-//         displayOrder: productVariants.length + newVariants.length,
-//         isActive: true,
-//         gtin: null,
-//         barcode: null
-//       };
-
-//       newVariants.push(newVariant);
-//     }
-
-//     if (newVariants.length === 0) {
-//       toast.info(skippedCount > 0
-//         ? `All ${skippedCount} combinations already exist`
-//         : 'No new variants to generate');
-//       return;
-//     }
-
-//     setProductVariants([...productVariants, ...newVariants]);
-//     toast.success(`Generated ${newVariants.length} new variants${skippedCount > 0 ? ` (${skippedCount} skipped)` : ''}`);
-
-//   } catch (error) {
-//     console.error('Error generating variants:', error);
-//     toast.error('Failed to generate variants');
-//   } finally {
-//     setIsGeneratingVariants(false);
-//   }
-// };
 
 
 // ============================================================
@@ -2977,8 +2867,8 @@ if (!formData.minStockQuantity) {
       return;
     }
 
-    if (categoryIdsArray.length > 5) {
-      toast.error('⚠️ Maximum 5 categories allowed');
+    if (categoryIdsArray.length > 10) {
+      toast.error('⚠️ Maximum 10 categories allowed');
       target.removeAttribute('data-submitting');
       setIsSubmitting(false);
       setSubmitProgress(null);
@@ -3144,14 +3034,6 @@ if (!formData.minStockQuantity) {
 
     if (maxCartQty < minCartQty) {
       toast.error('❌ Maximum cart quantity cannot be less than minimum');
-      target.removeAttribute('data-submitting');
-      setIsSubmitting(false);
-      setSubmitProgress(null);
-      return;
-    }
-
-    if (maxCartQty > 9999) {
-      toast.error('❌ Maximum cart quantity is too high');
       target.removeAttribute('data-submitting');
       setIsSubmitting(false);
       setSubmitProgress(null);
@@ -3844,6 +3726,7 @@ const cleanedCartData = {
       vatRateId: formData.vatRateId || null,
       loyaltyPointsEnabled: formData.loyaltyPointsEnabled ?? true,
       isPharmaProduct: formData.isPharmaProduct ?? false,
+      isActive: formData.isActive ?? false,
       trackQuantity: formData.manageInventory === 'track',
       manageInventoryMethod: formData.manageInventory || 'track',
       stockQuantity: parseInt(formData.stockQuantity as any) || 0,
@@ -5892,7 +5775,7 @@ const uploadImagesToProductDirect = async (
 
     <div className="space-y-3">
       {/* ✅ 3 Checkboxes in 3 Columns - Styled Boxes */}
-      <div className="grid md:grid-cols-3 gap-4">
+      <div className="grid md:grid-cols-4 gap-4">
         {/* Column 1 - Published */}
         <label className="flex items-center gap-2 w-full px-3 py-2.5 bg-slate-800/50 border border-slate-700 rounded-xl cursor-pointer hover:border-violet-500 transition-all">
           <input
@@ -5929,6 +5812,16 @@ const uploadImagesToProductDirect = async (
             className="rounded bg-slate-800/50 border-slate-700 text-violet-500 focus:ring-violet-500 focus:ring-offset-slate-900"
           />
           <span className="text-sm text-slate-300">Allow customer reviews</span>
+        </label>
+        <label className="flex items-center gap-2 w-full px-3 py-2.5 bg-slate-800/50 border border-slate-700 rounded-xl cursor-pointer hover:border-violet-500 transition-all">
+          <input
+            type="checkbox"
+            name="isActive"
+            checked={formData.isActive}
+            onChange={handleChange}
+            className="rounded bg-slate-800/50 border-slate-700 text-violet-500 focus:ring-violet-500 focus:ring-offset-slate-900"
+          />
+          <span className="text-sm text-slate-300">Active</span>
         </label>
       </div>
 
@@ -6296,6 +6189,75 @@ const uploadImagesToProductDirect = async (
     </div>
   </div>
 
+  {/* LOYALTY POINTS & PHARMA PRODUCT */}
+  <div className="mt-4 space-y-3 bg-slate-800/30 border border-slate-700 p-4 rounded-xl">
+    <h4 className="text-sm font-semibold text-white">Loyalty & Product Classification</h4>
+
+    {/* Loyalty Points Toggle */}
+    <div className="flex items-center justify-between">
+      <div>
+        <span className="text-sm text-slate-300">Loyalty Points</span>
+        <p className="text-xs text-slate-500">Enable or disable loyalty points earning for this product</p>
+      </div>
+      <button
+        type="button"
+        onClick={() => setFormData(prev => ({ ...prev, loyaltyPointsEnabled: !prev.loyaltyPointsEnabled }))}
+        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 ${
+          formData.loyaltyPointsEnabled ? 'bg-emerald-500' : 'bg-slate-600'
+        }`}
+      >
+        <span
+          className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform duration-200 ${
+            formData.loyaltyPointsEnabled ? 'translate-x-6' : 'translate-x-1'
+          }`}
+        />
+      </button>
+    </div>
+
+    {/* Is Pharma Product */}
+    <div className="space-y-2">
+      <label className="flex items-center gap-2 cursor-pointer">
+       <input
+  type="checkbox"
+  name="isPharmaProduct"
+  checked={formData.isPharmaProduct}
+  onChange={(e) => {
+    const isChecked = e.target.checked;
+
+    handleChange(e);
+
+    // ✅ Open modal only when switching from false → true
+    if (isChecked && !formData.isPharmaProduct) {
+      setShowPharmacyModal(true);
+    }
+  }}
+  className="w-4 h-4 rounded bg-slate-800/50 border-slate-700 text-blue-500 focus:ring-blue-500 focus:ring-offset-slate-900"
+/>
+
+        <div>
+          <span className="text-sm text-slate-300">Pharma Product</span>
+          <p className="text-xs text-slate-500">Mark this product as a pharmaceutical product</p>
+        </div>
+      </label>
+
+      {formData.isPharmaProduct && (
+        <div className="ml-6 flex items-center gap-3">
+          <button
+            type="button"
+            onClick={() => setShowPharmacyModal(true)}
+            className="px-4 py-2 bg-violet-500/10 border border-violet-500/50 text-violet-400 rounded-lg hover:bg-violet-500/20 transition-all text-sm font-semibold"
+          >
+            Configure Questions
+          </button>
+          {pharmacyQuestions.length > 0 && (
+            <span className="px-2 py-1 bg-violet-500/20 text-violet-300 rounded-full text-xs font-semibold">
+              {pharmacyQuestions.length} question{pharmacyQuestions.length !== 1 ? "s" : ""} assigned
+            </span>
+          )}
+        </div>
+      )}
+    </div>
+  </div>
 
 {/* Admin Comment */}
 <div className="space-y-4">
@@ -7439,75 +7401,7 @@ const uploadImagesToProductDirect = async (
     <span className="text-sm text-slate-300">Not Returnable</span>
   </label>
 
-  {/* LOYALTY POINTS & PHARMA PRODUCT */}
-  <div className="mt-4 space-y-3 bg-slate-800/30 border border-slate-700 p-4 rounded-xl">
-    <h4 className="text-sm font-semibold text-white">Loyalty & Product Classification</h4>
 
-    {/* Loyalty Points Toggle */}
-    <div className="flex items-center justify-between">
-      <div>
-        <span className="text-sm text-slate-300">Loyalty Points</span>
-        <p className="text-xs text-slate-500">Enable or disable loyalty points earning for this product</p>
-      </div>
-      <button
-        type="button"
-        onClick={() => setFormData(prev => ({ ...prev, loyaltyPointsEnabled: !prev.loyaltyPointsEnabled }))}
-        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 ${
-          formData.loyaltyPointsEnabled ? 'bg-emerald-500' : 'bg-slate-600'
-        }`}
-      >
-        <span
-          className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform duration-200 ${
-            formData.loyaltyPointsEnabled ? 'translate-x-6' : 'translate-x-1'
-          }`}
-        />
-      </button>
-    </div>
-
-    {/* Is Pharma Product */}
-    <div className="space-y-2">
-      <label className="flex items-center gap-2 cursor-pointer">
-       <input
-  type="checkbox"
-  name="isPharmaProduct"
-  checked={formData.isPharmaProduct}
-  onChange={(e) => {
-    const isChecked = e.target.checked;
-
-    handleChange(e);
-
-    // ✅ Open modal only when switching from false → true
-    if (isChecked && !formData.isPharmaProduct) {
-      setShowPharmacyModal(true);
-    }
-  }}
-  className="w-4 h-4 rounded bg-slate-800/50 border-slate-700 text-blue-500 focus:ring-blue-500 focus:ring-offset-slate-900"
-/>
-
-        <div>
-          <span className="text-sm text-slate-300">Pharma Product</span>
-          <p className="text-xs text-slate-500">Mark this product as a pharmaceutical product</p>
-        </div>
-      </label>
-
-      {formData.isPharmaProduct && (
-        <div className="ml-6 flex items-center gap-3">
-          <button
-            type="button"
-            onClick={() => setShowPharmacyModal(true)}
-            className="px-4 py-2 bg-violet-500/10 border border-violet-500/50 text-violet-400 rounded-lg hover:bg-violet-500/20 transition-all text-sm font-semibold"
-          >
-            Configure Questions
-          </button>
-          {pharmacyQuestions.length > 0 && (
-            <span className="px-2 py-1 bg-violet-500/20 text-violet-300 rounded-full text-xs font-semibold">
-              {pharmacyQuestions.length} question{pharmacyQuestions.length !== 1 ? "s" : ""} assigned
-            </span>
-          )}
-        </div>
-      )}
-    </div>
-  </div>
 </div>
 
 

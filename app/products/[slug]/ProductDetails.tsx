@@ -341,7 +341,14 @@ const handleShareClick = async () => {
   // Desktop OR fallback
   setShowShare(v => !v);
 };
-const isUKUser = useMemo(() => detectUKRegion(), []);
+const [isUKUser, setIsUKUser] = useState(false);
+useEffect(() => {
+  let cancelled = false;
+  detectUKRegion().then((uk) => {
+    if (!cancelled) setIsUKUser(uk);
+  });
+  return () => { cancelled = true; };
+}, []);
 const formatUKDate = (date: Date) => {
   return date.toLocaleDateString("en-GB", {
     day: "2-digit",
@@ -353,6 +360,7 @@ const [deliveryDate, setDeliveryDate] = useState<string | null>(null);
 const [nextDayTimeLeft, setNextDayTimeLeft] = useState<string | null>(null);
 useEffect(() => {
   if (
+    !isUKUser ||
     !product.nextDayDeliveryEnabled ||
     !product.nextDayDeliveryCutoffTime
   ) {
@@ -378,10 +386,8 @@ useEffect(() => {
     setNextDayTimeLeft(
       `${hours} hour${hours !== 1 ? "s" : ""} ${minutes} minute${minutes !== 1 ? "s" : ""}`
     );
-    // 📦 SHIPPING DATE → TODAY
     const ship = new Date();
     setShipDate(formatUKDate(ship));
-    // 🚚 DELIVERY DATE → TOMORROW
     const deliver = new Date();
     deliver.setDate(deliver.getDate() + 1);
     setDeliveryDate(formatUKDate(deliver));
@@ -390,6 +396,7 @@ useEffect(() => {
   const interval = setInterval(calculateTimeLeft, 60_000);
   return () => clearInterval(interval);
 }, [
+  isUKUser,
   product.nextDayDeliveryEnabled,
   product.nextDayDeliveryCutoffTime,
 ]);

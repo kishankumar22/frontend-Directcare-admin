@@ -5,10 +5,10 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { shippingService } from "@/lib/services/shipping";
 import { ShippingZone, CreateZoneDto } from "@/lib/types/shipping";
 import { countriesService, Country } from "@/lib/services/countries";
-import { useToast } from "@/app/admin/_component/CustomToast";
+import { useToast } from "@/app/admin/_components/CustomToast";
 import { Plus, Edit, Trash2, Search, MapPin, Globe, CheckCircle, XCircle, Loader2, AlertCircle, X, Save, ChevronLeft, ChevronRight, Eye, Flag, Info, Package, PoundSterling, RotateCcw, } from "lucide-react";
 import { cn } from "@/lib/utils";
-import ConfirmDialog from "../../_component/ConfirmDialog";
+import ConfirmDialog from "../../_components/ConfirmDialog";
 
 
 // ==================== CUSTOM HOOKS ====================

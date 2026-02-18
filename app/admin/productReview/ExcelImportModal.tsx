@@ -2,7 +2,7 @@
 
 import { useState, useRef } from "react";
 import { Upload, X, CheckCircle, AlertCircle, Download, FileSpreadsheet } from "lucide-react";
-import { useToast } from "@/app/admin/_component/CustomToast";
+import { useToast } from "@/app/admin/_components/CustomToast";
 import { productReviewsService, ImportResult } from "@/lib/services/productReviews";
 
 interface ImportResultExtended {

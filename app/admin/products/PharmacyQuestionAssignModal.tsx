@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { X, Check, List, Type, Plus, AlertCircle, ChevronDown, ChevronUp } from "lucide-react";
-import { useToast } from "@/app/admin/_component/CustomToast";
+import { useToast } from "@/app/admin/_components/CustomToast";
 import {
   PharmacyQuestion,
   AssignProductPharmacyQuestionDto,

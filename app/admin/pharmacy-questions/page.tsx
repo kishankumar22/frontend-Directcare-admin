@@ -26,8 +26,8 @@ import {
   ChevronDown,
 } from "lucide-react";
 
-import { useToast } from "@/app/admin/_component/CustomToast";
-import ConfirmDialog from "@/app/admin/_component/ConfirmDialog";
+import { useToast } from "@/app/admin/_components/CustomToast";
+import ConfirmDialog from "@/app/admin/_components/ConfirmDialog";
 import { PharmacyQuestion, pharmacyQuestionsService, UpdatePharmacyQuestionDto } from "@/lib/services/PharmacyQuestions";
 import PharmacyQuestionFormModal from "./PharmacyQuestionFormModal";
 import { useDebounce } from "@/app/hooks/useDebounce";

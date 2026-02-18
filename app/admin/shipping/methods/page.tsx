@@ -3,11 +3,11 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { shippingService, shippingHelpers } from "@/lib/services/shipping";
 import { ShippingMethod, CreateMethodDto } from "@/lib/types/shipping";
-import { useToast } from "@/app/admin/_component/CustomToast";
+import { useToast } from "@/app/admin/_components/CustomToast";
 import { useRouter } from "next/navigation"; // ✅ App Router import
 import { Plus, Edit, Trash2, Search, Truck, CheckCircle, XCircle, Loader2, AlertCircle, X, Save, Clock, FileSignature, Navigation, ChevronLeft, ChevronRight, Eye, ChevronDown, FilterX, Package, MapPin, Calendar, Hash, PoundSterling, RotateCcw,} from "lucide-react";
 import { cn } from "@/lib/utils";
-import ConfirmDialog from "../../_component/ConfirmDialog";
+import ConfirmDialog from "../../_components/ConfirmDialog";
 
 // ==================== UTILITY FUNCTIONS ====================
 
