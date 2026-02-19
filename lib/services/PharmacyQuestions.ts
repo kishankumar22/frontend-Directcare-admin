@@ -127,7 +127,7 @@ export const pharmacyQuestionsService = {
 
   // Create new pharmacy question
   create: (data: CreatePharmacyQuestionDto, config: any = {}) =>
-    apiClient.post<PharmacyQuestionApiResponse>(
+  apiClient.post<SinglePharmacyQuestionApiResponse>(
       API_ENDPOINTS.PharmacyQuestions,
       data,
       config
@@ -135,7 +135,7 @@ export const pharmacyQuestionsService = {
 
   // Update pharmacy question by ID
   update: (id: string, data: UpdatePharmacyQuestionDto, config: any = {}) =>
-    apiClient.put<PharmacyQuestion>(
+   apiClient.put<SinglePharmacyQuestionApiResponse>(
       `${API_ENDPOINTS.PharmacyQuestions}/${id}`,
       data,
       config

@@ -44,6 +44,7 @@ import {
   getPaymentMethodInfo,
   formatCurrency,
   formatDate,
+  PharmacyVerificationStatus,
 } from '../../../lib/services/orders';
 import { useToast } from '@/app/admin/_components/CustomToast';
 import React from 'react';
@@ -66,17 +67,17 @@ interface Address {
 const getAvailableActions = (order: Order) => {
   const actions: string[] = [];
 
+  // ✅ PHARMACY APPROVAL FLOW FIRST
+  if (order.pharmacyVerificationStatus === 'Pending') {
+    actions.push('pharmacy-approve', 'pharmacy-reject');
+    return actions; // 🚀 stop here (don't allow other actions until verified)
+  }
+
   switch (order.status) {
     case 'Pending':
       actions.push('update-status', 'cancel-order');
       break;
     case 'Confirmed':
-      if (order.deliveryMethod === 'ClickAndCollect') {
-        actions.push('mark-ready', 'update-status', 'cancel-order');
-      } else {
-        actions.push('create-shipment', 'update-status', 'cancel-order');
-      }
-      break;
     case 'Processing':
       if (order.deliveryMethod === 'ClickAndCollect') {
         actions.push('mark-ready', 'update-status', 'cancel-order');
@@ -91,11 +92,11 @@ const getAvailableActions = (order: Order) => {
       actions.push('create-shipment', 'mark-delivered', 'update-status', 'cancel-order');
       break;
     case 'Delivered':
-      actions.push('update-status'); // Delivered → Returned/Refunded
+      actions.push('update-status');
       break;
     case 'Cancelled':
     case 'Returned':
-      actions.push('update-status'); // Cancelled/Returned → Refunded
+      actions.push('update-status');
       break;
     case 'Refunded':
       break;
@@ -103,15 +104,13 @@ const getAvailableActions = (order: Order) => {
       actions.push('update-status');
   }
 
-  // ✅ Click & Collect specific actions
-  if (order.deliveryMethod === 'ClickAndCollect' && order.collectionStatus) {
-    if (order.collectionStatus === 'Ready') {
-      actions.push('mark-collected');
-    }
+  if (order.deliveryMethod === 'ClickAndCollect' && order.collectionStatus === 'Ready') {
+    actions.push('mark-collected');
   }
 
   return actions;
 };
+
 
 export default function OrdersListPage() {
   const router = useRouter();
@@ -128,16 +127,18 @@ export default function OrdersListPage() {
   const [selectedOrders, setSelectedOrders] = useState<string[]>([]);
 const [isSearching, setIsSearching] = useState(false);
 
-  // Filters
-  const [filters, setFilters] = useState({
-    searchTerm: '',
-    status: '',
-    fromDate: '',
-    toDate: '',
-    deliveryMethod: '',
-    paymentMethod: '',
-    paymentStatus: '',
-  });
+const [filters, setFilters] = useState({
+  searchTerm: '',
+  status: '',
+  fromDate: '',
+  toDate: '',
+  deliveryMethod: '',
+  paymentMethod: '',
+  paymentStatus: '',
+pharmacyVerificationStatus: '' as PharmacyVerificationStatus | '',
+
+
+});
 
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showExportMenu, setShowExportMenu] = useState(false);
@@ -187,14 +188,17 @@ const fetchOrders = useCallback(async () => {
   try {
     setLoading(true);
 
-    const response = await orderService.getAllOrders({
-      page: currentPage,
-      pageSize: itemsPerPage,
-      status: filters.status || undefined,
-      fromDate: filters.fromDate || undefined,
-      toDate: filters.toDate || undefined,
-      searchTerm: debouncedSearch || undefined,
-    });
+ const response = await orderService.getAllOrders({
+  page: currentPage,
+  pageSize: itemsPerPage,
+  status: filters.status || undefined,
+  fromDate: filters.fromDate || undefined,
+  toDate: filters.toDate || undefined,
+  searchTerm: debouncedSearch || undefined,
+  pharmacyVerificationStatus:
+    filters.pharmacyVerificationStatus || undefined, // ✅ NEW
+});
+
 
     if (response?.data) {
       let filteredOrders = response.data.items || [];
@@ -464,18 +468,20 @@ const fetchOrders = useCallback(async () => {
     return pages;
   };
 
-  const clearFilters = () => {
-    setFilters({
-      searchTerm: '',
-      status: '',
-      fromDate: '',
-      toDate: '',
-      deliveryMethod: '',
-      paymentMethod: '',
-      paymentStatus: '',
-    });
-    setCurrentPage(1);
-  };
+const clearFilters = () => {
+  setFilters({
+    searchTerm: '',
+    status: '',
+    fromDate: '',
+    toDate: '',
+    deliveryMethod: '',
+    paymentMethod: '',
+    paymentStatus: '',
+    pharmacyVerificationStatus: '',
+  });
+};
+
+
 
 const hasActiveFilters = useMemo(() => {
   return Object.values(filters).some((value) => {
@@ -890,6 +896,34 @@ const hasActiveFilters = useMemo(() => {
             <CreditCard className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
             <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400 pointer-events-none" />
           </div>
+          {/* ✅ Pharmacy Verification Filter */}
+<div className="relative">
+  <select
+    value={filters.pharmacyVerificationStatus}
+   onChange={(e) =>
+  setFilters({
+    ...filters,
+    pharmacyVerificationStatus:
+      e.target.value as PharmacyVerificationStatus | '',
+  })
+}
+
+    className={`pl-9 pr-8 py-2 rounded-lg bg-slate-800/90 text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/50 transition-all appearance-none cursor-pointer min-w-[160px] ${
+      filters.pharmacyVerificationStatus
+        ? 'bg-gray-500/20 border-2 border-gray-500/50'
+        : 'bg-slate-800/50 border border-slate-700'
+    }`}
+  >
+    <option value="">Pharmacy Status</option>
+    <option value="Pending">Pending Review</option>
+    <option value="Approved">Approved</option>
+    <option value="Rejected">Rejected</option>
+  </select>
+
+  <AlertCircle className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
+  <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400 pointer-events-none" />
+</div>
+
 
           {/* Date Range */}
           <div className="relative" ref={datePickerRef}>
@@ -1043,6 +1077,10 @@ const hasActiveFilters = useMemo(() => {
                   <th className="text-center py-3 px-3 text-slate-300 font-semibold text-xs">
                    Order Status
                   </th>
+                  <th className="text-center py-3 px-3 text-slate-300 font-semibold text-xs">
+  Pharmacy
+</th>
+
                   {/* ✅ Payment Method Column */}
                   <th className="text-center py-3 px-3 text-slate-300 font-semibold text-xs">
                     Payment
@@ -1125,6 +1163,24 @@ const hasActiveFilters = useMemo(() => {
                           {statusInfo.label}
                         </span>
                       </td>
+                      <td className="py-3 px-3 text-center">
+  {order.pharmacyVerificationStatus ? (
+    <span
+      className={`inline-block px-2 py-1 rounded-lg text-xs font-medium ${
+        order.pharmacyVerificationStatus === 'Pending'
+          ? 'bg-yellow-500/10 text-yellow-400'
+          : order.pharmacyVerificationStatus === 'Approved'
+          ? 'bg-green-500/10 text-green-400'
+          : 'bg-red-500/10 text-red-400'
+      }`}
+    >
+      {order.pharmacyVerificationStatus}
+    </span>
+  ) : (
+    <span className="text-slate-500 text-xs">—</span>
+  )}
+</td>
+
                       {/* ✅ Payment Method + Status */}
                       <td className="py-3 px-3 text-center">
                         <div className="flex flex-col items-center gap-1">

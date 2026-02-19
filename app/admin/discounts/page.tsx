@@ -974,183 +974,208 @@ const filteredDiscounts = discounts.filter((discount) => {
                 </tr>
               </thead>
               <tbody>
-                {currentData.map((discount) => (
-                  <tr
-                    key={discount.id}
-                    className="border-b border-slate-800 hover:bg-slate-800/30 transition-colors"
-                  >
-                    <td className="py-4 px-4">
-                      <div className="flex items-start gap-3">
-                        <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-violet-500 to-pink-500 flex items-center justify-center text-lg">
-                          {getDiscountTypeIcon(discount.discountType)}
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <p
-                            className="text-white font-medium cursor-pointer hover:text-violet-400 transition-colors"
-                            onClick={() => setViewingDiscount(discount)}
-                          >
-                            {discount.name}
-                          </p>
-                          {discount.couponCode && (
-                            <div className="flex items-center gap-2 mt-1">
-                              <span className="text-xs bg-green-500/10 text-green-400 px-2 py-1 rounded">
-                                {discount.couponCode}
-                              </span>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </td>
+  {currentData.map((discount) => {
+    const start = new Date(discount.startDate);
+    const end = new Date(discount.endDate);
+    const today = new Date();
 
-                    <td className="py-4 px-4 text-center">
-                      <span className="px-2 py-1 bg-blue-500/10 text-blue-400 rounded-lg text-xs font-medium">
-                        {getDiscountTypeLabel(discount.discountType)}
-                      </span>
-                    </td>
+    const totalDays = Math.ceil(
+      (end.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)
+    );
 
-                    <td className="py-4 px-4 text-center">
-                      <span className="text-white font-semibold text-lg">
-                        {formatDiscountValue(discount)}
-                      </span>
-                      {discount.maximumDiscountAmount && (
-                        <p className="text-xs text-slate-400">max £{discount.maximumDiscountAmount}</p>
-                      )}
-                    </td>
-<td className="py-4 px-4 text-center">
-  <div className="flex flex-col items-center gap-1">
+    const isExpired = today > end;
 
-    {(() => {
-      const status = getDiscountStatus(discount);
+    return (
+      <tr
+        key={discount.id}
+        className="border-b border-slate-800 hover:bg-slate-800/40 transition-colors"
+      >
+        {/* NAME */}
+        <td className="py-3 px-4">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-violet-500 to-pink-500 flex items-center justify-center text-sm">
+              {getDiscountTypeIcon(discount.discountType)}
+            </div>
 
-      const colorClasses =
-        status.color === "green"
-          ? "bg-green-500/10 text-green-400 hover:bg-green-500/20"
-          : status.color === "orange"
-          ? "bg-orange-500/10 text-orange-400 hover:bg-orange-500/20"
-          : status.color === "red"
-          ? "bg-red-500/10 text-red-400 hover:bg-red-500/20"
-          : "bg-gray-500/10 text-gray-400 cursor-not-allowed";
+            <div className="min-w-0">
+              <p
+                className="text-white text-sm font-medium truncate cursor-pointer hover:text-violet-400"
+                onClick={() => setViewingDiscount(discount)}
+              >
+                {discount.name}
+              </p>
 
-      const dotColor =
-        status.color === "green"
-          ? "bg-green-400"
-          : status.color === "orange"
-          ? "bg-orange-400"
-          : status.color === "red"
-          ? "bg-red-400"
-          : "bg-gray-400";
+              {discount.couponCode && (
+                <span className="text-[10px] bg-green-500/10 text-green-400 px-2 py-0.5 rounded mt-1 inline-block">
+                  {discount.couponCode}
+                </span>
+              )}
+            </div>
+          </div>
+        </td>
 
-      return (
-        <>
-          <button
-            onClick={() => {
-              if (status.label !== "Expired") {
-                setStatusConfirm(discount);
-              }
-            }}
-            title={
-              status.label === "Active"
-                ? "Click to deactivate discount"
-                : status.label === "Inactive"
-                ? "Click to activate discount"
-                : status.label === "Scheduled"
-                ? "Click to deactivate before start date"
-                : "Expired discount cannot be modified"
-            }
-            className={`px-3 py-1 rounded-lg text-xs font-medium flex items-center gap-2 transition-all duration-200 ${colorClasses}`}
-          >
-            <div className={`w-2 h-2 rounded-full ${dotColor}`} />
-            {status.label}
-          </button>
+        {/* TYPE */}
+        <td className="py-3 px-4 text-center">
+          <span className="px-2 py-1 bg-blue-500/10 text-blue-400 rounded-md text-xs font-medium">
+            {getDiscountTypeLabel(discount.discountType)}
+          </span>
+        </td>
 
-          {/* Extra info for Scheduled */}
-          {status.label === "Scheduled" && (
-            <span className="text-[10px] text-slate-400">
-              Starts on {new Date(discount.startDate).toLocaleDateString()}
-            </span>
+        {/* VALUE */}
+        <td className="py-3 px-4 text-center">
+          <span className="text-white font-semibold text-sm">
+            {formatDiscountValue(discount)}
+          </span>
+          {discount.maximumDiscountAmount && (
+            <p className="text-[10px] text-slate-500">
+              max £{discount.maximumDiscountAmount}
+            </p>
           )}
+        </td>
 
-          {/* Extra info for Expired */}
-          {status.label === "Expired" && (
-            <span className="text-[10px] text-slate-500">
-              Expired on {new Date(discount.endDate).toLocaleDateString()}
+            {/* STATUS */}
+            <td className="py-3 px-4 text-center">
+            {(() => {
+              const status = getDiscountStatus(discount);
+
+              const colorMap: any = {
+                green: "bg-green-500/10 text-green-400 hover:bg-green-500/20",
+                orange: "bg-orange-500/10 text-orange-400 hover:bg-orange-500/20",
+                red: "bg-red-500/10 text-red-400 hover:bg-red-500/20",
+                gray: "bg-gray-500/10 text-gray-400",
+              };
+
+              const isClickable = status.label !== "Expired";
+
+              return (
+                <span
+                  onClick={() => {
+                    if (isClickable) {
+                      setStatusConfirm(discount);
+                    }
+                  }}
+                  title={
+                    status.label === "Active"
+                      ? "Click to deactivate discount"
+                      : status.label === "Inactive"
+                      ? "Click to activate discount"
+                      : status.label === "Scheduled"
+                      ? "Click to deactivate before start date"
+                      : "Expired discount cannot be modified"
+                  }
+                  className={`
+                    px-2.5 py-1 rounded-md text-xs font-medium 
+                    inline-flex items-center gap-1 transition-all duration-200
+                    ${colorMap[status.color] || colorMap.gray}
+                    ${isClickable ? "cursor-pointer" : "cursor-not-allowed opacity-70"}
+                  `}
+                >
+                  <span
+                    className={`w-1.5 h-1.5 rounded-full ${
+                      status.color === "green"
+                        ? "bg-green-400"
+                        : status.color === "orange"
+                        ? "bg-orange-400"
+                        : status.color === "red"
+                        ? "bg-red-400"
+                        : "bg-gray-400"
+                    }`}
+                  />
+                  {status.label}
+                </span>
+              );
+            })()}
+            </td>
+
+        {/* VALIDITY + DAYS */}
+        <td
+          className="py-3 px-4 text-center text-xs"
+          title={`${start.toLocaleDateString()}  to  ${end.toLocaleDateString()}`}
+        >
+          <div className="text-slate-300">
+            {isExpired ? (
+              <span className="text-red-400">Expired</span>
+            ) : totalDays > 0 ? (
+              <span className="text-emerald-400">
+                {totalDays} day{totalDays !== 1 ? "s" : ""} left
+              </span>
+            ) : (
+              <span className="text-orange-400">Ends Today</span>
+            )}
+          </div>
+
+          <p className="text-[10px] text-slate-500 mt-1">
+            {start.toLocaleDateString()} – {end.toLocaleDateString()}
+          </p>
+        </td>
+
+        {/* USAGE */}
+        <td className="py-3 px-4 text-center">
+          <div className="text-xs">
+            <span className="px-2 py-1 bg-slate-700 text-slate-300 rounded-md">
+              {discount.discountLimitation}
             </span>
-          )}
-        </>
-      );
-    })()}
+            {discount.limitationTimes && (
+              <p className="text-[10px] text-slate-500 mt-1">
+                {discount.limitationTimes} uses
+              </p>
+            )}
+          </div>
+        </td>
 
-  </div>
-</td>
+        {/* ACTIONS */}
+        <td className="py-3 px-4">
+          <div className="flex items-center justify-center gap-2">
 
+            <button
+              title="View Details"
+              onClick={() => setViewingDiscount(discount)}
+              className="p-1.5 text-violet-400 hover:bg-violet-500/10 rounded-md transition-all"
+            >
+              <Eye className="h-4 w-4" />
+            </button>
 
+            {deletedFilter === "notDeleted" && (
+              <>
+                <button
+                  title="Edit Discount"
+                  onClick={() => handleEdit(discount)}
+                  className="p-1.5 text-cyan-400 hover:bg-cyan-500/10 rounded-md transition-all"
+                >
+                  <Edit className="h-4 w-4" />
+                </button>
 
-                    <td className="py-4 px-4 text-center">
-                      <div className="text-xs text-slate-300">
-                        <p>{new Date(discount.startDate).toLocaleDateString()}</p>
-                        <p className="text-slate-500">to</p>
-                        <p>{new Date(discount.endDate).toLocaleDateString()}</p>
-                      </div>
-                    </td>
+                <button
+                  title="Delete Discount"
+                  onClick={() =>
+                    setDeleteConfirm({
+                      id: discount.id,
+                      name: discount.name,
+                    })
+                  }
+                  className="p-1.5 text-red-400 hover:bg-red-500/10 rounded-md transition-all"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              </>
+            )}
 
-                    <td className="py-4 px-4 text-center">
-                      <div className="text-xs">
-                        <span className="px-2 py-1 bg-slate-700 text-slate-300 rounded">
-                          {discount.discountLimitation}
-                        </span>
-                        {discount.limitationTimes && (
-                          <p className="text-slate-400 mt-1">{discount.limitationTimes} times</p>
-                        )}
-                      </div>
-                    </td>
+            {deletedFilter === "deleted" && (
+              <button
+                title="Restore Discount"
+                onClick={() => setRestoreConfirm(discount)}
+                className="p-1.5 text-green-400 hover:bg-green-500/10 rounded-md transition-all"
+              >
+                <RotateCcw className="h-4 w-4" />
+              </button>
+            )}
+          </div>
+        </td>
+      </tr>
+    );
+  })}
+</tbody>
 
-{/* Actions column mein History button add karo */}
-<td className="py-4 px-4">
-  <div className="flex items-center justify-center gap-2">
-
-    <button
-      onClick={() => setViewingDiscount(discount)}
-      className="p-2 text-violet-400 hover:bg-violet-500/10 rounded-lg"
-    >
-      <Eye className="h-4 w-4" />
-    </button>
-
-    {deletedFilter === "notDeleted" && (
-      <>
-        <button
-          onClick={() => handleEdit(discount)}
-          className="p-2 text-cyan-400 hover:bg-cyan-500/10 rounded-lg"
-        >
-          <Edit className="h-4 w-4" />
-        </button>
-
-
-        <button
-          onClick={() => setDeleteConfirm({ id: discount.id, name: discount.name })}
-          className="p-2 text-red-400 hover:bg-red-500/10 rounded-lg"
-        >
-          <Trash2 className="h-4 w-4" />
-        </button>
-      </>
-    )}
-
-    {deletedFilter === "deleted" && (
-    <button
-  onClick={() => setRestoreConfirm(discount)}
-  title="Restore Discount"
-  className="p-2 text-green-400 hover:bg-green-500/10 rounded-lg transition-all flex items-center justify-center"
->
-  <RotateCcw className="h-4 w-4" />
-</button>
-
-    )}
-  </div>
-</td>
-
-
-                  </tr>
-                ))}
-              </tbody>
             </table>
           </div>
         )}

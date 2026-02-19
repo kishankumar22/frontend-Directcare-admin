@@ -12,6 +12,12 @@ import {
   Upload,
   Download
 } from "lucide-react";
+type ToggleProduct = {
+  id: string;
+  name: string;
+  isActive: boolean;
+  isDeleted?: boolean;
+};
 import { useToast } from "@/app/admin/_components/CustomToast";
 import { API_BASE_URL } from "@/lib/api-config";
 import { productLockService, TakeoverRequestData } from "@/lib/services/productLockService";
@@ -26,45 +32,67 @@ import ConfirmDialog from "@/app/admin/_components/ConfirmDialog";
 import MediaViewerModal, { MediaItem } from "./MediaViewerModal";
 import { RelatedProduct, Product, productsService, productHelpers } from "@/lib/services";
 import ProductExcelImportModal from "./ProductExcelImportModal";
-type ActionType = 'delete' | 'restore';
+
+
 // ✅ INTERFACES
 interface FormattedProduct {
   id: string;
-    isDeleted: boolean; // ✅ ADD THIS
+  isDeleted: boolean;
+
   name: string;
+  slug: string;
+  sku: string;
+
   categoryName: string;
+  brandName: string;
+
   price: number;
-  stock: number;
   stockQuantity: number;
+
+  isActive: boolean;
+  isPublished: boolean;
+  showOnHomepage: boolean;
+
   status: string;
+  productType: string;
+
+  shortDescription: string;
+  description: string;
+
   image: string;
   sales: number;
-  isActive: boolean;
-  shortDescription: string;
-  sku: string;
+
   createdAt: string;
+  createdBy: string;
   updatedAt: string;
   updatedBy: string;
-  description: string;
-  category: string;
-  isPublished: boolean;
-  productType: string;
-  brandName: string;
-  slug: string;
-  showOnHomepage: boolean;
+
+  // 🔥 Inventory System (Backend Driven)
+  trackQuantity: boolean;
+  manageInventoryMethod: string;
+  lowStockThreshold: number;
+  notifyAdminForQuantityBelow: boolean;
+  notifyQuantityBelow: number;
+  allowBackorder: boolean;
+  
+
+  // Other flags
   markAsNew: boolean;
   notReturnable: boolean;
-  manageInventoryMethod: string;
   isRecurring: boolean;
   vatExempt: boolean;
+
   nextDayDeliveryEnabled: boolean;
   standardDeliveryEnabled: boolean;
   sameDayDeliveryEnabled: boolean;
 
+  backInStockCount?: number; // ✅ ADD THIS
+  // Discounts
   hasDiscount: boolean;
   discountLabel: string;
   discountTitle: string;
 }
+
 
 
 interface CategoryData {
@@ -176,6 +204,8 @@ export default function ProductsPage() {
   const [loadingDetails, setLoadingDetails] = useState(false);
  // Export menu state
  const [showExportMenu, setShowExportMenu] = useState(false);
+const [showAssignModal, setShowAssignModal] = useState(false);
+const [selectedProductForDiscount, setSelectedProductForDiscount] = useState<any>(null);
 
   // Filter states
   const [searchTerm, setSearchTerm] = useState("");
@@ -198,6 +228,7 @@ export default function ProductsPage() {
   const [showMoreFilters, setShowMoreFilters] = useState(false);
 
 const [showImportModal, setShowImportModal] = useState(false);
+
 
 
 
@@ -300,23 +331,46 @@ const formatDate = (dateString?: string | null): string => {
   });
 };
  
-const [selectedProduct, setSelectedProduct] = useState<{
-  id: string;
-  name: string;
-  isDeleted: boolean;
-} | null>(null);
+const [selectedDeleteProduct, setSelectedDeleteProduct] = useState<ToggleProduct | null>(null);
+const [selectedToggleProduct, setSelectedToggleProduct] = useState<ToggleProduct | null>(null);
+
+const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+const [showToggleConfirm, setShowToggleConfirm] = useState(false);
+
+
+
 
 const openProductActionModal = (product: {
   id: string;
   name: string;
   isDeleted: boolean;
 }) => {
-  setSelectedProduct({
+  setSelectedDeleteProduct({
     id: product.id,
     name: product.name,
     isDeleted: product.isDeleted,
+    isActive: true,
   });
+
+  setShowDeleteConfirm(true);
 };
+
+const openToggleConfirm = (product: any) => {
+  if (product.isDeleted) {
+    toast.error("Deleted products cannot be activated or deactivated.");
+    return;
+  }
+
+  setSelectedToggleProduct({
+    id: product.id,
+    name: product.name,
+    isActive: product.isActive,
+    isDeleted: product.isDeleted ?? false,
+  });
+
+  setShowToggleConfirm(true);
+};
+
 
 const deletedOptions = [
   { value: "all", label: "All Records" },
@@ -343,30 +397,30 @@ const [isProcessing, setIsProcessing] = useState(false);
     return primaryCategory?.categoryName || categories[0]?.categoryName || "Uncategorized";
   };
 const handleConfirmProductAction = async () => {
-  if (!selectedProduct) return;
+  if (!selectedDeleteProduct) return;
 
   setIsProcessing(true);
 
   try {
-    if (selectedProduct.isDeleted) {
-      // RESTORE
-      await productsService.restore(selectedProduct.id);
-      toast.success('Product restored successfully!');
+    if (selectedDeleteProduct.isDeleted) {
+      await productsService.restore(selectedDeleteProduct.id);
+      toast.success("Product restored successfully!");
     } else {
-      // DELETE
-      await productsService.delete(selectedProduct.id);
-      toast.success('Product deleted successfully!');
+      await productsService.delete(selectedDeleteProduct.id);
+      toast.success("Product deleted successfully!");
     }
 
     await fetchProducts();
   } catch (err) {
-    console.error('Product action error:', err);
-    toast.error('Action failed');
+    console.error("Product action error:", err);
+    toast.error("Action failed");
   } finally {
     setIsProcessing(false);
-    setSelectedProduct(null);
+    setSelectedDeleteProduct(null);
+    setShowDeleteConfirm(false);
   }
 };
+
 useEffect(() => {
   fetchProducts();
 }, [deletedFilter]);
@@ -447,7 +501,13 @@ const fetchProducts = async () => {
           price: p.price || 0,
           stock: p.stockQuantity || 0,
           stockQuantity: p.stockQuantity || 0,
-          status: productHelpers.getStockStatus(p.stockQuantity),
+          status: productHelpers.getStockStatus({
+  stockQuantity: p.stockQuantity,
+  trackQuantity: p.trackQuantity,
+  lowStockThreshold: p.lowStockThreshold,
+  allowBackorder: p.allowBackorder,
+}),
+
           image: getProductImage(p.images),
           sales: 0,
           shortDescription: p.shortDescription || "",
@@ -455,6 +515,7 @@ const fetchProducts = async () => {
           createdAt: formatDate(p.createdAt),
           updatedAt: p.updatedAt ? formatDate(p.updatedAt) : "N/A",
           updatedBy: p.updatedBy || "N/A",
+          createdBy: p.createdBy || "N/A",
           description: p.description || p.shortDescription || "",
           category: primaryCategoryName,
           isPublished: p.isPublished === true,
@@ -471,6 +532,12 @@ const fetchProducts = async () => {
           nextDayDeliveryEnabled: p.nextDayDeliveryEnabled === true,
           standardDeliveryEnabled: p.standardDeliveryEnabled === true,
           sameDayDeliveryEnabled: p.sameDayDeliveryEnabled === true,
+// 🔥 INVENTORY FIELDS
+trackQuantity: p.trackQuantity ?? false,
+lowStockThreshold: p.lowStockThreshold ?? 0,
+notifyAdminForQuantityBelow: p.notifyAdminForQuantityBelow ?? false,
+notifyQuantityBelow: p.notifyQuantityBelow ?? 0,
+allowBackorder: p.allowBackorder ?? false,
 
           // 🔥 DISCOUNT FIELDS
           hasDiscount,
@@ -573,6 +640,22 @@ const fetchProducts = async () => {
       setLoadingDetails(false);
     }
   };
+
+const handleToggleStatus = async (product: Product) => {
+  try {
+    const response = await productsService.toggleActive(product.id);
+
+    if (!response?.data?.success) {
+      toast.error(response?.data?.message || "Failed to update status");
+      return;
+    }
+
+    toast.success(response.data.message);
+    fetchProducts();
+  } catch (error: any) {
+    toast.error(error.response?.data?.message || "Something went wrong");
+  }
+};
 
 
 
@@ -2045,11 +2128,10 @@ const formatOptionLabel = (option: SelectOption) => {
         <th className="text-center py-2 px-3 text-slate-400 w-[110px]">SKU</th>
         <th className="text-center py-2 px-3 text-slate-400 w-[80px]">Price</th>
         <th className="text-center py-2 px-3 text-slate-400 w-[70px]">Status</th>
-       <th className="text-center py-2 px-3 text-slate-400 w-[140px]">Stock Status</th>
-        <th className="text-center py-2 px-3 text-slate-400 w-[70px]">Discount</th>
-      
-        <th className="text-center py-2 px-3 text-slate-400 w-[100px]">Visibility</th>
-        <th className="text-left py-2 px-3 text-slate-400 w-[110px]">Updated</th>
+       <th className="text-center py-2 px-3 text-slate-400 w-[170px]">Stock Status</th>
+        <th className="text-center py-2 px-3 text-slate-400 w-[100px]">Discount</th>
+        <th className="text-center py-2 px-3 text-slate-400 w-[150px]">Visibility</th>
+        <th className="text-left py-2 px-3 text-slate-400 w-[150px]">Updated At</th>
         <th className="text-left py-2 px-3 text-slate-400 w-[110px]">Updated By</th>
         <th className="text-center py-2 px-3 text-slate-400 w-[140px]">Actions</th>
       </tr>
@@ -2058,7 +2140,12 @@ const formatOptionLabel = (option: SelectOption) => {
     <tbody>
       {currentData.map((product) => {
         const isBusy =
-          isProcessing && selectedProduct?.id === product.id;
+  isProcessing &&
+  (
+    selectedDeleteProduct?.id === product.id ||
+    selectedToggleProduct?.id === product.id
+  );
+
 
         return (
           <tr
@@ -2125,97 +2212,208 @@ const formatOptionLabel = (option: SelectOption) => {
             <td className="py-2 px-3 text-center font-semibold text-white">
               £{product.price.toFixed(2)}
             </td>
-         <td className="py-2 px-3 text-center"
-         title={product.isActive ? "Product is enabled" : "Product is disabled"}
->
-  <span
-    className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold border ${
-      product.isActive
-        ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30"
-        : "bg-red-500/10 text-red-400 border-red-500/30"
-    }`}
-  >
-    <span
-      className={`w-1.5 h-1.5 rounded-full mr-1.5 ${
-        product.isActive ? "bg-emerald-400" : "bg-red-400"
-      }`}
-    />
-    {product.isActive ? "Active" : "Inactive"}
-  </span>
-</td>
+              {/* 🔥 Clickable Status Cell */}
+              <td
+                className={`py-2 px-3 text-center ${
+                  product.isDeleted ? "cursor-not-allowed opacity-50" : "cursor-pointer"
+                }`}
+                onClick={() => openToggleConfirm(product)}
+                title={
+                  product.isDeleted
+                    ? "Deleted product cannot be modified"
+                    : product.isActive
+                    ? "Click to deactivate"
+                    : "Click to activate"
+                }
+              >
+                <span
+                  className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold border transition-all ${
+                    product.isActive
+                      ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/20"
+                      : "bg-red-500/10 text-red-400 border-red-500/30 hover:bg-red-500/20"
+                  }`}
+                >
+                  <span
+                    className={`w-1.5 h-1.5 rounded-full mr-1.5 ${
+                      product.isActive ? "bg-emerald-400" : "bg-red-400"
+                    }`}
+                  />
+                  {product.isActive ? "Active" : "Inactive"}
+                </span>
+              </td>
 
           
 
-            {/* STOCK */}
+{/* STOCK */}
 <td className="py-2 px-3 text-center">
   {(() => {
-    const qty = product.stockQuantity || 0;
+    const qty = product.stockQuantity ?? 0;
+    const track = product.trackQuantity ?? true;
+    const lowThreshold = product.lowStockThreshold ?? 0;
+    const notifyBelow = product.notifyQuantityBelow ?? 0;
+    const notifyEnabled = product.notifyAdminForQuantityBelow ?? false;
+    const allowBackorder = product.allowBackorder ?? false;
 
-    const status =
-      qty > 10
-        ? { label: "In Stock", color: "emerald" }
-        : qty > 0
-        ? { label: "Low Stock", color: "orange" }
-        : { label: "Out of Stock", color: "red" };
+    let label = "";
+    let style = "";
+    let status = "";
+
+    if (!track) {
+      status = "Not Tracked";
+      label = "Not Tracked";
+      style = "bg-slate-500/15 text-slate-400 border border-slate-500/30";
+    } 
+    else if (qty === 0 && allowBackorder) {
+      status = "Backorder";
+      label = "Backorder Allowed";
+      style = "bg-purple-500/15 text-purple-400 border border-purple-500/30";
+    } 
+    else if (qty === 0) {
+      status = "Out of Stock";
+      label = "Out of Stock";
+      style = "bg-red-500/15 text-red-400 border border-red-500/30";
+    } 
+    else if (lowThreshold > 0 && qty <= lowThreshold) {
+      status = "Low Stock";
+      label = "Low Stock";
+      style = "bg-amber-500/15 text-amber-400 border border-amber-500/30";
+    } 
+    else {
+      status = "In Stock";
+      label = "In Stock";
+      style = "bg-emerald-500/15 text-emerald-400 border border-emerald-500/30";
+    }
+
+    const showAdminAlert =
+      notifyEnabled && notifyBelow > 0 && qty <= notifyBelow;
+
+const tooltip = `
+Tracking: ${track ? "Enabled" : "Disabled"}
+Low Threshold: ${lowThreshold || "-"}
+Notify Below: ${notifyBelow || "-"}
+Admin Alert: ${notifyEnabled ? "Enabled" : "Disabled"}
+Backorder: ${allowBackorder ? "Allowed" : "No"}
+`.trim();
+
 
     return (
-      <div
-        className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all
-        ${
-          status.color === "emerald"
-            ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30"
-            : status.color === "orange"
-            ? "bg-orange-500/10 text-orange-400 border-orange-500/30"
-            : "bg-red-500/10 text-red-400 border-red-500/30"
-        }`}
-        title={`${qty} units available`}
-      >
-        <span className="w-1.5 h-1.5 rounded-full bg-current" />
-        {status.label}
+      <div className="flex flex-col items-center gap-1">
+        <div
+          title={tooltip}
+          className={`inline-flex items-center gap-1 px-3 py-1 rounded-md text-xs font-semibold transition-all ${style}`}
+        >
+          <span className="w-1.5 h-1.5 rounded-full bg-current" />
+          {label}
+          {track && (
+            <span className="opacity-70 text-[11px]">({qty})</span>
+          )}
+        </div>
+
+        {showAdminAlert && (
+          <span
+            title="Admin notification threshold reached"
+            className="text-[10px] text-red-400 flex items-center gap-1"
+          >
+            <span className="w-1 h-1 bg-red-400 rounded-full animate-pulse" />
+            Admin Alert
+          </span>
+        )}
       </div>
     );
   })()}
-</td>
-
-
-
-           <td className="py-2 px-3 text-center">
+</td>  
+<td className="py-2 px-3 text-center">
   {product.hasDiscount ? (
     <span
       title={product.discountTitle}
-      className="px-2 py-1 text-xs font-semibold rounded bg-green-500/10 text-green-400 border border-green-500/30 cursor-help"
+      className="inline-flex items-center px-2.5 py-1 text-xs font-semibold rounded-md 
+                 bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 
+                 cursor-help"
     >
       {product.discountLabel}
     </span>
   ) : (
-    <span className="text-slate-500 text-xs">No</span>
+    <button
+      onClick={() => router.push("/admin/discounts")}
+      className="inline-flex items-center px-2.5 py-1 text-xs font-medium
+                 rounded-md border border-dashed border-slate-500/40
+                 text-slate-400 hover:text-violet-400
+                 hover:border-violet-500/40 hover:bg-violet-500/10
+                 transition-all duration-200"
+      title="No discount assigned. Click to assign a discount."
+    >
+      + Assign
+    </button>
   )}
 </td>
 
 
-     
-            {/* VISIBILITY */}
-            <td className="py-2 px-3 text-center">
-              <span
-                className={`px-2 py-0.5 rounded-md text-xs font-medium ${
-                  product.isPublished
-                    ? 'bg-green-500/10 text-green-400'
-                    : 'bg-slate-500/10 text-slate-400'
-                }`}
-              >
-                {product.isPublished ? 'Published' : 'Unpublished'}
-              </span>
-            </td>
 
-<td className="py-2 px-3 text-xs text-slate-300">
-  {formatDate(product.updatedAt)}
+
+
+{/* VISIBILITY */}
+<td className="py-1 px-3 text-center">
+  <div className="flex items-center justify-center gap-1 flex-wrap">
+
+    {/* Live / Hidden */}
+    <span
+      title={
+        product.isPublished
+          ? "Product visible to customers"
+          : "Product hidden from customers"
+      }
+      className={`px-2 py-0.5 rounded-md text-[12px] font-semibold ${
+        product.isPublished
+          ? "bg-emerald-500/15 text-emerald-400"
+          : "bg-slate-600/20 text-slate-400"
+      }`}
+    >
+      {product.isPublished ? "Live" : "Hidden"}
+    </span>
+
+    {/* Featured Icon Style */}
+    <span
+      title={
+        product.showOnHomepage
+          ? "Featured on homepage"
+          : "Not featured on homepage"
+      }
+      className={`px-2 py-0.5 rounded-md text-[12px] font-medium ${
+        product.showOnHomepage
+          ? "bg-violet-500/15 text-violet-400"
+          : "bg-slate-600/20 text-slate-400"
+      }`}
+    >
+      {product.showOnHomepage ? "★ Featured" : "Standard"}
+    </span>
+
+  </div>
 </td>
 
 
-            {/* UPDATED BY */}
-            <td className="py-2 px-3 text-xs text-slate-300 truncate">
-              {product.updatedBy || '-'}
-            </td>
+
+<td
+  className="py-2 px-3 text-xs text-slate-300 cursor-help"
+  title={`
+Created At: ${product.createdAt || "N/A"}
+Last Updated At: ${product.updatedAt || "N/A"}
+  `.trim()}
+>
+  {formatDate(product.updatedAt)}
+</td>
+
+<td
+  className="py-2 px-3 text-xs text-slate-300 truncate cursor-help"
+  title={`
+Created By: ${product.createdBy || "N/A"}
+Last Updated By: ${product.updatedBy || "N/A"}
+  `.trim()}
+>
+  {product.updatedBy || "-"}
+</td>
+
+
+
 
             {/* ACTIONS */}
             <td className="py-2 px-3">
@@ -2526,31 +2724,101 @@ const formatOptionLabel = (option: SelectOption) => {
         initialIndex={mediaStartIndex}
         baseUrl={API_BASE_URL.replace("/api", "")}
       />
-
 <ConfirmDialog
-  isOpen={!!selectedProduct}
-  onClose={() => setSelectedProduct(null)}
+  isOpen={showDeleteConfirm}
+  onClose={() => {
+    setShowDeleteConfirm(false);
+    setSelectedDeleteProduct(null);
+  }}
   onConfirm={handleConfirmProductAction}
-  title={selectedProduct?.isDeleted ? 'Restore Product' : 'Delete Product'}
-  message={
-    selectedProduct?.isDeleted
-      ? `Do you want to restore "${selectedProduct?.name}"?`
-      : `Are you sure you want to delete "${selectedProduct?.name}"?`
+  title={
+    selectedDeleteProduct?.isDeleted
+      ? "Restore Product"
+      : "Delete Product"
   }
-  confirmText={selectedProduct?.isDeleted ? 'Restore Product' : 'Delete Product'}
+  message={
+    selectedDeleteProduct?.isDeleted
+      ? `Do you want to restore "${selectedDeleteProduct?.name}"?`
+      : `Are you sure you want to delete "${selectedDeleteProduct?.name}"?`
+  }
+  confirmText={
+    selectedDeleteProduct?.isDeleted
+      ? "Restore Product"
+      : "Delete Product"
+  }
   cancelText="Cancel"
   icon={AlertCircle}
   iconColor={
-    selectedProduct?.isDeleted ? 'text-emerald-400' : 'text-red-400'
+    selectedDeleteProduct?.isDeleted
+      ? "text-emerald-400"
+      : "text-red-400"
   }
   confirmButtonStyle={
-    selectedProduct?.isDeleted
-      ? 'bg-gradient-to-r from-emerald-500 to-green-500'
-      : 'bg-gradient-to-r from-red-500 to-rose-500'
+    selectedDeleteProduct?.isDeleted
+      ? "bg-gradient-to-r from-emerald-500 to-green-500"
+      : "bg-gradient-to-r from-red-500 to-rose-500"
   }
   isLoading={isProcessing}
 />
 
+
+<ConfirmDialog
+  isOpen={showToggleConfirm}
+  onClose={() => {
+    setShowToggleConfirm(false);
+    setSelectedToggleProduct(null);
+  }}
+  onConfirm={async () => {
+    if (!selectedToggleProduct) return;
+
+    try {
+      const response = await productsService.toggleActive(
+        selectedToggleProduct.id
+      );
+
+      if (!response?.data?.success) {
+        toast.error(response?.data?.message || "Failed to update status");
+        return;
+      }
+
+      toast.success(response.data.message);
+      fetchProducts();
+    } catch (error: any) {
+      toast.error(
+        error.response?.data?.message || "Failed to toggle product"
+      );
+    } finally {
+      setShowToggleConfirm(false);
+      setSelectedToggleProduct(null);
+    }
+  }}
+  title={
+    selectedToggleProduct?.isActive
+      ? "Deactivate Product?"
+      : "Activate Product?"
+  }
+  message={
+    selectedToggleProduct?.isActive
+      ? "This product will no longer be visible to customers."
+      : "This product will become visible to customers."
+  }
+  confirmText={
+    selectedToggleProduct?.isActive
+      ? "Yes, Deactivate"
+      : "Yes, Activate"
+  }
+  cancelText="Cancel"
+  iconColor={
+    selectedToggleProduct?.isActive
+      ? "text-red-400"
+      : "text-emerald-400"
+  }
+  confirmButtonStyle={
+    selectedToggleProduct?.isActive
+      ? "bg-gradient-to-r from-red-600 to-rose-600"
+      : "bg-gradient-to-r from-emerald-600 to-green-600"
+  }
+/>
 
 
 

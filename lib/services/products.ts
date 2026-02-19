@@ -254,6 +254,8 @@ export interface Product {
   options?: ProductOption[];        // ✅ ADD THIS LINE
   relatedProducts?: RelatedProduct[];
   crossSellProducts?: RelatedProduct[];
+  
+  backInStockCount?: number; // ✅ ADD THIS
 }
 
 
@@ -329,6 +331,8 @@ export interface CreateProductDto {
   metaKeywords?: string;
   tags?: string;
   allowCustomerReviews?: boolean;
+  
+  backInStockCount?: number; // ✅ ADD THIS
 }
 
 export interface UpdateProductDto extends Partial<CreateProductDto> {}
@@ -410,6 +414,15 @@ getAll: async (params?: ProductQueryParams) => {
   update: async (id: string, data: UpdateProductDto) => {
     return apiClient.put<ApiResponse<Product>>(`${API_ENDPOINTS.products}/${id}`, data);
   },
+toggleActive: async (id: string) => {
+  return apiClient.patch<ApiResponse<{
+    productId: string;
+    productName: string;
+    isActive: boolean;
+  }>>(
+    `${API_ENDPOINTS.products}/${id}/toggle-active`
+  );
+},
 
   delete: async (id: string) => {
     return apiClient.delete<ApiResponse<void>>(`${API_ENDPOINTS.products}/${id}`);
@@ -682,11 +695,32 @@ importExcel: async (file: File) => {
 // ==========================================
 
 export const productHelpers = {
-  getStockStatus: (stockQuantity: number): string => {
-    if (stockQuantity > 10) return 'In Stock';
-    if (stockQuantity > 0) return 'Low Stock';
-    return 'Out of Stock';
-  },
+  getStockStatus: ({
+  stockQuantity,
+  trackQuantity,
+  lowStockThreshold,
+  allowBackorder,
+}: {
+  stockQuantity: number;
+  trackQuantity?: boolean;
+  lowStockThreshold?: number;
+  allowBackorder?: boolean;
+}): string => {
+
+  if (!trackQuantity) return "Not Tracked";
+
+  if (stockQuantity === 0 && allowBackorder)
+    return "Backorder";
+
+  if (stockQuantity === 0)
+    return "Out of Stock";
+
+  if (lowStockThreshold && stockQuantity <= lowStockThreshold)
+    return "Low Stock";
+
+  return "In Stock";
+},
+
 
   getMainImageUrl: (images: ProductImage[] | undefined, baseUrl: string): string => {
     if (!images || images.length === 0) return '';

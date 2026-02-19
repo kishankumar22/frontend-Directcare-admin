@@ -19,6 +19,9 @@ export type OrderStatus =
   | 'PartiallyShipped'
   | 'Returned';
 
+  
+
+
 /**
  * ✅ Collection Status
  */
@@ -137,6 +140,18 @@ export interface Order {
   collectedBy?: string;
   collectorIDType?: string;
   collectionExpiryDate?: string;
+  // ================= PHARMACY =================
+  pharmacyVerificationStatus?: PharmacyVerificationStatus;
+  pharmacyVerificationNote?: string | null;
+  pharmacyVerifiedAt?: string | null;
+  pharmacyVerifiedBy?: string | null;
+
+  pharmacyResponses?: {
+    questionText: string;
+    answerText: string;
+    productName: string;
+    answeredAt: string;
+  }[];
 
   // Payment summary fields (from backend OrderDto)
   paymentMethod?: string;
@@ -192,6 +207,10 @@ export interface CreateShipmentRequest {
     quantity: number;
   }[] | null;
 }
+export type PharmacyVerificationStatus =
+  | 'Pending'
+  | 'Approved'
+  | 'Rejected';
 
 export interface MarkDeliveredRequest {
   orderId: string;
@@ -212,14 +231,16 @@ export interface CancelOrderRequest {
 // ==================== SERVICE CLASS ====================
 
 class OrderService {
-  async getAllOrders(params?: {
-    page?: number;
-    pageSize?: number;
-    status?: string;
-    fromDate?: string;
-    toDate?: string;
-    searchTerm?: string;
-  }) {
+async getAllOrders(params?: {
+  page?: number;
+  pageSize?: number;
+  status?: string;
+  fromDate?: string;
+  toDate?: string;
+  searchTerm?: string;
+  pharmacyVerificationStatus?: PharmacyVerificationStatus;
+}) {
+
     try {
       const response = await apiClient.get<ApiResponse<OrdersListResponse>>(
         API_ENDPOINTS.orders,
@@ -253,6 +274,24 @@ class OrderService {
       throw new Error(error.response?.data?.message || 'Failed to track order');
     }
   }
+// ================= PHARMACY =================
+
+async pharmacyApprove(orderId: string, data: { note?: string }) {
+  const res = await apiClient.post(
+    `${API_ENDPOINTS.orders}/${orderId}/pharmacy-approve`,
+    data
+  );
+  return res.data;
+}
+
+async pharmacyReject(orderId: string, data: { reason: string }) {
+  const res = await apiClient.post(
+    `${API_ENDPOINTS.orders}/${orderId}/pharmacy-reject`,
+    data
+  );
+  return res.data;
+}
+
 
   async getClickAndCollectOrders(params?: {
     pageNumber?: number;

@@ -6260,13 +6260,13 @@ const uploadImagesToProductDirect = async (
   </div>
 
 {/* Admin Comment */}
-<div className="space-y-4">
+<div className="space-y-2">
   <h3 className="text-lg font-semibold text-white border-b border-slate-800 pb-2">
     Admin Comment
   </h3>
   
   <div>
-    <label className="block text-sm text-slate-400 mb-2">
+    <label className="block text-sm text-slate-400 mb-2 ">
       Internal Notes (Not visible to customers)
     </label>
     <textarea

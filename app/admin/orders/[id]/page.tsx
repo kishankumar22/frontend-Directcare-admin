@@ -57,6 +57,7 @@ import {
 import RefundHistorySection from '../RefundHistorySection';
 import EditHistorySection from '../EditHistorySection';
 import RefundModals from '../RefundModals';
+import PharmacyVerificationModal from '../PharmacyVerificationModal';
 
 // Types
 type CollectionStatus = 'Pending' | 'Ready' | 'Collected' | 'Expired';
@@ -379,6 +380,35 @@ const StatusBadge = ({
     </div>
   );
 };
+const getPharmacyStatusInfo = (status: string) => {
+  if (status === 'Approved') {
+    return {
+      label: 'Approved',
+      color: 'text-green-400',
+      bgColor: 'bg-green-500/10',
+      icon: <CheckCircle className="h-3 w-3" />,
+      description: 'Pharmacy has approved this order',
+    };
+  }
+
+  if (status === 'Rejected') {
+    return {
+      label: 'Rejected',
+      color: 'text-red-400',
+      bgColor: 'bg-red-500/10',
+      icon: <XCircle className="h-3 w-3" />,
+      description: 'Pharmacy rejected this order',
+    };
+  }
+
+  return {
+    label: 'Pending',
+    color: 'text-amber-400',
+    bgColor: 'bg-amber-500/10',
+    icon: <AlertCircle className="h-3 w-3" />,
+    description: 'Waiting for pharmacy review',
+  };
+};
 
 // ===========================
 // ✅ CONSOLIDATED ACTION BUTTONS (Merged Quick + Financial)
@@ -679,6 +709,9 @@ export default function OrderDetailPage() {
   const [partialRefundItems, setPartialRefundItems] = useState<
     Array<{ orderItemId: string; quantity: number; refundAmount: number }>
   >([]);
+const [pharmaAction, setPharmaAction] = useState<'approve' | 'reject' | null>(null);
+const [isUpdatingPharma, setIsUpdatingPharma] = useState(false);
+
 
   // ✅ NEW: Invoice Regeneration Modal State
   const [showRegenerateInvoiceModal, setShowRegenerateInvoiceModal] = useState(false);
@@ -996,14 +1029,35 @@ const handleAction = (action: string) => {
         </div>
 
         {/* ✅ STATUS BADGES WITH CLEAR LABELS */}
-        <div className="flex items-center gap-3 flex-wrap">
-          <StatusBadge statusInfo={statusInfo} label="Order" />
-          {paymentStatusInfo && <StatusBadge statusInfo={paymentStatusInfo as any} label="Payment" />}
-          {order.deliveryMethod === 'ClickAndCollect' && collectionStatusInfo && (
-            <StatusBadge statusInfo={collectionStatusInfo as any} label="Collection" />
-          )}
-        </div>
+<div className="flex items-center gap-3 flex-wrap">
+  <StatusBadge statusInfo={statusInfo} label="Order" />
+
+  {paymentStatusInfo && (
+    <StatusBadge
+      statusInfo={paymentStatusInfo as any}
+      label="Payment"
+    />
+  )}
+
+  {order.deliveryMethod === 'ClickAndCollect' && collectionStatusInfo && (
+    <StatusBadge
+      statusInfo={collectionStatusInfo as any}
+      label="Collection"
+    />
+  )}
+
+  {order.pharmacyVerificationStatus && (
+    <StatusBadge
+      statusInfo={getPharmacyStatusInfo(order.pharmacyVerificationStatus)}
+      label="Pharmacy"
+    />
+  )}
+</div>
+
+
+
       </div>
+      
 
       {/* Collection Expiry Warning */}
       {order.deliveryMethod === 'ClickAndCollect' &&
@@ -1022,33 +1076,70 @@ const handleAction = (action: string) => {
         )}
 
       {/* ✅ CONSOLIDATED ACTION BUTTONS (Single Row, Dynamic) */}
-      {allActions.length > 0 && (
-        <div className="bg-gradient-to-r from-slate-900/80 to-slate-800/80 border border-slate-700 rounded-xl p-4 backdrop-blur-sm">
-          <div className="flex items-center gap-2 mb-3">
-            <div className="p-2 bg-cyan-500/10 rounded-lg border border-cyan-500/20">
-              <Zap className="h-4 w-4 text-cyan-400" />
-            </div>
-            <h3 className="text-base font-bold text-white">Quick Actions</h3>
-            <span className="text-xs text-slate-500 ml-2">
-              ({allActions.length} actions available)
-            </span>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {allActions.map((btn, index) => (
-              <button
-                key={index}
-                onClick={() => handleAction(btn.action)}
-                className={`px-3 py-2 ${btn.color} text-white rounded-lg transition-all flex items-center gap-2 text-sm font-medium shadow-lg hover:shadow-xl hover:scale-105`}
-                title={`Click to ${btn.label.toLowerCase()}`}
-              >
-                {btn.icon}
-                {btn.label}
-              </button>
-            ))}
-          </div>
+{allActions.length > 0 && (
+  <div className="bg-gradient-to-r from-slate-900/80 to-slate-800/80 border border-slate-700 rounded-xl p-4 backdrop-blur-sm">
+    
+    {/* Header */}
+    <div className="flex items-center gap-2 mb-3">
+      <div className="p-2 bg-cyan-500/10 rounded-lg border border-cyan-500/20">
+        <Zap className="h-4 w-4 text-cyan-400" />
+      </div>
+      <h3 className="text-base font-bold text-white">Quick Actions</h3>
+      <span className="text-xs text-slate-500 ml-2">
+        ({allActions.length} actions available)
+      </span>
+    </div>
+
+    {/* Action Buttons */}
+    <div className="flex flex-wrap gap-2">
+      {allActions.map((btn, index) => (
+        <button
+          key={index}
+          onClick={() => handleAction(btn.action)}
+          className={`px-3 py-2 ${btn.color} text-white rounded-lg transition-all flex items-center gap-2 text-sm font-medium shadow-lg hover:shadow-xl hover:scale-105`}
+          title={`Click to ${btn.label.toLowerCase()}`}
+        >
+          {btn.icon}
+          {btn.label}
+        </button>
+      ))}
+    </div>
+    {/* ✅ Pharmacy Verification Section (OUTSIDE BUTTON MAP) */}
+    {order.pharmacyVerificationStatus === 'Pending' && (
+      <div className="mt-4 bg-amber-500/10 border border-amber-500/30 rounded-lg p-4 flex items-center justify-between">
+        
+        <div>
+          <p className="text-amber-400 font-semibold">
+            Pharmacy Verification Pending
+          </p>
+          <p className="text-xs text-slate-400">
+            Review questionnaire and approve or reject this order.
+          </p>
         </div>
-      )}
- 
+
+        <div className="flex gap-2">
+          <button
+            onClick={() => setPharmaAction('approve')}
+            className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg"
+          >
+            Approve
+          </button>
+
+          <button
+            onClick={() => setPharmaAction('reject')}
+            className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg"
+          >
+            Reject
+          </button>
+        </div>
+
+      </div>
+    )}
+
+    
+  </div>
+)}
+
     {/* ✅ Order Info Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
         {/* Customer Information */}
@@ -1698,6 +1789,15 @@ const handleAction = (action: string) => {
     onToggle={() => setEditHistoryOpen(!editHistoryOpen)}
     onFetch={fetchEditHistory}
   />
+{pharmaAction && (
+  <PharmacyVerificationModal
+    isOpen={true}
+    orderId={order.id}
+    action={pharmaAction}
+    onClose={() => setPharmaAction(null)}
+    onSuccess={fetchOrderDetails}
+  />
+)}
 
 
     </div>

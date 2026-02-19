@@ -29,6 +29,7 @@ import {
   CancelOrderRequest,
 } from '../../../lib/services/orders'; // ✅ FIXED PATH
 import { useToast } from '@/app/admin/_components/CustomToast';
+import ConfirmDialog from '../_components/ConfirmDialog';
 
 interface OrderActionsModalProps {
   isOpen: boolean;
@@ -184,6 +185,9 @@ export default function OrderActionsModal({
   const toast = useToast();
   const [loading, setLoading] = useState(false);
   const [showNotificationPreview, setShowNotificationPreview] = useState(false);
+// inside component
+const [showCancelConfirm, setShowCancelConfirm] = useState(false);
+const [pendingCancelRequest, setPendingCancelRequest] = useState<CancelOrderRequest | null>(null);
 
   // Mark Ready - no form needed
   const [readyConfirmed, setReadyConfirmed] = useState(false);
@@ -278,115 +282,93 @@ export default function OrderActionsModal({
     }
   }, [isOpen, action, order.status, order.shipments, isPaid]);
 
-  const handleSubmit = async (e: FormEvent) => {
-    e.preventDefault();
+const handleSubmit = async (e: FormEvent) => {
+  e.preventDefault();
 
-    // ✅ Payment validation for shipment/delivery actions
-    if (['create-shipment', 'mark-delivered'].includes(action) && !isPaid) {
-      toast.error('⚠️ Cannot proceed: Order payment is not completed');
-      return;
-    }
+  if (['create-shipment', 'mark-delivered'].includes(action) && !isPaid) {
+    toast.error('⚠️ Cannot proceed: Order payment is not completed');
+    return;
+  }
 
-    setLoading(true);
+  try {
+    switch (action) {
 
-    try {
-      switch (action) {
-        case 'mark-ready':
-          // ✅ Only for Click & Collect
-          if (order.deliveryMethod !== 'ClickAndCollect') {
-            toast.error('This action is only available for Click & Collect orders');
-            return;
-          }
-          await orderService.markReady(order.id);
-          toast.success('✅ Order marked as ready for collection');
-          break;
+      case 'cancel-order': {
+        const cancelRequest: CancelOrderRequest = {
+          orderId: order.id,
+          cancellationReason: cancelData.cancellationReason,
+          restoreInventory: cancelData.restoreInventory,
+          initiateRefund: cancelData.initiateRefund,
+          cancelledBy: cancelData.cancelledBy,
+        };
 
-        case 'mark-collected':
-          // ✅ Only for Click & Collect
-          if (order.deliveryMethod !== 'ClickAndCollect') {
-            toast.error('This action is only available for Click & Collect orders');
-            return;
-          }
-          const collectedRequest: MarkCollectedRequest = {
-            orderId: order.id,
-            collectedBy: collectedData.collectedBy,
-            collectorIDType: collectedData.collectorIDType,
-            collectorIDNumber: collectedData.collectorIDNumber,
-          };
-          await orderService.markCollected(collectedRequest);
-          toast.success('✅ Order marked as collected');
-          break;
-
-        case 'update-status':
-          const statusRequest: UpdateStatusRequest = {
-            orderId: order.id,
-            newStatus: statusData.newStatus,
-            adminNotes: statusData.adminNotes || undefined,
-          };
-          await orderService.updateStatus(statusRequest);
-          toast.success('✅ Order status updated successfully');
-          break;
-
-        case 'create-shipment':
-          // ✅ Only for Home Delivery
-          if (order.deliveryMethod !== 'HomeDelivery') {
-            toast.error('This action is only available for Home Delivery orders');
-            return;
-          }
-          const shipmentRequest: CreateShipmentRequest = {
-            orderId: order.id,
-            trackingNumber: shipmentData.trackingNumber,
-            carrier: shipmentData.carrier,
-            shippingMethod: shipmentData.shippingMethod,
-            notes: shipmentData.notes || undefined,
-            shipmentItems: shipmentData.selectedItems,
-          };
-          await orderService.createShipment(shipmentRequest);
-          toast.success('✅ Shipment created successfully');
-          break;
-
-        case 'mark-delivered':
-          // ✅ Only for Home Delivery with shipments
-          if (order.deliveryMethod !== 'HomeDelivery') {
-            toast.error('This action is only available for Home Delivery orders');
-            return;
-          }
-          const deliveredRequest: MarkDeliveredRequest = {
-            orderId: order.id,
-            shipmentId: deliveredData.shipmentId,
-            deliveredAt: new Date(deliveredData.deliveredAt).toISOString(),
-            deliveryNotes: deliveredData.deliveryNotes || undefined,
-            receivedBy: deliveredData.receivedBy || undefined,
-          };
-          await orderService.markDelivered(deliveredRequest);
-          toast.success('✅ Order marked as delivered');
-          break;
-
-        case 'cancel-order':
-          const cancelRequest: CancelOrderRequest = {
-            orderId: order.id,
-            cancellationReason: cancelData.cancellationReason,
-            restoreInventory: cancelData.restoreInventory,
-            initiateRefund: cancelData.initiateRefund,
-            cancelledBy: cancelData.cancelledBy,
-          };
-          await orderService.cancelOrder(cancelRequest);
-          toast.success('✅ Order cancelled successfully');
-          break;
-
-        default:
-          toast.error('Unknown action');
-          return;
+        setPendingCancelRequest(cancelRequest);
+        setShowCancelConfirm(true);
+        return; // stop here
       }
 
-      onSuccess();
-    } catch (error: any) {
-      console.error('Action error:', error);
-      toast.error(error.message || 'Failed to perform action');
-    } finally {
-      setLoading(false);
+      default:
+        setLoading(true); // 🔥 moved here
     }
-  };
+
+    switch (action) {
+      case 'mark-ready':
+        await orderService.markReady(order.id);
+        toast.success('✅ Order marked as ready');
+        break;
+
+      case 'mark-collected':
+        await orderService.markCollected({
+          orderId: order.id,
+          collectedBy: collectedData.collectedBy,
+          collectorIDType: collectedData.collectorIDType,
+          collectorIDNumber: collectedData.collectorIDNumber,
+        });
+        toast.success('✅ Order marked as collected');
+        break;
+
+      case 'update-status':
+        await orderService.updateStatus({
+          orderId: order.id,
+          newStatus: statusData.newStatus,
+          adminNotes: statusData.adminNotes || undefined,
+        });
+        toast.success('✅ Status updated');
+        break;
+
+      case 'create-shipment':
+        await orderService.createShipment({
+          orderId: order.id,
+          trackingNumber: shipmentData.trackingNumber,
+          carrier: shipmentData.carrier,
+          shippingMethod: shipmentData.shippingMethod,
+          notes: shipmentData.notes || undefined,
+          shipmentItems: shipmentData.selectedItems,
+        });
+        toast.success('✅ Shipment created');
+        break;
+
+      case 'mark-delivered':
+        await orderService.markDelivered({
+          orderId: order.id,
+          shipmentId: deliveredData.shipmentId,
+          deliveredAt: new Date(deliveredData.deliveredAt).toISOString(),
+          deliveryNotes: deliveredData.deliveryNotes || undefined,
+          receivedBy: deliveredData.receivedBy || undefined,
+        });
+        toast.success('✅ Order delivered');
+        break;
+    }
+
+    onSuccess();
+
+  } catch (error: any) {
+    toast.error(error.message || 'Failed to perform action');
+  } finally {
+    setLoading(false);
+  }
+};
+
 
   const updateShipmentItemQuantity = (orderItemId: string, quantity: number) => {
     setShipmentData((prev) => ({
@@ -1137,6 +1119,41 @@ export default function OrderActionsModal({
           </div>
         </form>
       </div>
+      <ConfirmDialog
+  isOpen={showCancelConfirm}
+  onClose={() => {
+    setShowCancelConfirm(false);
+    setPendingCancelRequest(null);
+  }}
+  onConfirm={async () => {
+    if (!pendingCancelRequest) return;
+
+    try {
+      setLoading(true);
+
+      await orderService.cancelOrder(pendingCancelRequest);
+
+      toast.success('✅ Order cancelled successfully');
+      onSuccess();
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to cancel order');
+    } finally {
+      setLoading(false);
+      setShowCancelConfirm(false);
+      setPendingCancelRequest(null);
+    }
+  }}
+  title="Confirm Order Cancellation"
+  message={`Are you sure you want to cancel order #${order.orderNumber}? ${
+    cancelData.initiateRefund ? 'A refund will also be initiated.' : ''
+  } This action cannot be undone.`}
+  confirmText="Yes, Cancel Order"
+  cancelText="No, Keep Order"
+  iconColor="text-red-500"
+  confirmButtonStyle="bg-gradient-to-r from-red-600 to-rose-600 hover:shadow-lg hover:shadow-red-500/50"
+  isLoading={loading}
+/>
+
     </div>
   );
 }

@@ -231,7 +231,7 @@ export default function DiscountModals(props: DiscountModalsProps) {
     <>
       {/* ========== ADD/EDIT DISCOUNT MODAL ========== */}
       {showModal && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-50 flex items-center justify-center p-6">
           <div className="bg-gradient-to-br from-slate-900 via-slate-900 to-slate-800 border border-violet-500/20 rounded-3xl max-w-6xl w-full max-h-[90vh] overflow-hidden shadow-2xl shadow-violet-500/10">
             {/* Header */}
             <div className="p-2 border-b border-violet-500/20 bg-gradient-to-r from-violet-500/10 to-cyan-500/10">
@@ -476,7 +476,7 @@ export default function DiscountModals(props: DiscountModalsProps) {
                   )}
 
                   {/* Settings Checkboxes */}
-                  <div className="grid grid-cols-3 gap-4 mt-6">
+                  <div className="grid grid-cols-2 gap-4 mt-6">
                     <div>
                       <label className="flex items-center gap-3 p-3 bg-slate-900/50 border border-slate-600 rounded-xl cursor-pointer hover:border-violet-500 transition-all">
                         <input
@@ -492,20 +492,7 @@ export default function DiscountModals(props: DiscountModalsProps) {
                       </label>
                     </div>
 
-                    <div>
-                      <label className="flex items-center gap-3 p-3 bg-slate-900/50 border border-slate-600 rounded-xl cursor-pointer hover:border-violet-500 transition-all">
-                        <input
-                          type="checkbox"
-                          checked={formData.isCumulative}
-                          onChange={(e) => setFormData({ ...formData, isCumulative: e.target.checked })}
-                          className="w-5 h-5 rounded border-slate-600 text-violet-500 focus:ring-2 focus:ring-violet-500"
-                        />
-                        <div>
-                          <p className="text-white font-medium">Cumulative</p>
-                          <p className="text-slate-400 text-xs">Can combine with others</p>
-                        </div>
-                      </label>
-                    </div>
+                
 
                     <div>
                       <label className="flex items-center gap-3 p-3 bg-slate-900/50 border border-slate-600 rounded-xl cursor-pointer hover:border-violet-500 transition-all">
@@ -544,34 +531,62 @@ export default function DiscountModals(props: DiscountModalsProps) {
                   <span>Discount Value</span>
                 </h3>
                 
-                <div className="flex gap-4 mb-4">
-                  <label className="flex items-center gap-3 p-3 bg-slate-900/50 border border-slate-600 rounded-xl cursor-pointer hover:border-violet-500 transition-all">
-                    <input
-                      type="radio"
-                      name="discountValueType"
-                      checked={formData.usePercentage}
-                      onChange={() => setFormData({...formData, usePercentage: true})}
-                      className="w-5 h-5 text-violet-500 focus:ring-2 focus:ring-violet-500"
-                    />
-                    <div>
-                      <p className="text-white font-medium">Percentage</p>
-                      <p className="text-slate-400 text-xs">Discount by percentage</p>
-                    </div>
-                  </label>
-                  <label className="flex items-center gap-3 p-3 bg-slate-900/50 border border-slate-600 rounded-xl cursor-pointer hover:border-violet-500 transition-all">
-                    <input
-                      type="radio"
-                      name="discountValueType"
-                      checked={!formData.usePercentage}
-                      onChange={() => setFormData({...formData, usePercentage: false})}
-                      className="w-5 h-5 text-violet-500 focus:ring-2 focus:ring-violet-500"
-                    />
-                    <div>
-                      <p className="text-white font-medium">Fixed Amount</p>
-                      <p className="text-slate-400 text-xs">Discount by fixed amount</p>
-                    </div>
-                  </label>
-                </div>
+       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+
+  {/* Percentage */}
+  <label
+    className={`flex items-center gap-3 p-4 rounded-xl cursor-pointer transition-all border
+      ${
+        formData.usePercentage
+          ? "border-violet-500 bg-violet-500/10 ring-1 ring-violet-500/40"
+          : "border-slate-600 bg-slate-900/50 hover:border-violet-500"
+      }`}
+  >
+    <input
+      type="radio"
+      name="discountValueType"
+      checked={formData.usePercentage}
+      onChange={() =>
+        setFormData({ ...formData, usePercentage: true })
+      }
+      className="w-5 h-5 text-violet-500 focus:ring-2 focus:ring-violet-500"
+    />
+    <div>
+      <p className="text-white font-medium">Percentage</p>
+      <p className="text-slate-400 text-xs">
+        Discount by percentage
+      </p>
+    </div>
+  </label>
+
+  {/* Fixed Amount */}
+  <label
+    className={`flex items-center gap-3 p-4 rounded-xl cursor-pointer transition-all border
+      ${
+        !formData.usePercentage
+          ? "border-violet-500 bg-violet-500/10 ring-1 ring-violet-500/40"
+          : "border-slate-600 bg-slate-900/50 hover:border-violet-500"
+      }`}
+  >
+    <input
+      type="radio"
+      name="discountValueType"
+      checked={!formData.usePercentage}
+      onChange={() =>
+        setFormData({ ...formData, usePercentage: false })
+      }
+      className="w-5 h-5 text-violet-500 focus:ring-2 focus:ring-violet-500"
+    />
+    <div>
+      <p className="text-white font-medium">Fixed Amount</p>
+      <p className="text-slate-400 text-xs">
+        Discount by fixed amount
+      </p>
+    </div>
+  </label>
+
+</div>
+
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   {formData.usePercentage ? (
@@ -672,48 +687,94 @@ export default function DiscountModals(props: DiscountModalsProps) {
                 </div>
               </div>
 
-              {/* SECTION 5: COUPON SETTINGS */}
-              <div className="bg-slate-800/30 p-2 rounded-2xl border border-slate-700/50">
-                <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-                  <span className="w-8 h-8 rounded-lg bg-gradient-to-br from-orange-500 to-amber-500 flex items-center justify-center text-sm">5</span>
-                  <span>Coupon Settings</span>
-                </h3>
-                
-                <div className="mb-4">
-                  <label className="flex items-center gap-3 p-3 bg-slate-900/50 border border-slate-600 rounded-xl cursor-pointer hover:border-violet-500 transition-all">
-                    <input
-                      type="checkbox"
-                      checked={formData.requiresCouponCode}
-                      onChange={(e) => {
-                        setFormData({
-                          ...formData,
-                          requiresCouponCode: e.target.checked,
-                          couponCode: e.target.checked ? formData.couponCode : ""
-                        });
-                      }}
-                      className="w-5 h-5 rounded border-slate-600 text-violet-500 focus:ring-2 focus:ring-violet-500"
-                    />
-                    <div>
-                      <p className="text-white font-medium">Requires Coupon Code</p>
-                      <p className="text-slate-400 text-xs">Customers must enter a coupon code to get this discount</p>
-                    </div>
-                  </label>
-                </div>
+<div className="bg-slate-800/30 p-4 rounded-2xl border border-slate-700/50">
+  <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+    <span className="w-8 h-8 rounded-lg bg-gradient-to-br from-orange-500 to-amber-500 flex items-center justify-center text-sm">
+      5
+    </span>
+    <span>Coupon & Combination Settings</span>
+  </h3>
 
-                {formData.requiresCouponCode && (
-                  <div>
-                    <label className="block text-sm font-medium text-slate-300 mb-2">Coupon Code *</label>
-                    <input
-                      type="text"
-                      required={formData.requiresCouponCode}
-                      value={formData.couponCode}
-                      onChange={(e) => setFormData({...formData, couponCode: e.target.value.toUpperCase()})}
-                      placeholder="Enter coupon code"
-                      className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all font-mono"
-                    />
-                  </div>
-                )}
-              </div>
+  {/* REQUIRE COUPON TOGGLE */}
+  <div className="mb-6">
+    <label className="flex items-center gap-3 p-4 bg-slate-900/50 border border-slate-600 rounded-xl cursor-pointer hover:border-violet-500 transition-all">
+      <input
+        type="checkbox"
+        checked={formData.requiresCouponCode}
+        onChange={(e) => {
+          const checked = e.target.checked;
+
+          setFormData({
+            ...formData,
+            requiresCouponCode: checked,
+            couponCode: checked ? formData.couponCode : "",
+            isCumulative: checked ? formData.isCumulative : false, // 🔥 force false when off
+          });
+        }}
+        className="w-5 h-5 rounded border-slate-600 text-violet-500 focus:ring-2 focus:ring-violet-500"
+      />
+      <div>
+        <p className="text-white font-medium">Requires Coupon Code</p>
+        <p className="text-slate-400 text-xs">
+          Customer must enter a coupon to activate this discount
+        </p>
+      </div>
+    </label>
+  </div>
+
+  {/* ONLY SHOW WHEN COUPON IS ENABLED */}
+  {formData.requiresCouponCode && (
+    <div className="grid gap-6 grid-cols-1 md:grid-cols-2">
+
+      {/* LEFT: COUPON CODE */}
+      <div>
+        <label className="block text-sm font-medium text-slate-300 mb-2">
+          Coupon Code *
+        </label>
+        <input
+          type="text"
+          required
+          value={formData.couponCode}
+          onChange={(e) =>
+            setFormData({
+              ...formData,
+              couponCode: e.target.value.toUpperCase(),
+            })
+          }
+          placeholder="ENTER-CODE"
+          className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all font-mono"
+        />
+      </div>
+
+      {/* RIGHT: CUMULATIVE (Only when coupon enabled) */}
+      <div>
+        <label className="flex items-center gap-3 p-4 bg-slate-900/50 border border-slate-600 rounded-xl cursor-pointer hover:border-violet-500 transition-all h-full">
+          <input
+            type="checkbox"
+            checked={formData.isCumulative}
+            onChange={(e) =>
+              setFormData({
+                ...formData,
+                isCumulative: e.target.checked,
+              })
+            }
+            className="w-5 h-5 rounded border-slate-600 text-violet-500 focus:ring-2 focus:ring-violet-500"
+          />
+          <div>
+            <p className="text-white font-medium">Cumulative</p>
+            <p className="text-slate-400 text-xs">
+              Can combine with other discounts
+            </p>
+          </div>
+        </label>
+      </div>
+
+    </div>
+  )}
+</div>
+
+
+
 
               {/* SECTION 6: USAGE LIMITATIONS */}
               <div className="bg-slate-800/30 p-2 rounded-2xl border border-slate-700/50">

@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { X, Shield, CheckCircle } from 'lucide-react';
 import { apiClient } from '@/lib/api';
 import { API_ENDPOINTS } from '@/lib/api-config';
+import productsService from '@/lib/services/products';
 
 // ========================================
 // INTERFACES
@@ -19,6 +20,8 @@ interface LowStockAlertProps {
 
 interface BackInStockSubscribersProps {
   productId: string;
+  
+  backInStockCount?: number; // ✅ ADD THIS
 }
 
 // ========================================
@@ -48,20 +51,22 @@ export const BackInStockSubscribers: React.FC<BackInStockSubscribersProps> = ({ 
   const [count, setCount] = useState(0);
 
 useEffect(() => {
-  apiClient.get('/api/products')
-    .then((response: any) => {
-      if (response?.data?.success) {
-        const products = response.data.data.items || [];
+  const fetchSubscribers = async () => {
+    try {
+      const { data } = await productsService.getById(productId);
 
-        const product = products.find(
-          (item: any) => item.id === productId
-        );
+      if (!data?.success) return setCount(0);
 
-        setCount(product?.backInStockCount ?? 0);
-      }
-    })
-    .catch(() => setCount(0));
+      setCount(data.data?.backInStockCount ?? 0);
+    } catch {
+      setCount(0);
+    }
+  };
+
+  if (productId) fetchSubscribers();
 }, [productId]);
+
+
 
 
 
