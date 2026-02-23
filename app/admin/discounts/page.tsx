@@ -296,7 +296,7 @@ const debouncedSearch = useDebounce(searchTerm, 400);
     try {
       const [categoriesRes, productsRes] = await Promise.all([
         categoriesService.getAll(),
-        productsService.getAll({ pageSize: 100 }),
+        productsService.getAll({ pageSize: 1000 }),
       ]);
 
       if (categoriesRes?.data) {
@@ -453,20 +453,76 @@ const handleRestore = async () => {
       .sort((a, b) => a.label.localeCompare(b.label));
   }, [products]);
 
-  // Category filtered products
-  const categoryFilteredProductOptions: SelectOption[] = useMemo(() => {
-    if (formData.assignedCategoryIds.length === 0) return [];
+// Add in main page (around line 150-170)
+useEffect(() => {
+  if (products.length > 0) {
+    console.log("📦 Sample Product Structure:", products[0]);
+    console.log("🔍 Categories in product:", (products[0] as any).categories);
+    
+    // Check if any product has the target category
+    const targetCategoryId = "5f1fa8e9-0d76-40af-a9bc-4e9ce90858ca";
+    const productsWithCategory = products.filter(p => 
+      (p as any).categories?.some((cat: any) => cat.categoryId === targetCategoryId)
+    );
+    console.log(`🎯 Products with category ${targetCategoryId}:`, productsWithCategory.length);
+  }
+}, [products]);
+// In main page, find this useMemo (around line 200-220)
+// In main page, find this useMemo (around line 200-220)
+const categoryFilteredProductOptions: SelectOption[] = useMemo(() => {
+  if (formData.assignedCategoryIds.length === 0) {
+    console.log("🔍 No categories selected");
+    return [];
+  }
 
-    const filtered = products.filter((product) => {
-      const prod = product as any;
-      if (!Array.isArray(prod.categories)) return false;
-      return prod.categories.some((cat: any) =>
-        formData.assignedCategoryIds.includes(cat.categoryId)
-      );
+  console.log("🔍 Filtering products for categories:", formData.assignedCategoryIds);
+  console.log("📊 Total products available:", products.length);
+  
+  // Debug: Show first product structure
+  if (products.length > 0) {
+    console.log("📦 First product categories:", (products[0] as any).categories);
+  }
+  
+  const filtered = products.filter((product) => {
+    const prod = product as any;
+    
+    // Check if categories exist and is array
+    if (!Array.isArray(prod.categories) || prod.categories.length === 0) {
+      return false;
+    }
+    
+    // Check if any category matches
+    const hasCategory = prod.categories.some((cat: any) => {
+      // Try both categoryId and id fields
+      const catId = cat.categoryId || cat.id;
+      const match = formData.assignedCategoryIds.includes(catId);
+      if (match) {
+        console.log(`✅ Product "${prod.name}" matches category:`, cat);
+      }
+      return match;
     });
+    
+    return hasCategory;
+  });
 
-    return filtered.map((product) => ({ value: product.id, label: product.name }));
-  }, [products, formData.assignedCategoryIds]);
+  console.log(`📊 Found ${filtered.length} products in selected categories`);
+  
+  if (filtered.length === 0 && formData.assignedCategoryIds.length > 0) {
+    console.log("⚠️ No products found! Checking all products...");
+    products.slice(0, 5).forEach((p, i) => {
+      const prod = p as any;
+      console.log(`Product ${i + 1}: "${prod.name}"`, {
+        categories: prod.categories,
+        categoryCount: prod.categories?.length || 0
+      });
+    });
+  }
+  
+  return filtered.map((product) => ({ 
+    value: product.id, 
+    label: product.name 
+  }));
+}, [products, formData.assignedCategoryIds]);
 
   // Filtered product options
   const filteredProductOptions: SelectOption[] = useMemo(() => {
@@ -514,41 +570,44 @@ const handleRestore = async () => {
     }
   };
 
-  // Handle edit
-  const handleEdit = (discount: Discount) => {
-    setEditingDiscount(discount);
-    setFormData({
-      name: discount.name,
-      isActive: discount.isActive,
-      discountType: discount.discountType,
-      usePercentage: discount.usePercentage,
-      discountAmount: discount.discountAmount,
-      discountPercentage: discount.discountPercentage,
-      maximumDiscountAmount: discount.maximumDiscountAmount,
-      startDate: discount.startDate.slice(0, 16),
-      endDate: discount.endDate.slice(0, 16),
-      requiresCouponCode: discount.requiresCouponCode,
-      couponCode: discount.couponCode || "",
-      isCumulative: discount.isCumulative,
-      discountLimitation: discount.discountLimitation,
-      limitationTimes: discount.limitationTimes,
-      maximumDiscountedQuantity: discount.maximumDiscountedQuantity,
-      appliedToSubOrders: discount.appliedToSubOrders,
-      adminComment: discount.adminComment,
-      assignedProductIds: discount.assignedProductIds
-        ? discount.assignedProductIds.split(",").filter((id) => id.trim())
-        : [],
-      assignedCategoryIds: discount.assignedCategoryIds
-        ? discount.assignedCategoryIds.split(",").filter((id) => id.trim())
-        : [],
-      assignedManufacturerIds: discount.assignedManufacturerIds
-        ? discount.assignedManufacturerIds.split(",").filter((id) => id.trim())
-        : [],
-    });
-    setShowModal(true);
-    setProductCategoryFilter("");
-    setProductBrandFilter("");
-  };
+// In main page, find handleEdit function (around line 300-320)
+const handleEdit = (discount: Discount) => {
+  console.log("✏️ Editing discount:", discount);
+  console.log("📦 Assigned Product IDs:", discount.assignedProductIds);
+  
+  setEditingDiscount(discount);
+  setFormData({
+    name: discount.name,
+    isActive: discount.isActive,
+    discountType: discount.discountType,
+    usePercentage: discount.usePercentage,
+    discountAmount: discount.discountAmount,
+    discountPercentage: discount.discountPercentage,
+    maximumDiscountAmount: discount.maximumDiscountAmount,
+    startDate: discount.startDate.slice(0, 16),
+    endDate: discount.endDate.slice(0, 16),
+    requiresCouponCode: discount.requiresCouponCode,
+    couponCode: discount.couponCode || "",
+    isCumulative: discount.isCumulative,
+    discountLimitation: discount.discountLimitation,
+    limitationTimes: discount.limitationTimes,
+    maximumDiscountedQuantity: discount.maximumDiscountedQuantity,
+    appliedToSubOrders: discount.appliedToSubOrders,
+    adminComment: discount.adminComment,
+    assignedProductIds: discount.assignedProductIds
+      ? discount.assignedProductIds.split(",").filter((id) => id.trim())
+      : [],
+    assignedCategoryIds: discount.assignedCategoryIds
+      ? discount.assignedCategoryIds.split(",").filter((id) => id.trim())
+      : [],
+    assignedManufacturerIds: discount.assignedManufacturerIds
+      ? discount.assignedManufacturerIds.split(",").filter((id) => id.trim())
+      : [],
+  });
+  setShowModal(true);
+  setProductCategoryFilter("");
+  setProductBrandFilter("");
+};
 
   // Reset form
   const resetForm = () => {
@@ -1260,45 +1319,45 @@ const filteredDiscounts = discounts.filter((discount) => {
         isLoading={isDeleting}
       />
 
-      {/* All Modals Component */}
-      <DiscountModals
-        showModal={showModal}
-        setShowModal={setShowModal}
-        viewingDiscount={viewingDiscount}
-        setViewingDiscount={setViewingDiscount}
-        usageHistoryModal={usageHistoryModal}
-        setUsageHistoryModal={setUsageHistoryModal}
-        isProductSelectionModalOpen={isProductSelectionModalOpen}
-        setIsProductSelectionModalOpen={setIsProductSelectionModalOpen}
-        formData={formData}
-        setFormData={setFormData}
-        editingDiscount={editingDiscount}
-        products={products}
-        categories={categories}
-        categoryOptions={categoryOptions}
-        brandOptions={brandOptions}
-        filteredProductOptions={filteredProductOptions}
-        categoryFilteredProductOptions={categoryFilteredProductOptions}
-        productCategoryFilter={productCategoryFilter}
-        setProductCategoryFilter={setProductCategoryFilter}
-        productBrandFilter={productBrandFilter}
-        setProductBrandFilter={setProductBrandFilter}
-        productSearchTerm={productSearchTerm}
-        setProductSearchTerm={setProductSearchTerm}
-        customSelectStyles={customSelectStyles}
-        handleSubmit={handleSubmit}
-        handleDiscountTypeChange={handleDiscountTypeChange}
-        resetForm={resetForm}
-        handleEdit={handleEdit}
-        getDiscountTypeIcon={getDiscountTypeIcon}
-        getDiscountTypeLabel={getDiscountTypeLabel}
-        isDiscountActive={isDiscountActive}
-        selectedDiscountHistory={selectedDiscountHistory}
-        usageHistory={usageHistory}
-        loadingHistory={loadingHistory}
-        dateRangeFilter={dateRangeFilter}
-        setDateRangeFilter={setDateRangeFilter}
-      />
+
+<DiscountModals
+  showModal={showModal}
+  setShowModal={setShowModal}
+  viewingDiscount={viewingDiscount}
+  setViewingDiscount={setViewingDiscount}
+  usageHistoryModal={usageHistoryModal}
+  setUsageHistoryModal={setUsageHistoryModal}
+  isProductSelectionModalOpen={isProductSelectionModalOpen}
+  setIsProductSelectionModalOpen={setIsProductSelectionModalOpen}
+  formData={formData}
+  setFormData={setFormData}
+  editingDiscount={editingDiscount}
+  products={products}
+  categories={categories}
+  categoryOptions={categoryOptions}
+  brandOptions={brandOptions}
+  filteredProductOptions={filteredProductOptions}
+  categoryFilteredProductOptions={categoryFilteredProductOptions} // ✅ THIS IS KEY
+  productCategoryFilter={productCategoryFilter}
+  setProductCategoryFilter={setProductCategoryFilter}
+  productBrandFilter={productBrandFilter}
+  setProductBrandFilter={setProductBrandFilter}
+  productSearchTerm={productSearchTerm}
+  setProductSearchTerm={setProductSearchTerm}
+  customSelectStyles={customSelectStyles}
+  handleSubmit={handleSubmit}
+  handleDiscountTypeChange={handleDiscountTypeChange}
+  resetForm={resetForm}
+  handleEdit={handleEdit}
+  getDiscountTypeIcon={getDiscountTypeIcon}
+  getDiscountTypeLabel={getDiscountTypeLabel}
+  isDiscountActive={isDiscountActive}
+  selectedDiscountHistory={selectedDiscountHistory}
+  usageHistory={usageHistory}
+  loadingHistory={loadingHistory}
+  dateRangeFilter={dateRangeFilter}
+  setDateRangeFilter={setDateRangeFilter}
+/>
       <ConfirmDialog
   isOpen={!!statusConfirm}
   onClose={() => setStatusConfirm(null)}

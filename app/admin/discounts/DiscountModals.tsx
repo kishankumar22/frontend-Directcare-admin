@@ -1,5 +1,5 @@
 "use client";
-import React from "react";
+import React, { useEffect, useMemo } from "react";
 import {
   Gift,
   Target,
@@ -55,6 +55,7 @@ interface FormData {
 }
 
 interface DiscountModalsProps {
+    discounts?: Discount[]; // Add this line
   showModal: boolean;
   setShowModal: (show: boolean) => void;
   viewingDiscount: Discount | null;
@@ -151,7 +152,33 @@ export default function DiscountModals(props: DiscountModalsProps) {
       return afterStart && beforeEnd;
     });
   };
+  // Add this useEffect in DiscountModals component (around line 100)
+useEffect(() => {
+  if (isProductSelectionModalOpen) {
+    console.log("🟢 Modal opened - Selected product IDs:", formData.assignedProductIds);
+    console.log("🟢 Available products from props:", props.categoryFilteredProductOptions?.length);
+    console.log("🟢 Category filtered options:", props.categoryFilteredProductOptions);
+  }
+}, [isProductSelectionModalOpen, formData.assignedProductIds, props.categoryFilteredProductOptions]);
 
+// Update the filtered products calculation (around line 200)
+const filteredProducts = useMemo(() => {
+  if (!props.categoryFilteredProductOptions || props.categoryFilteredProductOptions.length === 0) {
+    return [];
+  }
+  
+  return props.categoryFilteredProductOptions.filter((productOption) =>
+    productOption.label.toLowerCase().includes(productSearchTerm.toLowerCase())
+  );
+}, [props.categoryFilteredProductOptions, productSearchTerm]);
+// Add this in DiscountModals component (around line 100-150)
+useEffect(() => {
+  // When product selection modal opens, log selected products for debugging
+  if (props.isProductSelectionModalOpen) {
+    console.log("🟢 Modal opened - Selected product IDs:", props.formData.assignedProductIds);
+    console.log("🟢 Available products:", props.categoryFilteredProductOptions.length);
+  }
+}, [props.isProductSelectionModalOpen, props.formData.assignedProductIds]);
   const calculateFilteredStats = () => {
     const filtered = getFilteredUsageHistory();
     if (!filtered.length) return { totalUsage: 0, totalRevenue: 0, uniqueCustomers: 0, averageDiscount: 0 };
@@ -844,184 +871,283 @@ export default function DiscountModals(props: DiscountModalsProps) {
         </div>
       )}
 
-      {/* ========== PRODUCT SELECTION MODAL ========== */}
-      {isProductSelectionModalOpen && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
-          <div className="bg-gradient-to-br from-slate-900 via-slate-900 to-slate-800 border border-violet-500/20 rounded-2xl max-w-3xl w-full max-h-[80vh] overflow-hidden shadow-2xl">
-            
-            {/* Modal Header */}
-            <div className="p-4 border-b border-violet-500/20 bg-gradient-to-r from-violet-500/10 to-cyan-500/10">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="text-xl font-bold text-white">Select Products</h3>
-                  <p className="text-slate-400 text-sm mt-1">
-                    Choose products from the selected category
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsProductSelectionModalOpen(false);
-                    setProductSearchTerm("");
-                  }}
-                  className="p-2 text-slate-400 hover:text-white hover:bg-red-600 rounded-lg transition-all"
-                >
-                  ✕
-                </button>
-              </div>
 
-              {/* Search Input */}
-              <div className="mt-3 relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
-                <input
-                  type="search"
-                  placeholder="Search products by name..."
-                  value={productSearchTerm}
-                  onChange={(e) => setProductSearchTerm(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 bg-slate-900/50 border border-slate-600 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
-                />
-              </div>
-            </div>
+{/* ========== PRODUCT SELECTION MODAL ========== */}
+{isProductSelectionModalOpen && (
+  <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
+    <div className="bg-gradient-to-br from-slate-900 via-slate-900 to-slate-800 border border-violet-500/20 rounded-2xl max-w-3xl w-full max-h-[80vh] overflow-hidden shadow-2xl">
+      
+      {/* Modal Header */}
+      <div className="p-4 border-b border-violet-500/20 bg-gradient-to-r from-violet-500/10 to-cyan-500/10">
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="text-xl font-bold text-white">Select Products</h3>
+            <p className="text-slate-400 text-sm mt-1">
+              Choose products from the selected category
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              setIsProductSelectionModalOpen(false);
+              setProductSearchTerm("");
+            }}
+            className="p-2 text-slate-400 hover:text-white hover:bg-red-600 rounded-lg transition-all"
+          >
+            ✕
+          </button>
+        </div>
 
-            {/* Product List */}
-            <div className="p-4 overflow-y-auto max-h-[calc(80vh-240px)]">
-              {(() => {
-                const filteredProducts = categoryFilteredProductOptions.filter((productOption) =>
-                  productOption.label.toLowerCase().includes(productSearchTerm.toLowerCase())
+        {/* Search Input */}
+        <div className="mt-3 relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
+          <input
+            type="search"
+            placeholder="Search products by name..."
+            value={productSearchTerm}
+            onChange={(e) => setProductSearchTerm(e.target.value)}
+            className="w-full pl-10 pr-4 py-2 bg-slate-900/50 border border-slate-600 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+          />
+        </div>
+      </div>
+
+      {/* Product List */}
+      <div className="p-4 overflow-y-auto max-h-[calc(80vh-240px)]">
+        {(() => {
+          // Get all discounts from props or context
+          // FIXED: Using allDiscounts directly from component props/context
+          const allDiscounts = (props.discounts || []) as any[]; // Pass discounts array from parent
+          
+          // Filter products by category and search term
+          const filteredProducts = categoryFilteredProductOptions.filter((productOption) =>
+            productOption.label.toLowerCase().includes(productSearchTerm.toLowerCase())
+          );
+
+          if (filteredProducts.length === 0) {
+            return (
+              <div className="text-center py-12 text-slate-400">
+                <Package className="h-16 w-16 mx-auto mb-4 opacity-30" />
+                <p className="text-lg mb-1">
+                  {productSearchTerm ? "No products found" : "No products available"}
+                </p>
+                <p className="text-sm text-slate-500">
+                  {productSearchTerm 
+                    ? `No products match "${productSearchTerm}"`
+                    : "There are no products available in this category"
+                  }
+                </p>
+              </div>
+            );
+          }
+
+          return (
+            <div className="space-y-2">
+              {filteredProducts.map((productOption) => {
+                const product = products.find(p => p.id === productOption.value);
+                
+                // 🎯 CHECK 1: Is this product assigned to CURRENT discount (republic sale)?
+                const isAssignedToCurrentDiscount = editingDiscount?.id && 
+                  editingDiscount.assignedProductIds?.split(',').includes(productOption.value);
+                
+                // 🎯 CHECK 2: Find ALL OTHER discounts for this product (excluding current discount)
+                const otherDiscounts = product && 
+                  Array.isArray((product as any).assignedDiscounts) ? 
+                  (product as any).assignedDiscounts.filter((d: any) => d.id !== editingDiscount?.id) : [];
+                
+                // 🎯 CHECK 3: Check for category-level discounts from other sales
+                // This is important because product might get discount from its category
+                const categoryDiscounts = allDiscounts.filter((d: any) => 
+                  d.id !== editingDiscount?.id && // Exclude current discount
+                  d.discountType === "AssignedToCategories" &&
+                  d.assignedCategoryIds?.split(',').includes(product?.categoryId) &&
+                  d.isActive &&
+                  !d.isDeleted &&
+                  new Date(d.startDate) <= new Date() &&
+                  new Date(d.endDate) >= new Date()
                 );
+                
+                // 🎯 CHECK 4: Check for product-specific discounts from other sales
+                const productDiscounts = allDiscounts.filter((d: any) =>
+                  d.id !== editingDiscount?.id && // Exclude current discount
+                  d.discountType === "AssignedToProducts" &&
+                  d.assignedProductIds?.split(',').includes(productOption.value) &&
+                  d.isActive &&
+                  !d.isDeleted &&
+                  new Date(d.startDate) <= new Date() &&
+                  new Date(d.endDate) >= new Date()
+                );
+                
+                // 🎯 COMBINE ALL CONFLICTING DISCOUNTS
+                const conflictingDiscounts = [
+                  ...otherDiscounts,
+                  ...categoryDiscounts,
+                  ...productDiscounts
+                ];
+                
+                // Remove duplicates by ID
+                const uniqueConflicts = conflictingDiscounts.filter((v, i, a) => 
+                  a.findIndex(t => t.id === v.id) === i
+                );
+                
+                const hasConflict = uniqueConflicts.length > 0;
+                
+                // 🎯 Check if this product is already selected in form
+                const isSelected = formData.assignedProductIds.includes(productOption.value);
+                
+                // 🎯 Disable if:
+                // 1. Product has conflicting discount AND
+                // 2. It's not already selected AND
+                // 3. It's not assigned to current discount
+                const isDisabled = hasConflict && !isSelected && !isAssignedToCurrentDiscount;
 
-                if (filteredProducts.length === 0) {
-                  return (
-                    <div className="text-center py-12 text-slate-400">
-                      <Package className="h-16 w-16 mx-auto mb-4 opacity-30" />
-                      <p className="text-lg mb-1">
-                        {productSearchTerm ? "No products found" : "No products available"}
-                      </p>
-                      <p className="text-sm text-slate-500">
-                        {productSearchTerm 
-                          ? `No products match "${productSearchTerm}"`
-                          : "There are no products available in this category"
-                        }
-                      </p>
-                    </div>
-                  );
-                }
+                // Get the primary conflict for display (first one)
+                const primaryConflict = uniqueConflicts[0];
+
+                // FIXED: Convert to boolean explicitly for checked prop
+                const isChecked = Boolean(isSelected || isAssignedToCurrentDiscount);
 
                 return (
-                  <div className="space-y-2">
-                    {filteredProducts.map((productOption) => {
-                      const product = products.find(p => p.id === productOption.value);
-                      const hasDiscount = product && Array.isArray((product as any).assignedDiscounts) && 
-                                         (product as any).assignedDiscounts.length > 0;
-                      
-                      const discountInfo = hasDiscount ? (product as any).assignedDiscounts[0] : null;
-                      const isSelected = formData.assignedProductIds.includes(productOption.value);
-                      const isCurrentDiscountProduct = editingDiscount && hasDiscount && 
-                                                       discountInfo?.id === editingDiscount.id;
-                      const isDisabled = hasDiscount && !isCurrentDiscountProduct && !isSelected;
+                  <div
+                    key={productOption.value}
+                    className={`relative flex items-center gap-3 p-4 rounded-xl border transition-all ${
+                      isDisabled
+                        ? 'bg-slate-800/30 border-slate-700/50 cursor-not-allowed opacity-60'
+                        : isSelected || isAssignedToCurrentDiscount
+                        ? 'bg-violet-500/20 border-violet-500/50 cursor-pointer'
+                        : 'bg-slate-800/50 border-slate-700 hover:border-violet-500/50 cursor-pointer'
+                    }`}
+                    onClick={() => {
+                      if (!isDisabled) {
+                        const newIds = isSelected
+                          ? formData.assignedProductIds.filter(id => id !== productOption.value)
+                          : [...formData.assignedProductIds, productOption.value];
+                        setFormData({ ...formData, assignedProductIds: newIds });
+                      }
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      // FIXED: Using explicit boolean value
+                      checked={isChecked}
+                      disabled={isDisabled}
+                      onChange={() => {}} // Handled by div click
+                      className="w-5 h-5 rounded border-slate-600 text-violet-500 focus:ring-2 focus:ring-violet-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                      readOnly
+                    />
 
-                      return (
-                        <div
-                          key={productOption.value}
-                          className={`relative flex items-center gap-3 p-4 rounded-xl border transition-all ${
-                            isDisabled
-                              ? 'bg-slate-800/30 border-slate-700/50 cursor-not-allowed opacity-60'
-                              : isSelected
-                              ? 'bg-violet-500/20 border-violet-500/50 cursor-pointer'
-                              : 'bg-slate-800/50 border-slate-700 hover:border-violet-500/50 cursor-pointer'
-                          }`}
-                          onClick={() => {
-                            if (!isDisabled) {
-                              const newIds = isSelected
-                                ? formData.assignedProductIds.filter(id => id !== productOption.value)
-                                : [...formData.assignedProductIds, productOption.value];
-                              setFormData({ ...formData, assignedProductIds: newIds });
+                    <div className="flex-1 min-w-0">
+                      <p className={`text-sm font-medium truncate ${
+                        isDisabled ? 'text-slate-500' : 'text-white'
+                      }`}>
+                        {productOption.label}
+                      </p>
+                      {product && (
+                        <p className="text-xs text-slate-400 mt-0.5">
+                          £{(product as any).price || '0.00'}
+                        </p>
+                      )}
+                    </div>
+
+                    {/* 🎯 CASE 1: CURRENT DISCOUNT - Show for assigned products */}
+                    {isAssignedToCurrentDiscount && (
+                      <div className="flex items-center gap-2">
+                        <div className="px-3 py-1.5 bg-orange-500/20 border border-orange-500/40 rounded-lg">
+                          <p className="text-xs font-bold text-orange-400 flex items-center gap-1.5">
+                            <Percent className="h-3.5 w-3.5" />
+                            {editingDiscount.usePercentage 
+                              ? `${editingDiscount.discountPercentage}% OFF`
+                              : `£${editingDiscount.discountAmount} OFF`
                             }
-                          }}
-                        >
-                          <input
-                            type="checkbox"
-                            checked={isSelected}
-                            disabled={isDisabled}
-                            onChange={() => {}}
-                            className="w-5 h-5 rounded border-slate-600 text-violet-500 focus:ring-2 focus:ring-violet-500 disabled:opacity-50 disabled:cursor-not-allowed"
-                          />
-
-                          <div className="flex-1 min-w-0">
-                            <p className={`text-sm font-medium truncate ${
-                              isDisabled ? 'text-slate-500' : 'text-white'
-                            }`}>
-                              {productOption.label}
-                            </p>
-                            {product && (
-                              <p className="text-xs text-slate-400 mt-0.5">
-                                £{(product as any).price || '0.00'}
-                              </p>
-                            )}
-                          </div>
-
-                          {hasDiscount && (
-                            <div className="flex items-center gap-2">
-                              <div className="px-3 py-1.5 bg-orange-500/20 border border-orange-500/40 rounded-lg">
-                                <p className="text-xs font-bold text-orange-400 flex items-center gap-1.5">
-                                  <Percent className="h-3.5 w-3.5" />
-                                  {discountInfo.usePercentage 
-                                    ? `${discountInfo.discountPercentage}% OFF`
-                                    : `£${discountInfo.discountAmount} OFF`
-                                  }
-                                </p>
-                              </div>
-
-                              {isDisabled && (
-                                <div className="px-2.5 py-1 bg-red-500/20 border border-red-500/40 rounded-lg text-xs font-semibold text-red-400">
-                                  Already Discounted
-                                </div>
-                              )}
-                              
-                              {isCurrentDiscountProduct && (
-                                <div className="px-2.5 py-1 bg-blue-500/20 border border-blue-500/40 rounded-lg text-xs font-semibold text-blue-400">
-                                  Current Discount
-                                </div>
-                              )}
-                            </div>
-                          )}
-
-                          {isSelected && !hasDiscount && (
-                            <div className="px-2.5 py-1 bg-green-500/20 border border-green-500/40 rounded-lg text-xs font-semibold text-green-400">
-                              ✓ Selected
-                            </div>
-                          )}
+                          </p>
                         </div>
-                      );
-                    })}
+                        <div className="px-2.5 py-1 bg-blue-500/20 border border-blue-500/40 rounded-lg text-xs font-semibold text-blue-400">
+                          Current Discount
+                        </div>
+                      </div>
+                    )}
+
+                    {/* 🎯 CASE 2: CONFLICTING DISCOUNT - Show for products with other active discounts */}
+                    {hasConflict && !isAssignedToCurrentDiscount && primaryConflict && (
+                      <div className="px-3 py-1.5 bg-red-500/20 border border-red-500/40 rounded-lg">
+                        <p className="text-xs font-bold text-red-400 flex items-center gap-1.5">
+                          <Percent className="h-3.5 w-3.5" />
+                          {primaryConflict.usePercentage 
+                            ? `${primaryConflict.discountPercentage}% OFF`
+                            : `£${primaryConflict.discountAmount} OFF`
+                          }
+                        </p>
+                        <p className="text-[10px] text-red-300/70 mt-0.5 flex items-center gap-1">
+                          <span>Active • {primaryConflict.name}</span>
+                          {primaryConflict.discountType === "AssignedToCategories" ? 
+                            "(Category)" : "(Product)"}
+                        </p>
+                        {uniqueConflicts.length > 1 && (
+                          <p className="text-[10px] text-red-300/50 mt-0.5">
+                            +{uniqueConflicts.length - 1} more discount(s)
+                          </p>
+                        )}
+                      </div>
+                    )}
+
+                    {/* 🎯 CASE 3: SELECTED BADGE - For manually selected products with no conflicts */}
+                    {isSelected && !isAssignedToCurrentDiscount && !hasConflict && (
+                      <div className="px-2.5 py-1 bg-green-500/20 border border-green-500/40 rounded-lg text-xs font-semibold text-green-400">
+                        ✓ Selected
+                      </div>
+                    )}
+
+                    {/* 🎯 CASE 4: AVAILABLE FOR SELECTION - No conflicts, not selected */}
+                    {!hasConflict && !isSelected && !isAssignedToCurrentDiscount && (
+                      <div className="px-2.5 py-1 bg-slate-600/20 border border-slate-600/40 rounded-lg text-xs font-semibold text-slate-400">
+                        Available
+                      </div>
+                    )}
                   </div>
                 );
-              })()}
+              })}
             </div>
+          );
+        })()}
+      </div>
 
-            {/* Modal Footer */}
-            <div className="p-4 border-t border-slate-700/50 bg-slate-800/30">
-              <div className="flex items-center justify-between">
-                <p className="text-sm text-slate-400">
-                  {formData.assignedProductIds.length > 0
-                    ? `${formData.assignedProductIds.length} product${formData.assignedProductIds.length !== 1 ? 's' : ''} selected`
-                    : 'No products selected'}
-                </p>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsProductSelectionModalOpen(false);
-                    setProductSearchTerm("");
-                  }}
-                  className="px-6 py-2.5 bg-gradient-to-r from-violet-500 to-purple-500 text-white rounded-xl hover:shadow-lg hover:shadow-violet-500/50 transition-all font-medium"
-                >
-                  Done
-                </button>
-              </div>
-            </div>
+      {/* Modal Footer */}
+      <div className="p-4 border-t border-slate-700/50 bg-slate-800/30">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-sm text-slate-400">
+              {formData.assignedProductIds.length > 0
+                ? `${formData.assignedProductIds.length} product${formData.assignedProductIds.length !== 1 ? 's' : ''} selected`
+                : 'No products selected'}
+            </p>
+            {/* Show conflict summary */}
+            {categoryFilteredProductOptions.filter(p => {
+              const product = products.find(pr => pr.id === p.value);
+              const otherDiscounts = product && Array.isArray((product as any).assignedDiscounts) ? 
+                (product as any).assignedDiscounts.filter((d: any) => d.id !== editingDiscount?.id) : [];
+              return otherDiscounts.length > 0 && 
+                !formData.assignedProductIds.includes(p.value) &&
+                !editingDiscount?.assignedProductIds?.split(',').includes(p.value);
+            }).length > 0 && (
+              <p className="text-xs text-amber-400 mt-1">
+                ⚠️ Some products have active discounts and cannot be selected
+              </p>
+            )}
           </div>
+          <button
+            type="button"
+            onClick={() => {
+              setIsProductSelectionModalOpen(false);
+              setProductSearchTerm("");
+            }}
+            className="px-6 py-2.5 bg-gradient-to-r from-violet-500 to-purple-500 text-white rounded-xl hover:shadow-lg hover:shadow-violet-500/50 transition-all font-medium"
+          >
+            Done
+          </button>
         </div>
-      )}
+      </div>
+    </div>
+  </div>
+)}
 
       {/* ========== VIEW DISCOUNT DETAILS MODAL ========== */}
       {viewingDiscount && (
