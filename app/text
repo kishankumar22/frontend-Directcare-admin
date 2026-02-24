@@ -1796,7 +1796,7 @@ EMAIL_USER='kishan143ku@gmail.com'
 EMAIL_PASSWORD='xebu ziey qhca vzxg'
 JWT_SECRET=your-strong-secret-key
 STORAGE_PATH=./public/uploads
-d
+
 
 
 

@@ -85,7 +85,7 @@ public/uploads/
 *.map
 
 # === Misc ===
-*.bak
+
 *.old
 *.tmp
 *.swp
