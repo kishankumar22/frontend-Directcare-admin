@@ -42,6 +42,7 @@ Thumbs.db
 *.swp
 *.swo
 *.tmp
+*.bak
 *.orig
 *.pid
 *.seed
@@ -85,7 +86,7 @@ public/uploads/
 *.map
 
 # === Misc ===
-
+*.bak
 *.old
 *.tmp
 *.swp
