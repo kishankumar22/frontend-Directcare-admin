@@ -1733,3 +1733,69 @@ ALLOWED_ORIGINS=https://shivam.knowledgemarkg.com,https://testapi.knowledgemarkg
 # ==============================================
 NEXT_PUBLIC_IMAGE_DOMAIN=shivam.knowledgemarkg.com
 MAX_FILE_SIZE=5242880
+
+
+
+
+--------------------------------------------
+.env
+
+DATABASE_URL="sqlserver://localhost:1433;database=TaskManagement;user=kishankk;password=Kishan;trustServerCertificate=true"
+
+DB_USER=kishankk
+DB_PASSWORD=Kishan
+DB_SERVER=localhost
+DB_NAME=TaskManagement
+DB_PORT=1433
+EMAIL_HOST=smtp.gmail.com
+EMAIL_PORT=587
+EMAIL_USER=kishan143ku@gmail.com
+EMAIL_PASS=xwjnnrhwzwzcbnly
+JWT_SECRET=your_secure_jwt_secret_1234567890abcdef
+# NODE_ENV=production
+# NEXT_PUBLIC_APP_URL=https://suttoncoldfieldhinduassociation.elpimo.com
+
+
+# .env में बदलाव करें: production me remove kar do in dono ko  19, 20 
+PORT=3000
+NODE_ENV=development
+NEXT_PUBLIC_APP_URL=http://localhost:3000
+NEXT_PUBLIC_APP_URL=https://localhost:3005
+
+
+
+# DATABASE_URL="sqlserver://localhost:1433;database=TaskManagement;user=Kishan_prisma;password=KishanPrisma123!;encrypt=false;trustServerCertificate=true;connectionLimit=5"
+-----------------------------
+librray manage ment
+
+---------------------------------------------------------------------------
+.env.local
+DB_USER=kishankk
+DB_PASSWORD=Kishan
+DB_SERVER=localhost
+DB_NAME=jkconsultancyadmindb
+DB_PORT=1433
+EMAIL_HOST=smtp.gmail.com
+EMAIL_PORT=587
+JWT_SECRET=your_secure_jwt_secret_1234567890abcdef
+EMAIL_USER=kishan143ku@gmail.com
+EMAIL_PASS=xebu ziey qhca vzxg
+NODE_ENV=development
+
+
+
+----------------------------------------
+  .env 
+
+DATABASE_URL="sqlserver://localhost:1433;database=jkconsultancyadmindb;integratedSecurity=true;trustServerCertificate=true"
+
+EMAIL_HOST=smtp.gmail.com
+EMAIL_PORT=587
+EMAIL_SECURE=false
+EMAIL_USER='kishan143ku@gmail.com'
+EMAIL_PASSWORD='xebu ziey qhca vzxg'
+JWT_SECRET=your-strong-secret-key
+STORAGE_PATH=./public/uploads
+
+
+
