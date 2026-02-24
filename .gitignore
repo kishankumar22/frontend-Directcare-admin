@@ -42,7 +42,6 @@ Thumbs.db
 *.swp
 *.swo
 *.tmp
-*.bak
 *.orig
 *.pid
 *.seed
