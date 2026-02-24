@@ -1686,3 +1686,50 @@ For any questions or issues:
 ---
 
 **END OF DOCUMENTATION**
+
+
+
+# .env.production
+# ==============================================
+# NODE ENVIRONMENT
+# ==============================================
+NODE_ENV=production
+PORT=3000
+HOSTNAME=0.0.0.0
+
+# ==============================================
+# API CONFIGURATION
+# ==============================================
+NEXT_PUBLIC_API_URL=https://testapi.knowledgemarkg.com
+API_BASE_URL=https://testapi.knowledgemarkg.com
+
+# ==============================================
+# APP CONFIGURATION
+# ==============================================
+NEXT_PUBLIC_APP_NAME=EcomPlatform
+NEXT_PUBLIC_APP_URL=https://shivam.knowledgemarkg.com
+NEXT_PUBLIC_SITE_URL=https://shivam.knowledgemarkg.com
+
+# ==============================================
+# TINYMCE CONFIGURATION
+# ==============================================
+NEXT_TINY_MCE_APIKEY=wzccxyz83ijsqh2vzp21xhjxutpcxcjgzlulpd4bku1zetxh
+NEXT_PUBLIC_TINY_MCE_APIKEY=wzccxyz83ijsqh2vzp21xhjxutpcxcjgzlulpd4bku1zetxh
+
+# ==============================================
+# SECURITY
+# ==============================================
+JWT_SECRET=change-this-to-random-secure-string
+NEXTAUTH_SECRET=change-this-to-another-random-string
+NEXTAUTH_URL=https://shivam.knowledgemarkg.com
+
+# ==============================================
+# CORS
+# ==============================================
+ALLOWED_ORIGINS=https://shivam.knowledgemarkg.com,https://testapi.knowledgemarkg.com
+
+# ==============================================
+# FILE UPLOADS
+# ==============================================
+NEXT_PUBLIC_IMAGE_DOMAIN=shivam.knowledgemarkg.com
+MAX_FILE_SIZE=5242880
