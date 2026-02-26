@@ -10,7 +10,8 @@ import {
   Percent,
   FileSpreadsheet,
   Upload,
-  Download
+  Download,
+  Boxes
 } from "lucide-react";
 
 type ToggleProduct = {
@@ -1231,6 +1232,19 @@ const hasActiveFilters = useMemo(
             <Tag className="w-4 h-4" />
             Discounts
           </button>
+          {/* Inventory Button */}
+  <button
+    onClick={() => router.push("/admin/inventory")}
+    className="flex items-center gap-2 px-4 py-2 text-sm
+    bg-gradient-to-r from-pink-500 to-rose-500
+    hover:from-pink-600 hover:to-rose-600
+    text-white rounded-xl font-semibold shadow-md
+    hover:shadow-pink-500/40
+    transition-all duration-200"
+  >
+    <Boxes className="w-4 h-4 stroke-[2.2]" />
+    <span>Inventory</span>
+  </button>
 
           <button
             onClick={() => router.push("/admin/orders")}

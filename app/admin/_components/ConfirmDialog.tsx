@@ -83,7 +83,7 @@ const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
     }, 200);
   };
 
-  if (!isOpen && !isClosing) return null;
+ if (!isOpen && !isClosing) return null;
 
   const handleConfirm = () => {
     onConfirm();

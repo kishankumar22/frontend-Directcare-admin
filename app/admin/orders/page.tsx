@@ -12,6 +12,7 @@ import {
   Truck,
   MapPin,
   X,
+  History,
   Download,
   ChevronDown,
   FileSpreadsheet,
@@ -34,6 +35,9 @@ import {
   PackageCheck,
   PackageX,
   AlertCircle,
+  RotateCcw,
+  XCircle,
+  Upload,
 } from 'lucide-react';
 import {
   orderService,
@@ -49,6 +53,9 @@ import {
 import { useToast } from '@/app/admin/_components/CustomToast';
 import React from 'react';
 import OrderActionsModal from './OrderActionsModal';
+import BulkStatusModal from './BulkStatusModal';
+import ConfirmDialog from '../_components/ConfirmDialog';
+import BulkShipmentUploadModal from './BulkShipmentUploadModal';
 
 interface Address {
   firstName: string;
@@ -66,12 +73,8 @@ interface Address {
 // ✅ Get Available Actions based on Order Status (matching backend rules)
 const getAvailableActions = (order: Order) => {
   const actions: string[] = [];
+// Always available extra actions
 
-  // ✅ PHARMACY APPROVAL FLOW FIRST
-  if (order.pharmacyVerificationStatus === 'Pending') {
-    actions.push('pharmacy-approve', 'pharmacy-reject');
-    return actions; // 🚀 stop here (don't allow other actions until verified)
-  }
 
   switch (order.status) {
     case 'Pending':
@@ -125,6 +128,7 @@ export default function OrdersListPage() {
 
   // ✅ Bulk Selection
   const [selectedOrders, setSelectedOrders] = useState<string[]>([]);
+
 const [isSearching, setIsSearching] = useState(false);
 
 const [filters, setFilters] = useState({
@@ -139,14 +143,32 @@ pharmacyVerificationStatus: '' as PharmacyVerificationStatus | '',
 
 
 });
+const selectedOrderObjects = orders.filter(o =>
+  selectedOrders.includes(o.id)
+);
 
+const selectedOrderPreview = selectedOrderObjects.map(o => ({
+  id: o.id,
+  orderNumber: o.orderNumber,
+}));
+
+const allSameStatus =
+  selectedOrderObjects.length > 0 &&
+  selectedOrderObjects.every(
+    o => o.status === selectedOrderObjects[0].status
+  );
+
+const selectedStatus = selectedOrderObjects[0]?.status;
   const [showDatePicker, setShowDatePicker] = useState(false);
-  const [showExportMenu, setShowExportMenu] = useState(false);
-  const [viewingOrder, setViewingOrder] = useState<Order | null>(null);
+  const [showExportMenu, setShowExportMenu] = useState(false); 
   const [actionMenuOrder, setActionMenuOrder] = useState<string | null>(null);
   const datePickerRef = useRef<HTMLDivElement>(null);
+  const [bulkModalOpen, setBulkModalOpen] = useState(false);
+
+const [bulkLoading, setBulkLoading] = useState(false);
 const [debouncedSearch, setDebouncedSearch] = useState(filters.searchTerm);
 
+const [shipmentModalOpen, setShipmentModalOpen] = useState(false);
   // ✅ Order Actions Modal
   const [modalState, setModalState] = useState<{
     isOpen: boolean;
@@ -273,6 +295,44 @@ const fetchOrders = useCallback(async () => {
     );
   };
 
+
+
+const handleBulkStatusUpdate = async (data: {
+  newStatus: OrderStatus;
+  adminNotes: string;
+}) => {
+  if (!selectedOrders.length) {
+    toast.warning("No orders selected");
+    return;
+  }
+
+  try {
+    setBulkLoading(true);
+
+    await orderService.bulkUpdateStatus({
+      orderIds: selectedOrders,
+      newStatus: data.newStatus,
+      adminNotes: data.adminNotes,
+      currentUser: "Admin",
+    });
+
+    toast.success("Bulk status updated successfully");
+
+    setSelectedOrders([]);
+    setBulkModalOpen(false);
+    fetchOrders();
+
+  } catch (error: any) {
+    const message =
+      error?.response?.data?.message ||
+      error?.message ||
+      "Bulk update failed";
+
+    toast.error(message);
+  } finally {
+    setBulkLoading(false);
+  }
+};
   // ✅ Bulk Export Selected
   const handleBulkExport = () => {
     const ordersToExport = orders.filter((o) => selectedOrders.includes(o.id));
@@ -569,73 +629,166 @@ const hasActiveFilters = useMemo(() => {
   return (
     <div className="space-y-2">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold bg-gradient-to-r from-violet-400 via-cyan-400 to-pink-400 bg-clip-text text-transparent">
-            Order Management
-          </h1>
-          <p className="text-slate-400 text-sm mt-1">Manage and track customer orders efficiently</p>
-        </div>
-        <div className="flex items-center gap-2">
-          {/* ✅ Bulk Export Button */}
-          {selectedOrders.length > 0 && (
-            <button
-              onClick={handleBulkExport}
-              className="px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg hover:shadow-lg hover:shadow-blue-500/50 transition-all flex items-center gap-2 font-medium text-sm"
-            >
-              <Download className="w-4 h-4" />
-              Export ({selectedOrders.length})
-            </button>
-          )}
+<div className="relative flex items-start justify-between">
 
-          {/* Export Menu */}
-          <div className="relative">
+  {/* 🔹 LEFT SIDE — TITLE */}
+  <div>
+    <h1 className="text-2xl font-bold bg-gradient-to-r from-violet-400 via-cyan-400 to-pink-400 bg-clip-text text-transparent">
+      Order Management
+    </h1>
+    <p className="text-slate-400 text-sm mt-1">
+      Manage and track customer orders efficiently
+    </p>
+  </div>
+
+  {/* 🔹 RIGHT SIDE — ACTION BUTTONS */}
+  <div className="flex items-center gap-3">
+
+    {/* Upload Shipments */}
+    <button
+      onClick={() => setShipmentModalOpen(true)}
+      className="px-4 py-2 bg-gradient-to-r from-purple-600 to-fuchsia-600 
+      text-white rounded-lg hover:shadow-lg hover:shadow-purple-500/30 
+      transition-all flex items-center gap-2 text-sm font-medium"
+    >
+      <Upload className="w-4 h-4" />
+      Upload Shipments
+    </button>
+
+    {/* Export Dropdown */}
+    <div className="relative">
+      <button
+        onClick={() => setShowExportMenu(!showExportMenu)}
+        className="px-4 py-2 bg-gradient-to-r from-green-600 to-emerald-600 
+        text-white rounded-lg hover:shadow-lg hover:shadow-green-500/30 
+        transition-all flex items-center gap-2 text-sm font-medium"
+      >
+        <FileSpreadsheet className="w-4 h-4" />
+        Export Data
+        <ChevronDown className="w-3 h-3" />
+      </button>
+
+      {showExportMenu && (
+        <>
+          <div
+            className="fixed inset-0 z-10"
+            onClick={() => setShowExportMenu(false)}
+          />
+
+          <div className="absolute right-0 mt-2 w-60 bg-slate-800 
+          border border-slate-700 rounded-xl shadow-2xl z-20 overflow-hidden">
+
             <button
-              onClick={() => setShowExportMenu(!showExportMenu)}
-              className="px-4 py-2 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-lg hover:shadow-lg hover:shadow-green-500/50 transition-all flex items-center gap-2 font-medium text-sm"
+              onClick={() => {
+                handleExport(false);
+                setShowExportMenu(false);
+              }}
+              disabled={orders.length === 0}
+              className="w-full px-4 py-3 text-left text-white hover:bg-slate-700 
+              transition-all flex items-center gap-3 disabled:opacity-50 
+              border-b border-slate-700"
             >
-              <Download className="w-4 h-4" />
-              Export
-              <ChevronDown className="w-3 h-3" />
+              <FileSpreadsheet className="w-4 h-4 text-green-400" />
+              <div>
+                <p className="text-sm font-medium">Export Current Page</p>
+                <p className="text-xs text-slate-400">
+                  {orders.length} orders
+                </p>
+              </div>
             </button>
-            {showExportMenu && (
-              <>
-                <div className="fixed inset-0 z-10" onClick={() => setShowExportMenu(false)} />
-                <div className="absolute right-0 mt-2 w-56 bg-slate-800 border border-slate-700 rounded-lg shadow-2xl z-20 overflow-hidden">
-                  <button
-                    onClick={() => {
-                      handleExport(false);
-                      setShowExportMenu(false);
-                    }}
-                    disabled={orders.length === 0}
-                    className="w-full px-4 py-2.5 text-left text-white hover:bg-slate-700 transition-all flex items-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed border-b border-slate-700"
-                  >
-                    <FileSpreadsheet className="w-4 h-4 text-green-400" />
-                    <div>
-                      <p className="text-sm font-medium">Export Current Page</p>
-                      <p className="text-xs text-slate-400">{orders.length} orders</p>
-                    </div>
-                  </button>
-                  <button
-                    onClick={() => {
-                      handleExport(true);
-                      setShowExportMenu(false);
-                    }}
-                    disabled={totalCount === 0}
-                    className="w-full px-4 py-2.5 text-left text-white hover:bg-slate-700 transition-all flex items-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    <FileSpreadsheet className="w-4 h-4 text-cyan-400" />
-                    <div>
-                      <p className="text-sm font-medium">Export All</p>
-                      <p className="text-xs text-slate-400">{totalCount} orders</p>
-                    </div>
-                  </button>
-                </div>
-              </>
-            )}
+
+            <button
+              onClick={() => {
+                handleExport(true);
+                setShowExportMenu(false);
+              }}
+              disabled={totalCount === 0}
+              className="w-full px-4 py-3 text-left text-white hover:bg-slate-700 
+              transition-all flex items-center gap-3 disabled:opacity-50"
+            >
+              <FileSpreadsheet className="w-4 h-4 text-cyan-400" />
+              <div>
+                <p className="text-sm font-medium">Export All Orders</p>
+                <p className="text-xs text-slate-400">
+                  {totalCount} total orders
+                </p>
+              </div>
+            </button>
+
           </div>
+        </>
+      )}
+    </div>
+  </div>
+
+  {/* 🔥 BULK BAR — PERFECTLY CENTERED */}
+  {selectedOrders.length > 0 && (
+    <div className="absolute left-1/2 top-0 -m-3 -translate-x-1/2 z-[50] 
+      w-auto max-w-[780px]">
+
+      <div className="grid grid-flow-col auto-cols-max items-center gap-4
+        bg-slate-900/95 backdrop-blur-md 
+        border border-slate-700 rounded-xl 
+        px-6 py-3 shadow-xl">
+
+        {/* Selected Info */}
+        <div className="flex items-center gap-2 text-sm">
+          <span className="w-2 h-2 bg-violet-500 rounded-full"></span>
+          <span className="text-white font-semibold">
+            {selectedOrders.length}
+          </span>
+          <span className="text-slate-400">selected</span>
+
+          {allSameStatus && selectedStatus && (
+            <span className="ml-2 px-2 py-0.5 text-[11px] 
+              bg-slate-800 border border-slate-600 
+              text-slate-300 rounded-md">
+              {selectedStatus}
+            </span>
+          )}
         </div>
+
+        {/* Divider */}
+        <div className="h-5 w-px bg-slate-700" />
+
+        {/* Update */}
+        {allSameStatus && (
+          <button
+            onClick={() => setBulkModalOpen(true)}
+            className="px-4 py-2 text-sm font-medium 
+            bg-violet-600 hover:bg-violet-700 
+            text-white rounded-lg transition-all"
+          >
+            Update Bulk Status
+          </button>
+        )}
+
+        {/* Export */}
+        <button
+          onClick={handleBulkExport}
+          className="px-4 py-2 text-sm font-medium 
+          bg-blue-600 hover:bg-blue-700 
+          text-white rounded-lg flex items-center gap-2 transition-all"
+        >
+          <Download className="w-4 h-4" />
+          Export ({selectedOrders.length})
+        </button>
+
+        {/* Clear */}
+        <button
+          onClick={() => setSelectedOrders([])}
+          className="px-4 py-2 text-sm font-medium 
+          bg-slate-700 hover:bg-slate-600 
+          text-white rounded-lg transition-all"
+        >
+          Clear
+        </button>
+
       </div>
+    </div>
+  )}
+
+</div>
 
       {/* ✅ Clickable Stats Cards with Quick Filters */}
       <div className="grid gap-3 md:grid-cols-4">
@@ -779,6 +932,16 @@ const hasActiveFilters = useMemo(() => {
           Filters active
         </span>
       )}
+       {/* Clear Button */}
+          {hasActiveFilters && (
+            <button
+              onClick={clearFilters}
+              className="px-3 py-2 bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 text-red-400 rounded-lg transition-all flex items-center gap-2 text-xs font-medium"
+            >
+              <FilterX className="w-3.5 h-3.5" />
+              Clear
+            </button>
+          )}
     </div>
   </div>
 </div>
@@ -1024,16 +1187,7 @@ const hasActiveFilters = useMemo(() => {
             )}
           </div>
 
-          {/* Clear Button */}
-          {hasActiveFilters && (
-            <button
-              onClick={clearFilters}
-              className="px-3 py-2 bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 text-red-400 rounded-lg transition-all flex items-center gap-2 text-xs font-medium"
-            >
-              <FilterX className="w-3.5 h-3.5" />
-              Clear
-            </button>
-          )}
+         
         </div>
       
       </div>
@@ -1208,15 +1362,8 @@ const hasActiveFilters = useMemo(() => {
                       </td>
                       {/* ✅ Dynamic Actions */}
                       <td className="py-3 px-3">
-                        <div className="flex items-center justify-center gap-1.5">
-                          {/* Quick Preview */}
-                          <button
-                            onClick={() => setViewingOrder(order)}
-                            className="p-1.5 text-violet-400 hover:bg-violet-500/10 border border-violet-500/20 rounded-lg transition-all"
-                            title="Quick View"
-                          >
-                            <Eye className="h-4 w-4" />
-                          </button>
+                        <div className="flex items-center justify-center gap-1.5">          
+                        
 
                           {/* Manage/Edit Order */}
                           <button
@@ -1303,6 +1450,8 @@ const hasActiveFilters = useMemo(() => {
                                         Cancel Order
                                       </button>
                                     )}
+
+
                                   </div>
                                 </>
                               )}
@@ -1374,213 +1523,38 @@ const hasActiveFilters = useMemo(() => {
         </div>
       )}
 
-      {/* Order Details Modal */}
-      {viewingOrder && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-[60] flex items-center justify-center p-4">
-          <div className="bg-gradient-to-br from-slate-900 via-slate-900 to-slate-800 border border-violet-500/20 rounded-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden shadow-2xl">
-            <div className="p-5 border-b border-violet-500/20 bg-gradient-to-r from-violet-500/10 to-cyan-500/10 sticky top-0 z-10">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h2 className="text-xl font-bold bg-gradient-to-r from-violet-400 via-cyan-400 to-pink-400 bg-clip-text text-transparent">
-                    Order Details
-                  </h2>
-                  <p className="text-slate-400 text-sm mt-1">{viewingOrder.orderNumber}</p>
-                </div>
-                <button
-                  onClick={() => setViewingOrder(null)}
-                  className="p-2 text-slate-400 hover:text-white hover:bg-red-600 rounded-lg transition-all"
-                  title="close modal"
-                >
-                  <X className="h-5 w-5" />
-                </button>
-              </div>
-            </div>
-            <div className="p-5 overflow-y-auto max-h-[calc(90vh-100px)] space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <InfoCard
-                  icon={<User className="w-4 h-4 text-violet-400" />}
-                  label="Customer"
-                  value={viewingOrder.customerName}
-                />
-                <InfoCard
-                  icon={<Mail className="w-4 h-4 text-cyan-400" />}
-                  label="Email"
-                  value={viewingOrder.customerEmail}
-                />
-                <InfoCard
-                  icon={<Phone className="w-4 h-4 text-green-400" />}
-                  label="Phone"
-                  value={viewingOrder.customerPhone || 'N/A'}
-                />
-                <InfoCard
-                  icon={<Calendar className="w-4 h-4 text-orange-400" />}
-                  label="Order Date"
-                  value={formatDate(viewingOrder.orderDate)}
-                />
-                <InfoCard
-                  icon={<CreditCard className="w-4 h-4 text-indigo-400" />}
-                  label="Payment Method"
-                  value={getPaymentMethodInfo(viewingOrder.paymentMethod).label}
-                />
-                <InfoCard
-                  icon={<CheckCircle className="w-4 h-4 text-emerald-400" />}
-                  label="Payment Status"
-                  value={viewingOrder.paymentStatus
-                    ? getPaymentStatusInfo(viewingOrder.paymentStatus as any).label
-                    : (viewingOrder.payments?.[0]
-                      ? getPaymentStatusInfo(viewingOrder.payments[0].status).label
-                      : 'N/A')}
-                />
-              </div>
-              <div className="bg-slate-800/30 rounded-lg p-4 border border-slate-700">
-                <h4 className="text-base font-bold text-white mb-3 flex items-center gap-2">
-                  <PoundSterling className="w-4 h-4 text-green-400" />
-                  Order Summary
-                </h4>
-                <div className="space-y-1.5 text-sm">
-                  <SummaryRow
-                    label="Subtotal"
-                    value={formatCurrency(viewingOrder.subtotalAmount, viewingOrder.currency)}
-                  />
-                  <SummaryRow
-                    label="Tax"
-                    value={formatCurrency(viewingOrder.taxAmount, viewingOrder.currency)}
-                  />
-                  <SummaryRow
-                    label="Shipping"
-                    value={formatCurrency(viewingOrder.shippingAmount, viewingOrder.currency)}
-                  />
-                  {viewingOrder.discountAmount > 0 && (
-                    <SummaryRow
-                      label="Discount"
-                      value={`-${formatCurrency(viewingOrder.discountAmount, viewingOrder.currency)}`}
-                      highlight
-                    />
-                  )}
-                  <div className="border-t border-slate-700 pt-1.5">
-                    <SummaryRow
-                      label="Total"
-                      value={formatCurrency(viewingOrder.totalAmount, viewingOrder.currency)}
-                      bold
-                    />
-                  </div>
-                </div>
-              </div>
-              {viewingOrder.orderItems.length > 0 && (
-                <div className="bg-slate-800/30 rounded-lg p-4 border border-slate-700">
-                  <h4 className="text-base font-bold text-white mb-3 flex items-center gap-2">
-                    <Package className="w-4 h-4 text-cyan-400" />
-                    Order Items ({viewingOrder.orderItems.length})
-                  </h4>
-                  <div className="space-y-2">
-                    {viewingOrder.orderItems.map((item) => (
-                      <div
-                        key={item.id}
-                        className="flex items-center gap-3 p-3 bg-slate-900/50 rounded-lg border border-slate-700/50"
-                      >
-                        <div className="flex-1">
-                          <p className="text-white font-medium text-sm">{item.productName}</p>
-                          <p className="text-xs text-slate-400">SKU: {item.productSku}</p>
-                          {item.variantName && (
-                            <p className="text-xs text-cyan-400">{item.variantName}</p>
-                          )}
-                        </div>
-                        <div className="text-right">
-                          <p className="text-white font-semibold text-sm">
-                            {item.quantity} × {formatCurrency(item.unitPrice, viewingOrder.currency)}
-                          </p>
-                          <p className="text-xs text-green-400 font-bold">
-                            {formatCurrency(item.totalPrice, viewingOrder.currency)}
-                          </p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <AddressCard title="Billing Address" address={viewingOrder.billingAddress} />
-                <AddressCard title="Shipping Address" address={viewingOrder.shippingAddress} />
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+{shipmentModalOpen && (
+  <BulkShipmentUploadModal
+    isOpen={true}
+    onClose={() => setShipmentModalOpen(false)}
+    onSuccess={() => {
+      fetchOrders();
+      setShipmentModalOpen(false);
+    }}
+  />
+)}
 
-      {/* ✅ Order Actions Modal */}
-      {modalState.isOpen && modalState.order && (
-        <OrderActionsModal
-          isOpen={modalState.isOpen}
-          onClose={closeActionModal}
-          order={modalState.order}
-          action={modalState.action}
-          onSuccess={handleActionSuccess}
-        />
-      )}
+{/* ✅ Order Actions Modal */}
+{modalState.isOpen && modalState.order && (
+  <OrderActionsModal
+    isOpen={modalState.isOpen}
+    onClose={closeActionModal}
+    order={modalState.order}
+    action={modalState.action}
+    onSuccess={handleActionSuccess}
+  />
+)}
+
+{/* ✅ Bulk Status Modal */}
+<BulkStatusModal
+  isOpen={bulkModalOpen}
+  onClose={() => setBulkModalOpen(false)}
+  onConfirm={handleBulkStatusUpdate}
+  currentStatus={selectedStatus as OrderStatus}
+  selectedOrders={selectedOrderPreview}
+  loading={bulkLoading}
+/>
     </div>
   );
 }
 
-const InfoCard = ({
-  icon,
-  label,
-  value,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  value: string;
-}) => (
-  <div className="bg-slate-800/30 rounded-lg p-3 border border-slate-700">
-    <div className="flex items-center gap-2">
-      {icon}
-      <div>
-        <p className="text-xs text-slate-400">{label}</p>
-        <p className="text-white font-medium text-sm">{value}</p>
-      </div>
-    </div>
-  </div>
-);
-
-const SummaryRow = ({
-  label,
-  value,
-  bold = false,
-  highlight = false,
-}: {
-  label: string;
-  value: string;
-  bold?: boolean;
-  highlight?: boolean;
-}) => (
-  <div className={`flex justify-between ${bold ? 'text-base' : 'text-sm'}`}>
-    <span className={`${bold ? 'font-bold text-white' : 'text-slate-400'}`}>{label}</span>
-    <span
-      className={`${bold ? 'font-bold text-white' : highlight ? 'text-pink-400' : 'text-white'}`}
-    >
-      {value}
-    </span>
-  </div>
-);
-
-const AddressCard = ({ title, address }: { title: string; address: Address }) => (
-  <div className="bg-slate-800/30 rounded-lg p-4 border border-slate-700">
-    <h4 className="text-base font-bold text-white mb-3 flex items-center gap-2">
-      <MapPin className="w-4 h-4 text-blue-400" />
-      {title}
-    </h4>
-    <div className="space-y-1.5 text-sm">
-      <p className="text-white font-medium">{`${address.firstName} ${address.lastName}`}</p>
-      {address.company && <p className="text-slate-400">{address.company}</p>}
-      <p className="text-slate-400">{address.addressLine1}</p>
-      {address.addressLine2 && <p className="text-slate-400">{address.addressLine2}</p>}
-      <p className="text-slate-400">{`${address.city}, ${address.state} ${address.postalCode}`}</p>
-      <p className="text-slate-400">{address.country}</p>
-      {address.phoneNumber && (
-        <p className="text-slate-400 flex items-center gap-1.5">
-          <Phone className="w-3 h-3" />
-          {address.phoneNumber}
-        </p>
-      )}
-    </div>
-  </div>
-);

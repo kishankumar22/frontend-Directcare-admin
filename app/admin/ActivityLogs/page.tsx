@@ -106,6 +106,7 @@ const ACTIVITY_TYPES: { value: ActivityLogType | "all"; label: string }[] = [
   { value: "CancelSubscription", label: "Cancel Subscription" },
   { value: "AddLoyaltyPoints", label: "Add Loyalty Points" },
   { value: "RedeemLoyaltyPoints", label: "Redeem Loyalty Points" },
+  { value: "BulkUpdateInventory", label: "Bulk update Inventory" },
   { value: "UpdateSettings", label: "Update Settings" },
   { value: "Other", label: "Other" },
 ];

@@ -8,7 +8,7 @@ import {
   User,
   Mail,
   Phone,
-  Calendar,
+  Calendar, 
   MapPin,
   Truck,
   CreditCard,
@@ -414,7 +414,11 @@ const getPharmacyStatusInfo = (status: string) => {
 // ✅ CONSOLIDATED ACTION BUTTONS (Merged Quick + Financial)
 // ===========================
 
-const getAllAvailableActions = (order: Order, canRefund: boolean) => {
+const getAllAvailableActions = (
+  order: Order,
+  canRefund: boolean,
+  hasEditHistory: boolean
+) => {
   const actions: Array<{
     label: string;
     action: string;
@@ -480,7 +484,6 @@ const getAllAvailableActions = (order: Order, canRefund: boolean) => {
     }
   }
 
-  // ✅ Update Status - Available for all except Refunded (backend blocks it)
   // Backend: Delivered → Returned/Refunded, Cancelled → Refunded, Refunded → BLOCKED
   if (status !== 'Refunded') {
     actions.push({
@@ -492,17 +495,24 @@ const getAllAvailableActions = (order: Order, canRefund: boolean) => {
     });
   }
 
-  // ✅ Cancel Order - Pending, Confirmed, Processing, Shipped, PartiallyShipped
+
   // Backend: Cannot cancel Delivered (use Return), Cancelled, Refunded, Returned
-  if (['Pending', 'Confirmed', 'Processing', 'Shipped', 'PartiallyShipped'].includes(status)) {
-    actions.push({
-      label: 'Cancel Order',
-      action: 'cancel-order',
-      icon: <PackageX className="h-3.5 w-3.5" />,
-      color: 'bg-red-600 hover:bg-red-700',
-      category: 'edit',
-    });
-  }
+const canCancel =
+  ['Pending', 'Confirmed', 'Processing', 'Shipped', 'PartiallyShipped'].includes(status) &&
+  !(
+    deliveryMethod === 'ClickAndCollect' &&
+    order.collectionStatus === 'Collected'
+  );
+
+if (canCancel) {
+  actions.push({
+    label: 'Cancel Order',
+    action: 'cancel-order',
+    icon: <PackageX className="h-3.5 w-3.5" />,
+    color: 'bg-red-600 hover:bg-red-700',
+    category: 'edit',
+  });
+}
 
   // ✅ Regenerate Invoice - Always available (backend has no status restriction)
   actions.push({
@@ -527,15 +537,15 @@ const getAllAvailableActions = (order: Order, canRefund: boolean) => {
   }
 
   // ✅ View Edit History - Only for orders that have been modified (not brand new pending)
-  if (order.updatedAt && order.updatedAt !== order.createdAt) {
-    actions.push({
-      label: 'View Edit History',
-      action: 'view-edit-history',
-      icon: <History className="h-3.5 w-3.5" />,
-      color: 'bg-slate-600 hover:bg-slate-700',
-      category: 'financial',
-    });
-  }
+if (hasEditHistory) {
+  actions.push({
+    label: 'View Edit History',
+    action: 'view-edit-history',
+    icon: <History className="h-3.5 w-3.5" />,
+    color: 'bg-slate-600 hover:bg-slate-700',
+    category: 'financial',
+  });
+}
 
   // ✅ Refund Actions - Only when payment is Successful/Completed/Captured and not already Refunded
   if (canRefund) {
@@ -717,9 +727,12 @@ const [isUpdatingPharma, setIsUpdatingPharma] = useState(false);
   const [showRegenerateInvoiceModal, setShowRegenerateInvoiceModal] = useState(false);
   const [regeneratingInvoice, setRegeneratingInvoice] = useState(false);
 
-  useEffect(() => {
-    if (orderId) fetchOrderDetails();
-  }, [orderId]);
+ useEffect(() => {
+  if (orderId) {
+    fetchOrderDetails();
+    fetchEditHistory(); // 👈 ADD THIS
+  }
+}, [orderId]);
 
   const fetchOrderDetails = async () => {
     try {
@@ -801,7 +814,19 @@ const handleRegenerateInvoice = async (sendToCustomer: boolean, notes: string) =
   }
 };
 
+const getEditLockReason = () => {
+  if (!order) return '';
 
+  if (order.deliveryMethod === 'ClickAndCollect') {
+    return 'Click & Collect orders cannot be edited';
+  }
+
+  if (!['Pending', 'Confirmed'].includes(order.status)) {
+    return `Order editing is not allowed when status is ${order.status}`;
+  }
+
+  return '';
+};
 
   const handleFullRefund = async () => {
     if (!refundNotes.trim()) {
@@ -951,11 +976,14 @@ const handleAction = (action: string) => {
     return new Date(order.collectionExpiryDate) < new Date();
   };
 
-  const isOrderEditable = () => {
-    if (!order) return false;
-    const editableStatuses = ['Pending', 'Confirmed'];
-    return editableStatuses.includes(order.status);
-  };
+const isOrderEditable = () => {
+  if (!order) return false;
+
+  const isEditableStatus = ['Pending', 'Confirmed'].includes(order.status);
+  const isClickAndCollect = order.deliveryMethod === 'ClickAndCollect';
+
+  return isEditableStatus && !isClickAndCollect;
+};
 
   const canRefund = () => {
     if (!order) return false;
@@ -1000,7 +1028,11 @@ const handleAction = (action: string) => {
   const collectionStatusInfo = order.collectionStatus
     ? getCollectionStatusInfo(order.collectionStatus as CollectionStatus)
     : null;
-  const allActions = getAllAvailableActions(order, canRefund());
+ const allActions = getAllAvailableActions(
+  order,
+  canRefund(),
+  editHistory.length > 0
+);
 
   return (
     <div className="space-y-3 pb-6">
@@ -1258,55 +1290,71 @@ const handleAction = (action: string) => {
             </div>
           </div>
 
-          {/* Delivery Method */}
-          <div className="mt-3 pt-3 border-t border-slate-700">
-            <p className="text-xs text-slate-400 mb-2 flex items-center gap-1">
-              <Truck className="h-3 w-3" />
-              Delivery Method
-            </p>
-            {order.deliveryMethod === 'ClickAndCollect' ? (
-              <span
-                className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-cyan-500/10 text-cyan-400 text-sm border border-cyan-500/20 cursor-help"
-                title="Customer will collect order from store location"
-              >
-                <MapPin className="h-4 w-4" />
-                Click & Collect
-              </span>
-            ) : (
-              <span
-                className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-purple-500/10 text-purple-400 text-sm border border-purple-500/20 cursor-help"
-                title="Order will be shipped to customer address"
-              >
-                <Truck className="h-4 w-4" />
-                Home Delivery
-              </span>
-            )}
-          </div>
+{/* Delivery + Payment Row */}
+<div className="mt-3 pt-3 border-t border-slate-700 grid grid-cols-1 md:grid-cols-2 gap-6">
 
-          {/* Payment Method */}
-          <div className="mt-3 pt-3 border-t border-slate-700">
-            <p className="text-xs text-slate-400 mb-2 flex items-center gap-1">
-              <CreditCard className="h-3 w-3" />
-              Payment Method
-            </p>
-            {(() => {
-              const method = order.paymentMethod || order.payments?.[0]?.paymentMethod;
-              const isStripe = method?.toLowerCase() === 'stripe';
-              return (
-                <span
-                  className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm border cursor-help ${
-                    isStripe
-                      ? 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20'
-                      : 'bg-amber-500/10 text-amber-400 border-amber-500/20'
-                  }`}
-                  title={isStripe ? 'Payment via Stripe card processing' : 'Cash on Delivery - payment upon receipt'}
-                >
-                  {isStripe ? <CreditCard className="h-4 w-4" /> : <PoundSterling className="h-4 w-4" />}
-                  {isStripe ? 'Stripe' : 'Cash on Delivery'}
-                </span>
-              );
-            })()}
-          </div>
+  {/* Delivery Method */}
+  <div>
+    <p className="text-xs text-slate-400 mb-2 flex items-center gap-1">
+      <Truck className="h-3 w-3" />
+      Delivery Method
+    </p>
+
+    {order.deliveryMethod === 'ClickAndCollect' ? (
+      <span
+        className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-cyan-500/10 text-cyan-400 text-sm border border-cyan-500/20 cursor-help"
+        title="Customer will collect order from store location"
+      >
+        <MapPin className="h-4 w-4" />
+        Click & Collect
+      </span>
+    ) : (
+      <span
+        className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-purple-500/10 text-purple-400 text-sm border border-purple-500/20 cursor-help"
+        title="Order will be shipped to customer address"
+      >
+        <Truck className="h-4 w-4" />
+        Home Delivery
+      </span>
+    )}
+  </div>
+
+  {/* Payment Method */}
+  <div>
+    <p className="text-xs text-slate-400 mb-2 flex items-center gap-1">
+      <CreditCard className="h-3 w-3" />
+      Payment Method
+    </p>
+
+    {(() => {
+      const method = order.paymentMethod || order.payments?.[0]?.paymentMethod;
+      const isStripe = method?.toLowerCase() === 'stripe';
+
+      return (
+        <span
+          className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm border cursor-help ${
+            isStripe
+              ? 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20'
+              : 'bg-amber-500/10 text-amber-400 border-amber-500/20'
+          }`}
+          title={
+            isStripe
+              ? 'Payment via Stripe card processing'
+              : 'Cash on Delivery - payment upon receipt'
+          }
+        >
+          {isStripe ? (
+            <CreditCard className="h-4 w-4" />
+          ) : (
+            <PoundSterling className="h-4 w-4" />
+          )}
+          {isStripe ? 'Stripe' : 'Cash on Delivery'}
+        </span>
+      );
+    })()}
+  </div>
+
+</div>
         </div>
 
         {/* Important Dates */}
@@ -1417,9 +1465,9 @@ const handleAction = (action: string) => {
                 <Hash className="h-3 w-3" />
                 ID Number
               </p>
-              {/* <p className="text-white font-medium">
+              <p className="text-white font-medium">
                 {order.collectorIDNumber ? `****${order.collectorIDNumber.slice(-4)}` : 'Not recorded'}
-              </p> */}
+              </p>
             </div>
           </div>
         </div>
@@ -1432,30 +1480,36 @@ const handleAction = (action: string) => {
       <div className="p-2 bg-gradient-to-br from-pink-500 to-rose-500 rounded-lg">
         <Package className="h-4 w-4 text-white" />
       </div>
-      <h3 className="text-lg font-bold text-white">Order Items</h3>
+      <h3 className="text-lg font-bold text-white">Order Quantity</h3>
     </div>
-    <div className="flex items-center gap-2">
-      <span className="text-xs text-slate-400 px-2 py-1 bg-slate-800 rounded-lg" title="Total number of unique products">
-        {order.orderItems.length} {order.orderItems.length === 1 ? 'Item' : 'Items'}
-      </span>
-      
-      {/* ✅ Edit Button - Only show for Pending/Confirmed orders */}
-      {isOrderEditable() ? (
-        <button
-          onClick={() => setEditModalOpen(true)}
-          className="px-3 py-1.5 bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700 text-white rounded-lg transition-all flex items-center gap-2 text-sm font-medium shadow-lg hover:shadow-xl hover:scale-105"
-          title="Edit order items (add/remove/update quantities)"
-        >
-          <Edit className="h-3.5 w-3.5" />
-          Edit Items
-        </button>
-      ) : (
-        <div className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-800 border border-slate-700 rounded-lg text-xs text-slate-400" title={`Order editing is locked for ${order.status} status`}>
-          <Lock className="h-3 w-3" />
-          Locked
-        </div>
-      )}
+<div className="flex items-center gap-2">
+  <span
+    className="text-xs text-slate-400 px-2 py-1 bg-slate-800 rounded-lg"
+    title="Total number of unique products"
+  >
+    {order.orderItems.length}{' '}
+    {order.orderItems.length === 1 ? 'Item' : 'Items'}
+  </span>
+
+  {isOrderEditable() ? (
+    <button
+      onClick={() => setEditModalOpen(true)}
+      className="px-3 py-1.5 bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700 text-white rounded-lg transition-all flex items-center gap-2 text-sm font-medium shadow-lg hover:shadow-xl hover:scale-105"
+      title="Edit order items (add/remove/update quantities)"
+    >
+      <Edit className="h-3.5 w-3.5" />
+      Edit Items
+    </button>
+  ) : (
+    <div
+      className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-800 border border-slate-700 rounded-lg text-xs text-slate-400"
+      title={getEditLockReason()}
+    >
+      <Lock className="h-3 w-3" />
+      Locked
     </div>
+  )}
+</div>
   </div>
   
   {/* Status restriction message */}
@@ -1727,18 +1781,25 @@ const handleAction = (action: string) => {
         </div>
       )}
       {/* Modals */}
-      {editModalOpen && order && (
-        <OrderEditModal
-          isOpen={editModalOpen}
-          onClose={() => setEditModalOpen(false)}
-          order={order}
-          onSuccess={() => {
-            setEditModalOpen(false);
-            fetchOrderDetails();
-          }}
-        />
-      )}
+   {editModalOpen && order && (
+  <OrderEditModal
+    isOpen={editModalOpen}
+    onClose={() => setEditModalOpen(false)}
+    order={order}
+    onSuccess={async () => {
+      setEditModalOpen(false);
 
+      // 🔄 Refresh order details
+      await fetchOrderDetails();
+
+      // 🧾 Auto Regenerate Invoice + Send Email
+      await handleRegenerateInvoice(
+        true, // ✅ sendToCustomer = true
+        "Invoice automatically regenerated after order edit"
+      );
+    }}
+  />
+)}
       {actionModalOpen && order && (
         <OrderActionsModal
           isOpen={actionModalOpen}

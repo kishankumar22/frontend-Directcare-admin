@@ -20,8 +20,43 @@ export type OrderStatus =
   | 'Returned';
 
   
+// ================= BULK REQUEST DTOs ====================
 
+export interface BulkUpdateStatusRequest {
+  orderIds: string[];
+  newStatus: OrderStatus;
+  adminNotes?: string;
+  currentUser: string;
+}
 
+export interface BulkShipmentItem {
+  orderId: string;
+  trackingNumber: string;
+  carrier: string;
+  shippingMethod: string;
+  notes?: string;
+}
+
+export interface BulkCreateShipmentRequest {
+  shipments: {
+    orderId: string;
+    trackingNumber: string;
+    carrier: string;
+    shippingMethod: string;
+    notes?: string;
+  }[];
+  currentUser: string;
+}
+
+export interface BulkOperationResponse {
+  processedCount: number;
+  failedCount: number;
+  failed?: {
+    orderId: string;
+    orderNumber: string;
+    reason: string;
+  }[];
+}
 /**
  * ✅ Collection Status
  */
@@ -140,6 +175,7 @@ export interface Order {
   collectedBy?: string;
   collectorIDType?: string;
   collectionExpiryDate?: string;
+  collectorIDNumber?:string
   // ================= PHARMACY =================
   pharmacyVerificationStatus?: PharmacyVerificationStatus;
   pharmacyVerificationNote?: string | null;
@@ -275,11 +311,13 @@ async getAllOrders(params?: {
     }
   }
 // ================= PHARMACY =================
-
 async pharmacyApprove(orderId: string, data: { note?: string }) {
   const res = await apiClient.post(
     `${API_ENDPOINTS.orders}/${orderId}/pharmacy-approve`,
-    data
+    {
+      orderId: orderId,   // 🔥 VERY IMPORTANT
+      note: data.note,
+    }
   );
   return res.data;
 }
@@ -287,9 +325,42 @@ async pharmacyApprove(orderId: string, data: { note?: string }) {
 async pharmacyReject(orderId: string, data: { reason: string }) {
   const res = await apiClient.post(
     `${API_ENDPOINTS.orders}/${orderId}/pharmacy-reject`,
-    data
+    {
+      orderId: orderId,   // 🔥 VERY IMPORTANT
+      reason: data.reason,
+    }
   );
   return res.data;
+}
+
+// ================= BULK OPERATIONS ====================
+
+async bulkUpdateStatus(data: BulkUpdateStatusRequest) {
+  try {
+    const response = await apiClient.post<ApiResponse<BulkOperationResponse>>(
+      `${API_ENDPOINTS.orders}/bulk-update-status`,
+      data
+    );
+    return response.data;
+  } catch (error: any) {
+    throw new Error(
+      error.response?.data?.message || 'Failed to bulk update status'
+    );
+  }
+}
+
+async bulkCreateShipment(data: BulkCreateShipmentRequest) {
+  try {
+    const response = await apiClient.post<ApiResponse<BulkOperationResponse>>(
+      `${API_ENDPOINTS.orders}/bulk-create-shipment`,
+      data
+    );
+    return response.data;
+  } catch (error: any) {
+    throw new Error(
+      error.response?.data?.message || 'Failed to create bulk shipments'
+    );
+  }
 }
 
 
@@ -382,6 +453,8 @@ async pharmacyReject(orderId: string, data: { reason: string }) {
     }
   }
 }
+
+
 
 export const orderService = new OrderService();
 

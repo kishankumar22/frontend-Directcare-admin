@@ -64,6 +64,7 @@ export interface ActivityLogQueryParams {
 
 export type ActivityLogType =
   | 'AddProduct'
+  
   | 'UpdateProduct'
   | 'DeleteProduct'
   | 'AddCategory'
@@ -118,6 +119,7 @@ export type ActivityLogType =
   | 'AddLoyaltyPoints'
   | 'RedeemLoyaltyPoints'
   | 'UpdateSettings'
+  | 'BulkUpdateInventory'
   | 'Other';
 
 // ========== Service ==========

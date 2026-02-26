@@ -20,6 +20,8 @@ export const API_ENDPOINTS = {
 
   // Products
   products: '/api/Products',
+  inventoryBulkUpdate: "/api/Products/inventory/bulk-update",
+  inventoryBulkUpload: "/api/Products/inventory/bulk-upload",
   PharmacyQuestions:'/api/pharmacy-questions',
   
   // 🆕 Product Lock & Takeover System
@@ -37,7 +39,7 @@ export const API_ENDPOINTS = {
 
   // Orders
   orders: '/api/Orders',
- 
+
 
   shipping: "/api/Shipping", // Add this line
 

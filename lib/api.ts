@@ -8,6 +8,7 @@ export interface ApiResponse<T> {
   error?: string;
   message?: string;
   status?: number;
+  errors?: string[]
 }
 
 class ApiClient {

@@ -364,11 +364,10 @@ export interface PaginatedResponse<T> {
 
 export interface ApiResponse<T> {
   success: boolean;
-  data: T;
   message?: string;
-  error?: string;
+  data?: T;
+  errors?: string[]; // 🔥 ADD THIS
 }
-
 // ==========================================
 // PRODUCTS SERVICE
 // ==========================================
@@ -414,6 +413,63 @@ getAll: async (params?: ProductQueryParams) => {
   update: async (id: string, data: UpdateProductDto) => {
     return apiClient.put<ApiResponse<Product>>(`${API_ENDPOINTS.products}/${id}`, data);
   },
+
+// 🔥 Inventory Bulk Update (JSON) — MUST BE PUT
+bulkUpdateInventory: async (items: {
+  productId: string;
+  newStock: number;
+  newPrice: number;
+}[]) => {
+  return apiClient.put<
+    ApiResponse<{
+      totalItems: number;
+      updated: number;
+      skipped: number;
+      errors: {
+        row: number;
+        productId: string;
+        reason: string;
+      }[];
+      details: {
+        productId: string;
+        productName: string;
+        sku: string;
+        oldStock: number;
+        newStock: number;
+        oldPrice: number;
+        newPrice: number;
+      }[];
+    }>
+  >(API_ENDPOINTS.inventoryBulkUpdate, items);
+},
+
+// 🔥 Inventory Bulk Upload (Excel File) — POST is correct here
+bulkUploadInventoryExcel: async (file: File) => {
+  const formData = new FormData();
+  formData.append("file", file);
+
+  return apiClient.post<
+    ApiResponse<{
+      totalItems: number;
+      updated: number;
+      skipped: number;
+      errors: {
+        row: number;
+        productId: string;
+        reason: string;
+      }[];
+      details: {
+        productId: string;
+        productName: string;
+        sku: string;
+        oldStock: number;
+        newStock: number;
+        oldPrice: number;
+        newPrice: number;
+      }[];
+    }>
+  >(API_ENDPOINTS.inventoryBulkUpload, formData);
+},
 toggleActive: async (id: string) => {
   return apiClient.patch<ApiResponse<{
     productId: string;

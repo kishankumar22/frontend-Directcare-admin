@@ -14,7 +14,6 @@ import {
   MapPin,
   AlertTriangle,
   Bell,
-  History,
   CreditCard,
   ShieldAlert
 } from 'lucide-react';
@@ -22,10 +21,6 @@ import {
   orderService,
   Order,
   OrderStatus,
-  MarkCollectedRequest,
-  UpdateStatusRequest,
-  CreateShipmentRequest,
-  MarkDeliveredRequest,
   CancelOrderRequest,
 } from '../../../lib/services/orders'; // ✅ FIXED PATH
 import { useToast } from '@/app/admin/_components/CustomToast';
@@ -40,26 +35,49 @@ interface OrderActionsModalProps {
 }
 
 // ✅ Valid status transitions matching backend UpdateOrderStatusCommandHandler
-const getValidStatusTransitions = (currentStatus: OrderStatus, deliveryMethod: string): OrderStatus[] => {
-  const baseTransitions: Record<OrderStatus, OrderStatus[]> = {
-    'Pending': ['Confirmed', 'Processing', 'Cancelled'],
-    'Confirmed': deliveryMethod === 'ClickAndCollect'
-      ? ['Processing', 'Cancelled']
-      : ['Processing', 'Shipped', 'Cancelled'],
-    'Processing': deliveryMethod === 'ClickAndCollect'
-      ? ['Cancelled']
-      : ['Shipped', 'PartiallyShipped', 'Cancelled'],
-    'Shipped': ['Delivered', 'Returned', 'Cancelled'],
-    'PartiallyShipped': ['Shipped', 'Delivered', 'Cancelled'],
-    'Delivered': ['Returned', 'Refunded'],
-    'Cancelled': ['Refunded'],
-    'Returned': ['Refunded'],
-    'Refunded': [],
+
+export const getValidStatusTransitions = (
+  currentStatus: OrderStatus,
+  deliveryMethod: string
+): OrderStatus[] => {
+
+  const transitions: Record<OrderStatus, OrderStatus[]> = {
+
+    Pending: [
+      'Confirmed',
+      'Processing'
+    ],
+
+    Confirmed: deliveryMethod === 'ClickAndCollect'
+      ? ['Processing']
+      : ['Processing', 'Shipped'],
+
+    Processing: deliveryMethod === 'ClickAndCollect'
+      ? []  // Click & Collect uses Mark Ready instead
+      : ['Shipped', 'PartiallyShipped'],
+
+    Shipped: [
+      'Delivered',
+      'Returned'
+    ],
+
+    PartiallyShipped: [
+      'Shipped',
+      'Delivered'
+    ],
+
+    Delivered: [
+      'Returned'
+    ],
+
+    // Terminal states
+    Cancelled: [],
+    Returned: [],
+    Refunded: []
   };
 
-  return baseTransitions[currentStatus] || [];
+  return transitions[currentStatus] || [];
 };
-
 // ✅ Status display info
 const getStatusDisplayInfo = (status: OrderStatus) => {
   const statusMap: Record<OrderStatus, { label: string; color: string; icon: JSX.Element }> = {
@@ -282,86 +300,78 @@ const [pendingCancelRequest, setPendingCancelRequest] = useState<CancelOrderRequ
     }
   }, [isOpen, action, order.status, order.shipments, isPaid]);
 
+  const actionHandlers: Record<string, () => Promise<void>> = {
+  'mark-ready': async () => {
+    await orderService.markReady(order.id);
+    toast.success('✅ Order marked as ready');
+  },
+
+  'mark-collected': async () => {
+    await orderService.markCollected({
+      orderId: order.id,
+      collectedBy: collectedData.collectedBy,
+      collectorIDType: collectedData.collectorIDType,
+      collectorIDNumber: collectedData.collectorIDNumber,
+    });
+    toast.success('✅ Order marked as collected');
+  },
+
+  'update-status': async () => {
+    await orderService.updateStatus({
+      orderId: order.id,
+      newStatus: statusData.newStatus,
+      adminNotes: statusData.adminNotes || undefined,
+    });
+    toast.success('✅ Status updated');
+  },
+
+  'create-shipment': async () => {
+    await orderService.createShipment({
+      orderId: order.id,
+      trackingNumber: shipmentData.trackingNumber,
+      carrier: shipmentData.carrier,
+      shippingMethod: shipmentData.shippingMethod,
+      notes: shipmentData.notes || undefined,
+      shipmentItems: shipmentData.selectedItems,
+    });
+    toast.success('✅ Shipment created');
+  },
+
+  'mark-delivered': async () => {
+    await orderService.markDelivered({
+      orderId: order.id,
+      shipmentId: deliveredData.shipmentId,
+      deliveredAt: new Date(deliveredData.deliveredAt).toISOString(),
+      deliveryNotes: deliveredData.deliveryNotes || undefined,
+      receivedBy: deliveredData.receivedBy || undefined,
+    });
+    toast.success('✅ Order delivered');
+  }
+};
+
 const handleSubmit = async (e: FormEvent) => {
   e.preventDefault();
 
-  if (['create-shipment', 'mark-delivered'].includes(action) && !isPaid) {
-    toast.error('⚠️ Cannot proceed: Order payment is not completed');
-    return;
-  }
+ if (action === 'cancel-order') {
+  const cancelRequest: CancelOrderRequest = {
+    orderId: order.id,
+    cancellationReason: cancelData.cancellationReason,
+    restoreInventory: cancelData.restoreInventory,
+    initiateRefund: cancelData.initiateRefund,
+    cancelledBy: cancelData.cancelledBy,
+  };
+
+  setPendingCancelRequest(cancelRequest);
+  setShowCancelConfirm(true);
+  return;
+}
+
+  if (!actionHandlers[action]) return;
 
   try {
-    switch (action) {
-
-      case 'cancel-order': {
-        const cancelRequest: CancelOrderRequest = {
-          orderId: order.id,
-          cancellationReason: cancelData.cancellationReason,
-          restoreInventory: cancelData.restoreInventory,
-          initiateRefund: cancelData.initiateRefund,
-          cancelledBy: cancelData.cancelledBy,
-        };
-
-        setPendingCancelRequest(cancelRequest);
-        setShowCancelConfirm(true);
-        return; // stop here
-      }
-
-      default:
-        setLoading(true); // 🔥 moved here
-    }
-
-    switch (action) {
-      case 'mark-ready':
-        await orderService.markReady(order.id);
-        toast.success('✅ Order marked as ready');
-        break;
-
-      case 'mark-collected':
-        await orderService.markCollected({
-          orderId: order.id,
-          collectedBy: collectedData.collectedBy,
-          collectorIDType: collectedData.collectorIDType,
-          collectorIDNumber: collectedData.collectorIDNumber,
-        });
-        toast.success('✅ Order marked as collected');
-        break;
-
-      case 'update-status':
-        await orderService.updateStatus({
-          orderId: order.id,
-          newStatus: statusData.newStatus,
-          adminNotes: statusData.adminNotes || undefined,
-        });
-        toast.success('✅ Status updated');
-        break;
-
-      case 'create-shipment':
-        await orderService.createShipment({
-          orderId: order.id,
-          trackingNumber: shipmentData.trackingNumber,
-          carrier: shipmentData.carrier,
-          shippingMethod: shipmentData.shippingMethod,
-          notes: shipmentData.notes || undefined,
-          shipmentItems: shipmentData.selectedItems,
-        });
-        toast.success('✅ Shipment created');
-        break;
-
-      case 'mark-delivered':
-        await orderService.markDelivered({
-          orderId: order.id,
-          shipmentId: deliveredData.shipmentId,
-          deliveredAt: new Date(deliveredData.deliveredAt).toISOString(),
-          deliveryNotes: deliveredData.deliveryNotes || undefined,
-          receivedBy: deliveredData.receivedBy || undefined,
-        });
-        toast.success('✅ Order delivered');
-        break;
-    }
-
+    setLoading(true);
+    await actionHandlers[action]();
     onSuccess();
-
   } catch (error: any) {
     toast.error(error.message || 'Failed to perform action');
   } finally {
@@ -633,7 +643,7 @@ const handleSubmit = async (e: FormEvent) => {
                 >
                   <option value={order.status}>Select new status</option>
                   {availableStatuses.map((status) => (
-                    <option key={status} value={status}>
+                    <option className='bg-gray-800 text-white' key={status} value={status}>
                       {getStatusDisplayInfo(status).label}
                     </option>
                   ))}

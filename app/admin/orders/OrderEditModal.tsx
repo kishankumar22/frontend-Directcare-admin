@@ -254,7 +254,11 @@ const [showAddresses, setShowAddresses] = useState(true);
 
   // ✅ Validation State
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
-
+const getNewlyAddedItems = () => {
+  return operations.filter(
+    (op) => op.operationType === OrderEditOperationType.AddItem
+  );
+};
   // ===========================
   // LIFECYCLE & DATA LOADING
   // ===========================
@@ -288,7 +292,7 @@ const [showAddresses, setShowAddresses] = useState(true);
       setBillingAddress({
         firstName: order.billingAddress.firstName || '',
         lastName: order.billingAddress.lastName || '',
-        company: order.billingAddress.company || '',
+  
         addressLine1: order.billingAddress.addressLine1 || '',
         addressLine2: order.billingAddress.addressLine2 || '',
         city: order.billingAddress.city || '',
@@ -303,7 +307,6 @@ const [showAddresses, setShowAddresses] = useState(true);
       setShippingAddress({
         firstName: order.shippingAddress.firstName || '',
         lastName: order.shippingAddress.lastName || '',
-        company: order.shippingAddress.company || '',
         addressLine1: order.shippingAddress.addressLine1 || '',
         addressLine2: order.shippingAddress.addressLine2 || '',
         city: order.shippingAddress.city || '',
@@ -974,95 +977,163 @@ useEffect(() => {
             </div>
 
             {/* ✅ Current Order Items */}
-            <div className="bg-slate-900/30 rounded-xl border border-slate-700 p-4">
-              <div className="flex items-center gap-2 mb-3">
-                <ShoppingCart className="h-4 w-4 text-cyan-400" />
-                <h3 className="text-sm font-semibold text-white">Current Items</h3>
-              </div>
-              <div className="space-y-2">
-                {order.orderItems.map((item) => {
-                  const currentQty = editedItems.get(item.id) ?? item.quantity;
-                  const isRemoved = currentQty === 0;
+     {/* ✅ Current Order Items */}
+<div className="bg-slate-900/30 rounded-xl border border-slate-700 p-4">
+  <div className="flex items-center gap-2 mb-3">
+    <ShoppingCart className="h-4 w-4 text-cyan-400" />
+    <h3 className="text-sm font-semibold text-white">Current Items</h3>
+  </div>
 
-                  return (
-                    <div
-                      key={item.id}
-                      className={`p-2.5 rounded-lg border transition-all ${
-                        isRemoved
-                          ? 'bg-red-500/10 border-red-500/30 opacity-50'
-                          : 'bg-slate-900/50 border-slate-700 hover:border-violet-500/50'
-                      }`}
-                    >
-                      <div className="flex items-center justify-between gap-2">
-                        <div className="flex-1 min-w-0">
-                          <p
-                            className={`font-medium text-sm ${
-                              isRemoved ? 'line-through text-red-400' : 'text-white'
-                            }`}
-                          >
-                            {item.productName}
-                          </p>
-                          <p className="text-xs text-slate-400 mt-0.5">
-                            {item.productSku} • £{item.unitPrice.toFixed(2)} each
-                          </p>
-                        </div>
+  <div className="space-y-2">
+    {/* ========================= */}
+    {/* Existing Order Items */}
+    {/* ========================= */}
+    {order.orderItems.map((item) => {
+      const currentQty = editedItems.get(item.id) ?? item.quantity;
+      const isRemoved = currentQty === 0;
 
-                        <div className="flex items-center gap-1.5">
-                          {!isRemoved && (
-                            <>
-                              <button
-                                type="button"
-                                onClick={() => updateItemQuantity(item.id, currentQty, -1)}
-                                className="p-1 bg-slate-700 hover:bg-slate-600 rounded transition-all"
-                                disabled={loading}
-                              >
-                                <Minus className="h-3.5 w-3.5 text-white" />
-                              </button>
-                              <span className="w-10 text-center text-white font-semibold text-sm">
-                                {currentQty}
-                              </span>
-                              <button
-                                type="button"
-                                onClick={() => updateItemQuantity(item.id, currentQty, 1)}
-                                className="p-1 bg-slate-700 hover:bg-slate-600 rounded transition-all"
-                                disabled={loading}
-                              >
-                                <Plus className="h-3.5 w-3.5 text-white" />
-                              </button>
-                            </>
-                          )}
-                          <button
-                            type="button"
-                            onClick={() => removeItem(item.id)}
-                            className="p-1 bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 rounded transition-all ml-1"
-                            disabled={loading}
-                          >
-                            <Trash2 className="h-3.5 w-3.5 text-red-400" />
-                          </button>
-                        </div>
-                      </div>
-
-                      {currentQty !== item.quantity && !isRemoved && (
-                        <div className="mt-1.5 pt-1.5 border-t border-slate-700">
-                          <p className="text-xs text-amber-400 flex items-center gap-1">
-                            <AlertTriangle className="h-3 w-3" />
-                            Changed: {item.quantity} → {currentQty}
-                          </p>
-                        </div>
-                      )}
-                      {isRemoved && (
-                        <div className="mt-1.5 pt-1.5 border-t border-red-500/30">
-                          <p className="text-xs text-red-400 flex items-center gap-1">
-                            <XCircle className="h-3 w-3" />
-                            Will be removed
-                          </p>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
+      return (
+        <div
+          key={item.id}
+          className={`p-2.5 rounded-lg border transition-all ${
+            isRemoved
+              ? 'bg-red-500/10 border-red-500/30 opacity-50'
+              : 'bg-slate-900/50 border-slate-700 hover:border-violet-500/50'
+          }`}
+        >
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex-1 min-w-0">
+              <p
+                className={`font-medium text-sm ${
+                  isRemoved ? 'line-through text-red-400' : 'text-white'
+                }`}
+              >
+                {item.productName}
+              </p>
+              <p className="text-xs text-slate-400 mt-0.5">
+                {item.productSku} • £{item.unitPrice.toFixed(2)} each
+              </p>
             </div>
+
+            <div className="flex items-center gap-1.5">
+              {!isRemoved && (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => updateItemQuantity(item.id, currentQty, -1)}
+                    className="p-1 bg-slate-700 hover:bg-slate-600 rounded transition-all"
+                    disabled={loading}
+                  >
+                    <Minus className="h-3.5 w-3.5 text-white" />
+                  </button>
+
+                  <span className="w-10 text-center text-white font-semibold text-sm">
+                    {currentQty}
+                  </span>
+
+                  <button
+                    type="button"
+                    onClick={() => updateItemQuantity(item.id, currentQty, 1)}
+                    className="p-1 bg-slate-700 hover:bg-slate-600 rounded transition-all"
+                    disabled={loading}
+                  >
+                    <Plus className="h-3.5 w-3.5 text-white" />
+                  </button>
+                </>
+              )}
+
+              <button
+                type="button"
+                onClick={() => removeItem(item.id)}
+                className="p-1 bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 rounded transition-all ml-1"
+                disabled={loading}
+              >
+                <Trash2 className="h-3.5 w-3.5 text-red-400" />
+              </button>
+            </div>
+          </div>
+
+          {currentQty !== item.quantity && !isRemoved && (
+            <div className="mt-1.5 pt-1.5 border-t border-slate-700">
+              <p className="text-xs text-amber-400 flex items-center gap-1">
+                <AlertTriangle className="h-3 w-3" />
+                Changed: {item.quantity} → {currentQty}
+              </p>
+            </div>
+          )}
+
+          {isRemoved && (
+            <div className="mt-1.5 pt-1.5 border-t border-red-500/30">
+              <p className="text-xs text-red-400 flex items-center gap-1">
+                <XCircle className="h-3 w-3" />
+                Will be removed
+              </p>
+            </div>
+          )}
+        </div>
+      );
+    })}
+
+    {/* ========================= */}
+    {/* Newly Added Items */}
+    {/* ========================= */}
+    {getNewlyAddedItems().map((op, index) => {
+      const product = allProducts.find((p) => p.id === op.productId);
+      const productName = product?.name || 'New Product';
+      const productSku = product?.sku || '';
+      const unitPrice = op.newUnitPrice || 0;
+      const quantity = op.newQuantity || 1;
+
+      return (
+        <div
+          key={`new-${index}`}
+          className="p-2.5 rounded-lg border transition-all bg-green-500/10 border-green-500/30 hover:border-green-400/50"
+        >
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex-1 min-w-0">
+              <p className="font-medium text-sm text-green-400 flex items-center gap-2">
+                {productName}
+                <span className="text-[10px] px-1.5 py-0.5 rounded bg-green-600/20 text-green-300 border border-green-500/30">
+                  NEW
+                </span>
+              </p>
+
+              <p className="text-xs text-slate-400 mt-0.5">
+                {productSku} • £{unitPrice.toFixed(2)} each
+              </p>
+            </div>
+
+            <div className="flex items-center gap-1.5">
+              <span className="w-10 text-center text-white font-semibold text-sm">
+                {quantity}
+              </span>
+
+              <button
+                type="button"
+                onClick={() =>
+                  setOperations((prev) =>
+                    prev.filter(
+                      (operation, i) =>
+                        !(
+                          operation.operationType ===
+                            OrderEditOperationType.AddItem &&
+                          i === index
+                        )
+                    )
+                  )
+                }
+                className="p-1 bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 rounded transition-all ml-1"
+                disabled={loading}
+              >
+                <Trash2 className="h-3.5 w-3.5 text-red-400" />
+              </button>
+            </div>
+          </div>
+          </div>
+      );
+    })}
+  </div>
+</div>
 
             {/* ✅ Addresses Section - Side by Side */}
 {/* ✅ Addresses Section - With Labels */}
@@ -1126,22 +1197,7 @@ useEffect(() => {
           </div>
         </div>
 
-        {/* Company */}
-        <div>
-          <label className="block text-xs font-medium text-slate-400 mb-1">
-            Company <span className="text-slate-500">(Optional)</span>
-          </label>
-          <input
-            type="text"
-            value={billingAddress.company || ''}
-            onChange={(e) => {
-              setBillingAddress({ ...billingAddress, company: e.target.value });
-              setBillingAddressChanged(true);
-            }}
-            placeholder="Enter company name"
-            className="w-full px-3 py-2 bg-slate-900/50 border border-slate-700 rounded-lg text-sm text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500"
-          />
-        </div>
+
 
         {/* Address Line 1 */}
         <div>
@@ -1324,22 +1380,7 @@ useEffect(() => {
           </div>
         </div>
 
-        {/* Company */}
-        <div>
-          <label className="block text-xs font-medium text-slate-400 mb-1">
-            Company <span className="text-slate-500">(Optional)</span>
-          </label>
-          <input
-            type="text"
-            value={shippingAddress.company || ''}
-            onChange={(e) => {
-              setShippingAddress({ ...shippingAddress, company: e.target.value });
-              setShippingAddressChanged(true);
-            }}
-            placeholder="Enter company name"
-            className="w-full px-3 py-2 bg-slate-900/50 border border-slate-700 rounded-lg text-sm text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500"
-          />
-        </div>
+   
 
         {/* Address Line 1 */}
         <div>

@@ -10,7 +10,7 @@ export interface Category {
   slug: string;
   imageUrl?: string;
   isActive: boolean;
-  sortOrder: number;
+  sortOrder: number;  
   productCount: number;
   metaTitle?: string;
   metaDescription?: string;
