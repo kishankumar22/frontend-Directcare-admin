@@ -32,7 +32,7 @@ export default function EditHistorySection({
 }: EditHistorySectionProps) {
   const hasFetchedRef = useRef(false);
 
-  /* ================= FETCH ON OPEN ================= */
+  /* ================= FETCH ================= */
   useEffect(() => {
     if (isOpen && !hasFetchedRef.current) {
       hasFetchedRef.current = true;
@@ -65,28 +65,28 @@ export default function EditHistorySection({
 
   return (
     <div className="fixed inset-0 z-[200] flex items-center justify-center">
-      
+
       {/* Overlay */}
       <div
         className="absolute inset-0 bg-black/70 backdrop-blur-sm"
         onClick={onToggle}
       />
 
-      {/* Modal Container */}
+      {/* Modal */}
       <div className="relative w-full max-w-6xl h-[88vh] bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl flex flex-col">
 
         {/* ================= HEADER ================= */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-800 bg-slate-900 sticky top-0 z-10">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-800">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-cyan-500/10 rounded-lg border border-cyan-500/20">
               <History className="h-5 w-5 text-cyan-400" />
             </div>
             <div>
-              <h2 className="text-xl font-semibold text-white">
+              <h2 className="text-lg font-semibold text-white">
                 Edit History
               </h2>
               <p className="text-xs text-slate-400">
-                Track all changes made to this order
+                Detailed audit log of all order modifications
               </p>
             </div>
           </div>
@@ -108,52 +108,42 @@ export default function EditHistorySection({
             </div>
           ) : editHistory.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full text-center">
-              <Edit className="h-16 w-16 text-slate-600 opacity-50 mb-4" />
+              <Edit className="h-14 w-14 text-slate-600 mb-3" />
               <p className="text-slate-400 font-medium">
                 No edit history available
-              </p>
-              <p className="text-slate-500 text-sm mt-1">
-                Changes will appear here once modifications are made
               </p>
             </div>
           ) : (
             <div className="relative border-l border-slate-700 pl-8 space-y-8">
 
               {editHistory.map((edit, index) => {
-                const priceDiff =
-                  (edit.newTotalAmount || 0) -
-                  (edit.oldTotalAmount || 0);
+
+                const oldTotal = edit.oldTotalAmount || 0;
+                const newTotal = edit.newTotalAmount || 0;
+                const priceDiff = newTotal - oldTotal;
 
                 const isLatest = index === 0;
 
                 return (
                   <div
                     key={edit.id}
-                    className={`relative bg-slate-800/60 rounded-xl border border-slate-700 p-5 transition-all
-                    ${isLatest ? 'shadow-lg shadow-cyan-500/10 border-cyan-500/40' : 'hover:border-cyan-500/30'}
+                    className={`relative bg-slate-800/60 rounded-xl border border-slate-700 p-5 transition
+                      ${isLatest ? 'border-cyan-500/40 shadow-md shadow-cyan-500/10' : 'hover:border-cyan-500/30'}
                     `}
                   >
+
                     {/* Timeline Dot */}
                     <div className="absolute -left-[41px] top-6 w-3.5 h-3.5 bg-cyan-500 rounded-full shadow-md shadow-cyan-500/40" />
 
-                    {/* Top Section */}
+                    {/* ===== TOP ROW ===== */}
                     <div className="flex justify-between items-start gap-6">
 
-                      {/* LEFT */}
                       <div className="space-y-2 flex-1">
 
-                        <div className="flex flex-wrap items-center gap-2">
+                        <div className="flex items-center gap-2 flex-wrap">
                           <span className="px-2 py-1 text-xs font-semibold rounded-md bg-cyan-500/10 text-cyan-400 border border-cyan-500/30">
                             {edit.changeType}
                           </span>
-
-                          {edit.oldStatus &&
-                            edit.newStatus &&
-                            edit.oldStatus !== edit.newStatus && (
-                              <span className="px-2 py-1 text-xs font-semibold rounded-md bg-indigo-500/10 text-indigo-400 border border-indigo-500/30">
-                                {edit.oldStatus} → {edit.newStatus}
-                              </span>
-                            )}
                         </div>
 
                         <div className="flex items-center gap-5 text-xs text-slate-400">
@@ -169,12 +159,12 @@ export default function EditHistorySection({
                         </div>
                       </div>
 
-                      {/* RIGHT - PRICE CHANGE */}
+                      {/* PRICE SUMMARY */}
                       {priceDiff !== 0 && (
-                        <div className="text-right min-w-[140px]">
+                        <div className="text-right min-w-[160px]">
                           <p className="text-xs text-slate-400">
-                            {formatCurrency(edit.oldTotalAmount || 0, currency)} →{' '}
-                            {formatCurrency(edit.newTotalAmount || 0, currency)}
+                            {formatCurrency(oldTotal, currency)} →{' '}
+                            {formatCurrency(newTotal, currency)}
                           </p>
 
                           <p
@@ -191,13 +181,148 @@ export default function EditHistorySection({
                       )}
                     </div>
 
+                    {/* ===== ORDER EDIT DETAILS ===== */}
+                    {edit.changeType === 'OrderEdited' &&
+                      edit.changeDetails && (
+                        <div className="mt-4 space-y-4">
+
+                          {/* Edit Reason */}
+                          {edit.changeDetails.EditReason && (
+                            <div className="text-sm text-slate-300">
+                              <span className="text-xs uppercase text-slate-400 mr-2">
+                                Reason:
+                              </span>
+                              {edit.changeDetails.EditReason}
+                            </div>
+                          )}
+
+                          {/* Operations */}
+                          {edit.changeDetails.Operations?.length > 0 && (
+                            <div className="space-y-3">
+
+                              {edit.changeDetails.Operations.map(
+                                (op: any, idx: number) => {
+
+                                  const qtyDiff =
+                                    (op.NewQuantity || 0) -
+                                    (op.OldQuantity || 0);
+
+                                  const totalDiff =
+                                    (op.NewTotalPrice || 0) -
+                                    (op.OldTotalPrice || 0);
+
+                                  return (
+                                    <div
+                                      key={idx}
+                                      className="p-3 bg-slate-900/60 border border-slate-700 rounded-lg"
+                                    >
+                                      <div className="flex justify-between">
+                                        <div>
+                                          <p className="text-sm font-medium text-white">
+                                            {op.ProductName}
+                                          </p>
+                                          <p className="text-xs text-slate-400">
+                                            SKU: {op.ProductSku}
+                                          </p>
+                                        </div>
+
+                                        <span
+                                          className={`text-xs px-2 py-1 rounded-md font-semibold ${
+                                            op.ChangeType === 'Added'
+                                              ? 'bg-green-500/10 text-green-400 border border-green-500/30'
+                                              : op.ChangeType === 'Removed'
+                                              ? 'bg-red-500/10 text-red-400 border border-red-500/30'
+                                              : 'bg-yellow-500/10 text-yellow-400 border border-yellow-500/30'
+                                          }`}
+                                        >
+                                          {op.ChangeType}
+                                        </span>
+                                      </div>
+
+                                      <div className="mt-2 text-xs text-slate-300 grid grid-cols-2 gap-2">
+                                        <div>
+                                          Qty: {op.OldQuantity ?? 0} →{' '}
+                                          {op.NewQuantity ?? 0}
+                                          {qtyDiff !== 0 && (
+                                            <span
+                                              className={`ml-1 ${
+                                                qtyDiff > 0
+                                                  ? 'text-green-400'
+                                                  : 'text-red-400'
+                                              }`}
+                                            >
+                                              ({qtyDiff > 0 ? '+' : ''}
+                                              {qtyDiff})
+                                            </span>
+                                          )}
+                                        </div>
+
+                                        <div>
+                                          Total:{' '}
+                                          {formatCurrency(
+                                            op.OldTotalPrice || 0,
+                                            currency
+                                          )}{' '}
+                                          →{' '}
+                                          {formatCurrency(
+                                            op.NewTotalPrice || 0,
+                                            currency
+                                          )}
+                                        </div>
+                                      </div>
+
+                                      {totalDiff !== 0 && (
+                                        <div
+                                          className={`text-xs font-semibold mt-2 ${
+                                            totalDiff > 0
+                                              ? 'text-green-400'
+                                              : 'text-red-400'
+                                          }`}
+                                        >
+                                          Impact:{' '}
+                                          {totalDiff > 0 ? '+' : ''}
+                                          {formatCurrency(
+                                            totalDiff,
+                                            currency
+                                          )}
+                                        </div>
+                                      )}
+                                    </div>
+                                  );
+                                }
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                    {/* ===== INVOICE DETAILS ===== */}
+                    {edit.changeType === 'InvoiceRegenerated' &&
+                      edit.changeDetails && (
+                        <div className="mt-4 p-3 bg-slate-900/60 border text-white border-slate-700 rounded-lg text-sm space-y-1">
+                          <p>
+                            Invoice: {edit.changeDetails.InvoiceNumber}
+                          </p>
+                          <p>
+                            Version: {edit.changeDetails.Version}
+                          </p>
+                          <p>
+                            Total:{' '}
+                            {formatCurrency(
+                              edit.changeDetails.TotalAmount,
+                              currency
+                            )}
+                          </p>
+                        </div>
+                      )}
+
                     {/* NOTES */}
                     {edit.notes && (
-                      <div className="mt-4 p-4 bg-slate-900/60 border border-slate-700 rounded-lg">
-                        <p className="text-xs font-semibold text-cyan-400 mb-2">
+                      <div className="mt-4 p-3 bg-slate-900/60 border border-slate-700 rounded-lg">
+                        <p className="text-xs font-semibold text-cyan-400 mb-1">
                           Admin Notes
                         </p>
-                        <p className="text-sm text-slate-300 leading-relaxed">
+                        <p className="text-sm text-slate-300">
                           {edit.notes}
                         </p>
                       </div>
@@ -210,11 +335,11 @@ export default function EditHistorySection({
         </div>
 
         {/* ================= FOOTER ================= */}
-        <div className="px-6 py-4 border-t border-slate-800 bg-slate-900 sticky bottom-0">
+        <div className="px-6 py-4 border-t border-slate-800">
           <div className="flex justify-end">
             <button
               onClick={onToggle}
-              className="px-6 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-lg transition-all"
+              className="px-5 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-lg transition"
             >
               Close
             </button>

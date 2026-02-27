@@ -39,6 +39,7 @@ export const API_ENDPOINTS = {
 
   // Orders
   orders: '/api/Orders',
+  AddressLookup:'/api/address-lookup',
 
 
   shipping: "/api/Shipping", // Add this line

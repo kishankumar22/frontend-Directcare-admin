@@ -389,6 +389,10 @@ const handleSubmit = async (e: FormEvent) => {
     }));
   };
 
+  // ✅ NEW: Pharmacy verification guard
+const isPharmacyLocked =
+  order.pharmacyVerificationStatus &&
+  order.pharmacyVerificationStatus !== 'Approved';
   // ✅ NEW: Get notification message preview
   const getNotificationPreview = () => {
     switch (action) {
@@ -409,6 +413,28 @@ const handleSubmit = async (e: FormEvent) => {
 
   const renderModalContent = () => {
     // ✅ NEW: Payment Warning Banner (shown for shipment/delivery actions)
+
+    // ✅ Pharmacy Warning Banner
+const PharmacyWarning = () => {
+  if (!isPharmacyLocked) return null;
+
+  return (
+    <div className="mb-4 p-4 bg-amber-500/10 border border-amber-500/30 rounded-lg flex items-start gap-3">
+      <ShieldAlert className="w-5 h-5 text-amber-400 flex-shrink-0 mt-0.5" />
+      <div>
+        <p className="text-sm font-semibold text-amber-400">
+          Pharmacy Verification Required
+        </p>
+        <p className="text-xs text-amber-300 mt-1">
+          This order cannot be processed until pharmacy verification is 
+          <strong> Approved</strong>.
+          <br />
+          Current Status: <strong>{order.pharmacyVerificationStatus}</strong>
+        </p>
+      </div>
+    </div>
+  );
+};
     const PaymentWarning = () => {
       if (!['create-shipment', 'mark-delivered'].includes(action)) return null;
       
@@ -593,11 +619,13 @@ const handleSubmit = async (e: FormEvent) => {
                 <p className="text-sm text-slate-400">Change the current status of this order.</p>
               </div>
             </div>
+               <PharmacyWarning />
 {(() => {
   const currentStatusInfo = getStatusDisplayInfo(order.status);
   const paymentInfo = getPaymentStatusDisplay(order);
 
   return (
+    
     <div className="flex items-center justify-between gap-4 p-3 bg-slate-800/60 border border-white/10 rounded-lg">
       
       {/* Left : Order Current Status */}
@@ -621,6 +649,7 @@ const handleSubmit = async (e: FormEvent) => {
           <span>{paymentInfo.label}</span>
         </div>
       </div>
+     
     </div>
   );
 })()}
@@ -1029,49 +1058,61 @@ const handleSubmit = async (e: FormEvent) => {
     }
   };
 
-  const isFormValid = () => {
-    // ✅ Payment check for shipment/delivery actions
-    if (['create-shipment', 'mark-delivered'].includes(action) && !isPaid) {
-      return false;
-    }
+const isFormValid = () => {
 
-    switch (action) {
-      case 'mark-ready':
-        return readyConfirmed && order.deliveryMethod === 'ClickAndCollect';
-      case 'mark-collected':
-        return (
-          order.deliveryMethod === 'ClickAndCollect' &&
-          collectedData.collectedBy &&
-          collectedData.collectorIDType &&
-          collectedData.collectorIDNumber
-        );
-      case 'update-status':
-        return (
-          statusData.newStatus !== order.status &&
-          availableStatuses.includes(statusData.newStatus)
-        );
-      case 'create-shipment':
-        return (
-          order.deliveryMethod === 'HomeDelivery' &&
-          shipmentData.trackingNumber &&
-          shipmentData.carrier &&
-          shipmentData.shippingMethod &&
-          shipmentData.selectedItems.some((item) => item.quantity > 0)
-        );
-      case 'mark-delivered':
-        return (
-          order.deliveryMethod === 'HomeDelivery' &&
-          deliveredData.shipmentId &&
-          deliveredData.deliveredAt &&
-          order.shipments &&
-          order.shipments.length > 0
-        );
-      case 'cancel-order':
-        return cancelData.cancellationReason && cancelData.cancelledBy;
-      default:
-        return false;
-    }
-  };
+  // 🔴 HARD BLOCK — Pharmacy not approved
+if (isPharmacyLocked && action === 'update-status') {
+  return false;
+}
+
+  // ✅ Payment check for shipment/delivery
+  if (['create-shipment', 'mark-delivered'].includes(action) && !isPaid) {
+    return false;
+  }
+
+  switch (action) {
+    case 'mark-ready':
+      return readyConfirmed && order.deliveryMethod === 'ClickAndCollect';
+
+    case 'mark-collected':
+      return (
+        order.deliveryMethod === 'ClickAndCollect' &&
+        collectedData.collectedBy &&
+        collectedData.collectorIDType &&
+        collectedData.collectorIDNumber
+      );
+
+    case 'update-status':
+      return (
+        statusData.newStatus !== order.status &&
+        availableStatuses.includes(statusData.newStatus)
+      );
+
+    case 'create-shipment':
+      return (
+        order.deliveryMethod === 'HomeDelivery' &&
+        shipmentData.trackingNumber &&
+        shipmentData.carrier &&
+        shipmentData.shippingMethod &&
+        shipmentData.selectedItems.some((item) => item.quantity > 0)
+      );
+
+    case 'mark-delivered':
+      return (
+        order.deliveryMethod === 'HomeDelivery' &&
+        deliveredData.shipmentId &&
+        deliveredData.deliveredAt &&
+        order.shipments &&
+        order.shipments.length > 0
+      );
+
+    case 'cancel-order':
+      return cancelData.cancellationReason && cancelData.cancelledBy;
+
+    default:
+      return false;
+  }
+};
 
   if (!isOpen) return null;
 
@@ -1112,11 +1153,17 @@ const handleSubmit = async (e: FormEvent) => {
               Cancel
             </button>
             <button
-              type="submit"
-              disabled={loading || !isFormValid()}
-              className="px-6 py-2 bg-violet-600 hover:bg-violet-700 disabled:bg-slate-600 disabled:cursor-not-allowed text-white rounded-lg transition-colors flex items-center gap-2"
-              title={!isFormValid() && !isPaid && ['create-shipment', 'mark-delivered'].includes(action) ? 'Payment must be completed first' : ''}
-            >
+  type="submit"
+  disabled={loading || !isFormValid()}
+  className="px-6 py-2 bg-violet-600 hover:bg-violet-700 disabled:bg-slate-600 disabled:cursor-not-allowed text-white rounded-lg transition-colors flex items-center gap-2"
+  title={
+    isPharmacyLocked
+      ? 'Pharmacy verification must be approved first'
+      : !isFormValid() && !isPaid && ['create-shipment', 'mark-delivered'].includes(action)
+      ? 'Payment must be completed first'
+      : ''
+  }
+>
               {loading ? (
                 <>
                   <Loader2 className="h-4 w-4 animate-spin" />

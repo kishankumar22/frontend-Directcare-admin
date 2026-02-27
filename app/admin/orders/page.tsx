@@ -272,6 +272,7 @@ const fetchOrders = useCallback(async () => {
   filters.deliveryMethod,
   filters.paymentMethod,
   filters.paymentStatus,
+  filters.pharmacyVerificationStatus, // ✅ ADD THIS
   debouncedSearch,
 ]);
 

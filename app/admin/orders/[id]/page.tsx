@@ -1,6 +1,6 @@
 'use client';
 
-import { JSX, useEffect, useRef, useState } from 'react';
+import { JSX, useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import {
   ArrowLeft,
@@ -326,6 +326,7 @@ const StatusBadge = ({
   return (
     <div
       className="relative inline-block group"
+        style={{ minWidth: 'fit-content' }}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
     >
@@ -344,38 +345,56 @@ const StatusBadge = ({
       </div>
 
       {showTooltip && (
-        <div
-          className="fixed z-[9999] w-80 p-3 bg-slate-800/95 backdrop-blur-sm border border-slate-600 rounded-lg shadow-2xl"
-          style={{
-            top: 'auto',
-            left: '50%',
-            transform: 'translateX(-50%)',
-            marginTop: '0.5rem',
-          }}
-          onMouseEnter={handleMouseEnter}
-          onMouseLeave={handleMouseLeave}
-        >
-          <div className="absolute -top-2 left-1/2 -translate-x-1/2 w-0 h-0 border-l-8 border-r-8 border-b-8 border-l-transparent border-r-transparent border-b-slate-600" />
-          <div className="flex items-start gap-2">
-            <div className={`p-1.5 rounded-lg ${statusInfo.bgColor} flex-shrink-0`}>
-              {statusInfo.icon}
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className={`font-semibold text-sm ${statusInfo.color} mb-1`}>
-                {label}: {statusInfo.label}
-              </p>
-              <p className="text-xs text-slate-300 leading-relaxed">{statusInfo.description}</p>
-              {statusInfo.nextAction && (
-                <div className="mt-2 pt-2 border-t border-slate-700">
-                  <p className="text-xs text-cyan-400 flex items-center gap-1">
-                    <Zap className="h-3 w-3" />
-                    Next: {statusInfo.nextAction}
-                  </p>
-                </div>
-              )}
-            </div>
-          </div>
+<div
+  className="
+    absolute top-full mt-2 z-[9999] w-80 p-3 
+    bg-slate-800/95 backdrop-blur-sm 
+    border border-slate-600 
+    rounded-lg shadow-2xl
+    left-1/2 -translate-x-1/2
+    group-last:left-auto group-last:right-0 group-last:translate-x-0
+    transition-all duration-150 ease-out animate-in fade-in zoom-in-95 shadow-xl shadow-black/30
+  "
+  onMouseEnter={handleMouseEnter}
+  onMouseLeave={handleMouseLeave}
+>
+  {/* Arrow */}
+<div
+  className="
+    absolute -top-2 w-0 h-0
+    border-l-8 border-r-8 border-b-8
+    border-l-transparent border-r-transparent
+    border-b-slate-600
+    left-1/2 -translate-x-1/2
+    group-last:left-auto group-last:right-6 group-last:translate-x-0
+  "
+/>
+
+  <div className="flex items-start gap-2">
+    <div className={`p-1.5 rounded-lg ${statusInfo.bgColor} flex-shrink-0`}>
+      {statusInfo.icon}
+    </div>
+
+    <div className="flex-1 min-w-0">
+      <p className={`font-semibold text-sm ${statusInfo.color} mb-1`}>
+        {label}: {statusInfo.label}
+      </p>
+
+      <p className="text-xs text-slate-300 leading-relaxed">
+        {statusInfo.description}
+      </p>
+
+      {statusInfo.nextAction && (
+        <div className="mt-2 pt-2 border-t border-slate-700">
+          <p className="text-xs text-cyan-400 flex items-center gap-1">
+            <Zap className="h-3 w-3" />
+            Next: {statusInfo.nextAction}
+          </p>
         </div>
+      )}
+    </div>
+  </div>
+</div>
       )}
     </div>
   );
@@ -502,6 +521,10 @@ const canCancel =
   !(
     deliveryMethod === 'ClickAndCollect' &&
     order.collectionStatus === 'Collected'
+  ) &&
+  (
+    !order.pharmacyVerificationStatus || 
+    order.pharmacyVerificationStatus === 'Approved'
   );
 
 if (canCancel) {
@@ -537,15 +560,13 @@ if (canCancel) {
   }
 
   // ✅ View Edit History - Only for orders that have been modified (not brand new pending)
-if (hasEditHistory) {
-  actions.push({
-    label: 'View Edit History',
-    action: 'view-edit-history',
-    icon: <History className="h-3.5 w-3.5" />,
-    color: 'bg-slate-600 hover:bg-slate-700',
-    category: 'financial',
-  });
-}
+actions.push({
+  label: 'View Edit History',
+  action: 'view-edit-history',
+  icon: <History className="h-3.5 w-3.5" />,
+  color: 'bg-slate-600 hover:bg-slate-700',
+  category: 'financial',
+});
 
   // ✅ Refund Actions - Only when payment is Successful/Completed/Captured and not already Refunded
   if (canRefund) {
@@ -695,7 +716,7 @@ export default function OrderDetailPage() {
   const params = useParams();
   const toast = useToast();
   const orderId = params.id as string;
-
+const [hasEditHistory, setHasEditHistory] = useState<boolean | null>(null);
   const [order, setOrder] = useState<Order | null>(null);
   const [loading, setLoading] = useState(true);
   const [actionModalOpen, setActionModalOpen] = useState(false);
@@ -727,88 +748,150 @@ const [isUpdatingPharma, setIsUpdatingPharma] = useState(false);
   const [showRegenerateInvoiceModal, setShowRegenerateInvoiceModal] = useState(false);
   const [regeneratingInvoice, setRegeneratingInvoice] = useState(false);
 
- useEffect(() => {
-  if (orderId) {
-    fetchOrderDetails();
-    fetchEditHistory(); // 👈 ADD THIS
+// ===========================
+// FETCH ORDER DETAILS
+// ===========================
+
+const fetchOrderDetails = useCallback(async () => {
+  if (!orderId) return;
+
+  try {
+    setLoading(true);
+
+    const response = await orderService.getOrderById(orderId);
+
+    if (response?.data) {
+      setOrder(response.data);
+    }
+  } catch (error: any) {
+    console.error('Error fetching order:', error);
+    toast.error(
+      error?.message || 'Failed to load order details',
+      { autoClose: 5000 }
+    );
+  } finally {
+    setLoading(false);
   }
-}, [orderId]);
+}, [orderId, toast]);
 
-  const fetchOrderDetails = async () => {
-    try {
-      setLoading(true);
-      const response = await orderService.getOrderById(orderId);
-      if (response?.data) {
-        setOrder(response.data);
-      }
-    } catch (error: any) {
-      console.error('Error fetching order:', error);
-      toast.error(error.message || 'Failed to load order details', { autoClose: 5000 });
-    } finally {
-      setLoading(false);
-    }
-  };
 
-  const fetchRefundHistory = async () => {
-    try {
-      setLoadingRefundHistory(true);
-      const result = await orderEditService.getRefundHistory(orderId);
-      setRefundHistory(result);
+// ===========================
+// FETCH REFUND HISTORY
+// ===========================
 
-    } catch (error: any) {
-      console.error('Error fetching refund history:', error);
-      toast.error(error.message || 'Failed to load refund history', { autoClose: 5000 });
-    } finally {
-      setLoadingRefundHistory(false);
-    }
-  };
+const fetchRefundHistory = useCallback(async () => {
+  if (!orderId) return;
 
-  const fetchEditHistory = async () => {
-    try {
-      setLoadingEditHistory(true);
-      const result = await orderEditService.getEditHistory(orderId);
-      setEditHistory(result);
-   
-    } catch (error: any) {
-      console.error('Error fetching edit history:', error);
-      toast.error(error.message || 'Failed to load edit history', { autoClose: 5000 });
-    } finally {
-      setLoadingEditHistory(false);
-    }
-  };
+  try {
+    setLoadingRefundHistory(true);
+
+    const result = await orderEditService.getRefundHistory(orderId);
+    setRefundHistory(result);
+
+  } catch (error: any) {
+    console.error('Error fetching refund history:', error);
+    toast.error(
+      error?.message || 'Failed to load refund history',
+      { autoClose: 5000 }
+    );
+  } finally {
+    setLoadingRefundHistory(false);
+  }
+}, [orderId, toast]);
+
+
+// ===========================
+// FETCH EDIT HISTORY
+// ===========================
+
+const fetchEditHistory = useCallback(async () => {
+  if (!orderId) return;
+
+  try {
+    setLoadingEditHistory(true);
+
+    const result = await orderEditService.getEditHistory(orderId);
+setEditHistory(result);
+setHasEditHistory(result.length > 0);
+
+  } catch (error: any) {
+    console.error('Error fetching edit history:', error);
+    toast.error(
+      error?.message || 'Failed to load edit history',
+      { autoClose: 5000 }
+    );
+  } finally {
+    setLoadingEditHistory(false);
+  }
+}, [orderId, toast]);
+
+
+// ===========================
+// INITIAL LOAD
+// ===========================
+
+useEffect(() => {
+  fetchOrderDetails();
+}, [fetchOrderDetails]);
+
+
+// ===========================
+// REFRESH ALL (Enterprise Safe)
+// ===========================
+
+const refreshAllOrderData = useCallback(async () => {
+  await Promise.all([
+    fetchOrderDetails(),
+    fetchEditHistory(),
+    fetchRefundHistory(),
+  ]);
+}, [fetchOrderDetails, fetchEditHistory, fetchRefundHistory]);
+
+
 
 // ✅ CORRECTED - Service expects single object parameter
-const handleRegenerateInvoice = async (sendToCustomer: boolean, notes: string) => {
+const handleRegenerateInvoice = async (
+  sendToCustomer: boolean,
+  notes: string
+) => {
+  // ✅ Proper double-click protection
+  if (regeneratingInvoice) return;
+
   try {
     setRegeneratingInvoice(true);
-    
+
     const result = await orderEditService.regenerateInvoice({
-      orderId: orderId,
+      orderId,
       notes: notes || "Admin requested invoice regeneration",
-      sendToCustomer: sendToCustomer,
+      sendToCustomer,
     });
-    
+
     toast.success("Invoice regenerated successfully", { autoClose: 4000 });
-    
+
     if (sendToCustomer) {
       toast.info("Invoice sent to customer email", { autoClose: 4000 });
     }
-    
-    // ✅ Use env variable for API URL
-    if (result.pdfUrl) {
-      const fullUrl = result.pdfUrl.startsWith('http') 
-        ? result.pdfUrl 
+
+    // ✅ Open PDF safely
+    if (result?.pdfUrl) {
+      const fullUrl = result.pdfUrl.startsWith("http")
+        ? result.pdfUrl
         : `${process.env.NEXT_PUBLIC_API_URL}${result.pdfUrl}`;
-      
-      window.open(fullUrl, "_blank");
+
+      window.open(fullUrl, "_blank", "noopener,noreferrer");
     }
-    
-    // ✅ Close modal - will auto-reset via handleClose
+
+    // ✅ Single source of refresh
+    await refreshAllOrderData();
+
     setShowRegenerateInvoiceModal(false);
-    
+
   } catch (error: any) {
     console.error("Error regenerating invoice", error);
-    toast.error(error.message || "Failed to regenerate invoice", { autoClose: 5000 });
+    toast.error(
+      error?.message || "Failed to regenerate invoice",
+      { autoClose: 5000 }
+    );
   } finally {
     setRegeneratingInvoice(false);
   }
@@ -858,8 +941,7 @@ const getEditLockReason = () => {
 
       setShowFullRefundModal(false);
       setRefundNotes('');
-      fetchOrderDetails();
-      fetchRefundHistory();
+     await refreshAllOrderData();
     } catch (error: any) {
       console.error('Error processing full refund:', error);
       toast.error(error.message || 'Failed to process refund', { autoClose: 5000 });
@@ -908,8 +990,7 @@ const getEditLockReason = () => {
       setShowPartialRefundModal(false);
       setPartialRefundItems([]);
       setRefundNotes('');
-      fetchOrderDetails();
-      fetchRefundHistory();
+     await refreshAllOrderData();
     } catch (error: any) {
       console.error('Error processing partial refund:', error);
       toast.error(error.message || 'Failed to process refund', { autoClose: 5000 });
@@ -1028,10 +1109,10 @@ const isOrderEditable = () => {
   const collectionStatusInfo = order.collectionStatus
     ? getCollectionStatusInfo(order.collectionStatus as CollectionStatus)
     : null;
- const allActions = getAllAvailableActions(
+const allActions = getAllAvailableActions(
   order,
   canRefund(),
-  editHistory.length > 0
+  true
 );
 
   return (
@@ -1786,18 +1867,21 @@ const isOrderEditable = () => {
     isOpen={editModalOpen}
     onClose={() => setEditModalOpen(false)}
     order={order}
-    onSuccess={async () => {
-      setEditModalOpen(false);
+  onSuccess={async () => {
+  try {
+    setEditModalOpen(false);
 
-      // 🔄 Refresh order details
-      await fetchOrderDetails();
+    // 1️⃣ Regenerate invoice
+    await handleRegenerateInvoice(
+      true,
+      "Invoice automatically regenerated after order edit"
+    );
+    toast.success("Order updated successfully", { autoClose: 4000 });
 
-      // 🧾 Auto Regenerate Invoice + Send Email
-      await handleRegenerateInvoice(
-        true, // ✅ sendToCustomer = true
-        "Invoice automatically regenerated after order edit"
-      );
-    }}
+  } catch (error) {
+    console.error("Error after edit:", error);
+  }
+}}
   />
 )}
       {actionModalOpen && order && (

@@ -169,6 +169,12 @@ export interface CategoryData {
 }
 
 export interface Product {
+  lowStockThreshold: boolean;
+  sales: number;
+  categories: never[];
+  assignedDiscounts(assignedDiscounts: any): unknown;
+  discountLabel: string;
+  discountTitle: string;
   id: string;
   name: string;
   slug?: string;
@@ -248,6 +254,10 @@ export interface Product {
   updatedAt?: string;
   createdBy?: string;
   updatedBy?: string;
+  nextDayDeliveryEnabled?:boolean;
+  isRecurring?:boolean;
+  vatExempt?:boolean;
+  standardDeliveryEnabled?:boolean;
   images?: ProductImage[];
   attributes?: ProductAttribute[];
   variants?: ProductVariant[];

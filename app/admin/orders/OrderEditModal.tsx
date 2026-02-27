@@ -40,6 +40,7 @@ import {
   OrderEditOperationType,
 } from '@/lib/services/OrderEdit';
 import { Order } from '@/lib/services/orders';
+import { addressLookupService } from '@/lib/services/AddressLookup';
 
 // ===========================
 // INTERFACES
@@ -194,9 +195,12 @@ export default function OrderEditModal({
   const [allProducts, setAllProducts] = useState<Product[]>([]);
   const [searchResults, setSearchResults] = useState<Product[]>([]);
   const [searching, setSearching] = useState(false);
+  // ================= ADDRESS AUTOCOMPLETE STATES =================
 
-// ✅ ADD: Single state for both (default open)
-const [showAddresses, setShowAddresses] = useState(true);
+const [showBillingAddress, setShowBillingAddress] = useState(true);
+const [showShippingAddress, setShowShippingAddress] = useState(true);
+
+
   // ✅ Filters State
   const [filters, setFilters] = useState({
     productType: null as { value: string; label: string } | null,
@@ -252,6 +256,15 @@ const [showAddresses, setShowAddresses] = useState(true);
   const [operations, setOperations] = useState<any[]>([]);
   const [editedItems, setEditedItems] = useState<Map<string, number>>(new Map());
 
+  // 🔎 Address Search States
+const [billingQuery, setBillingQuery] = useState('');
+const [billingSuggestions, setBillingSuggestions] = useState<any[]>([]);
+const [showBillingSuggestions, setShowBillingSuggestions] = useState(false);
+
+const [shippingQuery, setShippingQuery] = useState('');
+const [shippingSuggestions, setShippingSuggestions] = useState<any[]>([]);
+const [showShippingSuggestions, setShowShippingSuggestions] = useState(false);
+
   // ✅ Validation State
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
 const getNewlyAddedItems = () => {
@@ -272,6 +285,86 @@ const getNewlyAddedItems = () => {
       validateOrderStatus();
     }
   }, [isOpen]);
+
+  useEffect(() => {
+  const timer = setTimeout(async () => {
+    if (billingQuery.length >= 3) {
+      try {
+        const results = await addressLookupService.search(billingQuery, "GB");
+        setBillingSuggestions(results);
+        setShowBillingSuggestions(true);
+      } catch {
+        setBillingSuggestions([]);
+      }
+    } else {
+      setBillingSuggestions([]);
+    }
+  }, 400);
+
+  return () => clearTimeout(timer);
+}, [billingQuery]);
+
+useEffect(() => {
+  const timer = setTimeout(async () => {
+    if (shippingQuery.length >= 3) {
+      try {
+        const results = await addressLookupService.search(shippingQuery, "GB");
+        setShippingSuggestions(results);
+        setShowShippingSuggestions(true);
+      } catch {
+        setShippingSuggestions([]);
+      }
+    } else {
+      setShippingSuggestions([]);
+    }
+  }, 400);
+
+  return () => clearTimeout(timer);
+}, [shippingQuery]);
+
+const handleBillingSelect = async (id: string) => {
+  try {
+    const details = await addressLookupService.getDetails(id);
+
+    setBillingAddress(prev => ({
+      ...prev,
+      addressLine1: details.line1 || '',
+      addressLine2: details.line2 || '',
+      city: details.city || details.townOrCity || '',
+      state: details.province || details.county || '',
+      postalCode: details.postalCode || '',
+      country: details.country || '',
+    }));
+
+    setBillingAddressChanged(true);
+    setBillingQuery('');
+    setShowBillingSuggestions(false);
+  } catch (err) {
+    toast.error('Failed to fetch address details');
+  }
+};
+
+const handleShippingSelect = async (id: string) => {
+  try {
+    const details = await addressLookupService.getDetails(id);
+
+    setShippingAddress(prev => ({
+      ...prev,
+      addressLine1: details.line1 || '',
+      addressLine2: details.line2 || '',
+      city: details.city || details.townOrCity || '',
+      state: details.province || details.county || '',
+      postalCode: details.postalCode || '',
+      country: details.country || '',
+    }));
+
+    setShippingAddressChanged(true);
+    setShippingQuery('');
+    setShowShippingSuggestions(false);
+  } catch {
+    toast.error('Failed to fetch address details');
+  }
+};
 
   // ✅ FIXED: Validate if order can be edited
   const validateOrderStatus = () => {
@@ -428,8 +521,7 @@ useEffect(() => {
     setBillingAddressChanged(false);
     setShippingAddressChanged(false);
     
-    // ✅ UPDATED: Single state for both addresses (open by default)
-    setShowAddresses(true);
+
     
     setValidationErrors([]);
   }
@@ -448,43 +540,88 @@ useEffect(() => {
   };
 
   // ✅ Client-side Search & Filter
-  const searchProducts = (query: string) => {
-    if (!query || query.length < 2) {
-      setSearchResults([]);
-      return;
-    }
+const searchProducts = (query: string) => {
+  if (!query || query.length < 2) {
+    setSearchResults([]);
+    return;
+  }
 
-    setSearching(true);
+  setSearching(true);
 
-    try {
-      let filtered = allProducts.filter((product) => {
-        const matchesSearch =
-          product.name.toLowerCase().includes(query.toLowerCase()) ||
-          product.sku.toLowerCase().includes(query.toLowerCase());
+  try {
+    const lowerQuery = query.toLowerCase();
 
-        const matchesProductType = filters.productType
-          ? product.productType === filters.productType.value
-          : true;
+    let filtered = allProducts.filter((product) => {
+      // ================================
+      // 🔴 1️⃣ Exclude products already in order
+      // ================================
+      const alreadyInOrder = order.orderItems.some(
+        (item) => item.productId === product.id
+      );
 
-        const matchesBrand = filters.brandId ? product.brandId === filters.brandId.value : true;
+      // ================================
+      // 🔴 2️⃣ Exclude products already newly added in this edit session
+      // ================================
+      const alreadyAddedNow = operations.some(
+        (op) =>
+          op.operationType === OrderEditOperationType.AddItem &&
+          op.productId === product.id
+      );
 
-        const matchesCategory = filters.categoryId
-          ? product.categories?.some((c: any) => c.categoryId === filters.categoryId?.value)
-          : true;
+      if (alreadyInOrder || alreadyAddedNow) {
+        return false;
+      }
 
-        return matchesSearch && matchesProductType && matchesBrand && matchesCategory;
-      });
+      // ================================
+      // 🔍 3️⃣ Search by name or SKU
+      // ================================
+      const matchesSearch =
+        product.name?.toLowerCase().includes(lowerQuery) ||
+        product.sku?.toLowerCase().includes(lowerQuery);
 
-      filtered = filtered.slice(0, 20);
-      setSearchResults(filtered);
-    } catch (error) {
-      console.error('Search error:', error);
-      toast.error('Failed to search products');
-      setSearchResults([]);
-    } finally {
-      setSearching(false);
-    }
-  };
+      // ================================
+      // 🏷 4️⃣ Product Type Filter
+      // ================================
+      const matchesProductType = filters.productType
+        ? product.productType === filters.productType.value
+        : true;
+
+      // ================================
+      // 🏢 5️⃣ Brand Filter
+      // ================================
+      const matchesBrand = filters.brandId
+        ? product.brandId === filters.brandId.value
+        : true;
+
+      // ================================
+      // 📂 6️⃣ Category Filter
+      // ================================
+      const matchesCategory = filters.categoryId
+        ? product.categories?.some(
+            (c: any) => c.categoryId === filters.categoryId?.value
+          )
+        : true;
+
+      return (
+        matchesSearch &&
+        matchesProductType &&
+        matchesBrand &&
+        matchesCategory
+      );
+    });
+
+    // Limit results
+    filtered = filtered.slice(0, 20);
+
+    setSearchResults(filtered);
+  } catch (error) {
+    console.error('Search error:', error);
+    toast.error('Failed to search products');
+    setSearchResults([]);
+  } finally {
+    setSearching(false);
+  }
+};
 
   // ✅ Debounced search
   useEffect(() => {
@@ -976,7 +1113,6 @@ useEffect(() => {
               )}
             </div>
 
-            {/* ✅ Current Order Items */}
      {/* ✅ Current Order Items */}
 <div className="bg-slate-900/30 rounded-xl border border-slate-700 p-4">
   <div className="flex items-center gap-2 mb-3">
@@ -988,9 +1124,17 @@ useEffect(() => {
     {/* ========================= */}
     {/* Existing Order Items */}
     {/* ========================= */}
-    {order.orderItems.map((item) => {
-      const currentQty = editedItems.get(item.id) ?? item.quantity;
-      const isRemoved = currentQty === 0;
+   {order.orderItems.map((item) => {
+  const currentQty = editedItems.get(item.id) ?? item.quantity;
+  const isRemoved = currentQty === 0;
+
+  // 👉 Count how many items will remain after edits
+  const remainingItems = order.orderItems.filter((i) => {
+    const qty = editedItems.get(i.id);
+    return qty === undefined ? true : qty > 0;
+  });
+
+  const isLastItem = remainingItems.length <= 1 && currentQty === 1;
 
       return (
         <div
@@ -1015,42 +1159,48 @@ useEffect(() => {
               </p>
             </div>
 
-            <div className="flex items-center gap-1.5">
-              {!isRemoved && (
-                <>
-                  <button
-                    type="button"
-                    onClick={() => updateItemQuantity(item.id, currentQty, -1)}
-                    className="p-1 bg-slate-700 hover:bg-slate-600 rounded transition-all"
-                    disabled={loading}
-                  >
-                    <Minus className="h-3.5 w-3.5 text-white" />
-                  </button>
+<div className="flex items-center gap-1.5">
 
-                  <span className="w-10 text-center text-white font-semibold text-sm">
-                    {currentQty}
-                  </span>
+  {/* Minus button */}
+  {!isRemoved && !isLastItem && (
+    <button
+      type="button"
+      onClick={() => updateItemQuantity(item.id, currentQty, -1)}
+      className="p-1 bg-slate-700 hover:bg-slate-600 rounded transition-all"
+      disabled={loading}
+    >
+      <Minus className="h-3.5 w-3.5 text-white" />
+    </button>
+  )}
 
-                  <button
-                    type="button"
-                    onClick={() => updateItemQuantity(item.id, currentQty, 1)}
-                    className="p-1 bg-slate-700 hover:bg-slate-600 rounded transition-all"
-                    disabled={loading}
-                  >
-                    <Plus className="h-3.5 w-3.5 text-white" />
-                  </button>
-                </>
-              )}
+  <span className="w-10 text-center text-white font-semibold text-sm">
+    {currentQty}
+  </span>
 
-              <button
-                type="button"
-                onClick={() => removeItem(item.id)}
-                className="p-1 bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 rounded transition-all ml-1"
-                disabled={loading}
-              >
-                <Trash2 className="h-3.5 w-3.5 text-red-400" />
-              </button>
-            </div>
+  {/* Plus button always allowed */}
+  {!isRemoved && (
+    <button
+      type="button"
+      onClick={() => updateItemQuantity(item.id, currentQty, 1)}
+      className="p-1 bg-slate-700 hover:bg-slate-600 rounded transition-all"
+      disabled={loading}
+    >
+      <Plus className="h-3.5 w-3.5 text-white" />
+    </button>
+  )}
+
+  {/* Delete button hide if last item */}
+  {!isLastItem && (
+    <button
+      type="button"
+      onClick={() => removeItem(item.id)}
+      className="p-1 bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 rounded transition-all ml-1"
+      disabled={loading}
+    >
+      <Trash2 className="h-3.5 w-3.5 text-red-400" />
+    </button>
+  )}
+</div>
           </div>
 
           {currentQty !== item.quantity && !isRemoved && (
@@ -1135,14 +1285,13 @@ useEffect(() => {
   </div>
 </div>
 
-            {/* ✅ Addresses Section - Side by Side */}
-{/* ✅ Addresses Section - With Labels */}
 <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-  {/* Billing Address */}
+
+  {/* ================= BILLING ADDRESS ================= */}
   <div className="bg-slate-900/30 rounded-xl border border-slate-700">
     <button
       type="button"
-      onClick={() => setShowAddresses(!showAddresses)}
+      onClick={() => setShowBillingAddress(!showBillingAddress)}
       className="w-full px-4 py-3 flex items-center justify-between hover:bg-slate-800/50 transition-colors rounded-t-xl"
     >
       <div className="flex items-center gap-2">
@@ -1154,15 +1303,40 @@ useEffect(() => {
           </span>
         )}
       </div>
-      {showAddresses ? (
-        <ChevronUp className="h-4 w-4 text-slate-400" />
-      ) : (
-        <ChevronDown className="h-4 w-4 text-slate-400" />
-      )}
+      {showBillingAddress ? <ChevronUp className="h-4 w-4 text-slate-400" /> : <ChevronDown className="h-4 w-4 text-slate-400" />}
     </button>
 
-    {showAddresses && (
+    {showBillingAddress && (
       <div className="p-4 border-t border-slate-700 space-y-3">
+
+        {/* 🔎 Search */}
+        <div className="relative">
+          <label className="block text-xs font-medium text-slate-400 mb-1">
+            Search Address / Postcode
+          </label>
+          <input
+            type="text"
+            value={billingQuery}
+            onChange={(e) => setBillingQuery(e.target.value)}
+            placeholder="Start typing postcode or address..."
+            className="w-full px-3 py-2 bg-slate-900/50 border border-slate-700 rounded-lg text-sm text-white"
+          />
+          {showBillingSuggestions && billingSuggestions.length > 0 && (
+            <div className="absolute z-50 mt-1 w-full bg-slate-800 border border-slate-700 rounded-lg max-h-48 overflow-auto">
+              {billingSuggestions.map((s) => (
+                <button
+                  key={s.id}
+                  type="button"
+                  onClick={() => handleBillingSelect(s.id)}
+                  className="w-full text-left px-3 py-2 hover:bg-slate-700 text-sm text-white"
+                >
+                  {s.text}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
         {/* First & Last Name */}
         <div className="grid grid-cols-2 gap-2">
           <div>
@@ -1176,13 +1350,12 @@ useEffect(() => {
                 setBillingAddress({ ...billingAddress, firstName: e.target.value });
                 setBillingAddressChanged(true);
               }}
-              placeholder="Enter first name"
-              className="w-full px-3 py-2 bg-slate-900/50 border border-slate-700 rounded-lg text-sm text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500"
+              className="w-full px-3 py-2 bg-slate-900/50 border border-slate-700 rounded-lg text-sm text-white"
             />
           </div>
           <div>
             <label className="block text-xs font-medium text-slate-400 mb-1">
-              Last Name *
+              Last Name 
             </label>
             <input
               type="text"
@@ -1191,13 +1364,10 @@ useEffect(() => {
                 setBillingAddress({ ...billingAddress, lastName: e.target.value });
                 setBillingAddressChanged(true);
               }}
-              placeholder="Enter last name"
-              className="w-full px-3 py-2 bg-slate-900/50 border border-slate-700 rounded-lg text-sm text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500"
+              className="w-full px-3 py-2 bg-slate-900/50 border border-slate-700 rounded-lg text-sm text-white"
             />
           </div>
         </div>
-
-
 
         {/* Address Line 1 */}
         <div>
@@ -1211,8 +1381,7 @@ useEffect(() => {
               setBillingAddress({ ...billingAddress, addressLine1: e.target.value });
               setBillingAddressChanged(true);
             }}
-            placeholder="Street address, P.O. box"
-            className="w-full px-3 py-2 bg-slate-900/50 border border-slate-700 rounded-lg text-sm text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500"
+            className="w-full px-3 py-2 bg-slate-900/50 border border-slate-700 rounded-lg text-sm text-white"
           />
         </div>
 
@@ -1228,8 +1397,7 @@ useEffect(() => {
               setBillingAddress({ ...billingAddress, addressLine2: e.target.value });
               setBillingAddressChanged(true);
             }}
-            placeholder="Apartment, suite, unit, building"
-            className="w-full px-3 py-2 bg-slate-900/50 border border-slate-700 rounded-lg text-sm text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500"
+            className="w-full px-3 py-2 bg-slate-900/50 border border-slate-700 rounded-lg text-sm text-white"
           />
         </div>
 
@@ -1240,14 +1408,12 @@ useEffect(() => {
               City *
             </label>
             <input
-              type="text"
               value={billingAddress.city}
               onChange={(e) => {
                 setBillingAddress({ ...billingAddress, city: e.target.value });
                 setBillingAddressChanged(true);
               }}
-              placeholder="Enter city"
-              className="w-full px-3 py-2 bg-slate-900/50 border border-slate-700 rounded-lg text-sm text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500"
+              className="w-full px-3 py-2 bg-slate-900/50 border border-slate-700 rounded-lg text-sm text-white"
             />
           </div>
           <div>
@@ -1255,14 +1421,12 @@ useEffect(() => {
               State/County *
             </label>
             <input
-              type="text"
               value={billingAddress.state}
               onChange={(e) => {
                 setBillingAddress({ ...billingAddress, state: e.target.value });
                 setBillingAddressChanged(true);
               }}
-              placeholder="Enter state/county"
-              className="w-full px-3 py-2 bg-slate-900/50 border border-slate-700 rounded-lg text-sm text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500"
+              className="w-full px-3 py-2 bg-slate-900/50 border border-slate-700 rounded-lg text-sm text-white"
             />
           </div>
         </div>
@@ -1274,14 +1438,12 @@ useEffect(() => {
               Postal Code *
             </label>
             <input
-              type="text"
               value={billingAddress.postalCode}
               onChange={(e) => {
                 setBillingAddress({ ...billingAddress, postalCode: e.target.value });
                 setBillingAddressChanged(true);
               }}
-              placeholder="Enter postal code"
-              className="w-full px-3 py-2 bg-slate-900/50 border border-slate-700 rounded-lg text-sm text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500"
+              className="w-full px-3 py-2 bg-slate-900/50 border border-slate-700 rounded-lg text-sm text-white"
             />
           </div>
           <div>
@@ -1289,217 +1451,259 @@ useEffect(() => {
               Country *
             </label>
             <input
-              type="text"
               value={billingAddress.country}
               onChange={(e) => {
                 setBillingAddress({ ...billingAddress, country: e.target.value });
                 setBillingAddressChanged(true);
               }}
-              placeholder="Enter country"
-              className="w-full px-3 py-2 bg-slate-900/50 border border-slate-700 rounded-lg text-sm text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500"
+              className="w-full px-3 py-2 bg-slate-900/50 border border-slate-700 rounded-lg text-sm text-white"
             />
           </div>
         </div>
+{/* Phone Number */}
+<div>
+  <label className="block text-xs font-medium text-slate-400 mb-1">
+    Phone Number *
+  </label>
 
-        {/* Phone Number */}
-        <div>
-          <label className="block text-xs font-medium text-slate-400 mb-1">
-            Phone Number *
-          </label>
-          <input
-            type="tel"
-            value={billingAddress.phoneNumber}
-            onChange={(e) => {
-              setBillingAddress({ ...billingAddress, phoneNumber: e.target.value });
-              setBillingAddressChanged(true);
-            }}
-            placeholder="Enter phone number"
-            className="w-full px-3 py-2 bg-slate-900/50 border border-slate-700 rounded-lg text-sm text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500"
-          />
-        </div>
+  <div className="flex">
+    {/* Prefix */}
+    <span className="inline-flex items-center px-3 rounded-l-lg border border-r-0 border-slate-700 bg-slate-800 text-slate-400 text-sm">
+      +44
+    </span>
+
+    {/* Input */}
+    <input
+      type="tel"
+      value={billingAddress.phoneNumber?.replace('+44', '') || ''}
+      onChange={(e) => {
+        const cleaned = e.target.value.replace(/\D/g, '').slice(0, 10);;
+        setBillingAddress({
+          ...billingAddress,
+          phoneNumber: `+44${cleaned}`,
+        });
+        setBillingAddressChanged(true);
+      }}
+      placeholder="7123456789"
+      className="w-full px-3 py-2 bg-slate-900/50 border border-slate-700 rounded-r-lg text-sm text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500"
+    />
+  </div>
+
+  <p className="text-[11px] text-slate-500 mt-1">
+    UK mobile format (without leading 0)
+  </p>
+</div>
       </div>
     )}
   </div>
 
-  {/* Shipping Address */}
+  {/* ================= SHIPPING ADDRESS ================= */}
   <div className="bg-slate-900/30 rounded-xl border border-slate-700">
     <button
       type="button"
-      onClick={() => setShowAddresses(!showAddresses)}
+      onClick={() => setShowShippingAddress(!showShippingAddress)}
       className="w-full px-4 py-3 flex items-center justify-between hover:bg-slate-800/50 transition-colors rounded-t-xl"
     >
       <div className="flex items-center gap-2">
         <Truck className="h-4 w-4 text-green-400" />
         <h3 className="text-sm font-semibold text-white">Shipping Address</h3>
-        {shippingAddressChanged && (
-          <span className="px-1.5 py-0.5 text-xs bg-amber-500/10 text-amber-400 rounded">
-            Modified
-          </span>
-        )}
       </div>
-      {showAddresses ? (
-        <ChevronUp className="h-4 w-4 text-slate-400" />
-      ) : (
-        <ChevronDown className="h-4 w-4 text-slate-400" />
-      )}
+      {showShippingAddress ? <ChevronUp className="h-4 w-4 text-slate-400" /> : <ChevronDown className="h-4 w-4 text-slate-400" />}
     </button>
 
-    {showAddresses && (
+    {showShippingAddress && (
       <div className="p-4 border-t border-slate-700 space-y-3">
+
+        {/* 🔎 Search */}
+        <div className="relative">
+          <label className="block text-xs font-medium text-slate-400 mb-1">
+            Search Address / Postcode
+          </label>
+          <input
+            type="text"
+            value={shippingQuery}
+            onChange={(e) => setShippingQuery(e.target.value)}
+            placeholder="Start typing postcode or address..."
+            className="w-full px-3 py-2 bg-slate-900/50 border border-slate-700 rounded-lg text-sm text-white"
+          />
+          {showShippingSuggestions && shippingSuggestions.length > 0 && (
+            <div className="absolute z-50 mt-1 w-full bg-slate-800 border border-slate-700 rounded-lg max-h-48 overflow-auto">
+              {shippingSuggestions.map((s) => (
+                <button
+                  key={s.id}
+                  type="button"
+                  onClick={() => handleShippingSelect(s.id)}
+                  className="w-full text-left px-3 py-2 hover:bg-slate-700 text-sm text-white"
+                >
+                  {s.text}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
         {/* First & Last Name */}
-        <div className="grid grid-cols-2 gap-2">
-          <div>
-            <label className="block text-xs font-medium text-slate-400 mb-1">
-              First Name *
-            </label>
-            <input
-              type="text"
-              value={shippingAddress.firstName}
-              onChange={(e) => {
-                setShippingAddress({ ...shippingAddress, firstName: e.target.value });
-                setShippingAddressChanged(true);
-              }}
-              placeholder="Enter first name"
-              className="w-full px-3 py-2 bg-slate-900/50 border border-slate-700 rounded-lg text-sm text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500"
-            />
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-slate-400 mb-1">
-              Last Name *
-            </label>
-            <input
-              type="text"
-              value={shippingAddress.lastName}
-              onChange={(e) => {
-                setShippingAddress({ ...shippingAddress, lastName: e.target.value });
-                setShippingAddressChanged(true);
-              }}
-              placeholder="Enter last name"
-              className="w-full px-3 py-2 bg-slate-900/50 border border-slate-700 rounded-lg text-sm text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500"
-            />
-          </div>
-        </div>
+<div className="grid grid-cols-2 gap-2">
+  <div>
+    <label className="block text-xs font-medium text-slate-400 mb-1">
+      First Name *
+    </label>
+    <input
+      type="text"
+      value={shippingAddress.firstName}
+      onChange={(e) => {
+        setShippingAddress({ ...shippingAddress, firstName: e.target.value });
+        setShippingAddressChanged(true);
+      }}
+      className="w-full px-3 py-2 bg-slate-900/50 border border-slate-700 rounded-lg text-sm text-white"
+    />
+  </div>
+  <div>
+    <label className="block text-xs font-medium text-slate-400 mb-1">
+      Last Name 
+    </label>
+    <input
+      type="text"
+      value={shippingAddress.lastName}
+      onChange={(e) => {
+        setShippingAddress({ ...shippingAddress, lastName: e.target.value });
+        setShippingAddressChanged(true);
+      }}
+      className="w-full px-3 py-2 bg-slate-900/50 border border-slate-700 rounded-lg text-sm text-white"
+    />
+  </div>
+</div>
 
-   
+{/* Address Line 1 */}
+<div>
+  <label className="block text-xs font-medium text-slate-400 mb-1">
+    Address Line 1 *
+  </label>
+  <input
+    type="text"
+    value={shippingAddress.addressLine1}
+    onChange={(e) => {
+      setShippingAddress({ ...shippingAddress, addressLine1: e.target.value });
+      setShippingAddressChanged(true);
+    }}
+    className="w-full px-3 py-2 bg-slate-900/50 border border-slate-700 rounded-lg text-sm text-white"
+  />
+</div>
 
-        {/* Address Line 1 */}
-        <div>
-          <label className="block text-xs font-medium text-slate-400 mb-1">
-            Address Line 1 *
-          </label>
-          <input
-            type="text"
-            value={shippingAddress.addressLine1}
-            onChange={(e) => {
-              setShippingAddress({ ...shippingAddress, addressLine1: e.target.value });
-              setShippingAddressChanged(true);
-            }}
-            placeholder="Street address, P.O. box"
-            className="w-full px-3 py-2 bg-slate-900/50 border border-slate-700 rounded-lg text-sm text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500"
-          />
-        </div>
+{/* Address Line 2 */}
+<div>
+  <label className="block text-xs font-medium text-slate-400 mb-1">
+    Address Line 2 <span className="text-slate-500">(Optional)</span>
+  </label>
+  <input
+    type="text"
+    value={shippingAddress.addressLine2 || ''}
+    onChange={(e) => {
+      setShippingAddress({ ...shippingAddress, addressLine2: e.target.value });
+      setShippingAddressChanged(true);
+    }}
+    className="w-full px-3 py-2 bg-slate-900/50 border border-slate-700 rounded-lg text-sm text-white"
+  />
+</div>
 
-        {/* Address Line 2 */}
-        <div>
-          <label className="block text-xs font-medium text-slate-400 mb-1">
-            Address Line 2 <span className="text-slate-500">(Optional)</span>
-          </label>
-          <input
-            type="text"
-            value={shippingAddress.addressLine2 || ''}
-            onChange={(e) => {
-              setShippingAddress({ ...shippingAddress, addressLine2: e.target.value });
-              setShippingAddressChanged(true);
-            }}
-            placeholder="Apartment, suite, unit, building"
-            className="w-full px-3 py-2 bg-slate-900/50 border border-slate-700 rounded-lg text-sm text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500"
-          />
-        </div>
+{/* City & State */}
+<div className="grid grid-cols-2 gap-2">
+  <div>
+    <label className="block text-xs font-medium text-slate-400 mb-1">
+      City *
+    </label>
+    <input
+      type="text"
+      value={shippingAddress.city}
+      onChange={(e) => {
+        setShippingAddress({ ...shippingAddress, city: e.target.value });
+        setShippingAddressChanged(true);
+      }}
+      className="w-full px-3 py-2 bg-slate-900/50 border border-slate-700 rounded-lg text-sm text-white"
+    />
+  </div>
+  <div>
+    <label className="block text-xs font-medium text-slate-400 mb-1">
+      State/County *
+    </label>
+    <input
+      type="text"
+      value={shippingAddress.state}
+      onChange={(e) => {
+        setShippingAddress({ ...shippingAddress, state: e.target.value });
+        setShippingAddressChanged(true);
+      }}
+      className="w-full px-3 py-2 bg-slate-900/50 border border-slate-700 rounded-lg text-sm text-white"
+    />
+  </div>
+</div>
 
-        {/* City & State */}
-        <div className="grid grid-cols-2 gap-2">
-          <div>
-            <label className="block text-xs font-medium text-slate-400 mb-1">
-              City *
-            </label>
-            <input
-              type="text"
-              value={shippingAddress.city}
-              onChange={(e) => {
-                setShippingAddress({ ...shippingAddress, city: e.target.value });
-                setShippingAddressChanged(true);
-              }}
-              placeholder="Enter city"
-              className="w-full px-3 py-2 bg-slate-900/50 border border-slate-700 rounded-lg text-sm text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500"
-            />
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-slate-400 mb-1">
-              State/County *
-            </label>
-            <input
-              type="text"
-              value={shippingAddress.state}
-              onChange={(e) => {
-                setShippingAddress({ ...shippingAddress, state: e.target.value });
-                setShippingAddressChanged(true);
-              }}
-              placeholder="Enter state/county"
-              className="w-full px-3 py-2 bg-slate-900/50 border border-slate-700 rounded-lg text-sm text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500"
-            />
-          </div>
-        </div>
+{/* Postal Code & Country */}
+<div className="grid grid-cols-2 gap-2">
+  <div>
+    <label className="block text-xs font-medium text-slate-400 mb-1">
+      Postal Code *
+    </label>
+    <input
+      type="text"
+      value={shippingAddress.postalCode}
+      onChange={(e) => {
+        setShippingAddress({ ...shippingAddress, postalCode: e.target.value });
+        setShippingAddressChanged(true);
+      }}
+      className="w-full px-3 py-2 bg-slate-900/50 border border-slate-700 rounded-lg text-sm text-white"
+    />
+  </div>
+  <div>
+    <label className="block text-xs font-medium text-slate-400 mb-1">
+      Country *
+    </label>
+    <input
+      type="text"
+      value={shippingAddress.country}
+      onChange={(e) => {
+        setShippingAddress({ ...shippingAddress, country: e.target.value });
+        setShippingAddressChanged(true);
+      }}
+      className="w-full px-3 py-2 bg-slate-900/50 border border-slate-700 rounded-lg text-sm text-white"
+    />
+  </div>
+</div>
 
-        {/* Postal Code & Country */}
-        <div className="grid grid-cols-2 gap-2">
-          <div>
-            <label className="block text-xs font-medium text-slate-400 mb-1">
-              Postal Code *
-            </label>
-            <input
-              type="text"
-              value={shippingAddress.postalCode}
-              onChange={(e) => {
-                setShippingAddress({ ...shippingAddress, postalCode: e.target.value });
-                setShippingAddressChanged(true);
-              }}
-              placeholder="Enter postal code"
-              className="w-full px-3 py-2 bg-slate-900/50 border border-slate-700 rounded-lg text-sm text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500"
-            />
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-slate-400 mb-1">
-              Country *
-            </label>
-            <input
-              type="text"
-              value={shippingAddress.country}
-              onChange={(e) => {
-                setShippingAddress({ ...shippingAddress, country: e.target.value });
-                setShippingAddressChanged(true);
-              }}
-              placeholder="Enter country"
-              className="w-full px-3 py-2 bg-slate-900/50 border border-slate-700 rounded-lg text-sm text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500"
-            />
-          </div>
-        </div>
+{/* Phone Number */}
+<div>
+  <label className="block text-xs font-medium text-slate-400 mb-1">
+    Phone Number *
+  </label>
 
-        {/* Phone Number */}
-        <div>
-          <label className="block text-xs font-medium text-slate-400 mb-1">
-            Phone Number *
-          </label>
-          <input
-            type="tel"
-            value={shippingAddress.phoneNumber}
-            onChange={(e) => {
-              setShippingAddress({ ...shippingAddress, phoneNumber: e.target.value });
-              setShippingAddressChanged(true);
-            }}
-            placeholder="Enter phone number"
-            className="w-full px-3 py-2 bg-slate-900/50 border border-slate-700 rounded-lg text-sm text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500"
-          />
-        </div>
+  <div className="flex">
+    {/* Prefix */}
+    <span className="inline-flex items-center px-3 rounded-l-lg border border-r-0 border-slate-700 bg-slate-800 text-slate-400 text-sm">
+      +44
+    </span>
+
+    {/* Input */}
+    <input
+      type="tel"
+      value={shippingAddress.phoneNumber?.replace('+44', '') || ''}
+      onChange={(e) => {
+        const cleaned = e.target.value.replace(/\D/g, '').slice(0, 10);
+        setShippingAddress({
+          ...shippingAddress,
+          phoneNumber: `+44${cleaned}`,
+        });
+        setShippingAddressChanged(true);
+      }}
+      placeholder="7123456789"
+      className="w-full px-3 py-2 bg-slate-900/50 border border-slate-700 rounded-r-lg text-sm text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500"
+    />
+  </div>
+
+  <p className="text-[11px] text-slate-500 mt-1">
+    UK mobile format (without leading 0)
+  </p>
+</div>
+
       </div>
     )}
   </div>
