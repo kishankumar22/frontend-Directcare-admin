@@ -110,7 +110,39 @@ const ACTIVITY_TYPES: { value: ActivityLogType | "all"; label: string }[] = [
   { value: "UpdateSettings", label: "Update Settings" },
   { value: "Other", label: "Other" },
 ];
+const Info = ({
+  label,
+  children,
+  mono = false,
+}: {
+  label: string;
+  children: React.ReactNode;
+  mono?: boolean;
+}) => (
+  <div>
+    <p className="text-slate-400 text-xs mb-1">{label}</p>
+    <p
+      className={`text-white break-words ${
+        mono ? "font-mono text-xs" : "font-medium"
+      }`}
+    >
+      {children ?? "-"}
+    </p>
+  </div>
+);
 
+const formatLabel = (key: string) =>
+  key
+    .replace(/([A-Z])/g, " $1")
+    .replace(/^./, (str) => str.toUpperCase());
+
+const formatValue = (value: any) => {
+  if (value === null || value === undefined) return "-";
+  if (typeof value === "boolean") return value ? "Yes" : "No";
+  if (typeof value === "string" && value.includes("T") && value.includes(":"))
+    return new Date(value).toLocaleString();
+  return value.toString();
+};
 // ✅ Debounce Hook
 function useDebounce<T>(value: T, delay: number): T {
   const [debouncedValue, setDebouncedValue] = useState<T>(value);
@@ -1778,92 +1810,121 @@ const handleDeleteSingleLog = (log: ActivityLog) => {
         </div>
       )}
 
-      {/* ✅ Activity Log Details Modal */}
-      {isModalOpen && selectedLog && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-50 flex items-center justify-center p-4">
-          <div className="bg-gradient-to-br from-slate-900 via-slate-900 to-slate-800 border border-violet-500/20 rounded-2xl max-w-3xl w-full max-h-[90vh] overflow-hidden flex flex-col shadow-2xl shadow-violet-500/10">
-            {/* Modal Header */}
-            <div className="p-4 border-b border-violet-500/20 bg-gradient-to-r from-violet-500/10 to-cyan-500/10">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 rounded-full bg-gradient-to-r from-violet-500 to-cyan-500 flex items-center justify-center">
-                    <Activity className="h-6 w-6 text-white" />
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <h2 className="text-xl font-bold text-white">Activity Log Details</h2>
-                      {getActivityTypeBadge(selectedLog.activityLogType)}
-                    </div>
-                    <p className="text-slate-400 text-sm mt-0.5">{formatExactDate(selectedLog.createdOnUtc)}</p>
-                  </div>
-                </div>
-                <button
-                  onClick={() => {
-                    setIsModalOpen(false);
-                    setSelectedLog(null);
-                  }}
-                  className="p-2 text-slate-400 hover:text-white hover:bg-red-500/20 border border-transparent hover:border-red-500/50 rounded-lg transition-all"
-                >
-                  <X className="h-5 w-5" />
-                </button>
-              </div>
+   {/* ✅ Activity Log Details Modal */}
+{isModalOpen && selectedLog && (
+  <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-50 flex items-center justify-center p-4">
+    <div className="bg-gradient-to-br from-slate-900 via-slate-900 to-slate-800 border border-violet-500/20 rounded-2xl max-w-3xl w-full max-h-[90vh] overflow-hidden flex flex-col shadow-2xl shadow-violet-500/10">
+
+      {/* Header */}
+      <div className="p-4 border-b border-violet-500/20 bg-gradient-to-r from-violet-500/10 to-cyan-500/10">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 rounded-full bg-gradient-to-r from-violet-500 to-cyan-500 flex items-center justify-center">
+              <Activity className="h-6 w-6 text-white" />
             </div>
-
-            {/* Modal Content */}
-            <div className="overflow-y-auto p-4 space-y-4">
-              {/* Basic Information */}
-              <div className="bg-slate-800/30 p-4 rounded-xl border border-slate-700/50">
-                <h3 className="text-base font-semibold text-white mb-3 flex items-center gap-2">
-                  <FileText className="h-4 w-4 text-violet-400" />
-                  Basic Information
-                </h3>
-                <div className="grid grid-cols-2 gap-3 text-sm">
-                  <div>
-                    <p className="text-slate-400 text-xs mb-1">Activity Type</p>
-                    {getActivityTypeBadge(selectedLog.activityLogTypeName)}
-                  </div>
-                  <div>
-                    <p className="text-slate-400 text-xs mb-1">Entity Type</p>
-                    {getEntityBadge(selectedLog.entityName)}
-                  </div>
-                  <div>
-                    <p className="text-slate-400 text-xs mb-1">User</p>
-                    <p className="text-white font-medium">{selectedLog.userName}</p>
-                  </div>
-                  <div>
-                    <p className="text-slate-400 text-xs mb-1">Entity ID</p>
-                    <p className="text-white font-mono text-xs">{selectedLog.entityId}</p>
-                  </div>
-                </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h2 className="text-xl font-bold text-white">
+                  Activity Log Details
+                </h2>
+                {getActivityTypeBadge(selectedLog.activityLogTypeName)}
               </div>
+              <p className="text-slate-400 text-sm mt-0.5">
+                {formatExactDate(selectedLog.createdOnUtc)}
+              </p>
+            </div>
+          </div>
 
-              {/* Comment */}
-              <div className="bg-slate-800/30 p-4 rounded-xl border border-slate-700/50">
-                <h3 className="text-base font-semibold text-white mb-3 flex items-center gap-2">
-                  <FileText className="h-4 w-4 text-cyan-400" />
-                  Activity Comment
-                </h3>
-                <p className="text-white text-sm leading-relaxed">{selectedLog.comment}</p>
-              </div>
+          <button
+            onClick={() => {
+              setIsModalOpen(false);
+              setSelectedLog(null);
+            }}
+            className="p-2 text-slate-400 hover:text-white hover:bg-red-500/20 rounded-lg transition-all"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+      </div>
 
-              {/* Entity Details */}
-              {selectedLog.entityDetails && (
-                <div className="bg-slate-800/30 p-4 rounded-xl border border-slate-700/50">
-                  <h3 className="text-base font-semibold text-white mb-3 flex items-center gap-2">
-                    <Package className="h-4 w-4 text-pink-400" />
-                    Entity Details
-                  </h3>
-                  <div className="bg-slate-900/50 p-3 rounded-lg">
-                    <pre className="text-xs text-slate-300 overflow-x-auto">
-                      {JSON.stringify(selectedLog.entityDetails, null, 2)}
-                    </pre>
-                  </div>
-                </div>
+      {/* Content */}
+      <div className="overflow-y-auto p-5 space-y-5">
+
+        {/* Basic Info */}
+        <div className="bg-slate-800/40 p-4 rounded-xl border border-slate-700/50">
+          <h3 className="text-base font-semibold text-white mb-4 flex items-center gap-2">
+            <FileText className="h-4 w-4 text-violet-400" />
+            Basic Information
+          </h3>
+
+          <div className="grid grid-cols-2 gap-4 text-sm">
+            <Info label="Activity Type">
+              {selectedLog.activityLogTypeName}
+            </Info>
+
+            <Info label="Entity Type">
+              {selectedLog.entityName}
+            </Info>
+
+            {/* <Info label="User">
+              {selectedLog.userName || "System"}
+            </Info> */}
+
+            {/* {selectedLog.entityId && (
+              <Info label="Entity ID" mono>
+                {selectedLog.entityId}
+              </Info>
+            )} */}
+
+            {selectedLog.ipAddress && (
+              <Info label="IP Address">
+                {selectedLog.ipAddress}
+              </Info>
+            )}
+          </div>
+        </div>
+
+        {/* Comment */}
+        {selectedLog.comment && (
+          <div className="bg-slate-800/40 p-4 rounded-xl border border-slate-700/50">
+            <h3 className="text-base font-semibold text-white mb-3 flex items-center gap-2">
+              <FileText className="h-4 w-4 text-cyan-400" />
+              Activity Comment
+            </h3>
+            <p className="text-slate-200 text-sm leading-relaxed whitespace-pre-line">
+              {selectedLog.comment}
+            </p>
+          </div>
+        )}
+
+        {/* Entity Details (Formatted View) */}
+        {selectedLog.entityDetails && (
+          <div className="bg-slate-800/40 p-4 rounded-xl border border-slate-700/50">
+            <h3 className="text-base font-semibold text-white mb-4 flex items-center gap-2">
+              <Package className="h-4 w-4 text-pink-400" />
+              Entity Details
+            </h3>
+
+            <div className="grid grid-cols-2 gap-4 text-sm">
+              {Object.entries(selectedLog.entityDetails).map(
+                ([key, value]) => (
+                  <Info
+                    key={key}
+                    label={formatLabel(key)}
+                    mono={key.toLowerCase().includes("id")}
+                  >
+                    {formatValue(value)}
+                  </Info>
+                )
               )}
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
+    </div>
+  </div>
+)}
+
     </div>
   );
 }

@@ -275,6 +275,8 @@ async getAllOrders(params?: {
   toDate?: string;
   searchTerm?: string;
   pharmacyVerificationStatus?: PharmacyVerificationStatus;
+    // ✅ ADD THIS
+  includeGuestOrders?: boolean;
 }) {
 
     try {

@@ -140,7 +140,7 @@ const [filters, setFilters] = useState({
   paymentMethod: '',
   paymentStatus: '',
 pharmacyVerificationStatus: '' as PharmacyVerificationStatus | '',
-
+ isGuestOrder: "", // ✅ NEW
 
 });
 const selectedOrderObjects = orders.filter(o =>
@@ -210,7 +210,7 @@ const fetchOrders = useCallback(async () => {
   try {
     setLoading(true);
 
- const response = await orderService.getAllOrders({
+const response = await orderService.getAllOrders({
   page: currentPage,
   pageSize: itemsPerPage,
   status: filters.status || undefined,
@@ -218,9 +218,14 @@ const fetchOrders = useCallback(async () => {
   toDate: filters.toDate || undefined,
   searchTerm: debouncedSearch || undefined,
   pharmacyVerificationStatus:
-    filters.pharmacyVerificationStatus || undefined, // ✅ NEW
-});
+    filters.pharmacyVerificationStatus || undefined,
 
+  // ✅ CORRECT PARAM NAME
+  includeGuestOrders:
+    filters.isGuestOrder !== ""
+      ? filters.isGuestOrder === "true"
+      : undefined,
+});
 
     if (response?.data) {
       let filteredOrders = response.data.items || [];
@@ -274,6 +279,7 @@ const fetchOrders = useCallback(async () => {
   filters.paymentStatus,
   filters.pharmacyVerificationStatus, // ✅ ADD THIS
   debouncedSearch,
+    filters.isGuestOrder, // ✅ NEW
 ]);
 
 
@@ -531,15 +537,17 @@ const handleBulkStatusUpdate = async (data: {
 
 const clearFilters = () => {
   setFilters({
-    searchTerm: '',
-    status: '',
-    fromDate: '',
-    toDate: '',
-    deliveryMethod: '',
-    paymentMethod: '',
-    paymentStatus: '',
-    pharmacyVerificationStatus: '',
+    searchTerm: "",
+    status: "",
+    fromDate: "",
+    toDate: "",
+    deliveryMethod: "",
+    paymentMethod: "",
+    paymentStatus: "",
+    pharmacyVerificationStatus: "",
+    isGuestOrder: "", // ✅ NEW FILTER RESET
   });
+  setCurrentPage(1); // ✅ Optional but recommended
 };
 
 
@@ -952,7 +960,7 @@ const hasActiveFilters = useMemo(() => {
       <div className="bg-slate-900/50 border border-slate-800 rounded-lg p-3 z-50">
         <div className="flex flex-wrap items-center gap-2">
           {/* Search */}
-   <div className="relative flex-1 min-w-[180px]">
+   <div className="relative flex-1 w-[160px]">
   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
 
   <input
@@ -973,19 +981,37 @@ const hasActiveFilters = useMemo(() => {
   )}
 </div>
 
+<div className="flex flex-col gap-1 w-[140px]">
 
+  <select
+    value={filters.isGuestOrder}
+    onChange={(e) =>
+      setFilters((prev) => ({
+        ...prev,
+        isGuestOrder: e.target.value,
+      }))
+    }
+    className="px-3 py-2 text-sm bg-slate-800 border border-slate-700
+      rounded-lg text-white focus:outline-none
+      focus:ring-2 focus:ring-violet-500 transition-all"
+  >
+    <option value="">User type</option>
+    <option value="false">Registered Users</option>
+    <option value="true">Guest Orders</option>
+  </select>
+</div>
           {/* Status Filter */}
           <div className="relative">
             <select
               value={filters.status}
               onChange={(e) => setFilters({ ...filters, status: e.target.value })}
-              className={`pl-9 pr-8 py-2 rounded-lg bg-slate-800/90 text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/50 transition-all appearance-none cursor-pointer min-w-[140px] ${
+              className={`pl-9 pr-8 py-2 rounded-lg bg-slate-800/90 text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/50 transition-all appearance-none cursor-pointer w-[140px] ${
                 filters.status
                   ? 'bg-blue-500/20 border-2 border-blue-500/50'
                   : 'bg-slate-800/50 border border-slate-700'
               }`}
             >
-              <option value="">All Status</option>
+              <option value="">Order Status</option>
               <option value="Pending">Pending</option>
               <option value="Confirmed">Confirmed</option>
               <option value="Processing">Processing</option>
@@ -1005,7 +1031,7 @@ const hasActiveFilters = useMemo(() => {
             <select
               value={filters.deliveryMethod}
               onChange={(e) => setFilters({ ...filters, deliveryMethod: e.target.value })}
-              className={`pl-9 pr-8 py-2  bg-slate-800/90 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/50 transition-all appearance-none cursor-pointer min-w-[140px] ${
+              className={`pl-8 pr-2 py-2  bg-slate-800/90 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/50 transition-all appearance-none cursor-pointer w-[140px] ${
                 filters.deliveryMethod
                   ? 'bg-cyan-500/20 border-2 border-cyan-500/50'
                   : 'bg-slate-800/50 border border-slate-700'
@@ -1024,7 +1050,7 @@ const hasActiveFilters = useMemo(() => {
             <select
               value={filters.paymentMethod}
               onChange={(e) => setFilters({ ...filters, paymentMethod: e.target.value })}
-              className={`pl-9 pr-8 py-2 rounded-lg bg-slate-800/90 text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/50 transition-all appearance-none cursor-pointer min-w-[140px] ${
+              className={`pl-9 pr-5 py-2 rounded-lg bg-slate-800/90 text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/50 transition-all appearance-none cursor-pointer w-[140px] ${
                 filters.paymentMethod
                   ? 'bg-amber-500/20 border-2 border-amber-500/50'
                   : 'bg-slate-800/50 border border-slate-700'
@@ -1043,13 +1069,13 @@ const hasActiveFilters = useMemo(() => {
             <select
               value={filters.paymentStatus}
               onChange={(e) => setFilters({ ...filters, paymentStatus: e.target.value })}
-              className={`pl-9 pr-8 py-2 rounded-lg bg-slate-800/90 text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/50 transition-all appearance-none cursor-pointer min-w-[140px] ${
+              className={`pl-9 pr-7 py-2 rounded-lg bg-slate-800/90 text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/50 transition-all appearance-none cursor-pointer min-w-[140px] ${
                 filters.paymentStatus
                   ? 'bg-green-500/20 border-2 border-green-500/50'
                   : 'bg-slate-800/50 border border-slate-700'
               }`}
             >
-              <option value="">All Status</option>
+              <option value="">payment Status</option>
               <option value="Successful">Successful</option>
               <option value="Completed">Completed</option>
               <option value="Captured">Captured</option>

@@ -32,6 +32,7 @@ export interface ActivityLog {
   createdOnUtc: string;
   userName: string;
   entityDetails: EntityDetails;
+    ipAddress?: string;
 }
 
 export interface ActivityLogListResponse {

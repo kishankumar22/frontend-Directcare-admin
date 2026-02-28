@@ -346,20 +346,18 @@ export interface CreateProductDto {
 }
 
 export interface UpdateProductDto extends Partial<CreateProductDto> {}
-
 export interface ProductQueryParams {
   page?: number;
   pageSize?: number;
   categoryId?: string;
   brandId?: string;
   search?: string;
+  searchTerm?: string; // ✅ ADD THIS
   isPublished?: boolean;
   sortBy?: string;
   sortOrder?: 'asc' | 'desc';
-  productType?: 'simple' | 'grouped' ;
-  isDeleted?: boolean; // ✅ ADD THIS
+  isDeleted?: boolean;
 }
-
 export interface PaginatedResponse<T> {
   success: boolean;
   data: {
@@ -395,10 +393,13 @@ getAll: async (params?: ProductQueryParams) => {
   if (params?.pageSize) queryParams.append('pageSize', params.pageSize.toString());
   if (params?.categoryId) queryParams.append('categoryId', params.categoryId);
   if (params?.brandId) queryParams.append('brandId', params.brandId);
-  if (params?.search) queryParams.append('search', params.search);
+if (params?.searchTerm) {
+  queryParams.append('searchTerm', params.searchTerm);
+}
   if (params?.isPublished !== undefined) queryParams.append('isPublished', params.isPublished.toString());
   if (params?.sortBy) queryParams.append('sortBy', params.sortBy);
   if (params?.sortOrder) queryParams.append('sortOrder', params.sortOrder);
+
 
   // ✅ ADD THIS
   if (params?.isDeleted !== undefined)

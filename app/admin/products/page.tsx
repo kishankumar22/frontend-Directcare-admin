@@ -11,7 +11,8 @@ import {
   FileSpreadsheet,
   Upload,
   Download,
-  Boxes
+  Boxes,
+  Database
 } from "lucide-react";
 
 type ToggleProduct = {
@@ -226,8 +227,7 @@ const debouncedSearchTerm = useDebounce(searchInput, 500); // 500ms delay
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [selectedProductForDiscount, setSelectedProductForDiscount] = useState<any>(null);
 
-  // Filter states
-  const [searchTerm, setSearchTerm] = useState("");
+
   const [selectedCategory, setSelectedCategory] = useState<SelectOption>({ value: "all", label: "All Categories" });
   const [selectedBrand, setSelectedBrand] = useState<SelectOption>({ value: "all", label: "All Brands" });
   const [selectedHomepage, setSelectedHomepage] = useState<SelectOption>({ value: "all", label: "Homepage: All" });
@@ -381,11 +381,20 @@ const debouncedSearchTerm = useDebounce(searchInput, 500); // 500ms delay
     setShowToggleConfirm(true);
   };
 
-  const getProductImage = (images: any[]): string => {
-    if (!images || images.length === 0) return "";
-    const mainImage = images.find((img: any) => img.isMain) || images[0];
-    return API_BASE_URL.replace("/api", "") + mainImage.imageUrl.replace("~", "");
-  };
+const getProductImage = (images: any[]): string => {
+  if (!images || images.length === 0) return "";
+
+  const mainImage = images.find((img: any) => img.isMain) || images[0];
+  let imageUrl = mainImage.imageUrl || "";
+
+  // 🔥 If already full URL → return directly
+  if (imageUrl.startsWith("http")) {
+    return imageUrl;
+  }
+
+  // 🔥 Otherwise attach base URL (for local uploads)
+  return API_BASE_URL.replace("/api", "") + imageUrl.replace("~", "");
+};
 
   const getPrimaryCategoryName = (categories: any[]): string => {
     if (!categories || !Array.isArray(categories) || categories.length === 0) {
@@ -426,12 +435,35 @@ const fetchProducts = async () => {
   setLoading(true);
   try {
     // STEP 1: Build backend-supported params only
-    const params: any = {
-      page: currentPage,
-      pageSize: itemsPerPage,
-      sortBy: 'createdAt',
-      sortDirection: 'desc',
-    };
+  const params: any = {
+  page: currentPage,
+  pageSize: itemsPerPage,
+  sortBy: 'createdAt',
+  sortOrder: 'desc',
+};
+
+if (deletedFilter.value !== "all") {
+  params.isDeleted = deletedFilter.value === "true";
+}
+
+if (debouncedSearchTerm.trim() !== "") {
+  params.searchTerm = debouncedSearchTerm.trim();
+}
+
+if (selectedCategory.value !== "all") {
+  const selectedCat = categories.find(c => c.name === selectedCategory.value);
+  if (selectedCat) {
+    params.categoryId = selectedCat.id;
+  }
+}
+
+if (publishedFilter.value !== "all") {
+  params.isPublished = publishedFilter.value === "published";
+}
+
+if (selectedHomepage.value !== "all") {
+  params.showOnHomepage = selectedHomepage.value === "yes"; 
+}
 
     // ✅ BACKEND-SUPPORTED FILTERS
     if (deletedFilter.value !== "all") {
@@ -1301,48 +1333,89 @@ const hasActiveFilters = useMemo(
             </button>
           )}
 
-          <div className="relative">
-            <button
-              onClick={() => setShowExportMenu(!showExportMenu)}
-              className="flex items-center gap-2 px-3 py-1.5 text-sm
-              bg-gradient-to-r from-green-600 to-emerald-600
-              text-white rounded-lg font-semibold shadow
-              hover:shadow-green-500/40 transition-all"
-            >
-              <FileSpreadsheet className="w-4 h-4" />
-              Export
-            </button>
+<div className="relative">
+  <button
+    onClick={() => setShowExportMenu(!showExportMenu)}
+    className="flex items-center gap-2 px-3 py-1.5 text-sm
+      bg-gradient-to-r from-green-600 to-emerald-600
+      text-white rounded-lg font-semibold shadow
+      hover:shadow-emerald-500/40 transition-all"
+  >
+    <FileSpreadsheet className="w-4 h-4" />
+    Export
+    <ChevronDown className="w-4 h-4 opacity-80" />
+  </button>
 
-            {showExportMenu && (
-              <>
-                <div
-                  className="fixed inset-0 z-10"
-                  onClick={() => setShowExportMenu(false)}
-                />
-                <div className="absolute right-0 mt-2 w-60 bg-slate-800 border border-slate-700 rounded-xl shadow-xl z-20">
-                  <button
-                    onClick={() => {
-                      handleExport(false);
-                      setShowExportMenu(false);
-                    }}
-                    className="w-full px-4 py-2 text-left text-sm text-white hover:bg-slate-700"
-                  >
-                    Export Current Page ({products.length})
-                  </button>
-                  <button
-                    onClick={() => {
-                      handleExport(true);
-                      setShowExportMenu(false);
-                    }}
-                    className="w-full px-4 py-2 text-left text-sm text-white hover:bg-slate-700"
-                  >
-                    Export All ({totalCount})
-                  </button>
-                </div>
-              </>
-            )}
+  {showExportMenu && (
+    <>
+      {/* Overlay */}
+      <div
+        className="fixed inset-0 z-10"
+        onClick={() => setShowExportMenu(false)}
+      />
+
+      {/* Dropdown */}
+      <div className="absolute right-0 mt-2 w-52
+        bg-slate-800/95 backdrop-blur-xl
+        border border-slate-700
+        rounded-xl shadow-xl
+        overflow-hidden z-20"
+      >
+
+    
+
+        {/* Current Page */}
+        <button
+          onClick={() => {
+            handleExport(false);
+            setShowExportMenu(false);
+          }}
+          className="w-full px-4 py-2.5 text-left hover:bg-slate-700/60 transition-all"
+          title="Export current page products"
+        >
+          <div className="flex items-center gap-3">
+            <FileSpreadsheet className="w-4 h-4 text-emerald-400" />
+            <div>
+              <p className="text-sm font-medium text-white">
+                Current Page
+              </p>
+              <p className="text-xs text-slate-400">
+                {products.length} products
+              </p>
+            </div>
           </div>
+        </button>
 
+        {/* Divider */}
+        <div className="border-t border-slate-700/60" />
+
+        {/* Export All */}
+        <button
+          onClick={() => {
+            handleExport(true);
+            setShowExportMenu(false);
+          }}
+          className="w-full px-4 py-2.5 text-left hover:bg-slate-700/60 transition-all"
+        >
+          <div className="flex items-center gap-3">
+            <Database className="w-4 h-4 text-emerald-400" />
+            <div>
+              <p className="text-sm font-medium text-white"
+          title="Export All products"
+              >
+                All Products
+              </p>
+              <p className="text-xs text-slate-400">
+                {totalCount} total
+              </p>
+            </div>
+          </div>
+        </button>
+
+      </div>
+    </>
+  )}
+</div>
           <Link href="/admin/products/add">
             <button className="flex items-center gap-2 px-3 py-1.5 text-sm
             bg-gradient-to-r from-violet-500 to-cyan-500
@@ -1455,7 +1528,7 @@ const hasActiveFilters = useMemo(
               <span className="text-violet-400">
                 {" "}.{" "}
                 {[
-                  searchTerm !== "",
+            
                   selectedCategory.value !== "all",
                   selectedBrand.value !== "all",
                   selectedHomepage.value !== "all",
@@ -1471,7 +1544,7 @@ const hasActiveFilters = useMemo(
                   discountFilter.value !== "all",
                 ].filter(Boolean).length} active filter
                 {[
-                  searchTerm !== "",
+           
                   selectedCategory.value !== "all",
                   selectedBrand.value !== "all",
                   selectedHomepage.value !== "all",

@@ -53,7 +53,8 @@ import {
   Coins,
   Sliders,
   ClipboardList,
-  PoundSterling, // ✅ NEW ICON FOR SYSTEM GROUP
+  PoundSterling,
+  Warehouse, // ✅ NEW ICON FOR SYSTEM GROUP
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTheme } from "@/app/admin/_context/theme-provider";
@@ -76,17 +77,18 @@ const navigation: NavigationItem[] = [
     href: '/admin', 
     icon: LayoutDashboard 
   },
-  {
-    name: 'Catalog',
-    icon: Layers,
-    children: [
-      { name: 'Products', href: '/admin/products', icon: Package },
-      { name: 'Categories', href: '/admin/categories', icon: FolderTree },
-      { name: 'Brands', href: '/admin/brands', icon: Tag },
-      { name: 'Product Reviews', href: '/admin/productReview', icon: Star },
-      { name: 'Pharmacy Questions', href: '/admin/pharmacy-questions', icon: ClipboardList }, // ✅ NEW
-    ],
-  },
+ {
+  name: 'Catalog',
+  icon: Layers,
+  children: [
+    { name: 'Products', href: '/admin/products', icon: Package },
+    { name: 'Inventory', href: '/admin/inventory', icon: Warehouse }, // ✅ ADDED
+    { name: 'Categories', href: '/admin/categories', icon: FolderTree },
+    { name: 'Brands', href: '/admin/brands', icon: Tag },
+    { name: 'Product Reviews', href: '/admin/productReview', icon: Star },
+    { name: 'Pharmacy Questions', href: '/admin/pharmacy-questions', icon: ClipboardList },
+  ],
+},
   {
     name: 'Sales',
     icon: TrendingUp,

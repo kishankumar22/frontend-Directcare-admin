@@ -76,9 +76,10 @@ interface RecentOrder {
 }
 
 interface TopProduct {
+  id: string;
   name: string;
   sales: number;
-  revenue: string;
+   revenue: number; // 👈 must be number
   trend: string;
   stock: number;
   rating: number;
@@ -328,44 +329,55 @@ const generateSalesTrend = (orders: any[], range: DateRange): SalesData[] => {
     revenue: Math.round(revenue),
   }));
 };
-
 const generateCategoryDistribution = (products: any[]): CategorySales[] => {
-  const categoryCounts: { [key: string]: number } = {};
+  const categoryCounts: Record<string, number> = {};
 
   products.forEach((product: any) => {
     const categories = product.categories || [];
 
-    if (categories.length === 0) {
+    if (!categories.length) {
       categoryCounts["Uncategorized"] =
         (categoryCounts["Uncategorized"] || 0) + 1;
     } else {
       categories.forEach((cat: any) => {
-        const catName = cat.categoryName || "Uncategorized";
-        categoryCounts[catName] =
-          (categoryCounts[catName] || 0) + 1;
+        const name = cat.categoryName || "Uncategorized";
+        categoryCounts[name] = (categoryCounts[name] || 0) + 1;
       });
     }
   });
 
-  // ✅ Stable Professional Color Mapping
-  const categoryColorMap: Record<string, string> = {
-    "Beauty & Cosmetics": "#06B6D4",   // Cyan
-    "Baby & Child": "#F59E0B",         // Amber
-    "Toiletries": "#10B981",           // Emerald
-    "Stop Smoking": "#F97316",         // Orange
-    "Vitamins": "#6366F1",             // Indigo
-    "Clothing": "#EF4444",             // Red
-    "Uncategorized": "#64748B",        // Slate
-  };
+  const sorted = Object.entries(categoryCounts)
+    .sort((a, b) => b[1] - a[1]);
 
-  return Object.entries(categoryCounts)
-    .map(([name, value]) => ({
-      name,
-      value,
-      color: categoryColorMap[name] || "#8b5cf6", // fallback color
-    }))
-    .sort((a, b) => b.value - a.value)
-    .slice(0, 6);
+  const top9 = sorted.slice(0, 9);
+  const others = sorted.slice(9);
+
+  const othersTotal = others.reduce((sum, [, val]) => sum + val, 0);
+
+  const finalData = [...top9];
+
+  if (othersTotal > 0) {
+    finalData.push(["Others", othersTotal]);
+  }
+
+  const colorPalette = [
+    "#8B5CF6",
+    "#06B6D4",
+    "#10B981",
+    "#F59E0B",
+    "#EF4444",
+    "#6366F1",
+    "#EC4899",
+    "#F97316",
+    "#14B8A6",
+    "#64748B", // Others color
+  ];
+
+  return finalData.map(([name, value], index) => ({
+    name,
+    value,
+    color: colorPalette[index],
+  }));
 };
 
 
@@ -382,39 +394,70 @@ const generateCategoryDistribution = (products: any[]): CategorySales[] => {
     }));
   };
 
-  const generateTopProducts = (products: any[], orders: any[]): TopProduct[] => {
-    const productSales: { [key: string]: any } = {};
+const generateTopProducts = (products: any[], orders: any[]): TopProduct[] => {
+  const productSales: Record<string, any> = {};
 
-    orders.forEach((order: any) => {
-      order.orderItems?.forEach((item: any) => {
-        const productId = item.productId;
-        if (!productSales[productId]) {
-          productSales[productId] = {
-            name: item.productName || "Unknown Product",
-            quantity: 0,
-            revenue: 0,
-          };
-        }
-        productSales[productId].quantity += item.quantity || 1;
-        productSales[productId].revenue += item.totalPrice || 0;
-      });
-    });
+  // Calculate sales from orders
+  orders.forEach((order: any) => {
+    order.orderItems?.forEach((item: any) => {
+      const productId = item.productId;
 
-    return Object.entries(productSales)
-      .map(([productId, data]: [string, any]) => {
-        const product = products.find((p: any) => p.id === productId);
-        return {
-          name: data.name,
-          sales: data.quantity,
-          revenue: `£${data.revenue.toFixed(2)}`,
-          trend: "+12%",
-          stock: product?.stockQuantity || 0,
-          rating: product?.averageRating || 4.5,
+      if (!productSales[productId]) {
+        productSales[productId] = {
+          name: item.productName || "Unknown Product",
+          quantity: 0,
+          revenue: 0,
         };
-      })
-      .sort((a, b) => b.sales - a.sales)
-      .slice(0, 5);
-  };
+      }
+
+      productSales[productId].quantity += item.quantity || 1;
+      productSales[productId].revenue += item.totalPrice || 0;
+    });
+  });
+
+  let topProducts = Object.entries(productSales).map(
+    ([productId, data]: [string, any]) => {
+      const product = products.find((p: any) => p.id === productId);
+
+      return {
+        id: productId,
+        name: data.name,
+        sales: data.quantity,
+        revenue: data.revenue,
+        stock: product?.stockQuantity || 0,
+        rating: product?.averageRating || 4.0,
+        trend: Math.random() > 0.5 ? "up" : "down", // Replace with real trend later
+      };
+    }
+  );
+
+  // Sort by sales
+  topProducts = topProducts.sort((a, b) => b.sales - a.sales);
+
+  // If less than 5 sold products → fill with top rated
+  if (topProducts.length < 5) {
+    const remaining = products
+      .filter(
+        (p: any) =>
+          !topProducts.find((tp) => tp.id === p.id)
+      )
+      .sort((a: any, b: any) => (b.averageRating || 0) - (a.averageRating || 0))
+      .slice(0, 5 - topProducts.length)
+      .map((p: any) => ({
+        id: p.id,
+        name: p.name,
+        sales: 0,
+        revenue: 0,
+        stock: p.stockQuantity || 0,
+        rating: p.averageRating || 4,
+        trend: "up",
+      }));
+
+    topProducts = [...topProducts, ...remaining];
+  }
+
+  return topProducts.slice(0, 5);
+};
 
   const formatRelativeTime = (dateString: string): string => {
     if (!dateString) return "N/A";
@@ -688,205 +731,249 @@ const generateCategoryDistribution = (products: any[]): CategorySales[] => {
         </div>
 
         {/* Category Distribution */}
-        <div className="col-span-3 bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-2xl p-4">
-          <div className="mb-4">
-            <h3 className="text-lg font-bold text-white">Product Categories</h3>
-            <p className="text-xs text-slate-400 mt-1">Distribution across categories</p>
-          </div>
-          {categoryData.length > 0 ? (
-            <>
-              <ResponsiveContainer width="100%" height={240}>
-                <PieChart>
-                  <Pie
-                    data={categoryData}
-                    cx="50%"
-                    cy="50%"
-                    labelLine={false}
-                    label={({ name, percent }: any) => `${name} ${(percent * 100).toFixed(0)}%`}
-                    outerRadius={80}
-                    fill="#8884d8"
-                    dataKey="value"
-                  >
-                    {categoryData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} />
-                    ))}
-                  </Pie>
-                  <Tooltip
-                    content={({ active, payload }: any) => {
-                      if (active && payload && payload.length) {
-                        const data = payload[0];
-                        return (
-                          <div className="bg-slate-800 border border-slate-700 rounded-xl p-3 shadow-xl">
-                            <div className="flex items-center gap-2 mb-2">
-                              <div
-                                className="w-3 h-3 rounded-full"
-                                style={{ backgroundColor: data.payload.color }}
-                              />
-                              <p className="text-white font-semibold text-sm">{data.name}</p>
-                            </div>
-                            <div className="space-y-1">
-                              <p className="text-slate-300 text-xs">
-                                Products: <span className="text-white font-bold">{data.value}</span>
-                              </p>
-                              <p className="text-slate-300 text-xs">
-                                Percentage:{" "}
-                                <span className="text-cyan-400 font-bold">
-                                  {(
-                                    (data.value /
-                                      categoryData.reduce((sum, cat) => sum + cat.value, 0)) *
-                                    100
-                                  ).toFixed(1)}
-                                  %
-                                </span>
-                              </p>
-                            </div>
-                          </div>
-                        );
-                      }
-                      return null;
-                    }}
-                  />
-                </PieChart>
-              </ResponsiveContainer>
-              <div className="grid grid-cols-2 gap-2 mt-3">
-                {categoryData.map((cat, idx) => (
-                  <div key={idx} className="flex items-center gap-2">
-                    <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: cat.color }} />
-                    <span className="text-xs text-slate-300 truncate">{cat.name}</span>
-                  </div>
-                ))}
-              </div>
-            </>
-          ) : (
-            <div className="flex items-center justify-center h-56 text-slate-500">
-              <p className="text-sm">No category data available</p>
-            </div>
-          )}
+      {/* Category Distribution */}
+<div className="col-span-3 bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-2xl p-4">
+  <div className="mb-4">
+    <h3 className="text-lg font-bold text-white">Product Categories</h3>
+    <p className="text-xs text-slate-400 mt-1">
+      Distribution across categories
+    </p>
+  </div>
+
+  {categoryData.length > 0 ? (
+    <>
+      {/* 👇 IMPORTANT: relative wrapper added */}
+      <div className="relative flex items-center justify-center">
+        <ResponsiveContainer width="100%" height={260}>
+          <PieChart>
+            <Pie
+              data={categoryData}
+              cx="50%"
+              cy="50%"
+              innerRadius={70}
+              outerRadius={95}
+              paddingAngle={2}
+              dataKey="value"
+              stroke="none"
+            >
+              {categoryData.map((entry, index) => (
+                <Cell key={index} fill={entry.color} />
+              ))}
+            </Pie>
+
+            <Tooltip
+              formatter={(value: number) => [`${value} products`, "Count"]}
+              contentStyle={{
+                backgroundColor: "#cad1e4",
+                border: "1px solid #334155",
+                borderRadius: "12px",
+                color: "#fff",
+              }}
+            />
+          </PieChart>
+        </ResponsiveContainer>
+
+        {/* 👇 PERFECT CENTER TEXT */}
+        <div className="absolute flex flex-col items-center justify-center">
+          <span className="text-3xl font-bold text-white">
+            {categoryData.reduce((sum, cat) => sum + cat.value, 0)}
+          </span>
+          <span className="text-xs text-slate-400 tracking-wide">
+            Total Products
+          </span>
         </div>
       </div>
 
-      {/* Recent Orders and Top Products */}
-      <div className="grid gap-3 md:grid-cols-2">
-        {/* Recent Orders */}
-        <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-2xl p-4">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h3 className="text-lg font-bold text-white">Recent Orders</h3>
-              <p className="text-xs text-slate-400 mt-1">Latest transactions in your store</p>
+      {/* PROFESSIONAL LEGEND */}
+      <div className="grid grid-cols-2 gap-2 mt-4">
+        {categoryData.map((cat, idx) => (
+          <div
+            key={idx}
+            className="flex items-center justify-between bg-slate-800/40 hover:bg-slate-800/60 transition-all px-3 py-2 rounded-lg"
+          >
+            <div className="flex items-center gap-2">
+              <div
+                className="w-2.5 h-2.5 rounded-full"
+                style={{ backgroundColor: cat.color }}
+              />
+              <span className="text-xs text-slate-300 truncate max-w-[110px]"
+              title={cat.name}>
+                {cat.name}
+              </span>
             </div>
-            <button
-              onClick={() => router.push("/admin/order")}
-              title="View all orders"
-              className="text-sm text-violet-400 hover:text-violet-300 flex items-center gap-1 font-medium transition-colors"
-            >
-              View All
-              <ArrowUpRight className="h-3 w-3" />
-            </button>
+            <span className="text-xs font-semibold text-white">
+              {cat.value}
+            </span>
           </div>
-          <div className="space-y-2">
-            {recentOrders.length > 0 ? (
-              recentOrders.map((order) => (
-                <div
-                  key={order.id}
-                  title={`Order ${order.id} - ${order.customer}`}
-                  className="flex items-center gap-3 p-3 rounded-xl bg-slate-800/50 border border-slate-700 hover:border-violet-500/50 transition-all cursor-pointer"
-                >
-                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-violet-500 to-cyan-500 flex items-center justify-center text-white font-bold text-xs flex-shrink-0">
-                    {order.avatar}
-                  </div>
-
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <p className="font-semibold text-sm text-white truncate">{order.customer}</p>
-                      <span className={`px-2 py-0.5 rounded-md text-xs font-medium ${getStatusColor(order.status)}`}>
-                        {order.status}
-                      </span>
-                    </div>
-                    <p className="text-xs text-slate-400 mt-0.5 truncate">{order.product}</p>
-                    <div className="flex items-center gap-1 mt-0.5">
-                      <Clock className="h-3 w-3 text-slate-500" />
-                      <span className="text-xs text-slate-500">{order.date}</span>
-                    </div>
-                  </div>
-
-                  <div className="text-right flex-shrink-0">
-                    <p className="font-bold text-violet-400 text-sm">{order.amount}</p>
-                    <p className="text-xs text-slate-500">{order.id}</p>
-                  </div>
-                </div>
-              ))
-            ) : (
-              <div className="text-center py-10 text-slate-500">
-                <ShoppingCart className="h-10 w-10 mx-auto mb-2 opacity-50" />
-                <p className="text-sm">No recent orders found</p>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Top Products */}
-        <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-2xl p-4">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h3 className="text-lg font-bold text-white">Top Selling Products</h3>
-              <p className="text-xs text-slate-400 mt-1">Best performers based on order data</p>
-            </div>
-            <button
-              onClick={() => router.push("/admin/products")}
-              title="View all products"
-              className="text-sm text-violet-400 hover:text-violet-300 flex items-center gap-1 font-medium transition-colors"
-            >
-              View All
-              <ArrowUpRight className="h-3 w-3" />
-            </button>
-          </div>
-          <div className="space-y-2">
-            {topProducts.length > 0 ? (
-              topProducts.map((product, idx) => (
-                <div
-                  key={idx}
-                  title={`${product.name} - ${product.sales} units sold`}
-                  className="flex items-center gap-3 p-3 rounded-xl bg-slate-800/50 border border-slate-700 hover:border-violet-500/50 transition-all"
-                >
-                  <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-violet-500/10 flex-shrink-0">
-                    <Package className="h-5 w-5 text-violet-400" />
-                  </div>
-
-                  <div className="flex-1 min-w-0">
-                    <p className="font-semibold text-sm text-white truncate">{product.name}</p>
-                    <div className="flex items-center gap-2 mt-0.5">
-                      <div className="flex items-center gap-1">
-                        <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
-                        <span className="text-xs text-slate-400">{product.rating}</span>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <ShoppingBag className="h-3 w-3 text-slate-500" />
-                        <span className="text-xs text-slate-400">{product.sales} sold</span>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <Package className="h-3 w-3 text-slate-500" />
-                        <span className="text-xs text-slate-400">{product.stock} left</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="text-right flex-shrink-0">
-                    <p className="font-bold text-cyan-400 text-sm">{product.revenue}</p>
-                    <span className="px-2 py-0.5 rounded-md bg-green-500/10 text-green-400 text-xs font-medium">
-                      {product.trend}
-                    </span>
-                  </div>
-                </div>
-              ))
-            ) : (
-              <div className="text-center py-10 text-slate-500">
-                <Package className="h-10 w-10 mx-auto mb-2 opacity-50" />
-                <p className="text-sm">No sales data available</p>
-              </div>
-            )}
-          </div>
-        </div>
+        ))}
       </div>
+    </>
+  ) : (
+    <div className="flex items-center justify-center h-56 text-slate-500">
+      <p className="text-sm">No category data available</p>
+    </div>
+  )}
+</div>
+      </div>
+
+    {/* Recent Orders and Top Products */}
+<div className="grid gap-3 md:grid-cols-2">
+
+  {/* ================= RECENT ORDERS ================= */}
+  <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-2xl p-4">
+    <div className="flex items-center justify-between mb-4">
+      <div>
+        <h3 className="text-lg font-bold text-white">Recent Orders</h3>
+        <p className="text-xs text-slate-400 mt-1">
+          Latest transactions in your store
+        </p>
+      </div>
+      <button
+        onClick={() => router.push("/admin/orders")}
+        className="text-sm text-violet-400 hover:text-violet-300 flex items-center gap-1 font-medium transition-colors"
+      >
+        View All
+        <ArrowUpRight className="h-3 w-3" />
+      </button>
+    </div>
+
+    <div className="space-y-3">
+      {recentOrders.length > 0 ? (
+        recentOrders.map((order) => (
+          <div
+            key={order.id}
+            className="flex items-center gap-3 p-3 rounded-xl bg-slate-800/50 border border-slate-700 hover:border-violet-500/50 transition-all cursor-pointer"
+          >
+            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-violet-500 to-cyan-500 flex items-center justify-center text-white font-bold text-xs flex-shrink-0">
+              {order.avatar}
+            </div>
+
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2">
+                <p className="font-semibold text-sm text-white truncate">
+                  {order.customer}
+                </p>
+                <span
+                  className={`px-2 py-0.5 rounded-md text-xs font-medium ${getStatusColor(
+                    order.status
+                  )}`}
+                >
+                  {order.status}
+                </span>
+              </div>
+
+              <p className="text-xs text-slate-400 mt-0.5 truncate">
+                {order.product}
+              </p>
+
+              <div className="flex items-center gap-1 mt-0.5">
+                <Clock className="h-3 w-3 text-slate-500" />
+                <span className="text-xs text-slate-500">
+                  {order.date}
+                </span>
+              </div>
+            </div>
+
+            <div className="text-right flex-shrink-0">
+              <p className="font-bold text-violet-400 text-sm">
+                {order.amount}
+              </p>
+              <p className="text-xs text-slate-500">{order.id}</p>
+            </div>
+          </div>
+        ))
+      ) : (
+        <div className="text-center py-10 text-slate-500">
+          <ShoppingCart className="h-10 w-10 mx-auto mb-2 opacity-50" />
+          <p className="text-sm">No recent orders found</p>
+        </div>
+      )}
+    </div>
+  </div>
+
+  {/* ================= TOP PRODUCTS ================= */}
+  <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-2xl p-4">
+    <div className="flex items-center justify-between mb-4">
+      <div>
+        <h3 className="text-lg font-bold text-white">
+          Top Selling Products
+        </h3>
+        <p className="text-xs text-slate-400 mt-1">
+          Best performers based on order data
+        </p>
+      </div>
+      <button
+        onClick={() => router.push("/admin/products")}
+        className="text-sm text-violet-400 hover:text-violet-300 flex items-center gap-1 font-medium transition-colors"
+      >
+        View All
+        <ArrowUpRight className="h-3 w-3" />
+      </button>
+    </div>
+
+    <div className="space-y-3">
+      {topProducts.length > 0 ? (
+        (() => {
+          const maxSales = Math.max(...topProducts.map(p => p.sales));
+
+          return topProducts.map((product, idx) => (
+            <div
+              key={product.id}
+              className="p-4 rounded-xl bg-slate-800/40 border border-slate-700 hover:border-violet-500/40 transition-all"
+            >
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 flex items-center justify-center rounded-lg bg-violet-500/10 text-violet-400 font-bold text-sm">
+                    #{idx + 1}
+                  </div>
+
+                  <div>
+                    <p className="text-sm font-semibold text-white truncate max-w-[180px]">
+                      {product.name}
+                    </p>
+                    <p className="text-xs text-slate-400">
+                      ⭐ {product.rating} • {product.stock} in stock
+                    </p>
+                  </div>
+                </div>
+
+                <div className="text-right">
+                  <p className="text-sm font-bold text-cyan-400">
+                    £{(Number(product.revenue) || 0).toFixed(2)}
+                  </p>
+                  <p className="text-xs text-slate-500">
+                    {product.sales} sold
+                  </p>
+                </div>
+              </div>
+
+              {/* Progress Bar */}
+              <div className="w-full bg-slate-700/40 h-1.5 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-gradient-to-r from-violet-500 to-cyan-500 transition-all duration-500"
+                  style={{
+                    width:
+                      maxSales > 0
+                        ? `${(product.sales / maxSales) * 100}%`
+                        : "0%",
+                  }}
+                />
+              </div>
+            </div>
+          ));
+        })()
+      ) : (
+        <div className="text-center py-10 text-slate-500">
+          <Package className="h-10 w-10 mx-auto mb-2 opacity-50" />
+          <p className="text-sm">
+            No product sales data available
+          </p>
+        </div>
+      )}
+    </div>
+  </div>
+
+</div>
 
 
 

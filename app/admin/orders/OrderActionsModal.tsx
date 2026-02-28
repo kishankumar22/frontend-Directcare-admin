@@ -134,11 +134,12 @@ const getStatusDisplayInfo = (status: OrderStatus) => {
 // ✅ NEW: Check if order is paid
 const isOrderPaid = (order: Order): boolean => {
   if (!order.payments || order.payments.length === 0) return false;
-  
-  const firstPayment = order.payments[0];
+
   const paidStatuses = ['Successful', 'Completed', 'Captured'];
-  
-  return paidStatuses.includes(firstPayment.status);
+
+  return order.payments.some((payment) =>
+    paidStatuses.includes(payment.status)
+  );
 };
 
 // ✅ NEW: Get payment status display
@@ -349,6 +350,12 @@ const [pendingCancelRequest, setPendingCancelRequest] = useState<CancelOrderRequ
   }
 };
 
+const isCashOnDelivery =
+  order?.paymentMethod === "CashOnDelivery" ||
+  order?.payments?.some(
+    (p: any) => p.paymentMethod?.toLowerCase() === "cashondelivery"
+  );
+
 const handleSubmit = async (e: FormEvent) => {
   e.preventDefault();
 
@@ -435,33 +442,40 @@ const PharmacyWarning = () => {
     </div>
   );
 };
-    const PaymentWarning = () => {
-      if (!['create-shipment', 'mark-delivered'].includes(action)) return null;
-      
-      if (!isPaid) {
-        return (
-          <div className="mb-4 p-4 bg-red-500/10 border border-red-500/30 rounded-lg flex items-start gap-3">
-            <ShieldAlert className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
-            <div>
-              <p className="text-sm font-semibold text-red-400">Payment Not Completed</p>
-              <p className="text-xs text-red-300 mt-1">
-                This order's payment is <strong>{paymentDisplay.label}</strong>. You cannot proceed with shipment/delivery until payment is confirmed.
-              </p>
-            </div>
-          </div>
-        );
-      }
 
-      return (
-        <div className="mb-4 p-3 bg-green-500/10 border border-green-500/20 rounded-lg flex items-center gap-2">
-          <CreditCard className="w-4 h-4 text-green-400" />
-          <p className="text-xs text-green-400">
-            Payment Status: <strong>{paymentDisplay.label}</strong> ✅
+
+    const PaymentWarning = () => {
+  if (!['create-shipment', 'mark-delivered'].includes(action)) return null;
+
+  // 🔥 Hide for COD
+  if (isCashOnDelivery) return null;
+
+  if (!isPaid) {
+    return (
+      <div className="mb-4 p-4 bg-red-500/10 border border-red-500/30 rounded-lg flex items-start gap-3">
+        <ShieldAlert className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
+        <div>
+          <p className="text-sm font-semibold text-red-400">
+            Payment Not Completed
+          </p>
+          <p className="text-xs text-red-300 mt-1">
+            This order's payment is <strong>{paymentDisplay.label}</strong>. 
+            You cannot proceed with shipment/delivery until payment is confirmed.
           </p>
         </div>
-      );
-    };
+      </div>
+    );
+  }
 
+  return (
+    <div className="mb-4 p-3 bg-green-500/10 border border-green-500/20 rounded-lg flex items-center gap-2">
+      <CreditCard className="w-4 h-4 text-green-400" />
+      <p className="text-xs text-green-400">
+        Payment Status: <strong>{paymentDisplay.label}</strong> ✅
+      </p>
+    </div>
+  );
+};
     // ✅ NEW: Notification Preview Toggle
     const NotificationPreviewToggle = () => {
       const hasNotification = ['mark-ready', 'mark-collected', 'create-shipment', 'mark-delivered', 'cancel-order'].includes(action);
@@ -748,7 +762,7 @@ const PharmacyWarning = () => {
                   placeholder="e.g., 1Z999AA1234567890"
                   className="w-full px-3 py-2.5 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
                   required
-                  disabled={!isPaid}
+                  disabled={!isPaid && !isCashOnDelivery}
                 />
               </div>
 
@@ -765,7 +779,7 @@ const PharmacyWarning = () => {
                   placeholder="e.g., DHL, FedEx, UPS"
                   className="w-full px-3 py-2.5 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
                   required
-                  disabled={!isPaid}
+                  disabled={!isPaid && !isCashOnDelivery}
                 />
               </div>
             </div>
@@ -783,7 +797,7 @@ const PharmacyWarning = () => {
                 placeholder="e.g., Standard, Express"
                 className="w-full px-3 py-2.5 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
                 required
-                disabled={!isPaid}
+                disabled={!isPaid && !isCashOnDelivery}
               />
             </div>
 
@@ -795,7 +809,7 @@ const PharmacyWarning = () => {
                 placeholder="Additional shipment notes..."
                 rows={2}
                 className="w-full px-3 py-2.5 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
-                disabled={!isPaid}
+                disabled={!isPaid && !isCashOnDelivery}
               />
             </div>
 
@@ -826,7 +840,7 @@ const PharmacyWarning = () => {
                           updateShipmentItemQuantity(item.id, Number(e.target.value))
                         }
                         className="w-20 px-2 py-1.5 bg-slate-800 border border-slate-600 rounded-lg text-white text-center focus:ring-2 focus:ring-violet-500"
-                        disabled={!isPaid}
+                        disabled={!isPaid && !isCashOnDelivery}
                       />
                       <span className="text-slate-400 text-sm ml-2">/ {item.quantity}</span>
                     </div>
@@ -876,7 +890,7 @@ const PharmacyWarning = () => {
                     }
                     className="w-full px-3 py-2.5 bg-slate-800/50 border border-slate-700 rounded-xl text-white focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
                     required
-                    disabled={!isPaid}
+                    disabled={!isPaid && !isCashOnDelivery}
                   >
                     {order.shipments.map((shipment) => (
                       <option key={shipment.id} value={shipment.id}>
@@ -898,7 +912,7 @@ const PharmacyWarning = () => {
                     }
                     className="w-full px-3 py-2.5 bg-slate-800/50 border border-slate-700 rounded-xl text-white focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
                     required
-                    disabled={!isPaid}
+                    disabled={!isPaid && !isCashOnDelivery}
                   />
                 </div>
 
@@ -914,7 +928,7 @@ const PharmacyWarning = () => {
                     }
                     placeholder="Name of person who received"
                     className="w-full px-3 py-2.5 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
-                    disabled={!isPaid}
+                    disabled={!isPaid && !isCashOnDelivery}
                   />
                 </div>
 
@@ -930,7 +944,7 @@ const PharmacyWarning = () => {
                     placeholder="Additional delivery notes..."
                     rows={3}
                     className="w-full px-3 py-2.5 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
-                    disabled={!isPaid}
+                    disabled={!isPaid && !isCashOnDelivery}
                   />
                 </div>
 
@@ -1066,10 +1080,13 @@ if (isPharmacyLocked && action === 'update-status') {
 }
 
   // ✅ Payment check for shipment/delivery
-  if (['create-shipment', 'mark-delivered'].includes(action) && !isPaid) {
-    return false;
-  }
-
+if (
+  ['create-shipment', 'mark-delivered'].includes(action) &&
+  !isPaid &&
+  !isCashOnDelivery
+) {
+  return false;
+}
   switch (action) {
     case 'mark-ready':
       return readyConfirmed && order.deliveryMethod === 'ClickAndCollect';

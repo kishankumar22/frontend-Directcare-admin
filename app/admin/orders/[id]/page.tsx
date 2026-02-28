@@ -84,7 +84,7 @@ const getOrderStatusInfo = (status: OrderStatus) => {
       label: 'Pending',
       color: 'text-yellow-400',
       bgColor: 'bg-yellow-500/10',
-      icon: <Clock className="h-3 w-3" />,
+    icon: <Clock className="h-3 w-3" />,
       description: 'Order has been placed and is awaiting confirmation.',
       nextAction: 'Confirm order to proceed with fulfillment',
     },
@@ -325,7 +325,7 @@ const StatusBadge = ({
 
   return (
     <div
-      className="relative inline-block group"
+      className="relative  inline-block group"
         style={{ minWidth: 'fit-content' }}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
@@ -336,11 +336,11 @@ const StatusBadge = ({
           {label}
         </span>
         <span
-          className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border ${statusInfo.bgColor} ${statusInfo.color} ${statusInfo.bgColor.replace('/10', '/20')} cursor-help transition-all hover:scale-105`}
+          className={`inline-flex  items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border ${statusInfo.bgColor} ${statusInfo.color} ${statusInfo.bgColor.replace('/10', '/20')} cursor-help transition-all hover:scale-105`}
         >
           {statusInfo.icon}
           {statusInfo.label}
-          <Info className="h-3 w-3 opacity-50" />
+          <Info className="h-3 w-3 opacity-50 text-current" />
         </span>
       </div>
 
@@ -370,10 +370,14 @@ const StatusBadge = ({
   "
 />
 
-  <div className="flex items-start gap-2">
-    <div className={`p-1.5 rounded-lg ${statusInfo.bgColor} flex-shrink-0`}>
-      {statusInfo.icon}
-    </div>
+  <div className="flex items-start  gap-2">
+ <div
+  className={`p-1.5 rounded-lg ${statusInfo.bgColor} ${statusInfo.color} flex-shrink-0 flex items-center justify-center`}
+>
+  <span className="text-current">
+    {statusInfo.icon}
+  </span>
+</div>
 
     <div className="flex-1 min-w-0">
       <p className={`font-semibold text-sm ${statusInfo.color} mb-1`}>
@@ -1336,7 +1340,7 @@ const allActions = getAllAvailableActions(
               </span>
             </div>
             <div className="flex justify-between" title="Value Added Tax (VAT)">
-              <span className="text-slate-400">Tax(included)</span>
+              <span className="text-slate-400">Tax(inc)</span>
               <span className="text-white font-medium">
                 {formatCurrency(order.taxAmount, order.currency)}
               </span>
@@ -1643,73 +1647,153 @@ const allActions = getAllAvailableActions(
   </div>
 </div>
       {/* ✅ Addresses */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-        {/* Billing Address */}
-        <div className="bg-slate-900/50 border border-slate-800 rounded-lg p-4 hover:border-blue-500/30 transition-all group">
-          <div className="flex items-center gap-2 mb-3">
-            <div className="p-2 bg-gradient-to-br from-blue-500 to-indigo-500 rounded-lg group-hover:scale-110 transition-transform">
-              <MapPin className="h-4 w-4 text-white" />
-            </div>
-            <h3 className="text-lg font-bold text-white">Billing Address</h3>
-          </div>
-          <div className="space-y-1.5 text-sm">
-            <p className="text-white font-medium flex items-center gap-1.5">
-              <User className="h-3.5 w-3.5 text-blue-400" />
-              {order.billingAddress.firstName} {order.billingAddress.lastName}
-            </p>
-            {order.billingAddress.company && (
-              <p className="text-slate-400 flex items-center gap-1.5">
-                <Building2 className="h-3.5 w-3.5" />
-                {order.billingAddress.company}
-              </p>
-            )}
-            <p className="text-slate-400">{order.billingAddress.addressLine1}</p>
-            {order.billingAddress.addressLine2 && (
-              <p className="text-slate-400">{order.billingAddress.addressLine2}</p>
-            )}
-            <p className="text-slate-400">
-              {order.billingAddress.city}, {order.billingAddress.state}{' '}
-              {order.billingAddress.postalCode}
-            </p>
-            <p className="text-slate-400 font-medium">{order.billingAddress.country}</p>
-          </div>
-        </div>
+<div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
 
-        {/* Shipping Address */}
+  {/* ================= BILLING ADDRESS ================= */}
+  <div className="bg-slate-900/60 border border-slate-800 rounded-xl p-5 hover:border-blue-500/30 transition-all group">
 
-        {order.deliveryMethod === 'HomeDelivery' && (
-  <div className="bg-slate-900/50 border border-slate-800 rounded-lg p-4 hover:border-purple-500/30 transition-all group">
-          <div className="flex items-center gap-2 mb-3">
-            <div className="p-2 bg-gradient-to-br from-purple-500 to-pink-500 rounded-lg group-hover:scale-110 transition-transform">
-              <Truck className="h-4 w-4 text-white" />
-            </div>
-            <h3 className="text-lg font-bold text-white">Shipping Address</h3>
-          </div>
-          <div className="space-y-1.5 text-sm">
-            <p className="text-white font-medium flex items-center gap-1.5">
-              <User className="h-3.5 w-3.5 text-purple-400" />
-              {order.shippingAddress.firstName} {order.shippingAddress.lastName}
-            </p>
-            {order.shippingAddress.company && (
-              <p className="text-slate-400 flex items-center gap-1.5">
-                <Building2 className="h-3.5 w-3.5" />
-                {order.shippingAddress.company}
-              </p>
-            )}
-            <p className="text-slate-400">{order.shippingAddress.addressLine1}</p>
-            {order.shippingAddress.addressLine2 && (
-              <p className="text-slate-400">{order.shippingAddress.addressLine2}</p>
-            )}
-            <p className="text-slate-400">
-              {order.shippingAddress.city}, {order.shippingAddress.state}{' '}
-              {order.shippingAddress.postalCode}
-            </p>
-            <p className="text-slate-400 font-medium">{order.shippingAddress.country}</p>
-          </div>
-        </div>
-        )}
-      
+    {/* Header */}
+    <div className="flex items-center gap-3 mb-5">
+      <div className="p-2.5 bg-gradient-to-br from-blue-500 to-indigo-500 rounded-lg shadow-md group-hover:scale-105 transition-transform">
+        <MapPin className="h-4 w-4 text-white" />
       </div>
+      <h3 className="text-lg font-semibold text-white tracking-wide">
+        Billing Address
+      </h3>
+    </div>
+
+    {/* Content */}
+    <div className="space-y-3 text-sm">
+
+      <div className="grid grid-cols-3">
+        <span className="text-slate-400 font-medium">Full Name</span>
+        <span className="col-span-2 text-white font-medium">
+          {order.billingAddress.firstName} {order.billingAddress.lastName}
+        </span>
+      </div>
+
+      {order.billingAddress.company && (
+        <div className="grid grid-cols-3">
+          <span className="text-slate-400 font-medium">Company</span>
+          <span className="col-span-2 text-white">
+            {order.billingAddress.company}
+          </span>
+        </div>
+      )}
+
+      <div className="grid grid-cols-3">
+        <span className="text-slate-400 font-medium">Address</span>
+        <span className="col-span-2 text-white">
+          {order.billingAddress.addressLine1}
+          {order.billingAddress.addressLine2 && (
+            <>
+              <br />
+              {order.billingAddress.addressLine2}
+            </>
+          )}
+        </span>
+      </div>
+
+      <div className="grid grid-cols-3">
+        <span className="text-slate-400 font-medium">City / State</span>
+        <span className="col-span-2 text-white">
+          {order.billingAddress.city}, {order.billingAddress.state}{" "}
+          {order.billingAddress.postalCode}
+        </span>
+      </div>
+
+      <div className="grid grid-cols-3">
+        <span className="text-slate-400 font-medium">Country</span>
+        <span className="col-span-2 text-white font-medium">
+          {order.billingAddress.country}
+        </span>
+      </div>
+
+      <div className="grid grid-cols-3">
+        <span className="text-slate-400 font-medium">Phone</span>
+        <span className="col-span-2 text-white font-medium">
+          {order.billingAddress.phoneNumber || "-"}
+        </span>
+      </div>
+
+    </div>
+  </div>
+
+
+  {/* ================= SHIPPING ADDRESS ================= */}
+  {order.deliveryMethod === "HomeDelivery" && (
+    <div className="bg-slate-900/60 border border-slate-800 rounded-xl p-5 hover:border-purple-500/30 transition-all group">
+
+      {/* Header */}
+      <div className="flex items-center gap-3 mb-5">
+        <div className="p-2.5 bg-gradient-to-br from-purple-500 to-pink-500 rounded-lg shadow-md group-hover:scale-105 transition-transform">
+          <Truck className="h-4 w-4 text-white" />
+        </div>
+        <h3 className="text-lg font-semibold text-white tracking-wide">
+          Shipping Address
+        </h3>
+      </div>
+
+      {/* Content */}
+      <div className="space-y-3 text-sm">
+
+        <div className="grid grid-cols-3">
+          <span className="text-slate-400 font-medium">Full Name</span>
+          <span className="col-span-2 text-white font-medium">
+            {order.shippingAddress.firstName}{" "}
+            {order.shippingAddress.lastName}
+          </span>
+        </div>
+
+        {order.shippingAddress.company && (
+          <div className="grid grid-cols-3">
+            <span className="text-slate-400 font-medium">Company</span>
+            <span className="col-span-2 text-white">
+              {order.shippingAddress.company}
+            </span>
+          </div>
+        )}
+
+        <div className="grid grid-cols-3">
+          <span className="text-slate-400 font-medium">Address</span>
+          <span className="col-span-2 text-white">
+            {order.shippingAddress.addressLine1}
+            {order.shippingAddress.addressLine2 && (
+              <>
+                <br />
+                {order.shippingAddress.addressLine2}
+              </>
+            )}
+          </span>
+        </div>
+
+        <div className="grid grid-cols-3">
+          <span className="text-slate-400 font-medium">City / State</span>
+          <span className="col-span-2 text-white">
+            {order.shippingAddress.city},{" "}
+            {order.shippingAddress.state}{" "}
+            {order.shippingAddress.postalCode}
+          </span>
+        </div>
+
+        <div className="grid grid-cols-3">
+          <span className="text-slate-400 font-medium">Country</span>
+          <span className="col-span-2 text-white font-medium">
+            {order.shippingAddress.country}
+          </span>
+        </div>
+
+        <div className="grid grid-cols-3">
+          <span className="text-slate-400 font-medium">Phone</span>
+          <span className="col-span-2 text-white font-medium">
+            {order.shippingAddress.phoneNumber || "-"}
+          </span>
+        </div>
+
+      </div>
+    </div>
+  )}
+</div>
 
       {/* ✅ Payments */}
       {order.payments && order.payments.length > 0 && (
