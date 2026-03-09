@@ -1994,7 +1994,7 @@ const checkSkuExists = async (sku: string): Promise<boolean> => {
     console.log('🔍 Checking SKU availability:', sku);
     
     const response = await productsService.getAll({ 
-      search: sku, 
+      searchTerm: sku, 
       pageSize: 100 
     });
     
@@ -2090,7 +2090,7 @@ const checkVariantSkuExists = async (
     }
 
     // ✅ Check against database (all products and variants)
-    const response = await productsService.getAll({ search: sku, pageSize: 100 });
+    const response = await productsService.getAll({ searchTerm: sku, pageSize: 100 });
     const products = response.data?.data?.items || [];
 
     for (const product of products) {

@@ -780,16 +780,41 @@ const backorderState = useMemo(() => {
 }, [stock, product.allowBackorder, product.backorderMode]);
 
 // 🔥 FINAL PRICE CALCULATION (Single Source of Truth)
+// 🔥 FINAL PRICE CALCULATION (Single Source of Truth)
 useEffect(() => {
-  // 🥇 Coupon applied → trust backend
+
+  // 🥇 COUPON APPLIED
   if (appliedCoupon) {
-    const newFinal = +(basePrice - appliedCoupon.discountAmount).toFixed(2);
-    setFinalPrice(newFinal);
-    setDiscountAmount(appliedCoupon.discountAmount);
+
+    let autoAmount = 0;
+
+    // check auto discount
+    if (activeAutoDiscount) {
+      if (activeAutoDiscount.usePercentage) {
+        autoAmount = (basePrice * activeAutoDiscount.discountPercentage) / 100;
+      } else {
+        autoAmount = activeAutoDiscount.discountAmount;
+      }
+    }
+
+    // coupon discount from backend
+    const couponAmount = appliedCoupon.discountAmount;
+
+    let totalDiscount = couponAmount;
+
+    // 🔥 CUMULATIVE LOGIC
+    if (appliedCoupon.isCumulative && activeAutoDiscount) {
+      totalDiscount = couponAmount + autoAmount;
+    }
+
+    const final = +(basePrice - totalDiscount).toFixed(2);
+
+    setFinalPrice(final);
+    setDiscountAmount(+totalDiscount.toFixed(2));
     return;
   }
 
-  // 🥈 Auto discount only
+  // 🥈 AUTO DISCOUNT ONLY
   if (activeAutoDiscount) {
     let autoAmount = 0;
 
@@ -806,7 +831,7 @@ useEffect(() => {
     return;
   }
 
-  // 🥉 No discount
+  // 🥉 NO DISCOUNT
   setFinalPrice(basePrice);
   setDiscountAmount(0);
 
@@ -1471,9 +1496,13 @@ const handleRemoveCoupon = () => {
   disabled={product.disableWishlistButton === true}
   onClick={() => {
     if (product.disableWishlistButton) return;
+    const wishlistId = selectedVariant ? selectedVariant.id : product.id;
     toggleWishlist({
-      id: product.id,
-      name: product.name,
+      id: wishlistId,
+      productId: product.id,
+      variantId: selectedVariant?.id,
+      variantName: selectedVariant?.name,
+      name: selectedVariant ? `${product.name} - ${selectedVariant.name}` : product.name,
       slug: product.slug,
       price: finalPrice,
       image: activeMainImage,
@@ -1481,7 +1510,7 @@ const handleRemoveCoupon = () => {
       vatExempt: product.vatExempt,
       sku: selectedVariant?.sku ?? product.sku,
     });
-    toast.success(isInWishlist(product.id) ? "Removed from wishlist" : "Added to wishlist!");
+    toast.success(isInWishlist(wishlistId) ? "Removed from wishlist" : "Added to wishlist!");
   }}
   className={`absolute top-3 right-3 z-20
     bg-white border border-gray-200 shadow-md
@@ -1491,7 +1520,7 @@ const handleRemoveCoupon = () => {
       : ""
     }`}
 >
-  <Heart className={`h-5 w-5 transition-colors ${isInWishlist(product.id) ? "fill-red-500 text-red-500" : "text-gray-700"}`} />
+  <Heart className={`h-5 w-5 transition-colors ${isInWishlist(selectedVariant ? selectedVariant.id : product.id) ? "fill-red-500 text-red-500" : "text-gray-700"}`} />
 </Button>
   {/* Share */}
   <div className="relative">

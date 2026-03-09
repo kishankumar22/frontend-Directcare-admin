@@ -138,7 +138,45 @@ const bundleSavings = useMemo(() => {
 const totalCombinedDiscount = bundleSavings + totalDiscount;
 
 const applyCouponFromBackend = (item: any, couponData: any) => {
+
+  const assigns = item.productData?.assignedDiscounts ?? [];
+
   const basePrice = item.priceBeforeDiscount ?? item.price;
+
+  // 🔹 AUTO DISCOUNT
+  const autoDiscount = assigns.find(
+    (d: any) =>
+      d &&
+      !d.requiresCouponCode &&
+      isDiscountActive(d)
+  );
+
+  let autoDiscountAmount = 0;
+
+  if (autoDiscount) {
+    if (autoDiscount.usePercentage) {
+      autoDiscountAmount =
+        (basePrice * autoDiscount.discountPercentage) / 100;
+    } else {
+      autoDiscountAmount = autoDiscount.discountAmount ?? 0;
+    }
+  }
+
+  // 🔹 COUPON VALUE
+  let couponValue = couponData.usePercentage
+    ? (basePrice * couponData.discountPercentage) / 100
+    : couponData.discountAmount ?? 0;
+
+  // 🔥 CUMULATIVE
+  let totalDiscount = couponValue;
+
+  if (couponData.isCumulative === true) {
+    totalDiscount = couponValue + autoDiscountAmount;
+  }
+
+  if (totalDiscount > basePrice) {
+    totalDiscount = basePrice;
+  }
 
   const updated = cart.map((ci) =>
     ci.id === item.id && ci.type === item.type
@@ -146,8 +184,8 @@ const applyCouponFromBackend = (item: any, couponData: any) => {
           ...ci,
           appliedDiscountId: couponData.discountId,
           couponCode: couponData.couponCode,
-          discountAmount: +couponData.discountAmount.toFixed(2),
-          finalPrice: +(basePrice - couponData.discountAmount).toFixed(2),
+          discountAmount: +totalDiscount.toFixed(2),
+          finalPrice: +(basePrice - totalDiscount).toFixed(2),
         }
       : ci
   );
@@ -180,7 +218,10 @@ const applyCouponFromBackend = (item: any, couponData: any) => {
       if (!d.couponCode) return false;
       return d.couponCode.trim().toLowerCase() === code.toLowerCase();
     });
-
+console.log("COUPON MATCH:", {
+  product: item.name,
+  match
+});
     if (!match) return item;
 
     // ❌ same coupon dubara apply na ho
@@ -190,17 +231,40 @@ const applyCouponFromBackend = (item: any, couponData: any) => {
     ) {
       return item;
     }
+const basePrice = item.priceBeforeDiscount ?? item.price;
 
-   const basePrice = item.priceBeforeDiscount ?? item.price;
+// 🔹 Find AUTO discount (same as PDP)
+const activeAutoDiscount = assigns.find(
+  (d: any) =>
+    d &&
+    !d.requiresCouponCode &&
+    isDiscountActive(d)
+);
+console.log("AUTO DISCOUNT FOUND:", {
+  product: item.name,
+  activeAutoDiscount
+});
+let autoDiscountAmount = 0;
 
-// 🔹 Existing discount (auto ya pehle se applied)
-const existingDiscount = item.discountAmount ?? 0;
+if (activeAutoDiscount) {
+  if (activeAutoDiscount.usePercentage) {
+    autoDiscountAmount =
+      (basePrice * activeAutoDiscount.discountPercentage) / 100;
+  } else {
+    autoDiscountAmount = activeAutoDiscount.discountAmount ?? 0;
+  }
+}
 
-// 🔹 Calculate coupon value
+// 🔹 Coupon value
 let couponValue = match.usePercentage
+
   ? (basePrice * match.discountPercentage) / 100
   : match.discountAmount ?? 0;
-
+console.log("COUPON VALUE:", {
+  product: item.name,
+  couponValue,
+  isCumulative: match.isCumulative
+});
 if (
   match.maximumDiscountAmount &&
   couponValue > match.maximumDiscountAmount
@@ -208,15 +272,19 @@ if (
   couponValue = match.maximumDiscountAmount;
 }
 
-// 🔥 CUMULATIVE RULE
-let totalDiscount;
+// 🔥 CUMULATIVE LOGIC (same as PDP)
+let totalDiscount = couponValue;
 
-if (match.isCumulative === true) {
-  totalDiscount = existingDiscount + couponValue;
-} else {
-  totalDiscount = couponValue; // replace old discount
+if (match.isCumulative === true && autoDiscountAmount > 0) {
+  totalDiscount = couponValue + autoDiscountAmount;
 }
-
+console.log("FINAL DISCOUNT:", {
+  product: item.name,
+  basePrice,
+  autoDiscountAmount,
+  couponValue,
+  totalDiscount
+});
 // safety clamp
 if (totalDiscount > basePrice) {
   totalDiscount = basePrice;
@@ -247,24 +315,47 @@ return {
   // -------------------------
   // Remove coupon only from a single item
   // -------------------------
-  const removeCouponFromItem = (itemId: string, itemType?: string) => {
-    const updated = cart.map((item) => {
-      if (!(item.id === itemId && (item.type ?? "one-time") === (itemType ?? item.type ?? "one-time"))) {
-        return item;
+const removeCouponFromItem = (itemId: string, itemType?: string) => {
+  const updated = cart.map((item) => {
+    if (!(item.id === itemId && (item.type ?? "one-time") === (itemType ?? item.type ?? "one-time"))) {
+      return item;
+    }
+
+    const assigns: any[] = item.productData?.assignedDiscounts ?? [];
+    const basePrice = item.priceBeforeDiscount ?? item.price;
+
+    // 🔹 find auto discount
+    const autoDiscount = assigns.find(
+      (d: any) =>
+        d &&
+       !d.requiresCouponCode &&
+        isDiscountActive(d)
+    );
+
+    let autoDiscountAmount = 0;
+
+    if (autoDiscount) {
+      if (autoDiscount.usePercentage) {
+        autoDiscountAmount =
+          (basePrice * autoDiscount.discountPercentage) / 100;
+      } else {
+        autoDiscountAmount = autoDiscount.discountAmount ?? 0;
       }
+    }
 
-      return {
-        ...item,
-        appliedDiscountId: null,
-        discountAmount: 0,
-        finalPrice: item.priceBeforeDiscount ?? item.price,
-        couponCode: null,
-      };
-    });
+    return {
+      ...item,
+      appliedDiscountId: null,
+      couponCode: null,
+      discountAmount: +autoDiscountAmount.toFixed(2),
+      finalPrice: +(basePrice - autoDiscountAmount).toFixed(2),
+      priceBeforeDiscount: basePrice,
+    };
+  });
 
-    updateCart(updated);
-    toast.success("Coupon removed from item.");
-  };
+  updateCart(updated);
+  toast.error("Coupon removed from item.");
+};
 // 🎁 TOTAL LOYALTY POINTS (ORDER LEVEL)
 // 🎁 TOTAL LOYALTY POINTS (PER PRODUCT LINE)
 const totalLoyaltyPoints = useMemo(() => {

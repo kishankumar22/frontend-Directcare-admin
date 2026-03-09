@@ -64,7 +64,7 @@ export default function PharmaQuestionsModal({
         const headers: HeadersInit = {};
 
         if (isAuthenticated) {
-          const token = localStorage.getItem("token");
+          const token = localStorage.getItem("accessToken");
           if (token) {
             headers["Authorization"] = `Bearer ${token}`;
           }
@@ -136,20 +136,8 @@ export default function PharmaQuestionsModal({
     loadData();
   }, [open, productId, isAuthenticated, toast, onClose, onSuccess]);
 
-  // 🔹 VALIDATION
-  const validate = () => {
-    for (const q of questions) {
-      if (q.isRequired && !answers[q.questionId]) {
-        toast.error("Please answer all required questions");
-        return false;
-      }
-    }
-    return true;
-  };
-
   // 🔥 SUBMIT / UPDATE
   const handleSubmit = async () => {
-    if (!validate()) return;
 
     try {
       setSubmitting(true);
@@ -159,7 +147,7 @@ export default function PharmaQuestionsModal({
       };
 
       if (isAuthenticated) {
-        const token = localStorage.getItem("token");
+        const token = localStorage.getItem("accessToken");
         if (token) {
           requestHeaders["Authorization"] = `Bearer ${token}`;
         }

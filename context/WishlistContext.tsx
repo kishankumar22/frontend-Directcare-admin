@@ -3,7 +3,10 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
 
 export interface WishlistItem {
-  id: string;
+  id: string;         // variant ID (if variant selected) or product ID
+  productId: string;  // always main product ID (for navigation)
+  variantId?: string; // variant ID if applicable
+  variantName?: string;
   name: string;
   slug: string;
   price: number;

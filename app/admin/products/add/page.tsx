@@ -979,7 +979,7 @@ const checkSkuExists = async (sku: string): Promise<boolean> => {
     console.log('🔍 Checking SKU:', sku);
     
     const response = await productsService.getAll({ 
-      search: sku, 
+      searchTerm: sku, 
       pageSize: 100 
     });
     

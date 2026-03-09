@@ -15,8 +15,9 @@ export default function WishlistPage() {
 
   const handleAddToCart = (item: WishlistItem) => {
     addToCart({
-      id: `wishlist:${item.id}`,
-      productId: item.id,
+      id: item.variantId ? `${item.productId}_${item.variantId}` : `wishlist:${item.productId}`,
+      productId: item.productId,
+      variantId: item.variantId ?? null,
       name: item.name,
       price: item.price,
       finalPrice: item.price,
@@ -73,7 +74,7 @@ export default function WishlistPage() {
             className="bg-white rounded-xl border border-gray-200 shadow-sm p-3 flex flex-col"
           >
             {/* Image */}
-            <Link href={`/products/${item.slug}`} className="block mb-2">
+            <Link href={`/products/${item.slug}${item.variantId ? `?variant=${item.variantId}` : ''}`} className="block mb-2">
               <div className="relative h-[110px] w-full bg-gray-50 rounded-lg overflow-hidden">
                 <Image
                   src={item.image}
@@ -86,11 +87,16 @@ export default function WishlistPage() {
             </Link>
 
             {/* Name */}
-            <Link href={`/products/${item.slug}`}>
-              <p className="text-xs font-semibold text-gray-800 line-clamp-2 mb-2 hover:text-[#445D41]">
-                {item.name}
+            <Link href={`/products/${item.slug}${item.variantId ? `?variant=${item.variantId}` : ''}`}>
+              <p className="text-xs font-semibold text-gray-800 line-clamp-2 mb-1 hover:text-[#445D41]">
+                {item.variantId ? item.name.split(' - ')[0] : item.name}
               </p>
             </Link>
+            {item.variantName && (
+              <span className="inline-block text-[10px] font-medium bg-gray-100 text-gray-600 border border-gray-200 px-2 py-0.5 rounded-full mb-1.5">
+                {item.variantName}
+              </span>
+            )}
 
             {/* Price + VAT */}
             <div className="flex items-baseline gap-1 flex-wrap mb-3 mt-auto">

@@ -1266,7 +1266,7 @@ if (!checkoutItems || checkoutItems.length === 0) {
     <span className="font-medium">{formatCurrency(cartSubtotal)}</span>
   </div>
   <div className="flex items-center justify-between border-t pt-2 mt-2 text-sm text-gray-700">
-  <span>Includes VAT</span>
+  <span>VAT</span>
   <span>{formatCurrency(checkoutVatAmount)}</span>
 </div>
 {deliveryMethod === "ClickAndCollect" && (

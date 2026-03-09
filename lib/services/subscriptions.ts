@@ -18,7 +18,7 @@ export interface Subscription {
   totalSavings: number;
   frequency: string; // "weekly", "monthly", "quarterly", etc.
   frequencyDisplay: string;
-  status: number; // 1=Active, 2=Paused, 3=Cancelled, 4=Expired
+  status: string; // 1=Active, 2=Paused, 3=Cancelled, 4=Expired
   statusDisplay: string;
   startDate: string;
   nextDeliveryDate?: string;

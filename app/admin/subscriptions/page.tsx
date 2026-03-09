@@ -152,17 +152,19 @@ export default function SubscriptionsPage() {
   }, []);
 
   // Calculate stats
-  const calculateStats = (subscriptionsData: Subscription[]) => {
-    const total = subscriptionsData.length;
-    const active = subscriptionsData.filter((s) => s.status === 1).length;
-    const paused = subscriptionsData.filter((s) => s.status === 2).length;
-    const cancelled = subscriptionsData.filter((s) => s.status === 3).length;
-    const totalRevenue = subscriptionsData
-      .filter((s) => s.status === 1)
-      .reduce((sum, s) => sum + s.discountedPrice * s.quantity, 0);
+const calculateStats = (subscriptionsData: Subscription[]) => {
+  const total = subscriptionsData.length;
 
-    setStats({ total, active, paused, cancelled, totalRevenue });
-  };
+  const active = subscriptionsData.filter((s) => s.status === "Active").length;
+  const paused = subscriptionsData.filter((s) => s.status === "Paused").length;
+  const cancelled = subscriptionsData.filter((s) => s.status === "Cancelled").length;
+
+  const totalRevenue = subscriptionsData
+    .filter((s) => s.status === "Active")
+    .reduce((sum, s) => sum + s.discountedPrice * s.quantity, 0);
+
+  setStats({ total, active, paused, cancelled, totalRevenue });
+};
 
   useEffect(() => {
     if (subscriptions.length > 0) {
@@ -172,14 +174,14 @@ export default function SubscriptionsPage() {
           subscription.shippingFullName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
           subscription.productSku?.toLowerCase().includes(searchTerm.toLowerCase());
 
-        const matchesStatus =
-          statusFilter === "all" ||
-          (statusFilter === "active" && subscription.status === 1) ||
-          (statusFilter === "paused" && subscription.status === 2) ||
-          (statusFilter === "cancelled" && subscription.status === 3);
-
-        const matchesFrequency =
-          frequencyFilter === "all" || subscription.frequency === parseInt(frequencyFilter);
+  const matchesStatus =
+  statusFilter === "all" ||
+  (statusFilter === "active" && subscription.status === "Active") ||
+  (statusFilter === "paused" && subscription.status === "Paused") ||
+  (statusFilter === "cancelled" && subscription.status === "Cancelled");
+const matchesFrequency =
+  frequencyFilter === "all" ||
+  subscription.frequency === frequencyFilter;
 
         // ✅ NEW: Product filter
         const matchesProduct =
@@ -302,13 +304,12 @@ export default function SubscriptionsPage() {
 
     const matchesStatus =
       statusFilter === "all" ||
-      (statusFilter === "active" && subscription.status === 1) ||
-      (statusFilter === "paused" && subscription.status === 2) ||
-      (statusFilter === "cancelled" && subscription.status === 3);
+      (statusFilter === "active" && subscription.status === "Active") ||
+      (statusFilter === "paused" && subscription.status === "Paused") ||
+      (statusFilter === "cancelled" && subscription.status === "Cancelled");
 
-    const matchesFrequency =
-      frequencyFilter === "all" || subscription.frequency === parseInt(frequencyFilter);
-
+const matchesFrequency =
+  frequencyFilter === "all" || subscription.frequency === frequencyFilter;
     const matchesProduct =
       productFilter === "all" || subscription.productId === productFilter;
 
@@ -361,32 +362,41 @@ export default function SubscriptionsPage() {
   }, [searchTerm, statusFilter, frequencyFilter, productFilter]);
 
   // Get Status Badge
-  const getStatusBadge = (status: number) => {
-    switch (status) {
-      case 1:
-        return <span className="px-3 py-1 rounded-lg text-xs font-medium bg-green-500/10 text-green-400">Active</span>;
-      case 2:
-        return <span className="px-3 py-1 rounded-lg text-xs font-medium bg-yellow-500/10 text-yellow-400">Paused</span>;
-      case 3:
-        return <span className="px-3 py-1 rounded-lg text-xs font-medium bg-red-500/10 text-red-400">Cancelled</span>;
-      case 4:
-        return <span className="px-3 py-1 rounded-lg text-xs font-medium bg-slate-500/10 text-slate-400">Expired</span>;
-      default:
-        return <span className="px-3 py-1 rounded-lg text-xs font-medium bg-slate-500/10 text-slate-400">Unknown</span>;
-    }
-  };
+const getStatusBadge = (status: string) => {
+  switch (status) {
+    case "Active":
+      return (
+        <span className="px-3 py-1 rounded-lg text-xs font-medium bg-green-500/10 text-green-400">
+          Active
+        </span>
+      );
 
+    case "Paused":
+      return (
+        <span className="px-3 py-1 rounded-lg text-xs font-medium bg-yellow-500/10 text-yellow-400">
+          Paused
+        </span>
+      );
+
+    case "Cancelled":
+      return (
+        <span className="px-3 py-1 rounded-lg text-xs font-medium bg-red-500/10 text-red-400">
+          Cancelled
+        </span>
+      );
+
+    default:
+      return (
+        <span className="px-3 py-1 rounded-lg text-xs font-medium bg-slate-500/10 text-slate-400">
+          {status}
+        </span>
+      );
+  }
+};
   // Get Frequency Badge
-  const getFrequencyBadge = (frequency: number) => {
-    const badges: Record<number, string> = {
-      1: "Weekly",
-      2: "Bi-Weekly",
-      3: "Monthly",
-      4: "Bi-Monthly",
-      5: "Quarterly",
-    };
-    return badges[frequency] || "Unknown";
-  };
+const getFrequencyBadge = (frequency: string) => {
+  return frequency || "Unknown";
+};
 
   if (loading) {
     return (
@@ -555,11 +565,11 @@ export default function SubscriptionsPage() {
                     }`}
                   >
                     <option value="all">All Frequencies</option>
-                    <option value="1">📅 Weekly</option>
-                    <option value="2">📅 Bi-Weekly</option>
-                    <option value="3">📅 Monthly</option>
-                    <option value="4">📅 Bi-Monthly</option>
-                    <option value="5">📅 Quarterly</option>
+                  <option value="Weekly">📅 Weekly</option>
+<option value="BiWeekly">📅 Bi-Weekly</option>
+<option value="Monthly">📅 Monthly</option>
+<option value="BiMonthly">📅 Bi-Monthly</option>
+<option value="Quarterly">📅 Quarterly</option>
                   </select>
                   <Calendar className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
                 </div>
@@ -839,7 +849,7 @@ export default function SubscriptionsPage() {
                       {/* ✅ ACTIONS - Updated to open confirmation modals */}
                       <td className="py-4 px-4">
                         <div className="flex items-center justify-center gap-2">
-                          {subscription.status === 1 && (
+                          {subscription.status === "Active" && (
                             <>
                               <button
                                 onClick={() => setPausingSubscription(subscription)}
@@ -860,7 +870,7 @@ export default function SubscriptionsPage() {
                             </>
                           )}
 
-                          {subscription.status === 2 && (
+                          {subscription.status === "Paused" && (
                             <button
                               onClick={() => setResumingSubscription(subscription)}
                               disabled={actionLoading === subscription.id}
@@ -871,7 +881,7 @@ export default function SubscriptionsPage() {
                             </button>
                           )}
 
-                          {(subscription.status === 1 || subscription.status === 2) && (
+                          {(subscription.status === "Active" || subscription.status === "Paused") && (
                             <button
                               onClick={() => setCancellingSubscription(subscription)}
                               className="p-2 text-red-400 hover:bg-red-500/10 rounded-lg transition-all"
@@ -1211,7 +1221,7 @@ export default function SubscriptionsPage() {
                   </div>
 
                   {/* Cancellation Info */}
-                  {viewingSubscription.status === 3 && (
+                  {viewingSubscription.status === "Cancelled" && (
                     <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-4">
                       <h3 className="text-red-400 font-medium mb-2 flex items-center gap-2">
                         <Ban className="h-4 w-4" />
@@ -1242,7 +1252,7 @@ export default function SubscriptionsPage() {
                   )}
 
                   {/* Paused Info */}
-                  {viewingSubscription.status === 2 && (
+                  {viewingSubscription.status === "Paused" && (
                     <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-xl p-4">
                       <h3 className="text-yellow-400 font-medium mb-2 flex items-center gap-2">
                         <Pause className="h-4 w-4" />

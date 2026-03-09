@@ -161,9 +161,21 @@ const SectionCard = ({ title, description, icon: Icon, children }: {
   </div>
 );
 
-const Field = ({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) => (
-  <div className="space-y-1.5">
-    <label className="text-xs font-semibold text-slate-300 tracking-wide">{label}</label>
+const Field = ({
+  label,
+  hint,
+  children,
+  className,
+}: {
+  label: string;
+  hint?: string;
+  children: React.ReactNode;
+  className?: string;
+}) => (
+  <div className={`space-y-1.5 ${className ?? ""}`}>
+    <label className="text-xs font-semibold text-slate-300 tracking-wide">
+      {label}
+    </label>
     {children}
     {hint && <p className="text-xs text-slate-500">{hint}</p>}
   </div>
