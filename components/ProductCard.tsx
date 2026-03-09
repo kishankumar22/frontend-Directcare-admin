@@ -86,7 +86,7 @@ const hasActiveCoupon = product.assignedDiscounts?.some((d: any) => {
 
   const now = new Date();
   if (d.startDate && now < new Date(d.startDate)) return false;
-  if (d.endDate && now > new Date(d.endDate)) return false;
+  if (d.endDate   && now > new Date(d.endDate))   return false;
 
   return true;
 });
@@ -128,19 +128,9 @@ const handlePharmaGuard = (): boolean => {
   return true;
 };
 const getInitialQty = (product: any) => {
-  // 🔥 Priority 1: Allowed Quantities
-  if (product.allowedQuantities) {
-    const arr = product.allowedQuantities
-      .split(",")
-      .map((q: string) => Number(q.trim()))
-      .filter((q: number) => !isNaN(q) && q > 0);
-
-    if (arr.length > 0) return arr[0];
-  }
-
-  // 🔥 Priority 2: Order Minimum Quantity
   return product.orderMinimumQuantity ?? 1;
 };
+
 
   // ---------- Add to Cart ----------
  const handleAddToCart = () => {
@@ -203,17 +193,20 @@ vatIncluded: vatRate !== null,
       option3: defaultVariant?.option3Value ?? null,
     },
     shipSeparately: product.shipSeparately,
+    nextDayDeliveryEnabled: product.nextDayDeliveryEnabled ?? false,
+    sameDayDeliveryEnabled: product.sameDayDeliveryEnabled ?? false,
     productData: JSON.parse(JSON.stringify(product)),
   });
 
   // ⭐ UX TOAST
- if (!product.allowedQuantities && product.orderMinimumQuantity > 1) {
+if (product.orderMinimumQuantity > 1) {
   toast.warning(
     `Minimum order quantity is ${product.orderMinimumQuantity}. Added ${finalQty} items to cart.`
   );
 } else {
   toast.success(`${product.name} added to cart 🛒`);
 }
+
 
 };
 
@@ -222,7 +215,7 @@ vatIncluded: vatRate !== null,
     <div className="group border border-gray-200 rounded-lg hover:shadow-xl transition-all bg-white">
       {/* IMAGE */}
       <Link href={`/products/${cardSlug}`}>
-        <div className="relative h-48 bg-white rounded-t-lg overflow-hidden">
+        <div className="relative h-44 md:h-56 bg-white rounded-t-lg overflow-hidden">
           <Image
             src={mainImage}
             alt={product.name}
@@ -232,45 +225,45 @@ vatIncluded: vatRate !== null,
             loading="lazy"
           />
 <GenderBadge gender={product.gender} />
-          {/* DISCOUNT BADGE */}
+          {/* DISCOUNT BADGE — smaller */}
           {discountBadge && (
-            <div className="absolute top-3 right-3 z-20">
-              <div className="w-14 h-14 rounded-full bg-gradient-to-br from-red-500 to-red-700 flex items-center justify-center text-white shadow-lg ring-2 ring-white">
+            <div className="absolute top-2 right-2 z-20">
+              <div className="w-9 h-9 md:w-10 md:h-10 rounded-full bg-gradient-to-br from-red-500 to-red-700 flex items-center justify-center text-white shadow-md ring-2 ring-white">
                 <div className="flex flex-col items-center leading-none">
-                  <span className="text-base font-extrabold">
-                    {discountBadge.type === "percent"
-                      ? `${discountBadge.value}%`
-                      : `£${discountBadge.value}`}
+                  <span className="text-[10px] md:text-xs font-extrabold">
+                    {discountBadge.type === "percent" ? `${discountBadge.value}%` : `£${discountBadge.value}`}
                   </span>
-                  <span className="text-[12px] font-semibold">OFF</span>
+                  <span className="text-[7px] md:text-[8px] font-semibold">OFF</span>
                 </div>
               </div>
             </div>
           )}
-          {/* 🔥 COUPON REQUIRED BADGE (SAME CIRCULAR STYLE) */}
-{!discountBadge && hasActiveCoupon && (
-  <div className="absolute top-3 right-3 z-20">
-    <div className="w-14 h-14 rounded-full bg-gradient-to-br from-red-500 to-red-700 flex items-center justify-center text-white shadow-lg ring-2 ring-white">
-      <div className="flex flex-col items-center leading-none text-center px-1">
-        <span className="text-[10px] font-extrabold leading-tight">
-          COUPON
-        </span>
-        <span className="text-[9px] font-semibold leading-tight">
-          Available
-        </span>
-      </div>
-    </div>
-  </div>
-)}
+          {/* COUPON BADGE — smaller */}
+          {!discountBadge && hasActiveCoupon && (
+            <div className="absolute top-2 right-2 z-20">
+              <div className="w-9 h-9 md:w-10 md:h-10 rounded-full bg-gradient-to-br from-red-500 to-red-700 flex items-center justify-center text-white shadow-md ring-2 ring-white">
+                <div className="flex flex-col items-center leading-none text-center px-0.5">
+                  <span className="text-[8px] font-extrabold leading-tight">COUPON</span>
+                  <span className="text-[7px] font-semibold leading-tight">Avail</span>
+                </div>
+              </div>
+            </div>
+          )}
+          {/* VAT Relief — bottom left on image */}
+          {product.vatExempt && (
+            <span className="absolute bottom-1.5 left-2 z-20 inline-flex items-center gap-0.5 text-[9px] font-semibold text-white bg-black/80 border border-black/20 px-1.5 py-0.5 rounded-md shadow-sm whitespace-nowrap leading-none backdrop-blur-sm">
+              <BadgePercent className="h-2.5 w-2.5" />
+              VAT Relief
+            </span>
+          )}
         </div>
       </Link>
 
       {/* CONTENT */}
-      <div className="p-4">
+      <div className="p-2 md:p-4">
         {/* TITLE */}
         <Link href={`/products/${cardSlug}`}>
-
-          <h3 className="font-semibold text-base mb-0 line-clamp-2 hover:text-[#445D41] transition min-h-[48px]">
+          <h3 className="font-semibold text-xs md:text-sm mb-0 line-clamp-2 hover:text-[#445D41] transition min-h-[32px] md:min-h-[40px]">
             {defaultVariant
               ? `${product.name} (${[
                   defaultVariant.option1Value,
@@ -283,63 +276,57 @@ vatIncluded: vatRate !== null,
           </h3>
         </Link>
 
-        {/* RATING */}
-        <div className="flex items-center gap-2 mb-1 flex-wrap">
-          <div className="flex items-center">
-            <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
-            <span className="text-sm ml-1 font-medium text-gray-700">
+        {/* RATING + REVIEW + LOYALTY — single compact row */}
+        <div className="flex items-center gap-1 mb-1 flex-nowrap overflow-hidden">
+          <div className="flex items-center flex-shrink-0">
+            <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
+            <span className="text-[10px] ml-0.5 font-semibold text-gray-700">
               {(product.averageRating ?? 0).toFixed(1)}
             </span>
           </div>
-
-          <span className="text-xs text-gray-500">
-            ({product.reviewCount || 0} reviews)
+          <span className="text-[10px] text-gray-500 flex-shrink-0">
+            ({product.reviewCount || 0})
           </span>
-
-         {loyaltyPoints && (
-  <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-green-700 bg-green-50 border border-green-200 px-2 py-0.5 rounded-md w-fit">
-    <AwardIcon className="h-4 w-4" />
-    Earn {loyaltyPoints} points
-  </span>
-)}
-
+          {loyaltyPoints && (
+            <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-green-700 bg-green-50 border border-green-200 px-1 py-0.5 rounded whitespace-nowrap leading-none flex-shrink-0">
+              <AwardIcon className="h-2.5 w-2.5 text-green-600 flex-shrink-0" />
+              Earn {loyaltyPoints} pts
+            </span>
+          )}
         </div>
 
         {/* PRICE */}
-        <div className="flex items-center gap-2 mb-1 flex-wrap">
-          <span className="text-2xl font-bold text-[#445D41]">
+        <div className="flex items-center gap-1 md:gap-2 mb-1">
+          <span className="text-base md:text-xl font-bold text-[#445D41]">
             £{finalPrice.toFixed(2)}
           </span>
-
           {finalPrice < basePrice && (
             <span className="text-sm text-gray-400 line-through">
               £{basePrice.toFixed(2)}
             </span>
           )}
-
-         {product.vatExempt ? (
-  <span className="inline-flex items-center gap-1 text-xs font-semibold text-green-700 bg-green-50 border border-green-200 px-2 py-0.5 rounded-md whitespace-nowrap">
-    <BadgePercent className="h-3 w-3" />
-    VAT Relief
-  </span>
-) : vatRate !== null ? (
-  <span className="text-xs font-semibold text-green-700 bg-green-50 border border-green-200 px-2 py-0.5 rounded-md whitespace-nowrap">
-    ({vatRate}% VAT)
-  </span>
-) : null}
-
+          {!product.vatExempt && vatRate !== null && (
+            <span className="text-xs font-semibold text-green-700 bg-green-50 border border-green-200 px-2 py-0.5 rounded-md whitespace-nowrap">
+              ({vatRate}% VAT)
+            </span>
+          )}
         </div>
 
         {/* ADD TO CART */}
        <Button
   onClick={handleAddToCart}
   disabled={stock === 0 || product.disableBuyButton === true}
-  className="mt-1 w-full bg-[#445D41] hover:bg-[#334a2c]
-    disabled:opacity-60 disabled:cursor-not-allowed"
+  className={`mt-1 w-full
+    ${
+      stock === 0
+        ? "bg-red-700 text-white cursor-not-allowed"
+        : "bg-[#445D41] hover:bg-[#334a2c] text-white"
+    }`}
 >
-          <ShoppingCart className="mr-2 h-4 w-4" />
-          {stock > 0 ? "Add to Cart" : "Out of Stock"}
-        </Button>
+  <ShoppingCart className="mr-2 h-4 w-4" />
+  {stock > 0 ? "Add to Cart" : "Out of Stock"}
+</Button>
+
       </div>
       {showPharmaModal && (
   <PharmaQuestionsModal

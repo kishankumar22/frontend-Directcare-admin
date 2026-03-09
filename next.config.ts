@@ -43,6 +43,11 @@ images: {
       pathname: '/**',
     },
     {
+  protocol: 'https',
+  hostname: 'www.direct-care.co.uk',
+  pathname: '/**',
+},
+    {
       protocol: 'https',
       hostname: 'example.com',   // 👈 ADD THIS
       pathname: '/**',

@@ -355,22 +355,22 @@ const filteredReviews = useMemo(() => {
 
   return (
      <>
-   <section id="reviews-section" className="mt-12 bg-white p-8 rounded-2xl shadow-lg border border-gray-200 overflow-x-hidden w-full">
-      <h2 className="text-3xl font-bold mb-6 text-gray-900">Ratings & Reviews</h2>
+   <section id="reviews-section" className="mt-6 md:mt-10 bg-white p-4 md:p-6 rounded-xl shadow-md border border-gray-200 overflow-x-hidden w-full">
+      <h2 className="text-lg md:text-2xl font-bold mb-3 text-gray-900">Ratings & Reviews</h2>
 
 
       {/* FILTER PANEL */}
-     <div className="flex flex-col sm:flex-row flex-wrap items-start sm:items-center justify-between gap-4 mb-8 p-4 bg-gray-50 rounded-xl border w-full overflow-x-hidden">
-        <div className="flex items-center gap-2 font-semibold text-gray-700">
-          <Filter className="h-5 w-5" /> Filter Reviews
+     <div className="flex flex-col sm:flex-row flex-wrap items-start sm:items-center justify-between gap-2 md:gap-3 mb-4 p-3 bg-gray-50 rounded-lg border w-full overflow-x-hidden">
+        <div className="flex items-center gap-1.5 font-semibold text-gray-700 text-sm">
+          <Filter className="h-4 w-4" /> Filter
         </div>
 
-        <div className="flex flex-wrap gap-2 items-center">
+        <div className="flex flex-wrap gap-1.5 items-center">
           {[5, 4, 3, 2, 1].map((s) => (
             <button
               key={s}
               onClick={() => setFilterRating(filterRating === s ? null : s)}
-              className={`px-3 py-1.5 rounded-lg border text-sm font-medium transition ${
+              className={`px-2 py-1 rounded-md border text-xs font-medium transition ${
                 filterRating === s ? "bg-[#445D41] text-white" : "bg-white text-gray-600 hover:bg-gray-100"
               }`}
             >
@@ -382,35 +382,35 @@ const filteredReviews = useMemo(() => {
         <select
           value={sortBy}
           onChange={(e) => setSortBy(e.target.value as any)}
-          className="border rounded-lg px-3 py-1.5 text-sm bg-white"
+          className="border rounded-md px-2 py-1 text-xs bg-white"
         >
           <option value="recent">Most Recent</option>
           <option value="high">Highest Rated</option>
           <option value="low">Lowest Rated</option>
         </select>
 
-        <label className="flex items-center gap-2 cursor-pointer text-sm">
+        <label className="flex items-center gap-1.5 cursor-pointer text-xs">
           <input
             type="checkbox"
             checked={showVerifiedOnly}
             onChange={() => setShowVerifiedOnly(!showVerifiedOnly)}
           />
-          Verified purchase only
+          Verified only
         </label>
       </div>
 
       {/* WRITE REVIEW FORM */}
       {allowCustomerReviews && (
-        <div className="mb-10 p-6 border rounded-xl bg-gray-50 shadow-sm">
-          <h3 className="font-semibold text-xl mb-4 text-gray-900">Write a Review</h3>
+        <div className="mb-4 p-3 md:p-4 border rounded-lg bg-gray-50 shadow-sm">
+          <h3 className="font-semibold text-sm md:text-base mb-3 text-gray-900">Write a Review</h3>
 
-          <div className="flex items-center gap-2 mb-4">
-            <span className="text-sm font-medium">Your Rating:</span>
-            <div className="flex gap-1">
+          <div className="flex items-center gap-2 mb-3">
+            <span className="text-xs font-medium text-gray-700">Your Rating:</span>
+            <div className="flex gap-0.5">
               {[1, 2, 3, 4, 5].map((s) => (
                 <span
                   key={s}
-                  className={`cursor-pointer text-3xl transition ${
+                  className={`cursor-pointer text-2xl transition ${
                     rating >= s ? "text-yellow-500 scale-110" : "text-gray-300"
                   }`}
                   onClick={() => setRating(s)}
@@ -426,15 +426,15 @@ const filteredReviews = useMemo(() => {
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             placeholder="Review title"
-            className="w-full border rounded-lg p-3 text-sm mb-3 shadow-sm"
+            className="w-full border rounded-md p-2 text-sm mb-2 shadow-sm"
           />
 
           <textarea
             value={comment}
             onChange={(e) => setComment(e.target.value)}
-            rows={4}
+            rows={3}
             placeholder="Share your experience..."
-            className="w-full border rounded-lg p-3 text-sm shadow-sm"
+            className="w-full border rounded-md p-2 text-sm shadow-sm"
           />
 {/* IMAGE UPLOAD */}
 <div className="mt-4">
@@ -506,7 +506,7 @@ const filteredReviews = useMemo(() => {
           <Button
             onClick={handleSubmitReview}
             disabled={rating === 0 || comment.trim().length < 5 || loading}
-            className="mt-4 w-full bg-[#445D41] hover:bg-black text-white rounded-lg py-3 font-medium text-sm"
+            className="mt-3 w-full bg-[#445D41] hover:bg-black text-white rounded-lg py-2 font-medium text-sm"
           >
             {loading ? "Submitting..." : "Submit Review"}
           </Button>
@@ -514,35 +514,35 @@ const filteredReviews = useMemo(() => {
       )}
 
       {/* REVIEWS LIST */}
-      <h3 className="text-xl font-semibold mb-4 text-gray-900">Customer Reviews</h3>
+      <h3 className="text-sm md:text-base font-semibold mb-3 text-gray-900">Customer Reviews</h3>
 
       {filteredReviews.length === 0 ? (
-        <p className="text-gray-500 italic">No reviews matching filters.</p>
+        <p className="text-gray-500 italic text-sm">No reviews matching filters.</p>
       ) : (
-       <div id="reviews-list" className="space-y-6 scroll-mt-24">
+       <div id="reviews-list" className="space-y-3 scroll-mt-24">
          {filteredReviews.map((r) => (
   <div
     key={r.id}
-    id={`review-${r.id}`}   // 🔥 IMPORTANT
-    className="p-5 rounded-xl border bg-white shadow-sm scroll-mt-24"
+    id={`review-${r.id}`}
+    className="p-3 md:p-4 rounded-lg border bg-white shadow-sm scroll-mt-24"
   >
-             <div className="flex flex-wrap items-center gap-2 w-full">
-                <div className="flex flex-wrap gap-1 text-yellow-500">
+             <div className="flex flex-wrap items-center gap-1.5 w-full">
+                <div className="flex gap-0.5 text-yellow-500 text-base">
                   {"★".repeat(r.rating)}{" "}
-                  <span className="text-gray-400 text-lg">{"☆".repeat(5 - r.rating)}</span>
+                  <span className="text-gray-300">{"★".repeat(5 - r.rating)}</span>
                 </div>
 
-                <span className="text-sm font-medium">{r.customerName}</span>
+                <span className="text-xs font-semibold text-gray-800">{r.customerName}</span>
 
                 {r.isVerifiedPurchase && (
-                  <span className="flex items-center gap-1 text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full">
-                    <CheckCircle2 className="h-3 w-3" /> Verified Purchase
+                  <span className="flex items-center gap-0.5 text-[10px] bg-green-100 text-green-700 px-1.5 py-0.5 rounded-full">
+                    <CheckCircle2 className="h-2.5 w-2.5" /> Verified
                   </span>
                 )}
               </div>
 
-              <p className="font-semibold mt-2 text-gray-900">{r.title}</p>
-              <p className="text-sm text-gray-700 mt-1">{r.comment}</p>
+              <p className="font-semibold mt-1.5 text-sm text-gray-900">{r.title}</p>
+              <p className="text-xs text-gray-600 mt-1 leading-relaxed">{r.comment}</p>
 {((r.imageUrls?.length ?? 0) > 0 ||
   (r.videoUrls?.length ?? 0) > 0) && (
  <div
@@ -590,27 +590,27 @@ const filteredReviews = useMemo(() => {
 )}
 
 
-           <p className="text-xs text-gray-400 mt-2">
+           <p className="text-[10px] text-gray-400 mt-1.5">
   {timeFromNow(r.createdAt)}
 </p>
 
 
-            <div className="flex flex-wrap gap-3 mt-3 text-sm font-medium w-full">
-                <button onClick={() => handleHelpful(r.id)} className="text-gray-600 hover:text-green-700">
+            <div className="flex flex-wrap gap-2 mt-2 text-xs font-medium w-full">
+                <button onClick={() => handleHelpful(r.id)} className="text-gray-500 hover:text-green-700">
                   👍 Helpful ({r.helpfulCount})
                 </button>
-                <button onClick={() => handleNotHelpful(r.id)} className="text-gray-600 hover:text-red-700">
+                <button onClick={() => handleNotHelpful(r.id)} className="text-gray-500 hover:text-red-700">
                   👎 Not Helpful ({r.notHelpfulCount})
                 </button>
               </div>
 
               {r.replies && r.replies.length > 0 && (
-                <div className="mt-4 pl-4 border-l-2 border-gray-200">
+                <div className="mt-2 pl-3 border-l-2 border-gray-200">
                  {r.replies.map((reply) => (
-  <div key={reply.id} className="bg-gray-50 rounded-lg p-3 mt-2 text-sm">
+  <div key={reply.id} className="bg-gray-50 rounded-md p-2 mt-1.5 text-xs">
 
-                      <p className="text-gray-800">{reply.comment}</p>
-                      <p className="text-xs text-gray-500 mt-1">
+                      <p className="text-gray-700">{reply.comment}</p>
+                      <p className="text-[10px] text-gray-500 mt-0.5">
                         — {reply.createdByName} •{" "}
                         {timeFromNow(reply.createdAt)}
 

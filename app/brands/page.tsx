@@ -1,3 +1,4 @@
+//app/brands/page.tsx
 import Link from "next/link";
 
 interface Brand {
@@ -11,7 +12,7 @@ interface Brand {
 async function getAllBrands(baseUrl: string): Promise<Brand[]> {
   try {
     const res = await fetch(
-      `${baseUrl}/api/Brands?includeUnpublished=false`,
+      `${baseUrl}/api/Brands?includeUnpublished=false&isActive=true&isDeleted=false`,
       { cache: "no-store" }
     );
 

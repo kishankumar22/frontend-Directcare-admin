@@ -10,6 +10,7 @@ import "swiper/css/pagination";
 interface HomeBanner {
   id: string;
   imageUrl: string;
+  mobileImageUrl?: string | null;
   link?: string;
   title?: string;
 }
@@ -46,30 +47,35 @@ export default function HomeBannerSlider({
         pagination={enableAutoplay ? { clickable: true } : false}
         className="w-full"
       >
-        {banners.map((banner) => (
-          <SwiperSlide key={banner.id}>
-            {banner.link ? (
-              <Link
-                href={banner.link}
-                className="block w-full cursor-pointer"
-              >
-                <img
-                  src={`${baseUrl}${banner.imageUrl}`}
-                  alt={banner.title || "Banner"}
-                  className="w-full h-auto object-contain"
-                />
-              </Link>
-            ) : (
-              <div className="block w-full">
-                <img
-                  src={`${baseUrl}${banner.imageUrl}`}
-                  alt={banner.title || "Banner"}
-                  className="w-full h-auto object-contain"
-                />
-              </div>
-            )}
-          </SwiperSlide>
-        ))}
+        {banners.map((banner) => {
+          const desktopSrc = banner.imageUrl?.startsWith("http") ? banner.imageUrl : `${baseUrl}${banner.imageUrl}`;
+          const mobileSrc = banner.mobileImageUrl
+            ? (banner.mobileImageUrl.startsWith("http") ? banner.mobileImageUrl : `${baseUrl}${banner.mobileImageUrl}`)
+            : null;
+
+          const pictureEl = (
+            <picture className="block w-full">
+              {mobileSrc && <source media="(max-width: 767px)" srcSet={mobileSrc} />}
+              <img
+                src={desktopSrc}
+                alt={banner.title || "Banner"}
+                className="w-full h-auto object-contain"
+              />
+            </picture>
+          );
+
+          return (
+            <SwiperSlide key={banner.id}>
+              {banner.link ? (
+                <Link href={banner.link} className="block w-full cursor-pointer">
+                  {pictureEl}
+                </Link>
+              ) : (
+                <div className="block w-full">{pictureEl}</div>
+              )}
+            </SwiperSlide>
+          );
+        })}
       </Swiper>
     </div>
   );

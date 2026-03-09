@@ -51,14 +51,14 @@ export default function TopBrandsSlider({
       {/* Arrows */}
       <button
         id="brandPrev"
-        className="absolute left-[-15px] top-[40%] -translate-y-1/2 z-30 bg-white p-2 md:p-3 shadow-md rounded-full border hover:bg-gray-100"
+        className="hidden md:block absolute left-[-15px] top-[40%] -translate-y-1/2 z-30 bg-white p-2 md:p-3 shadow-md rounded-full border hover:bg-gray-100"
       >
         <ChevronLeft className="w-4 h-4 md:w-5 md:h-5" />
       </button>
 
       <button
         id="brandNext"
-        className="absolute right-[-15px] top-[40%] -translate-y-1/2 z-30 bg-white p-2 md:p-3 shadow-md rounded-full border hover:bg-gray-100"
+        className="hidden md:block absolute right-[-15px] top-[40%] -translate-y-1/2 z-30 bg-white p-2 md:p-3 shadow-md rounded-full border hover:bg-gray-100"
       >
         <ChevronRight className="w-4 h-4 md:w-5 md:h-5" />
       </button>
@@ -84,16 +84,16 @@ export default function TopBrandsSlider({
           <Link href={`/brands/${brand.slug}`}>
 
 <Card
-  className="w-full h-[200px] md:h-[230px] bg-white rounded-2xl 
-             shadow-[0_4px_20px_rgba(0,0,0,0.08)] 
+  className="w-full h-[160px] md:h-[200px] lg:h-[230px] bg-white rounded-2xl
+             shadow-[0_4px_20px_rgba(0,0,0,0.08)]
              hover:shadow-[0_6px_25px_rgba(0,0,0,0.12)]
-             transition-all duration-300 flex flex-col items-center justify-between py-6"
+             transition-all duration-300 flex flex-col items-center justify-between py-3 md:py-6"
 >
   <CardContent className="p-0 w-full flex flex-col items-center justify-between h-full">
 
     {/* BIG LOGO LIKE DIRECT CARE */}
  {/* FIXED IMAGE WRAPPER */}
-<div className="w-[120px] h-[120px] md:w-[140px] md:h-[140px] flex items-center justify-center overflow-hidden">
+<div className="w-[80px] h-[80px] md:w-[120px] md:h-[120px] lg:w-[140px] lg:h-[140px] flex items-center justify-center overflow-hidden">
   <img
     src={
     brand.logoUrl
@@ -109,7 +109,7 @@ export default function TopBrandsSlider({
 </div>
 
     {/* BRAND NAME EXACT STYLE */}
-    <h3 className="font-semibold text-gray-900 text-sm md:text-base text-center pb-2">
+    <h3 className="font-semibold text-gray-900 text-xs md:text-base text-center pb-1 md:pb-2 px-1 line-clamp-1">
       {brand.name}
     </h3>
 

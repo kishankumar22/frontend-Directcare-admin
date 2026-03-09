@@ -110,14 +110,6 @@ export interface CreateDiscountDto {
   assignedManufacturerIds: string;
 }
 
-// --- Stats Interface ---
-export interface DiscountStats {
-  totalDiscounts: number;
-  activeDiscounts: number;
-  productDiscounts: number;
-  expiringSoon: number;
-}
-
 // ✅ VALIDATION HELPER
 const validateDiscountData = (data: Partial<CreateDiscountDto>): string[] => {
   const errors: string[] = [];
@@ -305,17 +297,15 @@ export const discountsService = {
   /**
    * ✅ BONUS: Validate discount code availability
    */
-  validateCouponCode: async (code: string, excludeId?: string) => {
+  validateCouponCode: async (code: string, orderSubtotal: number = 0, productIds: string[] = [], categoryIds: string[] = []) => {
     if (!code?.trim()) {
       throw new Error("Coupon code is required");
     }
 
     try {
-      return await apiClient.get<{ available: boolean; message: string }>(
+      return await apiClient.post<{ success: boolean; data: any; message: string }>(
         `${API_ENDPOINTS.discounts}/validate-coupon`,
-        {
-          params: { code, excludeId }
-        }
+        { couponCode: code, orderSubtotal, productIds, categoryIds }
       );
     } catch (error: any) {
       console.error("Error validating coupon code:", error);
@@ -323,19 +313,6 @@ export const discountsService = {
     }
   },
 
-  /**
-   * ✅ BONUS: Get discount statistics
-   */
-  getStats: async () => {
-    try {
-      return await apiClient.get<{ success: boolean; data: DiscountStats }>(
-        `${API_ENDPOINTS.discounts}/stats`
-      );
-    } catch (error: any) {
-      console.error("Error fetching discount stats:", error);
-      throw error;
-    }
-  }
 };
 
 // ✅ HELPER UTILITIES

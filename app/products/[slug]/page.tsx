@@ -44,7 +44,7 @@ async function getProduct(slug: string) {
   try {
     // 🔹 STEP 1: LIST API (slug / variant resolve ke liye)
     const listRes = await fetch(
-      `${process.env.NEXT_PUBLIC_API_URL}/api/Products?slug=${slug}&page=1&pageSize=200`,
+      `${process.env.NEXT_PUBLIC_API_URL}/api/Products?slug=${slug}&page=1&pageSize=10000`,
       { cache: "no-store" }
     );
 
@@ -111,7 +111,9 @@ if (!data?.product) {
 const product: Product = data.product;
 
  const mainImage = product?.images?.[0]?.imageUrl
-  ? `${process.env.NEXT_PUBLIC_API_URL}${product.images[0].imageUrl}`
+  ? product.images[0].imageUrl.startsWith("http")
+    ? product.images[0].imageUrl
+    : `${process.env.NEXT_PUBLIC_API_URL}${product.images[0].imageUrl}`
   : null;
 
   return {

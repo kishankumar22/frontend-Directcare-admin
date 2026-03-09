@@ -96,6 +96,18 @@ input[type="number"] {
          hover:bg-gray-50 w-full transition;
 }
 /* ===============================
+   FeaturedProductsSlider – Equal Height Slides
+================================ */
+.featured-products-slider .swiper-wrapper {
+  align-items: stretch !important;
+}
+.featured-products-slider .swiper-slide {
+  height: auto !important;
+  display: flex !important;
+  flex-direction: column;
+}
+
+/* ===============================
    Swiper Navigation Arrows – Small & Clean
 ================================ */
 

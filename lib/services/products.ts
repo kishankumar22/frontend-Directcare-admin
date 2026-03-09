@@ -193,6 +193,7 @@ export interface Product {
   brandName: string;
   productType: string;
   price: number;
+  stockStatus?: string;
   oldPrice?: number;
   compareAtPrice?: number;
   costPrice?: number;
@@ -255,6 +256,7 @@ export interface Product {
   createdBy?: string;
   updatedBy?: string;
   nextDayDeliveryEnabled?:boolean;
+  sameDayDeliveryEnabled?:boolean;
   isRecurring?:boolean;
   vatExempt?:boolean;
   standardDeliveryEnabled?:boolean;
@@ -288,7 +290,7 @@ export interface SimpleProduct {
   sku: string;
   price: number;
   stockQuantity: number;
-  
+
   // ✅ ADD THESE PROPERTIES
   brandId?: string;
   brandName?: string;
@@ -349,14 +351,53 @@ export interface UpdateProductDto extends Partial<CreateProductDto> {}
 export interface ProductQueryParams {
   page?: number;
   pageSize?: number;
+
+  // Search
+ 
+  searchTerm?: string;
+   // ✅ NEW
+  stockStatus?: "InStock" | "LowStock" | "OutOfStock" | "NotTracked";
+
+  // ✅ NEW
+  isPharmaProduct?: boolean;
+  // Category / Brand
   categoryId?: string;
+  categorySlug?: string;
   brandId?: string;
-  search?: string;
-  searchTerm?: string; // ✅ ADD THIS
+
+  // Product type
+  productType?: string;
+
+  // Status
   isPublished?: boolean;
+  isActive?: boolean;
+  isDeleted?: boolean;
+
+  // Homepage / New
+  showOnHomepage?: boolean;
+  markAsNew?: boolean;
+
+  // Inventory
+  manageInventoryMethod?: string;
+
+  // Subscription
+  isRecurring?: boolean;
+
+  // VAT
+  vatExempt?: boolean;
+
+  // Returnable
+  notReturnable?: boolean;
+
+  // Delivery
+  nextDayDeliveryEnabled?: boolean;
+  sameDayDeliveryEnabled?: boolean;
+  standardDeliveryEnabled?: boolean;
+
+  // Sorting
   sortBy?: string;
   sortOrder?: 'asc' | 'desc';
-  isDeleted?: boolean;
+  sortDirection?: 'asc' | 'desc';
 }
 export interface PaginatedResponse<T> {
   success: boolean;
@@ -388,25 +429,64 @@ export const productsService = {
 
 getAll: async (params?: ProductQueryParams) => {
   const queryParams = new URLSearchParams();
-  
-  if (params?.page) queryParams.append('page', params.page.toString());
-  if (params?.pageSize) queryParams.append('pageSize', params.pageSize.toString());
-  if (params?.categoryId) queryParams.append('categoryId', params.categoryId);
-  if (params?.brandId) queryParams.append('brandId', params.brandId);
-if (params?.searchTerm) {
-  queryParams.append('searchTerm', params.searchTerm);
-}
-  if (params?.isPublished !== undefined) queryParams.append('isPublished', params.isPublished.toString());
-  if (params?.sortBy) queryParams.append('sortBy', params.sortBy);
-  if (params?.sortOrder) queryParams.append('sortOrder', params.sortOrder);
 
+  if (params?.page) queryParams.append("page", params.page.toString());
+  if (params?.pageSize) queryParams.append("pageSize", params.pageSize.toString());
 
-  // ✅ ADD THIS
+  if (params?.searchTerm) queryParams.append("searchTerm", params.searchTerm);
+  if (params?.stockStatus)
+  queryParams.append("stockStatus", params.stockStatus);
+
+  if (params?.isPharmaProduct !== undefined)
+  queryParams.append("isPharmaProduct", params.isPharmaProduct.toString());
+
+  if (params?.categoryId) queryParams.append("categoryId", params.categoryId);
+  if (params?.brandId) queryParams.append("brandId", params.brandId);
+
+  if (params?.productType) queryParams.append("productType", params.productType);
+
+  if (params?.isPublished !== undefined)
+    queryParams.append("isPublished", params.isPublished.toString());
+
+  if (params?.showOnHomepage !== undefined)
+    queryParams.append("showOnHomepage", params.showOnHomepage.toString());
+
+  if (params?.markAsNew !== undefined)
+    queryParams.append("markAsNew", params.markAsNew.toString());
+
+  if (params?.isRecurring !== undefined)
+    queryParams.append("isRecurring", params.isRecurring.toString());
+
+  if (params?.vatExempt !== undefined)
+    queryParams.append("vatExempt", params.vatExempt.toString());
+
+  if (params?.notReturnable !== undefined)
+    queryParams.append("notReturnable", params.notReturnable.toString());
+
+  if (params?.nextDayDeliveryEnabled !== undefined)
+    queryParams.append("nextDayDeliveryEnabled", params.nextDayDeliveryEnabled.toString());
+
+  if (params?.sameDayDeliveryEnabled !== undefined)
+    queryParams.append("sameDayDeliveryEnabled", params.sameDayDeliveryEnabled.toString());
+
+  if (params?.standardDeliveryEnabled !== undefined)
+    queryParams.append("standardDeliveryEnabled", params.standardDeliveryEnabled.toString());
+
+  if (params?.manageInventoryMethod)
+    queryParams.append("manageInventoryMethod", params.manageInventoryMethod);
+
   if (params?.isDeleted !== undefined)
-    queryParams.append('isDeleted', params.isDeleted.toString());
+    queryParams.append("isDeleted", params.isDeleted.toString());
+
+  if (params?.sortBy)
+    queryParams.append("sortBy", params.sortBy);
+
+  if (params?.sortDirection)
+    queryParams.append("sortDirection", params.sortDirection);
+  
 
   const url = `${API_ENDPOINTS.products}${
-    queryParams.toString() ? `?${queryParams.toString()}` : ''
+    queryParams.toString() ? `?${queryParams.toString()}` : ""
   }`;
 
   return apiClient.get<PaginatedResponse<Product>>(url);

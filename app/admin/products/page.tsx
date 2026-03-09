@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import Link from "next/link";
 import Select from "react-select";
 import {
@@ -51,6 +51,8 @@ interface FormattedProduct {
   stockQuantity: number;
   isActive: boolean;
   isPublished: boolean;
+  isPharmaProduct:boolean;
+  
   showOnHomepage: boolean;
   status: string;
   productType: string;
@@ -270,13 +272,13 @@ const debouncedSearchTerm = useDebounce(searchInput, 500); // 500ms delay
     { value: "grouped", label: "Grouped" },
   ];
 
-  const statusOptions: SelectOption[] = [
-    { value: "all", label: "All Status" },
-    { value: "In Stock", label: "In Stock" },
-    { value: "Low Stock", label: "Low Stock" },
-    { value: "Out of Stock", label: "Out of Stock" },
-  ];
-
+const statusOptions: SelectOption[] = [
+  { value: "all", label: "Stock Status: All" },
+  { value: "InStock", label: "In Stock" },
+  { value: "LowStock", label: "Low Stock" },
+  { value: "OutOfStock", label: "Out of Stock" },
+  { value: "NotTracked", label: "Inventory Not Tracked" },
+];
   const visibilityOptions: SelectOption[] = [
     { value: "all", label: "All Visibility" },
     { value: "published", label: "Published" },
@@ -301,11 +303,11 @@ const debouncedSearchTerm = useDebounce(searchInput, 500); // 500ms delay
     { value: "no", label: "Returnable" },
   ];
 
-  const inventoryOptions: SelectOption[] = [
-    { value: "all", label: "Inventory: All" },
-    { value: "track", label: "Track Inventory" },
-    { value: "dont-track", label: "Don't Track" },
-  ];
+const inventoryOptions: SelectOption[] = [
+  { value: "all", label: "Inventory Mode: All" },
+  { value: "track", label: "Tracking Enabled" },
+  { value: "dont-track", label: "Tracking Disabled" },
+];
 
   const subscriptionOptions: SelectOption[] = [
     { value: "all", label: "Subscription: All" },
@@ -333,6 +335,10 @@ const debouncedSearchTerm = useDebounce(searchInput, 500); // 500ms delay
 
   const [deletedFilter, setDeletedFilter] = useState(deletedOptions[0]);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [pharmaFilter, setPharmaFilter] = useState({
+  label: "All Products",
+  value: "all",
+});
 
   const [selectedDeleteProduct, setSelectedDeleteProduct] = useState<ToggleProduct | null>(null);
   const [selectedToggleProduct, setSelectedToggleProduct] = useState<ToggleProduct | null>(null);
@@ -434,167 +440,88 @@ const getProductImage = (images: any[]): string => {
 const fetchProducts = async () => {
   setLoading(true);
   try {
-    // STEP 1: Build backend-supported params only
-  const params: any = {
-  page: currentPage,
-  pageSize: itemsPerPage,
-  sortBy: 'createdAt',
-  sortOrder: 'desc',
-};
+    // Build backend params
+    const params: any = {
+      page: currentPage,
+      pageSize: itemsPerPage,
+      sortBy: 'createdAt',
+      sortDirection: 'desc',
+    };
 
-if (deletedFilter.value !== "all") {
-  params.isDeleted = deletedFilter.value === "true";
-}
-
-if (debouncedSearchTerm.trim() !== "") {
-  params.searchTerm = debouncedSearchTerm.trim();
-}
-
-if (selectedCategory.value !== "all") {
-  const selectedCat = categories.find(c => c.name === selectedCategory.value);
-  if (selectedCat) {
-    params.categoryId = selectedCat.id;
-  }
-}
-
-if (publishedFilter.value !== "all") {
-  params.isPublished = publishedFilter.value === "published";
-}
-
-if (selectedHomepage.value !== "all") {
-  params.showOnHomepage = selectedHomepage.value === "yes"; 
-}
-
-    // ✅ BACKEND-SUPPORTED FILTERS
     if (deletedFilter.value !== "all") {
       params.isDeleted = deletedFilter.value === "true";
     }
-    
-    // Use debounced search term
-    if (debouncedSearchTerm) {
-      params.searchTerm = debouncedSearchTerm;
+
+    if (debouncedSearchTerm.trim() !== "") {
+      params.searchTerm = debouncedSearchTerm.trim();
     }
-    
+
     if (selectedCategory.value !== "all") {
       const selectedCat = categories.find(c => c.name === selectedCategory.value);
-      if (selectedCat) {
-        params.categoryId = selectedCat.id;
-      }
+      if (selectedCat) params.categoryId = selectedCat.id;
     }
-    
+
+    if (selectedBrand.value !== "all") {
+      const selectedBrandObj = brands.find(b => b.name === selectedBrand.value);
+      if (selectedBrandObj) params.brandId = selectedBrandObj.id;
+    }
+
     if (publishedFilter.value !== "all") {
       params.isPublished = publishedFilter.value === "published";
     }
-    
+
     if (markAsNewFilter.value !== "all") {
       params.markAsNew = markAsNewFilter.value === "yes";
     }
-    
+
     if (selectedHomepage.value !== "all") {
       params.showOnHomepage = selectedHomepage.value === "yes";
     }
 
-    console.log("🚀 Backend API Params:", params);
+    if (selectedType.value !== "all") {
+      params.productType = selectedType.value;
+    }
+
+    if (deliveryFilter.value !== "all") {
+      if (deliveryFilter.value === "nextDay") params.nextDayDeliveryEnabled = true;
+      else if (deliveryFilter.value === "sameDay") params.sameDayDeliveryEnabled = true;
+      else if (deliveryFilter.value === "standard") params.standardDeliveryEnabled = true;
+    }
+
+    if (notReturnableFilter.value !== "all") {
+      params.notReturnable = notReturnableFilter.value === "yes";
+    }
+
+    if (inventoryFilter.value !== "all") {
+      if (inventoryFilter.value === "track") params.manageInventoryMethod = "track";
+      else if (inventoryFilter.value === "dont-track") params.manageInventoryMethod = "donttrack";
+    }
+
+    if (recurringFilter.value !== "all") {
+      params.isRecurring = recurringFilter.value === "yes";
+    }
+
+    if (vatFilter.value !== "all") {
+      params.vatExempt = vatFilter.value === "yes";
+    }
+          // Client-side only: Stock Status (computed field)
+   if (statusFilter.value !== "all") {
+  params.stockStatus = statusFilter.value;
+}
+if (pharmaFilter.value !== "all") {
+  params.isPharmaProduct = pharmaFilter.value === "yes";
+}
 
     const response = await productsService.getAll(params);
 
     if (response.data?.success && response.data?.data?.items) {
       const apiData = response.data.data;
-      let items = [...apiData.items]; // Create a copy to avoid mutation issues
+      let items = [...apiData.items];
 
-      // STEP 2: Apply ALL client-side filters in sequence
-      
-      // 🔥 CLIENT-SIDE: Brand filter
-      if (selectedBrand.value !== "all") {
-        const selectedBrandObj = brands.find(b => b.name === selectedBrand.value);
-        if (selectedBrandObj) {
-          console.log("🎯 Applying brand filter:", selectedBrandObj.name);
-          items = items.filter((p: any) => 
-            p.brandId === selectedBrandObj.id || 
-            p.brandName === selectedBrandObj.name
-          );
-        }
-      }
 
-      // 🔥 CLIENT-SIDE: Product Type filter
-      if (selectedType.value !== "all") {
-        console.log("🎯 Applying type filter:", selectedType.value);
-        items = items.filter((p: any) => p.productType === selectedType.value);
-      }
 
-      // 🔥 CLIENT-SIDE: Stock Status filter
-      if (statusFilter.value !== "all") {
-        console.log("🎯 Applying status filter:", statusFilter.value);
-        items = items.filter((p: any) => {
-          const status = productHelpers.getStockStatus({
-            stockQuantity: p.stockQuantity,
-            trackQuantity: p.trackQuantity,
-            lowStockThreshold: p.lowStockThreshold,
-            allowBackorder: p.allowBackorder,
-          });
-          return status === statusFilter.value;
-        });
-      }
-
-      // 🔥 CLIENT-SIDE: Delivery filter
-      if (deliveryFilter.value !== "all") {
-        console.log("🎯 Applying delivery filter:", deliveryFilter.value);
-        items = items.filter((p: any) => {
-          if (deliveryFilter.value === "nextDay") return p.nextDayDeliveryEnabled === true;
-          if (deliveryFilter.value === "standard") return p.standardDeliveryEnabled === true;
-          if (deliveryFilter.value === "sameDay") return p.sameDayDeliveryEnabled === true;
-          return true;
-        });
-      }
-
-      // 🔥 CLIENT-SIDE: Mark as New filter
-      if (markAsNewFilter.value !== "all") {
-        console.log("🎯 Applying markAsNew filter:", markAsNewFilter.value);
-        items = items.filter((p: any) => 
-          markAsNewFilter.value === "yes" ? p.markAsNew === true : p.markAsNew === false
-        );
-      }
-
-      // 🔥 CLIENT-SIDE: Not Returnable filter
-      if (notReturnableFilter.value !== "all") {
-        console.log("🎯 Applying returnable filter:", notReturnableFilter.value);
-        items = items.filter((p: any) => 
-          notReturnableFilter.value === "yes" ? p.notReturnable === true : p.notReturnable === false
-        );
-      }
-
-      // 🔥 CLIENT-SIDE: Inventory method filter
-      if (inventoryFilter.value !== "all") {
-        console.log("🎯 Applying inventory filter:", inventoryFilter.value);
-        items = items.filter((p: any) => {
-          if (inventoryFilter.value === "track") {
-            return p.manageInventoryMethod === "track";
-          } else if (inventoryFilter.value === "dont-track") {
-            return p.manageInventoryMethod !== "track";
-          }
-          return true;
-        });
-      }
-
-      // 🔥 CLIENT-SIDE: Subscription filter
-      if (recurringFilter.value !== "all") {
-        console.log("🎯 Applying subscription filter:", recurringFilter.value);
-        items = items.filter((p: any) => 
-          recurringFilter.value === "yes" ? p.isRecurring === true : p.isRecurring === false
-        );
-      }
-
-      // 🔥 CLIENT-SIDE: VAT filter
-      if (vatFilter.value !== "all") {
-        console.log("🎯 Applying VAT filter:", vatFilter.value);
-        items = items.filter((p: any) => 
-          vatFilter.value === "yes" ? p.vatExempt === true : p.vatExempt === false
-        );
-      }
-
-      // 🔥 CLIENT-SIDE: Discount filter
+      // Client-side only: Discount filter (complex date logic)
       if (discountFilter.value !== "all") {
-        console.log("🎯 Applying discount filter:", discountFilter.value);
         items = items.filter((p: any) => {
           const now = new Date();
           const discountsArray = Array.isArray(p.assignedDiscounts) ? p.assignedDiscounts : [];
@@ -609,8 +536,6 @@ if (selectedHomepage.value !== "all") {
           return discountFilter.value === "yes" ? hasActiveDiscount : !hasActiveDiscount;
         });
       }
-
-      console.log(`📊 Filter Results: API returned ${apiData.items.length} products, After client filters: ${items.length} products`);
 
       // Calculate pagination info from API
       const hasPrevious = apiData.page > 1;
@@ -668,6 +593,7 @@ if (selectedHomepage.value !== "all") {
             allowBackorder: p.allowBackorder,
           }),
           image: getProductImage(p.images),
+            isPharmaProduct: p.isPharmaProduct === true,
           sales: 0,
           shortDescription: p.shortDescription || "",
           sku: p.sku || "",
@@ -697,6 +623,7 @@ if (selectedHomepage.value !== "all") {
           notifyAdminForQuantityBelow: p.notifyAdminForQuantityBelow ?? false,
           notifyQuantityBelow: p.notifyQuantityBelow ?? 0,
           allowBackorder: p.allowBackorder ?? false,
+          
           hasDiscount,
           discountLabel,
           discountTitle,
@@ -840,17 +767,27 @@ if (selectedHomepage.value !== "all") {
     }
   };
 
-// ✅ INITIAL DATA FETCH (runs once on component mount)
+const pollingRef = useRef<NodeJS.Timeout | null>(null);
+
 useEffect(() => {
-  fetchCategories();
-  fetchBrands();
-  fetchMyTakeoverRequests();
+  Promise.all([
+  fetchCategories(),
+  fetchBrands(),
+  fetchMyTakeoverRequests()
+]);
 
-  const pollInterval = setInterval(() => {
-    fetchMyTakeoverRequests();
-  }, 30000);
+  if (!pollingRef.current) {
+    pollingRef.current = setInterval(() => {
+      fetchMyTakeoverRequests();
+    }, 30000);
+  }
 
-  return () => clearInterval(pollInterval);
+  return () => {
+    if (pollingRef.current) {
+      clearInterval(pollingRef.current);
+      pollingRef.current = null;
+    }
+  };
 }, []);
 
 // ✅ EFFECT 1: Fetch products when BACKEND filters change
@@ -862,29 +799,31 @@ useEffect(() => {
   deletedFilter,
   debouncedSearchTerm,
   selectedCategory,
+  selectedBrand,
+  selectedType,
   publishedFilter,
   markAsNewFilter,
   selectedHomepage,
+  deliveryFilter,
+  notReturnableFilter,
+  inventoryFilter,
+  recurringFilter,
+  vatFilter,
+  discountFilter,
+  pharmaFilter,   // ⭐ ADD
+  statusFilter    // ⭐ ADD
 ]);
-
-// ✅ EFFECT 2: Reset to page 1 when BACKEND filters change
 useEffect(() => {
   setCurrentPage(1);
 }, [
   debouncedSearchTerm,
   selectedCategory,
+  selectedBrand,
+  selectedType,
   publishedFilter,
   markAsNewFilter,
   selectedHomepage,
   deletedFilter,
-]);
-
-// ✅ EFFECT 3: Handle client-side filters - JUST reset page, NO API call
-useEffect(() => {
-  setCurrentPage(1);
-}, [
-  selectedBrand,
-  selectedType,
   statusFilter,
   deliveryFilter,
   notReturnableFilter,
@@ -892,9 +831,8 @@ useEffect(() => {
   recurringFilter,
   vatFilter,
   discountFilter,
+  pharmaFilter  // ⭐ ADD
 ]);
-
-
 
 
 // ✅ CLEAR FILTERS
@@ -1244,189 +1182,202 @@ const hasActiveFilters = useMemo(
     <div className="space-y-2">
 
       {/* ================= HEADER ================= */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight bg-gradient-to-r from-violet-400 via-cyan-400 to-pink-400 bg-clip-text text-transparent">
-            Product Management
-          </h1>
-          <p className="text-sm text-slate-400">Manage your product inventory</p>
-        </div>
+<div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+  
+  {/* Page Title */}
+  <div>
+    <h1 className="text-2xl font-bold tracking-tight bg-gradient-to-r from-violet-400 via-cyan-400 to-pink-400 bg-clip-text text-transparent">
+      Product Management
+    </h1>
+    <p className="text-sm text-slate-400">
+      Manage your product catalog, inventory, pricing and product lifecycle
+    </p>
+  </div>
 
-        <div className="flex flex-wrap items-center gap-2">
-          <button
-            onClick={() => router.push("/admin/discounts")}
-            className="flex items-center gap-2 px-3 py-1.5 text-sm
-            bg-gradient-to-r from-pink-500 to-rose-500
-            hover:from-pink-600 hover:to-rose-600
-            text-white rounded-lg font-semibold shadow
-            hover:shadow-pink-500/40 transition-all"
-          >
-            <Tag className="w-4 h-4" />
-            Discounts
-          </button>
-          {/* Inventory Button */}
-  <button
-    onClick={() => router.push("/admin/inventory")}
-    className="flex items-center gap-2 px-4 py-2 text-sm
-    bg-gradient-to-r from-pink-500 to-rose-500
-    hover:from-pink-600 hover:to-rose-600
-    text-white rounded-xl font-semibold shadow-md
-    hover:shadow-pink-500/40
-    transition-all duration-200"
-  >
-    <Boxes className="w-4 h-4 stroke-[2.2]" />
-    <span>Inventory</span>
-  </button>
+  {/* Action Buttons */}
+  <div className="flex flex-wrap items-center gap-2">
 
-          <button
-            onClick={() => router.push("/admin/orders")}
-            className="flex items-center gap-2 px-3 py-1.5 text-sm
-            bg-gradient-to-r from-emerald-500 to-teal-500
-            hover:from-emerald-600 hover:to-teal-600
-            text-white rounded-lg font-semibold shadow
-            hover:shadow-emerald-500/40 transition-all"
-          >
-            <ShoppingCart className="w-4 h-4" />
-            Orders
-          </button>
+    {/* Add Product (Primary) */}
+    <Link href="/admin/products/add">
+      <button
+        title="Create a new product"
+        className="flex items-center gap-2 px-3 py-1.5 text-sm
+        bg-gradient-to-r from-violet-500 to-cyan-500
+        text-white rounded-lg font-semibold shadow
+        hover:shadow-violet-500/40 transition-all"
+      >
+        <Plus className="w-4 h-4" />
+        Add Product
+      </button>
+    </Link>
 
-          <button
-            onClick={() => setShowImportModal(true)}
-            className="flex items-center gap-2 px-3 py-1.5 text-sm
-            bg-gradient-to-r from-emerald-600 to-green-600
-            text-white rounded-lg font-semibold shadow
-            hover:shadow-emerald-500/40 transition-all"
-          >
-            <Upload className="w-4 h-4" />
-            Import Excel
-          </button>
+    {/* Inventory */}
+    <button
+      title="Manage stock quantities and pricing"
+      onClick={() => router.push("/admin/inventory")}
+      className="flex items-center gap-2 px-3 py-1.5 text-sm
+      bg-gradient-to-r from-pink-500 to-rose-500
+      hover:from-pink-600 hover:to-rose-600
+      text-white rounded-lg font-semibold shadow
+      hover:shadow-pink-500/40 transition-all"
+    >
+      <Boxes className="w-4 h-4" />
+      Inventory
+    </button>
 
-          <button
-            onClick={() => router.push("/admin/productReview")}
-            className="flex items-center gap-2 px-3 py-1.5 text-sm
-            bg-gradient-to-r from-amber-500 to-orange-500
-            hover:from-amber-600 hover:to-orange-600
-            text-white rounded-lg font-semibold shadow
-            hover:shadow-amber-500/40 transition-all"
-          >
-            <Star className="w-4 h-4" />
-            Reviews
-          </button>
+    {/* Orders */}
+    <button
+      title="View and manage customer orders"
+      onClick={() => router.push("/admin/orders")}
+      className="flex items-center gap-2 px-3 py-1.5 text-sm
+      bg-gradient-to-r from-emerald-500 to-teal-500
+      hover:from-emerald-600 hover:to-teal-600
+      text-white rounded-lg font-semibold shadow
+      hover:shadow-emerald-500/40 transition-all"
+    >
+      <ShoppingCart className="w-4 h-4" />
+      Orders
+    </button>
 
-          {statusCounts.Pending > 0 && (
-            <button
-              onClick={() => setShowTakeoverPanel(true)}
-              className={`flex items-center gap-2 px-3 py-1.5 text-sm rounded-lg font-semibold
-              shadow transition-all relative ${
-                statusCounts.Pending > 0
-                  ? "bg-gradient-to-r from-orange-500 to-red-500 text-white animate-pulse shadow-orange-500/40"
-                  : "bg-gradient-to-r from-blue-500 to-blue-600 text-white hover:shadow-blue-500/40"
-              }`}
-            >
-              <Send className="w-4 h-4" />
-              Requests
-              {statusCounts.Pending > 0 && (
-                <span className="ml-1 inline-flex h-4 w-4 items-center justify-center rounded-full bg-white text-orange-600 text-[10px] font-bold">
-                  {statusCounts.Pending}
-                </span>
-              )}
-            </button>
-          )}
+    {/* Discounts */}
+    <button
+      title="Create and manage discount offers"
+      onClick={() => router.push("/admin/discounts")}
+      className="flex items-center gap-2 px-3 py-1.5 text-sm
+      bg-gradient-to-r from-fuchsia-500 to-pink-500
+      hover:from-fuchsia-600 hover:to-pink-600
+      text-white rounded-lg font-semibold shadow
+      hover:shadow-fuchsia-500/40 transition-all"
+    >
+      <Tag className="w-4 h-4" />
+      Discounts
+    </button>
 
-<div className="relative">
-  <button
-    onClick={() => setShowExportMenu(!showExportMenu)}
-    className="flex items-center gap-2 px-3 py-1.5 text-sm
+    {/* Reviews */}
+    <button
+      title="Moderate and manage product reviews"
+      onClick={() => router.push("/admin/productReview")}
+      className="flex items-center gap-2 px-3 py-1.5 text-sm
+      bg-gradient-to-r from-amber-500 to-orange-500
+      hover:from-amber-600 hover:to-orange-600
+      text-white rounded-lg font-semibold shadow
+      hover:shadow-amber-500/40 transition-all"
+    >
+      <Star className="w-4 h-4" />
+      Reviews
+    </button>
+
+    {/* Import Excel */}
+    <button
+      title="Import products or inventory using Excel"
+      onClick={() => setShowImportModal(true)}
+      className="flex items-center gap-2 px-3 py-1.5 text-sm
       bg-gradient-to-r from-green-600 to-emerald-600
       text-white rounded-lg font-semibold shadow
       hover:shadow-emerald-500/40 transition-all"
-  >
-    <FileSpreadsheet className="w-4 h-4" />
-    Export
-    <ChevronDown className="w-4 h-4 opacity-80" />
-  </button>
+    >
+      <Upload className="w-4 h-4" />
+      Import Excel
+    </button>
 
-  {showExportMenu && (
-    <>
-      {/* Overlay */}
-      <div
-        className="fixed inset-0 z-10"
-        onClick={() => setShowExportMenu(false)}
-      />
-
-      {/* Dropdown */}
-      <div className="absolute right-0 mt-2 w-52
-        bg-slate-800/95 backdrop-blur-xl
-        border border-slate-700
-        rounded-xl shadow-xl
-        overflow-hidden z-20"
+    {/* Export Dropdown */}
+    <div className="relative">
+      <button
+        title="Export products data"
+        onClick={() => setShowExportMenu(!showExportMenu)}
+        className="flex items-center gap-2 px-3 py-1.5 text-sm
+        bg-gradient-to-r from-green-700 to-emerald-700
+        text-white rounded-lg font-semibold shadow
+        hover:shadow-emerald-500/40 transition-all"
       >
+        <FileSpreadsheet className="w-4 h-4" />
+        Export
+        <ChevronDown className="w-4 h-4 opacity-80" />
+      </button>
 
-    
+      {showExportMenu && (
+        <>
+          <div
+            className="fixed inset-0 z-10"
+            onClick={() => setShowExportMenu(false)}
+          />
 
-        {/* Current Page */}
-        <button
-          onClick={() => {
-            handleExport(false);
-            setShowExportMenu(false);
-          }}
-          className="w-full px-4 py-2.5 text-left hover:bg-slate-700/60 transition-all"
-          title="Export current page products"
-        >
-          <div className="flex items-center gap-3">
-            <FileSpreadsheet className="w-4 h-4 text-emerald-400" />
-            <div>
-              <p className="text-sm font-medium text-white">
-                Current Page
-              </p>
-              <p className="text-xs text-slate-400">
-                {products.length} products
-              </p>
-            </div>
-          </div>
-        </button>
+          <div className="absolute right-0 mt-2 w-52
+            bg-slate-800/95 backdrop-blur-xl
+            border border-slate-700
+            rounded-xl shadow-xl
+            overflow-hidden z-20">
 
-        {/* Divider */}
-        <div className="border-t border-slate-700/60" />
-
-        {/* Export All */}
-        <button
-          onClick={() => {
-            handleExport(true);
-            setShowExportMenu(false);
-          }}
-          className="w-full px-4 py-2.5 text-left hover:bg-slate-700/60 transition-all"
-        >
-          <div className="flex items-center gap-3">
-            <Database className="w-4 h-4 text-emerald-400" />
-            <div>
-              <p className="text-sm font-medium text-white"
-          title="Export All products"
-              >
-                All Products
-              </p>
-              <p className="text-xs text-slate-400">
-                {totalCount} total
-              </p>
-            </div>
-          </div>
-        </button>
-
-      </div>
-    </>
-  )}
-</div>
-          <Link href="/admin/products/add">
-            <button className="flex items-center gap-2 px-3 py-1.5 text-sm
-            bg-gradient-to-r from-violet-500 to-cyan-500
-            text-white rounded-lg font-semibold shadow
-            hover:shadow-violet-500/40 transition-all">
-              <Plus className="w-4 h-4" />
-              Add Product
+            {/* Current Page */}
+            <button
+              onClick={() => {
+                handleExport(false);
+                setShowExportMenu(false);
+              }}
+              className="w-full px-4 py-2.5 text-left hover:bg-slate-700/60 transition-all"
+              title="Export current page products"
+            >
+              <div className="flex items-center gap-3">
+                <FileSpreadsheet className="w-4 h-4 text-emerald-400" />
+                <div>
+                  <p className="text-sm font-medium text-white">
+                    Current Page
+                  </p>
+                  <p className="text-xs text-slate-400">
+                    {products.length} products
+                  </p>
+                </div>
+              </div>
             </button>
-          </Link>
-        </div>
-      </div>
+
+            <div className="border-t border-slate-700/60" />
+
+            {/* Export All */}
+            <button
+              onClick={() => {
+                handleExport(true);
+                setShowExportMenu(false);
+              }}
+              className="w-full px-4 py-2.5 text-left hover:bg-slate-700/60 transition-all"
+              title="Export all products"
+            >
+              <div className="flex items-center gap-3">
+                <Database className="w-4 h-4 text-emerald-400" />
+                <div>
+                  <p className="text-sm font-medium text-white">
+                    All Products
+                  </p>
+                  <p className="text-xs text-slate-400">
+                    {totalCount} total
+                  </p>
+                </div>
+              </div>
+            </button>
+
+          </div>
+        </>
+      )}
+    </div>
+
+    {/* Requests */}
+    {statusCounts.Pending > 0 && (
+      <button
+        title="View takeover or approval requests"
+        onClick={() => setShowTakeoverPanel(true)}
+        className="flex items-center gap-2 px-3 py-1.5 text-sm rounded-lg font-semibold
+        bg-gradient-to-r from-orange-500 to-red-500 text-white
+        shadow shadow-orange-500/40 animate-pulse transition-all relative"
+      >
+        <Send className="w-4 h-4" />
+        Requests
+        <span className="ml-1 inline-flex h-4 w-4 items-center justify-center rounded-full bg-white text-orange-600 text-[10px] font-bold">
+          {statusCounts.Pending}
+        </span>
+      </button>
+    )}
+
+  </div>
+</div>
 
       {/* ================= STATS ================= */}
       <div className="grid gap-3 md:grid-cols-4">
@@ -1613,6 +1564,7 @@ const hasActiveFilters = useMemo(
               menuPosition="fixed"
             />
           </div>
+          
 
           <div className="flex-1 max-w-[150px]">
             <select
@@ -1634,6 +1586,32 @@ const hasActiveFilters = useMemo(
               ))}
             </select>
           </div>
+          <div className="flex-1 max-w-[150px]">
+  <select
+    value={pharmaFilter.value}
+    onChange={(e) => {
+      const value = e.target.value;
+      const option =
+        value === "yes"
+          ? { value: "yes", label: "Pharma Products" }
+          : value === "no"
+          ? { value: "no", label: "Non-Pharma Products" }
+          : { value: "all", label: "All Products" };
+
+      setPharmaFilter(option);
+    }}
+    className={`w-full px-3 py-2.5 bg-slate-800/90 border rounded-xl text-white text-sm 
+    focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all ${
+      pharmaFilter.value !== "all"
+        ? "border-blue-500 bg-blue-500/10 ring-2 ring-blue-500/50"
+        : "border-slate-600"
+    }`}
+  >
+    <option value="all">All Products</option>
+    <option value="yes">Pharma Products</option>
+    <option value="no">Non-Pharma Products</option>
+  </select>
+</div>
 
           <div className="flex gap-3">
             <div className="max-w-[140px] w-full">
@@ -1932,50 +1910,61 @@ const hasActiveFilters = useMemo(
                       `}
                     >
                       {/* PRODUCT */}
-                      <td className="py-2 px-3">
-                        <div className="flex items-center gap-2">
-                          <div className="w-10 h-10 rounded-md bg-gradient-to-br from-violet-500 to-pink-500 overflow-hidden flex-shrink-0">
-                            {product.image ? (
-                              <img
-                                src={product.image}
-                                alt={product.name}
-                                className="w-full h-full object-cover cursor-pointer hover:opacity-80"
-                                onClick={async (e) => {
-                                  e.stopPropagation();
-                                  try {
-                                    const res = await productsService.getById(product.id);
-                                    if (res.data?.success && res.data?.data?.images) {
-                                      viewProductImages(res.data.data.images, product.name, 0);
-                                    }
-                                  } catch {}
-                                }}
-                              />
-                            ) : (
-                              <div className="w-full h-full flex items-center justify-center text-white">
-                                📦
-                              </div>
-                            )}
-                          </div>
+                <td className="py-2 px-3">
+  <div className="flex items-center gap-2">
+    <div className="w-10 h-10 rounded-md bg-gradient-to-br from-violet-500 to-pink-500 overflow-hidden flex-shrink-0">
+      {product.image ? (
+        <img
+          src={product.image}
+          alt={product.name}
+          className="w-full h-full object-cover cursor-pointer hover:opacity-80"
+          onClick={async (e) => {
+            e.stopPropagation();
+            try {
+              const res = await productsService.getById(product.id);
+              if (res.data?.success && res.data?.data?.images) {
+                viewProductImages(res.data.data.images, product.name, 0);
+              }
+            } catch {}
+          }}
+        />
+      ) : (
+        <div className="w-full h-full flex items-center justify-center text-white">
+          📦
+        </div>
+      )}
+    </div>
 
-                          <div className="min-w-0 flex-1">
-                            <p
-                              className="text-white font-medium truncate cursor-pointer hover:text-violet-400"
-                              onClick={() => fetchProductDetails(product.id)}
-                              title={product.name}
-                            >
-                              {product.name}
-                            </p>
-                            <div className="flex items-center gap-1 mt-0.5">
-                              <span className="text-xs text-slate-500 truncate">
-                                {product.categoryName}
-                              </span>
-                              <span className="text-xs text-cyan-400 bg-cyan-400/10 px-1.5 py-0.5 rounded">
-                                {product.brandName}
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-                      </td>
+    <div className="min-w-0 flex-1">
+      <div className="flex items-center gap-2">
+        <p
+          className="text-white font-medium truncate cursor-pointer hover:text-violet-400"
+          onClick={() => fetchProductDetails(product.id)}
+          title={product.name}
+        >
+          {product.name}
+        </p>
+
+        {/* Pharma Badge */}
+        {product.isPharmaProduct && (
+          <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-red-500/20 text-red-400 border border-red-500/30">
+            PHARMA
+          </span>
+        )}
+      </div>
+
+      <div className="flex items-center gap-1 mt-0.5">
+        <span className="text-xs text-slate-500 truncate">
+          {product.categoryName}
+        </span>
+
+        <span className="text-xs text-cyan-400 bg-cyan-400/10 px-1.5 py-0.5 rounded">
+          {product.brandName}
+        </span>
+      </div>
+    </div>
+  </div>
+</td>
 
                       {/* SKU */}
                       <td className="py-2 px-3 text-center">

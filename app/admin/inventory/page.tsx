@@ -2,7 +2,12 @@
 
 import { useEffect, useState, useMemo, useRef } from "react";
 import Select from "react-select";
-import { Search, Upload, Download, Save, ShoppingCart, FilterX, ChevronsLeft, ChevronLeft, ChevronRight, ChevronsRight } from "lucide-react";
+import {
+  Search, Upload, Download, ShoppingCart, FilterX,
+  ChevronsLeft, ChevronLeft, ChevronRight, ChevronsRight,
+  Package, AlertTriangle, CheckCircle2, Save, X, RefreshCcw,
+  TrendingUp,
+} from "lucide-react";
 import * as XLSX from "xlsx";
 import { productsService } from "@/lib/services";
 import { categoriesService } from "@/lib/services/categories";
@@ -29,9 +34,8 @@ interface ProductRow {
   categoryName: string;
   newStock: number;
   newPrice: number;
-
-  image?: string;          // main image preview
-  images?: ProductImage[]; // full gallery
+  image?: string;
+  images?: ProductImage[];
 }
 
 interface SelectOption {
@@ -44,357 +48,241 @@ const selectStyles = {
     ...base,
     backgroundColor: "#1e293b",
     borderColor: state.isFocused ? "#8b5cf6" : "#475569",
-    borderRadius: "0.75rem",
+    borderRadius: "0.5rem",
     boxShadow: "none",
-    minHeight: "42px",
-    "&:hover": {
-      borderColor: "#8b5cf6",
-    },
+    minHeight: "38px",
+    "&:hover": { borderColor: "#8b5cf6" },
   }),
   menu: (base: any) => ({
     ...base,
     backgroundColor: "#1e293b",
-    borderRadius: "0.75rem",
+    borderRadius: "0.5rem",
     overflow: "hidden",
   }),
   option: (base: any, state: any) => ({
     ...base,
-    backgroundColor: state.isSelected
-      ? "#6366f1"
-      : state.isFocused
-      ? "#334155"
-      : "#1e293b",
+    backgroundColor: state.isSelected ? "#6366f1" : state.isFocused ? "#334155" : "#1e293b",
     color: "white",
     cursor: "pointer",
+    fontSize: "13px",
   }),
-  singleValue: (base: any) => ({
-    ...base,
-    color: "white",
-  }),
-  placeholder: (base: any) => ({
-    ...base,
-    color: "#94a3b8",
-  }),
-  menuPortal: (base: any) => ({
-    ...base,
-    zIndex: 9999,
-  }),
+  singleValue: (base: any) => ({ ...base, color: "white", fontSize: "13px" }),
+  placeholder: (base: any) => ({ ...base, color: "#94a3b8", fontSize: "13px" }),
+  menuPortal: (base: any) => ({ ...base, zIndex: 9999 }),
 };
+
+function StockBadge({ qty }: { qty: number }) {
+  if (qty === 0)
+    return <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-red-500/15 text-red-400"><AlertTriangle className="h-2.5 w-2.5" />Out</span>;
+  if (qty <= 5)
+    return <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-500/15 text-amber-400"><AlertTriangle className="h-2.5 w-2.5" />Low ({qty})</span>;
+  return <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/15 text-emerald-400"><CheckCircle2 className="h-2.5 w-2.5" />{qty}</span>;
+}
+
 export default function InventoryPage() {
-  const toast = useToast();
-    const router = useRouter();
+  const toast    = useToast();
+  const router   = useRouter();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
-  const [products, setProducts] = useState<ProductRow[]>([]);
-  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [products, setProducts]     = useState<ProductRow[]>([]);
+  const [selected, setSelected]     = useState<Set<string>>(new Set());
   const [categories, setCategories] = useState<SelectOption[]>([]);
-  const [brands, setBrands] = useState<SelectOption[]>([]);
+  const [brands, setBrands]         = useState<SelectOption[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<SelectOption | null>(null);
-  const [selectedBrand, setSelectedBrand] = useState<SelectOption | null>(null);
-const [viewerOpen, setViewerOpen] = useState(false);
-const [viewerMedia, setViewerMedia] = useState<MediaItem[]>([]);
-const [viewerIndex, setViewerIndex] = useState(0);const [debouncedSearch, setDebouncedSearch] = useState("");
-// 🔥 PAGINATION STATE
-// PAGINATION STATE
-const [currentPage, setCurrentPage] = useState(1);
-const [itemsPerPage, setItemsPerPage] = useState(25);
-const [totalCount, setTotalCount] = useState(0);
-const [totalPages, setTotalPages] = useState(1);
-const [hasPrevious] = useState(false);
-const [hasNext] = useState(false);
-const filteredProducts = useMemo(() => {
-  if (!selectedBrand) return products;
+  const [selectedBrand, setSelectedBrand]       = useState<SelectOption | null>(null);
 
-  return products.filter(
-    (p) => p.brandName === selectedBrand.label
-  );
-}, [products, selectedBrand]);
-useEffect(() => {
-  fetchFilters();
-}, []);
-const openMediaViewer = (images: any[], startIndex = 0) => {
-  if (!images || images.length === 0) return;
+  const [currentPage, setCurrentPage]   = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(25);
+  const [totalCount, setTotalCount]     = useState(0);
+  const [totalPages, setTotalPages]     = useState(1);
 
-  const formatted: MediaItem[] = images.map((img: any) => ({
-    type: "image",
-    url: img.imageUrl,
-    title: img.altText || "Product Image",
-    isMain: img.isMain,
+  const [tableLoading, setTableLoading] = useState(true);
+  const [exportLoading, setExportLoading] = useState(false);
+  const [rowLoading, setRowLoading]     = useState<string | null>(null);
+
+  const [viewerOpen, setViewerOpen]   = useState(false);
+  const [viewerMedia, setViewerMedia] = useState<MediaItem[]>([]);
+  const [viewerIndex, setViewerIndex] = useState(0);
+
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [confirmConfig, setConfirmConfig] = useState<{
+    title: string; message: string; onConfirm: () => void;
+  }>({ title: "", message: "", onConfirm: () => {} });
+
+  const openConfirm = (title: string, message: string, onConfirm: () => void) => {
+    setConfirmConfig({ title, message, onConfirm });
+    setConfirmOpen(true);
+  };
+
+  // ─── Fetch products ────────────────────────────────────────────────────────
+  const fetchProducts = async () => {
+    try {
+      setTableLoading(true);
+      const res = await productsService.getAll({
+        page: currentPage,
+        pageSize: itemsPerPage,
+        searchTerm: debouncedSearch?.trim() || undefined,
+        categoryId: selectedCategory?.value || undefined,
+        brandId: selectedBrand?.value || undefined,   // ✅ backend brand filter
+        sortBy: "createdAt",
+        sortDirection: "desc",                         // ✅ newest first
+      });
+      if (res.data?.success) {
+        const apiData = res.data.data;
+        setTotalCount(apiData.totalCount);
+        setTotalPages(apiData.totalPages);
+        setProducts(apiData.items.map((p: any) => {
+          const images = p.images || [];
+          const mainImage = images.find((i: any) => i.isMain)?.imageUrl || images[0]?.imageUrl || "";
+          return {
+            id: p.id, name: p.name, sku: p.sku || "-",
+            stockQuantity: Number(p.stockQuantity ?? 0),
+            price: Number(p.price ?? 0),
+            brandName: p.brandName ?? "",
+            categoryName: p.categories?.[0]?.categoryName ?? "Uncategorized",
+            image: mainImage, images,
+            newStock: Number(p.stockQuantity ?? 0),
+            newPrice: Number(p.price ?? 0),
+          };
+        }));
+      }
+    } catch {
+      toast.error("Failed to load products");
+    } finally {
+      setTableLoading(false);
+    }
+  };
+
+  // ─── Fetch filters ─────────────────────────────────────────────────────────
+  const fetchFilters = async () => {
+    const [catRes, brandRes] = await Promise.all([
+      categoriesService.getAll({ includeInactive: false }),
+      brandsService.getAll({ includeUnpublished: false }),
+    ]);
+    if (catRes.data?.success)
+      setCategories(catRes.data.data.map((c: any) => ({ value: c.id, label: c.name })));
+    if (brandRes.data?.success)
+      setBrands(brandRes.data.data.map((b: any) => ({ value: b.id, label: b.name }))); // ✅ use id
+  };
+
+  useEffect(() => { fetchFilters(); }, []);
+  useEffect(() => { fetchProducts(); }, [currentPage, itemsPerPage, debouncedSearch, selectedCategory, selectedBrand]);
+  useEffect(() => {
+    const h = setTimeout(() => setDebouncedSearch(searchTerm), 500);
+    return () => clearTimeout(h);
+  }, [searchTerm]);
+  useEffect(() => { setCurrentPage(1); }, [debouncedSearch, selectedCategory, selectedBrand]);
+
+  // ─── Inventory update ──────────────────────────────────────────────────────
+  const updateInventory = async (items: { productId: string; newStock: number; newPrice: number }[]) => {
+    if (!items.length) return;
+    try {
+      setRowLoading(items.length === 1 ? items[0].productId : "bulk");
+      const res = await productsService.bulkUpdateInventory(items);
+      if (!res?.data?.success) { toast.error(res?.data?.message || "Update failed"); return; }
+      toast.success(`Updated: ${res.data.data?.updated ?? 0}, Skipped: ${res.data.data?.skipped ?? 0}`);
+      setProducts(prev => prev.map(p => {
+        const u = items.find(i => i.productId === p.id);
+        return u ? { ...p, stockQuantity: u.newStock, price: u.newPrice, newStock: u.newStock, newPrice: u.newPrice } : p;
+      }));
+    } catch (e: any) {
+      toast.error(e?.response?.data?.message || "Update failed");
+    } finally {
+      setRowLoading(null);
+    }
+  };
+
+  const handleChange = (id: string, field: "newStock" | "newPrice", value: number) =>
+    setProducts(prev => prev.map(p => p.id === id ? { ...p, [field]: value } : p));
+
+  const changedProducts = products.filter(p => p.newStock !== p.stockQuantity || p.newPrice !== p.price);
+
+  const handleBulkUpdate = () => {
+    const changed = changedProducts.map(p => ({ productId: p.id, newStock: p.newStock, newPrice: p.newPrice }));
+    if (!changed.length) { toast.warning("No changes to save"); return; }
+    updateInventory(changed);
+  };
+
+  const discardChanges = () => {
+    setProducts(prev => prev.map(p => ({ ...p, newStock: p.stockQuantity, newPrice: p.price })));
+    toast.info("Changes discarded");
+  };
+
+  // ─── Select / deselect ─────────────────────────────────────────────────────
+  const toggleSelect = (id: string) => {
+    const s = new Set(selected);
+    s.has(id) ? s.delete(id) : s.add(id);
+    setSelected(s);
+  };
+  const toggleSelectAll = () => {
+    setSelected(selected.size === products.length ? new Set() : new Set(products.map(p => p.id)));
+  };
+
+  // ─── Export helpers ────────────────────────────────────────────────────────
+  const toExcelRows = (rows: ProductRow[]) => rows.map(p => ({
+    ProductId: p.id, ProductName: p.name, SKU: p.sku,
+    CurrentStock: p.stockQuantity, NewStock: "",
+    CurrentPrice: p.price, NewPrice: "",
   }));
 
-  setViewerMedia(formatted);
-  setViewerIndex(startIndex);
-  setViewerOpen(true);
-};
-const [tableLoading, setTableLoading] = useState(true);
-const [confirmOpen, setConfirmOpen] = useState(false);
-const [rowLoading, setRowLoading] = useState<string | null>(null);
-const [confirmConfig, setConfirmConfig] = useState<{
-  title: string;
-  message: string;
-  onConfirm: () => void;
-}>({
-  title: "",
-  message: "",
-  onConfirm: () => {},
-});
+  const writeExcel = (rows: ProductRow[], filename: string) => {
+    const ws = XLSX.utils.json_to_sheet(toExcelRows(rows));
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Inventory");
+    XLSX.writeFile(wb, filename);
+  };
 
-const openConfirm = (
-  title: string,
-  message: string,
-  onConfirm: () => void
-) => {
-  setConfirmConfig({ title, message, onConfirm });
-  setConfirmOpen(true);
-};
-const fetchProducts = async () => {
+  // Export all — fetches EVERY product (not just current page)
+const downloadFullTemplate = async () => {
   try {
-    setTableLoading(true);
-const res = await productsService.getAll({
-  page: currentPage,
-  pageSize: itemsPerPage,
-  searchTerm: debouncedSearch?.trim() || undefined, // ✅ correct
-  categoryId: selectedCategory?.value || undefined,
-});
-    if (res.data?.success) {
-      const apiData = res.data.data;
+    setExportLoading(true);
 
-      setTotalCount(apiData.totalCount);
-      setTotalPages(apiData.totalPages);
-   
+    const res = await productsService.getAll({
+      page: 1,
+      pageSize: 9999,
+      sortBy: "createdAt",
+      sortDirection: "desc",
+    });
 
-      const mapped = apiData.items.map((p: any) => {
-        const images = p.images || [];
-        const mainImage =
-          images.find((img: any) => img.isMain)?.imageUrl ||
-          images[0]?.imageUrl ||
-          "";
+    const items = res.data?.data?.items ?? [];
 
-        return {
-          id: p.id,
-          name: p.name,
-          sku: p.sku || "-",
-          stockQuantity: Number(p.stockQuantity ?? 0),
-          price: Number(p.price ?? 0),
-          brandName: p.brandName ?? "",
-          categoryName:
-            p.categories?.[0]?.categoryName ?? "Uncategorized",
-          image: mainImage,
-          images,
-          newStock: Number(p.stockQuantity ?? 0),
-          newPrice: Number(p.price ?? 0),
-        };
-      });
+    const rows: ProductRow[] = items.map((p: any) => ({
+      id: p.id,
+      name: p.name,
+      sku: p.sku || "-",
+      stockQuantity: Number(p.stockQuantity ?? 0),
+      price: Number(p.price ?? 0),
+      brandName: "",
+      categoryName: "",
+      image: "",
+      newStock: 0,
+      newPrice: 0,
+    }));
 
-      setProducts(mapped);
-    }
-  } catch (error) {
-    toast.error("Failed to load products");
-  } finally {
-    setTableLoading(false);
-  }
-};
-useEffect(() => {
-  fetchProducts();
-}, [currentPage, itemsPerPage, debouncedSearch, selectedCategory]);
-useEffect(() => {
-  const handler = setTimeout(() => {
-    setDebouncedSearch(searchTerm);
-  }, 500);
-
-  return () => clearTimeout(handler);
-}, [searchTerm]);
-useEffect(() => {
-  setCurrentPage(1);
-}, [debouncedSearch, selectedCategory]);
-const goToPage = (page: number) => {
-  if (page < 1 || page > totalPages) return;
-  setCurrentPage(page);
-};
-
-const goToFirstPage = () => {
-  if (!hasPrevious) return;
-  setCurrentPage(1);
-};
-
-const goToPreviousPage = () => {
-  if (!hasPrevious) return;
-  setCurrentPage((prev) => prev - 1);
-};
-
-const goToNextPage = () => {
-  if (!hasNext) return;
-  setCurrentPage((prev) => prev + 1);
-};
-
-const goToLastPage = () => {
-  if (!hasNext) return;
-  setCurrentPage(totalPages);
-};
-
-const getPageNumbers = () => {
-  const pages: number[] = [];
-  const maxVisible = 5;
-
-  let start = Math.max(currentPage - 2, 1);
-  let end = Math.min(start + maxVisible - 1, totalPages);
-
-  if (end - start < maxVisible - 1) {
-    start = Math.max(end - maxVisible + 1, 1);
-  }
-
-  for (let i = start; i <= end; i++) {
-    pages.push(i);
-  }
-
-  return pages;
-};
-
-useEffect(() => {
-  setCurrentPage(1);
-}, [debouncedSearch, selectedCategory]);
-
-const discardChanges = () => {
-  setProducts((prev) =>
-    prev.map((p) => ({
-      ...p,
-      newStock: p.stockQuantity,
-      newPrice: p.price,
-    }))
-  );
-
-  toast.info("Changes discarded");
-};
-  const fetchFilters = async () => {
-    const catRes = await categoriesService.getAll({ includeInactive: false });
-    const brandRes = await brandsService.getAll({ includeUnpublished: false });
-
-    if (catRes.data?.success) {
-     setCategories(
-  catRes.data.data.map((c: any) => ({
-    value: c.id,     // ✅ ID bhejna hai
-    label: c.name,
-  }))
-);
-    }
-
-    if (brandRes.data?.success) {
-      setBrands(brandRes.data.data.map((b: any) => ({
-        value: b.name,
-        label: b.name,
-      })));
-    }
-  };
-const hasActiveFilters =
-  debouncedSearch ||
-  selectedCategory ||
-  selectedBrand;
-  // const filteredProducts = useMemo(() => {
-  //   return products.filter((p) => {
-  //     if (searchTerm && !p.name.toLowerCase().includes(searchTerm.toLowerCase()))
-  //       return false;
-  //     if (selectedCategory && p.categoryName !== selectedCategory.value)
-  //       return false;
-  //     if (selectedBrand && p.brandName !== selectedBrand.value)
-  //       return false;
-  //     return true;
-  //   });
-  // }, [products, searchTerm, selectedCategory, selectedBrand]);
-
-  const toggleSelect = (id: string) => {
-    const newSet = new Set(selected);
-    newSet.has(id) ? newSet.delete(id) : newSet.add(id);
-    setSelected(newSet);
-  };
-
-  const toggleSelectAll = () => {
-    if (selected.size === filteredProducts.length) {
-      setSelected(new Set());
-    } else {
-      setSelected(new Set(filteredProducts.map((p) => p.id)));
-    }
-  };
-
-  const handleChange = (id: string, field: "newStock" | "newPrice", value: number) => {
-    setProducts(prev =>
-      prev.map(p =>
-        p.id === id ? { ...p, [field]: value } : p
-      )
-    );
-  };
-
-  const changedProducts = products.filter(
-    p => p.newStock !== p.stockQuantity || p.newPrice !== p.price
-  );
-
-const updateInventory = async (
-  items: {
-    productId: string;
-    newStock: number;
-    newPrice: number;
-  }[]
-) => {
-  try {
-    if (!items.length) return;
-
-    setRowLoading(items.length === 1 ? items[0].productId : "bulk");
-
-    const res = await productsService.bulkUpdateInventory(items);
-
-    if (!res?.data?.success) {
-      toast.error(res?.data?.message || "Update failed");
+    if (rows.length === 0) {
+      toast.warning("No products found to export");
       return;
     }
 
-    const response = res.data;
+    writeExcel(rows, "full-inventory.xlsx");
 
-    toast.success(
-      `Updated: ${response.data?.updated ?? 0}, Skipped: ${response.data?.skipped ?? 0}`
-    );
-
-    // Sync updated values to UI
-    setProducts((prev) =>
-      prev.map((p) => {
-        const updated = items.find((i) => i.productId === p.id);
-        if (!updated) return p;
-
-        return {
-          ...p,
-          stockQuantity: updated.newStock,
-          price: updated.newPrice,
-        };
-      })
-    );
-  } catch (error: any) {
-    toast.error(
-      error?.response?.data?.message || "Update failed"
-    );
+    toast.success(`Exported ${rows.length} products`);
+  } catch {
+    toast.error("Export failed");
   } finally {
-    setRowLoading(null);
+    setExportLoading(false);
   }
-};  
-  
-const handleBulkUpdate = () => {
-  const changed = products
-    .filter(
-      p =>
-        p.newStock !== p.stockQuantity ||
-        p.newPrice !== p.price
-    )
-    .map(p => ({
-      productId: p.id,
-      newStock: p.newStock,
-      newPrice: p.newPrice,
-    }));
-
-  if (changed.length === 0) {
-    toast.warning("No changes to update");
-    return;
-  }
-
-  updateInventory(changed);
 };
+
+  const downloadSelectedTemplate = () => {
+    if (!selected.size) { toast.warning("Select products first"); return; }
+    writeExcel(products.filter(p => selected.has(p.id)), "selected-inventory.xlsx");
+    toast.success(`Exported ${selected.size} selected products`);
+  };
+
+  // ─── Upload Excel ──────────────────────────────────────────────────────────
 const handleExcelUpload = async (event: any) => {
   const file = event.target.files?.[0];
   if (!file) return;
@@ -402,596 +290,426 @@ const handleExcelUpload = async (event: any) => {
   try {
     const res = await productsService.bulkUploadInventoryExcel(file);
 
-    if (!res || !res.data) {
+    if (!res?.data) {
       toast.error("Invalid server response");
       return;
     }
 
-    const response = res.data;
+    if (res.data.success) {
+      const updated = res.data.data?.updated ?? 0;
+      const skipped = res.data.data?.skipped ?? 0;
 
-    if (response.success) {
-      toast.success(
-        `Updated: ${response.data?.updated ?? 0}, Skipped: ${response.data?.skipped ?? 0}`
-      );
-
-      // 🔥 Backend row errors
-      if (response.data?.errors?.length) {
-        response.data.errors.forEach((err) => {
-          toast.error(
-            `Row ${err.row} - ${err.productId} → ${err.reason}`
-          );
-        });
+      if (skipped > 0) {
+        toast.warning(
+          `⚠️ ${skipped} item(s) were skipped because the Current Price or Stock Status does not match the latest database values. Please download the latest inventory file and try again.`
+        );
       }
+
+      if (updated > 0) {
+        toast.success(`✅ ${updated} inventory item(s) updated successfully.`);
+      }
+
+      res.data.data?.errors?.forEach((err: any) =>
+        toast.error(`Row ${err.row} – ${err.reason}`)
+      );
 
       fetchProducts();
     } else {
-      toast.error(response.message || "Excel upload failed");
-
-      if (response.errors?.length) {
-        response.errors.forEach((errMsg) => {
-          toast.error(errMsg);
-        });
-      }
+      toast.error(res.data.message || "Excel upload failed");
     }
-  } catch (error: any) {
-    toast.error(
-      error?.response?.data?.message ||
-        error?.message ||
-        "Excel upload failed"
-    );
+  } catch (e: any) {
+    toast.error(e?.response?.data?.message || "Excel upload failed");
+  } finally {
+    if (fileInputRef.current) fileInputRef.current.value = "";
   }
 };
 
-  const downloadSelectedTemplate = () => {
-    if (selected.size === 0) {
-      toast.warning("Select products first");
-      return;
-    }
-
-    const selectedRows = products.filter(p => selected.has(p.id));
-
-    const data = selectedRows.map(p => ({
-      ProductId: p.id,
-      ProductName: p.name,
-      SKU: p.sku,
-      CurrentStock: p.stockQuantity,
-      NewStock: "",
-      CurrentPrice: p.price,
-      NewPrice: "",
-    }));
-
-    const worksheet = XLSX.utils.json_to_sheet(data);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Inventory");
-    XLSX.writeFile(workbook, "selected-inventory-template.xlsx");
+  // ─── Media viewer ──────────────────────────────────────────────────────────
+  const openMediaViewer = (images: any[], idx = 0) => {
+    if (!images?.length) return;
+    setViewerMedia(images.map((img: any) => ({ type: "image", url: img.imageUrl, title: img.altText || "Image", isMain: img.isMain })));
+    setViewerIndex(idx);
+    setViewerOpen(true);
   };
 
-  const downloadFullTemplate = () => {
-    const data = products.map(p => ({
-      ProductId: p.id,
-      ProductName: p.name,
-      SKU: p.sku,
-      CurrentStock: p.stockQuantity,
-      NewStock: "",
-      CurrentPrice: p.price,
-      NewPrice: "",
-    }));
-
-    const worksheet = XLSX.utils.json_to_sheet(data);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Inventory");
-    XLSX.writeFile(workbook, "full-inventory-template.xlsx");
+  // ─── Pagination ────────────────────────────────────────────────────────────
+  const getPageNumbers = () => {
+    const pages: number[] = [];
+    let start = Math.max(currentPage - 2, 1);
+    let end   = Math.min(start + 4, totalPages);
+    if (end - start < 4) start = Math.max(end - 4, 1);
+    for (let i = start; i <= end; i++) pages.push(i);
+    return pages;
   };
+
+  const hasActiveFilters = !!(debouncedSearch || selectedCategory || selectedBrand);
+
+  // ─── Stats bar ─────────────────────────────────────────────────────────────
+  const outOfStock = products.filter(p => p.stockQuantity === 0).length;
+  const lowStock   = products.filter(p => p.stockQuantity > 0 && p.stockQuantity <= 5).length;
 
   return (
-    <div className="space-y-2 relative">
-{/* ================= HEADER ================= */}
-<div className="flex flex-col gap-4">
+    <div className="space-y-3 relative">
 
-  {/* Top Row */}
-  <div className="flex items-start justify-between flex-wrap gap-4">
+      {/* ══ HEADER ══ */}
+      <div className="flex items-start justify-between flex-wrap gap-3">
+        <div>
+          <h1 className="text-xl font-bold tracking-tight bg-gradient-to-r from-violet-400 via-cyan-400 to-pink-400 bg-clip-text text-transparent">
+            Inventory Management
+          </h1>
+          <p className="text-xs text-slate-400 mt-0.5">Update stock & prices · {totalCount.toLocaleString()} products</p>
+        </div>
 
-    {/* LEFT */}
-    <div>
-      <h1 className="text-2xl font-bold tracking-tight bg-gradient-to-r from-violet-400 via-cyan-400 to-pink-400 bg-clip-text text-transparent">
-        Inventory Management
-      </h1>
-      <p className="text-sm text-slate-400 mt-1">
-        Manage your product inventory
-      </p>
-    </div>
+        <div className="flex items-center gap-2 flex-wrap">
+          <button
+            onClick={() => router.push("/admin/products")}
+            className="flex items-center gap-1.5 px-3 py-2 text-xs bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white rounded-lg font-semibold shadow-md transition-all"
+          >
+            <ShoppingCart className="w-3.5 h-3.5" /> Products
+          </button>
 
-    {/* RIGHT ACTION BUTTONS */}
-    <div className="flex items-center gap-3 flex-wrap">
+          <button
+            onClick={downloadFullTemplate}
+            disabled={exportLoading}
+            className="flex items-center gap-1.5 px-3 py-2 text-xs bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-semibold transition-all disabled:opacity-60"
+          >
+            {exportLoading
+              ? <RefreshCcw className="w-3.5 h-3.5 animate-spin" />
+              : <Download className="w-3.5 h-3.5" />}
+            Export All
+          </button>
 
-      <button
-        onClick={() => router.push("/admin/products")}
-        className="flex items-center gap-2 px-4 py-2 text-sm
-        bg-gradient-to-r from-emerald-500 to-teal-500
-        hover:from-emerald-600 hover:to-teal-600
-        text-white rounded-xl font-semibold shadow-md
-        hover:shadow-emerald-500/40 transition-all"
-      >
-        <ShoppingCart className="w-4 h-4" />
-        Products
-      </button>
+          <button
+            onClick={downloadSelectedTemplate}
+            disabled={selected.size === 0}
+            className="flex items-center gap-1.5 px-3 py-2 text-xs bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            <Download className="w-3.5 h-3.5" />
+            Export Selected ({selected.size})
+          </button>
 
-      <button
-        onClick={downloadFullTemplate}
-        className="flex items-center gap-2 px-4 py-2 text-sm
-        bg-indigo-600 hover:bg-indigo-700
-        text-white rounded-xl font-semibold transition-all"
-      >
-        <Download size={16} />
-        Export All
-      </button>
-      <button
-  onClick={downloadSelectedTemplate}
-  disabled={selected.size === 0}
-  className="flex items-center gap-2 px-4 py-2 text-sm
-  bg-blue-600 hover:bg-blue-700
-  text-white rounded-xl font-semibold transition-all
-  disabled:opacity-40 disabled:cursor-not-allowed"
->
-  <Download size={16} />
-  Export Selected ({selected.size})
-</button>
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            className="flex items-center gap-1.5 px-3 py-2 text-xs bg-violet-600 hover:bg-violet-700 text-white rounded-lg font-semibold transition-all"
+          >
+            <Upload className="w-3.5 h-3.5" /> Upload Excel
+          </button>
 
-      <button
-        onClick={() => fileInputRef.current?.click()}
-        className="flex items-center gap-2 px-4 py-2 text-sm
-        bg-purple-600 hover:bg-purple-700
-        text-white rounded-xl font-semibold transition-all"
-      >
-        <Upload size={16} />
-        Upload Excel
-      </button>
-
-      <input
-        type="file"
-        hidden
-        ref={fileInputRef}
-        onChange={(e) => {
-          const file = e.target.files?.[0];
-          if (!file) return;
-
-          openConfirm(
-            "Upload Inventory File",
-            "This will update inventory based on the uploaded Excel file. Do you want to continue?",
-            () => handleExcelUpload(e)
-          );
-        }}
-      />
-    </div>
-  </div>
-
-{/* ================= FULL WIDTH FILTER BAR ================= */}
-<div className="bg-slate-900/60 backdrop-blur-xl border border-slate-800 rounded-2xl px-5 py-4">
-
-  <div className="flex items-center gap-4 w-full">
-
-    {/* 🔎 SEARCH (AUTO EXPAND) */}
-    <div className="relative flex-1 min-w-[320px]">
-      <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
-      <input
-        type="text"
-        placeholder="Search products..."
-        value={searchTerm}
-        onChange={(e) => setSearchTerm(e.target.value)}
-        className="w-full pl-10 pr-4 py-2.5
-        bg-slate-800/80 border border-slate-700
-        rounded-xl text-white text-sm
-        focus:outline-none focus:ring-2 focus:ring-violet-500/40
-        transition-all"
-      />
-    </div>
-
-    {/* CATEGORY */}
-<div className="w-56 flex-shrink-0">
-  <Select
-    styles={selectStyles}
-    options={categories}
-    value={selectedCategory}
-    onChange={setSelectedCategory}
-    placeholder="All Categories"
-    menuPortalTarget={typeof window !== "undefined" ? document.body : null}
-    menuPosition="fixed"
-    menuPlacement="auto"
-  />
-</div>
-
-    {/* BRAND */}
-<div className="w-56 flex-shrink-0">
-  <Select
-    styles={selectStyles}
-    options={brands}
-    value={selectedBrand}
-    onChange={setSelectedBrand}
-    placeholder="All Brands"
-    menuPortalTarget={typeof window !== "undefined" ? document.body : null}
-    menuPosition="fixed"
-    menuPlacement="auto"
-  />
-</div>
-    {/* CLEAR BUTTON */}
-    {hasActiveFilters && (
-      <div className="flex-shrink-0">
-        <button
-          onClick={() => {
-            setSearchTerm("");
-            setSelectedCategory(null);
-            setSelectedBrand(null);
-          }}
-          className="px-4 py-2.5 text-sm
-          bg-red-500/10 border border-red-500/30
-          text-red-400 rounded-xl
-          hover:bg-red-500/20 transition-all
-          flex items-center gap-2"
-        >
-          <FilterX className="w-4 h-4" />
-          Clear
-        </button>
+          <input
+            type="file"
+            accept=".xlsx,.xls"
+            hidden
+            ref={fileInputRef}
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (!file) return;
+              openConfirm(
+                "Upload Inventory File",
+                "This will update inventory based on the uploaded Excel file. Continue?",
+                () => handleExcelUpload(e),
+              );
+            }}
+          />
+        </div>
       </div>
-    )}
 
-  </div>
-</div>
+      {/* ══ STAT CHIPS ══ */}
+      <div className="flex gap-2 flex-wrap">
+        <div className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-800/60 border border-slate-700 rounded-lg text-xs">
+          <Package className="h-3.5 w-3.5 text-violet-400" />
+          <span className="text-slate-400">Total</span>
+          <span className="font-bold text-white">{totalCount.toLocaleString()}</span>
+        </div>
+        {outOfStock > 0 && (
+          <div className="flex items-center gap-1.5 px-3 py-1.5 bg-red-500/10 border border-red-500/30 rounded-lg text-xs">
+            <AlertTriangle className="h-3.5 w-3.5 text-red-400" />
+            <span className="text-slate-400">Out of stock</span>
+            <span className="font-bold text-red-400">{outOfStock}</span>
+            <span className="text-slate-500">(this page)</span>
+          </div>
+        )}
+        {lowStock > 0 && (
+          <div className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-500/10 border border-amber-500/30 rounded-lg text-xs">
+            <TrendingUp className="h-3.5 w-3.5 text-amber-400" />
+            <span className="text-slate-400">Low stock</span>
+            <span className="font-bold text-amber-400">{lowStock}</span>
+            <span className="text-slate-500">(this page)</span>
+          </div>
+        )}
+        {changedProducts.length > 0 && (
+          <div className="flex items-center gap-1.5 px-3 py-1.5 bg-violet-500/10 border border-violet-500/30 rounded-lg text-xs">
+            <Save className="h-3.5 w-3.5 text-violet-400" />
+            <span className="text-violet-300 font-semibold">{changedProducts.length} unsaved change(s)</span>
+          </div>
+        )}
+      </div>
 
-</div>
-{/* Entries + Result Count */}
-<div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-xl px-3 py-2">
-  <div className="flex items-center justify-between gap-3">
-    <div className="flex items-center gap-2">
-      <span className="text-xs text-slate-400">Show</span>
-      <select
-        value={itemsPerPage}
-        onChange={(e) => {
-          setItemsPerPage(Number(e.target.value));
-          setCurrentPage(1);
-        }}
-        className="px-2 py-1 bg-slate-800/60 border border-slate-600
-        rounded-md text-white text-xs focus:outline-none focus:ring-1 focus:ring-violet-500"
-      >
-        <option value={25}>25</option>
-        <option value={50}>50</option>
-        <option value={75}>75</option>
-        <option value={100}>100</option>
-      </select>
-      <span className="text-xs text-slate-400">entries</span>
-    </div>
+      {/* ══ FILTER BAR ══ */}
+      <div className="bg-slate-900/60 backdrop-blur-xl border border-slate-800 rounded-xl px-4 py-3">
+        <div className="flex items-center gap-3 flex-wrap">
+          <div className="relative flex-1 min-w-[240px]">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-500" />
+            <input
+              type="text"
+              placeholder="Search products..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-9 pr-4 py-2 bg-slate-800/80 border border-slate-700 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/40 transition-all"
+            />
+          </div>
+          <div className="w-48 flex-shrink-0">
+            <Select styles={selectStyles} options={categories} value={selectedCategory} onChange={setSelectedCategory}
+              placeholder="All Categories" isClearable menuPortalTarget={typeof window !== "undefined" ? document.body : null} menuPosition="fixed" />
+          </div>
+          <div className="w-44 flex-shrink-0">
+            <Select styles={selectStyles} options={brands} value={selectedBrand} onChange={setSelectedBrand}
+              placeholder="All Brands" isClearable menuPortalTarget={typeof window !== "undefined" ? document.body : null} menuPosition="fixed" />
+          </div>
+          {hasActiveFilters && (
+            <button
+              onClick={() => { setSearchTerm(""); setSelectedCategory(null); setSelectedBrand(null); }}
+              className="flex items-center gap-1.5 px-3 py-2 text-xs bg-red-500/10 border border-red-500/30 text-red-400 rounded-lg hover:bg-red-500/20 transition-all flex-shrink-0"
+            >
+              <FilterX className="w-3.5 h-3.5" /> Clear
+            </button>
+          )}
+        </div>
+      </div>
 
-    <div className="text-xs text-slate-400">
-      Showing{" "}
-      {totalCount === 0
-        ? 0
-        : (currentPage - 1) * itemsPerPage + 1}{" "}
-      to{" "}
-      {Math.min(currentPage * itemsPerPage, totalCount)}{" "}
-      of {totalCount} entries
-    </div>
-  </div>
-</div>
+      {/* ══ SHOW ENTRIES + COUNT ══ */}
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-slate-400">Show</span>
+          <select
+            value={itemsPerPage}
+            onChange={(e) => { setItemsPerPage(Number(e.target.value)); setCurrentPage(1); }}
+            className="px-2 py-1 bg-slate-800/60 border border-slate-600 rounded-md text-white text-xs focus:outline-none focus:ring-1 focus:ring-violet-500"
+          >
+            {[25, 50, 75, 100].map(n => <option key={n} value={n}>{n}</option>)}
+          </select>
+          <span className="text-xs text-slate-400">entries</span>
+        </div>
+        <div className="text-xs text-slate-400">
+          {totalCount === 0 ? "No results" : `Showing ${(currentPage - 1) * itemsPerPage + 1}–${Math.min(currentPage * itemsPerPage, totalCount)} of ${totalCount.toLocaleString()}`}
+        </div>
+      </div>
 
-  <div className="overflow-x-auto bg-slate-900 rounded-2xl border border-slate-800">
+      {/* ══ TABLE ══ */}
+      <div className="overflow-x-auto bg-slate-900 rounded-xl border border-slate-800">
         <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b border-slate-800">
-              <th className="p-3 text-center">
+          <thead className="whitespace-nowrap">
+            <tr className="border-b border-slate-800 bg-slate-900/80">
+              <th className="p-3 text-center w-10">
                 <input
-  type="checkbox"
-  checked={
-    products.length > 0 &&
-    selected.size === products.length
-  }
-  onChange={toggleSelectAll}
-/>
+                  type="checkbox"
+                  checked={products.length > 0 && selected.size === products.length}
+                  onChange={toggleSelectAll}
+                  className="rounded accent-violet-500"
+                />
               </th>
-              <th className="p-3 text-left text-slate-400">Product</th>
-              <th className="p-3 text-center text-slate-400">SKU</th>
-              <th className="p-3 text-center w-32 text-slate-400">Current Stock</th>
-              <th className="p-3 text-center text-slate-400">New Stock</th>
-              <th className="p-3 text-center w-32 text-slate-400">Current Price</th>
-              <th className="p-3 text-center text-slate-400">New Price</th>
+              <th className="p-3 text-left text-xs font-semibold text-slate-400 uppercase tracking-wider">Product</th>
+              <th className="p-3 text-center text-xs font-semibold text-slate-400 uppercase tracking-wider">SKU</th>
+              <th className="p-3 text-center text-xs font-semibold text-slate-400 uppercase tracking-wider w-28">Stock Status</th>
+              <th className="p-3 text-center text-xs font-semibold text-slate-400 uppercase tracking-wider w-28">New Stock</th>
+              <th className="p-3 text-center text-xs font-semibold text-slate-400 uppercase tracking-wider w-28">Current Price</th>
+              <th className="p-3 text-center text-xs font-semibold text-slate-400 uppercase tracking-wider w-28">New Price</th>
+              <th className="p-3 text-center text-xs font-semibold text-slate-400 uppercase tracking-wider w-16">Save</th>
             </tr>
           </thead>
-        <tbody>
-  {tableLoading ? (
-    <tr>
-      <td colSpan={7} className="p-16 text-center">
-        <div className="flex flex-col items-center justify-center gap-4">
-          <div className="w-10 h-10 border-4 border-slate-700 border-t-violet-500 rounded-full animate-spin"></div>
-          <p className="text-slate-400 text-sm font-medium">
-            Loading inventory...
-          </p>
-        </div>
-      </td>
-    </tr>
-  ) : products.length === 0 ? (
-    <tr>
-      <td colSpan={7} className="p-16 text-center text-slate-500">
-        No products found.
-      </td>
-    </tr>
-  ) : (
-    filteredProducts.map((p) => (
-      <tr
-        key={p.id}
-        className={`border-b border-slate-800 hover:bg-slate-800/40 ${
-          selected.has(p.id) ? "bg-slate-800/50" : ""
-        }`}
-      >
-        <td className="p-3 text-center">
-          <input
-            type="checkbox"
-            checked={selected.has(p.id)}
-            onChange={() => toggleSelect(p.id)}
-          />
-        </td>
+          <tbody>
+            {tableLoading ? (
+              <tr>
+                <td colSpan={8} className="p-16 text-center">
+                  <div className="flex flex-col items-center gap-3">
+                    <div className="w-8 h-8 border-4 border-slate-700 border-t-violet-500 rounded-full animate-spin" />
+                    <p className="text-slate-400 text-sm">Loading inventory…</p>
+                  </div>
+                </td>
+              </tr>
+            ) : products.length === 0 ? (
+              <tr>
+                <td colSpan={8} className="p-16 text-center text-slate-500 text-sm">
+                  <Package className="h-10 w-10 mx-auto mb-2 opacity-30" />
+                  No products found
+                </td>
+              </tr>
+            ) : products.map((p) => {
+              const changed = p.newStock !== p.stockQuantity || p.newPrice !== p.price;
+              return (
+                <tr
+                  key={p.id}
+                  className={`border-b border-slate-800/60 transition-colors
+                    ${selected.has(p.id) ? "bg-violet-500/5" : "hover:bg-slate-800/30"}
+                    ${changed ? "bg-amber-500/5 border-l-2 border-l-amber-500/40" : ""}`}
+                >
+                  <td className="p-3 text-center">
+                    <input type="checkbox" checked={selected.has(p.id)} onChange={() => toggleSelect(p.id)} className="rounded accent-violet-500" />
+                  </td>
 
-          <td className="py-2 px-3">
-            <div className="flex items-center gap-3">
-              <div
-                className="w-10 h-10 rounded-md bg-gradient-to-br from-violet-500 to-pink-500 overflow-hidden flex-shrink-0 cursor-pointer"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  if (p.images && p.images.length > 0) {
-                    openMediaViewer(p.images, 0);
+                  <td className="py-2 px-3">
+                    <div className="flex items-center gap-3">
+                      <div
+                        className="w-9 h-9 rounded-lg bg-gradient-to-br from-violet-500/20 to-pink-500/20 border border-slate-700 overflow-hidden flex-shrink-0 cursor-pointer hover:border-violet-500/50 transition-colors"
+                        onClick={() => p.images?.length && openMediaViewer(p.images)}
+                      >
+                        {p.image ? (
+                          <img src={p.image} alt={p.name} className="w-full h-full object-cover pointer-events-none" />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center text-slate-500 text-xs">📦</div>
+                        )}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-white text-sm font-medium truncate max-w-[280px]">{p.name}</p>
+                        <div className="flex items-center gap-1.5 mt-0.5">
+                          <span className="text-[11px] text-slate-500 truncate">{p.categoryName}</span>
+                          {p.brandName && (
+                            <span className="text-[10px] text-cyan-400 bg-cyan-400/10 px-1.5 py-0.5 rounded">{p.brandName}</span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </td>
+
+                  <td className="p-3 text-center">
+                    <span className="text-xs font-mono text-slate-300 bg-slate-800 px-2 py-0.5 rounded">{p.sku}</span>
+                  </td>
+
+                  <td className="p-3 text-center">
+                    <StockBadge qty={p.stockQuantity} />
+                  </td>
+
+                  <td className="p-3 text-center">
+                    <input
+                      type="number"
+                      min={0}
+                      value={p.newStock}
+                      disabled={rowLoading === p.id}
+                      onChange={(e) => handleChange(p.id, "newStock", Number(e.target.value))}
+                      onKeyDown={(e) => { if (e.key === "Enter" && changed) updateInventory([{ productId: p.id, newStock: p.newStock, newPrice: p.newPrice }]); }}
+                      className={`w-20 bg-slate-800 border rounded-lg text-white text-center text-sm focus:ring-2 focus:ring-violet-500 outline-none transition px-2 py-1.5
+                        ${p.newStock !== p.stockQuantity ? "border-amber-500/60 bg-amber-500/5" : "border-slate-600"}`}
+                    />
+                  </td>
+
+                  <td className="p-3 text-center">
+                    <span className="text-sm font-semibold text-emerald-400">£{p.price.toFixed(2)}</span>
+                  </td>
+
+                  <td className="p-3 text-center relative">
+                    <input
+                      type="number"
+                      min={0}
+                      step={0.01}
+                      value={p.newPrice}
+                      disabled={rowLoading === p.id}
+                      onChange={(e) => handleChange(p.id, "newPrice", Number(e.target.value))}
+                      onKeyDown={(e) => { if (e.key === "Enter" && changed) updateInventory([{ productId: p.id, newStock: p.newStock, newPrice: p.newPrice }]); }}
+                      className={`w-20 bg-slate-800 border rounded-lg text-white text-center text-sm focus:ring-2 focus:ring-emerald-500 outline-none transition px-2 py-1.5
+                        ${p.newPrice !== p.price ? "border-amber-500/60 bg-amber-500/5" : "border-slate-600"}`}
+                    />
+                    {rowLoading === p.id && (
+                      <div className="absolute inset-0 flex items-center justify-center bg-slate-900/70 rounded-lg">
+                        <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                      </div>
+                    )}
+                  </td>
+
+                  <td className="p-3 text-center">
+                    {changed ? (
+                      <button
+                        disabled={rowLoading === p.id}
+                        onClick={() => updateInventory([{ productId: p.id, newStock: p.newStock, newPrice: p.newPrice }])}
+                        className="p-1.5 rounded-lg bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 border border-emerald-500/30 transition disabled:opacity-50"
+                        title="Save this row"
+                      >
+                        <Save className="h-3.5 w-3.5" />
+                      </button>
+                    ) : (
+                      <span className="text-slate-700">—</span>
+                    )}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+
+        {/* ══ PAGINATION ══ */}
+        {totalPages > 1 && (
+          <div className="bg-slate-900/60 border-t border-slate-800 px-4 py-3 flex items-center justify-between">
+            <div className="text-xs text-slate-400">Page {currentPage} of {totalPages}</div>
+            <div className="flex items-center gap-1">
+              <button onClick={() => setCurrentPage(1)} disabled={currentPage === 1}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition disabled:opacity-30">
+                <ChevronsLeft className="h-4 w-4" />
+              </button>
+              <button onClick={() => setCurrentPage(p => p - 1)} disabled={currentPage === 1}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition disabled:opacity-30">
+                <ChevronLeft className="h-4 w-4" />
+              </button>
+              {getPageNumbers().map(page => (
+                <button key={page} onClick={() => setCurrentPage(page)}
+                  className={`min-w-[32px] h-8 text-xs rounded-lg transition-all ${
+                    currentPage === page
+                      ? "bg-gradient-to-r from-violet-500 to-indigo-500 text-white font-semibold shadow"
+                      : "text-slate-400 hover:text-white hover:bg-slate-800"
+                  }`}>
+                  {page}
+                </button>
+              ))}
+              <button onClick={() => setCurrentPage(p => p + 1)} disabled={currentPage === totalPages}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition disabled:opacity-30">
+                <ChevronRight className="h-4 w-4" />
+              </button>
+              <button onClick={() => setCurrentPage(totalPages)} disabled={currentPage === totalPages}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition disabled:opacity-30">
+                <ChevronsRight className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="text-xs text-slate-400">{totalCount.toLocaleString()} total</div>
+          </div>
+        )}
+      </div>
+
+      {/* ══ UNSAVED CHANGES BANNER ══ */}
+      {changedProducts.length > 0 && (
+        <div className="fixed top-16 left-1/2 -translate-x-1/2 z-50 w-full max-w-2xl px-4">
+          <div className="bg-slate-900/95 backdrop-blur-xl border border-amber-500/30 shadow-2xl shadow-amber-500/10 rounded-xl px-5 py-3 flex items-center justify-between gap-4">
+            <div>
+              <p className="text-white font-semibold text-sm">{changedProducts.length} Unsaved Change{changedProducts.length !== 1 ? "s" : ""}</p>
+              <p className="text-slate-400 text-xs">Press Enter on any row to save individually, or use the buttons.</p>
+            </div>
+            <div className="flex items-center gap-2 flex-shrink-0">
+              <button
+                onClick={() => {
+                  if (changedProducts.length >= 5) {
+                    openConfirm("Discard Changes", `Discard ${changedProducts.length} unsaved changes?`, discardChanges);
+                  } else {
+                    discardChanges();
                   }
                 }}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border border-slate-600 text-slate-300 hover:bg-slate-800 transition"
               >
-                {p.image ? (
-                  <img
-                    src={p.image}
-                    alt={p.name}
-                    className="w-full h-full object-cover pointer-events-none"
-                  />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center text-white text-sm">
-                    📦
-                  </div>
-                )}
-              </div>
-
-              <div className="min-w-0 flex-1">
-                <p className="text-white font-medium truncate">
-                  {p.name}
-                </p>
-
-                <div className="flex items-center gap-2 mt-0.5">
-                  <span className="text-xs text-slate-500 truncate">
-                    {p.categoryName}
-                  </span>
-                  <span className="text-xs text-cyan-400 bg-cyan-400/10 px-2 py-0.5 rounded">
-                    {p.brandName}
-                  </span>
-                </div>
-              </div>
+                <X className="h-3.5 w-3.5" /> Discard
+              </button>
+              <button
+                onClick={handleBulkUpdate}
+                disabled={rowLoading === "bulk"}
+                className="flex items-center gap-1.5 px-4 py-1.5 text-xs font-semibold rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white shadow-lg shadow-emerald-500/20 transition disabled:opacity-60"
+              >
+                {rowLoading === "bulk"
+                  ? <RefreshCcw className="h-3.5 w-3.5 animate-spin" />
+                  : <Save className="h-3.5 w-3.5" />}
+                Save All ({changedProducts.length})
+              </button>
             </div>
-          </td>
+          </div>
+        </div>
+      )}
 
-        <td className="p-3 text-center text-white">
-          {p.sku}
-        </td>
-
-        <td className="p-3 text-center text-white">
-          {p.stockQuantity}
-        </td>
-
-        <td className="p-3 text-center">
-          <input
-            type="number"
-            value={p.newStock}
-            disabled={rowLoading === p.id}
-            onChange={(e) =>
-              handleChange(p.id, "newStock", Number(e.target.value))
-            }
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                if (
-                  p.newStock !== p.stockQuantity ||
-                  p.newPrice !== p.price
-                ) {
-                  updateInventory([
-                    {
-                      productId: p.id,
-                      newStock: p.newStock,
-                      newPrice: p.newPrice,
-                    },
-                  ]);
-                }
-              }
-            }}
-            className="w-24 bg-slate-800 border border-slate-600 rounded-lg text-white text-center focus:ring-2 focus:ring-violet-500 outline-none transition"
-          />
-        </td>
-
-        <td className="p-3 text-center text-emerald-400">
-          £{p.price}
-        </td>
-
-        <td className="p-3 text-center relative">
-          <input
-            type="number"
-            value={p.newPrice}
-            disabled={rowLoading === p.id}
-            onChange={(e) =>
-              handleChange(p.id, "newPrice", Number(e.target.value))
-            }
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                if (
-                  p.newStock !== p.stockQuantity ||
-                  p.newPrice !== p.price
-                ) {
-                  updateInventory([
-                    {
-                      productId: p.id,
-                      newStock: p.newStock,
-                      newPrice: p.newPrice,
-                    },
-                  ]);
-                }
-              }
-            }}
-            className="w-24 bg-slate-800 border border-slate-600 rounded-lg text-white text-center focus:ring-2 focus:ring-emerald-500 outline-none transition"
-          />
-
-          {rowLoading === p.id && (
-            <div className="absolute inset-0 flex items-center justify-center bg-slate-900/70 rounded-lg">
-              <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-            </div>
-          )}
-        </td>
-      </tr>
-    ))
-  )}
-</tbody>
-        </table>
-        {/* ================= PREMIUM PAGINATION ================= */}
-{totalPages > 1 && (
-  <div className="bg-slate-900/60 backdrop-blur-xl border border-slate-800 rounded-2xl px-6 py-4">
-
-    <div className="flex items-center justify-between w-full">
-
-      {/* LEFT INFO */}
-      <div className="text-sm text-slate-400 whitespace-nowrap">
-        Page {currentPage} of {totalPages}
-      </div>
-
-      {/* CENTER CONTROLS */}
-      <div className="flex items-center gap-1">
-
-        {/* FIRST */}
-        <button
-          onClick={goToFirstPage}
-          disabled={currentPage === 1}
-          className="p-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition disabled:opacity-40"
-        >
-          <ChevronsLeft className="h-4 w-4" />
-        </button>
-
-        {/* PREVIOUS */}
-        <button
-          onClick={goToPreviousPage}
-          disabled={currentPage === 1}
-          className="p-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition disabled:opacity-40"
-        >
-          <ChevronLeft className="h-4 w-4" />
-        </button>
-
-        {/* PAGE NUMBERS */}
-        {getPageNumbers().map((page) => (
-          <button
-            key={page}
-            onClick={() => goToPage(page)}
-            className={`min-w-[36px] h-9 text-sm rounded-lg transition-all ${
-              currentPage === page
-                ? "bg-gradient-to-r from-violet-500 to-indigo-500 text-white font-semibold shadow-md"
-                : "text-slate-400 hover:text-white hover:bg-slate-800"
-            }`}
-          >
-            {page}
-          </button>
-        ))}
-
-        {/* NEXT */}
-        <button
-          onClick={goToNextPage}
-          disabled={currentPage === totalPages}
-          className="p-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition disabled:opacity-40"
-        >
-          <ChevronRight className="h-4 w-4" />
-        </button>
-
-        {/* LAST */}
-        <button
-          onClick={goToLastPage}
-          disabled={currentPage === totalPages}
-          className="p-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition disabled:opacity-40"
-        >
-          <ChevronsRight className="h-4 w-4" />
-        </button>
-
-      </div>
-
-      {/* RIGHT INFO */}
-      <div className="text-sm text-slate-400 whitespace-nowrap">
-        Total {totalCount} items
-      </div>
-
-    </div>
-  </div>
-)}
-  </div>
-  
-
-
-{changedProducts.length > 0 && (
-  <div className="fixed top-16 left-1/2 -translate-x-1/2 z-50 w-full max-w-4xl px-4">
-    
-    <div className="bg-slate-900/95 backdrop-blur-xl border border-slate-700 shadow-2xl rounded-2xl px-6 py-4 flex items-center justify-between gap-4 animate-slideDown">
-
-      {/* LEFT INFO SECTION */}
-      <div>
-        <h3 className="text-white font-semibold text-sm">
-          Unsaved Changes
-        </h3>
-        <p className="text-slate-400 text-xs">
-          {changedProducts.length} product(s) modified. 
-          Review and save your changes or discard them.
-        </p>
-      </div>
-
-      {/* RIGHT ACTION BUTTONS */}
-      <div className="flex items-center gap-3">
-
-        <button
- onClick={() => {
-  if (changedProducts.length >= 5) {
-    openConfirm(
-      "Discard Changes",
-      "You have modified 5 or more products. Are you sure you want to discard all unsaved changes? This action cannot be undone.",
-      discardChanges
-    );
-  } else {
-    discardChanges(); // ✅ Direct discard
-  }
-}}
-          className="px-4 py-2 text-sm font-medium rounded-xl border border-red-500/40 text-red-400 hover:bg-red-500/10 transition"
-          title="Discard all unsaved changes"
-        >
-          Discard Changes
-        </button>
-
-        <button
-onClick={handleBulkUpdate}
-          className="px-5 py-2 text-sm font-semibold rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white shadow-lg shadow-emerald-500/20 transition"
-          title="Save all modified product stock and price updates"
-        >
-          Save Changes ({changedProducts.length})
-        </button>
-
-      </div>
-    </div>
-  </div>
-)}
-
-<MediaViewerModal
-  isOpen={viewerOpen}
-  onClose={() => setViewerOpen(false)}
-  media={viewerMedia}
-  initialIndex={viewerIndex}
-/>
-
-<ConfirmDialog
-  isOpen={confirmOpen}
-  onClose={() => setConfirmOpen(false)}
-  onConfirm={confirmConfig.onConfirm}
-  title={confirmConfig.title}
-  message={confirmConfig.message}
-  confirmText="Yes, Continue"
-  cancelText="Cancel"
-/>
+      <MediaViewerModal isOpen={viewerOpen} onClose={() => setViewerOpen(false)} media={viewerMedia} initialIndex={viewerIndex} />
+      <ConfirmDialog isOpen={confirmOpen} onClose={() => setConfirmOpen(false)} onConfirm={confirmConfig.onConfirm}
+        title={confirmConfig.title} message={confirmConfig.message} confirmText="Yes, Continue" cancelText="Cancel" />
     </div>
   );
 }

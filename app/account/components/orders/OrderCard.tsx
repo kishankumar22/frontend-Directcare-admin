@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import Info from "../ui/Info";
-import { getOrderStatusBadge } from "./orderUtils";
+import { getOrderStatusBadge,getCollectionStatusTextColor } from "./orderUtils";
 import { useAuth } from "@/context/AuthContext";
 import { useState } from "react";
 import { useToast } from "@/components/toast/CustomToast";
@@ -38,7 +38,7 @@ const toast = useToast();
       setInvoiceLoading(true);
 
       const res = await fetch(
-        `https://testapi.knowledgemarkg.com/api/orders/${order.id}/regenerate-invoice`,
+        `${process.env.NEXT_PUBLIC_API_URL}/api/orders/${order.id}/regenerate-invoice`,
         {
           method: "POST",
           headers: {
@@ -97,7 +97,7 @@ const toast = useToast();
 
   try {
     const res = await fetch(
-      `https://testapi.knowledgemarkg.com/api/Orders/${order.id}/cancel`,
+      `${process.env.NEXT_PUBLIC_API_URL}/api/Orders/${order.id}/cancel`,
       {
         method: "POST",
         headers: {
@@ -146,7 +146,7 @@ const toast = useToast();
   return (
     <div className="bg-white rounded-xl border shadow-sm p-5 space-y-4">
       {/* HEADER */}
-      <div className="flex justify-between">
+      <div className="flex flex-wrap justify-between gap-2">
         <div>
           <p className="font-semibold">
             Order Id: #{order.orderNumber}
@@ -203,32 +203,67 @@ const toast = useToast();
       </div>
 
       {/* SUMMARY */}
-      <div className="grid grid-cols-2 md:grid-cols-7 gap-0 pt-3 border-t text-sm">
-        <Info label="Total Items" value={order.itemsCount} />
-        <Info
-          label="Payment Method"
-          value={order.payment?.paymentMethod ?? "Cash on delivery"}
-        />
-        <Info
-          label="Delivery Method"
-          value={order.deliveryMethodName}
-        />
-        <Info
-          label="Total amount paid"
-          value={`£${order.totalAmount.toFixed(2)}`}
-        />
-        <Info
-          label="Payment Status"
-          value={order.payment?.statusName ?? "—"}
-        />
-        <Info
-          label="Transaction ID"
-          value={order.payment?.transactionId ?? "—"}
-        />
-      </div>
+    <div className="grid grid-cols-2 md:grid-cols-5 gap-0 pt-3 border-t text-sm">
+  <Info label="Total Items" value={order.itemsCount} />
+
+  <Info
+    label="Payment Method"
+    value={order.payment?.paymentMethod ?? "Cash on delivery"}
+  />
+
+  <Info
+    label="Delivery Method"
+    value={order.deliveryMethodName}
+  />
+
+{order.deliveryMethod === "ClickAndCollect" && (
+  <>
+   <Info
+  label="Collection Status"
+  value={
+    <span
+      className={`capitalize ${getCollectionStatusTextColor(
+        order.collectionStatus
+      )}`}
+    >
+      {order.collectionStatus ?? "—"}
+    </span>
+  }
+/>
+
+
+    <Info
+      label="Collection Expiry"
+      value={
+        order.collectionExpiryDate
+          ? new Date(order.collectionExpiryDate).toLocaleDateString()
+          : "—"
+      }
+    />
+  </>
+)}
+
+
+
+  <Info
+    label="Total amount paid"
+    value={`£${order.totalAmount.toFixed(2)}`}
+  />
+
+  <Info
+    label="Payment Status"
+    value={order.payment?.statusName ?? "—"}
+  />
+
+  <Info
+    label="Transaction ID"
+    value={order.payment?.transactionId ?? "—"}
+  />
+</div>
+
 
       {/* ACTIONS */}
-      <div className="flex justify-end items-center gap-4 pt-3 border-t">
+      <div className="flex flex-wrap justify-end items-center gap-2 pt-3 border-t">
         <div className="flex items-center gap-2 text-sm text-gray-600">
           <input
             type="checkbox"

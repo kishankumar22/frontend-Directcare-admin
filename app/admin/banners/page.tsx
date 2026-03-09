@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Plus, Edit, Trash2, Search, CheckCircle, Image as ImageIcon, Eye, Upload, Filter, FilterX, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, AlertCircle, Calendar, ExternalLink, Tag } from "lucide-react";
+import { Plus, Edit, Trash2, Search, CheckCircle, Image as ImageIcon, Eye, Upload, Filter, FilterX, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, AlertCircle, Calendar, ExternalLink, Tag, Monitor, Smartphone } from "lucide-react";
 import { API_ENDPOINTS, API_BASE_URL } from "@/lib/api-config";
 import { apiClient } from "@/lib/api";
 import { useToast } from "@/app/admin/_components/CustomToast";
@@ -22,6 +22,8 @@ export default function ManageBanners() {
   const [bannerTypeFilter, setBannerTypeFilter] = useState<string>("all");
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [mobileImageFile, setMobileImageFile] = useState<File | null>(null);
+  const [mobileImagePreview, setMobileImagePreview] = useState<string | null>(null);
 const [deletedFilter, setDeletedFilter] = useState("notDeleted");
 const [statusConfirm, setStatusConfirm] = useState<Banner | null>(null);
 
@@ -92,6 +94,7 @@ function getBannerStatus(banner: any): BannerStatus {
   const [formData, setFormData] = useState({
     title: "",
     imageUrl: "",
+    mobileImageUrl: "",
     link: "",
     description: "",
     bannerType: "Homepage",
@@ -126,11 +129,16 @@ function getBannerStatus(banner: any): BannerStatus {
 
   const handleImageFileChange = (file: File) => {
     setImageFile(file);
-    
     const previewUrl = URL.createObjectURL(file);
     setImagePreview(previewUrl);
-    
-    toast.success("Image selected! Old image will be replaced on save.");
+    toast.success("Desktop image selected! Will be replaced on save.");
+  };
+
+  const handleMobileImageFileChange = (file: File) => {
+    setMobileImageFile(file);
+    const previewUrl = URL.createObjectURL(file);
+    setMobileImagePreview(previewUrl);
+    toast.success("Mobile image selected! Will be replaced on save.");
   };
 
 const fetchBanners = async () => {
@@ -338,8 +346,9 @@ const handleSubmit = async (e: React.FormEvent) => {
 
   try {
     let finalImageUrl = formData.imageUrl;
+    let finalMobileImageUrl = formData.mobileImageUrl;
 
-    // IMAGE UPLOAD
+    // DESKTOP IMAGE UPLOAD
     if (imageFile) {
       try {
         const uploadResponse = await bannersService.uploadImage(imageFile, {
@@ -351,22 +360,44 @@ const handleSubmit = async (e: React.FormEvent) => {
         }
 
         finalImageUrl = uploadResponse.data.data;
-    
 
-        // Delete old image if editing
+        // Delete old desktop image if editing
         if (editingBanner?.imageUrl && editingBanner.imageUrl !== finalImageUrl) {
           const filename = extractFilename(editingBanner.imageUrl);
           if (filename) {
-            try {
-              await bannersService.deleteImage(filename);
-            } catch (err) {
-              console.log("Failed to delete old image", err);
-            }
+            try { await bannersService.deleteImage(filename); } catch {}
           }
         }
       } catch (uploadErr: any) {
         console.error("Error uploading image:", uploadErr);
-        toast.error(uploadErr?.response?.data?.message || "Failed to upload image");
+        toast.error(uploadErr?.response?.data?.message || "Failed to upload desktop image");
+        return;
+      }
+    }
+
+    // MOBILE IMAGE UPLOAD
+    if (mobileImageFile) {
+      try {
+        const uploadResponse = await bannersService.uploadImage(mobileImageFile, {
+          title: `${formData.title}-mobile`,
+        });
+
+        if (!uploadResponse.data?.success || !uploadResponse.data?.data) {
+          throw new Error(uploadResponse.data?.message || "Mobile image upload failed");
+        }
+
+        finalMobileImageUrl = uploadResponse.data.data;
+
+        // Delete old mobile image if editing
+        if (editingBanner?.mobileImageUrl && editingBanner.mobileImageUrl !== finalMobileImageUrl) {
+          const filename = extractFilename(editingBanner.mobileImageUrl);
+          if (filename) {
+            try { await bannersService.deleteImage(filename); } catch {}
+          }
+        }
+      } catch (uploadErr: any) {
+        console.error("Error uploading mobile image:", uploadErr);
+        toast.error(uploadErr?.response?.data?.message || "Failed to upload mobile image");
         return;
       }
     }
@@ -375,6 +406,7 @@ const handleSubmit = async (e: React.FormEvent) => {
     const payload = {
       title: formData.title.trim(),
       imageUrl: finalImageUrl,
+      mobileImageUrl: finalMobileImageUrl || null,
       link: formData.link || undefined,
       description: formData.description || undefined,
       bannerType: formData.bannerType,
@@ -425,11 +457,12 @@ const handleSubmit = async (e: React.FormEvent) => {
     }
 
     // CLEANUP
-    if (imagePreview) {
-      URL.revokeObjectURL(imagePreview);
-    }
+    if (imagePreview) URL.revokeObjectURL(imagePreview);
+    if (mobileImagePreview) URL.revokeObjectURL(mobileImagePreview);
     setImageFile(null);
     setImagePreview(null);
+    setMobileImageFile(null);
+    setMobileImagePreview(null);
 
     await fetchBanners();
     setShowModal(false);
@@ -451,6 +484,7 @@ const handleSubmit = async (e: React.FormEvent) => {
     setFormData({
       title: banner.title,
       imageUrl: banner.imageUrl || "",
+      mobileImageUrl: banner.mobileImageUrl || "",
       link: banner.link || "",
       description: banner.description || "",
       bannerType: banner.bannerType || "Homepage",
@@ -463,9 +497,11 @@ const handleSubmit = async (e: React.FormEvent) => {
       startDate: banner.startDate ? banner.startDate.slice(0, 16) : "",
       endDate: banner.endDate ? banner.endDate.slice(0, 16) : "",
     });
-    
+
     setImageFile(null);
     setImagePreview(null);
+    setMobileImageFile(null);
+    setMobileImagePreview(null);
     
     setShowModal(true);
   };
@@ -493,6 +529,7 @@ const handleSubmit = async (e: React.FormEvent) => {
     setFormData({
       title: "",
       imageUrl: "",
+      mobileImageUrl: "",
       link: "",
       description: "",
       bannerType: "Homepage",
@@ -506,12 +543,12 @@ const handleSubmit = async (e: React.FormEvent) => {
       endDate: "",
     });
     setEditingBanner(null);
-    
     setImageFile(null);
-    if (imagePreview) {
-      URL.revokeObjectURL(imagePreview);
-    }
+    if (imagePreview) URL.revokeObjectURL(imagePreview);
     setImagePreview(null);
+    setMobileImageFile(null);
+    if (mobileImagePreview) URL.revokeObjectURL(mobileImagePreview);
+    setMobileImagePreview(null);
   };
 
   const clearFilters = () => {
@@ -1204,8 +1241,10 @@ const handleSubmit = async (e: React.FormEvent) => {
               {/* Banner Image Section */}
               <div className="bg-slate-800/30 p-6 rounded-2xl border border-slate-700/50">
                 <h3 className="text-lg font-semibold text-white mb-3 flex items-center gap-2">
-                  <span className="w-8 h-8 rounded-lg bg-gradient-to-br from-cyan-500 to-blue-500 flex items-center justify-center text-sm">2</span>
-                  <span>Banner Image *</span>
+                  <span className="w-8 h-8 rounded-lg bg-gradient-to-br from-cyan-500 to-blue-500 flex items-center justify-center">
+                    <Monitor className="w-4 h-4 text-white" />
+                  </span>
+                  <span>Desktop Banner Image *</span>
                 </h3>
 
                 <div className="space-y-4">
@@ -1319,11 +1358,97 @@ const handleSubmit = async (e: React.FormEvent) => {
                   <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-3">
                     <p className="text-xs text-blue-400 flex items-center gap-2">
                       <AlertCircle className="h-4 w-4" />
-                      {editingBanner 
-                        ? "Uploading new image will automatically delete the old one from server" 
-                        : "Banner image is required for creation"}
+                      {editingBanner
+                        ? "Uploading new image will automatically delete the old one from server"
+                        : "Desktop banner image is required for creation"}
                     </p>
                   </div>
+                </div>
+              </div>
+
+              {/* Mobile Banner Image Section */}
+              <div className="bg-slate-800/30 p-6 rounded-2xl border border-slate-700/50">
+                <h3 className="text-lg font-semibold text-white mb-1 flex items-center gap-2">
+                  <span className="w-8 h-8 rounded-lg bg-gradient-to-br from-pink-500 to-rose-500 flex items-center justify-center">
+                    <Smartphone className="w-4 h-4 text-white" />
+                  </span>
+                  <span>Mobile Banner Image</span>
+                  <span className="text-xs text-slate-400 font-normal ml-1">(optional)</span>
+                </h3>
+                <p className="text-xs text-slate-400 mb-4">If set, this image will be shown on mobile devices. Otherwise the desktop image will be used.</p>
+
+                <div className="space-y-4">
+                  {(mobileImagePreview || formData.mobileImageUrl) && (
+                    <div className="flex items-center gap-4 p-3 bg-slate-900/30 rounded-xl border border-slate-600">
+                      <div
+                        className="w-20 h-12 rounded-lg overflow-hidden border-2 border-pink-500/30 cursor-pointer hover:border-pink-500 transition-all"
+                        onClick={() => setSelectedImageUrl(mobileImagePreview || getImageUrl(formData.mobileImageUrl))}
+                      >
+                        <img
+                          src={mobileImagePreview || getImageUrl(formData.mobileImageUrl)}
+                          alt="Mobile banner preview"
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+                      <div className="flex-1">
+                        <p className="text-white font-medium">
+                          {mobileImagePreview ? "New Mobile Image Selected" : "Current Mobile Image"}
+                        </p>
+                        <p className="text-xs text-slate-400">
+                          {mobileImagePreview ? "Will replace on save" : "Click to view full size"}
+                        </p>
+                      </div>
+                      <div className="flex gap-2">
+                        <label className="px-3 py-2 rounded-lg text-sm font-medium cursor-pointer transition-all bg-pink-500/20 text-pink-400 hover:bg-pink-500/30">
+                          Change
+                          <input
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file) handleMobileImageFileChange(file);
+                            }}
+                          />
+                        </label>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (mobileImagePreview) URL.revokeObjectURL(mobileImagePreview);
+                            setMobileImageFile(null);
+                            setMobileImagePreview(null);
+                            setFormData(prev => ({ ...prev, mobileImageUrl: "" }));
+                          }}
+                          className="px-3 py-2 bg-red-500/20 text-red-400 rounded-lg hover:bg-red-500/30 transition-all text-sm font-medium"
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {!formData.mobileImageUrl && !mobileImagePreview && (
+                    <div className="flex items-center justify-center w-full">
+                      <label className="flex flex-col items-center justify-center w-full h-28 border-2 border-dashed border-slate-600 bg-slate-900/30 hover:bg-slate-800/50 rounded-xl transition-all cursor-pointer group">
+                        <div className="flex flex-col items-center justify-center pt-4 pb-5">
+                          <Smartphone className="w-7 h-7 mb-2 text-slate-500 group-hover:text-pink-400 transition-colors" />
+                          <p className="text-sm text-slate-500">
+                            <span className="font-semibold">Click to upload</span> mobile image
+                          </p>
+                          <p className="text-xs text-slate-500 mt-1">Recommended: 768×400px or similar portrait/narrow ratio</p>
+                        </div>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) handleMobileImageFileChange(file);
+                          }}
+                        />
+                      </label>
+                    </div>
+                  )}
                 </div>
               </div>
 

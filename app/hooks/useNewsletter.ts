@@ -35,7 +35,7 @@ export function useNewsletter() {
   async function checkSubscription(email: string) {
     try {
       const res = await fetch(
-        `https://testapi.knowledgemarkg.com/api/Newsletter/check?email=${email}`
+        `${process.env.NEXT_PUBLIC_API_URL}/api/Newsletter/check?email=${email}`
       );
       const data = await res.json();
 
@@ -52,7 +52,7 @@ export function useNewsletter() {
   async function submitEmail(email: string) {
     try {
       const res = await fetch(
-        "https://testapi.knowledgemarkg.com/api/Newsletter/subscribe",
+        `${process.env.NEXT_PUBLIC_API_URL}/api/Newsletter/subscribe`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },

@@ -16,3 +16,25 @@ export function getOrderStatusBadge(status: string) {
       return "bg-gray-100 text-gray-700";
   }
 }
+export const getCollectionStatusTextColor = (status?: string) => {
+  if (!status) return "text-gray-800";
+
+  const normalized = status.trim().toLowerCase();
+
+  switch (normalized) {
+    case "collected":
+      return "text-green-600 font-semibold";
+
+    case "ready":
+    case "ready for collection":
+      return "text-blue-600 font-medium";
+
+    case "pending":
+      return "text-yellow-600 font-medium";
+
+    default:
+      return "text-gray-800";
+  }
+};
+
+

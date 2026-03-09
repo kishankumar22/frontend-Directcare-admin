@@ -16,7 +16,7 @@ export interface Subscription {
   discountPercentage: number;
   discountedPrice: number;
   totalSavings: number;
-  frequency: number; // 1=Weekly, 2=BiWeekly, 3=Monthly, 4=BiMonthly, 5=Quarterly
+  frequency: string; // "weekly", "monthly", "quarterly", etc.
   frequencyDisplay: string;
   status: number; // 1=Active, 2=Paused, 3=Cancelled, 4=Expired
   statusDisplay: string;
@@ -53,7 +53,7 @@ export interface CreateSubscriptionDto {
   productId: string;
   productVariantId?: string;
   quantity: number;
-  frequency: number;
+  frequency: string; // "weekly", "every-2-weeks", "monthly", "quarterly", "yearly", etc.
   shippingFirstName: string;
   shippingLastName: string;
   shippingAddressLine1: string;
@@ -66,7 +66,7 @@ export interface CreateSubscriptionDto {
 
 export interface UpdateSubscriptionDto {
   quantity: number;
-  frequency: number;
+  frequency: string; // "weekly", "every-2-weeks", "monthly", "quarterly", "yearly", etc.
   shippingFirstName: string;
   shippingLastName: string;
   shippingAddressLine1: string;

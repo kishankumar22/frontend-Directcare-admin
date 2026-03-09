@@ -136,6 +136,8 @@ const ProductViewModal: React.FC<ProductViewModalProps> = ({
   // MEDIA VIEWER STATE
   const [mediaViewerOpen, setMediaViewerOpen] = useState(false);
   const [mediaToView, setMediaToView] = useState<MediaItem | MediaItem[]>([]);
+  // Active tab state — replaces manual DOM manipulation
+  const [activeTab, setActiveTab] = useState('overview');
 
   if (!isOpen || !product) return null;
 
@@ -239,7 +241,7 @@ const ProductViewModal: React.FC<ProductViewModalProps> = ({
     <>
       <div
         className="fixed inset-0 bg-black/85 backdrop-blur-md z-60 flex items-center justify-center p-4"
-        onClick={onClose}
+        onClick={() => { setActiveTab('overview'); onClose(); }}
       >
         <div
           className="relative w-full max-w-7xl max-h-[80vh] bg-slate-900 rounded-xl border border-slate-700 shadow-2xl flex flex-col"
@@ -261,7 +263,7 @@ const ProductViewModal: React.FC<ProductViewModalProps> = ({
              
 
               <button
-                onClick={onClose}
+                onClick={() => { setActiveTab('overview'); onClose(); }}
                 className="p-2 text-slate-400 hover:text-white hover:bg-red-500/30 rounded-lg transition-all"
               >
                 <X className="w-5 h-5" />
@@ -295,26 +297,9 @@ const ProductViewModal: React.FC<ProductViewModalProps> = ({
                 ].map((tab) => (
                   <button
                     key={tab.id}
-                    onClick={() => {
-                      const activeTab = document.getElementById(`tab-${tab.id}`);
-                      if (activeTab) {
-                        document.querySelectorAll('[data-tab-btn]').forEach((btn) => {
-                          btn.classList.remove('border-cyan-500', 'bg-cyan-500/10', 'text-cyan-400');
-                          btn.classList.add('border-transparent', 'text-slate-400');
-                        });
-                        activeTab.classList.remove('border-transparent', 'text-slate-400');
-                        activeTab.classList.add('border-cyan-500', 'bg-cyan-500/10', 'text-cyan-400');
-
-                        document
-                          .querySelectorAll('[data-tab-content]')
-                          .forEach((content) => content.classList.add('hidden'));
-                        document.getElementById(`content-${tab.id}`)?.classList.remove('hidden');
-                      }
-                    }}
-                    id={`tab-${tab.id}`}
-                    data-tab-btn
+                    onClick={() => setActiveTab(tab.id)}
                     className={`flex items-center gap-2 px-4 py-2.5 border-b-2 transition-all whitespace-nowrap text-sm font-bold ${
-                      tab.id === 'overview'
+                      activeTab === tab.id
                         ? 'border-cyan-500 bg-cyan-500/10 text-cyan-400'
                         : 'border-transparent text-slate-400 hover:text-white hover:bg-slate-800/50'
                     }`}
@@ -328,7 +313,7 @@ const ProductViewModal: React.FC<ProductViewModalProps> = ({
               {/* TAB CONTENT - SCROLLABLE */}
               <div className="flex-1 overflow-y-auto p-2 space-y-2">
                 {/* TAB 1: OVERVIEW */}
-                <div id="content-overview" data-tab-content>
+                <div id="content-overview" className={activeTab !== 'overview' ? 'hidden' : ''}>
                   {/* Basic Info */}
                   <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-4">
                    <div className="md:col-span-3 p-3 bg-gradient-to-r from-violet-500/10 to-purple-500/10 rounded-lg border border-violet-500/30">
@@ -480,7 +465,7 @@ const ProductViewModal: React.FC<ProductViewModalProps> = ({
                 </div>
 
                 {/* TAB 2: PRICING */}
-                <div id="content-pricing" data-tab-content className="hidden">
+                <div id="content-pricing" className={activeTab !== 'pricing' ? 'hidden' : ''}>
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-2">
                     <div className="p-4 bg-gradient-to-br from-green-500/20 to-emerald-500/20 rounded-lg border border-green-500/40">
                       <p className="text-xs text-green-400 font-bold mb-1">Price</p>
@@ -518,7 +503,7 @@ const ProductViewModal: React.FC<ProductViewModalProps> = ({
                 </div>
 
                 {/* TAB 3: INVENTORY */}
-                <div id="content-inventory" data-tab-content className="hidden">
+                <div id="content-inventory" className={activeTab !== 'inventory' ? 'hidden' : ''}>
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-2">
                     <div
                       className={`p-4 rounded-lg border ${
@@ -579,7 +564,7 @@ const ProductViewModal: React.FC<ProductViewModalProps> = ({
                 </div>
 
                 {/* TAB 4: SHIPPING */}
-                <div id="content-shipping" data-tab-content className="hidden">
+                <div id="content-shipping" className={activeTab !== 'shipping' ? 'hidden' : ''}>
                   {/* Dimensions Grid */}
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-2">
                     {product.weight && product.weight > 0 && (
@@ -688,18 +673,7 @@ const ProductViewModal: React.FC<ProductViewModalProps> = ({
                           <p className="text-xs font-bold text-slate-400">🚀 Next-Day</p>
                         </div>
                         {(product as any).nextDayDeliveryEnabled && (
-                          <div className="space-y-2">
-                            {(product as any).nextDayDeliveryCutoffTime && (
-                              <div className="flex justify-between text-xs">
-                                <span className="text-slate-400">Cutoff Time:</span>
-                                <span className="text-white font-bold">{(product as any).nextDayDeliveryCutoffTime}</span>
-                              </div>
-                            )}
-                            <div className="flex justify-between text-xs">
-                              <span className="text-slate-400">Charge:</span>
-                              <span className="text-blue-400 font-bold">£{((product as any).nextDayDeliveryCharge || 0).toFixed(2)}</span>
-                            </div>
-                          </div>
+                          <p className="text-xs text-blue-400 mt-2">Available</p>
                         )}
                         {!(product as any).nextDayDeliveryEnabled && (
                           <p className="text-xs text-slate-500 mt-2">Not available</p>
@@ -727,16 +701,7 @@ const ProductViewModal: React.FC<ProductViewModalProps> = ({
                           <p className="text-xs font-bold text-slate-400">📦 Standard</p>
                         </div>
                         {(product as any).standardDeliveryEnabled && (
-                          <div className="space-y-2">
-                            <div className="flex justify-between text-xs">
-                              <span className="text-slate-400">Delivery Days:</span>
-                              <span className="text-white font-bold">{(product as any).standardDeliveryDays || 5} days</span>
-                            </div>
-                            <div className="flex justify-between text-xs">
-                              <span className="text-slate-400">Charge:</span>
-                              <span className="text-cyan-400 font-bold">£{((product as any).standardDeliveryCharge || 0).toFixed(2)}</span>
-                            </div>
-                          </div>
+                          <p className="text-xs text-cyan-400 mt-2">Available</p>
                         )}
                         {!(product as any).standardDeliveryEnabled && (
                           <p className="text-xs text-slate-500 mt-2">Not available</p>
@@ -756,7 +721,7 @@ const ProductViewModal: React.FC<ProductViewModalProps> = ({
                 </div>
 
                 {/* TAB 5: MEDIA */}
-                <div id="content-media" data-tab-content className="hidden">
+                <div id="content-media" className={activeTab !== 'media' ? 'hidden' : ''}>
                   {/* Images */}
                   {product.images && product.images.length > 0 ? (
                     <div className="mb-6">
@@ -772,9 +737,10 @@ const ProductViewModal: React.FC<ProductViewModalProps> = ({
                             onClick={() => viewProductImages(idx)}
                           >
                             <img
-                              src={`${API_BASE_URL.replace('/api', '')}${img.imageUrl.replace('\\\\', '/')}`}
+                              src={img.imageUrl?.startsWith('http') ? img.imageUrl : `${API_BASE_URL.replace('/api', '')}${img.imageUrl || ''}`}
                               alt={img.altText || 'Product'}
                               className="w-full h-full object-cover group-hover:scale-110 transition-transform"
+                              onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
                             />
                             {img.isMain && (
                               <div className="absolute top-1 right-1 px-2 py-0.5 bg-pink-500 text-white text-[10px] rounded font-bold">
@@ -825,7 +791,7 @@ const ProductViewModal: React.FC<ProductViewModalProps> = ({
                 </div>
 
                 {/* TAB 6: VARIANTS */}
-<div id="content-variants" data-tab-content className="hidden">
+<div id="content-variants" className={activeTab !== 'variants' ? 'hidden' : ''}>
                 {product.variants && product.variants.length > 0 ? (
                   <div className="space-y-3">
                     {product.variants.map((variant, idx) => (
@@ -848,7 +814,7 @@ const ProductViewModal: React.FC<ProductViewModalProps> = ({
                               title="Click to view all variant images"
                             >
                               <img
-                                src={`${API_BASE_URL.replace('/api', '')}${variant.imageUrl.replace('\\\\', '/')}`}
+                                src={variant.imageUrl?.startsWith('http') ? variant.imageUrl : `${API_BASE_URL.replace('/api', '')}${variant.imageUrl?.replace('\\\\', '/') || ''}`}
                                 alt={variant.name}
                                 className="w-full h-full object-cover group-hover:opacity-80 transition-opacity"
                               />
@@ -944,7 +910,7 @@ const ProductViewModal: React.FC<ProductViewModalProps> = ({
               </div>
 
                 {/* TAB 7: ATTRIBUTES */}
-                <div id="content-attributes" data-tab-content className="hidden">
+                <div id="content-attributes" className={activeTab !== 'attributes' ? 'hidden' : ''}>
                   {product.attributes && product.attributes.length > 0 ? (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                       {product.attributes.map((attr, idx) => (
@@ -968,7 +934,7 @@ const ProductViewModal: React.FC<ProductViewModalProps> = ({
                 </div>
 
                 {/* TAB 8: DISCOUNTS */}
-                <div id="content-discounts" data-tab-content className="hidden">
+                <div id="content-discounts" className={activeTab !== 'discounts' ? 'hidden' : ''}>
                   {(product as any).assignedDiscounts && (product as any).assignedDiscounts.length > 0 ? (
                     <div className="space-y-3">
                       {(product as any).assignedDiscounts.map((discount: any, idx: number) => (
@@ -1030,7 +996,7 @@ const ProductViewModal: React.FC<ProductViewModalProps> = ({
                 </div>
 
                 {/* TAB 9: RELATIONS */}
-                <div id="content-relations" data-tab-content className="hidden">
+                <div id="content-relations" className={activeTab !== 'relations' ? 'hidden' : ''}>
                   {product.relatedProducts && product.relatedProducts.length > 0 && (
                     <div className="mb-6">
                       <p className="text-sm text-white font-bold mb-3 flex items-center gap-2">
@@ -1105,7 +1071,7 @@ const ProductViewModal: React.FC<ProductViewModalProps> = ({
                 </div>
 
                 {/* TAB 10: SEO */}
-                <div id="content-seo" data-tab-content className="hidden">
+                <div id="content-seo" className={activeTab !== 'seo' ? 'hidden' : ''}>
                   <div className="space-y-4">
                     {product.metaTitle && (
                       <div className="p-4 bg-slate-800/50 rounded-lg border border-slate-700">
@@ -1153,7 +1119,7 @@ const ProductViewModal: React.FC<ProductViewModalProps> = ({
           {/* FOOTER */}
           <div className="flex items-center justify-end gap-3 px-6 py-4 bg-slate-800/50 border-t border-slate-700">
             <button
-              onClick={onClose}
+              onClick={() => { setActiveTab('overview'); onClose(); }}
               className="px-6 py-2.5 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-all font-bold"
             >
               Close

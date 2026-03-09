@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState, useRef, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
+import * as XLSX from "xlsx";
 import {
   Package,
   Search,
@@ -341,169 +342,135 @@ const handleBulkStatusUpdate = async (data: {
   }
 };
   // ✅ Bulk Export Selected
-  const handleBulkExport = () => {
-    const ordersToExport = orders.filter((o) => selectedOrders.includes(o.id));
-    
+const handleBulkExport = () => {
+  const ordersToExport = orders.filter((o) => selectedOrders.includes(o.id));
+
+  if (ordersToExport.length === 0) {
+    toast.warning("Please select orders to export");
+    return;
+  }
+
+  const data = ordersToExport.map((order) => {
+    const paymentMethodLabel = getPaymentMethodInfo(order.paymentMethod).label;
+
+    const paymentStatusLabel = order.paymentStatus
+      ? getPaymentStatusInfo(order.paymentStatus as any).label
+      : order.payments && order.payments.length > 0
+      ? getPaymentStatusInfo(order.payments[0].status).label
+      : "N/A";
+
+    return {
+      "Order Number": order.orderNumber,
+      "Customer Name": order.customerName,
+      Email: order.customerEmail,
+      Phone: order.customerPhone,
+      Items: order.orderItems.length,
+      Subtotal: order.subtotalAmount,
+      Tax: order.taxAmount,
+      Shipping: order.shippingAmount,
+      Discount: order.discountAmount,
+      "Total Amount": order.totalAmount,
+      Status: getOrderStatusInfo(order.status).label,
+      "Delivery Method":
+        order.deliveryMethod === "ClickAndCollect"
+          ? "Click & Collect"
+          : "Home Delivery",
+      "Payment Method": paymentMethodLabel,
+      "Payment Status": paymentStatusLabel,
+      "Order Date": formatDate(order.orderDate),
+    };
+  });
+
+  const worksheet = XLSX.utils.json_to_sheet(data);
+  const workbook = XLSX.utils.book_new();
+
+  XLSX.utils.book_append_sheet(workbook, worksheet, "Orders");
+
+  XLSX.writeFile(
+    workbook,
+    `selected_orders_${new Date().toISOString().split("T")[0]}.xlsx`
+  );
+
+  toast.success(`${ordersToExport.length} orders exported successfully`);
+  setSelectedOrders([]);
+};
+
+  // Export functionality
+const handleExport = async (exportAll: boolean = false) => {
+  try {
+    let ordersToExport: Order[] = [];
+
+    if (exportAll) {
+      setLoading(true);
+      const response = await orderService.getAllOrders({
+        page: 1,
+        pageSize: 10000,
+      });
+      ordersToExport = response?.data?.items || [];
+      setLoading(false);
+    } else {
+      ordersToExport = orders;
+    }
+
     if (ordersToExport.length === 0) {
-      toast.warning('Please select orders to export');
+      toast.warning("No orders to export");
       return;
     }
 
-    const csvHeaders = [
-      'Order Number',
-      'Customer Name',
-      'Email',
-      'Phone',
-      'Items',
-      'Subtotal',
-      'Tax',
-      'Shipping',
-      'Discount',
-      'Total Amount',
-      'Status',
-      'Delivery Method',
-      'Payment Method',
-      'Payment Status',
-      'Order Date',
-    ];
-
-    const csvData = ordersToExport.map((order) => {
+    const data = ordersToExport.map((order) => {
       const paymentMethodLabel = getPaymentMethodInfo(order.paymentMethod).label;
+
       const paymentStatusLabel = order.paymentStatus
         ? getPaymentStatusInfo(order.paymentStatus as any).label
-        : (order.payments && order.payments.length > 0
-          ? getPaymentStatusInfo(order.payments[0].status).label
-          : 'N/A');
+        : order.payments && order.payments.length > 0
+        ? getPaymentStatusInfo(order.payments[0].status).label
+        : "N/A";
 
-      return [
-        order.orderNumber,
-        order.customerName,
-        order.customerEmail,
-        `'${order.customerPhone}`,
-        order.orderItems.length,
-        order.subtotalAmount,
-        order.taxAmount,
-        order.shippingAmount,
-        order.discountAmount,
-        order.totalAmount,
-        getOrderStatusInfo(order.status).label,
-        order.deliveryMethod === 'ClickAndCollect' ? 'Click & Collect' : 'Home Delivery',
-        paymentMethodLabel,
-        paymentStatusLabel,
-        formatDate(order.orderDate),
-      ];
+      return {
+        "Order Number": order.orderNumber,
+        "Customer Name": order.customerName,
+        Email: order.customerEmail,
+        Phone: order.customerPhone,
+        Items: order.orderItems.length,
+        Subtotal: order.subtotalAmount,
+        Tax: order.taxAmount,
+        Shipping: order.shippingAmount,
+        Discount: order.discountAmount,
+        "Total Amount": order.totalAmount,
+        Status: getOrderStatusInfo(order.status).label,
+        "Delivery Method":
+          order.deliveryMethod === "ClickAndCollect"
+            ? "Click & Collect"
+            : "Home Delivery",
+        "Payment Method": paymentMethodLabel,
+        "Payment Status": paymentStatusLabel,
+        "Order Date": formatDate(order.orderDate),
+      };
     });
 
-    const csvContent = [
-      csvHeaders.join(','),
-      ...csvData.map((row) => row.map((cell) => `"${cell}"`).join(',')),
-    ].join('\n');
+    const worksheet = XLSX.utils.json_to_sheet(data);
+    const workbook = XLSX.utils.book_new();
 
-    const BOM = '\uFEFF';
-    const blob = new Blob([BOM + csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `selected_orders_${new Date().toISOString().split('T')[0]}.csv`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Orders");
 
-    toast.success(`${ordersToExport.length} orders exported successfully`);
-    setSelectedOrders([]);
-  };
+    const exportType = exportAll ? "all" : "filtered";
 
-  // Export functionality
-  const handleExport = async (exportAll: boolean = false) => {
-    try {
-      let ordersToExport: Order[] = [];
+    XLSX.writeFile(
+      workbook,
+      `orders_${exportType}_${new Date().toISOString().split("T")[0]}.xlsx`
+    );
 
-      if (exportAll) {
-        setLoading(true);
-        const response = await orderService.getAllOrders({ page: 1, pageSize: 10000 });
-        ordersToExport = response?.data?.items || [];
-        setLoading(false);
-      } else {
-        ordersToExport = orders;
-      }
-
-      if (ordersToExport.length === 0) {
-        toast.warning('No orders to export');
-        return;
-      }
-
-      const csvHeaders = [
-        'Order Number',
-        'Customer Name',
-        'Email',
-        'Phone',
-        'Items',
-        'Subtotal',
-        'Tax',
-        'Shipping',
-        'Discount',
-        'Total Amount',
-        'Status',
-        'Delivery Method',
-        'Payment Method',
-        'Payment Status',
-        'Order Date',
-      ];
-
-      const csvData = ordersToExport.map((order) => {
-        const paymentMethodLabel = getPaymentMethodInfo(order.paymentMethod).label;
-        const paymentStatusLabel = order.paymentStatus
-          ? getPaymentStatusInfo(order.paymentStatus as any).label
-          : (order.payments && order.payments.length > 0
-            ? getPaymentStatusInfo(order.payments[0].status).label
-            : 'N/A');
-
-        return [
-          order.orderNumber,
-          order.customerName,
-          order.customerEmail,
-          `'${order.customerPhone}`,
-          order.orderItems.length,
-          order.subtotalAmount,
-          order.taxAmount,
-          order.shippingAmount,
-          order.discountAmount,
-          order.totalAmount,
-          getOrderStatusInfo(order.status).label,
-          order.deliveryMethod === 'ClickAndCollect' ? 'Click & Collect' : 'Home Delivery',
-          paymentMethodLabel,
-          paymentStatusLabel,
-          formatDate(order.orderDate),
-        ];
-      });
-
-      const csvContent = [
-        csvHeaders.join(','),
-        ...csvData.map((row) => row.map((cell) => `"${cell}"`).join(',')),
-      ].join('\n');
-
-      const BOM = '\uFEFF';
-      const blob = new Blob([BOM + csvContent], { type: 'text/csv;charset=utf-8;' });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      const exportType = exportAll ? 'all' : 'filtered';
-      link.download = `orders_${exportType}_${new Date().toISOString().split('T')[0]}.csv`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
-
-      toast.success(
-        `📥 ${ordersToExport.length} order${ordersToExport.length > 1 ? 's' : ''} exported successfully!`
-      );
-    } catch (error) {
-      console.error('Export error:', error);
-      toast.error('Failed to export orders');
-      setLoading(false);
-    }
-  };
+    toast.success(
+      `📥 ${ordersToExport.length} order${
+        ordersToExport.length > 1 ? "s" : ""
+      } exported successfully!`
+    );
+  } catch (error) {
+    console.error("Export error:", error);
+    toast.error("Failed to export orders");
+    setLoading(false);
+  }
+};
 
   const handlePageChange = (newPage: number) => {
     setCurrentPage(newPage);

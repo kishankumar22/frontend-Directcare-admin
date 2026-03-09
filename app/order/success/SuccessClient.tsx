@@ -28,7 +28,25 @@ function getStatusColor(status?: string) {
 
   return "text-gray-700 font-medium";
 }
+function getPharmacyStatusColor(status?: string) {
+  if (!status) return "text-gray-600";
 
+  const value = status.toLowerCase();
+
+  if (value.includes("approved") || value.includes("verified")) {
+    return "text-green-600 font-semibold";
+  }
+
+  if (value.includes("pending")) {
+    return "text-orange-600 font-semibold";
+  }
+
+  if (value.includes("rejected") || value.includes("failed")) {
+    return "text-red-600 font-semibold";
+  }
+
+  return "text-gray-700 font-medium";
+}
 export function resolveImageUrl(url?: string | null) {
   if (!url || url === "string") {
     return "/placeholder-product.png";
@@ -179,7 +197,18 @@ const loyaltyPointsEarned = order.loyaltyPointsEarned ?? 0;
     {order.deliveryMethod}
   </span>
 </div>
-
+{order.pharmacyVerificationStatus && (
+  <div className="flex justify-between">
+    <span>Pharmacy Verification:</span>
+    <span
+      className={getPharmacyStatusColor(
+        order.pharmacyVerificationStatus
+      )}
+    >
+      {order.pharmacyVerificationStatus}
+    </span>
+  </div>
+)}
               </div>
             </section>
 

@@ -545,16 +545,10 @@ const [formData, setFormData] = useState({
   width: '',
   height: '',
   
-  // ✅ NEW DELIVERY FIELDS (ADDED)
+  // Delivery flags (charges managed via Shipping Methods)
   sameDayDeliveryEnabled: false,
   nextDayDeliveryEnabled: false,
   standardDeliveryEnabled: true,
-  sameDayDeliveryCutoffTime: '',
-  nextDayDeliveryCutoffTime: '',
-  standardDeliveryDays: '5',
-  sameDayDeliveryCharge: '',
-  nextDayDeliveryCharge: '',
-  standardDeliveryCharge: '',
 
   // ===== GIFT CARDS =====
   isGiftCard: false,
@@ -1124,16 +1118,10 @@ notReturnable: productData.notReturnable ?? false,
         // ✅ SHIPPING & DELIVERY (Add this section)
 
   
-  // ✅ DELIVERY OPTIONS (NEW)
+  // Delivery flags
   sameDayDeliveryEnabled: productData.sameDayDeliveryEnabled ?? false,
   nextDayDeliveryEnabled: productData.nextDayDeliveryEnabled ?? false,
   standardDeliveryEnabled: productData.standardDeliveryEnabled ?? true,
-  sameDayDeliveryCutoffTime: productData.sameDayDeliveryCutoffTime || '',
-  nextDayDeliveryCutoffTime: productData.nextDayDeliveryCutoffTime || '',
-  standardDeliveryDays: productData.standardDeliveryDays?.toString() || '5',
-  sameDayDeliveryCharge: productData.sameDayDeliveryCharge?.toString() || '',
-  nextDayDeliveryCharge: productData.nextDayDeliveryCharge?.toString() || '',
-  standardDeliveryCharge: productData.standardDeliveryCharge?.toString() || '',
         
         // ===== TAGS & RELATED =====
         productTags: productData.tags || '',
@@ -3760,12 +3748,6 @@ allowedQuantities: cleanedCartData.allowedQuantities,        // null when min/ma
       sameDayDeliveryEnabled: formData.sameDayDeliveryEnabled ?? false,
       nextDayDeliveryEnabled: formData.nextDayDeliveryEnabled ?? false,
       standardDeliveryEnabled: formData.standardDeliveryEnabled ?? true,
-      sameDayDeliveryCutoffTime: formData.sameDayDeliveryCutoffTime?.trim() || null,
-      nextDayDeliveryCutoffTime: formData.nextDayDeliveryCutoffTime?.trim() || null,
-      standardDeliveryDays: parseNumber(formData.standardDeliveryDays, 'standardDeliveryDays') ?? 5,
-      sameDayDeliveryCharge: parseNumber(formData.sameDayDeliveryCharge, 'sameDayDeliveryCharge') ?? 0,
-      nextDayDeliveryCharge: parseNumber(formData.nextDayDeliveryCharge, 'nextDayDeliveryCharge') ?? 0,
-      standardDeliveryCharge: parseNumber(formData.standardDeliveryCharge, 'standardDeliveryCharge') ?? 0,
       isRecurring: formData.productType !== 'grouped' && formData.isRecurring ? true : false,
       recurringCycleLength: formData.productType !== 'grouped' && formData.isRecurring
         ? parseInt(formData.recurringCycleLength as any) || 0
@@ -4013,8 +3995,7 @@ const handleChange = (
     name === 'maxNumberOfDownloads' ||
     name === 'downloadExpirationDays' ||
     name === 'rentalPriceLength' ||
-    name === 'packSize' ||
-    name === 'standardDeliveryDays'
+    name === 'packSize'
   ) {
     const cleanedValue = value.replace(/[^\d]/g, '');
     
@@ -4048,10 +4029,7 @@ const handleChange = (
     name === 'subscriptionDiscountPercentage' ||
     name === 'groupBundleDiscountPercentage' ||
     name === 'groupBundleDiscountAmount' ||
-    name === 'groupBundleSpecialPrice' ||
-    name === 'sameDayDeliveryCharge' ||
-    name === 'nextDayDeliveryCharge' ||
-    name === 'standardDeliveryCharge'
+    name === 'groupBundleSpecialPrice'
   ) {
     let cleanedValue = value.replace(/[^\d.]/g, '');
     
@@ -7578,42 +7556,8 @@ const uploadImagesToProductDirect = async (
                 🚀 Enable Next-Day Delivery
               </span>
             </label>
-            
-            {formData.nextDayDeliveryEnabled && (
-              <div className="ml-6 grid grid-cols-1 md:grid-cols-2 gap-3 p-3 bg-slate-800/40 rounded-lg border border-slate-700">
-                <div>
-                  <label className="block text-xs font-medium text-slate-400 mb-1">
-                    Cutoff Time <span className="text-red-400">*</span>
-                  </label>
-                  <input
-                    type="time"
-                    name="nextDayDeliveryCutoffTime"
-                    value={formData.nextDayDeliveryCutoffTime}
-                    onChange={handleChange}
-                    className="w-full px-3 py-2 bg-slate-900/70 border border-slate-700 rounded text-white text-sm focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
-                  />
-                  <p className="text-xs text-slate-500 mt-1">Order before this time</p>
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-slate-400 mb-1">
-                    Delivery Charge (£)
-                  </label>
-                  <input
-                    type="number"
-                    name="nextDayDeliveryCharge"
-                    value={formData.nextDayDeliveryCharge}
-                    onChange={handleChange}
-                    placeholder="0"
-                    min="0"
-                    step="0.01"
-                    className="w-full px-3 py-2 bg-slate-900/70 border border-slate-700 rounded text-white text-sm focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
-                  />
-                  <p className="text-xs text-slate-500 mt-1">Extra charge for next-day</p>
-                </div>
-              </div>
-            )}
           </div>
-          
+
           {/* Standard Delivery */}
           <div className="space-y-3">
             <label className="flex items-center gap-2 cursor-pointer group">
@@ -7628,64 +7572,12 @@ const uploadImagesToProductDirect = async (
                 📦 Enable Standard Delivery
               </span>
             </label>
-            
-            {formData.standardDeliveryEnabled && (
-              <div className="ml-6 grid grid-cols-1 md:grid-cols-2 gap-3 p-3 bg-slate-800/40 rounded-lg border border-slate-700">
-                <div>
-                  <label className="block text-xs font-medium text-slate-400 mb-1">
-                    Delivery Days <span className="text-red-400">*</span>
-                  </label>
-                  <input
-                    type="number"
-                    name="standardDeliveryDays"
-                    value={formData.standardDeliveryDays}
-                    onChange={handleChange}
-                    placeholder="5"
-                    min="1"
-                    className="w-full px-3 py-2 bg-slate-900/70 border border-slate-700 rounded text-white text-sm focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
-                  />
-                  <p className="text-xs text-slate-500 mt-1">Estimated delivery time</p>
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-slate-400 mb-1">
-                    Delivery Charge (£)
-                  </label>
-                  <input
-                    type="number"
-                    name="standardDeliveryCharge"
-                    value={formData.standardDeliveryCharge}
-                    onChange={handleChange}
-                    placeholder="0"
-                    min="0"
-                    step="0.01"
-                    className="w-full px-3 py-2 bg-slate-900/70 border border-slate-700 rounded text-white text-sm focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
-                  />
-                  <p className="text-xs text-slate-500 mt-1">Standard delivery charge</p>
-                </div>
-              </div>
-            )}
           </div>
 
-          {/* Delivery Summary */}
-          {(formData.sameDayDeliveryEnabled || formData.nextDayDeliveryEnabled || formData.standardDeliveryEnabled) && (
-            <div className="flex items-start gap-2 text-xs text-blue-400 bg-blue-900/20 px-3 py-2 rounded border border-blue-800/50 mt-3">
-              <Info className="w-4 h-4 shrink-0 mt-0.5" />
-              <div>
-                <p className="font-semibold mb-1">Active Delivery Options:</p>
-                <ul className="space-y-1 text-slate-300">
-                  {formData.sameDayDeliveryEnabled && (
-                    <li>• Same-Day: £{formData.sameDayDeliveryCharge || '0'} (Before {formData.sameDayDeliveryCutoffTime || '--:--'})</li>
-                  )}
-                  {formData.nextDayDeliveryEnabled && (
-                    <li>• Next-Day: £{formData.nextDayDeliveryCharge || '0'} (Before {formData.nextDayDeliveryCutoffTime || '--:--'})</li>
-                  )}
-                  {formData.standardDeliveryEnabled && (
-                    <li>• Standard: £{formData.standardDeliveryCharge || '0'} ({formData.standardDeliveryDays || '5'} days)</li>
-                  )}
-                </ul>
-              </div>
-            </div>
-          )}
+          <div className="flex items-start gap-2 text-xs text-blue-400 bg-blue-900/20 px-3 py-2 rounded border border-blue-800/50 mt-2">
+            <Info className="w-4 h-4 shrink-0 mt-0.5" />
+            <p>Delivery charges are managed via <strong>Shipping Methods</strong> in the admin panel.</p>
+          </div>
         </div>
       </div>
     )}

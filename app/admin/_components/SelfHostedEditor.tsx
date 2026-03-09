@@ -212,11 +212,9 @@ export const SelfHostedTinyMCE: React.FC<SelfHostedTinyMCEProps> = ({
     if (!isMounted) return;
 
     const loadTinyMCE = () => {
-      if (window.tinymce && editorRef.current) {
-        window.tinymce.remove(`#${editorId}`);
-      }
-
+      // Guard against double init (React 18 strict mode)
       if (window.tinymce) {
+        try { window.tinymce.remove(`#${editorId}`); } catch (_) {}
         initializeEditor();
         return;
       }
@@ -432,7 +430,7 @@ export const SelfHostedTinyMCE: React.FC<SelfHostedTinyMCEProps> = ({
             try {
               const file = blobInfo.blob();
               const result = await uploadEditorImage(file);
-              const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://testapi.knowledgemarkg.com';
+              const apiUrl = process.env.NEXT_PUBLIC_API_URL || '';
               resolve(`${apiUrl}${result.location}`);
             } catch (error: any) {
               console.error('Upload error:', error);
@@ -463,7 +461,7 @@ export const SelfHostedTinyMCE: React.FC<SelfHostedTinyMCEProps> = ({
                 }
                 
                 const result = await uploadEditorImage(file);
-                const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://testapi.knowledgemarkg.com';
+                const apiUrl = process.env.NEXT_PUBLIC_API_URL || '';
                 const imageUrl = `${apiUrl}${result.location}`;
                 
                 callback(imageUrl, {
@@ -798,9 +796,14 @@ export const SelfHostedTinyMCE: React.FC<SelfHostedTinyMCEProps> = ({
     loadTinyMCE();
 
     return () => {
-      if (window.tinymce && editorRef.current) {
-        window.tinymce.remove(`#${editorId}`);
+      try {
+        if (window.tinymce) {
+          window.tinymce.remove(`#${editorId}`);
+        }
+      } catch (_) {
+        // TinyMCE cleanup errors are safe to ignore
       }
+      editorRef.current = null;
     };
   }, [isMounted, editorId, placeholder, height, minLength, maxLength]);
 

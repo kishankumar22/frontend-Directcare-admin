@@ -64,71 +64,40 @@ export default function AccountDashboard() {
       <div className="max-w-7xl mx-auto px-4">
         <h1 className="text-xl font-semibold mb-1">My Account</h1>
 
-        <div className="grid grid-cols-12 gap-6">
-          {/* LEFT SIDEBAR */}
+        <div className="grid grid-cols-12 gap-4 md:gap-6">
+          {/* LEFT SIDEBAR — vertical on desktop, horizontal scroll on mobile */}
           <div className="col-span-12 md:col-span-3">
-            <div className="sticky top-24">
+            {/* Mobile: horizontal scrollable tabs */}
+            <div className="md:hidden flex overflow-x-auto gap-2 pb-2 scrollbar-hide">
+              {(["profile","orders","subscriptions","tracking","change-password","addresses","loyalty"] as Tab[]).map((tab) => (
+                <button
+                  key={tab}
+                  onClick={() => goToTab(tab)}
+                  className={`flex-shrink-0 px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap border transition
+                    ${activeTab === tab ? "bg-[#445D41] text-white border-[#445D41]" : "bg-white text-gray-600 border-gray-300"}`}
+                >
+                  {tab === "profile" ? "Profile" : tab === "orders" ? "Orders" : tab === "subscriptions" ? "Subscriptions" : tab === "tracking" ? "Tracking" : tab === "change-password" ? "Password" : tab === "addresses" ? "Addresses" : "Loyalty"}
+                </button>
+              ))}
+              <button
+                onClick={() => { logout(); router.replace("/account"); }}
+                className="flex-shrink-0 px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap border border-red-300 bg-white text-red-600"
+              >
+                Logout
+              </button>
+            </div>
+            {/* Desktop: vertical sidebar */}
+            <div className="hidden md:block sticky top-24">
               <div className="bg-white rounded-xl border shadow-sm p-4 space-y-2">
-                <SidebarButton
-                  active={activeTab === "profile"}
-                  onClick={() => goToTab("profile")}
-                >
-                  My Profile
-                </SidebarButton>
-
-                <SidebarButton
-                  active={activeTab === "orders"}
-                  onClick={() => goToTab("orders")}
-                >
-                  My Orders
-                </SidebarButton>
-
-                <SidebarButton
-                  active={activeTab === "subscriptions"}
-                  onClick={() => goToTab("subscriptions")}
-                >
-                  Subscriptions
-                </SidebarButton>
-
-                <SidebarButton
-                  active={activeTab === "tracking"}
-                  onClick={() => goToTab("tracking")}
-                >
-                  Order Tracking
-                </SidebarButton>
-
-                <SidebarButton
-                  active={activeTab === "change-password"}
-                  onClick={() => goToTab("change-password")}
-                >
-                  Change Password
-                </SidebarButton>
-
-                <SidebarButton
-                  active={activeTab === "addresses"}
-                  onClick={() => goToTab("addresses")}
-                >
-                  Saved Addresses
-                </SidebarButton>
-                <SidebarButton
-  active={activeTab === "loyalty"}
-  onClick={() => goToTab("loyalty")}
->
-  Loyalty Points
-</SidebarButton>
-
-
+                <SidebarButton active={activeTab === "profile"} onClick={() => goToTab("profile")}>My Profile</SidebarButton>
+                <SidebarButton active={activeTab === "orders"} onClick={() => goToTab("orders")}>My Orders</SidebarButton>
+                <SidebarButton active={activeTab === "subscriptions"} onClick={() => goToTab("subscriptions")}>Subscriptions</SidebarButton>
+                <SidebarButton active={activeTab === "tracking"} onClick={() => goToTab("tracking")}>Order Tracking</SidebarButton>
+                <SidebarButton active={activeTab === "change-password"} onClick={() => goToTab("change-password")}>Change Password</SidebarButton>
+                <SidebarButton active={activeTab === "addresses"} onClick={() => goToTab("addresses")}>Saved Addresses</SidebarButton>
+                <SidebarButton active={activeTab === "loyalty"} onClick={() => goToTab("loyalty")}>Loyalty Points</SidebarButton>
                 <hr />
-
-                <SidebarButton
-                  danger
-                  onClick={() => {
-                    logout();
-                    router.replace("/");
-                  }}
-                >
-                  Logout
-                </SidebarButton>
+                <SidebarButton danger onClick={() => { logout(); router.replace("/account"); }}>Logout</SidebarButton>
               </div>
             </div>
           </div>

@@ -230,7 +230,13 @@ useEffect(() => {
     localStorage.removeItem("refreshToken");
     localStorage.removeItem("user");
     localStorage.removeItem("guestEmail");
-
+ // 🔥 ADD THIS LINE (VERY IMPORTANT)
+   // 🔥 REMOVE ALL pharma_ keys
+  Object.keys(localStorage).forEach((key) => {
+    if (key.startsWith("pharma_")) {
+      localStorage.removeItem(key);
+    }
+  });
     setUser(null);
     setAccessToken(null);
     setRefreshToken(null);

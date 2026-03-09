@@ -70,41 +70,42 @@ interface NavigationItem {
 }
 
 
-// ✅ UPDATED NAVIGATION WITH LOYALTY PROGRAM GROUP
+// Navigation with clean group organization
 const navigation: NavigationItem[] = [
-  { 
-    name: 'Dashboard', 
-    href: '/admin', 
-    icon: LayoutDashboard 
+  { name: 'Dashboard', href: '/admin', icon: LayoutDashboard },
+  {
+    name: 'Catalog',
+    icon: Layers,
+    children: [
+      { name: 'Products', href: '/admin/products', icon: Package },
+      { name: 'Inventory', href: '/admin/inventory', icon: Warehouse },
+      { name: 'Categories', href: '/admin/categories', icon: FolderTree },
+      { name: 'Brands', href: '/admin/brands', icon: Tag },
+      { name: 'Product Reviews', href: '/admin/productReview', icon: Star },
+      { name: 'Pharmacy Q&A', href: '/admin/pharmacy-questions', icon: ClipboardList },
+    ],
   },
- {
-  name: 'Catalog',
-  icon: Layers,
-  children: [
-    { name: 'Products', href: '/admin/products', icon: Package },
-    { name: 'Inventory', href: '/admin/inventory', icon: Warehouse }, // ✅ ADDED
-    { name: 'Categories', href: '/admin/categories', icon: FolderTree },
-    { name: 'Brands', href: '/admin/brands', icon: Tag },
-    { name: 'Product Reviews', href: '/admin/productReview', icon: Star },
-    { name: 'Pharmacy Questions', href: '/admin/pharmacy-questions', icon: ClipboardList },
-  ],
-},
   {
     name: 'Sales',
     icon: TrendingUp,
     children: [
       { name: 'Orders', href: '/admin/orders', icon: ShoppingCart },
-    ],
-  },
-  {
-    name: 'Customers',
-    icon: UserCircle,
-    children: [
       { name: 'Customers', href: '/admin/customers', icon: Users },
     ],
   },
   {
-    name: 'Shipping Management',
+    name: 'Marketing',
+    icon: Gift,
+    children: [
+      { name: 'Discounts', href: '/admin/discounts', icon: Percent },
+      { name: 'Subscriptions', href: '/admin/subscriptions', icon: PackageOpen },
+      { name: 'Newsletter', href: '/admin/newsletter', icon: Mail },
+      { name: 'Loyalty Points', href: '/admin/loyalty-points', icon: Coins },
+      { name: 'Loyalty Config', href: '/admin/loyalty-config', icon: Sliders },
+    ],
+  },
+  {
+    name: 'Shipping',
     icon: Ship,
     children: [
       { name: 'Zones', href: '/admin/shipping/zones', icon: MapPin },
@@ -113,45 +114,20 @@ const navigation: NavigationItem[] = [
     ],
   },
   {
-    name: 'Promotions',
-    icon: Gift,
+    name: 'Finance',
+    icon: Receipt,
     children: [
-      { name: 'Discounts', href: '/admin/discounts', icon: Percent },
-      { name: 'Subscriptions', href: '/admin/subscriptions', icon: PackageOpen },
       { name: 'VAT Rates', href: '/admin/vatRates', icon: PoundSterling },
-      { name: "NewsLetter", href: "/admin/newsletter", icon: Mail },
     ],
   },
   {
-    name: 'Loyalty Program',
-    icon: Award,
-    children: [
-      { 
-        name: 'Loyalty Points',
-        href: '/admin/loyalty-points', 
-        icon: Coins
-      },
-      { 
-        name: 'Loyalty Config',
-        href: '/admin/loyalty-config', 
-        icon: Sliders
-      },
-    ],
-  },
-  {
-    name: 'Configuration',
-    icon: Cog,
-    children: [
-      { name: 'Banners', href: '/admin/banners', icon: ImageIcon },
-    ],
-  },
-  {
-    name: 'Content Management',
+    name: 'Content',
     icon: FileText,
     children: [
+      { name: 'Banners', href: '/admin/banners', icon: ImageIcon },
       { name: 'Blog Categories', href: '/admin/BlogCategories', icon: FolderKanban },
       { name: 'Blog Posts', href: '/admin/BlogPosts', icon: FileText },
-      { name: 'Blog Comments', href: '/admin/comments', icon: MessageSquare },
+      { name: 'Comments', href: '/admin/comments', icon: MessageSquare },
     ],
   },
   {
@@ -159,6 +135,7 @@ const navigation: NavigationItem[] = [
     icon: Shield,
     children: [
       { name: 'Activity Logs', href: '/admin/ActivityLogs', icon: Activity },
+      { name: 'Settings', href: '/admin/settings', icon: Settings },
     ],
   },
 ];
@@ -207,6 +184,19 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
     return children.some(child => child.href && isActiveRoute(child.href, pathname));
   };
 
+  const getGroupColor = (name: string) => {
+    const map: Record<string, { icon: string; border: string; bg: string; dot: string }> = {
+      Catalog:   { icon: 'text-cyan-400',    border: 'border-cyan-500/50',    bg: 'bg-cyan-500/10',    dot: 'bg-cyan-400' },
+      Sales:     { icon: 'text-emerald-400', border: 'border-emerald-500/50', bg: 'bg-emerald-500/10', dot: 'bg-emerald-400' },
+      Marketing: { icon: 'text-pink-400',    border: 'border-pink-500/50',    bg: 'bg-pink-500/10',    dot: 'bg-pink-400' },
+      Shipping:  { icon: 'text-blue-400',    border: 'border-blue-500/50',    bg: 'bg-blue-500/10',    dot: 'bg-blue-400' },
+      Finance:   { icon: 'text-yellow-400',  border: 'border-yellow-500/50',  bg: 'bg-yellow-500/10',  dot: 'bg-yellow-400' },
+      Content:   { icon: 'text-amber-400',   border: 'border-amber-500/50',   bg: 'bg-amber-500/10',   dot: 'bg-amber-400' },
+      System:    { icon: 'text-slate-400',   border: 'border-slate-500/50',   bg: 'bg-slate-500/10',   dot: 'bg-slate-400' },
+    };
+    return map[name] ?? { icon: 'text-violet-400', border: 'border-violet-500/50', bg: 'bg-violet-500/10', dot: 'bg-violet-400' };
+  };
+
   // ✅ UPDATED: Handle click to toggle (for mobile and click behavior)
   const toggleMenu = (menuName: string) => {
     setExpandedMenus(prev => {
@@ -227,7 +217,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
       setHoveredMenu(menuName);
       // Close all other menus and open only the hovered one
       setExpandedMenus({ [menuName]: true });
-    }, 12000); // 200ms delay for smooth UX
+    }, 200); // 200ms delay for smooth UX
   };
 
   const handleMenuLeave = () => {
@@ -444,99 +434,94 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
             )}
           >
             {/* Logo */}
-            <div className="p-3 border-b border-slate-800 dark:border-gray-800 flex-shrink-0 h-[73px] flex items-center transition-colors duration-150">
+            <div className={cn(
+              "border-b border-slate-800/60 flex-shrink-0 h-[60px] flex items-center transition-all duration-150",
+              isSidebarExpanded ? "px-3 justify-start" : "px-0 justify-center"
+            )}>
               <div className="flex items-center gap-3 overflow-hidden">
-                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-500 via-purple-500 to-cyan-500 dark:from-violet-600 dark:via-purple-600 dark:to-cyan-600 flex items-center justify-center flex-shrink-0 transition-all duration-150 shadow-lg shadow-violet-500/50 dark:shadow-violet-500/30">
-                  <Sparkles className="w-5 h-5 text-white animate-pulse" />
+                <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-violet-500 via-purple-500 to-cyan-500 flex items-center justify-center flex-shrink-0 shadow-lg shadow-violet-500/40">
+                  <Sparkles className="w-4 h-4 text-white animate-pulse" />
                 </div>
                 {isSidebarExpanded && (
                   <div className="whitespace-nowrap">
-                    <h2 className="text-lg font-bold bg-gradient-to-r from-violet-400 via-purple-400 to-cyan-400 bg-clip-text text-transparent">EcomPanel</h2>
-                    <p className="text-xs text-slate-400 dark:text-gray-500 transition-colors duration-150">Admin Dashboard</p>
+                    <h2 className="text-base font-bold bg-gradient-to-r from-violet-400 via-purple-400 to-cyan-400 bg-clip-text text-transparent">EcomPanel</h2>
+                    <p className="text-[10px] text-slate-500">Admin Dashboard</p>
                   </div>
                 )}
               </div>
             </div>
 
-            {/* ✅ NAVIGATION WITH HOVER AUTO-EXPAND */}
-            <nav className="flex-1 p-1.5 space-y-1 overflow-y-auto custom-scrollbar">
+            {/* NAVIGATION WITH HOVER AUTO-EXPAND */}
+            <nav className={cn("flex-1 space-y-0.5 overflow-y-auto custom-scrollbar py-2", isSidebarExpanded ? "px-1.5" : "px-1")}>
               {navigation.map((item) => {
                 const hasChildren = item.children && item.children.length > 0;
                 const isExpanded = expandedMenus[item.name];
                 const isParentItemActive = hasChildren && isParentActive(item.children);
                 const isActive = item.href ? isActiveRoute(item.href, pathname) : false;
                 const Icon = item.icon;
+                const gc = getGroupColor(item.name);
 
                 if (hasChildren) {
                   return (
-                    <div 
-                      key={item.name} 
-                      className="space-y-1"
-                      onMouseEnter={() => isSidebarExpanded && handleMenuHover(item.name)}
-                      onMouseLeave={() => isSidebarExpanded && handleMenuLeave()}
+                    <div
+                      key={item.name}
+                      className="space-y-0.5"
                     >
                       <button
                         onClick={() => isSidebarExpanded && toggleMenu(item.name)}
                         className={cn(
-                          "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-150 group relative",
-                          isParentItemActive
-                            ? "bg-slate-800/70 dark:bg-gray-800/80 text-white shadow-lg"
-                            : "text-slate-400 dark:text-gray-500 hover:text-white hover:bg-slate-800/50 dark:hover:bg-gray-800/60"
+                          "w-full flex items-center gap-2.5 py-1.5 rounded-lg transition-all duration-150 group relative",
+                          isSidebarExpanded ? "px-2" : "px-0 justify-center",
+                          isParentItemActive && isSidebarExpanded
+                            ? `${gc.bg} text-white`
+                            : "text-slate-400 hover:text-white",
+                          !isParentItemActive && isSidebarExpanded && "hover:bg-slate-800/50"
                         )}
                         title={!isSidebarExpanded ? item.name : ""}
                       >
-                        <Icon className={cn(
-                          "h-5 w-5 flex-shrink-0 transition-all duration-150 group-hover:scale-110",
-                          isParentItemActive && "text-violet-400"
-                        )} />
+                        {/* Colored icon box */}
+                        <div className={cn(
+                          "rounded-xl flex items-center justify-center flex-shrink-0 transition-all duration-150",
+                          isSidebarExpanded ? "w-7 h-7" : "w-9 h-9",
+                          isParentItemActive
+                            ? `${gc.bg} ${gc.icon} shadow-sm`
+                            : "bg-slate-800/80 text-slate-400 group-hover:bg-slate-700 group-hover:text-white"
+                        )}>
+                          <Icon className="h-4 w-4" />
+                        </div>
                         {isSidebarExpanded && (
                           <>
-                            <span className="font-medium text-sm flex-1 text-left whitespace-nowrap">
+                            <span className="font-semibold text-xs flex-1 text-left whitespace-nowrap tracking-wide uppercase">
                               {item.name}
                             </span>
-                            <ChevronDown
-                              className={cn(
-                                "h-4 w-4 transition-all duration-150",
-                                isExpanded && "rotate-180"
-                              )}
-                            />
+                            {isParentItemActive && (
+                              <div className={cn("w-1.5 h-1.5 rounded-full mr-1", gc.dot)} />
+                            )}
+                            <ChevronDown className={cn("h-3.5 w-3.5 transition-all duration-200 text-slate-500", isExpanded && "rotate-180")} />
                           </>
                         )}
                       </button>
 
                       {isSidebarExpanded && (
-                        <div
-                          className={cn(
-                            "overflow-hidden transition-all duration-300 ease-in-out",
-                            isExpanded ? "max-h-96 opacity-100" : "max-h-0 opacity-0"
-                          )}
-                        >
-                          <div className="ml-4 mt-1 space-y-1 border-l-2 border-slate-800 dark:border-gray-800 pl-2 transition-colors duration-150">
+                        <div className={cn("overflow-hidden transition-all duration-200 ease-in-out", isExpanded ? "max-h-[500px] opacity-100" : "max-h-0 opacity-0")}>
+                          <div className={cn("ml-3 mt-0.5 space-y-0.5 border-l-2 pl-2 pb-1", gc.border)}>
                             {item.children?.map((child) => {
                               const ChildIcon = child.icon;
                               const isChildActive = child.href ? isActiveRoute(child.href, pathname) : false;
-
                               return (
                                 <Link
                                   key={child.name}
                                   href={child.href || '#'}
                                   className={cn(
-                                    "flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-150 group relative",
+                                    "flex items-center gap-2.5 px-2.5 py-1.5 rounded-md transition-all duration-150 group",
                                     isChildActive
-                                      ? "bg-gradient-to-r from-violet-500 to-cyan-500 dark:from-violet-600 dark:to-cyan-600 text-white shadow-lg shadow-violet-500/30 dark:shadow-violet-600/50"
-                                      : "text-slate-400 dark:text-gray-500 hover:text-white hover:bg-slate-800/50 dark:hover:bg-gray-800/60"
+                                      ? "bg-gradient-to-r from-violet-500/90 to-cyan-500/90 text-white shadow-md"
+                                      : "text-slate-400 hover:text-white hover:bg-slate-800/60"
                                   )}
                                 >
-                                  <ChildIcon className={cn(
-                                    "h-4 w-4 flex-shrink-0 transition-all duration-150 group-hover:scale-110",
-                                    isChildActive ? "text-white" : "text-cyan-400"
-                                  )} />
-                                  <span className="font-medium text-sm whitespace-nowrap">
-                                    {child.name}
-                                  </span>
-                                  {isChildActive && (
-                                    <ChevronRight className="h-3 w-3 ml-auto animate-pulse" />
-                                  )}
+                                  <ChildIcon className={cn("h-3.5 w-3.5 flex-shrink-0 transition-colors", isChildActive ? "text-white" : gc.icon)} />
+                                  <span className="text-xs font-medium whitespace-nowrap">{child.name}</span>
+                                  {isChildActive && <div className="ml-auto w-1 h-4 rounded-full bg-white/60" />}
                                 </Link>
                               );
                             })}
@@ -547,28 +532,34 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
                   );
                 }
 
+                // Dashboard (top-level link)
                 return (
                   <Link
                     key={item.name}
                     href={item.href || '#'}
                     className={cn(
-                      "flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-150 group relative",
-                      isActive
-                        ? "bg-gradient-to-r from-violet-500 to-cyan-500 dark:from-violet-600 dark:to-cyan-600 text-white shadow-lg shadow-violet-500/30 dark:shadow-violet-600/50"
-                        : "text-slate-400 dark:text-gray-500 hover:text-white hover:bg-slate-800/50 dark:hover:bg-gray-800/60"
+                      "flex items-center gap-2.5 py-1.5 rounded-lg transition-all duration-150 group",
+                      isSidebarExpanded ? "px-2" : "px-0 justify-center",
+                      isActive && isSidebarExpanded
+                        ? "bg-gradient-to-r from-violet-500 to-cyan-500 text-white shadow-lg shadow-violet-500/30"
+                        : "text-slate-400 hover:text-white",
+                      !isActive && isSidebarExpanded && "hover:bg-slate-800/50"
                     )}
                     title={!isSidebarExpanded ? item.name : ""}
                   >
-                    <Icon className={cn(
-                      "h-5 w-5 flex-shrink-0 transition-all duration-150 group-hover:scale-110",
-                      isActive ? "text-white" : "text-violet-400"
-                    )} />
+                    <div className={cn(
+                      "rounded-xl flex items-center justify-center flex-shrink-0 transition-all",
+                      isSidebarExpanded ? "w-7 h-7" : "w-9 h-9",
+                      isActive
+                        ? "bg-gradient-to-br from-violet-500 to-cyan-500 text-white shadow-md"
+                        : "bg-slate-800/80 text-violet-400 group-hover:bg-slate-700 group-hover:text-white"
+                    )}>
+                      <Icon className="h-4 w-4" />
+                    </div>
                     {isSidebarExpanded && (
                       <>
-                        <span className="font-medium text-sm flex-1 whitespace-nowrap">
-                          {item.name}
-                        </span>
-                        {isActive && <ChevronRight className="h-4 w-4 animate-pulse" />}
+                        <span className="font-semibold text-xs flex-1 whitespace-nowrap tracking-wide uppercase">{item.name}</span>
+                        {isActive && <ChevronRight className="h-3.5 w-3.5 animate-pulse" />}
                       </>
                     )}
                   </Link>
@@ -577,26 +568,20 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
             </nav>
 
             {/* Bottom Links */}
-            <div className="p-2 border-t border-slate-800 dark:border-gray-800 flex-shrink-0 space-y-1 transition-colors duration-150">
+            <div className="p-2 border-t border-slate-800/60 flex-shrink-0 space-y-0.5">
               <Link
                 href="/"
-                className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-400 dark:text-gray-500 hover:text-white hover:bg-slate-800/50 dark:hover:bg-gray-800/60 transition-all duration-150 group"
+                className={cn(
+                  "flex items-center gap-2.5 py-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800/50 transition-all duration-150 group",
+                  isSidebarExpanded ? "px-2" : "px-0 justify-center"
+                )}
                 title={!isSidebarExpanded ? "View Store" : ""}
               >
-                <Store className="h-5 w-5 flex-shrink-0 text-cyan-400 group-hover:scale-110 transition-transform" />
-                {isSidebarExpanded && (
-                  <span className="font-medium text-sm whitespace-nowrap">View Store</span>
-                )}
+                <div className={cn("rounded-xl bg-slate-800/80 flex items-center justify-center flex-shrink-0 group-hover:bg-slate-700 transition-colors", isSidebarExpanded ? "w-7 h-7" : "w-9 h-9")}>
+                  <Store className="h-4 w-4 text-cyan-400" />
+                </div>
+                {isSidebarExpanded && <span className="text-xs font-medium whitespace-nowrap">View Store</span>}
               </Link>
-              <button 
-                className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-400 dark:text-gray-500 hover:text-white hover:bg-slate-800/50 dark:hover:bg-gray-800/60 transition-all duration-150 group"
-                title={!isSidebarExpanded ? "Settings" : ""}
-              >
-                <Settings className="h-5 w-5 flex-shrink-0 text-violet-400 group-hover:scale-110 transition-transform group-hover:rotate-90" />
-                {isSidebarExpanded && (
-                  <span className="font-medium text-sm whitespace-nowrap">Settings</span>
-                )}
-              </button>
             </div>
 
             {/* User Profile - Expanded */}
@@ -660,68 +645,51 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
             </div>
           </div>
 
-          <nav className="flex-1 p-4 space-y-1.5 overflow-y-auto custom-scrollbar">
+          <nav className="flex-1 p-2 space-y-0.5 overflow-y-auto custom-scrollbar">
             {navigation.map((item) => {
               const hasChildren = item.children && item.children.length > 0;
               const isExpanded = expandedMenus[item.name];
               const isParentItemActive = hasChildren && isParentActive(item.children);
               const isActive = item.href ? isActiveRoute(item.href, pathname) : false;
               const Icon = item.icon;
+              const gc = getGroupColor(item.name);
 
               if (hasChildren) {
                 return (
-                  <div key={item.name} className="space-y-1">
+                  <div key={item.name} className="space-y-0.5">
                     <button
                       onClick={() => toggleMenu(item.name)}
                       className={cn(
-                        "w-full flex items-center gap-3 px-4 py-2.5 rounded-lg transition-all duration-150 group",
-                        isParentItemActive
-                          ? "bg-slate-800/70 dark:bg-gray-800/80 text-white shadow-lg"
-                          : "text-slate-400 dark:text-gray-500 hover:text-white hover:bg-slate-800/50 dark:hover:bg-gray-800/60"
+                        "w-full flex items-center gap-2.5 px-2 py-2 rounded-lg transition-all duration-150 group",
+                        isParentItemActive ? `${gc.bg} text-white` : "text-slate-400 hover:text-white hover:bg-slate-800/50"
                       )}
                     >
-                      <Icon className={cn(
-                        "h-5 w-5 transition-all duration-150 group-hover:scale-110",
-                        isParentItemActive && "text-violet-400"
-                      )} />
-                      <span className="font-medium text-sm flex-1 text-left">{item.name}</span>
-                      <ChevronDown
-                        className={cn(
-                          "h-4 w-4 transition-all duration-150",
-                          isExpanded && "rotate-180"
-                        )}
-                      />
+                      <div className={cn("w-7 h-7 rounded-md flex items-center justify-center flex-shrink-0", isParentItemActive ? `${gc.bg} ${gc.icon}` : "bg-slate-800/70 text-slate-400")}>
+                        <Icon className="h-4 w-4" />
+                      </div>
+                      <span className="font-semibold text-xs flex-1 text-left tracking-wide uppercase">{item.name}</span>
+                      {isParentItemActive && <div className={cn("w-1.5 h-1.5 rounded-full", gc.dot)} />}
+                      <ChevronDown className={cn("h-3.5 w-3.5 transition-all duration-200 text-slate-500", isExpanded && "rotate-180")} />
                     </button>
 
-                    <div
-                      className={cn(
-                        "overflow-hidden transition-all duration-300 ease-in-out",
-                        isExpanded ? "max-h-96 opacity-100" : "max-h-0 opacity-0"
-                      )}
-                    >
-                      <div className="ml-6 mt-1 space-y-1 border-l-2 border-slate-800 dark:border-gray-800 pl-3 transition-colors duration-150">
+                    <div className={cn("overflow-hidden transition-all duration-200 ease-in-out", isExpanded ? "max-h-[500px] opacity-100" : "max-h-0 opacity-0")}>
+                      <div className={cn("ml-3 mt-0.5 space-y-0.5 border-l-2 pl-2 pb-1", gc.border)}>
                         {item.children?.map((child) => {
                           const ChildIcon = child.icon;
                           const isChildActive = child.href ? isActiveRoute(child.href, pathname) : false;
-
                           return (
                             <Link
                               key={child.name}
                               href={child.href || '#'}
                               onClick={() => setSidebarOpen(false)}
                               className={cn(
-                                "flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-150 group",
-                                isChildActive
-                                  ? "bg-gradient-to-r from-violet-500 to-cyan-500 dark:from-violet-600 dark:to-cyan-600 text-white shadow-lg shadow-violet-500/30 dark:shadow-violet-600/50"
-                                  : "text-slate-400 dark:text-gray-500 hover:text-white hover:bg-slate-800/50 dark:hover:bg-gray-800/60"
+                                "flex items-center gap-2.5 px-2.5 py-1.5 rounded-md transition-all duration-150 group",
+                                isChildActive ? "bg-gradient-to-r from-violet-500/90 to-cyan-500/90 text-white shadow-md" : "text-slate-400 hover:text-white hover:bg-slate-800/60"
                               )}
                             >
-                              <ChildIcon className={cn(
-                                "h-4 w-4 transition-all duration-150 group-hover:scale-110",
-                                isChildActive ? "text-white" : "text-cyan-400"
-                              )} />
-                              <span className="font-medium text-sm">{child.name}</span>
-                              {isChildActive && <ChevronRight className="h-3 w-3 ml-auto animate-pulse" />}
+                              <ChildIcon className={cn("h-3.5 w-3.5 flex-shrink-0", isChildActive ? "text-white" : gc.icon)} />
+                              <span className="text-xs font-medium">{child.name}</span>
+                              {isChildActive && <div className="ml-auto w-1 h-4 rounded-full bg-white/60" />}
                             </Link>
                           );
                         })}
@@ -737,36 +705,31 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
                   href={item.href || '#'}
                   onClick={() => setSidebarOpen(false)}
                   className={cn(
-                    "flex items-center gap-3 px-4 py-2.5 rounded-lg transition-all duration-150 group",
-                    isActive
-                      ? "bg-gradient-to-r from-violet-500 to-cyan-500 dark:from-violet-600 dark:to-cyan-600 text-white shadow-lg shadow-violet-500/30 dark:shadow-violet-600/50"
-                      : "text-slate-400 dark:text-gray-500 hover:text-white hover:bg-slate-800/50 dark:hover:bg-gray-800/60"
+                    "flex items-center gap-2.5 px-2 py-2 rounded-lg transition-all duration-150 group",
+                    isActive ? "bg-gradient-to-r from-violet-500 to-cyan-500 text-white shadow-lg" : "text-slate-400 hover:text-white hover:bg-slate-800/50"
                   )}
                 >
-                  <Icon className={cn(
-                    "h-5 w-5 transition-all duration-150 group-hover:scale-110",
-                    isActive ? "text-white" : "text-violet-400"
-                  )} />
-                  <span className="font-medium text-sm flex-1">{item.name}</span>
-                  {isActive && <ChevronRight className="h-4 w-4 animate-pulse" />}
+                  <div className={cn("w-7 h-7 rounded-md flex items-center justify-center flex-shrink-0", isActive ? "bg-white/20" : "bg-slate-800/70 text-violet-400")}>
+                    <Icon className="h-4 w-4" />
+                  </div>
+                  <span className="font-semibold text-xs flex-1 tracking-wide uppercase">{item.name}</span>
+                  {isActive && <ChevronRight className="h-3.5 w-3.5 animate-pulse" />}
                 </Link>
               );
             })}
           </nav>
 
-          <div className="p-4 border-t border-slate-800 dark:border-gray-800 flex-shrink-0 space-y-1.5 transition-colors duration-150">
+          <div className="p-2 border-t border-slate-800/60 flex-shrink-0 space-y-0.5">
             <Link
               href="/"
               onClick={() => setSidebarOpen(false)}
-              className="flex items-center gap-3 px-4 py-2.5 rounded-lg text-slate-400 dark:text-gray-500 hover:text-white hover:bg-slate-800/50 dark:hover:bg-gray-800/60 transition-all duration-150 group"
+              className="flex items-center gap-2.5 px-2 py-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800/50 transition-all duration-150 group"
             >
-              <Store className="h-5 w-5 text-cyan-400 group-hover:scale-110 transition-transform" />
-              <span className="font-medium text-sm">View Store</span>
+              <div className="w-7 h-7 rounded-md bg-slate-800/70 flex items-center justify-center flex-shrink-0">
+                <Store className="h-4 w-4 text-cyan-400" />
+              </div>
+              <span className="text-xs font-medium">View Store</span>
             </Link>
-            <button className="w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-slate-400 dark:text-gray-500 hover:text-white hover:bg-slate-800/50 dark:hover:bg-gray-800/60 transition-all duration-150 group">
-              <Settings className="h-5 w-5 text-violet-400 group-hover:scale-110 transition-transform group-hover:rotate-90" />
-              <span className="font-medium text-sm">Settings</span>
-            </button>
           </div>
 
           <div className="p-4 border-t border-slate-800 dark:border-gray-800 flex-shrink-0 transition-colors duration-150">

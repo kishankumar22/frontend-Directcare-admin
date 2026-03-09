@@ -136,7 +136,7 @@ const flattenedProducts = useMemo(() => {
         {/* TOP BAR – Breadcrumb + Sort (Offers page style) */}
 <div className="mb-3 flex items-center justify-between">
   {/* 🧭 Breadcrumb */}
-<nav className="flex items-center flex-wrap gap-1 text-sm text-gray-600">
+<nav className="hidden md:flex items-center flex-wrap gap-1 text-sm text-gray-600">
   <a href="/" className="hover:text-[#445D41] transition-colors">
     Home
   </a>
@@ -256,7 +256,7 @@ const flattenedProducts = useMemo(() => {
           {/* PRODUCTS */}
           <div className="flex-1">
             
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-6">
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-2 md:gap-6">
   {flattenedProducts.map((item) => (
     <ProductCard
       key={item.variantForCard?.id ?? item.productData.id}

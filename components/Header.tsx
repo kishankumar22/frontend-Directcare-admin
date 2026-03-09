@@ -7,6 +7,7 @@ import { Menu, Search, Heart, ShoppingCart, User, X, ChevronDown, ChevronRight, 
 import MegaMenu from "./MegaMenu";
 import { useToast } from "@/components/toast/CustomToast";
 import { useCart } from "@/context/CartContext";
+import { useWishlist } from "@/context/WishlistContext";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import { useDebounce } from "@/app/hooks/useDebounce";
@@ -26,9 +27,16 @@ export default function Header({
   className?: string;
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
+  const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
   const [searchValue, setSearchValue] = useState("");
  const [categories, setCategories] = useState<Category[]>(
   ssrCategories.filter((c: any) => c.showOnHomepage === true)
+);
+ // Mobile drawer shows ALL parent categories (not just homepage ones)
+ const [mobileCategories, setMobileCategories] = useState<Category[]>(
+  ssrCategories
+    .filter((c: any) => !c.parentCategoryId)
+    .sort((a: any, b: any) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))
 );
 
   const [activeCategory, setActiveCategory] = useState<Category | null>(null);
@@ -40,8 +48,9 @@ export default function Header({
 
   const toast = useToast();
   const { cartCount, isInitialized } = useCart();
+  const { wishlistCount } = useWishlist();
   const router = useRouter();
-  const { isAuthenticated, user } = useAuth();
+  const { isAuthenticated, user, logout } = useAuth();
 
 
  const handleAccountClick = () => {
@@ -154,13 +163,14 @@ console.log("SEARCH API RESPONSE 👉", json);
 }, [debouncedSearch]);
 
 const searchRef = useRef<HTMLDivElement>(null);
+const mobileSearchRef = useRef<HTMLDivElement>(null);
 useEffect(() => {
   const handleClickOutside = (e: MouseEvent) => {
-    if (
-      searchRef.current &&
-      !searchRef.current.contains(e.target as Node)
-    ) {
+    const insideDesktop = searchRef.current?.contains(e.target as Node);
+    const insideMobile = mobileSearchRef.current?.contains(e.target as Node);
+    if (!insideDesktop && !insideMobile) {
       setShowSearchDropdown(false);
+      setMobileSearchOpen(false);
     }
   };
 
@@ -213,12 +223,14 @@ useEffect(() => {
         );
         const json = await res.json();
         if (json.success) {
-          const topCategories = json.data
+          const allParents = json.data
   .filter((cat: Category) => !cat.parentCategoryId)
-  .filter((cat: any) => cat.showOnHomepage === true)
   .sort((a: any, b: any) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
 
+const topCategories = allParents.filter((cat: any) => cat.showOnHomepage === true);
+
 setCategories(topCategories);
+setMobileCategories(allParents);
 
         }
       } catch (err) {
@@ -229,6 +241,12 @@ setCategories(topCategories);
     fetchCategories();
   }, [ssrCategories]);
 
+  // Lock body scroll when drawer or mobile search is open
+  useEffect(() => {
+    document.body.style.overflow = (menuOpen || mobileSearchOpen) ? 'hidden' : '';
+    return () => { document.body.style.overflow = ''; };
+  }, [menuOpen, mobileSearchOpen]);
+
   const handleSearch = (e: React.FormEvent) => {
   e.preventDefault();
 
@@ -236,6 +254,7 @@ setCategories(topCategories);
 
   router.push(`/search?q=${encodeURIComponent(searchValue)}`);
   setShowSearchDropdown(false);
+  setMobileSearchOpen(false);
 };
 
 
@@ -256,11 +275,11 @@ setCategories(topCategories);
     setOpenChildren((s) => ({ ...s, [id]: !s[id] }));
 
   return (
-    <header 
-      className="fixed top-0 left-0 right-0 z-50 transition-transform duration-300 ease-in-out"
+    <header
+      className="fixed left-0 right-0 z-50"
       style={{
-        transform: hideTopBar ? 'translateY(-52px)' : 'translateY(0)',
-        willChange: 'transform',
+        top: (hideTopBar && !menuOpen) ? '-52px' : '0',
+        transition: 'top 300ms ease-in-out',
       }}
     >
       {/* ⭐ TOP BAR */}
@@ -341,67 +360,78 @@ setCategories(topCategories);
 
       {/* ⭐ MAIN HEADER */}
       <div className="bg-white shadow-md">
-        <div className="flex items-center justify-between h-16 px-4 sm:px-6 lg:px-20">
-          {/* Logo */}
-          <div className="flex items-center gap-2">
+        <div className="flex items-center h-14 md:h-16 px-3 md:px-6 lg:px-20 gap-2">
+
+          {/* LEFT: Hamburger + Logo */}
+          <div className="flex items-center gap-2 flex-shrink-0">
             <button
               onClick={() => setMenuOpen(true)}
               aria-label="Open menu"
-              className="md:hidden mr-2 text-gray-700 hover:text-green-800"
+              className="md:hidden text-gray-700 hover:text-green-800 p-1"
             >
-              <Menu size={24} />
+              <Menu size={22} />
             </button>
             <Link href="/" className="flex items-center">
-              <Image 
-                src="/logo/logo.png" 
-                alt="Direct Care Logo" 
-                width={150} 
-                height={50} 
-                className="object-contain md:w-[240px] md:h-[80px]" 
+              <Image
+                src="/logo/logo.png"
+                alt="Direct Care Logo"
+                width={150}
+                height={50}
+                className="h-8 w-auto md:h-[80px] md:w-[240px] object-contain"
                 priority
               />
             </Link>
           </div>
 
-          {/* Mobile Icons */}
-          <div className="flex items-center gap-4 md:hidden">
+          {/* CENTER: Spacer — search is icon-triggered overlay */}
+          <div className="flex-1 md:hidden" />
+
+          {/* RIGHT: Mobile Icons (search + wishlist + cart + account) */}
+          <div className="flex items-center gap-1.5 md:hidden flex-shrink-0">
             <button
-              className="text-gray-700 hover:text-green-800 transition"
-              onClick={() => toast.success("Thank you for liking this item!")}
+              onClick={() => setMobileSearchOpen((v) => !v)}
+              aria-label="Search"
+              className={`p-2 rounded-full transition ${mobileSearchOpen ? 'bg-[#445D41] text-white' : 'text-gray-700 hover:text-green-800'}`}
             >
-              <Heart size={22} />
+              <Search size={20} />
             </button>
+            {/* Wishlist */}
+            <Link href="/wishlist" className="relative p-1 text-gray-700 hover:text-red-500 transition">
+              <Heart
+                size={22}
+                className={wishlistCount > 0 ? "fill-red-500 text-red-500" : ""}
+              />
+              {wishlistCount > 0 && (
+                <span className="absolute -top-0.5 -right-1 bg-red-500 text-white text-[9px] rounded-full min-w-[16px] h-4 flex items-center justify-center px-0.5">
+                  {wishlistCount}
+                </span>
+              )}
+            </Link>
             <button
-              className="relative text-gray-700 hover:text-green-800 transition"
+              className="relative text-gray-700 hover:text-green-800 transition p-1"
               onClick={() => router.push("/cart")}
             >
               <ShoppingCart size={22} />
               {isInitialized && cartCount > 0 && (
-                <span className="absolute -top-1 -right-2 bg-[#445D41] text-white text-[10px] rounded-full px-1.5">
+                <span className="absolute -top-0.5 -right-1 bg-[#445D41] text-white text-[9px] rounded-full min-w-[16px] h-4 flex items-center justify-center px-0.5">
                   {cartCount}
                 </span>
               )}
             </button>
-           {/* USER STATUS UI */}
-{isAuthenticated && user ? (
-  <button
-    onClick={handleAccountClick}
-    className="flex items-center gap-1 text-gray-700"
-  >
-    <User size={20} />
-    <span className="text-xs font-medium">
-      {user.firstName}
-    </span>
-  </button>
-) : (
-  <button
-    onClick={() => router.push("/account")}
-    className="px-3 py-1 text-xs font-semibold text-[#445D41] border border-[#445D41] rounded-md"
-  >
-    Login
-  </button>
-)}
-
+            {isAuthenticated && user ? (
+              <button onClick={handleAccountClick} className="flex items-center gap-1 text-gray-700 p-1">
+                <div className="w-7 h-7 rounded-full bg-[#445D41] text-white flex items-center justify-center text-[11px] font-bold">
+                  {user.firstName?.[0]?.toUpperCase() ?? "U"}
+                </div>
+              </button>
+            ) : (
+              <button
+                onClick={() => router.push("/account")}
+                className="px-2.5 py-1 text-[11px] font-semibold text-white bg-[#445D41] rounded-full"
+              >
+                Login
+              </button>
+            )}
           </div>
 
           {/* Search - Desktop */}
@@ -556,12 +586,17 @@ setCategories(topCategories);
 
           {/* Desktop Icons */}
           <div className="hidden md:flex items-center gap-5 text-gray-700">
-            <button
-              className="hover:text-green-800 transition"
-              onClick={() => toast.success("Thank you for liking this item!")}
-            >
-              <Heart size={22} />
-            </button>
+            <Link href="/wishlist" className="relative hover:text-red-500 transition">
+              <Heart
+                size={22}
+                className={wishlistCount > 0 ? "fill-red-500 text-red-500" : ""}
+              />
+              {wishlistCount > 0 && (
+                <span className="absolute -top-0.5 -right-1 bg-red-500 text-white text-[9px] rounded-full min-w-[16px] h-4 flex items-center justify-center px-0.5">
+                  {wishlistCount}
+                </span>
+              )}
+            </Link>
             <Link href="/cart">
               <button className="hover:text-green-800 transition relative">
                 <ShoppingCart size={22} />
@@ -678,139 +713,313 @@ setCategories(topCategories);
         </div>
       </div>
 
+      {/* ✅ MOBILE SEARCH OVERLAY — slides down from header */}
+      {mobileSearchOpen && (
+        <div
+          ref={mobileSearchRef}
+          className="md:hidden absolute top-full left-0 right-0 bg-white border-t border-gray-100 shadow-xl z-50"
+        >
+          <div className="px-3 py-3">
+            <form
+              onSubmit={handleSearch}
+              className="flex items-center gap-2"
+            >
+              <div className="relative flex-1">
+                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                <input
+                  type="text"
+                  autoFocus
+                  placeholder="Search products…"
+                  value={searchValue}
+                  onChange={(e) => setSearchValue(e.target.value)}
+                  onFocus={() => results.length > 0 && setShowSearchDropdown(true)}
+                  className="w-full rounded-full pl-9 pr-4 py-2 text-sm border border-[#445D41] focus:outline-none focus:ring-2 focus:ring-[#445D41]"
+                />
+              </div>
+              <button
+                type="button"
+                onClick={() => { setMobileSearchOpen(false); setSearchValue(""); setShowSearchDropdown(false); }}
+                className="p-1.5 text-gray-500 flex-shrink-0"
+              >
+                <X size={20} />
+              </button>
+            </form>
+
+            {showSearchDropdown && (
+              <div className="mt-2 bg-white border rounded-xl shadow-xl max-h-[55vh] overflow-y-auto">
+                {searchLoading && <div className="p-4 text-sm text-gray-500">Searching…</div>}
+                {!searchLoading && results.length === 0 && (
+                  <div className="p-4 text-sm text-gray-500">No products found</div>
+                )}
+                {!searchLoading && results.map((item) => (
+                  <Link
+                    key={item.id}
+                    href={`/products/${item.slug}`}
+                    onClick={() => { setShowSearchDropdown(false); setSearchValue(""); setMobileSearchOpen(false); }}
+                    className="flex items-center gap-3 px-3 py-2.5 border-b last:border-b-0 hover:bg-gray-50"
+                  >
+                    <img
+                      src={item.mainImageUrl?.startsWith("http") ? item.mainImageUrl : `${process.env.NEXT_PUBLIC_API_URL}${item.mainImageUrl}`}
+                      alt="img"
+                      className="w-10 h-10 object-contain flex-shrink-0 rounded"
+                    />
+                    <div className="flex flex-col flex-1 min-w-0">
+                      <span className="text-sm font-medium text-gray-800 truncate">{item.name}</span>
+                      <span className="text-xs text-gray-500">{item.categoryName}</span>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        {item.hasDiscount && typeof item.discountPercentage === "number" && item.discountPercentage > 0 ? (
+                          <>
+                            <span className="text-sm font-semibold text-[#445D41]">£{getDiscountedPrice(item.price, item.discountPercentage)}</span>
+                            <span className="text-xs text-gray-400 line-through">£{Number(item.price).toFixed(2)}</span>
+                          </>
+                        ) : (
+                          <span className="text-sm font-semibold text-[#445D41]">£{Number(item.price).toFixed(2)}</span>
+                        )}
+                      </div>
+                    </div>
+                    {item.inStock
+                      ? <span className="text-[10px] px-2 py-1 rounded bg-green-100 text-green-700 font-semibold flex-shrink-0">In Stock</span>
+                      : <span className="text-[10px] px-2 py-1 rounded bg-red-100 text-red-600 font-semibold flex-shrink-0">Out</span>
+                    }
+                  </Link>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* ✅ MOBILE DRAWER */}
       <div
         className={`fixed inset-0 z-[60] transition-opacity duration-300 ${
           menuOpen ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"
         }`}
       >
+        {/* Backdrop */}
         <div
-          className={`absolute inset-0 bg-black/40 transition-opacity duration-300 ${
-            menuOpen ? "opacity-100" : "opacity-0"
-          }`}
+          className="absolute inset-0 bg-black/60"
           onClick={() => setMenuOpen(false)}
         />
 
+        {/* Drawer Panel */}
         <aside
-          className={`absolute top-0 left-0 h-full w-[92vw] max-w-sm bg-white transform transition-transform duration-300 shadow-xl overflow-y-auto ${
+          className={`absolute top-0 left-0 h-full w-[82vw] max-w-[320px] bg-white flex flex-col transform transition-transform duration-300 shadow-2xl ${
             menuOpen ? "translate-x-0" : "-translate-x-full"
           }`}
           role="dialog"
           aria-modal="true"
         >
-          <div className="flex items-center justify-between p-4 border-b">
-            <Link href="/" onClick={() => setMenuOpen(false)} className="flex items-center gap-2">
-              <Image src="/logo/logo.png" alt="logo" width={180} height={80} className="object-contain" />
+          {/* ── Header ── */}
+          <div className="bg-white px-4 py-3 flex items-center justify-between flex-shrink-0 border-b border-gray-200">
+            <Link href="/" onClick={() => setMenuOpen(false)}>
+              <Image src="/logo/logo.png" alt="logo" width={130} height={50} className="object-contain" />
             </Link>
-            <button onClick={() => setMenuOpen(false)} className="text-gray-700">
-              <X size={22} />
+            <button
+              onClick={() => setMenuOpen(false)}
+              className="text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-full p-1.5 transition"
+            >
+              <X size={20} />
             </button>
           </div>
 
-          <nav className="p-2">
-
-            {categories.map((parent) => (
-              <div key={parent.id} className="border-b">
-                {parent.subCategories && parent.subCategories.length > 0 ? (
-                  <>
-                    <button
-                      onClick={() => toggleParent(parent.id)}
-                      className="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-gray-50 transition"
-                    >
-                      <span className="font-medium text-gray-800">{parent.name}</span>
-                      <ChevronDown
-                        size={18}
-                        className={`text-gray-600 transition-transform duration-300 ease-in-out ${
-                          openParents[parent.id] ? "rotate-180" : "rotate-0"
-                        }`}
-                      />
-                    </button>
-
-                    <div
-                      className={`overflow-hidden transition-all duration-300 ease-in-out ${
-                        openParents[parent.id] ? "max-h-[1000px] opacity-100" : "max-h-0 opacity-0"
-                      }`}
-                    >
-                      <div className="pl-4 pr-4 pb-3 bg-gray-50">
-                        {parent.subCategories.map((sub) => (
-                          <div key={sub.id} className="mb-1">
-                            {sub.subCategories && sub.subCategories.length > 0 ? (
-                              <>
-                                <button
-                                  onClick={() => toggleChild(sub.id)}
-                                  className="w-full flex items-center justify-between py-2 text-sm text-gray-700 hover:text-[#445D41] transition"
-                                >
-                                  <span>{sub.name}</span>
-                                  <ChevronRight
-                                    size={16}
-                                    className={`transition-transform duration-300 ease-in-out ${
-                                      openChildren[sub.id] ? "rotate-90" : "rotate-0"
-                                    }`}
-                                  />
-                                </button>
-
-                                <div
-                                  className={`overflow-hidden transition-all duration-300 ease-in-out ${
-                                    openChildren[sub.id] ? "max-h-[500px] opacity-100" : "max-h-0 opacity-0"
-                                  }`}
-                                >
-                                  <div className="pl-3">
-                                    {sub.subCategories.map((c) => (
-                                      <Link
-                                        key={c.id}
-                                        href={`/category/${c.slug ?? "#"}`}
-                                        onClick={() => setMenuOpen(false)}
-                                        className="block py-1 text-sm text-gray-600 hover:text-[#445D41] transition"
-                                      >
-                                        {c.name}
-                                      </Link>
-                                    ))}
-                                  </div>
-                                </div>
-                              </>
-                            ) : (
-                              <Link
-                                href={`/category/${sub.slug ?? "#"}`}
-                                onClick={() => setMenuOpen(false)}
-                                className="block py-2 text-sm text-gray-700 hover:text-[#445D41] transition"
-                              >
-                                {sub.name}
-                              </Link>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  </>
-                ) : (
-                  <Link
-                    href={`/category/${parent.slug ?? "#"}`}
-                    onClick={() => setMenuOpen(false)}
-                    className="flex items-center gap-2 px-4 py-3 font-medium text-gray-700 hover:text-[#445D41] hover:bg-gray-50 transition"
+          {/* ── User Section ── */}
+          <div className="bg-green-50 px-4 py-3 flex items-center gap-3 border-b border-green-100 flex-shrink-0">
+            {isAuthenticated && user ? (
+              <>
+                <div className="w-10 h-10 rounded-full bg-[#445D41] text-white flex items-center justify-center text-base font-bold flex-shrink-0">
+                  {user.firstName?.[0]?.toUpperCase() ?? "U"}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-gray-800 truncate">Hello, {user.firstName}!</p>
+                  <button
+                    onClick={() => { handleAccountClick(); setMenuOpen(false); }}
+                    className="text-xs text-[#445D41] font-medium hover:underline"
                   >
-                    {parent.name}
-                  </Link>
-                )}
+                    View Account →
+                  </button>
+                </div>
+                <button
+                  onClick={() => { logout(); setMenuOpen(false); }}
+                  className="px-3 py-1.5 text-xs font-semibold text-red-600 border border-red-300 rounded-full hover:bg-red-50 transition flex-shrink-0"
+                >
+                  Logout
+                </button>
+              </>
+            ) : (
+              <div className="flex gap-2 w-full">
+                <button
+                  onClick={() => { router.push("/account"); setMenuOpen(false); }}
+                  className="flex-1 py-2 text-sm font-semibold text-white bg-[#445D41] rounded-full"
+                >
+                  Login
+                </button>
+                <button
+                  onClick={() => { router.push("/signup"); setMenuOpen(false); }}
+                  className="flex-1 py-2 text-sm font-semibold text-[#445D41] border border-[#445D41] rounded-full"
+                >
+                  Register
+                </button>
               </div>
-            ))}
-          </nav>
+            )}
+          </div>
 
-          <div className="p-4 border-t mt-4">
-            <div className="mb-3">
-              <Link href="/account" onClick={() => setMenuOpen(false)} className="block py-2 text-sm hover:text-[#445D41] transition">
-                My Account
+          {/* ── Scrollable Content ── */}
+          <div className="flex-1 overflow-y-auto">
+
+            {/* Category label */}
+            <div className="px-4 pt-4 pb-1">
+              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Shop by Category</p>
+            </div>
+
+            {/* Category List */}
+            <nav>
+              {mobileCategories.map((parent) => (
+                <div key={parent.id} className="border-b border-gray-100">
+                  {parent.subCategories && parent.subCategories.length > 0 ? (
+                    <>
+                      <button
+                        onClick={() => toggleParent(parent.id)}
+                        className="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-green-50 transition"
+                      >
+                        <span className="font-medium text-gray-800 text-sm">{parent.name}</span>
+                        <ChevronDown
+                          size={16}
+                          className={`text-[#445D41] transition-transform duration-300 ${
+                            openParents[parent.id] ? "rotate-180" : "rotate-0"
+                          }`}
+                        />
+                      </button>
+
+                      <div
+                        className={`overflow-hidden transition-all duration-300 ease-in-out ${
+                          openParents[parent.id] ? "max-h-[1000px] opacity-100" : "max-h-0 opacity-0"
+                        }`}
+                      >
+                        <div className="bg-green-50/60 pl-6 pr-4 pb-2">
+                          {parent.subCategories.map((sub) => (
+                            <div key={sub.id}>
+                              {sub.subCategories && sub.subCategories.length > 0 ? (
+                                <>
+                                  <button
+                                    onClick={() => toggleChild(sub.id)}
+                                    className="w-full flex items-center justify-between py-2 text-sm text-gray-700 hover:text-[#445D41] transition"
+                                  >
+                                    <span>{sub.name}</span>
+                                    <ChevronRight
+                                      size={14}
+                                      className={`transition-transform duration-300 ${
+                                        openChildren[sub.id] ? "rotate-90" : "rotate-0"
+                                      }`}
+                                    />
+                                  </button>
+                                  <div
+                                    className={`overflow-hidden transition-all duration-300 ${
+                                      openChildren[sub.id] ? "max-h-[500px] opacity-100" : "max-h-0 opacity-0"
+                                    }`}
+                                  >
+                                    <div className="pl-3 border-l-2 border-green-200 ml-1 mb-1">
+                                      {sub.subCategories.map((c) => (
+                                        <Link
+                                          key={c.id}
+                                          href={`/category/${c.slug ?? "#"}`}
+                                          onClick={() => setMenuOpen(false)}
+                                          className="block py-1.5 text-xs text-gray-600 hover:text-[#445D41] transition"
+                                        >
+                                          {c.name}
+                                        </Link>
+                                      ))}
+                                    </div>
+                                  </div>
+                                </>
+                              ) : (
+                                <Link
+                                  href={`/category/${sub.slug ?? "#"}`}
+                                  onClick={() => setMenuOpen(false)}
+                                  className="block py-2 text-sm text-gray-700 hover:text-[#445D41] transition"
+                                >
+                                  {sub.name}
+                                </Link>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </>
+                  ) : (
+                    <Link
+                      href={`/category/${parent.slug ?? "#"}`}
+                      onClick={() => setMenuOpen(false)}
+                      className="flex items-center justify-between px-4 py-3 text-sm font-medium text-gray-700 hover:text-[#445D41] hover:bg-green-50 transition"
+                    >
+                      {parent.name}
+                      <ChevronRight size={15} className="text-gray-400" />
+                    </Link>
+                  )}
+                </div>
+              ))}
+            </nav>
+
+            {/* Quick Links */}
+            <div className="px-4 pt-4 pb-1">
+              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Quick Links</p>
+            </div>
+            <div className="pb-2">
+              <Link
+                href="/offers"
+                onClick={() => setMenuOpen(false)}
+                className="flex items-center gap-3 px-4 py-3 text-sm font-medium text-red-600 hover:bg-red-50 transition border-b border-gray-100"
+              >
+                <BadgePercent size={18} />
+                Offers &amp; Deals
               </Link>
-              <Link href="/orders" onClick={() => setMenuOpen(false)} className="block py-2 text-sm hover:text-[#445D41] transition">
-                Orders
+              <Link
+                href="/brands"
+                onClick={() => setMenuOpen(false)}
+                className="flex items-center gap-3 px-4 py-3 text-sm text-gray-700 hover:bg-green-50 hover:text-[#445D41] transition border-b border-gray-100"
+              >
+                <Star size={18} />
+                Shop by Brand
               </Link>
-              <Link href="/cart" onClick={() => setMenuOpen(false)} className="block py-2 text-sm hover:text-[#445D41] transition">
-                Cart
+              <Link
+                href="/cart"
+                onClick={() => setMenuOpen(false)}
+                className="flex items-center gap-3 px-4 py-3 text-sm text-gray-700 hover:bg-green-50 hover:text-[#445D41] transition border-b border-gray-100"
+              >
+                <ShoppingCart size={18} />
+                My Cart
+                {isInitialized && cartCount > 0 && (
+                  <span className="ml-auto bg-[#445D41] text-white text-xs rounded-full px-2 py-0.5">{cartCount}</span>
+                )}
+              </Link>
+              <Link
+                href="/wishlist"
+                onClick={() => setMenuOpen(false)}
+                className="flex items-center gap-3 px-4 py-3 text-sm text-gray-700 hover:bg-green-50 hover:text-[#445D41] transition border-b border-gray-100"
+              >
+                <Heart size={18} />
+                My Wishlist
+                {wishlistCount > 0 && (
+                  <span className="ml-auto bg-red-500 text-white text-xs rounded-full px-2 py-0.5">{wishlistCount}</span>
+                )}
+              </Link>
+              <Link
+                href="/orders"
+                onClick={() => setMenuOpen(false)}
+                className="flex items-center gap-3 px-4 py-3 text-sm text-gray-700 hover:bg-green-50 hover:text-[#445D41] transition"
+              >
+                <Package size={18} />
+                My Orders
               </Link>
             </div>
-            <div className="flex gap-3 mt-2">
-              <Link href="#"><Image src="/social/facebook.svg" alt="fb" width={28} height={28} /></Link>
-              <Link href="#"><Image src="/social/instagram.svg" alt="ig" width={28} height={28} /></Link>
-              <Link href="#"><Image src="/social/twitter.svg" alt="tw" width={28} height={28} /></Link>
+          </div>
+
+          {/* ── Drawer Footer ── */}
+          <div className="border-t bg-gray-50 px-4 py-3 flex-shrink-0">
+            <div className="flex gap-3">
+              <Link href="#"><Image src="/social/facebook.svg" alt="fb" width={26} height={26} /></Link>
+              <Link href="#"><Image src="/social/instagram.svg" alt="ig" width={26} height={26} /></Link>
+              <Link href="#"><Image src="/social/twitter.svg" alt="tw" width={26} height={26} /></Link>
+              <Link href="#"><Image src="/social/youtube.svg" alt="yt" width={26} height={26} /></Link>
             </div>
           </div>
         </aside>

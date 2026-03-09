@@ -204,6 +204,8 @@ const handleAddToCart = () => {
       option3: (defaultVariant as any)?.option3Value ?? null,
     },
     shipSeparately: product.shipSeparately,
+    nextDayDeliveryEnabled: product.nextDayDeliveryEnabled ?? false,
+    sameDayDeliveryEnabled: product.sameDayDeliveryEnabled ?? false,
     productData: JSON.parse(JSON.stringify(product)),
   });
 
@@ -217,53 +219,40 @@ const handleAddToCart = () => {
 
       {/* BADGES */}
    <GenderBadge gender={product.gender} />
-{discountBadge && (
-  <div className="absolute top-3 right-3 z-20">
-    <div
-      className="w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-gradient-to-br from-red-500 to-red-700 flex items-center justify-center text-white shadow-lg ring-2 ring-white">
-
-      <div className="flex flex-col items-center leading-none">
-        {discountBadge.type === "percent" ? (
-          <>
-            <span className="text-sm sm:text-base font-extrabold">
-              {discountBadge.value}%
-            </span>
-            <span className="text-[9px] sm:text-[11px] font-semibold">
-              OFF
-            </span>
-          </>
-        ) : (
-          <>
-            <span className="text-sm sm:text-base font-extrabold">
-              £{discountBadge.value}
-            </span>
-            <span className="text-[9px] sm:text-[11px] font-semibold">
-              OFF
-            </span>
-          </>
-        )}
-      </div>
-    </div>
-  </div>
-)}
-{/* 🔥 COUPON REQUIRED BADGE (SAME CIRCULAR STYLE) */}
-{!discountBadge && hasActiveCoupon && (
-  <div className="absolute top-3 right-3 z-20">
-    <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-gradient-to-br from-red-500 to-red-700 flex items-center justify-center text-white shadow-lg ring-2 ring-white">
-      <div className="flex flex-col items-center leading-none text-center px-1">
-        <span className="text-[9px] sm:text-[10px] font-extrabold leading-tight">
-          COUPON
-        </span>
-        <span className="text-[8px] sm:text-[9px] font-semibold leading-tight">
-          AVAILABLE
-        </span>
-      </div>
-    </div>
-  </div>
-)}
-
       {/* IMAGE */}
-       <div className="h-[140px] sm:h-[160px] md:h-[180px] flex items-center justify-center overflow-hidden bg-white rounded-t-xl pt-2 relative">
+       <div className="h-[176px] sm:h-[200px] md:h-[224px] flex items-center justify-center overflow-hidden bg-white rounded-t-xl pt-2 relative">
+        {/* Offer badge — smaller */}
+        {discountBadge && (
+          <div className="absolute top-2 right-2 z-20">
+            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-gradient-to-br from-red-500 to-red-700 flex items-center justify-center text-white shadow-md ring-2 ring-white">
+              <div className="flex flex-col items-center leading-none">
+                {discountBadge.type === "percent" ? (
+                  <><span className="text-[10px] sm:text-xs font-extrabold">{discountBadge.value}%</span><span className="text-[7px] sm:text-[8px] font-semibold">OFF</span></>
+                ) : (
+                  <><span className="text-[10px] sm:text-xs font-extrabold">£{discountBadge.value}</span><span className="text-[7px] sm:text-[8px] font-semibold">OFF</span></>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+        {/* Coupon badge — smaller */}
+        {!discountBadge && hasActiveCoupon && (
+          <div className="absolute top-2 right-2 z-20">
+            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-gradient-to-br from-red-500 to-red-700 flex items-center justify-center text-white shadow-md ring-2 ring-white">
+              <div className="flex flex-col items-center leading-none text-center px-0.5">
+                <span className="text-[8px] font-extrabold leading-tight">COUPON</span>
+                <span className="text-[7px] font-semibold leading-tight">Avail</span>
+              </div>
+            </div>
+          </div>
+        )}
+        {/* VAT Relief — bottom left on image */}
+        {product.vatExempt && (
+          <span className="absolute bottom-1.5 left-2 z-20 inline-flex items-center gap-0.5 text-[9px] font-semibold text-white bg-black/80 border border-black/20 px-1.5 py-0.5 rounded-md shadow-sm whitespace-nowrap leading-none backdrop-blur-sm">
+            <BadgePercent className="h-2.5 w-2.5" />
+            VAT Relief
+          </span>
+        )}
 
         <Link href={`/products/${product.slug}`}>
          <Image
@@ -277,7 +266,7 @@ const handleAddToCart = () => {
       </div>
 
       {/* NAME */}
-                    <div className="min-h-[38px] max-h-[38px] mb-2">
+                    <div className="min-h-[38px] max-h-[38px] mb-0.5">
                     <Link href={`/products/${product.slug}`} className="block">
                       <h3 className="font-semibold text-xs md:text-sm text-gray-800 line-clamp-2">
   {defaultVariant
@@ -292,81 +281,69 @@ const handleAddToCart = () => {
                     </Link>
                   </div>
 
-    <div className="flex items-center gap-2 min-h-[20px] mb-2 flex-wrap">
+    {/* RATING + REVIEW + LOYALTY — single compact row */}
+    <div className="flex items-center gap-1 min-h-[20px] mb-2 flex-nowrap overflow-hidden">
 
   {/* ⭐ Rating */}
-  <div className="flex items-center bg-green-600 text-white px-1.5 py-0.5 rounded-md text-[10px] font-semibold">
+  <div className="flex items-center bg-green-600 text-white px-1 py-0.5 rounded text-[10px] font-semibold flex-shrink-0">
     <span>{product.averageRating?.toFixed(1)}</span>
-    <Star className="h-3 w-3 ml-1 fill-white text-white" />
+    <Star className="h-2.5 w-2.5 ml-0.5 fill-white text-white" />
   </div>
 
   {/* Reviews */}
-  <span className="text-[11px] text-gray-600">
-    ({product.reviewCount?.toLocaleString()})
+  <span className="text-[10px] text-gray-500 flex-shrink-0">
+    ({product.reviewCount ?? 0})
   </span>
 
-  {/* 🎁 LOYALTY POINTS – INLINE */}
- {getLoyaltyPoints() > 0 && (
-  <span className="inline-flex items-center gap-1 text-[11px] font-medium text-green-700 bg-green-50 border border-green-200 px-2 py-0.5 rounded-md whitespace-nowrap">
-    <AwardIcon className="h-4 w-4 text-green-600" />
-    Earn {getLoyaltyPoints()} pts
-  </span>
-)}
-
+  {/* 🎁 Loyalty */}
+  {getLoyaltyPoints() > 0 && (
+    <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-green-700 bg-green-50 border border-green-200 px-1 py-0.5 rounded whitespace-nowrap leading-none flex-shrink-0">
+      <AwardIcon className="h-2.5 w-2.5 text-green-600 flex-shrink-0" />
+      Earn {getLoyaltyPoints()} pts
+    </span>
+  )}
 
 </div>
 
       {/* PRICE & VAT */}
-      <div className="flex items-center gap-1 mb-0 flex-wrap">
-       <span className="text-base font-bold text-[#445D41]">
-  £{finalPrice.toFixed(2)}
-</span>
-{discountBadge && (
-  <span className="line-through text-xs text-gray-400">
-    £{basePrice.toFixed(2)}
-  </span>
-)}
-       {product.vatExempt ? (
-  <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-green-700 bg-green-50 border border-green-200 px-2 py-0.5 rounded-md whitespace-nowrap">
-    <BadgePercent className="h-3 w-3" />
-    VAT Exempt
-  </span>
-) : vatRate !== null ? (
-  <span className="text-[10px] font-semibold text-green-700 bg-green-100 px-1 py-0.5 rounded whitespace-nowrap">
-    ({vatRate}% VAT)
-  </span>
-) : null}
-
-
+      <div className="flex items-center gap-1 mb-0">
+        <span className="text-base font-bold text-[#445D41]">£{finalPrice.toFixed(2)}</span>
+        {discountBadge && <span className="line-through text-xs text-gray-400">£{basePrice.toFixed(2)}</span>}
+        {!product.vatExempt && vatRate !== null && (
+          <span className="text-[10px] font-semibold text-green-700 bg-green-100 px-1 py-0.5 rounded whitespace-nowrap">
+            ({vatRate}% VAT)
+          </span>
+        )}
       </div>
 
 
 
       {/* QUANTITY + BUTTON */}
-         <div className="flex items-center gap-1 mt-2">
+         <div className="flex items-center gap-1 mt-auto pt-2">
 
-        <div className="flex-shrink-0 scale-90 -ml-1">
+        <div className="flex-shrink-0 -ml-1 [&_input]:w-7 [&_button]:px-1.5">
           <QuantitySelector
             quantity={qty}
             setQuantity={setQty}
             maxStock={stock}
             stockError={stockError}
             setStockError={setStockError}
-            allowedQuantities={product.allowedQuantities}
+
           />
         </div>
 
-       <Button
+  <Button
   disabled={stock === 0 || product.disableBuyButton === true}
   onClick={handleAddToCart}
-  className={`flex-1 h-[32px] text-sm rounded-xl font-semibold ${
+  className={`flex-1 h-[30px] text-[10px] px-1.5 rounded-lg font-semibold ${
     stock === 0
-      ? "bg-gray-400 cursor-not-allowed"
+      ? "bg-red-700 text-white cursor-not-allowed"
       : "bg-[#445D41] hover:bg-black text-white"
   }`}
 >
-  Add to Cart
+  {stock === 0 ? "Out of Stock" : "Add to Cart"}
 </Button>
+
 
         {showPharmaModal && (
   <PharmaQuestionsModal

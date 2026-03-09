@@ -3,11 +3,11 @@
 
 import { useState, useMemo, useTransition, useEffect, useCallback, useRef, } from "react";
 import Image from "next/image";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams, useParams } from "next/navigation";
 import { getVatRate } from "@/app/lib/vatHelpers";
 import PremiumPriceSlider from "@/components/filters/PremiumPriceSlider";
 import Link from "next/link";
-import { ShoppingCart, Star, SlidersHorizontal, X, Search, Grid3x3, LayoutGrid, ChevronLeft, ChevronRight, ExternalLink, BadgePercent, Grid2x2, AwardIcon, } from "lucide-react";
+import { ShoppingCart, Star, SlidersHorizontal, X, Search, Grid3x3, LayoutGrid, ChevronRight, ExternalLink, BadgePercent, Grid2x2, AwardIcon, } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -17,6 +17,7 @@ import { getDiscountBadge, getDiscountedPrice, } from "@/app/lib/discountHelpers
 import GenderBadge from "@/components/shared/GenderBadge";
 import { flattenProductsForListing } from "@/app/lib/flattenProductsForListing";
 import PharmaQuestionsModal from "@/components/pharma/PharmaQuestionsModal";
+import ProductCard from "@/components/ProductCard";
 
 // ---------- Types ----------
 interface ProductImage {
@@ -139,17 +140,22 @@ export default function CategoryClient({
 }: CategoryClientProps & { vatRates: any[] }) {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const routeParams = useParams();
+  // ✅ Always use URL slug (not category.slug which may differ from URL)
+  const urlSlug = (routeParams?.slug as string) ?? category?.slug ?? "";
   const isOfferPage = searchParams.get("offer") === "true";
 
   const toast = useToast();
   const [isPending, startTransition] = useTransition();
-  const [products, setProducts] = useState<Product[]>(initialProducts);
+  const [products, setProducts] = useState<Product[]>(initialProducts ?? []);
 const [page, setPage] = useState(currentPage ?? 1);
 const [hasMore, setHasMore] = useState(
   totalPages ? currentPage < totalPages : true
 );
 
 const [isLoadingMore, setIsLoadingMore] = useState(false);
+const isFetchingRef = useRef(false);
+const fetchCbRef = useRef<() => void>(() => {});
 
   const [sortBy, setSortBy] = useState(initialSortBy);
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">(
@@ -244,28 +250,13 @@ else if (isOfferPage) {
 
 
 
-  // must match category
-// Category + subcategory filtering
-// ✅ CATEGORY + SUBCATEGORY FILTER (FIXED)
-const productCategoryIds =
-  product.categories?.map((c) => c.categoryId) ?? [];
-
-const allowedCategoryIds = [
-  category?.id,
-  ...allSubCategories.map((s) => s.id),
-].filter(Boolean);
-
-// If subcategories selected → strict match
+  // Subcategory filter (when user selects a specific subcategory)
+// Backend already filters by categorySlug, so no need to re-check parent category here
 if (selectedSubCategories.length > 0) {
+  const productCategoryIds =
+    product.categories?.map((c) => c.categoryId) ?? [];
   const match = productCategoryIds.some((id) =>
     selectedSubCategories.includes(id)
-  );
-  if (!match) return false;
-} 
-// Else → parent + all children allowed
-else {
-  const match = productCategoryIds.some((id) =>
-    allowedCategoryIds.includes(id)
   );
   if (!match) return false;
 }
@@ -292,19 +283,36 @@ if (selectedBrands.length > 0) {
 
   return true;
 });
-    const sorted = [...filtered].sort((a, b) => {
-      if (sortBy === "name") {
-        const comparison = a.name.localeCompare(b.name);
-        return sortDirection === "asc" ? comparison : -comparison;
-      }
+   const getEffectivePrice = (product: any) => {
+  const defaultVariant =
+    product.variants?.find((v: any) => v.isDefault) ??
+    product.variants?.[0];
 
-      if (sortBy === "price") {
-        const comparison = a.price - b.price;
-        return sortDirection === "asc" ? comparison : -comparison;
-      }
+  const basePrice =
+    typeof defaultVariant?.price === "number" &&
+    defaultVariant.price > 0
+      ? defaultVariant.price
+      : product.price;
 
-      return 0;
-    });
+  return getDiscountedPrice(product, basePrice);
+};
+
+const sorted = [...filtered].sort((a, b) => {
+  if (sortBy === "name") {
+    const comparison = a.name.localeCompare(b.name);
+    return sortDirection === "asc" ? comparison : -comparison;
+  }
+
+  if (sortBy === "price") {
+    const comparison =
+      getEffectivePrice(a) - getEffectivePrice(b);
+
+    return sortDirection === "asc" ? comparison : -comparison;
+  }
+
+  return 0;
+});
+
 
     return sorted;
   }, [
@@ -315,8 +323,6 @@ if (selectedBrands.length > 0) {
     sortBy,
     sortDirection,
     selectedSubCategories,
-allSubCategories,
-
   ]);
 const flattenedProducts = useMemo(() => {
   const flat = flattenProductsForListing(filteredAndSortedProducts);
@@ -339,26 +345,31 @@ const flattenedProducts = useMemo(() => {
   const getMainImage = useCallback((images: ProductImage[]) => {
     const mainImage = images.find((img) => img.isMain) || images[0];
     return mainImage?.imageUrl
-      ? `${process.env.NEXT_PUBLIC_API_URL}${mainImage.imageUrl}`
+      ? mainImage.imageUrl.startsWith("http")
+        ? mainImage.imageUrl
+        : `${process.env.NEXT_PUBLIC_API_URL}${mainImage.imageUrl}`
       : "/placeholder-product.jpg";
   }, []);
 
   const fetchMoreProducts = useCallback(async () => {
-  if (isLoadingMore || !hasMore) return;
-
+  // useRef guard fires synchronously — prevents multiple calls before React re-renders
+  if (isFetchingRef.current || !hasMore) return;
+  isFetchingRef.current = true;
   setIsLoadingMore(true);
 
   try {
     const params = new URLSearchParams(searchParams.toString());
     params.set("page", String(page + 1));
+    params.set("pageSize", String(pageSize));
+
+    // ✅ Use URL slug (exact match with route) not category.slug from DB
+    if (urlSlug) params.set("categorySlug", urlSlug);
 
     const res = await fetch(
       `${process.env.NEXT_PUBLIC_API_URL}/api/Products?${params.toString()}`
     );
 
-    if (!res.ok) {
-      throw new Error(`Failed to load products: ${res.status}`);
-    }
+    if (!res.ok) throw new Error(`Failed to load products: ${res.status}`);
 
     const json = await res.json();
 
@@ -368,20 +379,27 @@ const flattenedProducts = useMemo(() => {
   } catch (e) {
     console.error(e);
   } finally {
+    isFetchingRef.current = false;
     setIsLoadingMore(false);
   }
-}, [page, hasMore, isLoadingMore, searchParams]);
+}, [page, hasMore, searchParams]);
 
 
 const loadMoreRef = useRef<HTMLDivElement | null>(null);
 
+// Always keep ref pointing to latest fetchMoreProducts (no observer dep on it)
 useEffect(() => {
-  if (!loadMoreRef.current || !hasMore || isLoadingMore) return;
+  fetchCbRef.current = fetchMoreProducts;
+}, [fetchMoreProducts]);
+
+// Observer only recreates when hasMore changes — NOT on every page/fetch cycle
+useEffect(() => {
+  if (!loadMoreRef.current || !hasMore) return;
 
   const observer = new IntersectionObserver(
     ([entry]) => {
       if (entry.isIntersecting) {
-        fetchMoreProducts();
+        fetchCbRef.current();
       }
     },
     { rootMargin: "200px" }
@@ -390,13 +408,14 @@ useEffect(() => {
   observer.observe(loadMoreRef.current);
 
   return () => observer.disconnect();
-}, [hasMore, isLoadingMore, fetchMoreProducts]);
+}, [hasMore]);
 
 useEffect(() => {
-  setProducts(initialProducts);
+  setProducts(initialProducts ?? []);
   setPage(currentPage ?? 1);
   setHasMore(totalPages ? currentPage < totalPages : true);
 }, [initialProducts, currentPage, totalPages]);
+
 
 
 
@@ -422,12 +441,12 @@ useEffect(() => {
 
       startTransition(() => {
         // same pattern as /products page
-        router.push(`/category/${category?.slug}?${params.toString()}`, {
+        router.push(`/category/${urlSlug}?${params.toString()}`, {
           scroll: false,
         });
       });
     },
-    [router, searchParams, category?.slug]
+    [router, searchParams, urlSlug]
   );
 
   const handleSortChange = useCallback((value: string) => {
@@ -459,24 +478,12 @@ const handlePharmaGuard = (
   return true;
 };
 const getInitialQty = (product: any) => {
-  // 🔥 Priority 1: Allowed Quantities
-  if (product.allowedQuantities) {
-    const arr = product.allowedQuantities
-      .split(",")
-      .map((q: string) => Number(q.trim()))
-      .filter((q: number) => !isNaN(q) && q > 0);
-
-    if (arr.length > 0) return arr[0];
-  }
-
-  // 🔥 Priority 2: Order Minimum Quantity
   return product.orderMinimumQuantity ?? 1;
 };
 
-  
-
   const resetFilters = useCallback(() => {
     setSelectedBrands([]);
+    setSelectedSubCategories([]);
     setMinRating(0);
     setSortBy("name");
     setSortDirection("asc");
@@ -484,9 +491,9 @@ const getInitialQty = (product: any) => {
     const params = new URLSearchParams();
 if (discount) params.set("discount", String(discount));
 
-router.push(`/category/${category?.slug}?${params.toString()}`);
+router.push(`/category/${urlSlug}?${params.toString()}`);
 
-  }, [router, category?.slug]);
+  }, [router, urlSlug]);
   
 const { addToCart, cart } = useCart();
 const handleAddToCart = useCallback(
@@ -580,16 +587,19 @@ vatIncluded: vatRate !== null,
         option3: defaultVariant?.option3Value ?? null,
       },
       shipSeparately: product.shipSeparately,
+      nextDayDeliveryEnabled: product.nextDayDeliveryEnabled ?? false,
+      sameDayDeliveryEnabled: product.sameDayDeliveryEnabled ?? false,
       productData: JSON.parse(JSON.stringify(product)),
     });
 
-   if (!product.allowedQuantities && product.orderMinimumQuantity > 1) {
+if (product.orderMinimumQuantity > 1) {
   toast.warning(
     `Minimum order quantity is ${product.orderMinimumQuantity}. Added ${finalQty} items to cart.`
   );
 } else {
   toast.success(`${product.name} added to cart! 🛒`);
 }
+
 
   },
   [toast, addToCart, cart]
@@ -605,42 +615,53 @@ vatIncluded: vatRate !== null,
           />
         </div>
       )}
-      <main className="max-w-7xl mx-auto px-4 py-4">
+      <main className="max-w-7xl mx-auto px-3 md:px-4 py-3 md:py-4">
         {/* 🧭 Breadcrumbs */}
-<div className="mb-2 flex items-center justify-between">
-  {/* 🧭 Breadcrumbs – LEFT */}
-  <nav className="flex items-center flex-wrap gap-1 text-sm text-gray-600">
-    {breadcrumbs.map((crumb, index) => (
-      <div key={index} className="flex items-center gap-1">
-        {index > 0 && (
-          <ChevronRight className="h-4 w-4 text-gray-400" />
-        )}
-        {crumb.href ? (
-          <Link
-            href={crumb.href}
-            className="hover:text-[#445D41] transition-colors"
+        <nav className="hidden md:flex items-center flex-wrap gap-1 text-xs md:text-sm text-gray-600 mb-2">
+          {breadcrumbs.map((crumb, index) => (
+            <div key={index} className="flex items-center gap-1 flex-shrink-0">
+              {index > 0 && (
+                <ChevronRight className="h-3 w-3 md:h-4 md:w-4 text-gray-400" />
+              )}
+              {crumb.href ? (
+                <Link href={crumb.href} className="hover:text-[#445D41] transition-colors truncate max-w-[80px] md:max-w-none">
+                  {crumb.label}
+                </Link>
+              ) : (
+                <span className="font-semibold text-gray-900 truncate max-w-[120px] md:max-w-none">{crumb.label}</span>
+              )}
+            </div>
+          ))}
+        </nav>
+
+        {/* Filter + Sort bar — below breadcrumbs */}
+        <div className="flex items-center justify-between gap-2 mb-3 lg:mb-4">
+          {/* Mobile filter button */}
+          <button
+            onClick={() => setShowFilters(!showFilters)}
+            className="lg:hidden flex items-center gap-1.5 px-3 py-2 border border-gray-300 rounded-lg bg-white text-sm font-medium text-gray-700 active:bg-gray-50"
           >
-            {crumb.label}
-          </Link>
-        ) : (
-          <span className="font-semibold text-gray-900">
-            {crumb.label}
-          </span>
-        )}
-      </div>
-    ))}
-  </nav>
-  {/* 🔽 Sort – TOP RIGHT (same line) */}
-  <select
-    value={`${sortBy}-${sortDirection}`}
-    onChange={(e) => handleSortChange(e.target.value)}
-    className="px-4 py-1 border border-gray-300 rounded-lg bg-white text-sm font-medium text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#445D41]" >
-    <option value="name-asc">Name: A-Z</option>
-    <option value="name-desc">Name: Z-A</option>
-    <option value="price-asc">Price: Low to High</option>
-    <option value="price-desc">Price: High to Low</option>
-  </select>
-</div>
+            <SlidersHorizontal className="h-4 w-4" />
+            <span>Filters</span>
+            {(selectedBrands.length > 0 || selectedSubCategories.length > 0 || minRating > 0) && (
+              <span className="ml-0.5 bg-[#445D41] text-white text-xs rounded-full w-4 h-4 flex items-center justify-center">
+                {selectedBrands.length + selectedSubCategories.length + (minRating > 0 ? 1 : 0)}
+              </span>
+            )}
+          </button>
+          {/* Desktop spacer */}
+          <div className="hidden lg:block" />
+          <select
+            value={`${sortBy}-${sortDirection}`}
+            onChange={(e) => handleSortChange(e.target.value)}
+            className="px-2 md:px-4 py-2 border border-gray-300 rounded-lg bg-white text-xs md:text-sm font-medium text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#445D41]"
+          >
+            <option value="name-asc">A-Z</option>
+            <option value="name-desc">Z-A</option>
+            <option value="price-asc">Low-High</option>
+            <option value="price-desc">High-Low</option>
+          </select>
+        </div>
         {/* Category header */}
         <div className="flex gap-8">
        
@@ -674,10 +695,13 @@ vatIncluded: vatRate !== null,
     <h3 className="font-bold text-sm text-gray-900 mb-0">Subcategories</h3>
 
     <div className="space-y-2 max-h-64 overflow-y-auto custom-scrollbar pr-2">
-      {allSubCategories.map((sub) => (
+      {allSubCategories
+        .filter((sub) => sub.productCount > 0)
+        .map((sub) => (
         <label
           key={sub.id}
-          className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 p-1 rounded-md transition" >
+          className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 p-1 rounded-md transition"
+        >
           <input
             type="checkbox"
             className="w-4 h-4 text-[#445D41]"
@@ -692,12 +716,15 @@ vatIncluded: vatRate !== null,
               }
             }}
           />
-          <span className="text-sm text-gray-700 truncate">{sub.name}</span>
+          <span className="text-sm text-gray-700 truncate">
+            {sub.name}
+          </span>
         </label>
       ))}
     </div>
   </div>
 )}
+
                 {/* Brand Filter */}
                 <div className="mb-6">
                   <h3 className="font-bold text-sm text-gray-900 mb-3">
@@ -791,317 +818,190 @@ vatIncluded: vatRate !== null,
             {/* Search & Sort Bar */}
  
            
-            {/* Mobile filters panel (reuse same as sidebar, simplified) */}
+            {/* Mobile Filter — Left Side Drawer */}
             {showFilters && (
-              <Card className="mb-6 shadow-sm lg:hidden">
-                <CardContent className="p-4 space-y-6">
-                  {/* Brand */}
-                  <div>
-                    <div className="flex items-center justify-between mb-2">
-                      <h3 className="font-bold text-sm text-gray-900">
-                        Brand
-                      </h3>
+              <div className="lg:hidden fixed inset-0 z-50 flex">
+                {/* Left panel */}
+                <div className="relative bg-white w-[78vw] max-w-xs h-full flex flex-col shadow-2xl">
+
+                  {/* Header */}
+                  <div className="flex items-center justify-between px-5 py-4 border-b">
+                    <h2 className="font-bold text-lg text-gray-900">Filters</h2>
+                    <div className="flex items-center gap-3">
                       <button
-                        className="text-xs text-blue-600"
-                        onClick={() => setSelectedBrands([])}
+                        className="text-xs text-[#445D41] font-semibold underline"
+                        onClick={resetFilters}
                       >
-                        Clear
+                        Reset All
+                      </button>
+                      <button
+                        onClick={() => setShowFilters(false)}
+                        className="p-1 rounded-full hover:bg-gray-100"
+                      >
+                        <X className="h-5 w-5 text-gray-500" />
                       </button>
                     </div>
-                    <div className="space-y-1 max-h-40 overflow-y-auto custom-scrollbar pr-1">
-                   {brands.map((brand) => (
+                  </div>
 
-                        <label
-                          key={brand.id}
-                          className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 p-2 rounded-md transition group"
-                          title={brand.name}
-                        >
-                          <input
-                            type="checkbox"
-                            className="w-4 h-4 rounded border-gray-300 text-[#445D41] focus:ring-[#445D41]"
-                            checked={selectedBrands.includes(brand.id)}
-                            onChange={(e) => {
-                             if (e.target.checked) {
-  setSelectedBrands([...selectedBrands, brand.id]);
-} else {
-  setSelectedBrands(selectedBrands.filter((b) => b !== brand.id));
-}
+                  {/* Scrollable filters */}
+                  <div className="overflow-y-auto flex-1 px-5 py-4 space-y-6">
 
-                            }}
-                          />
-                          <span className="text-sm text-gray-700 truncate group-hover:text-[#445D41]">
-                            {brand.name}
-                          </span>
-                        </label>
-                      ))}
+                    {/* Subcategories */}
+                    {allSubCategories.length > 0 && (
+                      <div>
+                        <div className="flex items-center justify-between mb-3 pb-1 border-b border-gray-100">
+                          <h3 className="font-bold text-base text-gray-900">Subcategories</h3>
+                        </div>
+                        <div className="space-y-2">
+                          {allSubCategories.filter((sub) => sub.productCount > 0).map((sub) => (
+                            <label key={sub.id} className="flex items-center gap-3 cursor-pointer py-1">
+                              <input
+                                type="checkbox"
+                                className="w-4 h-4 text-[#445D41] rounded"
+                                checked={selectedSubCategories.includes(sub.id)}
+                                onChange={(e) => {
+                                  if (e.target.checked) setSelectedSubCategories([...selectedSubCategories, sub.id]);
+                                  else setSelectedSubCategories(selectedSubCategories.filter((s) => s !== sub.id));
+                                }}
+                              />
+                              <span className="text-sm text-gray-800">{sub.name}</span>
+                            </label>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Brand */}
+                    {brands.length > 0 && (
+                      <div>
+                        <div className="flex items-center justify-between mb-3 pb-1 border-b border-gray-100">
+                          <h3 className="font-bold text-base text-gray-900">Brand</h3>
+                          <button className="text-xs text-[#445D41] font-medium" onClick={() => setSelectedBrands([])}>Clear</button>
+                        </div>
+                        <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+                          {brands.map((brand) => (
+                            <label key={brand.id} className="flex items-center gap-3 cursor-pointer py-1">
+                              <input
+                                type="checkbox"
+                                className="w-4 h-4 rounded border-gray-300 text-[#445D41] focus:ring-[#445D41]"
+                                checked={selectedBrands.includes(brand.id)}
+                                onChange={(e) => {
+                                  if (e.target.checked) setSelectedBrands([...selectedBrands, brand.id]);
+                                  else setSelectedBrands(selectedBrands.filter((b) => b !== brand.id));
+                                }}
+                              />
+                              <span className="text-sm text-gray-800 truncate">{brand.name}</span>
+                            </label>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Price Range */}
+                    {minPrice < maxPrice && priceRange && (
+                      <div>
+                        <div className="flex items-center justify-between mb-4 pb-1 border-b border-gray-100">
+                          <h3 className="font-bold text-base text-gray-900">Price</h3>
+                        </div>
+                        <PremiumPriceSlider
+                          value={priceRange}
+                          min={minPrice}
+                          max={maxPrice}
+                          onChange={(v) => setPriceRange(v)}
+                        />
+                      </div>
+                    )}
+
+                    {/* Rating */}
+                    <div>
+                      <div className="flex items-center justify-between mb-3 pb-1 border-b border-gray-100">
+                        <h3 className="font-bold text-base text-gray-900">Rating</h3>
+                      </div>
+                      <div className="space-y-2">
+                        {[4, 3, 2, 1, 0].map((rating) => (
+                          <label key={rating} className="flex items-center gap-3 cursor-pointer py-1">
+                            <input
+                              type="radio"
+                              name="rating-mobile"
+                              className="w-4 h-4 text-[#445D41] focus:ring-[#445D41]"
+                              checked={minRating === rating}
+                              onChange={() => setMinRating(rating)}
+                            />
+                            <div className="flex items-center gap-1.5">
+                              <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
+                              <span className="text-sm text-gray-800">
+                                {rating > 0 ? `${rating}+ Stars` : "All Ratings"}
+                              </span>
+                            </div>
+                          </label>
+                        ))}
+                      </div>
                     </div>
                   </div>
 
-                  {/* Rating */}
-                  <div>
-                    <h3 className="font-bold text-sm text-gray-900 mb-3">
-                      Minimum Rating
-                    </h3>
-                    <div className="space-y-1">
-                      {[4, 3, 2, 1, 0].map((rating) => (
-                        <label
-                          key={rating}
-                          className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 p-2 rounded-md transition"
-                        >
-                          <input
-                            type="radio"
-                            name="rating-mobile"
-                            className="w-4 h-4 text-[#445D41] focus:ring-[#445D41]"
-                            checked={minRating === rating}
-                            onChange={() => setMinRating(rating)}
-                          />
-                          <div className="flex items-center gap-2">
-                            <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
-                            <span className="text-sm text-gray-700">
-                              {rating > 0
-                                ? `${rating}+ Stars`
-                                : "All Ratings"}
-                            </span>
-                          </div>
-                        </label>
-                      ))}
-                    </div>
+                  {/* Apply button */}
+                  <div className="border-t px-5 py-4">
+                    <Button
+                      className="w-full bg-[#445D41] hover:bg-[#334a2c] text-white font-semibold py-3"
+                      onClick={() => setShowFilters(false)}
+                    >
+                      Show Results ({filteredAndSortedProducts.length})
+                    </Button>
                   </div>
-                </CardContent>
-              </Card>
+                </div>
+
+                {/* Right backdrop — tap to close */}
+                <div
+                  className="flex-1 bg-black/50"
+                  onClick={() => setShowFilters(false)}
+                />
+              </div>
             )}
 
             {/* PRODUCT GRID */}
             <div
-              className={`grid grid-cols-1 ${
+              className={`grid grid-cols-2 ${
                 gridCols === 3 ? "md:grid-cols-3" : "md:grid-cols-2"
-              } gap-6 mb-8`}
+              } gap-2 md:gap-4 mb-6 md:mb-8`}
             >
-{flattenedProducts.map((item, index) => {
-
-  const product = item.productData;
-  const variantForCard = item.variantForCard;
-  const cardSlug = item.cardSlug;
-
-
-                // VAT rate finder like featured slider
-const discountBadge = getDiscountBadge(product);
-const vatRate = getVatRate(
-  vatRates,
-  (product as any).vatRateId,
-  product.vatExempt
-);
-const hasCoupon = (product as any).assignedDiscounts?.some(
-  (d: any) => d.isActive === true && d.requiresCouponCode === true
-);
-
-
-              const defaultVariant =
-  variantForCard ?? getDefaultVariant(product);
-
-// 🎁 LOYALTY POINTS (PRODUCT + VARIANT AWARE)
-const loyaltyPoints = (() => {
-  if (product.excludeFromLoyaltyPoints) return null;
-
-  if (defaultVariant?.loyaltyPointsEarnable) {
-    return defaultVariant.loyaltyPointsEarnable;
-  }
-
-  if (product.loyaltyPointsEarnable) {
-    return product.loyaltyPointsEarnable;
-  }
-
-  return null;
-})();
-
- const basePrice =
-  typeof defaultVariant?.price === "number" && defaultVariant.price > 0
-    ? defaultVariant.price
-    : product.price;
-  // ✅ ADD
-  const finalPrice = getDiscountedPrice(product, basePrice);  // ✅ ADD
-const stock = defaultVariant?.stockQuantity ?? product.stockQuantity ?? 0;
-
-const mainImage = defaultVariant?.imageUrl
-  ? `${process.env.NEXT_PUBLIC_API_URL}${defaultVariant.imageUrl}`
-  : getMainImage(product.images);
-
-
-                return (
-                  <Card
-               key={`${product.id}-${variantForCard?.id ?? "parent"}`}
-
-
-
-                    className="group hover:shadow-xl transition-all duration-300 border border-gray-200"
-                  >
-                    <CardContent className="p-0">
-                      {/* Image */}
-                     <Link href={`/products/${cardSlug}`}>
-                        <div className="relative bg-gray-50 h-64 overflow-hidden rounded-t-lg">
-                          <Image
-                            src={mainImage}
-                            alt={product.name}
-                            fill
-                            sizes="(max-width: 768px) 100vw, (max-width: 1200px) 33vw, 25vw"
-                            className="object-contain p-4 group-hover:scale-110 transition-transform duration-300"
-                            loading="lazy"
-                            quality={75}
-                          />
-  {discountBadge && (
-  <div className="absolute top-3 right-3 z-20">
-    <div
-      className="w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-gradient-to-br from-red-500 to-red-700 flex items-center justify-center text-white shadow-lg ring-2 ring-white">
-        
-      <div className="flex flex-col items-center leading-none">
-        {discountBadge.type === "percent" ? (
-          <>
-            <span className="text-sm sm:text-base font-extrabold">
-              {discountBadge.value}%
-            </span>
-            <span className="text-[9px] sm:text-[11px] font-semibold">
-              OFF
-            </span>
-          </>
-        ) : (
-          <>
-            <span className="text-sm sm:text-base font-extrabold">
-              £{discountBadge.value}
-            </span>
-            <span className="text-[9px] sm:text-[11px] font-semibold">
-              OFF
-            </span>
-          </>
-        )}
-      </div>
-    </div>
-  </div>
-)}   
-{!discountBadge && hasCoupon && (
-  <div className="absolute top-3 right-3 z-20">
-    <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-gradient-to-br from-red-500 to-red-700 flex items-center justify-center text-white shadow-lg ring-2 ring-white">
-      <div className="flex flex-col items-center leading-none text-center px-1">
-        <span className="text-[9px] sm:text-[10px] font-extrabold leading-tight">
-          COUPON
-        </span>
-        <span className="text-[8px] sm:text-[9px] font-semibold leading-tight">
-          Available
-        </span>
-      </div>
-    </div>
-  </div>
-)}                    
-                           <GenderBadge gender={product.gender} />
-                        </div>
-                         </Link>
-                     
-
-                      {/* Content */}
-                      <div className="p-4">
-
-
-                         <Link href={`/products/${cardSlug}`}>
-                          <h3 className="font-semibold text-base mb-0 line-clamp-2 hover:text-[#445D41] transition-colors text-gray-900 min-h-[48px]">
-  {defaultVariant
-    ? `${product.name} (${[
-        defaultVariant?.option1Value,
-        defaultVariant?.option2Value,
-        defaultVariant?.option3Value,
-      ].filter(Boolean).join(", ")})`
-    : product.name}
-</h3>
-                        </Link>
-                        
-
-                        {/* Rating */}
-                       <div className="flex items-center gap-2 mb-1 flex-wrap">
-  {/* ⭐ Rating */}
-  <div className="flex items-center">
-    <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
-    <span className="text-sm ml-1 font-medium text-gray-700">
-      {(product.averageRating ?? 0).toFixed(1)}
-    </span>
-  </div>
-
-  <span className="text-xs text-gray-500">
-    ({product.reviewCount || 0} reviews)
-  </span>
-
-{loyaltyPoints && (
-  <span className="mt-0 inline-flex items-center gap-1.5 text-[11px] font-medium text-green-700 bg-green-50 border border-green-200 px-2 py-0.5 rounded-md w-fit leading-none">
-    <AwardIcon className="h-4 w-4 text-green-600" />
-    Earn {loyaltyPoints} points
-  </span>
-)}
-
-</div>
-
-
-                        {/* Price */}
-                       <div className="flex items-center gap-2 mb-1 flex-wrap">
-   {/* FINAL PRICE */}
-  <span className="text-2xl font-bold text-[#445D41]">
-    £{finalPrice.toFixed(2)}
-  </span>
-
-  {/* CUT PRICE (ONLY AUTO DISCOUNT) */}
-  {finalPrice < basePrice && (
-    <span className="text-sm text-gray-400 line-through">
-      £{basePrice.toFixed(2)}
-    </span>
-  )}
-
-{product.vatExempt ? (
-  <span className="inline-flex items-center gap-1 text-xs font-semibold text-green-700 bg-green-50 border border-green-200 px-2 py-0.5 rounded-md whitespace-nowrap">
-    <BadgePercent className="h-3 w-3" />
-    VAT Relief
-  </span>
-) : vatRate !== null ? (
-  <span className="text-xs font-semibold text-green-700 bg-green-50 border border-green-200 px-2 py-0.5 rounded-md whitespace-nowrap">
-    ({vatRate}% VAT)
-  </span>
-) : null}
-
-
-</div>
-
-                        {/* Add to Cart */}
-                       <Button
-  onClick={() => {
-    if (product.disableBuyButton) return;
-   handleAddToCart(product, cardSlug);
-  }}
-  disabled={stock === 0 || product.disableBuyButton === true}
-  className="w-full bg-[#445D41] hover:bg-[#334a2c] text-white transition-colors
-    disabled:opacity-60 disabled:cursor-not-allowed"
->
-  <ShoppingCart className="mr-2 h-4 w-4" />
-  {product.disableBuyButton
-    ? "Not available"
-    : stock > 0
-    ? "Add to Cart"
-    : "Out of Stock"}
-</Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-                );
-              })}
+{flattenedProducts.map((item) => (
+  <ProductCard
+    key={`${item.productData.id}-${item.variantForCard?.id ?? "parent"}`}
+    product={item.productData}
+    vatRates={vatRates}
+    variantForCard={item.variantForCard}
+    cardSlug={item.cardSlug}
+  />
+))}
             </div>
-{hasMore && (
-  <div ref={loadMoreRef} className="flex justify-center py-6">
-    {isLoadingMore && (
-      <span className="text-sm text-gray-500">
-        Loading more products…
-      </span>
-    )}
+{/* Load more trigger + skeleton cards */}
+{hasMore && <div ref={loadMoreRef} />}
+{isLoadingMore && (
+  <div className={`grid grid-cols-2 ${gridCols === 3 ? "md:grid-cols-3" : "md:grid-cols-2"} gap-2 md:gap-6 mb-8 min-h-[400px]`}>
+    {Array.from({ length: gridCols === 3 ? 3 : 2 }).map((_, i) => (
+      <div key={i} className="rounded-xl border border-gray-200 overflow-hidden bg-white animate-pulse">
+        {/* Image skeleton */}
+        <div className="bg-gray-200 h-44 md:h-56 w-full" />
+        <div className="p-3 space-y-2">
+          {/* Name */}
+          <div className="h-3 bg-gray-200 rounded w-4/5" />
+          <div className="h-3 bg-gray-200 rounded w-3/5" />
+          {/* Rating */}
+          <div className="h-3 bg-gray-200 rounded w-1/3" />
+          {/* Price */}
+          <div className="h-4 bg-gray-200 rounded w-2/5 mt-1" />
+          {/* Button */}
+          <div className="h-8 bg-gray-200 rounded-lg w-full mt-2" />
+        </div>
+      </div>
+    ))}
   </div>
 )}
 
             {/* No results */}
             {filteredAndSortedProducts.length === 0 && (
               <Card className="shadow-sm">
-                <CardContent className="p-12 text-center">
+                <CardContent className="p-6 md:p-12 text-center">
                   <div className="mb-4">
                     <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
                       <Search className="h-8 w-8 text-gray-400" />

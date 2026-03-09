@@ -39,7 +39,7 @@ export default function CategorySlider({
       {/* ===== ARROWS ===== */}
       <button
         id="catPrev"
-        className="absolute left-[-15px] top-[40%] -translate-y-1/2 z-30
+        className="hidden md:block absolute left-[-15px] top-[40%] -translate-y-1/2 z-30
                    bg-white p-2 md:p-3 shadow-md rounded-full border"
       >
         <ChevronLeft className="w-4 h-4 md:w-5 md:h-5" />
@@ -47,7 +47,7 @@ export default function CategorySlider({
 
       <button
         id="catNext"
-        className="absolute right-[-15px] top-[40%] -translate-y-1/2 z-30
+        className="hidden md:block absolute right-[-15px] top-[40%] -translate-y-1/2 z-30
                    bg-white p-2 md:p-3 shadow-md rounded-full border"
       >
         <ChevronRight className="w-4 h-4 md:w-5 md:h-5" />
@@ -80,16 +80,16 @@ export default function CategorySlider({
           <SwiperSlide key={category.id}>
             <Link href={`/category/${category.slug}`}>
               <Card
-                className="w-full h-[200px] md:h-[230px] bg-white rounded-2xl
+                className="w-full h-[160px] md:h-[200px] lg:h-[230px] bg-white rounded-2xl
                            shadow-[0_4px_20px_rgba(0,0,0,0.08)]
                            hover:shadow-[0_6px_25px_rgba(0,0,0,0.12)]
                            transition-all duration-300
-                           flex flex-col items-center justify-between py-6"
+                           flex flex-col items-center justify-between py-3 md:py-6"
               >
                 <CardContent className="p-0 w-full flex flex-col items-center justify-between h-full">
                   {/* ===== IMAGE ===== */}
                   <div
-                    className="w-[120px] h-[120px] md:w-[140px] md:h-[140px]
+                    className="w-[80px] h-[80px] md:w-[120px] md:h-[120px] lg:w-[140px] lg:h-[140px]
                                flex items-center justify-center overflow-hidden"
                   >
                     <img
@@ -102,7 +102,7 @@ export default function CategorySlider({
                   </div>
 
                   {/* ===== TITLE ===== */}
-                  <h3 className="font-semibold text-gray-900 text-sm md:text-base text-center pb-2">
+                  <h3 className="font-semibold text-gray-900 text-xs md:text-base text-center pb-1 md:pb-2 px-1 line-clamp-2">
                     {category.name}
                   </h3>
                 </CardContent>

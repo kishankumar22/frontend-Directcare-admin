@@ -4,10 +4,7 @@ import CommentForm from "./CommentForm";
 import CommentsList from "./CommentsList";
 import * as LucideIcons from "lucide-react";
 
-const API_BASE =
-  process.env.API_BASE_URL ||
-  process.env.NEXT_PUBLIC_API_URL ||
-  "https://testapi.knowledgemarkg.com";
+const API_BASE = process.env.API_BASE_URL || process.env.NEXT_PUBLIC_API_URL || "";
 
 // ⭐ FIX: params is now Promise in Next.js 15
 export async function generateMetadata({
@@ -139,10 +136,10 @@ export default async function BlogDetailPage({
 
         {/* LEFT ARTICLE CARD */}
         <div className="lg:col-span-2 ml-0 mr-0 md:ml-[-20px] md:mr-[-40px] lg:ml-[-55px] lg:mr-[-119px]">
-          <div className="bg-white shadow-lg rounded-2xl p-8 border">
+          <div className="bg-white shadow-lg rounded-2xl p-4 md:p-8 border">
 
             {/* Breadcrumb */}
-            <nav className="text-sm text-gray-500 mb-4 flex items-center gap-1">
+            <nav className="hidden md:flex text-sm text-gray-500 mb-4 items-center gap-1">
               <Link href="/" className="hover:underline text-blue-600">Home</Link>
               <span>/</span>
 
@@ -167,12 +164,12 @@ export default async function BlogDetailPage({
             </nav>
 
             {/* Title */}
-            <h1 className="text-4xl font-bold leading-tight text-gray-900">
+            <h1 className="text-xl md:text-4xl font-bold leading-tight text-gray-900">
               {post.title}
             </h1>
 
             {/* Meta */}
-            <div className="mt-3 flex items-center gap-2 sm:gap-4 text-gray-600 text-sm flex-nowrap whitespace-nowrap overflow-hidden">
+            <div className="mt-3 flex flex-wrap items-center gap-2 sm:gap-4 text-gray-600 text-xs md:text-sm">
               <span>✍️ {post.authorName}</span>
               <span>•</span>
               <span>{new Date(post.publishedAt).toLocaleDateString()}</span>

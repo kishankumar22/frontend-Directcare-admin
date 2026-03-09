@@ -76,7 +76,7 @@ async function getProducts(
   if (categorySlug) query.set("categorySlug", categorySlug);
 
   const res = await fetch(
-    `${process.env.NEXT_PUBLIC_API_URL}/api/Products?${query.toString()}&isPublished=true`,
+    `${process.env.NEXT_PUBLIC_API_URL}/api/Products?${query.toString()}`,
     { cache: "no-store" }
   );
 
@@ -89,7 +89,8 @@ async function getProducts(
 
 export async function generateMetadata({ params, searchParams }: any) {
   const { slug } = await params;
-  const discount = searchParams?.discount;
+  const resolvedSearchParams = await searchParams;
+  const discount = resolvedSearchParams?.discount;
 
   const categoriesRes = await fetch(
     `${process.env.NEXT_PUBLIC_API_URL}/api/Categories?includeInactive=false&includeSubCategories=true`,
@@ -167,7 +168,7 @@ export default async function CategoryPage({
   const productsRes = await getProducts(searchParamsResolved, slug);
 
   const vatRatesRes = await fetch(
-    "https://testapi.knowledgemarkg.com/api/VATRates?activeOnly=true",
+    `${process.env.NEXT_PUBLIC_API_URL}/api/VATRates?activeOnly=true`,
     { next: { revalidate: 600 } }
   ).then((r) => r.json());
 
@@ -176,11 +177,11 @@ export default async function CategoryPage({
       <CategoryClient
         category={category}
         breadcrumbs={breadcrumbs}
-        initialProducts={productsRes.data.items}
-        totalCount={productsRes.data.totalCount}
-        currentPage={productsRes.data.page}
-        pageSize={productsRes.data.pageSize}
-        totalPages={productsRes.data.totalPages}
+        initialProducts={productsRes.data?.items ?? []}
+        totalCount={productsRes.data?.totalCount ?? 0}
+        currentPage={productsRes.data?.page ?? 1}
+        pageSize={productsRes.data?.pageSize ?? 20}
+        totalPages={productsRes.data?.totalPages ?? 1}
         initialSortBy={searchParamsResolved.sortBy || "name"}
         initialSortDirection={searchParamsResolved.sortDirection || "asc"}
         brands={category.brands ?? []}

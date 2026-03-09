@@ -42,7 +42,7 @@ export default function WhyChooseUs() {
             {reasons.map((reason, index) => (
               <div
                 key={index}
-                className="bg-[#E6FFFF] rounded-xl p-5 shadow-md hover:shadow-lg hover:-translate-y-1 transition-all"
+                className="bg-[#E6FFFF] rounded-xl p-3 md:p-5 shadow-md hover:shadow-lg hover:-translate-y-1 transition-all"
               >
                 <img
                   src={reason.icon}

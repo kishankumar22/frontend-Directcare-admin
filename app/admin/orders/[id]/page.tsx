@@ -38,6 +38,10 @@ import {
   History,
   RotateCcw,
   Split,
+  Download,
+  FlaskConical,
+  MessageSquare,
+  Eye,
 } from 'lucide-react';
 import {
   orderService,
@@ -550,6 +554,15 @@ if (canCancel) {
     category: 'financial',
   });
 
+  // ✅ Download Invoice - Always available
+  actions.push({
+    label: 'Download Invoice',
+    action: 'download-invoice',
+    icon: <Download className="h-3.5 w-3.5" />,
+    color: 'bg-teal-600 hover:bg-teal-700',
+    category: 'financial',
+  });
+
   // ✅ View Refund History - Only when order has been refunded or has refund-related payment
   const hasRefundActivity = order.status === 'Refunded' || order.status === 'Returned' ||
     order.payments?.some(p => p.status === 'Refunded' || p.status === 'PartiallyRefunded');
@@ -746,11 +759,13 @@ const [hasEditHistory, setHasEditHistory] = useState<boolean | null>(null);
   >([]);
 const [pharmaAction, setPharmaAction] = useState<'approve' | 'reject' | null>(null);
 const [isUpdatingPharma, setIsUpdatingPharma] = useState(false);
+const [showPharmaQA, setShowPharmaQA] = useState(false);
 
 
   // ✅ NEW: Invoice Regeneration Modal State
   const [showRegenerateInvoiceModal, setShowRegenerateInvoiceModal] = useState(false);
   const [regeneratingInvoice, setRegeneratingInvoice] = useState(false);
+  const [downloadingInvoice, setDownloadingInvoice] = useState(false);
 
 // ===========================
 // FETCH ORDER DETAILS
@@ -901,6 +916,19 @@ const handleRegenerateInvoice = async (
   }
 };
 
+const handleDownloadInvoice = async () => {
+  if (downloadingInvoice) return;
+  try {
+    setDownloadingInvoice(true);
+    await orderService.downloadInvoice(orderId);
+    toast.success('Invoice downloaded successfully', { autoClose: 3000 });
+  } catch (error: any) {
+    toast.error(error?.message || 'Failed to download invoice. Please regenerate the invoice first.', { autoClose: 5000 });
+  } finally {
+    setDownloadingInvoice(false);
+  }
+};
+
 const getEditLockReason = () => {
   if (!order) return '';
 
@@ -1007,6 +1035,11 @@ const handleAction = (action: string) => {
 
   if (action === 'regenerate-invoice') {
     setShowRegenerateInvoiceModal(true);
+    return;
+  }
+
+  if (action === 'download-invoice') {
+    handleDownloadInvoice();
     return;
   }
 
@@ -1213,49 +1246,168 @@ const allActions = getAllAvailableActions(
         <button
           key={index}
           onClick={() => handleAction(btn.action)}
-          className={`px-3 py-2 ${btn.color} text-white rounded-lg transition-all flex items-center gap-2 text-sm font-medium shadow-lg hover:shadow-xl hover:scale-105`}
+          disabled={btn.action === 'download-invoice' && downloadingInvoice}
+          className={`px-3 py-2 ${btn.color} text-white rounded-lg transition-all flex items-center gap-2 text-sm font-medium shadow-lg hover:shadow-xl hover:scale-105 disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:scale-100`}
           title={`Click to ${btn.label.toLowerCase()}`}
         >
-          {btn.icon}
-          {btn.label}
+          {btn.action === 'download-invoice' && downloadingInvoice
+            ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            : btn.icon}
+          {btn.action === 'download-invoice' && downloadingInvoice ? 'Downloading...' : btn.label}
         </button>
       ))}
     </div>
-    {/* ✅ Pharmacy Verification Section (OUTSIDE BUTTON MAP) */}
-    {order.pharmacyVerificationStatus === 'Pending' && (
-      <div className="mt-4 bg-amber-500/10 border border-amber-500/30 rounded-lg p-4 flex items-center justify-between">
-        
-        <div>
-          <p className="text-amber-400 font-semibold">
-            Pharmacy Verification Pending
-          </p>
-          <p className="text-xs text-slate-400">
-            Review questionnaire and approve or reject this order.
-          </p>
-        </div>
-
-        <div className="flex gap-2">
-          <button
-            onClick={() => setPharmaAction('approve')}
-            className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg"
-          >
-            Approve
-          </button>
-
-          <button
-            onClick={() => setPharmaAction('reject')}
-            className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg"
-          >
-            Reject
-          </button>
-        </div>
-
-      </div>
-    )}
-
-    
   </div>
 )}
+
+    {/* ✅ Pharmacy Section — Unified */}
+    {order.pharmacyVerificationStatus && (
+      <div className={`rounded-xl border overflow-hidden mb-3 ${
+        order.pharmacyVerificationStatus === 'Approved'
+          ? 'border-green-500/30 bg-green-500/5'
+          : order.pharmacyVerificationStatus === 'Rejected'
+          ? 'border-red-500/30 bg-red-500/5'
+          : 'border-amber-500/30 bg-amber-500/5'
+      }`}>
+
+        {/* ── Compact Header Row ── */}
+        <div className="flex items-center gap-3 px-4 py-3">
+          {/* Icon */}
+          <div className={`p-1.5 rounded-lg ${
+            order.pharmacyVerificationStatus === 'Approved' ? 'bg-green-500/20' :
+            order.pharmacyVerificationStatus === 'Rejected' ? 'bg-red-500/20' : 'bg-amber-500/20'
+          }`}>
+            <FlaskConical className={`w-4 h-4 ${
+              order.pharmacyVerificationStatus === 'Approved' ? 'text-green-400' :
+              order.pharmacyVerificationStatus === 'Rejected' ? 'text-red-400' : 'text-amber-400'
+            }`} />
+          </div>
+
+          {/* Text */}
+          <div className="flex-1 min-w-0">
+            <p className={`text-sm font-semibold ${
+              order.pharmacyVerificationStatus === 'Approved' ? 'text-green-400' :
+              order.pharmacyVerificationStatus === 'Rejected' ? 'text-red-400' : 'text-amber-400'
+            }`}>
+              {order.pharmacyVerificationStatus === 'Pending'
+                ? 'Pharmacy Verification Pending'
+                : order.pharmacyVerificationStatus === 'Approved'
+                ? 'Pharmacy Verified — Approved'
+                : 'Pharmacy Verified — Rejected'}
+            </p>
+            <p className="text-xs text-slate-500">
+              {order.pharmacyVerificationStatus === 'Pending'
+                ? 'Review customer questionnaire before approving or rejecting.'
+                : `By ${order.pharmacyVerifiedBy || 'Admin'} · ${order.pharmacyVerifiedAt ? new Date(order.pharmacyVerifiedAt).toLocaleString() : ''}`}
+            </p>
+          </div>
+
+          {/* Status Badge */}
+          <span className={`text-xs font-semibold px-2.5 py-1 rounded-full border ${
+            order.pharmacyVerificationStatus === 'Approved'
+              ? 'bg-green-500/10 text-green-400 border-green-500/30'
+              : order.pharmacyVerificationStatus === 'Rejected'
+              ? 'bg-red-500/10 text-red-400 border-red-500/30'
+              : 'bg-amber-500/10 text-amber-400 border-amber-500/30'
+          }`}>
+            {order.pharmacyVerificationStatus}
+          </span>
+
+          {/* Eye Button — toggle Q&A */}
+          <button
+            onClick={() => setShowPharmaQA(!showPharmaQA)}
+            title={showPharmaQA ? 'Hide Responses' : 'View Responses'}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-medium transition-all ${
+              showPharmaQA
+                ? 'bg-violet-500/20 border-violet-500/40 text-violet-300'
+                : 'bg-slate-700/50 border-slate-600 text-slate-400 hover:text-white hover:border-slate-500'
+            }`}
+          >
+            <Eye className="w-3.5 h-3.5" />
+            {showPharmaQA ? 'Hide' : 'View Q&A'}
+          </button>
+        </div>
+
+        {/* ── Expandable Q&A Panel ── */}
+        {showPharmaQA && (
+          <div className="border-t border-slate-700/50 px-4 py-4 space-y-4 bg-slate-900/40">
+
+            {/* Q&A Responses */}
+            {order.pharmacyResponses && order.pharmacyResponses.length > 0 ? (
+              <div className="space-y-3">
+                {Array.from(new Set(order.pharmacyResponses.map((r) => r.productName))).map((productName) => (
+                  <div key={productName}>
+                    {/* Product label */}
+                    <div className="flex items-center gap-2 mb-2">
+                      <Package className="w-3.5 h-3.5 text-violet-400" />
+                      <p className="text-xs font-semibold text-violet-400">{productName}</p>
+                    </div>
+
+                    {/* Q&A rows */}
+                    <div className="space-y-2 pl-1">
+                      {order.pharmacyResponses!
+                        .filter((r) => r.productName === productName)
+                        .map((r, i) => (
+                          <div key={i} className="flex items-start justify-between gap-4 bg-slate-800/60 rounded-lg px-3 py-2.5 border border-slate-700/40">
+                            <p className="text-slate-300 text-xs flex-1">{r.questionText}</p>
+                            <span className={`text-xs font-bold px-2.5 py-1 rounded-full shrink-0 ${
+                              r.answerText?.toLowerCase() === 'yes'
+                                ? 'bg-red-500/15 text-red-400 border border-red-500/30'
+                                : r.answerText?.toLowerCase() === 'no'
+                                ? 'bg-green-500/15 text-green-400 border border-green-500/30'
+                                : 'bg-slate-700 text-slate-300 border border-slate-600'
+                            }`}>
+                              {r.answerText || '—'}
+                            </span>
+                          </div>
+                        ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="flex items-center gap-2 text-slate-500 text-xs py-1">
+                <AlertTriangle className="w-4 h-4 text-yellow-500/70" />
+                No pharmacy responses recorded for this order.
+              </div>
+            )}
+
+            {/* Approved/Rejected Note */}
+            {order.pharmacyVerificationStatus !== 'Pending' && order.pharmacyVerificationNote && (
+              <div className={`flex items-start gap-2 p-3 rounded-lg border text-xs ${
+                order.pharmacyVerificationStatus === 'Approved'
+                  ? 'bg-green-500/10 border-green-500/30 text-green-400'
+                  : 'bg-red-500/10 border-red-500/30 text-red-400'
+              }`}>
+                <Info className="w-3.5 h-3.5 mt-0.5 shrink-0" />
+                <p>{order.pharmacyVerificationNote}</p>
+              </div>
+            )}
+
+            {/* Approve / Reject Buttons — only for Pending */}
+            {order.pharmacyVerificationStatus === 'Pending' && (
+              <div className="flex gap-2 pt-1 border-t border-slate-700/50">
+                <button
+                  onClick={() => setPharmaAction('approve')}
+                  className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-500 text-white rounded-lg text-sm font-semibold transition-all hover:shadow-lg hover:shadow-green-500/20"
+                >
+                  <CheckCircle2 className="w-4 h-4" />
+                  Approve Order
+                </button>
+                <button
+                  onClick={() => setPharmaAction('reject')}
+                  className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-500 text-white rounded-lg text-sm font-semibold transition-all hover:shadow-lg hover:shadow-red-500/20"
+                >
+                  <XCircle className="w-4 h-4" />
+                  Reject Order
+                </button>
+              </div>
+            )}
+
+          </div>
+        )}
+      </div>
+    )}
 
     {/* ✅ Order Info Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useAuth } from "@/context/AuthContext";
 import {
   getAddresses,
@@ -21,7 +21,6 @@ interface Address {
   id: string;
   firstName: string;
   lastName: string;
-  company: string;
   addressLine1: string;
   addressLine2: string;
   city: string;
@@ -33,7 +32,8 @@ interface Address {
 }
 
 export default function AddressesTab() {
-  const { accessToken } = useAuth();
+ const { accessToken, user } = useAuth();
+
 
   const [addresses, setAddresses] = useState<Address[]>([]);
   const [loading, setLoading] = useState(true);
@@ -41,8 +41,9 @@ export default function AddressesTab() {
 
   const [open, setOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
-// ✅ UK Mobile Validation (7XXXXXXXXX)
-const ukPhoneRegex = /^7\d{9}$/;
+
+const ukPhoneRegex = /^\d{10}$/;
+
 
   const [editingAddress, setEditingAddress] =
     useState<Address | null>(null);
@@ -51,7 +52,6 @@ const ukPhoneRegex = /^7\d{9}$/;
   const emptyForm: Omit<Address, "id"> = {
     firstName: "",
     lastName: "",
-    company: "",
     addressLine1: "",
     addressLine2: "",
     city: "",
@@ -69,6 +69,33 @@ const ukPhoneRegex = /^7\d{9}$/;
   const [formErrors, setFormErrors] = useState<
     Partial<Record<keyof typeof form, string>>
   >({});
+// 🔎 Address lookup states
+const [addressQuery, setAddressQuery] = useState("");
+const [addressSuggestions, setAddressSuggestions] = useState<any[]>([]);
+const [showSuggestions, setShowSuggestions] = useState(false);
+
+// Simple debounce (same as checkout)
+function useDebouncedCallback<T extends (...args: any[]) => any>(
+  fn: T,
+  wait = 350
+) {
+  const timer = useRef<number | undefined>(undefined);
+  const latestFn = useRef(fn);
+
+  useEffect(() => {
+    latestFn.current = fn;
+  }, [fn]);
+
+  return useCallback(
+    (...args: Parameters<T>) => {
+      if (timer.current) clearTimeout(timer.current);
+      timer.current = window.setTimeout(() => {
+        latestFn.current(...args);
+      }, wait) as unknown as number;
+    },
+    [wait]
+  );
+}
 
   // ---------------- FETCH ----------------
   useEffect(() => {
@@ -88,6 +115,98 @@ const ukPhoneRegex = /^7\d{9}$/;
 
     fetchAddresses();
   }, [accessToken]);
+// 🔎 Autocomplete search
+const doAutocomplete = useCallback(async (q: string) => {
+  if (!q || q.trim().length < 3) {
+    setAddressSuggestions([]);
+    setShowSuggestions(false);
+    return;
+  }
+
+  try {
+    const res = await fetch(
+      `${process.env.NEXT_PUBLIC_API_URL}/api/address-lookup/search?query=${encodeURIComponent(
+        q.trim()
+      )}&country=GB`
+    );
+
+    const json = await res.json();
+
+    if (!json?.success || !Array.isArray(json.data)) {
+      setAddressSuggestions([]);
+      setShowSuggestions(false);
+      return;
+    }
+
+    setAddressSuggestions(json.data);
+    setShowSuggestions(json.data.length > 0);
+  } catch {
+    setAddressSuggestions([]);
+    setShowSuggestions(false);
+  }
+}, []);
+
+const debouncedAutocomplete = useDebouncedCallback(doAutocomplete, 350);
+
+useEffect(() => {
+  debouncedAutocomplete(addressQuery);
+}, [addressQuery, debouncedAutocomplete]);
+
+// 🔎 Fetch full details
+const fetchAddressDetails = async (id: string) => {
+  const res = await fetch(
+    `${process.env.NEXT_PUBLIC_API_URL}/api/address-lookup/details/${encodeURIComponent(
+      id
+    )}`
+  );
+
+  const json = await res.json();
+
+  if (!json?.success || !json?.data) {
+    throw new Error("Failed to fetch address details");
+  }
+
+  return json.data;
+};
+
+// 🔎 When suggestion selected
+const handleSelectSuggestion = async (s: any) => {
+  try {
+    setShowSuggestions(false);
+    setAddressSuggestions([]);
+    setAddressQuery("");
+
+    const details = await fetchAddressDetails(s.id);
+
+    const line1 =
+      details.line1 ||
+      details.line2 ||
+      details.line3 ||
+      s.text ||
+      "";
+
+    const city =
+      details.city ||
+      details.town ||
+      details.locality ||
+      "";
+
+    const state = details.province || "";
+    const postcode = details.postalCode || "";
+    const country = details.country || "United Kingdom";
+
+    setForm((prev) => ({
+      ...prev,
+      addressLine1: line1,
+      city,
+      state,
+      postalCode: postcode,
+      country,
+    }));
+  } catch (err) {
+    console.error("Address details error", err);
+  }
+};
 
   // ---------------- VALIDATION ----------------
   const validateField = (
@@ -111,13 +230,13 @@ const ukPhoneRegex = /^7\d{9}$/;
       }
     }
 
-    if (key === "phoneNumber") {
+ if (key === "phoneNumber") {
   const cleaned = value.replace(/\D/g, "");
 
   if (!cleaned) {
     errorMsg = "Phone number is required";
   } else if (!ukPhoneRegex.test(cleaned)) {
-    errorMsg = "Enter valid UK mobile (7XXXXXXXXX)";
+    errorMsg = "Phone number must be 10 digits";
   }
 }
 
@@ -145,64 +264,77 @@ const ukPhoneRegex = /^7\d{9}$/;
   };
 
   // ---------------- ADD ----------------
-  const handleAddNew = () => {
-    setEditingAddress(null);
-    setForm(emptyForm);
-    setFormErrors({});
-    setOpen(true);
-  };
+const handleAddNew = () => {
+  setEditingAddress(null);
+
+  setForm({
+    ...emptyForm,
+    firstName: user?.firstName || "",
+    lastName: user?.lastName || "",
+  });
+
+  setFormErrors({});
+  setOpen(true);
+};
+
 
   // ---------------- SAVE ----------------
-  const handleSave = async () => {
-    if (!accessToken) return;
+const handleSave = async () => {
+  if (!accessToken) return;
 
-    let isValid = true;
+  let isValid = true;
 
-    Object.entries(form).forEach(([key, value]) => {
-      if (
-        key === "company" ||
-        key === "addressLine2" ||
-        key === "country" ||
-        key === "isDefault"
-      )
-        return;
+  Object.entries(form).forEach(([key, value]) => {
+    if (
+      key === "addressLine2" ||
+      key === "country" ||
+      key === "isDefault"
+    )
+      return;
 
-      const valid = validateField(
-        key as keyof typeof form,
-        String(value ?? "")
+    const valid = validateField(
+      key as keyof typeof form,
+      String(value ?? "")
+    );
+
+    if (!valid) isValid = false;
+  });
+
+  if (!isValid) return;
+
+  const payload = {
+    ...form,
+    phoneNumber: "+44" + form.phoneNumber,
+  };
+
+  try {
+    if (editingAddress) {
+      const updated = await updateAddress(
+        accessToken,
+        editingAddress.id,
+        payload
       );
 
-      if (!valid) isValid = false;
-    });
+      setAddresses((prev) =>
+        prev.map((a) =>
+          a.id === updated.id ? updated : a
+        )
+      );
+    } else {
+      const created = await createAddress(
+        accessToken,
+        payload
+      );
 
-    if (!isValid) return;
-
-    try {
-      if (editingAddress) {
-        const updated = await updateAddress(
-          accessToken,
-          editingAddress.id,
-          form
-        );
-
-        setAddresses((prev) =>
-          prev.map((a) =>
-            a.id === updated.id ? updated : a
-          )
-        );
-      } else {
-        const created = await createAddress(
-          accessToken,
-          form
-        );
-        setAddresses((prev) => [...prev, created]);
-      }
-
-      setOpen(false);
-    } catch (err: any) {
-      alert(err.message);
+      setAddresses((prev) => [...prev, created]);
     }
-  };
+
+    setOpen(false);
+  } catch (err: any) {
+    alert(err.message);
+  }
+};
+
 
   // ---------------- DELETE ----------------
   const handleDeleteClick = (id: string) => {
@@ -307,7 +439,7 @@ const ukPhoneRegex = /^7\d{9}$/;
                   setForm({
                     ...addr,
                     phoneNumber:
-                      addr.phoneNumber ?? "",
+                     addr.phoneNumber?.replace(/^\+44/, "") ?? "",
                   });
                   setFormErrors({});
                   setOpen(true);
@@ -353,10 +485,39 @@ const ukPhoneRegex = /^7\d{9}$/;
           </DialogHeader>
 
           <div className="grid grid-cols-2 gap-4 text-sm">
+            {/* 🔎 ADDRESS SEARCH – second row full width */}
+<div className="col-span-2 relative">
+  <label className="block mb-1 font-medium">
+    Search address or postcode
+  </label>
+
+  <input
+    type="text"
+    value={addressQuery}
+    onChange={(e) => setAddressQuery(e.target.value)}
+    placeholder="Start typing postcode or address"
+    className="w-full border rounded px-3 py-2"
+  />
+
+  {showSuggestions && addressSuggestions.length > 0 && (
+    <div className="absolute z-50 bg-white border rounded mt-1 w-full max-h-60 overflow-auto shadow">
+      {addressSuggestions.map((s) => (
+        <button
+          key={s.id}
+          type="button"
+          onClick={() => handleSelectSuggestion(s)}
+          className="w-full text-left px-3 py-2 hover:bg-gray-100"
+        >
+          {s.text}
+        </button>
+      ))}
+    </div>
+  )}
+</div>
+
             {[
               "firstName",
               "lastName",
-              "company",
               "addressLine1",
               "addressLine2",
               "city",
@@ -378,7 +539,6 @@ const ukPhoneRegex = /^7\d{9}$/;
                 <div
                   key={field}
                   className={
-                    field === "company" ||
                     field === "addressLine1" ||
                     field === "addressLine2" ||
                     field === "phoneNumber"
@@ -390,35 +550,61 @@ const ukPhoneRegex = /^7\d{9}$/;
                     {field}
                     {isRequired && " *"}
                   </label>
-                <input
-  value={String(form[field as keyof typeof form] ?? "")}
-  maxLength={field === "phoneNumber" ? 10 : undefined}
-  onChange={(e) => {
-    if (field === "phoneNumber") {
-      const cleaned = e.target.value.replace(/\D/g, "").slice(0, 10);
-      handleChange(field as keyof typeof form, cleaned);
-    } else {
-      handleChange(field as keyof typeof form, e.target.value);
-    }
-  }}
-  className={`w-full border rounded px-3 py-2 ${
-    formErrors[field as keyof typeof form]
-      ? "border-red-500"
-      : ""
-  }`}
-/>
+               {field === "phoneNumber" ? (
+  <div className="col-span-2">
+    <div className="flex">
+      {/* Fixed +44 */}
+      <div className="flex items-center px-3 bg-gray-100 border border-r-0 rounded-l-lg text-gray-700 text-sm font-medium">
+        +44
+      </div>
 
-                  {formErrors[
-                    field as keyof typeof form
-                  ] && (
-                    <p className="text-red-600 text-xs mt-1">
-                      {
-                        formErrors[
-                          field as keyof typeof form
-                        ]
-                      }
-                    </p>
-                  )}
+      <input
+        value={form.phoneNumber}
+        maxLength={10}
+        onChange={(e) => {
+          const cleaned = e.target.value
+            .replace(/\D/g, "")
+            .slice(0, 10);
+
+          handleChange("phoneNumber", cleaned);
+        }}
+        className={`w-full border rounded-r-lg px-3 py-2 ${
+          formErrors.phoneNumber ? "border-red-500" : ""
+        }`}
+        
+      />
+    </div>
+
+    {formErrors.phoneNumber && (
+      <p className="text-red-600 text-xs mt-1">
+        {formErrors.phoneNumber}
+      </p>
+    )}
+  </div>
+) : (
+  <>
+    <input
+      value={String(form[field as keyof typeof form] ?? "")}
+      onChange={(e) =>
+        handleChange(field as keyof typeof form, e.target.value)
+      }
+      className={`w-full border rounded px-3 py-2 ${
+        formErrors[field as keyof typeof form]
+          ? "border-red-500"
+          : ""
+      }`}
+    />
+
+    {formErrors[field as keyof typeof form] && (
+      <p className="text-red-600 text-xs mt-1">
+        {formErrors[field as keyof typeof form]}
+      </p>
+    )}
+  </>
+)}
+
+
+               
                 </div>
               );
             })}

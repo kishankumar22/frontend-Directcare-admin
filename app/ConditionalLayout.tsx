@@ -43,7 +43,7 @@ export default function ConditionalLayout({
     <Header ssrCategories={categories} />
 
     {/* main will push footer to bottom */}
-    <main className="flex-1 pt-[150px]">
+    <main className="flex-1 pt-[108px] md:pt-[152px]">
       {children}
     </main>
 

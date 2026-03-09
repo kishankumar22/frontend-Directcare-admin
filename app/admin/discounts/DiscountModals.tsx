@@ -92,6 +92,7 @@ interface DiscountModalsProps {
   loadingHistory: boolean;
   dateRangeFilter: { startDate: string; endDate: string };
   setDateRangeFilter: (filter: { startDate: string; endDate: string }) => void;
+  handleViewUsageHistory?: (discount: Discount) => void;
 }
 
 export default function DiscountModals(props: DiscountModalsProps) {
@@ -132,6 +133,7 @@ export default function DiscountModals(props: DiscountModalsProps) {
     loadingHistory,
     dateRangeFilter,
     setDateRangeFilter,
+    handleViewUsageHistory,
   } = props;
 
   // ========== HELPER FUNCTIONS FOR USAGE HISTORY ==========
@@ -1532,6 +1534,18 @@ useEffect(() => {
 
             {/* Footer Buttons */}
             <div className="flex justify-end gap-3 px-6 py-4 border-t border-slate-700/50 bg-slate-900/50">
+              <button
+                onClick={() => {
+                  if (handleViewUsageHistory) {
+                    setViewingDiscount(null);
+                    handleViewUsageHistory(viewingDiscount);
+                  }
+                }}
+                className="px-6 py-3 bg-amber-500 text-white rounded-lg hover:bg-amber-600 transition-all font-bold text-sm flex items-center gap-2 hover:shadow-lg hover:shadow-amber-500/40"
+              >
+                <History className="h-4 w-4" />
+                Usage History
+              </button>
               <button
                 onClick={() => {
                   setViewingDiscount(null);

@@ -6,7 +6,7 @@ import * as LucideIcons from "lucide-react";
 
 
 
-const API_BASE = process.env.API_BASE_URL || process.env.NEXT_PUBLIC_API_BASE_URL || "https://testapi.knowledgemarkg.com";
+const API_BASE = process.env.API_BASE_URL || process.env.NEXT_PUBLIC_API_URL || "";
 
 async function fetchJSON(url: string) {
   const res = await fetch(url, { next: { revalidate: 60 } });
@@ -56,8 +56,8 @@ export default async function BlogPage() {
     <div className="max-w-7xl mx-auto px-1 space-y-4">
 
       {/* ===================== CATEGORIES CARD ===================== */}
-      <section className="bg-white rounded-2xl shadow-xl p-8 border ">
-        <h2 className="text-2xl font-semibold mb-6 text-gray-900">Explore Our Blogs </h2>
+      <section className="bg-white rounded-2xl shadow-xl p-4 md:p-8 border ">
+        <h2 className="text-xl md:text-2xl font-semibold mb-4 md:mb-6 text-gray-900">Explore Our Blogs </h2>
 
         <div
           className="
@@ -107,8 +107,8 @@ export default async function BlogPage() {
       </section>
 
       {/* ===================== LATEST ARTICLES CARD ===================== */}
-      <section className="bg-white rounded-2xl shadow-xl p-8 border">
-        <h2 className="text-2xl font-semibold mb-6 text-gray-900">
+      <section className="bg-white rounded-2xl shadow-xl p-4 md:p-8 border">
+        <h2 className="text-xl md:text-2xl font-semibold mb-4 md:mb-6 text-gray-900">
           Latest Articles
         </h2>
 

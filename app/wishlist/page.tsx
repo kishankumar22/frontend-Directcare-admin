@@ -1,0 +1,131 @@
+"use client";
+
+import { useWishlist, WishlistItem } from "@/context/WishlistContext";
+import { useCart } from "@/context/CartContext";
+import { useToast } from "@/components/toast/CustomToast";
+import Image from "next/image";
+import Link from "next/link";
+import { Heart, ShoppingCart, Trash2, BadgePercent } from "lucide-react";
+import { Button } from "@/components/ui/button";
+
+export default function WishlistPage() {
+  const { wishlist, removeFromWishlist, clearWishlist } = useWishlist();
+  const { addToCart } = useCart();
+  const toast = useToast();
+
+  const handleAddToCart = (item: WishlistItem) => {
+    addToCart({
+      id: `wishlist:${item.id}`,
+      productId: item.id,
+      name: item.name,
+      price: item.price,
+      finalPrice: item.price,
+      priceBeforeDiscount: item.price,
+      discountAmount: 0,
+      quantity: 1,
+      image: item.image,
+      slug: item.slug,
+      sku: item.sku,
+      vatRate: item.vatRate ?? null,
+      vatIncluded: item.vatRate != null,
+    });
+    toast.success(`${item.name} added to cart`);
+  };
+
+  if (wishlist.length === 0) {
+    return (
+      <div className="max-w-2xl mx-auto px-4 py-16 text-center">
+        <Heart className="h-16 w-16 mx-auto mb-4 text-gray-300" />
+        <h1 className="text-2xl font-bold text-gray-800 mb-2">Your Wishlist is Empty</h1>
+        <p className="text-gray-500 mb-6">Save products you love by clicking the heart icon.</p>
+        <Link href="/">
+          <Button className="bg-[#445D41] hover:bg-black text-white px-6 py-2 rounded-xl">
+            Continue Shopping
+          </Button>
+        </Link>
+      </div>
+    );
+  }
+
+  return (
+    <div className="max-w-5xl mx-auto px-4 py-6">
+      {/* Header */}
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center gap-2">
+          <Heart className="h-5 w-5 text-red-500 fill-red-500" />
+          <h1 className="text-xl font-bold text-gray-900">
+            My Wishlist <span className="text-gray-400 font-normal text-base">({wishlist.length})</span>
+          </h1>
+        </div>
+        <button
+          onClick={() => { clearWishlist(); toast.success("Wishlist cleared"); }}
+          className="text-xs text-red-500 hover:text-red-700 flex items-center gap-1"
+        >
+          <Trash2 className="h-3.5 w-3.5" /> Clear all
+        </button>
+      </div>
+
+      {/* Grid */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+        {wishlist.map((item) => (
+          <div
+            key={item.id}
+            className="bg-white rounded-xl border border-gray-200 shadow-sm p-3 flex flex-col"
+          >
+            {/* Image */}
+            <Link href={`/products/${item.slug}`} className="block mb-2">
+              <div className="relative h-[110px] w-full bg-gray-50 rounded-lg overflow-hidden">
+                <Image
+                  src={item.image}
+                  alt={item.name}
+                  fill
+                  className="object-contain p-2"
+                  onError={(e) => { (e.target as HTMLImageElement).src = "/placeholder.jpg"; }}
+                />
+              </div>
+            </Link>
+
+            {/* Name */}
+            <Link href={`/products/${item.slug}`}>
+              <p className="text-xs font-semibold text-gray-800 line-clamp-2 mb-2 hover:text-[#445D41]">
+                {item.name}
+              </p>
+            </Link>
+
+            {/* Price + VAT */}
+            <div className="flex items-baseline gap-1 flex-wrap mb-3 mt-auto">
+              <span className="text-sm font-bold text-[#445D41]">
+                £{item.price.toFixed(2)}
+              </span>
+              {item.vatExempt ? (
+                <span className="inline-flex items-center gap-0.5 text-[9px] font-semibold text-green-700 bg-green-50 border border-green-200 px-1 py-0.5 rounded whitespace-nowrap">
+                  <BadgePercent className="h-2.5 w-2.5" /> VAT Exempt
+                </span>
+              ) : item.vatRate != null ? (
+                <span className="text-[9px] font-semibold text-green-700 bg-green-100 px-1 py-0.5 rounded whitespace-nowrap">
+                  ({item.vatRate}% VAT)
+                </span>
+              ) : null}
+            </div>
+
+            {/* Buttons */}
+            <div className="flex gap-1.5">
+              <Button
+                onClick={() => handleAddToCart(item)}
+                className="flex-1 h-7 text-[10px] px-1.5 bg-[#445D41] hover:bg-black text-white rounded-lg font-semibold"
+              >
+                <ShoppingCart className="h-3 w-3 mr-1" /> Add
+              </Button>
+              <button
+                onClick={() => { removeFromWishlist(item.id); toast.success("Removed from wishlist"); }}
+                className="h-7 w-7 flex items-center justify-center rounded-lg border border-gray-200 text-red-400 hover:text-red-600 hover:border-red-300 transition flex-shrink-0"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}

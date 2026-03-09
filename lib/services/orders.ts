@@ -454,6 +454,25 @@ async bulkCreateShipment(data: BulkCreateShipmentRequest) {
       throw new Error(error.response?.data?.message || 'Failed to cancel order');
     }
   }
+
+  async downloadInvoice(orderId: string): Promise<void> {
+    try {
+      const response = await apiClient.get(
+        `${API_ENDPOINTS.orders}/${orderId}/invoice/download`,
+        { responseType: 'blob' }
+      );
+      const url = window.URL.createObjectURL(new Blob([response.data as BlobPart], { type: 'application/pdf' }));
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `invoice-${orderId}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (error: any) {
+      throw new Error(error.response?.data?.message || 'Failed to download invoice');
+    }
+  }
 }
 
 

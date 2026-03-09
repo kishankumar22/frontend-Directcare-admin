@@ -93,7 +93,7 @@ export default function ChangePasswordTab() {
 
     try {
       const res = await fetch(
-        "https://testapi.knowledgemarkg.com/api/Auth/change-password",
+        `${process.env.NEXT_PUBLIC_API_URL}/api/Auth/change-password`,
         {
           method: "POST",
           headers: {

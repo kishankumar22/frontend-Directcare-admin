@@ -17,6 +17,7 @@ export interface Banner {
   id: string;
   title: string;
   imageUrl: string;
+  mobileImageUrl?: string | null;
   link: string;
   description: string;
   isDeleted: boolean;
@@ -39,6 +40,7 @@ export interface Banner {
 export interface CreateBannerDto {
   title: string;
   imageUrl: string;
+  mobileImageUrl?: string | null;
   link?: string;
   description?: string;
   bannerType: string; // or BannerType for strict typing

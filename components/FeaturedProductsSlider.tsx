@@ -10,6 +10,7 @@ import { Swiper, SwiperSlide } from "swiper/react";
 import { Autoplay, Navigation, Pagination } from "swiper/modules";
 import { useCart } from "@/context/CartContext";
 import { useToast } from "@/components/toast/CustomToast";
+import { useWishlist } from "@/context/WishlistContext";
 import PharmaQuestionsModal from "@/components/pharma/PharmaQuestionsModal";
 import {
   getDiscountBadge,
@@ -64,6 +65,8 @@ orderMaximumQuantity?: number;
   loyaltyPointsEarnable?: number;
   loyaltyPointsMessage?: string;
   shipSeparately?: boolean;
+  nextDayDeliveryEnabled?: boolean;
+  sameDayDeliveryEnabled?: boolean;
 isPharmaProduct?: boolean;
 }
 
@@ -80,6 +83,7 @@ export default function FeaturedProductsSlider({
   
   const toast = useToast();
  const { addToCart, cart } = useCart();
+ const { isInWishlist, toggleWishlist } = useWishlist();
   const router = useRouter();
 const { isAuthenticated } = useAuth();
 const flattenedProducts = useMemo(() => {
@@ -240,41 +244,29 @@ useEffect(() => {
   fetchVatRates();
 }, []);
 const getInitialQty = (product: any) => {
-  // 🔥 Allowed Quantities priority
-  if (product.allowedQuantities) {
-    const arr = product.allowedQuantities
-      .split(",")
-      .map((q: string) => Number(q.trim()))
-      .filter((q: number) => !isNaN(q) && q > 0);
-
-    if (arr.length > 0) return arr[0];
-  }
-
-  // 🔥 Fallback to min order
   return product.orderMinimumQuantity ?? 1;
 };
-const shouldShowMinWarning = (product: any) => {
-  // Agar allowedQuantities hai → warning nahi
-  if (product.allowedQuantities) return false;
 
+const shouldShowMinWarning = (product: any) => {
   return (
     product.orderMinimumQuantity &&
     product.orderMinimumQuantity > 1
   );
 };
 
+
   return (
     <div className="relative w-full bg-gray-50">
 
-      <h2 className="text-2xl md:text-3xl font-bold mb-8 text-gray-900 text-center">
+      <h2 className="text-xl md:text-3xl font-bold mb-4 md:mb-8 text-gray-900 text-center">
         {title}
       </h2>
 
-      <button id="prevBtn" className="absolute -left-4 top-1/2 -translate-y-1/2 z-20 p-0 m-0">
+      <button id="prevBtn" className="hidden md:block absolute -left-4 top-1/2 -translate-y-1/2 z-20 p-0 m-0">
         <ChevronLeft className="w-8 h-8 text-gray-700" />
       </button>
 
-      <button id="nextBtn" className="absolute -right-4 top-1/2 -translate-y-1/2 z-20 p-0 m-0">
+      <button id="nextBtn" className="hidden md:block absolute -right-4 top-1/2 -translate-y-1/2 z-20 p-0 m-0">
         <ChevronRight className="w-8 h-8 text-gray-700" />
       </button>
 
@@ -282,7 +274,7 @@ const shouldShowMinWarning = (product: any) => {
         modules={[Autoplay, Navigation, Pagination]}
         spaceBetween={16}
         slidesPerView={2}
-        className="pb-12"
+        className="pb-12 featured-products-slider"
         breakpoints={{
           640: { slidesPerView: 2, spaceBetween: 16 },
           768: { slidesPerView: 3, spaceBetween: 20 },
@@ -360,7 +352,7 @@ const backorderState = getBackorderUIState({
           <SwiperSlide key={variantForCard?.id ?? product.id}>
 
           <Card
-  className="group border-0 shadow-md hover:shadow-xl transition-all duration-300 hover:-translate-y-1 rounded-xl flex flex-col gap-1  h-[410px] sm:h-auto">
+  className="group border-0 shadow-md hover:shadow-xl transition-all duration-300 hover:-translate-y-1 rounded-xl flex flex-col flex-1 overflow-hidden">
             <CardContent className="p-0 flex flex-col h-full">
 
 
@@ -371,7 +363,7 @@ const backorderState = getBackorderUIState({
                 <GenderBadge gender={product.gender} />
 
 
-                 <div className="group h-[140px] sm:h-[160px] md:h-[180px] flex items-center justify-center overflow-hidden bg-white rounded-t-xl pt-2 relative">
+                 <div className="group h-[176px] sm:h-[200px] md:h-[224px] flex items-center justify-center overflow-hidden bg-white rounded-t-xl pt-2 relative">
                
 
                   <img
@@ -382,49 +374,75 @@ const backorderState = getBackorderUIState({
 />
 
 
- {discountBadge && (
-  <div className="absolute top-3 right-3 z-20">
-    <div
-      className="w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-gradient-to-br from-red-500 to-red-700 flex items-center justify-center text-white shadow-lg ring-2 ring-white">
+ {/* VAT Relief — bottom left on image */}
+{product.vatExempt && (
+  <span className="absolute bottom-1.5 left-2 z-20 inline-flex items-center gap-0.5 text-[9px] font-semibold text-white bg-black/80 border border-black/20 px-1.5 py-0.5 rounded-md shadow-sm whitespace-nowrap leading-none backdrop-blur-sm">
+    <BadgePercent className="h-2.5 w-2.5" />
+    VAT Relief
+  </span>
+)}
+{/* Offer badge — top right, smaller */}
+{discountBadge && (
+  <div className="absolute top-2 right-2 z-20">
+    <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-gradient-to-br from-red-500 to-red-700 flex items-center justify-center text-white shadow-md ring-2 ring-white">
       <div className="flex flex-col items-center leading-none">
         {discountBadge.type === "percent" ? (
           <>
-            <span className="text-sm sm:text-base font-extrabold">
-              {discountBadge.value}%
-            </span>
-            <span className="text-[9px] sm:text-[11px] font-semibold">
-              OFF
-            </span>
+            <span className="text-[10px] sm:text-xs font-extrabold">{discountBadge.value}%</span>
+            <span className="text-[7px] sm:text-[8px] font-semibold">OFF</span>
           </>
         ) : (
           <>
-            <span className="text-sm sm:text-base font-extrabold">
-              £{discountBadge.value}
-            </span>
-            <span className="text-[9px] sm:text-[11px] font-semibold">
-              OFF
-            </span>
+            <span className="text-[10px] sm:text-xs font-extrabold">£{discountBadge.value}</span>
+            <span className="text-[7px] sm:text-[8px] font-semibold">OFF</span>
           </>
         )}
       </div>
     </div>
   </div>
 )}
-{/* 🔥 COUPON REQUIRED BADGE (SAME CIRCULAR STYLE) */}
+{/* Coupon badge — top right, smaller */}
 {!discountBadge && hasActiveCoupon && (
-  <div className="absolute top-3 right-3 z-20">
-    <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-gradient-to-br from-red-500 to-red-700 flex items-center justify-center text-white shadow-lg ring-2 ring-white">
-      <div className="flex flex-col items-center leading-none text-center px-1">
-        <span className="text-[9px] sm:text-[10px] font-extrabold leading-tight">
-          COUPON
-        </span>
-        <span className="text-[8px] sm:text-[9px] font-semibold leading-tight">
-          Available
-        </span>
+  <div className="absolute top-2 right-2 z-20">
+    <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-gradient-to-br from-red-500 to-red-700 flex items-center justify-center text-white shadow-md ring-2 ring-white">
+      <div className="flex flex-col items-center leading-none text-center px-0.5">
+        <span className="text-[8px] font-extrabold leading-tight">COUPON</span>
+        <span className="text-[7px] font-semibold leading-tight">Avail</span>
       </div>
     </div>
   </div>
 )}
+{/* Wishlist — top right below badge */}
+<button
+  onClick={(e) => {
+    e.preventDefault();
+    const inWishlist = isInWishlist(product.id);
+    toggleWishlist({
+      id: product.id,
+      name: product.name,
+      slug: cardSlug,
+      price: finalPrice,
+      image: getProductDisplayImage(product, defaultVariant),
+      vatRate: vatRate ?? null,
+      vatExempt: product.vatExempt,
+      sku: defaultVariant?.sku ?? (product as any).sku,
+    });
+    toast.success(inWishlist ? "Removed from wishlist" : "Added to wishlist!");
+  }}
+  className={`absolute z-20 right-2 p-1.5 rounded-full shadow-sm border transition-all ${
+    (discountBadge || hasActiveCoupon) ? "top-14 sm:top-14" : "top-2"
+  } ${
+    isInWishlist(product.id)
+      ? "bg-red-50 border-red-200"
+      : "bg-white border-gray-200 hover:bg-red-50 hover:border-red-200"
+  }`}
+>
+  <Heart
+    className={`h-3 w-3 transition-colors ${
+      isInWishlist(product.id) ? "fill-red-500 text-red-500" : "text-gray-400 hover:text-red-400"
+    }`}
+  />
+</button>
                 </div>
                 </Link>
 
@@ -432,7 +450,7 @@ const backorderState = getBackorderUIState({
              <div className="flex flex-col flex-grow px-3 pb-3 pt-2">
 
                   {/* FIXED TITLE HEIGHT */}
-                 <div className="min-h-[42px] max-h-[42px] sm:min-h-[38px] sm:max-h-[38px] mb-2">
+                 <div className="min-h-[42px] max-h-[42px] sm:min-h-[38px] sm:max-h-[38px] mb-0.5">
                     <Link href={`/products/${cardSlug}`} className="block">
                      <h3
   className="
@@ -453,29 +471,27 @@ const backorderState = getBackorderUIState({
                     </Link>
                   </div>
 
-                  {/* RATING FIXED HEIGHT */}
-               <div className="flex items-center gap-2 min-h-[22px] max-h-[22px] mb-0">
+                  {/* RATING + REVIEW + LOYALTY — single compact row */}
+               <div className="flex items-center gap-1 min-h-[20px] mb-0 flex-nowrap overflow-hidden">
 
-  {/* ⭐ Flipkart-style rating badge */}
-  <div className="flex items-center bg-green-600 text-white px-1.5 py-0.5 rounded-md text-[10px] font-semibold">
+  {/* ⭐ Rating badge */}
+  <div className="flex items-center bg-green-600 text-white px-1 py-0.5 rounded text-[10px] font-semibold flex-shrink-0">
     <span>{product.averageRating?.toFixed(1)}</span>
-    <Star className="h-3 w-3 ml-1 fill-white text-white" />
+    <Star className="h-2.5 w-2.5 ml-0.5 fill-white text-white" />
   </div>
 
   {/* Review Count */}
-  <span className="text-[11px] text-gray-600">
-    ({product.reviewCount?.toLocaleString()})
+  <span className="text-[10px] text-gray-500 flex-shrink-0">
+    ({product.reviewCount ?? 0})
   </span>
 
-{/* LOYALTY INLINE (NO EXTRA MARGIN) */}
-{loyaltyPoints && (
-  <span className="mt-0 inline-flex items-center gap-1.5 text-[11px] font-medium text-green-700 bg-green-50 border border-green-200 px-2 py-0.5 rounded-md w-fit leading-none">
-    <AwardIcon className="h-4 w-4 text-green-600" />
-    Earn {loyaltyPoints} points
-  </span>
-)}
-
-
+  {/* Loyalty */}
+  {loyaltyPoints && (
+    <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-green-700 bg-green-50 border border-green-200 px-1 py-0.5 rounded whitespace-nowrap leading-none flex-shrink-0">
+      <AwardIcon className="h-2.5 w-2.5 text-green-600 flex-shrink-0" />
+      Earn {loyaltyPoints} pts
+    </span>
+  )}
 
 </div>
 
@@ -483,34 +499,23 @@ const backorderState = getBackorderUIState({
 
                   {/* PRICE ROW FIXED HEIGHT */}
             {/* PRICE + LOYALTY (SAME RESERVED SPACE) */}
-<div className="min-h-[42px] mb-0 flex flex-col justify-center">
+<div className="min-h-[30px] mt-1 mb-0 flex flex-col justify-center">
 
   {/* PRICE ROW */}
-  <div className="flex items-center gap-1 sm:gap-2 flex-wrap sm:flex-nowrap">
+  <div className="flex items-center gap-1 sm:gap-2">
     <span className="text-lg font-bold text-[#445D41] leading-none">
       £{finalPrice.toFixed(2)}
     </span>
-
     {discountBadge && (
       <span className="text-xs text-gray-400 line-through leading-none">
         £{basePrice.toFixed(2)}
       </span>
     )}
-
-    {/* VAT / VAT Relief badge */}
-{product.vatExempt ? (
-  <span className="inline-flex items-center gap-1 text-[9px] sm:text-[10px] font-semibold text-green-700 bg-green-50 border border-green-200 px-2 py-0.5 rounded-md  whitespace-nowrap leading-none">
-    <BadgePercent className="h-3 w-3" />
-    VAT Relief
-  </span>
-) : vatRate !== null ? (
-  <span className="text-[8px] sm:text-[10px] font-semibold text-green-700 bg-green-100 px-1.5 py-0.5 rounded whitespace-nowrap leading-none">
-    ({vatRate}% VAT)
-  </span>
-) : null}
-
-
-
+    {!product.vatExempt && vatRate !== null && (
+      <span className="text-[8px] sm:text-[10px] font-semibold text-green-700 bg-green-100 px-1.5 py-0.5 rounded whitespace-nowrap leading-none">
+        ({vatRate}% VAT)
+      </span>
+    )}
   </div>
 
 
@@ -518,7 +523,7 @@ const backorderState = getBackorderUIState({
 </div>
 
 {/* ACTION BUTTONS */}
-<div className="mt-auto flex items-center gap-2 pt-0">
+<div className="mt-auto flex items-center gap-2 pt-1.5">
 
   {/* ⭐ CASE: IN STOCK OR CAN BUY */}
   {backorderState.canBuy && (
@@ -600,6 +605,8 @@ vatIncluded: vatRate !== null,
     image: getProductDisplayImage(product, defaultVariant),
     sku: defaultVariant?.sku ?? product.sku,
     shipSeparately: product.shipSeparately,
+    nextDayDeliveryEnabled: product.nextDayDeliveryEnabled ?? false,
+    sameDayDeliveryEnabled: product.sameDayDeliveryEnabled ?? false,
     variantId: defaultVariant?.id ?? null,
     slug: cardSlug,
     variantOptions: {
@@ -663,23 +670,6 @@ vatIncluded: vatRate !== null,
         <Zap className="h-4 w-4" />
         Buy
       </Button>
-       {/* ❤️ WISHLIST ICON RIGHT SIDE */}
- <button
-  disabled={product.disableWishlistButton === true}
-  onClick={() => {
-    if (product.disableWishlistButton) return;
-    toast.success("Added to wishlist!");
-  }}
-  className={`p-2 rounded-md border border-gray-300 transition flex-shrink-0
-    ${product.disableWishlistButton
-      ? "opacity-50 cursor-not-allowed"
-      : "hover:bg-black hover:text-white"
-    }`}
->
-
-    <Heart className="h-4 w-4" />
-  </button>
-  
     </>
   )}
 
@@ -704,7 +694,7 @@ vatIncluded: vatRate !== null,
       {/* BUY NOW DISABLED */}
       <Button
         disabled
-        className="w-full text-xs md:text-sm rounded-lg py-2 bg-gray-300 text-gray-600 cursor-not-allowed"
+        className="w-full text-xs md:text-sm rounded-lg py-2 bg-red-700 text-white cursor-not-allowed"
       >
         <PackageX className="h-4 w-4" />
         Stock!
@@ -718,7 +708,7 @@ vatIncluded: vatRate !== null,
       {/* ADD TO CART DISABLED WITH TEXT */}
       <Button
         disabled
-        className="w-full text-xs md:text-sm rounded-lg py-2 bg-gray-400 cursor-not-allowed text-white"
+        className="w-full text-xs md:text-sm rounded-lg py-2 bg-red-400 cursor-not-allowed text-white"
       >
         <CircleOff className="h-4 w-4" />
         Stock!
@@ -828,7 +818,9 @@ const modalVatRate =
   vatIncluded: modalVatRate !== null,
     image: getProductDisplayImage(product, variant),
     sku: variant?.sku ?? product.sku,
-    shipSeparately: product.shipSeparately, // ✅ IMPORTANT
+    shipSeparately: product.shipSeparately,
+    nextDayDeliveryEnabled: product.nextDayDeliveryEnabled ?? false,
+    sameDayDeliveryEnabled: product.sameDayDeliveryEnabled ?? false,
     variantId: variant?.id ?? null,
     slug: cardSlug,
     variantOptions: {

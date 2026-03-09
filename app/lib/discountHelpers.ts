@@ -13,10 +13,8 @@ export function getActiveDiscount(product: any) {
       if (!d.isActive) return false;
       if (d.requiresCouponCode) return false;
 
-      const start = new Date(d.startDate);
-      const end = new Date(d.endDate);
-
-      if (now < start || now > end) return false;
+      if (d.startDate && now < new Date(d.startDate)) return false;
+      if (d.endDate && now > new Date(d.endDate)) return false;
 
       // Valid discount
       if (d.usePercentage === true) {

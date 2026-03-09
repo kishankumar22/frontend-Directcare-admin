@@ -34,6 +34,7 @@ export default function ProductsClient({
   const router = useRouter();
   const searchParams = useSearchParams();
   const [isPending, startTransition] = useTransition();
+  const [showMobileFilters, setShowMobileFilters] = useState(false);
 
   /* ---------------- SERVER STATE ---------------- */
   const [products, setProducts] = useState(initialProducts);
@@ -255,35 +256,85 @@ const isEmptyState =
   return (
     <main className="max-w-7xl mx-auto px-4 py-4">
         {/* 🧭 Breadcrumbs */}
-<div className="mb-2 flex items-center justify-between">
-  {/* 🧭 Breadcrumbs – LEFT */}
-  <nav className="flex items-center flex-wrap gap-1 text-sm text-gray-600">
-  <a
-    href="/"
-    className="hover:text-[#445D41] transition-colors"
-  >
-    Home
-  </a>
-
-  <span className="mx-2 text-gray-400">/</span>
-
-  <span className="font-semibold text-gray-900">
-    Products
-  </span>
-</nav>
-
-  <select
-    value={`${sortBy}-${sortDirection}`}
-    onChange={(e) => handleSortChange(e.target.value)}
-    className="px-4 py-1 border border-gray-300 rounded-lg bg-white text-sm font-medium text-gray-700
-               focus:outline-none focus:ring-2 focus:ring-[#445D41]"
-  >
-    <option value="name-asc">Name: A-Z</option>
-    <option value="name-desc">Name: Z-A</option>
-    <option value="price-asc">Price: Low to High</option>
-    <option value="price-desc">Price: High to Low</option>
-  </select>
+<div className="mb-2 flex items-center justify-between gap-2">
+  {/* Breadcrumbs */}
+  <nav className="hidden md:flex items-center flex-wrap gap-1 text-xs md:text-sm text-gray-600">
+    <a href="/" className="hover:text-[#445D41] transition-colors">Home</a>
+    <span className="mx-1 text-gray-400">/</span>
+    <span className="font-semibold text-gray-900">Products</span>
+  </nav>
+  <div className="flex items-center gap-2 flex-shrink-0">
+    {/* Mobile filter button */}
+    <button
+      onClick={() => setShowMobileFilters(!showMobileFilters)}
+      className="lg:hidden flex items-center gap-1 px-2 py-1 border border-gray-300 rounded-lg bg-white text-sm font-medium text-gray-700"
+    >
+      <SlidersHorizontal className="h-4 w-4" />
+      <span className="hidden sm:inline">Filters</span>
+    </button>
+    <select
+      value={`${sortBy}-${sortDirection}`}
+      onChange={(e) => handleSortChange(e.target.value)}
+      className="px-2 md:px-4 py-1 border border-gray-300 rounded-lg bg-white text-xs md:text-sm font-medium text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#445D41]"
+    >
+      <option value="name-asc">A-Z</option>
+      <option value="name-desc">Z-A</option>
+      <option value="price-asc">Low-High</option>
+      <option value="price-desc">High-Low</option>
+    </select>
+  </div>
 </div>
+
+{/* Mobile Filter Panel */}
+{showMobileFilters && (
+  <Card className="mb-4 shadow-sm lg:hidden">
+    <CardContent className="p-4 space-y-4">
+      <div className="flex items-center justify-between pb-2 border-b">
+        <div className="flex items-center gap-2">
+          <SlidersHorizontal className="h-4 w-4 text-[#445D41]" />
+          <h2 className="font-bold text-sm text-gray-900">Filters</h2>
+        </div>
+        <button onClick={resetFilters} className="text-xs text-blue-600">Reset</button>
+      </div>
+      {categories.length > 0 && (
+        <div>
+          <h4 className="font-semibold text-sm mb-2">Category</h4>
+          <div className="space-y-1 max-h-40 overflow-y-auto">
+            {categories.map((cat: any) => (
+              <label key={cat.categoryId} className="flex items-center gap-2 text-sm cursor-pointer p-1 rounded">
+                <input type="checkbox" checked={selectedCategories.includes(cat.categoryId)}
+                  onChange={(e) => { const next = e.target.checked ? [...selectedCategories, cat.categoryId] : selectedCategories.filter(id => id !== cat.categoryId); setSelectedCategories(next); setProducts(initialProducts); setPage(1); setHasMore(true); }} />
+                <span className="truncate">{cat.categoryName}</span>
+              </label>
+            ))}
+          </div>
+        </div>
+      )}
+      <div>
+        <h4 className="font-semibold text-sm mb-2">Brand</h4>
+        <div className="space-y-1 max-h-40 overflow-y-auto">
+          {Array.from(new Map(products.flatMap((p) => p.brands ?? []).map((b: any) => [b.brandId, b])).values()).map((brand: any) => (
+            <label key={brand.brandId} className="flex items-center gap-2 text-sm cursor-pointer p-1 rounded">
+              <input type="checkbox" checked={selectedBrands.includes(brand.brandId)}
+                onChange={(e) => { const next = e.target.checked ? [...selectedBrands, brand.brandId] : selectedBrands.filter(b => b !== brand.brandId); setSelectedBrands(next); setProducts(initialProducts); setPage(1); setHasMore(true); }} />
+              <span className="truncate">{brand.brandName}</span>
+            </label>
+          ))}
+        </div>
+      </div>
+      <div>
+        <h4 className="font-semibold text-sm mb-2">Rating</h4>
+        {[4, 3, 2, 1, 0].map((r) => (
+          <label key={r} className="flex items-center gap-2 text-sm cursor-pointer p-1 rounded">
+            <input type="radio" checked={minRating === r} onChange={() => { setMinRating(r); setProducts(initialProducts); setPage(1); setHasMore(true); }} />
+            <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
+            <span>{r > 0 ? `${r}+ Stars` : "All"}</span>
+          </label>
+        ))}
+      </div>
+    </CardContent>
+  </Card>
+)}
 
        <div className="flex gap-8">
        
@@ -451,7 +502,7 @@ const isEmptyState =
       </button>
     </div>
   ) : (
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-start">
+    <div className="grid grid-cols-2 md:grid-cols-3 gap-2 md:gap-6 items-start">
       {finalProducts.map((product) => (
         <ProductCard
           key={product.id}

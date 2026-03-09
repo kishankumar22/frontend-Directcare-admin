@@ -24,6 +24,7 @@ export default function AccountClient() {
 
   const [showPassword, setShowPassword] = useState(false);
   const [showRegPassword, setShowRegPassword] = useState(false);
+const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   // Guest Email
   const [email, setEmail] = useState("");
@@ -46,6 +47,8 @@ const [forgotSuccessMessage, setForgotSuccessMessage] = useState("");
   const [regLastName, setRegLastName] = useState("");
   const [regEmail, setRegEmail] = useState("");
   const [regPassword, setRegPassword] = useState("");
+  const [regConfirmPassword, setRegConfirmPassword] = useState("");
+
   const [regPhone, setRegPhone] = useState("");
   const [regGender, setRegGender] = useState("male");
   const [regError, setRegError] = useState("");
@@ -54,6 +57,7 @@ const [regFieldErrors, setRegFieldErrors] = useState<{
   lastName?: string;
   email?: string;
   password?: string;
+  confirmPassword?: string;
   phone?: string;
 }>({});
 
@@ -229,12 +233,18 @@ if (!regPassword)
 else if (!isValidPassword(regPassword))
   errors.password =
     "Password must be at least 8 characters, contain 1 uppercase & 1 special character";
+if (!regConfirmPassword)
+  errors.confirmPassword = "Confirm password is required";
+else if (regPassword !== regConfirmPassword)
+  errors.confirmPassword = "Passwords do not match";
 
-
-if (!regPhone.trim())
+if (!regPhone.trim()) {
   errors.phone = "Phone number is required";
-else if (!/^\d{8,15}$/.test(regPhone.trim()))
-  errors.phone = "Enter a valid phone number";
+} 
+else if (!/^\d{10}$/.test(regPhone)) {
+  errors.phone = "Phone number must be 10 digits";
+}
+
 
 if (Object.keys(errors).length) {
   setRegFieldErrors(errors);
@@ -251,7 +261,7 @@ if (Object.keys(errors).length) {
         password: regPassword,
         firstName: regFirstName,
         lastName: regLastName,
-        phoneNumber: regPhone,
+       phoneNumber: "+44" + regPhone,
         dateOfBirth: new Date().toISOString(),
         gender: regGender,
         requireEmailConfirmation: true,
@@ -544,37 +554,104 @@ if (isAuthenticated && user) {
 )}
 
     </div>
+{/* Confirm Password */}
+<div>
+  <label className="text-sm font-medium">
+    Confirm Password <span className="text-red-500">*</span>
+  </label>
+
+  <div className="relative">
+    <Input
+      type={showConfirmPassword ? "text" : "password"}
+      value={regConfirmPassword}
+      onChange={(e) => {
+        setRegConfirmPassword(e.target.value);
+
+        if (regFieldErrors.confirmPassword) {
+          setRegFieldErrors((p) => ({
+            ...p,
+            confirmPassword: undefined,
+          }));
+        }
+      }}
+      className="h-11 pr-10"
+    />
+
+    <button
+      type="button"
+      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+      className="absolute right-3 top-1/2 -translate-y-1/2"
+    >
+      {showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+    </button>
+  </div>
+
+  {regFieldErrors.confirmPassword && (
+    <p className="text-xs text-red-600 mt-1">
+      {regFieldErrors.confirmPassword}
+    </p>
+  )}
+
+  {/* Optional: Password Match Indicator */}
+  {regConfirmPassword &&
+    regPassword === regConfirmPassword && (
+      <p className="text-xs mt-1 text-green-600 font-medium">
+        Passwords match ✓
+      </p>
+  )}
+
+  {regConfirmPassword &&
+    regPassword !== regConfirmPassword && (
+      <p className="text-xs mt-1 text-red-600">
+        Passwords do not match
+      </p>
+  )}
+</div>
+
 
     {/* Phone Number (Required) */}
-    <div>
-      <label className="text-sm font-medium">
-        Phone Number <span className="text-red-500">*</span>
-      </label>
-    <Input
-  value={regPhone}
-  inputMode="numeric"
-  onChange={(e) => {
-    // sirf digits allow
-    const onlyDigits = e.target.value.replace(/\D/g, "");
+   {/* Phone Number (UK Fixed +44) */}
+<div>
+  <label className="text-sm font-medium">
+    Phone Number <span className="text-red-500">*</span>
+  </label>
 
-    // max 10 digits
-    if (onlyDigits.length > 10) return;
-
-    setRegPhone(onlyDigits);
-
-    if (regFieldErrors.phone) {
-      setRegFieldErrors((p) => ({ ...p, phone: undefined }));
-    }
-  }}
-  className="h-11"
-/>
-
-      {regFieldErrors.phone && (
-        <p className="text-xs text-red-600 mt-1">
-          {regFieldErrors.phone}
-        </p>
-      )}
+  <div className="flex">
+    {/* Fixed +44 */}
+    <div className="flex items-center px-3 bg-gray-100 border border-r-0 rounded-l-lg text-gray-700 text-sm font-medium">
+      +44
     </div>
+
+    <Input
+      value={regPhone}
+      inputMode="numeric"
+     
+      onChange={(e) => {
+        const onlyDigits = e.target.value.replace(/\D/g, "");
+
+        // UK mobile without 0, max 10 digits
+        if (onlyDigits.length > 10) return;
+
+        setRegPhone(onlyDigits);
+
+        if (regFieldErrors.phone) {
+          setRegFieldErrors((p) => ({
+            ...p,
+            phone: undefined,
+          }));
+        }
+      }}
+      className="h-11 rounded-l-none border"
+    />
+  </div>
+
+  {regFieldErrors.phone && (
+    <p className="text-xs text-red-600 mt-1">
+      {regFieldErrors.phone}
+    </p>
+  )}
+</div>
+
 
     {/* Gender (Optional) */}
     <select

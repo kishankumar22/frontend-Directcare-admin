@@ -74,7 +74,7 @@ export default async function SearchPage({ searchParams }: any) {
                 alt={item.name}
                 width={200}
                 height={200}
-                className="object-contain w-full h-40"
+                className="object-contain w-full h-52"
               />
 
               <h3 className="text-sm font-medium text-gray-900 mt-2 line-clamp-2">

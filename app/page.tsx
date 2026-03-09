@@ -1,6 +1,8 @@
 //app/page.tsx
 import Link from "next/link";
-
+import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import HomeBannerSlider from "@/components/HomeBannerSlider";
 import FeaturedProductsSlider from "@/components/FeaturedProductsSlider";
 import NewArrivalsProductsSlider from "@/components/NewArrivalsProductsSlider";
@@ -10,7 +12,7 @@ import CategorySlider from "@/components/CategorySlider";
 import NewsletterWrapper from "@/components/NewsletterWrapper";
 import CategoryOffersSlider from "@/components/CategoryOffersSlider";
 import { getActiveBanners } from "@/lib/bannerUtils";
-import { TrendingUp, Zap, Gift, Shield, } from "lucide-react";
+import { ShoppingCart, Star, TrendingUp, Zap, Gift, Shield, } from "lucide-react";
 import WhyChooseUs from "@/components/WhyChooseUs";
 export const dynamic = "force-dynamic";
 
@@ -28,6 +30,7 @@ interface Banner {
   title: string;
   description: string;
   imageUrl: string;
+  mobileImageUrl?: string | null;
   link?: string;
   bannerType: BannerType;
   offerText?: string;
@@ -101,7 +104,7 @@ async function getBanners(baseUrl: string): Promise<Banner[]> {
 async function getProducts(baseUrl: string) {
   try {
     const res = await fetch(
-      `${baseUrl}/api/Products?page=1&pageSize=100&sortDirection=asc&isPublished=true&showOnHomepage=true&isDeleted=false`,
+      `${baseUrl}/api/Products?page=1&pageSize=10000&sortDirection=asc&isPublished=true&showOnHomepage=true&isDeleted=false`,
       {
         cache: "no-store",
       }
@@ -126,9 +129,8 @@ async function getCategories(baseUrl: string) {
     const result = await res.json();
     if (!result.success || !Array.isArray(result.data)) return [];
 
-    return result.data.sort(
-      (a: any, b: any) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0)
-    );
+    // Return ALL active categories (not filtered by showOnHomepage)
+    return result.data.sort((a: any, b: any) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
   } catch {
     return [];
   }
@@ -202,31 +204,29 @@ const homeProducts = [...products].sort(
     {/* ===== PROMO BANNER ===== */}
  {seasonalBanners.length > 0 && (
   <section className="w-full py-4 bg-white">
-   {seasonalBanners.map((banner) => (
-  banner.link ? (
-    <Link
-      key={banner.id}
-      href={banner.link}
-      className="block cursor-pointer"
-    >
-      <img
-        src={`${baseUrl}${banner.imageUrl}`}
-        alt={banner.title}
-        className="w-full h-auto object-cover"
-      />
-    </Link>
-  ) : (
-    <div key={banner.id}>
-      <img
-        src={`${baseUrl}${banner.imageUrl}`}
-        alt={banner.title}
-        className="w-full h-auto object-cover"
-      />
-    </div>
-  )
-))}
+    {seasonalBanners.map((banner) => {
+      const desktopSrc = `${baseUrl}${banner.imageUrl}`;
+      const mobileSrc = banner.mobileImageUrl ? `${baseUrl}${banner.mobileImageUrl}` : null;
 
-    
+      const pictureEl = (
+        <picture className="block w-full">
+          {mobileSrc && <source media="(max-width: 767px)" srcSet={mobileSrc} />}
+          <img
+            src={desktopSrc}
+            alt={banner.title}
+            className="w-full h-[110px] sm:h-[160px] md:h-auto object-cover object-center"
+          />
+        </picture>
+      );
+
+      return banner.link ? (
+        <Link key={banner.id} href={banner.link} className="block cursor-pointer">
+          {pictureEl}
+        </Link>
+      ) : (
+        <div key={banner.id}>{pictureEl}</div>
+      );
+    })}
   </section>
 )}
 
@@ -242,8 +242,8 @@ const homeProducts = [...products].sort(
     {/* ===== CATEGORIES ===== */}
     <section className="w-full bg-gray-100 py-4">
       <div className="max-w-7xl mx-auto px-4">
-        <div className="text-center mb-6 md:mb-8">
-          <h2 className="text-2xl md:text-3xl font-bold mb-1">Shop by Category</h2>
+        <div className="text-center mb-3 md:mb-8">
+          <h2 className="text-xl md:text-3xl font-bold mb-1">Shop by Category</h2>
           <p className="text-gray-600 text-sm md:text-base">Browse our wide range of products</p>
         </div>
         <CategorySlider categories={homeCategories} baseUrl={baseUrl} />
@@ -258,19 +258,19 @@ const homeProducts = [...products].sort(
    {/* ===== TOP BRANDS ===== */}
 <section className="w-full bg-white py-4">
   <div className="max-w-7xl mx-auto px-4">
-   <div className="relative mb-8">
+   <div className="relative mb-4 md:mb-8">
 
   {/* View All Button - Right Side */}
   <Link
     href="/brands"
-    className="absolute right-0 top-0 text-sm md:text-base font-medium text-[#445D41] bg-green-50 border border-green-200 px-2 py-1 rounded hover:text-green-700 transition"
+    className="absolute right-0 top-0 text-xs md:text-base font-medium text-[#445D41] bg-green-50 border border-green-200 px-2 py-1 rounded hover:text-green-700 transition"
   >
-    View All Brands →
+    View All →
   </Link>
 
   {/* Centered Heading */}
   <div className="text-center">
-    <h2 className="text-2xl md:text-3xl font-bold mb-1">
+    <h2 className="text-xl md:text-3xl font-bold mb-1">
       Top Brands
     </h2>
     <p className="text-gray-600 text-sm md:text-base">

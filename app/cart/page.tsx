@@ -9,7 +9,7 @@ import { useAuth } from "@/context/AuthContext";
 import { useRouter } from "next/navigation";
 import ProductOffersModal from "@/components/cart/ProductOffersModal";
 import ConfirmRemoveModal from "@/components/ui/ConfirmRemoveModal";
-
+import PharmaQuestionsModal from "@/components/pharma/PharmaQuestionsModal";
 export default function CartPage() {
   const toast = useToast();
   const { cart, updateQuantity, removeFromCart, updateCart, cartTotal } = useCart();
@@ -22,15 +22,18 @@ useEffect(() => {
     vatIncluded: i.vatIncluded,
   })));
 }, [cart]);
+// ================= PHARMA SYNC =================
 
- const handleCheckout = () => {
+
+ const handleCheckout = async () => {
+
   const inStockItems = cart.filter(item => getItemStock(item) > 0);
 
   if (inStockItems.length === 0) {
     toast.error("All selected items are out of stock. Please remove them to continue.");
     return;
   }
-
+ 
   // Send only valid items to checkout
   updateCart(inStockItems);
 
@@ -49,7 +52,7 @@ const [removeTarget, setRemoveTarget] = useState<any | null>(null);
 // ⭐ Product Offers Modal state
 const [showOffers, setShowOffers] = useState(false);
 const [selectedItem, setSelectedItem] = useState<any | null>(null);
-
+const [pharmaEditItem, setPharmaEditItem] = useState<any | null>(null);
   // map itemId->error for stock/qty UI (keeps your existing state shape)
   const [stockError, setStockError] = useState<{ [key: string]: string | null }>({});
   // -------------------------
@@ -134,44 +137,17 @@ const bundleSavings = useMemo(() => {
 }, [cart]);
 const totalCombinedDiscount = bundleSavings + totalDiscount;
 
-const applyCouponForItem = (item: any, code: string) => {
-  const coupon = code.trim();
-  if (!coupon) {
-    toast.error("Enter a coupon code");
-    return;
-  }
-
-  const assigns = item.productData?.assignedDiscounts ?? [];
-
-  const match = assigns.find((d: any) => {
-    if (!d.requiresCouponCode) return false;
-    if (!isDiscountActive(d)) return false;
-    return d.couponCode?.toLowerCase() === coupon.toLowerCase();
-  });
-
-  if (!match) {
-    toast.error("Invalid coupon for this product");
-    return;
-  }
-
-  const base = item.priceBeforeDiscount ?? item.price;
-
-  let discount = match.usePercentage
-    ? (base * match.discountPercentage) / 100
-    : match.discountAmount ?? 0;
-
-  if (match.maximumDiscountAmount && discount > match.maximumDiscountAmount) {
-    discount = match.maximumDiscountAmount;
-  }
+const applyCouponFromBackend = (item: any, couponData: any) => {
+  const basePrice = item.priceBeforeDiscount ?? item.price;
 
   const updated = cart.map((ci) =>
     ci.id === item.id && ci.type === item.type
       ? {
           ...ci,
-          appliedDiscountId: match.id,
-          couponCode: coupon,
-          discountAmount: discount,
-          finalPrice: +(base - discount).toFixed(2),
+          appliedDiscountId: couponData.discountId,
+          couponCode: couponData.couponCode,
+          discountAmount: +couponData.discountAmount.toFixed(2),
+          finalPrice: +(basePrice - couponData.discountAmount).toFixed(2),
         }
       : ci
   );
@@ -215,29 +191,46 @@ const applyCouponForItem = (item: any, code: string) => {
       return item;
     }
 
-    const basePrice = item.priceBeforeDiscount ?? item.price;
+   const basePrice = item.priceBeforeDiscount ?? item.price;
 
-    let discountValue = match.usePercentage
-      ? (basePrice * match.discountPercentage) / 100
-      : match.discountAmount ?? 0;
+// 🔹 Existing discount (auto ya pehle se applied)
+const existingDiscount = item.discountAmount ?? 0;
 
-    if (
-      match.maximumDiscountAmount &&
-      discountValue > match.maximumDiscountAmount
-    ) {
-      discountValue = match.maximumDiscountAmount;
-    }
+// 🔹 Calculate coupon value
+let couponValue = match.usePercentage
+  ? (basePrice * match.discountPercentage) / 100
+  : match.discountAmount ?? 0;
+
+if (
+  match.maximumDiscountAmount &&
+  couponValue > match.maximumDiscountAmount
+) {
+  couponValue = match.maximumDiscountAmount;
+}
+
+// 🔥 CUMULATIVE RULE
+let totalDiscount;
+
+if (match.isCumulative === true) {
+  totalDiscount = existingDiscount + couponValue;
+} else {
+  totalDiscount = couponValue; // replace old discount
+}
+
+// safety clamp
+if (totalDiscount > basePrice) {
+  totalDiscount = basePrice;
+}
 
     appliedAny = true;
-
-    return {
-      ...item,
-      appliedDiscountId: match.id,
-      discountAmount: discountValue,
-      finalPrice: +(basePrice - discountValue).toFixed(2),
-      couponCode: code,
-      priceBeforeDiscount: item.priceBeforeDiscount ?? item.price,
-    };
+return {
+  ...item,
+  appliedDiscountId: match.id,
+  discountAmount: +totalDiscount.toFixed(2),
+  finalPrice: +(basePrice - totalDiscount).toFixed(2),
+  couponCode: code,
+  priceBeforeDiscount: basePrice,
+};
   });
 
   if (!appliedAny) {
@@ -382,25 +375,6 @@ const orderVatAmount = useMemo(() => {
   }, 0);
 }, [cart]);
 
-const getAllowedQtyArray = (item: any): number[] => {
-  const allowed: string | undefined =
-    item.productData?.allowedQuantities;
-
-  if (!allowed) return [];
-
-  const stock: number = getItemStock(item);
-
-  return allowed
-    .split(",")
-    .map((q: string) => Number(q.trim()))
-    .filter(
-      (q: number) =>
-        !isNaN(q) &&
-        q > 0 &&
-        q <= stock
-    )
-    .sort((a: number, b: number) => a - b);
-};
 
 
   // UI render
@@ -425,12 +399,29 @@ const getAllowedQtyArray = (item: any): number[] => {
   }
 
   return (
-    <div className="max-w-6xl mx-auto px-4 py-6">
-      <h1 className="text-2xl font-bold mb-6">My Shopping Bag</h1>
+    <>
+    {/* Fixed bottom checkout bar — mobile only */}
+    <div className="lg:hidden fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-gray-200 shadow-[0_-4px_12px_rgba(0,0,0,0.08)] px-4 py-3">
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex flex-col leading-tight">
+          <span className="text-[10px] text-gray-500">Total</span>
+          <span className="text-base font-bold text-gray-900">£{cartTotal.toFixed(2)}</span>
+        </div>
+        <button
+          onClick={handleCheckout}
+          className="flex-1 bg-black hover:bg-gray-800 text-white py-2.5 rounded-xl font-semibold text-sm shadow-md transition"
+        >
+          Proceed to Checkout
+        </button>
+      </div>
+    </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <div className="max-w-6xl mx-auto px-3 py-3 pb-24 lg:pb-3">
+      <h1 className="text-lg font-bold mb-3">My Shopping Bag</h1>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
         {/* LEFT: items */}
-        <div className="lg:col-span-2 space-y-4">
+        <div className="lg:col-span-2 space-y-2">
         {cart.map((item) => {
   // ❌ bundle child direct render nahi hoga
   if (isBundleChild(item)) return null;
@@ -446,256 +437,154 @@ const getAllowedQtyArray = (item: any): number[] => {
       key={item.id + (item.variantId ?? "") + (item.type ?? "")}
     >
 
-            <div key={item.id + (item.variantId ?? "") + (item.type ?? "")} className="bg-white rounded-xl border border-gray-200 p-4 flex flex-col sm:flex-row gap-4 shadow-sm">
-           <div className="relative w-24 h-24 flex-shrink-0">
-  <Link href={`/products/${item.slug}`}>
+            <div key={item.id + (item.variantId ?? "") + (item.type ?? "")} className="bg-white rounded-xl border border-gray-200 p-3 flex flex-row gap-3 shadow-sm">
 
-    <img
-      src={item.image}
-      alt="no image"
-      className="w-24 h-24 object-cover rounded-md border bg-gray-50"
-    />
- 
+              {/* Image + delete */}
+              <div className="relative w-[72px] h-[72px] md:w-24 md:h-24 flex-shrink-0">
+                <Link href={`/products/${item.slug}`}>
+                  <img
+                    src={item.image}
+                    alt="no image"
+                    className="w-[72px] h-[72px] md:w-24 md:h-24 object-contain rounded-md border bg-gray-50"
+                  />
+                </Link>
+                <button
+                  onClick={() => setRemoveTarget({ item, bundleChildren })}
+                  className="absolute -top-2 -left-2 bg-white border border-gray-200 rounded-full p-1 text-red-500 hover:bg-red-50 shadow-sm transition"
+                  aria-label="Remove item"
+                >
+                  <Trash2 size={14} />
+                </button>
+              </div>
 
-  </Link>
+              {/* Right: all details */}
+              <div className="flex flex-col flex-1 min-w-0">
 
-  {/* Remove icon */}
- <button
-  onClick={() => {
-    setRemoveTarget({
-      item,
-      bundleChildren,
-    });
-  }}
-  className="absolute -top-2 -left-2 bg-white border border-gray-200 rounded-full p-1.5 text-red-500 hover:bg-red-50 hover:text-red-600 shadow-sm transition" aria-label="Remove item" >
-  <Trash2 size={18} />
-</button>
-</div>
-<div className="flex flex-col flex-1">
-  <div className="flex items-start justify-between">
-    <div>
-      <Link href={`/products/${item.slug}`}>
-
-       <h2 className="font-semibold text-gray-900 leading-tight 
-               line-clamp-2 max-w-[430px]">
-  {item.name}
-</h2>
-      </Link>
-                    {getItemStock(item) === 0 && (
-  <p className="text-red-600 text-xs font-semibold mt-1">
-    Out of Stock — Please remove this item
-  </p>
-)}
-                    {item.type === "subscription" && (
-                      <p className="text-xs font-semibold text-indigo-600 mt-1">
-                        Subscription • Every {item.frequency ?? ""} {item.frequencyPeriod ?? ""} • {item.subscriptionTotalCycles ?? ""} Cycles
-                      </p>
+                {/* Row 1: Name + Price */}
+                <div className="flex items-start justify-between gap-1">
+                  <Link href={`/products/${item.slug}`} className="flex-1 min-w-0">
+                    <h2 className="font-semibold text-xs md:text-sm text-gray-900 leading-tight line-clamp-2">
+                      {item.name}
+                    </h2>
+                  </Link>
+                  <div className="flex flex-col items-end flex-shrink-0 ml-1">
+                    <p className="text-sm font-bold text-gray-900 whitespace-nowrap">
+                      £{((item.finalPrice ?? item.price) * (item.quantity ?? 1)).toFixed(2)}
+                    </p>
+                    {(item.discountAmount ?? 0) > 0 && (
+                      <span className="text-[10px] font-semibold text-green-700 whitespace-nowrap">
+                        {Math.round(((item.discountAmount ?? 0) / (item.priceBeforeDiscount ?? item.price)) * 100)}% OFF
+                      </span>
                     )}
                   </div>
-           <div className="flex items-center justify-end gap-2 text-right">
-  {/* Price */}
-  <p className="text-gray-800 font-semibold">
-    £{((item.finalPrice ?? item.price) * (item.quantity ?? 1)).toFixed(2)}
-  </p>
-
-  {/* % OFF badge */}
-  {(item.discountAmount ?? 0) > 0 && (
-    <span className="text-[12px] font-semibold text-green-700">
-      (
-      {Math.round(
-        ((item.discountAmount ?? 0) /
-          (item.priceBeforeDiscount ?? item.price)) *
-          100
-      )}
-      % OFF)
-    </span>
-  )}
-</div>
                 </div>
 
-                {/* VARIANT / SKU / small meta could go here */}
+                {/* Row 2: meta (stock / subscription) */}
+                {getItemStock(item) === 0 && (
+                  <p className="text-red-600 text-[10px] font-semibold mt-0.5">Out of Stock — remove this item</p>
+                )}
+                {item.type === "subscription" && (
+                  <p className="text-[10px] font-semibold text-indigo-600 mt-0.5">
+                    Subscription • Every {item.frequency ?? ""} {item.frequencyPeriod ?? ""} • {item.subscriptionTotalCycles ?? ""} Cycles
+                  </p>
+                )}
 
-                {/* Coupon pill (per item) */}
-                <div className="mt-1 flex items-center justify-between gap-4">
-                  <div className="flex items-center gap-3">
-                    {/* Quantity + Saved row */}
-<div className="flex items-center gap-3">
-  {/* Quantity controls */}
- {(() => {
-  const allowedQtyArray = getAllowedQtyArray(item);
-
-  // 🔥 IF ALLOWED QUANTITIES EXIST → DROPDOWN
-  if (allowedQtyArray.length > 0) {
-    return (
-      <div className="flex items-center gap-2 border rounded-lg px-3 py-1.5">
-        <select
-          value={item.quantity}
-          onChange={(e) => {
-            const val = Number(e.target.value);
-
-            updateQuantity(item.id, val);
-
-            // 🔥 bundle sync
-            if (item.isBundleParent && item.bundleId) {
-              bundleChildren.forEach((c) =>
-                updateQuantity(c.id, val)
-              );
-            }
-          }}
-          className="outline-none bg-transparent font-medium"
-        >
-          {allowedQtyArray.map((qty: number) => (
-            <option key={qty} value={qty}>
-              {qty}
-            </option>
-          ))}
-        </select>
-      </div>
-    );
-  }
-
-  // 🔥 OTHERWISE → EXISTING LOGIC SAME
-  return (
-    <div className="flex items-center gap-2 border rounded-lg px-3 py-1.5">
-      {(item.quantity ?? 1) === 1 ? (
-        <button
-          onClick={() =>
-            setRemoveTarget({ item, bundleChildren })
-          }
-          className="text-black hover:text-red-600 w-6 flex justify-center"
-        >
-          <Trash2 size={16} />
-        </button>
-      ) : (
-        <button
-          onClick={() => {
-            const minQty =
-              item.productData?.orderMinimumQuantity ?? 1;
-
-            if ((item.quantity ?? 1) <= minQty) {
-              toast.error(
-                `Minimum order quantity is ${minQty}`
-              );
-              return;
-            }
-
-            const newQty = (item.quantity ?? 1) - 1;
-            updateQuantity(item.id, newQty);
-
-            if (
-              item.isBundleParent &&
-              item.bundleId
-            ) {
-              bundleChildren.forEach((c) =>
-                updateQuantity(c.id, newQty)
-              );
-            }
-          }}
-          className="text-gray-700 font-bold text-lg w-6 text-center"
-        >
-          -
-        </button>
-      )}
-
-      <input
-        type="number"
-        className="w-12 text-center outline-none font-medium"
-        value={item.quantity}
-        onChange={(e) => {
-          let val = parseInt(e.target.value || "1", 10);
-          if (val < 1) return;
-
-          updateQuantity(item.id, val);
-
-          if (
-            item.isBundleParent &&
-            item.bundleId
-          ) {
-            bundleChildren.forEach((c) =>
-              updateQuantity(c.id, val)
-            );
-          }
-        }}
-      />
-
-      <button
-        onClick={() => {
-          let newQty = (item.quantity ?? 1) + 1;
-          updateQuantity(item.id, newQty);
-
-          if (
-            item.isBundleParent &&
-            item.bundleId
-          ) {
-            bundleChildren.forEach((c) =>
-              updateQuantity(c.id, newQty)
-            );
-          }
-        }}
-        className="text-gray-700 font-bold text-lg w-6 text-center"
-      >
-        +
-      </button>
-    </div>
-  );
-})()}
-
-</div>
-                    {/* applied coupon badge */}
-                    {item.couponCode ? (
-                      <div className="flex items-center gap-2 bg-green-50 text-green-800 px-3 py-1 rounded-full text-xs font-semibold">
-                        <span>Coupon Code:</span>
-                        <span className="font-medium">{item.couponCode}</span>
-                        <button
-                          onClick={() => removeCouponFromItem(item.id, item.type)}
-                          className="ml-2 text-red-600 underline text-xs"
-                        >
-                          Remove Coupon
-                        </button>
-                      </div>
+                {/* Row 3: Qty controls + VAT + Loyalty */}
+                <div className="flex items-center justify-between mt-1.5 flex-wrap gap-1">
+                  {/* Qty */}
+                  <div className="flex items-center border rounded-md h-7">
+                    {(item.quantity ?? 1) === 1 ? (
+                      <button
+                        onClick={() => setRemoveTarget({ item, bundleChildren })}
+                        className="px-1.5 h-full text-gray-600 hover:text-red-600 flex items-center"
+                      >
+                        <Trash2 size={12} />
+                      </button>
                     ) : (
-                      // show small hint if available coupons include this product (non-blocking)
-                      <div className="text-xs text-green-500">
-                       {availableCoupons.some((c) => c.productIds.includes(item.id)) && (
-<button
-  onClick={() => {
-    setSelectedItem(item);
-    setShowOffers(true);
-  }}
-  className="flex items-center gap-1.5 text-xs text-green-600 font-medium hover:underline"
->
-  <GiftIcon className="h-6 w-6" />
-  <span>Click here to apply coupons</span>
-</button>
+                      <button
+                        onClick={() => {
+                          const minQty = item.productData?.orderMinimumQuantity ?? 1;
+                          if ((item.quantity ?? 1) <= minQty) { toast.error(`Minimum order quantity is ${minQty}`); return; }
+                          const newQty = (item.quantity ?? 1) - 1;
+                          updateQuantity(item.id, newQty);
+                          if (item.isBundleParent && item.bundleId) bundleChildren.forEach((c) => updateQuantity(c.id, newQty));
+                        }}
+                        className="px-1.5 h-full text-gray-700 font-bold text-sm flex items-center"
+                      >-</button>
+                    )}
+                    <input
+                      type="number"
+                      className="w-8 text-center outline-none font-medium text-sm border-l border-r border-gray-200 h-full"
+                      value={item.quantity}
+                      onChange={(e) => {
+                        let val = parseInt(e.target.value || "1", 10);
+                        if (val < 1) return;
+                        updateQuantity(item.id, val);
+                        if (item.isBundleParent && item.bundleId) bundleChildren.forEach((c) => updateQuantity(c.id, val));
+                      }}
+                    />
+                    <button
+                      onClick={() => {
+                        let newQty = (item.quantity ?? 1) + 1;
+                        updateQuantity(item.id, newQty);
+                        if (item.isBundleParent && item.bundleId) bundleChildren.forEach((c) => updateQuantity(c.id, newQty));
+                      }}
+                      className="px-1.5 h-full text-gray-700 font-bold text-sm flex items-center"
+                    >+</button>
+                  </div>
 
-)}
+                  {/* VAT + Loyalty badges */}
+                  <div className="flex flex-wrap items-center gap-1">
+                    {typeof item.vatRate === "number" && item.vatRate > 0 && (
+                      <span className="text-[10px] font-semibold text-green-700 bg-green-50 border border-green-200 px-1.5 py-0.5 rounded">
+                        {item.vatRate}% VAT
+                      </span>
+                    )}
+                    {(item.vatRate === 0 || item.vatRate === null) && (
+                      <span className="text-[10px] font-semibold text-green-700 bg-green-50 border border-green-200 px-1.5 py-0.5 rounded">
+                        VAT Exempt
+                      </span>
+                    )}
+                    {getItemLoyaltyPoints(item) > 0 && (
+                      <div className="inline-flex items-center gap-0.5 text-[10px] font-medium text-green-700 bg-green-50 border border-green-200 px-1.5 py-0.5 rounded">
+                        <AwardIcon className="h-3 w-3 text-green-600" />
+                        Earn {getItemLoyaltyPoints(item)} pts
                       </div>
                     )}
                   </div>
-
-                  <div className="flex flex-col items-end gap-2 mt-[-20px]">
-                    {/* <button onClick={() => removeFromCart(item.id, item.type)} className="flex items-center gap-1 text-red-500 hover:text-red-700 text-sm font-medium">
-                      <Trash2 size={16} /> Remove
-                    </button> */}
-
-  
-  {getItemLoyaltyPoints(item) > 0 && (
-  <div className="mt-2 inline-flex items-center gap-1.5 text-[11px] font-medium text-green-700 bg-green-50 border border-green-200 px-0.5 py-0.5 rounded-md">
-    <AwardIcon className="h-4 w-4 text-green-600" />
-   Earn {getItemLoyaltyPoints(item)} points
-
-  </div>
-)}
- {item.shipSeparately === true && purchasableItemCount > 1 && (
-    <div className="inline-flex items-center gap-1.5 text-[13px]
-      text-amber-700 bg-amber-50 border border-amber-200
-      px-2 py-0.5 rounded-md font-medium w-fit">
-      📦 This item will be shipped separately
-    </div>
-  )}
-                    {stockError[item.id] && <p className="text-red-600 text-xs">{stockError[item.id]}</p>}
-                  </div>
                 </div>
+
+                {/* Row 4: Coupon */}
+                {item.couponCode ? (
+                  <div className="flex items-center gap-1.5 bg-green-50 text-green-800 px-2 py-0.5 rounded-full text-[10px] font-semibold mt-1 w-fit">
+                    <span>Coupon: {item.couponCode}</span>
+                    <button onClick={() => removeCouponFromItem(item.id, item.type)} className="text-red-600 underline">Remove</button>
+                  </div>
+                ) : availableCoupons.some((c) => c.productIds.includes(item.id)) && (
+                  <button
+                    onClick={() => { setSelectedItem(item); setShowOffers(true); }}
+                    className="flex items-center gap-1 text-[10px] text-green-600 font-medium hover:underline mt-1 w-fit"
+                  >
+                    <GiftIcon className="h-3.5 w-3.5" />
+                    Apply coupon
+                  </button>
+                )}
+
+                {/* Row 5: extras */}
+                <div className="flex flex-wrap items-center gap-1.5 mt-1">
+                  {item.productData?.isPharmaProduct && (
+                    <button onClick={() => setPharmaEditItem(item)} className="text-[10px] font-medium text-blue-600 hover:underline">
+                      Edit Medical Info
+                    </button>
+                  )}
+                  {item.shipSeparately === true && purchasableItemCount > 1 && (
+                    <span className="text-[10px] text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded font-medium">
+                      📦 Ships separately
+                    </span>
+                  )}
+                  {stockError[item.id] && <p className="text-red-600 text-[10px]">{stockError[item.id]}</p>}
+                </div>
+
               </div>
             </div>
             {/* 🔥 GROUPED PRODUCTS (NESTED) */}
@@ -787,87 +676,80 @@ const getAllowedQtyArray = (item: any): number[] => {
         <div className="lg:col-span-1">
           <div className="bg-white border border-gray-200 rounded-xl shadow-md p-2 sticky top-24">
             {/* Inline coupon input */}
-            <div className="border border-gray-300 rounded-lg p-4 mb-2">
-              <h3 className="text-sm font-semibold mb-2">Apply Coupon</h3>
-
+            <div className="border border-gray-300 rounded-lg p-2 mb-2">
+              <h3 className="text-xs font-semibold mb-1.5">Apply Coupon</h3>
               <div className="flex gap-1">
                 <input
                   type="text"
                   value={couponInput}
                   onChange={(e) => setCouponInput(e.target.value)}
                   placeholder="Enter coupon code"
-                  className="flex-1 border px-3 py-2 rounded-lg text-sm outline-none focus:ring-1 focus:ring-[#445D41]"
+                  className="flex-1 border px-2 py-1.5 rounded-lg text-xs outline-none focus:ring-1 focus:ring-[#445D41]"
                 />
-                <button onClick={applyCouponInput} className="bg-[#445D41] text-white px-4 py-2 rounded-lg text-sm">
+                <button onClick={applyCouponInput} className="bg-[#445D41] text-white px-3 py-1.5 rounded-lg text-xs">
                   Apply
                 </button>
               </div>
-
-             
             </div>
             {totalLoyaltyPoints > 0 && (
-  <div className="flex items-center justify-between text-sm text-green-700 bg-green-50 border border-green-200 px-3 py-2 rounded-lg mb-3">
-    <div className="flex items-center gap-2">
-      
-      <span>🎁Total Loyalty Points</span>
-    </div>
-    <span className="font-semibold">
-      {totalLoyaltyPoints} points
-    </span>
-  </div>
-)}
+              <div className="flex items-center justify-between text-xs text-green-700 bg-green-50 border border-green-200 px-2 py-1.5 rounded-lg mb-2">
+                <span>🎁 Total Loyalty Points</span>
+                <span className="font-semibold">{totalLoyaltyPoints} points</span>
+              </div>
+            )}
 
             {/* Price details */}
-            <h3 className="text-lg font-semibold mb-3">Price Details</h3>
-            <div className="space-y-2 text-sm">
-          <div className="flex justify-between">
-  <span>Subtotal</span>
-  <span>£{subtotalBeforeDiscount.toFixed(2)}</span>
-</div>
-<div className="flex justify-between">
-  <span>Includes VAT</span>
-  <span>£{orderVatAmount.toFixed(2)}</span>
-</div>
-{bundleSavings > 0 && (
-  <div className="flex justify-between text-green-700">
-    <span>Bundle Savings</span>
-    <span>- £{bundleSavings.toFixed(2)}</span>
-  </div>
-)}
-
-{totalDiscount > 0 && (
-  <div className="flex justify-between text-green-600">
-    <span>Discount</span>
-    <span>- £{totalDiscount.toFixed(2)}</span>
-  </div>
-)}
-
-{/* 🔥 TOTAL DISCOUNT (NEW LINE) */}
-{totalCombinedDiscount > 0 && (
-  <div className="flex justify-between text-green-800 font-semibold border-t pt-2 mt-1">
-    <span>Total Discount</span>
-    <span>- £{totalCombinedDiscount.toFixed(2)}</span>
-  </div>
-)}
-              <div className="flex justify-between font-semibold text-gray-900 border-t pt-3">
+            <h3 className="text-sm font-semibold mb-2">Price Details</h3>
+            <div className="space-y-1 text-xs">
+              <div className="flex justify-between">
+                <span>Subtotal</span>
+                <span>£{subtotalBeforeDiscount.toFixed(2)}</span>
+              </div>
+              {orderVatAmount > 0 && (
+                <div className="flex justify-between">
+                  <span>VAT</span>
+                  <span>£{orderVatAmount.toFixed(2)}</span>
+                </div>
+              )}
+              {bundleSavings > 0 && (
+                <div className="flex justify-between text-green-700">
+                  <span>Bundle Savings</span>
+                  <span>- £{bundleSavings.toFixed(2)}</span>
+                </div>
+              )}
+              {totalDiscount > 0 && (
+                <div className="flex justify-between text-green-600">
+                  <span>Discount</span>
+                  <span>- £{totalDiscount.toFixed(2)}</span>
+                </div>
+              )}
+              {totalCombinedDiscount > 0 && (
+                <div className="flex justify-between text-green-800 font-semibold border-t pt-1.5 mt-1">
+                  <span>Total Discount</span>
+                  <span>- £{totalCombinedDiscount.toFixed(2)}</span>
+                </div>
+              )}
+              <div className="flex justify-between font-semibold text-gray-900 border-t pt-1.5 text-sm">
                 <span>Total Amount</span>
                 <span>£{cartTotal.toFixed(2)}</span>
               </div>
             </div>
 
-            <button onClick={handleCheckout} className="w-full mt-5 bg-[#445D41] hover:bg-black text-white py-3 rounded-xl font-semibold text-sm shadow-md">
+            <button onClick={handleCheckout} className="hidden lg:block w-full mt-3 bg-[#445D41] hover:bg-black text-white py-2.5 rounded-xl font-semibold text-sm shadow-md">
               Proceed to Checkout
             </button>
         {showOffers && selectedItem && (
   <ProductOffersModal
-    item={selectedItem}
-    onClose={() => {
-      setShowOffers(false);
-      setSelectedItem(null);
-    }}
-    onApply={(code) => applyCouponForItem(selectedItem, code)}
-    isDiscountActive={isDiscountActive}
-  />
+  item={selectedItem}
+  onClose={() => {
+    setShowOffers(false);
+    setSelectedItem(null);
+  }}
+  onApply={(couponData) =>
+    applyCouponFromBackend(selectedItem, couponData)
+  }
+  isDiscountActive={isDiscountActive}
+/>
 )}
 <ConfirmRemoveModal
   open={!!removeTarget}
@@ -893,14 +775,24 @@ const getAllowedQtyArray = (item: any): number[] => {
     removeFromCart(item.id, item.type);
 
     setRemoveTarget(null);
-    toast.success("Item removed from cart");
+    toast.error("Item removed from cart");
   }}
 />
-
+{pharmaEditItem && (
+  <PharmaQuestionsModal
+    open={!!pharmaEditItem}
+    productId={pharmaEditItem.productId}
+    onClose={() => setPharmaEditItem(null)}
+    onSuccess={() => {
+      setPharmaEditItem(null);
+      toast.success("Medical information updated successfully.");
+    }}
+  />
+)}
           </div>
         </div>
       </div>
     </div>
-    
+    </>
   );
 }

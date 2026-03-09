@@ -3,10 +3,10 @@
 
 import Link from "next/link";
 import { Swiper, SwiperSlide } from "swiper/react";
-import { Navigation } from "swiper/modules";
+import { Autoplay, Pagination } from "swiper/modules";
 
 import "swiper/css";
-import "swiper/css/navigation";
+import "swiper/css/pagination";
 
 /* ================= TYPES ================= */
 interface Discount {
@@ -42,9 +42,8 @@ export default function CategoryOffersSlider({
 
   const now = new Date();
 
-  // If backend UTC nahi bhej raha to Z append karna safe hai
-  const start = new Date(discount.startDate + "Z");
-  const end = new Date(discount.endDate + "Z");
+  const start = new Date(discount.startDate.endsWith("Z") ? discount.startDate : discount.startDate + "Z");
+  const end = new Date(discount.endDate.endsWith("Z") ? discount.endDate : discount.endDate + "Z");
 
   if (now < start) return false;
   if (now > end) return false;
@@ -77,18 +76,18 @@ const offerCategories = categories.filter((c) => {
   <section className="relative w-full py-4 mt-0 overflow-hidden bg-gray-50">
     <div className="relative max-w-7xl mx-auto px-4">
       {/* ===== HEADER (NO BACKGROUND) ===== */}
-      <div className="mb-6 text-center">
-        <h2 className="text-3xl md:text-4xl font-extrabold tracking-tight text-black">
+      <div className="mb-3 md:mb-6 text-center">
+        <h2 className="text-xl md:text-4xl font-extrabold tracking-tight text-black">
           Big Festive Sale
         </h2>
-        <p className="mt-2 text-sm md:text-base text-gray-700">
+        <p className="mt-1 md:mt-2 text-sm md:text-base text-gray-700">
           Save big on selected categories – limited time only
         </p>
       </div>
     </div>
 
     {/* ===== FESTIVE BACKGROUND STARTS HERE (FULL WIDTH) ===== */}
-    <div className="relative w-full overflow-hidden bg-gradient-to-r from-[#445D41] via-[#2f6b3f] to-black py-6">
+    <div className="relative w-full overflow-hidden bg-gradient-to-r from-[#445D41] via-[#2f6b3f] to-black pt-4 pb-2">
       {/* STAR DUST / CONFETTI */}
       <div
         className="absolute inset-0 pointer-events-none"
@@ -111,16 +110,20 @@ const offerCategories = categories.filter((c) => {
       <div className="relative max-w-7xl mx-auto px-4">
         {/* ===== SLIDER ===== */}
         <Swiper
-          modules={[Navigation]}
-          navigation
-          spaceBetween={20}
-          slidesPerView={1.2}
+          modules={[Autoplay, Pagination]}
+          autoplay={{ delay: 3000, disableOnInteraction: false, pauseOnMouseEnter: true }}
+          pagination={{ clickable: true }}
+          loop={offerCategories.length > 2}
+          spaceBetween={12}
+          slidesPerView={2}
           breakpoints={{
-            640: { slidesPerView: 1 },
-            768: { slidesPerView: 3 },
-            1024: { slidesPerView: 4 },
-            1280: { slidesPerView: 4 },
+            640: { slidesPerView: 2, spaceBetween: 14 },
+            768: { slidesPerView: 3, spaceBetween: 18 },
+            1024: { slidesPerView: 4, spaceBetween: 20 },
+            1280: { slidesPerView: 4, spaceBetween: 20 },
           }}
+          className="!pb-7"
+          style={{ paddingBottom: "1.75rem" }}
         >
           {offerCategories.map((cat) => {
            const validDiscounts = cat.assignedDiscounts.filter((d) =>
@@ -144,14 +147,14 @@ const percentageDiscounts = validDiscounts
             return (
               <SwiperSlide key={cat.id}>
                 <Link href={`/category/${cat.slug}?offer=true`}>
-                  <div className="relative h-[280px] bg-white rounded-xl overflow-hidden shadow-lg transition-all duration-300 hover:shadow-xl hover:-translate-y-1 flex flex-col">
+                  <div className="relative bg-white rounded-xl overflow-hidden shadow-lg transition-all duration-300 hover:shadow-xl hover:-translate-y-1 flex flex-col">
                     {/* OFFER BADGE */}
-                    <div className="absolute top-3 left-3 z-10 flex items-center justify-center text-center w-[70px] h-[70px] bg-gradient-to-br from-red-500 to-red-700 text-white text-[11px] font-extrabold leading-tight rounded-full shadow-lg ring-2 ring-white/70">
-                      <span className="px-2">{offerText}</span>
+                    <div className="absolute top-2 left-2 z-10 flex items-center justify-center text-center w-[52px] h-[52px] md:w-[70px] md:h-[70px] bg-gradient-to-br from-red-500 to-red-700 text-white text-[9px] md:text-[11px] font-extrabold leading-tight rounded-full shadow-lg ring-2 ring-white/70">
+                      <span className="px-1">{offerText}</span>
                     </div>
 
                     {/* IMAGE */}
-                    <div className="h-[172px] flex items-center justify-center p-2">
+                    <div className="h-[110px] md:h-[172px] flex items-center justify-center p-2 pt-4">
                       <img
                         src={getImageSrc(cat.imageUrl)}
                         alt={cat.name}
@@ -161,16 +164,13 @@ const percentageDiscounts = validDiscounts
                     </div>
 
                     {/* CONTENT */}
-                    <div className="flex-1 px-4 pt-[1.5rem] flex flex-col items-center text-center">
-                      <h3 className="text-sm font-semibold text-black leading-tight line-clamp-2">
+                    <div className="px-2 md:px-4 pt-2 pb-3 flex flex-col items-center text-center">
+                      <h3 className="text-xs md:text-sm font-semibold text-black leading-tight line-clamp-2 mb-2">
                         {cat.name}
                       </h3>
-
-                      <div className="mt-[16px] w-full pb-3">
-                        <span className="block w-full text-center bg-[#2f6b3f] text-white text-sm font-semibold py-2.5 rounded-md hover:bg-[#245432] transition">
-                          Shop now
-                        </span>
-                      </div>
+                      <span className="block w-full text-center bg-[#2f6b3f] text-white text-xs md:text-sm font-semibold py-1.5 md:py-2.5 rounded-md hover:bg-[#245432] transition">
+                        Shop now
+                      </span>
                     </div>
                   </div>
                 </Link>

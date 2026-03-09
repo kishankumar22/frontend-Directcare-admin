@@ -47,9 +47,9 @@ slug: string;
 bundlePrice?: number;            // per grouped product bundle price
 individualSavings?: number;      // price - bundlePrice
 hasBundleDiscount?: boolean;
-// ✅ NEXT DAY DELIVERY (ADD THESE)
+// ✅ DELIVERY FLAGS
   nextDayDeliveryEnabled?: boolean;
-  nextDayDeliveryCharge?: number;
+  sameDayDeliveryEnabled?: boolean;
   // 🔥 BUNDLE SUPPORT
   purchaseContext?: "bundle" | "standalone";
   bundleId?: string | null;
@@ -83,19 +83,6 @@ export const CartProvider = ({ children }: { children: React.ReactNode }) => {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [isInitialized, setIsInitialized] = useState(false);
 const toast = useToast();
-const isAllowedQuantity = (product: any, qty: number) => {
-  if (!product?.allowedQuantities) return true;
-
-  const allowed = product.allowedQuantities
-    .split(",")
-    .map((q: string) => Number(q.trim()))
-    .filter((q: number) => !isNaN(q));
-
-  if (!allowed.length) return true;
-
-  return allowed.includes(qty);
-};
-
 
   // Load cart from localStorage
   useEffect(() => {
@@ -119,9 +106,7 @@ const isAllowedQuantity = (product: any, qty: number) => {
   // ================== ADD TO CART ==================
 const addToCart = (item: CartItem) => {
 
- if (!isAllowedQuantity(item.productData, item.quantity)) {
-  return; // silently block
-}
+
 
 
   setCart((prev) => {
@@ -167,8 +152,31 @@ const existing = prev.find(
 
 
 
+if (existing) {
+  const product = item.productData;
 
-   if (existing) {
+  const mainMax = product?.orderMaximumQuantity ?? Infinity;
+
+  const variantStock = item.variantId
+    ? product?.variants?.find((v: any) => v.id === item.variantId)?.stockQuantity
+    : product?.stockQuantity;
+
+  const maxStock =
+    item.maxStock ??
+    variantStock ??
+    product?.stockQuantity ??
+    Infinity;
+
+  const allowedMax = Math.min(mainMax, maxStock);
+
+ const newQty = existing.quantity + item.quantity;
+
+if (newQty > allowedMax) {
+  toast.error(`Maximum order quantity is ${allowedMax}`);
+  return prev;
+}
+
+
   return prev.map((p) =>
     p.productId === item.productId &&
     (p.variantId ?? null) === (item.variantId ?? null) &&
@@ -185,6 +193,7 @@ const existing = prev.find(
       : p
   );
 }
+
 
 
     // ===================== ADD NEW ITEM =====================
@@ -254,11 +263,6 @@ const updateQuantity = (id: string, qty: number) => {
 const mainMax = product?.orderMaximumQuantity ?? Infinity;
 
 let finalQty = qty;
-// 🔥 Allowed Quantities Check (DO NOT TOUCH min/max logic)
-if (!isAllowedQuantity(product, finalQty)) {
-  return prev; // silently block
-}
-
 
 if (qty === 0) finalQty = 0;
 else if (qty < mainMin) finalQty = mainMin;

@@ -5,6 +5,7 @@ import { ToastProvider } from "@/components/toast/CustomToast";
 import ConditionalLayout from "./ConditionalLayout";
 import { CartProvider } from "@/context/CartContext";
 import { AuthProvider } from "@/context/AuthContext";
+import { WishlistProvider } from "@/context/WishlistContext";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -42,9 +43,11 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <ToastProvider>
           <AuthProvider>
             <CartProvider>
-              <ConditionalLayout categories={categories}>
-                {children}
-              </ConditionalLayout>
+              <WishlistProvider>
+                <ConditionalLayout categories={categories}>
+                  {children}
+                </ConditionalLayout>
+              </WishlistProvider>
             </CartProvider>
           </AuthProvider>
         </ToastProvider>

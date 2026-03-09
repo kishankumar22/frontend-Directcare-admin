@@ -610,16 +610,10 @@ useEffect(() => {
   manufacturerPartNumber: '',
   adminComment: '',
   categoryName: '', // For clean category name display
-  // ✅ ADD THESE NEW DELIVERY FIELDS
+  // Delivery flags (charges managed via Shipping Methods)
   sameDayDeliveryEnabled: false,
   nextDayDeliveryEnabled: false,
   standardDeliveryEnabled: true,
-  sameDayDeliveryCutoffTime: '',
-  nextDayDeliveryCutoffTime: '',
-  standardDeliveryDays: '5',
-  sameDayDeliveryCharge: '',
-  nextDayDeliveryCharge: '',
-  standardDeliveryCharge: '',
 
   // ===== RELATED PRODUCTS =====
   relatedProducts: [] as string[],
@@ -1744,17 +1738,6 @@ allowedQuantities: cleanedCartData.allowedQuantities,
     if (formData.sameDayDeliveryEnabled !== undefined) productData.sameDayDeliveryEnabled = formData.sameDayDeliveryEnabled;
     if (formData.nextDayDeliveryEnabled !== undefined) productData.nextDayDeliveryEnabled = formData.nextDayDeliveryEnabled;
     if (formData.standardDeliveryEnabled !== undefined) productData.standardDeliveryEnabled = formData.standardDeliveryEnabled;
-    if (formData.sameDayDeliveryCutoffTime?.trim())
-      productData.sameDayDeliveryCutoffTime = formData.sameDayDeliveryCutoffTime.trim();
-    if (formData.nextDayDeliveryCutoffTime?.trim())
-      productData.nextDayDeliveryCutoffTime = formData.nextDayDeliveryCutoffTime.trim();
-    if (formData.standardDeliveryDays) productData.standardDeliveryDays = parseInt(formData.standardDeliveryDays) || 5;
-    if (formData.sameDayDeliveryCharge)
-      productData.sameDayDeliveryCharge = parseFloat(formData.sameDayDeliveryCharge.toString()) || 0;
-    if (formData.nextDayDeliveryCharge)
-      productData.nextDayDeliveryCharge = parseFloat(formData.nextDayDeliveryCharge.toString()) || 0;
-    if (formData.standardDeliveryCharge)
-      productData.standardDeliveryCharge = parseFloat(formData.standardDeliveryCharge.toString()) || 0;
 
     // Pack Product
     if (formData.isPack) {
@@ -2188,12 +2171,6 @@ const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElemen
       sameDayDeliveryEnabled: checked ? prev.sameDayDeliveryEnabled : false,
       nextDayDeliveryEnabled: checked ? prev.nextDayDeliveryEnabled : false,
       standardDeliveryEnabled: checked ? prev.standardDeliveryEnabled : true,
-      sameDayDeliveryCutoffTime: checked ? prev.sameDayDeliveryCutoffTime : '',
-      nextDayDeliveryCutoffTime: checked ? prev.nextDayDeliveryCutoffTime : '',
-      standardDeliveryDays: checked ? prev.standardDeliveryDays : '5',
-      sameDayDeliveryCharge: checked ? prev.sameDayDeliveryCharge : '',
-      nextDayDeliveryCharge: checked ? prev.nextDayDeliveryCharge : '',
-      standardDeliveryCharge: checked ? prev.standardDeliveryCharge : '',
     }));
     return;
   }
@@ -5157,42 +5134,8 @@ useEffect(() => {
                 🚀 Enable Next-Day Delivery
               </span>
             </label>
-            
-            {formData.nextDayDeliveryEnabled && (
-              <div className="ml-6 grid grid-cols-1 md:grid-cols-2 gap-3 p-3 bg-slate-800/40 rounded-lg border border-slate-700">
-                <div>
-                  <label className="block text-xs font-medium text-slate-400 mb-1">
-                    Cutoff Time <span className="text-red-400">*</span>
-                  </label>
-                  <input
-                    type="time"
-                    name="nextDayDeliveryCutoffTime"
-                    value={formData.nextDayDeliveryCutoffTime}
-                    onChange={handleChange}
-                    className="w-full px-3 py-2 bg-slate-900/70 border border-slate-700 rounded text-white text-sm focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
-                  />
-                  <p className="text-xs text-slate-500 mt-1">Order before this time</p>
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-slate-400 mb-1">
-                    Delivery Charge (£)
-                  </label>
-                  <input
-                    type="number"
-                    name="nextDayDeliveryCharge"
-                    value={formData.nextDayDeliveryCharge}
-                    onChange={handleChange}
-                    placeholder="0"
-                    min="0"
-                    step="0.01"
-                    className="w-full px-3 py-2 bg-slate-900/70 border border-slate-700 rounded text-white text-sm focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
-                  />
-                  <p className="text-xs text-slate-500 mt-1">Extra charge for next-day</p>
-                </div>
-              </div>
-            )}
           </div>
-          
+
           {/* Standard Delivery */}
           <div className="space-y-3">
             <label className="flex items-center gap-2 cursor-pointer group">
@@ -5207,64 +5150,12 @@ useEffect(() => {
                 📦 Enable Standard Delivery
               </span>
             </label>
-            
-            {formData.standardDeliveryEnabled && (
-              <div className="ml-6 grid grid-cols-1 md:grid-cols-2 gap-3 p-3 bg-slate-800/40 rounded-lg border border-slate-700">
-                <div>
-                  <label className="block text-xs font-medium text-slate-400 mb-1">
-                    Delivery Days <span className="text-red-400">*</span>
-                  </label>
-                  <input
-                    type="number"
-                    name="standardDeliveryDays"
-                    value={formData.standardDeliveryDays}
-                    onChange={handleChange}
-                    placeholder="5"
-                    min="1"
-                    className="w-full px-3 py-2 bg-slate-900/70 border border-slate-700 rounded text-white text-sm focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
-                  />
-                  <p className="text-xs text-slate-500 mt-1">Estimated delivery time</p>
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-slate-400 mb-1">
-                    Delivery Charge (£)
-                  </label>
-                  <input
-                    type="number"
-                    name="standardDeliveryCharge"
-                    value={formData.standardDeliveryCharge}
-                    onChange={handleChange}
-                    placeholder="0"
-                    min="0"
-                    step="0.01"
-                    className="w-full px-3 py-2 bg-slate-900/70 border border-slate-700 rounded text-white text-sm focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
-                  />
-                  <p className="text-xs text-slate-500 mt-1">Standard delivery charge</p>
-                </div>
-              </div>
-            )}
           </div>
 
-          {/* Delivery Summary */}
-          {(formData.sameDayDeliveryEnabled || formData.nextDayDeliveryEnabled || formData.standardDeliveryEnabled) && (
-            <div className="flex items-start gap-2 text-xs text-blue-400 bg-blue-900/20 px-3 py-2 rounded border border-blue-800/50 mt-3">
-              <Info className="w-4 h-4 shrink-0 mt-0.5" />
-              <div>
-                <p className="font-semibold mb-1">Active Delivery Options:</p>
-                <ul className="space-y-1 text-slate-300">
-                  {formData.sameDayDeliveryEnabled && (
-                    <li>• Same-Day: £{formData.sameDayDeliveryCharge || '0'} (Before {formData.sameDayDeliveryCutoffTime || '--:--'})</li>
-                  )}
-                  {formData.nextDayDeliveryEnabled && (
-                    <li>• Next-Day: £{formData.nextDayDeliveryCharge || '0'} (Before {formData.nextDayDeliveryCutoffTime || '--:--'})</li>
-                  )}
-                  {formData.standardDeliveryEnabled && (
-                    <li>• Standard: £{formData.standardDeliveryCharge || '0'} ({formData.standardDeliveryDays || '5'} days)</li>
-                  )}
-                </ul>
-              </div>
-            </div>
-          )}
+          <div className="flex items-start gap-2 text-xs text-blue-400 bg-blue-900/20 px-3 py-2 rounded border border-blue-800/50 mt-2">
+            <Info className="w-4 h-4 shrink-0 mt-0.5" />
+            <p>Delivery charges are managed via <strong>Shipping Methods</strong> in the admin panel.</p>
+          </div>
         </div>
       </div>
     )}

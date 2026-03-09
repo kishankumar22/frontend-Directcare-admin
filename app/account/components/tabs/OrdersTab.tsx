@@ -8,6 +8,8 @@ import { useAuth } from "@/context/AuthContext";
 
 export default function OrdersTab({ orders }: any) {
   const [statusFilter, setStatusFilter] = useState("all");
+  const [deliveryMethodFilter, setDeliveryMethodFilter] = useState("all");
+
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
 const { refreshProfile } = useAuth();
@@ -16,39 +18,48 @@ useEffect(() => {
   refreshProfile();
 }, [refreshProfile]);
 
-  const filteredOrders = useMemo(() => {
-    let result = [...orders];
+const filteredOrders = useMemo(() => {
+  let result = [...orders];
 
-    if (statusFilter !== "all") {
-      result = result.filter(
-        (o: any) => o.status?.toLowerCase() === statusFilter
-      );
-    }
-
-    if (fromDate) {
-      const from = new Date(fromDate);
-      from.setHours(0, 0, 0, 0);
-      result = result.filter(
-        (o: any) => new Date(o.orderDate) >= from
-      );
-    }
-
-    if (toDate) {
-      const to = new Date(toDate);
-      to.setHours(23, 59, 59, 999);
-      result = result.filter(
-        (o: any) => new Date(o.orderDate) <= to
-      );
-    }
-
-    result.sort(
-      (a: any, b: any) =>
-        new Date(b.orderDate).getTime() -
-        new Date(a.orderDate).getTime()
+  if (statusFilter !== "all") {
+    result = result.filter(
+      (o: any) => o.status?.toLowerCase() === statusFilter
     );
+  }
 
-    return result;
-  }, [orders, statusFilter, fromDate, toDate]);
+  if (deliveryMethodFilter !== "all") {
+    result = result.filter(
+      (o: any) =>
+        o.deliveryMethod?.toLowerCase() ===
+        deliveryMethodFilter.toLowerCase()
+    );
+  }
+
+  if (fromDate) {
+    const from = new Date(fromDate);
+    from.setHours(0, 0, 0, 0);
+    result = result.filter(
+      (o: any) => new Date(o.orderDate) >= from
+    );
+  }
+
+  if (toDate) {
+    const to = new Date(toDate);
+    to.setHours(23, 59, 59, 999);
+    result = result.filter(
+      (o: any) => new Date(o.orderDate) <= to
+    );
+  }
+
+  result.sort(
+    (a: any, b: any) =>
+      new Date(b.orderDate).getTime() -
+      new Date(a.orderDate).getTime()
+  );
+
+  return result;
+}, [orders, statusFilter, deliveryMethodFilter, fromDate, toDate]);
+
 const filteredCount = filteredOrders.length;
 
   return (
@@ -73,6 +84,21 @@ const filteredCount = filteredOrders.length;
               <option value="cancelled">Cancelled</option>
             </select>
           </div>
+{/* DELIVERY METHOD */}
+<div className="flex flex-col gap-1">
+  <label className="text-xs font-semibold text-gray-600 uppercase tracking-wide">
+    Delivery
+  </label>
+  <select
+    value={deliveryMethodFilter}
+    onChange={(e) => setDeliveryMethodFilter(e.target.value)}
+    className="h-10 rounded-lg border px-3 text-sm focus:outline-none focus:ring-2 focus:ring-green-600"
+  >
+    <option value="all">All</option>
+    <option value="HomeDelivery">Home Delivery</option>
+    <option value="ClickAndCollect">Click & Collect</option>
+  </select>
+</div>
 
           {/* FROM DATE */}
           <div className="flex flex-col gap-1">
@@ -113,10 +139,12 @@ const filteredCount = filteredOrders.length;
   </p>
 </div>
           {/* CLEAR */}
-          {(fromDate || toDate || statusFilter !== "all") && (
+        {(fromDate || toDate || statusFilter !== "all" || deliveryMethodFilter !== "all") && (
+
             <button
               onClick={() => {
                 setStatusFilter("all");
+                setDeliveryMethodFilter("all");
                 setFromDate("");
                 setToDate("");
               }}

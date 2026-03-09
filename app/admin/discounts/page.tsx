@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { Plus, Edit, Trash2, Search, Percent, Eye, Filter, History, FilterX, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, AlertCircle, Calendar, Gift, Target, Clock, TrendingUp, Users, Infinity as InfinityIcon, CalendarRange, ChevronDown, Package, RotateCcw, } from "lucide-react";
 
 
@@ -246,6 +246,8 @@ export default function DiscountsPage() {
   const [productBrandFilter, setProductBrandFilter] = useState<string>("");
   const [productSearchTerm, setProductSearchTerm] = useState("");
   const [products, setProducts] = useState<Product[]>([]);
+  const [assignedItemsPopup, setAssignedItemsPopup] = useState<string | null>(null); // discount id
+  const popupRef = useRef<HTMLDivElement>(null);
   const [usageHistoryModal, setUsageHistoryModal] = useState(false);
   const [selectedDiscountHistory, setSelectedDiscountHistory] = useState<Discount | null>(null);
   const [usageHistory, setUsageHistory] = useState<DiscountUsageHistory[]>([]);
@@ -657,6 +659,47 @@ const handleEdit = (discount: Discount) => {
       setDeleteConfirm(null);
     }
   };
+
+// Close popup when clicking outside
+useEffect(() => {
+  const handleClickOutside = (e: MouseEvent) => {
+    if (popupRef.current && !popupRef.current.contains(e.target as Node)) {
+      setAssignedItemsPopup(null);
+    }
+  };
+  if (assignedItemsPopup) document.addEventListener("mousedown", handleClickOutside);
+  return () => document.removeEventListener("mousedown", handleClickOutside);
+}, [assignedItemsPopup]);
+
+// Get assigned products/categories for a discount
+const getAssignedProducts = useCallback((discount: Discount) => {
+  const ids = typeof discount.assignedProductIds === "string"
+    ? discount.assignedProductIds.split(",").map(s => s.trim()).filter(Boolean)
+    : (discount.assignedProductIds as string[]) || [];
+  return products.filter(p => ids.includes(p.id));
+}, [products]);
+
+const getAssignedCategories = useCallback((discount: Discount) => {
+  const ids = typeof discount.assignedCategoryIds === "string"
+    ? discount.assignedCategoryIds.split(",").map(s => s.trim()).filter(Boolean)
+    : (discount.assignedCategoryIds as unknown as string[]) || [];
+  return categories.filter(c => ids.includes(c.id));
+}, [categories]);
+
+const handleViewUsageHistory = async (discount: Discount) => {
+  setSelectedDiscountHistory(discount);
+  setUsageHistoryModal(true);
+  setLoadingHistory(true);
+  try {
+    const response = await discountsService.getUsageHistory(discount.id);
+    setUsageHistory(response.data?.data || []);
+  } catch (error) {
+    console.error("Error fetching usage history:", error);
+    setUsageHistory([]);
+  } finally {
+    setLoadingHistory(false);
+  }
+};
 
 const clearFilters = () => {
   setActiveFilter("all");
@@ -1075,9 +1118,77 @@ const filteredDiscounts = discounts.filter((discount) => {
 
         {/* TYPE */}
         <td className="py-3 px-4 text-center">
-          <span className="px-2 py-1 bg-blue-500/10 text-blue-400 rounded-md text-xs font-medium">
-            {getDiscountTypeLabel(discount.discountType)}
-          </span>
+          {(() => {
+            const isProducts = discount.discountType === "AssignedToProducts";
+            const isCategories = discount.discountType === "AssignedToCategories";
+            const assignedProducts = isProducts ? getAssignedProducts(discount) : [];
+            const assignedCats = isCategories ? getAssignedCategories(discount) : [];
+            const count = isProducts ? assignedProducts.length : isCategories ? assignedCats.length : 0;
+            const isClickable = (isProducts && count > 0) || (isCategories && count > 0);
+            const isOpen = assignedItemsPopup === discount.id;
+
+            return (
+              <div className="relative inline-block">
+                <button
+                  onClick={() => isClickable && setAssignedItemsPopup(isOpen ? null : discount.id)}
+                  className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-md text-xs font-medium transition-all ${
+                    isProducts ? "bg-blue-500/10 text-blue-400" :
+                    isCategories ? "bg-green-500/10 text-green-400" :
+                    "bg-slate-500/10 text-slate-400"
+                  } ${isClickable ? "cursor-pointer hover:brightness-125 hover:ring-1 hover:ring-current/30" : "cursor-default"}`}
+                >
+                  {getDiscountTypeLabel(discount.discountType)}
+                  {isClickable && (
+                    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
+                      isProducts ? "bg-blue-500/20 text-blue-300" : "bg-green-500/20 text-green-300"
+                    }`}>
+                      {count}
+                    </span>
+                  )}
+                </button>
+
+                {/* Popup */}
+                {isOpen && (
+                  <div
+                    ref={popupRef}
+                    className="absolute left-1/2 -translate-x-1/2 top-full mt-1 z-50 bg-slate-800 border border-slate-600 rounded-xl shadow-2xl shadow-black/50 w-64 max-h-72 overflow-hidden"
+                  >
+                    <div className="px-3 py-2 border-b border-slate-700 flex items-center justify-between">
+                      <span className="text-xs font-semibold text-slate-300">
+                        {isProducts ? "Assigned Products" : "Assigned Categories"} ({count})
+                      </span>
+                      <button onClick={() => setAssignedItemsPopup(null)} className="text-slate-500 hover:text-white text-xs">✕</button>
+                    </div>
+                    <div className="overflow-y-auto max-h-56 p-1.5 space-y-0.5">
+                      {isProducts && assignedProducts.map(p => {
+                        const imgUrl = p.images?.[0]?.imageUrl;
+                        return (
+                          <div key={p.id} className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-slate-700/60 transition-colors">
+                            {imgUrl ? (
+                              <img src={imgUrl.startsWith("http") ? imgUrl : `${process.env.NEXT_PUBLIC_API_URL}${imgUrl}`} alt="" className="w-6 h-6 rounded object-cover flex-shrink-0" onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                            ) : (
+                              <div className="w-6 h-6 rounded bg-slate-700 flex items-center justify-center flex-shrink-0">
+                                <Package className="w-3 h-3 text-slate-400" />
+                              </div>
+                            )}
+                            <span className="text-xs text-slate-200 truncate flex-1">{p.name}</span>
+                          </div>
+                        );
+                      })}
+                      {isCategories && assignedCats.map(c => (
+                        <div key={c.id} className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-slate-700/60 transition-colors">
+                          <div className="w-6 h-6 rounded bg-green-500/20 flex items-center justify-center flex-shrink-0">
+                            <span className="text-[10px]">📁</span>
+                          </div>
+                          <span className="text-xs text-slate-200 truncate flex-1">{c.name}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })()}
         </td>
 
         {/* VALUE */}
@@ -1192,6 +1303,14 @@ const filteredDiscounts = discounts.filter((discount) => {
               className="p-1.5 text-violet-400 hover:bg-violet-500/10 rounded-md transition-all"
             >
               <Eye className="h-4 w-4" />
+            </button>
+
+            <button
+              title="Usage History"
+              onClick={() => handleViewUsageHistory(discount)}
+              className="p-1.5 text-amber-400 hover:bg-amber-500/10 rounded-md transition-all"
+            >
+              <History className="h-4 w-4" />
             </button>
 
             {deletedFilter === "notDeleted" && (
@@ -1357,6 +1476,7 @@ const filteredDiscounts = discounts.filter((discount) => {
   loadingHistory={loadingHistory}
   dateRangeFilter={dateRangeFilter}
   setDateRangeFilter={setDateRangeFilter}
+  handleViewUsageHistory={handleViewUsageHistory}
 />
       <ConfirmDialog
   isOpen={!!statusConfirm}
