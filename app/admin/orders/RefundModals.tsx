@@ -2,7 +2,7 @@
 
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   XCircle,
   RotateCcw,
@@ -24,7 +24,11 @@ interface RefundModalsProps {
   showPartialRefundModal: boolean;
   onCloseFullRefund: () => void;
   onClosePartialRefund: () => void;
-  onRefundSuccess: () => void;
+ onRefundSuccess: (
+  items: { orderItemId: string; quantity: number; refundAmount: number }[],
+  reason: RefundReason,
+  notes: string
+) => void;
 }
 
 export default function RefundModals({
@@ -43,20 +47,29 @@ export default function RefundModals({
   const [partialRefundItems, setPartialRefundItems] = useState<
     Array<{ orderItemId: string; quantity: number; refundAmount: number }>
   >([]);
+const refundedAmount =
+  order.refundHistory?.reduce(
+    (sum: number, r: { refundAmount: number }) => sum + r.refundAmount,
+    0
+  ) || 0;
+
+const remainingRefundable = Math.max(
+  order.totalAmount - refundedAmount,
+  0
+);
 
   // Initialize partial refund items when modal opens
-  useState(() => {
-    if (showPartialRefundModal && partialRefundItems.length === 0) {
-      setPartialRefundItems(
-        order.orderItems.map((item) => ({
-          orderItemId: item.id,
-          quantity: 0,
-          refundAmount: 0,
-        }))
-      );
-    }
-  });
-
+useEffect(() => {
+  if (showPartialRefundModal) {
+    setPartialRefundItems(
+      order.orderItems.map((item) => ({
+        orderItemId: item.id,
+        quantity: 0,
+        refundAmount: 0,
+      }))
+    );
+  }
+}, [showPartialRefundModal, order.orderItems]);
   const handleCloseFullRefund = () => {
     setRefundNotes('');
     setRefundReason(RefundReason.CustomerRequest);
@@ -165,7 +178,13 @@ export default function RefundModals({
                 Cancel
               </button>
               <button
-                onClick={() => onRefundSuccess()}
+                onClick={() =>
+  onRefundSuccess(
+    partialRefundItems,
+    refundReason,
+    refundNotes
+  )
+}
                 disabled={processingRefund || !refundNotes.trim()}
                 className="px-4 py-2 bg-gradient-to-r from-red-600 to-pink-600 hover:from-red-700 hover:to-pink-700 text-white rounded-lg transition-all text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 shadow-lg"
               >
@@ -213,7 +232,20 @@ export default function RefundModals({
                 <XCircle className="h-5 w-5 text-slate-400" />
               </button>
             </div>
-
+<div className="bg-slate-900/60 border border-slate-700 rounded-lg p-3 text-xs text-slate-300">
+  <div className="flex justify-between">
+    <span>Order Total</span>
+    <span>{formatCurrency(order.totalAmount, order.currency)}</span>
+  </div>
+  <div className="flex justify-between">
+    <span>Already Refunded</span>
+    <span>{formatCurrency(refundedAmount, order.currency)}</span>
+  </div>
+  <div className="flex justify-between font-semibold text-orange-400">
+    <span>Remaining Refundable</span>
+    <span>{formatCurrency(remainingRefundable, order.currency)}</span>
+  </div>
+</div>
             {/* Content */}
             <div className="p-6 overflow-y-auto max-h-[calc(90vh-200px)] space-y-4">
               {/* Items Selection */}
@@ -282,80 +314,105 @@ export default function RefundModals({
                             <label className="block text-xs text-slate-400 mb-2">
                               Refund Quantity
                             </label>
-                            <div className="flex items-center gap-2">
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  const newQty = Math.max(0, currentQuantity - 1);
-                                  setPartialRefundItems((prev) =>
-                                    prev.map((r) =>
-                                      r.orderItemId === item.id
-                                        ? {
-                                            ...r,
-                                            quantity: newQty,
-                                            refundAmount:
-                                              newQty === 0 ? 0 : Math.min(r.refundAmount, newQty * item.unitPrice),
-                                          }
-                                        : r
-                                    )
-                                  );
-                                }}
-                                disabled={processingRefund || currentQuantity === 0}
-                                className="p-2 bg-slate-700 hover:bg-slate-600 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg transition-colors"
-                              >
-                                <Minus className="h-3.5 w-3.5 text-white" />
-                              </button>
-                              <input
-                                type="number"
-                                min="0"
-                                max={item.quantity}
-                                value={currentQuantity}
-                                onChange={(e) => {
-                                  const newQty = Math.max(0, Math.min(item.quantity, Number(e.target.value)));
-                                  setPartialRefundItems((prev) =>
-                                    prev.map((r) =>
-                                      r.orderItemId === item.id
-                                        ? {
-                                            ...r,
-                                            quantity: newQty,
-                                            refundAmount:
-                                              newQty === 0
-                                                ? 0
-                                                : r.refundAmount === 0
-                                                ? newQty * item.unitPrice
-                                                : Math.min(r.refundAmount, newQty * item.unitPrice),
-                                          }
-                                        : r
-                                    )
-                                  );
-                                }}
-                                disabled={processingRefund}
-                                className="w-16 px-2 py-2 bg-slate-900/50 border border-slate-700 rounded-lg text-white text-center text-sm focus:ring-2 focus:ring-orange-500 disabled:opacity-50"
-                              />
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  const newQty = Math.min(item.quantity, currentQuantity + 1);
-                                  setPartialRefundItems((prev) =>
-                                    prev.map((r) =>
-                                      r.orderItemId === item.id
-                                        ? {
-                                            ...r,
-                                            quantity: newQty,
-                                            refundAmount:
-                                              r.refundAmount === 0 ? newQty * item.unitPrice : Math.min(r.refundAmount, newQty * item.unitPrice),
-                                          }
-                                        : r
-                                    )
-                                  );
-                                }}
-                                disabled={processingRefund || currentQuantity >= item.quantity}
-                                className="p-2 bg-slate-700 hover:bg-slate-600 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg transition-colors"
-                              >
-                                <Plus className="h-3.5 w-3.5 text-white" />
-                              </button>
-                              <span className="text-xs text-slate-400 ml-1">/ {item.quantity}</span>
-                            </div>
+                        <div className="flex items-center gap-2">
+  <button
+    type="button"
+    onClick={() => {
+      const newQty = Math.max(0, currentQuantity - 1);
+
+      const maxAllowed = Math.min(
+        newQty * item.unitPrice,
+        remainingRefundable
+      );
+
+      setPartialRefundItems((prev) =>
+        prev.map((r) =>
+          r.orderItemId === item.id
+            ? {
+                ...r,
+                quantity: newQty,
+                refundAmount: newQty === 0 ? 0 : Math.min(r.refundAmount, maxAllowed),
+              }
+            : r
+        )
+      );
+    }}
+    disabled={processingRefund || currentQuantity === 0}
+    className="p-2 bg-slate-700 hover:bg-slate-600 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg transition-colors"
+  >
+    <Minus className="h-3.5 w-3.5 text-white" />
+  </button>
+
+  <input
+    type="number"
+    min="0"
+    max={item.quantity}
+    value={currentQuantity}
+    onChange={(e) => {
+      const newQty = Math.max(
+        0,
+        Math.min(item.quantity, Number(e.target.value))
+      );
+
+      const maxAllowed = Math.min(
+        newQty * item.unitPrice,
+        remainingRefundable
+      );
+
+      setPartialRefundItems((prev) =>
+        prev.map((r) =>
+          r.orderItemId === item.id
+            ? {
+                ...r,
+                quantity: newQty,
+                refundAmount:
+                  newQty === 0
+                    ? 0
+                    : r.refundAmount === 0
+                    ? maxAllowed
+                    : Math.min(r.refundAmount, maxAllowed),
+              }
+            : r
+        )
+      );
+    }}
+    disabled={processingRefund}
+    className="w-16 px-2 py-2 bg-slate-900/50 border border-slate-700 rounded-lg text-white text-center text-sm focus:ring-2 focus:ring-orange-500 disabled:opacity-50"
+  />
+
+  <button
+    type="button"
+    onClick={() => {
+      const newQty = Math.min(item.quantity, currentQuantity + 1);
+
+      const maxAllowed = Math.min(
+        newQty * item.unitPrice,
+        remainingRefundable
+      );
+
+      setPartialRefundItems((prev) =>
+        prev.map((r) =>
+          r.orderItemId === item.id
+            ? {
+                ...r,
+                quantity: newQty,
+                refundAmount:
+                  r.refundAmount === 0
+                    ? maxAllowed
+                    : Math.min(r.refundAmount, maxAllowed),
+              }
+            : r
+        )
+      );
+    }}
+    disabled={processingRefund || currentQuantity >= item.quantity}
+    className="p-2 bg-slate-700 hover:bg-slate-600 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg transition-colors"
+  >
+    <Plus className="h-3.5 w-3.5 text-white" />
+  </button>
+
+  <span className="text-xs text-slate-400 ml-1">/ {item.quantity}</span>
+</div>
                           </div>
 
                           {/* Refund Amount */}
@@ -368,11 +425,18 @@ export default function RefundModals({
                               <input
                                 type="number"
                                 min="0"
-                                max={currentQuantity > 0 ? currentQuantity * item.unitPrice : 0}
+                               max={
+  currentQuantity > 0
+    ? Math.min(currentQuantity * item.unitPrice, remainingRefundable)
+    : 0
+}
                                 step="0.01"
                                 value={currentAmount}
                                 onChange={(e) => {
-                                  const maxAmount = currentQuantity * item.unitPrice;
+                                const maxAmount = Math.min(
+  currentQuantity * item.unitPrice,
+  remainingRefundable
+);
                                   const newAmount = Math.max(0, Math.min(maxAmount, Number(e.target.value)));
                                   setPartialRefundItems((prev) =>
                                     prev.map((r) =>
@@ -387,7 +451,10 @@ export default function RefundModals({
                             </div>
                             {currentQuantity > 0 && (
                               <p className="text-xs text-slate-400 mt-1">
-                                Max: {formatCurrency(currentQuantity * item.unitPrice, order.currency)}
+                                Max: {formatCurrency(
+  Math.min(currentQuantity * item.unitPrice, remainingRefundable),
+  order.currency
+)}
                               </p>
                             )}
                           </div>
@@ -402,7 +469,7 @@ export default function RefundModals({
                                 setPartialRefundItems((prev) =>
                                   prev.map((r) =>
                                     r.orderItemId === item.id
-                                      ? { ...r, quantity: item.quantity, refundAmount: item.totalPrice }
+                                      ? { ...r, quantity: item.quantity, refundAmount: Math.min(item.totalPrice, remainingRefundable) }
                                       : r
                                   )
                                 );
@@ -562,7 +629,13 @@ export default function RefundModals({
                   Cancel
                 </button>
                 <button
-                  onClick={() => onRefundSuccess()}
+                 onClick={() =>
+  onRefundSuccess(
+    partialRefundItems,
+    refundReason,
+    refundNotes
+  )
+}
                   disabled={
                     processingRefund ||
                     partialRefundItems.every((r) => r.quantity === 0) ||

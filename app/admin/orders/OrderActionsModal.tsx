@@ -25,6 +25,7 @@ import {
 } from '../../../lib/services/orders'; // ✅ FIXED PATH
 import { useToast } from '@/app/admin/_components/CustomToast';
 import ConfirmDialog from '../_components/ConfirmDialog';
+import { useAuth } from '@/context/AuthContext';
 
 interface OrderActionsModalProps {
   isOpen: boolean;
@@ -135,7 +136,7 @@ const getStatusDisplayInfo = (status: OrderStatus) => {
 const isOrderPaid = (order: Order): boolean => {
   if (!order.payments || order.payments.length === 0) return false;
 
-  const paidStatuses = ['Successful', 'Completed', 'Captured'];
+  const paidStatuses = ['Successful', 'Completed'];
 
   return order.payments.some((payment) =>
     paidStatuses.includes(payment.status)
@@ -164,11 +165,7 @@ const getPaymentStatusDisplay = (order: Order) => {
       color: 'text-green-400', 
       icon: <CheckCircle className="w-4 h-4" /> 
     },
-    'Captured': { 
-      label: 'Captured', 
-      color: 'text-emerald-400', 
-      icon: <CheckCircle className="w-4 h-4" /> 
-    },
+    
     'Pending': { 
       label: 'Payment Pending', 
       color: 'text-yellow-400', 
@@ -207,7 +204,7 @@ export default function OrderActionsModal({
 // inside component
 const [showCancelConfirm, setShowCancelConfirm] = useState(false);
 const [pendingCancelRequest, setPendingCancelRequest] = useState<CancelOrderRequest | null>(null);
-
+const { user } = useAuth();
   // Mark Ready - no form needed
   const [readyConfirmed, setReadyConfirmed] = useState(false);
 
@@ -238,20 +235,27 @@ const [pendingCancelRequest, setPendingCancelRequest] = useState<CancelOrderRequ
 
   // Mark Delivered
   const [deliveredData, setDeliveredData] = useState({
-    shipmentId: order.shipments && order.shipments.length > 0 ? order.shipments[0].id : '',
+ shipmentId: order.shipments?.[0]?.id || '',
     deliveredAt: new Date().toISOString().slice(0, 16),
     deliveryNotes: '',
     receivedBy: '',
   });
 
   // Cancel Order
-  const [cancelData, setCancelData] = useState({
-    cancellationReason: '',
-    restoreInventory: true,
-    initiateRefund: true,
-    cancelledBy: '',
-  });
-
+const [cancelData, setCancelData] = useState({
+  cancellationReason: "",
+  cancelledBy: "",
+  restoreInventory: true,
+  initiateRefund: false,
+});
+useEffect(() => {
+  if (user) {
+    setCancelData((prev) => ({
+      ...prev,
+      cancelledBy: user.fullName || `${user.firstName} ${user.lastName}`,
+    }));
+  }
+}, [user]);
   // ✅ Get available statuses dynamically based on delivery method
   const availableStatuses = getValidStatusTransitions(order.status, order.deliveryMethod);
 
@@ -273,33 +277,38 @@ const [pendingCancelRequest, setPendingCancelRequest] = useState<CancelOrderRequ
   }, [isOpen, action, order.orderItems]);
 
   // ✅ Reset form data when modal opens/closes or action changes
-  useEffect(() => {
-    if (isOpen) {
-      setReadyConfirmed(false);
-      setShowNotificationPreview(false);
-      setCollectedData({
-        collectedBy: '',
-        collectorIDType: '',
-        collectorIDNumber: '',
-      });
-      setStatusData({
-        newStatus: order.status,
-        adminNotes: '',
-      });
-      setDeliveredData({
-        shipmentId: order.shipments && order.shipments.length > 0 ? order.shipments[0].id : '',
-        deliveredAt: new Date().toISOString().slice(0, 16),
-        deliveryNotes: '',
-        receivedBy: '',
-      });
-      setCancelData({
-        cancellationReason: '',
-        restoreInventory: true,
-        initiateRefund: isPaid, // ✅ Auto-check refund if order is paid
-        cancelledBy: '',
-      });
-    }
-  }, [isOpen, action, order.status, order.shipments, isPaid]);
+useEffect(() => {
+  if (isOpen) {
+    setReadyConfirmed(false);
+    setShowNotificationPreview(false);
+    setCollectedData({
+      collectedBy: '',
+      collectorIDType: '',
+      collectorIDNumber: '',
+    });
+
+    setStatusData({
+      newStatus: order.status,
+      adminNotes: '',
+    });
+
+    setDeliveredData({
+      shipmentId: order.shipments?.[0]?.id || '',
+      deliveredAt: new Date().toISOString().slice(0, 16),
+      deliveryNotes: '',
+      receivedBy: '',
+    });
+
+    setCancelData({
+      cancellationReason: '',
+      restoreInventory: true,
+      initiateRefund: isPaid,
+      cancelledBy:
+        user?.fullName ||
+        `${user?.firstName ?? ''} ${user?.lastName ?? ''}`.trim(),
+    });
+  }
+}, [isOpen, action, order.status, order.shipments, isPaid, user]);
 
   const actionHandlers: Record<string, () => Promise<void>> = {
   'mark-ready': async () => {
@@ -351,9 +360,10 @@ const [pendingCancelRequest, setPendingCancelRequest] = useState<CancelOrderRequ
 };
 
 const isCashOnDelivery =
-  order?.paymentMethod === "CashOnDelivery" ||
+  order?.paymentMethod?.toLowerCase() === "cashondelivery" ||
   order?.payments?.some(
-    (p: any) => p.paymentMethod?.toLowerCase() === "cashondelivery"
+    (p: any) =>
+      p.paymentMethod?.toLowerCase() === "cashondelivery"
   );
 
 const handleSubmit = async (e: FormEvent) => {
@@ -1002,7 +1012,7 @@ const PharmacyWarning = () => {
               />
             </div>
 
-            <div>
+            {/* <div>
               <label className="block text-sm font-medium text-slate-300 mb-2">
                 Cancelled By <span className="text-red-500">*</span>
               </label>
@@ -1014,35 +1024,40 @@ const PharmacyWarning = () => {
                 className="w-full px-3 py-2.5 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
                 required
               />
-            </div>
+            </div> */}
 
-            <div className="space-y-3">
-              <label className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  checked={cancelData.restoreInventory}
-                  onChange={(e) =>
-                    setCancelData({ ...cancelData, restoreInventory: e.target.checked })
-                  }
-                  className="rounded bg-slate-800/50 border-slate-700 text-violet-500 focus:ring-violet-500"
-                />
-                <span className="text-sm text-slate-300">Restore inventory</span>
-              </label>
+    <div className="space-y-3">
 
-              <label className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  checked={cancelData.initiateRefund}
-                  onChange={(e) =>
-                    setCancelData({ ...cancelData, initiateRefund: e.target.checked })
-                  }
-                  className="rounded bg-slate-800/50 border-slate-700 text-violet-500 focus:ring-violet-500"
-                />
-                <span className="text-sm text-slate-300">
-                  Initiate refund {isPaid && <span className="text-amber-400">(Recommended)</span>}
-                </span>
-              </label>
-            </div>
+<label className="flex items-center gap-2">
+  <input
+    type="checkbox"
+    checked={cancelData.restoreInventory}
+    onChange={(e) =>
+      setCancelData({ ...cancelData, restoreInventory: e.target.checked })
+    }
+    className="rounded bg-slate-800/50 border-slate-700 text-violet-500 focus:ring-violet-500"
+  />
+  <span className="text-sm text-slate-300">Restore inventory</span>
+</label>
+
+{/* ✅ Hide refund option for COD */}
+{isPaid && (
+<label className="flex items-center gap-2">
+  <input
+    type="checkbox"
+    checked={cancelData.initiateRefund}
+    onChange={(e) =>
+      setCancelData({ ...cancelData, initiateRefund: e.target.checked })
+    }
+    className="rounded bg-slate-800/50 border-slate-700 text-violet-500 focus:ring-violet-500"
+  />
+  <span className="text-sm text-slate-300">
+    Initiate refund <span className="text-amber-400">(Recommended)</span>
+  </span>
+</label>
+)}
+
+</div>
 
             <NotificationPreviewToggle />
           </div>
@@ -1123,9 +1138,8 @@ if (
         order.shipments.length > 0
       );
 
-    case 'cancel-order':
-      return cancelData.cancellationReason && cancelData.cancelledBy;
-
+case 'cancel-order':
+  return !!cancelData.cancellationReason.trim();
     default:
       return false;
   }

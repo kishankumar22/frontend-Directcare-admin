@@ -62,6 +62,8 @@ import RefundHistorySection from '../RefundHistorySection';
 import EditHistorySection from '../EditHistorySection';
 import RefundModals from '../RefundModals';
 import PharmacyVerificationModal from '../PharmacyVerificationModal';
+import { getOrderProductImage } from '../page';
+import { API_BASE_URL } from '@/lib/api';
 
 // Types
 type CollectionStatus = 'Pending' | 'Ready' | 'Collected' | 'Expired';
@@ -206,13 +208,6 @@ const getPaymentStatusInfo = (status: PaymentStatus) => {
       bgColor: 'bg-green-500/10',
       icon: <CheckCircle className="h-3 w-3" />,
       description: 'Payment successfully completed.',
-    },
-    Captured: {
-      label: 'Captured',
-      color: 'text-green-400',
-      bgColor: 'bg-green-500/10',
-      icon: <CheckCircle2 className="h-3 w-3" />,
-      description: 'Payment has been captured.',
     },
     Successful: {
       label: 'Successful',
@@ -512,15 +507,20 @@ const getAllAvailableActions = (
   }
 
   // Backend: Delivered → Returned/Refunded, Cancelled → Refunded, Refunded → BLOCKED
-  if (status !== 'Refunded') {
-    actions.push({
-      label: 'Update Status',
-      action: 'update-status',
-      icon: <Edit className="h-3.5 w-3.5" />,
-      color: 'bg-blue-600 hover:bg-blue-700',
-      category: 'edit',
-    });
-  }
+  const canUpdateStatus =
+  status !== 'Cancelled' &&
+  status !== 'Refunded' &&
+  order.pharmacyVerificationStatus !== 'Pending';
+
+if (canUpdateStatus) {
+  actions.push({
+    label: 'Update Status',
+    action: 'update-status',
+    icon: <Edit className="h-3.5 w-3.5" />,
+    color: 'bg-blue-600 hover:bg-blue-700',
+    category: 'edit',
+  });
+}
 
 
   // Backend: Cannot cancel Delivered (use Return), Cancelled, Refunded, Returned
@@ -585,7 +585,8 @@ actions.push({
   category: 'financial',
 });
 
-  // ✅ Refund Actions - Only when payment is Successful/Completed/Captured and not already Refunded
+  // ✅ Refund Actions - Only when payment is Successful/Completed/ and not already Refunded
+  
   if (canRefund) {
     actions.push({
       label: 'Full Refund',
@@ -868,12 +869,11 @@ const refreshAllOrderData = useCallback(async () => {
 
 
 
-// ✅ CORRECTED - Service expects single object parameter
+
 const handleRegenerateInvoice = async (
   sendToCustomer: boolean,
   notes: string
 ) => {
-  // ✅ Proper double-click protection
   if (regeneratingInvoice) return;
 
   try {
@@ -891,22 +891,48 @@ const handleRegenerateInvoice = async (
       toast.info("Invoice sent to customer email", { autoClose: 4000 });
     }
 
-    // ✅ Open PDF safely
+    // ✅ Download PDF securely
     if (result?.pdfUrl) {
       const fullUrl = result.pdfUrl.startsWith("http")
         ? result.pdfUrl
-        : `${process.env.NEXT_PUBLIC_API_URL}${result.pdfUrl}`;
+        : `${API_BASE_URL}${result.pdfUrl}`;
 
-      window.open(fullUrl, "_blank", "noopener,noreferrer");
+      // ✅ correct token key
+      const token = localStorage.getItem("authToken");
+
+      const response = await fetch(fullUrl, {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to download invoice PDF");
+      }
+
+      const blob = await response.blob();
+
+      const url = window.URL.createObjectURL(blob);
+
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `invoice-${orderId}.pdf`;
+
+      document.body.appendChild(link);
+      link.click();
+
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
     }
 
-    // ✅ Single source of refresh
     await refreshAllOrderData();
 
     setShowRegenerateInvoiceModal(false);
 
   } catch (error: any) {
     console.error("Error regenerating invoice", error);
+
     toast.error(
       error?.message || "Failed to regenerate invoice",
       { autoClose: 5000 }
@@ -982,54 +1008,57 @@ const getEditLockReason = () => {
     }
   };
 
-  const handlePartialRefund = async () => {
-    const selectedItems = partialRefundItems.filter((r) => r.quantity > 0);
+const handlePartialRefund = async (
+  items: Array<{ orderItemId: string; quantity: number; refundAmount: number }>,
+  reason: RefundReason,
+  notes: string
+) => {
 
-    if (selectedItems.length === 0) {
-      toast.error('Please select at least one item to refund', { autoClose: 4000 });
-      return;
-    }
+  const selectedItems = items.filter((r) => r.quantity > 0);
 
-    if (!refundNotes.trim()) {
-      toast.error('Please provide refund notes', { autoClose: 4000 });
-      return;
-    }
+  if (selectedItems.length === 0) {
+    toast.error('Please select at least one item to refund', { autoClose: 4000 });
+    return;
+  }
 
-    if (!order) return;
+  if (!notes || !notes.trim()) {
+    toast.error('Please provide refund notes', { autoClose: 4000 });
+    return;
+  }
 
-    const totalRefund = selectedItems.reduce((sum, item) => sum + item.refundAmount, 0);
+  if (!order) return;
 
-    if (!confirm(`Process partial refund of ${formatCurrency(totalRefund, order.currency)}?`)) {
-      return;
-    }
+  const totalRefund = selectedItems.reduce((sum, item) => sum + item.refundAmount, 0);
 
-    try {
-      setProcessingRefund(true);
-      const result = await orderEditService.processPartialRefund({
-        orderId,
-        refundAmount: totalRefund,
-        reason: refundReason,
-        reasonDetails: orderEditService.getRefundReasonLabel(refundReason),
-        adminNotes: refundNotes,
-        sendCustomerNotification: true,
-      });
+  if (!confirm(`Process partial refund of ${formatCurrency(totalRefund, order.currency)}?`)) {
+    return;
+  }
 
-      toast.success(`✅ Partial refund processed successfully`, { autoClose: 4000 });
-      toast.info(`💰 Refunded: ${formatCurrency(result.refundAmount, order.currency)}`, {
-        autoClose: 6000,
-      });
+  try {
+    setProcessingRefund(true);
 
-      setShowPartialRefundModal(false);
-      setPartialRefundItems([]);
-      setRefundNotes('');
-     await refreshAllOrderData();
-    } catch (error: any) {
-      console.error('Error processing partial refund:', error);
-      toast.error(error.message || 'Failed to process refund', { autoClose: 5000 });
-    } finally {
-      setProcessingRefund(false);
-    }
-  };
+    const result = await orderEditService.processPartialRefund({
+      orderId,
+      refundAmount: totalRefund,
+      reason: reason,
+      reasonDetails: orderEditService.getRefundReasonLabel(reason),
+      adminNotes: notes,
+      sendCustomerNotification: true,
+    });
+
+    toast.success(`✅ Partial refund processed successfully`);
+
+    setShowPartialRefundModal(false);
+    setPartialRefundItems([]);
+
+    await refreshAllOrderData();
+
+  } catch (error: any) {
+    toast.error(error.message || 'Failed to process refund');
+  } finally {
+    setProcessingRefund(false);
+  }
+};
 
 const handleAction = (action: string) => {
 
@@ -1103,13 +1132,18 @@ const isOrderEditable = () => {
   return isEditableStatus && !isClickAndCollect;
 };
 
-  const canRefund = () => {
-    if (!order) return false;
-    const hasCompletedPayment = order.payments?.some(
-      (p) => p.status === 'Completed' || p.status === 'Captured' || p.status === 'Successful'
-    );
-    return hasCompletedPayment && order.status !== 'Refunded';
-  };
+const canRefund = () => {
+  if (!order) return false;
+
+  const hasCompletedPayment = order.payments?.some(
+    (p) =>
+      p.status === 'Completed' ||
+      p.status === 'Successful' ||
+      p.status === 'PartiallyRefunded'
+  );
+
+  return hasCompletedPayment && order.status !== 'Refunded';
+};
 
   if (loading) {
     return (
@@ -1236,7 +1270,7 @@ const allActions = getAllAvailableActions(
       </div>
       <h3 className="text-base font-bold text-white">Quick Actions</h3>
       <span className="text-xs text-slate-500 ml-2">
-        ({allActions.length} actions available)
+        {allActions.length > 0 && `(${allActions.length} actions available)`}
       </span>
     </div>
 
@@ -1710,93 +1744,64 @@ const allActions = getAllAvailableActions(
         </div>
       )}
 
-{/* Order Items */}
-<div className="bg-slate-900/50 border border-slate-800 rounded-lg p-4 hover:border-pink-500/30 transition-all">
-  <div className="flex items-center justify-between mb-3">
-    <div className="flex items-center gap-2">
-      <div className="p-2 bg-gradient-to-br from-pink-500 to-rose-500 rounded-lg">
-        <Package className="h-4 w-4 text-white" />
-      </div>
-      <h3 className="text-lg font-bold text-white">Order Quantity</h3>
-    </div>
-<div className="flex items-center gap-2">
-  <span
-    className="text-xs text-slate-400 px-2 py-1 bg-slate-800 rounded-lg"
-    title="Total number of unique products"
-  >
-    {order.orderItems.length}{' '}
-    {order.orderItems.length === 1 ? 'Item' : 'Items'}
-  </span>
-
-  {isOrderEditable() ? (
-    <button
-      onClick={() => setEditModalOpen(true)}
-      className="px-3 py-1.5 bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700 text-white rounded-lg transition-all flex items-center gap-2 text-sm font-medium shadow-lg hover:shadow-xl hover:scale-105"
-      title="Edit order items (add/remove/update quantities)"
-    >
-      <Edit className="h-3.5 w-3.5" />
-      Edit Items
-    </button>
-  ) : (
+<div className="space-y-3">
+  {order.orderItems.map((item, index) => (
     <div
-      className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-800 border border-slate-700 rounded-lg text-xs text-slate-400"
-      title={getEditLockReason()}
+      key={item.id}
+      className="flex items-center justify-between p-3 bg-slate-800/50 rounded-lg border border-slate-700 hover:border-pink-500/30 transition-all group"
+      title={`Product: ${item.productName}`}
     >
-      <Lock className="h-3 w-3" />
-      Locked
-    </div>
-  )}
-</div>
-  </div>
-  
-  {/* Status restriction message */}
-  {!isOrderEditable() && (
-    <div className="mb-3 p-2.5 bg-amber-500/10 border border-amber-500/30 rounded-lg">
-      <p className="text-xs text-amber-400 flex items-center gap-1.5">
-        <AlertTriangle className="h-3.5 w-3.5" />
-        <strong>Editing Restricted:</strong> Order items can only be edited when status is Pending or Confirmed. Current status: <strong>{order.status}</strong>
-      </p>
-    </div>
-  )}
+      <div className="flex items-center gap-3 flex-1">
 
-  <div className="space-y-3">
-    {order.orderItems.map((item, index) => (
-      <div
-        key={item.id}
-        className="flex items-center justify-between p-3 bg-slate-800/50 rounded-lg border border-slate-700 hover:border-pink-500/30 transition-all group"
-        title={`Product: ${item.productName}`}
-      >
-        <div className="flex items-center gap-3 flex-1">
-          <span className="w-8 h-8 rounded-lg bg-gradient-to-br from-pink-500 to-rose-500 flex items-center justify-center text-white font-bold text-xs">
-            {index + 1}
-          </span>
-          <div className="flex-1 min-w-0">
-            <p className="text-white font-medium text-sm truncate group-hover:text-pink-400 transition-colors">
-              {item.productName}
-            </p>
-            <p className="text-xs text-slate-400 mt-1 flex items-center gap-1">
-              <Hash className="h-3 w-3" />
-              SKU: {item.productSku}
-            </p>
-            {item.variantName && (
-              <p className="text-xs text-cyan-400 mt-1 flex items-center gap-1">
-                <ChevronRight className="h-3 w-3" />
-                {item.variantName}
-              </p>
-            )}
-          </div>
-        </div>
-        <div className="text-right">
-          <p className="text-white font-semibold text-sm" title={`${item.quantity} × ${formatCurrency(item.unitPrice, order.currency)}`}>
-            {item.quantity} × {formatCurrency(item.unitPrice, order.currency)}
+        {/* Index */}
+        <span className="w-8 h-8 rounded-lg bg-gradient-to-br from-pink-500 to-rose-500 flex items-center justify-center text-white font-bold text-xs">
+          {index + 1}
+        </span>
+
+        {/* 🔥 Product Image */}
+        <img
+          src={getOrderProductImage(item.productImageUrl)}
+          alt={item.productName}
+          className="w-12 h-12 rounded-lg object-cover border border-slate-700"
+        />
+
+        {/* Product Info */}
+        <div className="flex-1 min-w-0">
+          <p className="text-white font-medium text-sm truncate group-hover:text-pink-400 transition-colors">
+            {item.productName}
           </p>
-          <p className="text-green-400 font-bold text-lg" title="Line item total">
-            {formatCurrency(item.totalPrice, order.currency)}
+
+          <p className="text-xs text-slate-400 mt-1 flex items-center gap-1">
+            <Hash className="h-3 w-3" />
+            SKU: {item.productSku}
           </p>
+
+          {item.variantName && (
+            <p className="text-xs text-cyan-400 mt-1 flex items-center gap-1">
+              <ChevronRight className="h-3 w-3" />
+              {item.variantName}
+            </p>
+          )}
         </div>
+
       </div>
-    ))}
-  </div>
+
+      {/* Price Section */}
+      <div className="text-right">
+        <p
+          className="text-white font-semibold text-sm"
+          title={`${item.quantity} × ${formatCurrency(item.unitPrice, order.currency)}`}
+        >
+          {item.quantity} × {formatCurrency(item.unitPrice, order.currency)}
+        </p>
+
+        <p className="text-green-400 font-bold text-lg" title="Line item total">
+          {formatCurrency(item.totalPrice, order.currency)}
+        </p>
+      </div>
+
+    </div>
+  ))}
 </div>
       {/* ✅ Addresses */}
 <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -2146,13 +2151,13 @@ const allActions = getAllAvailableActions(
         showPartialRefundModal={showPartialRefundModal}
         onCloseFullRefund={() => setShowFullRefundModal(false)}
         onClosePartialRefund={() => setShowPartialRefundModal(false)}
-        onRefundSuccess={() => {
-          if (showFullRefundModal) {
-            handleFullRefund();
-          } else if (showPartialRefundModal) {
-            handlePartialRefund();
-          }
-        }}
+onRefundSuccess={(items, reason, notes) => {
+  if (showFullRefundModal) {
+    handleFullRefund();
+  } else if (showPartialRefundModal) {
+    handlePartialRefund(items, reason, notes);
+  }
+}}
       />
  <RefundHistorySection 
     currency={order.currency}

@@ -76,7 +76,6 @@ export type PaymentStatus =
   | 'Processing'
   | 'Successful'
   | 'Completed'
-  | 'Captured'
   | 'Failed'
   | 'Cancelled'
   | 'Refunded'
@@ -142,7 +141,13 @@ export interface Shipment {
   createdAt: string;
   shipmentItems: ShipmentItem[];
 }
-
+export interface RefundHistory {
+  id: string;
+  refundAmount: number;
+  refundDate: string;
+  reason?: string;
+  notes?: string;
+}
 export interface Order {
   id: string;
   orderNumber: string;
@@ -194,6 +199,8 @@ export interface Order {
   paymentStatus?: string;
 
   orderItems: OrderItem[];
+    // ✅ ADD THIS
+  refundHistory?: RefundHistory[];
   payments: Payment[];
   shipments: Shipment[];
   createdAt: string;
@@ -522,7 +529,6 @@ export const getPaymentStatusInfo = (status: PaymentStatus) => {
     'Processing': { label: 'Processing', color: 'text-blue-400', bgColor: 'bg-blue-500/10' },
     'Successful': { label: 'Successful', color: 'text-green-400', bgColor: 'bg-green-500/10' },
     'Completed': { label: 'Completed', color: 'text-green-400', bgColor: 'bg-green-500/10' },
-    'Captured': { label: 'Captured', color: 'text-emerald-400', bgColor: 'bg-emerald-500/10' },
     'Failed': { label: 'Failed', color: 'text-red-400', bgColor: 'bg-red-500/10' },
     'Cancelled': { label: 'Cancelled', color: 'text-red-300', bgColor: 'bg-red-400/10' },
     'Refunded': { label: 'Refunded', color: 'text-purple-400', bgColor: 'bg-purple-500/10' },
