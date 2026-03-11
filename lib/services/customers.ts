@@ -10,6 +10,14 @@ export interface Customer {
   updatedAt: string;
 }
 
+export interface CustomerQueryParams {
+  page?: number;
+  pageSize?: number;
+  searchTerm?: string;
+  isActive?: boolean;
+  sortBy?: string;
+  sortDirection?: 'asc' | 'desc';
+}
 export interface CreateCustomerDto {
   name: string;
   email: string;
@@ -18,7 +26,7 @@ export interface CreateCustomerDto {
 }
 
 export const customersService = {
-  getAll: () => apiClient.get<Customer[]>('/customers'),
+  getAll: () => apiClient.get<Customer[]>('/api/Customers'),
 
   getById: (id: string) => apiClient.get<Customer>(`/customers/${id}`),
 

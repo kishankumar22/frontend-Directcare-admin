@@ -51,7 +51,7 @@ export const API_ENDPOINTS = {
   imageManagement: '/api/ImageManagement',
 
   // Customers
-  customers: '/api/customers',
+  customers: '/api/Customers',
 
   // Discounts
   discounts: '/api/Discounts',

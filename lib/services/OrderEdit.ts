@@ -703,6 +703,37 @@ class OrderEditService {
     return EDITABLE_STATUSES.includes(orderStatus);
   }
 
+async refundShipping(
+  orderId: string,
+  data: {
+    adminNotes?: string;
+    sendCustomerNotification?: boolean;
+  }
+) {
+  try {
+
+    const response = await apiClient.post(
+      `${API_ENDPOINTS.orders}/${orderId}/refund-shipping`,
+      {
+        orderId: orderId,
+
+        // ⭐ modal ka notes yahi save hoga
+        adminNotes: data.adminNotes?.trim() || "",
+
+        sendCustomerNotification: data.sendCustomerNotification ?? true
+      }
+    );
+
+    return response.data;
+
+  } catch (error: any) {
+
+    throw new Error(
+      error.response?.data?.message || "Failed to refund shipping charge"
+    );
+
+  }
+}
   /**
    * Get order status label
    */

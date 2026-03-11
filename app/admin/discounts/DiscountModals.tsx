@@ -540,16 +540,21 @@ useEffect(() => {
                   </div>
 
                   {/* Admin Comment */}
-                  <div className="mt-6">
-                    <label className="block text-sm font-medium text-slate-300 mb-2">Admin Comment</label>
-                    <ProductDescriptionEditor
-                      value={formData.adminComment}
-                      onChange={(content) => setFormData({...formData, adminComment: content})}
-                      placeholder="Add internal notes about this discount..."
-                      height={250}
-                      required={false}
-                    />
-                  </div>
+         <div className="mt-6">
+  <label className="block text-sm font-medium text-slate-300 mb-2">
+    Admin Comment <span className="text-red-500">*</span>
+  </label>
+
+  <ProductDescriptionEditor
+    value={formData.adminComment}
+    onChange={(content) =>
+      setFormData({ ...formData, adminComment: content })
+    }
+    placeholder="Add internal notes about this discount..."
+    height={250}
+  />
+
+</div>
                 </div>
               </div>
 

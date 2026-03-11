@@ -64,6 +64,7 @@ import RefundModals from '../RefundModals';
 import PharmacyVerificationModal from '../PharmacyVerificationModal';
 import { getOrderProductImage } from '../page';
 import { API_BASE_URL } from '@/lib/api';
+import ShippingRefundModal from '../ShippingRefundModal';
 
 // Types
 type CollectionStatus = 'Pending' | 'Ready' | 'Collected' | 'Expired';
@@ -522,7 +523,15 @@ if (canUpdateStatus) {
   });
 }
 
-
+if(!order.isShippingRefunded && order.shippingAmount > 0){
+  actions.push({
+    label: 'Refund Shipping',
+    action: 'refund-shipping',
+    icon: <Truck className="h-3.5 w-3.5" />,
+    color: 'bg-cyan-600 hover:bg-cyan-700',
+    category: 'financial',
+  });
+}
   // Backend: Cannot cancel Delivered (use Return), Cancelled, Refunded, Returned
 const canCancel =
   ['Pending', 'Confirmed', 'Processing', 'Shipped', 'PartiallyShipped'].includes(status) &&
@@ -761,7 +770,9 @@ const [hasEditHistory, setHasEditHistory] = useState<boolean | null>(null);
 const [pharmaAction, setPharmaAction] = useState<'approve' | 'reject' | null>(null);
 const [isUpdatingPharma, setIsUpdatingPharma] = useState(false);
 const [showPharmaQA, setShowPharmaQA] = useState(false);
-
+const [showShippingRefundModal,setShowShippingRefundModal] = useState(false);
+const [shippingRefundNotes,setShippingRefundNotes] = useState("");
+const [processingShippingRefund,setProcessingShippingRefund] = useState(false);
 
   // ✅ NEW: Invoice Regeneration Modal State
   const [showRegenerateInvoiceModal, setShowRegenerateInvoiceModal] = useState(false);
@@ -955,58 +966,45 @@ const handleDownloadInvoice = async () => {
   }
 };
 
-const getEditLockReason = () => {
-  if (!order) return '';
 
-  if (order.deliveryMethod === 'ClickAndCollect') {
-    return 'Click & Collect orders cannot be edited';
+
+const handleFullRefund = async (notes: string, reason: RefundReason) => {
+
+  if (!notes || !notes.trim()) {
+    toast.error('Please provide refund notes');
+    return;
   }
 
-  if (!['Pending', 'Confirmed'].includes(order.status)) {
-    return `Order editing is not allowed when status is ${order.status}`;
+  if (!order) return;
+
+  if (!confirm(`Process full refund of ${formatCurrency(order.totalAmount, order.currency)}?`)) {
+    return;
   }
 
-  return '';
+  try {
+    setProcessingRefund(true);
+
+    const result = await orderEditService.processFullRefund({
+      orderId,
+      reason: reason,
+      reasonDetails: orderEditService.getRefundReasonLabel(reason),
+      adminNotes: notes,
+      restoreInventory: true,
+      sendCustomerNotification: true,
+    });
+
+    toast.success(`Refund processed successfully`);
+
+    setShowFullRefundModal(false);
+
+    await refreshAllOrderData();
+
+  } catch (error: any) {
+    toast.error(error.message || 'Failed to process refund');
+  } finally {
+    setProcessingRefund(false);
+  }
 };
-
-  const handleFullRefund = async () => {
-    if (!refundNotes.trim()) {
-      toast.error('Please provide refund notes', { autoClose: 4000 });
-      return;
-    }
-
-    if (!order) return;
-
-    if (!confirm(`Process full refund of ${formatCurrency(order.totalAmount, order.currency)}?`)) {
-      return;
-    }
-
-    try {
-      setProcessingRefund(true);
-      const result = await orderEditService.processFullRefund({
-        orderId,
-        reason: refundReason,
-        reasonDetails: orderEditService.getRefundReasonLabel(refundReason),
-        adminNotes: refundNotes,
-        restoreInventory: true,
-        sendCustomerNotification: true,
-      });
-
-      toast.success(`✅ Refund processed successfully`, { autoClose: 4000 });
-      toast.info(`💰 Refunded: ${formatCurrency(result.refundAmount, order.currency)}`, {
-        autoClose: 6000,
-      });
-
-      setShowFullRefundModal(false);
-      setRefundNotes('');
-     await refreshAllOrderData();
-    } catch (error: any) {
-      console.error('Error processing full refund:', error);
-      toast.error(error.message || 'Failed to process refund', { autoClose: 5000 });
-    } finally {
-      setProcessingRefund(false);
-    }
-  };
 
 const handlePartialRefund = async (
   items: Array<{ orderItemId: string; quantity: number; refundAmount: number }>,
@@ -1067,6 +1065,11 @@ const handleAction = (action: string) => {
     return;
   }
 
+  if(action === "refund-shipping"){
+  setShowShippingRefundModal(true);
+  return;
+}
+
   if (action === 'download-invoice') {
     handleDownloadInvoice();
     return;
@@ -1117,6 +1120,58 @@ const handleAction = (action: string) => {
     fetchOrderDetails();
   
   };
+
+const handleShippingRefund = async (notes: string) => {
+
+  if (!order) return;
+
+  // prevent empty notes
+  if (!notes || !notes.trim()) {
+    toast.error("Please enter refund reason / notes");
+    return;
+  }
+
+  // prevent multiple clicks
+  if (processingShippingRefund) return;
+
+  try {
+
+    setProcessingShippingRefund(true);
+
+    await orderEditService.refundShipping(order.id, {
+      adminNotes: notes.trim(),
+      sendCustomerNotification: true
+    });
+
+    toast.success("Shipping charge refunded successfully", {
+      autoClose: 4000
+    });
+
+    // close modal
+    setShowShippingRefundModal(false);
+
+    // reset notes
+    setShippingRefundNotes("");
+
+    // refresh order data + history
+    await refreshAllOrderData();
+
+  } catch (error: any) {
+
+    console.error("Shipping refund error:", error);
+
+    toast.error(
+      error?.message || "Failed to refund shipping charge",
+      { autoClose: 5000 }
+    );
+
+  } finally {
+
+    setProcessingShippingRefund(false);
+
+  }
+
+};
 
   const isCollectionExpired = () => {
     if (!order?.collectionExpiryDate) return false;
@@ -1525,12 +1580,12 @@ const allActions = getAllAvailableActions(
                 {formatCurrency(order.subtotalAmount, order.currency)}
               </span>
             </div>
-            <div className="flex justify-between" title="Value Added Tax (VAT)">
+            {/* <div className="flex justify-between" title="Value Added Tax (VAT)">
               <span className="text-slate-400">Tax(inc)</span>
               <span className="text-white font-medium">
                 {formatCurrency(order.taxAmount, order.currency)}
               </span>
-            </div>
+            </div> */}
             <div className="flex justify-between" title="Shipping and handling charges">
               <span className="text-slate-400">Shipping</span>
               <span className="text-white font-medium">
@@ -1626,6 +1681,8 @@ const allActions = getAllAvailableActions(
   </div>
 
 </div>
+
+
         </div>
 
         {/* Important Dates */}
@@ -1744,64 +1801,88 @@ const allActions = getAllAvailableActions(
         </div>
       )}
 
-<div className="space-y-3">
-  {order.orderItems.map((item, index) => (
-    <div
-      key={item.id}
-      className="flex items-center justify-between p-3 bg-slate-800/50 rounded-lg border border-slate-700 hover:border-pink-500/30 transition-all group"
-      title={`Product: ${item.productName}`}
-    >
-      <div className="flex items-center gap-3 flex-1">
+<div className="bg-gradient-to-br from-slate-900 to-slate-800 border border-pink-500/20 rounded-xl p-4 space-y-3">
 
-        {/* Index */}
-        <span className="w-8 h-8 rounded-lg bg-gradient-to-br from-pink-500 to-rose-500 flex items-center justify-center text-white font-bold text-xs">
-          {index + 1}
-        </span>
+  {/* Header */}
+  <div className="flex items-center justify-between">
+    
+    <div className="flex items-center gap-3">
+      <div className="p-2 bg-pink-500 rounded-lg">
+        <Package className="h-4 w-4 text-white" />
+      </div>
 
-        {/* 🔥 Product Image */}
-        <img
-          src={getOrderProductImage(item.productImageUrl)}
-          alt={item.productName}
-          className="w-12 h-12 rounded-lg object-cover border border-slate-700"
-        />
+      <h3 className="text-lg font-semibold text-white">
+        Order Quantity
+      </h3>
+    </div>
 
-        {/* Product Info */}
-        <div className="flex-1 min-w-0">
-          <p className="text-white font-medium text-sm truncate group-hover:text-pink-400 transition-colors">
-            {item.productName}
-          </p>
+    <div className="flex items-center gap-3">
 
-          <p className="text-xs text-slate-400 mt-1 flex items-center gap-1">
-            <Hash className="h-3 w-3" />
-            SKU: {item.productSku}
-          </p>
+      <span className="px-2 py-1 text-xs bg-slate-700 rounded-md text-slate-300">
+        {order.orderItems.length} Items
+      </span>
 
-          {item.variantName && (
-            <p className="text-xs text-cyan-400 mt-1 flex items-center gap-1">
-              <ChevronRight className="h-3 w-3" />
-              {item.variantName}
+      {isOrderEditable() && (
+        <button
+          onClick={() => setEditModalOpen(true)}
+          className="flex items-center gap-2 px-3 py-1.5 bg-gradient-to-r from-purple-600 to-pink-600 text-white text-sm rounded-lg hover:opacity-90 transition-all"
+        >
+          <Edit className="h-4 w-4" />
+          Edit Items
+        </button>
+      )}
+
+    </div>
+
+  </div>
+
+  {/* Product List */}
+  <div className="space-y-3">
+
+    {order.orderItems.map((item, index) => (
+
+      <div
+        key={item.id}
+        className="flex items-center justify-between p-3 bg-slate-800/60 rounded-lg border border-slate-700 hover:border-pink-500/30 transition-all"
+      >
+
+        {/* Left */}
+        <div className="flex items-center gap-3">
+
+          <div className="w-9 h-9 flex items-center justify-center rounded-lg bg-gradient-to-br from-pink-500 to-rose-500 text-white font-bold text-sm">
+            {index + 1}
+          </div>
+
+          <div>
+            <p className="text-white font-medium text-sm">
+              {item.productName}
             </p>
-          )}
+
+            <p className="text-xs text-slate-400 mt-1 flex items-center gap-1">
+              <Hash className="h-3 w-3" />
+              SKU: {item.productSku}
+            </p>
+          </div>
+
+        </div>
+
+        {/* Right */}
+        <div className="text-right">
+          <p className="text-white text-sm font-medium">
+            {item.quantity} × {formatCurrency(item.unitPrice, order.currency)}
+          </p>
+
+          <p className="text-green-400 font-bold text-lg">
+            {formatCurrency(item.totalPrice, order.currency)}
+          </p>
         </div>
 
       </div>
 
-      {/* Price Section */}
-      <div className="text-right">
-        <p
-          className="text-white font-semibold text-sm"
-          title={`${item.quantity} × ${formatCurrency(item.unitPrice, order.currency)}`}
-        >
-          {item.quantity} × {formatCurrency(item.unitPrice, order.currency)}
-        </p>
+    ))}
 
-        <p className="text-green-400 font-bold text-lg" title="Line item total">
-          {formatCurrency(item.totalPrice, order.currency)}
-        </p>
-      </div>
+  </div>
 
-    </div>
-  ))}
 </div>
       {/* ✅ Addresses */}
 <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -1829,14 +1910,14 @@ const allActions = getAllAvailableActions(
         </span>
       </div>
 
-      {order.billingAddress.company && (
+      {/* {order.billingAddress.company && (
         <div className="grid grid-cols-3">
           <span className="text-slate-400 font-medium">Company</span>
           <span className="col-span-2 text-white">
             {order.billingAddress.company}
           </span>
         </div>
-      )}
+      )} */}
 
       <div className="grid grid-cols-3">
         <span className="text-slate-400 font-medium">Address</span>
@@ -1902,14 +1983,14 @@ const allActions = getAllAvailableActions(
           </span>
         </div>
 
-        {order.shippingAddress.company && (
+        {/* {order.shippingAddress.company && (
           <div className="grid grid-cols-3">
             <span className="text-slate-400 font-medium">Company</span>
             <span className="col-span-2 text-white">
               {order.shippingAddress.company}
             </span>
           </div>
-        )}
+        )} */}
 
         <div className="grid grid-cols-3">
           <span className="text-slate-400 font-medium">Address</span>
@@ -2144,21 +2225,36 @@ const allActions = getAllAvailableActions(
         orderNumber={order.orderNumber}
       />
 
-      {/* Refund Modals */}
-      <RefundModals
-        order={order}
-        showFullRefundModal={showFullRefundModal}
-        showPartialRefundModal={showPartialRefundModal}
-        onCloseFullRefund={() => setShowFullRefundModal(false)}
-        onClosePartialRefund={() => setShowPartialRefundModal(false)}
-onRefundSuccess={(items, reason, notes) => {
+ <RefundModals
+  order={order}
+  refundHistory={refundHistory}
+
+  showFullRefundModal={showFullRefundModal}
+  showPartialRefundModal={showPartialRefundModal}
+
+  refundNotes={refundNotes}
+  setRefundNotes={setRefundNotes}
+
+  refundReason={refundReason}
+  setRefundReason={setRefundReason}
+
+  processingRefund={processingRefund}
+
+  onCloseFullRefund={() => setShowFullRefundModal(false)}
+  onClosePartialRefund={() => setShowPartialRefundModal(false)}
+
+ onRefundSuccess={(items, reason, notes) => {
+
   if (showFullRefundModal) {
-    handleFullRefund();
-  } else if (showPartialRefundModal) {
+    handleFullRefund(notes, reason);
+  }
+
+  if (showPartialRefundModal) {
     handlePartialRefund(items, reason, notes);
   }
+
 }}
-      />
+/>
  <RefundHistorySection 
     currency={order.currency}
     refundHistory={refundHistory}
@@ -2185,6 +2281,17 @@ onRefundSuccess={(items, reason, notes) => {
   />
 )}
 
+
+<ShippingRefundModal
+  isOpen={showShippingRefundModal}
+  onClose={() => setShowShippingRefundModal(false)}
+  onConfirm={handleShippingRefund}
+  processing={processingShippingRefund}
+  notes={shippingRefundNotes}
+  setNotes={setShippingRefundNotes}
+  shippingAmount={order.shippingAmount}
+  currency={order.currency}
+/>
 
     </div>
   );

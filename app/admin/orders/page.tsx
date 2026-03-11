@@ -1055,6 +1055,7 @@ ${filters.status ? "border-blue-500 bg-blue-500/10":"border-slate-700"}
 <option value="Shipped">Shipped</option>
 <option value="Delivered">Delivered</option>
 <option value="Cancelled">Cancelled</option>
+
 </select>
 
 
@@ -1431,14 +1432,30 @@ title="Select order"
 
         <span className="text-slate-500 text-xs">•</span>
 
-        <p
-          onClick={() =>
-            setShowProducts(showProducts === order.id ? null : order.id)
-          }
-          className="text-slate-300 text-xs truncate cursor-pointer hover:text-white"
-        >
-          {order.orderItems[0]?.productName}
-        </p>
+     <div className="flex items-center gap-1 text-xs min-w-0">
+
+
+<span className="text-slate-500">•</span>
+
+<p
+  className="text-slate-300 truncate max-w-[170px]"
+  title={order.orderItems[0]?.productName}
+>
+  {order.orderItems[0]?.productName}
+</p>
+
+{order.orderItems.length > 1 && (
+  <button
+    onClick={() =>
+      setShowProducts(showProducts === order.id ? null : order.id)
+    }
+    className="text-cyan-400 hover:text-cyan-300 font-medium"
+  >
+    +{order.orderItems.length - 1} more
+  </button>
+)}
+
+</div>
       </div>
 
       {/* SKU */}
@@ -1457,7 +1474,7 @@ title="Select order"
   {showProducts === order.id && (
   <div
   ref={popupRef}
-  className="absolute z-50 mt-1 w-64 bg-slate-800 border border-slate-700 rounded-lg shadow-xl p-2"
+  className="absolute z-50 mt-1 w-72 bg-slate-800 border border-slate-700 rounded-lg shadow-xl p-2"
 >
       <div className="flex items-center justify-between mb-2">
         <p className="text-sm font-semibold text-white">

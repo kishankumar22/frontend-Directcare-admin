@@ -18,19 +18,24 @@ interface BulkStatusModalProps {
 }
 
 const STATUS_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
-  Pending: ['Confirmed', 'Processing'],
-  Confirmed: ['Processing'],
-  Processing: ['Shipped', 'PartiallyShipped'],
+
+  Pending: ['Confirmed', 'Processing', 'Cancelled'],
+
+  Confirmed: ['Processing', 'Cancelled'],
+
+  Processing: ['Shipped', 'PartiallyShipped', 'Cancelled'],
+
   Shipped: ['Delivered', 'Returned'],
+
   PartiallyShipped: ['Shipped', 'Delivered'],
+
   Delivered: ['Returned'],
 
-  // Terminal states
+  // terminal states
   Cancelled: [],
   Returned: [],
   Refunded: [],
 };
-
 export default function BulkStatusModal({
   isOpen,
   onClose,
@@ -61,7 +66,8 @@ if (!isOpen) return null;
 
   const isSameStatus = newStatus === currentStatus;
 
-const isDestructive = newStatus === 'Returned';
+const isDestructive =
+  newStatus === 'Returned' || newStatus === 'Cancelled';
 
   const handleOpenConfirm = () => {
     if (!allowedStatuses.includes(newStatus)) {
@@ -222,7 +228,11 @@ const isDestructive = newStatus === 'Returned';
         onClose={() => setConfirmOpen(false)}
         onConfirm={handleFinalConfirm}
         title="Confirm Status Update"
-        message={`Change status from "${currentStatus}" to "${newStatus}" for ${selectedOrders.length} order(s)?`}
+        message={
+  newStatus === 'Cancelled'
+    ? `Cancel ${selectedOrders.length} order(s)? This action may require refund if payment was completed.`
+    : `Change status from "${currentStatus}" to "${newStatus}" for ${selectedOrders.length} order(s)?`
+}
         confirmText="Yes, Update"
         cancelText="Cancel"
         iconColor={isDestructive ? 'text-red-500' : 'text-violet-500'}

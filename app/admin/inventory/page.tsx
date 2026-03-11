@@ -155,17 +155,43 @@ export default function InventoryPage() {
     }
   };
 
-  // ─── Fetch filters ─────────────────────────────────────────────────────────
-  const fetchFilters = async () => {
+// ─── Fetch filters ─────────────────────────────────────────────────────────
+const fetchFilters = async () => {
+  try {
+
     const [catRes, brandRes] = await Promise.all([
       categoriesService.getAll({ includeInactive: false }),
       brandsService.getAll({ includeUnpublished: false }),
     ]);
-    if (catRes.data?.success)
-      setCategories(catRes.data.data.map((c: any) => ({ value: c.id, label: c.name })));
-    if (brandRes.data?.success)
-      setBrands(brandRes.data.data.map((b: any) => ({ value: b.id, label: b.name }))); // ✅ use id
-  };
+
+    // ✅ Category Alphabetical Sort (A → Z)
+    if (catRes.data?.success) {
+      const sortedCategories = catRes.data.data
+        .sort((a: any, b: any) => a.name.localeCompare(b.name))
+        .map((c: any) => ({
+          value: c.id,
+          label: c.name
+        }));
+
+      setCategories(sortedCategories);
+    }
+
+    // ✅ Brand Alphabetical Sort (A → Z)
+    if (brandRes.data?.success) {
+      const sortedBrands = brandRes.data.data
+        .sort((a: any, b: any) => a.name.localeCompare(b.name))
+        .map((b: any) => ({
+          value: b.id,
+          label: b.name
+        }));
+
+      setBrands(sortedBrands);
+    }
+
+  } catch (error) {
+    toast.error("Failed to load filters");
+  }
+};
 
   useEffect(() => { fetchFilters(); }, []);
   useEffect(() => { fetchProducts(); }, [currentPage, itemsPerPage, debouncedSearch, selectedCategory, selectedBrand]);

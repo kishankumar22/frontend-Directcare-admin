@@ -543,34 +543,42 @@ const categoryFilteredProductOptions: SelectOption[] = useMemo(() => {
     return filtered.map((product) => ({ value: product.id, label: product.name }));
   }, [products, productCategoryFilter, productBrandFilter]);
 
-  // Handle submit
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    try {
-      const payload = {
-        ...formData,
-        assignedProductIds: formData.assignedProductIds.join(","),
-        assignedCategoryIds: formData.assignedCategoryIds.join(","),
-        assignedManufacturerIds: formData.assignedManufacturerIds.join(","),
-        ...(editingDiscount && { id: editingDiscount.id }),
-      };
 
-      if (editingDiscount) {
-        await discountsService.update(editingDiscount.id, payload);
-        toast.success("Discount updated successfully!");
-      } else {
-        await discountsService.create(payload);
-        toast.success("Discount created successfully!");
-      }
+// Handle submit
+const handleSubmit = async (e: React.FormEvent) => {
+  e.preventDefault();
 
-      await fetchDiscounts();
-      setShowModal(false);
-      resetForm();
-    } catch (error: any) {
-      console.error("Error saving discount:", error);
-      toast.error(error?.response?.data?.message || "Failed to save discount");
+  // ✅ Admin Comment Validation
+  if (!formData.adminComment || !formData.adminComment.trim()) {
+    toast.error("Admin comment is required");
+    return;
+  }
+
+  try {
+    const payload = {
+      ...formData,
+      assignedProductIds: formData.assignedProductIds.join(","),
+      assignedCategoryIds: formData.assignedCategoryIds.join(","),
+      assignedManufacturerIds: formData.assignedManufacturerIds.join(","),
+      ...(editingDiscount && { id: editingDiscount.id }),
+    };
+
+    if (editingDiscount) {
+      await discountsService.update(editingDiscount.id, payload);
+      toast.success("Discount updated successfully!");
+    } else {
+      await discountsService.create(payload);
+      toast.success("Discount created successfully!");
     }
-  };
+
+    await fetchDiscounts();
+    setShowModal(false);
+    resetForm();
+  } catch (error: any) {
+    console.error("Error saving discount:", error);
+    toast.error(error?.response?.data?.message || "Failed to save discount");
+  }
+};
 
 // In main page, find handleEdit function (around line 300-320)
 const handleEdit = (discount: Discount) => {

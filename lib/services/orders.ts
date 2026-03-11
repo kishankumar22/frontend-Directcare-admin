@@ -180,6 +180,7 @@ export interface Order {
   collectedBy?: string;
   collectorIDType?: string;
   collectionExpiryDate?: string;
+  isShippingRefunded?:string
   collectorIDNumber?:string
   // ================= PHARMACY =================
   pharmacyVerificationStatus?: PharmacyVerificationStatus;
@@ -319,6 +320,7 @@ async getAllOrders(params?: {
       throw new Error(error.response?.data?.message || 'Failed to track order');
     }
   }
+
 // ================= PHARMACY =================
 async pharmacyApprove(orderId: string, data: { note?: string }) {
   const res = await apiClient.post(

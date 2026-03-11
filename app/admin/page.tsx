@@ -12,8 +12,8 @@ import {
   AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid,
   Tooltip, ResponsiveContainer, PieChart, Pie, Cell,
 } from "recharts";
-import { productsService, orderService } from "@/lib/services";
-import { customersService } from "@/lib/services/costomers";
+import { productsService, orderService, customersService } from "@/lib/services";
+
 
 type DateRange = "7d" | "1m" | "6m" | "1y";
 
@@ -67,11 +67,11 @@ export default function AdminDashboard() {
     if (initial) setLoading(true); else setRefreshing(true);
 
     try {
-      const [prodRes, orderRes, custRes] = await Promise.all([
-        productsService.getAll({ page: 1, pageSize: 2000 }),
-        orderService.getAllOrders(),
-        customersService.getAll({ page: 1, pageSize: 10000 }),
-      ]);
+  const [prodRes, orderRes, custRes] = await Promise.all([
+  productsService.getAll(),
+  orderService.getAllOrders(),
+  customersService.getAll(),
+]);
 
       // ---- parse products ----
       let prods: any[] = [];
@@ -495,8 +495,8 @@ export default function AdminDashboard() {
           </div>
           <div className="space-y-1.5">
             {recentOrders.length > 0 ? recentOrders.map((o, idx) => {
-              const meta = statusMeta[o.status] || { color: "text-slate-400", bg: "bg-slate-500/10" };
-              const Icon = meta.icon;
+             const meta = statusMeta[o.status] || { color: "text-slate-400", bg: "bg-slate-500/10", icon: Clock };
+const Icon = meta.icon || Clock;
               return (
                 <div key={idx} onClick={() => router.push("/admin/orders")}
                   className="flex items-center gap-2 p-2 rounded-lg bg-slate-800/50 border border-slate-700 hover:border-violet-500/40 transition-all cursor-pointer"

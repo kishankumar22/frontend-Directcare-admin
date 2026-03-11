@@ -15,24 +15,33 @@ import {
   Hash,
   ChevronRight,
 } from 'lucide-react';
-import { RefundReason, orderEditService } from '@/lib/services/OrderEdit';
+import { RefundHistory, RefundReason, orderEditService } from '@/lib/services/OrderEdit';
 import { Order, formatCurrency } from '@/lib/services/orders';
 
 interface RefundModalsProps {
   order: Order;
+  refundHistory?: RefundHistory | null;
   showFullRefundModal: boolean;
   showPartialRefundModal: boolean;
   onCloseFullRefund: () => void;
   onClosePartialRefund: () => void;
- onRefundSuccess: (
-  items: { orderItemId: string; quantity: number; refundAmount: number }[],
-  reason: RefundReason,
-  notes: string
-) => void;
+  refundNotes: string;
+setRefundNotes: (value: string) => void;
+
+refundReason: RefundReason;
+setRefundReason: (value: RefundReason) => void;
+
+processingRefund: boolean;
+  onRefundSuccess: (
+    items: { orderItemId: string; quantity: number; refundAmount: number }[],
+    reason: RefundReason,
+    notes: string
+  ) => void;
 }
 
 export default function RefundModals({
   order,
+  refundHistory,
   showFullRefundModal,
   showPartialRefundModal,
   onCloseFullRefund,
@@ -47,16 +56,11 @@ export default function RefundModals({
   const [partialRefundItems, setPartialRefundItems] = useState<
     Array<{ orderItemId: string; quantity: number; refundAmount: number }>
   >([]);
-const refundedAmount =
-  order.refundHistory?.reduce(
-    (sum: number, r: { refundAmount: number }) => sum + r.refundAmount,
-    0
-  ) || 0;
+// refunded amount from refund history API
+const refundedAmount = refundHistory?.totalRefunded ?? 0;
 
-const remainingRefundable = Math.max(
-  order.totalAmount - refundedAmount,
-  0
-);
+// remaining refundable amount
+const remainingRefundable = refundHistory?.remainingBalance ?? order.totalAmount;
 
   // Initialize partial refund items when modal opens
 useEffect(() => {
@@ -320,18 +324,21 @@ useEffect(() => {
     onClick={() => {
       const newQty = Math.max(0, currentQuantity - 1);
 
-      const maxAllowed = Math.min(
-        newQty * item.unitPrice,
-        remainingRefundable
-      );
-
+    const maxAllowed = Number(
+  Math.min(newQty * item.unitPrice, remainingRefundable).toFixed(2)
+);
       setPartialRefundItems((prev) =>
         prev.map((r) =>
           r.orderItemId === item.id
             ? {
                 ...r,
                 quantity: newQty,
-                refundAmount: newQty === 0 ? 0 : Math.min(r.refundAmount, maxAllowed),
+                refundAmount:
+  newQty === 0
+    ? 0
+    : r.refundAmount === 0
+    ? maxAllowed
+    : Number(Math.min(r.refundAmount, maxAllowed).toFixed(2)),
               }
             : r
         )
@@ -354,10 +361,9 @@ useEffect(() => {
         Math.min(item.quantity, Number(e.target.value))
       );
 
-      const maxAllowed = Math.min(
-        newQty * item.unitPrice,
-        remainingRefundable
-      );
+    const maxAllowed = Number(
+  Math.min(newQty * item.unitPrice, remainingRefundable).toFixed(2)
+);
 
       setPartialRefundItems((prev) =>
         prev.map((r) =>
@@ -366,11 +372,11 @@ useEffect(() => {
                 ...r,
                 quantity: newQty,
                 refundAmount:
-                  newQty === 0
-                    ? 0
-                    : r.refundAmount === 0
-                    ? maxAllowed
-                    : Math.min(r.refundAmount, maxAllowed),
+  newQty === 0
+    ? 0
+    : r.refundAmount === 0
+    ? maxAllowed
+    : Number(Math.min(r.refundAmount, maxAllowed).toFixed(2)),
               }
             : r
         )
@@ -385,10 +391,9 @@ useEffect(() => {
     onClick={() => {
       const newQty = Math.min(item.quantity, currentQuantity + 1);
 
-      const maxAllowed = Math.min(
-        newQty * item.unitPrice,
-        remainingRefundable
-      );
+     const maxAllowed = Number(
+  Math.min(newQty * item.unitPrice, remainingRefundable).toFixed(2)
+);
 
       setPartialRefundItems((prev) =>
         prev.map((r) =>
@@ -397,9 +402,9 @@ useEffect(() => {
                 ...r,
                 quantity: newQty,
                 refundAmount:
-                  r.refundAmount === 0
-                    ? maxAllowed
-                    : Math.min(r.refundAmount, maxAllowed),
+  r.refundAmount === 0
+    ? maxAllowed
+    : Number(Math.min(r.refundAmount, maxAllowed).toFixed(2)),
               }
             : r
         )
@@ -437,7 +442,9 @@ useEffect(() => {
   currentQuantity * item.unitPrice,
   remainingRefundable
 );
-                                  const newAmount = Math.max(0, Math.min(maxAmount, Number(e.target.value)));
+const newAmount = Number(
+  Math.max(0, Math.min(maxAmount, Number(e.target.value))).toFixed(2)
+);
                                   setPartialRefundItems((prev) =>
                                     prev.map((r) =>
                                       r.orderItemId === item.id ? { ...r, refundAmount: newAmount } : r
@@ -469,7 +476,7 @@ useEffect(() => {
                                 setPartialRefundItems((prev) =>
                                   prev.map((r) =>
                                     r.orderItemId === item.id
-                                      ? { ...r, quantity: item.quantity, refundAmount: Math.min(item.totalPrice, remainingRefundable) }
+                                      ? { ...r, quantity: item.quantity, refundAmount: Number(Math.min(item.totalPrice, remainingRefundable).toFixed(2)) }
                                       : r
                                   )
                                 );
