@@ -31,10 +31,10 @@ export default function PharmacyQuestionFormModal({
     isActive: true,
     displayOrder: nextDisplayOrder,
     answerType: "Options",
-    options: [
-      { optionText: "Yes", isDisqualifying: false, displayOrder: 1 },
-      { optionText: "No", isDisqualifying: false, displayOrder: 2 },
-    ],
+  options: [
+  { optionText: "Yes", displayOrder: 1 },
+  { optionText: "No", displayOrder: 2 },
+],
   });
 
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
@@ -49,7 +49,6 @@ export default function PharmacyQuestionFormModal({
           answerType: question.answerType || "Options",
           options: question.options.map((opt) => ({
             optionText: opt.optionText,
-            isDisqualifying: opt.isDisqualifying,
             displayOrder: opt.displayOrder,
           })),
         });
@@ -60,8 +59,8 @@ export default function PharmacyQuestionFormModal({
           displayOrder: nextDisplayOrder,
           answerType: "Options",
           options: [
-            { optionText: "Yes", isDisqualifying: false, displayOrder: 1 },
-            { optionText: "No", isDisqualifying: false, displayOrder: 2 },
+            { optionText: "Yes", displayOrder: 1 },
+            { optionText: "No", displayOrder: 2 },
           ],
         });
       }
@@ -99,19 +98,6 @@ const validateForm = (): boolean => {
     if (new Set(optionTexts).size !== optionTexts.length) {
       errors.options = "Duplicate options are not allowed";
     }
-
-    // ✅ EXACTLY ONE SAFE required
-    const safeCount = formData.options.filter(
-      opt => !opt.isDisqualifying
-    ).length;
-
-    if (safeCount === 0) {
-      errors.options = "Exactly one safe option is required";
-    }
-
-    if (safeCount > 1) {
-      errors.options = "Only one safe option is allowed";
-    }
   }
 
   setFormErrors(errors);
@@ -144,7 +130,6 @@ const validateForm = (): boolean => {
             return {
               id: existingOption?.id || crypto.randomUUID(),
               optionText: opt.optionText,
-              isDisqualifying: opt.isDisqualifying,
               displayOrder: opt.displayOrder,
             };
           }),
@@ -177,8 +162,7 @@ const validateForm = (): boolean => {
         ...formData.options,
         {
           optionText: "",
-          isDisqualifying: false,
-          displayOrder: formData.options.length + 1,
+         displayOrder: formData.options.length + 1,
         },
       ],
     });
@@ -193,25 +177,7 @@ const validateForm = (): boolean => {
     setFormData({ ...formData, options: newOptions });
   };
 
- const updateOption = (index: number, field: string, value: any) => {
-  const newOptions = [...formData.options];
 
-  // 🔒 Disqualifying protection
-  if (field === "isDisqualifying" && value === true) {
-
-    const alreadyHasDisqualifying = newOptions.some(
-      (opt, i) => opt.isDisqualifying && i !== index
-    );
-
-    if (alreadyHasDisqualifying) {
-      toast.error("Only one disqualifying option is allowed");
-      return;
-    }
-  }
-
-  newOptions[index] = { ...newOptions[index], [field]: value };
-  setFormData({ ...formData, options: newOptions });
-};
 
 
   if (!isOpen) return null;
@@ -341,6 +307,7 @@ const validateForm = (): boolean => {
       <label className="text-sm text-slate-300 font-semibold">
         Answer Options <span className="text-red-400">*</span>
       </label>
+
       <button
         onClick={addOption}
         type="button"
@@ -355,11 +322,7 @@ const validateForm = (): boolean => {
       {formData.options.map((option, index) => (
         <div
           key={index}
-          className={`flex items-center gap-2 p-2 rounded-lg border transition-all ${
-            option.isDisqualifying
-              ? "border-orange-500/40 bg-orange-500/5"
-              : "border-slate-700 bg-slate-900/40"
-          }`}
+          className="flex items-center gap-2 p-2 rounded-lg border border-slate-700 bg-slate-900/40"
         >
           {/* Index */}
           <span className="w-8 h-8 rounded-full bg-violet-500/20 text-violet-400 flex items-center justify-center text-sm font-bold shrink-0">
@@ -370,9 +333,15 @@ const validateForm = (): boolean => {
           <input
             type="text"
             value={option.optionText}
-            onChange={(e) =>
-              updateOption(index, "optionText", e.target.value)
-            }
+            onChange={(e) => {
+              const newOptions = [...formData.options];
+              newOptions[index].optionText = e.target.value;
+
+              setFormData({
+                ...formData,
+                options: newOptions,
+              });
+            }}
             placeholder="Option text"
             className={`flex-1 px-3 py-2 bg-slate-800/50 border rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all ${
               formErrors[`option_${index}`]
@@ -380,29 +349,6 @@ const validateForm = (): boolean => {
                 : "border-slate-600"
             }`}
           />
-
-          {/* Disqualifying Selector (Radio Style) */}
-<button
-  onClick={() => {
-    const newOptions = formData.options.map((opt, i) => ({
-      ...opt,
-      isDisqualifying: i !== index, // 👈 Reverse logic
-    }));
-
-    setFormData({ ...formData, options: newOptions });
-  }}
-  type="button"
-  className={`px-3 py-2 rounded-lg text-xs font-semibold transition-all flex items-center gap-1 ${
-    !option.isDisqualifying
-      ? "bg-green-500/10 border border-green-500/50 text-green-400"
-      : "bg-orange-500/10 border border-orange-500/50 text-orange-400"
-  }`}
-  title="Mark as Safe"
->
-  <AlertCircle className="h-4 w-4" />
-  {!option.isDisqualifying ? "Safe" : "Disqualifying"}
-</button>
-
 
           {/* Remove Option */}
           {formData.options.length > 2 && (
@@ -429,13 +375,13 @@ const validateForm = (): boolean => {
       <Type className="h-5 w-5" />
       <span className="font-semibold">Text Answer</span>
     </div>
+
     <p className="text-slate-400 text-sm mt-1">
       Customers will type their answer in a free-text field. No predefined
       options needed.
     </p>
   </div>
 )}
-
 
           {/* Form Actions */}
           <div className="flex gap-3 pt-2">

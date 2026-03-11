@@ -272,11 +272,9 @@ const clearFilters = () => {
     const active = allQuestions.filter((q) => q.isActive).length;
     const inactive = total - active;
     const totalOptions = allQuestions.reduce((sum, q) => sum + q.options.length, 0);
-    const disqualifyingQuestions = allQuestions.filter((q) =>
-      q.options.some((opt) => opt.isDisqualifying)
-    ).length;
+    
 
-    return { total, active, inactive, totalOptions, disqualifyingQuestions };
+    return { total, active, inactive, totalOptions };
   };
 
   const stats = calculateStats();
@@ -346,27 +344,7 @@ const clearFilters = () => {
   try {
     setConfirmDialog((prev) => ({ ...prev, isLoading: true }));
 
-    // 🚨 VALIDATION CHECK BEFORE STATUS CHANGE
-    if (question.answerType === "Options") {
-
-      const hasSafeOption = question.options.some(
-        opt => !opt.isDisqualifying
-      );
-
-      const hasDisqualifyingOption = question.options.some(
-        opt => opt.isDisqualifying
-      );
-
-      if (!hasSafeOption) {
-        toast.error("Cannot update status: At least one non-disqualifying option is required");
-        return;
-      }
-
-      if (!hasDisqualifyingOption) {
-        toast.error("Cannot update status: At least one disqualifying option is required");
-        return;
-      }
-    }
+  
 
     const updateData: UpdatePharmacyQuestionDto = {
       id: question.id,
@@ -380,7 +358,6 @@ const clearFilters = () => {
           : question.options.map((opt) => ({
               id: opt.id,
               optionText: opt.optionText,
-              isDisqualifying: opt.isDisqualifying,
               displayOrder: opt.displayOrder,
             })),
     };
@@ -509,7 +486,7 @@ const hasActiveFilters =
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2.5">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
         <button
           onClick={() => {
             setViewMode("all");
@@ -588,17 +565,7 @@ const hasActiveFilters =
           </div>
         </div>
 
-        <div className="p-3 rounded-xl bg-slate-800/50 border border-slate-700">
-          <div className="flex items-center gap-2.5">
-            <div className="w-10 h-10 rounded-lg bg-orange-500/20 flex items-center justify-center">
-              <AlertCircle className="h-5 w-5 text-orange-400" />
-            </div>
-            <div>
-              <p className="text-slate-400 text-xs font-medium">Disqualifying</p>
-              <p className="text-white text-xl font-bold">{stats.disqualifyingQuestions}</p>
-            </div>
-          </div>
-        </div>
+       
       </div>
 
       {/* Items Per Page */}
@@ -995,11 +962,7 @@ const hasActiveFilters =
                         </span>
                         <p className="text-white font-medium">{option.optionText}</p>
                       </div>
-                      {option.isDisqualifying && (
-                        <span className="px-2 py-0.5 bg-orange-500/10 text-orange-400 rounded text-xs font-medium border border-orange-500/20">
-                          Disqualifying
-                        </span>
-                      )}
+                      
                     </div>
                   ))}
                 </div>

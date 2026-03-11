@@ -1430,7 +1430,6 @@ title="Select order"
           {order.orderNumber}
         </p>
 
-        <span className="text-slate-500 text-xs">•</span>
 
      <div className="flex items-center gap-1 text-xs min-w-0">
 
