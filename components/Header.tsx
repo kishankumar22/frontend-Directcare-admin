@@ -33,9 +33,9 @@ export default function Header({
   ssrCategories.filter((c: any) => c.showOnHomepage === true)
 );
  // Mobile drawer shows ALL parent categories (not just homepage ones)
- const [mobileCategories, setMobileCategories] = useState<Category[]>(
+const [mobileCategories, setMobileCategories] = useState<Category[]>(
   ssrCategories
-    .filter((c: any) => !c.parentCategoryId)
+    .filter((c: any) => !c.parentCategoryId && c.showOnHomepage === true)
     .sort((a: any, b: any) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))
 );
 
@@ -230,7 +230,11 @@ useEffect(() => {
 const topCategories = allParents.filter((cat: any) => cat.showOnHomepage === true);
 
 setCategories(topCategories);
-setMobileCategories(allParents);
+const homepageParents = allParents.filter(
+  (cat: any) => cat.showOnHomepage === true
+);
+
+setMobileCategories(homepageParents);
 
         }
       } catch (err) {
@@ -854,7 +858,7 @@ setMobileCategories(allParents);
                   Login
                 </button>
                 <button
-                  onClick={() => { router.push("/signup"); setMenuOpen(false); }}
+                  onClick={() => { router.push("/account"); setMenuOpen(false); }}
                   className="flex-1 py-2 text-sm font-semibold text-[#445D41] border border-[#445D41] rounded-full"
                 >
                   Register
@@ -1002,14 +1006,7 @@ setMobileCategories(allParents);
                   <span className="ml-auto bg-red-500 text-white text-xs rounded-full px-2 py-0.5">{wishlistCount}</span>
                 )}
               </Link>
-              <Link
-                href="/orders"
-                onClick={() => setMenuOpen(false)}
-                className="flex items-center gap-3 px-4 py-3 text-sm text-gray-700 hover:bg-green-50 hover:text-[#445D41] transition"
-              >
-                <Package size={18} />
-                My Orders
-              </Link>
+             
             </div>
           </div>
 

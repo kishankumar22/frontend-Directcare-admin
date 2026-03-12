@@ -128,7 +128,7 @@ const loyaltyPointsEarned = order.loyaltyPointsEarned ?? 0;
       <div className="bg-white rounded-2xl shadow-md p-6">
 
         {/* SUCCESS HEADER */}
-      <div className="flex items-start justify-between gap-6 mb-8">
+ <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 sm:gap-6 mb-6 sm:mb-8">
   {/* LEFT: Order confirmed */}
   <div className="flex items-start gap-4">
     <div className="h-12 w-12 rounded-md bg-green-100 flex items-center justify-center text-green-700 font-bold">
@@ -146,7 +146,7 @@ const loyaltyPointsEarned = order.loyaltyPointsEarned ?? 0;
   </div>
 
  <div
-  className={`flex items-center gap-2 rounded-md px-4 py-2 text-sm font-semibold whitespace-nowrap shadow-sm ${
+className={`flex items-start sm:items-center gap-2 rounded-md px-3 sm:px-4 py-2 text-xs sm:text-sm font-semibold shadow-sm ${
     loyaltyPointsEarned > 0
       ? "bg-gradient-to-br from-green-600 to-[#445D41] text-white"
       : "bg-orange-100 text-orange-700 "

@@ -354,6 +354,7 @@ if (product.disableBuyButton) return;
   <PharmaQuestionsModal
     open={showPharmaModal}
     productId={product.id} // ✅ MAIN PRODUCT ID
+    mode="add"
     onClose={() => {
       setShowPharmaModal(false);
       setPendingAction(null);

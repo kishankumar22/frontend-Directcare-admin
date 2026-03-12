@@ -752,6 +752,7 @@ vatIncluded: vatRate !== null,
   <PharmaQuestionsModal
     open={true}
     productId={pharmaModal.product.id}
+    mode="add"
     onClose={() => setPharmaModal(null)}
     onSuccess={() => {
       const {

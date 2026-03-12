@@ -613,6 +613,7 @@ useEffect(() => {
   // Delivery flags (charges managed via Shipping Methods)
   sameDayDeliveryEnabled: false,
   nextDayDeliveryEnabled: false,
+  nextDayDeliveryFree: false,   // ✅ ADD THIS
   standardDeliveryEnabled: true,
 
   // ===== RELATED PRODUCTS =====
@@ -979,8 +980,8 @@ const checkSkuExists = async (sku: string): Promise<boolean> => {
     console.log('🔍 Checking SKU:', sku);
     
     const response = await productsService.getAll({ 
-      searchTerm: sku, 
-      pageSize: 100 
+      page:1,
+      pageSize: 1000
     });
     
     // Safe data extraction
@@ -1737,6 +1738,8 @@ allowedQuantities: cleanedCartData.allowedQuantities,
     // Delivery Options
     if (formData.sameDayDeliveryEnabled !== undefined) productData.sameDayDeliveryEnabled = formData.sameDayDeliveryEnabled;
     if (formData.nextDayDeliveryEnabled !== undefined) productData.nextDayDeliveryEnabled = formData.nextDayDeliveryEnabled;
+    if (formData.nextDayDeliveryFree !== undefined)
+productData.nextDayDeliveryFree = formData.nextDayDeliveryFree;
     if (formData.standardDeliveryEnabled !== undefined) productData.standardDeliveryEnabled = formData.standardDeliveryEnabled;
 
     // Pack Product
@@ -2170,11 +2173,22 @@ const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElemen
       deliveryDateId: checked ? prev.deliveryDateId : '',
       sameDayDeliveryEnabled: checked ? prev.sameDayDeliveryEnabled : false,
       nextDayDeliveryEnabled: checked ? prev.nextDayDeliveryEnabled : false,
+      nextDayDeliveryFree: checked ? prev.nextDayDeliveryFree : false, // ✅ ADD
       standardDeliveryEnabled: checked ? prev.standardDeliveryEnabled : true,
     }));
     return;
   }
-
+// ================================
+// ✅ ADD THIS BLOCK HERE
+// ================================
+if (name === 'nextDayDeliveryEnabled') {
+  setFormData(prev => ({
+    ...prev,
+    nextDayDeliveryEnabled: checked,
+    nextDayDeliveryFree: checked ? prev.nextDayDeliveryFree : false
+  }));
+  return;
+}
   // ================================
   // ✅ 6. IS RECURRING - BLOCK FOR GROUPED PRODUCTS
   // ================================
@@ -5134,8 +5148,23 @@ useEffect(() => {
                 🚀 Enable Next-Day Delivery
               </span>
             </label>
-          </div>
 
+          </div>
+{/* Next Day Delivery Free */}
+{formData.nextDayDeliveryEnabled && (
+  <label className="flex items-center gap-2 cursor-pointer group ml-6">
+    <input
+      type="checkbox"
+      name="nextDayDeliveryFree"
+      checked={formData.nextDayDeliveryFree}
+      onChange={handleChange}
+      className="rounded bg-slate-800/50 border-slate-700 text-violet-500 focus:ring-violet-500 focus:ring-offset-slate-900"
+    />
+    <span className="text-sm text-slate-300 group-hover:text-white transition-colors">
+      🎁 Next-Day Delivery Free
+    </span>
+  </label>
+)}
           {/* Standard Delivery */}
           <div className="space-y-3">
             <label className="flex items-center gap-2 cursor-pointer group">

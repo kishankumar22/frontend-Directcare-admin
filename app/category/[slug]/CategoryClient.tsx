@@ -1026,6 +1026,7 @@ if (product.orderMinimumQuantity > 1) {
   <PharmaQuestionsModal
     open={showPharmaModal}
     productId={pendingProduct.product.id}
+    mode="add"
     onClose={() => {
       setShowPharmaModal(false);
       setPendingProduct(null);

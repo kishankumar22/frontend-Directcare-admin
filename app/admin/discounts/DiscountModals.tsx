@@ -552,6 +552,7 @@ useEffect(() => {
     }
     placeholder="Add internal notes about this discount..."
     height={250}
+    maxLength={40}
   />
 
 </div>

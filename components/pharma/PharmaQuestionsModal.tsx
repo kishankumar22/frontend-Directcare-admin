@@ -35,11 +35,13 @@ interface ExistingResponse {
 export default function PharmaQuestionsModal({
   open,
   productId,
+  mode = "add",
   onClose,
   onSuccess,
 }: {
   open: boolean;
   productId: string;
+  mode?: "add" | "edit";
   onClose: () => void;
   onSuccess: (message: string) => void;
 }) {
@@ -51,7 +53,18 @@ export default function PharmaQuestionsModal({
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
+// ✅ check required answers before allowing submit
+const isFormValid = questions.every((q) => {
+  if (!q.isRequired) return true;
 
+  const val = answers[q.questionId];
+
+  if (q.answerType === "Options") {
+    return !!val;
+  }
+
+  return val && String(val).trim() !== "";
+});
   // 🔥 LOAD QUESTIONS + CHECK EXISTING RESPONSES
   useEffect(() => {
     if (!open) return;
@@ -93,38 +106,50 @@ export default function PharmaQuestionsModal({
         }
 
         // 2️⃣ CHECK EXISTING RESPONSES
-        const sessionId = isAuthenticated
-          ? null
-          : getPharmaSessionId();
+    // 2️⃣ CHECK EXISTING RESPONSES (ONLY FOR EDIT MODE)
 
-        const query =
-          isAuthenticated || !sessionId
-            ? ""
-            : `?sessionId=${sessionId}`;
+if (mode === "edit") {
 
-        const respRes = await fetch(
-          `${process.env.NEXT_PUBLIC_API_URL}/api/products/${productId}/pharmacy-responses${query}`,
-          { headers }
-        );
+  const sessionId = isAuthenticated
+    ? null
+    : getPharmaSessionId();
 
-        const respJson = await respRes.json();
-        const existing: ExistingResponse[] =
-          respJson?.data || [];
+  const query =
+    isAuthenticated || !sessionId
+      ? ""
+      : `?sessionId=${sessionId}`;
 
-        if (existing.length > 0) {
-          const prefilled: Record<string, any> = {};
+  const respRes = await fetch(
+    `${process.env.NEXT_PUBLIC_API_URL}/api/products/${productId}/pharmacy-responses${query}`,
+    { headers }
+  );
 
-          existing.forEach((r) => {
-            prefilled[r.questionId] =
-              r.selectedOptionId ?? r.answerText ?? "";
-          });
+  const respJson = await respRes.json();
+  const existing: ExistingResponse[] =
+    respJson?.data || [];
 
-          setAnswers(prefilled);
-          setIsEditMode(true);
-        } else {
-          setAnswers({});
-          setIsEditMode(false);
-        }
+  if (existing.length > 0) {
+    const prefilled: Record<string, any> = {};
+
+    existing.forEach((r) => {
+      prefilled[r.questionId] =
+        r.selectedOptionId ?? r.answerText ?? "";
+    });
+
+    setAnswers(prefilled);
+    setIsEditMode(true);
+  } else {
+    setAnswers({});
+    setIsEditMode(false);
+  }
+
+} else {
+
+  // 🔥 ADD TO CART MODE → always fresh form
+  setAnswers({});
+  setIsEditMode(false);
+
+}
       } catch (err) {
         toast.error("Unable to load medical form");
         onClose();
@@ -134,7 +159,7 @@ export default function PharmaQuestionsModal({
     };
 
     loadData();
-  }, [open, productId, isAuthenticated, toast, onClose, onSuccess]);
+  }, [open, productId, mode, isAuthenticated, toast, onClose, onSuccess]);
 
   // 🔥 SUBMIT / UPDATE
   const handleSubmit = async () => {
@@ -157,21 +182,31 @@ export default function PharmaQuestionsModal({
         ? null
         : getPharmaSessionId();
 
-      const payload = {
-        sessionId,
-        answers: questions.map((q) => ({
-          questionId: q.questionId,
-          selectedOptionId:
-            q.answerType === "Options"
-              ? answers[q.questionId]
-              : null,
-          answerText:
-            q.answerType !== "Options"
-              ? String(answers[q.questionId])
-              : null,
-        })),
-      };
+     const payload = {
+  sessionId,
+  answers: questions
+    .map((q) => {
+      const val = answers[q.questionId];
 
+      // 🔴 skip empty answers
+      if (!val || String(val).trim() === "") {
+        return null;
+      }
+
+      return {
+        questionId: q.questionId,
+        selectedOptionId:
+          q.answerType === "Options"
+            ? val
+            : null,
+        answerText:
+          q.answerType !== "Options"
+            ? String(val)
+            : null,
+      };
+    })
+    .filter(Boolean),
+};
       const method = isEditMode ? "PUT" : "POST";
 
       const res = await fetch(
@@ -185,13 +220,26 @@ export default function PharmaQuestionsModal({
 
       const json = await res.json();
 
-      if (!json?.data?.success) {
-        toast.error(
-          json?.data?.message ||
-            "Validation failed. Please check your answers."
-        );
-        return;
-      }
+    if (!json?.data?.success) {
+
+  // backend validation errors array
+  if (json?.data?.errors && Array.isArray(json.data.errors)) {
+
+    json.data.errors.forEach((err: string) => {
+      toast.error(err);
+    });
+
+  } else {
+
+    toast.error(
+      json?.data?.message ||
+      "Validation failed. Please check your answers."
+    );
+
+  }
+
+  return;
+}
 
       toast.success(json?.data?.message);
       onSuccess(json?.data?.message);
@@ -315,16 +363,18 @@ export default function PharmaQuestionsModal({
  <Button
   size="sm"
   onClick={handleSubmit}
-  disabled={submitting}
+  disabled={submitting || !isFormValid}
   className="bg-[#445D41] hover:bg-black text-white rounded-lg px-5 flex items-center justify-center gap-2 w-full md:w-auto h-8 text-xs"
 >
   {submitting && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
 
-  {submitting
-    ? "Submitting..."
-    : isEditMode
-    ? "Update Answers"
-    : "Submit & Continue"}
+ {submitting
+  ? "Submitting..."
+  : !isFormValid
+  ? "Answer required questions"
+  : isEditMode
+  ? "Update Answers"
+  : "Submit & Continue"}
 </Button>
 </div>
     </DialogContent>

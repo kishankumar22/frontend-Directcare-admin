@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo, useCallback } from "react";
+import * as XLSX from "xlsx";
 import { 
   Percent, 
   Globe, 
@@ -489,63 +490,62 @@ const handleUpdate = async (e: React.FormEvent) => {
     setCountrySearchTerm("");
   };
 
-  // Export to CSV
-  const handleExport = async (exportAll: boolean = false) => {
-    try {
-      const ratesToExport = exportAll ? vatRates : filteredRates;
+ 
+// Export to Excel
+const handleExport = async (exportAll: boolean = false) => {
+  try {
+    const ratesToExport = exportAll ? vatRates : filteredRates;
 
-      if (ratesToExport.length === 0) {
-        toast.warning("⚠️ No VAT rates to export");
-        return;
-      }
-
-      const csvHeaders = [
-        "Name",
-        "Description",
-        "Rate (%)",
-        "Country",
-        "Region",
-        "Is Active",
-        "Is Default",
-        "Display Order",
-        "Created At"
-      ];
-
-      const csvData = ratesToExport.map(rate => [
-        rate.name,
-        rate.description,
-        rate.rate,
-        rate.country,
-        rate.region,
-        rate.isActive ? "Yes" : "No",
-        rate.isDefault ? "Yes" : "No",
-        rate.displayOrder,
-        formatDate(rate.createdAt)
-      ]);
-
-      const csvContent = [
-        csvHeaders.join(','),
-        ...csvData.map(row => row.map(cell => `"${cell}"`).join(','))
-      ].join('\n');
-
-      const BOM = '\uFEFF';
-      const blob = new Blob([BOM + csvContent], { type: 'text/csv;charset=utf-8;' });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `vatrates_${new Date().toISOString().split('T')[0]}.csv`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
-
-      toast.success(`📥 ${ratesToExport.length} VAT rate${ratesToExport.length > 1 ? 's' : ''} exported!`);
-    } catch (error) {
-      console.error("Export error:", error);
-      toast.error("Failed to export VAT rates");
+    if (ratesToExport.length === 0) {
+      toast.warning("⚠️ No VAT rates to export");
+      return;
     }
-  };
 
+    const excelData = ratesToExport.map((rate) => ({
+      Name: rate.name,
+      Description: rate.description,
+      "Rate (%)": rate.rate,
+      Country: rate.country,
+      Region: rate.region || "N/A",
+      "Is Active": rate.isActive ? "Yes" : "No",
+      "Is Default": rate.isDefault ? "Yes" : "No",
+      "Display Order": rate.displayOrder,
+      "Created At": formatDate(rate.createdAt),
+      "Updated At": formatDate(rate.updatedAt)
+    }));
+
+    // Create worksheet
+    const worksheet = XLSX.utils.json_to_sheet(excelData);
+
+    // Auto column width
+    const columnWidths = Object.keys(excelData[0]).map((key) => ({
+      wch: Math.max(
+        key.length,
+        ...excelData.map((row: any) => String(row[key]).length)
+      ),
+    }));
+
+    worksheet["!cols"] = columnWidths;
+
+    // Create workbook
+    const workbook = XLSX.utils.book_new();
+
+    XLSX.utils.book_append_sheet(workbook, worksheet, "VAT Rates");
+
+    const fileName = `vatrates_${new Date().toISOString().split("T")[0]}.xlsx`;
+
+    XLSX.writeFile(workbook, fileName);
+
+    toast.success(
+      `📥 ${ratesToExport.length} VAT rate${
+        ratesToExport.length > 1 ? "s" : ""
+      } exported successfully!`
+    );
+  } catch (error) {
+    console.error("Export error:", error);
+    toast.error("Failed to export VAT rates");
+  }
+};
 
   const hasActiveFilters =
   searchTerm ||

@@ -44,9 +44,10 @@ import {
   UserPlus,
   PoundSterling,
 } from "lucide-react";
+import * as XLSX from "xlsx";
 
 import { useToast } from "@/app/admin/_components/CustomToast";
-import { Customer, CustomerQueryParams, customersService } from "@/lib/services/costomers";
+import { Customer, CustomerQueryParams, customersService } from "@/lib/services/customers";
 
 // ✅ Types
 type CustomerSegment = "all" | "vip" | "regular" | "new" | "dormant" | "oneTime";
@@ -370,65 +371,61 @@ const [customerViewMode, setCustomerViewMode] = useState<"all" | "active" | "ina
   };
 
   // ✅ Export Functions
-  const generateCSV = (customersToExport: Customer[]) => {
-    const csvHeaders = [
-      "Customer Name",
-      "Email",
-      "Phone",
-      "Gender",
-      "Total Orders",
-      "Total Spent (£)",
-      "Avg Order Value (£)",
-      "Status",
-      "Segment",
-      "Registration Date",
-      "Last Login",
-      "Days Since Last Order",
-    ];
+ const generateExcel = (customersToExport: Customer[]) => {
+  const excelData = customersToExport.map((customer) => {
+    const segment = getCustomerSegment(customer);
 
-    const csvData = customersToExport.map((customer) => {
-      const segment = getCustomerSegment(customer);
-      const avgOrderValue = customer.totalOrders > 0
+    const avgOrderValue =
+      customer.totalOrders > 0
         ? (customer.totalSpent / customer.totalOrders).toFixed(2)
         : "0.00";
 
-      const daysSinceLastOrder = customer.orders.length > 0
-        ? Math.floor((new Date().getTime() - new Date(customer.orders[0].orderDate).getTime()) / (1000 * 60 * 60 * 24))
+    const daysSinceLastOrder =
+      customer.orders.length > 0
+        ? Math.floor(
+            (new Date().getTime() -
+              new Date(customer.orders[0].orderDate).getTime()) /
+              (1000 * 60 * 60 * 24)
+          )
         : "N/A";
 
-      return [
-        customer.fullName,
-        customer.email,
-        customer.phoneNumber || "N/A",
-        customer.gender || "N/A",
-        customer.totalOrders,
-        customer.totalSpent.toFixed(2),
-        avgOrderValue,
-        customer.isActive ? "Active" : "Inactive",
-        segment.toUpperCase(),
-        formatDate(customer.createdAt),
-        customer.lastLoginAt ? formatDate(customer.lastLoginAt) : "Never",
-        daysSinceLastOrder,
-      ];
-    });
+    return {
+      "Customer Name": customer.fullName,
+      Email: customer.email,
+      Phone: customer.phoneNumber || "N/A",
+      Gender: customer.gender || "N/A",
+      "Total Orders": customer.totalOrders,
+      "Total Spent (£)": customer.totalSpent.toFixed(2),
+      "Avg Order Value (£)": avgOrderValue,
+      Status: customer.isActive ? "Active" : "Inactive",
+      Segment: segment.toUpperCase(),
+      "Registration Date": formatDate(customer.createdAt),
+      "Last Login": customer.lastLoginAt
+        ? formatDate(customer.lastLoginAt)
+        : "Never",
+      "Days Since Last Order": daysSinceLastOrder,
+    };
+  });
 
-    const csvContent = [
-      csvHeaders.join(","),
-      ...csvData.map((row) => row.map((cell) => `"${cell}"`).join(",")),
-    ].join("\n");
+  const worksheet = XLSX.utils.json_to_sheet(excelData);
 
-    const BOM = "\uFEFF";
-    const blob = new Blob([BOM + csvContent], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `customers_${new Date().toISOString().split("T")[0]}.csv`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-  };
+  const columnWidths = Object.keys(excelData[0]).map((key) => ({
+    wch: Math.max(
+      key.length,
+      ...excelData.map((row: any) => String(row[key]).length)
+    ),
+  }));
 
+  worksheet["!cols"] = columnWidths;
+
+  const workbook = XLSX.utils.book_new();
+
+  XLSX.utils.book_append_sheet(workbook, worksheet, "Customers");
+
+  const fileName = `customers_${new Date().toISOString().split("T")[0]}.xlsx`;
+
+  XLSX.writeFile(workbook, fileName);
+};
   const handleExportSelected = () => {
     if (selectedCustomers.length === 0) {
       toast.warning("Please select customers to export");
@@ -436,7 +433,7 @@ const [customerViewMode, setCustomerViewMode] = useState<"all" | "active" | "ina
     }
 
     const customersToExport = allCustomers.filter((c) => selectedCustomers.includes(c.id));
-    generateCSV(customersToExport);
+    generateExcel(customersToExport);
     toast.success(`${customersToExport.length} customers exported successfully`);
     setSelectedCustomers([]);
     setShowExportMenu(false);
@@ -449,7 +446,7 @@ const [customerViewMode, setCustomerViewMode] = useState<"all" | "active" | "ina
       return;
     }
 
-    generateCSV(filteredCustomers);
+    generateExcel(filteredCustomers);
     toast.success(`${filteredCustomers.length} customers exported successfully`);
     setShowExportMenu(false);
   };
@@ -460,7 +457,7 @@ const [customerViewMode, setCustomerViewMode] = useState<"all" | "active" | "ina
       return;
     }
 
-    generateCSV(allCustomers);
+    generateExcel(allCustomers);
     toast.success(`${allCustomers.length} customers exported successfully`);
     setShowExportMenu(false);
   };
@@ -471,7 +468,7 @@ const [customerViewMode, setCustomerViewMode] = useState<"all" | "active" | "ina
       return;
     }
 
-    generateCSV(customers);
+    generateExcel(customers);
     toast.success(`${customers.length} customers exported successfully`);
     setShowExportMenu(false);
   };

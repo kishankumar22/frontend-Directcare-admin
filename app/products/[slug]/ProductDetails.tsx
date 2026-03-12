@@ -992,7 +992,11 @@ const handleThumbNext = () => {
   }, []);
 const handleAddToCart = useCallback(() => {
     // 🔥 PHARMA GUARD
-  if (!handlePharmaGuard("cart")) return;
+ if (product.isPharmaProduct && !pharmaApprovedRef.current) {
+  setPendingAction("cart");
+  setShowPharmaModal(true);
+  return;
+}
   const selected = selectedVariant ?? null;
   // ============================
 // ⭐ EXISTING CART QTY CHECK
@@ -1216,7 +1220,11 @@ shipSeparately: product.shipSeparately,
 ]);
 const handleBuyNow = () => {
    // 🔥 PHARMA GUARD
-  if (!handlePharmaGuard("buy")) return;
+if (product.isPharmaProduct && !pharmaApprovedRef.current) {
+  setPendingAction("buy");
+  setShowPharmaModal(true);
+  return;
+}
   const selected = selectedVariant ?? null;
   const stockQty = selected?.stockQuantity ?? product.stockQuantity ?? 0;
   const mainMin = product.orderMinimumQuantity ?? 1;
@@ -1473,7 +1481,7 @@ const handleRemoveCoupon = () => {
                    src={activeMainImage}
                       alt={product.name}
                       fill
-                     className="object-contain p-6 pointer-events-none" // 🔥 ADD THIS
+                     className="object-contain p-1 pointer-events-none" // 🔥 ADD THIS
                       priority
                       sizes="(max-width: 768px) 100vw, 50vw"
                     />
@@ -1693,7 +1701,7 @@ bg-white/80 hover:bg-white shadow-md rounded-full p-2 backdrop-blur-sm transitio
     </span>
     {/* ✅ HOVER TOOLTIP */}
     <div
-      className="absolute left-0 top-full z-50 hidden group-hover:block w-80 bg-white border rounded-xl shadow-lg p-3"
+      className="absolute left-0 top-full z-50 hidden lg:group-hover:block w-80 bg-white border rounded-xl shadow-lg p-3"
       onClick={(e) => e.stopPropagation()}
     >
         {/* 🔥 HEADING */}
@@ -2289,25 +2297,25 @@ bg-white/80 hover:bg-white shadow-md rounded-full p-2 backdrop-blur-sm transitio
   </>
 )}
 {/* Trust Badges — below buy buttons, inside right column card */}
-<div className="grid grid-cols-3 gap-2 mt-2 pt-2 border-t border-gray-100">
+<div className="grid grid-cols-3 gap-1 mt-2 pt-2 border-t border-gray-100">
   <div className="flex flex-col items-center text-center gap-0.5">
-    <Truck className="h-5 w-5 text-[#445D41]" />
-    <p className="text-[10px] font-semibold">Free Shipping</p>
-    <p className="text-[10px] text-gray-500">Over £35</p>
+    <Truck className="h-6 w-6 text-[#445D41]" />
+    <p className="text-[12px] font-semibold">Free Shipping</p>
+    <p className="text-[12px] text-gray-500">Over £35</p>
   </div>
   <div className="flex flex-col items-center text-center gap-0.5">
-    <RotateCcw className={`h-5 w-5 ${product.notReturnable ? "text-red-700" : "text-[#445D41]"}`} />
-    <p className={`text-[10px] font-semibold ${product.notReturnable ? "text-red-700" : ""}`}>
+    <RotateCcw className={`h-6 w-6 ${product.notReturnable ? "text-red-700" : "text-[#445D41]"}`} />
+    <p className={`text-[12px] font-semibold ${product.notReturnable ? "text-red-700" : ""}`}>
       {product.notReturnable ? "Non-Returnable" : "Easy Returns"}
     </p>
-    <p className="text-[10px] text-gray-500">
+    <p className="text-[12px] text-gray-500">
       {product.notReturnable ? "Cannot return" : "30 Days"}
     </p>
   </div>
   <div className="flex flex-col items-center text-center gap-0.5">
-    <ShieldCheck className="h-5 w-5 text-[#445D41]" />
-    <p className="text-[10px] font-semibold">Secure Payment</p>
-    <p className="text-[10px] text-gray-500">SSL Encrypted</p>
+    <ShieldCheck className="h-6 w-6 text-[#445D41]" />
+    <p className="text-[12px] font-semibold">Secure Payment</p>
+    <p className="text-[12px] text-gray-500">SSL Encrypted</p>
   </div>
 </div>
 {/* 🔥 GROUPED PRODUCTS + BUNDLE OFFER (SINGLE BOX) */}
@@ -2443,7 +2451,7 @@ bg-white/80 hover:bg-white shadow-md rounded-full p-2 backdrop-blur-sm transitio
 )}
               {/* Short description */}
 {product.shortDescription && (
-  <div className="mb-3 mt-3 p-4 bg-white rounded-lg">
+  <div className="mb-1 mt-1 p-2 bg-white rounded-lg">
     <div
       className=" prose prose-sm max-w-none text-gray-700 prose-ul:list-disc prose-ul:pl-6 prose-li:my-1 prose-h3:mt-0 prose-h3:mb-2 " dangerouslySetInnerHTML={{ __html: product.shortDescription }} />
   </div>
@@ -2639,6 +2647,7 @@ bg-white/80 hover:bg-white shadow-md rounded-full p-2 backdrop-blur-sm transitio
   <PharmaQuestionsModal
     open={showPharmaModal}
     productId={product.id} // ✅ MAIN PRODUCT ID
+   mode="add"
     onClose={() => {
       setShowPharmaModal(false);
       setPendingAction(null);

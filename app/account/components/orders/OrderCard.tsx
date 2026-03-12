@@ -3,10 +3,12 @@
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import Info from "../ui/Info";
-import { getOrderStatusBadge,getCollectionStatusTextColor } from "./orderUtils";
+import { getOrderStatusBadge, getCollectionStatusTextColor } from "./orderUtils";
 import { useAuth } from "@/context/AuthContext";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useToast } from "@/components/toast/CustomToast";
+import { loadStripe } from "@stripe/stripe-js";
+import { Elements, CardElement, useStripe, useElements } from "@stripe/react-stripe-js";
 
 const CANCELLATION_REASONS = [
   "Ordered by mistake",
@@ -18,9 +20,235 @@ const CANCELLATION_REASONS = [
 
 const MIN_OTHER_REASON_LENGTH = 10;
 
+/* =====================================================================
+   STRIPE PAYMENT FORM  (shown inside the Pay Now modal)
+===================================================================== */
+function StripePaymentForm({
+  clientSecret,
+  amount,
+  orderId,
+  accessToken,
+  onSuccess,
+}: {
+  clientSecret: string;
+  amount: number;
+  orderId: string;
+  accessToken: string | null;
+  onSuccess: () => void;
+}) {
+  const stripe = useStripe();
+  const elements = useElements();
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handlePay = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!stripe || !elements) return;
+
+    setLoading(true);
+    setError(null);
+
+    const card = elements.getElement(CardElement);
+    if (!card) return;
+
+    const { error: stripeError, paymentIntent } = await stripe.confirmCardPayment(clientSecret, {
+      payment_method: { card },
+    });
+
+    if (stripeError) {
+      setError(stripeError.message ?? "Payment failed");
+      setLoading(false);
+      return;
+    }
+
+    // Tell backend to mark pending payment as cleared
+    try {
+      await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/payment/confirm/${paymentIntent?.id}`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+          },
+        }
+      );
+    } catch {
+      /* backend webhook will handle it if this fails */
+    }
+
+    setLoading(false);
+    onSuccess();
+  };
+
+  return (
+    <form onSubmit={handlePay} className="space-y-4">
+      <div className="border rounded-lg p-4 bg-gray-50">
+        <CardElement
+          options={{
+            style: {
+              base: {
+                fontSize: "16px",
+                color: "#1a202c",
+                "::placeholder": { color: "#a0aec0" },
+              },
+              invalid: { color: "#e53e3e" },
+            },
+          }}
+        />
+      </div>
+
+      {error && (
+        <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+          {error}
+        </p>
+      )}
+
+      <Button
+        type="submit"
+        disabled={loading || !stripe}
+        className="w-full bg-[#445D41] hover:bg-green-800 text-white font-semibold"
+      >
+        {loading ? "Processing…" : `Pay £${amount.toFixed(2)}`}
+      </Button>
+    </form>
+  );
+}
+
+/* =====================================================================
+   PAY NOW MODAL
+===================================================================== */
+function PayNowModal({
+  order,
+  accessToken,
+  customerEmail,
+  onClose,
+  onPaid,
+}: {
+  order: any;
+  accessToken: string | null;
+  customerEmail: string;
+  onClose: () => void;
+  onPaid: () => void;
+}) {
+  const [stripePromise, setStripePromise] = useState<any>(null);
+  const [clientSecret, setClientSecret] = useState<string | null>(null);
+  const [initError, setInitError] = useState<string | null>(null);
+  const [paid, setPaid] = useState(false);
+
+  useEffect(() => {
+    let mounted = true;
+
+    const init = async () => {
+      try {
+        // 1. Get Stripe publishable key
+        const configRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/payment/config`);
+        const configJson = await configRes.json();
+        const pk = configJson?.data?.publishableKey;
+        if (!pk) throw new Error("Missing Stripe key");
+
+        // 2. Create payment intent for the pending amount
+        const intentRes = await fetch(
+          `${process.env.NEXT_PUBLIC_API_URL}/api/payment/create-intent`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+            },
+            body: JSON.stringify({
+              amount: order.pendingPaymentAmount,
+              currency: "GBP",
+              orderId: order.id,
+              customerEmail: customerEmail,
+              metadata: { type: "additional_payment" },
+            }),
+          }
+        );
+
+        const intentJson = await intentRes.json();
+        if (!intentJson.success) throw new Error(intentJson.message ?? "Could not create payment");
+
+        if (mounted) {
+          setStripePromise(loadStripe(pk));
+          setClientSecret(intentJson.data.clientSecret);
+        }
+      } catch (err: any) {
+        if (mounted) setInitError(err.message ?? "Initialisation failed");
+      }
+    };
+
+    init();
+    return () => { mounted = false; };
+  }, [order.id, order.pendingPaymentAmount, accessToken]);
+
+  const handleSuccess = () => {
+    setPaid(true);
+    setTimeout(() => {
+      onPaid();
+      onClose();
+    }, 2500);
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center px-4">
+      <div className="bg-white rounded-2xl w-full max-w-md p-6 shadow-xl">
+        {/* Header */}
+        <div className="flex justify-between items-start mb-4">
+          <div>
+            <h3 className="text-lg font-bold text-gray-900">Additional Payment</h3>
+            <p className="text-sm text-gray-500">Order #{order.orderNumber}</p>
+          </div>
+          <button
+            onClick={onClose}
+            className="text-gray-400 hover:text-gray-600 text-xl font-bold leading-none"
+          >
+            ×
+          </button>
+        </div>
+
+        {/* Amount due */}
+        <div className="bg-orange-50 border border-orange-200 rounded-lg p-3 mb-5 flex justify-between items-center">
+          <span className="text-sm text-orange-700 font-medium">Amount Due</span>
+          <span className="text-xl font-bold text-orange-800">
+            £{order.pendingPaymentAmount?.toFixed(2)}
+          </span>
+        </div>
+
+        {paid ? (
+          <div className="text-center py-6">
+            <div className="text-4xl mb-2">✅</div>
+            <p className="font-semibold text-green-700">Payment Successful!</p>
+            <p className="text-sm text-gray-500 mt-1">Your order has been updated.</p>
+          </div>
+        ) : initError ? (
+          <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg p-3">
+            {initError}
+          </p>
+        ) : !stripePromise || !clientSecret ? (
+          <p className="text-sm text-gray-500 text-center py-4">Preparing payment form…</p>
+        ) : (
+          <Elements stripe={stripePromise} options={{ clientSecret }}>
+            <StripePaymentForm
+              clientSecret={clientSecret}
+              amount={order.pendingPaymentAmount}
+              orderId={order.id}
+              accessToken={accessToken}
+              onSuccess={handleSuccess}
+            />
+          </Elements>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* =====================================================================
+   MAIN ORDER CARD
+===================================================================== */
 export default function OrderCard({ order }: { order: any }) {
   const { accessToken, user } = useAuth();
-const toast = useToast();
+  const toast = useToast();
 
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [selectedReason, setSelectedReason] = useState("");
@@ -30,74 +258,41 @@ const toast = useToast();
   const [emailInvoice, setEmailInvoice] = useState(false);
   const [invoiceLoading, setInvoiceLoading] = useState(false);
 
-  /* =========================
-     DOWNLOAD INVOICE
-  ========================== */
-  const handleDownloadInvoice = async () => {
+  const [showPayModal, setShowPayModal] = useState(false);
+  const [pendingAmount, setPendingAmount] = useState<number | null>(
+    order.pendingPaymentAmount ?? null
+  );
+
+  // Order History
+  const [showHistory, setShowHistory] = useState(false);
+  const [history, setHistory] = useState<any[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+
+  const loadHistory = async () => {
+    if (history.length > 0) { setShowHistory(true); return; }
+    setHistoryLoading(true);
     try {
-      setInvoiceLoading(true);
-
       const res = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/orders/${order.id}/regenerate-invoice`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${accessToken}`,
-          },
-          body: JSON.stringify({
-            orderId: order.id,
-            notes: "",
-            sendToCustomer: emailInvoice,
-            currentUser: user?.email ?? "customer",
-          }),
-        }
+        `${process.env.NEXT_PUBLIC_API_URL}/api/orders/${order.id}/history`,
+        { headers: { Authorization: `Bearer ${accessToken}` } }
       );
-
-      if (!res.ok) throw new Error("Invoice generation failed");
-
       const json = await res.json();
-
-      if (!json.success || !json.data?.pdfUrl) {
-        throw new Error("Invalid invoice response");
-      }
-
-      const pdfUrl = `${process.env.NEXT_PUBLIC_API_URL}${json.data.pdfUrl}`;
-      window.open(pdfUrl, "_blank", "noopener,noreferrer");
-    } catch (error) {
-      console.error(error);
-      alert("Unable to generate invoice. Please try again.");
-    } finally {
-      setInvoiceLoading(false);
+      if (json.success) setHistory(json.data ?? []);
+    } catch { /* ignore */ } finally {
+      setHistoryLoading(false);
+      setShowHistory(true);
     }
   };
 
   /* =========================
-     CANCEL ORDER
+     DOWNLOAD INVOICE
   ========================== */
-  const handleConfirmCancel = async () => {
-  const finalReason =
-    selectedReason === "Other"
-      ? customReason.trim()
-      : selectedReason;
-
-  if (!finalReason) return;
-
-  if (
-    selectedReason === "Other" &&
-    finalReason.length < MIN_OTHER_REASON_LENGTH
-  ) {
-    toast.error(
-      `Please enter at least ${MIN_OTHER_REASON_LENGTH} characters`
-    );
-    return;
-  }
-
-  setCancelLoading(true);
-
+ const handleDownloadInvoice = async () => {
   try {
+    setInvoiceLoading(true);
+
     const res = await fetch(
-      `${process.env.NEXT_PUBLIC_API_URL}/api/Orders/${order.id}/cancel`,
+      `${process.env.NEXT_PUBLIC_API_URL}/api/orders/${order.id}/regenerate-invoice`,
       {
         method: "POST",
         headers: {
@@ -106,54 +301,115 @@ const toast = useToast();
         },
         body: JSON.stringify({
           orderId: order.id,
-          cancellationReason: finalReason,
-          restoreInventory: true,
-          initiateRefund: true,
-          cancelledBy: "Customer",
-          currentUser: user?.email,
+          notes: "",
+          sendToCustomer: emailInvoice,
+          currentUser: user?.email ?? "customer",
         }),
       }
     );
 
+    if (!res.ok) throw new Error("Invoice generation failed");
+
     const json = await res.json();
 
-    if (!res.ok || !json.success) {
-      throw new Error(json?.message || "Cancellation failed");
+    if (!json.success || !json.data?.pdfUrl) {
+      throw new Error("Invalid invoice response");
     }
 
-    // ✅ SUCCESS TOAST (BACKEND MESSAGE)
-    toast.success(json.message || "Order cancelled successfully");
+    const pdfUrl = `${process.env.NEXT_PUBLIC_API_URL}${json.data.pdfUrl}`;
 
-    // ✅ CLOSE MODAL
-    setShowCancelModal(false);
+    const pdfRes = await fetch(pdfUrl, {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    });
 
-    // ✅ RESET STATE
-    setSelectedReason("");
-    setCustomReason("");
+    if (!pdfRes.ok) throw new Error("Unable to download invoice");
 
-    // ✅ OPTIONAL: update order object locally
-    order.status = "Cancelled";
-    order.statusName = "Cancelled";
+    const blob = await pdfRes.blob();
+    const url = window.URL.createObjectURL(blob);
 
-  } catch (err: any) {
-    toast.error(err.message || "Unable to cancel order");
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `invoice-${order.orderNumber}.pdf`;
+    document.body.appendChild(link);
+    link.click();
+
+    link.remove();
+    window.URL.revokeObjectURL(url);
+  } catch (error) {
+    console.error(error);
+    alert("Unable to generate invoice. Please try again.");
   } finally {
-    setCancelLoading(false);
+    setInvoiceLoading(false);
   }
 };
 
+  /* =========================
+     CANCEL ORDER
+  ========================== */
+  const handleConfirmCancel = async () => {
+    const finalReason =
+      selectedReason === "Other" ? customReason.trim() : selectedReason;
+
+    if (!finalReason) return;
+
+    if (selectedReason === "Other" && finalReason.length < MIN_OTHER_REASON_LENGTH) {
+      toast.error(`Please enter at least ${MIN_OTHER_REASON_LENGTH} characters`);
+      return;
+    }
+
+    setCancelLoading(true);
+
+    try {
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/Orders/${order.id}/cancel`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${accessToken}`,
+          },
+          body: JSON.stringify({
+            orderId: order.id,
+            cancellationReason: finalReason,
+            restoreInventory: true,
+            initiateRefund: true,
+            cancelledBy: "Customer",
+            currentUser: user?.email,
+          }),
+        }
+      );
+
+      const json = await res.json();
+      if (!res.ok || !json.success) throw new Error(json?.message || "Cancellation failed");
+
+      toast.success(json.message || "Order cancelled successfully");
+      setShowCancelModal(false);
+      setSelectedReason("");
+      setCustomReason("");
+      order.status = "Cancelled";
+      order.statusName = "Cancelled";
+    } catch (err: any) {
+      toast.error(err.message || "Unable to cancel order");
+    } finally {
+      setCancelLoading(false);
+    }
+  };
+const refundedAmount =
+  order.payments?.[0]?.refundAmount ??
+  order.payment?.refundAmount ??
+  0;
 
   return (
     <div className="bg-white rounded-xl border shadow-sm p-5 space-y-4">
       {/* HEADER */}
       <div className="flex flex-wrap justify-between gap-2">
         <div>
-          <p className="font-semibold">
-            Order Id: #{order.orderNumber}
-          </p>
+          <p className="font-semibold">Order Id: #{order.orderNumber}</p>
           <p className="text-sm text-gray-500">
-            Ordered on:{" "}
-            {new Date(order.orderDate).toLocaleDateString()}
+            Ordered on: {new Date(order.orderDate).toLocaleDateString()}
           </p>
         </div>
 
@@ -185,16 +441,10 @@ const toast = useToast();
                 className="w-full h-full object-contain"
               />
             </div>
-
             <div className="flex-1">
-              <p className="font-medium text-sm line-clamp-2">
-                {item.productName}
-              </p>
-              <p className="text-xs text-gray-500 mt-1">
-                Qty: {item.quantity}
-              </p>
+              <p className="font-medium text-sm line-clamp-2">{item.productName}</p>
+              <p className="text-xs text-gray-500 mt-1">Qty: {item.quantity}</p>
             </div>
-
             <div className="text-right text-sm font-semibold">
               £{item.totalPrice.toFixed(2)}
             </div>
@@ -202,65 +452,156 @@ const toast = useToast();
         ))}
       </div>
 
+      {/* PENDING PAYMENT BANNER */}
+      {pendingAmount && pendingAmount > 0 && (
+        <div className="flex items-center gap-3 bg-orange-50 border border-orange-200 rounded-lg p-4">
+          <span className="text-2xl">⚠️</span>
+          <div className="flex-1">
+            <p className="font-semibold text-orange-800 text-sm">
+              Additional Payment Required
+            </p>
+            <p className="text-orange-700 text-sm mt-0.5">
+              Your order was updated. Please pay the remaining{" "}
+              <strong>£{pendingAmount.toFixed(2)}</strong> to proceed.
+            </p>
+          </div>
+          <button
+            onClick={() => setShowPayModal(true)}
+            className="flex-shrink-0 bg-orange-500 hover:bg-orange-600 text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors whitespace-nowrap"
+          >
+            Pay Now →
+          </button>
+        </div>
+      )}
+
       {/* SUMMARY */}
-    <div className="grid grid-cols-2 md:grid-cols-5 gap-0 pt-3 border-t text-sm">
-  <Info label="Total Items" value={order.itemsCount} />
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-0 pt-3 border-t text-sm">
+        <Info label="Total Items" value={order.itemsCount} />
+        <Info label="Payment Method" value={order.payment?.paymentMethod ?? "Cash on delivery"} />
+        <Info label="Delivery Method" value={order.deliveryMethodName} />
 
+        {order.deliveryMethod === "ClickAndCollect" && (
+          <>
+            <Info
+              label="Collection Status"
+              value={
+                <span className={`capitalize ${getCollectionStatusTextColor(order.collectionStatus)}`}>
+                  {order.collectionStatus ?? "—"}
+                </span>
+              }
+            />
+            <Info
+              label="Collection Expiry"
+              value={
+                order.collectionExpiryDate
+                  ? new Date(order.collectionExpiryDate).toLocaleDateString()
+                  : "—"
+              }
+            />
+          </>
+        )}
+
+        <Info label="Total amount paid" value={`£${order.totalAmount.toFixed(2)}`} />
+        <Info label="Payment Status" value={order.payment?.statusName ?? "—"} />
+        {refundedAmount > 0 && (
   <Info
-    label="Payment Method"
-    value={order.payment?.paymentMethod ?? "Cash on delivery"}
+    label="Refunded Amount"
+   value={<span className="text-green-600 font-medium">£{refundedAmount.toFixed(2)}</span>}
   />
-
-  <Info
-    label="Delivery Method"
-    value={order.deliveryMethodName}
-  />
-
-{order.deliveryMethod === "ClickAndCollect" && (
-  <>
-   <Info
-  label="Collection Status"
-  value={
-    <span
-      className={`capitalize ${getCollectionStatusTextColor(
-        order.collectionStatus
-      )}`}
-    >
-      {order.collectionStatus ?? "—"}
-    </span>
-  }
-/>
-
-
-    <Info
-      label="Collection Expiry"
-      value={
-        order.collectionExpiryDate
-          ? new Date(order.collectionExpiryDate).toLocaleDateString()
-          : "—"
-      }
-    />
-  </>
 )}
+        <Info label="Transaction ID" value={order.payment?.transactionId ?? "—"} />
+      </div>
 
+      {/* ORDER HISTORY */}
+      <div className="pt-2 border-t">
+        <button
+          onClick={() => showHistory ? setShowHistory(false) : loadHistory()}
+          className="flex items-center gap-1 text-xs text-gray-500 hover:text-gray-700 transition"
+        >
+          <span>{showHistory ? "▲" : "▼"}</span>
+          <span>View order changes</span>
+          {historyLoading && <span className="ml-1 text-gray-400">Loading…</span>}
+        </button>
 
+        {showHistory && (
+          <div className="mt-3 space-y-3">
+            {history.length === 0 ? (
+              <p className="text-xs text-gray-400">No changes recorded for this order.</p>
+            ) : (
+              history.map((h: any) => {
+                const ops: any[] = h.changeDetails?.operations ?? [];
+                const priceDiff = h.newTotalAmount != null && h.oldTotalAmount != null
+                  ? h.newTotalAmount - h.oldTotalAmount
+                  : null;
 
-  <Info
-    label="Total amount paid"
-    value={`£${order.totalAmount.toFixed(2)}`}
-  />
+                return (
+                  <div key={h.id} className="bg-gray-50 border rounded-lg p-3 text-xs">
+                    {/* Header */}
+                    <div className="flex justify-between items-start mb-2">
+                      <div>
+                        <span className="font-semibold text-gray-700">Order Updated</span>
+                        <span className="text-gray-400 ml-2">
+                          {new Date(h.changeDate).toLocaleString()}
+                        </span>
+                      </div>
+                      {priceDiff != null && (
+                        <span className={`font-semibold ${priceDiff > 0 ? "text-orange-600" : "text-green-600"}`}>
+                          {priceDiff > 0 ? "+" : ""}£{priceDiff.toFixed(2)}
+                        </span>
+                      )}
+                    </div>
 
-  <Info
-    label="Payment Status"
-    value={order.payment?.statusName ?? "—"}
-  />
+                    {/* Item changes table */}
+                    {ops.length > 0 && (
+                      <table className="w-full text-left">
+                        <thead>
+                          <tr className="text-gray-400 border-b">
+                            <th className="pb-1 font-medium">Product</th>
+                            <th className="pb-1 font-medium text-center">Change</th>
+                            <th className="pb-1 font-medium text-right">Old</th>
+                            <th className="pb-1 font-medium text-right">New</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {ops.map((op: any, i: number) => (
+                            <tr key={i} className="border-b last:border-0">
+                              <td className="py-1 text-gray-700 pr-2">{op.productName}</td>
+                              <td className="py-1 text-center">
+                                <span className={`px-1.5 py-0.5 rounded text-[10px] font-semibold ${
+                                  op.changeType === "Added" ? "bg-green-100 text-green-700" :
+                                  op.changeType === "Removed" ? "bg-red-100 text-red-700" :
+                                  op.changeType === "PriceAdjusted" ? "bg-purple-100 text-purple-700" :
+                                  "bg-blue-100 text-blue-700"
+                                }`}>
+                                  {op.changeType}
+                                </span>
+                              </td>
+                              <td className="py-1 text-right text-gray-400">
+                                Qty: {op.oldQuantity} · £{(op.oldTotalPrice ?? 0).toFixed(2)}
+                              </td>
+                              <td className="py-1 text-right text-gray-700 font-medium">
+                                Qty: {op.newQuantity} · £{(op.newTotalPrice ?? 0).toFixed(2)}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    )}
 
-  <Info
-    label="Transaction ID"
-    value={order.payment?.transactionId ?? "—"}
-  />
-</div>
-
+                    {/* Total summary */}
+                    {h.oldTotalAmount != null && h.newTotalAmount != null && (
+                      <div className="mt-2 flex justify-end gap-4 text-gray-500">
+                        <span>Old total: <strong>£{h.oldTotalAmount.toFixed(2)}</strong></span>
+                        <span>New total: <strong className="text-gray-800">£{h.newTotalAmount.toFixed(2)}</strong></span>
+                      </div>
+                    )}
+                  </div>
+                );
+              })
+            )}
+          </div>
+        )}
+      </div>
 
       {/* ACTIONS */}
       <div className="flex flex-wrap justify-end items-center gap-2 pt-3 border-t">
@@ -280,23 +621,26 @@ const toast = useToast();
           disabled={invoiceLoading}
           className="text-white bg-[#445D41] hover:bg-green-700"
         >
-          {invoiceLoading
-            ? "Generating Invoice..."
-            : "Download Invoice"}
+          {invoiceLoading ? "Generating Invoice..." : "Download Invoice"}
         </Button>
 
-        {["pending", "processing"].includes(
-          order.status?.toLowerCase()
-        ) && (
-          <Button
-            size="sm"
-            variant="destructive"
-            onClick={() => setShowCancelModal(true)}
-          >
+        {["pending", "processing"].includes(order.status?.toLowerCase()) && (
+          <Button size="sm" variant="destructive" onClick={() => setShowCancelModal(true)}>
             Cancel Order
           </Button>
         )}
       </div>
+
+      {/* PAY NOW MODAL */}
+      {showPayModal && (
+        <PayNowModal
+          order={order}
+          accessToken={accessToken}
+          customerEmail={user?.email ?? ""}
+          onClose={() => setShowPayModal(false)}
+          onPaid={() => setPendingAmount(null)}
+        />
+      )}
 
       {/* CANCEL MODAL */}
       {showCancelModal && (
@@ -305,17 +649,13 @@ const toast = useToast();
             <h3 className="text-lg font-semibold mb-2">
               Cancel Order #{order.orderNumber}
             </h3>
-
             <p className="text-sm text-gray-600 mb-4">
               Please select a reason for cancellation.
             </p>
 
             <div className="space-y-3">
               {CANCELLATION_REASONS.map((reason) => (
-                <label
-                  key={reason}
-                  className="flex items-center gap-3 text-sm cursor-pointer"
-                >
+                <label key={reason} className="flex items-center gap-3 text-sm cursor-pointer">
                   <input
                     type="radio"
                     checked={selectedReason === reason}
@@ -332,30 +672,22 @@ const toast = useToast();
                 <>
                   <textarea
                     value={customReason}
-                    onChange={(e) =>
-                      setCustomReason(e.target.value)
-                    }
+                    onChange={(e) => setCustomReason(e.target.value)}
                     placeholder={`Please specify your reason (min ${MIN_OTHER_REASON_LENGTH} characters)`}
                     rows={3}
                     className="w-full border rounded-lg p-3 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-red-500"
                   />
                   <p className="text-xs text-gray-500">
-                    {customReason.trim().length}/
-                    {MIN_OTHER_REASON_LENGTH} characters required
+                    {customReason.trim().length}/{MIN_OTHER_REASON_LENGTH} characters required
                   </p>
                 </>
               )}
             </div>
 
             <div className="flex justify-end gap-3 mt-5">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setShowCancelModal(false)}
-              >
+              <Button variant="outline" size="sm" onClick={() => setShowCancelModal(false)}>
                 Back
               </Button>
-
               <Button
                 size="sm"
                 variant="destructive"
@@ -363,14 +695,11 @@ const toast = useToast();
                   cancelLoading ||
                   !selectedReason ||
                   (selectedReason === "Other" &&
-                    customReason.trim().length <
-                      MIN_OTHER_REASON_LENGTH)
+                    customReason.trim().length < MIN_OTHER_REASON_LENGTH)
                 }
                 onClick={handleConfirmCancel}
               >
-                {cancelLoading
-                  ? "Cancelling..."
-                  : "Confirm Cancel"}
+                {cancelLoading ? "Cancelling..." : "Confirm Cancel"}
               </Button>
             </div>
           </div>

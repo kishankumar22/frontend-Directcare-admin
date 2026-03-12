@@ -17,6 +17,7 @@ interface Discount {
   couponCode: string;
   startDate: string;
   endDate: string;
+  adminComment?: string;
 }
 
 
@@ -27,7 +28,10 @@ interface Category {
   imageUrl?: string | null;
   assignedDiscounts: Discount[];
 }
-
+const stripHtml = (html?: string) => {
+  if (!html) return "";
+  return html.replace(/<[^>]*>?/gm, "").trim();
+};
 /* ================= COMPONENT ================= */
 
 export default function CategoryOffersSlider({
@@ -129,7 +133,11 @@ const offerCategories = categories.filter((c) => {
            const validDiscounts = cat.assignedDiscounts.filter((d) =>
   isDiscountValid(d)
 );
+const validDiscount = cat.assignedDiscounts.find((d) =>
+  isDiscountValid(d)
+);
 
+const adminComment = stripHtml(validDiscount?.adminComment);
 const percentageDiscounts = validDiscounts
   .filter((d) => d.usePercentage)
   .map((d) => d.discountPercentage);
@@ -165,9 +173,15 @@ const percentageDiscounts = validDiscounts
 
                     {/* CONTENT */}
                     <div className="px-2 md:px-4 pt-2 pb-3 flex flex-col items-center text-center">
-                      <h3 className="text-xs md:text-sm font-semibold text-black leading-tight line-clamp-2 mb-2">
-                        {cat.name}
-                      </h3>
+                     <h3 className="text-xs md:text-sm font-semibold text-black leading-tight line-clamp-2">
+  {cat.name}
+</h3>
+
+{adminComment && (
+  <p className="text-[14px] md:text-lg font-bold text-gray-600 line-clamp-2 mb-2">
+    {adminComment}
+  </p>
+)}
                       <span className="block w-full text-center bg-[#2f6b3f] text-white text-xs md:text-sm font-semibold py-1.5 md:py-2.5 rounded-md hover:bg-[#245432] transition">
                         Shop now
                       </span>

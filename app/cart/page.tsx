@@ -607,19 +607,45 @@ const orderVatAmount = useMemo(() => {
                       type="number"
                       className="w-8 text-center outline-none font-medium text-sm border-l border-r border-gray-200 h-full"
                       value={item.quantity}
-                      onChange={(e) => {
-                        let val = parseInt(e.target.value || "1", 10);
-                        if (val < 1) return;
-                        updateQuantity(item.id, val);
-                        if (item.isBundleParent && item.bundleId) bundleChildren.forEach((c) => updateQuantity(c.id, val));
-                      }}
+                     onChange={(e) => {
+  let val = parseInt(e.target.value || "1", 10);
+  if (val < 1) return;
+
+  // 🔥 BUNDLE MAX CHECK
+  if (item.isBundleParent && item.bundleId) {
+    const maxQty = getBundleMaxQty(item, bundleChildren);
+
+    if (val > maxQty) {
+      toast.error(`Only ${maxQty} items available in bundle`);
+      val = maxQty;
+    }
+  }
+
+  updateQuantity(item.id, val);
+
+  if (item.isBundleParent && item.bundleId)
+    bundleChildren.forEach((c) => updateQuantity(c.id, val));
+}}
                     />
-                    <button
-                      onClick={() => {
-                        let newQty = (item.quantity ?? 1) + 1;
-                        updateQuantity(item.id, newQty);
-                        if (item.isBundleParent && item.bundleId) bundleChildren.forEach((c) => updateQuantity(c.id, newQty));
-                      }}
+                   <button
+  onClick={() => {
+    let newQty = (item.quantity ?? 1) + 1;
+
+    // 🔥 BUNDLE MAX CHECK
+    if (item.isBundleParent && item.bundleId) {
+      const maxQty = getBundleMaxQty(item, bundleChildren);
+
+      if (newQty > maxQty) {
+        toast.error(`Only ${maxQty} items available in this bundle item`);
+        return;
+      }
+    }
+
+    updateQuantity(item.id, newQty);
+
+    if (item.isBundleParent && item.bundleId)
+      bundleChildren.forEach((c) => updateQuantity(c.id, newQty));
+  }}
                       className="px-1.5 h-full text-gray-700 font-bold text-sm flex items-center"
                     >+</button>
                   </div>
@@ -873,6 +899,7 @@ const orderVatAmount = useMemo(() => {
   <PharmaQuestionsModal
     open={!!pharmaEditItem}
     productId={pharmaEditItem.productId}
+    mode="edit"
     onClose={() => setPharmaEditItem(null)}
     onSuccess={() => {
       setPharmaEditItem(null);

@@ -59,7 +59,7 @@ export default function WishlistPage() {
           </h1>
         </div>
         <button
-          onClick={() => { clearWishlist(); toast.success("Wishlist cleared"); }}
+          onClick={() => { clearWishlist(); toast.error("Wishlist cleared"); }}
           className="text-xs text-red-500 hover:text-red-700 flex items-center gap-1"
         >
           <Trash2 className="h-3.5 w-3.5" /> Clear all
@@ -123,7 +123,7 @@ export default function WishlistPage() {
                 <ShoppingCart className="h-3 w-3 mr-1" /> Add
               </Button>
               <button
-                onClick={() => { removeFromWishlist(item.id); toast.success("Removed from wishlist"); }}
+                onClick={() => { removeFromWishlist(item.id); toast.error("Removed from wishlist"); }}
                 className="h-7 w-7 flex items-center justify-center rounded-lg border border-gray-200 text-red-400 hover:text-red-600 hover:border-red-300 transition flex-shrink-0"
               >
                 <Trash2 className="h-3.5 w-3.5" />

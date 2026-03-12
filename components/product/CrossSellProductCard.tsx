@@ -349,6 +349,7 @@ const handleAddToCart = () => {
   <PharmaQuestionsModal
     open={showPharmaModal}
     productId={product.id}
+    mode="add"
     onClose={() => {
       setShowPharmaModal(false);
       setPendingAction(null);

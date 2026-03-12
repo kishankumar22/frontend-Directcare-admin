@@ -571,6 +571,17 @@ toggleActive: async (id: string) => {
   );
 },
 
+togglePublish: async (id: string) => {
+  return apiClient.patch<ApiResponse<{
+    productId: string;
+    productName: string;
+    isPublished: boolean;
+  }>>(
+    `${API_ENDPOINTS.products}/${id}/toggle-publish`
+  );
+},
+
+
   delete: async (id: string) => {
     return apiClient.delete<ApiResponse<void>>(`${API_ENDPOINTS.products}/${id}`);
   },

@@ -62,7 +62,7 @@ import RefundHistorySection from '../RefundHistorySection';
 import EditHistorySection from '../EditHistorySection';
 import RefundModals from '../RefundModals';
 import PharmacyVerificationModal from '../PharmacyVerificationModal';
-import { getOrderProductImage } from '../page';
+
 import { API_BASE_URL } from '@/lib/api';
 import ShippingRefundModal from '../ShippingRefundModal';
 
@@ -841,7 +841,15 @@ const fetchRefundHistory = useCallback(async () => {
   }
 }, [orderId, toast]);
 
+const getOrderProductImage = (imageUrl?: string): string => {
+  if (!imageUrl) return "/no-image.png";
 
+  if (imageUrl.startsWith("http")) {
+    return imageUrl;
+  }
+
+  return API_BASE_URL.replace("/api", "") + imageUrl.replace("~", "");
+};
 // ===========================
 // FETCH EDIT HISTORY
 // ===========================

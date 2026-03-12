@@ -6,7 +6,7 @@ export interface PharmacyQuestionOption {
   id: string;
   pharmacyQuestionId: string;
   optionText: string;
-  isDisqualifying: boolean;
+
   displayOrder: number;
 }
 
@@ -41,8 +41,7 @@ export interface CreatePharmacyQuestionDto {
   displayOrder: number;
   answerType: string;
   options: {
-    optionText: string;
-    isDisqualifying: boolean;
+    optionText: string;    
     displayOrder: number;
   }[];
 }
@@ -57,7 +56,7 @@ export interface UpdatePharmacyQuestionDto {
   options: {
     id: string;
     optionText: string;
-    isDisqualifying: boolean;
+
     displayOrder: number;
   }[];
 }

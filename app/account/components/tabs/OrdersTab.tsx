@@ -66,7 +66,7 @@ const filteredCount = filteredOrders.length;
     <div className="space-y-2">
       {/* FILTER BAR */}
       <div className="bg-gradient-to-r from-gray-50 to-white border rounded-2xl p-5 shadow-sm">
-        <div className="flex flex-wrap gap-4 items-end">
+        <div className="grid grid-cols-2 lg:flex lg:flex-wrap gap-4 items-end">
           {/* STATUS */}
           <div className="flex flex-col gap-1">
             <label className="text-xs font-semibold text-gray-600 uppercase tracking-wide">

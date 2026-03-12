@@ -413,12 +413,7 @@ const handleSave = async () => {
                     {option.optionText}
                   </span>
 
-                  {option.isDisqualifying && (
-                    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-orange-500/10 border border-orange-500/30 text-orange-400 rounded text-[10px] font-semibold">
-                      <AlertCircle className="h-3 w-3" />
-                      Disqualifying
-                    </span>
-                  )}
+             
                 </div>
               ))}
           </div>

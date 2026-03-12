@@ -1,6 +1,8 @@
+//app\admin\products\page.tsx
 "use client";
-import { useState, useEffect, useMemo, useCallback, useRef } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import Link from "next/link";
+import * as XLSX from "xlsx";
 import Select from "react-select";
 import {
   Plus, Package, Edit, Trash2, Eye, Search, Filter, FilterX,
@@ -51,8 +53,6 @@ interface FormattedProduct {
   stockQuantity: number;
   isActive: boolean;
   isPublished: boolean;
-  isPharmaProduct:boolean;
-  
   showOnHomepage: boolean;
   status: string;
   productType: string;
@@ -236,7 +236,7 @@ const debouncedSearchTerm = useDebounce(searchInput, 500); // 500ms delay
   const [selectedType, setSelectedType] = useState<SelectOption>({ value: "all", label: "All Types" });
   
   // Second row filters
-  const [statusFilter, setStatusFilter] = useState<SelectOption>({ value: "all", label: "All Status" });
+  const [statusFilter, setStatusFilter] = useState<SelectOption>({ value: "all", label: "All Stock Status" });
   const [publishedFilter, setPublishedFilter] = useState<SelectOption>({ value: "all", label: "All Visibility" });
   const [deliveryFilter, setDeliveryFilter] = useState<SelectOption>({ value: "all", label: "All Delivery" });
   const [markAsNewFilter, setMarkAsNewFilter] = useState<SelectOption>({ value: "all", label: "Mark as New: All" });
@@ -244,7 +244,7 @@ const debouncedSearchTerm = useDebounce(searchInput, 500); // 500ms delay
   const [inventoryFilter, setInventoryFilter] = useState<SelectOption>({ value: "all", label: "Inventory: All" });
   const [recurringFilter, setRecurringFilter] = useState<SelectOption>({ value: "all", label: "Subscription: All" });
   const [vatFilter, setVatFilter] = useState<SelectOption>({ value: "all", label: "VAT: All" });
-  const [discountFilter, setDiscountFilter] = useState<SelectOption>({ value: "all", label: "Discount: All" });
+  
 
   const [showMoreFilters, setShowMoreFilters] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
@@ -272,13 +272,13 @@ const debouncedSearchTerm = useDebounce(searchInput, 500); // 500ms delay
     { value: "grouped", label: "Grouped" },
   ];
 
-const statusOptions: SelectOption[] = [
-  { value: "all", label: "Stock Status: All" },
-  { value: "InStock", label: "In Stock" },
-  { value: "LowStock", label: "Low Stock" },
-  { value: "OutOfStock", label: "Out of Stock" },
-  { value: "NotTracked", label: "Inventory Not Tracked" },
-];
+  const statusOptions: SelectOption[] = [
+    { value: "all", label: "All Stock Status" },
+    { value: "In Stock", label: "In Stock" },
+    { value: "Low Stock", label: "Low Stock" },
+    { value: "Out of Stock", label: "Out of Stock" },
+  ];
+
   const visibilityOptions: SelectOption[] = [
     { value: "all", label: "All Visibility" },
     { value: "published", label: "Published" },
@@ -303,11 +303,11 @@ const statusOptions: SelectOption[] = [
     { value: "no", label: "Returnable" },
   ];
 
-const inventoryOptions: SelectOption[] = [
-  { value: "all", label: "Inventory Mode: All" },
-  { value: "track", label: "Tracking Enabled" },
-  { value: "dont-track", label: "Tracking Disabled" },
-];
+  const inventoryOptions: SelectOption[] = [
+    { value: "all", label: "Inventory: All" },
+    { value: "track", label: "Track Inventory" },
+    { value: "dont-track", label: "Don't Track" },
+  ];
 
   const subscriptionOptions: SelectOption[] = [
     { value: "all", label: "Subscription: All" },
@@ -327,25 +327,45 @@ const inventoryOptions: SelectOption[] = [
     { value: "no", label: "No Discount" },
   ];
 
-  const deletedOptions = [
-    { value: "all", label: "All Records" },
-    { value: "false", label: "Active Only" },
-    { value: "true", label: "Deleted Only" },
-  ];
+const deletedOptions = [
+  { value: "all", label: "All Records" },
+  { value: "active", label: "Active Only" },
+  { value: "inactive", label: "Inactive Only" },
+  { value: "deleted", label: "Deleted Only" },
+];
 
-  const [deletedFilter, setDeletedFilter] = useState(deletedOptions[0]);
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [pharmaFilter, setPharmaFilter] = useState({
-  label: "All Products",
-  value: "all",
+ const [deletedFilter, setDeletedFilter] = useState({
+  value: "active",
+  label: "Active Only",
 });
+  const [isProcessing, setIsProcessing] = useState(false);
 
   const [selectedDeleteProduct, setSelectedDeleteProduct] = useState<ToggleProduct | null>(null);
   const [selectedToggleProduct, setSelectedToggleProduct] = useState<ToggleProduct | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showToggleConfirm, setShowToggleConfirm] = useState(false);
-
+// BULK SELECTION
+const [selectedProducts, setSelectedProducts] = useState<string[]>([]);
   // ✅ HELPERS
+  // BULK SELECT HANDLERS
+const handleSelectProduct = (productId: string) => {
+  setSelectedProducts((prev) =>
+    prev.includes(productId)
+      ? prev.filter((id) => id !== productId)
+      : [...prev, productId]
+  );
+};
+
+const handleSelectAll = () => {
+  if (selectedProducts.length === products.length) {
+    setSelectedProducts([]);
+  } else {
+    const selectableIds = products
+      .filter((p) => !p.isDeleted)
+      .map((p) => p.id);
+    setSelectedProducts(selectableIds);
+  }
+};
   const formatDate = (dateString?: string | null): string => {
     if (!dateString) return "N/A";
     const date = new Date(dateString);
@@ -448,9 +468,19 @@ const fetchProducts = async () => {
       sortDirection: 'desc',
     };
 
-    if (deletedFilter.value !== "all") {
-      params.isDeleted = deletedFilter.value === "true";
-    }
+   if (deletedFilter.value === "deleted") {
+  params.isDeleted = true;
+}
+
+if (deletedFilter.value === "active") {
+  params.isDeleted = false;
+  params.isActive = true;
+}
+
+if (deletedFilter.value === "inactive") {
+  params.isDeleted = false;
+  params.isActive = false;
+}
 
     if (debouncedSearchTerm.trim() !== "") {
       params.searchTerm = debouncedSearchTerm.trim();
@@ -504,38 +534,37 @@ const fetchProducts = async () => {
     if (vatFilter.value !== "all") {
       params.vatExempt = vatFilter.value === "yes";
     }
-          // Client-side only: Stock Status (computed field)
-   if (statusFilter.value !== "all") {
-  params.stockStatus = statusFilter.value;
-}
-if (pharmaFilter.value !== "all") {
-  params.isPharmaProduct = pharmaFilter.value === "yes";
-}
 
     const response = await productsService.getAll(params);
 
     if (response.data?.success && response.data?.data?.items) {
       const apiData = response.data.data;
       let items = [...apiData.items];
+// Client-side Active / Inactive filter
+if (deletedFilter.value === "active") {
+  items = items.filter((p: any) => p.isDeleted !== true && p.isActive === true);
+}
 
+if (deletedFilter.value === "inactive") {
+  items = items.filter((p: any) => p.isDeleted !== true && p.isActive === false);
+}
 
-
-      // Client-side only: Discount filter (complex date logic)
-      if (discountFilter.value !== "all") {
+if (deletedFilter.value === "deleted") {
+  items = items.filter((p: any) => p.isDeleted === true);
+}
+      // Client-side only: Stock Status (computed field)
+      if (statusFilter.value !== "all") {
         items = items.filter((p: any) => {
-          const now = new Date();
-          const discountsArray = Array.isArray(p.assignedDiscounts) ? p.assignedDiscounts : [];
-          const hasActiveDiscount = discountsArray.some((d: any) => {
-            if (!d?.isActive) return false;
-            const start = d.startDate ? new Date(d.startDate) : null;
-            const end = d.endDate ? new Date(d.endDate) : null;
-            if (start && now < start) return false;
-            if (end && now > end) return false;
-            return true;
+          const status = productHelpers.getStockStatus({
+            stockQuantity: p.stockQuantity,
+            trackQuantity: p.trackQuantity,
+            lowStockThreshold: p.lowStockThreshold,
+            allowBackorder: p.allowBackorder,
           });
-          return discountFilter.value === "yes" ? hasActiveDiscount : !hasActiveDiscount;
+          return status === statusFilter.value;
         });
       }
+
 
       // Calculate pagination info from API
       const hasPrevious = apiData.page > 1;
@@ -593,7 +622,6 @@ if (pharmaFilter.value !== "all") {
             allowBackorder: p.allowBackorder,
           }),
           image: getProductImage(p.images),
-            isPharmaProduct: p.isPharmaProduct === true,
           sales: 0,
           shortDescription: p.shortDescription || "",
           sku: p.sku || "",
@@ -623,7 +651,6 @@ if (pharmaFilter.value !== "all") {
           notifyAdminForQuantityBelow: p.notifyAdminForQuantityBelow ?? false,
           notifyQuantityBelow: p.notifyQuantityBelow ?? 0,
           allowBackorder: p.allowBackorder ?? false,
-          
           hasDiscount,
           discountLabel,
           discountTitle,
@@ -635,7 +662,7 @@ if (pharmaFilter.value !== "all") {
       });
 
       setProducts(formattedProducts);
-
+setSelectedProducts([]);
       // Related Products Map
       const productMap = new Map<string, RelatedProduct>();
       apiData.items.forEach((p: any) => {
@@ -767,27 +794,17 @@ if (pharmaFilter.value !== "all") {
     }
   };
 
-const pollingRef = useRef<NodeJS.Timeout | null>(null);
-
+// ✅ INITIAL DATA FETCH (runs once on component mount)
 useEffect(() => {
-  Promise.all([
-  fetchCategories(),
-  fetchBrands(),
-  fetchMyTakeoverRequests()
-]);
+  fetchCategories();
+  fetchBrands();
+  fetchMyTakeoverRequests();
 
-  if (!pollingRef.current) {
-    pollingRef.current = setInterval(() => {
-      fetchMyTakeoverRequests();
-    }, 30000);
-  }
+  const pollInterval = setInterval(() => {
+    fetchMyTakeoverRequests();
+  }, 30000);
 
-  return () => {
-    if (pollingRef.current) {
-      clearInterval(pollingRef.current);
-      pollingRef.current = null;
-    }
-  };
+  return () => clearInterval(pollInterval);
 }, []);
 
 // ✅ EFFECT 1: Fetch products when BACKEND filters change
@@ -799,40 +816,39 @@ useEffect(() => {
   deletedFilter,
   debouncedSearchTerm,
   selectedCategory,
-  selectedBrand,
-  selectedType,
   publishedFilter,
   markAsNewFilter,
   selectedHomepage,
-  deliveryFilter,
-  notReturnableFilter,
-  inventoryFilter,
-  recurringFilter,
-  vatFilter,
-  discountFilter,
-  pharmaFilter,   // ⭐ ADD
-  statusFilter    // ⭐ ADD
 ]);
+
+// ✅ EFFECT 2: Reset to page 1 when BACKEND filters change
 useEffect(() => {
   setCurrentPage(1);
 }, [
   debouncedSearchTerm,
   selectedCategory,
-  selectedBrand,
-  selectedType,
   publishedFilter,
   markAsNewFilter,
   selectedHomepage,
   deletedFilter,
+]);
+
+// ✅ EFFECT 3: Handle client-side filters - JUST reset page, NO API call
+useEffect(() => {
+  setCurrentPage(1);
+}, [
+  selectedBrand,
+  selectedType,
   statusFilter,
   deliveryFilter,
   notReturnableFilter,
   inventoryFilter,
   recurringFilter,
   vatFilter,
-  discountFilter,
-  pharmaFilter  // ⭐ ADD
+ 
 ]);
+
+
 
 
 // ✅ CLEAR FILTERS
@@ -841,7 +857,7 @@ const clearFilters = useCallback(() => {
   setSelectedBrand({ value: "all", label: "All Brands" });
   setSelectedHomepage({ value: "all", label: "Homepage: All" });
   setSelectedType({ value: "all", label: "All Types" });
-  setStatusFilter({ value: "all", label: "All Status" });
+  setStatusFilter({ value: "all", label: "All Stock Status" });
   setPublishedFilter({ value: "all", label: "All Visibility" });
   setDeliveryFilter({ value: "all", label: "All Delivery" });
   setMarkAsNewFilter({ value: "all", label: "Mark as New: All" });
@@ -849,7 +865,6 @@ const clearFilters = useCallback(() => {
   setInventoryFilter({ value: "all", label: "Inventory: All" });
   setRecurringFilter({ value: "all", label: "Subscription: All" });
   setVatFilter({ value: "all", label: "VAT: All" });
-  setDiscountFilter({ value: "all", label: "Discount: All" });
   setDeletedFilter({ value: "all", label: "All Records" });
   setSearchInput(""); // Clear search input
   setCurrentPage(1);
@@ -870,7 +885,6 @@ const hasActiveFilters = useMemo(
     inventoryFilter.value !== "all" ||
     recurringFilter.value !== "all" ||
     vatFilter.value !== "all" ||
-    discountFilter.value !== "all" ||
     deletedFilter.value !== "all" ||
     searchInput.trim() !== "", // Use searchInput instead of searchTerm
   [
@@ -886,7 +900,6 @@ const hasActiveFilters = useMemo(
     inventoryFilter,
     recurringFilter,
     vatFilter,
-    discountFilter,
     deletedFilter,
     searchInput, // Use searchInput
   ]
@@ -941,7 +954,46 @@ const hasActiveFilters = useMemo(
       ...brands.map((b) => ({ value: b.name, label: b.name })),
     ];
   }, [brands]);
+const allDeletedSelected = useMemo(() => {
+  const selected = products.filter((p) =>
+    selectedProducts.includes(p.id)
+  );
 
+  if (selected.length === 0) return false;
+
+  return selected.every((p) => p.isDeleted === true);
+}, [selectedProducts, products]);
+
+  // CHECK IF SELECTED PRODUCTS HAVE SAME STATUS
+const selectionState = useMemo(() => {
+  const selected = products.filter((p) =>
+    selectedProducts.includes(p.id)
+  );
+
+  if (selected.length === 0) {
+    return { mixed: false, status: null, publishStatus: null };
+  }
+
+  const allActive = selected.every((p) => p.isActive);
+  const allInactive = selected.every((p) => !p.isActive);
+
+  const allPublished = selected.every((p) => p.isPublished);
+  const allUnpublished = selected.every((p) => !p.isPublished);
+
+  let status: "active" | "inactive" | null = null;
+  if (allActive) status = "active";
+  else if (allInactive) status = "inactive";
+
+  let publishStatus: "published" | "unpublished" | null = null;
+  if (allPublished) publishStatus = "published";
+  else if (allUnpublished) publishStatus = "unpublished";
+
+  const mixed =
+    !(allActive || allInactive) ||
+    !(allPublished || allUnpublished);
+
+  return { mixed, status, publishStatus };
+}, [selectedProducts, products]);
   // ✅ STATS (using totalCount from API)
   const stats = useMemo(() => {
     const lowStockCount = products.filter((p) => p.status === "Low Stock").length;
@@ -1028,107 +1080,110 @@ const hasActiveFilters = useMemo(
   }, [currentPage, totalPages]);
 
   // ✅ EXPORT FUNCTION
-  const handleExport = async (exportAll: boolean = false) => {
-    try {
-      let rawProductsData: any[] = [];
-      toast.info('Preparing export...');
+const handleExport = async (exportAll: boolean = false) => {
+  try {
+    let rawProductsData: any[] = [];
+    toast.info("Preparing Excel export...");
 
-      if (exportAll) {
-        setLoading(true);
-        const response = await productsService.getAll({
-          page: 1,
-          pageSize: 10000,
-        });
-        const data = response.data as any;
-        if (data?.success && data?.data?.items) {
-          rawProductsData = data.data.items;
-        }
-        setLoading(false);
-      } else {
-        // Get full data for current page products
-        for (const product of products) {
-          try {
-            const response = await productsService.getById(product.id);
-            if (response.data?.success && response.data?.data) {
-              rawProductsData.push(response.data.data);
-            }
-          } catch (error) {
-            console.error(`Error fetching product ${product.id}:`, error);
-          }
-        }
-      }
+    if (exportAll) {
+      setLoading(true);
 
-      if (rawProductsData.length === 0) {
-        toast.warning('No products to export');
-        return;
-      }
-
-      // CSV Headers (simplified for brevity - you had the full list in original)
-      const csvHeaders = [
-        'Product ID', 'Product Name', 'Slug', 'SKU', 'GTIN', 'Product Type',
-        'Brand', 'Primary Category', 'Price (£)', 'Stock Quantity', 'Stock Status',
-        'Published', 'Show On Homepage', 'Mark As New', 'Created Date', 'Updated Date'
-      ];
-
-      const csvData = rawProductsData.map((product: any) => {
-        const primaryCategory = getPrimaryCategoryName(product.categories);
-        const stockStatus = productHelpers.getStockStatus(product.stockQuantity);
-        
-        return [
-          product.id || '',
-          product.name || '',
-          product.slug || '',
-          product.sku || '',
-          product.gtin || '',
-          product.productType || 'simple',
-          product.brandName || '',
-          primaryCategory,
-          product.price || 0,
-          product.stockQuantity || 0,
-          stockStatus,
-          product.isPublished ? 'Yes' : 'No',
-          product.showOnHomepage ? 'Yes' : 'No',
-          product.markAsNew ? 'Yes' : 'No',
-          product.createdAt || '',
-          product.updatedAt || '',
-        ];
+      const response = await productsService.getAll({
+        page: 1,
+        pageSize: 10000,
       });
 
-      const csvContent = [
-        csvHeaders.join(','),
-        ...csvData.map((row) =>
-          row.map((cell) => {
-            const cellStr = String(cell ?? '');
-            if (cellStr.includes(',') || cellStr.includes('"') || cellStr.includes('\n')) {
-              return `"${cellStr.replace(/"/g, '""')}"`;
-            }
-            return cellStr;
-          }).join(',')
-        ),
-      ].join('\n');
+      const data = response.data as any;
 
-      const BOM = '\uFEFF';
-      const blob = new Blob([BOM + csvContent], { type: 'text/csv;charset=utf-8;' });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      
-      const timestamp = new Date().toISOString().split('T')[0];
-      const exportType = exportAll ? 'all' : 'current-page';
-      link.download = `products-${exportType}-${timestamp}.csv`;
-      
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
+      if (data?.success && data?.data?.items) {
+        rawProductsData = data.data.items;
+      }
 
-      toast.success(`✅ ${rawProductsData.length} product(s) exported successfully!`);
-    } catch (error) {
-      console.error('Export error:', error);
-      toast.error('Failed to export products');
       setLoading(false);
+    } else {
+      // fetch full details for current page products
+      for (const product of products) {
+        try {
+          const response = await productsService.getById(product.id);
+
+          if (response.data?.success && response.data?.data) {
+            rawProductsData.push(response.data.data);
+          }
+        } catch (error) {
+          console.error(`Error fetching product ${product.id}:`, error);
+        }
+      }
     }
-  };
+
+    if (rawProductsData.length === 0) {
+      toast.warning("No products to export");
+      return;
+    }
+
+    const excelData = rawProductsData.map((product: any) => {
+      const primaryCategory = getPrimaryCategoryName(product.categories);
+
+      const stockStatus = productHelpers.getStockStatus({
+        stockQuantity: product.stockQuantity,
+        trackQuantity: product.trackQuantity,
+        lowStockThreshold: product.lowStockThreshold,
+        allowBackorder: product.allowBackorder,
+      });
+
+      return {
+        "Product ID": product.id || "",
+        "Product Name": product.name || "",
+        "Slug": product.slug || "",
+        "SKU": product.sku || "",
+        "GTIN": product.gtin || "",
+        "Product Type": product.productType || "simple",
+        "Brand": product.brandName || "",
+        "Primary Category": primaryCategory,
+        "Price (£)": product.price || 0,
+        "Stock Quantity": product.stockQuantity || 0,
+        "Stock Status": stockStatus,
+        "Published": product.isPublished ? "Yes" : "No",
+        "Show On Homepage": product.showOnHomepage ? "Yes" : "No",
+        "Mark As New": product.markAsNew ? "Yes" : "No",
+        "Created Date": product.createdAt || "",
+        "Updated Date": product.updatedAt || "",
+      };
+    });
+
+    // create worksheet
+    const worksheet = XLSX.utils.json_to_sheet(excelData);
+
+    // auto column width
+    const columnWidths = Object.keys(excelData[0]).map((key) => ({
+      wch: Math.max(
+        key.length,
+        ...excelData.map((row: any) => String(row[key]).length)
+      ),
+    }));
+
+    worksheet["!cols"] = columnWidths;
+
+    // create workbook
+    const workbook = XLSX.utils.book_new();
+
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Products");
+
+    const timestamp = new Date().toISOString().split("T")[0];
+    const exportType = exportAll ? "all" : "current-page";
+
+    // download excel
+    XLSX.writeFile(
+      workbook,
+      `products-${exportType}-${timestamp}.xlsx`
+    );
+
+    toast.success(`✅ ${excelData.length} product(s) exported successfully!`);
+  } catch (error) {
+    console.error("Export error:", error);
+    toast.error("Failed to export products");
+    setLoading(false);
+  }
+};
 
   // Format time remaining
   const formatTimeRemaining = (expiresAt: string): string => {
@@ -1182,202 +1237,189 @@ const hasActiveFilters = useMemo(
     <div className="space-y-2">
 
       {/* ================= HEADER ================= */}
-<div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-  
-  {/* Page Title */}
-  <div>
-    <h1 className="text-2xl font-bold tracking-tight bg-gradient-to-r from-violet-400 via-cyan-400 to-pink-400 bg-clip-text text-transparent">
-      Product Management
-    </h1>
-    <p className="text-sm text-slate-400">
-      Manage your product catalog, inventory, pricing and product lifecycle
-    </p>
-  </div>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight bg-gradient-to-r from-violet-400 via-cyan-400 to-pink-400 bg-clip-text text-transparent">
+            Product Management
+          </h1>
+          <p className="text-sm text-slate-400">Manage your product inventory</p>
+        </div>
 
-  {/* Action Buttons */}
-  <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            onClick={() => router.push("/admin/discounts")}
+            className="flex items-center gap-2 px-3 py-1.5 text-sm
+            bg-gradient-to-r from-pink-500 to-rose-500
+            hover:from-pink-600 hover:to-rose-600
+            text-white rounded-lg font-semibold shadow
+            hover:shadow-pink-500/40 transition-all"
+          >
+            <Tag className="w-4 h-4" />
+            Discounts
+          </button>
+          {/* Inventory Button */}
+  <button
+    onClick={() => router.push("/admin/inventory")}
+    className="flex items-center gap-2 px-4 py-2 text-sm
+    bg-gradient-to-r from-pink-500 to-rose-500
+    hover:from-pink-600 hover:to-rose-600
+    text-white rounded-xl font-semibold shadow-md
+    hover:shadow-pink-500/40
+    transition-all duration-200"
+  >
+    <Boxes className="w-4 h-4 stroke-[2.2]" />
+    <span>Inventory</span>
+  </button>
 
-    {/* Add Product (Primary) */}
-    <Link href="/admin/products/add">
-      <button
-        title="Create a new product"
-        className="flex items-center gap-2 px-3 py-1.5 text-sm
-        bg-gradient-to-r from-violet-500 to-cyan-500
-        text-white rounded-lg font-semibold shadow
-        hover:shadow-violet-500/40 transition-all"
-      >
-        <Plus className="w-4 h-4" />
-        Add Product
-      </button>
-    </Link>
+          <button
+            onClick={() => router.push("/admin/orders")}
+            className="flex items-center gap-2 px-3 py-1.5 text-sm
+            bg-gradient-to-r from-emerald-500 to-teal-500
+            hover:from-emerald-600 hover:to-teal-600
+            text-white rounded-lg font-semibold shadow
+            hover:shadow-emerald-500/40 transition-all"
+          >
+            <ShoppingCart className="w-4 h-4" />
+            Orders
+          </button>
 
-    {/* Inventory */}
-    <button
-      title="Manage stock quantities and pricing"
-      onClick={() => router.push("/admin/inventory")}
-      className="flex items-center gap-2 px-3 py-1.5 text-sm
-      bg-gradient-to-r from-pink-500 to-rose-500
-      hover:from-pink-600 hover:to-rose-600
-      text-white rounded-lg font-semibold shadow
-      hover:shadow-pink-500/40 transition-all"
-    >
-      <Boxes className="w-4 h-4" />
-      Inventory
-    </button>
+          <button
+            onClick={() => setShowImportModal(true)}
+            className="flex items-center gap-2 px-3 py-1.5 text-sm
+            bg-gradient-to-r from-emerald-600 to-green-600
+            text-white rounded-lg font-semibold shadow
+            hover:shadow-emerald-500/40 transition-all"
+          >
+            <Upload className="w-4 h-4" />
+            Import Excel
+          </button>
 
-    {/* Orders */}
-    <button
-      title="View and manage customer orders"
-      onClick={() => router.push("/admin/orders")}
-      className="flex items-center gap-2 px-3 py-1.5 text-sm
-      bg-gradient-to-r from-emerald-500 to-teal-500
-      hover:from-emerald-600 hover:to-teal-600
-      text-white rounded-lg font-semibold shadow
-      hover:shadow-emerald-500/40 transition-all"
-    >
-      <ShoppingCart className="w-4 h-4" />
-      Orders
-    </button>
+          <button
+            onClick={() => router.push("/admin/productReview")}
+            className="flex items-center gap-2 px-3 py-1.5 text-sm
+            bg-gradient-to-r from-amber-500 to-orange-500
+            hover:from-amber-600 hover:to-orange-600
+            text-white rounded-lg font-semibold shadow
+            hover:shadow-amber-500/40 transition-all"
+          >
+            <Star className="w-4 h-4" />
+            Reviews
+          </button>
 
-    {/* Discounts */}
-    <button
-      title="Create and manage discount offers"
-      onClick={() => router.push("/admin/discounts")}
-      className="flex items-center gap-2 px-3 py-1.5 text-sm
-      bg-gradient-to-r from-fuchsia-500 to-pink-500
-      hover:from-fuchsia-600 hover:to-pink-600
-      text-white rounded-lg font-semibold shadow
-      hover:shadow-fuchsia-500/40 transition-all"
-    >
-      <Tag className="w-4 h-4" />
-      Discounts
-    </button>
+          {statusCounts.Pending > 0 && (
+            <button
+              onClick={() => setShowTakeoverPanel(true)}
+              className={`flex items-center gap-2 px-3 py-1.5 text-sm rounded-lg font-semibold
+              shadow transition-all relative ${
+                statusCounts.Pending > 0
+                  ? "bg-gradient-to-r from-orange-500 to-red-500 text-white animate-pulse shadow-orange-500/40"
+                  : "bg-gradient-to-r from-blue-500 to-blue-600 text-white hover:shadow-blue-500/40"
+              }`}
+            >
+              <Send className="w-4 h-4" />
+              Requests
+              {statusCounts.Pending > 0 && (
+                <span className="ml-1 inline-flex h-4 w-4 items-center justify-center rounded-full bg-white text-orange-600 text-[10px] font-bold">
+                  {statusCounts.Pending}
+                </span>
+              )}
+            </button>
+          )}
 
-    {/* Reviews */}
-    <button
-      title="Moderate and manage product reviews"
-      onClick={() => router.push("/admin/productReview")}
-      className="flex items-center gap-2 px-3 py-1.5 text-sm
-      bg-gradient-to-r from-amber-500 to-orange-500
-      hover:from-amber-600 hover:to-orange-600
-      text-white rounded-lg font-semibold shadow
-      hover:shadow-amber-500/40 transition-all"
-    >
-      <Star className="w-4 h-4" />
-      Reviews
-    </button>
-
-    {/* Import Excel */}
-    <button
-      title="Import products or inventory using Excel"
-      onClick={() => setShowImportModal(true)}
-      className="flex items-center gap-2 px-3 py-1.5 text-sm
+<div className="relative">
+  <button
+    onClick={() => setShowExportMenu(!showExportMenu)}
+    className="flex items-center gap-2 px-3 py-1.5 text-sm
       bg-gradient-to-r from-green-600 to-emerald-600
       text-white rounded-lg font-semibold shadow
       hover:shadow-emerald-500/40 transition-all"
-    >
-      <Upload className="w-4 h-4" />
-      Import Excel
-    </button>
+  >
+    <FileSpreadsheet className="w-4 h-4" />
+    Export
+    <ChevronDown className="w-4 h-4 opacity-80" />
+  </button>
 
-    {/* Export Dropdown */}
-    <div className="relative">
-      <button
-        title="Export products data"
-        onClick={() => setShowExportMenu(!showExportMenu)}
-        className="flex items-center gap-2 px-3 py-1.5 text-sm
-        bg-gradient-to-r from-green-700 to-emerald-700
-        text-white rounded-lg font-semibold shadow
-        hover:shadow-emerald-500/40 transition-all"
+  {showExportMenu && (
+    <>
+      {/* Overlay */}
+      <div
+        className="fixed inset-0 z-10"
+        onClick={() => setShowExportMenu(false)}
+      />
+
+      {/* Dropdown */}
+      <div className="absolute right-0 mt-2 w-52
+        bg-slate-800/95 backdrop-blur-xl
+        border border-slate-700
+        rounded-xl shadow-xl
+        overflow-hidden z-20"
       >
-        <FileSpreadsheet className="w-4 h-4" />
-        Export
-        <ChevronDown className="w-4 h-4 opacity-80" />
-      </button>
 
-      {showExportMenu && (
-        <>
-          <div
-            className="fixed inset-0 z-10"
-            onClick={() => setShowExportMenu(false)}
-          />
+    
 
-          <div className="absolute right-0 mt-2 w-52
-            bg-slate-800/95 backdrop-blur-xl
-            border border-slate-700
-            rounded-xl shadow-xl
-            overflow-hidden z-20">
-
-            {/* Current Page */}
-            <button
-              onClick={() => {
-                handleExport(false);
-                setShowExportMenu(false);
-              }}
-              className="w-full px-4 py-2.5 text-left hover:bg-slate-700/60 transition-all"
-              title="Export current page products"
-            >
-              <div className="flex items-center gap-3">
-                <FileSpreadsheet className="w-4 h-4 text-emerald-400" />
-                <div>
-                  <p className="text-sm font-medium text-white">
-                    Current Page
-                  </p>
-                  <p className="text-xs text-slate-400">
-                    {products.length} products
-                  </p>
-                </div>
-              </div>
-            </button>
-
-            <div className="border-t border-slate-700/60" />
-
-            {/* Export All */}
-            <button
-              onClick={() => {
-                handleExport(true);
-                setShowExportMenu(false);
-              }}
-              className="w-full px-4 py-2.5 text-left hover:bg-slate-700/60 transition-all"
-              title="Export all products"
-            >
-              <div className="flex items-center gap-3">
-                <Database className="w-4 h-4 text-emerald-400" />
-                <div>
-                  <p className="text-sm font-medium text-white">
-                    All Products
-                  </p>
-                  <p className="text-xs text-slate-400">
-                    {totalCount} total
-                  </p>
-                </div>
-              </div>
-            </button>
-
+        {/* Current Page */}
+        <button
+          onClick={() => {
+            handleExport(false);
+            setShowExportMenu(false);
+          }}
+          className="w-full px-4 py-2.5 text-left hover:bg-slate-700/60 transition-all"
+          title="Export current page products"
+        >
+          <div className="flex items-center gap-3">
+            <FileSpreadsheet className="w-4 h-4 text-emerald-400" />
+            <div>
+              <p className="text-sm font-medium text-white">
+                Current Page
+              </p>
+              <p className="text-xs text-slate-400">
+                {products.length} products
+              </p>
+            </div>
           </div>
-        </>
-      )}
-    </div>
+        </button>
 
-    {/* Requests */}
-    {statusCounts.Pending > 0 && (
-      <button
-        title="View takeover or approval requests"
-        onClick={() => setShowTakeoverPanel(true)}
-        className="flex items-center gap-2 px-3 py-1.5 text-sm rounded-lg font-semibold
-        bg-gradient-to-r from-orange-500 to-red-500 text-white
-        shadow shadow-orange-500/40 animate-pulse transition-all relative"
-      >
-        <Send className="w-4 h-4" />
-        Requests
-        <span className="ml-1 inline-flex h-4 w-4 items-center justify-center rounded-full bg-white text-orange-600 text-[10px] font-bold">
-          {statusCounts.Pending}
-        </span>
-      </button>
-    )}
+        {/* Divider */}
+        <div className="border-t border-slate-700/60" />
 
-  </div>
+        {/* Export All */}
+        <button
+          onClick={() => {
+            handleExport(true);
+            setShowExportMenu(false);
+          }}
+          className="w-full px-4 py-2.5 text-left hover:bg-slate-700/60 transition-all"
+        >
+          <div className="flex items-center gap-3">
+            <Database className="w-4 h-4 text-emerald-400" />
+            <div>
+              <p className="text-sm font-medium text-white"
+          title="Export All products"
+              >
+                All Products
+              </p>
+              <p className="text-xs text-slate-400">
+                {totalCount} total
+              </p>
+            </div>
+          </div>
+        </button>
+
+      </div>
+    </>
+  )}
 </div>
+          <Link href="/admin/products/add">
+            <button className="flex items-center gap-2 px-3 py-1.5 text-sm
+            bg-gradient-to-r from-violet-500 to-cyan-500
+            text-white rounded-lg font-semibold shadow
+            hover:shadow-violet-500/40 transition-all">
+              <Plus className="w-4 h-4" />
+              Add Product
+            </button>
+          </Link>
+        </div>
+      </div>
 
       {/* ================= STATS ================= */}
       <div className="grid gap-3 md:grid-cols-4">
@@ -1449,7 +1491,191 @@ const hasActiveFilters = useMemo(
           </div>
         </div>
       </div>
+{/* BULK ACTION BAR */}
+{selectedProducts.length > 0 && (
+  <div className="bg-slate-900/80 border border-violet-500/20 rounded-xl px-4 py-3 flex items-center justify-between">
+    
+    <div className="text-sm text-white">
+      {selectedProducts.length} product(s) selected
+    </div>
 
+    {selectionState.mixed ? (
+      <div className="text-xs text-yellow-400 flex items-center gap-2">
+        <AlertCircle className="w-4 h-4" />
+        Select products with same status to perform actions
+      </div>
+    ) : (
+      <div className="flex items-center gap-2">
+
+        {selectionState.status === "inactive" && (
+          <button
+            className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs rounded-md"
+           onClick={async () => {
+  try {
+    setIsProcessing(true);
+
+    await Promise.all(
+      selectedProducts.map((id) =>
+        productsService.toggleActive(id)
+      )
+    );
+
+    toast.success(`${selectedProducts.length} product(s) activated`);
+    setSelectedProducts([]);
+    fetchProducts();
+  } catch (err) {
+    toast.error("Failed to activate products");
+  } finally {
+    setIsProcessing(false);
+  }
+}}
+          >
+            Activate
+          </button>
+        )}
+
+        {selectionState.status === "active" && (
+          <button
+            className="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white text-xs rounded-md"
+           onClick={async () => {
+  try {
+    setIsProcessing(true);
+
+    await Promise.all(
+      selectedProducts.map((id) =>
+        productsService.toggleActive(id)
+      )
+    );
+
+    toast.success(`${selectedProducts.length} product(s) deactivated`);
+    setSelectedProducts([]);
+    fetchProducts();
+  } catch (err) {
+    toast.error("Failed to deactivate products");
+  } finally {
+    setIsProcessing(false);
+  }
+}}
+          >
+            Deactivate
+          </button>
+        )}
+        {selectionState.publishStatus === "unpublished" && (
+  <button
+    className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs rounded-md"
+    onClick={async () => {
+      try {
+        setIsProcessing(true);
+
+     await Promise.all(
+  selectedProducts.map((id) =>
+    productsService.togglePublish(id)
+  )
+);
+
+        toast.success(`${selectedProducts.length} product(s) published`);
+        setSelectedProducts([]);
+        fetchProducts();
+      } catch {
+        toast.error("Failed to publish products");
+      } finally {
+        setIsProcessing(false);
+      }
+    }}
+  >
+    Publish
+  </button>
+)}
+{selectionState.publishStatus === "published" && (
+  <button
+    className="px-3 py-1.5 bg-yellow-600 hover:bg-yellow-700 text-white text-xs rounded-md"
+    onClick={async () => {
+      try {
+        setIsProcessing(true);
+
+ await Promise.all(
+  selectedProducts.map((id) =>
+    productsService.togglePublish(id)
+  )
+);
+
+        toast.success(`${selectedProducts.length} product(s) unpublished`);
+        setSelectedProducts([]);
+        fetchProducts();
+      } catch {
+        toast.error("Failed to unpublish products");
+      } finally {
+        setIsProcessing(false);
+      }
+    }}
+  >
+    Unpublish
+  </button>
+)}
+{allDeletedSelected && (
+  <button
+    className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs rounded-md"
+   onClick={async () => {
+  try {
+    setIsProcessing(true);
+
+    await Promise.all(
+      selectedProducts.map((id) =>
+        productsService.restore(id)
+      )
+    );
+
+    toast.success(`${selectedProducts.length} product(s) restored`);
+    setSelectedProducts([]);
+    fetchProducts();
+  } catch (err) {
+    toast.error("Failed to restore products");
+  } finally {
+    setIsProcessing(false);
+  }
+}}
+  >
+    Restore
+  </button>
+)}
+       {!allDeletedSelected && (
+  <button
+    className="px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white text-xs rounded-md"
+  onClick={async () => {
+  try {
+    setIsProcessing(true);
+
+    await Promise.all(
+      selectedProducts.map((id) =>
+        productsService.delete(id)
+      )
+    );
+
+    toast.success(`${selectedProducts.length} product(s) deleted`);
+    setSelectedProducts([]);
+    fetchProducts();
+  } catch (err) {
+    toast.error("Failed to delete products");
+  } finally {
+    setIsProcessing(false);
+  }
+}}
+  >
+    Delete
+  </button>
+)}
+
+        <button
+          onClick={() => setSelectedProducts([])}
+          className="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-white text-xs rounded-md"
+        >
+          Clear
+        </button>
+
+      </div>
+    )}
+  </div>
+)}
       {/* ================= ITEMS PER PAGE + RESULTS COUNT ================= */}
       <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-xl px-3 py-2">
         <div className="flex items-center justify-between gap-3">
@@ -1492,7 +1718,6 @@ const hasActiveFilters = useMemo(
                   inventoryFilter.value !== "all",
                   recurringFilter.value !== "all",
                   vatFilter.value !== "all",
-                  discountFilter.value !== "all",
                 ].filter(Boolean).length} active filter
                 {[
            
@@ -1508,7 +1733,7 @@ const hasActiveFilters = useMemo(
                   inventoryFilter.value !== "all",
                   recurringFilter.value !== "all",
                   vatFilter.value !== "all",
-                  discountFilter.value !== "all",
+                 
                 ].filter(Boolean).length !== 1 && "s"}
               </span>
             )}
@@ -1523,7 +1748,7 @@ const hasActiveFilters = useMemo(
   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500 z-10" />
   <input
     type="search"
-    placeholder="Search products..."
+    placeholder="Search products by name or Sku..."
     value={searchInput}
     onChange={(e) => setSearchInput(e.target.value)}
     className="w-full pl-10 pr-4 py-2.5 bg-slate-800/50 border border-slate-700 rounded-xl text-white text-sm placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all"
@@ -1564,7 +1789,6 @@ const hasActiveFilters = useMemo(
               menuPosition="fixed"
             />
           </div>
-          
 
           <div className="flex-1 max-w-[150px]">
             <select
@@ -1586,32 +1810,6 @@ const hasActiveFilters = useMemo(
               ))}
             </select>
           </div>
-          <div className="flex-1 max-w-[150px]">
-  <select
-    value={pharmaFilter.value}
-    onChange={(e) => {
-      const value = e.target.value;
-      const option =
-        value === "yes"
-          ? { value: "yes", label: "Pharma Products" }
-          : value === "no"
-          ? { value: "no", label: "Non-Pharma Products" }
-          : { value: "all", label: "All Products" };
-
-      setPharmaFilter(option);
-    }}
-    className={`w-full px-3 py-2.5 bg-slate-800/90 border rounded-xl text-white text-sm 
-    focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all ${
-      pharmaFilter.value !== "all"
-        ? "border-blue-500 bg-blue-500/10 ring-2 ring-blue-500/50"
-        : "border-slate-600"
-    }`}
-  >
-    <option value="all">All Products</option>
-    <option value="yes">Pharma Products</option>
-    <option value="no">Non-Pharma Products</option>
-  </select>
-</div>
 
           <div className="flex gap-3">
             <div className="max-w-[140px] w-full">
@@ -1844,24 +2042,7 @@ const hasActiveFilters = useMemo(
                 ))}
               </select>
 
-              <select
-                value={discountFilter.value}
-                onChange={(e) => {
-                  const option = discountOptions.find(opt => opt.value === e.target.value);
-                  if (option) setDiscountFilter(option);
-                }}
-                className={`w-full px-3 py-2.5 bg-slate-800/90 border rounded-xl text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all ${
-                  discountFilter.value !== "all"
-                    ? "border-blue-500 bg-blue-500/10 ring-2 ring-blue-500/50"
-                    : "border-slate-600"
-                }`}
-              >
-                {discountOptions.map((opt) => (
-                  <option key={opt.value} value={opt.value}>
-                    {opt.label}
-                  </option>
-                ))}
-              </select>
+            
             </div>
           </div>
         )}
@@ -1879,12 +2060,21 @@ const hasActiveFilters = useMemo(
             <table className="w-full table-fixed text-sm">
               <thead>
                 <tr className="border-b border-slate-800">
-                  <th className="text-left py-2 px-3 text-slate-400 w-[260px]">Product</th>
+               <th className="text-left py-2 px-3 text-slate-400 w-[260px]">
+  <div className="flex items-center gap-2">
+    <input
+      type="checkbox"
+      checked={selectedProducts.length === products.length && products.length > 0}
+      onChange={handleSelectAll}
+      className="accent-violet-500"
+    />
+    Product
+  </div>
+</th>
                   <th className="text-center py-2 px-3 text-slate-400 w-[110px]">SKU</th>
                   <th className="text-center py-2 px-3 text-slate-400 w-[80px]">Price</th>
                   <th className="text-center py-2 px-3 text-slate-400 w-[70px]">Status</th>
-                  <th className="text-center py-2 px-3 text-slate-400 w-[170px]">Stock Status</th>
-                  <th className="text-center py-2 px-3 text-slate-400 w-[100px]">Discount</th>
+                  <th className="text-center py-2 px-3 text-slate-400 w-[170px]">Stock Status</th>              
                   <th className="text-center py-2 px-3 text-slate-400 w-[150px]">Visibility</th>
                   <th className="text-left py-2 px-3 text-slate-400 w-[150px]">Updated At</th>
                   <th className="text-left py-2 px-3 text-slate-400 w-[110px]">Updated By</th>
@@ -1910,61 +2100,56 @@ const hasActiveFilters = useMemo(
                       `}
                     >
                       {/* PRODUCT */}
-                <td className="py-2 px-3">
-  <div className="flex items-center gap-2">
-    <div className="w-10 h-10 rounded-md bg-gradient-to-br from-violet-500 to-pink-500 overflow-hidden flex-shrink-0">
-      {product.image ? (
-        <img
-          src={product.image}
-          alt={product.name}
-          className="w-full h-full object-cover cursor-pointer hover:opacity-80"
-          onClick={async (e) => {
-            e.stopPropagation();
-            try {
-              const res = await productsService.getById(product.id);
-              if (res.data?.success && res.data?.data?.images) {
-                viewProductImages(res.data.data.images, product.name, 0);
-              }
-            } catch {}
-          }}
-        />
-      ) : (
-        <div className="w-full h-full flex items-center justify-center text-white">
-          📦
-        </div>
-      )}
-    </div>
+                      <td className="py-2 px-3">
+                       <div className="flex items-center gap-2">
+  <input
+    type="checkbox"
+    checked={selectedProducts.includes(product.id)}
+    onChange={() => handleSelectProduct(product.id)}
+    className="accent-violet-500"
+  />
+                          <div className="w-10 h-10 rounded-md bg-gradient-to-br from-violet-500 to-pink-500 overflow-hidden flex-shrink-0">
+                            {product.image ? (
+                              <img
+                                src={product.image}
+                                alt={product.name}
+                                className="w-full h-full object-cover cursor-pointer hover:opacity-80"
+                                onClick={async (e) => {
+                                  e.stopPropagation();
+                                  try {
+                                    const res = await productsService.getById(product.id);
+                                    if (res.data?.success && res.data?.data?.images) {
+                                      viewProductImages(res.data.data.images, product.name, 0);
+                                    }
+                                  } catch {}
+                                }}
+                              />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center text-white">
+                                📦
+                              </div>
+                            )}
+                          </div>
 
-    <div className="min-w-0 flex-1">
-      <div className="flex items-center gap-2">
-        <p
-          className="text-white font-medium truncate cursor-pointer hover:text-violet-400"
-          onClick={() => fetchProductDetails(product.id)}
-          title={product.name}
-        >
-          {product.name}
-        </p>
-
-        {/* Pharma Badge */}
-        {product.isPharmaProduct && (
-          <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-red-500/20 text-red-400 border border-red-500/30">
-            PHARMA
-          </span>
-        )}
-      </div>
-
-      <div className="flex items-center gap-1 mt-0.5">
-        <span className="text-xs text-slate-500 truncate">
-          {product.categoryName}
-        </span>
-
-        <span className="text-xs text-cyan-400 bg-cyan-400/10 px-1.5 py-0.5 rounded">
-          {product.brandName}
-        </span>
-      </div>
-    </div>
-  </div>
-</td>
+                          <div className="min-w-0 flex-1">
+                            <p
+                              className="text-white font-medium truncate cursor-pointer hover:text-violet-400"
+                              onClick={() => fetchProductDetails(product.id)}
+                              title={product.name}
+                            >
+                              {product.name}
+                            </p>
+                            <div className="flex items-center gap-1 mt-0.5">
+                              <span className="text-xs text-slate-500 truncate">
+                                {product.categoryName}
+                              </span>
+                              <span className="text-xs text-cyan-400 bg-cyan-400/10 px-1.5 py-0.5 rounded">
+                                {product.brandName}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      </td>
 
                       {/* SKU */}
                       <td className="py-2 px-3 text-center">
@@ -2080,32 +2265,7 @@ Backorder: ${allowBackorder ? "Allowed" : "No"}
                         })()}
                       </td>
 
-                      {/* DISCOUNT */}
-                      <td className="py-2 px-3 text-center">
-                        {product.hasDiscount ? (
-                          <span
-                            title={product.discountTitle}
-                            className="inline-flex items-center px-2.5 py-1 text-xs font-semibold rounded-md 
-                                      bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 
-                                      cursor-help"
-                          >
-                            {product.discountLabel}
-                          </span>
-                        ) : (
-                          <button
-                            onClick={() => router.push("/admin/discounts")}
-                            className="inline-flex items-center px-2.5 py-1 text-xs font-medium
-                                      rounded-md border border-dashed border-slate-500/40
-                                      text-slate-400 hover:text-violet-400
-                                      hover:border-violet-500/40 hover:bg-violet-500/10
-                                      transition-all duration-200"
-                            title="No discount assigned. Click to assign a discount."
-                          >
-                            + Assign
-                          </button>
-                        )}
-                      </td>
-
+                    
                       {/* VISIBILITY */}
                       <td className="py-1 px-3 text-center">
                         <div className="flex items-center justify-center gap-1 flex-wrap">
@@ -2121,7 +2281,7 @@ Backorder: ${allowBackorder ? "Allowed" : "No"}
                                 : "bg-slate-600/20 text-slate-400"
                             }`}
                           >
-                            {product.isPublished ? "Live" : "Hidden"}
+                            {product.isPublished ? "Published" : "Unpublished"}
                           </span>
 
                           <span

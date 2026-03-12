@@ -2,7 +2,7 @@
 
 import { apiClient } from '../api';
 import { API_ENDPOINTS } from '../api-config';
-import { customersService, Customer } from './costomers';
+import { customersService, Customer } from './customers';
 
 // ============================================================
 // LOYALTY POINTS INTERFACES

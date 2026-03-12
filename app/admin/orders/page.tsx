@@ -55,7 +55,7 @@ import { useToast } from '@/app/admin/_components/CustomToast';
 import React from 'react';
 import OrderActionsModal from './OrderActionsModal';
 import BulkStatusModal from './BulkStatusModal';
-import ConfirmDialog from '../_components/ConfirmDialog';
+
 import BulkShipmentUploadModal from './BulkShipmentUploadModal';
 import { API_BASE_URL } from '@/lib/api';
 
@@ -71,7 +71,7 @@ interface Address {
   country: string;
   phoneNumber?: string;
 }
-export  const getOrderProductImage = (imageUrl?: string): string => {
+const getOrderProductImage = (imageUrl?: string): string => {
   if (!imageUrl) return "/no-image.png";
 
   if (imageUrl.startsWith("http")) {

@@ -12,7 +12,8 @@ import {
   AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid,
   Tooltip, ResponsiveContainer, PieChart, Pie, Cell,
 } from "recharts";
-import { productsService, orderService, customersService } from "@/lib/services";
+import { productsService, orderService } from "@/lib/services";
+import { customersService } from "@/lib/services/customers";
 
 
 type DateRange = "7d" | "1m" | "6m" | "1y";
@@ -68,9 +69,18 @@ export default function AdminDashboard() {
 
     try {
   const [prodRes, orderRes, custRes] = await Promise.all([
-  productsService.getAll(),
-  orderService.getAllOrders(),
-  customersService.getAll(),
+  productsService.getAll({
+        page: 1,
+        pageSize: 10000
+      }),
+  orderService.getAllOrders({
+    page:1,
+    pageSize:10000
+  }),
+    customersService.getAll({
+        page: 1,
+        pageSize: 10000
+      }),
 ]);
 
       // ---- parse products ----

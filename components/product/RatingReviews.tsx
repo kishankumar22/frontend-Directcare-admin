@@ -6,7 +6,7 @@ import { useAuth } from "@/context/AuthContext";
 import { useToast } from "@/components/toast/CustomToast";
 import { timeFromNow } from "@/lib/date";
 
-import { Filter, ChevronDown, CheckCircle2  } from "lucide-react";
+import { Filter, ChevronDown, CheckCircle2, UploadCloud  } from "lucide-react";
 
 interface RatingReviewsProps {
   productId: string;
@@ -438,14 +438,30 @@ const filteredReviews = useMemo(() => {
           />
 {/* IMAGE UPLOAD */}
 <div className="mt-4">
-  <label className="text-sm font-medium">Upload Images</label>
-  <input
-    type="file"
-    accept="image/*"
-    multiple
-    onChange={(e) => handleImageSelect(e.target.files)}
-    className="mt-1 block w-full text-sm"
-  />
+  <p className="text-sm font-semibold text-gray-800 mb-2">
+    Upload Images
+  </p>
+
+  <label className="inline-flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg cursor-pointer hover:border-[#445D41] hover:bg-gray-50 transition text-sm">
+
+    <UploadCloud className="h-4 w-4 text-gray-600" />
+
+    <span className="text-gray-700">
+      Add Images
+    </span>
+
+    <span className="text-gray-400 text-xs">
+      Click to upload product images
+    </span>
+
+    <input
+      type="file"
+      accept="image/*"
+      multiple
+      onChange={(e) => handleImageSelect(e.target.files)}
+      className="hidden"
+    />
+  </label>
 </div>
 {imagePreviews.length > 0 && (
   <div className="mt-3 grid grid-cols-3 sm:grid-cols-5 gap-2">
@@ -473,13 +489,29 @@ const filteredReviews = useMemo(() => {
 
 {/* VIDEO UPLOAD */}
 <div className="mt-4">
-  <label className="text-sm font-medium">Upload Video</label>
-  <input
-    type="file"
-    accept="video/*"
-    onChange={(e) => handleVideoSelect(e.target.files)}
-    className="mt-1 block w-full text-sm"
-  />
+  <p className="text-sm font-semibold text-gray-800 mb-2">
+    Upload Video
+  </p>
+
+  <label className="inline-flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg cursor-pointer hover:border-[#445D41] hover:bg-gray-50 transition text-sm">
+
+    <UploadCloud className="h-4 w-4 text-gray-600" />
+
+    <span className="text-gray-700">
+      Click to upload a review video
+    </span>
+
+    <span className="text-gray-400 text-xs">
+      (1 max)
+    </span>
+
+    <input
+      type="file"
+      accept="video/*"
+      onChange={(e) => handleVideoSelect(e.target.files)}
+      className="hidden"
+    />
+  </label>
 </div>
 {videoPreviews.length > 0 && (
   <div className="mt-3">

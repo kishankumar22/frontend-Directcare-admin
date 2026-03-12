@@ -332,6 +332,10 @@ const [shippingQuoteLoading, setShippingQuoteLoading] = useState(false);
  const [addressQuery, setAddressQuery] = useState("");
 const [addressSuggestions, setAddressSuggestions] = useState<AddressSuggestion[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
+  // 🔹 Shipping address autocomplete states
+const [shippingAddressQuery, setShippingAddressQuery] = useState("");
+const [shippingAddressSuggestions, setShippingAddressSuggestions] = useState<AddressSuggestion[]>([]);
+const [showShippingSuggestions, setShowShippingSuggestions] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<{ [key: string]: string }>({});
 const clearFieldError = (key: string) => {
@@ -592,9 +596,7 @@ const doAutocomplete = useCallback(async (q: string) => {
 
   try {
     const res = await fetch(
-      `${process.env.NEXT_PUBLIC_API_URL}/api/address-lookup/search?query=${encodeURIComponent(
-        q.trim()
-      )}&country=GB`
+      `${process.env.NEXT_PUBLIC_API_URL}/api/address-lookup/search?query=${encodeURIComponent(q.trim())}&country=GB`
     );
 
     const json = await res.json();
@@ -613,6 +615,34 @@ const doAutocomplete = useCallback(async (q: string) => {
     setShowSuggestions(false);
   }
 }, []);
+const doShippingAutocomplete = useCallback(async (q: string) => {
+  if (!q || q.trim().length < 3) {
+    setShippingAddressSuggestions([]);
+    setShowShippingSuggestions(false);
+    return;
+  }
+
+  try {
+    const res = await fetch(
+      `${process.env.NEXT_PUBLIC_API_URL}/api/address-lookup/search?query=${encodeURIComponent(q.trim())}&country=GB`
+    );
+
+    const json = await res.json();
+
+    if (!json?.success || !Array.isArray(json.data)) {
+      setShippingAddressSuggestions([]);
+      setShowShippingSuggestions(false);
+      return;
+    }
+
+    setShippingAddressSuggestions(json.data);
+    setShowShippingSuggestions(json.data.length > 0);
+  } catch (err) {
+    console.error("Shipping address lookup failed", err);
+    setShippingAddressSuggestions([]);
+    setShowShippingSuggestions(false);
+  }
+}, []);
 const fetchAddressDetails = async (id: string) => {
   const res = await fetch(
     `${process.env.NEXT_PUBLIC_API_URL}/api/address-lookup/details/${encodeURIComponent(
@@ -628,9 +658,14 @@ const fetchAddressDetails = async (id: string) => {
   return json.data;
 };
  const debouncedAutocomplete = useDebouncedCallback(doAutocomplete, 350);
+ const debouncedShippingAutocomplete = useDebouncedCallback(doShippingAutocomplete, 350);
 useEffect(() => {
   debouncedAutocomplete(addressQuery);
 }, [addressQuery, debouncedAutocomplete]);
+
+useEffect(() => {
+  debouncedShippingAutocomplete(shippingAddressQuery);
+}, [shippingAddressQuery, debouncedShippingAutocomplete]);
 
 useEffect(() => {
   if (!shippingSameAsBilling) return;
@@ -998,7 +1033,7 @@ if (!checkoutItems || checkoutItems.length === 0) {
   <ErrorText error={fieldErrors.billingPhone} />
 </div>
 <div className="flex flex-col space-y-0.5 col-span-2">
-  <label className="text-xs font-medium text-gray-700">Company Name</label>
+  <label className="text-xs font-medium text-gray-700">Company Name (optional)</label>
   <input
     value={billingCompany}
     onChange={(e) => setBillingCompany(e.target.value)}
@@ -1076,27 +1111,101 @@ if (!checkoutItems || checkoutItems.length === 0) {
      <input
   id="same"
   checked={shippingSameAsBilling}
-  onChange={(e) => {
-    const checked = e.target.checked;
-    setShippingSameAsBilling(checked);
-    if (checked) {
-      setShippingFirstName(billingFirstName);
-      setShippingLastName(billingLastName);
-      setShippingCompany(billingCompany);
-      setShippingAddress1(billingAddress1);
-      setShippingAddress2(billingAddress2);
-      setShippingCity(billingCity);
-      setShippingState(billingState);
-      setShippingPostalCode(billingPostalCode);
-      setShippingCountry(billingCountry);
-    }
-  }}
+ onChange={(e) => {
+  const checked = e.target.checked;
+  setShippingSameAsBilling(checked);
+
+  if (checked) {
+    // fill shipping with billing
+    setShippingFirstName(billingFirstName);
+    setShippingLastName(billingLastName);
+    setShippingCompany(billingCompany);
+    setShippingAddress1(billingAddress1);
+    setShippingAddress2(billingAddress2);
+    setShippingCity(billingCity);
+    setShippingState(billingState);
+    setShippingPostalCode(billingPostalCode);
+    setShippingCountry(billingCountry);
+  } else {
+    // 🔥 CLEAR SHIPPING FORM
+    setShippingFirstName("");
+    setShippingLastName("");
+    setShippingCompany("");
+    setShippingAddress1("");
+    setShippingAddress2("");
+    setShippingCity("");
+    setShippingState("");
+    setShippingPostalCode("");
+    setShippingCountry("United Kingdom");
+  }
+}}
   type="checkbox"
 />
-      <label htmlFor="same" className="text-xs">Shipping same as billing</label>
+      <label htmlFor="same" className="text-s">Shipping same as billing</label>
     </div>
     {!shippingSameAsBilling ? (
       <div className="grid grid-cols-2 gap-2">
+        <div className="flex flex-col space-y-0.5 mt-2 col-span-2 relative z-[40]">
+  <label className="text-xs font-medium text-gray-700">
+    Search shipping address or postcode
+  </label>
+
+  <input
+    type="text"
+   value={shippingAddressQuery}
+onChange={(e) => setShippingAddressQuery(e.target.value)}
+    placeholder="Start typing city, postcode or address..."
+    className="w-full border p-1.5 text-sm rounded"
+  />
+
+  {showShippingSuggestions && shippingAddressSuggestions.length > 0 && (
+    <div className="absolute top-full left-0 right-0 mt-1 bg-white border rounded max-h-48 overflow-auto shadow-lg z-[40]">
+     {shippingAddressSuggestions.map((s) => (
+        <button
+          key={s.id}
+          onClick={async () => {
+            try {
+              const details = await fetchAddressDetails(s.id);
+
+              const line1 =
+                details.line1 ||
+                details.line2 ||
+                details.line3 ||
+                s.text ||
+                "";
+
+              const city =
+                details.city ||
+                details.town ||
+                details.locality ||
+                details.administrativeArea ||
+                "";
+
+              const state = details.province || "";
+              const postcode = details.postalCode || "";
+              const country = details.country || "United Kingdom";
+
+              setShippingAddress1(line1);
+              setShippingCity(city);
+              setShippingState(state);
+              setShippingPostalCode(postcode);
+              setShippingCountry(country);
+
+             setShowShippingSuggestions(false);
+setShippingAddressSuggestions([]);
+setShippingAddressQuery("");
+            } catch (err) {
+              console.error("Shipping address lookup error", err);
+            }
+          }}
+          className="w-full text-left px-3 py-1.5 text-sm hover:bg-gray-100"
+        >
+          {s.text}
+        </button>
+      ))}
+    </div>
+  )}
+</div>
         <div className="flex flex-col space-y-0.5">
           <label className="text-xs font-medium text-gray-700">First name *</label>
           <input value={shippingFirstName} onChange={(e) => { setShippingFirstName(e.target.value); clearFieldError("shippingFirstName"); }} className="w-full border border-gray-300 p-1.5 text-sm rounded focus:ring-2 focus:ring-[#445D41]/20 focus:border-[#445D41] transition-all" />

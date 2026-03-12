@@ -548,6 +548,7 @@ const [formData, setFormData] = useState({
   // Delivery flags (charges managed via Shipping Methods)
   sameDayDeliveryEnabled: false,
   nextDayDeliveryEnabled: false,
+  nextDayDeliveryFree: false,
   standardDeliveryEnabled: true,
 
   // ===== GIFT CARDS =====
@@ -1121,6 +1122,7 @@ notReturnable: productData.notReturnable ?? false,
   // Delivery flags
   sameDayDeliveryEnabled: productData.sameDayDeliveryEnabled ?? false,
   nextDayDeliveryEnabled: productData.nextDayDeliveryEnabled ?? false,
+  nextDayDeliveryFree: productData.nextDayDeliveryFree ?? false,   // ✅ ADD
   standardDeliveryEnabled: productData.standardDeliveryEnabled ?? true,
         
         // ===== TAGS & RELATED =====
@@ -1994,7 +1996,7 @@ const checkSkuExists = async (sku: string): Promise<boolean> => {
     console.log('🔍 Checking SKU availability:', sku);
     
     const response = await productsService.getAll({ 
-      searchTerm: sku, 
+     page:1,
       pageSize: 100 
     });
     
@@ -2090,7 +2092,7 @@ const checkVariantSkuExists = async (
     }
 
     // ✅ Check against database (all products and variants)
-    const response = await productsService.getAll({ searchTerm: sku, pageSize: 100 });
+    const response = await productsService.getAll({ page: 1, pageSize: 10000 });
     const products = response.data?.data?.items || [];
 
     for (const product of products) {
@@ -3747,6 +3749,7 @@ allowedQuantities: cleanedCartData.allowedQuantities,        // null when min/ma
       dimensionUnit: 'cm',
       sameDayDeliveryEnabled: formData.sameDayDeliveryEnabled ?? false,
       nextDayDeliveryEnabled: formData.nextDayDeliveryEnabled ?? false,
+      nextDayDeliveryFree: formData.nextDayDeliveryFree ?? false,   // ✅ ADD
       standardDeliveryEnabled: formData.standardDeliveryEnabled ?? true,
       isRecurring: formData.productType !== 'grouped' && formData.isRecurring ? true : false,
       recurringCycleLength: formData.productType !== 'grouped' && formData.isRecurring
@@ -4273,11 +4276,22 @@ if (name === "productType") {
       deliveryDateId: checked ? prev.deliveryDateId : "",
       sameDayDeliveryEnabled: checked ? prev.sameDayDeliveryEnabled : false,
       nextDayDeliveryEnabled: checked ? prev.nextDayDeliveryEnabled : false,
+      nextDayDeliveryFree: checked ? prev.nextDayDeliveryFree : false,   // ✅ ADD
       standardDeliveryEnabled: checked ? prev.standardDeliveryEnabled : true
     }));
     return;
   }
-
+// ================================
+// ✅ NEXT DAY DELIVERY TOGGLE
+// ================================
+if (name === "nextDayDeliveryEnabled") {
+  setFormData(prev => ({
+    ...prev,
+    nextDayDeliveryEnabled: checked,
+    nextDayDeliveryFree: checked ? prev.nextDayDeliveryFree : false
+  }));
+  return;
+}
   // ================================
   // ✅ SECTION 14: MANAGE INVENTORY
   // ================================
@@ -7557,7 +7571,21 @@ const uploadImagesToProductDirect = async (
               </span>
             </label>
           </div>
-
+{/* Next Day Delivery Free */}
+{formData.nextDayDeliveryEnabled && (
+  <label className="flex items-center gap-2 cursor-pointer group ml-6">
+    <input
+      type="checkbox"
+      name="nextDayDeliveryFree"
+      checked={formData.nextDayDeliveryFree}
+      onChange={handleChange}
+      className="rounded bg-slate-800/50 border-slate-700 text-violet-500 focus:ring-violet-500 focus:ring-offset-slate-900"
+    />
+    <span className="text-sm text-slate-300 group-hover:text-white transition-colors">
+      🎁 Next-Day Delivery Free
+    </span>
+  </label>
+)}
           {/* Standard Delivery */}
           <div className="space-y-3">
             <label className="flex items-center gap-2 cursor-pointer group">

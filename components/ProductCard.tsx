@@ -332,6 +332,7 @@ if (product.orderMinimumQuantity > 1) {
   <PharmaQuestionsModal
     open={showPharmaModal}
     productId={product.id}
+    mode="add"
     onClose={() => {
       setShowPharmaModal(false);
     }}

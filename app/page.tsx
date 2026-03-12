@@ -240,15 +240,36 @@ const homeProducts = [...products].sort(
     </section>
 
     {/* ===== CATEGORIES ===== */}
-    <section className="w-full bg-gray-100 py-4">
-      <div className="max-w-7xl mx-auto px-4">
-        <div className="text-center mb-3 md:mb-8">
-          <h2 className="text-xl md:text-3xl font-bold mb-1">Shop by Category</h2>
-          <p className="text-gray-600 text-sm md:text-base">Browse our wide range of products</p>
-        </div>
-        <CategorySlider categories={homeCategories} baseUrl={baseUrl} />
+    {/* ===== CATEGORIES ===== */}
+<section className="w-full bg-gray-100 py-4">
+  <div className="max-w-7xl mx-auto px-4">
+
+    <div className="relative mb-3 md:mb-8">
+
+      {/* View All Button - Right Side */}
+      <Link
+        href="/category"
+        className="absolute right-0 top-0 text-xs md:text-base font-medium text-[#445D41] bg-green-50 border border-green-200 px-2 py-1 rounded hover:text-green-700 transition"
+      >
+        View All →
+      </Link>
+
+      {/* Centered Heading */}
+      <div className="text-center">
+        <h2 className="text-xl md:text-3xl font-bold mb-1">
+          Shop by Category
+        </h2>
+        <p className="text-gray-600 text-sm md:text-base">
+          Browse our wide range of products
+        </p>
       </div>
-    </section>
+
+    </div>
+
+    <CategorySlider categories={homeCategories} baseUrl={baseUrl} />
+
+  </div>
+</section>
 {/* ===== NEW ARRIVALS ===== */}
 <section className="w-full bg-gray-50 py-4">
   <div className="max-w-7xl mx-auto px-4">
