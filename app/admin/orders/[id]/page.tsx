@@ -523,13 +523,24 @@ if (canUpdateStatus) {
   });
 }
 
-if(!order.isShippingRefunded && order.shippingAmount > 0){
+const canRefundShipping =
+  !order.isShippingRefunded &&
+  order.shippingAmount > 0 &&
+  order.payments?.some(
+    (p) =>
+      p.status === "Completed" ||
+      p.status === "Successful" ||
+      p.status === "PartiallyRefunded"
+  ) &&
+  ["Processing","Shipped","Delivered","Cancelled","Returned"].includes(status);
+
+if (canRefundShipping) {
   actions.push({
-    label: 'Refund Shipping',
-    action: 'refund-shipping',
+    label: "Refund Shipping",
+    action: "refund-shipping",
     icon: <Truck className="h-3.5 w-3.5" />,
-    color: 'bg-cyan-600 hover:bg-cyan-700',
-    category: 'financial',
+    color: "bg-cyan-600 hover:bg-cyan-700",
+    category: "financial",
   });
 }
   // Backend: Cannot cancel Delivered (use Return), Cancelled, Refunded, Returned
@@ -1316,7 +1327,7 @@ const allActions = getAllAvailableActions(
 
       {/* ✅ CONSOLIDATED ACTION BUTTONS (Single Row, Dynamic) */}
 {allActions.length > 0 && (
-  <div className="bg-gradient-to-r from-slate-900/80 to-slate-800/80 border border-slate-700 rounded-xl p-4 backdrop-blur-sm">
+  <div className="bg-gradient-to-r from-slate-900/80 to-slate-800/80 border border-slate-700 rounded-xl p-2 backdrop-blur-sm">
     
     {/* Header */}
     <div className="flex items-center gap-2 mb-3">
@@ -1586,12 +1597,31 @@ const allActions = getAllAvailableActions(
                 {formatCurrency(order.taxAmount, order.currency)}
               </span>
             </div> */}
-            <div className="flex justify-between" title="Shipping and handling charges">
-              <span className="text-slate-400">Shipping</span>
-              <span className="text-white font-medium">
-                {formatCurrency(order.shippingAmount, order.currency)}
-              </span>
-            </div>
+     <div className="flex justify-between items-center" title="Shipping charge">
+
+  <span className="text-slate-400">Shipping</span>
+
+  <div className="flex items-center gap-2">
+
+    {order.isShippingRefunded ? (
+      <>
+        <span className="text-slate-500 line-through">
+          {formatCurrency(order.shippingAmount, order.currency)}
+        </span>
+
+        <span className="text-green-400 text-xs px-2 py-0.5 bg-green-500/10 border border-green-500/20 rounded-md">
+          Refunded
+        </span>
+      </>
+    ) : (
+      <span className="text-white font-medium">
+        {formatCurrency(order.shippingAmount, order.currency)}
+      </span>
+    )}
+
+  </div>
+
+</div>
             {order.clickAndCollectFee && order.clickAndCollectFee > 0 && (
               <div className="flex justify-between" title="Click & Collect service fee">
                 <span className="text-slate-400">Click & Collect Fee</span>
@@ -1837,51 +1867,58 @@ const allActions = getAllAvailableActions(
   </div>
 
   {/* Product List */}
-  <div className="space-y-3">
+<div className="space-y-3">
 
-    {order.orderItems.map((item, index) => (
+  {order.orderItems.map((item, index) => (
 
-      <div
-        key={item.id}
-        className="flex items-center justify-between p-3 bg-slate-800/60 rounded-lg border border-slate-700 hover:border-pink-500/30 transition-all"
-      >
+    <div
+      key={item.id}
+      className="flex items-center justify-between p-3 bg-slate-800/60 rounded-lg border border-slate-700 hover:border-pink-500/30 transition-all"
+    >
 
-        {/* Left */}
-        <div className="flex items-center gap-3">
+      {/* Left */}
+      <div className="flex items-center gap-3">
 
-          <div className="w-9 h-9 flex items-center justify-center rounded-lg bg-gradient-to-br from-pink-500 to-rose-500 text-white font-bold text-sm">
-            {index + 1}
-          </div>
-
-          <div>
-            <p className="text-white font-medium text-sm">
-              {item.productName}
-            </p>
-
-            <p className="text-xs text-slate-400 mt-1 flex items-center gap-1">
-              <Hash className="h-3 w-3" />
-              SKU: {item.productSku}
-            </p>
-          </div>
-
+        <div className="w-9 h-9 flex items-center justify-center rounded-lg bg-gradient-to-br from-pink-500 to-rose-500 text-white font-bold text-sm">
+          {index + 1}
         </div>
 
-        {/* Right */}
-        <div className="text-right">
-          <p className="text-white text-sm font-medium">
-            {item.quantity} × {formatCurrency(item.unitPrice, order.currency)}
+        {/* ✅ Product Image */}
+        <img
+          src={getOrderProductImage(item.productImageUrl)}
+          alt={item.productName}
+          className="w-12 h-12 rounded-lg object-cover border border-slate-700"
+        />
+
+        <div>
+          <p className="text-white font-medium text-sm">
+            {item.productName}
           </p>
 
-          <p className="text-green-400 font-bold text-lg">
-            {formatCurrency(item.totalPrice, order.currency)}
+          <p className="text-xs text-slate-400 mt-1 flex items-center gap-1">
+            <Hash className="h-3 w-3" />
+            SKU: {item.productSku}
           </p>
         </div>
 
       </div>
 
-    ))}
+      {/* Right */}
+      <div className="text-right">
+        <p className="text-white text-sm font-medium">
+          {item.quantity} × {formatCurrency(item.unitPrice, order.currency)}
+        </p>
 
-  </div>
+        <p className="text-green-400 font-bold text-lg">
+          {formatCurrency(item.totalPrice, order.currency)}
+        </p>
+      </div>
+
+    </div>
+
+  ))}
+
+</div>
 
 </div>
       {/* ✅ Addresses */}
