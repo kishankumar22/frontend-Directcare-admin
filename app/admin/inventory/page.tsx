@@ -16,6 +16,7 @@ import { useToast } from "@/app/admin/_components/CustomToast";
 import { useRouter } from "next/navigation";
 import MediaViewerModal, { MediaItem } from "../products/MediaViewerModal";
 import ConfirmDialog from "../_components/ConfirmDialog";
+import { API_BASE_URL } from "@/lib/api";
 
 interface ProductImage {
   id: string;
@@ -115,7 +116,15 @@ export default function InventoryPage() {
     setConfirmConfig({ title, message, onConfirm });
     setConfirmOpen(true);
   };
+const getImageUrl = (url?: string) => {
+  if (!url) return "";
 
+  // already full URL
+  if (url.startsWith("http")) return url;
+
+  // add API base url
+  return `${API_BASE_URL}${url}`;
+};
   // ─── Fetch products ────────────────────────────────────────────────────────
   const fetchProducts = async () => {
     try {
@@ -351,12 +360,21 @@ const handleExcelUpload = async (event: any) => {
 };
 
   // ─── Media viewer ──────────────────────────────────────────────────────────
-  const openMediaViewer = (images: any[], idx = 0) => {
-    if (!images?.length) return;
-    setViewerMedia(images.map((img: any) => ({ type: "image", url: img.imageUrl, title: img.altText || "Image", isMain: img.isMain })));
-    setViewerIndex(idx);
-    setViewerOpen(true);
-  };
+const openMediaViewer = (images: any[], idx = 0) => {
+  if (!images?.length) return;
+
+  setViewerMedia(
+    images.map((img: any) => ({
+      type: "image",
+      url: getImageUrl(img.imageUrl),
+      title: img.altText || "Image",
+      isMain: img.isMain
+    }))
+  );
+
+  setViewerIndex(idx);
+  setViewerOpen(true);
+};
 
   // ─── Pagination ────────────────────────────────────────────────────────────
   const getPageNumbers = () => {
@@ -561,6 +579,10 @@ const handleExcelUpload = async (event: any) => {
               </tr>
             ) : products.map((p) => {
               const changed = p.newStock !== p.stockQuantity || p.newPrice !== p.price;
+                const mainImage =
+    p.images?.find((img: any) => img.isMain) ||
+    p.images?.[0];
+
               return (
                 <tr
                   key={p.id}
@@ -578,11 +600,18 @@ const handleExcelUpload = async (event: any) => {
                         className="w-9 h-9 rounded-lg bg-gradient-to-br from-violet-500/20 to-pink-500/20 border border-slate-700 overflow-hidden flex-shrink-0 cursor-pointer hover:border-violet-500/50 transition-colors"
                         onClick={() => p.images?.length && openMediaViewer(p.images)}
                       >
-                        {p.image ? (
-                          <img src={p.image} alt={p.name} className="w-full h-full object-cover pointer-events-none" />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center text-slate-500 text-xs">📦</div>
-                        )}
+                        
+                    {mainImage ? (
+  <img
+    src={getImageUrl(mainImage.imageUrl)}
+    alt={p.name}
+    className="w-full h-full object-cover pointer-events-none"
+  />
+) : (
+  <div className="w-full h-full flex items-center justify-center text-slate-500 text-xs">
+    📦
+  </div>
+)}
                       </div>
                       <div className="min-w-0 flex-1">
                         <p className="text-white text-sm font-medium truncate max-w-[280px]">{p.name}</p>

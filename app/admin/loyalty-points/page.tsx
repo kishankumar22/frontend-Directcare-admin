@@ -5,7 +5,7 @@
  * LOYALTY POINTS MANAGEMENT PAGE
  * ============================================================
  */
-
+import * as XLSX from "xlsx";
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   Search,
@@ -381,69 +381,88 @@ export default function LoyaltyPointsPage() {
   // EXPORT HANDLERS
   // ============================================================
   
-  const handleExportAll = () => {
-    const headers = ['User', 'Email', 'Balance', 'Value (£)', 'Earned', 'Redeemed', 'Tier', 'Last Activity'];
-    const csvData = users.map(user => [
-      user.fullName,
-      user.email,
-      user.currentBalance,
-      user.redemptionValue,
-      user.totalPointsEarned,
-      user.totalPointsRedeemed,
-      user.tierLevel,
-      user.lastEarnedAt || user.lastRedeemedAt || 'Never',
-    ]);
+const handleExportAll = () => {
+  if (!users || users.length === 0) {
+    toast.error("No data available to export");
+    return;
+  }
 
-    const csv = [
-      headers.join(','),
-      ...csvData.map(row => row.map(cell => `"${cell}"`).join(',')),
-    ].join('\n');
+  const data = users.map((user) => ({
+    User: user.fullName || "",
+    Email: user.email || "",
+    Balance: user.currentBalance || 0,
+    "Value (£)": user.redemptionValue || 0,
+    Earned: user.totalPointsEarned || 0,
+    Redeemed: user.totalPointsRedeemed || 0,
+    Tier: user.tierLevel || "",
+    "Last Activity":
+      user.lastEarnedAt || user.lastRedeemedAt || "Never",
+  }));
 
-    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `loyalty-points-all-${new Date().toISOString().split('T')[0]}.csv`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
+  const worksheet = XLSX.utils.json_to_sheet(data);
+  const workbook = XLSX.utils.book_new();
 
-    toast.success(`${users.length} users exported successfully`);
-  };
+  XLSX.utils.book_append_sheet(workbook, worksheet, "Loyalty Points");
 
-  const handleExportSelected = () => {
-    const headers = ['User', 'Email', 'Balance', 'Value (£)', 'Earned', 'Redeemed', 'Tier', 'Last Activity'];
-    const csvData = selectedUsersData.map(user => [
-      user.fullName,
-      user.email,
-      user.currentBalance,
-      user.redemptionValue,
-      user.totalPointsEarned,
-      user.totalPointsRedeemed,
-      user.tierLevel,
-      user.lastEarnedAt || user.lastRedeemedAt || 'Never',
-    ]);
+  const excelBuffer = XLSX.write(workbook, {
+    bookType: "xlsx",
+    type: "array",
+  });
 
-    const csv = [
-      headers.join(','),
-      ...csvData.map(row => row.map(cell => `"${cell}"`).join(',')),
-    ].join('\n');
+  const blob = new Blob([excelBuffer], {
+    type:
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  });
 
-    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `loyalty-points-selected-${new Date().toISOString().split('T')[0]}.csv`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
+  const url = window.URL.createObjectURL(blob);
 
-    toast.success(`${selectedUsersData.length} selected users exported successfully`);
-    setSelectedUsers(new Set());
-    setSelectAll(false);
-  };
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `loyalty-points-all-${new Date()
+    .toISOString()
+    .split("T")[0]}.xlsx`;
+
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+
+  window.URL.revokeObjectURL(url);
+
+  toast.success(`${users.length} users exported successfully`);
+};
+const handleExportSelected = () => {
+  if (!selectedUsersData.length) {
+    toast.error("No users selected");
+    return;
+  }
+
+  const data = selectedUsersData.map((user) => ({
+    User: user.fullName,
+    Email: user.email,
+    Balance: user.currentBalance,
+    "Value (£)": user.redemptionValue,
+    Earned: user.totalPointsEarned,
+    Redeemed: user.totalPointsRedeemed,
+    Tier: user.tierLevel,
+    "Last Activity":
+      user.lastEarnedAt || user.lastRedeemedAt || "Never",
+  }));
+
+  const worksheet = XLSX.utils.json_to_sheet(data);
+  const workbook = XLSX.utils.book_new();
+
+  XLSX.utils.book_append_sheet(workbook, worksheet, "Selected Users");
+
+  XLSX.writeFile(
+    workbook,
+    `loyalty-points-selected-${new Date().toISOString().split("T")[0]}.xlsx`
+  );
+
+  toast.success(`${selectedUsersData.length} selected users exported`);
+
+  setSelectedUsers(new Set());
+  setSelectAll(false);
+};
 
   // ============================================================
   // RENDER: LOADING STATE
@@ -523,7 +542,7 @@ export default function LoyaltyPointsPage() {
             className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white rounded-xl font-semibold shadow-lg transition-all text-sm disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <Download className="h-4 w-4" />
-            Export CSV ({users.length})
+           Export Excel({users.length})
           </button>
         </div>
       </div>

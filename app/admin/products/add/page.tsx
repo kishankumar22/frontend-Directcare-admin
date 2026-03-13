@@ -31,7 +31,7 @@ const [checkingVariantSku, setCheckingVariantSku] = useState<Record<string, bool
 const [variantSkuErrors, setVariantSkuErrors] = useState<Record<string, string>>({});
 const [showTaxPreview, setShowTaxPreview] = useState(false);
 const [productOptions, setProductOptions] = useState<ProductOption[]>([]);
-
+const [quantityMode, setQuantityMode] = useState<'range' | 'fixed' | 'unlimited'>('unlimited');
 
 // ============================================================
 // ADD THESE STATES (After other useState declarations)
@@ -363,9 +363,9 @@ const checkPublishRequirements = (): { isValid: boolean; missing: string[] } => 
   }
 
   // 5. Images
-  // if (!formData.productImages || formData.productImages.length < 3) {
-  //   missing.push(`Product Images (minimum 3, current: ${formData.productImages?.length || 0})`);
-  // }
+  if (!formData.productImages || formData.productImages.length < 5) {
+    missing.push(`Product Images (minimum 3, current: ${formData.productImages?.length || 0})`);
+  }
 
   // 6. Stock (if tracking)
   if (formData.manageInventory === 'track') {
@@ -1570,15 +1570,50 @@ const handleSubmit = async (
     });
 
     // Clean cart quantities based on active mode
-const cleanedCartData = {
-  orderMinimumQuantity: formData.allowedQuantities?.trim() 
-    ? null 
-    : (parseInt(formData.orderMinimumQuantity) || 1),    // ✅ CHANGED
-  orderMaximumQuantity: formData.allowedQuantities?.trim() 
-    ? null 
-    : (parseInt(formData.orderMaximumQuantity) || 10),   // ✅ CHANGED
-  allowedQuantities: formData.allowedQuantities?.trim() || null
+// ======================================
+// CLEAN CART DATA (RANGE / FIXED / NONE)
+// ======================================
+
+const hasFixedQuantities = !!formData.allowedQuantities?.trim();
+
+const hasRange =
+  !hasFixedQuantities &&
+  (formData.orderMinimumQuantity?.trim() || formData.orderMaximumQuantity?.trim());
+
+let cleanedCartData = {
+  orderMinimumQuantity: null as number | null,
+  orderMaximumQuantity: null as number | null,
+  allowedQuantities: null as string | null,
 };
+
+if (hasFixedQuantities) {
+  // FIXED QUANTITIES MODE
+  cleanedCartData.allowedQuantities = formData.allowedQuantities.trim();
+}
+
+else if (hasRange) {
+  // RANGE MODE
+ cleanedCartData.orderMinimumQuantity =
+  parseInt(formData.orderMinimumQuantity || "1") || 1;
+
+cleanedCartData.orderMaximumQuantity =
+  parseInt(formData.orderMaximumQuantity || "10") || 10;
+}
+// =============================
+// VALIDATE MIN MAX QUANTITY
+// =============================
+if (
+  cleanedCartData.orderMinimumQuantity !== null &&
+  cleanedCartData.orderMaximumQuantity !== null &&
+  cleanedCartData.orderMinimumQuantity > cleanedCartData.orderMaximumQuantity
+) {
+  toast.error("Minimum quantity cannot be greater than maximum quantity");
+
+  target.removeAttribute("data-submitting");
+  setIsSubmitting(false);
+  setSubmitProgress(null);
+  return;
+}
 
     const productData: any = {
       // Basic Info
@@ -1586,7 +1621,7 @@ const cleanedCartData = {
       description: formData.fullDescription || formData.shortDescription || `${formData.name} - Product description`,
       shortDescription: formData.shortDescription?.trim() || "",
       sku: formData.sku.trim(),
-      displayOrder: parseInt(formData.displayOrder.toString()) || 1,
+     displayOrder: parseInt(formData.displayOrder?.toString() ?? "1"),
 
       // Status & Visibility
       isPublished: isDraft ? false : formData.published ?? true,
@@ -4892,24 +4927,27 @@ useEffect(() => {
 
 {/* Cart Settings */}
 <div className="space-y-4">
+
   <h3 className="text-lg font-semibold text-white border-b border-slate-800 pb-2">
     Cart Settings
   </h3>
 
-  {/* SIMPLE INLINE RADIO SELECTOR */}
   <div>
     <label className="block text-sm font-medium text-slate-300 mb-2">
       Quantity Control
     </label>
-    
-    <div className="flex gap-4 mb-3">
-      {/* Range Mode Radio */}
+
+    <div className="flex gap-4 mb-3 flex-wrap">
+
+      {/* RANGE */}
       <label className="flex items-center gap-2 cursor-pointer">
         <input
           type="radio"
           name="quantityMode"
-          checked={!(!formData.orderMinimumQuantity && !formData.orderMaximumQuantity)}
+          checked={quantityMode === 'range'}
           onChange={() => {
+            setQuantityMode('range');
+
             setFormData(prev => ({
               ...prev,
               allowedQuantities: '',
@@ -4919,16 +4957,21 @@ useEffect(() => {
           }}
           className="w-4 h-4 text-violet-500 focus:ring-violet-500 focus:ring-offset-slate-900"
         />
-        <span className="text-sm text-slate-300">Min - Max Range</span>
+        <span className="text-sm text-slate-300">
+          Min - Max Range
+        </span>
       </label>
 
-      {/* Fixed Quantities Radio */}
+
+      {/* FIXED */}
       <label className="flex items-center gap-2 cursor-pointer">
         <input
           type="radio"
           name="quantityMode"
-          checked={!formData.orderMinimumQuantity && !formData.orderMaximumQuantity}
+          checked={quantityMode === 'fixed'}
           onChange={() => {
+            setQuantityMode('fixed');
+
             setFormData(prev => ({
               ...prev,
               orderMinimumQuantity: '',
@@ -4938,17 +4981,47 @@ useEffect(() => {
           }}
           className="w-4 h-4 text-emerald-500 focus:ring-emerald-500 focus:ring-offset-slate-900"
         />
-        <span className="text-sm text-slate-300">Fixed Quantities</span>
+        <span className="text-sm text-slate-300">
+          Fixed Quantities
+        </span>
       </label>
+
+
+      {/* UNLIMITED */}
+      <label className="flex items-center gap-2 cursor-pointer">
+        <input
+          type="radio"
+          name="quantityMode"
+          checked={quantityMode === 'unlimited'}
+          onChange={() => {
+            setQuantityMode('unlimited');
+
+            setFormData(prev => ({
+              ...prev,
+              orderMinimumQuantity: '',
+              orderMaximumQuantity: '',
+              allowedQuantities: ''
+            }));
+          }}
+          className="w-4 h-4 text-cyan-500 focus:ring-cyan-500 focus:ring-offset-slate-900"
+        />
+        <span className="text-sm text-slate-300">
+          No Quantity Restrictions
+        </span>
+      </label>
+
     </div>
 
-    {/* MIN-MAX RANGE FIELDS */}
-    {!(!formData.orderMinimumQuantity && !formData.orderMaximumQuantity) && (
+
+    {/* RANGE FIELDS */}
+    {quantityMode === 'range' && (
       <div className="grid grid-cols-2 gap-4 p-4 bg-slate-800/50 border border-slate-700 rounded-xl">
+
         <div>
           <label className="block text-sm font-medium text-slate-300 mb-2">
             Minimum Cart Quantity
           </label>
+
           <input
             type="number"
             name="orderMinimumQuantity"
@@ -4956,13 +5029,16 @@ useEffect(() => {
             onChange={handleChange}
             min="1"
             placeholder="1"
-            className="w-full px-3 py-2.5 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+            className="w-full px-3 py-2.5 bg-slate-800/50 border border-slate-700 rounded-xl text-white"
           />
         </div>
+
+
         <div>
           <label className="block text-sm font-medium text-slate-300 mb-2">
             Maximum Cart Quantity
           </label>
+
           <input
             type="number"
             name="orderMaximumQuantity"
@@ -4970,46 +5046,65 @@ useEffect(() => {
             onChange={handleChange}
             min={formData.orderMinimumQuantity || '1'}
             placeholder="100"
-            className="w-full px-3 py-2.5 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+            className="w-full px-3 py-2.5 bg-slate-800/50 border border-slate-700 rounded-xl text-white"
           />
         </div>
+
       </div>
     )}
 
-    {/* FIXED QUANTITIES FIELD */}
-    {!formData.orderMinimumQuantity && !formData.orderMaximumQuantity && (
+
+    {/* FIXED QUANTITIES */}
+    {quantityMode === 'fixed' && (
       <div className="p-4 bg-slate-800/50 border border-slate-700 rounded-xl">
+
         <label className="block text-sm font-medium text-slate-300 mb-2">
           Allowed Cart Quantities
         </label>
+
         <input
           type="text"
           name="allowedQuantities"
           value={formData.allowedQuantities}
           onChange={handleChange}
           placeholder="1, 5, 10, 20, 50"
-          className="w-full px-3 py-2.5 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all"
+          className="w-full px-3 py-2.5 bg-slate-800/50 border border-slate-700 rounded-xl text-white"
         />
-        <p className="text-xs text-slate-400 mt-2">Enter comma-separated values</p>
-        
+
+        <p className="text-xs text-slate-400 mt-2">
+          Enter comma-separated values
+        </p>
+
         {formData.allowedQuantities && (
           <div className="mt-3 flex flex-wrap gap-1.5">
+
             {formData.allowedQuantities.split(',').map((qty, i) => {
+
               const val = qty.trim();
+
               return val ? (
-                <span key={i} className="px-2 py-1 bg-emerald-500/20 text-emerald-300 text-xs rounded border border-emerald-500/30">
+                <span
+                  key={i}
+                  className="px-2 py-1 bg-emerald-500/20 text-emerald-300 text-xs rounded border border-emerald-500/30"
+                >
                   {val}
                 </span>
               ) : null;
+
             })}
+
           </div>
         )}
+
       </div>
     )}
+
   </div>
+
 
   {/* NOT RETURNABLE */}
   <label className="flex items-center gap-2 cursor-pointer">
+
     <input
       type="checkbox"
       name="notReturnable"
@@ -5017,9 +5112,12 @@ useEffect(() => {
       onChange={handleChange}
       className="w-4 h-4 rounded bg-slate-800/50 border-slate-700 text-red-500 focus:ring-red-500 focus:ring-offset-slate-900"
     />
-    <span className="text-sm text-slate-300">Not Returnable</span>
-  </label>
 
+    <span className="text-sm text-slate-300">
+      Not Returnable
+    </span>
+
+  </label>
 
 </div>
 

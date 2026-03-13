@@ -156,6 +156,10 @@ const handleDeleteImage = async (brandId: string, imageUrl: string) => {
       toast.error("❌ Brand name is required");
       return;
     }
+    if (!logoFile) {
+      toast.error("❌ Brand logo is required");
+      return;
+    }
 
     if (brandName.length < 2 || brandName.length > 80) {
       toast.error(`❌ Brand name must be between 2 and 80 characters. Current: ${brandName.length}`);
@@ -652,7 +656,7 @@ const handleDeleteImage = async (brandId: string, imageUrl: string) => {
                   <div className="space-y-4 animate-fadeIn">
                     <div>
                       <label className="block text-sm text-slate-300 font-semibold mb-3">
-                        Brand Logo
+                        Brand Logo<span className="text-red-400">*</span>
                       </label>
                       
                       {/* Current Logo Preview - Centered */}
@@ -660,6 +664,7 @@ const handleDeleteImage = async (brandId: string, imageUrl: string) => {
                         <div className="mb-4 flex justify-center">
                           <div className="relative inline-block">
                             <img
+                            
                               src={logoPreview || getImageUrl(formData.logoUrl)}
                               alt="Logo preview"
                               className="w-44 h-44 rounded-lg border-2 border-slate-700 object-contain bg-slate-800/50 cursor-pointer hover:border-violet-500/50 transition-all"
@@ -675,6 +680,7 @@ const handleDeleteImage = async (brandId: string, imageUrl: string) => {
                                     brandName: formData.name,
                                   })
                                 }
+                                   
                                 className="absolute -top-2 -right-2 w-8 h-8 bg-red-500 hover:bg-red-600 text-white rounded-full shadow-lg transition-all flex items-center justify-center"
                                 title="Delete Logo"
                               >
@@ -697,6 +703,7 @@ const handleDeleteImage = async (brandId: string, imageUrl: string) => {
                           className="hidden"
                           id="logo-upload"
                           disabled={isSubmitting}
+                          required
                         />
                         <label
                           htmlFor="logo-upload"

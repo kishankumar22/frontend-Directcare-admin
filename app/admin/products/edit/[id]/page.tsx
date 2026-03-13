@@ -38,7 +38,11 @@ interface AdminCommentHistory {
   changedAt: string;
 }
 
-
+type CleanCartData = {
+  orderMinimumQuantity: number | null;
+  orderMaximumQuantity: number | null;
+  allowedQuantities: string | null;
+};
 
 export default function EditProductPage({ params }: { params: Promise<{ id: string }> }) {
   const router = useRouter();
@@ -53,7 +57,7 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
 const [homepageCount, setHomepageCount] = useState<number | null>(null);
 const MAX_HOMEPAGE = 50;
 const [showTaxPreview, setShowTaxPreview] = useState(false);
-
+const [quantityMode, setQuantityMode] = useState<'range' | 'fixed' | 'unlimited'>('range');
 // Unsaved Changes Modal
 const [showUnsavedModal, setShowUnsavedModal] = useState(false);
 const [pendingNavigation, setPendingNavigation] = useState<string | null>(null);
@@ -532,7 +536,7 @@ const [formData, setFormData] = useState({
   // Cart Limits
   orderMinimumQuantity: '1',      // ✅ Changed from minCartQuantity
   orderMaximumQuantity: '10',     // ✅ Changed from maxCartQuantity
-  allowedQuantities: '',
+  allowedQuantities:  '',
   allowAddingOnlyExistingAttributeCombinations: false,
   notReturnable: false,
 
@@ -699,6 +703,16 @@ const [takeoverRequestMessage, setTakeoverRequestMessage] = useState('');
 const [takeoverExpiryMinutes, setTakeoverExpiryMinutes] = useState(10);
 const [isSubmittingTakeover, setIsSubmittingTakeover] = useState(false);
 const [lockedByEmail, setLockedByEmail] = useState('');
+
+useEffect(() => {
+  if (formData.allowedQuantities) {
+    setQuantityMode('fixed');
+  } else if (formData.orderMinimumQuantity || formData.orderMaximumQuantity) {
+    setQuantityMode('range');
+  } else {
+    setQuantityMode('unlimited');
+  }
+}, [formData]);
 
 useEffect(() => {
   const fetchAllData = async () => {
@@ -1057,9 +1071,9 @@ categoryIds: (() => {
         
         // ===== CART LIMITS =====
       // ===== CART LIMITS ===== (Around line where you set formData)
-orderMinimumQuantity: productData.orderMinimumQuantity?.toString() || '1',  // ✅ Fixed
-orderMaximumQuantity: productData.orderMaximumQuantity?.toString() || '10', // ✅ Fixed
-allowedQuantities: productData.allowedQuantities || '',
+orderMinimumQuantity: productData.orderMinimumQuantity?.toString() ?? '',
+orderMaximumQuantity: productData.orderMaximumQuantity?.toString() ?? '',
+allowedQuantities: productData.allowedQuantities ?? '',
 notReturnable: productData.notReturnable ?? false,
 
         allowAddingOnlyExistingAttributeCombinations: false,
@@ -2771,28 +2785,23 @@ if (length > 2000) {
     // ═══════════════════════════════════════════════════════════════════════
 
     const parsedPrice = parseNumber(formData.price, 'price');
-    if (parsedPrice === null) {
-      toast.error('⚠️ Please enter a valid price');
-      target.removeAttribute('data-submitting');
-      setIsSubmitting(false);
-      setSubmitProgress(null);
-      return;
-    }
-
-    if (parsedPrice < 0) {
-      toast.error('❌ Price cannot be negative');
-      target.removeAttribute('data-submitting');
-      setIsSubmitting(false);
-      setSubmitProgress(null);
-      return;
-    }
-if (!formData.minStockQuantity) {
-  toast.error('❌ Stock quantity is required');
+ if (parsedPrice === null) {
+  toast.error('⚠️ Please enter a valid price');
   target.removeAttribute('data-submitting');
   setIsSubmitting(false);
   setSubmitProgress(null);
   return;
 }
+
+// 🚨 PRICE MUST BE GREATER THAN 0
+if (parsedPrice <= 0) {
+  toast.error('❌ Price must be greater than 0');
+  target.removeAttribute('data-submitting');
+  setIsSubmitting(false);
+  setSubmitProgress(null);
+  return;
+}
+
 
     if (parsedPrice > 10000000) {
       toast.error('⚠️ Price seems unusually high. Please verify.');
@@ -3011,24 +3020,63 @@ if (!formData.minStockQuantity) {
     // SECTION 11: CART QUANTITY VALIDATIONS
     // ═══════════════════════════════════════════════════════════════════════
 
-    const minCartQty = parseInt(formData.orderMinimumQuantity) || 1;
-    const maxCartQty = parseInt(formData.orderMaximumQuantity) || 10;
 
-    if (minCartQty < 1) {
-      toast.error('❌ Minimum cart quantity must be at least 1');
-      target.removeAttribute('data-submitting');
-      setIsSubmitting(false);
-      setSubmitProgress(null);
-      return;
-    }
+// ======================================
+// CART QUANTITY VALIDATIONS (UPDATED)
+// ======================================
 
-    if (maxCartQty < minCartQty) {
-      toast.error('❌ Maximum cart quantity cannot be less than minimum');
-      target.removeAttribute('data-submitting');
-      setIsSubmitting(false);
-      setSubmitProgress(null);
-      return;
-    }
+// ======================================
+// CART QUANTITY VALIDATIONS
+// ======================================
+
+const hasFixedQuantities = !!formData.allowedQuantities?.trim();
+const hasRange =
+  !hasFixedQuantities &&
+  (formData.orderMinimumQuantity || formData.orderMaximumQuantity);
+
+if (hasRange) {
+  const minCartQty = parseInt(formData.orderMinimumQuantity) || 1;
+  const maxCartQty = parseInt(formData.orderMaximumQuantity) || 10;
+
+  if (minCartQty < 1) {
+  toast.error('❌ Minimum cart quantity must be at least 1');
+target.removeAttribute('data-submitting');
+setIsSubmitting(false);
+setSubmitProgress(null);
+return;
+  }
+
+  if (maxCartQty < minCartQty) {
+    toast.error('❌ Maximum cart quantity cannot be less than minimum');
+    target.removeAttribute('data-submitting');
+setIsSubmitting(false);
+setSubmitProgress(null);
+    return;
+  }
+}
+
+if (hasFixedQuantities) {
+  const quantities = formData.allowedQuantities
+    .split(',')
+    .map(q => parseInt(q.trim()))
+    .filter(q => !isNaN(q));
+
+  if (quantities.length === 0) {
+    toast.error('❌ Please enter valid allowed quantities');
+    target.removeAttribute('data-submitting');
+setIsSubmitting(false);
+setSubmitProgress(null);
+    return;
+  }
+
+  if (quantities.some(q => q <= 0)) {
+    toast.error('❌ Quantities must be greater than 0');
+    target.removeAttribute('data-submitting');
+setIsSubmitting(false);
+setSubmitProgress(null);
+    return;
+  }
+}
 
     // ✅ PROGRESS: 45% - Dimensions Validation
     setSubmitProgress({
@@ -3620,11 +3668,38 @@ const variantsArray = productVariants?.map(variant => {
       setSubmitProgress(null);
       return;
     }
-const cleanedCartData = {
-  orderMinimumQuantity: formData.allowedQuantities ? null : (parseInt(formData.orderMinimumQuantity) || 1),
-  orderMaximumQuantity: formData.allowedQuantities ? null : (parseInt(formData.orderMaximumQuantity) || 10),
-  allowedQuantities: formData.allowedQuantities || null
+// ======================================
+// CLEAN CART DATA (UPDATED)
+// ======================================
+
+
+// ======================================
+// CLEAN CART DATA (UPDATED - TYPESAFE)
+// ======================================
+
+let cleanedCartData: CleanCartData = {
+  orderMinimumQuantity: null,
+  orderMaximumQuantity: null,
+  allowedQuantities: null
 };
+
+if (formData.allowedQuantities?.trim()) {
+  // Fixed quantities mode
+  cleanedCartData.allowedQuantities = formData.allowedQuantities.trim();
+} 
+else if (
+  formData.orderMinimumQuantity?.trim() ||
+  formData.orderMaximumQuantity?.trim()
+) {
+  // Range mode
+  cleanedCartData.orderMinimumQuantity =
+    parseInt(formData.orderMinimumQuantity) || 1;
+
+  cleanedCartData.orderMaximumQuantity =
+    parseInt(formData.orderMaximumQuantity) || 10;
+}
+// unlimited mode → sab null
+// else unlimited → sab null
     // ✅ PROGRESS: 80% - Preparing Data
     setSubmitProgress({
       step: 'Preparing product data...',
@@ -3876,6 +3951,14 @@ try {
   toast.warning('⚠️ Some images may not have been updated');
   // Don't throw - continue with product update
 }
+
+if (!isDraft && formData.productImages.length < 5) {
+  toast.error('❌ Minimum 3 product images are required');
+  target.removeAttribute('data-submitting');
+  setIsSubmitting(false);
+  setSubmitProgress(null);
+  return;
+}
     // ✅ PROGRESS: 90% - Updating Product
     setSubmitProgress({
       step: isDraft ? 'Saving draft...' : 'Updating product...',
@@ -3954,34 +4037,46 @@ const handleChange = (
   // ================================
   // ✅ SECTION 1: PRICE FIELDS
   // ================================
-  if (name === 'price' || name === 'oldPrice' || name === 'cost') {
-    let cleanedValue = value.replace(/[^\d.]/g, '');
-    
-    const parts = cleanedValue.split('.');
-    if (parts.length > 2) {
-      cleanedValue = parts[0] + '.' + parts.slice(1).join('');
-    }
-    
-    if (cleanedValue.startsWith('.')) {
-      cleanedValue = '0' + cleanedValue;
-    }
-    
-    if (parts.length === 2 && parts[1].length > 2) {
-      cleanedValue = parts[0] + '.' + parts[1].substring(0, 2);
-    }
-    
-    const numValue = parseFloat(cleanedValue);
-    if (!isNaN(numValue) && numValue > 10000000) {
-      toast.warning('⚠️ Price seems too high. Please verify.');
-      return;
-    }
-    
+if (name === 'price' || name === 'oldPrice' || name === 'cost') {
+
+  // allow empty input
+  if (value === "") {
     setFormData(prev => ({
       ...prev,
-      [name]: cleanedValue
+      [name]: ""
     }));
     return;
   }
+
+  let cleanedValue = value.replace(/[^\d.]/g, '');
+
+  const parts = cleanedValue.split('.');
+  if (parts.length > 2) {
+    cleanedValue = parts[0] + '.' + parts.slice(1).join('');
+  }
+
+  if (cleanedValue.startsWith('.')) {
+    cleanedValue = '0' + cleanedValue;
+  }
+
+  if (parts.length === 2 && parts[1].length > 2) {
+    cleanedValue = parts[0] + '.' + parts[1].substring(0, 2);
+  }
+
+  const numValue = parseFloat(cleanedValue);
+
+  if (!isNaN(numValue) && numValue > 10000000) {
+    toast.warning('⚠️ Price seems too high. Please verify.');
+    return;
+  }
+
+  setFormData(prev => ({
+    ...prev,
+    [name]: cleanedValue
+  }));
+
+  return;
+}
 
   // ================================
   // ✅ SECTION 2: INTEGER FIELDS
@@ -5456,7 +5551,6 @@ const uploadImagesToProductDirect = async (
       }}
       placeholder="Enter product short description..."
       height={250}
-      minLength={10}           // ✅ Minimum 10 characters
       maxLength={350}          // ✅ Maximum 350 characters
       showCharCount={true}     // ✅ Show built-in character counter
       showHelpText="Brief description visible in product listings (10-350 characters)"
@@ -5477,7 +5571,6 @@ const uploadImagesToProductDirect = async (
       placeholder="Enter detailed product description..."
       height={400}
       required={true}          // ✅ Shows red asterisk
-      minLength={50}           // ✅ Minimum 50 characters
       maxLength={2000}         // ✅ Maximum 2000 characters
       showCharCount={true}     // ✅ Show built-in character counter
       showHelpText="Detailed product information with formatting (50-2000 characters)"
@@ -6310,7 +6403,7 @@ const uploadImagesToProductDirect = async (
         <input
           type="number"
           name="price"
-          value={formData.price}
+       value={formData.price || ""}
           onChange={handleChange}
           placeholder="0.00"
           step="0.01"
@@ -7265,24 +7358,28 @@ const uploadImagesToProductDirect = async (
 
 {/* Cart Settings */}
 <div className="space-y-4">
+
   <h3 className="text-lg font-semibold text-white border-b border-slate-800 pb-2">
     Cart Settings
   </h3>
 
-  {/* SIMPLE INLINE RADIO SELECTOR */}
   <div>
     <label className="block text-sm font-medium text-slate-300 mb-2">
       Quantity Control
     </label>
-    
-    <div className="flex gap-4 mb-3">
-      {/* Range Mode Radio */}
+
+    <div className="flex gap-4 mb-3 flex-wrap">
+
+      {/* RANGE */}
       <label className="flex items-center gap-2 cursor-pointer">
+
         <input
           type="radio"
           name="quantityMode"
-          checked={!(!formData.orderMinimumQuantity && !formData.orderMaximumQuantity)}
+          checked={quantityMode === 'range'}
           onChange={() => {
+            setQuantityMode('range');
+
             setFormData(prev => ({
               ...prev,
               allowedQuantities: '',
@@ -7290,38 +7387,80 @@ const uploadImagesToProductDirect = async (
               orderMaximumQuantity: prev.orderMaximumQuantity || '10'
             }));
           }}
-          className="w-4 h-4 text-violet-500 focus:ring-violet-500 focus:ring-offset-slate-900"
+          className="w-4 h-4 text-violet-500 focus:ring-violet-500"
         />
-        <span className="text-sm text-slate-300">Min - Max Range</span>
+
+        <span className="text-sm text-slate-300">
+          Quantity Range
+        </span>
+
       </label>
 
-      {/* Fixed Quantities Radio */}
+
+      {/* FIXED */}
       <label className="flex items-center gap-2 cursor-pointer">
+
         <input
           type="radio"
           name="quantityMode"
-          checked={!formData.orderMinimumQuantity && !formData.orderMaximumQuantity}
+          checked={quantityMode === 'fixed'}
           onChange={() => {
+            setQuantityMode('fixed');
+
             setFormData(prev => ({
               ...prev,
               orderMinimumQuantity: '',
               orderMaximumQuantity: '',
-              allowedQuantities: prev.allowedQuantities || ''
+              allowedQuantities: prev.allowedQuantities || '1,3'
             }));
           }}
-          className="w-4 h-4 text-emerald-500 focus:ring-emerald-500 focus:ring-offset-slate-900"
+          className="w-4 h-4 text-emerald-500 focus:ring-emerald-500"
         />
-        <span className="text-sm text-slate-300">Fixed Quantities</span>
+
+        <span className="text-sm text-slate-300">
+          Fixed Quantities
+        </span>
+
       </label>
+
+
+      {/* UNLIMITED */}
+      <label className="flex items-center gap-2 cursor-pointer">
+
+        <input
+          type="radio"
+          name="quantityMode"
+          checked={quantityMode === 'unlimited'}
+          onChange={() => {
+            setQuantityMode('unlimited');
+
+            setFormData(prev => ({
+              ...prev,
+              orderMinimumQuantity: '',
+              orderMaximumQuantity: '',
+              allowedQuantities: ''
+            }));
+          }}
+          className="w-4 h-4 text-orange-500 focus:ring-orange-500"
+        />
+
+      <span className="text-sm text-slate-300">
+  No Quantity Restrictions
+</span>
+      </label>
+
     </div>
 
-    {/* MIN-MAX RANGE FIELDS */}
-    {!(!formData.orderMinimumQuantity && !formData.orderMaximumQuantity) && (
+
+    {/* RANGE FIELDS */}
+    {quantityMode === 'range' && (
       <div className="grid grid-cols-2 gap-4 p-4 bg-slate-800/50 border border-slate-700 rounded-xl">
+
         <div>
           <label className="block text-sm font-medium text-slate-300 mb-2">
             Minimum Cart Quantity
           </label>
+
           <input
             type="number"
             name="orderMinimumQuantity"
@@ -7329,13 +7468,16 @@ const uploadImagesToProductDirect = async (
             onChange={handleChange}
             min="1"
             placeholder="1"
-            className="w-full px-3 py-2.5 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+            className="w-full px-3 py-2.5 bg-slate-800 border border-slate-700 rounded-xl text-white"
           />
         </div>
+
+
         <div>
           <label className="block text-sm font-medium text-slate-300 mb-2">
             Maximum Cart Quantity
           </label>
+
           <input
             type="number"
             name="orderMaximumQuantity"
@@ -7343,56 +7485,78 @@ const uploadImagesToProductDirect = async (
             onChange={handleChange}
             min={formData.orderMinimumQuantity || '1'}
             placeholder="100"
-            className="w-full px-3 py-2.5 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+            className="w-full px-3 py-2.5 bg-slate-800 border border-slate-700 rounded-xl text-white"
           />
         </div>
+
       </div>
     )}
 
-    {/* FIXED QUANTITIES FIELD */}
-    {!formData.orderMinimumQuantity && !formData.orderMaximumQuantity && (
-      <div className="p-4 bg-slate-800/50 border border-slate-700 rounded-xl">
-        <label className="block text-sm font-medium text-slate-300 mb-2">
-          Allowed Cart Quantities
-        </label>
-        <input
-          type="text"
-          name="allowedQuantities"
-          value={formData.allowedQuantities}
-          onChange={handleChange}
-          placeholder="1, 5, 10, 20, 50"
-          className="w-full px-3 py-2.5 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all"
-        />
-        <p className="text-xs text-slate-400 mt-2">Enter comma-separated values</p>
-        
-        {formData.allowedQuantities && (
-          <div className="mt-3 flex flex-wrap gap-1.5">
-            {formData.allowedQuantities.split(',').map((qty, i) => {
-              const val = qty.trim();
-              return val ? (
-                <span key={i} className="px-2 py-1 bg-emerald-500/20 text-emerald-300 text-xs rounded border border-emerald-500/30">
-                  {val}
-                </span>
-              ) : null;
-            })}
-          </div>
-        )}
+
+    {/* FIXED QUANTITIES */}
+{quantityMode === 'fixed' && (
+  <div className="p-4 bg-slate-800/50 border border-slate-700 rounded-xl">
+
+    <label className="block text-sm font-medium text-slate-300 mb-2">
+      Allowed Cart Quantities
+    </label>
+
+    <input
+      type="text"
+      name="allowedQuantities"
+      value={formData.allowedQuantities}
+      onChange={handleChange}
+      placeholder="1, 5, 10, 20, 50"
+      className="w-full px-3 py-2.5 bg-slate-800 border border-slate-700 rounded-xl text-white"
+    />
+
+    <p className="text-xs text-slate-400 mt-2">
+      Enter comma-separated values
+    </p>
+
+    {formData.allowedQuantities && (
+      <div className="mt-3 flex flex-wrap gap-1.5">
+
+        {formData.allowedQuantities.split(',').map((qty, i) => {
+
+          const val = qty.trim();
+
+          return val ? (
+            <span
+              key={i}
+              className="px-2 py-1 bg-emerald-500/20 text-emerald-300 text-xs rounded border border-emerald-500/30"
+            >
+              {val}
+            </span>
+          ) : null;
+
+        })}
+
       </div>
     )}
+
   </div>
+)}
+
+  </div>
+
 
   {/* NOT RETURNABLE */}
   <label className="flex items-center gap-2 cursor-pointer">
+
     <input
       type="checkbox"
       name="notReturnable"
       checked={formData.notReturnable}
       onChange={handleChange}
-      className="w-4 h-4 rounded bg-slate-800/50 border-slate-700 text-red-500 focus:ring-red-500 focus:ring-offset-slate-900"
+      className="w-4 h-4 rounded bg-slate-800 border-slate-700 text-red-500"
     />
-    <span className="text-sm text-slate-300">Not Returnable</span>
-  </label>
 
+    <span className="text-sm text-slate-300">
+      Not Returnable
+    </span>
+
+  </label>
 
 </div>
 

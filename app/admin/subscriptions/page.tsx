@@ -32,6 +32,7 @@ import {
 import { useToast } from "@/app/admin/_components/CustomToast";
 import ConfirmDialog from "@/app/admin/_components/ConfirmDialog";
 import { subscriptionsService, Subscription } from "@/lib/services/subscriptions";
+import { API_BASE_URL } from "@/lib/api";
 
 // ✅ Product interface
 interface Product {
@@ -106,7 +107,15 @@ export default function SubscriptionsPage() {
     const product = products.find(p => p.id === productFilter);
     return product?.name || "Unknown Product";
   };
+const getImageUrl = (url?: string) => {
+  if (!url) return "";
 
+  // already full URL
+  if (url.startsWith("http")) return url;
+
+  // add API base url
+  return `${API_BASE_URL}${url}`;
+};
   // Fetch Subscriptions
   const fetchSubscriptions = async () => {
     setLoadingSubscriptions(true);
@@ -777,7 +786,8 @@ const getFrequencyBadge = (frequency: string) => {
                           <div className="w-12 h-12 rounded-lg bg-slate-700 flex items-center justify-center flex-shrink-0 overflow-hidden">
                             {subscription.productImageUrl ? (
                               <img
-                                src={subscription.productImageUrl}
+                       
+                                src={getImageUrl(subscription.productImageUrl)}
                                 alt={subscription.productName}
                                 className="w-full h-full object-cover"
                               />

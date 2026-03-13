@@ -200,7 +200,7 @@ export const productReviewsService = {
     ),
 
   // Get all products
-  getAllProducts: (page: number = 1, pageSize: number = 1000, config: any = {}) =>
+  getAllProducts: (page: number = 1, pageSize: number = 10, config: any = {}) =>
     apiClient.get<ApiResponse<PaginatedProductsResponse>>(
       `/api/Products?page=${page}&pageSize=${pageSize}&sortDirection=asc`,
       config

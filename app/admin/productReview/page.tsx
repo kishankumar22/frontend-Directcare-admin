@@ -26,6 +26,7 @@ import {
   Package,
   ChevronDown,
   Download,
+  RefreshCw,
 } from "lucide-react";
 import ExcelImportModal from "./ExcelImportModal";
 import { Upload } from "lucide-react";
@@ -769,7 +770,7 @@ const handleExportReviews = (type: string) => {
               {loadingReviews ? (
                 <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
               ) : (
-                <Star className="h-4 w-4" />
+                <RefreshCw className="h-4 w-4" />
               )}
               Refresh
             </button>

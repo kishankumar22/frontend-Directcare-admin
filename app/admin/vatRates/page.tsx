@@ -42,7 +42,7 @@ export default function VATRatesPage() {
   const [countries, setCountries] = useState<Country[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
-  const [statusFilter, setStatusFilter] = useState("All Status");
+const [statusFilter, setStatusFilter] = useState("enabled");
   const [countryFilter, setCountryFilter] = useState("All Countries");
   const [viewingRate, setViewingRate] = useState<VATRate | null>(null);
   const [editingRate, setEditingRate] = useState<VATRate | null>(null);
@@ -166,24 +166,16 @@ const fetchVATRates = async () => {
 
     const params: any = {};
 
-    // ✅ DEFAULT always send activeOnly=false
-    params.activeOnly = false;
-
-    // ✅ Status Filter Handling
-    if (statusFilter === "Active") {
+    // STATUS
+    if (statusFilter === "enabled") {
       params.activeOnly = true;
     } 
-    else if (statusFilter === "Inactive") {
+    else if (statusFilter === "disabled") {
       params.activeOnly = false;
     }
-    // If "All Status" → keep default activeOnly=false
 
-    // ✅ Deleted Filter Handling
-    if (deletedFilter === "deleted") {
-      params.isDeleted = true;
-    } else {
-      params.isDeleted = false;
-    }
+    // DELETED
+    params.isDeleted = deletedFilter === "deleted";
 
     console.log("🔥 VAT API PARAMS:", params);
 
@@ -202,8 +194,6 @@ const fetchVATRates = async () => {
     setLoading(false);
   }
 };
-
-
 
 
 
@@ -240,9 +230,9 @@ const filteredRates = useMemo(() => {
       rate.country === countryFilter;
 
     const matchesStatus =
-      statusFilter === "All Status" ||
-      (statusFilter === "Active" && rate.isActive === true) ||
-      (statusFilter === "Inactive" && rate.isActive === false);
+  statusFilter === "all" ||
+  (statusFilter === "enabled" && rate.isActive === true) ||
+  (statusFilter === "disabled" && rate.isActive === false);
 
     return matchesSearch && matchesCountry && matchesStatus;
   });
@@ -782,50 +772,68 @@ const clearFilters = () => {
     </div>
 
     {/* Status Filter */}
-    <select
-      value={statusFilter}
-      onChange={(e) => {
-        setStatusFilter(e.target.value);
-        setCurrentPage(1);
-      }}
-      className="px-3 py-2 bg-slate-800 border border-slate-700 rounded-md text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
-    >
-      <option>All Status</option>
-      <option>Active</option>
-      <option>Inactive</option>
-    </select>
+{/* Status Filter */}
+<select
+  value={statusFilter}
+  onChange={(e) => {
+    setStatusFilter(e.target.value);
+    setCurrentPage(1);
+  }}
+  className={`px-3 py-2 bg-slate-800 border rounded-md text-white text-sm focus:outline-none transition-all
+  ${
+    statusFilter !== "all"
+      ? "border-violet-500 ring-1 ring-violet-500 shadow-violet-500/30"
+      : "border-slate-700 focus:ring-2 focus:ring-violet-500"
+  }`}
+>
+  <option value="all">All Status</option>
+  <option value="enabled">Enabled</option>
+  <option value="disabled">Disabled</option>
+</select>
 
-    {/* Deleted Filter */}
-    <select
-      value={deletedFilter}
-      onChange={(e) => {
-        setDeletedFilter(e.target.value as any);
-        setCurrentPage(1);
-      }}
-      className="px-3 py-2 bg-slate-800 border border-slate-700 rounded-md text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
-    >
-      <option value="notDeleted">Active VAT Rates</option>
-      <option value="deleted">Deleted VAT Rates</option>
-    </select>
 
-    {/* Country Filter */}
-    <select
-      value={countryFilter}
-      onChange={(e) => {
-        setCountryFilter(e.target.value);
-        setCurrentPage(1);
-      }}
-      className="px-3 py-2 bg-slate-800 border border-slate-700 rounded-md text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
-    >
-      <option>All Countries</option>
-      {Array.from(new Set(vatRates.map(r => r.country)))
-        .sort()
-        .map(country => (
-          <option key={country} value={country}>
-            {country}
-          </option>
-        ))}
-    </select>
+{/* Deleted Filter */}
+<select
+  value={deletedFilter}
+  onChange={(e) => {
+    setDeletedFilter(e.target.value as any);
+    setCurrentPage(1);
+  }}
+  className={`px-3 py-2 bg-slate-800 border rounded-md text-white text-sm focus:outline-none transition-all
+  ${
+    deletedFilter !== "notDeleted"
+      ? "border-red-500 ring-1 ring-red-500 shadow-red-500/30"
+      : "border-slate-700 focus:ring-2 focus:ring-violet-500"
+  }`}
+>
+  <option value="notDeleted">Available VAT Rates</option>
+  <option value="deleted">Deleted VAT Rates</option>
+</select>
+
+
+{/* Country Filter */}
+<select
+  value={countryFilter}
+  onChange={(e) => {
+    setCountryFilter(e.target.value);
+    setCurrentPage(1);
+  }}
+  className={`px-3 py-2 bg-slate-800 border rounded-md text-white text-sm focus:outline-none transition-all
+  ${
+    countryFilter !== "All Countries"
+      ? "border-cyan-500 ring-1 ring-cyan-500 shadow-cyan-500/30"
+      : "border-slate-700 focus:ring-2 focus:ring-violet-500"
+  }`}
+>
+  <option>All Countries</option>
+  {Array.from(new Set(vatRates.map(r => r.country)))
+    .sort()
+    .map(country => (
+      <option key={country} value={country}>
+        {country}
+      </option>
+    ))}
+</select>
 
     {/* Clear Filter Button */}
     {hasActiveFilters && (

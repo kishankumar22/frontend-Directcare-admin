@@ -719,7 +719,7 @@ const hasActiveFilters =
                       onClick={() => handleSort("createdAt")}
                       className="flex items-center gap-1.5 hover:text-white transition-colors"
                     >
-                      Created
+                      Created On
                       {getSortIcon("createdAt")}
                     </button>
                   </th>
