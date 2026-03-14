@@ -75,29 +75,32 @@ export default function WishlistPage() {
           >
             {/* Image */}
             <Link href={`/products/${item.slug}${item.variantId ? `?variant=${item.variantId}` : ''}`} className="block mb-2">
-              <div className="relative h-[110px] w-full bg-gray-50 rounded-lg overflow-hidden">
+              <div className="relative h-[130px] w-full rounded-lg overflow-hidden">
                 <Image
                   src={item.image}
                   alt={item.name}
                   fill
-                  className="object-contain p-2"
+                  className="object-contain"
                   onError={(e) => { (e.target as HTMLImageElement).src = "/placeholder.jpg"; }}
                 />
               </div>
             </Link>
 
             {/* Name */}
-            <Link href={`/products/${item.slug}${item.variantId ? `?variant=${item.variantId}` : ''}`}>
-              <p className="text-xs font-semibold text-gray-800 line-clamp-2 mb-1 hover:text-[#445D41]">
-                {item.variantId ? item.name.split(' - ')[0] : item.name}
-              </p>
-            </Link>
-            {item.variantName && (
-              <span className="inline-block text-[10px] font-medium bg-gray-100 text-gray-600 border border-gray-200 px-2 py-0.5 rounded-full mb-1.5">
-                {item.variantName}
-              </span>
-            )}
+           <Link href={`/products/${item.slug}${item.variantId ? `?variant=${item.variantId}` : ''}`}>
+  <div className="mb-1">
+    <p className="text-xs font-semibold text-gray-800 line-clamp-2 hover:text-[#445D41]">
+      {item.variantId ? item.name.split(" - ")[0] : item.name}
+    </p>
 
+    {item.variantName && (
+      <span className="inline-block text-[12px] text-gray-500">
+        {item.variantName}
+      </span>
+    )}
+  </div>
+</Link>
+         
             {/* Price + VAT */}
             <div className="flex items-baseline gap-1 flex-wrap mb-3 mt-auto">
               <span className="text-sm font-bold text-[#445D41]">

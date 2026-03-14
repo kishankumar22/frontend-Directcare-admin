@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import ProductCard from "@/components/ProductCard";
 import { useVatRates } from "@/app/hooks/useVatRates";
 import PremiumPriceSlider from "@/components/filters/PremiumPriceSlider";
-import { SlidersHorizontal, Star } from "lucide-react";
+import { SlidersHorizontal, Star, X } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { flattenProductsForListing } from "@/app/lib/flattenProductsForListing";
@@ -34,7 +34,9 @@ export default function BrandsClient({
   const [minPrice, setMinPrice] = useState(0);
   const [maxPrice, setMaxPrice] = useState(0);
   const [minRating, setMinRating] = useState(0);
-
+const [showFilters, setShowFilters] = useState(false);
+const activeFilterCount =
+  selectedCategories.length + (minRating > 0 ? 1 : 0);
   const [sortBy, setSortBy] = useState<"name" | "price">("name");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
 
@@ -59,15 +61,30 @@ export default function BrandsClient({
     return Array.from(map.values());
   }, [products]);
 
-  useEffect(() => {
-    if (!products.length) return;
-    const prices = products.map((p) => p.price ?? 0);
-    const min = Math.floor(Math.min(...prices));
-    const max = Math.ceil(Math.max(...prices));
-    setMinPrice(min);
-    setMaxPrice(max);
-    setPriceRange([min, max]);
-  }, [products]);
+useEffect(() => {
+  if (!products || products.length === 0) return;
+
+  const flat = flattenProductsForListing(products);
+
+  const prices = flat.map((item: any) => {
+    const variantPrice =
+      typeof item.variantForCard?.price === "number" &&
+      item.variantForCard.price > 0
+        ? item.variantForCard.price
+        : item.productData.price ?? 0;
+
+    return variantPrice;
+  });
+
+  if (prices.length === 0) return;
+
+  const min = Math.floor(Math.min(...prices));
+  const max = Math.ceil(Math.max(...prices));
+
+  setMinPrice(min);
+  setMaxPrice(max);
+  setPriceRange([min, max]);
+}, [products]);
 
   const filteredProducts = useMemo(() => {
     const result = products.filter((product) => {
@@ -85,26 +102,63 @@ export default function BrandsClient({
       return true;
     });
 
-    return [...result].sort((a, b) => {
-      if (sortBy === "name") {
-        const cmp = a.name.localeCompare(b.name);
-        return sortDirection === "asc" ? cmp : -cmp;
-      }
-
-      const cmp = a.price - b.price;
-      return sortDirection === "asc" ? cmp : -cmp;
-    });
+  return result;
   }, [
     products,
     selectedCategories,
     priceRange,
     minRating,
-    sortBy,
-    sortDirection,
+   
   ]);
 const flattenedProducts = useMemo(() => {
-  return flattenProductsForListing(filteredProducts);
-}, [filteredProducts]);
+
+  const flat = flattenProductsForListing(filteredProducts);
+
+  const seen = new Set<string>();
+
+  const unique = flat.filter((item: any) => {
+    const key = `${item.productData.id}-${item.variantForCard?.id ?? "parent"}`;
+
+    if (seen.has(key)) return false;
+
+    seen.add(key);
+    return true;
+  });
+
+  const getCardPrice = (item: any) => {
+    const basePrice =
+      typeof item.variantForCard?.price === "number"
+        ? item.variantForCard.price
+        : item.productData.price;
+
+    return basePrice;
+  };
+
+  const sorted = [...unique].sort((a, b) => {
+
+    if (sortBy === "name") {
+
+      const nameA = (a.cardSlug ?? a.productData.name).toLowerCase();
+      const nameB = (b.cardSlug ?? b.productData.name).toLowerCase();
+
+      const comparison = nameA.localeCompare(nameB);
+
+      return sortDirection === "asc" ? comparison : -comparison;
+    }
+
+    if (sortBy === "price") {
+
+      const comparison = getCardPrice(a) - getCardPrice(b);
+
+      return sortDirection === "asc" ? comparison : -comparison;
+    }
+
+    return 0;
+  });
+
+  return sorted;
+
+}, [filteredProducts, sortBy, sortDirection]);
 
   const loadMore = async () => {
     if (loading || !hasMore) return;
@@ -133,25 +187,125 @@ const flattenedProducts = useMemo(() => {
   return (
     <div className="min-h-screen bg-gray-50">
         <main className="max-w-7xl mx-auto px-4 py-4">
+        {/* Mobile Filter Drawer */}
+{showFilters && (
+  <div className="lg:hidden fixed inset-0 z-50 flex">
+
+    <div className="relative bg-white w-[78vw] max-w-xs h-full flex flex-col shadow-2xl overflow-hidden">
+
+      <div className="flex items-center justify-between p-4 border-b">
+        <h2 className="font-bold">Filters</h2>
+
+        <div className="flex items-center gap-3">
+
+    <button
+      className="text-xs text-[#445D41] font-semibold underline"
+      onClick={resetFilters}
+    >
+      Reset All
+    </button>
+
+    <button
+      onClick={() => setShowFilters(false)}
+      className="p-1 rounded-full hover:bg-gray-100"
+    >
+      <X className="h-5 w-5 text-gray-500" />
+    </button>
+
+  </div>
+      </div>
+
+    <div className="overflow-y-auto flex-1 px-5 py-4 space-y-6">
+
+        {categories.length > 0 && (
+          <div className="mb-6">
+            <h3 className="font-bold text-sm mb-3">Category</h3>
+
+            {categories.map((cat) => (
+              <label key={cat.id} className="flex items-center gap-2 p-2">
+                <input
+                  type="checkbox"
+                  checked={selectedCategories.includes(cat.id)}
+                  onChange={(e) =>
+                    setSelectedCategories(
+                      e.target.checked
+                        ? [...selectedCategories, cat.id]
+                        : selectedCategories.filter((c) => c !== cat.id)
+                    )
+                  }
+                />
+                <span className="text-sm">{cat.name}</span>
+              </label>
+            ))}
+          </div>
+        )}
+
+        {minPrice < maxPrice && (
+          <div className="mb-6">
+            <h3 className="font-bold text-sm mb-3">Price Range</h3>
+
+            <PremiumPriceSlider
+              value={priceRange}
+              min={minPrice}
+              max={maxPrice}
+              onChange={setPriceRange}
+            />
+          </div>
+        )}
+
+      </div>
+{/* Show Results Button */}
+<div className="border-t px-5 py-4">
+  <Button
+    className="w-full bg-[#445D41] hover:bg-[#334a2c] text-white font-semibold py-3"
+    onClick={() => setShowFilters(false)}
+  >
+    Show Results ({flattenedProducts.length})
+  </Button>
+</div>
+    </div>
+
+    <div
+      className="flex-1 bg-black/50"
+      onClick={() => setShowFilters(false)}
+    />
+
+  </div>
+)}
         {/* TOP BAR – Breadcrumb + Sort (Offers page style) */}
-<div className="mb-3 flex items-center justify-between">
-  {/* 🧭 Breadcrumb */}
-<nav className="hidden md:flex items-center flex-wrap gap-1 text-sm text-gray-600">
-  <a href="/" className="hover:text-[#445D41] transition-colors">
-    Home
-  </a>
-  <span className="mx-1 text-gray-400">/</span>
-  <a href="/brands" className="hover:text-[#445D41] transition-colors">
-    Brands
-  </a>
-  <span className="mx-1 text-gray-400">/</span>
-  <span className="font-semibold text-gray-900 capitalize">
-    {brandSlug.replace(/-/g, " ")}
-  </span>
-</nav>
+<div className="flex items-center justify-between gap-2 mb-3 lg:mb-4">
 
+  {/* Mobile Filter Button */}
+<button
+  onClick={() => setShowFilters(true)}
+  className="lg:hidden flex items-center gap-1.5 px-3 py-2 border border-gray-300 rounded-lg bg-white text-sm font-medium text-gray-700 active:bg-gray-50"
+>
+  <SlidersHorizontal className="h-4 w-4" />
+  <span>Filters</span>
 
-  {/* 🔽 SORT */}
+  {activeFilterCount > 0 && (
+    <span className="ml-0.5 bg-[#445D41] text-white text-xs rounded-full w-4 h-4 flex items-center justify-center">
+      {activeFilterCount}
+    </span>
+  )}
+</button>
+
+  {/* Breadcrumb */}
+  <nav className="hidden md:flex items-center flex-wrap gap-1 text-sm text-gray-600">
+    <a href="/" className="hover:text-[#445D41] transition-colors">
+      Home
+    </a>
+    <span className="mx-1 text-gray-400">/</span>
+    <a href="/brands" className="hover:text-[#445D41] transition-colors">
+      Brands
+    </a>
+    <span className="mx-1 text-gray-400">/</span>
+    <span className="font-semibold text-gray-900 capitalize">
+      {brandSlug.replace(/-/g, " ")}
+    </span>
+  </nav>
+
+  {/* Sort */}
   <select
     value={`${sortBy}-${sortDirection}`}
     onChange={(e) => handleSortChange(e.target.value)}
@@ -162,6 +316,7 @@ const flattenedProducts = useMemo(() => {
     <option value="price-asc">Price: Low to High</option>
     <option value="price-desc">Price: High to Low</option>
   </select>
+
 </div>
 
         <div className="flex gap-8">

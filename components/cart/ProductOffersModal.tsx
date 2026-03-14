@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { X, Tag, Sparkles, Loader2 } from "lucide-react";
 
 interface Props {
@@ -21,7 +21,15 @@ export default function ProductOffersModal({
   const [error, setError] = useState<string | null>(null);
 
   if (!item) return null;
+useEffect(() => {
+  const originalOverflow = document.body.style.overflow;
 
+  document.body.style.overflow = "hidden";
+
+  return () => {
+    document.body.style.overflow = originalOverflow;
+  };
+}, []);
   const discounts =
     item?.productData?.assignedDiscounts?.filter(
       (d: any) => d.requiresCouponCode && isDiscountActive(d)
@@ -76,8 +84,8 @@ export default function ProductOffersModal({
   };
 
   return (
-    <div className="fixed inset-0 mt-8 z-50 bg-black/40 backdrop-blur-sm flex items-end sm:items-center justify-center">
-      <div className="bg-white w-full sm:max-w-lg rounded-t-3xl sm:rounded-3xl shadow-[0_20px_60px_rgba(0,0,0,0.25)] overflow-hidden">
+<div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-end sm:items-center justify-center overflow-y-auto pb-10">
+     <div className="bg-white w-full sm:max-w-lg rounded-t-3xl sm:rounded-3xl shadow-[0_20px_60px_rgba(0,0,0,0.25)] overflow-hidden max-h-[85vh] pb-20 sm:pb-0">
 
         <div className="px-6 py-5 border-b bg-green-50 flex justify-between">
           <h3 className="text-lg font-semibold flex items-center gap-2">
@@ -123,7 +131,7 @@ export default function ProductOffersModal({
           )}
         </div>
 
-        <div className="px-6 py-5 space-y-4 max-h-[55vh] overflow-y-auto bg-[#fafafa]">
+        <div className="px-6 py-5 space-y-4 max-h-[50vh] sm:max-h-[55vh] overflow-y-auto bg-[#fafafa]">
           {discounts.length === 0 ? (
             <p className="text-sm text-gray-500">
               No offers available.

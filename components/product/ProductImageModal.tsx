@@ -59,9 +59,9 @@ export default function ProductImageModal({
       {/* PREV */}
       {images.length > 1 && (
         <button
-          onClick={onPrev}
-          className="absolute left-4 md:left-10 text-white bg-black/40 p-3 rounded-full hover:bg-black/60"
-        >
+  onClick={onPrev}
+  className="absolute left-2 md:left-10 top-1/2 -translate-y-1/2 z-50 text-white bg-black/40 p-3 rounded-full hover:bg-black/60"
+>
           <ChevronLeft className="h-6 w-6" />
         </button>
       )}
@@ -81,9 +81,9 @@ export default function ProductImageModal({
       {/* NEXT */}
       {images.length > 1 && (
         <button
-          onClick={onNext}
-          className="absolute right-4 md:right-10 text-white bg-black/40 p-3 rounded-full hover:bg-black/60"
-        >
+  onClick={onNext}
+  className="absolute right-2 md:right-10 top-1/2 -translate-y-1/2 z-50 text-white bg-black/40 p-3 rounded-full hover:bg-black/60"
+>
           <ChevronRight className="h-6 w-6" />
         </button>
       )}

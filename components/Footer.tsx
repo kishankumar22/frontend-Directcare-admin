@@ -4,7 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useState } from "react";
 import { ChevronDown } from "lucide-react";
-
+import { useNewsletter } from "@/app/hooks/useNewsletter";
 export default function Footer() {
   const [open, setOpen] = useState<Record<string, boolean>>({
     help: false,
@@ -15,7 +15,37 @@ export default function Footer() {
   });
 
   const toggle = (key: string) => setOpen((s) => ({ ...s, [key]: !s[key] }));
+  const [localError, setLocalError] = useState<string | null>(null);
+const { submitEmail, error, success } = useNewsletter();
 
+const [email, setEmail] = useState("");
+const [loading, setLoading] = useState(false);
+
+const handleSubscribe = async (e: React.FormEvent) => {
+  e.preventDefault();
+
+  setLocalError(null);
+
+  if (!email.trim()) {
+    setLocalError("Please enter your email address.");
+    return;
+  }
+
+  const emailRegex =
+    /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+
+  if (!emailRegex.test(email.trim())) {
+    setLocalError("Please enter a valid email address.");
+    return;
+  }
+
+  setLoading(true);
+
+  await submitEmail(email.trim());
+
+  setLoading(false);
+  setEmail("");
+};
   return (
     <footer className="bg-[#445D41] w-full text-white">
       {/* Top Content */}
@@ -28,7 +58,11 @@ export default function Footer() {
               <ChevronDown className={`${open.help ? "rotate-180" : "rotate-0"} md:hidden transition-transform`} />
             </button>
             <ul className={`text-sm opacity-90 mt-2 space-y-2 ${open.help ? "block" : "hidden md:block"}`}>
-              <li><Link href="#">Order Tracking</Link></li>
+            <li>
+  <Link href="/account?tab=tracking">
+    Order Tracking
+  </Link>
+</li>
               <li><Link href="#">Contact Us</Link></li>
               <li><Link href="#">Shipping And Delivery</Link></li>
               <li><Link href="#">Refund And Return Policy</Link></li>
@@ -73,10 +107,43 @@ export default function Footer() {
             </button>
             <div className={`text-sm opacity-90 mt-2 ${open.subscribe ? "block" : "hidden md:block"}`}>
               <p className="mb-3 text-sm">Enter your email to receive our latest updates about our products.</p>
-              <form className="flex flex-col sm:flex-row gap-2">
-                <input type="email" placeholder="Email address" className="flex-1 p-2 rounded text-sm text-black min-w-0" />
-                <button className="bg-[#005625] text-white px-4 py-2 rounded text-sm whitespace-nowrap">Subscribe</button>
-              </form>
+             <form
+  onSubmit={handleSubscribe}
+  className="flex flex-col sm:flex-row gap-2"
+>
+  <input
+    type="email"
+    placeholder="Email address"
+    value={email}
+    onChange={(e) => setEmail(e.target.value)}
+    className="flex-1 p-2 rounded text-sm text-black min-w-0"
+  />
+
+  <button
+    type="submit"
+    disabled={loading}
+    className="bg-[#005625] text-white px-4 py-2 rounded text-sm whitespace-nowrap hover:bg-black transition disabled:opacity-60"
+  >
+    {loading ? "Submitting..." : "Subscribe"}
+  </button>
+</form>
+{localError && (
+  <p className="text-xs text-red-300 mt-2">
+    {localError}
+  </p>
+)}
+
+{error && (
+  <p className="text-xs text-red-300 mt-2">
+    {error}
+  </p>
+)}
+
+{success && (
+  <p className="text-xs text-green-300 mt-2">
+    {success}
+  </p>
+)}
             </div>
           </div>
 

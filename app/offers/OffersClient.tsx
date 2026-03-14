@@ -19,12 +19,58 @@ export default function OffersClient({
 }: OffersClientProps) {
   const vatRates = useVatRates();
 
-  const [products, setProducts] = useState<any[]>(initialItems);
-  const [filteredProducts, setFilteredProducts] =
-    useState<any[]>(initialItems);
+const [products, setProducts] = useState<any[]>(initialItems);
+const [filteredProducts, setFilteredProducts] = useState<any[]>(initialItems);
+
+const [sortBy, setSortBy] = useState<"name" | "price">("name");
+const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
+
 const flattenedProducts = useMemo(() => {
-  return flattenProductsForListing(filteredProducts);
-}, [filteredProducts]);
+
+  const flat = flattenProductsForListing(filteredProducts);
+
+  const seen = new Set<string>();
+
+  const unique = flat.filter((item: any) => {
+    const key = `${item.productData.id}-${item.variantForCard?.id ?? "parent"}`;
+
+    if (seen.has(key)) return false;
+
+    seen.add(key);
+    return true;
+  });
+
+  const getCardPrice = (item: any) => {
+    const basePrice =
+      typeof item.variantForCard?.price === "number"
+        ? item.variantForCard.price
+        : item.productData.price;
+
+    return basePrice;
+  };
+
+  const sorted = [...unique].sort((a, b) => {
+
+    if (sortBy === "name") {
+      const nameA = (a.cardSlug ?? a.productData.name).toLowerCase();
+      const nameB = (b.cardSlug ?? b.productData.name).toLowerCase();
+
+      const comparison = nameA.localeCompare(nameB);
+
+      return sortDirection === "asc" ? comparison : -comparison;
+    }
+
+    if (sortBy === "price") {
+      const comparison = getCardPrice(a) - getCardPrice(b);
+      return sortDirection === "asc" ? comparison : -comparison;
+    }
+
+    return 0;
+  });
+
+  return sorted;
+
+}, [filteredProducts, sortBy, sortDirection]);
 
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [selectedBrands, setSelectedBrands] = useState<string[]>([]);
@@ -35,8 +81,7 @@ const flattenedProducts = useMemo(() => {
 
 
   const [showFilters, setShowFilters] = useState(false);
-  const [sortBy, setSortBy] = useState<"name" | "price">("name");
-  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
+
 
   const handleSortChange = (value: string) => {
     const [by, dir] = value.split("-");
@@ -77,15 +122,30 @@ const flattenedProducts = useMemo(() => {
   }, [products]);
 
   // Price range derive
-  useEffect(() => {
-    if (!products.length) return;
-    const prices = products.map((p) => p.price ?? 0);
-    const min = Math.floor(Math.min(...prices));
-    const max = Math.ceil(Math.max(...prices));
-    setMinPrice(min);
-    setMaxPrice(max);
-    setPriceRange([min, max]);
-  }, [products]);
+useEffect(() => {
+  if (!products || products.length === 0) return;
+
+  const flat = flattenProductsForListing(products);
+
+  const prices = flat.map((item: any) => {
+    const variantPrice =
+      typeof item.variantForCard?.price === "number" &&
+      item.variantForCard.price > 0
+        ? item.variantForCard.price
+        : item.productData.price ?? 0;
+
+    return variantPrice;
+  });
+
+  if (prices.length === 0) return;
+
+  const min = Math.floor(Math.min(...prices));
+  const max = Math.ceil(Math.max(...prices));
+
+  setMinPrice(min);
+  setMaxPrice(max);
+  setPriceRange([min, max]);
+}, [products]);
 
   // Filtering + sorting
   // Backend already guarantees all products have active discounts — no need to re-check
@@ -115,22 +175,14 @@ const flattenedProducts = useMemo(() => {
       return true;
     });
 
-    return [...result].sort((a, b) => {
-      if (sortBy === "name") {
-        const cmp = a.name.localeCompare(b.name);
-        return sortDirection === "asc" ? cmp : -cmp;
-      }
-      const cmp = a.price - b.price;
-      return sortDirection === "asc" ? cmp : -cmp;
-    });
+return result;
   }, [
     products,
     selectedCategories,
     selectedBrands,
     priceRange,
     minRating,
-    sortBy,
-    sortDirection,
+   
   ]);
 
   useEffect(() => {

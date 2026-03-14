@@ -1204,7 +1204,7 @@ const handleShippingRefund = async (notes: string) => {
 const isOrderEditable = () => {
   if (!order) return false;
 
-  const isEditableStatus = ['Pending', 'Confirmed'].includes(order.status);
+  const isEditableStatus = ['Pending', 'Confirmed','Processing'].includes(order.status);
   const isClickAndCollect = order.deliveryMethod === 'ClickAndCollect';
 
   return isEditableStatus && !isClickAndCollect;

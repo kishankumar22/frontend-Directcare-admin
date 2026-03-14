@@ -286,7 +286,8 @@ if (Object.keys(errors).length) {
 if (isAuthenticated && user) {
   return <AccountDashboard />;
 }
-
+const tabParam = searchParams.get("tab");
+const activeTab = tabParam === "register" ? "register" : "login";
 
   return (
   <div className="min-h-screen relative overflow-hidden bg-[#445D41] py-8 px-4">
@@ -305,7 +306,7 @@ if (isAuthenticated && user) {
   {/* BOTTOM BLACK FADE */}
   <div
     className="pointer-events-none absolute inset-0
-      bg-gradient-to-b from-transparent via-transparent to-black"
+      bg-gradient-to-b from-transparent via-transparent"
   />
       <div className="max-w-5xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-6">
 
@@ -350,7 +351,7 @@ if (isAuthenticated && user) {
 
         {/* RIGHT SIDE — LOGIN & REGISTER */}
         <div className="bg-white p-6 rounded-lg border shadow-sm">
-          <Tabs defaultValue="login">
+        <Tabs defaultValue={activeTab}>
             <TabsList className="grid grid-cols-2 border-b mb-4">
               <TabsTrigger value="login" className="py-2 text-sm">Login</TabsTrigger>
               <TabsTrigger value="register" className="py-2 text-sm">Register</TabsTrigger>

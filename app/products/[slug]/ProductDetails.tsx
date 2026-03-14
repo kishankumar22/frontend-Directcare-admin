@@ -310,20 +310,22 @@ const shareUrl =
 const shareTitle = product.name;
 const handleShareClick = async () => {
   const url = window.location.href;
-  // ✅ Mobile native share (if supported)
-  if (navigator.share && window.innerWidth < 768) {
+
+  // ✅ Mobile → only native share
+  if (window.innerWidth < 768 && navigator.share) {
     try {
       await navigator.share({
         title: product.name,
         url,
       });
-      return;
     } catch {
-      // user cancelled → fallback to custom menu
+      // user cancelled → do nothing
     }
+    return;
   }
-  // Desktop OR fallback
-  setShowShare(v => !v);
+
+  // ✅ Desktop → custom share menu
+  setShowShare((v) => !v);
 };
 const [isUKUser, setIsUKUser] = useState(false);
 useEffect(() => {
@@ -339,6 +341,14 @@ const formatUKDate = (date: Date) => {
     month: "short",
   });
 };
+const [isMobile, setIsMobile] = useState(false);
+
+useEffect(() => {
+  const check = () => setIsMobile(window.innerWidth < 768);
+  check();
+  window.addEventListener("resize", check);
+  return () => window.removeEventListener("resize", check);
+}, []);
 const [shipDate, setShipDate] = useState<string | null>(null);
 const [deliveryDate, setDeliveryDate] = useState<string | null>(null);
 const [nextDayTimeLeft, setNextDayTimeLeft] = useState<string | null>(null);
@@ -554,10 +564,10 @@ const updateVariantInUrl = useCallback(
   (variant: Variant) => {
     const newPath = `/products/${variant.slug}`;
     if (pathname !== newPath) {
-      router.push(newPath, { scroll: false });
+      window.history.pushState(null, '', newPath);
     }
   },
-  [router, pathname]
+  [pathname]
 );
 // 🔹 Reviews for PDP hover tooltip
 const [reviews, setReviews] = useState<Review[]>([]);
@@ -606,9 +616,9 @@ useEffect(() => {
   if (!selectedVariant) return;
   // push slug to URL (first load only)
   if (selectedVariant.slug) {
-    router.replace(`/products/${selectedVariant.slug}`, { scroll: false });
+    window.history.replaceState(null, '', `/products/${selectedVariant.slug}`);
   }
-}, [selectedVariant, initialVariantId, router]);
+}, [selectedVariant, initialVariantId]);
 // ---- UNIVERSAL HANDLER ----
 const updateSelection = (level: 1 | 2 | 3, value: string) => {
   const updated = {
@@ -1543,13 +1553,13 @@ const handleRemoveCoupon = () => {
 >
   <Share2 className="h-5 w-5 text-gray-700" />
 </Button>
-    {showShare && (
-      <ShareMenu
-        url={shareUrl}
-        title={shareTitle}
-        onClose={() => setShowShare(false)}
-      />
-    )}
+  {showShare && !isMobile && (
+  <ShareMenu
+    url={shareUrl}
+    title={shareTitle}
+    onClose={() => setShowShare(false)}
+  />
+)}
   </div>
 </div>
                     {/* discount badge (from oldPrice percent) */}

@@ -241,7 +241,7 @@ if (product.orderMinimumQuantity > 1) {
           {/* COUPON BADGE — smaller */}
           {!discountBadge && hasActiveCoupon && (
             <div className="absolute top-2 right-2 z-20">
-              <div className="w-9 h-9 md:w-10 md:h-10 rounded-full bg-gradient-to-br from-red-500 to-red-700 flex items-center justify-center text-white shadow-md ring-2 ring-white">
+              <div className="w-10 h-10 md:w-10 md:h-10 rounded-full bg-gradient-to-br from-red-500 to-red-700 flex items-center justify-center text-white shadow-md ring-2 ring-white">
                 <div className="flex flex-col items-center leading-none text-center px-0.5">
                   <span className="text-[8px] font-extrabold leading-tight">COUPON</span>
                   <span className="text-[7px] font-semibold leading-tight">Avail</span>

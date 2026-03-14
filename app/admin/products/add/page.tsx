@@ -3241,7 +3241,7 @@ useEffect(() => {
 
   {/* ================= SHORT DESCRIPTION ================= */}
   <ProductDescriptionEditor
-    label="Short Description"
+    label="About This Product"
     value={formData.shortDescription}
     onChange={(content) => {
       setFormData((prev) => ({
@@ -3249,7 +3249,7 @@ useEffect(() => {
         shortDescription: content,
       }));
     }}
-    placeholder="Enter product short description..."
+    placeholder="Enter product About This Product..."
     height={250}
     // minLength={10}
     maxLength={350}
@@ -6120,7 +6120,7 @@ useEffect(() => {
     // ========== BASIC INFO ==========
     if (formData.name !== initialFormData.name) changes.push('Product Name');
     if (formData.sku !== initialFormData.sku) changes.push('SKU');
-    if (formData.shortDescription !== initialFormData.shortDescription) changes.push('Short Description');
+    if (formData.shortDescription !== initialFormData.shortDescription) changes.push('About This Product');
     if (formData.fullDescription !== initialFormData.fullDescription) changes.push('Full Description');
     if (formData.productType !== initialFormData.productType) changes.push('Product Type');
     if (formData.gender !== initialFormData.gender) changes.push('Gender');

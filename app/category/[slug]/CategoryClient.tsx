@@ -156,8 +156,7 @@ const [hasMore, setHasMore] = useState(
 const [isLoadingMore, setIsLoadingMore] = useState(false);
 const isFetchingRef = useRef(false);
 const fetchCbRef = useRef<() => void>(() => {});
-
-  const [sortBy, setSortBy] = useState(initialSortBy);
+const [sortBy, setSortBy] = useState((initialSortBy ?? "name").toLowerCase());
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">(
     initialSortDirection as "asc" | "desc"
   );
@@ -193,17 +192,37 @@ const [maxPrice, setMaxPrice] = useState(0);
 const allSubCategories = flattenSubCategories(category);
 
   // ---------- Derived initial price range ----------
+// ---------- Derived price range from flattened products ----------
 useEffect(() => {
-  if (!initialProducts || initialProducts.length === 0) return;
+  if (!products || products.length === 0) return;
 
-  const prices = initialProducts.map((p) => p.price ?? 0);
+  const flat = flattenProductsForListing(products as any);
+
+  const prices = flat.map((item: any) => {
+    const variantPrice =
+      typeof item.variantForCard?.price === "number" &&
+      item.variantForCard.price > 0
+        ? item.variantForCard.price
+        : item.productData.price ?? 0;
+
+    return variantPrice;
+  });
+
+  if (prices.length === 0) return;
+
   const min = Math.floor(Math.min(...prices));
   const max = Math.ceil(Math.max(...prices));
 
   setMinPrice(min);
   setMaxPrice(max);
-  setPriceRange([min, max]);
-}, [initialProducts]);
+
+  setPriceRange((prev) => {
+    if (prev[0] === 0 && prev[1] === 1000) {
+      return [min, max];
+    }
+    return prev;
+  });
+}, [products]);
   // ---------- Filtering + sorting ----------
   const filteredAndSortedProducts = useMemo(() => {
    const filtered = products.filter((product) => {
@@ -274,10 +293,20 @@ if (selectedBrands.length > 0) {
   if (!match) return false;
 }
 
+const defaultVariant =
+  (product as any).variants?.find((v: any) => v.isDefault) ??
+  (product as any).variants?.[0] ??
+  null;
 
+const basePrice =
+  typeof defaultVariant?.price === "number"
+    ? defaultVariant.price
+    : product.price;
 
-  if (product.price < priceRange[0] || product.price > priceRange[1])
-    return false;
+const effectivePrice = getDiscountedPrice(product, basePrice);
+
+if (effectivePrice < priceRange[0] || effectivePrice > priceRange[1])
+  return false;
 
   if (product.averageRating < minRating) return false;
 
@@ -297,39 +326,22 @@ if (selectedBrands.length > 0) {
   return getDiscountedPrice(product, basePrice);
 };
 
-const sorted = [...filtered].sort((a, b) => {
-  if (sortBy === "name") {
-    const comparison = a.name.localeCompare(b.name);
-    return sortDirection === "asc" ? comparison : -comparison;
-  }
-
-  if (sortBy === "price") {
-    const comparison =
-      getEffectivePrice(a) - getEffectivePrice(b);
-
-    return sortDirection === "asc" ? comparison : -comparison;
-  }
-
-  return 0;
-});
-
-
-    return sorted;
+return filtered;
   }, [
     products,
     selectedBrands,
     priceRange,
     minRating,
-    sortBy,
-    sortDirection,
     selectedSubCategories,
   ]);
+
 const flattenedProducts = useMemo(() => {
   const flat = flattenProductsForListing(filteredAndSortedProducts);
 
+  // 🔥 REMOVE DUPLICATES FIRST
   const seen = new Set<string>();
 
-  return flat.filter((item) => {
+  const unique = flat.filter((item) => {
     const key = `${item.productData.id}-${item.variantForCard?.id ?? "parent"}`;
 
     if (seen.has(key)) return false;
@@ -337,8 +349,40 @@ const flattenedProducts = useMemo(() => {
     seen.add(key);
     return true;
   });
-}, [filteredAndSortedProducts]);
 
+  const getCardPrice = (item: any) => {
+    const basePrice =
+      typeof item.variantForCard?.price === "number"
+        ? item.variantForCard.price
+        : item.productData.price;
+
+    return getDiscountedPrice(item.productData, basePrice);
+  };
+
+  // 🔥 SORT AFTER UNIQUE
+  const sorted = [...unique].sort((a, b) => {
+
+  if (sortBy === "name") {
+
+  const nameA = (a.cardSlug ?? a.productData.name).toLowerCase();
+  const nameB = (b.cardSlug ?? b.productData.name).toLowerCase();
+
+  const comparison = nameA.localeCompare(nameB);
+
+  return sortDirection === "asc" ? comparison : -comparison;
+}
+
+    if (sortBy === "price") {
+      const comparison = getCardPrice(a) - getCardPrice(b);
+      return sortDirection === "asc" ? comparison : -comparison;
+    }
+
+    return 0;
+  });
+
+  return sorted;
+
+}, [filteredAndSortedProducts, sortBy, sortDirection]);
 
   // ---------- Helpers ----------
 
@@ -481,19 +525,34 @@ const getInitialQty = (product: any) => {
   return product.orderMinimumQuantity ?? 1;
 };
 
-  const resetFilters = useCallback(() => {
-    setSelectedBrands([]);
-    setSelectedSubCategories([]);
-    setMinRating(0);
-    setSortBy("name");
-    setSortDirection("asc");
-    setPriceRange([minPrice, maxPrice]);
-    const params = new URLSearchParams();
-if (discount) params.set("discount", String(discount));
+const resetFilters = useCallback(() => {
 
-router.push(`/category/${urlSlug}?${params.toString()}`);
+  setSelectedBrands([]);
+  setSelectedSubCategories([]);
+  setMinRating(0);
+  setSortBy("name");
+  setSortDirection("asc");
 
-  }, [router, urlSlug]);
+  const flat = flattenProductsForListing(products as any);
+
+  const prices = flat.map((item: any) =>
+    typeof item.variantForCard?.price === "number"
+      ? item.variantForCard.price
+      : item.productData.price
+  );
+
+  if (prices.length > 0) {
+    const min = Math.floor(Math.min(...prices));
+    const max = Math.ceil(Math.max(...prices));
+    setPriceRange([min, max]);
+  }
+
+  const params = new URLSearchParams();
+  if (discount) params.set("discount", String(discount));
+
+  router.push(`/category/${urlSlug}?${params.toString()}`);
+
+}, [router, urlSlug, products, discount]);
   
 const { addToCart, cart } = useCart();
 const handleAddToCart = useCallback(

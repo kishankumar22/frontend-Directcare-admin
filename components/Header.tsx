@@ -430,7 +430,7 @@ setMobileCategories(homepageParents);
               </button>
             ) : (
               <button
-                onClick={() => router.push("/account")}
+                onClick={() =>router.push("/account")}
                 className="px-2.5 py-1 text-[11px] font-semibold text-white bg-[#445D41] rounded-full"
               >
                 Login
@@ -852,13 +852,13 @@ setMobileCategories(homepageParents);
             ) : (
               <div className="flex gap-2 w-full">
                 <button
-                  onClick={() => { router.push("/account"); setMenuOpen(false); }}
+                  onClick={() => { router.push("/account?tab=login"); setMenuOpen(false); }}
                   className="flex-1 py-2 text-sm font-semibold text-white bg-[#445D41] rounded-full"
                 >
                   Login
                 </button>
                 <button
-                  onClick={() => { router.push("/account"); setMenuOpen(false); }}
+                  onClick={() => { router.push("/account?tab=register"); setMenuOpen(false); }}
                   className="flex-1 py-2 text-sm font-semibold text-[#445D41] border border-[#445D41] rounded-full"
                 >
                   Register
@@ -881,18 +881,34 @@ setMobileCategories(homepageParents);
                 <div key={parent.id} className="border-b border-gray-100">
                   {parent.subCategories && parent.subCategories.length > 0 ? (
                     <>
-                      <button
-                        onClick={() => toggleParent(parent.id)}
-                        className="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-green-50 transition"
-                      >
-                        <span className="font-medium text-gray-800 text-sm">{parent.name}</span>
-                        <ChevronDown
-                          size={16}
-                          className={`text-[#445D41] transition-transform duration-300 ${
-                            openParents[parent.id] ? "rotate-180" : "rotate-0"
-                          }`}
-                        />
-                      </button>
+                    <div className="w-full flex items-center justify-between px-4 py-3 hover:bg-green-50 transition">
+  
+  {/* CATEGORY LINK */}
+  <Link
+    href={`/category/${parent.slug}`}
+    onClick={() => setMenuOpen(false)}
+    className="font-medium text-gray-800 text-sm flex-1"
+  >
+    {parent.name}
+  </Link>
+
+  {/* EXPAND BUTTON */}
+  <button
+    onClick={(e) => {
+      e.stopPropagation();
+      toggleParent(parent.id);
+    }}
+    className="p-1"
+  >
+    <ChevronDown
+      size={16}
+      className={`text-[#445D41] transition-transform duration-300 ${
+        openParents[parent.id] ? "rotate-180" : "rotate-0"
+      }`}
+    />
+  </button>
+
+</div>
 
                       <div
                         className={`overflow-hidden transition-all duration-300 ease-in-out ${
@@ -904,18 +920,34 @@ setMobileCategories(homepageParents);
                             <div key={sub.id}>
                               {sub.subCategories && sub.subCategories.length > 0 ? (
                                 <>
-                                  <button
-                                    onClick={() => toggleChild(sub.id)}
-                                    className="w-full flex items-center justify-between py-2 text-sm text-gray-700 hover:text-[#445D41] transition"
-                                  >
-                                    <span>{sub.name}</span>
-                                    <ChevronRight
-                                      size={14}
-                                      className={`transition-transform duration-300 ${
-                                        openChildren[sub.id] ? "rotate-90" : "rotate-0"
-                                      }`}
-                                    />
-                                  </button>
+                                 <div className="w-full flex items-center justify-between py-2 text-sm text-gray-700 hover:text-[#445D41] transition">
+
+  {/* SUBCATEGORY LINK */}
+  <Link
+    href={`/category/${sub.slug}`}
+    onClick={() => setMenuOpen(false)}
+    className="flex-1"
+  >
+    {sub.name}
+  </Link>
+
+  {/* EXPAND BUTTON */}
+  <button
+    onClick={(e) => {
+      e.stopPropagation();
+      toggleChild(sub.id);
+    }}
+    className="p-1"
+  >
+    <ChevronRight
+      size={14}
+      className={`transition-transform duration-300 ${
+        openChildren[sub.id] ? "rotate-90" : "rotate-0"
+      }`}
+    />
+  </button>
+
+</div>
                                   <div
                                     className={`overflow-hidden transition-all duration-300 ${
                                       openChildren[sub.id] ? "max-h-[500px] opacity-100" : "max-h-0 opacity-0"

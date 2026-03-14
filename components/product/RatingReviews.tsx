@@ -6,7 +6,7 @@ import { useAuth } from "@/context/AuthContext";
 import { useToast } from "@/components/toast/CustomToast";
 import { timeFromNow } from "@/lib/date";
 
-import { Filter, ChevronDown, CheckCircle2, UploadCloud  } from "lucide-react";
+import { Filter, ChevronDown, CheckCircle2, UploadCloud, MessageSquare, MessageSquarePlus, Edit3  } from "lucide-react";
 
 interface RatingReviewsProps {
   productId: string;
@@ -399,80 +399,105 @@ const filteredReviews = useMemo(() => {
         </label>
       </div>
 
-      {/* WRITE REVIEW FORM */}
-      {allowCustomerReviews && (
-        <div className="mb-4 p-3 md:p-4 border rounded-lg bg-gray-50 shadow-sm">
-          <h3 className="font-semibold text-sm md:text-base mb-3 text-gray-900">Write a Review</h3>
+     {/* WRITE REVIEW FORM */}
+{allowCustomerReviews && (
+  <div className="mb-4 p-4 md:p-5 border rounded-xl bg-gray-50 shadow-sm">
+<h3 className="flex items-center gap-2 font-semibold text-base mb-4 text-gray-900">
+ 
+  Write a Review
+   <Edit3 className="w-4 h-4 text-black" />
+</h3>
 
-          <div className="flex items-center gap-2 mb-3">
-            <span className="text-xs font-medium text-gray-700">Your Rating:</span>
-            <div className="flex gap-0.5">
-              {[1, 2, 3, 4, 5].map((s) => (
-                <span
-                  key={s}
-                  className={`cursor-pointer text-2xl transition ${
-                    rating >= s ? "text-yellow-500 scale-110" : "text-gray-300"
-                  }`}
-                  onClick={() => setRating(s)}
-                >
-                  ★
-                </span>
-              ))}
-            </div>
-          </div>
+    {/* RATING */}
+    <div className="flex flex-col gap-1 mb-3">
+      <div className="flex items-center gap-3">
+        <span className="text-sm font-medium text-gray-700">
+          Your Rating:
+        </span>
 
+        <div className="flex gap-1">
+          {[1,2,3,4,5].map((s) => (
+            <span
+              key={s}
+              className={`cursor-pointer text-2xl transition-transform duration-150 ${
+                rating >= s
+                  ? "text-yellow-500 scale-110"
+                  : "text-gray-300"
+              }`}
+              onClick={() => setRating(s)}
+            >
+              ★
+            </span>
+          ))}
+        </div>
+      </div>
 
-          <input
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            placeholder="Review title"
-            className="w-full border rounded-md p-2 text-sm mb-2 shadow-sm"
-          />
+      {rating === 0 && (
+        <p className="text-xs text-black-500">
+          Please select a rating first to submit your review
+        </p>
+      )}
+    </div>
 
-          <textarea
-            value={comment}
-            onChange={(e) => setComment(e.target.value)}
-            rows={3}
-            placeholder="Share your experience..."
-            className="w-full border rounded-md p-2 text-sm shadow-sm"
-          />
-{/* IMAGE UPLOAD */}
-<div className="mt-4">
-  <p className="text-sm font-semibold text-gray-800 mb-2">
-    Upload Images
-  </p>
-
-  <label className="inline-flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg cursor-pointer hover:border-[#445D41] hover:bg-gray-50 transition text-sm">
-
-    <UploadCloud className="h-4 w-4 text-gray-600" />
-
-    <span className="text-gray-700">
-      Add Images
-    </span>
-
-    <span className="text-gray-400 text-xs">
-      Click to upload product images
-    </span>
-
+    {/* TITLE */}
     <input
-      type="file"
-      accept="image/*"
-      multiple
-      onChange={(e) => handleImageSelect(e.target.files)}
-      className="hidden"
+      value={title}
+      onChange={(e) => setTitle(e.target.value)}
+      placeholder="Review title* (min 5 characters required)"
+      className="w-full border rounded-lg p-2.5 text-sm mb-3 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#445D41]/40"
     />
-  </label>
-</div>
-{imagePreviews.length > 0 && (
-  <div className="mt-3 grid grid-cols-3 sm:grid-cols-5 gap-2">
-   {imagePreviews.map((src, i) => (
-  <div key={`preview-image-${i}`} className="relative">
 
-        <img
-          src={src}
-          alt="Preview"
-          className="h-20 w-full object-cover rounded-lg border"
+    {/* COMMENT */}
+    <textarea
+      value={comment}
+      onChange={(e) => setComment(e.target.value)}
+      rows={3}
+      placeholder="Share your experience...(min 5 characters required)*"
+      className="w-full border rounded-lg p-2.5 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-[#445D41]/40"
+    />
+
+    {/* IMAGE UPLOAD */}
+    <div className="mt-4">
+      <p className="text-sm font-semibold text-gray-800 mb-2">
+        Upload Images (optional)
+      </p>
+
+      <label className="flex items-center justify-center gap-2 px-4 py-3 border-2 border-dashed border-gray-300 rounded-xl cursor-pointer hover:border-[#445D41] hover:bg-white transition text-sm">
+
+        <UploadCloud className="h-4 w-4 text-gray-600" />
+
+        <span className="text-gray-700 font-medium">
+          Add Images
+        </span>
+
+        <span className="text-gray-400 text-xs">
+          Click to upload review images
+        </span>
+
+        <input
+          type="file"
+          accept="image/*"
+          multiple
+          onChange={(e) => handleImageSelect(e.target.files)}
+          className="hidden"
         />
+      </label>
+    </div>
+
+    {/* IMAGE PREVIEW */}
+   {imagePreviews.length > 0 && (
+  <div className="mt-3 flex flex-wrap gap-2">
+    {imagePreviews.map((src, i) => (
+      <div key={`preview-image-${i}`} className="relative w-[90px] h-[90px]">
+
+        <div className="w-[90px] h-[90px] overflow-hidden rounded-lg border bg-gray-50">
+          <img
+            src={src}
+            alt="Preview"
+            className="w-full h-full object-contain"
+          />
+        </div>
+
         <button
           type="button"
           onClick={() =>
@@ -487,63 +512,70 @@ const filteredReviews = useMemo(() => {
   </div>
 )}
 
-{/* VIDEO UPLOAD */}
-<div className="mt-4">
-  <p className="text-sm font-semibold text-gray-800 mb-2">
-    Upload Video
-  </p>
+    {/* VIDEO */}
+    <div className="mt-4">
+      <p className="text-sm font-semibold text-gray-800 mb-2">
+        Upload Video (optional)
+      </p>
 
-  <label className="inline-flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg cursor-pointer hover:border-[#445D41] hover:bg-gray-50 transition text-sm">
+      <label className="flex items-center justify-center gap-2 px-4 py-3 border-2 border-dashed border-gray-300 rounded-xl cursor-pointer hover:border-[#445D41] hover:bg-white transition text-sm">
 
-    <UploadCloud className="h-4 w-4 text-gray-600" />
+        <UploadCloud className="h-4 w-4 text-gray-600" />
 
-    <span className="text-gray-700">
-      Click to upload a review video
-    </span>
+        <span className="text-gray-700 font-medium">
+          Upload Review Video
+        </span>
 
-    <span className="text-gray-400 text-xs">
-      (1 max)
-    </span>
+        <span className="text-gray-400 text-xs">
+         Click to upload review video
+        </span>
 
-    <input
-      type="file"
-      accept="video/*"
-      onChange={(e) => handleVideoSelect(e.target.files)}
-      className="hidden"
-    />
-  </label>
-</div>
-{videoPreviews.length > 0 && (
-  <div className="mt-3">
-    {videoPreviews.map((src, i) => (
-  <div key={`preview-video-${i}`} className="relative w-40">
-
-        <video
-          src={src}
-          muted
-          preload="metadata"
-          className="rounded-lg border"
+        <input
+          type="file"
+          accept="video/*"
+          onChange={(e) => handleVideoSelect(e.target.files)}
+          className="hidden"
         />
-        <button
-          type="button"
-          onClick={() => setVideoFiles([])}
-          className="absolute -top-2 -right-2 bg-black text-white text-xs rounded-full h-5 w-5"
-        >
-          ✕
-        </button>
+      </label>
+    </div>
+
+    {/* VIDEO PREVIEW */}
+    {videoPreviews.length > 0 && (
+      <div className="mt-3">
+        {videoPreviews.map((src, i) => (
+          <div key={`preview-video-${i}`} className="relative w-32 sm:w-36">
+
+            <div className="aspect-video w-full overflow-hidden rounded-lg border bg-black">
+              <video
+                src={src}
+                muted
+                preload="metadata"
+                className="w-full h-full object-contain"
+              />
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setVideoFiles([])}
+              className="absolute -top-2 -right-2 bg-black text-white text-xs rounded-full h-5 w-5"
+            >
+              ✕
+            </button>
+          </div>
+        ))}
       </div>
-    ))}
+    )}
+
+    {/* SUBMIT */}
+    <Button
+      onClick={handleSubmitReview}
+      disabled={rating === 0 || comment.trim().length < 5 || loading}
+      className="mt-4 w-full bg-[#445D41] hover:bg-black text-white rounded-xl py-2.5 font-medium text-sm transition"
+    >
+      {loading ? "Submitting..." : "Submit Review"}
+    </Button>
   </div>
 )}
-          <Button
-            onClick={handleSubmitReview}
-            disabled={rating === 0 || comment.trim().length < 5 || loading}
-            className="mt-3 w-full bg-[#445D41] hover:bg-black text-white rounded-lg py-2 font-medium text-sm"
-          >
-            {loading ? "Submitting..." : "Submit Review"}
-          </Button>
-        </div>
-      )}
 
       {/* REVIEWS LIST */}
       <h3 className="text-sm md:text-base font-semibold mb-3 text-gray-900">Customer Reviews</h3>

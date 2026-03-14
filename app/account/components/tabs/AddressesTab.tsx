@@ -98,23 +98,29 @@ function useDebouncedCallback<T extends (...args: any[]) => any>(
 }
 
   // ---------------- FETCH ----------------
-  useEffect(() => {
-    if (!accessToken) return;
+useEffect(() => {
+  if (!accessToken) return;
 
-    const fetchAddresses = async () => {
-      try {
-        setLoading(true);
-        const data = await getAddresses(accessToken);
-        setAddresses(data);
-      } catch (err: any) {
-        setError(err.message);
-      } finally {
-        setLoading(false);
-      }
-    };
+  const fetchAddresses = async () => {
+    try {
+      setLoading(true);
+      const data = await getAddresses(accessToken);
 
-    fetchAddresses();
-  }, [accessToken]);
+     setAddresses(
+  [...data].sort(
+    (a, b) => Number(b.isDefault) - Number(a.isDefault)
+  )
+);
+
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  fetchAddresses();
+}, [accessToken]);
 // 🔎 Autocomplete search
 const doAutocomplete = useCallback(async (q: string) => {
   if (!q || q.trim().length < 3) {
@@ -315,18 +321,45 @@ const handleSave = async () => {
         payload
       );
 
-      setAddresses((prev) =>
-        prev.map((a) =>
-          a.id === updated.id ? updated : a
-        )
-      );
+   setAddresses((prev) => {
+  let list = prev.map((a) =>
+    a.id === updated.id ? updated : a
+  );
+
+  if (updated.isDefault) {
+    list = list.map((a) =>
+      a.id === updated.id
+        ? { ...a, isDefault: true }
+        : { ...a, isDefault: false }
+    );
+  }
+
+  return list.sort(
+    (a, b) => Number(b.isDefault) - Number(a.isDefault)
+  );
+});
     } else {
       const created = await createAddress(
         accessToken,
         payload
       );
 
-      setAddresses((prev) => [...prev, created]);
+setAddresses((prev) => {
+  let updated = prev;
+
+  if (created.isDefault) {
+    updated = prev.map((a) => ({
+      ...a,
+      isDefault: false,
+    }));
+  }
+
+  const list = [created, ...updated];
+
+  return list.sort(
+    (a, b) => Number(b.isDefault) - Number(a.isDefault)
+  );
+});
     }
 
     setOpen(false);
@@ -347,9 +380,17 @@ const handleSave = async () => {
 
     try {
       await deleteAddress(accessToken, deleteId);
-      setAddresses((prev) =>
-        prev.filter((a) => a.id !== deleteId)
-      );
+     setAddresses((prev) => {
+  const list = prev.filter((a) => a.id !== deleteId);
+
+  if (!list.some((a) => a.isDefault) && list.length > 0) {
+    list[0].isDefault = true;
+  }
+
+  return list.sort(
+    (a, b) => Number(b.isDefault) - Number(a.isDefault)
+  );
+});
       setDeleteOpen(false);
       setDeleteId(null);
     } catch (err: any) {
@@ -364,12 +405,16 @@ const handleSave = async () => {
     try {
       await setDefaultAddress(accessToken, id);
 
-      setAddresses((prev) =>
-        prev.map((a) => ({
-          ...a,
-          isDefault: a.id === id,
-        }))
-      );
+    setAddresses((prev) => {
+  const list = prev.map((a) => ({
+    ...a,
+    isDefault: a.id === id,
+  }));
+
+  return list.sort(
+    (a, b) => Number(b.isDefault) - Number(a.isDefault)
+  );
+});
     } catch (err: any) {
       alert(err.message);
     }
@@ -415,7 +460,6 @@ const handleSave = async () => {
                 </span>
               )}
             </div>
-
             <p className="text-sm text-gray-600">
               {addr.addressLine1}
             </p>
@@ -448,7 +492,6 @@ const handleSave = async () => {
               >
                 Edit
               </button>
-
               <button
                 onClick={() =>
                   handleDeleteClick(addr.id)
@@ -472,7 +515,6 @@ const handleSave = async () => {
           </div>
         ))}
       </div>
-
       {/* ADD / EDIT MODAL */}
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-w-xl max-h-[85vh] overflow-y-auto">
@@ -483,7 +525,6 @@ const handleSave = async () => {
                 : "Add Address"}
             </DialogTitle>
           </DialogHeader>
-
           <div className="grid grid-cols-2 gap-4 text-sm">
             {/* 🔎 ADDRESS SEARCH – second row full width */}
 <div className="col-span-2 relative">

@@ -385,7 +385,7 @@ export default function OrderCard({ order }: { order: any }) {
       const json = await res.json();
       if (!res.ok || !json.success) throw new Error(json?.message || "Cancellation failed");
 
-      toast.success(json.message || "Order cancelled successfully");
+      toast.error(json.message || "Order cancelled successfully");
       setShowCancelModal(false);
       setSelectedReason("");
       setCustomReason("");
@@ -509,7 +509,14 @@ const refundedAmount =
    value={<span className="text-green-600 font-medium">£{refundedAmount.toFixed(2)}</span>}
   />
 )}
-        <Info label="Transaction ID" value={order.payment?.transactionId ?? "—"} />
+       <Info
+  label="Transaction ID"
+  value={
+    <span className="break-all">
+      {order.payment?.transactionId ?? "—"}
+    </span>
+  }
+/>
       </div>
 
       {/* ORDER HISTORY */}
