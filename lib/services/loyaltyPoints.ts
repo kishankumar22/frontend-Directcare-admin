@@ -11,6 +11,7 @@ import { customersService, Customer } from './customers';
 export interface LoyaltyBalance {
   id: string;
   userId: string;
+  hasAccount?: boolean;
   currentBalance: number;
   redemptionValue: number;
   totalPointsEarned: number;
@@ -154,7 +155,22 @@ export const loyaltyPointsService = {
 
             if (loyaltyResponse.data?.success && loyaltyResponse.data.data) {
               const loyalty = loyaltyResponse.data.data;
-              
+
+              // hasAccount === false means the user has no orders / no real loyalty account
+              if (loyalty.hasAccount === false) {
+                return {
+                  ...customer,
+                  currentBalance: 0,
+                  redemptionValue: 0,
+                  totalPointsEarned: 0,
+                  totalPointsRedeemed: 0,
+                  tierLevel: 'Bronze' as const,
+                  lastEarnedAt: null,
+                  lastRedeemedAt: null,
+                  loyaltyBalance: null,
+                };
+              }
+
               return {
                 ...customer,
                 currentBalance: loyalty.currentBalance,

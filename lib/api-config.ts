@@ -95,6 +95,12 @@ export const API_ENDPOINTS = {
     clear: '/api/ActivityLogs/clear',
   },
 
+  // Dashboard
+  dashboard: {
+    stats: '/api/Dashboard/stats',
+    overview: '/api/Dashboard/overview',
+  },
+
    // Loyalty Config
   loyaltyConfig: '/api/admin/loyalty-config',
    loyaltyPoints: {

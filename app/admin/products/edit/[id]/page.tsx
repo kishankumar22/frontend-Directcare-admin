@@ -2737,7 +2737,7 @@ if (!formData.vatExempt && (!formData.vatRateId || !formData.vatRateId.trim())) 
       const length = getPlainText(formData.shortDescription).length;
       if (length > 350) {
         formData.shortDescription = truncateHtmlByTextLength(formData.shortDescription, 350);
-        toast.info('ℹ️ About This Product trimmed to 350 characters');
+        toast.info('ℹ️ Short description trimmed to 350 characters');
       }
     }
 
@@ -3953,7 +3953,7 @@ try {
 }
 
 if (!isDraft && formData.productImages.length < 5) {
-  toast.error('❌ Minimum 5 product images are required');
+  toast.error('❌ Minimum 3 product images are required');
   target.removeAttribute('data-submitting');
   setIsSubmitting(false);
   setSubmitProgress(null);
@@ -5549,7 +5549,7 @@ const uploadImagesToProductDirect = async (
           shortDescription: content,
         }));
       }}
-      placeholder="Enter product About This Product..."
+      placeholder="Enter product short description..."
       height={250}
       maxLength={350}          // ✅ Maximum 350 characters
       showCharCount={true}     // ✅ Show built-in character counter
@@ -8802,7 +8802,7 @@ const uploadImagesToProductDirect = async (
             // ========== BASIC INFO ==========
             if (formData.name !== initialFormData.name) changes.push('Product Name');
             if (formData.sku !== initialFormData.sku) changes.push('SKU');
-            if (formData.shortDescription !== initialFormData.shortDescription) changes.push('About This Product');
+            if (formData.shortDescription !== initialFormData.shortDescription) changes.push('Short Description');
             if (formData.fullDescription !== initialFormData.fullDescription) changes.push('Full Description');
             if (formData.productType !== initialFormData.productType) changes.push('Product Type');
             if (formData.gender !== initialFormData.gender) changes.push('Gender');

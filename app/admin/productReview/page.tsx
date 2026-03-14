@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import {
   Star,
@@ -37,6 +37,7 @@ import {
   productReviewsService,
   ProductReview,
   CreateReviewDto,
+  ReviewFilters,
 } from "@/lib/services/productReviews";
 interface Product {
   [x: string]: any;
@@ -85,6 +86,9 @@ const [productSearchTerm, setProductSearchTerm] = useState("");
 const productDropdownRef = useRef<HTMLDivElement>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(25);
+  const [serverTotal, setServerTotal] = useState(0);
+  const [serverTotalPages, setServerTotalPages] = useState(1);
+  const [debouncedSearch, setDebouncedSearch] = useState("");
 
   const [deleteConfirm, setDeleteConfirm] = useState<{
     id: string;
@@ -115,6 +119,15 @@ useEffect(() => {
   document.addEventListener("mousedown", handleClickOutside);
   return () => document.removeEventListener("mousedown", handleClickOutside);
 }, []);
+
+// Debounce search input — reset page when debounced value changes
+useEffect(() => {
+  const t = setTimeout(() => {
+    setDebouncedSearch(searchTerm);
+    setCurrentPage(1);
+  }, 400);
+  return () => clearTimeout(t);
+}, [searchTerm]);
 
   // ✅ Fetch Products
 const fetchProducts = async () => {
@@ -171,68 +184,35 @@ const getDateRangeLabel = () => {
 };
 
 
-  // ✅ Fetch Reviews
-const fetchReviews = async (specificProductId?: string) => {
+  // ✅ Fetch Reviews — all filtering done server-side
+const fetchReviews = useCallback(async () => {
   setLoadingReviews(true);
   try {
-    let allReviews: ProductReview[] = [];
+    const selectedProduct = productFilter !== "all"
+      ? products.find(p => p.id === productFilter)
+      : null;
 
-    if (statusFilter === "pending") {
-      const response = await productReviewsService.getPendingReviews(1, 1000);
-      if (response.data?.success && Array.isArray(response.data.data)) {
-        allReviews = response.data.data;
-      }
-    } else if (specificProductId && specificProductId !== "all") {
-      const minRating = ratingFilter !== "all" ? parseInt(ratingFilter) : undefined;
-      const maxRating = ratingFilter !== "all" ? parseInt(ratingFilter) : undefined;
+    const filters: ReviewFilters = {
+      page: currentPage,
+      pageSize: itemsPerPage,
+    };
+    if (statusFilter !== "all") filters.status = statusFilter as "pending" | "approved";
+    if (ratingFilter !== "all")  filters.rating = parseInt(ratingFilter);
+    if (debouncedSearch.trim())  filters.searchTerm = debouncedSearch.trim();
+    if (selectedProduct)         filters.productName = selectedProduct.name;
 
-      const response = await productReviewsService.getByProductId(
-        specificProductId,
-        true,
-        minRating,
-        maxRating,
-        verifiedOnlyFilter
-      );
+    const res = await productReviewsService.getAll(filters);
 
-      if (response.data?.success && Array.isArray(response.data.data)) {
-        allReviews = response.data.data;
-      }
+    if (res.data?.success) {
+      const paged = res.data.data;
+      setReviews(paged.items ?? []);
+      setServerTotal(paged.totalCount ?? 0);
+      setServerTotalPages(paged.totalPages ?? 1);
     } else {
-      // All products
-      if (products.length === 0) {
-        setReviews([]);
-        return;
-      }
-
-      const allReviewsPromises = products.map((product) =>
-        productReviewsService
-          .getByProductId(product.id, true)
-          .catch((err) => {
-            console.error(`Error for product ${product.id}:`, err);
-            return { data: { success: false, data: [] } };
-          })
-      );
-
-      const results = await Promise.all(allReviewsPromises);
-
-      results.forEach((response) => {
-        if (response.data?.success && Array.isArray(response.data.data)) {
-          allReviews.push(...response.data.data);
-        }
-      });
+      setReviews([]);
+      setServerTotal(0);
+      setServerTotalPages(1);
     }
-
-    // ──────────────────────────────────────────────
-    // Sort by latest first (most recent createdAt)
-    allReviews.sort((a, b) => {
-      const dateA = new Date(a.createdAt).getTime();
-      const dateB = new Date(b.createdAt).getTime();
-      return dateB - dateA; // descending = newest first
-    });
-    // ──────────────────────────────────────────────
-
-    setReviews(allReviews);
-
   } catch (error: any) {
     console.error("Error fetching reviews:", error);
     toast.error("Failed to load reviews");
@@ -240,24 +220,22 @@ const fetchReviews = async (specificProductId?: string) => {
   } finally {
     setLoadingReviews(false);
   }
-};
+}, [currentPage, itemsPerPage, statusFilter, ratingFilter, debouncedSearch, productFilter, products]);
 
-  // ✅ Initial load
+  // ✅ Initial load — fetch products (for dropdown) and reviews simultaneously
   useEffect(() => {
-    const loadData = async () => {
+    const init = async () => {
       setLoading(true);
       await fetchProducts();
       setLoading(false);
     };
-    loadData();
+    init();
   }, []);
 
-  // ✅ Load reviews when filters change
+  // ✅ Fetch reviews whenever any server-side filter / page changes
   useEffect(() => {
-    if (products.length > 0 || statusFilter === "pending") {
-      fetchReviews(productFilter);
-    }
-  }, [products, productFilter, statusFilter, ratingFilter, verifiedOnlyFilter]);
+    fetchReviews();
+  }, [fetchReviews]);
 
   const calculateStats = (reviewsData: ProductReview[]) => {
     const total = reviewsData.length;
@@ -271,35 +249,14 @@ const fetchReviews = async (specificProductId?: string) => {
     setStats({ total, pending, approved, averageRating });
   };
 
-  // ✅ Calculate stats
+  // ✅ Calculate stats from server-returned data
   useEffect(() => {
     if (reviews.length > 0) {
-      const filtered = reviews.filter((review) => {
-        const matchesSearch =
-          review.comment?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          review.customerName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          review.title?.toLowerCase().includes(searchTerm.toLowerCase());
-
-        const matchesStatus =
-          statusFilter === "all" ||
-          (statusFilter === "approved" && review.isApproved) ||
-          (statusFilter === "pending" && !review.isApproved);
-
-        const matchesRating =
-          ratingFilter === "all" ||
-          review.rating === parseInt(ratingFilter);
-
-        const matchesVerified =
-          !verifiedOnlyFilter || review.isVerifiedPurchase;
-
-        return matchesSearch && matchesStatus && matchesRating && matchesVerified;
-      });
-
-      calculateStats(filtered);
+      calculateStats(reviews);
     } else {
       setStats({ total: 0, pending: 0, approved: 0, averageRating: 0 });
     }
-  }, [reviews, searchTerm, statusFilter, ratingFilter, verifiedOnlyFilter]);
+  }, [reviews]);
 
   // ✅ Approve Review
 const handleApprove = async (id: string) => {
@@ -308,7 +265,7 @@ const handleApprove = async (id: string) => {
     const response = await productReviewsService.approve(id);
     if (response.data?.success) {
       toast.success("✅ Review approved successfully!");
-      await fetchReviews(productFilter);
+      await fetchReviews();
       setApproveConfirm(null);
     }
   } catch (error: any) {
@@ -339,7 +296,7 @@ const handleApprove = async (id: string) => {
         toast.success("✅ Reply posted successfully!");
         setReplyingTo(null);
         setReplyText("");
-        await fetchReviews(productFilter);
+        await fetchReviews();
       }
     } catch (error: any) {
       console.error("Error posting reply:", error);
@@ -356,7 +313,7 @@ const handleApprove = async (id: string) => {
       const response = await productReviewsService.delete(id);
       if (response.data?.success) {
         toast.success("🗑️ Review deleted successfully!");
-        await fetchReviews(productFilter);
+        await fetchReviews();
       }
     } catch (error: any) {
       console.error("Error deleting review:", error);
@@ -388,71 +345,30 @@ const clearFilters = () => {
   setProductFilter("all");
   setVerifiedOnlyFilter(false);
   setSearchTerm("");
+  setDebouncedSearch("");
   setProductSearchTerm("");
   setShowProductDropdown(false);
-  setDateRange({ startDate: "", endDate: "" }); // ✅ Add this line
+  setDateRange({ startDate: "", endDate: "" });
+  setCurrentPage(1);
 };
 
-// ✅ Update your existing hasActiveFilters
 const hasActiveFilters =
   statusFilter !== "all" ||
   ratingFilter !== "all" ||
   productFilter !== "all" ||
   verifiedOnlyFilter ||
   searchTerm.trim() !== "" ||
-  dateRange.startDate !== "" ||  // ✅ Add this
-  dateRange.endDate !== "";      // ✅ Add this
+  dateRange.startDate !== "" ||
+  dateRange.endDate !== "";
 
-  // Filter data
-// ✅ Find your existing filter logic and add date filtering
-const filteredReviews = reviews.filter((review) => {
-  // Existing filters
-  const matchesStatus =
-    statusFilter === "all" ||
-    (statusFilter === "approved" && review.isApproved) ||
-    (statusFilter === "pending" && !review.isApproved);
+  // Server handles all filtering — reviews is already the current page
+  const filteredReviews = reviews;
+  const currentData = reviews;
 
-  const matchesRating = ratingFilter === "all" || review.rating === parseInt(ratingFilter);
-
-  const matchesProduct = productFilter === "all" || review.productId === productFilter;
-
-  const matchesVerified = !verifiedOnlyFilter || review.isVerifiedPurchase;
-
-  const matchesSearch =
-    searchTerm === "" ||
-    review.customerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    review.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    review.comment.toLowerCase().includes(searchTerm.toLowerCase());
-
-  // ✅ NEW: Date Range Filter
-  let matchesDateRange = true;
-  if (dateRange.startDate || dateRange.endDate) {
-    const reviewDate = new Date(review.createdAt);
-    const start = dateRange.startDate ? new Date(dateRange.startDate) : null;
-    const end = dateRange.endDate ? new Date(dateRange.endDate) : null;
-
-    // Set time to start/end of day for accurate comparison
-    if (start) start.setHours(0, 0, 0, 0);
-    if (end) end.setHours(23, 59, 59, 999);
-
-    if (start && end) {
-      matchesDateRange = reviewDate >= start && reviewDate <= end;
-    } else if (start) {
-      matchesDateRange = reviewDate >= start;
-    } else if (end) {
-      matchesDateRange = reviewDate <= end;
-    }
-  }
-
-  return matchesStatus && matchesRating && matchesProduct && matchesVerified && matchesSearch && matchesDateRange;
-});
-
-  // Pagination
-  const totalItems = filteredReviews.length;
-  const totalPages = Math.ceil(totalItems / itemsPerPage);
+  // Pagination — driven by server response
+  const totalItems = serverTotal;
+  const totalPages = serverTotalPages;
   const startIndex = (currentPage - 1) * itemsPerPage;
-  const endIndex = startIndex + itemsPerPage;
-  const currentData = filteredReviews.slice(startIndex, endIndex);
 
   const goToPage = (page: number) =>
     setCurrentPage(Math.max(1, Math.min(page, totalPages)));
@@ -464,7 +380,7 @@ const filteredReviews = reviews.filter((review) => {
 
   const handleItemsPerPageChange = (newItemsPerPage: number) => {
     setItemsPerPage(newItemsPerPage);
-    setCurrentPage(1);
+    setCurrentPage(1); // triggers fetchReviews via useCallback dep change
   };
     // ✅ Create Review Modal States
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -499,21 +415,7 @@ const getSelectedProductTitle = () => {
   const product = products.find(p => p.id === productFilter);
   return product?.name || "Unknown Product";
 };
-  // ✅ Fetch Products for Dropdown
-  useEffect(() => {
-    const fetchProducts = async () => {
-      try {
-        const response = await productReviewsService.getAllProducts(1, 1000);
-        if (response.data?.success) {
-          setProducts(response.data.data.items || []);
-        }
-      } catch (error) {
-        console.error("Error fetching products:", error);
-        toast.error("Failed to load products");
-      }
-    };
-    fetchProducts();
-  }, []);
+  // Products are loaded once on mount via the init useEffect above
 
   // ✅ Handle Create Review
   const handleCreateReview = async () => {
@@ -623,9 +525,7 @@ const getSelectedProductTitle = () => {
     return pages;
   };
 
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [searchTerm, statusFilter, ratingFilter, verifiedOnlyFilter]);
+  // Page resets are handled by wrapper setters and debounce effect above
 
 
 // ✅ COMPLETE: Download Reviews Function - All Messages in English
@@ -742,318 +642,163 @@ const handleExportReviews = (type: string) => {
 
   return (
     <div className="min-h-screen">
-      <div className="mx-auto space-y-2">
+      <div className="mx-auto space-y-3">
         {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight bg-gradient-to-r from-violet-400 via-cyan-400 to-pink-400 bg-clip-text text-transparent">
-              Product Reviews Management
+        <div className="flex items-center justify-between gap-3">
+          <div className="min-w-0">
+            <h1 className="text-xl font-bold bg-gradient-to-r from-violet-400 via-cyan-400 to-pink-400 bg-clip-text text-transparent leading-none">
+              Product Reviews
             </h1>
-            <p className="text-slate-400 mt-1">
-              Manage and moderate customer product reviews
-              {productFilter !== "all" && (
-                <span className="ml-2 text-violet-400">
-                  • Filtered by: {getSelectedProductName()}
-                </span>
-              )}
+            <p className="text-slate-500 text-xs mt-0.5">
+              {serverTotal} reviews{productFilter !== "all" && <span className="text-violet-400"> · {getSelectedProductName()}</span>}
             </p>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 flex-shrink-0">
             <button
-              onClick={() => {
-                fetchProducts();
-                fetchReviews(productFilter);
-              }}
+              onClick={() => { fetchProducts(); fetchReviews(); }}
               disabled={loadingReviews}
-              className="px-4 py-2 bg-slate-800/50 hover:bg-slate-700/50 text-white rounded-xl transition-all flex items-center gap-2 font-medium border border-slate-700/50 disabled:opacity-50"
+              className="p-2 bg-slate-800/50 hover:bg-slate-700/50 text-slate-400 hover:text-white rounded-lg transition-all border border-slate-700/50 disabled:opacity-50"
+              title="Refresh"
             >
               {loadingReviews ? (
-                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
               ) : (
                 <RefreshCw className="h-4 w-4" />
               )}
-              Refresh
             </button>
-{/* ✅ Export to Excel Button (Import के right side में) */}
-<button
-  onClick={() => setShowExcelImport(true)}
-  className="px-3 sm:px-4 py-2 bg-gradient-to-r from-green-600 to-green-700 text-white rounded-xl hover:shadow-lg hover:shadow-green-500/50 transition-all flex items-center gap-2 font-medium text-sm"
->
-  <Upload className="h-4 w-4 sm:h-5 sm:w-5" />
-  <span className="hidden sm:inline">Import Excel</span>
-  <span className="sm:hidden">Import</span>
-</button>
-
-{/* ✅ Export to Excel Dropdown - UPDATED NAME */}
-<div className="relative">
-  <button
-    className="px-3 sm:px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl flex items-center gap-2 font-medium transition-all text-sm"
-    onClick={() => setDownloadMenuOpen(v => !v)}
-  >
-    <Download className="h-4 w-4 sm:h-5 sm:w-5" />
-    <span className="hidden sm:inline">Export to Excel</span>
-    <span className="sm:hidden">Export</span>
-    <ChevronDown className={`h-3 w-3 sm:h-4 sm:w-4 transition-transform ${downloadMenuOpen ? 'rotate-180' : ''}`} />
-  </button>
-  
-  {downloadMenuOpen && (
-    <div className="absolute right-0 mt-2 w-56 sm:w-64 rounded-xl bg-slate-900 border border-slate-700 shadow-xl z-50 overflow-hidden">
-      {/* All Reviews */}
-      <button
-        className="w-full px-3 sm:px-4 py-2.5 sm:py-3 text-left hover:bg-blue-500/10 transition-all flex items-center justify-between border-b border-slate-800"
-        onClick={() => handleExportReviews('all')}
-      >
-        <div className="flex items-center gap-2">
-          <span className="text-lg sm:text-xl">📊</span>
-          <span className="text-white text-xs sm:text-sm font-medium">All Reviews</span>
-        </div>
-        <span className="text-blue-400 text-xs font-semibold bg-blue-500/10 px-2 py-1 rounded">
-          {reviews.length}
-        </span>
-      </button>
-      
-      {/* Filtered Reviews */}
-      <button
-        className="w-full px-3 sm:px-4 py-2.5 sm:py-3 text-left hover:bg-green-500/10 transition-all flex items-center justify-between"
-        onClick={() => handleExportReviews('filtered')}
-      >
-        <div className="flex items-center gap-2">
-          <span className="text-lg sm:text-xl">🎯</span>
-          <span className="text-white text-xs sm:text-sm font-medium">Filtered Reviews</span>
-        </div>
-        <span className={`text-xs font-semibold px-2 py-1 rounded ${
-          filteredReviews.length > 0 
-            ? 'text-green-400 bg-green-500/10' 
-            : 'text-slate-500 bg-slate-700/30'
-        }`}>
-          {filteredReviews.length}
-        </span>
-      </button>
-    </div>
-  )}
-</div>
-
-
-
-
-          </div>
-        </div>
-
-{/* ✅ Statistics Cards - CLICKABLE FILTERS */}
-<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-  
-  {/* 1. Total Reviews - NON-CLICKABLE */}
-  <div className="bg-gradient-to-br from-blue-500/10 to-blue-600/5 backdrop-blur-sm border border-blue-500/20 rounded-xl p-3">
-    <div className="flex items-center justify-between">
-      <div>
-        <p className="text-slate-400 text-xs font-medium">Total Reviews</p>
-        <p className="text-2xl font-bold text-white mt-0.5">{stats.total}</p>
-      </div>
-      <div className="w-9 h-9 bg-blue-500/20 rounded-lg flex items-center justify-center shrink-0">
-        <Star className="h-4 w-4 text-blue-400" />
-      </div>
-    </div>
-  </div>
-
-  {/* 2. Status Filter - CLICKABLE */}
-  <button
-    type="button"
-    onClick={() => {
-      if (statusFilter === 'all') setStatusFilter('pending');
-      else if (statusFilter === 'pending') setStatusFilter('approved');
-      else setStatusFilter('all');
-    }}
-    className="bg-gradient-to-br from-yellow-500/10 to-yellow-600/5 backdrop-blur-sm border border-yellow-500/20 rounded-xl p-3 hover:border-yellow-500/40 transition-all cursor-pointer group relative text-left"
-  >
-    {/* Tooltip */}
-    <div className="absolute -top-9 left-1/2 -translate-x-1/2 bg-slate-800 text-white text-xs px-2.5 py-1 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-10 shadow-xl">
-      {statusFilter === 'all' ? 'All Reviews' : statusFilter === 'pending' ? 'Pending Only' : 'Approved Only'}
-      <div className="absolute bottom-0 left-1/2 -translate-x-1/2 translate-y-full w-0 h-0 border-l-[5px] border-r-[5px] border-t-[5px] border-transparent border-t-slate-800"></div>
-    </div>
-    
-    <div className="flex items-center justify-between">
-      <div>
-        <p className="text-slate-400 text-xs font-medium">
-          {statusFilter === 'all' ? 'All Status' : statusFilter === 'pending' ? 'Pending' : 'Approved'}
-        </p>
-        <p className="text-2xl font-bold text-white mt-0.5">
-          {statusFilter === 'all' ? stats.total : statusFilter === 'pending' ? stats.pending : stats.approved}
-        </p>
-        <p className="text-[10px] text-yellow-400 mt-0.5 font-medium">
-          {statusFilter === 'all' ? '● All' : statusFilter === 'pending' ? '● Pending' : '● Approved'}
-        </p>
-      </div>
-      <div className="w-9 h-9 bg-yellow-500/20 rounded-lg flex items-center justify-center shrink-0 group-hover:bg-yellow-500/30 transition-all">
-        {statusFilter === 'pending' ? (
-          <Clock className="h-4 w-4 text-yellow-400" />
-        ) : statusFilter === 'approved' ? (
-          <CheckCircle className="h-4 w-4 text-green-400" />
-        ) : (
-          <MessageSquare className="h-4 w-4 text-slate-400" />
-        )}
-      </div>
-    </div>
-  </button>
-
-  {/* 3. Verified Filter - CLICKABLE */}
-  <button
-    type="button"
-    onClick={() => setVerifiedOnlyFilter(!verifiedOnlyFilter)}
-    className="bg-gradient-to-br from-green-500/10 to-green-600/5 backdrop-blur-sm border border-green-500/20 rounded-xl p-3 hover:border-green-500/40 transition-all cursor-pointer group relative text-left"
-  >
-    {/* Tooltip */}
-    <div className="absolute -top-9 left-1/2 -translate-x-1/2 bg-slate-800 text-white text-xs px-2.5 py-1 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-10 shadow-xl">
-      {verifiedOnlyFilter ? 'Verified Only' : 'All Reviews'}
-      <div className="absolute bottom-0 left-1/2 -translate-x-1/2 translate-y-full w-0 h-0 border-l-[5px] border-r-[5px] border-t-[5px] border-transparent border-t-slate-800"></div>
-    </div>
-    
-    <div className="flex items-center justify-between">
-      <div>
-        <p className="text-slate-400 text-xs font-medium">Verified Purchase</p>
-        <p className="text-2xl font-bold text-white mt-0.5">
-          {reviews.filter(r => r.isVerifiedPurchase).length}
-        </p>
-        <p className="text-[10px] text-green-400 mt-0.5 font-medium">
-          {verifiedOnlyFilter ? '● Verified Only' : '● All Reviews'}
-        </p>
-      </div>
-      <div className="w-9 h-9 bg-green-500/20 rounded-lg flex items-center justify-center shrink-0 group-hover:bg-green-500/30 transition-all">
-        <CheckCircle className="h-4 w-4 text-green-400" />
-      </div>
-    </div>
-  </button>
-
-  {/* 4. Avg Rating - Hover Stars + Click to Reset */}
-  <div className="bg-gradient-to-br from-yellow-500/10 to-yellow-600/5 backdrop-blur-sm border border-yellow-500/20 rounded-xl p-3 relative group">
-    <div className="flex items-center justify-between">
-      <div className="flex-1">
-        <p className="text-slate-400 text-xs font-medium">Avg Rating</p>
-        
-        {/* Reset Button */}
-        <button
-          type="button"
-          onClick={() => setRatingFilter('all')}
-          className="text-2xl font-bold text-white mt-0.5 hover:text-yellow-400 transition-colors"
-          title="Click to reset"
-        >
-          {stats.averageRating.toFixed(1)}
-        </button>
-        
-        {/* Stars - Hover to Show */}
-        <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-          <div className="flex items-center gap-0.5 mt-1"
-          >
-            {[1, 2, 3, 4, 5].map((star) => (
+            <button
+              onClick={() => setShowExcelImport(true)}
+              className="px-3 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg flex items-center gap-1.5 font-medium text-xs transition-all"
+            >
+              <Upload className="h-3.5 w-3.5" />
+              Import
+            </button>
+            <div className="relative">
               <button
-                key={star}
-                type="button"
-                onClick={() => {
-                  if (ratingFilter === star.toString()) {
-                    setRatingFilter('all');
-                  } else {
-                    setRatingFilter(star.toString());
-                  }
-                }}
-                className="transition-all hover:scale-110 focus:outline-none"
-                title={`${star}★`}
+                className="px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg flex items-center gap-1.5 font-medium text-xs transition-all"
+                onClick={() => setDownloadMenuOpen(v => !v)}
               >
-                <Star 
-                  className={`h-3.5 w-3.5 transition-colors ${
-                    ratingFilter === star.toString()
-                      ? 'fill-yellow-400 text-yellow-400'
-                      : 'text-slate-600 hover:text-yellow-400'
-                  }`}
-                />
+                <Download className="h-3.5 w-3.5" />
+                Export
+                <ChevronDown className={`h-3 w-3 transition-transform ${downloadMenuOpen ? 'rotate-180' : ''}`} />
               </button>
-            ))}
-          </div>
-        
-        </div>
-        
-        {/* Active Filter (when not hovering) */}
-        {ratingFilter !== 'all' && (
-          <p className="text-[10px] text-yellow-400 mt-0.5 font-medium group-hover:hidden">
-            ● Showing {ratingFilter}★
-          </p>
-        )}
-      </div>
-      
-      <div className="w-9 h-9 bg-yellow-500/20 rounded-lg flex items-center justify-center shrink-0">
-        <Award className="h-4 w-4 text-yellow-400" />
-      </div>
-    </div>
-  </div>
-
-</div>
-
-
-        {/* Items Per Page */}
-        <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-2xl p-2">
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <span className="text-sm text-slate-400">Show</span>
-              <select
-                value={itemsPerPage}
-                onChange={(e) =>
-                  handleItemsPerPageChange(Number(e.target.value))
-                }
-                className="px-3 py-2 bg-slate-800/50 border border-slate-600 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all"
-              >
-                <option value={25}>25</option>
-                <option value={50}>50</option>
-                <option value={75}>75</option>
-                <option value={100}>100</option>
-              </select>
-              <span className="text-sm text-slate-400">entries per page</span>
-            </div>
-
-            <div className="text-sm text-slate-400">
-              {loadingReviews
-                ? "Loading..."
-                : `Showing ${totalItems > 0 ? startIndex + 1 : 0} to ${Math.min(
-                    endIndex,
-                    totalItems
-                  )} of ${totalItems} entries`}
+              {downloadMenuOpen && (
+                <div className="absolute right-0 mt-1.5 w-52 rounded-xl bg-slate-900 border border-slate-700 shadow-xl z-50 overflow-hidden">
+                  <button
+                    className="w-full px-4 py-2.5 text-left hover:bg-blue-500/10 transition-all flex items-center justify-between border-b border-slate-800"
+                    onClick={() => handleExportReviews('all')}
+                  >
+                    <span className="text-white text-xs font-medium">All Reviews</span>
+                    <span className="text-blue-400 text-xs font-semibold bg-blue-500/10 px-2 py-0.5 rounded">{reviews.length}</span>
+                  </button>
+                  <button
+                    className="w-full px-4 py-2.5 text-left hover:bg-green-500/10 transition-all flex items-center justify-between"
+                    onClick={() => handleExportReviews('filtered')}
+                  >
+                    <span className="text-white text-xs font-medium">Current Page</span>
+                    <span className="text-green-400 text-xs font-semibold bg-green-500/10 px-2 py-0.5 rounded">{filteredReviews.length}</span>
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </div>
+
+        {/* Stats strip */}
+        <div className="grid grid-cols-4 gap-2">
+          {/* Total */}
+          <div className="bg-slate-900/60 border border-slate-800 rounded-xl px-4 py-3 flex items-center gap-3">
+            <div className="w-8 h-8 bg-violet-500/15 rounded-lg flex items-center justify-center flex-shrink-0">
+              <Star className="h-3.5 w-3.5 text-violet-400" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-[10px] text-slate-500 uppercase tracking-wide font-medium">Total</p>
+              <p className="text-lg font-bold text-white leading-none">{serverTotal}</p>
+            </div>
+          </div>
+
+          {/* Status - clickable */}
+          <button
+            type="button"
+            onClick={() => { const next = statusFilter === 'all' ? 'pending' : statusFilter === 'pending' ? 'approved' : 'all'; setStatusFilter(next); setCurrentPage(1); }}
+            className={`border rounded-xl px-4 py-3 flex items-center gap-3 transition-all text-left group ${
+              statusFilter !== 'all' ? 'bg-amber-500/10 border-amber-500/30' : 'bg-slate-900/60 border-slate-800 hover:border-slate-700'
+            }`}
+          >
+            <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 transition-all ${statusFilter === 'pending' ? 'bg-amber-500/20' : statusFilter === 'approved' ? 'bg-green-500/20' : 'bg-slate-700/50'}`}>
+              {statusFilter === 'pending' ? <Clock className="h-3.5 w-3.5 text-amber-400" /> : statusFilter === 'approved' ? <CheckCircle className="h-3.5 w-3.5 text-green-400" /> : <MessageSquare className="h-3.5 w-3.5 text-slate-400" />}
+            </div>
+            <div className="min-w-0">
+              <p className="text-[10px] text-slate-500 uppercase tracking-wide font-medium">{statusFilter === 'all' ? 'Status' : statusFilter}</p>
+              <p className="text-lg font-bold text-white leading-none">{statusFilter === 'pending' ? stats.pending : statusFilter === 'approved' ? stats.approved : stats.total}</p>
+            </div>
+          </button>
+
+          {/* Verified - clickable */}
+          <button
+            type="button"
+            onClick={() => { setVerifiedOnlyFilter(!verifiedOnlyFilter); setCurrentPage(1); }}
+            className={`border rounded-xl px-4 py-3 flex items-center gap-3 transition-all text-left ${
+              verifiedOnlyFilter ? 'bg-green-500/10 border-green-500/30' : 'bg-slate-900/60 border-slate-800 hover:border-slate-700'
+            }`}
+          >
+            <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${verifiedOnlyFilter ? 'bg-green-500/20' : 'bg-slate-700/50'}`}>
+              <CheckCircle className="h-3.5 w-3.5 text-green-400" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-[10px] text-slate-500 uppercase tracking-wide font-medium">Verified</p>
+              <p className="text-lg font-bold text-white leading-none">{reviews.filter(r => r.isVerifiedPurchase).length}</p>
+            </div>
+          </button>
+
+          {/* Avg Rating - clickable stars */}
+          <div className="bg-slate-900/60 border border-slate-800 rounded-xl px-4 py-3 flex items-center gap-3 group relative">
+            <div className="w-8 h-8 bg-yellow-500/15 rounded-lg flex items-center justify-center flex-shrink-0">
+              <Award className="h-3.5 w-3.5 text-yellow-400" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-[10px] text-slate-500 uppercase tracking-wide font-medium">Avg Rating</p>
+              <div className="flex items-center gap-2">
+                <p className="text-lg font-bold text-white leading-none">{stats.averageRating.toFixed(1)}</p>
+                <div className="flex items-center gap-0.5">
+                  {[1,2,3,4,5].map(s => (
+                    <button key={s} type="button" onClick={() => { const n = ratingFilter === s.toString() ? 'all' : s.toString(); setRatingFilter(n); setCurrentPage(1); }} className="focus:outline-none">
+                      <Star className={`h-2.5 w-2.5 transition-colors ${ratingFilter === s.toString() ? 'fill-yellow-400 text-yellow-400' : s <= Math.round(stats.averageRating) ? 'fill-yellow-400/60 text-yellow-400/60' : 'text-slate-600'}`} />
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
 
         {/* Reviews Section */}
-        <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-2xl p-2">
-          {/* Filter Section */}
-              <div className="flex flex-wrap items-center gap-3 flex-1">
-<div className="relative flex-1 lg:flex-initial lg:min-w-[180px]" ref={productDropdownRef}>
+        <div className="bg-slate-900/60 backdrop-blur-xl border border-slate-800 rounded-xl overflow-hidden">
+          {/* Compact toolbar */}
+          <div className="flex items-center gap-2 p-3 border-b border-slate-800">
+              <div className="flex items-center gap-2 flex-1 min-w-0">
+<div className="relative flex-1 min-w-[140px] max-w-[220px]" ref={productDropdownRef}>
   <div className="relative">
     <input
       type="text"
       value={showProductDropdown ? productSearchTerm : getSelectedProductTitle()}
-      onChange={(e) => {
-        setProductSearchTerm(e.target.value);
-        if (!showProductDropdown) setShowProductDropdown(true);
-      }}
-      onFocus={() => {
-        setShowProductDropdown(true);
-        setProductSearchTerm("");
-      }}
-      placeholder={loadingProducts ? "⏳ Loading products..." : "Search products..."}
-      disabled={loadingProducts || products.length === 0 || loadingReviews}
-      className={`w-full px-4 py-2.5 pl-10 pr-10 bg-slate-800/50 border rounded-xl text-white text-sm placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all ${
-        productFilter !== "all"
-          ? "border-purple-500 bg-purple-500/10 ring-2 ring-purple-500/50"
-          : "border-slate-600 hover:border-slate-500"
-      } ${
-        loadingProducts || products.length === 0 || loadingReviews
-          ? "opacity-50 cursor-not-allowed"
-          : ""
-      }`}
+      onChange={(e) => { setProductSearchTerm(e.target.value); if (!showProductDropdown) setShowProductDropdown(true); }}
+      onFocus={() => { setShowProductDropdown(true); setProductSearchTerm(""); }}
+      placeholder={loadingProducts ? "Loading..." : "All Products"}
+      disabled={loadingProducts || loadingReviews}
+      className={`w-full px-3 py-2 pl-8 pr-7 bg-slate-800 border rounded-lg text-white text-xs placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-violet-500 transition-all ${
+        productFilter !== "all" ? "border-violet-500/60 bg-violet-500/10" : "border-slate-700 hover:border-slate-600"
+      } ${loadingProducts || loadingReviews ? "opacity-50 cursor-not-allowed" : ""}`}
     />
-    <ShoppingBag className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
+    <ShoppingBag className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400 pointer-events-none" />
     
     {productFilter !== "all" ? (
       <button
         onClick={() => {
           setProductFilter("all");
           setProductSearchTerm("");
+          setCurrentPage(1);
         }}
         className="absolute right-3 top-1/2 -translate-y-1/2 p-1 hover:bg-slate-700 rounded transition-all"
       >
@@ -1077,6 +822,7 @@ const handleExportReviews = (type: string) => {
           setProductFilter("all");
           setShowProductDropdown(false);
           setProductSearchTerm("");
+          setCurrentPage(1);
         }}
         className={`w-full px-4 py-2.5 text-left hover:bg-slate-700 transition-all ${
           productFilter === "all" ? "bg-purple-500/10 text-purple-400" : "text-white"
@@ -1097,6 +843,7 @@ const handleExportReviews = (type: string) => {
               setProductFilter(product.id);
               setShowProductDropdown(false);
               setProductSearchTerm("");
+              setCurrentPage(1);
             }}
             className={`w-full px-4 py-2.5 text-left hover:bg-slate-700 transition-all border-t border-slate-700 ${
               productFilter === product.id ? "bg-purple-500/10 text-purple-400" : "text-white"
@@ -1117,111 +864,87 @@ const handleExportReviews = (type: string) => {
   )}
 </div>
   {/* Search */}
-              <div className="relative lg:w-40">
+              <div className="relative flex-1 min-w-[120px] max-w-[200px]">
                 <input
                   type="text"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  placeholder="Search reviews..."
-                  className="w-full px-4 py-2.5 pl-10 pr-4 bg-slate-800/50 border border-slate-600 rounded-xl text-white text-sm placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 hover:border-slate-500 transition-all"
+                  placeholder="Search name, title..."
+                  className="w-full px-3 py-2 pl-8 pr-7 bg-slate-800 border border-slate-700 hover:border-slate-600 rounded-lg text-white text-xs placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-violet-500 transition-all"
                 />
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400 pointer-events-none" />
                 {searchTerm && (
-                  <button
-                    onClick={() => setSearchTerm("")}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 p-1 hover:bg-slate-700 rounded transition-all"
-                  >
-                    <X className="h-3.5 w-3.5 text-slate-400 hover:text-white" />
+                  <button onClick={() => setSearchTerm("")} className="absolute right-2 top-1/2 -translate-y-1/2 p-0.5 hover:bg-slate-700 rounded transition-all">
+                    <X className="h-3 w-3 text-slate-400 hover:text-white" />
                   </button>
                 )}
               </div>
-                {/* Status Filter */}
-                <div className="relative">
-                  <select
-                    value={statusFilter}
-                    onChange={(e) => setStatusFilter(e.target.value)}
-                    className={`px-4 py-2.5 bg-slate-800/90 border rounded-xl text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all min-w-[160px] appearance-none cursor-pointer ${
-                      statusFilter !== "all"
-                        ? "border-blue-500 bg-blue-500/10 ring-2 ring-blue-500/50"
-                        : "border-slate-600 hover:border-slate-500"
-                    }`}
-                  >
-                    <option value="all">All Status</option>
-                    <option value="approved">✓ Approved</option>
-                    <option value="pending">⏱ Pending</option>
-                  </select>
-                  <Filter className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
-                </div>
-
-                {/* Rating Filter */}
-                <div className="relative">
-                  <select
-                    value={ratingFilter}
-                    onChange={(e) => setRatingFilter(e.target.value)}
-                    className={`px-4 py-2.5 bg-slate-800/90 border rounded-xl w-44 text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all min-w-[140px] appearance-none cursor-pointer ${
-                      ratingFilter !== "all"
-                        ? "border-gray-500 bg-slate-800/50  ring-2 border  ring-purple-500/50  "
-                        : "border-slate-600 hover:border-slate-500"
-                    }`}
-                  >
-                    <option value="all">All Ratings</option>
-                    <option value="5">⭐⭐⭐⭐⭐ (5)</option>
-                    <option value="4">⭐⭐⭐⭐ (4)</option>
-                    <option value="3">⭐⭐⭐ (3)</option>
-                    <option value="2">⭐⭐ (2)</option>
-                    <option value="1">⭐ (1)</option>
-                  </select>
-                  <Star className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
-                </div>
-       {/* Verified Purchase Filter */}
-                <label className="flex items-center gap-2 px-2 py-2.5  bg-slate-800/50 border border-slate-600 rounded-xl hover:border-slate-500 cursor-pointer transition-all">
-                  <input
-                    type="checkbox"
-                    checked={verifiedOnlyFilter}
-                    onChange={(e) => setVerifiedOnlyFilter(e.target.checked)}
-                    className="w-4 h-4 text-green-500 focus:ring-2 focus:ring-green-500 rounded"
-                  />
-                  <span className="text-sm text-slate-300">Verified Only</span>
-                </label>
+              {/* Status Filter */}
+              <div className="relative">
+                <select
+                  value={statusFilter}
+                  onChange={(e) => { setStatusFilter(e.target.value); setCurrentPage(1); }}
+                  className={`px-3 py-2 pr-7 bg-slate-800 border rounded-lg text-white text-xs focus:outline-none focus:ring-1 focus:ring-violet-500 transition-all appearance-none cursor-pointer ${
+                    statusFilter !== "all" ? "border-blue-500/60 bg-blue-500/10" : "border-slate-700 hover:border-slate-600"
+                  }`}
+                >
+                  <option value="all">All Status</option>
+                  <option value="approved">Approved</option>
+                  <option value="pending">Pending</option>
+                </select>
+                <Filter className="absolute right-2 top-1/2 -translate-y-1/2 h-3 w-3 text-slate-500 pointer-events-none" />
+              </div>
+              {/* Rating Filter */}
+              <div className="relative">
+                <select
+                  value={ratingFilter}
+                  onChange={(e) => { setRatingFilter(e.target.value); setCurrentPage(1); }}
+                  className={`px-3 py-2 pr-7 bg-slate-800 border rounded-lg text-white text-xs focus:outline-none focus:ring-1 focus:ring-violet-500 transition-all appearance-none cursor-pointer ${
+                    ratingFilter !== "all" ? "border-yellow-500/60 bg-yellow-500/10" : "border-slate-700 hover:border-slate-600"
+                  }`}
+                >
+                  <option value="all">All Ratings</option>
+                  <option value="5">★★★★★ 5</option>
+                  <option value="4">★★★★ 4</option>
+                  <option value="3">★★★ 3</option>
+                  <option value="2">★★ 2</option>
+                  <option value="1">★ 1</option>
+                </select>
+                <Star className="absolute right-2 top-1/2 -translate-y-1/2 h-3 w-3 text-slate-500 pointer-events-none" />
+              </div>
+              {/* Verified */}
+              <label className={`flex items-center gap-1.5 px-3 py-2 border rounded-lg cursor-pointer transition-all text-xs ${verifiedOnlyFilter ? 'bg-green-500/10 border-green-500/40 text-green-400' : 'bg-slate-800 border-slate-700 text-slate-400 hover:border-slate-600'}`}>
+                <input type="checkbox" checked={verifiedOnlyFilter} onChange={(e) => { setVerifiedOnlyFilter(e.target.checked); setCurrentPage(1); }} className="w-3 h-3 text-green-500 rounded" />
+                Verified
+              </label>
           
 
-                  {/* Date Range Filter */}
-                    <div className="relative  lg:min-w-[200px]" ref={datePickerRef}>
+              {/* Date Range Filter */}
+              <div className="relative flex-shrink-0" ref={datePickerRef}>
   <div className="relative">
     <button
       onClick={() => setShowDatePicker(!showDatePicker)}
-      className={`w-full px-4 py-2.5 pl-10 pr-10 bg-slate-800/50 border rounded-xl text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all text-left ${
+      className={`px-3 py-2 pl-7 pr-6 bg-slate-800 border rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-violet-500 transition-all text-left whitespace-nowrap ${
         (dateRange.startDate || dateRange.endDate)
-          ? "border-green-500 bg-green-500/10 ring-2 ring-green-500/50" 
-          : "border-slate-600 hover:border-slate-500"
+          ? "border-cyan-500/60 bg-cyan-500/10 text-white"
+          : "border-slate-700 hover:border-slate-600 text-slate-400"
       }`}
     >
-      <span className={dateRange.startDate || dateRange.endDate ? "text-white" : "text-slate-400"}>
-        {getDateRangeLabel()}
-      </span>
+      {getDateRangeLabel()}
     </button>
     
-    {/* Calendar Icon */}
-    <svg className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <svg className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <rect x="3" y="4" width="18" height="18" rx="2" ry="2" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
       <line x1="16" y1="2" x2="16" y2="6" strokeWidth="2" strokeLinecap="round"/>
       <line x1="8" y1="2" x2="8" y2="6" strokeWidth="2" strokeLinecap="round"/>
       <line x1="3" y1="10" x2="21" y2="10" strokeWidth="2" strokeLinecap="round"/>
     </svg>
-    
-    {/* Clear/Chevron Icon */}
     {(dateRange.startDate || dateRange.endDate) ? (
-      <button
-        onClick={(e) => {
-          e.stopPropagation();
-          setDateRange({ startDate: "", endDate: "" });
-        }}
-        className="absolute right-3 top-1/2 -translate-y-1/2 p-1 hover:bg-slate-700 rounded transition-all"
-      >
-        <X className="h-3.5 w-3.5 text-slate-400 hover:text-white" />
+      <button onClick={(e) => { e.stopPropagation(); setDateRange({ startDate: "", endDate: "" }); }} className="absolute right-1.5 top-1/2 -translate-y-1/2 p-0.5 hover:bg-slate-700 rounded transition-all">
+        <X className="h-3 w-3 text-slate-400 hover:text-white" />
       </button>
     ) : (
-      <ChevronDown className={`absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none transition-transform ${showDatePicker ? "rotate-180" : ""}`} />
+      <ChevronDown className={`absolute right-1.5 top-1/2 -translate-y-1/2 h-3 w-3 text-slate-500 pointer-events-none transition-transform ${showDatePicker ? "rotate-180" : ""}`} />
     )}
     
   </div>
@@ -1307,19 +1030,35 @@ const handleExportReviews = (type: string) => {
   
   
                      </div>
-                      {hasActiveFilters && (
-                <div className="relative  gap-2">
-                  
-                  <button
-                    onClick={clearFilters}
-                    className="px-3 py-2 bg-red-500/10 border border-red-500/50 text-red-400 rounded-lg hover:bg-red-500/20 transition-all text-xs font-medium flex items-center gap-1.5"
-                  >
-                    <FilterX className="h-3.5 w-3.5" />
-                    Clear All
-                  </button>
-                </div>
+              {hasActiveFilters && (
+                <button onClick={clearFilters} className="px-2.5 py-2 bg-red-500/10 border border-red-500/30 text-red-400 rounded-lg hover:bg-red-500/20 transition-all text-xs font-medium flex items-center gap-1">
+                  <FilterX className="h-3 w-3" />
+                  Clear
+                </button>
               )}
               </div>
+          </div>
+
+          {/* Entries info bar */}
+          <div className="flex items-center justify-between px-3 py-1.5 border-b border-slate-800/60 bg-slate-900/30">
+            <div className="flex items-center gap-2 text-[11px] text-slate-500">
+              <span>Show</span>
+              <select
+                value={itemsPerPage}
+                onChange={(e) => handleItemsPerPageChange(Number(e.target.value))}
+                className="px-2 py-0.5 bg-slate-800 border border-slate-700 rounded text-white text-[11px] focus:outline-none focus:ring-1 focus:ring-violet-500"
+              >
+                <option value={25}>25</option>
+                <option value={50}>50</option>
+                <option value={75}>75</option>
+                <option value={100}>100</option>
+              </select>
+              <span>per page</span>
+            </div>
+            <span className="text-[11px] text-slate-500">
+              {loadingReviews ? "Loading..." : `${totalItems > 0 ? startIndex + 1 : 0}–${Math.min(startIndex + reviews.length, totalItems)} of ${totalItems}`}
+            </span>
+          </div>
 
           {/* Loading State */}
           {loadingReviews ? (
@@ -1353,153 +1092,80 @@ const handleExportReviews = (type: string) => {
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
-                  <tr className="border-b border-slate-800">
-                    <th className="text-left py-3 px-4">
-                      <input
-                        type="checkbox"
-                        checked={
-                          selectedReviews.length === currentData.length &&
-                          currentData.length > 0
-                        }
-                        onChange={toggleSelectAll}
-                        className="w-4 h-4 text-violet-500 focus:ring-2 focus:ring-violet-500 rounded"
-                      />
+                  <tr className="border-b border-slate-800 bg-slate-900/40">
+                    <th className="py-2 px-3 w-8">
+                      <input type="checkbox" checked={selectedReviews.length === currentData.length && currentData.length > 0} onChange={toggleSelectAll} className="w-3.5 h-3.5 text-violet-500 rounded" />
                     </th>
-                    <th className="text-left py-3 px-4 text-slate-400 font-medium text-sm">
-                      REVIEW
-                    </th>
-                    <th className="text-left py-3 px-4 text-slate-400 font-medium text-sm">
-                      PRODUCT
-                    </th>
-                    <th className="text-center py-3 px-4 text-slate-400 font-medium text-sm">
-                      RATING
-                    </th>
-                    <th className="text-left py-3 px-4 text-slate-400 font-medium text-sm">
-                      DATE
-                    </th>
-                    <th className="text-center py-3 px-4 text-slate-400 font-medium text-sm">
-                      STATUS
-                    </th>
-                    <th className="text-center py-3 px-4 text-slate-400 font-medium text-sm">
-                      ACTIONS
-                    </th>
+                    <th className="text-left py-2 px-3 text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Review</th>
+                    <th className="text-left py-2 px-3 text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Product</th>
+                    <th className="text-center py-2 px-3 text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Rating</th>
+                    <th className="text-left py-2 px-3 text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Date</th>
+                    <th className="text-center py-2 px-3 text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Status</th>
+                    <th className="text-center py-2 px-3 text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
                   {currentData.map((review) => (
-                    <tr
-                      key={review.id}
-                      className="border-b border-slate-800 hover:bg-slate-800/30 transition-colors"
-                    >
-                      <td className="py-4 px-4">
-                        <input
-                          type="checkbox"
-                          checked={selectedReviews.includes(review.id)}
-                          onChange={() => toggleSelectReview(review.id)}
-                          className="w-4 h-4 text-violet-500 focus:ring-2 focus:ring-violet-500 rounded"
-                        />
+                    <tr key={review.id} className="border-b border-slate-800/50 hover:bg-slate-800/20 transition-colors group">
+                      <td className="py-2 px-3">
+                        <input type="checkbox" checked={selectedReviews.includes(review.id)} onChange={() => toggleSelectReview(review.id)} className="w-3.5 h-3.5 text-violet-500 rounded" />
                       </td>
-                      <td className="py-4 px-4">
-                        <div className="flex items-start gap-3">
-                          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-violet-500 to-pink-500 flex items-center justify-center flex-shrink-0">
-                            <span className="text-white text-sm font-bold">
-                              {review.customerName?.charAt(0).toUpperCase() ||
-                                "C"}
-                            </span>
+                      <td className="py-2 px-3">
+                        <div className="flex items-center gap-2.5">
+                          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-violet-500 to-pink-500 flex items-center justify-center flex-shrink-0 text-white text-xs font-bold">
+                            {review.customerName?.charAt(0).toUpperCase() || "C"}
                           </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-white font-medium text-sm">
-                              {review.customerName}
-                            </p>
-                            <p className="text-violet-400 text-xs font-medium">
-                              {review.title}
-                            </p>
-                            <p className="text-slate-300 text-sm mt-1 line-clamp-2">
-                              {review.comment}
-                            </p>
-                            {review.isVerifiedPurchase && (
-                              <span className="inline-flex items-center gap-1 mt-2 px-2 py-0.5 bg-green-500/10 border border-green-500/30 rounded text-green-400 text-xs font-medium">
-                                <CheckCircle className="h-3 w-3" />
-                                Verified Purchase
-                              </span>
-                            )}
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <p className="text-white font-medium text-xs">{review.customerName}</p>
+                              {review.isVerifiedPurchase && (
+                                <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 bg-green-500/10 border border-green-500/20 rounded text-green-400 text-[9px] font-medium">
+                                  <CheckCircle className="h-2.5 w-2.5" />Verified
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-violet-400 text-[10px] font-medium truncate max-w-[200px]">{review.title}</p>
+                            <p className="text-slate-400 text-[11px] line-clamp-1 max-w-[280px]">{review.comment}</p>
                           </div>
                         </div>
                       </td>
-                      <td className="py-4 px-4">
-                        <button
-                          onClick={() => setProductFilter(review.productId)}
-                          className="text-blue-400 hover:text-blue-300 hover:underline cursor-pointer text-sm text-left max-w-xs truncate"
-                        >
-                          {products.find((p) => p.id === review.productId)
-                            ?.name || "Unknown Product"}
+                      <td className="py-2 px-3">
+                        <button onClick={() => { setProductFilter(review.productId); setCurrentPage(1); }} className="text-blue-400 hover:text-blue-300 text-xs text-left max-w-[200px] truncate block leading-tight">
+                          {review.productName || products.find(p => p.id === review.productId)?.name || review.productSku || review.productId?.slice(0, 8) || "—"}
                         </button>
                       </td>
-                      <td className="py-4 px-4 text-center">
+                      <td className="py-2 px-3 text-center">
                         {renderStars(review.rating)}
-                        <p className="text-xs text-slate-500 mt-1">
-                          {review.rating}/5
-                        </p>
+                        <p className="text-[10px] text-slate-500">{review.rating}/5</p>
                       </td>
-                      <td className="py-4 px-4">
-                        <p className="text-slate-300 text-sm">
-                          {new Date(review.createdAt).toLocaleDateString()}
-                        </p>
-                        <p className="text-xs text-slate-500">
-                          {new Date(review.createdAt).toLocaleTimeString()}
-                        </p>
+                      <td className="py-2 px-3">
+                        <p className="text-slate-300 text-xs">{new Date(review.createdAt).toLocaleDateString()}</p>
+                        <p className="text-[10px] text-slate-500">{new Date(review.createdAt).toLocaleTimeString()}</p>
                       </td>
-                      <td className="py-4 px-4 text-center">
-                        <span
-                          className={`px-3 py-1 rounded-lg text-xs font-medium ${
-                            review.isApproved
-                              ? "bg-green-500/10 text-green-400"
-                              : "bg-yellow-500/10 text-yellow-400"
-                          }`}
-                        >
+                      <td className="py-2 px-3 text-center">
+                        <span className={`px-2 py-0.5 rounded text-[10px] font-medium ${review.isApproved ? "bg-green-500/10 text-green-400" : "bg-amber-500/10 text-amber-400"}`}>
                           {review.isApproved ? "Approved" : "Pending"}
                         </span>
                       </td>
-                      <td className="py-4 px-4">
-                        <div className="flex items-center justify-center gap-2">
-{!review.isApproved && (
-  <button
-    onClick={() => setApproveConfirm({
-      id: review.id,
-      customer: review.customerName,
-      title: review.title
-    })}
-    className="p-2 text-green-400 hover:bg-green-500/10 rounded-lg transition-all"
-    title="Approve"
-  >
-    <CheckCircle className="h-4 w-4" />
-  </button>
-)}
-                          <button
-                            onClick={() => setReplyingTo(review)}
-                            className="p-2 text-blue-400 hover:bg-blue-500/10 rounded-lg transition-all"
-                            title="Reply"
-                          >
-                            <Reply className="h-4 w-4" />
+                      <td className="py-2 px-3">
+                        <div className="flex items-center justify-center gap-0.5">
+                          {!review.isApproved && (
+                            <button onClick={() => setApproveConfirm({ id: review.id, customer: review.customerName, title: review.title })} className="flex flex-col items-center gap-0.5 px-2 py-1 text-green-400 hover:bg-green-500/10 rounded-lg transition-all group/btn">
+                              <CheckCircle className="h-3.5 w-3.5" />
+                              <span className="text-[9px] font-medium leading-none">Approve</span>
+                            </button>
+                          )}
+                          <button onClick={() => setReplyingTo(review)} className="flex flex-col items-center gap-0.5 px-2 py-1 text-blue-400 hover:bg-blue-500/10 rounded-lg transition-all">
+                            <Reply className="h-3.5 w-3.5" />
+                            <span className="text-[9px] font-medium leading-none">Reply</span>
                           </button>
-                          <button
-                            onClick={() => setViewingReview(review)}
-                            className="p-2 text-violet-400 hover:bg-violet-500/10 rounded-lg transition-all"
-                            title="View"
-                          >
-                            <Eye className="h-4 w-4" />
+                          <button onClick={() => setViewingReview(review)} className="flex flex-col items-center gap-0.5 px-2 py-1 text-violet-400 hover:bg-violet-500/10 rounded-lg transition-all">
+                            <Eye className="h-3.5 w-3.5" />
+                            <span className="text-[9px] font-medium leading-none">View</span>
                           </button>
-                          <button
-                            onClick={() =>
-                              setDeleteConfirm({
-                                id: review.id,
-                                customer: review.customerName,
-                              })
-                            }
-                            className="p-2 text-red-400 hover:bg-red-500/10 rounded-lg transition-all"
-                            title="Delete"
-                          >
-                            <Trash2 className="h-4 w-4" />
+                          <button onClick={() => setDeleteConfirm({ id: review.id, customer: review.customerName })} className="flex flex-col items-center gap-0.5 px-2 py-1 text-red-400 hover:bg-red-500/10 rounded-lg transition-all">
+                            <Trash2 className="h-3.5 w-3.5" />
+                            <span className="text-[9px] font-medium leading-none">Delete</span>
                           </button>
                         </div>
                       </td>
@@ -1513,65 +1179,20 @@ const handleExportReviews = (type: string) => {
 
         {/* Pagination */}
         {totalPages > 1 && !loadingReviews && (
-          <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-2xl p-4">
-            <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-              <div className="text-sm text-slate-400">
-                Page {currentPage} of {totalPages}
+          <div className="bg-slate-900/60 border border-slate-800 rounded-xl px-4 py-2">
+            <div className="flex items-center justify-between gap-3">
+              <span className="text-xs text-slate-500">Page {currentPage} of {totalPages}</span>
+
+              <div className="flex items-center gap-1">
+                <button onClick={goToFirstPage} disabled={currentPage === 1} className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-all disabled:opacity-30 disabled:cursor-not-allowed"><ChevronsLeft className="h-3.5 w-3.5" /></button>
+                <button onClick={goToPreviousPage} disabled={currentPage === 1} className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-all disabled:opacity-30 disabled:cursor-not-allowed"><ChevronLeft className="h-3.5 w-3.5" /></button>
+                {getPageNumbers().map((page) => (
+                  <button key={page} onClick={() => goToPage(page)} className={`px-2.5 py-1 text-xs rounded-lg transition-all ${currentPage === page ? "bg-violet-500 text-white font-semibold" : "text-slate-400 hover:text-white hover:bg-slate-800"}`}>{page}</button>
+                ))}
+                <button onClick={goToNextPage} disabled={currentPage === totalPages} className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-all disabled:opacity-30 disabled:cursor-not-allowed"><ChevronRight className="h-3.5 w-3.5" /></button>
+                <button onClick={goToLastPage} disabled={currentPage === totalPages} className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-all disabled:opacity-30 disabled:cursor-not-allowed"><ChevronsRight className="h-3.5 w-3.5" /></button>
               </div>
-
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={goToFirstPage}
-                  disabled={currentPage === 1}
-                  className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <ChevronsLeft className="h-4 w-4" />
-                </button>
-
-                <button
-                  onClick={goToPreviousPage}
-                  disabled={currentPage === 1}
-                  className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <ChevronLeft className="h-4 w-4" />
-                </button>
-
-                <div className="flex items-center gap-1">
-                  {getPageNumbers().map((page) => (
-                    <button
-                      key={page}
-                      onClick={() => goToPage(page)}
-                      className={`px-3 py-2 text-sm rounded-lg transition-all ${
-                        currentPage === page
-                          ? "bg-violet-500 text-white font-semibold"
-                          : "text-slate-400 hover:text-white hover:bg-slate-800"
-                      }`}
-                    >
-                      {page}
-                    </button>
-                  ))}
-                </div>
-
-                <button
-                  onClick={goToNextPage}
-                  disabled={currentPage === totalPages}
-                  className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <ChevronRight className="h-4 w-4" />
-                </button>
-
-                <button
-                  onClick={goToLastPage}
-                  disabled={currentPage === totalPages}
-                  className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <ChevronsRight className="h-4 w-4" />
-                </button>
-              </div>
-
-              <div className="text-sm text-slate-400">
-                Total: {totalItems} reviews
-              </div>
+              <span className="text-xs text-slate-500">{totalItems} total</span>
             </div>
           </div>
         )}
@@ -2207,7 +1828,7 @@ const handleExportReviews = (type: string) => {
       {showExcelImport && (
   <ExcelImportModal
     onClose={() => setShowExcelImport(false)}
-    onSuccess={() => fetchReviews(productFilter)}
+    onSuccess={() => fetchReviews()}
   />
 )}
 

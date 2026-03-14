@@ -6,667 +6,414 @@ import { useEffect, useState } from 'react';
 import {
   XCircle,
   RotateCcw,
-  Split,
   Loader2,
   AlertTriangle,
   PoundSterling,
-  Plus,
-  Minus,
-  Hash,
-  ChevronRight,
+  ShieldAlert,
+  BadgePercent,
+  Receipt,
+  Truck,
 } from 'lucide-react';
 import { RefundHistory, RefundReason, orderEditService } from '@/lib/services/OrderEdit';
 import { Order, formatCurrency } from '@/lib/services/orders';
 
+type RefundTab = 'full' | 'partial' | 'shipping';
+
 interface RefundModalsProps {
   order: Order;
   refundHistory?: RefundHistory | null;
-  showFullRefundModal: boolean;
-  showPartialRefundModal: boolean;
-  onCloseFullRefund: () => void;
-  onClosePartialRefund: () => void;
-  refundNotes: string;
-setRefundNotes: (value: string) => void;
-
-refundReason: RefundReason;
-setRefundReason: (value: RefundReason) => void;
-
-processingRefund: boolean;
-  onRefundSuccess: (
-    items: { orderItemId: string; quantity: number; refundAmount: number }[],
-    reason: RefundReason,
-    notes: string
-  ) => void;
+  isOpen: boolean;
+  defaultTab?: RefundTab;
+  canFullRefund: boolean;
+  canPartialRefund: boolean;
+  canShippingRefund: boolean;
+  processingRefund: boolean;
+  onClose: () => void;
+  onFullRefund: (reason: RefundReason, notes: string) => void;
+  onPartialRefund: (amount: number, reason: RefundReason, notes: string) => void;
+  onShippingRefund: (notes: string) => void;
 }
 
-export default function RefundModals({
+const TAB_CONFIG: Record<RefundTab, { label: string; icon: React.ReactNode; color: string; ring: string }> = {
+  full: {
+    label: 'Full Refund',
+    icon: <RotateCcw className="h-3.5 w-3.5" />,
+    color: 'text-red-400',
+    ring: 'ring-red-500/60',
+  },
+  partial: {
+    label: 'Partial Refund',
+    icon: <BadgePercent className="h-3.5 w-3.5" />,
+    color: 'text-orange-400',
+    ring: 'ring-orange-500/60',
+  },
+  shipping: {
+    label: 'Shipping Only',
+    icon: <Truck className="h-3.5 w-3.5" />,
+    color: 'text-cyan-400',
+    ring: 'ring-cyan-500/60',
+  },
+};
+
+export default function UnifiedRefundModal({
   order,
   refundHistory,
-  showFullRefundModal,
-  showPartialRefundModal,
-  onCloseFullRefund,
-  onClosePartialRefund,
-  onRefundSuccess,
+  isOpen,
+  defaultTab = 'full',
+  canFullRefund,
+  canPartialRefund,
+  canShippingRefund,
+  processingRefund,
+  onClose,
+  onFullRefund,
+  onPartialRefund,
+  onShippingRefund,
 }: RefundModalsProps) {
-  const [refundReason, setRefundReason] = useState<RefundReason>(RefundReason.CustomerRequest);
-  const [refundNotes, setRefundNotes] = useState('');
-  const [processingRefund, setProcessingRefund] = useState(false);
+  const [activeTab, setActiveTab] = useState<RefundTab>(defaultTab);
+  const [reason, setReason] = useState<RefundReason>(RefundReason.CustomerRequest);
+  const [notes, setNotes] = useState('');
+  const [partialAmount, setPartialAmount] = useState<number>(0);
 
-  // Partial refund items state
-  const [partialRefundItems, setPartialRefundItems] = useState<
-    Array<{ orderItemId: string; quantity: number; refundAmount: number }>
-  >([]);
-// refunded amount from refund history API
-const refundedAmount = refundHistory?.totalRefunded ?? 0;
+  const refundedAmount = refundHistory?.totalRefunded ?? 0;
+  const remainingRefundable = refundHistory?.remainingBalance ?? order.totalAmount;
 
-// remaining refundable amount
-const remainingRefundable = refundHistory?.remainingBalance ?? order.totalAmount;
+  // Reset state every time modal opens
+  useEffect(() => {
+    if (isOpen) {
+      setActiveTab(defaultTab);
+      setReason(RefundReason.CustomerRequest);
+      setNotes('');
+      setPartialAmount(0);
+    }
+  }, [isOpen, defaultTab]);
 
-  // Initialize partial refund items when modal opens
-useEffect(() => {
-  if (showPartialRefundModal) {
-    setPartialRefundItems(
-      order.orderItems.map((item) => ({
-        orderItemId: item.id,
-        quantity: 0,
-        refundAmount: 0,
-      }))
-    );
-  }
-}, [showPartialRefundModal, order.orderItems]);
-  const handleCloseFullRefund = () => {
-    setRefundNotes('');
-    setRefundReason(RefundReason.CustomerRequest);
-    onCloseFullRefund();
+  if (!isOpen) return null;
+
+  const availableTabs: RefundTab[] = [
+    ...(canFullRefund ? (['full'] as RefundTab[]) : []),
+    ...(canPartialRefund ? (['partial'] as RefundTab[]) : []),
+    ...(canShippingRefund ? (['shipping'] as RefundTab[]) : []),
+  ];
+
+  const handleClose = () => {
+    if (!processingRefund) onClose();
   };
 
-  const handleClosePartialRefund = () => {
-    setRefundNotes('');
-    setRefundReason(RefundReason.CustomerRequest);
-    setPartialRefundItems([]);
-    onClosePartialRefund();
+  const handleSubmit = () => {
+    if (activeTab === 'full') onFullRefund(reason, notes);
+    else if (activeTab === 'partial') onPartialRefund(partialAmount, reason, notes);
+    else if (activeTab === 'shipping') onShippingRefund(notes);
   };
+
+  const isSubmitDisabled = (() => {
+    if (processingRefund || !notes.trim()) return true;
+    if (activeTab === 'partial' && partialAmount <= 0) return true;
+    return false;
+  })();
+
+  const tabCfg = TAB_CONFIG[activeTab];
 
   return (
-    <>
-      {/* ===========================
-          FULL REFUND MODAL
-      =========================== */}
-      {showFullRefundModal && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-slate-800 border border-slate-700 rounded-2xl max-w-md w-full shadow-2xl">
-            {/* Header */}
-            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-700 bg-gradient-to-r from-red-900/20 to-pink-900/20">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-red-500/10 rounded-lg border border-red-500/20">
-                  <RotateCcw className="h-5 w-5 text-red-400" />
-                </div>
-                <div>
-                  <h3 className="text-lg font-semibold text-white">Process Full Refund</h3>
-                  <p className="text-xs text-slate-400 mt-0.5">
-                    Total: {formatCurrency(order.totalAmount, order.currency)}
-                  </p>
-                </div>
-              </div>
-              <button
-                onClick={handleCloseFullRefund}
-                disabled={processingRefund}
-                className="p-2 hover:bg-slate-700 rounded-lg transition-colors disabled:opacity-50"
-              >
-                <XCircle className="h-5 w-5 text-slate-400" />
-              </button>
-            </div>
+    <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+      <div className="bg-slate-800 border border-slate-700 rounded-2xl max-w-md w-full shadow-2xl overflow-hidden">
 
-            {/* Content */}
-            <div className="p-6 space-y-4">
-              {/* Refund Reason */}
+        {/* ── Header ── */}
+        <div className="relative px-6 pt-5 pb-4 bg-gradient-to-br from-slate-900/80 via-slate-800 to-slate-800 border-b border-slate-700/60">
+          <div className="flex items-start justify-between mb-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 bg-slate-700/60 rounded-xl border border-slate-600/40">
+                <Receipt className="h-5 w-5 text-slate-300" />
+              </div>
               <div>
-                <label className="block text-sm font-semibold text-white mb-2">
-                  Refund Reason <span className="text-red-400">*</span>
-                </label>
-                <select
-                  value={refundReason}
-                  onChange={(e) => setRefundReason(Number(e.target.value) as RefundReason)}
-                  disabled={processingRefund}
-                  className="w-full px-3 py-2.5 bg-slate-900/50 border border-slate-700 rounded-lg text-white text-sm focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all disabled:opacity-50"
-                >
-                  {Object.entries(RefundReason)
-                    .filter(([key]) => isNaN(Number(key)))
-                    .map(([key, value]) => (
-                      <option key={value} value={value}>
-                        {orderEditService.getRefundReasonLabel(value as number)}
-                      </option>
-                    ))}
-                </select>
-              </div>
-
-              {/* Notes */}
-              <div>
-                <label className="block text-sm font-semibold text-white mb-2">
-                  Refund Notes <span className="text-red-400">*</span>
-                </label>
-                <textarea
-                  value={refundNotes}
-                  onChange={(e) => setRefundNotes(e.target.value)}
-                  placeholder="Explain why this full refund is being processed..."
-                  rows={4}
-                  disabled={processingRefund}
-                  className="w-full px-3 py-2.5 bg-slate-900/50 border border-slate-700 rounded-lg text-white text-sm focus:ring-2 focus:ring-red-500 focus:border-transparent resize-none transition-all disabled:opacity-50"
-                />
-              </div>
-
-              {/* Warning */}
-              <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-3">
-                <div className="flex items-start gap-2">
-                  <AlertTriangle className="h-4 w-4 text-amber-400 mt-0.5 flex-shrink-0" />
-                  <div>
-                    <p className="text-xs font-semibold text-amber-400 mb-1">Important:</p>
-                    <ul className="text-xs text-amber-300 space-y-0.5 list-disc list-inside">
-                      <li>Full order amount will be refunded</li>
-                      <li>Inventory will be automatically restored</li>
-                      <li>Customer will receive email notification</li>
-                      <li>This action cannot be undone</li>
-                    </ul>
-                  </div>
-                </div>
+                <h3 className="text-base font-bold text-white tracking-tight">Process Refund</h3>
+                <p className="text-xs text-slate-400 mt-0.5">Order #{order.orderNumber}</p>
               </div>
             </div>
+            <button
+              onClick={handleClose}
+              disabled={processingRefund}
+              className="p-1.5 hover:bg-slate-700 rounded-lg transition-colors disabled:opacity-40 text-slate-400 hover:text-white"
+            >
+              <XCircle className="h-5 w-5" />
+            </button>
+          </div>
 
-            {/* Footer */}
-            <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-slate-700 bg-slate-900/30">
-              <button
-                onClick={handleCloseFullRefund}
-                disabled={processingRefund}
-                className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-colors text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={() =>
-  onRefundSuccess(
-    partialRefundItems,
-    refundReason,
-    refundNotes
-  )
-}
-                disabled={processingRefund || !refundNotes.trim()}
-                className="px-4 py-2 bg-gradient-to-r from-red-600 to-pink-600 hover:from-red-700 hover:to-pink-700 text-white rounded-lg transition-all text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 shadow-lg"
-              >
-                {processingRefund ? (
-                  <>
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    Processing...
-                  </>
-                ) : (
-                  <>
-                    <RotateCcw className="h-4 w-4" />
-                    Process Full Refund
-                  </>
-                )}
-              </button>
+          {/* Financial summary */}
+          <div className="grid grid-cols-3 gap-2 mb-4">
+            <div className="bg-slate-900/50 rounded-xl px-3 py-2 border border-slate-700/60">
+              <p className="text-[10px] text-slate-500 uppercase tracking-wide mb-0.5">Order Total</p>
+              <p className="text-sm font-bold text-white">{formatCurrency(order.totalAmount, order.currency)}</p>
+            </div>
+            <div className="bg-slate-900/50 rounded-xl px-3 py-2 border border-slate-700/60">
+              <p className="text-[10px] text-slate-500 uppercase tracking-wide mb-0.5">Refunded</p>
+              <p className="text-sm font-bold text-slate-300">{formatCurrency(refundedAmount, order.currency)}</p>
+            </div>
+            <div className="bg-orange-500/10 rounded-xl px-3 py-2 border border-orange-500/20">
+              <p className="text-[10px] text-orange-400/70 uppercase tracking-wide mb-0.5">Available</p>
+              <p className="text-sm font-bold text-orange-400">{formatCurrency(remainingRefundable, order.currency)}</p>
             </div>
           </div>
+
+          {/* Tabs */}
+          <div className="flex gap-1 bg-slate-900/50 rounded-xl p-1 border border-slate-700/40">
+            {availableTabs.map((tab) => {
+              const cfg = TAB_CONFIG[tab];
+              const isActive = activeTab === tab;
+              return (
+                <button
+                  key={tab}
+                  onClick={() => { setActiveTab(tab); setNotes(''); setPartialAmount(0); }}
+                  disabled={processingRefund}
+                  className={`flex-1 flex items-center justify-center gap-1.5 px-2 py-2 rounded-lg text-xs font-semibold transition-all ${
+                    isActive
+                      ? `bg-slate-700 ${cfg.color} shadow-sm`
+                      : 'text-slate-500 hover:text-slate-300'
+                  }`}
+                >
+                  {cfg.icon}
+                  <span>{cfg.label}</span>
+                </button>
+              );
+            })}
+          </div>
         </div>
-      )}
 
-      {/* ===========================
-          PARTIAL REFUND MODAL
-      =========================== */}
-      {showPartialRefundModal && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-slate-800 border border-slate-700 rounded-2xl max-w-3xl w-full max-h-[90vh] overflow-hidden shadow-2xl">
-            {/* Header */}
-            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-700 bg-gradient-to-r from-orange-900/20 to-amber-900/20">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-orange-500/10 rounded-lg border border-orange-500/20">
-                  <Split className="h-5 w-5 text-orange-400" />
-                </div>
-                <div>
-                  <h3 className="text-lg font-semibold text-white">Process Partial Refund</h3>
-                  <p className="text-xs text-slate-400 mt-0.5">
-                    Select items and quantities to refund
-                  </p>
-                </div>
+        {/* ── Content ── */}
+        <div className="p-5 space-y-4">
+
+          {/* FULL REFUND tab */}
+          {activeTab === 'full' && (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3">
+                <span className="text-sm text-slate-300">Amount to refund</span>
+                <span className="text-lg font-bold text-red-400">
+                  {formatCurrency(order.totalAmount, order.currency)}
+                </span>
               </div>
-              <button
-                onClick={handleClosePartialRefund}
-                disabled={processingRefund}
-                className="p-2 hover:bg-slate-700 rounded-lg transition-colors disabled:opacity-50"
-              >
-                <XCircle className="h-5 w-5 text-slate-400" />
-              </button>
+
+              <ReasonField reason={reason} setReason={setReason} processingRefund={processingRefund} ringClass="focus:ring-red-500/60 focus:border-red-500/60" />
+              <NotesField notes={notes} setNotes={setNotes} processingRefund={processingRefund} placeholder="Explain why this full refund is being processed..." ringClass="focus:ring-red-500/60 focus:border-red-500/60" />
+
+              <WarningBox lines={['Full order amount will be refunded', 'Inventory will be automatically restored', 'This action cannot be undone']} />
             </div>
-<div className="bg-slate-900/60 border border-slate-700 rounded-lg p-3 text-xs text-slate-300">
-  <div className="flex justify-between">
-    <span>Order Total</span>
-    <span>{formatCurrency(order.totalAmount, order.currency)}</span>
-  </div>
-  <div className="flex justify-between">
-    <span>Already Refunded</span>
-    <span>{formatCurrency(refundedAmount, order.currency)}</span>
-  </div>
-  <div className="flex justify-between font-semibold text-orange-400">
-    <span>Remaining Refundable</span>
-    <span>{formatCurrency(remainingRefundable, order.currency)}</span>
-  </div>
-</div>
-            {/* Content */}
-            <div className="p-6 overflow-y-auto max-h-[calc(90vh-200px)] space-y-4">
-              {/* Items Selection */}
+          )}
+
+          {/* PARTIAL REFUND tab */}
+          {activeTab === 'partial' && (
+            <div className="space-y-4">
+              {/* Amount input */}
               <div>
-                <label className="block text-sm font-semibold text-white mb-3">
-                  Select Items to Refund <span className="text-red-400">*</span>
-                </label>
-                <div className="space-y-3">
-                  {order.orderItems.map((item, index) => {
-                    const refundItem = partialRefundItems.find((r) => r.orderItemId === item.id);
-                    const currentQuantity = refundItem?.quantity || 0;
-                    const currentAmount = refundItem?.refundAmount || 0;
-                    const isSelected = currentQuantity > 0;
-
-                    return (
-                      <div
-                        key={item.id}
-                        className={`p-4 rounded-xl border transition-all ${
-                          isSelected
-                            ? 'bg-orange-500/10 border-orange-500/30 shadow-lg'
-                            : 'bg-slate-900/50 border-slate-700 hover:border-slate-600'
-                        }`}
+                <div className="flex items-center justify-between mb-2">
+                  <label className="text-xs font-semibold text-slate-300 uppercase tracking-wide">
+                    Refund Amount <span className="text-red-400">*</span>
+                  </label>
+                  <div className="flex gap-1">
+                    {[25, 50, 75, 100].map((pct) => (
+                      <button
+                        key={pct}
+                        type="button"
+                        onClick={() =>
+                          setPartialAmount(Number(((remainingRefundable * pct) / 100).toFixed(2)))
+                        }
+                        disabled={processingRefund}
+                        className="px-2 py-0.5 text-[11px] font-semibold rounded-md bg-slate-700 hover:bg-orange-500/20 hover:text-orange-400 text-slate-300 border border-slate-600 hover:border-orange-500/40 transition-all disabled:opacity-40"
                       >
-                        {/* Item Info */}
-                        <div className="flex items-start justify-between gap-3 mb-3">
-                          <div className="flex items-start gap-3 flex-1">
-                            <span
-                              className={`w-8 h-8 rounded-lg flex items-center justify-center text-white font-bold text-xs flex-shrink-0 ${
-                                isSelected
-                                  ? 'bg-gradient-to-br from-orange-500 to-amber-500'
-                                  : 'bg-gradient-to-br from-slate-600 to-slate-700'
-                              }`}
-                            >
-                              {index + 1}
-                            </span>
-                            <div className="flex-1 min-w-0">
-                              <p className="text-white font-medium text-sm truncate">
-                                {item.productName}
-                              </p>
-                              <p className="text-xs text-slate-400 mt-1 flex items-center gap-1">
-                                <Hash className="h-3 w-3" />
-                                {item.productSku}
-                              </p>
-                              {item.variantName && (
-                                <p className="text-xs text-cyan-400 mt-1 flex items-center gap-1">
-                                  <ChevronRight className="h-3 w-3" />
-                                  {item.variantName}
-                                </p>
-                              )}
-                            </div>
-                          </div>
-                          <div className="text-right flex-shrink-0">
-                            <p className="text-xs text-slate-400">
-                              {item.quantity} × {formatCurrency(item.unitPrice, order.currency)}
-                            </p>
-                            <p className="text-white font-semibold text-sm mt-1">
-                              {formatCurrency(item.totalPrice, order.currency)}
-                            </p>
-                          </div>
-                        </div>
-
-                        {/* Quantity & Amount Controls */}
-                        <div className="grid grid-cols-2 gap-3">
-                          {/* Quantity */}
-                          <div>
-                            <label className="block text-xs text-slate-400 mb-2">
-                              Refund Quantity
-                            </label>
-                        <div className="flex items-center gap-2">
-  <button
-    type="button"
-    onClick={() => {
-      const newQty = Math.max(0, currentQuantity - 1);
-
-    const maxAllowed = Number(
-  Math.min(newQty * item.unitPrice, remainingRefundable).toFixed(2)
-);
-      setPartialRefundItems((prev) =>
-        prev.map((r) =>
-          r.orderItemId === item.id
-            ? {
-                ...r,
-                quantity: newQty,
-                refundAmount:
-  newQty === 0
-    ? 0
-    : r.refundAmount === 0
-    ? maxAllowed
-    : Number(Math.min(r.refundAmount, maxAllowed).toFixed(2)),
-              }
-            : r
-        )
-      );
-    }}
-    disabled={processingRefund || currentQuantity === 0}
-    className="p-2 bg-slate-700 hover:bg-slate-600 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg transition-colors"
-  >
-    <Minus className="h-3.5 w-3.5 text-white" />
-  </button>
-
-  <input
-    type="number"
-    min="0"
-    max={item.quantity}
-    value={currentQuantity}
-    onChange={(e) => {
-      const newQty = Math.max(
-        0,
-        Math.min(item.quantity, Number(e.target.value))
-      );
-
-    const maxAllowed = Number(
-  Math.min(newQty * item.unitPrice, remainingRefundable).toFixed(2)
-);
-
-      setPartialRefundItems((prev) =>
-        prev.map((r) =>
-          r.orderItemId === item.id
-            ? {
-                ...r,
-                quantity: newQty,
-                refundAmount:
-  newQty === 0
-    ? 0
-    : r.refundAmount === 0
-    ? maxAllowed
-    : Number(Math.min(r.refundAmount, maxAllowed).toFixed(2)),
-              }
-            : r
-        )
-      );
-    }}
-    disabled={processingRefund}
-    className="w-16 px-2 py-2 bg-slate-900/50 border border-slate-700 rounded-lg text-white text-center text-sm focus:ring-2 focus:ring-orange-500 disabled:opacity-50"
-  />
-
-  <button
-    type="button"
-    onClick={() => {
-      const newQty = Math.min(item.quantity, currentQuantity + 1);
-
-     const maxAllowed = Number(
-  Math.min(newQty * item.unitPrice, remainingRefundable).toFixed(2)
-);
-
-      setPartialRefundItems((prev) =>
-        prev.map((r) =>
-          r.orderItemId === item.id
-            ? {
-                ...r,
-                quantity: newQty,
-                refundAmount:
-  r.refundAmount === 0
-    ? maxAllowed
-    : Number(Math.min(r.refundAmount, maxAllowed).toFixed(2)),
-              }
-            : r
-        )
-      );
-    }}
-    disabled={processingRefund || currentQuantity >= item.quantity}
-    className="p-2 bg-slate-700 hover:bg-slate-600 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg transition-colors"
-  >
-    <Plus className="h-3.5 w-3.5 text-white" />
-  </button>
-
-  <span className="text-xs text-slate-400 ml-1">/ {item.quantity}</span>
-</div>
-                          </div>
-
-                          {/* Refund Amount */}
-                          <div>
-                            <label className="block text-xs text-slate-400 mb-2">
-                              Refund Amount ({order.currency})
-                            </label>
-                            <div className="relative">
-                              <PoundSterling className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-                              <input
-                                type="number"
-                                min="0"
-                               max={
-  currentQuantity > 0
-    ? Math.min(currentQuantity * item.unitPrice, remainingRefundable)
-    : 0
-}
-                                step="0.01"
-                                value={currentAmount}
-                                onChange={(e) => {
-                                const maxAmount = Math.min(
-  currentQuantity * item.unitPrice,
-  remainingRefundable
-);
-const newAmount = Number(
-  Math.max(0, Math.min(maxAmount, Number(e.target.value))).toFixed(2)
-);
-                                  setPartialRefundItems((prev) =>
-                                    prev.map((r) =>
-                                      r.orderItemId === item.id ? { ...r, refundAmount: newAmount } : r
-                                    )
-                                  );
-                                }}
-                                disabled={processingRefund || currentQuantity === 0}
-                                className="w-full pl-9 pr-3 py-2 bg-slate-900/50 border border-slate-700 rounded-lg text-white text-sm focus:ring-2 focus:ring-orange-500 disabled:opacity-50"
-                                placeholder="0.00"
-                              />
-                            </div>
-                            {currentQuantity > 0 && (
-                              <p className="text-xs text-slate-400 mt-1">
-                                Max: {formatCurrency(
-  Math.min(currentQuantity * item.unitPrice, remainingRefundable),
-  order.currency
-)}
-                              </p>
-                            )}
-                          </div>
-                        </div>
-
-                        {/* Quick Actions */}
-                        {currentQuantity > 0 && (
-                          <div className="flex gap-2 mt-3 pt-3 border-t border-slate-700">
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setPartialRefundItems((prev) =>
-                                  prev.map((r) =>
-                                    r.orderItemId === item.id
-                                      ? { ...r, quantity: item.quantity, refundAmount: Number(Math.min(item.totalPrice, remainingRefundable).toFixed(2)) }
-                                      : r
-                                  )
-                                );
-                              }}
-                              disabled={processingRefund}
-                              className="flex-1 px-3 py-1.5 bg-orange-600/20 hover:bg-orange-600/30 border border-orange-500/30 text-orange-400 rounded-lg text-xs font-medium transition-colors disabled:opacity-50"
-                            >
-                              Refund All
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setPartialRefundItems((prev) =>
-                                  prev.map((r) =>
-                                    r.orderItemId === item.id ? { ...r, quantity: 0, refundAmount: 0 } : r
-                                  )
-                                );
-                              }}
-                              disabled={processingRefund}
-                              className="flex-1 px-3 py-1.5 bg-red-600/20 hover:bg-red-600/30 border border-red-500/30 text-red-400 rounded-lg text-xs font-medium transition-colors disabled:opacity-50"
-                            >
-                              Clear
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
+                        {pct === 100 ? 'Max' : `${pct}%`}
+                      </button>
+                    ))}
+                  </div>
                 </div>
-              </div>
-
-              {/* Total Summary */}
-              {partialRefundItems.some((r) => r.quantity > 0) && (
-                <div className="bg-gradient-to-r from-orange-500/10 to-amber-500/10 border border-orange-500/30 rounded-xl p-4">
-                  <div className="flex items-center justify-between mb-2">
-                    <p className="text-sm font-semibold text-white">Refund Summary</p>
-                    <p className="text-xs text-slate-400">
-                      {partialRefundItems.filter((r) => r.quantity > 0).length} item(s) selected
+                <div className="relative">
+                  <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-lg font-light select-none">£</span>
+                  <input
+                    type="number"
+                    min="0.01"
+                    max={remainingRefundable}
+                    step="0.01"
+                    value={partialAmount || ''}
+                    onChange={(e) =>
+                      setPartialAmount(
+                        Number(Math.max(0, Math.min(remainingRefundable, Number(e.target.value))).toFixed(2))
+                      )
+                    }
+                    disabled={processingRefund}
+                    placeholder="0.00"
+                    className="w-full pl-8 pr-4 py-3 bg-slate-900/60 border border-slate-600 rounded-xl text-white text-xl font-bold focus:ring-2 focus:ring-orange-500/60 focus:border-orange-500/60 placeholder:text-slate-600 disabled:opacity-50 transition-all"
+                  />
+                </div>
+                {partialAmount > 0 && (
+                  <div className="mt-2">
+                    <div className="w-full h-1.5 bg-slate-700 rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-gradient-to-r from-orange-500 to-amber-400 rounded-full transition-all duration-300"
+                        style={{ width: `${Math.min(100, (partialAmount / remainingRefundable) * 100)}%` }}
+                      />
+                    </div>
+                    <p className="text-[11px] text-slate-500 mt-1 text-right">
+                      {((partialAmount / remainingRefundable) * 100).toFixed(0)}% of available
                     </p>
                   </div>
-                  <div className="space-y-1.5">
-                    {partialRefundItems
-                      .filter((r) => r.quantity > 0)
-                      .map((refundItem) => {
-                        const item = order.orderItems.find((i) => i.id === refundItem.orderItemId);
-                        if (!item) return null;
-                        return (
-                          <div key={refundItem.orderItemId} className="flex items-center justify-between text-xs">
-                            <span className="text-slate-300 flex items-center gap-1">
-                              <ChevronRight className="h-3 w-3" />
-                              {item.productName} × {refundItem.quantity}
-                            </span>
-                            <span className="text-orange-400 font-semibold">
-                              {formatCurrency(refundItem.refundAmount, order.currency)}
-                            </span>
-                          </div>
-                        );
-                      })}
-                    <div className="flex items-center justify-between pt-2 border-t border-orange-500/30">
-                      <span className="text-white font-bold">Total Refund</span>
-                      <span className="text-orange-400 font-bold text-lg">
-                        {formatCurrency(
-                          partialRefundItems.reduce((sum, r) => sum + r.refundAmount, 0),
-                          order.currency
-                        )}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Refund Reason */}
-              <div>
-                <label className="block text-sm font-semibold text-white mb-2">
-                  Refund Reason <span className="text-red-400">*</span>
-                </label>
-                <select
-                  value={refundReason}
-                  onChange={(e) => setRefundReason(Number(e.target.value) as RefundReason)}
-                  disabled={processingRefund}
-                  className="w-full px-3 py-2.5 bg-slate-900/50 border border-slate-700 rounded-lg text-white text-sm focus:ring-2 focus:ring-orange-500 disabled:opacity-50"
-                >
-                  {Object.entries(RefundReason)
-                    .filter(([key]) => isNaN(Number(key)))
-                    .map(([key, value]) => (
-                      <option key={value} value={value}>
-                        {orderEditService.getRefundReasonLabel(value as number)}
-                      </option>
-                    ))}
-                </select>
-              </div>
-
-              {/* Notes */}
-              <div>
-                <label className="block text-sm font-semibold text-white mb-2">
-                  Refund Notes <span className="text-red-400">*</span>
-                </label>
-                <textarea
-                  value={refundNotes}
-                  onChange={(e) => setRefundNotes(e.target.value)}
-                  placeholder="Explain why this partial refund is being processed..."
-                  rows={3}
-                  disabled={processingRefund}
-                  className="w-full px-3 py-2.5 bg-slate-900/50 border border-slate-700 rounded-lg text-white text-sm focus:ring-2 focus:ring-orange-500 resize-none disabled:opacity-50"
-                />
-              </div>
-
-              {/* Warning */}
-              <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-3">
-                <div className="flex items-start gap-2">
-                  <AlertTriangle className="h-4 w-4 text-amber-400 mt-0.5 flex-shrink-0" />
-                  <div>
-                    <p className="text-xs font-semibold text-amber-400 mb-1">Important:</p>
-                    <ul className="text-xs text-amber-300 space-y-0.5 list-disc list-inside">
-                      <li>Selected items will be refunded</li>
-                      <li>Inventory will be automatically updated</li>
-                      <li>Customer will receive email notification</li>
-                      <li>This action cannot be undone</li>
-                    </ul>
-                  </div>
-                </div>
-              </div>
-
-              {/* Validation Error */}
-              {partialRefundItems.every((r) => r.quantity === 0) && (
-                <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-3">
-                  <p className="text-xs text-red-400 flex items-center gap-1">
-                    <XCircle className="h-3.5 w-3.5" />
-                    Please select at least one item to refund
-                  </p>
-                </div>
-              )}
-            </div>
-
-            {/* Footer */}
-            <div className="flex items-center justify-between px-6 py-4 border-t border-slate-700 bg-slate-900/30">
-              <div className="text-sm">
-                {partialRefundItems.some((r) => r.quantity > 0) ? (
-                  <p className="text-orange-400 font-semibold">
-                    Refunding{' '}
-                    {formatCurrency(
-                      partialRefundItems.reduce((sum, r) => sum + r.refundAmount, 0),
-                      order.currency
-                    )}
-                  </p>
-                ) : (
-                  <p className="text-slate-400">No items selected</p>
                 )}
               </div>
 
-              <div className="flex gap-3">
-                <button
-                  onClick={handleClosePartialRefund}
-                  disabled={processingRefund}
-                  className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-colors text-sm font-medium disabled:opacity-50"
-                >
-                  Cancel
-                </button>
-                <button
-                 onClick={() =>
-  onRefundSuccess(
-    partialRefundItems,
-    refundReason,
-    refundNotes
-  )
-}
-                  disabled={
-                    processingRefund ||
-                    partialRefundItems.every((r) => r.quantity === 0) ||
-                    !refundNotes.trim()
-                  }
-                  className="px-4 py-2 bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-700 hover:to-amber-700 text-white rounded-lg transition-all text-sm font-medium disabled:opacity-50 flex items-center gap-2 shadow-lg"
-                >
-                  {processingRefund ? (
-                    <>
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      Processing...
-                    </>
-                  ) : (
-                    <>
-                      <RotateCcw className="h-4 w-4" />
-                      Process Partial Refund
-                    </>
-                  )}
-                </button>
-              </div>
+              <ReasonField reason={reason} setReason={setReason} processingRefund={processingRefund} ringClass="focus:ring-orange-500/60 focus:border-orange-500/60" />
+              <NotesField notes={notes} setNotes={setNotes} processingRefund={processingRefund} placeholder="Reason for this partial refund..." ringClass="focus:ring-orange-500/60 focus:border-orange-500/60" />
+              <WarningBox lines={['This action cannot be undone', 'Customer will be notified by email']} />
             </div>
+          )}
+
+          {/* SHIPPING tab */}
+          {activeTab === 'shipping' && (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between bg-cyan-500/10 border border-cyan-500/20 rounded-xl px-4 py-3">
+                <span className="text-sm text-slate-300">Shipping charge to refund</span>
+                <span className="text-lg font-bold text-cyan-400">
+                  {formatCurrency(order.shippingAmount, order.currency)}
+                </span>
+              </div>
+
+              <NotesField notes={notes} setNotes={setNotes} processingRefund={processingRefund} placeholder="e.g. Late delivery, free shipping promotion..." ringClass="focus:ring-cyan-500/60 focus:border-cyan-500/60" />
+              <WarningBox lines={['Only the shipping charge will be refunded', 'Product amounts remain unchanged', 'This action cannot be undone']} />
+            </div>
+          )}
+
+        </div>
+
+        {/* ── Footer ── */}
+        <div className="flex items-center justify-between px-5 py-4 border-t border-slate-700/60 bg-slate-900/40">
+          <div>
+            {activeTab === 'partial' && partialAmount > 0 ? (
+              <div>
+                <p className="text-[10px] text-slate-500 uppercase tracking-wide">Refunding</p>
+                <p className="text-lg font-bold text-orange-400 leading-tight">
+                  {formatCurrency(partialAmount, order.currency)}
+                </p>
+              </div>
+            ) : activeTab === 'full' ? (
+              <p className="text-sm text-slate-400">Full order refund</p>
+            ) : activeTab === 'shipping' ? (
+              <p className="text-sm text-slate-400">Shipping only</p>
+            ) : (
+              <p className="text-sm text-slate-500">Enter amount above</p>
+            )}
+          </div>
+          <div className="flex gap-2.5">
+            <button
+              onClick={handleClose}
+              disabled={processingRefund}
+              className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-xl transition-colors text-sm font-medium disabled:opacity-50"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleSubmit}
+              disabled={isSubmitDisabled}
+              className={`px-5 py-2 rounded-xl text-sm font-semibold transition-all flex items-center gap-2 shadow-lg disabled:opacity-40 disabled:cursor-not-allowed ${
+                activeTab === 'full'
+                  ? 'bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-700 hover:to-rose-700 shadow-red-900/30 text-white'
+                  : activeTab === 'partial'
+                  ? 'bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 shadow-orange-900/30 text-white'
+                  : 'bg-gradient-to-r from-cyan-600 to-teal-600 hover:from-cyan-700 hover:to-teal-700 shadow-cyan-900/30 text-white'
+              }`}
+            >
+              {processingRefund ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Processing...
+                </>
+              ) : activeTab === 'full' ? (
+                <>
+                  <RotateCcw className="h-4 w-4" />
+                  Refund {formatCurrency(order.totalAmount, order.currency)}
+                </>
+              ) : activeTab === 'partial' ? (
+                <>
+                  <BadgePercent className="h-4 w-4" />
+                  {partialAmount > 0 ? `Refund ${formatCurrency(partialAmount, order.currency)}` : 'Confirm Refund'}
+                </>
+              ) : (
+                <>
+                  <Truck className="h-4 w-4" />
+                  Refund {formatCurrency(order.shippingAmount, order.currency)}
+                </>
+              )}
+            </button>
           </div>
         </div>
-      )}
-    </>
+
+      </div>
+    </div>
+  );
+}
+
+// ── Shared sub-components ──
+
+function ReasonField({
+  reason, setReason, processingRefund, ringClass,
+}: {
+  reason: RefundReason;
+  setReason: (v: RefundReason) => void;
+  processingRefund: boolean;
+  ringClass: string;
+}) {
+  return (
+    <div>
+      <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wide mb-1.5">
+        Reason <span className="text-red-400">*</span>
+      </label>
+      <select
+        value={reason}
+        onChange={(e) => setReason(Number(e.target.value) as RefundReason)}
+        disabled={processingRefund}
+        className={`w-full px-3 py-2.5 bg-slate-900/60 border border-slate-600 rounded-xl text-white text-sm focus:ring-2 ${ringClass} disabled:opacity-50 transition-all`}
+      >
+        {Object.entries(RefundReason)
+          .filter(([key]) => isNaN(Number(key)))
+          .map(([, value]) => (
+            <option key={value} value={value}>
+              {orderEditService.getRefundReasonLabel(value as number)}
+            </option>
+          ))}
+      </select>
+    </div>
+  );
+}
+
+function NotesField({
+  notes, setNotes, processingRefund, placeholder, ringClass,
+}: {
+  notes: string;
+  setNotes: (v: string) => void;
+  processingRefund: boolean;
+  placeholder: string;
+  ringClass: string;
+}) {
+  return (
+    <div>
+      <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wide mb-1.5">
+        Notes <span className="text-red-400">*</span>
+      </label>
+      <textarea
+        value={notes}
+        onChange={(e) => setNotes(e.target.value)}
+        placeholder={placeholder}
+        rows={3}
+        disabled={processingRefund}
+        className={`w-full px-3 py-2.5 bg-slate-900/60 border border-slate-600 rounded-xl text-white text-sm focus:ring-2 ${ringClass} resize-none disabled:opacity-50 placeholder:text-slate-600 transition-all`}
+      />
+    </div>
+  );
+}
+
+function WarningBox({ lines }: { lines: string[] }) {
+  return (
+    <div className="flex items-start gap-2.5 bg-amber-500/8 border border-amber-500/20 rounded-xl px-3.5 py-2.5">
+      <ShieldAlert className="h-4 w-4 text-amber-400 flex-shrink-0 mt-0.5" />
+      <ul className="space-y-0.5">
+        {lines.map((line, i) => (
+          <li key={i} className="text-xs text-amber-300/90">{line}</li>
+        ))}
+      </ul>
+    </div>
   );
 }

@@ -16,6 +16,8 @@ export interface ReviewReply {
 export interface ProductReview {
   id: string;
   productId: string;
+  productName?: string;
+  productSku?: string;
   customerId: string;
   customerName: string;
   customerEmail?: string;
@@ -84,6 +86,27 @@ export interface PaginatedProductsResponse {
   hasNext: boolean;
 }
 
+export interface PaginatedReviewsResponse {
+  items: ProductReview[];
+  totalCount: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+  hasPrevious: boolean;
+  hasNext: boolean;
+}
+
+export interface ReviewFilters {
+  page?: number;
+  pageSize?: number;
+  status?: 'pending' | 'approved';
+  rating?: number;
+  searchTerm?: string;
+  customerEmail?: string;
+  productName?: string;
+  productSku?: string;
+}
+
 // ✅ NEW: Import Result Interface
 export interface ImportResult {
   totalRows: number;
@@ -95,6 +118,23 @@ export interface ImportResult {
 
 // --- Main Service ---
 export const productReviewsService = {
+  // Get all reviews with server-side filtering & pagination
+  getAll: (filters: ReviewFilters = {}, config: any = {}) => {
+    const params = new URLSearchParams();
+    if (filters.page)        params.set('page',        String(filters.page));
+    if (filters.pageSize)    params.set('pageSize',    String(filters.pageSize));
+    if (filters.status)      params.set('status',      filters.status);
+    if (filters.rating)      params.set('rating',      String(filters.rating));
+    if (filters.searchTerm)  params.set('searchTerm',  filters.searchTerm);
+    if (filters.customerEmail) params.set('customerEmail', filters.customerEmail);
+    if (filters.productName) params.set('productName', filters.productName);
+    if (filters.productSku)  params.set('productSku',  filters.productSku);
+    return apiClient.get<ApiResponse<PaginatedReviewsResponse>>(
+      `${API_ENDPOINTS.productReviews}?${params}`,
+      config
+    );
+  },
+
   // Get reviews by product ID
   getByProductId: (
     productId: string, 

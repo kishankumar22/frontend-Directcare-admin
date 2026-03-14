@@ -37,7 +37,6 @@ import {
   Receipt,
   History,
   RotateCcw,
-  Split,
   Download,
   FlaskConical,
   MessageSquare,
@@ -64,7 +63,6 @@ import RefundModals from '../RefundModals';
 import PharmacyVerificationModal from '../PharmacyVerificationModal';
 
 import { API_BASE_URL } from '@/lib/api';
-import ShippingRefundModal from '../ShippingRefundModal';
 
 // Types
 type CollectionStatus = 'Pending' | 'Ready' | 'Collected' | 'Expired';
@@ -440,7 +438,8 @@ const getPharmacyStatusInfo = (status: string) => {
 const getAllAvailableActions = (
   order: Order,
   canRefund: boolean,
-  hasEditHistory: boolean
+  hasEditHistory: boolean,
+  canRefundShippingArg: boolean
 ) => {
   const actions: Array<{
     label: string;
@@ -523,26 +522,6 @@ if (canUpdateStatus) {
   });
 }
 
-const canRefundShipping =
-  !order.isShippingRefunded &&
-  order.shippingAmount > 0 &&
-  order.payments?.some(
-    (p) =>
-      p.status === "Completed" ||
-      p.status === "Successful" ||
-      p.status === "PartiallyRefunded"
-  ) &&
-  ["Processing","Shipped","Delivered","Cancelled","Returned"].includes(status);
-
-if (canRefundShipping) {
-  actions.push({
-    label: "Refund Shipping",
-    action: "refund-shipping",
-    icon: <Truck className="h-3.5 w-3.5" />,
-    color: "bg-cyan-600 hover:bg-cyan-700",
-    category: "financial",
-  });
-}
   // Backend: Cannot cancel Delivered (use Return), Cancelled, Refunded, Returned
 const canCancel =
   ['Pending', 'Confirmed', 'Processing', 'Shipped', 'PartiallyShipped'].includes(status) &&
@@ -605,22 +584,13 @@ actions.push({
   category: 'financial',
 });
 
-  // ✅ Refund Actions - Only when payment is Successful/Completed/ and not already Refunded
-  
-  if (canRefund) {
+  // ✅ Single "Refund" button — opens unified modal with tabs
+  if (canRefund || canRefundShippingArg) {
     actions.push({
-      label: 'Full Refund',
-      action: 'full-refund',
+      label: 'Refund',
+      action: 'refund',
       icon: <RotateCcw className="h-3.5 w-3.5" />,
       color: 'bg-red-600 hover:bg-red-700',
-      category: 'financial',
-    });
-
-    actions.push({
-      label: 'Partial Refund',
-      action: 'partial-refund',
-      icon: <Split className="h-3.5 w-3.5" />,
-      color: 'bg-orange-600 hover:bg-orange-700',
       category: 'financial',
     });
   }
@@ -770,20 +740,12 @@ const [hasEditHistory, setHasEditHistory] = useState<boolean | null>(null);
   const [loadingEditHistory, setLoadingEditHistory] = useState(false);
 
   // Refund Modal States
-  const [showFullRefundModal, setShowFullRefundModal] = useState(false);
-  const [showPartialRefundModal, setShowPartialRefundModal] = useState(false);
-  const [refundReason, setRefundReason] = useState<RefundReason>(RefundReason.CustomerRequest);
-  const [refundNotes, setRefundNotes] = useState('');
+  const [showRefundModal, setShowRefundModal] = useState(false);
+  const [refundTab, setRefundTab] = useState<'full' | 'partial' | 'shipping'>('full');
   const [processingRefund, setProcessingRefund] = useState(false);
-  const [partialRefundItems, setPartialRefundItems] = useState<
-    Array<{ orderItemId: string; quantity: number; refundAmount: number }>
-  >([]);
 const [pharmaAction, setPharmaAction] = useState<'approve' | 'reject' | null>(null);
 const [isUpdatingPharma, setIsUpdatingPharma] = useState(false);
 const [showPharmaQA, setShowPharmaQA] = useState(false);
-const [showShippingRefundModal,setShowShippingRefundModal] = useState(false);
-const [shippingRefundNotes,setShippingRefundNotes] = useState("");
-const [processingShippingRefund,setProcessingShippingRefund] = useState(false);
 
   // ✅ NEW: Invoice Regeneration Modal State
   const [showRegenerateInvoiceModal, setShowRegenerateInvoiceModal] = useState(false);
@@ -794,11 +756,17 @@ const [processingShippingRefund,setProcessingShippingRefund] = useState(false);
 // FETCH ORDER DETAILS
 // ===========================
 
+// Track whether the initial load has completed — subsequent refreshes should
+// NOT set loading=true, which would unmount modals and lose their local state.
+const initialLoadDone = useRef(false);
+
 const fetchOrderDetails = useCallback(async () => {
   if (!orderId) return;
 
+  const isFirstLoad = !initialLoadDone.current;
+
   try {
-    setLoading(true);
+    if (isFirstLoad) setLoading(true);
 
     const response = await orderService.getOrderById(orderId);
 
@@ -812,7 +780,8 @@ const fetchOrderDetails = useCallback(async () => {
       { autoClose: 5000 }
     );
   } finally {
-    setLoading(false);
+    if (isFirstLoad) setLoading(false);
+    initialLoadDone.current = true;
   }
 }, [orderId, toast]);
 
@@ -1018,7 +987,7 @@ const handleFullRefund = async (notes: string, reason: RefundReason) => {
 
     toast.success(`Refund processed successfully`);
 
-    setShowFullRefundModal(false);
+    setShowRefundModal(false);
 
     await refreshAllOrderData();
 
@@ -1030,15 +999,12 @@ const handleFullRefund = async (notes: string, reason: RefundReason) => {
 };
 
 const handlePartialRefund = async (
-  items: Array<{ orderItemId: string; quantity: number; refundAmount: number }>,
+  refundAmount: number,
   reason: RefundReason,
   notes: string
 ) => {
-
-  const selectedItems = items.filter((r) => r.quantity > 0);
-
-  if (selectedItems.length === 0) {
-    toast.error('Please select at least one item to refund', { autoClose: 4000 });
+  if (!refundAmount || refundAmount <= 0) {
+    toast.error('Please enter a valid refund amount', { autoClose: 4000 });
     return;
   }
 
@@ -1049,9 +1015,7 @@ const handlePartialRefund = async (
 
   if (!order) return;
 
-  const totalRefund = selectedItems.reduce((sum, item) => sum + item.refundAmount, 0);
-
-  if (!confirm(`Process partial refund of ${formatCurrency(totalRefund, order.currency)}?`)) {
+  if (!confirm(`Process partial refund of ${formatCurrency(refundAmount, order.currency)}?`)) {
     return;
   }
 
@@ -1060,8 +1024,8 @@ const handlePartialRefund = async (
 
     const result = await orderEditService.processPartialRefund({
       orderId,
-      refundAmount: totalRefund,
-      reason: reason,
+      refundAmount,
+      reason,
       reasonDetails: orderEditService.getRefundReasonLabel(reason),
       adminNotes: notes,
       sendCustomerNotification: true,
@@ -1069,8 +1033,7 @@ const handlePartialRefund = async (
 
     toast.success(`✅ Partial refund processed successfully`);
 
-    setShowPartialRefundModal(false);
-    setPartialRefundItems([]);
+    setShowRefundModal(false);
 
     await refreshAllOrderData();
 
@@ -1088,10 +1051,13 @@ const handleAction = (action: string) => {
     return;
   }
 
-  if(action === "refund-shipping"){
-  setShowShippingRefundModal(true);
-  return;
-}
+  if (action === 'refund') {
+    // Default to the first available tab
+    if (canRefund()) setRefundTab('full');
+    else if (canRefundShipping) setRefundTab('shipping');
+    setShowRefundModal(true);
+    return;
+  }
 
   if (action === 'download-invoice') {
     handleDownloadInvoice();
@@ -1114,24 +1080,6 @@ const handleAction = (action: string) => {
     return;
   }
 
-  if (action === 'full-refund') {
-    setShowFullRefundModal(true);
-    return;
-  }
-
-  if (action === 'partial-refund') {
-    if (order) {
-      setPartialRefundItems(
-        order.orderItems.map((item) => ({
-          orderItemId: item.id,
-          quantity: 0,
-          refundAmount: 0,
-        }))
-      );
-    }
-    setShowPartialRefundModal(true);
-    return;
-  }
 
   setSelectedAction(action);
   setActionModalOpen(true);
@@ -1145,55 +1093,21 @@ const handleAction = (action: string) => {
   };
 
 const handleShippingRefund = async (notes: string) => {
-
   if (!order) return;
-
-  // prevent empty notes
-  if (!notes || !notes.trim()) {
-    toast.error("Please enter refund reason / notes");
-    return;
-  }
-
-  // prevent multiple clicks
-  if (processingShippingRefund) return;
-
   try {
-
-    setProcessingShippingRefund(true);
-
+    setProcessingRefund(true);
     await orderEditService.refundShipping(order.id, {
       adminNotes: notes.trim(),
-      sendCustomerNotification: true
+      sendCustomerNotification: true,
     });
-
-    toast.success("Shipping charge refunded successfully", {
-      autoClose: 4000
-    });
-
-    // close modal
-    setShowShippingRefundModal(false);
-
-    // reset notes
-    setShippingRefundNotes("");
-
-    // refresh order data + history
+    toast.success('Shipping charge refunded successfully', { autoClose: 4000 });
+    setShowRefundModal(false);
     await refreshAllOrderData();
-
   } catch (error: any) {
-
-    console.error("Shipping refund error:", error);
-
-    toast.error(
-      error?.message || "Failed to refund shipping charge",
-      { autoClose: 5000 }
-    );
-
+    toast.error(error?.message || 'Failed to refund shipping charge', { autoClose: 5000 });
   } finally {
-
-    setProcessingShippingRefund(false);
-
+    setProcessingRefund(false);
   }
-
 };
 
   const isCollectionExpired = () => {
@@ -1258,10 +1172,22 @@ const canRefund = () => {
   const collectionStatusInfo = order.collectionStatus
     ? getCollectionStatusInfo(order.collectionStatus as CollectionStatus)
     : null;
+const canRefundShipping =
+  !order.isShippingRefunded &&
+  order.shippingAmount > 0 &&
+  order.payments?.some(
+    (p) =>
+      p.status === 'Completed' ||
+      p.status === 'Successful' ||
+      p.status === 'PartiallyRefunded'
+  ) &&
+  ['Processing', 'Shipped', 'Delivered', 'Cancelled', 'Returned'].includes(order.status);
+
 const allActions = getAllAvailableActions(
   order,
   canRefund(),
-  true
+  true,
+  canRefundShipping
 );
 
   return (
@@ -2292,52 +2218,21 @@ const allActions = getAllAvailableActions(
         orderNumber={order.orderNumber}
       />
 
- <RefundModals
+<RefundModals
   order={order}
   refundHistory={refundHistory}
-
-  showFullRefundModal={showFullRefundModal}
-  showPartialRefundModal={showPartialRefundModal}
-
-  refundNotes={refundNotes}
-  setRefundNotes={setRefundNotes}
-
-  refundReason={refundReason}
-  setRefundReason={setRefundReason}
-
+  isOpen={showRefundModal}
+  defaultTab={refundTab}
+  canFullRefund={canRefund()}
+  canPartialRefund={canRefund()}
+  canShippingRefund={canRefundShipping}
   processingRefund={processingRefund}
-
-  onCloseFullRefund={() => setShowFullRefundModal(false)}
-  onClosePartialRefund={() => setShowPartialRefundModal(false)}
-
- onRefundSuccess={(items, reason, notes) => {
-
-  if (showFullRefundModal) {
-    handleFullRefund(notes, reason);
-  }
-
-  if (showPartialRefundModal) {
-    handlePartialRefund(items, reason, notes);
-  }
-
-}}
+  onClose={() => setShowRefundModal(false)}
+  onFullRefund={(reason, notes) => handleFullRefund(notes, reason)}
+  onPartialRefund={(amount, reason, notes) => handlePartialRefund(amount, reason, notes)}
+  onShippingRefund={(notes) => handleShippingRefund(notes)}
 />
- <RefundHistorySection 
-    currency={order.currency}
-    refundHistory={refundHistory}
-    loading={loadingRefundHistory}
-    isOpen={refundHistoryOpen}
-    onToggle={() => setRefundHistoryOpen(!refundHistoryOpen)}
-    onFetch={fetchRefundHistory}
-  />
-    <EditHistorySection  
-    currency={order.currency}
-    editHistory={editHistory}
-    loading={loadingEditHistory}
-    isOpen={editHistoryOpen}
-    onToggle={() => setEditHistoryOpen(!editHistoryOpen)}
-    onFetch={fetchEditHistory}
-  />
+
 {pharmaAction && (
   <PharmacyVerificationModal
     isOpen={true}
@@ -2347,18 +2242,6 @@ const allActions = getAllAvailableActions(
     onSuccess={fetchOrderDetails}
   />
 )}
-
-
-<ShippingRefundModal
-  isOpen={showShippingRefundModal}
-  onClose={() => setShowShippingRefundModal(false)}
-  onConfirm={handleShippingRefund}
-  processing={processingShippingRefund}
-  notes={shippingRefundNotes}
-  setNotes={setShippingRefundNotes}
-  shippingAmount={order.shippingAmount}
-  currency={order.currency}
-/>
 
     </div>
   );

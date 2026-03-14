@@ -211,7 +211,9 @@ export default function LoyaltyPointsPage() {
       const response = await loyaltyPointsService.getUserBalance(user.id);
 
       if (response.data?.success && response.data.data) {
-        setUserBalance(response.data.data);
+        const balance = response.data.data;
+        // hasAccount === false means the user has no orders — no loyalty widget to show
+        setUserBalance(balance.hasAccount === false ? null : balance);
       } else {
         toast.error('Failed to load user balance');
         setUserBalance(null);
@@ -1151,8 +1153,9 @@ const handleExportSelected = () => {
                 </>
               ) : (
                 <div className="text-center py-12">
-                  <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-3" />
-                  <p className="text-slate-400">Failed to load balance data</p>
+                  <ShoppingCart className="h-12 w-12 text-slate-500 mx-auto mb-3" />
+                  <p className="text-slate-300 font-medium mb-1">No Loyalty Account</p>
+                  <p className="text-slate-500 text-sm">This customer has no orders yet and has not earned any loyalty points.</p>
                 </div>
               )}
             </div>

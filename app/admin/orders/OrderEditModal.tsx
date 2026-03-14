@@ -499,13 +499,15 @@ const handleShippingSelect = async (id: string) => {
     }
   };
 
-  // ✅ Reset on modal open
-const hasInitialized = useRef(false);
+  // Reset state only when modal transitions from closed → open.
+  // Using prevIsOpen ref so a remount with isOpen=true doesn't clear operations.
+const prevIsOpen = useRef(isOpen);
 
 useEffect(() => {
-  if (isOpen && !hasInitialized.current) {
-    hasInitialized.current = true;
+  const wasOpen = prevIsOpen.current;
+  prevIsOpen.current = isOpen;
 
+  if (isOpen && !wasOpen) {
     setOperations([]);
     setEditedItems(new Map());
     setSearchQuery('');
@@ -657,30 +659,54 @@ useEffect(() => {
   // ✅ Add New Item
   const addNewItem = (product: Product, variant?: ProductVariant) => {
     const finalPrice =
-      variant?.price || product.salePrice || product.price || product.regularPrice || 0;
+      variant?.price ?? product.salePrice ?? product.price ?? product.regularPrice ?? 0;
 
-    // ✅ Validation: Check stock
-    const availableStock = variant?.stockQuantity || product.stockQuantity;
-    if (availableStock < 1) {
+    // ✅ Stock check — only block if stockQuantity is a known number AND zero
+    const availableStock = variant?.stockQuantity ?? product.stockQuantity;
+    if (typeof availableStock === 'number' && availableStock < 1) {
       toast.error('Product is out of stock');
       return;
     }
 
- const operation = {
-  operationType: OrderEditOperationType.AddItem,
-  productId: product.id,
-  productVariantId: variant?.id ?? null,
-  newQuantity: 1,
-  newUnitPrice: finalPrice,
-}; 
+    const displayName = variant?.name || product.name || 'Unknown Product';
+    const displaySku = variant?.sku || product.sku || '';
+    const displayImage = product.images?.[0] ?? null;
 
-    setOperations((prev) => {
-  const updated = [...prev, operation];
-  return [...updated];
-});
-    toast.success(`✅ Added ${variant?.name || product.name} to order`);
+    const operation = {
+      operationType: OrderEditOperationType.AddItem,
+      productId: product.id,
+      productVariantId: variant?.id ?? null,
+      newQuantity: 1,
+      newUnitPrice: finalPrice,
+      // Store display data so Current Items doesn't need allProducts lookup
+      _displayName: displayName,
+      _displaySku: displaySku,
+      _displayImage: displayImage,
+    };
+
+    setOperations((prev) => [...prev, operation]);
+    toast.success(`✅ Added ${displayName} to order`);
     setSearchQuery('');
     setSearchResults([]);
+  };
+
+  // Update quantity of a newly added item by its index within newlyAddedItems
+  const updateNewItemQuantity = (newlyAddedIndex: number, change: number) => {
+    setOperations((prev) => {
+      let addItemCount = -1;
+      return prev.map((op) => {
+        if (
+          op.operationType === OrderEditOperationType.AddItem ||
+          op.operationType === 'AddItem'
+        ) {
+          addItemCount++;
+          if (addItemCount === newlyAddedIndex) {
+            return { ...op, newQuantity: Math.max(1, (op.newQuantity || 1) + change) };
+          }
+        }
+        return op;
+      });
+    });
   };
 
   // ✅ Remove Item
@@ -1131,6 +1157,21 @@ useEffect(() => {
           }`}
         >
           <div className="flex items-center justify-between gap-2">
+            {/* Product thumbnail */}
+            <div className="w-10 h-10 rounded-lg overflow-hidden flex-shrink-0 bg-slate-800 border border-slate-700">
+              {item.productImageUrl ? (
+                <img
+                  src={item.productImageUrl}
+                  alt={item.productName}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center">
+                  <Package className="h-4 w-4 text-slate-500" />
+                </div>
+              )}
+            </div>
+
             <div className="flex-1 min-w-0">
               <p
                 className={`font-medium text-sm ${
@@ -1213,11 +1254,9 @@ useEffect(() => {
     {/* Newly Added Items */}
     {/* ========================= */}
    {newlyAddedItems.map((op, index) => {
-const product = allProducts.find(
-  (p) => p.id?.toString() === op.productId?.toString()
-);
-      const productName = product?.name || 'New Product';
-      const productSku = product?.sku || '';
+      const productName = op._displayName || allProducts.find((p) => p.id?.toString() === op.productId?.toString())?.name || 'New Product';
+      const productSku = op._displaySku || allProducts.find((p) => p.id?.toString() === op.productId?.toString())?.sku || '';
+      const productImage = op._displayImage || allProducts.find((p) => p.id?.toString() === op.productId?.toString())?.images?.[0] || null;
       const unitPrice = op.newUnitPrice || 0;
       const quantity = op.newQuantity || 1;
 
@@ -1227,6 +1266,21 @@ const product = allProducts.find(
           className="p-2.5 rounded-lg border transition-all bg-green-500/10 border-green-500/30 hover:border-green-400/50"
         >
           <div className="flex items-center justify-between gap-2">
+            {/* Product thumbnail */}
+            <div className="w-10 h-10 rounded-lg overflow-hidden flex-shrink-0 bg-slate-800 border border-green-500/30">
+              {productImage ? (
+                <img
+                  src={productImage}
+                  alt={productName}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center">
+                  <Package className="h-4 w-4 text-green-500/50" />
+                </div>
+              )}
+            </div>
+
             <div className="flex-1 min-w-0">
               <p className="font-medium text-sm text-green-400 flex items-center gap-2">
                 {productName}
@@ -1241,23 +1295,44 @@ const product = allProducts.find(
             </div>
 
             <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                onClick={() => updateNewItemQuantity(index, -1)}
+                className="p-1 bg-slate-700 hover:bg-slate-600 rounded transition-all"
+                disabled={loading || quantity <= 1}
+              >
+                <Minus className="h-3.5 w-3.5 text-white" />
+              </button>
+
               <span className="w-10 text-center text-white font-semibold text-sm">
                 {quantity}
               </span>
 
               <button
                 type="button"
+                onClick={() => updateNewItemQuantity(index, 1)}
+                className="p-1 bg-slate-700 hover:bg-slate-600 rounded transition-all"
+                disabled={loading}
+              >
+                <Plus className="h-3.5 w-3.5 text-white" />
+              </button>
+
+              <button
+                type="button"
                 onClick={() =>
-                  setOperations((prev) =>
-                    prev.filter(
-                      (operation, i) =>
-                        !(
-                          operation.operationType ===
-                            OrderEditOperationType.AddItem &&
-                          i === index
-                        )
-                    )
-                  )
+                  setOperations((prev) => {
+                    let addItemCount = -1;
+                    return prev.filter((op) => {
+                      if (
+                        op.operationType === OrderEditOperationType.AddItem ||
+                        op.operationType === 'AddItem'
+                      ) {
+                        addItemCount++;
+                        if (addItemCount === index) return false;
+                      }
+                      return true;
+                    });
+                  })
                 }
                 className="p-1 bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 rounded transition-all ml-1"
                 disabled={loading}
