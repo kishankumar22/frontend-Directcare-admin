@@ -221,6 +221,8 @@ export default function ProductsPage() {
   const [itemsPerPage, setItemsPerPage] = useState(25);
   const [hasPrevious, setHasPrevious] = useState(false);
   const [hasNext, setHasNext] = useState(false);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [filterLoading, setFilterLoading] = useState(false);
   // Add these near your other state declarations (around line where you have searchTerm)
 const [searchInput, setSearchInput] = useState("");
 const debouncedSearchTerm = useDebounce(searchInput, 500); // 500ms delay
@@ -270,6 +272,7 @@ const debouncedSearchTerm = useDebounce(searchInput, 500); // 500ms delay
     { value: "all", label: "All Types" },
     { value: "simple", label: "Simple" },
     { value: "grouped", label: "Grouped" },
+    { value: "variable", label: "variable" },
   ];
 
   const statusOptions: SelectOption[] = [
@@ -355,7 +358,11 @@ const handleSelectProduct = (productId: string) => {
       : [...prev, productId]
   );
 };
-
+useEffect(() => {
+  if (searchInput.trim() !== "") {
+    setSearchLoading(true);
+  }
+}, [searchInput]);
 const handleSelectAll = () => {
   if (selectedProducts.length === products.length) {
     setSelectedProducts([]);
@@ -459,6 +466,8 @@ const getProductImage = (images: any[]): string => {
 // ✅ FETCH PRODUCTS WITH PAGINATION AND FILTERS
 const fetchProducts = async () => {
   setLoading(true);
+   setFilterLoading(true); // ✅ start loader
+
   try {
     // Build backend params
     const params: any = {
@@ -487,14 +496,12 @@ if (deletedFilter.value === "inactive") {
     }
 
     if (selectedCategory.value !== "all") {
-      const selectedCat = categories.find(c => c.name === selectedCategory.value);
-      if (selectedCat) params.categoryId = selectedCat.id;
-    }
+  params.categoryId = selectedCategory.value;
+}
 
-    if (selectedBrand.value !== "all") {
-      const selectedBrandObj = brands.find(b => b.name === selectedBrand.value);
-      if (selectedBrandObj) params.brandId = selectedBrandObj.id;
-    }
+ if (selectedBrand.value !== "all") {
+  params.brandId = selectedBrand.value;
+}
 
     if (publishedFilter.value !== "all") {
       params.isPublished = publishedFilter.value === "published";
@@ -508,10 +515,9 @@ if (deletedFilter.value === "inactive") {
       params.showOnHomepage = selectedHomepage.value === "yes";
     }
 
-    if (selectedType.value !== "all") {
-      params.productType = selectedType.value;
-    }
-
+if (selectedType.value !== "all") {
+  params.productType = selectedType.value;
+}
     if (deliveryFilter.value !== "all") {
       if (deliveryFilter.value === "nextDay") params.nextDayDeliveryEnabled = true;
       else if (deliveryFilter.value === "sameDay") params.sameDayDeliveryEnabled = true;
@@ -688,6 +694,8 @@ setSelectedProducts([]);
     toast.error("Failed to load products.");
   } finally {
     setLoading(false);
+     setSearchLoading(false); // ✅ search complete 
+         setFilterLoading(false); // ✅ stop loader
   }
 };
   // ✅ FETCH CATEGORIES
@@ -716,7 +724,14 @@ setSelectedProducts([]);
       console.error("Error fetching brands:", err);
     }
   };
-
+const FilterLoader = () => {
+  return (
+    <div className="flex items-center gap-2 text-xs text-violet-400 bg-violet-500/10 border border-violet-500/30 px-2 py-1 rounded-md">
+      <div className="w-3 h-3 border-2 border-violet-400 border-t-transparent rounded-full animate-spin"></div>
+      Loading...
+    </div>
+  );
+};
   // ✅ FETCH PRODUCT DETAILS
   const fetchProductDetails = async (productId: string) => {
     setLoadingDetails(true);
@@ -816,21 +831,16 @@ useEffect(() => {
   deletedFilter,
   debouncedSearchTerm,
   selectedCategory,
+  selectedBrand,
+  selectedType,
   publishedFilter,
   markAsNewFilter,
   selectedHomepage,
-]);
-
-// ✅ EFFECT 2: Reset to page 1 when BACKEND filters change
-useEffect(() => {
-  setCurrentPage(1);
-}, [
-  debouncedSearchTerm,
-  selectedCategory,
-  publishedFilter,
-  markAsNewFilter,
-  selectedHomepage,
-  deletedFilter,
+  deliveryFilter,
+  notReturnableFilter,
+  inventoryFilter,
+  recurringFilter,
+  vatFilter
 ]);
 
 // ✅ EFFECT 3: Handle client-side filters - JUST reset page, NO API call
@@ -921,11 +931,11 @@ const hasActiveFilters = useMemo(
             return sep + name;
           }).join('');
         }
-        options.push({
-          value: cat.name,
-          label: fullPath,
-          level,
-        });
+       options.push({
+  value: cat.id,
+  label: fullPath,
+  level,
+});
         if (cat.subCategories && cat.subCategories.length > 0) {
           flatten(cat.subCategories, level + 1, currentPath);
         }
@@ -947,13 +957,15 @@ const hasActiveFilters = useMemo(
     );
   };
 
-  // ✅ BRAND OPTIONS
-  const brandOptions: SelectOption[] = useMemo(() => {
-    return [
-      { value: "all", label: "All Brands" },
-      ...brands.map((b) => ({ value: b.name, label: b.name })),
-    ];
-  }, [brands]);
+const brandOptions: SelectOption[] = useMemo(() => {
+  return [
+    { value: "all", label: "All Brands" },
+    ...brands.map((b) => ({
+      value: b.id,     // ✅ backend id
+      label: b.name    // ✅ frontend name
+    })),
+  ];
+}, [brands]);
 const allDeletedSelected = useMemo(() => {
   const selected = products.filter((p) =>
     selectedProducts.includes(p.id)
@@ -1677,93 +1689,114 @@ const handleExport = async (exportAll: boolean = false) => {
   </div>
 )}
       {/* ================= ITEMS PER PAGE + RESULTS COUNT ================= */}
-      <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-xl px-3 py-2">
-        <div className="flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-slate-400">Show</span>
-            <select
-              value={itemsPerPage}
-              onChange={(e) => handleItemsPerPageChange(Number(e.target.value))}
-              className="px-2 py-1 bg-slate-800/60 border border-slate-600
-              rounded-md text-white text-xs
-              focus:outline-none focus:ring-1 focus:ring-violet-500"
-            >
-       
-              <option value={25}>25</option>
-              <option value={50}>50</option>
-              <option value={75}>75</option>
-              <option value={100}>100</option>
-            </select>
-            <span className="text-xs text-slate-400">entries</span>
-          </div>
+<div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-xl px-3 py-2">
+  <div className="flex items-center justify-between gap-3 relative">
 
-          <div className="text-xs text-slate-400 whitespace-nowrap">
-            Showing {totalCount === 0 ? 0 : (currentPage - 1) * itemsPerPage + 1} to{" "}
-            {Math.min(currentPage * itemsPerPage, totalCount)} of {totalCount} product
-            {totalCount !== 1 ? "s" : ""}
-            {hasActiveFilters && (
-              <span className="text-violet-400">
-                {" "}.{" "}
-                {[
-            
-                  selectedCategory.value !== "all",
-                  selectedBrand.value !== "all",
-                  selectedHomepage.value !== "all",
-                  selectedType.value !== "all",
-                  statusFilter.value !== "all",
-                  publishedFilter.value !== "all",
-                  deliveryFilter.value !== "all",
-                  markAsNewFilter.value !== "all",
-                  notReturnableFilter.value !== "all",
-                  inventoryFilter.value !== "all",
-                  recurringFilter.value !== "all",
-                  vatFilter.value !== "all",
-                ].filter(Boolean).length} active filter
-                {[
-           
-                  selectedCategory.value !== "all",
-                  selectedBrand.value !== "all",
-                  selectedHomepage.value !== "all",
-                  selectedType.value !== "all",
-                  statusFilter.value !== "all",
-                  publishedFilter.value !== "all",
-                  deliveryFilter.value !== "all",
-                  markAsNewFilter.value !== "all",
-                  notReturnableFilter.value !== "all",
-                  inventoryFilter.value !== "all",
-                  recurringFilter.value !== "all",
-                  vatFilter.value !== "all",
-                 
-                ].filter(Boolean).length !== 1 && "s"}
-              </span>
-            )}
-          </div>
-        </div>
+    {/* LEFT SIDE */}
+    <div className="flex items-center gap-2">
+      <span className="text-xs text-slate-400">Show</span>
+
+      <select
+        value={itemsPerPage}
+        onChange={(e) => handleItemsPerPageChange(Number(e.target.value))}
+        className="px-2 py-1 bg-slate-800/60 border border-slate-600
+        rounded-md text-white text-xs
+        focus:outline-none focus:ring-1 focus:ring-violet-500"
+      >
+        <option value={25}>25</option>
+        <option value={50}>50</option>
+        <option value={75}>75</option>
+        <option value={100}>100</option>
+      </select>
+
+      <span className="text-xs text-slate-400">entries</span>
+    </div>
+
+
+    {/* RIGHT SIDE */}
+    <div className="flex items-center gap-3">
+
+      {/* 🔄 FILTER LOADER */}
+  {filterLoading && <FilterLoader />}
+
+      {/* RESULT TEXT */}
+      <div className="text-xs text-slate-400 whitespace-nowrap">
+        Showing {totalCount === 0 ? 0 : (currentPage - 1) * itemsPerPage + 1} to{" "}
+        {Math.min(currentPage * itemsPerPage, totalCount)} of {totalCount} product
+        {totalCount !== 1 ? "s" : ""}
+
+        {hasActiveFilters && (
+          <span className="text-violet-400">
+            {" "}.{" "}
+            {[
+              selectedCategory.value !== "all",
+              selectedBrand.value !== "all",
+              selectedHomepage.value !== "all",
+              selectedType.value !== "all",
+              statusFilter.value !== "all",
+              publishedFilter.value !== "all",
+              deliveryFilter.value !== "all",
+              markAsNewFilter.value !== "all",
+              notReturnableFilter.value !== "all",
+              inventoryFilter.value !== "all",
+              recurringFilter.value !== "all",
+              vatFilter.value !== "all",
+            ].filter(Boolean).length} active filter
+            {[
+              selectedCategory.value !== "all",
+              selectedBrand.value !== "all",
+              selectedHomepage.value !== "all",
+              selectedType.value !== "all",
+              statusFilter.value !== "all",
+              publishedFilter.value !== "all",
+              deliveryFilter.value !== "all",
+              markAsNewFilter.value !== "all",
+              notReturnableFilter.value !== "all",
+              inventoryFilter.value !== "all",
+              recurringFilter.value !== "all",
+              vatFilter.value !== "all",
+            ].filter(Boolean).length !== 1 && "s"}
+          </span>
+        )}
       </div>
+
+    </div>
+
+  </div>
+</div>
 
       {/* ✅ FILTERS SECTION - ROW 1 */}
       <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-xl p-1.5">
         <div className="flex items-center gap-3">
-         <div className="relative flex-1 min-w-[200px] max-w-[280px]">
+<div className="relative flex-1 min-w-[180px] max-w-[280px]">
   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500 z-10" />
+
   <input
-    type="search"
+    type="text"
     placeholder="Search products by name or Sku..."
     value={searchInput}
     onChange={(e) => setSearchInput(e.target.value)}
-    className="w-full pl-10 pr-4 py-2.5 bg-slate-800/50 border border-slate-700 rounded-xl text-white text-sm placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all"
+    className="w-full pl-10 pr-10 py-2.5 bg-slate-800/50 border border-slate-700 rounded-xl text-white text-sm placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all"
   />
-  {searchInput && (
-    <button
-      onClick={() => setSearchInput("")}
-      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white"
-    >
-      <X className="h-4 w-4" />
-    </button>
+
+  {/* RIGHT ICON */}
+  {searchLoading ? (
+    <div className="absolute right-3 top-1/2 -translate-y-1/2">
+      <div className="w-4 h-4 border-2 border-violet-400 border-t-transparent rounded-full animate-spin"></div>
+    </div>
+  ) : (
+    searchInput && (
+      <button
+        onClick={() => setSearchInput("")}
+        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white"
+      >
+        <X className="h-4 w-4" />
+      </button>
+    )
   )}
 </div>
 
-          <div className="flex-1 min-w-[280px]">
+          <div className="flex-1 min-w-[120px]">
             <Select
               value={selectedCategory}
               onChange={(option) => setSelectedCategory(option as SelectOption)}

@@ -154,6 +154,7 @@ export interface Order {
   status: OrderStatus;
   orderDate: string;
   estimatedDispatchDate?: string;
+  pendingPaymentAmount:number;
   dispatchedAt?: string;
   dispatchNote?: string;
   subtotalAmount: number;

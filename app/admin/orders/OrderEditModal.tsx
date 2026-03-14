@@ -2,7 +2,7 @@
 
 'use client';
 
-import { useState, useEffect, FormEvent } from 'react';
+import { useState, useEffect, FormEvent, useRef } from 'react';
 import {
   X,
   Loader2,
@@ -267,11 +267,11 @@ const [showShippingSuggestions, setShowShippingSuggestions] = useState(false);
 
   // ✅ Validation State
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
-const getNewlyAddedItems = () => {
-  return operations.filter(
-    (op) => op.operationType === OrderEditOperationType.AddItem
-  );
-};
+const newlyAddedItems = operations.filter(
+  (op) =>
+    op.operationType === OrderEditOperationType.AddItem ||
+    op.operationType === "AddItem"
+);
   // ===========================
   // LIFECYCLE & DATA LOADING
   // ===========================
@@ -500,44 +500,24 @@ const handleShippingSelect = async (id: string) => {
   };
 
   // ✅ Reset on modal open
+const hasInitialized = useRef(false);
+
 useEffect(() => {
-  if (isOpen) {
+  if (isOpen && !hasInitialized.current) {
+    hasInitialized.current = true;
+
     setOperations([]);
     setEditedItems(new Map());
-    setEditData({
-      editReason: '',
-      adminNotes: '',
-      recalculateTotals: true,
-      adjustInventory: true,
-      sendCustomerNotification: true,
-    });
     setSearchQuery('');
     setSearchResults([]);
-    setFilters({
-      productType: null,
-      brandId: null,
-      categoryId: null,
-    });
-    setBillingAddressChanged(false);
-    setShippingAddressChanged(false);
-    
-
-    
-    setValidationErrors([]);
   }
 }, [isOpen]);
-
 
   // ===========================
   // SEARCH & FILTER
   // ===========================
 
-  // ✅ Helper to get primary category name
-  const getPrimaryCategoryName = (categories: any[]): string => {
-    if (!categories || categories.length === 0) return 'Uncategorized';
-    const primary = categories.find((c) => c.isPrimary);
-    return primary?.categoryName || categories[0]?.categoryName || 'Uncategorized';
-  };
+
 
   // ✅ Client-side Search & Filter
 const searchProducts = (query: string) => {
@@ -562,12 +542,12 @@ const searchProducts = (query: string) => {
       // ================================
       // 🔴 2️⃣ Exclude products already newly added in this edit session
       // ================================
-      const alreadyAddedNow = operations.some(
-        (op) =>
-          op.operationType === OrderEditOperationType.AddItem &&
-          op.productId === product.id
-      );
-
+const alreadyAddedNow = operations.some(
+  (op) =>
+    op.operationType === OrderEditOperationType.AddItem &&
+    op.productId &&
+    op.productId === product.id
+);
       if (alreadyInOrder || alreadyAddedNow) {
         return false;
       }
@@ -583,7 +563,7 @@ const searchProducts = (query: string) => {
       // 🏷 4️⃣ Product Type Filter
       // ================================
       const matchesProductType = filters.productType
-        ? product.productType === filters.productType.value
+        ? product.productType?.toLowerCase() === filters.productType.value.toLowerCase()
         : true;
 
       // ================================
@@ -671,7 +651,9 @@ const searchProducts = (query: string) => {
       });
     }
   };
-
+useEffect(() => {
+  console.log("OPERATIONS:", operations);
+}, [operations]);
   // ✅ Add New Item
   const addNewItem = (product: Product, variant?: ProductVariant) => {
     const finalPrice =
@@ -684,15 +666,18 @@ const searchProducts = (query: string) => {
       return;
     }
 
-    const operation = {
-      operationType: OrderEditOperationType.AddItem,
-      productId: product.id,
-      productVariantId: variant?.id || null,
-      newQuantity: 1,
-      newUnitPrice: finalPrice,
-    };
+ const operation = {
+  operationType: OrderEditOperationType.AddItem,
+  productId: product.id,
+  productVariantId: variant?.id ?? null,
+  newQuantity: 1,
+  newUnitPrice: finalPrice,
+}; 
 
-    setOperations((prev) => [...prev, operation]);
+    setOperations((prev) => {
+  const updated = [...prev, operation];
+  return [...updated];
+});
     toast.success(`✅ Added ${variant?.name || product.name} to order`);
     setSearchQuery('');
     setSearchResults([]);
@@ -1227,8 +1212,10 @@ const searchProducts = (query: string) => {
     {/* ========================= */}
     {/* Newly Added Items */}
     {/* ========================= */}
-    {getNewlyAddedItems().map((op, index) => {
-      const product = allProducts.find((p) => p.id === op.productId);
+   {newlyAddedItems.map((op, index) => {
+const product = allProducts.find(
+  (p) => p.id?.toString() === op.productId?.toString()
+);
       const productName = product?.name || 'New Product';
       const productSku = product?.sku || '';
       const unitPrice = op.newUnitPrice || 0;

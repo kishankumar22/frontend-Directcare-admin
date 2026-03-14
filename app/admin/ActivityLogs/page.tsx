@@ -1,5 +1,5 @@
 "use client";
-
+import * as XLSX from "xlsx";
 import { useState, useEffect, useCallback, useRef } from "react";
 import Select from "react-select";
 import {
@@ -505,90 +505,97 @@ const fetchActivityLogs = useCallback(async () => {
   };
 
   // ✅ Export Functions
-  const generateCSV = (logsToExport: ActivityLog[]) => {
-    const csvHeaders = [
-      "Date/Time",
-      "Activity Type",
-      "Entity Type",
-      "Comment",
-      "User",
-      "Entity ID",
-    ];
+const generateExcel = (logs: any[]) => {
+  try {
+    const excelData = logs.map((log) => ({
+      ID: log.id,
+      User: log.userName || log.user || "N/A",
+      Action: log.action,
+      Module: log.module || "N/A",
+      Description: log.description || "N/A",
+      "IP Address": log.ipAddress || "N/A",
+      Status: log.status || "N/A",
+      "Created At": new Date(log.createdAt).toLocaleString(),
+    }));
 
-    const csvData = logsToExport.map((log) => {
-      return [
-        formatExactDate(log.createdOnUtc),
-        log.activityLogTypeName,
-        log.entityName,
-        log.comment,
-        log.userName,
-        log.entityId,
-      ];
-    });
+    const worksheet = XLSX.utils.json_to_sheet(excelData);
 
-    const csvContent = [
-      csvHeaders.join(","),
-      ...csvData.map((row) => row.map((cell) => `"${cell}"`).join(",")),
-    ].join("\n");
+    // Auto column width
+    const columnWidths = Object.keys(excelData[0] || {}).map((key) => ({
+      wch: Math.max(
+        key.length,
+        ...excelData.map((row: any) => String(row[key]).length)
+      ),
+    }));
 
-    const BOM = "\uFEFF";
-    const blob = new Blob([BOM + csvContent], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `activity_logs_${new Date().toISOString().split("T")[0]}.csv`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-  };
+    worksheet["!cols"] = columnWidths;
 
-  const handleExportSelected = () => {
-    if (selectedLogs.length === 0) {
-      toast.warning("Please select logs to export");
-      return;
-    }
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Activity Logs");
 
-    const logsToExport = allActivityLogs.filter((log) => selectedLogs.includes(log.id));
-    generateCSV(logsToExport);
-    toast.success(`${logsToExport.length} logs exported successfully`);
-    setSelectedLogs([]);
-    setShowExportMenu(false);
-  };
+    const fileName = `activity_logs_${new Date()
+      .toISOString()
+      .split("T")[0]}.xlsx`;
 
-  const handleExportFiltered = () => {
-    const filteredLogs = applyFilters(allActivityLogs);
-    if (filteredLogs.length === 0) {
-      toast.warning("No logs to export");
-      return;
-    }
+    XLSX.writeFile(workbook, fileName);
+  } catch (error) {
+    console.error("Excel export error:", error);
+    toast.error("Failed to export logs");
+  }
+};
+const handleExportSelected = () => {
+  if (selectedLogs.length === 0) {
+    toast.warning("Please select logs to export");
+    return;
+  }
 
-    generateCSV(filteredLogs);
-    toast.success(`${filteredLogs.length} logs exported successfully`);
-    setShowExportMenu(false);
-  };
+  const logsToExport = allActivityLogs.filter((log) =>
+    selectedLogs.includes(log.id)
+  );
 
-  const handleExportAll = () => {
-    if (allActivityLogs.length === 0) {
-      toast.warning("No logs to export");
-      return;
-    }
+  generateExcel(logsToExport);
 
-    generateCSV(allActivityLogs);
-    toast.success(`${allActivityLogs.length} logs exported successfully`);
-    setShowExportMenu(false);
-  };
+  toast.success(`${logsToExport.length} logs exported successfully`);
+  setSelectedLogs([]);
+  setShowExportMenu(false);
+};
+const handleExportFiltered = () => {
+  const filteredLogs = applyFilters(allActivityLogs);
 
-  const handleExportCurrentPage = () => {
-    if (activityLogs.length === 0) {
-      toast.warning("No logs on current page");
-      return;
-    }
+  if (filteredLogs.length === 0) {
+    toast.warning("No logs to export");
+    return;
+  }
 
-    generateCSV(activityLogs);
-    toast.success(`${activityLogs.length} logs exported successfully`);
-    setShowExportMenu(false);
-  };
+  generateExcel(filteredLogs);
+
+  toast.success(`${filteredLogs.length} logs exported successfully`);
+  setShowExportMenu(false);
+};
+
+const handleExportAll = () => {
+  if (allActivityLogs.length === 0) {
+    toast.warning("No logs to export");
+    return;
+  }
+
+  generateExcel(allActivityLogs);
+
+  toast.success(`${allActivityLogs.length} logs exported successfully`);
+  setShowExportMenu(false);
+};
+
+const handleExportCurrentPage = () => {
+  if (activityLogs.length === 0) {
+    toast.warning("No logs on current page");
+    return;
+  }
+
+  generateExcel(activityLogs);
+
+  toast.success(`${activityLogs.length} logs exported successfully`);
+  setShowExportMenu(false);
+};
 
 // ✅ Clear All Logs with Confirmation - FIXED
 const handleClearAllLogs = () => {

@@ -943,17 +943,21 @@ const handleRegenerateInvoice = async (
 
       const blob = await response.blob();
 
-      const url = window.URL.createObjectURL(blob);
+const file = new Blob([blob], { type: "application/pdf" });
+const url = window.URL.createObjectURL(file);
 
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = `invoice-${orderId}.pdf`;
+const link = document.createElement("a");
+link.href = url;
+link.setAttribute("download", `invoice-${orderId}.pdf`);
+link.style.display = "none";
 
-      document.body.appendChild(link);
-      link.click();
+document.body.appendChild(link);
+link.click();
 
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(url);
+setTimeout(() => {
+  document.body.removeChild(link);
+  window.URL.revokeObjectURL(url);
+}, 100);
     }
 
     await refreshAllOrderData();
@@ -1646,6 +1650,23 @@ const allActions = getAllAvailableActions(
                 </span>
               </div>
             )}
+
+            {/* Pending Payment */}
+{order.pendingPaymentAmount > 0 && (
+  <div
+    className="flex justify-between items-center bg-amber-500/10 border border-amber-500/30 px-3 py-2 rounded-lg"
+    title="Amount still pending to be paid by customer"
+  >
+    <span className="text-amber-400 font-medium flex items-center gap-1">
+      <AlertTriangle className="h-4 w-4" />
+      Pending Payment
+    </span>
+
+    <span className="text-amber-400 font-bold">
+      {formatCurrency(order.pendingPaymentAmount, order.currency)}
+    </span>
+  </div>
+)}
             <div className="border-t border-slate-700 pt-2 flex justify-between" title="Final amount charged to customer">
               <span className="text-white font-bold">Total</span>
               <span className="text-white font-bold text-lg">
@@ -2229,28 +2250,29 @@ const allActions = getAllAvailableActions(
         </div>
       )}
       {/* Modals */}
-   {editModalOpen && order && (
-  <OrderEditModal
-    isOpen={editModalOpen}
-    onClose={() => setEditModalOpen(false)}
-    order={order}
+<OrderEditModal
+  isOpen={editModalOpen}
+  onClose={() => setEditModalOpen(false)}
+  order={order}
   onSuccess={async () => {
-  try {
-    setEditModalOpen(false);
+    try {
 
-    // 1️⃣ Regenerate invoice
-    await handleRegenerateInvoice(
-      true,
-      "Invoice automatically regenerated after order edit"
-    );
-    toast.success("Order updated successfully", { autoClose: 4000 });
+      toast.success("Order updated successfully", { autoClose: 4000 });
 
-  } catch (error) {
-    console.error("Error after edit:", error);
-  }
-}}
-  />
-)}
+      setEditModalOpen(false);
+
+      await fetchOrderDetails();
+
+      await handleRegenerateInvoice(
+        true,
+        "Invoice automatically regenerated after order edit"
+      );
+
+    } catch (error) {
+      console.error("Error after edit:", error);
+    }
+  }}
+/>
       {actionModalOpen && order && (
         <OrderActionsModal
           isOpen={actionModalOpen}

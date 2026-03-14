@@ -5918,73 +5918,84 @@ const uploadImagesToProductDirect = async (
     Homepage Settings
   </h3>
   
-  <div className="grid md:grid-cols-2 gap-4">
-    {/* Column 1 - Show on Homepage checkbox */}
-    <label className="flex items-center gap-2 w-full px-3 py-2.5 bg-slate-800/50 border border-slate-700 rounded-xl cursor-pointer hover:border-violet-500 transition-all group">
-      <input
-        type="checkbox"
-        name="showOnHomepage"
-        checked={formData.showOnHomepage}
-        onChange={handleChange}
-        className="rounded bg-slate-800/50 border-slate-700 text-violet-500 focus:ring-violet-500 focus:ring-offset-slate-900 cursor-pointer"
-      />
-      <div className="flex-1">
-        <span className="text-sm font-medium text-slate-300 group-hover:text-white transition-colors">
-          Show on home page
-        </span>
-        <p className="text-xs text-slate-500 mt-0.5">
-          Display this product on homepage
-        </p>
-      </div>
-      {formData.showOnHomepage && (
-        <span className="px-2 py-1 bg-violet-500/20 text-violet-400 text-xs rounded-md font-semibold">
-          ✓ Active
-        </span>
-      )}
-    </label>
+<div className="grid md:grid-cols-2 gap-4">
 
-    {/* Column 2 - Display Order (conditional) */}
-    <div 
-      className={cn(
-        "flex items-center gap-3 w-full px-3 py-2.5 rounded-xl transition-all",
-        formData.showOnHomepage
-          ? "bg-slate-800/50 border border-slate-700"
-          : "bg-slate-800/30 border border-slate-700/50"
-      )}
-    >
-      {formData.showOnHomepage ? (
-        <>
-          {/* Left: Label */}
-          <label 
-            htmlFor="displayOrder" 
-            className="text-sm font-medium text-slate-300 whitespace-nowrap"
-          >
-            Display Order
-          </label>
-          
-          {/* Right: Input */}
-          <input
-            id="displayOrder"
-            type="number"
-            name="displayOrder"
-            value={formData.displayOrder}
-            onChange={handleChange}
-            placeholder="1"
-            min="0"
-            className="flex-1 px-3 py-2 bg-slate-900/50 border border-slate-600 rounded-lg text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
-          />
-        </>
-      ) : (
-        /* Placeholder when unchecked */
-        <div className="flex items-center gap-2 text-slate-500">
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-          </svg>
-          <span className="text-sm italic">Enable "Show on home page" to set display order</span>
-        </div>
-      )}
+  {/* Column 1 - Show on Homepage checkbox */}
+  <label className="flex items-center gap-3 w-full px-3 py-2.5 bg-slate-800/50 border border-slate-700 rounded-xl cursor-pointer hover:border-violet-500 transition-all group">
+
+    <input
+      type="checkbox"
+      name="showOnHomepage"
+      checked={formData.showOnHomepage}
+      onChange={handleChange}
+      className="rounded bg-slate-800/50 border-slate-700 text-violet-500 focus:ring-violet-500 focus:ring-offset-slate-900 cursor-pointer"
+    />
+
+    <div className="flex-1">
+      {/* TITLE */}
+      <p className="text-sm font-medium text-slate-300 group-hover:text-white"
+      title="Promote this product on the homepage to attract more customers.">
+        Show on Homepage
+      </p>
+
+      {/* HELPER TEXT */}
+      <p className="text-xs text-slate-500">
+      Feature this product on the homepage to increase visibility and sales.
+      </p>
     </div>
+
+    {/* STATUS BADGE */}
+    {formData.showOnHomepage && (
+      <span className="px-2 py-1 bg-violet-500/20 text-violet-400 text-xs rounded-md font-semibold">
+        Featured
+      </span>
+    )}
+  </label>
+
+
+  {/* Column 2 - Display Order */}
+  <div
+    className={cn(
+      "flex items-center gap-3 w-full px-3 py-2.5 rounded-xl transition-all",
+      formData.showOnHomepage
+        ? "bg-slate-800/50 border border-slate-700"
+        : "bg-slate-800/30 border border-slate-700/50"
+    )}
+  >
+    {formData.showOnHomepage ? (
+      <>
+        <label
+          htmlFor="displayOrder"
+          className="text-sm font-medium text-slate-300 whitespace-nowrap"
+        >
+          Display Order
+        </label>
+
+        <input
+          id="displayOrder"
+          type="number"
+          name="displayOrder"
+          value={formData.displayOrder}
+          onChange={handleChange}
+          placeholder="1"
+          min="0"
+          className="flex-1 px-3 py-2 bg-slate-900/50 border border-slate-600 rounded-lg text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+        />
+      </>
+    ) : (
+      <div className="flex items-center gap-2 text-slate-500">
+        <svg className="w-4 h-4 text-violet-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+        </svg>
+
+        <span className="text-sm italic">
+          Enable homepage feature to set the display order of this product.
+        </span>
+      </div>
+    )}
   </div>
+
+</div>
   
   {/* Helper Text */}
 {formData.showOnHomepage && (
@@ -6273,7 +6284,42 @@ const uploadImagesToProductDirect = async (
       </div>
     </div>
   </div>
+<div className="space-y-3">
+  <label className="block text-sm font-medium text-slate-300 mb-3">
+    Gender <span className="text-slate-500">(Optional)</span>
+  </label>
+  <div className="flex flex-wrap gap-6">
+    {['Not specified', 'Male', 'Female', 'Unisex', 'Kids', 'Boys', 'Girls'].map((option) => {
+      const value = option === 'Not specified' ? '' : option;
+      const isChecked = formData.gender === value;
 
+      return (
+        <label
+          key={option}
+          className="flex items-center gap-3 cursor-pointer group"
+        >
+          <input
+            type="radio"
+            name="gender"
+            value={value}
+            checked={isChecked}
+            onChange={handleChange}
+            className="w-5 h-5 rounded-full bg-slate-800/50 border-slate-700 text-violet-500 focus:ring-violet-500 focus:ring-offset-slate-900 transition-all"
+          />
+          <span
+            className={`text-sm transition-colors ${
+              isChecked
+                ? 'text-white font-medium'
+                : 'text-slate-300 group-hover:text-white'
+            }`}
+          >
+            {option}
+          </span>
+        </label>
+      );
+    })}
+  </div>
+</div>
   {/* LOYALTY POINTS & PHARMA PRODUCT */}
   <div className="mt-4 space-y-3 bg-slate-800/30 border border-slate-700 p-4 rounded-xl">
     <h4 className="text-sm font-semibold text-white">Loyalty & Product Classification</h4>
@@ -7898,49 +7944,14 @@ const uploadImagesToProductDirect = async (
                       ))}
                     </div>
                   )}
-<div className="space-y-3">
-  <label className="block text-sm font-medium text-slate-300 mb-3">
-    Gender <span className="text-slate-500">(Optional)</span>
-  </label>
-  <div className="flex flex-wrap gap-6">
-    {['Not specified', 'Male', 'Female', 'Unisex', 'Kids', 'Boys', 'Girls'].map((option) => {
-      const value = option === 'Not specified' ? '' : option;
-      const isChecked = formData.gender === value;
 
-      return (
-        <label
-          key={option}
-          className="flex items-center gap-3 cursor-pointer group"
-        >
-          <input
-            type="radio"
-            name="gender"
-            value={value}
-            checked={isChecked}
-            onChange={handleChange}
-            className="w-5 h-5 rounded-full bg-slate-800/50 border-slate-700 text-violet-500 focus:ring-violet-500 focus:ring-offset-slate-900 transition-all"
-          />
-          <span
-            className={`text-sm transition-colors ${
-              isChecked
-                ? 'text-white font-medium'
-                : 'text-slate-300 group-hover:text-white'
-            }`}
-          >
-            {option}
-          </span>
-        </label>
-      );
-    })}
-  </div>
-</div>
                   <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-4">
                     <h4 className="font-semibold text-sm text-blue-400 mb-2">💡 Attribute Examples</h4>
                     <ul className="text-sm text-slate-400 space-y-1">
                       <li>• Warranty: 1 Year Manufacturer Warranty</li>
                       <li>• Material: 100% Cotton</li>
                       <li>• Brand: Nike</li>
-                      <li>• Country of Origin: Made in India</li>
+                      <li>• Country of Origin: Made in Uk</li>
                     </ul>
                   </div>
                 </div>

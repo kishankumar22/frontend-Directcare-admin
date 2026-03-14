@@ -2472,24 +2472,6 @@ if (name === 'nextDayDeliveryEnabled') {
 };
 
 
-  const addRelatedProduct = (productId: string) => {
-    if (!formData.relatedProducts.includes(productId)) {
-      setFormData({
-        ...formData,
-        relatedProducts: [...formData.relatedProducts, productId]
-      });
-    }
-    setSearchTerm('');
-  };
-const addCrossSellProduct = (productId: string) => {
-    if (!formData.crossSellProducts.includes(productId)) {
-      setFormData({
-        ...formData,
-        crossSellProducts: [...formData.crossSellProducts, productId]
-      });
-    }
-    setSearchTermCross('');
-  };
 
   const removeCrossSellProduct = (productId: string) => {
     setFormData({
@@ -3607,7 +3589,7 @@ useEffect(() => {
       </div>
 
       {/* ✅ Show on Homepage + Display Order - FIXED HEIGHT */}
-      <div className="grid md:grid-cols-2 gap-4">
+      <div className="grid md:grid-cols-2 gap-4 hidden">
         {/* Column 1 - Show on Homepage checkbox */}
         <label className="flex items-center gap-2 w-full px-3 py-2.5 bg-slate-800/50 border border-slate-700 rounded-xl cursor-pointer hover:border-violet-500 transition-all">
           <input
@@ -3734,7 +3716,31 @@ useEffect(() => {
       </div>
     )}
   </div>
-
+<div className="space-y-3">
+  <label className="block text-sm font-medium text-slate-300 mb-3">
+    Gender <span className="text-slate-500">(Optional)</span>
+  </label>
+  <div className="flex flex-wrap gap-6">
+    {['Not specified', 'Male', 'Female', 'Unisex', 'Kids', 'Boys', 'Girls'].map((option) => (
+      <label
+        key={option}
+        className="flex items-center gap-3 cursor-pointer group"
+      >
+        <input
+          type="radio"
+          name="gender"
+          value={option === 'Not specified' ? '' : option}
+          checked={formData.gender === (option === 'Not specified' ? '' : option)}
+          onChange={handleChange}
+          className="w-5 h-5 rounded-full bg-slate-800/50 border-slate-700 text-violet-500 focus:ring-violet-500 focus:ring-offset-slate-900"
+        />
+        <span className="text-sm text-slate-300 group-hover:text-white transition-colors">
+          {option}
+        </span>
+      </label>
+    ))}
+  </div>
+</div>
 
     </div>
   {/* ===== ✅ UPDATED RECURRING PRODUCT SECTION WITH GROUPED VALIDATION ===== */}
@@ -5487,31 +5493,7 @@ useEffect(() => {
                       ))}
                     </div>
                   )}
-<div className="space-y-3">
-  <label className="block text-sm font-medium text-slate-300 mb-3">
-    Gender <span className="text-slate-500">(Optional)</span>
-  </label>
-  <div className="flex flex-wrap gap-6">
-    {['Not specified', 'Male', 'Female', 'Unisex', 'Kids', 'Boys', 'Girls'].map((option) => (
-      <label
-        key={option}
-        className="flex items-center gap-3 cursor-pointer group"
-      >
-        <input
-          type="radio"
-          name="gender"
-          value={option === 'Not specified' ? '' : option}
-          checked={formData.gender === (option === 'Not specified' ? '' : option)}
-          onChange={handleChange}
-          className="w-5 h-5 rounded-full bg-slate-800/50 border-slate-700 text-violet-500 focus:ring-violet-500 focus:ring-offset-slate-900"
-        />
-        <span className="text-sm text-slate-300 group-hover:text-white transition-colors">
-          {option}
-        </span>
-      </label>
-    ))}
-  </div>
-</div>
+
                   <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-4">
                     <h4 className="font-semibold text-sm text-blue-400 mb-2">💡 Attribute Examples</h4>
                     <ul className="text-sm text-slate-400 space-y-1">
