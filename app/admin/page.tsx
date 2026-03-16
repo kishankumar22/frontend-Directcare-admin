@@ -6,12 +6,13 @@ import {
   ShoppingCart, Package, Users, PoundSterling, TrendingUp, TrendingDown,
   RefreshCcw, Clock, AlertTriangle, CheckCircle2, XCircle, Truck,
   Loader2, ArrowUpRight, Timer, RotateCcw, Activity, ArrowRight,
+  CloudCog,
 } from "lucide-react";
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, PieChart, Pie, Cell,
 } from "recharts";
-import { dashboardService, DashboardPeriod, DashboardStats, OrderStatusBreakdown } from "@/lib/services/dashboard";
+import { dashboardService, DashboardPeriod, DashboardStats  } from "@/lib/services/dashboard";
 import { API_BASE_URL } from "@/lib/api";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -22,7 +23,7 @@ const PERIODS: Period[] = [
   { key: "today",    label: "Today"  },
   { key: "week",     label: "7d"     },
   { key: "month",    label: "1m"     },
-  { key: "6months",  label: "6m"     },
+  { key: "6month",  label: "6m"     },
   { key: "year",     label: "1y"     },
 ];
 
@@ -36,6 +37,7 @@ const getOrderProductImage = (imageUrl?: string): string => {
 
   return API_BASE_URL.replace("/api", "") + imageUrl.replace("~", "");
 };
+
 function formatCurrency(v: number) {
   return `£${v.toLocaleString("en-GB", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
@@ -85,6 +87,7 @@ export default function AdminDashboard() {
     try {
       const stats = await dashboardService.getStats(period);
       setData(stats);
+      // console.log(stats)
       setLastUpdated(new Date());
     } catch (err: any) {
       console.error("Dashboard fetch error:", err);

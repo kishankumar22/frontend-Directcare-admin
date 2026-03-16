@@ -2243,6 +2243,24 @@ const allActions = getAllAvailableActions(
   />
 )}
 
+<RefundHistorySection
+  currency={order.currency}
+  refundHistory={refundHistory}
+  loading={loadingRefundHistory}
+  isOpen={refundHistoryOpen}
+  onToggle={() => setRefundHistoryOpen(prev => !prev)}
+  onFetch={fetchRefundHistory}
+/>
+
+<EditHistorySection
+  currency={order.currency}
+  editHistory={editHistory}
+  loading={loadingEditHistory}
+  isOpen={editHistoryOpen}
+  onToggle={() => setEditHistoryOpen(prev => !prev)}
+  onFetch={fetchEditHistory}
+/>
+
     </div>
   );
 }

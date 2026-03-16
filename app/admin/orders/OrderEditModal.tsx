@@ -41,7 +41,45 @@ import {
 } from '@/lib/services/OrderEdit';
 import { Order } from '@/lib/services/orders';
 import { addressLookupService } from '@/lib/services/AddressLookup';
+import { API_BASE_URL } from '@/lib/api';
+const getOrderProductImage = (imageUrl?: any): string => {
+  if (!imageUrl) return "/no-image.png";
 
+  // अगर array आया
+  if (Array.isArray(imageUrl)) {
+    imageUrl = imageUrl[0];
+  }
+
+  // अगर object आया { url: "" }
+  if (typeof imageUrl === "object" && imageUrl.url) {
+    imageUrl = imageUrl.url;
+  }
+
+  // अगर string नहीं है
+  if (typeof imageUrl !== "string") {
+    return "/no-image.png";
+  }
+
+  if (imageUrl.startsWith("http")) {
+    return imageUrl;
+  }
+
+  return API_BASE_URL.replace("/api", "") + imageUrl.replace("~", "");
+};
+const getProductImage = (images: any[]): string => {
+  if (!images || images.length === 0) return "";
+
+  const mainImage = images.find((img: any) => img.isMain) || images[0];
+  let imageUrl = mainImage.imageUrl || "";
+
+  // 🔥 If already full URL → return directly
+  if (imageUrl.startsWith("http")) {
+    return imageUrl;
+  }
+
+  // 🔥 Otherwise attach base URL (for local uploads)
+  return API_BASE_URL.replace("/api", "") + imageUrl.replace("~", "");
+};
 // ===========================
 // INTERFACES
 // ===========================
@@ -68,6 +106,7 @@ interface Product {
   isActive?: boolean;
   isPublished?: boolean;
   createdAt?: string;
+  
 }
 
 interface ProductVariant {
@@ -472,7 +511,7 @@ const handleShippingSelect = async (id: string) => {
     try {
       const productsResponse = await productsService.getAll({
         page: 1,
-        pageSize: 1000,
+        pageSize: 10000,
       });
 
       if (productsResponse?.data?.success && productsResponse?.data?.data?.items) {
@@ -499,7 +538,6 @@ const handleShippingSelect = async (id: string) => {
     }
   };
 
-  // Reset state only when modal transitions from closed → open.
   // Using prevIsOpen ref so a remount with isOpen=true doesn't clear operations.
 const prevIsOpen = useRef(isOpen);
 
@@ -1083,33 +1121,52 @@ useEffect(() => {
                         onClick={() => addNewItem(product)}
                         className="w-full p-2.5 hover:bg-slate-700/50 transition-all text-left border-b border-slate-700 last:border-0"
                       >
-                        <div className="flex items-center justify-between gap-2">
-                          <div className="flex-1 min-w-0">
-                            <p className="text-white font-medium text-sm truncate">
-                              {product.name}
-                            </p>
-                            <div className="flex items-center gap-1.5 mt-1 flex-wrap">
-                              <span className="text-xs text-slate-400">{product.sku}</span>
-                              {product.brandName && (
-                                <span className="text-xs px-1.5 py-0.5 rounded bg-cyan-500/10 text-cyan-400">
-                                  {product.brandName}
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                          <div className="text-right">
-                            <p className="text-green-400 font-semibold text-sm">
-                              £{displayPrice.toFixed(2)}
-                            </p>
-                            <p
-                              className={`text-xs ${
-                                product.stockQuantity > 0 ? 'text-slate-400' : 'text-red-400'
-                              }`}
-                            >
-                              Stock: {product.stockQuantity}
-                            </p>
-                          </div>
-                        </div>
+                      <div className="flex items-center justify-between gap-3">
+
+  {/* PRODUCT IMAGE */}
+  <div className="w-10 h-10 rounded-lg overflow-hidden bg-slate-800 border border-slate-700 flex-shrink-0">
+<img
+  src={getProductImage(product.images || [])}
+  alt={product.name}
+  className="w-full h-full object-cover"
+/>
+  </div>
+
+  {/* PRODUCT INFO */}
+  <div className="flex-1 min-w-0">
+    <p className="text-white font-medium text-sm truncate">
+      {product.name}
+    </p>
+
+    <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+      <span className="text-xs text-slate-400">{product.sku}</span>
+
+      {product.brandName && (
+        <span className="text-xs px-1.5 py-0.5 rounded bg-cyan-500/10 text-cyan-400">
+          {product.brandName}
+        </span>
+      )}
+    </div>
+  </div>
+
+  {/* PRICE + STOCK */}
+  <div className="text-right">
+    <p className="text-green-400 font-semibold text-sm">
+      £{displayPrice.toFixed(2)}
+    </p>
+
+    <p
+      className={`text-xs ${
+        product.stockQuantity > 0
+          ? "text-slate-400"
+          : "text-red-400"
+      }`}
+    >
+      Stock: {product.stockQuantity}
+    </p>
+  </div>
+
+</div>
                       </button>
                     );
                   })}
@@ -1160,11 +1217,11 @@ useEffect(() => {
             {/* Product thumbnail */}
             <div className="w-10 h-10 rounded-lg overflow-hidden flex-shrink-0 bg-slate-800 border border-slate-700">
               {item.productImageUrl ? (
-                <img
-                  src={item.productImageUrl}
-                  alt={item.productName}
-                  className="w-full h-full object-cover"
-                />
+              <img
+  src={getOrderProductImage(item.productImageUrl)}
+  alt={item.productName}
+  className="w-full h-full object-cover"
+/>
               ) : (
                 <div className="w-full h-full flex items-center justify-center">
                   <Package className="h-4 w-4 text-slate-500" />

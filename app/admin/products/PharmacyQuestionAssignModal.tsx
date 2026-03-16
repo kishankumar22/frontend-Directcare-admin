@@ -349,7 +349,7 @@ const handleSave = async () => {
   </button>
 
   {/* 📝 Question Text */}
-  <div className="flex-1 min-w-0">
+  <div className="flex-1 min-w-0  cursor-pointer"  onClick={() => toggleQuestion(question)}>
     <p className="text-white font-medium truncate">
       {question.questionText}
     </p>

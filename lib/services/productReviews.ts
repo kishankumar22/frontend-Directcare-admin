@@ -103,8 +103,32 @@ export interface ReviewFilters {
   rating?: number;
   searchTerm?: string;
   customerEmail?: string;
+  productId?: string;
   productName?: string;
   productSku?: string;
+}
+
+export interface ProductWithReviewSummary {
+  productId: string;
+  productName: string;
+  productSku: string;
+  productImageUrl?: string;
+  productSlug?: string;
+  totalReviews: number;
+  approvedReviews: number;
+  pendingReviews: number;
+  averageRating: number;
+  lastReviewDate?: string;
+}
+
+export interface PaginatedProductsWithReviewsResponse {
+  items: ProductWithReviewSummary[];
+  totalCount: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+  hasPrevious: boolean;
+  hasNext: boolean;
 }
 
 // ✅ NEW: Import Result Interface
@@ -127,6 +151,7 @@ export const productReviewsService = {
     if (filters.rating)      params.set('rating',      String(filters.rating));
     if (filters.searchTerm)  params.set('searchTerm',  filters.searchTerm);
     if (filters.customerEmail) params.set('customerEmail', filters.customerEmail);
+    if (filters.productId)   params.set('productId',   filters.productId);
     if (filters.productName) params.set('productName', filters.productName);
     if (filters.productSku)  params.set('productSku',  filters.productSku);
     return apiClient.get<ApiResponse<PaginatedReviewsResponse>>(
@@ -245,6 +270,24 @@ export const productReviewsService = {
       `/api/Products?page=${page}&pageSize=${pageSize}&sortDirection=asc`,
       config
     ),
+
+  // Get products that have reviews (for filter dropdown)
+  getProductsWithReviews: (params: {
+    page?: number;
+    pageSize?: number;
+    approvedOnly?: boolean;
+    searchTerm?: string;
+  } = {}, config: any = {}) => {
+    const p = new URLSearchParams();
+    if (params.page)        p.set('page',         String(params.page));
+    if (params.pageSize)    p.set('pageSize',      String(params.pageSize));
+    if (params.approvedOnly !== undefined) p.set('approvedOnly', String(params.approvedOnly));
+    if (params.searchTerm)  p.set('searchTerm',    params.searchTerm);
+    return apiClient.get<ApiResponse<PaginatedProductsWithReviewsResponse>>(
+      `${API_ENDPOINTS.productReviews}/products-with-reviews?${p}`,
+      config
+    );
+  },
 
 // ✅ NEW API 1: Download Sample Excel Template
 downloadSample: async (): Promise<Blob> => {

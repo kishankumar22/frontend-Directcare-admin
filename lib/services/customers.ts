@@ -48,6 +48,7 @@ export interface Customer {
   orders: Order[];
   totalOrders: number;
   totalSpent: number;
+  tierLevel?: "Gold" | "Silver" | "Bronze"; // ✅ ADD THIS
 }
 
 export interface CustomerQueryParams {

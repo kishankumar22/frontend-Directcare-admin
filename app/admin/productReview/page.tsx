@@ -36,27 +36,22 @@ import ConfirmDialog from "@/app/admin/_components/ConfirmDialog";
 import {
   productReviewsService,
   ProductReview,
+  ProductWithReviewSummary,
   CreateReviewDto,
   ReviewFilters,
 } from "@/lib/services/productReviews";
-interface Product {
-  [x: string]: any;
-  id: string;
-  name: string;
-  slug?: string;
-    price?: number; // ✅ Add this
-}
 export default function ProductReviewsPage() {
   const router = useRouter();
   const toast = useToast();
 
   const [reviews, setReviews] = useState<ProductReview[]>([]);
-  const [products, setProducts] = useState<Product[]>([]);
+  const [products, setProducts] = useState<ProductWithReviewSummary[]>([]);
+  const [formProducts, setFormProducts] = useState<{ id: string; name: string; sku?: string; price?: number }[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingProducts, setLoadingProducts] = useState(false);
   const [loadingReviews, setLoadingReviews] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
-  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [statusFilter, setStatusFilter] = useState<string>("pending");
   const [ratingFilter, setRatingFilter] = useState<string>("all");
   const [productFilter, setProductFilter] = useState<string>("all");
   const [verifiedOnlyFilter, setVerifiedOnlyFilter] = useState(false);
@@ -129,33 +124,41 @@ useEffect(() => {
   return () => clearTimeout(t);
 }, [searchTerm]);
 
-  // ✅ Fetch Products
-const fetchProducts = async () => {
+  // ✅ Fetch Products that have reviews (for filter dropdown)
+const fetchProducts = async (searchTerm?: string) => {
   setLoadingProducts(true);
   try {
-    const response = await productReviewsService.getAllProducts();
-    
-    // ✅ CORRECT: Access nested items array
-    if (response.data?.success && response.data?.data?.items && Array.isArray(response.data.data.items)) {
-      const productsData = response.data.data.items.map((product: any) => ({
-        id: product.id,
-        name: product.name,
-        slug: product.slug
-      }));
-      
-      setProducts(productsData);
-      console.log("✅ Products loaded:", productsData.length);
-      console.log("📦 Products:", productsData);
+    const response = await productReviewsService.getProductsWithReviews({
+      pageSize: 100,
+      searchTerm,
+    });
+    if (response.data?.success && Array.isArray(response.data?.data?.items)) {
+      setProducts(response.data.data.items);
     } else {
-      console.warn("⚠️ No products found in response");
       setProducts([]);
     }
   } catch (error: any) {
     console.error("❌ Error fetching products:", error);
-    toast.error("Failed to load products");
     setProducts([]);
   } finally {
     setLoadingProducts(false);
+  }
+};
+
+// Fetch all products for the create-review form (needs price/sku, all products not just reviewed ones)
+const fetchFormProducts = async () => {
+  try {
+    const response = await productReviewsService.getAllProducts(1, 200);
+    if (response.data?.success && Array.isArray(response.data?.data?.items)) {
+      setFormProducts(response.data.data.items.map((p: any) => ({
+        id: p.id,
+        name: p.name,
+        sku: p.sku,
+        price: p.price,
+      })));
+    }
+  } catch {
+    // silently ignore — create form is non-critical
   }
 };
 
@@ -188,18 +191,14 @@ const getDateRangeLabel = () => {
 const fetchReviews = useCallback(async () => {
   setLoadingReviews(true);
   try {
-    const selectedProduct = productFilter !== "all"
-      ? products.find(p => p.id === productFilter)
-      : null;
-
     const filters: ReviewFilters = {
       page: currentPage,
       pageSize: itemsPerPage,
     };
-    if (statusFilter !== "all") filters.status = statusFilter as "pending" | "approved";
-    if (ratingFilter !== "all")  filters.rating = parseInt(ratingFilter);
-    if (debouncedSearch.trim())  filters.searchTerm = debouncedSearch.trim();
-    if (selectedProduct)         filters.productName = selectedProduct.name;
+    if (statusFilter !== "all")    filters.status = statusFilter as "pending" | "approved";
+    if (ratingFilter !== "all")    filters.rating = parseInt(ratingFilter);
+    if (debouncedSearch.trim())    filters.searchTerm = debouncedSearch.trim();
+    if (productFilter !== "all")   filters.productId = productFilter;
 
     const res = await productReviewsService.getAll(filters);
 
@@ -220,13 +219,13 @@ const fetchReviews = useCallback(async () => {
   } finally {
     setLoadingReviews(false);
   }
-}, [currentPage, itemsPerPage, statusFilter, ratingFilter, debouncedSearch, productFilter, products]);
+}, [currentPage, itemsPerPage, statusFilter, ratingFilter, debouncedSearch, productFilter]);
 
   // ✅ Initial load — fetch products (for dropdown) and reviews simultaneously
   useEffect(() => {
     const init = async () => {
       setLoading(true);
-      await fetchProducts();
+      await Promise.all([fetchProducts(), fetchFormProducts()]);
       setLoading(false);
     };
     init();
@@ -404,16 +403,22 @@ useEffect(() => {
   return () => document.removeEventListener("mousedown", handleClickOutside);
 }, []);
 
-// ✅ Filter products based on search
+// Filter dropdown products (ProductWithReviewSummary — uses productId/productName)
 const filteredProducts = products.filter(product =>
-  product.name.toLowerCase().includes(productSearchTerm.toLowerCase())
+  product.productName.toLowerCase().includes(productSearchTerm.toLowerCase()) ||
+  product.productSku.toLowerCase().includes(productSearchTerm.toLowerCase())
+);
+
+// Filter form products (old Product shape — uses id/name)
+const filteredFormProducts = formProducts.filter(product =>
+  product.name.toLowerCase().includes(productSearch.toLowerCase())
 );
 
 // ✅ Get selected product title
 const getSelectedProductTitle = () => {
   if (productFilter === "all") return "🛍️ All Products";
-  const product = products.find(p => p.id === productFilter);
-  return product?.name || "Unknown Product";
+  const product = products.find(p => p.productId === productFilter);
+  return product?.productName || "Unknown Product";
 };
   // Products are loaded once on mount via the init useEffect above
 
@@ -607,8 +612,8 @@ const handleExportReviews = (type: string) => {
 
   const getSelectedProductName = () => {
     if (productFilter === "all") return "All Products";
-    const product = products.find((p) => p.id === productFilter);
-    return product?.name || "Unknown Product";
+    const product = products.find((p) => p.productId === productFilter);
+    return product?.productName || "Unknown Product";
   };
 
   // Render Stars
@@ -778,7 +783,7 @@ const handleExportReviews = (type: string) => {
           {/* Compact toolbar */}
           <div className="flex items-center gap-2 p-3 border-b border-slate-800">
               <div className="flex items-center gap-2 flex-1 min-w-0">
-<div className="relative flex-1 min-w-[140px] max-w-[220px]" ref={productDropdownRef}>
+<div className="relative flex-1 min-w-[140px]" ref={productDropdownRef}>
   <div className="relative">
     <input
       type="text"
@@ -838,20 +843,23 @@ const handleExportReviews = (type: string) => {
       {filteredProducts.length > 0 ? (
         filteredProducts.map((product) => (
           <button
-            key={product.id}
+            key={product.productId}
             onClick={() => {
-              setProductFilter(product.id);
+              setProductFilter(product.productId);
               setShowProductDropdown(false);
               setProductSearchTerm("");
               setCurrentPage(1);
             }}
             className={`w-full px-4 py-2.5 text-left hover:bg-slate-700 transition-all border-t border-slate-700 ${
-              productFilter === product.id ? "bg-purple-500/10 text-purple-400" : "text-white"
+              productFilter === product.productId ? "bg-purple-500/10 text-purple-400" : "text-white"
             }`}
           >
-            <div className="flex items-center gap-2">
-              <ShoppingBag className="h-4 w-4 flex-shrink-0 text-slate-400" />
-              <span className="text-sm truncate">{product.name}</span>
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2 min-w-0">
+                <ShoppingBag className="h-4 w-4 flex-shrink-0 text-slate-400" />
+                <span className="text-sm truncate">{product.productName}</span>
+              </div>
+              <span className="text-[10px] text-slate-500 flex-shrink-0">{product.totalReviews} reviews</span>
             </div>
           </button>
         ))
@@ -864,7 +872,7 @@ const handleExportReviews = (type: string) => {
   )}
 </div>
   {/* Search */}
-              <div className="relative flex-1 min-w-[120px] max-w-[200px]">
+              <div className="relative flex-1 min-w-[120px]">
                 <input
                   type="text"
                   value={searchTerm}
@@ -880,11 +888,11 @@ const handleExportReviews = (type: string) => {
                 )}
               </div>
               {/* Status Filter */}
-              <div className="relative">
+              <div className="relative flex-1 min-w-[100px]">
                 <select
                   value={statusFilter}
                   onChange={(e) => { setStatusFilter(e.target.value); setCurrentPage(1); }}
-                  className={`px-3 py-2 pr-7 bg-slate-800 border rounded-lg text-white text-xs focus:outline-none focus:ring-1 focus:ring-violet-500 transition-all appearance-none cursor-pointer ${
+                  className={`w-full px-3 py-2 pr-7 bg-slate-800 border rounded-lg text-white text-xs focus:outline-none focus:ring-1 focus:ring-violet-500 transition-all appearance-none cursor-pointer ${
                     statusFilter !== "all" ? "border-blue-500/60 bg-blue-500/10" : "border-slate-700 hover:border-slate-600"
                   }`}
                 >
@@ -895,11 +903,11 @@ const handleExportReviews = (type: string) => {
                 <Filter className="absolute right-2 top-1/2 -translate-y-1/2 h-3 w-3 text-slate-500 pointer-events-none" />
               </div>
               {/* Rating Filter */}
-              <div className="relative">
+              <div className="relative flex-1 min-w-[100px]">
                 <select
                   value={ratingFilter}
                   onChange={(e) => { setRatingFilter(e.target.value); setCurrentPage(1); }}
-                  className={`px-3 py-2 pr-7 bg-slate-800 border rounded-lg text-white text-xs focus:outline-none focus:ring-1 focus:ring-violet-500 transition-all appearance-none cursor-pointer ${
+                  className={`w-full px-3 py-2 pr-7 bg-slate-800 border rounded-lg text-white text-xs focus:outline-none focus:ring-1 focus:ring-violet-500 transition-all appearance-none cursor-pointer ${
                     ratingFilter !== "all" ? "border-yellow-500/60 bg-yellow-500/10" : "border-slate-700 hover:border-slate-600"
                   }`}
                 >
@@ -920,11 +928,11 @@ const handleExportReviews = (type: string) => {
           
 
               {/* Date Range Filter */}
-              <div className="relative flex-shrink-0" ref={datePickerRef}>
+              <div className="relative flex-1 min-w-[130px]" ref={datePickerRef}>
   <div className="relative">
     <button
       onClick={() => setShowDatePicker(!showDatePicker)}
-      className={`px-3 py-2 pl-7 pr-6 bg-slate-800 border rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-violet-500 transition-all text-left whitespace-nowrap ${
+      className={`w-full px-3 py-2 pl-7 pr-6 bg-slate-800 border rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-violet-500 transition-all text-left whitespace-nowrap ${
         (dateRange.startDate || dateRange.endDate)
           ? "border-cyan-500/60 bg-cyan-500/10 text-white"
           : "border-slate-700 hover:border-slate-600 text-slate-400"
@@ -1131,7 +1139,7 @@ const handleExportReviews = (type: string) => {
                       </td>
                       <td className="py-2 px-3">
                         <button onClick={() => { setProductFilter(review.productId); setCurrentPage(1); }} className="text-blue-400 hover:text-blue-300 text-xs text-left max-w-[200px] truncate block leading-tight">
-                          {review.productName || products.find(p => p.id === review.productId)?.name || review.productSku || review.productId?.slice(0, 8) || "—"}
+                          {review.productName || products.find(p => p.productId === review.productId)?.productName || review.productSku || review.productId?.slice(0, 8) || "—"}
                         </button>
                       </td>
                       <td className="py-2 px-3 text-center">
@@ -1358,8 +1366,7 @@ const handleExportReviews = (type: string) => {
                           }}
                           className="text-blue-400 hover:text-blue-300 hover:underline"
                         >
-                          {products.find((p) => p.id === viewingReview.productId)
-                            ?.name || "Unknown Product"}
+                          {viewingReview.productName || products.find((p) => p.productId === viewingReview.productId)?.productName || "Unknown Product"}
                         </button>
                       </div>
 
@@ -1527,8 +1534,8 @@ const handleExportReviews = (type: string) => {
       type="text"
       placeholder="Search or select product..."
       value={
-        formData.productId 
-          ? `${products.find(p => p.id === formData.productId)?.name || ''} ${products.find(p => p.id === formData.productId)?.price ? `-£${products.find(p => p.id === formData.productId)?.price}` : ''}`
+        formData.productId
+          ? `${formProducts.find(p => p.id === formData.productId)?.name || ''} ${formProducts.find(p => p.id === formData.productId)?.price ? `-£${formProducts.find(p => p.id === formData.productId)?.price}` : ''}`
           : productSearch
       }
       onChange={(e) => {
@@ -1548,8 +1555,8 @@ const handleExportReviews = (type: string) => {
     {/* Dropdown List */}
     {showProductDropdown && (
       <div className="absolute z-50 w-full mt-1 bg-slate-900 border border-slate-700 rounded-xl shadow-lg max-h-80 overflow-auto">
-        {filteredProducts.length > 0 ? (
-          filteredProducts.map((product: any) => (
+        {filteredFormProducts.length > 0 ? (
+          filteredFormProducts.map((product) => (
             <button
               key={product.id}
               type="button"
@@ -1559,8 +1566,8 @@ const handleExportReviews = (type: string) => {
                 setShowProductDropdown(false);
               }}
               className={`w-full text-left px-4 py-3 hover:bg-violet-500/20 transition-colors border-b border-slate-800 last:border-b-0 ${
-                formData.productId === product.id 
-                  ? 'bg-violet-500/30 text-violet-300' 
+                formData.productId === product.id
+                  ? 'bg-violet-500/30 text-violet-300'
                   : 'text-white'
               }`}
             >
@@ -1600,14 +1607,14 @@ const handleExportReviews = (type: string) => {
       <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
         <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
       </svg>
-      Selected: {products.find(p => p.id === formData.productId)?.name}
+      Selected: {formProducts.find(p => p.id === formData.productId)?.name}
     </p>
   )}
 
   <p className="text-xs text-slate-500 mt-1">
-    {productSearch 
-      ? `Showing ${filteredProducts.length} of ${products.length} products` 
-      : `${products.length} products available`
+    {productSearch
+      ? `Showing ${filteredFormProducts.length} of ${formProducts.length} products`
+      : `${formProducts.length} products available`
     }
   </p>
 </div>

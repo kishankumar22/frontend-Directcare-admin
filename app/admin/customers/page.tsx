@@ -50,7 +50,7 @@ import { useToast } from "@/app/admin/_components/CustomToast";
 import { Customer, CustomerQueryParams, customersService } from "@/lib/services/customers";
 
 // ✅ Types
-type CustomerSegment = "all" | "vip" | "regular" | "new" | "dormant" | "oneTime";
+type CustomerTier = "all" | "gold" | "silver" | "bronze";
 type SortField = "name" | "totalSpent" | "totalOrders" | "joinDate" | "lastLogin";
 type SortDirection = "asc" | "desc";
 // ✅ STEP 1: Component ke top par ye state add karo (existing states ke saath)
@@ -88,20 +88,20 @@ const [showAnalytics, setShowAnalytics] = useState(false); // Default: collapsed
   const [selectedCustomers, setSelectedCustomers] = useState<string[]>([]);
 const [customerViewMode, setCustomerViewMode] = useState<"all" | "active" | "inactive">("all");
   // ✅ Advanced Filters
-  const [filters, setFilters] = useState({
-    status: "all",
-    segment: "all" as CustomerSegment,
-    minSpent: "",
-    maxSpent: "",
-    minOrders: "",
-    maxOrders: "",
-    registrationFrom: "",
-    registrationTo: "",
-    lastLoginFrom: "",
-    lastLoginTo: "",
-    gender: "all",
-    deliveryMethod: "all",
-  });
+ const [filters, setFilters] = useState({
+  status: "all",
+  tier: "all" as CustomerTier,
+  minSpent: "",
+  maxSpent: "",
+  minOrders: "",
+  maxOrders: "",
+  registrationFrom: "",
+  registrationTo: "",
+  lastLoginFrom: "",
+  lastLoginTo: "",
+  gender: "all",
+  deliveryMethod: "all",
+});
 
   // ✅ Sorting
   const [sortField, setSortField] = useState<SortField>("joinDate");
@@ -127,29 +127,16 @@ const [customerViewMode, setCustomerViewMode] = useState<"all" | "active" | "ina
   }, []);
 
   // ✅ Customer Segment Logic
-  const getCustomerSegment = (customer: Customer): CustomerSegment => {
-    const daysSinceLastOrder = customer.orders.length > 0
-      ? Math.floor((new Date().getTime() - new Date(customer.orders[0].orderDate).getTime()) / (1000 * 60 * 60 * 24))
-      : 999;
+const getCustomerTier = (customer: Customer): CustomerTier => {
+  if (!customer.tierLevel) return "bronze";
 
-    // VIP: Spent > £5000
-    if (customer.totalSpent >= 5000) return "vip";
+  const tier = customer.tierLevel.toLowerCase();
 
-    // Dormant: No purchase in 90+ days
-    if (customer.totalOrders > 0 && daysSinceLastOrder > 90) return "dormant";
+  if (tier === "gold") return "gold";
+  if (tier === "silver") return "silver";
 
-    // New: Registered < 30 days
-    const daysSinceRegistration = Math.floor((new Date().getTime() - new Date(customer.createdAt).getTime()) / (1000 * 60 * 60 * 24));
-    if (daysSinceRegistration < 30) return "new";
-
-    // One-Time: Only 1 order
-    if (customer.totalOrders === 1) return "oneTime";
-
-    // Regular: 2+ orders
-    if (customer.totalOrders >= 2) return "regular";
-
-    return "regular";
-  };
+  return "bronze";
+};
 
   // ✅ Fetch Customers
   const fetchCustomers = useCallback(async () => {
@@ -171,6 +158,7 @@ const [customerViewMode, setCustomerViewMode] = useState<"all" | "active" | "ina
       if (response?.data?.success) {
         const fetchedCustomers = response.data.data.items || [];
         setAllCustomers(fetchedCustomers);
+        
 
         // Apply filters and sorting
         let filteredCustomers = applyFilters(fetchedCustomers);
@@ -206,9 +194,9 @@ const [customerViewMode, setCustomerViewMode] = useState<"all" | "active" | "ina
     }
 
     // Segment Filter
-    if (filters.segment !== "all") {
-      filtered = filtered.filter((c) => getCustomerSegment(c) === filters.segment);
-    }
+  if (filters.tier !== "all") {
+  filtered = filtered.filter((c) => getCustomerTier(c) === filters.tier);
+}
 
     // Spending Range
     if (filters.minSpent) {
@@ -315,43 +303,42 @@ const [customerViewMode, setCustomerViewMode] = useState<"all" | "active" | "ina
   };
 
   // ✅ Calculate Advanced Stats
-  const calculateStats = () => {
-    const total = allCustomers.length;
-    const active = allCustomers.filter((c) => c.isActive).length;
+const calculateStats = () => {
+  const total = allCustomers.length;
+  const active = allCustomers.filter((c) => c.isActive).length;
 
-    const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
-    const newThisMonth = allCustomers.filter((c) => new Date(c.createdAt) >= monthStart).length;
+  const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+  const newThisMonth = allCustomers.filter((c) => new Date(c.createdAt) >= monthStart).length;
 
-    const avgLifetimeValue = total > 0
+  const avgLifetimeValue =
+    total > 0
       ? (allCustomers.reduce((sum, c) => sum + c.totalSpent, 0) / total).toFixed(2)
       : "0.00";
 
-    // Segment counts
-    const vip = allCustomers.filter((c) => getCustomerSegment(c) === "vip").length;
-    const regular = allCustomers.filter((c) => getCustomerSegment(c) === "regular").length;
-    const newCustomers = allCustomers.filter((c) => getCustomerSegment(c) === "new").length;
-    const dormant = allCustomers.filter((c) => getCustomerSegment(c) === "dormant").length;
-    const oneTime = allCustomers.filter((c) => getCustomerSegment(c) === "oneTime").length;
+  const gold = allCustomers.filter((c) => getCustomerTier(c) === "gold").length;
+  const silver = allCustomers.filter((c) => getCustomerTier(c) === "silver").length;
+  const bronze = allCustomers.filter((c) => getCustomerTier(c) === "bronze").length;
 
-    // Additional metrics
-    const totalRevenue = allCustomers.reduce((sum, c) => sum + c.totalSpent, 0);
-    const totalOrders = allCustomers.reduce((sum, c) => sum + c.totalOrders, 0);
-    const avgOrderValue = totalOrders > 0 ? (totalRevenue / totalOrders).toFixed(2) : "0.00";
+  const totalRevenue = allCustomers.reduce((sum, c) => sum + c.totalSpent, 0);
+  const totalOrders = allCustomers.reduce((sum, c) => sum + c.totalOrders, 0);
 
-    const repeatCustomers = allCustomers.filter((c) => c.totalOrders > 1).length;
-    const repeatRate = total > 0 ? ((repeatCustomers / total) * 100).toFixed(1) : "0.0";
+  const avgOrderValue =
+    totalOrders > 0 ? (totalRevenue / totalOrders).toFixed(2) : "0.00";
 
-    return {
-      total,
-      active,
-      newThisMonth,
-      avgLifetimeValue,
-      segments: { vip, regular, new: newCustomers, dormant, oneTime },
-      totalRevenue,
-      avgOrderValue,
-      repeatRate,
-    };
+  const repeatCustomers = allCustomers.filter((c) => c.totalOrders > 1).length;
+  const repeatRate = total > 0 ? ((repeatCustomers / total) * 100).toFixed(1) : "0.0";
+
+  return {
+    total,
+    active,
+    newThisMonth,
+    avgLifetimeValue,
+    tiers: { gold, silver, bronze },
+    totalRevenue,
+    avgOrderValue,
+    repeatRate,
   };
+};
 
   const stats = calculateStats();
 
@@ -373,7 +360,7 @@ const [customerViewMode, setCustomerViewMode] = useState<"all" | "active" | "ina
   // ✅ Export Functions
  const generateExcel = (customersToExport: Customer[]) => {
   const excelData = customersToExport.map((customer) => {
-    const segment = getCustomerSegment(customer);
+    const tier = getCustomerTier(customer)
 
     const avgOrderValue =
       customer.totalOrders > 0
@@ -398,7 +385,7 @@ const [customerViewMode, setCustomerViewMode] = useState<"all" | "active" | "ina
       "Total Spent (£)": customer.totalSpent.toFixed(2),
       "Avg Order Value (£)": avgOrderValue,
       Status: customer.isActive ? "Active" : "Inactive",
-      Segment: segment.toUpperCase(),
+     Tier: tier.toUpperCase(),
       "Registration Date": formatDate(customer.createdAt),
       "Last Login": customer.lastLoginAt
         ? formatDate(customer.lastLoginAt)
@@ -475,20 +462,20 @@ const [customerViewMode, setCustomerViewMode] = useState<"all" | "active" | "ina
 
   // ✅ Filter Functions
   const clearFilters = () => {
-    setFilters({
-      status: "all",
-      segment: "all",
-      minSpent: "",
-      maxSpent: "",
-      minOrders: "",
-      maxOrders: "",
-      registrationFrom: "",
-      registrationTo: "",
-      lastLoginFrom: "",
-      lastLoginTo: "",
-      gender: "all",
-      deliveryMethod: "all",
-    });
+  setFilters({
+  status: "all",
+  tier: "all",
+  minSpent: "",
+  maxSpent: "",
+  minOrders: "",
+  maxOrders: "",
+  registrationFrom: "",
+  registrationTo: "",
+  lastLoginFrom: "",
+  lastLoginTo: "",
+  gender: "all",
+  deliveryMethod: "all",
+});
     setCustomerViewMode("all"); // ✅ Add this line
     setSearchTerm("");
     setCurrentPage(1);
@@ -496,7 +483,7 @@ const [customerViewMode, setCustomerViewMode] = useState<"all" | "active" | "ina
 
   const hasActiveFilters =
     filters.status !== "all" ||
-    filters.segment !== "all" ||
+    filters.tier !== "all" ||
     filters.minSpent ||
     filters.maxSpent ||
     filters.minOrders ||
@@ -594,62 +581,48 @@ const [customerViewMode, setCustomerViewMode] = useState<"all" | "active" | "ina
   };
 
   // ✅ Get Segment Badge
-  const getSegmentBadge = (segment: CustomerSegment) => {
-    const badges = {
-      vip: {
-        label: "VIP",
-        icon: Crown,
-        color: "text-yellow-400",
-        bg: "bg-yellow-500/10",
-        border: "border-yellow-500/20",
-      },
-      regular: {
-        label: "Regular",
-        icon: UserCheck,
-        color: "text-green-400",
-        bg: "bg-green-500/10",
-        border: "border-green-500/20",
-      },
-      new: {
-        label: "New",
-        icon: Zap,
-        color: "text-cyan-400",
-        bg: "bg-cyan-500/10",
-        border: "border-cyan-500/20",
-      },
-      dormant: {
-        label: "Dormant",
-        icon: Clock,
-        color: "text-orange-400",
-        bg: "bg-orange-500/10",
-        border: "border-orange-500/20",
-      },
-      oneTime: {
-        label: "One-Time",
-        icon: Target,
-        color: "text-purple-400",
-        bg: "bg-purple-500/10",
-        border: "border-purple-500/20",
-      },
-      all: {
-        label: "All",
-        icon: Users,
-        color: "text-slate-400",
-        bg: "bg-slate-500/10",
-        border: "border-slate-500/20",
-      },
-    };
-
-    const badge = badges[segment];
-    const Icon = badge.icon;
-
-    return (
-      <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-xs font-medium ${badge.bg} ${badge.color} border ${badge.border}`}>
-        <Icon className="h-3 w-3" />
-        {badge.label}
-      </span>
-    );
+const getTierBadge = (tier: CustomerTier) => {
+  const badges = {
+    gold: {
+      label: "Gold",
+      icon: Crown,
+      color: "text-yellow-400",
+      bg: "bg-yellow-500/10",
+      border: "border-yellow-500/20",
+    },
+    silver: {
+      label: "Silver",
+      icon: Award,
+      color: "text-slate-300",
+      bg: "bg-slate-500/10",
+      border: "border-slate-500/20",
+    },
+    bronze: {
+      label: "Bronze",
+      icon: Target,
+      color: "text-orange-400",
+      bg: "bg-orange-500/10",
+      border: "border-orange-500/20",
+    },
+    all: {
+      label: "All",
+      icon: Users,
+      color: "text-slate-400",
+      bg: "bg-slate-500/10",
+      border: "border-slate-500/20",
+    }
   };
+
+  const badge = badges[tier];
+  const Icon = badge.icon;
+
+  return (
+    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-xs font-medium ${badge.bg} ${badge.color} border ${badge.border}`}>
+      <Icon className="h-3 w-3" />
+      {badge.label}
+    </span>
+  );
+};
 
   const getStatusBadge = (isActive: boolean, totalOrders: number) => {
     if (!isActive) {
@@ -676,8 +649,6 @@ const [customerViewMode, setCustomerViewMode] = useState<"all" | "active" | "ina
     );
   };
 
-  // Continue in next file...
-  // ✅ Modal Functions
   const toggleOrderDetails = (orderId: string) => {
     setExpandedOrderId(expandedOrderId === orderId ? null : orderId);
   };
@@ -992,118 +963,38 @@ const [customerViewMode, setCustomerViewMode] = useState<"all" | "active" | "ina
 </div>
 
 {/* ✅ TOGGLE SECTION: Customer Segments (5 Cards) */}
+{/* Customer Tiers */}
 {showAnalytics && (
-  <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-xl p-2 animate-in slide-in-from-top-4 duration-300">
-    
-    {/* Section Header with Close Button */}
-    <div className="flex items-center justify-between mb-2">
-      <h3 className="text-white text-sm font-semibold flex items-center gap-1.5">
-        <Award className="h-4 w-4 text-violet-400" />
-        Customer Segments
-      </h3>
-      
-      {/* Close Button */}
-      <button
-        onClick={() => setShowAnalytics(false)}
-        title="Hide customer segments"
-        className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-all group"
-      >
-        <ChevronUp className="h-3.5 w-3.5 group-hover:scale-110 transition-transform" />
-      </button>
-    </div>
+  <div className="bg-slate-900/50 border border-slate-800 rounded-xl p-3">
+    <div className="grid grid-cols-3 gap-3">
 
-    {/* 5 Segment Cards */}
-    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5">
-      
-      {/* VIP Segment */}
       <button
-        onClick={() => setFilters({ ...filters, segment: "vip" })}
-        title="Filter VIP customers who spent £5,000 or more"
-        className={`p-2.5 rounded-lg border transition-all text-left ${
-          filters.segment === "vip"
-            ? "bg-yellow-500/10 border-yellow-500/50 ring-2 ring-yellow-500/30"
-            : "bg-slate-800/50 border-slate-700 hover:border-yellow-500/50"
-        }`}
+        onClick={() => setFilters({ ...filters, tier: "gold" })}
+        className="p-3 bg-yellow-500/10 border border-yellow-500/40 rounded-lg"
       >
-        <div className="flex items-center gap-1.5 mb-1.5">
-          <Crown className="h-3.5 w-3.5 text-yellow-400" />
-          <span className="text-yellow-400 text-xs font-semibold">VIP</span>
-        </div>
-        <p className="text-white text-lg font-bold">{stats.segments.vip}</p>
-        <p className="text-slate-400 text-[10px] mt-0.5">Spent £5,000+</p>
+        <Crown className="h-4 w-4 text-yellow-400 mb-1" />
+        <p className="text-white font-bold">{stats.tiers.gold}</p>
+        <p className="text-xs text-slate-400">Gold</p>
       </button>
 
-      {/* Regular Segment */}
       <button
-        onClick={() => setFilters({ ...filters, segment: "regular" })}
-        title="Filter regular customers with 2 or more orders"
-        className={`p-2.5 rounded-lg border transition-all text-left ${
-          filters.segment === "regular"
-            ? "bg-green-500/10 border-green-500/50 ring-2 ring-green-500/30"
-            : "bg-slate-800/50 border-slate-700 hover:border-green-500/50"
-        }`}
+        onClick={() => setFilters({ ...filters, tier: "silver" })}
+        className="p-3 bg-slate-500/10 border border-slate-500/40 rounded-lg"
       >
-        <div className="flex items-center gap-1.5 mb-1.5">
-          <UserCheck className="h-3.5 w-3.5 text-green-400" />
-          <span className="text-green-400 text-xs font-semibold">Regular</span>
-        </div>
-        <p className="text-white text-lg font-bold">{stats.segments.regular}</p>
-        <p className="text-slate-400 text-[10px] mt-0.5">2+ orders</p>
+        <Award className="h-4 w-4 text-slate-300 mb-1" />
+        <p className="text-white font-bold">{stats.tiers.silver}</p>
+        <p className="text-xs text-slate-400">Silver</p>
       </button>
 
-      {/* New Segment */}
       <button
-        onClick={() => setFilters({ ...filters, segment: "new" })}
-        title="Filter new customers registered in last 30 days"
-        className={`p-2.5 rounded-lg border transition-all text-left ${
-          filters.segment === "new"
-            ? "bg-cyan-500/10 border-cyan-500/50 ring-2 ring-cyan-500/30"
-            : "bg-slate-800/50 border-slate-700 hover:border-cyan-500/50"
-        }`}
+        onClick={() => setFilters({ ...filters, tier: "bronze" })}
+        className="p-3 bg-orange-500/10 border border-orange-500/40 rounded-lg"
       >
-        <div className="flex items-center gap-1.5 mb-1.5">
-          <Zap className="h-3.5 w-3.5 text-cyan-400" />
-          <span className="text-cyan-400 text-xs font-semibold">New</span>
-        </div>
-        <p className="text-white text-lg font-bold">{stats.segments.new}</p>
-        <p className="text-slate-400 text-[10px] mt-0.5">Last 30 days</p>
+        <Target className="h-4 w-4 text-orange-400 mb-1" />
+        <p className="text-white font-bold">{stats.tiers.bronze}</p>
+        <p className="text-xs text-slate-400">Bronze</p>
       </button>
 
-      {/* Dormant Segment */}
-      <button
-        onClick={() => setFilters({ ...filters, segment: "dormant" })}
-        title="Filter dormant customers with no orders in 90+ days"
-        className={`p-2.5 rounded-lg border transition-all text-left ${
-          filters.segment === "dormant"
-            ? "bg-orange-500/10 border-orange-500/50 ring-2 ring-orange-500/30"
-            : "bg-slate-800/50 border-slate-700 hover:border-orange-500/50"
-        }`}
-      >
-        <div className="flex items-center gap-1.5 mb-1.5">
-          <Clock className="h-3.5 w-3.5 text-orange-400" />
-          <span className="text-orange-400 text-xs font-semibold">Dormant</span>
-        </div>
-        <p className="text-white text-lg font-bold">{stats.segments.dormant}</p>
-        <p className="text-slate-400 text-[10px] mt-0.5">90+ days inactive</p>
-      </button>
-
-      {/* One-Time Segment */}
-      <button
-        onClick={() => setFilters({ ...filters, segment: "oneTime" })}
-        title="Filter one-time customers with only 1 order"
-        className={`p-2.5 rounded-lg border transition-all text-left ${
-          filters.segment === "oneTime"
-            ? "bg-purple-500/10 border-purple-500/50 ring-2 ring-purple-500/30"
-            : "bg-slate-800/50 border-slate-700 hover:border-purple-500/50"
-        }`}
-      >
-        <div className="flex items-center gap-1.5 mb-1.5">
-          <Target className="h-3.5 w-3.5 text-purple-400" />
-          <span className="text-purple-400 text-xs font-semibold">One-Time</span>
-        </div>
-        <p className="text-white text-lg font-bold">{stats.segments.oneTime}</p>
-        <p className="text-slate-400 text-[10px] mt-0.5">Only 1 order</p>
-      </button>
     </div>
   </div>
 )}
@@ -1390,9 +1281,9 @@ const [customerViewMode, setCustomerViewMode] = useState<"all" | "active" | "ina
               Avg Order Value
             </th>
 
-            {/* Segment */}
+            {/* Tier */}
             <th className="text-center py-2 px-3 text-slate-400 font-medium text-sm">
-              Segment
+              Tier
             </th>
 
             {/* Status */}
@@ -1420,7 +1311,7 @@ const [customerViewMode, setCustomerViewMode] = useState<"all" | "active" | "ina
 
         <tbody>
           {customers.map((customer) => {
-            const segment = getCustomerSegment(customer);
+          const tier = getCustomerTier(customer)
             const avgOrderValue = customer.totalOrders > 0
               ? (customer.totalSpent / customer.totalOrders).toFixed(2)
               : "0.00";
@@ -1494,7 +1385,7 @@ const [customerViewMode, setCustomerViewMode] = useState<"all" | "active" | "ina
 
                 {/* Segment */}
                 <td className="py-2.5 px-3 text-center">
-                  {getSegmentBadge(segment)}
+                 {getTierBadge(tier)}
                 </td>
 
                 {/* Status */}
@@ -1626,7 +1517,7 @@ const [customerViewMode, setCustomerViewMode] = useState<"all" | "active" | "ina
             <div>
               <div className="flex items-center gap-2">
                 <h2 className="text-2xl font-bold text-white">{selectedCustomer.fullName}</h2>
-                {getSegmentBadge(getCustomerSegment(selectedCustomer))}
+              {getTierBadge(getCustomerTier(selectedCustomer))}
               </div>
               <p className="text-slate-400 text-sm mt-0.5">{selectedCustomer.email}</p>
             </div>

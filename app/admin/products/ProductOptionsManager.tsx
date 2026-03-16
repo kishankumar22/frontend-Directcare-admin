@@ -47,7 +47,7 @@ export default function ProductOptionsManager({
       id: `opt-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
       name: '',
       values: [],
-      displayType: 'dropdown',
+     displayType: 'buttons', // ✅ default buttons
       position: options.length + 1,
       isActive: true,
     };
@@ -159,14 +159,14 @@ export default function ProductOptionsManager({
         </div>
       ) : (
         <div className="space-y-3">
-          {options.map((option, index) => (
+            {options.map((option, index) => (
             <div
               key={option.id}
               className="bg-slate-900/50 border border-slate-700 rounded-lg p-4"
             >
-              <div className="grid grid-cols-12 gap-4 items-start">
+             <div className="grid grid-cols-12 gap-4 items-start">
                 {/* Option Name */}
-                <div className="col-span-3">
+                <div className="col-span-4">
                   <label className="block text-xs font-semibold text-slate-300 mb-1.5">
                     Option {index + 1} Name <span className="text-red-500">*</span>
                   </label>
@@ -181,7 +181,7 @@ export default function ProductOptionsManager({
                 </div>
 
                 {/* Option Values */}
-                <div className="col-span-5 relative group">
+                <div className="col-span-6 relative group">
                   <label className="block text-xs font-semibold text-slate-300 mb-1.5">
                     Values <span className="text-red-500">*</span>
                     <span className="text-slate-500 font-normal ml-1">
@@ -223,37 +223,23 @@ export default function ProductOptionsManager({
                   )}
                 </div>
 
-                {/* Display Type */}
-                <div className="col-span-3">
-                  <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                    Display Type
-                  </label>
-                  <select
-                    value={option.displayType}
-                    onChange={(e) =>
-                      updateOption(option.id, 'displayType', e.target.value)
-                    }
-                    disabled={disabled}
-                    className="w-full px-3 py-2 text-sm bg-slate-800 border border-slate-600 rounded-lg text-white focus:ring-2 focus:ring-violet-500 disabled:opacity-50"
-                  >
-                    <option value="dropdown">Dropdown</option>
-                    <option value="buttons">Buttons</option>
-                    <option value="swatch">Color Swatch</option>
-                  </select>
-                </div>
+
 
                 {/* Delete Button */}
-                <div className="col-span-1 flex justify-end pt-6">
-                  <button
-                    type="button"
-                    onClick={() => openDeleteModal(option.id, option.name || `Option ${index + 1}`)}
-                    disabled={disabled}
-                    className="p-2 text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-lg transition-colors disabled:opacity-50"
-                    title="Remove option"
-                  >
-                    <X className="h-4 w-4" />
-                  </button>
-                </div>
+  <div className="col-span-2 flex justify-end pt-5">
+  <button
+    type="button"
+    onClick={() =>
+      openDeleteModal(option.id, option.name || `Option ${index + 1}`)
+    }
+    disabled={disabled}
+    className="px-3 py-2 flex items-center gap-1.5 text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-lg transition-colors disabled:opacity-50"
+    title="Remove option"
+  >
+    <X className="h-4 w-4" />
+    Delete
+  </button>
+</div>
               </div>
             </div>
           ))}

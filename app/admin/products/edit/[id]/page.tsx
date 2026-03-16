@@ -2785,6 +2785,7 @@ if (length > 2000) {
     // ═══════════════════════════════════════════════════════════════════════
 
     const parsedPrice = parseNumber(formData.price, 'price');
+    
  if (parsedPrice === null) {
   toast.error('⚠️ Please enter a valid price');
   target.removeAttribute('data-submitting');
@@ -3953,7 +3954,7 @@ try {
 }
 
 if (!isDraft && formData.productImages.length < 5) {
-  toast.error('❌ Minimum 3 product images are required');
+  toast.error('❌ Minimum 5 product images are required');
   target.removeAttribute('data-submitting');
   setIsSubmitting(false);
   setSubmitProgress(null);
@@ -6023,7 +6024,7 @@ const uploadImagesToProductDirect = async (
 </div>
 
   {/* PRE-ORDER SECTION */}
-  <div className="space-y-4">
+  <div className="space-y-4 hidden">
     <h3 className="text-lg font-semibold text-white border-b border-slate-800 pb-2">Pre-Order</h3>
 
     <label className="flex items-center gap-2 cursor-pointer">
@@ -6284,12 +6285,17 @@ const uploadImagesToProductDirect = async (
       </div>
     </div>
   </div>
-<div className="space-y-3">
-  <label className="block text-sm font-medium text-slate-300 mb-3">
-    Gender <span className="text-slate-500">(Optional)</span>
-  </label>
+{/* Gender Section */}
+<div className="space-y-4 mt-6">
+
+  <h3 className="text-lg font-semibold text-white border-b border-slate-800 pb-2">
+    Gender <span className="text-sm text-slate-400 font-normal">(Optional)</span>
+  </h3>
+
   <div className="flex flex-wrap gap-6">
+
     {['Not specified', 'Male', 'Female', 'Unisex', 'Kids', 'Boys', 'Girls'].map((option) => {
+
       const value = option === 'Not specified' ? '' : option;
       const isChecked = formData.gender === value;
 
@@ -6298,6 +6304,7 @@ const uploadImagesToProductDirect = async (
           key={option}
           className="flex items-center gap-3 cursor-pointer group"
         >
+
           <input
             type="radio"
             name="gender"
@@ -6306,19 +6313,24 @@ const uploadImagesToProductDirect = async (
             onChange={handleChange}
             className="w-5 h-5 rounded-full bg-slate-800/50 border-slate-700 text-violet-500 focus:ring-violet-500 focus:ring-offset-slate-900 transition-all"
           />
+
           <span
             className={`text-sm transition-colors ${
               isChecked
-                ? 'text-white font-medium'
-                : 'text-slate-300 group-hover:text-white'
+                ? "text-white font-medium"
+                : "text-slate-300 group-hover:text-white"
             }`}
           >
             {option}
           </span>
+
         </label>
       );
+
     })}
+
   </div>
+
 </div>
   {/* LOYALTY POINTS & PHARMA PRODUCT */}
   <div className="mt-4 space-y-3 bg-slate-800/30 border border-slate-700 p-4 rounded-xl">
@@ -6346,48 +6358,63 @@ const uploadImagesToProductDirect = async (
     </div>
 
     {/* Is Pharma Product */}
-    <div className="space-y-2">
-      <label className="flex items-center gap-2 cursor-pointer">
-       <input
-  type="checkbox"
-  name="isPharmaProduct"
-  checked={formData.isPharmaProduct}
-  onChange={(e) => {
-    const isChecked = e.target.checked;
+  <div className="space-y-2">
 
-    handleChange(e);
+  <div className="flex items-center justify-between">
 
-    // ✅ Open modal only when switching from false → true
-    if (isChecked && !formData.isPharmaProduct) {
-      setShowPharmacyModal(true);
-    }
-  }}
-  className="w-4 h-4 rounded bg-slate-800/50 border-slate-700 text-blue-500 focus:ring-blue-500 focus:ring-offset-slate-900"
-/>
+    {/* LEFT SIDE */}
+    <label className="flex items-center gap-3 cursor-pointer">
+      <input
+        type="checkbox"
+        name="isPharmaProduct"
+        checked={formData.isPharmaProduct}
+        onChange={(e) => {
+          const isChecked = e.target.checked;
 
-        <div>
-          <span className="text-sm text-slate-300">Pharma Product</span>
-          <p className="text-xs text-slate-500">Mark this product as a pharmaceutical product</p>
-        </div>
-      </label>
+          handleChange(e);
 
-      {formData.isPharmaProduct && (
-        <div className="ml-6 flex items-center gap-3">
-          <button
-            type="button"
-            onClick={() => setShowPharmacyModal(true)}
-            className="px-4 py-2 bg-violet-500/10 border border-violet-500/50 text-violet-400 rounded-lg hover:bg-violet-500/20 transition-all text-sm font-semibold"
-          >
-            Configure Questions
-          </button>
-          {pharmacyQuestions.length > 0 && (
-            <span className="px-2 py-1 bg-violet-500/20 text-violet-300 rounded-full text-xs font-semibold">
-              {pharmacyQuestions.length} question{pharmacyQuestions.length !== 1 ? "s" : ""} assigned
-            </span>
-          )}
-        </div>
-      )}
-    </div>
+          // Open modal only when switching false → true
+          if (isChecked && !formData.isPharmaProduct) {
+            setShowPharmacyModal(true);
+          }
+        }}
+        className="w-4 h-4 rounded bg-slate-800/50 border-slate-700 text-blue-500 focus:ring-blue-500 focus:ring-offset-slate-900"
+      />
+
+      <div>
+        <span className="text-sm text-slate-300 font-medium">
+          Pharma Product
+        </span>
+        <p className="text-xs text-slate-500">
+          Mark this product as a pharmaceutical product
+        </p>
+      </div>
+    </label>
+
+
+    {/* RIGHT SIDE */}
+    {formData.isPharmaProduct && (
+      <button
+        type="button"
+        onClick={() => setShowPharmacyModal(true)}
+        className="flex items-center gap-2 px-4 py-2 
+        bg-violet-500/10 border border-violet-500/40 
+        text-violet-300 rounded-lg hover:bg-violet-500/20 
+        transition-all text-sm font-semibold"
+      >
+        Configure Questions
+
+        {pharmacyQuestions.length > 0 && (
+          <span className="px-2 py-0.5 bg-violet-500/30 text-violet-200 rounded-full text-xs font-semibold">
+            {pharmacyQuestions.length}
+          </span>
+        )}
+      </button>
+    )}
+
+  </div>
+
+</div>
   </div>
 
 {/* Admin Comment */}
@@ -6684,9 +6711,6 @@ const uploadImagesToProductDirect = async (
 
 
 
-{/* ====================================================================== */}
-{/* ✅ VAT / TAX SETTINGS - WITH PROPER SEARCH */}
-{/* ====================================================================== */}
 
 {/* ====================================================================== */}
 {/* ✅ VAT / TAX SETTINGS - SAME BOX MEIN SEARCH + SELECTION */}
@@ -6704,37 +6728,7 @@ const uploadImagesToProductDirect = async (
       <label className="block text-sm font-medium text-slate-300">
         VAT Rate (Please select an applicable rate)
         <span className="text-red-400">*</span>
-      </label>
-
-      {/* Preview Button */}
-      {formData.vatRateId && parseFloat(formData.price || '0') > 0 && (
-        <button
-          type="button"
-          onClick={() => setShowTaxPreview(!showTaxPreview)}
-          className={`px-3 py-1.5 rounded-lg font-medium text-xs transition-all flex items-center gap-1.5 shrink-0 ${
-            showTaxPreview
-              ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-md'
-              : 'bg-amber-500/10 border border-amber-500/30 text-amber-400 hover:bg-amber-500/20'
-          }`}
-        >
-          {showTaxPreview ? (
-            <>
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
-              </svg>
-              Hide
-            </>
-          ) : (
-            <>
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-              </svg>
-              Preview
-            </>
-          )}
-        </button>
-      )}
+      </label>    
     </div>
 
     {/* ✅ SINGLE INPUT BOX - Selection + Search */}
@@ -6749,7 +6743,9 @@ const uploadImagesToProductDirect = async (
               ? 'No Tax (0%)'  // ✅ Display mode - show "No Tax"
               : formData.vatRateId
                 ? (() => {
-                    const selected = dropdownsData.vatRates.find((v: any) => v.id === formData.vatRateId);
+                  const selected = dropdownsData?.vatRates?.find(
+  (v: any) => v.id === formData.vatRateId
+);
                     return selected ? `${selected.name} (${selected.rate}%)` : '';
                   })()
                 : ''  // ✅ Empty state
@@ -6780,7 +6776,7 @@ const uploadImagesToProductDirect = async (
               vatExempt: true
             });
             setVatSearch('');
-            setShowTaxPreview(false);
+         
           }}
           className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-red-400 transition-colors z-10"
         >
@@ -6819,7 +6815,7 @@ const uploadImagesToProductDirect = async (
           };
 
           // ✅ FILTER API RESULTS
-          const filtered = dropdownsData.vatRates.filter((vat: any) => {
+          const filtered = dropdownsData?.vatRates?.filter((vat: any) => {
             if (!searchLower) return true;
             
             return vat.name.toLowerCase().includes(searchLower) ||
@@ -6956,157 +6952,16 @@ const uploadImagesToProductDirect = async (
     {showVatDropdown && (
       <div 
         className="fixed inset-0 z-40" 
-        onClick={() => {
-          setShowVatDropdown(false);
-          setVatSearch(''); // Clear search on close
-        }} 
+       onClick={() => {
+  setShowVatDropdown(false);
+  setVatSearch('');
+}}
       />
     )}
   </div>
 
-  {/* ✅ VAT Status Indicator */}
-  {(formData.vatRateId || formData.vatExempt) && (
-    <div className={`p-3 rounded-lg border ${
-      formData.vatExempt 
-        ? 'bg-green-500/10 border-green-500/30' 
-        : 'bg-blue-500/10 border-blue-500/30'
-    }`}>
-      <div className="flex items-center gap-2">
-        {formData.vatExempt ? (
-          <>
-            <svg className="w-5 h-5 text-green-400" fill="currentColor" viewBox="0 0 20 20">
-              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-            </svg>
-            <div>
-              <p className="text-sm font-medium text-green-400">VAT Exempt</p>
-              <p className="text-xs text-green-400/70">No tax will be applied (0% rate)</p>
-            </div>
-          </>
-        ) : (
-          <>
-            <svg className="w-5 h-5 text-blue-400" fill="currentColor" viewBox="0 0 20 20">
-              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-11a1 1 0 10-2 0v2H7a1 1 0 100 2h2v2a1 1 0 102 0v-2h2a1 1 0 100-2h-2V7z" clipRule="evenodd" />
-            </svg>
-            <div>
-              <p className="text-sm font-medium text-blue-400">VAT Applied</p>
-              <p className="text-xs text-blue-400/70">Tax will be calculated</p>
-            </div>
-          </>
-        )}
-      </div>
-    </div>
-  )}
 
-   {/* ✅ Tax Preview - Same as Before */}
-  {!formData.vatExempt && showTaxPreview && formData.vatRateId && (() => {
-    const parsePrice = (value: any): number => {
-      if (!value) return 0;
-      const parsed = parseFloat(String(value));
-      return isNaN(parsed) ? 0 : parsed;
-    };
 
-    const mainPrice = parsePrice(formData.price);
-    const oldPrice = parsePrice(formData.oldPrice);
-    
-    const selectedVat = dropdownsData.vatRates.find((v: any) => v.id === formData.vatRateId);
-    const vatRate = selectedVat?.rate || 0;
-
-    const isGrouped = formData.productType === 'grouped';
-    let bundleItemsTotal = 0;
-    let bundleDiscount = 0;
-    let finalBundlePrice = mainPrice;
-
-    if (isGrouped && selectedGroupedProducts.length > 0) {
-      bundleItemsTotal = selectedGroupedProducts.reduce((total, productId) => {
-        const product = simpleProducts.find((p: any) => p.id === productId);
-        return total + parsePrice(product?.price || 0);
-      }, 0);
-
-      const bundleBeforeDiscount = mainPrice + bundleItemsTotal;
-
-      if (formData.groupBundleDiscountType === 'Percentage') {
-        const discountPercent = parsePrice(formData.groupBundleDiscountPercentage);
-        bundleDiscount = (bundleBeforeDiscount * discountPercent) / 100;
-      } else if (formData.groupBundleDiscountType === 'FixedAmount') {
-        bundleDiscount = parsePrice(formData.groupBundleDiscountAmount);
-      } else if (formData.groupBundleDiscountType === 'SpecialPrice') {
-        const specialPrice = parsePrice(formData.groupBundleSpecialPrice);
-        bundleDiscount = bundleBeforeDiscount - specialPrice;
-      }
-
-      finalBundlePrice = bundleBeforeDiscount - bundleDiscount;
-    }
-
-    const priceForVat = isGrouped ? finalBundlePrice : mainPrice;
-    const vatAmount = (priceForVat * vatRate) / 100;
-    const finalCustomerPrice = priceForVat + vatAmount;
-    
-    const oldPriceWithVat = oldPrice + (oldPrice * vatRate) / 100;
-    const savingsAmount = oldPriceWithVat - finalCustomerPrice;
-    const savingsPercent = oldPriceWithVat > 0 ? (savingsAmount / oldPriceWithVat) * 100 : 0;
-
-    if (mainPrice <= 0) return null;
-
-    return (
-      <div className="mt-3 bg-gradient-to-br from-amber-500/5 to-orange-500/5 border border-amber-500/20 rounded-xl p-4 animate-fadeIn">
-        <h4 className="text-sm font-semibold text-white mb-3 flex items-center gap-2">
-          📊 Tax Calculation Preview
-        </h4>
-        
-        <div className="space-y-2">
-          {/* Selected VAT Rate */}
-          {selectedVat && (
-            <div className="flex justify-between items-center text-xs">
-              <span className="text-slate-400">VAT Rate</span>
-              <span className="text-white font-medium">{selectedVat.name} ({vatRate}%)</span>
-            </div>
-          )}
-
-          {/* Price excluding VAT */}
-          <div className="flex justify-between items-center text-sm">
-            <span className="text-slate-400">Price (excl. VAT)</span>
-            <span className="font-semibold text-white">£{priceForVat.toFixed(2)}</span>
-          </div>
-
-          {/* VAT Amount */}
-          <div className="flex justify-between items-center text-sm">
-            <span className="text-amber-400">+ VAT ({vatRate}%)</span>
-            <span className="font-semibold text-amber-400">£{vatAmount.toFixed(2)}</span>
-          </div>
-
-          {/* Final Price */}
-          <div className="border-t border-amber-500/30 pt-2 mt-2">
-            <div className="flex justify-between items-center">
-              <span className="text-sm font-bold text-white">Customer Pays</span>
-              <span className="text-xl font-bold text-amber-400">£{finalCustomerPrice.toFixed(2)}</span>
-            </div>
-          </div>
-
-          {/* Savings */}
-          {oldPrice > 0 && savingsAmount > 0 && (
-            <div className="mt-2 p-2 bg-emerald-500/10 border border-emerald-500/20 rounded-lg">
-              <div className="flex justify-between items-center">
-                <span className="text-xs text-emerald-400">💰 Customer Saves</span>
-                <span className="text-sm font-bold text-emerald-400">
-                  £{savingsAmount.toFixed(2)} ({savingsPercent.toFixed(1)}% off)
-                </span>
-              </div>
-            </div>
-          )}
-
-          {/* Grouped Product Info */}
-          {isGrouped && selectedGroupedProducts.length > 0 && (
-            <div className="mt-2 pt-2 border-t border-slate-700/50">
-              <p className="text-xs text-slate-400">
-                📦 Bundle includes {selectedGroupedProducts.length + 1} product{selectedGroupedProducts.length === 0 ? '' : 's'}
-                {bundleDiscount > 0 && ` with £${bundleDiscount.toFixed(2)} discount`}
-              </p>
-            </div>
-          )}
-        </div>
-      </div>
-    );
-  })()}
 </div>
 
 
@@ -7414,88 +7269,89 @@ const uploadImagesToProductDirect = async (
       Quantity Control
     </label>
 
-    <div className="flex gap-4 mb-3 flex-wrap">
+   <div className="flex gap-4 mb-3 flex-wrap">
 
-      {/* RANGE */}
-      <label className="flex items-center gap-2 cursor-pointer">
+  {/* UNLIMITED */}
+  <label className="flex items-center gap-2 cursor-pointer">
 
-        <input
-          type="radio"
-          name="quantityMode"
-          checked={quantityMode === 'range'}
-          onChange={() => {
-            setQuantityMode('range');
+    <input
+      type="radio"
+      name="quantityMode"
+      checked={quantityMode === 'unlimited'}
+      onChange={() => {
+        setQuantityMode('unlimited');
 
-            setFormData(prev => ({
-              ...prev,
-              allowedQuantities: '',
-              orderMinimumQuantity: prev.orderMinimumQuantity || '1',
-              orderMaximumQuantity: prev.orderMaximumQuantity || '10'
-            }));
-          }}
-          className="w-4 h-4 text-violet-500 focus:ring-violet-500"
-        />
+        setFormData(prev => ({
+          ...prev,
+          orderMinimumQuantity: '',
+          orderMaximumQuantity: '',
+          allowedQuantities: ''
+        }));
+      }}
+      className="w-4 h-4 text-orange-500 focus:ring-orange-500"
+    />
 
-        <span className="text-sm text-slate-300">
-          Quantity Range
-        </span>
+    <span className="text-sm text-slate-300">
+      No Quantity Restrictions
+    </span>
 
-      </label>
-
-
-      {/* FIXED */}
-      <label className="flex items-center gap-2 cursor-pointer">
-
-        <input
-          type="radio"
-          name="quantityMode"
-          checked={quantityMode === 'fixed'}
-          onChange={() => {
-            setQuantityMode('fixed');
-
-            setFormData(prev => ({
-              ...prev,
-              orderMinimumQuantity: '',
-              orderMaximumQuantity: '',
-              allowedQuantities: prev.allowedQuantities || '1,3'
-            }));
-          }}
-          className="w-4 h-4 text-emerald-500 focus:ring-emerald-500"
-        />
-
-        <span className="text-sm text-slate-300">
-          Fixed Quantities
-        </span>
-
-      </label>
+  </label>
 
 
-      {/* UNLIMITED */}
-      <label className="flex items-center gap-2 cursor-pointer">
+  {/* RANGE */}
+  <label className="flex items-center gap-2 cursor-pointer">
 
-        <input
-          type="radio"
-          name="quantityMode"
-          checked={quantityMode === 'unlimited'}
-          onChange={() => {
-            setQuantityMode('unlimited');
+    <input
+      type="radio"
+      name="quantityMode"
+      checked={quantityMode === 'range'}
+      onChange={() => {
+        setQuantityMode('range');
 
-            setFormData(prev => ({
-              ...prev,
-              orderMinimumQuantity: '',
-              orderMaximumQuantity: '',
-              allowedQuantities: ''
-            }));
-          }}
-          className="w-4 h-4 text-orange-500 focus:ring-orange-500"
-        />
+        setFormData(prev => ({
+          ...prev,
+          allowedQuantities: '',
+          orderMinimumQuantity: prev.orderMinimumQuantity || '1',
+          orderMaximumQuantity: prev.orderMaximumQuantity || '10'
+        }));
+      }}
+      className="w-4 h-4 text-violet-500 focus:ring-violet-500"
+    />
 
-      <span className="text-sm text-slate-300">
-  No Quantity Restrictions
-</span>
-      </label>
+    <span className="text-sm text-slate-300">
+      Quantity Range
+    </span>
 
-    </div>
+  </label>
+
+
+  {/* FIXED */}
+  <label className="flex items-center gap-2 cursor-pointer">
+
+    <input
+      type="radio"
+      name="quantityMode"
+      checked={quantityMode === 'fixed'}
+      onChange={() => {
+        setQuantityMode('fixed');
+
+        setFormData(prev => ({
+          ...prev,
+          orderMinimumQuantity: '',
+          orderMaximumQuantity: '',
+          allowedQuantities: prev.allowedQuantities || '1,3'
+        }));
+      }}
+      className="w-4 h-4 text-emerald-500 focus:ring-emerald-500"
+    />
+
+    <span className="text-sm text-slate-300">
+      Fixed Quantities
+    </span>
+
+  </label>
+
+</div>
 
 
     {/* RANGE FIELDS */}

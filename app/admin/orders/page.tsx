@@ -617,15 +617,15 @@ const fetchOrderStats = useCallback(async () => {
 
     const allOrders: Order[] = response?.data?.items || [];
 
-    const pending = allOrders.filter(o => o.status === "Pending").length;
+   const pending = allOrders.filter(o => o.status === "Pending").length;
 
-    const processing = allOrders.filter(
-      o => o.status === "Processing" || o.status === "Confirmed"
-    ).length;
+const processing = allOrders.filter(
+  o => o.status === "Processing"
+).length;
 
-    const delivered = allOrders.filter(
-      o => o.status === "Delivered"
-    ).length;
+const delivered = allOrders.filter(
+  o => o.status === "Delivered"
+).length;
 
     setStats({
       totalOrders: allOrders.length,
@@ -899,7 +899,7 @@ useEffect(() => {
               <CheckCircle className="w-4 h-4 text-white" />
             </div>
             <div>
-              <p className="text-xs text-slate-400">Completed</p>
+              <p className="text-xs text-slate-400">Delivered</p>
           <p className="text-xl font-bold text-white">
 {stats.delivered}
 </p>

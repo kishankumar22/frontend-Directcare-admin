@@ -187,7 +187,7 @@ export default function UnifiedRefundModal({
               <div className="flex items-center justify-between bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3">
                 <span className="text-sm text-slate-300">Amount to refund</span>
                 <span className="text-lg font-bold text-red-400">
-                  {formatCurrency(order.totalAmount, order.currency)}
+                  {formatCurrency(remainingRefundable, order.currency)}
                 </span>
               </div>
 
@@ -324,7 +324,7 @@ export default function UnifiedRefundModal({
               ) : activeTab === 'full' ? (
                 <>
                   <RotateCcw className="h-4 w-4" />
-                  Refund {formatCurrency(order.totalAmount, order.currency)}
+                  Refund {formatCurrency(remainingRefundable, order.currency)}
                 </>
               ) : activeTab === 'partial' ? (
                 <>

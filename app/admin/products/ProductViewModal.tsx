@@ -457,11 +457,7 @@ const ProductViewModal: React.FC<ProductViewModalProps> = ({
                     </div>
                   )}
 
-                  {/* Product ID */}
-                  <div className="p-4 bg-slate-800/50 rounded-lg border border-slate-700 mt-4">
-                    <p className="text-xs text-slate-400 font-bold mb-1">Product ID</p>
-                    <p className="text-xs text-slate-300 font-mono">{product.id}</p>
-                  </div>
+                
                 </div>
 
                 {/* TAB 2: PRICING */}

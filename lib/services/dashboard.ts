@@ -1,7 +1,7 @@
 import { apiClient } from '../api';
 import { API_ENDPOINTS } from '../api-config';
 
-export type DashboardPeriod = 'today' | 'week' | 'month' | '6months' | 'year';
+export type DashboardPeriod = 'today' | 'week' | 'month' | '6month' | 'year';
 
 // ── Nested types ──────────────────────────────────────────────────────────────
 

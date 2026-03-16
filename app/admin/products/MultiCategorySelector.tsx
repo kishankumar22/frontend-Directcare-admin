@@ -253,11 +253,7 @@ export const MultiCategorySelector: React.FC<MultiCategorySelectorProps> = ({
                           </span>
                         )}
                       </div>
-                      {isPrimary && (
-                        <span className="px-2 py-0.5 text-[9px] font-bold bg-violet-500 text-white rounded uppercase">
-                          PRIMARY
-                        </span>
-                      )}
+                     
                     </div>
 
                     {/* Set Primary Button */}

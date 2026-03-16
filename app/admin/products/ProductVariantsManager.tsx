@@ -550,7 +550,7 @@ const closeDeleteModal = () => {
                       </div>
                       <div>
                         <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                          Price (£)
+                          Price (£)  <span className="text-red-500">*</span>
                         </label>
                         <input
                           type="number"
