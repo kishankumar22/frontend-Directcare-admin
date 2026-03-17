@@ -2,6 +2,7 @@
 
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
+import { useState } from "react";
 import ProfileTab from "./tabs/ProfileTab";
 import OrdersTab from "./tabs/OrdersTab";
 import ChangePasswordTab from "./tabs/ChangePasswordTab";
@@ -10,6 +11,16 @@ import OrderTrackingTab from "./tabs/OrderTrackingTab";
 import AddressesTab from "./tabs/AddressesTab";
 import LoyaltyPointsTab from "./tabs/LoyaltyPointsTab";
 import SidebarButton from "./ui/SidebarButton";
+import {
+  User,
+  Package,
+  MapPin,
+  KeyRound,
+  Repeat,
+  Truck,
+  Gift,
+  LogOut
+} from "lucide-react";
 
 type Tab =
   | "profile"
@@ -24,7 +35,7 @@ export default function AccountDashboard() {
   const { user, logout, profileLoading } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
-
+const [showLogoutModal, setShowLogoutModal] = useState(false);
   // ✅ URL is the single source of truth
   const tabParam = searchParams.get("tab");
 
@@ -80,7 +91,7 @@ export default function AccountDashboard() {
                 </button>
               ))}
               <button
-                onClick={() => { logout(); router.replace("/account"); }}
+               onClick={() => setShowLogoutModal(true)}
                 className="flex-shrink-0 px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap border border-red-300 bg-white text-red-600"
               >
                 Logout
@@ -89,15 +100,17 @@ export default function AccountDashboard() {
             {/* Desktop: vertical sidebar */}
             <div className="hidden md:block sticky top-24">
               <div className="bg-white rounded-xl border shadow-sm p-4 space-y-2">
-                <SidebarButton active={activeTab === "profile"} onClick={() => goToTab("profile")}>My Profile</SidebarButton>
-                <SidebarButton active={activeTab === "orders"} onClick={() => goToTab("orders")}>My Orders</SidebarButton>
-                <SidebarButton active={activeTab === "subscriptions"} onClick={() => goToTab("subscriptions")}>Subscriptions</SidebarButton>
-                <SidebarButton active={activeTab === "tracking"} onClick={() => goToTab("tracking")}>Order Tracking</SidebarButton>
-                <SidebarButton active={activeTab === "change-password"} onClick={() => goToTab("change-password")}>Change Password</SidebarButton>
-                <SidebarButton active={activeTab === "addresses"} onClick={() => goToTab("addresses")}>Saved Addresses</SidebarButton>
-                <SidebarButton active={activeTab === "loyalty"} onClick={() => goToTab("loyalty")}>Loyalty Points</SidebarButton>
+                <SidebarButton active={activeTab === "profile"} onClick={() => goToTab("profile")}><User size={18} /> My Profile</SidebarButton>
+                <SidebarButton active={activeTab === "orders"} onClick={() => goToTab("orders")}><Package size={18} /> My Orders</SidebarButton>
+                <SidebarButton active={activeTab === "subscriptions"} onClick={() => goToTab("subscriptions")}><Repeat size={18} /> Subscriptions</SidebarButton>
+                <SidebarButton active={activeTab === "tracking"} onClick={() => goToTab("tracking")}><Truck size={18} /> Order Tracking</SidebarButton>
+                <SidebarButton active={activeTab === "change-password"} onClick={() => goToTab("change-password")}><KeyRound size={18} /> Change Password</SidebarButton>
+                <SidebarButton active={activeTab === "addresses"} onClick={() => goToTab("addresses")}><MapPin size={18} /> Saved Addresses</SidebarButton>
+                <SidebarButton active={activeTab === "loyalty"} onClick={() => goToTab("loyalty")}><Gift size={18} /> Loyalty Points</SidebarButton>
                 <hr />
-                <SidebarButton danger onClick={() => { logout(); router.replace("/account"); }}>Logout</SidebarButton>
+               <SidebarButton danger onClick={() => setShowLogoutModal(true)}>
+  <LogOut size={18} /> Logout
+</SidebarButton>
               </div>
             </div>
           </div>
@@ -128,6 +141,48 @@ export default function AccountDashboard() {
           </div>
         </div>
       </div>
+{showLogoutModal && (
+  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm px-4">
+    
+    <div className="w-full max-w-sm bg-white rounded-2xl shadow-xl overflow-hidden animate-in fade-in zoom-in-95">
+
+      {/* Header */}
+      <div className="bg-[#445D41] px-6 py-4">
+        <h2 className="text-white text-lg font-semibold">
+          Confirm Logout
+        </h2>
+      </div>
+
+      {/* Body */}
+      <div className="p-6">
+        <p className="text-sm text-gray-600 mb-6">
+          Are you sure you want to logout from your account?
+        </p>
+
+        <div className="flex gap-3 justify-end">
+          <button
+            onClick={() => setShowLogoutModal(false)}
+            className="px-4 py-2 text-sm rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 transition"
+          >
+            Cancel
+          </button>
+
+          <button
+            onClick={() => {
+              logout();
+              router.replace("/account");
+            }}
+            className="flex items-center gap-2 px-4 py-2 text-sm rounded-lg bg-red-600 text-white hover:bg-red-700 transition"
+          >
+            <LogOut size={16} />
+            Logout
+          </button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+)}
     </div>
   );
 }

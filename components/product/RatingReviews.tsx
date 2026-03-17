@@ -54,6 +54,10 @@ const recentReviews = useMemo(() => {
   const [rating, setRating] = useState<number>(0);
   const [title, setTitle] = useState("");
   const [comment, setComment] = useState("");
+  const [errors, setErrors] = useState({
+  title: "",
+  comment: "",
+});
   const [loading, setLoading] = useState(false);
 // file selection
 const [imageFiles, setImageFiles] = useState<File[]>([]);
@@ -232,7 +236,15 @@ useEffect(() => {
 
   const { isAuthenticated, accessToken } = useAuth();
   const toast = useToast();
-
+  const validateField = (field: "title" | "comment", value: string) => {
+  setErrors((prev) => ({
+    ...prev,
+    [field]:
+      value.trim().length < 5
+        ? `${field === "title" ? "Title" : "Comment"} must be at least 5 characters`
+        : "",
+  }));
+};
   const fetchReviews = useCallback(async () => {
     try {
       const res = await fetch(
@@ -250,6 +262,7 @@ useEffect(() => {
   }, [fetchReviews]);
 
 const handleSubmitReview = async () => {
+
  if (!isAuthenticated) {
   // 🔥 SAVE TEXT-ONLY DRAFT
   sessionStorage.setItem(
@@ -442,20 +455,32 @@ const filteredReviews = useMemo(() => {
     {/* TITLE */}
     <input
       value={title}
-      onChange={(e) => setTitle(e.target.value)}
+     onChange={(e) => {
+  const value = e.target.value;
+  setTitle(value);
+  validateField("title", value);
+}}
       placeholder="Review title* (min 5 characters required)"
       className="w-full border rounded-lg p-2.5 text-sm mb-3 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#445D41]/40"
     />
-
+{errors.title && (
+  <p className="text-xs text-red-500 mt-0">{errors.title}</p>
+)}
     {/* COMMENT */}
     <textarea
       value={comment}
-      onChange={(e) => setComment(e.target.value)}
+      onChange={(e) => {
+  const value = e.target.value;
+  setComment(value);
+  validateField("comment", value);
+}}
       rows={3}
       placeholder="Share your experience...(min 5 characters required)*"
       className="w-full border rounded-lg p-2.5 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-[#445D41]/40"
     />
-
+{errors.comment && (
+  <p className="text-xs text-red-500 mt-0">{errors.comment}</p>
+)}
     {/* IMAGE UPLOAD */}
     <div className="mt-4">
       <p className="text-sm font-semibold text-gray-800 mb-2">
@@ -742,4 +767,3 @@ export function getRecentApprovedReviews(reviews: Review[]) {
     .filter((r) => r.comment?.trim().length > 0)
     .slice(0, 3);
 }
-

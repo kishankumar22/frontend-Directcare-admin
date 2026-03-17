@@ -1,4 +1,5 @@
 // app/blog/page.tsx… working code hai search bar implement kr rha isliye isko alag save rkhta hu
+export const dynamic = "force-dynamic";
 import React from "react";
 import Link from "next/link";
 import * as LucideIcons from "lucide-react";
@@ -9,8 +10,12 @@ import * as LucideIcons from "lucide-react";
 const API_BASE = process.env.API_BASE_URL || process.env.NEXT_PUBLIC_API_URL || "";
 
 async function fetchJSON(url: string) {
-  const res = await fetch(url, { next: { revalidate: 60 } });
-  if (!res.ok) throw new Error(`Failed to fetch ${url}: ${res.status}`);
+  const res = await fetch(url, { cache: "no-store" });
+
+  if (!res.ok) {
+    throw new Error(`Failed to fetch ${url}: ${res.status}`);
+  }
+
   return res.json();
 }
 
@@ -93,8 +98,8 @@ export default async function BlogPage() {
               </div>
 
               {/* TEXT */}
-              <div className="flex flex-col overflow-hidden">
-                <h3 className="text-xs font-semibold text-gray-900 leading-tight truncate group-hover:text-green-900">
+            <div className="flex flex-col">
+              <h3 className="text-xs font-semibold text-gray-900 leading-snug break-words group-hover:text-green-900">
                   {cat.name}
                 </h3>
                 <p className="text-[10px] text-gray-500">
@@ -114,13 +119,17 @@ export default async function BlogPage() {
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
 
-          {visiblePosts.map((post: any) => (
-            <article
-              key={post.id}
-              className="bg-gray-50 border rounded-xl shadow-sm hover:shadow-lg transition p-4 flex flex-col hover:-translate-y-1"
-            >
+         {visiblePosts.map((post: any) => (
+  <Link
+    key={post.id}
+    href={`/blog/${post.slug}`}
+    className="block"
+  >
+    <article
+      className="bg-gray-50 border rounded-xl shadow-sm hover:shadow-lg transition p-2 flex flex-col hover:-translate-y-1 cursor-pointer"
+    >
               {/* IMAGE */}
-              <div className="w-full h-48 bg-white rounded-lg overflow-hidden mb-4 flex items-center justify-center">
+          <div className="w-full h-32 bg-white rounded-lg overflow-hidden mb-1 flex items-start justify-center pt-0">
   <img
     src={
       absoluteUrl(post.thumbnailImageUrl) ??
@@ -128,7 +137,7 @@ export default async function BlogPage() {
       '/placeholder-article.png'
     }
     alt={post.title}
-    className="max-h-full max-w-full object-contain"
+    className="w-full h-full object-contain"
   />
 </div>
 
@@ -139,14 +148,11 @@ export default async function BlogPage() {
               </span>
 
               {/* TITLE */}
-              <h3 className="text-md font-semibold text-gray-900 mb-2 line-clamp-2">
-                <Link href={`/blog/${post.slug}`} className="hover:text-green-900">
-                  {post.title}
-                </Link>
-              </h3>
-
+              <h3 className="text-[15px] font-semibold text-gray-900 mb-1 line-clamp-2 leading-snug hover:text-green-900">
+  {post.title}
+</h3>
               {/* OVERVIEW */}
-              <p className="text-sm text-gray-600 line-clamp-3 mb-4">
+              <p className="text-[13px] text-gray-600 line-clamp-2 mb-3">
                 {post.bodyOverview}
               </p>
 
@@ -186,7 +192,8 @@ export default async function BlogPage() {
   </div>
 )}
 
-            </article>
+          </article>
+</Link>
           ))}
 
         </div>
