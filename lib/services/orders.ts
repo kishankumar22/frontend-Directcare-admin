@@ -103,6 +103,7 @@ export interface OrderItem {
   totalPrice: number;
   productName: string;
   productSku: string;
+  productSlug?:string;
   productImageUrl?: string;
   variantName?: string;
   productId: string;

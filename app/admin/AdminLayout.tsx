@@ -104,15 +104,9 @@ const navigation: NavigationItem[] = [
       { name: 'Loyalty Config', href: '/admin/loyalty-config', icon: Sliders },
     ],
   },
-  {
-    name: 'Shipping',
-    icon: Ship,
-    children: [
-      { name: 'Zones', href: '/admin/shipping/zones', icon: MapPin },
-      { name: 'Methods', href: '/admin/shipping/methods', icon: Truck },
-      { name: 'Rates', href: '/admin/shipping/rates', icon: PoundSterling },
-    ],
-  },
+
+    { name: 'Shipping', href: '/admin/shipping', icon: Truck },
+ 
   {
     name: 'Finance',
     icon: Receipt,

@@ -364,7 +364,7 @@ const checkPublishRequirements = (): { isValid: boolean; missing: string[] } => 
 
   // 5. Images
   if (!formData.productImages || formData.productImages.length < 5) {
-    missing.push(`Product Images (minimum 3, current: ${formData.productImages?.length || 0})`);
+    missing.push(`Product Images (minimum 5, current: ${formData.productImages?.length || 0})`);
   }
 
   // 6. Stock (if tracking)
@@ -3253,6 +3253,7 @@ useEffect(() => {
     height={250}
     // minLength={10}
     maxLength={350}
+    required
     showCharCount={true}
     showHelpText="Brief description visible in product listings (10-350 characters)"
   />
@@ -3724,7 +3725,7 @@ useEffect(() => {
     Gender <span className="text-slate-500">(Optional)</span>
   </label>
   <div className="flex flex-wrap gap-6">
-    {['Not specified', 'Male', 'Female', 'Unisex', 'Kids', 'Boys', 'Girls'].map((option) => (
+    {['Not specified', 'Male', 'Female', 'Unisex'].map((option) => (
       <label
         key={option}
         className="flex items-center gap-3 cursor-pointer group"
@@ -4904,22 +4905,7 @@ useEffect(() => {
           </label>
         </div>
 
-        {/* Delivery Date */}
-        <div>
-          <label className="block text-sm font-medium text-slate-300 mb-2">Delivery Date</label>
-          <select
-            name="deliveryDateId"
-            value={formData.deliveryDateId}
-            onChange={handleChange}
-            className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
-          >
-            <option value="">None</option>
-            <option value="1">1-2 days</option>
-            <option value="2">3-5 days</option>
-            <option value="3">1 week</option>
-            <option value="4">2 weeks</option>
-          </select>
-        </div>
+    
 
         {/* ✅ NEW DELIVERY OPTIONS SECTION */}
         <div className="space-y-4 bg-slate-900/30 border border-slate-600 rounded-xl p-4 mt-4">
@@ -5009,21 +4995,44 @@ useEffect(() => {
     </span>
   </label>
 )}
-          {/* Standard Delivery */}
-          <div className="space-y-3">
-            <label className="flex items-center gap-2 cursor-pointer group">
-              <input
-                type="checkbox"
-                name="standardDeliveryEnabled"
-                checked={formData.standardDeliveryEnabled}
-                onChange={handleChange}
-                className="rounded bg-slate-800/50 border-slate-700 text-violet-500 focus:ring-violet-500 focus:ring-offset-slate-900"
-              />
-              <span className="text-sm text-slate-300 group-hover:text-white transition-colors">
-                📦 Enable Standard Delivery
-              </span>
-            </label>
-          </div>
+      
+        {/* Standard Delivery */}
+<div className="space-y-3">
+  <label className="flex items-center gap-2 cursor-pointer group">
+    <input
+      type="checkbox"
+      name="standardDeliveryEnabled"
+      checked={formData.standardDeliveryEnabled || false}
+      onChange={handleChange}
+      className="rounded bg-slate-800/50 border-slate-700 text-violet-500 focus:ring-violet-500 focus:ring-offset-slate-900"
+    />
+    <span className="text-sm text-slate-300 group-hover:text-white transition-colors">
+      📦 Enable Standard Delivery
+    </span>
+  </label>
+
+  {/* ✅ Conditional Field */}
+  {formData.standardDeliveryEnabled && (
+    <div className="transition-all duration-200 ease-in-out">
+      <label className="block text-sm font-medium text-slate-300 mb-2">
+        Delivery Date
+      </label>
+
+      <select
+        name="deliveryDateId"
+        value={formData.deliveryDateId || ""}
+        onChange={handleChange}
+        className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+      >
+        <option value="">Select Delivery Time</option>
+        <option value="1">1-2 days</option>
+        <option value="2">3-5 days</option>
+        <option value="3">1 week</option>
+        <option value="4">2 weeks</option>
+      </select>
+    </div>
+  )}
+</div>
 
           <div className="flex items-start gap-2 text-xs text-blue-400 bg-blue-900/20 px-3 py-2 rounded border border-blue-800/50 mt-2">
             <Info className="w-4 h-4 shrink-0 mt-0.5" />

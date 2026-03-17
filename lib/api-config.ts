@@ -1,5 +1,4 @@
-// lib/api-config.ts
-export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://testapi.knowledgemarkg.com';
+export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5285';
 
 export const API_ENDPOINTS = {
   // Auth
@@ -25,9 +24,9 @@ export const API_ENDPOINTS = {
   products: '/api/Products',
   inventoryBulkUpdate: "/api/Products/inventory/bulk-update",
   inventoryBulkUpload: "/api/Products/inventory/bulk-upload",
-  PharmacyQuestions:'/api/pharmacy-questions',
-  
-  // 🆕 Product Lock & Takeover System
+  PharmacyQuestions: '/api/pharmacy-questions',
+
+  // Product Lock & Takeover System
   productLock: {
     acquireLock: (productId: string) => `/api/Products/${productId}/acquire-lock`,
     releaseLock: (productId: string) => `/api/Products/${productId}/release-lock`,
@@ -42,16 +41,18 @@ export const API_ENDPOINTS = {
 
   // Orders
   orders: '/api/Orders',
-  AddressLookup:'/api/address-lookup',
+  AddressLookup: '/api/address-lookup',
 
-
-  shipping: "/api/Shipping", // Add this line
+  // Shipping
+  shipping: "/api/Shipping",
+  deliveryOptions: '/api/Shipping/delivery-options',
+  postcodeRules: '/api/Shipping/postcode-rules',
 
   // Image Management
   imageManagement: '/api/ImageManagement',
 
   // Customers
-  customers: '/api/Customers',
+  customers: '/api/customers',
 
   // Discounts
   discounts: '/api/Discounts',
@@ -61,12 +62,12 @@ export const API_ENDPOINTS = {
   uploadBannerImage: '/api/Banners/upload-image',
   deleteBannerImage: '/api/Banners/delete-image',
 
-  // BlogCategories
+  // Blog Categories
   blogCategories: '/api/BlogCategories',
   deleteBlogCategoryImage: '/api/BlogCategories/delete-image',
   uploadBlogCategoryImage: '/api/BlogCategories/upload-image',
 
-  // BlogPosts
+  // Blog Posts
   blogPosts: '/api/BlogPosts',
   uploadBlogPostImage: '/api/BlogPosts/upload-image',
   deleteBlogPostImage: '/api/BlogPosts/delete-image',
@@ -77,35 +78,34 @@ export const API_ENDPOINTS = {
   // Product Reviews
   productReviews: '/api/ProductReviews',
 
+  // Subscriptions
   subscriptions: '/api/Subscriptions',
-  
+
   // Comments
   blogComments: '/api/BlogComments',
 
-    // ✅ Editor
+  // Editor
   editor: {
     uploadImage: '/api/Editor/upload-image',
     deleteImage: '/api/Editor/delete-image',
     deleteImageByUrl: '/api/Editor/delete-image-by-url',
   },
-    // ✅ Activity Logs
+
+  // Activity Logs
   activityLogs: {
     base: '/api/ActivityLogs',
     delete: (id: string) => `/api/ActivityLogs/${id}`,
     clear: '/api/ActivityLogs/clear',
   },
-
-  // Dashboard
   dashboard: {
-    stats: '/api/Dashboard/stats',
-    overview: '/api/Dashboard/overview',
-  },
+  stats: '/api/Dashboard/stats',
+  overview: '/api/Dashboard/overview',
+},
 
-   // Loyalty Config
+  // Loyalty Config
   loyaltyConfig: '/api/admin/loyalty-config',
-   loyaltyPoints: {
+  loyaltyPoints: {
     balance: '/api/loyalty/balance',
-    history: '/api/loyalty/history'  
+    history: '/api/loyalty/history'
   },
-
 };

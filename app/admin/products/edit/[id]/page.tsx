@@ -2733,15 +2733,25 @@ if (!formData.vatExempt && (!formData.vatRateId || !formData.vatRateId.trim())) 
     // SECTION 5: DESCRIPTION LENGTH VALIDATIONS
     // ═══════════════════════════════════════════════════════════════════════
 
-    if (formData.shortDescription) {
-      const length = getPlainText(formData.shortDescription).length;
-      if (length > 350) {
-        formData.shortDescription = truncateHtmlByTextLength(formData.shortDescription, 350);
-        toast.info('ℹ️ Short description trimmed to 350 characters');
-      }
-    }
+if (
+  !isDraft &&
+  (!formData.shortDescription ||
+    getPlainText(formData.shortDescription).trim().length === 0)
+) {
+  toast.error("Short description is required");
+  target.removeAttribute('data-submitting');
+  setIsSubmitting(false);
+  setSubmitProgress(null);
+  return;
+}
 
-    if (!formData.fullDescription || !getPlainText(formData.fullDescription).trim()) {
+const sortlength = getPlainText(formData.shortDescription || "").length;
+
+if (!isDraft && sortlength > 350) {
+  formData.shortDescription = truncateHtmlByTextLength(formData.shortDescription, 350);
+  toast.info("ℹ️ Short description trimmed to 350 characters");
+}
+    if (!isDraft && !formData.fullDescription || !getPlainText(formData.fullDescription).trim()) {
   toast.error('❌ Full description is required');
   target.removeAttribute('data-submitting');
   setIsSubmitting(false);
@@ -2780,65 +2790,69 @@ if (length > 2000) {
       percentage: 30,
     });
 
-    // ═══════════════════════════════════════════════════════════════════════
-    // SECTION 7: PRICE VALIDATIONS
-    // ═══════════════════════════════════════════════════════════════════════
+  
+// ═══════════════════════════════════════
+// SECTION 7: PRICE VALIDATIONS (FIXED)
+// ═══════════════════════════════════════
 
-    const parsedPrice = parseNumber(formData.price, 'price');
-    
- if (parsedPrice === null) {
-  toast.error('⚠️ Please enter a valid price');
+const parsedPrice = parseNumber(formData.price, 'price');
+
+// ✅ Only validate in FINAL SAVE (NOT draft)
+if (!isDraft) {
+
+  if (parsedPrice === null) {
+    toast.error('⚠️ Please enter a valid price');
+    target.removeAttribute('data-submitting');
+    setIsSubmitting(false);
+    setSubmitProgress(null);
+    return;
+  }
+
+  // 🚨 PRICE MUST BE GREATER THAN 0
+  if (parsedPrice <= 0) {
+    toast.error('❌ Price must be greater than 0');
+    target.removeAttribute('data-submitting');
+    setIsSubmitting(false);
+    setSubmitProgress(null);
+    return;
+  }
+
+  if (parsedPrice > 10000000) {
+    toast.error('⚠️ Price seems unusually high. Please verify.');
+    target.removeAttribute('data-submitting');
+    setIsSubmitting(false);
+    setSubmitProgress(null);
+    return;
+  }
+}
+
+// ✅ These can run for BOTH draft + publish (safe checks)
+const parsedOldPrice = parseNumber(formData.oldPrice, 'oldPrice');
+const parsedCost = parseNumber(formData.cost, 'cost');
+
+if (parsedOldPrice !== null && parsedOldPrice < 0) {
+  toast.error('❌ Old price cannot be negative');
   target.removeAttribute('data-submitting');
   setIsSubmitting(false);
   setSubmitProgress(null);
   return;
 }
 
-// 🚨 PRICE MUST BE GREATER THAN 0
-if (parsedPrice <= 0) {
-  toast.error('❌ Price must be greater than 0');
+if (parsedOldPrice !== null && parsedPrice !== null && parsedOldPrice < parsedPrice) {
+  toast.warning('⚠️ Old price is less than current price. Strikethrough won\'t show.');
+}
+
+if (parsedCost !== null && parsedCost < 0) {
+  toast.error('❌ Cost price cannot be negative');
   target.removeAttribute('data-submitting');
   setIsSubmitting(false);
   setSubmitProgress(null);
   return;
 }
 
-
-    if (parsedPrice > 10000000) {
-      toast.error('⚠️ Price seems unusually high. Please verify.');
-      target.removeAttribute('data-submitting');
-      setIsSubmitting(false);
-      setSubmitProgress(null);
-      return;
-    }
-
-    const parsedOldPrice = parseNumber(formData.oldPrice, 'oldPrice');
-    const parsedCost = parseNumber(formData.cost, 'cost');
-
-    if (parsedOldPrice !== null && parsedOldPrice < 0) {
-      toast.error('❌ Old price cannot be negative');
-      target.removeAttribute('data-submitting');
-      setIsSubmitting(false);
-      setSubmitProgress(null);
-      return;
-    }
-
-    if (parsedOldPrice !== null && parsedOldPrice < parsedPrice) {
-      toast.warning('⚠️ Old price is less than current price. Strikethrough won\'t show.');
-    }
-
-    if (parsedCost !== null && parsedCost < 0) {
-      toast.error('❌ Cost price cannot be negative');
-      target.removeAttribute('data-submitting');
-      setIsSubmitting(false);
-      setSubmitProgress(null);
-      return;
-    }
-
-    if (parsedCost !== null && parsedCost > parsedPrice) {
-      toast.warning('⚠️ Cost is higher than selling price. Profit will be negative.');
-    }
-
+if (parsedCost !== null && parsedPrice !== null && parsedCost > parsedPrice) {
+  toast.warning('⚠️ Cost is higher than selling price. Profit will be negative.');
+}
     // ✅ PROGRESS: 35% - Category/Brand Validation
     setSubmitProgress({
       step: 'Validating categories and brands...',
@@ -4034,7 +4048,7 @@ const handleChange = (
 ) => {
   const { name, value, type } = e.target;
   const checked = type === "checkbox" ? (e.target as HTMLInputElement).checked : false;
-
+ 
   // ================================
   // ✅ SECTION 1: PRICE FIELDS
   // ================================
@@ -4076,6 +4090,15 @@ if (name === 'price' || name === 'oldPrice' || name === 'cost') {
     [name]: cleanedValue
   }));
 
+  return;
+}
+
+if (name === "standardDeliveryEnabled") {
+  setFormData(prev => ({
+    ...prev,
+    standardDeliveryEnabled: checked,
+    deliveryDateId: checked ? prev.deliveryDateId : ""
+  }));
   return;
 }
 
@@ -5552,7 +5575,8 @@ const uploadImagesToProductDirect = async (
       }}
       placeholder="Enter product short description..."
       height={250}
-      maxLength={350}          // ✅ Maximum 350 characters
+      maxLength={350}   
+      required       // ✅ Maximum 350 characters
       showCharCount={true}     // ✅ Show built-in character counter
       showHelpText="Brief description visible in product listings (10-350 characters)"
     />
@@ -6294,7 +6318,7 @@ const uploadImagesToProductDirect = async (
 
   <div className="flex flex-wrap gap-6">
 
-    {['Not specified', 'Male', 'Female', 'Unisex', 'Kids', 'Boys', 'Girls'].map((option) => {
+    {['Not specified', 'Male', 'Female', 'Unisex'].map((option) => {
 
       const value = option === 'Not specified' ? '' : option;
       const isChecked = formData.gender === value;
@@ -7548,22 +7572,7 @@ const uploadImagesToProductDirect = async (
           </label>
         </div>
 
-        {/* Delivery Date */}
-        <div>
-          <label className="block text-sm font-medium text-slate-300 mb-2">Delivery Date</label>
-          <select
-            name="deliveryDateId"
-            value={formData.deliveryDateId}
-            onChange={handleChange}
-            className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
-          >
-            <option value="">None</option>
-            <option value="1">1-2 days</option>
-            <option value="2">3-5 days</option>
-            <option value="3">1 week</option>
-            <option value="4">2 weeks</option>
-          </select>
-        </div>
+       
 
         {/* ✅ DELIVERY OPTIONS SECTION */}
         <div className="space-y-4 bg-slate-900/30 border border-slate-600 rounded-xl p-4 mt-4">
@@ -7652,21 +7661,42 @@ const uploadImagesToProductDirect = async (
     </span>
   </label>
 )}
-          {/* Standard Delivery */}
-          <div className="space-y-3">
-            <label className="flex items-center gap-2 cursor-pointer group">
-              <input
-                type="checkbox"
-                name="standardDeliveryEnabled"
-                checked={formData.standardDeliveryEnabled}
-                onChange={handleChange}
-                className="rounded bg-slate-800/50 border-slate-700 text-violet-500 focus:ring-violet-500 focus:ring-offset-slate-900"
-              />
-              <span className="text-sm text-slate-300 group-hover:text-white transition-colors">
-                📦 Enable Standard Delivery
-              </span>
-            </label>
-          </div>
+        {/* Standard Delivery */}
+<div className="space-y-3">
+  <label className="flex items-center gap-2 cursor-pointer group">
+    <input
+      type="checkbox"
+      name="standardDeliveryEnabled"
+      checked={formData.standardDeliveryEnabled}
+      onChange={handleChange}
+      className="rounded bg-slate-800/50 border-slate-700 text-violet-500 focus:ring-violet-500 focus:ring-offset-slate-900"
+    />
+    <span className="text-sm text-slate-300 group-hover:text-white transition-colors">
+      📦 Enable Standard Delivery
+    </span>
+  </label>
+
+  {/* ✅ Show only when enabled */}
+  {formData.standardDeliveryEnabled && (
+    <div>
+      <label className="block text-sm font-medium text-slate-300 mb-2">
+        Delivery Date
+      </label>
+      <select
+        name="deliveryDateId"
+        value={formData.deliveryDateId}
+        onChange={handleChange}
+        className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-xl text-white focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+      >
+        <option value="">None</option>
+        <option value="1">1-2 days</option>
+        <option value="2">3-5 days</option>
+        <option value="3">1 week</option>
+        <option value="4">2 weeks</option>
+      </select>
+    </div>
+  )}
+</div>
 
           <div className="flex items-start gap-2 text-xs text-blue-400 bg-blue-900/20 px-3 py-2 rounded border border-blue-800/50 mt-2">
             <Info className="w-4 h-4 shrink-0 mt-0.5" />

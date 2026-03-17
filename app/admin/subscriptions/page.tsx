@@ -28,6 +28,7 @@ import {
   ShoppingBag,
   SkipForward,
   ChevronDown,
+  RefreshCw,
 } from "lucide-react";
 import { useToast } from "@/app/admin/_components/CustomToast";
 import ConfirmDialog from "@/app/admin/_components/ConfirmDialog";
@@ -438,7 +439,7 @@ const getFrequencyBadge = (frequency: string) => {
               {loadingSubscriptions ? (
                 <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
               ) : (
-                <Package className="h-4 w-4" />
+                <RefreshCw className="h-4 w-4" />
               )}
               Refresh
             </button>

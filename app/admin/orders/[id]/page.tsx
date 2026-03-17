@@ -2,6 +2,9 @@
 
 import { JSX, useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
+import Link from "next/link";
+
+
 import {
   ArrowLeft,
   Package,
@@ -1846,10 +1849,17 @@ const allActions = getAllAvailableActions(
         />
 
         <div>
-          <p className="text-white font-medium text-sm">
-            {item.productName}
-          </p>
 
+
+<Link
+  href={`/products/${item.productSlug}`}
+  target="_blank"
+  rel="noopener noreferrer"
+>
+  <p className="text-white font-medium text-sm hover:text-violet-400 hover:underline cursor-pointer transition-all">
+    {item.productName}
+  </p>
+</Link>
           <p className="text-xs text-slate-400 mt-1 flex items-center gap-1">
             <Hash className="h-3 w-3" />
             SKU: {item.productSku}

@@ -1454,7 +1454,7 @@ title="Select order"
   </button>
 )}
 
-</div>
+   </div>
       </div>
 
       {/* SKU */}
@@ -1473,7 +1473,7 @@ title="Select order"
   {showProducts === order.id && (
   <div
   ref={popupRef}
-  className="absolute z-50 mt-1 w-72 bg-slate-800 border border-slate-700 rounded-lg shadow-xl p-2"
+  className="absolute z-50 mt-1 m-32 w-72 bg-slate-800 border border-slate-700 rounded-lg shadow-xl p-2"
 >
       <div className="flex items-center justify-between mb-2">
         <p className="text-sm font-semibold text-white">
@@ -1540,6 +1540,12 @@ className="text-[11px] text-slate-500 truncate"
 title={order.customerEmail}
 >
 {order.customerEmail}
+</p>
+<p
+className="text-[11px] text-slate-500 truncate"
+title={order.customerEmail}
+>
+{order.shippingAddress.addressLine1}
 </p>
 
 </div>
