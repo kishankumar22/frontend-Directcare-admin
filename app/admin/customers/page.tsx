@@ -48,6 +48,8 @@ import * as XLSX from "xlsx";
 
 import { useToast } from "@/app/admin/_components/CustomToast";
 import { Customer, CustomerQueryParams, customersService } from "@/lib/services/customers";
+import { loyaltyPointsService } from "@/lib/services/loyaltyPoints";
+import { orderService } from "@/lib/services/orders";
 
 // ✅ Types
 type CustomerTier = "all" | "gold" | "silver" | "bronze";
@@ -84,9 +86,19 @@ export default function CustomersPage() {
   const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null);
 // Toggle Analytics State
 const [showAnalytics, setShowAnalytics] = useState(false); // Default: collapsed 
+const [isOrderModalOpen, setIsOrderModalOpen] = useState(false);
+const [selectedOrderCustomer, setSelectedOrderCustomer] = useState<Customer | null>(null);
   // ✅ Bulk Selection
+const [loyaltyMap, setLoyaltyMap] = useState<Record<string, string>>({});
   const [selectedCustomers, setSelectedCustomers] = useState<string[]>([]);
 const [customerViewMode, setCustomerViewMode] = useState<"all" | "active" | "inactive">("all");
+const [selectedOrderDetails, setSelectedOrderDetails] = useState<any>(null);
+const [orderLoading, setOrderLoading] = useState(false);
+const [orderFilters, setOrderFilters] = useState({
+  deliveryMethod: "all",
+  status: "all",
+  paymentStatus: "all",
+});
   // ✅ Advanced Filters
  const [filters, setFilters] = useState({
   status: "all",
@@ -102,7 +114,32 @@ const [customerViewMode, setCustomerViewMode] = useState<"all" | "active" | "ina
   gender: "all",
   deliveryMethod: "all",
 });
+useEffect(() => {
+const fetchLoyalty = async () => {
+  const promises = allCustomers.map(c =>
+    loyaltyPointsService.getUserBalance(c.id)
+      .then(res => ({
+        id: c.id,
+        tier: res.data?.data?.tierLevel?.toLowerCase()
+      }))
+      .catch(() => null)
+  );
 
+  const results = await Promise.all(promises);
+
+  const map: Record<string, string> = {};
+  results.forEach(r => {
+    if (r?.tier) map[r.id] = r.tier;
+  });
+// ✅ ADD THIS LINE
+setLoyaltyMap(map);
+  
+};
+
+  if (allCustomers.length > 0) {
+    fetchLoyalty();
+  }
+}, [allCustomers]);
   // ✅ Sorting
   const [sortField, setSortField] = useState<SortField>("joinDate");
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
@@ -114,7 +151,20 @@ const [customerViewMode, setCustomerViewMode] = useState<"all" | "active" | "ina
   const advancedFiltersRef = useRef<HTMLDivElement>(null);
 
   const debouncedSearchTerm = useDebounce(searchTerm, 500);
+const handleFetchOrderDetails = async (orderId: string) => {
+  try {
+    setOrderLoading(true);
+    const res = await orderService.getOrderById(orderId);
 
+    if (res?.success) {
+      setSelectedOrderDetails(res.data);
+    }
+  } catch (err: any) {
+    toast.error(err.message);
+  } finally {
+    setOrderLoading(false);
+  }
+};
   // ✅ Close dropdowns on outside click
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -126,18 +176,20 @@ const [customerViewMode, setCustomerViewMode] = useState<"all" | "active" | "ina
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // ✅ Customer Segment Logic
-const getCustomerTier = (customer: Customer): CustomerTier => {
-  if (!customer.tierLevel) return "bronze";
+const getFilteredOrdersForModal = () => {
+  if (!selectedOrderCustomer) return [];
 
-  const tier = customer.tierLevel.toLowerCase();
+  if (filters.deliveryMethod === "all") {
+    return selectedOrderCustomer.orders;
+  }
 
-  if (tier === "gold") return "gold";
-  if (tier === "silver") return "silver";
-
-  return "bronze";
+  return selectedOrderCustomer.orders.filter(order =>
+    order.deliveryMethod.toLowerCase() === filters.deliveryMethod.toLowerCase()
+  );
 };
-
+const getTier = (customer: Customer): CustomerTier | "loading" => {
+  return (loyaltyMap[customer.id] as CustomerTier) || "loading";
+};
   // ✅ Fetch Customers
   const fetchCustomers = useCallback(async () => {
     try {
@@ -195,7 +247,10 @@ const getCustomerTier = (customer: Customer): CustomerTier => {
 
     // Segment Filter
   if (filters.tier !== "all") {
-  filtered = filtered.filter((c) => getCustomerTier(c) === filters.tier);
+ filtered = filtered.filter((c) => {
+  const tier = getTier(c);
+  return tier !== "loading" && tier === filters.tier;
+});
 }
 
     // Spending Range
@@ -315,10 +370,9 @@ const calculateStats = () => {
       ? (allCustomers.reduce((sum, c) => sum + c.totalSpent, 0) / total).toFixed(2)
       : "0.00";
 
-  const gold = allCustomers.filter((c) => getCustomerTier(c) === "gold").length;
-  const silver = allCustomers.filter((c) => getCustomerTier(c) === "silver").length;
-  const bronze = allCustomers.filter((c) => getCustomerTier(c) === "bronze").length;
-
+const gold = allCustomers.filter((c) => loyaltyMap[c.id] === "gold").length;
+const silver = allCustomers.filter((c) => loyaltyMap[c.id] === "silver").length;
+const bronze = allCustomers.filter((c) => loyaltyMap[c.id] === "bronze").length;
   const totalRevenue = allCustomers.reduce((sum, c) => sum + c.totalSpent, 0);
   const totalOrders = allCustomers.reduce((sum, c) => sum + c.totalOrders, 0);
 
@@ -360,7 +414,7 @@ const calculateStats = () => {
   // ✅ Export Functions
  const generateExcel = (customersToExport: Customer[]) => {
   const excelData = customersToExport.map((customer) => {
-    const tier = getCustomerTier(customer)
+    const tier = loyaltyMap[customer.id] || "bronze";
 
     const avgOrderValue =
       customer.totalOrders > 0
@@ -624,30 +678,19 @@ const getTierBadge = (tier: CustomerTier) => {
   );
 };
 
-  const getStatusBadge = (isActive: boolean, totalOrders: number) => {
-    if (!isActive) {
-      return (
-        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-xs font-medium bg-red-500/10 text-red-400 border border-red-500/20">
-          <span className="w-1.5 h-1.5 rounded-full bg-red-400"></span>
-          Inactive
-        </span>
-      );
-    }
-    if (totalOrders === 0) {
-      return (
-        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-xs font-medium bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
-          <span className="w-1.5 h-1.5 rounded-full bg-cyan-400"></span>
-          New
-        </span>
-      );
-    }
-    return (
-      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-xs font-medium bg-green-500/10 text-green-400 border border-green-500/20">
-        <span className="w-1.5 h-1.5 rounded-full bg-green-400"></span>
-        Active
-      </span>
-    );
-  };
+const getStatusBadge = (isActive: boolean) => {
+  return isActive ? (
+    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-xs font-medium bg-green-500/10 text-green-400 border border-green-500/20">
+      <span className="w-1.5 h-1.5 rounded-full bg-green-400"></span>
+      Active
+    </span>
+  ) : (
+    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-xs font-medium bg-red-500/10 text-red-400 border border-red-500/20">
+      <span className="w-1.5 h-1.5 rounded-full bg-red-400"></span>
+      Inactive
+    </span>
+  );
+};
 
   const toggleOrderDetails = (orderId: string) => {
     setExpandedOrderId(expandedOrderId === orderId ? null : orderId);
@@ -681,260 +724,202 @@ const getTierBadge = (tier: CustomerTier) => {
       </div>
     );
   }
-
+const modalTier = selectedCustomer ? getTier(selectedCustomer) : "loading";
   return (
     <div className="space-y-2">
-{/* ✅ Header with Buttons */}
-<div className="flex items-center justify-between">
+
+<div className="flex items-center justify-between flex-wrap gap-2">
+
+  {/* LEFT */}
   <div>
-    <h1 className="text-3xl font-bold tracking-tight bg-gradient-to-r from-violet-400 via-cyan-400 to-pink-400 bg-clip-text text-transparent">
+    <h1 className="text-2xl font-semibold text-white">
       Customer Management
     </h1>
-    <p className="text-slate-400 mt-0.5">Manage and analyze your customer base</p>
+    <p className="text-[12px] text-slate-500 mt-0.5">
+      Manage and analyze your customer base
+    </p>
   </div>
 
-  {/* Button Group: Analytics Toggle + Export */}
+  {/* RIGHT */}
   <div className="flex items-center gap-2">
-    
-    {/* Analytics Toggle Button */}
+
+    {/* Analytics Toggle */}
     <button
       onClick={() => setShowAnalytics(!showAnalytics)}
-      title={showAnalytics ? "Hide customer segments" : "Show customer segments"}
-      className={`flex items-center gap-2 px-3 py-2 rounded-xl font-semibold shadow-lg transition-all border-2 ${
+      className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-[12px] border transition-all ${
         showAnalytics
-          ? "bg-violet-500/20 border-violet-500/50 text-violet-300 hover:bg-violet-500/30 hover:border-violet-400"
-          : "bg-slate-800/50 border-slate-600 text-slate-300 hover:bg-slate-700 hover:border-violet-500/50 hover:text-white"
+          ? "bg-violet-500/10 border-violet-500/40 text-violet-300"
+          : "bg-slate-800/50 border-slate-700 text-slate-400 hover:text-white"
       }`}
     >
       {showAnalytics ? (
         <>
-          <TrendingDown className="h-4 w-4" />
-          <span className="text-sm">Hide Segments</span>
-          <ChevronUp className="h-3.5 w-3.5" />
+          <TrendingDown className="h-3.5 w-3.5" />
+          Hide
         </>
       ) : (
         <>
-          <TrendingUp className="h-4 w-4" />
-          <span className="text-sm">Show Segments</span>
-          <ChevronDown className="h-3.5 w-3.5" />
+          <TrendingUp className="h-3.5 w-3.5" />
+          Segments
         </>
       )}
     </button>
 
-    {/* Export to Excel Button */}
+    {/* Export */}
     <div className="relative" ref={exportMenuRef}>
       <button
         onClick={() => setShowExportMenu(!showExportMenu)}
-        title="Export customers to Excel in various formats"
-        className="flex items-center gap-2 px-3 py-2 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white rounded-xl font-semibold shadow-lg hover:shadow-green-500/50 transition-all"
+        className="flex items-center gap-1.5 px-2.5 py-1.5 bg-green-600 hover:bg-green-700 text-white rounded-md text-[12px] transition-all"
       >
-        <Download className="h-4 w-4" />
-        <span className="text-sm">Export to Excel</span>
-        <ChevronDown className={`h-3.5 w-3.5 transition-transform ${showExportMenu ? 'rotate-180' : ''}`} />
+        <Download className="h-3.5 w-3.5" />
+        Export
+        <ChevronDown className={`h-3 w-3 ${showExportMenu ? "rotate-180" : ""}`} />
       </button>
 
-      {/* Export Menu */}
       {showExportMenu && (
         <>
           <div className="fixed inset-0 z-10" onClick={() => setShowExportMenu(false)} />
-          <div className="absolute right-0 mt-2 w-64 bg-slate-800 border border-slate-700 rounded-xl shadow-2xl z-20 overflow-hidden">
-            {selectedCustomers.length > 0 && (
-              <button
-                onClick={handleExportSelected}
-                className="w-full px-3 py-2.5 text-left text-white hover:bg-slate-700 transition-all flex items-center gap-2.5 border-b border-slate-700"
-              >
-                <FileSpreadsheet className="w-4 h-4 text-blue-400" />
-                <div>
-                  <p className="text-sm font-medium">Export Selected</p>
-                  <p className="text-xs text-slate-400">{selectedCustomers.length} customers</p>
-                </div>
-              </button>
-            )}
-            
+
+          <div className="absolute right-0 mt-2 w-56 bg-slate-900 border border-slate-700 rounded-lg z-20 overflow-hidden">
+
             <button
               onClick={handleExportCurrentPage}
-              className="w-full px-3 py-2.5 text-left text-white hover:bg-slate-700 transition-all flex items-center gap-2.5 border-b border-slate-700"
+              className="w-full px-3 py-2 text-left text-white hover:bg-slate-800 text-[12px]"
             >
-              <FileSpreadsheet className="w-4 h-4 text-violet-400" />
-              <div>
-                <p className="text-sm font-medium">Export Current Page</p>
-                <p className="text-xs text-slate-400">{customers.length} customers</p>
-              </div>
+              Current Page ({customers.length})
             </button>
 
             {hasActiveFilters && (
               <button
                 onClick={handleExportFiltered}
-                className="w-full px-3 py-2.5 text-left text-white hover:bg-slate-700 transition-all flex items-center gap-2.5 border-b border-slate-700"
+                className="w-full px-3 py-2 text-left text-white hover:bg-slate-800 text-[12px]"
               >
-                <FileSpreadsheet className="w-4 h-4 text-cyan-400" />
-                <div>
-                  <p className="text-sm font-medium">Export Filtered Results</p>
-                  <p className="text-xs text-slate-400">{totalCount} customers</p>
-                </div>
+                Filtered ({totalCount})
               </button>
             )}
 
             <button
               onClick={handleExportAll}
-              className="w-full px-3 py-2.5 text-left text-white hover:bg-slate-700 transition-all flex items-center gap-2.5"
+              className="w-full px-3 py-2 text-left text-white hover:bg-slate-800 text-[12px]"
             >
-              <FileSpreadsheet className="w-4 h-4 text-green-400" />
-              <div>
-                <p className="text-sm font-medium">Export All Customers</p>
-                <p className="text-xs text-slate-400">{allCustomers.length} customers</p>
-              </div>
+              All ({allCustomers.length})
             </button>
+
           </div>
         </>
-      )}  
+      )}
     </div>
   </div>
 </div>
 
 {/* ✅ ALWAYS VISIBLE: Top 4 Stats Cards */}
-<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
-  
+<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
+
   {/* 1. Total Revenue */}
-  <div 
-    className="bg-gradient-to-br from-green-500/10 to-emerald-500/5 border border-green-500/20 rounded-xl p-3 hover:border-green-500/50 transition-all"
-    title="Total revenue generated from all customers"
-  >
-    <div className="flex items-center gap-2.5">
-      <div className="w-10 h-10 rounded-lg bg-green-500/20 flex items-center justify-center shrink-0">
-        <TrendingUp className="h-5 w-5 text-green-400" />
+  <div className="bg-slate-900/40 border border-slate-800 rounded-lg p-2.5 hover:border-green-500/40 transition-all">
+    <div className="flex items-center gap-2">
+      <div className="w-8 h-8 rounded-md bg-green-500/10 flex items-center justify-center">
+        <TrendingUp className="h-4 w-4 text-green-400" />
       </div>
       <div className="flex-1 min-w-0">
-        <p className="text-slate-400 text-xs font-medium">Total Revenue</p>
-        <p className="text-white text-xl font-bold truncate">{formatCurrency(stats.totalRevenue)}</p>
+        <p className="text-[11px] text-slate-500 font-medium">Total Revenue</p>
+        <p className="text-lg font-semibold text-white truncate">
+          {formatCurrency(stats.totalRevenue)}
+        </p>
       </div>
     </div>
   </div>
 
   {/* 2. Avg Order Value */}
-  <div 
-    className="bg-gradient-to-br from-blue-500/10 to-cyan-500/5 border border-blue-500/20 rounded-xl p-3 hover:border-blue-500/50 transition-all"
-    title="Average value per order across all customers"
-  >
-    <div className="flex items-center gap-2.5">
-      <div className="w-10 h-10 rounded-lg bg-blue-500/20 flex items-center justify-center shrink-0">
-        <ShoppingBag className="h-5 w-5 text-blue-400" />
+  <div className="bg-slate-900/40 border border-slate-800 rounded-lg p-2.5 hover:border-blue-500/40 transition-all">
+    <div className="flex items-center gap-2">
+      <div className="w-8 h-8 rounded-md bg-blue-500/10 flex items-center justify-center">
+        <ShoppingBag className="h-4 w-4 text-blue-400" />
       </div>
       <div className="flex-1 min-w-0">
-        <p className="text-slate-400 text-xs font-medium">Avg. Order Value</p>
-        <p className="text-white text-xl font-bold truncate">£{stats.avgOrderValue}</p>
+        <p className="text-[11px] text-slate-500 font-medium">Avg. Order Value</p>
+        <p className="text-lg font-semibold text-white">
+          £{stats.avgOrderValue}
+        </p>
       </div>
     </div>
   </div>
 
-{/* 3. Total Customers - DYNAMIC BUTTON */}
-<button
-  onClick={() => {
-    // Cycle through: all → active → inactive → all
-    if (customerViewMode === "all") {
-      setCustomerViewMode("active");
-      setFilters({ ...filters, status: "active" });
+  {/* 3. Total / Active / Inactive Customers */}
+  <button
+    onClick={() => {
+      if (customerViewMode === "all") {
+        setCustomerViewMode("active");
+        setFilters({ ...filters, status: "active" });
+      } else if (customerViewMode === "active") {
+        setCustomerViewMode("inactive");
+        setFilters({ ...filters, status: "inactive" });
+      } else {
+        setCustomerViewMode("all");
+        setFilters({ ...filters, status: "all" });
+      }
       setCurrentPage(1);
-      // toast.success(`Showing ${stats.active} active customers`);
-    } else if (customerViewMode === "active") {
-      setCustomerViewMode("inactive");
-      setFilters({ ...filters, status: "inactive" });
-      setCurrentPage(1);
-      // toast.info(`Showing ${stats.total - stats.active} inactive customers`);
-    } else {
-      setCustomerViewMode("all");
-      setFilters({ ...filters, status: "all" });
-      setCurrentPage(1);
-      // toast.info("Showing all customers");
-    }
-  }}
-  className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-xl p-3 hover:border-violet-500/50 transition-all text-left w-full hover:scale-105 active:scale-95 cursor-pointer group"
-  title={
-    customerViewMode === "all"
-      ? "Click to show active customers only"
-      : customerViewMode === "active"
-      ? "Click to show inactive customers only"
-      : "Click to show all customers"
-  }
->
-  <div className="flex items-center gap-2.5">
-    <div className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 transition-all ${
-      customerViewMode === "all"
-        ? "bg-violet-500/10 group-hover:bg-violet-500/20"
-        : customerViewMode === "active"
-        ? "bg-green-500/20 group-hover:bg-green-500/30"
-        : "bg-red-500/20 group-hover:bg-red-500/30"
-    }`}>
-      {customerViewMode === "all" ? (
-        <Users className="h-5 w-5 text-violet-400 group-hover:scale-110 transition-transform" />
-      ) : customerViewMode === "active" ? (
-        <UserCheck className="h-5 w-5 text-green-400 group-hover:scale-110 transition-transform" />
-      ) : (
-        <UserX className="h-5 w-5 text-red-400 group-hover:scale-110 transition-transform" />
-      )}
-    </div>
-    <div className="flex-1 min-w-0">
-      <div className="flex items-center gap-2">
-        <p className={`text-xs font-medium transition-colors ${
+    }}
+    className="bg-slate-900/40 border border-slate-800 rounded-lg p-2.5 hover:bg-slate-800/60 transition-all text-left w-full"
+  >
+    <div className="flex items-center gap-2">
+      <div
+        className={`w-8 h-8 rounded-md flex items-center justify-center ${
           customerViewMode === "all"
-            ? "text-slate-400 group-hover:text-violet-300"
+            ? "bg-violet-500/10"
             : customerViewMode === "active"
-            ? "text-slate-400 group-hover:text-green-300"
-            : "text-slate-400 group-hover:text-red-300"
-        }`}>
+            ? "bg-green-500/10"
+            : "bg-red-500/10"
+        }`}
+      >
+        {customerViewMode === "all" ? (
+          <Users className="h-4 w-4 text-violet-400" />
+        ) : customerViewMode === "active" ? (
+          <UserCheck className="h-4 w-4 text-green-400" />
+        ) : (
+          <UserX className="h-4 w-4 text-red-400" />
+        )}
+      </div>
+
+      <div className="flex-1 min-w-0">
+        <p className="text-[11px] text-slate-500 font-medium">
           {customerViewMode === "all"
             ? "Total Customers"
             : customerViewMode === "active"
             ? "Active Customers"
             : "Inactive Customers"}
         </p>
-        {customerViewMode !== "all" && (
-          <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-bold border ${
-            customerViewMode === "active"
-              ? "bg-green-500/10 border-green-500/50 text-green-300"
-              : "bg-red-500/10 border-red-500/50 text-red-300"
-          }`}>
-            FILTERED
-          </span>
-        )}
-      </div>
-      <p className="text-white text-xl font-bold">
-        {customerViewMode === "all"
-          ? stats.total
-          : customerViewMode === "active"
-          ? stats.active
-          : stats.total - stats.active}
-      </p>
-      <p className={`text-[10px] mt-0.5 transition-all opacity-0 group-hover:opacity-100 ${
-        customerViewMode === "all"
-          ? "text-slate-500 group-hover:text-violet-400"
-          : customerViewMode === "active"
-          ? "text-slate-500 group-hover:text-green-400"
-          : "text-slate-500 group-hover:text-red-400"
-      }`}>
-        {customerViewMode === "all"
-          ? "Click to show Active"
-          : customerViewMode === "active"
-          ? "Click to show Inactive"
-          : "Click to show All"}
-      </p>
-    </div>
-  </div>
-</button>
 
+        <p className="text-lg font-semibold text-white">
+          {customerViewMode === "all"
+            ? stats.total
+            : customerViewMode === "active"
+            ? stats.active
+            : stats.total - stats.active}
+        </p>
+      </div>
+    </div>
+  </button>
 
   {/* 4. New This Month */}
- <button
+  <button
     onClick={() => {
       const now = new Date();
       const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-      const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
-      
+      const monthEnd = new Date(
+        now.getFullYear(),
+        now.getMonth() + 1,
+        0,
+        23,
+        59,
+        59
+      );
+
       const formatDateForInput = (date: Date) => {
-        const year = date.getFullYear();
-        const month = String(date.getMonth() + 1).padStart(2, '0');
-        const day = String(date.getDate()).padStart(2, '0');
-        return `${year}-${month}-${day}`;
+        const y = date.getFullYear();
+        const m = String(date.getMonth() + 1).padStart(2, "0");
+        const d = String(date.getDate()).padStart(2, "0");
+        return `${y}-${m}-${d}`;
       };
 
       setFilters({
@@ -942,87 +927,136 @@ const getTierBadge = (tier: CustomerTier) => {
         registrationFrom: formatDateForInput(monthStart),
         registrationTo: formatDateForInput(monthEnd),
       });
+
       setCurrentPage(1);
     }}
-    className="bg-gradient-to-br from-violet-500/10 to-purple-500/5 border border-violet-500/20 rounded-xl p-3 hover:border-violet-500/50 transition-all text-left w-full  active:scale-95 cursor-pointer group"
-    title="Click to filter customers registered this month"
+    className="bg-slate-900/40 border border-slate-800 rounded-lg p-2.5 hover:border-violet-500/40 transition-all text-left w-full"
   >
-    <div className="flex items-center gap-2.5">
-      <div className="w-10 h-10 rounded-lg bg-violet-500/20 flex items-center justify-center shrink-0 group-hover:bg-violet-500/30 transition-all">
-        <Activity className="h-5 w-5 text-violet-400 group-hover:scale-110 transition-transform" />
+    <div className="flex items-center gap-2">
+      <div className="w-8 h-8 rounded-md bg-violet-500/10 flex items-center justify-center">
+        <Activity className="h-4 w-4 text-violet-400" />
       </div>
+
       <div className="flex-1 min-w-0">
-        <p className="text-slate-400 text-xs font-medium group-hover:text-violet-300 transition-colors">
-          New Customer 
+        <p className="text-[11px] text-slate-500 font-medium">
+          New Customers
         </p>
-        <p className="text-white text-xl font-bold">{stats.newThisMonth}</p>
-      
+        <p className="text-lg font-semibold text-white">
+          {stats.newThisMonth}
+        </p>
       </div>
     </div>
   </button>
 </div>
 
-{/* ✅ TOGGLE SECTION: Customer Segments (5 Cards) */}
-{/* Customer Tiers */}
 {showAnalytics && (
-  <div className="bg-slate-900/50 border border-slate-800 rounded-xl p-3">
-    <div className="grid grid-cols-3 gap-3">
+  <div className="bg-slate-900/40 border border-slate-800 rounded-lg p-2.5">
+    
+    <div className="grid grid-cols-3 gap-2">
 
+      {/* GOLD */}
       <button
-        onClick={() => setFilters({ ...filters, tier: "gold" })}
-        className="p-3 bg-yellow-500/10 border border-yellow-500/40 rounded-lg"
+        onClick={() => {
+          setFilters({ ...filters, tier: "gold" });
+          setCurrentPage(1);
+        }}
+        className="bg-slate-900/40 border border-slate-800 rounded-lg p-2 hover:border-yellow-500/40 transition-all text-left"
       >
-        <Crown className="h-4 w-4 text-yellow-400 mb-1" />
-        <p className="text-white font-bold">{stats.tiers.gold}</p>
-        <p className="text-xs text-slate-400">Gold</p>
+        <div className="flex items-center gap-2">
+          <div className="w-8 h-8 rounded-md bg-yellow-500/10 flex items-center justify-center">
+            <Crown className="h-4 w-4 text-yellow-400" />
+          </div>
+
+          <div className="flex-1">
+            <p className="text-[11px] text-slate-500 font-medium">Gold</p>
+            <p className="text-lg font-semibold text-white">
+              {stats.tiers.gold}
+            </p>
+          </div>
+        </div>
       </button>
 
+      {/* SILVER */}
       <button
-        onClick={() => setFilters({ ...filters, tier: "silver" })}
-        className="p-3 bg-slate-500/10 border border-slate-500/40 rounded-lg"
+        onClick={() => {
+          setFilters({ ...filters, tier: "silver" });
+          setCurrentPage(1);
+        }}
+        className="bg-slate-900/40 border border-slate-800 rounded-lg p-2 hover:border-slate-500/40 transition-all text-left"
       >
-        <Award className="h-4 w-4 text-slate-300 mb-1" />
-        <p className="text-white font-bold">{stats.tiers.silver}</p>
-        <p className="text-xs text-slate-400">Silver</p>
+        <div className="flex items-center gap-2">
+          <div className="w-8 h-8 rounded-md bg-slate-500/10 flex items-center justify-center">
+            <Award className="h-4 w-4 text-slate-300" />
+          </div>
+
+          <div className="flex-1">
+            <p className="text-[11px] text-slate-500 font-medium">Silver</p>
+            <p className="text-lg font-semibold text-white">
+              {stats.tiers.silver}
+            </p>
+          </div>
+        </div>
       </button>
 
+      {/* BRONZE */}
       <button
-        onClick={() => setFilters({ ...filters, tier: "bronze" })}
-        className="p-3 bg-orange-500/10 border border-orange-500/40 rounded-lg"
+        onClick={() => {
+          setFilters({ ...filters, tier: "bronze" });
+          setCurrentPage(1);
+        }}
+        className="bg-slate-900/40 border border-slate-800 rounded-lg p-2 hover:border-orange-500/40 transition-all text-left"
       >
-        <Target className="h-4 w-4 text-orange-400 mb-1" />
-        <p className="text-white font-bold">{stats.tiers.bronze}</p>
-        <p className="text-xs text-slate-400">Bronze</p>
+        <div className="flex items-center gap-2">
+          <div className="w-8 h-8 rounded-md bg-orange-500/10 flex items-center justify-center">
+            <Target className="h-4 w-4 text-orange-400" />
+          </div>
+
+          <div className="flex-1">
+            <p className="text-[11px] text-slate-500 font-medium">Bronze</p>
+            <p className="text-lg font-semibold text-white">
+              {stats.tiers.bronze}
+            </p>
+          </div>
+        </div>
       </button>
 
     </div>
   </div>
 )}
 
-{/* ✅ Items Per Page - COMPACT */}
-<div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-xl p-2.5">
-  <div className="flex flex-wrap items-center justify-between gap-2.5">
-    <div className="flex items-center gap-2.5">
-      <span className="text-xs text-slate-400">Show</span>
+<div className="bg-slate-900/40 border border-slate-800 rounded-lg px-3 py-2">
+  <div className="flex items-center justify-between gap-2 flex-wrap">
+
+    {/* LEFT: Page Size */}
+    <div className="flex items-center gap-2">
+      <span className="text-[11px] text-slate-500 font-medium">Show</span>
+
       <select
         value={pageSize}
         onChange={(e) => {
           setPageSize(Number(e.target.value));
           setCurrentPage(1);
         }}
-        className="px-2.5 py-1.5 bg-slate-800/50 border border-slate-600 rounded-lg text-white text-xs focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all"
+        className="px-2 py-1 bg-slate-800/60 border border-slate-700 rounded-md text-white text-[11px] focus:outline-none focus:ring-1 focus:ring-violet-500 transition-all"
       >
         <option value={25}>25</option>
         <option value={50}>50</option>
         <option value={75}>75</option>
         <option value={100}>100</option>
       </select>
-      <span className="text-xs text-slate-400">entries per page</span>
+
+      <span className="text-[11px] text-slate-500">per page</span>
     </div>
 
-    <div className="text-xs text-slate-400">
-      Showing <span className="text-white font-semibold">{startIndex + 1}</span> to <span className="text-white font-semibold">{endIndex}</span> of <span className="text-white font-semibold">{totalCount}</span> entries
+    {/* RIGHT: Info */}
+    <div className="text-[11px] text-slate-500">
+      <span className="text-white font-medium">{startIndex + 1}</span>
+      {" – "}
+      <span className="text-white font-medium">{endIndex}</span>
+      {" of "}
+      <span className="text-white font-medium">{totalCount}</span>
     </div>
+
   </div>
 </div>
 
@@ -1229,208 +1263,229 @@ const getTierBadge = (tier: CustomerTier) => {
       <p className="text-slate-500 text-sm">Try adjusting your filters</p>
     </div>
   ) : (
-    <div className="overflow-x-auto">
-      <table className="w-full">
-        <thead className="bg-slate-800/50 sticky top-0 z-10">
-          <tr className="border-b border-slate-700">
-            {/* Bulk Select */}
-            <th className="py-2 px-3">
+ <div className="overflow-x-auto">
+  <table className="w-full text-sm">
+
+    {/* HEADER */}
+    <thead className="bg-slate-900/60 border-b border-slate-800 sticky top-0 z-10">
+      <tr>
+
+        {/* Bulk Select */}
+        <th className="py-2 px-2">
+          <input
+            type="checkbox"
+            checked={selectedCustomers.length === customers.length && customers.length > 0}
+            onChange={toggleSelectAll}
+            className="rounded bg-slate-800 border-slate-600 text-violet-500 focus:ring-1 focus:ring-violet-500 cursor-pointer"
+          />
+        </th>
+
+        <th className="text-left py-2 px-2 text-[11px] text-slate-500 font-medium">
+          <button onClick={() => handleSort("name")} className="flex items-center gap-1 hover:text-white">
+            Customer {getSortIcon("name")}
+          </button>
+        </th>
+
+        <th className="text-center py-2 px-2 text-[11px] text-slate-500 font-medium">
+          <button onClick={() => handleSort("totalOrders")} className="flex items-center gap-1 mx-auto hover:text-white">
+            Orders {getSortIcon("totalOrders")}
+          </button>
+        </th>
+
+        <th className="text-center py-2 px-2 text-[11px] text-slate-500 font-medium">
+          <button onClick={() => handleSort("totalSpent")} className="flex items-center gap-1 mx-auto hover:text-white">
+            Spent {getSortIcon("totalSpent")}
+          </button>
+        </th>
+
+        <th className="text-center py-2 px-2 text-[11px] text-slate-500 font-medium">
+          Avg
+        </th>
+
+        <th className="text-center py-2 px-2 text-[11px] text-slate-500 font-medium">
+          Tier
+        </th>
+
+        <th className="text-center py-2 px-2 text-[11px] text-slate-500 font-medium">
+          Status
+        </th>
+
+        <th className="text-left py-2 px-2 text-[11px] text-slate-500 font-medium">
+          <button onClick={() => handleSort("lastLogin")} className="flex items-center gap-1 hover:text-white">
+            Last {getSortIcon("lastLogin")}
+          </button>
+        </th>
+
+        <th className="text-center py-2 px-2 text-[11px] text-slate-500 font-medium">
+          Actions
+        </th>
+      </tr>
+    </thead>
+
+    {/* BODY */}
+    <tbody>
+      {customers.map((customer) => {
+        const tier = getTier(customer);
+        const isSelected = selectedCustomers.includes(customer.id);
+
+        const avgOrderValue =
+          customer.totalOrders > 0
+            ? (customer.totalSpent / customer.totalOrders).toFixed(2)
+            : "0.00";
+
+        return (
+          <tr
+            key={customer.id}
+            className={`
+              border-b border-slate-800 transition-all
+              ${isSelected
+                ? "bg-violet-500/10 border-violet-500/30"
+                : "hover:bg-slate-800/40"}
+            `}
+          >
+
+            {/* Checkbox */}
+            <td className="py-2 px-2">
               <input
                 type="checkbox"
-                checked={selectedCustomers.length === customers.length && customers.length > 0}
-                onChange={toggleSelectAll}
-                className="rounded bg-slate-700 border-slate-600 text-violet-500 focus:ring-violet-500 cursor-pointer"
+                checked={isSelected}
+                onChange={() => toggleSelectCustomer(customer.id)}
+                className="rounded bg-slate-800 border-slate-600 text-violet-500 focus:ring-1 focus:ring-violet-500 cursor-pointer"
               />
-            </th>
+            </td>
 
-            {/* Customer Name - Sortable */}
-            <th className="text-left py-2 px-3 text-slate-400 font-medium text-sm">
-              <button
-                onClick={() => handleSort("name")}
-                className="flex items-center gap-1.5 hover:text-white transition-colors"
-              >
-                Customer
-                {getSortIcon("name")}
-              </button>
-            </th>
+            {/* Customer */}
+            <td className="py-2 px-2">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-full bg-gradient-to-r from-violet-500 to-cyan-500 flex items-center justify-center text-white text-xs font-semibold">
+                  {getInitials(customer.firstName, customer.lastName)}
+                </div>
 
-            {/* Orders - Sortable */}
-            <th className="text-center py-2 px-3 text-slate-400 font-medium text-sm">
-              <button
-                onClick={() => handleSort("totalOrders")}
-                className="flex items-center gap-1.5 hover:text-white transition-colors mx-auto"
-              >
-                Orders
-                {getSortIcon("totalOrders")}
-              </button>
-            </th>
+                <div className="min-w-0">
+                  <p className="text-white text-sm truncate">{customer.fullName}</p>
 
-            {/* Total Spent - Sortable */}
-            <th className="text-center py-2 px-3 text-slate-400 font-medium text-sm">
-              <button
-                onClick={() => handleSort("totalSpent")}
-                className="flex items-center gap-1.5 hover:text-white transition-colors mx-auto"
-              >
-                Total Spent
-                {getSortIcon("totalSpent")}
-              </button>
-            </th>
-
-            {/* Avg Order Value */}
-            <th className="text-center py-2 px-3 text-slate-400 font-medium text-sm">
-              Avg Order Value
-            </th>
-
-            {/* Tier */}
-            <th className="text-center py-2 px-3 text-slate-400 font-medium text-sm">
-              Tier
-            </th>
-
-            {/* Status */}
-            <th className="text-center py-2 px-3 text-slate-400 font-medium text-sm">
-              Status
-            </th>
-
-            {/* Last Login - Sortable */}
-            <th className="text-left py-2 px-3 text-slate-400 font-medium text-sm">
-              <button
-                onClick={() => handleSort("lastLogin")}
-                className="flex items-center gap-1.5 hover:text-white transition-colors"
-              >
-                Last Login
-                {getSortIcon("lastLogin")}
-              </button>
-            </th>
-
-            {/* Actions */}
-            <th className="text-center py-2 px-3 text-slate-400 font-medium text-sm">
-              Actions
-            </th>
-          </tr>
-        </thead>
-
-        <tbody>
-          {customers.map((customer) => {
-          const tier = getCustomerTier(customer)
-            const avgOrderValue = customer.totalOrders > 0
-              ? (customer.totalSpent / customer.totalOrders).toFixed(2)
-              : "0.00";
-
-            return (
-              <tr
-                key={customer.id}
-                className="border-b border-slate-800 hover:bg-slate-800/30 transition-colors group"
-              >
-                {/* Checkbox */}
-                <td className="py-2.5 px-3">
-                  <input
-                    type="checkbox"
-                    checked={selectedCustomers.includes(customer.id)}
-                    onChange={() => toggleSelectCustomer(customer.id)}
-                    className="rounded bg-slate-700 border-slate-600 text-violet-500 focus:ring-violet-500 cursor-pointer"
-                  />
-                </td>
-
-                {/* Customer */}
-                <td className="py-2.5 px-3">
-                  <div className="flex items-center gap-2.5">
-                    <div className="w-9 h-9 rounded-full bg-gradient-to-r from-violet-500 to-cyan-500 flex items-center justify-center text-white font-bold text-sm shrink-0">
-                      {getInitials(customer.firstName, customer.lastName)}
-                    </div>
-
-                    <div className="min-w-0">
-                      <p className="font-medium text-white truncate text-sm">
-                        {customer.fullName}
-                      </p>
-
-                      <div className="flex items-center gap-1.5 mt-0.5">
-                        <Mail className="h-3 w-3 text-slate-500" />
-                        <p className="text-xs text-slate-400 truncate">
-                          {customer.email}
-                        </p>
-                      </div>
-
-                      {customer.phoneNumber && (
-                        <div className="flex items-center gap-1.5 mt-0.5">
-                          <Phone className="h-3 w-3 text-slate-500" />
-                          <p className="text-xs text-slate-400">
-                            {customer.phoneNumber}
-                          </p>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </td>
-
-                {/* Orders */}
-                <td className="py-2.5 px-3 text-center">
-                  <span className="px-2.5 py-1 bg-cyan-500/10 text-cyan-400 rounded-lg text-sm font-medium">
-                    {customer.totalOrders}
-                  </span>
-                </td>
-
-                {/* Total Spent */}
-                <td className="py-2.5 px-3 text-center">
-                  <span className="font-semibold text-green-400 text-sm">
-                    {formatCurrency(customer.totalSpent)}
-                  </span>
-                </td>
-
-                {/* Avg Order Value */}
-                <td className="py-2.5 px-3 text-center">
-                  <span className="text-white font-medium text-sm">
-                    £{avgOrderValue}
-                  </span>
-                </td>
-
-                {/* Segment */}
-                <td className="py-2.5 px-3 text-center">
-                 {getTierBadge(tier)}
-                </td>
-
-                {/* Status */}
-                <td className="py-2.5 px-3 text-center">
-                  {getStatusBadge(customer.isActive, customer.totalOrders)}
-                </td>
-
-                {/* Last Login */}
-                <td className="py-2.5 px-3">
-                  <div className="flex items-center gap-1.5">
-                    <Calendar className="h-3 w-3 text-slate-500 group-hover:text-violet-400 transition-colors" />
-                    <span
-                      className="text-sm text-slate-300 group-hover:text-white transition-colors cursor-help"
-                      title={formatExactDate(customer.lastLoginAt)}
-                    >
-                      {formatRelativeDate(customer.lastLoginAt)}
+                  <div className="flex items-center gap-1 mt-0.5">
+                    <Mail className="h-3 w-3 text-slate-500" />
+                    <span className="text-[11px] text-slate-400 truncate">
+                      {customer.email}
                     </span>
                   </div>
-                </td>
+                </div>
+              </div>
+            </td>
 
-                {/* Actions */}
-                <td className="py-2.5 px-3">
-                  <div className="flex items-center justify-center">
-                    <button
-                      onClick={() => {
-                        setSelectedCustomer(customer);
-                        setIsModalOpen(true);
-                        setExpandedOrderId(null);
-                      }}
-                      className="p-1.5 text-violet-400 hover:bg-violet-500/10 hover:text-violet-300 rounded-lg transition-all"
-                      title="View Details"
-                    >
-                      <Eye className="h-4 w-4" />
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
-    </div>
+            {/* Orders */}
+            <td className="py-2 px-2 text-center">
+              <span className="px-2 py-0.5 bg-cyan-500/10 text-cyan-400 rounded-md text-xs">
+                {customer.totalOrders}
+              </span>
+            </td>
+
+            {/* Spent */}
+            <td className="py-2 px-2 text-center">
+              <span className="text-green-400 text-sm font-medium">
+                {formatCurrency(customer.totalSpent)}
+              </span>
+            </td>
+
+            {/* Avg */}
+            <td className="py-2 px-2 text-center text-sm text-white">
+              £{avgOrderValue}
+            </td>
+
+            {/* Tier */}
+            <td className="py-2 px-2 text-center">
+              {tier === "loading" ? (
+                <span className="text-[11px] text-slate-500">...</span>
+              ) : (
+                getTierBadge(tier)
+              )}
+            </td>
+
+            {/* Status */}
+            <td className="py-2 px-2 text-center">
+              {getStatusBadge(customer.isActive)}
+            </td>
+
+            {/* Last Login */}
+            <td className="py-2 px-2">
+              <div className="flex items-center gap-1">
+                <Calendar className="h-3 w-3 text-slate-500" />
+                <span
+                  className="text-[11px] text-slate-300"
+                  title={formatExactDate(customer.lastLoginAt)}
+                >
+                  {formatRelativeDate(customer.lastLoginAt)}
+                </span>
+              </div>
+            </td>
+
+            {/* Actions */}
+            <td className="py-2 px-2">
+              <div className="flex items-center justify-center gap-1">
+                <button
+                  onClick={() => {
+                    setSelectedCustomer(customer);
+                    setIsModalOpen(true);
+                    setExpandedOrderId(null);
+                  }}
+                  className="p-1 text-violet-400 hover:bg-violet-500/10 rounded-md"
+                >
+                  <Eye className="h-4 w-4" />
+                </button>
+
+                <button
+                  onClick={() => {
+                    setSelectedOrderCustomer(customer);
+                    setIsOrderModalOpen(true);
+                    setExpandedOrderId(null);
+                  }}
+                  className="p-1 text-green-400 hover:bg-green-500/10 rounded-md"
+                >
+                  <ShoppingBag className="h-4 w-4" />
+                </button>
+              </div>
+            </td>
+
+          </tr>
+        );
+      })}
+    </tbody>
+  </table>
+</div>
   )}
 </div>
+{selectedCustomers.length > 0 && (
+  <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50">
 
+    <div className="flex items-center gap-3 bg-slate-900/90 backdrop-blur-md border border-violet-500/30 px-4 py-2 rounded-lg shadow-lg">
+
+      {/* Selected Count */}
+      <span className="text-[12px] text-white">
+        {selectedCustomers.length} selected
+      </span>
+
+      {/* Export Button */}
+      <button
+        onClick={handleExportSelected}
+        className="flex items-center gap-1 px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white text-[12px] rounded-md transition-all"
+      >
+        <Download className="h-3.5 w-3.5" />
+        Export
+      </button>
+
+      {/* Clear */}
+      <button
+        onClick={() => setSelectedCustomers([])}
+        className="text-[12px] text-red-400 hover:text-red-300"
+      >
+        Clear
+      </button>
+
+    </div>
+
+  </div>
+)}
 
       {/* ✅ Pagination */}
       {totalPages > 1 && (
@@ -1501,6 +1556,169 @@ const getTierBadge = (tier: CustomerTier) => {
         </div>
       )}
 
+{isOrderModalOpen && selectedOrderCustomer && (
+  <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-50 flex items-center justify-center p-4">
+    <div className="bg-gradient-to-br from-slate-900 via-slate-900 to-slate-800 border border-green-500/20 rounded-2xl max-w-[80vw] w-full max-h-[90vh] overflow-hidden flex flex-col shadow-2xl">
+
+      {/* ✅ HEADER (SAME STYLE) */}
+      <div className="p-4 border-b border-green-500/20 bg-gradient-to-r from-green-500/10 to-cyan-500/10">
+        <div className="flex items-center justify-between">
+
+          <div className="flex items-center gap-3">
+            <div className="w-14 h-14 rounded-full bg-gradient-to-r from-green-500 to-cyan-500 flex items-center justify-center text-white font-bold text-xl">
+              {getInitials(selectedOrderCustomer.firstName, selectedOrderCustomer.lastName)}
+            </div>
+
+            <div>
+              <h2 className="text-2xl font-bold text-white">
+                {selectedOrderCustomer.fullName}
+              </h2>
+              <p className="text-slate-400 text-sm">
+                {selectedOrderCustomer.email}
+              </p>
+            </div>
+          </div>
+
+          <button
+            onClick={() => {
+              setIsOrderModalOpen(false);
+              setSelectedOrderCustomer(null);
+              setExpandedOrderId(null);
+            }}
+            className="p-2 text-slate-400 hover:text-white hover:bg-red-500/20 rounded-lg"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+      </div>
+
+      {/* ✅ CONTENT */}
+      <div className="overflow-y-auto p-4 space-y-4">
+
+        {/* ✅ TITLE + FILTER (SAME) */}
+        <div className="flex items-center justify-between">
+          <h3 className="text-base font-semibold text-white flex items-center gap-2">
+            <ShoppingBag className="h-4 w-4 text-green-400" />
+            Order History ({selectedOrderCustomer.orders.length})
+          </h3>
+
+          <div className="flex items-center gap-2">
+            <Truck className="h-4 w-4 text-slate-400" />
+            <select
+              value={filters.deliveryMethod}
+              onChange={(e) =>
+                setFilters({ ...filters, deliveryMethod: e.target.value })
+              }
+              className="px-3 py-1.5 bg-slate-900 border border-slate-600 rounded-lg text-white text-xs"
+            >
+              <option value="all">All Delivery Methods</option>
+              {Array.from(new Set(selectedOrderCustomer.orders.map(o => o.deliveryMethod))).map((method) => (
+                <option key={method} value={method.toLowerCase()}>
+                  {method}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        {/* ✅ SAME ORDER CARDS (EXACT COPY STYLE) */}
+        <div className="space-y-3 max-h-[500px] overflow-y-auto pr-2">
+          {getFilteredOrdersForModal().map((order) => (
+            <div key={order.id} className="bg-slate-900/50 rounded-lg border border-slate-700/50 overflow-hidden">
+
+              {/* Header */}
+              <div className="p-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex-1">
+
+                    <div className="flex items-center gap-2">
+                      <p className="font-semibold text-white">{order.orderNumber}</p>
+
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-orange-500/10 text-orange-400 border border-orange-500/20">
+                        <Truck className="h-3 w-3" />
+                        {order.deliveryMethod}
+                      </span>
+                    </div>
+
+                    <p className="text-xs text-slate-400 mt-1">
+                      {formatDate(order.orderDate)} • {order.itemsCount} items
+                    </p>
+                  </div>
+
+                  <div className="text-right flex items-center gap-3">
+                    <div>
+                      <p className="font-semibold text-cyan-400 text-lg">
+                        {formatCurrency(order.totalAmount)}
+                      </p>
+
+                      <span
+                        className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium ${
+                          order.status === "Delivered"
+                            ? "bg-green-500/10 text-green-400 border border-green-500/20"
+                            : order.status === "Pending"
+                            ? "bg-yellow-500/10 text-yellow-400 border border-yellow-500/20"
+                            : "bg-slate-700/50 text-slate-400 border border-slate-600/50"
+                        }`}
+                      >
+                        {order.status}
+                      </span>
+                    </div>
+
+                    <button
+                      onClick={() => toggleOrderDetails(order.id)}
+                      className="p-2 text-violet-400 hover:bg-violet-500/10 rounded-lg"
+                    >
+                      <ChevronRight
+                        className={`h-4 w-4 transition-transform ${
+                          expandedOrderId === order.id ? "rotate-90" : ""
+                        }`}
+                      />
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Expanded */}
+              {expandedOrderId === order.id && (
+                <div className="border-t border-slate-700/50 p-4 bg-slate-900/80">
+                  <div className="grid grid-cols-3 gap-4">
+
+                    <div>
+                      <p className="text-xs text-slate-400">Subtotal</p>
+                      <p className="text-white">{formatCurrency(order.subtotalAmount)}</p>
+                    </div>
+
+                    <div>
+                      <p className="text-xs text-slate-400">Tax</p>
+                      <p className="text-white">{formatCurrency(order.taxAmount)}</p>
+                    </div>
+
+                    <div>
+                      <p className="text-xs text-slate-400">Shipping</p>
+                      <p className="text-white">{formatCurrency(order.shippingAmount)}</p>
+                    </div>
+
+                  </div>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+
+        {/* Empty */}
+        {getFilteredOrdersForModal().length === 0 && (
+          <div className="text-center py-8">
+            <Package className="h-12 w-12 text-slate-600 mx-auto mb-2" />
+            <p className="text-slate-400 text-sm">
+              No orders found for selected delivery method
+            </p>
+          </div>
+        )}
+
+      </div>
+    </div>
+  </div>
+)}
 {/* ✅ Customer Details Modal */}
 {isModalOpen && selectedCustomer && (
   
@@ -1517,7 +1735,11 @@ const getTierBadge = (tier: CustomerTier) => {
             <div>
               <div className="flex items-center gap-2">
                 <h2 className="text-2xl font-bold text-white">{selectedCustomer.fullName}</h2>
-              {getTierBadge(getCustomerTier(selectedCustomer))}
+           {modalTier === "loading" ? (
+  <span className="text-xs text-slate-500">Loading...</span>
+) : (
+  getTierBadge(modalTier)
+)}
               </div>
               <p className="text-slate-400 text-sm mt-0.5">{selectedCustomer.email}</p>
             </div>
@@ -1851,205 +2073,7 @@ const getTierBadge = (tier: CustomerTier) => {
           </div>
         )}
 
-        {/* ✅ Order History */}
-        {selectedCustomer.orders.length > 0 && (
-          <div className="bg-slate-800/30 p-4 rounded-xl border border-slate-700/50">
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="text-base font-semibold text-white flex items-center gap-2">
-                <ShoppingBag className="h-4 w-4 text-green-400" />
-                Order History ({selectedCustomer.orders.length})
-              </h3>
-
-              {/* Delivery Method Filter in Modal */}
-              <div className="flex items-center gap-2">
-                <Truck className="h-4 w-4 text-slate-400" />
-                <select
-                  value={filters.deliveryMethod}
-                  onChange={(e) => setFilters({ ...filters, deliveryMethod: e.target.value })}
-                  className={`px-3 py-1.5 bg-slate-900/90 border rounded-lg text-white text-xs focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all ${
-                    filters.deliveryMethod !== "all"
-                      ? "border-cyan-500 bg-cyan-500/10 ring-2 ring-cyan-500/50"
-                      : "border-slate-600"
-                  }`}
-                >
-                  <option value="all">All Delivery Methods</option>
-                  {getDeliveryMethods().map((method) => (
-                    <option key={method} value={method.toLowerCase()}>{method}</option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
-            <div className="space-y-3 max-h-[400px] overflow-y-auto pr-2">
-              {getFilteredOrders().map((order) => (
-                <div key={order.id} className="bg-slate-900/50 rounded-lg border border-slate-700/50 overflow-hidden">
-                  {/* Order Header */}
-                  <div className="p-3">
-                    <div className="flex items-center justify-between">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2">
-                          <p className="font-semibold text-white">{order.orderNumber}</p>
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-orange-500/10 text-orange-400 border border-orange-500/20">
-                            <Truck className="h-3 w-3" />
-                            {order.deliveryMethod}
-                          </span>
-                        </div>
-                        <p className="text-xs text-slate-400 mt-1">
-                          {formatDate(order.orderDate)} • {order.itemsCount} items
-                        </p>
-                      </div>
-                      <div className="text-right flex items-center gap-3">
-                        <div>
-                          <p className="font-semibold text-cyan-400 text-lg">
-                            {formatCurrency(order.totalAmount)}
-                          </p>
-                          <span
-                            className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium ${
-                              order.status === "Delivered"
-                                ? "bg-green-500/10 text-green-400 border border-green-500/20"
-                                : order.status === "Pending"
-                                ? "bg-yellow-500/10 text-yellow-400 border border-yellow-500/20"
-                                : "bg-slate-700/50 text-slate-400 border border-slate-600/50"
-                            }`}
-                          >
-                            {order.status}
-                          </span>
-                        </div>
-                        <button
-                          onClick={() => toggleOrderDetails(order.id)}
-                          className="p-2 text-violet-400 hover:bg-violet-500/10 rounded-lg transition-all"
-                          title="Toggle Details"
-                        >
-                          <ChevronRight
-                            className={`h-4 w-4 transition-transform ${
-                              expandedOrderId === order.id ? "rotate-90" : ""
-                            }`}
-                          />
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Expanded Order Details */}
-                  {expandedOrderId === order.id && (
-                    <div className="border-t border-slate-700/50 p-4 bg-slate-900/80">
-                      <div className="grid grid-cols-3 gap-4">
-                        {/* Order Summary */}
-                        <div className="bg-slate-800/50 p-3 rounded-lg border border-slate-700/50">
-                          <div className="flex items-center gap-2 mb-2">
-                            <PoundSterling className="h-4 w-4 text-green-400" />
-                            <p className="text-xs text-slate-300 font-semibold">Order Summary</p>
-                          </div>
-                          <div className="space-y-2 text-xs">
-                            <div className="flex justify-between">
-                              <span className="text-slate-400">Subtotal:</span>
-                              <span className="text-white font-medium">
-                                {formatCurrency(order.subtotalAmount)}
-                              </span>
-                            </div>
-                            <div className="flex justify-between">
-                              <span className="text-slate-400">Tax:</span>
-                              <span className="text-white font-medium">
-                                {formatCurrency(order.taxAmount)}
-                              </span>
-                            </div>
-                            <div className="flex justify-between">
-                              <span className="text-slate-400">Shipping:</span>
-                              <span className="text-white font-medium">
-                                {formatCurrency(order.shippingAmount)}
-                              </span>
-                            </div>
-                            {order.discountAmount > 0 && (
-                              <div className="flex justify-between">
-                                <span className="text-slate-400">Discount:</span>
-                                <span className="text-green-400 font-medium">
-                                  -{formatCurrency(order.discountAmount)}
-                                </span>
-                              </div>
-                            )}
-                            <div className="flex justify-between pt-2 mt-2 border-t border-slate-700">
-                              <span className="text-white font-semibold">Total:</span>
-                              <span className="text-cyan-400 font-bold">
-                                {formatCurrency(order.totalAmount)}
-                              </span>
-                            </div>
-                            {order.notes && (
-                              <div className="mt-3 pt-2 border-t border-slate-700">
-                                <p className="text-xs text-slate-400 mb-1">Notes:</p>
-                                <p className="text-xs text-slate-300 bg-slate-900/50 p-2 rounded">
-                                  {order.notes}
-                                </p>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-
-                        {/* Billing Address */}
-                        <div className="bg-slate-800/50 p-3 rounded-lg border border-slate-700/50">
-                          <div className="flex items-center gap-2 mb-2">
-                            <Package className="h-4 w-4 text-pink-400" />
-                            <p className="text-xs text-slate-300 font-semibold">Billing Address</p>
-                          </div>
-                          <div className="space-y-1 text-xs">
-                            <p className="font-medium text-white">
-                              {order.billingAddress.firstName} {order.billingAddress.lastName}
-                            </p>
-                            {order.billingAddress.company && (
-                              <p className="text-slate-400">{order.billingAddress.company}</p>
-                            )}
-                            <p className="text-slate-300 mt-2">{order.billingAddress.addressLine1}</p>
-                            {order.billingAddress.addressLine2 && (
-                              <p className="text-slate-300">{order.billingAddress.addressLine2}</p>
-                            )}
-                            <p className="text-slate-300">
-                              {order.billingAddress.city}, {order.billingAddress.state}
-                            </p>
-                            <p className="text-slate-300">
-                              {order.billingAddress.postalCode}, {order.billingAddress.country}
-                            </p>
-                          </div>
-                        </div>
-
-                        {/* Shipping Address */}
-                        <div className="bg-slate-800/50 p-3 rounded-lg border border-slate-700/50">
-                          <div className="flex items-center gap-2 mb-2">
-                            <Truck className="h-4 w-4 text-cyan-400" />
-                            <p className="text-xs text-slate-300 font-semibold">Shipping Address</p>
-                          </div>
-                          <div className="space-y-1 text-xs">
-                            <p className="font-medium text-white">
-                              {order.shippingAddress.firstName} {order.shippingAddress.lastName}
-                            </p>
-                            {order.shippingAddress.company && (
-                              <p className="text-slate-400">{order.shippingAddress.company}</p>
-                            )}
-                            <p className="text-slate-300 mt-2">{order.shippingAddress.addressLine1}</p>
-                            {order.shippingAddress.addressLine2 && (
-                              <p className="text-slate-300">{order.shippingAddress.addressLine2}</p>
-                            )}
-                            <p className="text-slate-300">
-                              {order.shippingAddress.city}, {order.shippingAddress.state}
-                            </p>
-                            <p className="text-slate-300">
-                              {order.shippingAddress.postalCode}, {order.shippingAddress.country}
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-
-            {getFilteredOrders().length === 0 && (
-              <div className="text-center py-8">
-                <Package className="h-12 w-12 text-slate-600 mx-auto mb-2" />
-                <p className="text-slate-400 text-sm">No orders found for selected delivery method</p>
-              </div>
-            )}
-          </div>
-        )}
+       
       </div>
     </div>
   </div>

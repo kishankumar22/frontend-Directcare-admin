@@ -603,132 +603,151 @@ const getDateRangeLabel = () => {
   }
 
   return (
-    <div className="min-h-screen bg-slate-950">
-      <div className="mx-auto space-y-2">
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight bg-gradient-to-r from-violet-400 via-cyan-400 to-pink-400 bg-clip-text text-transparent">
-              Comments Management
-            </h1>
-            <p className="text-slate-400 mt-2">
-              Moderate and manage blog comments
-              {postFilter !== "all" && (
-                <span className="ml-2 text-violet-400">
-                  • Filtered by {getSelectedPostTitle()}
-                </span>
-              )}
-            </p>
-          </div>
- <div className="flex flex-wrap gap-3">
-  {/* Navigation Button: Blog Categories */}
-  <button
-    onClick={() => router.push('/admin/BlogCategories')}
-    className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-violet-500 to-purple-500 hover:from-violet-600 hover:to-purple-600 text-white rounded-xl font-semibold shadow-lg hover:shadow-violet-500/50 transition-all"
-  >
-    <FolderTree className="h-4 w-4" />
-    Go to Blog Categories
-  </button>
+    <div className="min-h-screen">
+       <div className="mx-auto space-y-2">
+{/* Header */}
+<div className="flex flex-wrap items-center justify-between gap-3">
 
-  {/* Navigation Button: Blog Posts */}
-  <button
-    onClick={() => router.push("/admin/BlogPosts")}
-    className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-600 hover:to-blue-600 text-white rounded-xl font-semibold shadow-lg hover:shadow-cyan-500/50 transition-all"
-  >
-    <FileText className="h-4 w-4" />
-    Go to Blog Posts
-  </button>
+  <div>
+    <h1 className="text-xl font-semibold bg-gradient-to-r from-violet-400 via-cyan-400 to-pink-400 bg-clip-text text-transparent">
+      Comments Management
+    </h1>
+    <p className="text-[11px] text-slate-500">
+      Moderate and manage blog comments
+      {postFilter !== "all" && (
+        <span className="ml-2 text-violet-400">
+          • {getSelectedPostTitle()}
+        </span>
+      )}
+    </p>
+  </div>
 
-  {/* Refresh Button */}
-  <button
-    onClick={fetchBlogPosts}
-    disabled={loadingComments}
-    className="flex items-center gap-2 px-4 py-2.5 bg-slate-800/50 hover:bg-slate-700/50 text-white rounded-xl font-medium border border-slate-700/50 transition-all disabled:opacity-50"
-  >
-    {loadingComments ? (
-      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-    ) : (
-      <RefreshCw className="h-4 w-4" />
-    )}
-    Refresh
-  </button>
+  <div className="flex flex-wrap gap-2">
+
+    {/* Blog Categories */}
+    <button
+      onClick={() => router.push('/admin/BlogCategories')}
+      className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] bg-gradient-to-r from-violet-500 to-purple-500 text-white rounded-md hover:opacity-90"
+    >
+      <FolderTree className="h-3 w-3" />
+      Categories
+    </button>
+
+    {/* Blog Posts */}
+    <button
+      onClick={() => router.push("/admin/BlogPosts")}
+      className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] bg-gradient-to-r from-cyan-500 to-blue-500 text-white rounded-md hover:opacity-90"
+    >
+      <FileText className="h-3 w-3" />
+      Posts
+    </button>
+
+    {/* Refresh */}
+    <button
+      onClick={fetchBlogPosts}
+      disabled={loadingComments}
+      className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] bg-slate-800/60 border border-slate-700 rounded-md text-white"
+    >
+      {loadingComments ? (
+        <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+      ) : (
+        <RefreshCw className="h-3 w-3" />
+      )}
+      Refresh
+    </button>
+
+  </div>
 </div>
 
-        </div>
-        {/* Statistics Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-4 hover:border-violet-500/50 transition-all">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-xl bg-blue-500/10 flex items-center justify-center">
-                <MessageSquare className="h-6 w-6 text-blue-400" />
-              </div>
-              <div className="flex-1">
-                <p className="text-slate-400 text-sm font-medium mb-1">Total Comments</p>
-                <p className="text-white text-2xl font-bold">{stats.total}</p>
-              </div>
-            </div>
-          </div>
 
-          <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-4 hover:border-yellow-500/50 transition-all">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-xl bg-yellow-500/10 flex items-center justify-center">
-                <Clock className="h-6 w-6 text-yellow-400" />
-              </div>
-              <div className="flex-1">
-                <p className="text-slate-400 text-sm font-medium mb-1">Pending</p>
-                <p className="text-white text-2xl font-bold">{stats.pending}</p>
-              </div>
-            </div>
-          </div>
+{/* Stats Cards */}
+<div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-2">
 
-          <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-4 hover:border-green-500/50 transition-all">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-xl bg-green-500/10 flex items-center justify-center">
-                <CheckCircle className="h-6 w-6 text-green-400" />
-              </div>
-              <div className="flex-1">
-                <p className="text-slate-400 text-sm font-medium mb-1">Approved</p>
-                <p className="text-white text-2xl font-bold">{stats.approved}</p>
-              </div>
-            </div>
-          </div>
+  {/* Total */}
+  <div className="bg-slate-900/40 border border-slate-800 rounded-lg p-2.5">
+    <div className="flex items-center gap-2">
+      <div className="w-8 h-8 bg-blue-500/10 rounded-md flex items-center justify-center">
+        <MessageSquare className="h-4 w-4 text-blue-400" />
+      </div>
+      <div>
+        <p className="text-[10px] text-slate-500">Total</p>
+        <p className="text-lg font-semibold text-white">{stats.total}</p>
+      </div>
+    </div>
+  </div>
 
-          <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-4 hover:border-red-500/50 transition-all">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-xl bg-red-500/10 flex items-center justify-center">
-                <Ban className="h-6 w-6 text-red-400" />
-              </div>
-              <div className="flex-1">
-                <p className="text-slate-400 text-sm font-medium mb-1">Spam</p>
-                <p className="text-white text-2xl font-bold">{stats.spam}</p>
-              </div>
-            </div>
-          </div>
-        </div>
+  {/* Pending */}
+  <div className="bg-slate-900/40 border border-slate-800 rounded-lg p-2.5">
+    <div className="flex items-center gap-2">
+      <div className="w-8 h-8 bg-yellow-500/10 rounded-md flex items-center justify-center">
+        <Clock className="h-4 w-4 text-yellow-400" />
+      </div>
+      <div>
+        <p className="text-[10px] text-slate-500">Pending</p>
+        <p className="text-lg font-semibold text-white">{stats.pending}</p>
+      </div>
+    </div>
+  </div>
 
-        {/* Items Per Page */}
-        <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-2xl p-2">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <div className="flex items-center gap-2">
-              <span className="text-sm text-slate-400">Show</span>
-              <select
-                value={itemsPerPage}
-                onChange={(e) => handleItemsPerPageChange(Number(e.target.value))}
-                className="px-2 py-1.5 bg-slate-800/50 border border-slate-600 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all"
-              >
-                <option value={25}>25</option>
-                <option value={50}>50</option>
-                <option value={75}>75</option>
-                <option value={100}>100</option>
-              </select>
-              <span className="text-sm text-slate-400">entries per page</span>
-            </div>
-            
-            <div className="text-sm text-slate-400">
-              {loadingComments ? "Loading..." : `Showing ${totalItems > 0 ? startIndex + 1 : 0} to ${Math.min(endIndex, totalItems)} of ${totalItems} entries`}
-            </div>
-          </div>
-        </div>
+  {/* Approved */}
+  <div className="bg-slate-900/40 border border-slate-800 rounded-lg p-2.5">
+    <div className="flex items-center gap-2">
+      <div className="w-8 h-8 bg-green-500/10 rounded-md flex items-center justify-center">
+        <CheckCircle className="h-4 w-4 text-green-400" />
+      </div>
+      <div>
+        <p className="text-[10px] text-slate-500">Approved</p>
+        <p className="text-lg font-semibold text-white">{stats.approved}</p>
+      </div>
+    </div>
+  </div>
+
+  {/* Spam */}
+  <div className="bg-slate-900/40 border border-slate-800 rounded-lg p-2.5">
+    <div className="flex items-center gap-2">
+      <div className="w-8 h-8 bg-red-500/10 rounded-md flex items-center justify-center">
+        <Ban className="h-4 w-4 text-red-400" />
+      </div>
+      <div>
+        <p className="text-[10px] text-slate-500">Spam</p>
+        <p className="text-lg font-semibold text-white">{stats.spam}</p>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+
+{/* Items Per Page */}
+<div className="bg-slate-900/40 border border-slate-800 rounded-lg px-3 py-2">
+
+  <div className="flex flex-wrap items-center justify-between gap-2">
+
+    <div className="flex items-center gap-2">
+      <span className="text-[11px] text-slate-500">Show</span>
+
+      <select
+        value={itemsPerPage}
+        onChange={(e) => handleItemsPerPageChange(Number(e.target.value))}
+        className="px-2 py-1 bg-slate-800/60 border border-slate-700 rounded-md text-white text-[11px]"
+      >
+        <option value={25}>25</option>
+        <option value={50}>50</option>
+        <option value={75}>75</option>
+        <option value={100}>100</option>
+      </select>
+
+      <span className="text-[11px] text-slate-500">per page</span>
+    </div>
+
+    <div className="text-[11px] text-slate-500">
+      {loadingComments
+        ? "Loading..."
+        : `${totalItems > 0 ? startIndex + 1 : 0} – ${Math.min(endIndex, totalItems)} of ${totalItems}`}
+    </div>
+
+  </div>
+</div>
 
         {/* Comments Section */}
 <div className="bg-slate-900/90 backdrop-blur-xl border border-slate-800 rounded-2xl p-2">

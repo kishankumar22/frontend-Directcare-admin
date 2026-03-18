@@ -230,7 +230,10 @@ const debouncedSearchTerm = useDebounce(searchInput, 500); // 500ms delay
   const [showExportMenu, setShowExportMenu] = useState(false);
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [selectedProductForDiscount, setSelectedProductForDiscount] = useState<any>(null);
-
+const [bulkAction, setBulkAction] = useState<null | {
+  type: "activate" | "deactivate" | "publish" | "unpublish" | "delete" | "restore";
+  items: FormattedProduct[];
+}>(null);
 
   const [selectedCategory, setSelectedCategory] = useState<SelectOption>({ value: "all", label: "All Categories" });
   const [selectedBrand, setSelectedBrand] = useState<SelectOption>({ value: "all", label: "All Brands" });
@@ -275,13 +278,18 @@ const debouncedSearchTerm = useDebounce(searchInput, 500); // 500ms delay
     { value: "variable", label: "variable" },
   ];
 
-  const statusOptions: SelectOption[] = [
-    { value: "all", label: "All Stock Status" },
-    { value: "In Stock", label: "In Stock" },
-    { value: "Low Stock", label: "Low Stock" },
-    { value: "Out of Stock", label: "Out of Stock" },
-  ];
+const statusOptions: SelectOption[] = [
+  { value: "all", label: "All Stock Status" },
+  { value: "InStock", label: "In Stock" },
+  { value: "LowStock", label: "Low Stock" },
+  { value: "OutOfStock", label: "Out of Stock" },
+];
 
+const pharmaOptions: SelectOption[] = [
+  { value: "all", label: "All Products" },
+  { value: "yes", label: "Pharma Only" },
+  { value: "no", label: "Non-Pharma Only" },
+];
   const visibilityOptions: SelectOption[] = [
     { value: "all", label: "All Visibility" },
     { value: "published", label: "Published" },
@@ -460,7 +468,10 @@ const getProductImage = (images: any[]): string => {
   };
 // ✅ INITIAL FETCH - runs when page, itemsPerPage, or BACKEND filters change
 
-
+const [pharmaFilter, setPharmaFilter] = useState<SelectOption>({
+  value: "all",
+  label: "All Products",
+});
 
 
 // ✅ FETCH PRODUCTS WITH PAGINATION AND FILTERS
@@ -479,6 +490,9 @@ const fetchProducts = async () => {
 
    if (deletedFilter.value === "deleted") {
   params.isDeleted = true;
+}
+if (statusFilter.value !== "all") {
+  params.stockStatus = statusFilter.value;
 }
 
 if (deletedFilter.value === "active") {
@@ -514,6 +528,9 @@ if (deletedFilter.value === "inactive") {
     if (selectedHomepage.value !== "all") {
       params.showOnHomepage = selectedHomepage.value === "yes";
     }
+    if (pharmaFilter.value !== "all") {
+  params.isPharmaProduct = pharmaFilter.value === "yes";
+}
 
 if (selectedType.value !== "all") {
   params.productType = selectedType.value;
@@ -558,18 +575,8 @@ if (deletedFilter.value === "inactive") {
 if (deletedFilter.value === "deleted") {
   items = items.filter((p: any) => p.isDeleted === true);
 }
-      // Client-side only: Stock Status (computed field)
-      if (statusFilter.value !== "all") {
-        items = items.filter((p: any) => {
-          const status = productHelpers.getStockStatus({
-            stockQuantity: p.stockQuantity,
-            trackQuantity: p.trackQuantity,
-            lowStockThreshold: p.lowStockThreshold,
-            allowBackorder: p.allowBackorder,
-          });
-          return status === statusFilter.value;
-        });
-      }
+
+
 
 
       // Calculate pagination info from API
@@ -733,33 +740,79 @@ const FilterLoader = () => {
   );
 };
   // ✅ FETCH PRODUCT DETAILS
-  const fetchProductDetails = async (productId: string) => {
-    setLoadingDetails(true);
-    try {
-      const response = await productsService.getById(productId);
-      if (response.data?.success && response.data?.data) {
-        const p = response.data.data;
-        if (p.relatedProductIds) {
-          p.relatedProducts = p.relatedProductIds
-            .split(",")
-            .map((id: string) => allProductsMap.get(id.trim()))
-            .filter((product): product is RelatedProduct => product !== undefined);
-        }
-        if (p.crossSellProductIds) {
-          p.crossSellProducts = p.crossSellProductIds
-            .split(",")
-            .map((id: string) => allProductsMap.get(id.trim()))
-            .filter((product): product is RelatedProduct => product !== undefined);
-        }
-        setViewingProduct(p);
-      }
-    } catch (err) {
-      console.error("Error fetching product details:", err);
-      toast.error("Failed to load product details");
-    } finally {
-      setLoadingDetails(false);
+const fetchProductDetails = async (productId: string) => {
+  setLoadingDetails(true);
+
+  try {
+    // 🔍 First: find product from current list
+    const currentProduct = products.find(p => p.id === productId);
+
+    if (!currentProduct) {
+      toast.error("Product not found in list");
+      return;
     }
-  };
+
+    let p: any = null;
+
+    // ✅ CASE 1: NORMAL PRODUCT → use getById
+    if (!currentProduct.isDeleted) {
+      const response = await productsService.getById(productId);
+
+      if (response.data?.success && response.data?.data) {
+        p = response.data.data;
+      }
+    }
+
+    // ✅ CASE 2: DELETED PRODUCT → use search API
+    else {
+      const response = await productsService.getAll({
+        page: 1,
+        pageSize: 1,
+        isDeleted: true,
+        searchTerm: currentProduct.name, // 🔥 NAME SEARCH
+      });
+
+      if (response.data?.success && response.data?.data?.items?.length > 0) {
+        p = response.data.data.items[0]; // ✅ first match
+      }
+    }
+
+    if (!p) {
+      toast.error("Product details not found");
+      return;
+    }
+
+ // ✅ Related Products Mapping
+if (p.relatedProductIds) {
+  p.relatedProducts = p.relatedProductIds
+    .split(",")
+    .map((id: string) => allProductsMap.get(id.trim()))
+    .filter(
+      (product: RelatedProduct | undefined): product is RelatedProduct =>
+        product !== undefined
+    );
+}
+
+if (p.crossSellProductIds) {
+  p.crossSellProducts = p.crossSellProductIds
+    .split(",")
+    .map((id: string) => allProductsMap.get(id.trim()))
+    .filter(
+      (product: RelatedProduct | undefined): product is RelatedProduct =>
+        product !== undefined
+    );
+}
+
+    // ✅ OPEN MODAL
+    setViewingProduct(p);
+
+  } catch (err) {
+    console.error("Error fetching product details:", err);
+    toast.error("Failed to load product details");
+  } finally {
+    setLoadingDetails(false);
+  }
+};
 
   const handleToggleStatus = async (product: Product) => {
     try {
@@ -840,7 +893,9 @@ useEffect(() => {
   notReturnableFilter,
   inventoryFilter,
   recurringFilter,
-  vatFilter
+  vatFilter,
+  statusFilter ,// ✅ ADD THIS
+  pharmaFilter 
 ]);
 
 // ✅ EFFECT 3: Handle client-side filters - JUST reset page, NO API call
@@ -876,6 +931,7 @@ const clearFilters = useCallback(() => {
   setRecurringFilter({ value: "all", label: "Subscription: All" });
   setVatFilter({ value: "all", label: "VAT: All" });
   setDeletedFilter({ value: "all", label: "All Records" });
+  setPharmaFilter({ value: "all", label: "All Products" });
   setSearchInput(""); // Clear search input
   setCurrentPage(1);
 }, []);
@@ -896,6 +952,7 @@ const hasActiveFilters = useMemo(
     recurringFilter.value !== "all" ||
     vatFilter.value !== "all" ||
     deletedFilter.value !== "all" ||
+    pharmaFilter.value !== "all"||
     searchInput.trim() !== "", // Use searchInput instead of searchTerm
   [
     selectedCategory,
@@ -1503,180 +1560,121 @@ const handleExport = async (exportAll: boolean = false) => {
           </div>
         </div>
       </div>
+
 {/* BULK ACTION BAR */}
-{selectedProducts.length > 0 && (
-  <div className="bg-slate-900/80 border border-violet-500/20 rounded-xl px-4 py-3 flex items-center justify-between">
-    
-    <div className="text-sm text-white">
-      {selectedProducts.length} product(s) selected
-    </div>
+{selectedProducts.length > 1 && (() => {
 
-    {selectionState.mixed ? (
-      <div className="text-xs text-yellow-400 flex items-center gap-2">
-        <AlertCircle className="w-4 h-4" />
-        Select products with same status to perform actions
+  const selectedItems = selectedProducts
+    .map(id => products.find(p => p.id === id))
+    .filter((p): p is FormattedProduct => Boolean(p));
+
+  if (selectedItems.length === 0) return null;
+
+  const hasActive = selectedItems.some(p => p.isActive);
+  const hasInactive = selectedItems.some(p => !p.isActive);
+
+  const hasPublished = selectedItems.some(p => p.isPublished);
+  const hasUnpublished = selectedItems.some(p => !p.isPublished);
+
+  const hasDeleted = selectedItems.some(p => p.isDeleted);
+  const hasNotDeleted = selectedItems.some(p => !p.isDeleted);
+
+  return (
+    <div className="bg-slate-900/80 border border-violet-500/20 rounded-xl px-4 py-3 flex items-center justify-between flex-wrap gap-3">
+
+      {/* LEFT */}
+      <div className="text-sm text-white">
+        {selectedItems.length} product(s) selected
       </div>
-    ) : (
-      <div className="flex items-center gap-2">
 
-        {selectionState.status === "inactive" && (
+      {/* RIGHT */}
+      <div className="flex items-center gap-2 flex-wrap">
+
+        {/* ACTIVATE */}
+        {hasInactive && (
           <button
-            className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs rounded-md"
-           onClick={async () => {
-  try {
-    setIsProcessing(true);
-
-    await Promise.all(
-      selectedProducts.map((id) =>
-        productsService.toggleActive(id)
-      )
-    );
-
-    toast.success(`${selectedProducts.length} product(s) activated`);
-    setSelectedProducts([]);
-    fetchProducts();
-  } catch (err) {
-    toast.error("Failed to activate products");
-  } finally {
-    setIsProcessing(false);
-  }
-}}
+            disabled={isProcessing}
+            onClick={() => {
+              const items = selectedItems.filter(p => !p.isActive);
+              setBulkAction({ type: "activate", items });
+            }}
+            className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs rounded-md disabled:opacity-50"
           >
             Activate
           </button>
         )}
 
-        {selectionState.status === "active" && (
+        {/* DEACTIVATE */}
+        {hasActive && (
           <button
-            className="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white text-xs rounded-md"
-           onClick={async () => {
-  try {
-    setIsProcessing(true);
-
-    await Promise.all(
-      selectedProducts.map((id) =>
-        productsService.toggleActive(id)
-      )
-    );
-
-    toast.success(`${selectedProducts.length} product(s) deactivated`);
-    setSelectedProducts([]);
-    fetchProducts();
-  } catch (err) {
-    toast.error("Failed to deactivate products");
-  } finally {
-    setIsProcessing(false);
-  }
-}}
+            disabled={isProcessing}
+            onClick={() => {
+              const items = selectedItems.filter(p => p.isActive);
+              setBulkAction({ type: "deactivate", items });
+            }}
+            className="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white text-xs rounded-md disabled:opacity-50"
           >
             Deactivate
           </button>
         )}
-        {selectionState.publishStatus === "unpublished" && (
-  <button
-    className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs rounded-md"
-    onClick={async () => {
-      try {
-        setIsProcessing(true);
 
-     await Promise.all(
-  selectedProducts.map((id) =>
-    productsService.togglePublish(id)
-  )
-);
+        {/* PUBLISH */}
+        {hasUnpublished && (
+          <button
+            disabled={isProcessing}
+            onClick={() => {
+              const items = selectedItems.filter(p => !p.isPublished);
+              setBulkAction({ type: "publish", items });
+            }}
+            className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs rounded-md disabled:opacity-50"
+          >
+            Publish
+          </button>
+        )}
 
-        toast.success(`${selectedProducts.length} product(s) published`);
-        setSelectedProducts([]);
-        fetchProducts();
-      } catch {
-        toast.error("Failed to publish products");
-      } finally {
-        setIsProcessing(false);
-      }
-    }}
-  >
-    Publish
-  </button>
-)}
-{selectionState.publishStatus === "published" && (
-  <button
-    className="px-3 py-1.5 bg-yellow-600 hover:bg-yellow-700 text-white text-xs rounded-md"
-    onClick={async () => {
-      try {
-        setIsProcessing(true);
+        {/* UNPUBLISH */}
+        {hasPublished && (
+          <button
+            disabled={isProcessing}
+            onClick={() => {
+              const items = selectedItems.filter(p => p.isPublished);
+              setBulkAction({ type: "unpublish", items });
+            }}
+            className="px-3 py-1.5 bg-yellow-600 hover:bg-yellow-700 text-white text-xs rounded-md disabled:opacity-50"
+          >
+            Unpublish
+          </button>
+        )}
 
- await Promise.all(
-  selectedProducts.map((id) =>
-    productsService.togglePublish(id)
-  )
-);
+        {/* RESTORE */}
+        {hasDeleted && (
+          <button
+            disabled={isProcessing}
+            onClick={() => {
+              const items = selectedItems.filter(p => p.isDeleted);
+              setBulkAction({ type: "restore", items });
+            }}
+            className="px-3 py-1.5 bg-emerald-500 hover:bg-emerald-600 text-white text-xs rounded-md disabled:opacity-50"
+          >
+            Restore
+          </button>
+        )}
 
-        toast.success(`${selectedProducts.length} product(s) unpublished`);
-        setSelectedProducts([]);
-        fetchProducts();
-      } catch {
-        toast.error("Failed to unpublish products");
-      } finally {
-        setIsProcessing(false);
-      }
-    }}
-  >
-    Unpublish
-  </button>
-)}
-{allDeletedSelected && (
-  <button
-    className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs rounded-md"
-   onClick={async () => {
-  try {
-    setIsProcessing(true);
+        {/* DELETE */}
+        {hasNotDeleted && (
+          <button
+            disabled={isProcessing}
+            onClick={() => {
+              const items = selectedItems.filter(p => !p.isDeleted);
+              setBulkAction({ type: "delete", items });
+            }}
+            className="px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white text-xs rounded-md disabled:opacity-50"
+          >
+            Delete
+          </button>
+        )}
 
-    await Promise.all(
-      selectedProducts.map((id) =>
-        productsService.restore(id)
-      )
-    );
-
-    toast.success(`${selectedProducts.length} product(s) restored`);
-    setSelectedProducts([]);
-    fetchProducts();
-  } catch (err) {
-    toast.error("Failed to restore products");
-  } finally {
-    setIsProcessing(false);
-  }
-}}
-  >
-    Restore
-  </button>
-)}
-       {!allDeletedSelected && (
-  <button
-    className="px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white text-xs rounded-md"
-  onClick={async () => {
-  try {
-    setIsProcessing(true);
-
-    await Promise.all(
-      selectedProducts.map((id) =>
-        productsService.delete(id)
-      )
-    );
-
-    toast.success(`${selectedProducts.length} product(s) deleted`);
-    setSelectedProducts([]);
-    fetchProducts();
-  } catch (err) {
-    toast.error("Failed to delete products");
-  } finally {
-    setIsProcessing(false);
-  }
-}}
-  >
-    Delete
-  </button>
-)}
-
+        {/* CLEAR */}
         <button
           onClick={() => setSelectedProducts([])}
           className="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-white text-xs rounded-md"
@@ -1685,9 +1683,9 @@ const handleExport = async (exportAll: boolean = false) => {
         </button>
 
       </div>
-    )}
-  </div>
-)}
+    </div>
+  );
+})()}
       {/* ================= ITEMS PER PAGE + RESULTS COUNT ================= */}
 <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-xl px-3 py-2">
   <div className="flex items-center justify-between gap-3 relative">
@@ -2074,7 +2072,24 @@ const handleExport = async (exportAll: boolean = false) => {
                   </option>
                 ))}
               </select>
-
+<select
+  value={pharmaFilter.value}
+  onChange={(e) => {
+    const option = pharmaOptions.find(opt => opt.value === e.target.value);
+    if (option) setPharmaFilter(option);
+  }}
+  className={`w-full px-3 py-2.5 bg-slate-800/90 border rounded-xl text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all ${
+    pharmaFilter.value !== "all"
+      ? "border-blue-500 bg-blue-500/10 ring-2 ring-blue-500/50"
+      : "border-slate-600"
+  }`}
+>
+  {pharmaOptions.map((opt) => (
+    <option key={opt.value} value={opt.value}>
+      {opt.label}
+    </option>
+  ))}
+</select>
             
             </div>
           </div>
@@ -2123,14 +2138,24 @@ const handleExport = async (exportAll: boolean = false) => {
                       selectedDeleteProduct?.id === product.id ||
                       selectedToggleProduct?.id === product.id
                     );
+                    const isDeleted = product.isDeleted;
 
                   return (
                     <tr
                       key={product.id}
-                      className={`border-b border-slate-800 transition-colors
-                        ${product.isDeleted ? 'opacity-60 grayscale bg-red-500/5' : 'hover:bg-slate-800/30'}
-                        ${isBusy ? 'pointer-events-none' : ''}
-                      `}
+className={`border-b border-slate-800 transition-colors
+  ${
+    product.isDeleted
+      ? 'bg-red-500/5'
+      : ''
+  }
+  ${
+    selectedProducts.includes(product.id)
+      ? 'bg-violet-500/10 ring-1 ring-violet-500/40'
+      : 'hover:bg-slate-800/30'
+  }
+  ${isBusy ? 'pointer-events-none' : ''}
+`}
                     >
                       {/* PRODUCT */}
                       <td className="py-2 px-3">
@@ -2356,57 +2381,61 @@ Last Updated By: ${product.updatedBy || "N/A"}
 
                       {/* ACTIONS */}
                       <td className="py-2 px-3">
-                        <div className="flex items-center justify-center gap-1">
-                          <Link href={`/products/${product.slug}`} target="_blank">
-                            <button className="p-1.5 text-emerald-400 hover:bg-emerald-500/10 rounded-md"
-                              title="View On Browser">
-                              <ExternalLink className="h-4 w-4" />
-                            </button>
-                          </Link>
+                    <div className="flex items-center justify-center gap-1">
 
-                          <button
-                            onClick={() => fetchProductDetails(product.id)}
-                            className="p-1.5 text-violet-400 hover:bg-violet-500/10 rounded-md"
-                            title="View Details"
-                          >
-                            <Eye className="h-4 w-4" />
-                          </button>
+  {/* VIEW */}
+  {!isDeleted && (
+    <Link href={`/products/${product.slug}`} target="_blank">
+      <button className="p-1.5 text-emerald-400 hover:bg-emerald-500/10 rounded-md">
+        <ExternalLink className="h-4 w-4" />
+      </button>
+    </Link>
+  )}
 
-                          <Link href={`/admin/products/edit/${product.id}`}>
-                            <button className="p-1.5 text-cyan-400 hover:bg-cyan-500/10 rounded-md"
-                              title="Edit Product">
-                              <Edit className="h-4 w-4" />
-                            </button>
-                          </Link>
+  {/* VIEW DETAILS */}
+  {!isDeleted && (
+    <button
+      onClick={() => fetchProductDetails(product.id)}
+      className="p-1.5 text-violet-400 hover:bg-violet-500/10 rounded-md"
+    >
+      <Eye className="h-4 w-4" />
+    </button>
+  )}
 
-                          <button
-                            onClick={() =>
-                              openProductActionModal({
-                                id: product.id,
-                                name: product.name,
-                                isDeleted: product.isDeleted,
-                              })
-                            }
-                            className={`p-1.5 rounded-md ${
-                              product.isDeleted
-                                ? 'text-emerald-400 hover:bg-emerald-500/10'
-                                : 'text-red-400 hover:bg-red-500/10'
-                            }`}
-                            title={
-                              product.isDeleted
-                                ? 'Restore Product'
-                                : 'Delete Product'
-                            }
-                          >
-                            {isBusy ? (
-                              <div className="h-4 w-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
-                            ) : product.isDeleted ? (
-                              <CheckCircle className="h-4 w-4" />
-                            ) : (
-                              <Trash2 className="h-4 w-4" />
-                            )}
-                          </button>
-                        </div>
+  {/* EDIT */}
+  {!isDeleted && (
+    <Link href={`/admin/products/edit/${product.id}`}>
+      <button className="p-1.5 text-cyan-400 hover:bg-cyan-500/10 rounded-md">
+        <Edit className="h-4 w-4" />
+      </button>
+    </Link>
+  )}
+
+  {/* DELETE / RESTORE */}
+<button
+  onClick={() =>
+    openProductActionModal({
+      id: product.id,
+      name: product.name,
+      isDeleted: product.isDeleted,
+    })
+  }
+  className={`p-1.5 rounded-md transition-all ${
+    product.isDeleted
+      ? 'text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20 ring-1 ring-emerald-500/30' // ✅ FIXED
+      : 'text-red-400 hover:bg-red-500/10'
+  }`}
+>
+  {isBusy ? (
+    <div className="h-4 w-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+  ) : product.isDeleted ? (
+    <CheckCircle className="h-4 w-4 shadow shadow-emerald-500/20" />
+  ) : (
+    <Trash2 className="h-4 w-4" />
+  )}
+</button>
+
+</div>
                       </td>
                     </tr>
                   );
@@ -2690,7 +2719,76 @@ Last Updated By: ${product.updatedBy || "N/A"}
         }
         isLoading={isProcessing}
       />
+<ConfirmDialog
+  isOpen={!!bulkAction}
+  onClose={() => setBulkAction(null)}
+  onConfirm={async () => {
+    if (!bulkAction) return;
 
+    try {
+      setIsProcessing(true);
+
+      const { type, items } = bulkAction;
+
+      if (items.length === 0) {
+        toast.warning("No valid products selected");
+        return;
+      }
+
+      if (type === "activate" || type === "deactivate") {
+        await Promise.all(items.map(p => productsService.toggleActive(p.id)));
+      }
+
+      if (type === "publish" || type === "unpublish") {
+        await Promise.all(items.map(p => productsService.togglePublish(p.id)));
+      }
+
+      if (type === "delete") {
+        await Promise.all(items.map(p => productsService.delete(p.id)));
+      }
+
+      if (type === "restore") {
+        await Promise.all(items.map(p => productsService.restore(p.id)));
+      }
+
+      toast.success(`${items.length} product(s) ${type}d successfully`);
+      setSelectedProducts([]);
+      fetchProducts();
+
+    } catch (err) {
+      toast.error("Bulk action failed");
+    } finally {
+      setIsProcessing(false);
+      setBulkAction(null);
+    }
+  }}
+  title={
+    bulkAction?.type === "activate"
+      ? "Activate Products?"
+      : bulkAction?.type === "deactivate"
+      ? "Deactivate Products?"
+      : bulkAction?.type === "publish"
+      ? "Publish Products?"
+      : bulkAction?.type === "unpublish"
+      ? "Unpublish Products?"
+      : bulkAction?.type === "delete"
+      ? "Delete Products?"
+      : "Restore Products?"
+  }
+  message={`This will affect ${bulkAction?.items.length || 0} product(s).`}
+  confirmText="Yes, Continue"
+  cancelText="Cancel"
+  iconColor={
+    bulkAction?.type === "delete"
+      ? "text-red-400"
+      : "text-emerald-400"
+  }
+  confirmButtonStyle={
+    bulkAction?.type === "delete"
+      ? "bg-gradient-to-r from-red-600 to-rose-600"
+      : "bg-gradient-to-r from-emerald-600 to-green-600"
+  }
+/>
       <ConfirmDialog
         isOpen={showToggleConfirm}
         onClose={() => {

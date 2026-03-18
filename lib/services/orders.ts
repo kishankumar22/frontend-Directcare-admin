@@ -184,6 +184,7 @@ export interface Order {
   collectionExpiryDate?: string;
   isShippingRefunded?:string
   collectorIDNumber?:string
+
   // ================= PHARMACY =================
   pharmacyVerificationStatus?: PharmacyVerificationStatus;
   pharmacyVerificationNote?: string | null;

@@ -554,11 +554,13 @@ const handleSubmit = async (e: React.FormEvent) => {
   const clearFilters = () => {
     setStatusFilter("all");
     setBannerTypeFilter("all");
+    setDeletedFilter("notDeleted")
+   
     setSearchTerm("");
     setCurrentPage(1);
   };
 
-  const hasActiveFilters = statusFilter !== "all" || bannerTypeFilter !== "all" || searchTerm.trim() !== "";
+  const hasActiveFilters = statusFilter !== "all" || bannerTypeFilter !== "all" || searchTerm.trim() !== "" || deletedFilter!==("notDeleted");
 
   const filteredBanners = banners.filter(banner => {
     const matchesSearch = banner.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -633,364 +635,422 @@ const handleSubmit = async (e: React.FormEvent) => {
 
   return (
     <div className="space-y-2">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight bg-gradient-to-r from-violet-400 via-cyan-400 to-pink-400 bg-clip-text text-transparent">
-            Banner Management
-          </h1>
-          <p className="text-slate-400">Manage your website banners ({banners.length} total)</p>
-        </div>
-        <button
-          onClick={() => {
-            resetForm();
-            setShowModal(true);
-          }}
-          className="px-4 py-2 dark:text-black bg-gradient-to-r from-violet-500 to-cyan-500 justify-center text-white rounded-xl hover:shadow-lg hover:shadow-violet-500/50 transition-all flex items-center gap-2 font-semibold"
-        >
-          <Plus className="h-4 w-4" />
-          Add Banner
-        </button>
+
+{/* Header */}
+<div className="flex flex-wrap items-center justify-between gap-3">
+
+  <div>
+    <h1 className="text-xl font-semibold bg-gradient-to-r from-violet-400 via-cyan-400 to-pink-400 bg-clip-text text-transparent">
+      Banner Management
+    </h1>
+    <p className="text-[11px] text-slate-500">
+      {banners.length} banners
+    </p>
+  </div>
+
+  <button
+    onClick={() => {
+      resetForm();
+      setShowModal(true);
+    }}
+    className="px-3 py-1.5 text-[11px] bg-gradient-to-r from-violet-500 to-cyan-500 text-white rounded-md flex items-center gap-1.5 hover:opacity-90"
+  >
+    <Plus className="h-3 w-3" />
+    Add Banner 
+  </button>
+</div>
+
+
+{/* Stats Cards (COMPACT) */}
+<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
+
+  {/* Total */}
+  <div className="bg-slate-900/40 border border-slate-800 rounded-lg p-2.5">
+    <div className="flex items-center gap-2">
+      <div className="w-8 h-8 bg-violet-500/10 rounded-md flex items-center justify-center">
+        <ImageIcon className="h-4 w-4 text-violet-400" />
       </div>
-           {/* Statistics Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-6 hover:border-violet-500/50 transition-all">
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-xl bg-violet-500/10 flex items-center justify-center">
-              <ImageIcon className="h-6 w-6 text-violet-400" />
-            </div>
-            <div className="flex-1">
-              <p className="text-slate-400 text-sm font-medium mb-1">Total Banners</p>
-              <p className="text-white text-2xl font-bold">{stats.totalBanners}</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-6 hover:border-green-500/50 transition-all">
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-xl bg-green-500/10 flex items-center justify-center">
-              <CheckCircle className="h-6 w-6 text-green-400" />
-            </div>
-            <div className="flex-1">
-              <p className="text-slate-400 text-sm font-medium mb-1">Active</p>
-              <p className="text-white text-2xl font-bold">{stats.activeBanners}</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-6 hover:border-red-500/50 transition-all">
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-xl bg-red-500/10 flex items-center justify-center">
-              <AlertCircle className="h-6 w-6 text-red-400" />
-            </div>
-            <div className="flex-1">
-              <p className="text-slate-400 text-sm font-medium mb-1">Inactive</p>
-              <p className="text-white text-2xl font-bold">{stats.inactiveBanners}</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-6 hover:border-cyan-500/50 transition-all">
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-xl bg-cyan-500/10 flex items-center justify-center">
-              <Calendar className="h-6 w-6 text-cyan-400" />
-            </div>
-            <div className="flex-1">
-              <p className="text-slate-400 text-sm font-medium mb-1">Upcoming</p>
-              <p className="text-white text-2xl font-bold">{stats.upcomingBanners}</p>
-            </div>
-          </div>
-        </div>
+      <div>
+        <p className="text-[11px] text-slate-500">Total</p>
+        <p className="text-lg font-semibold text-white">
+          {stats.totalBanners}
+        </p>
       </div>
+    </div>
+  </div>
 
-      {/* Items Per Page Selector */}
-      <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-2xl p-2">
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <span className="text-sm text-slate-400">Show</span>
-            <select
-              value={itemsPerPage}
-              onChange={(e) => handleItemsPerPageChange(Number(e.target.value))}
-              className="px-3 py-2 bg-slate-800/50 border border-slate-600 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all"
-            >
-              <option value={25}>25</option>
-              <option value={50}>50</option>
-              <option value={75}>75</option>
-              <option value={100}>100</option>
-            </select>
-            <span className="text-sm text-slate-400">entries per page</span>
-          </div>
-          
-          <div className="text-sm text-slate-400">
-            Showing {startIndex + 1} to {Math.min(endIndex, totalItems)} of {totalItems} entries
-          </div>
-        </div>
+  {/* Active */}
+  <div className="bg-slate-900/40 border border-slate-800 rounded-lg p-2.5">
+    <div className="flex items-center gap-2">
+      <div className="w-8 h-8 bg-green-500/10 rounded-md flex items-center justify-center">
+        <CheckCircle className="h-4 w-4 text-green-400" />
       </div>
+      <div>
+        <p className="text-[11px] text-slate-500">Active</p>
+        <p className="text-lg font-semibold text-white">
+          {stats.activeBanners}
+        </p>
+      </div>
+    </div>
+  </div>
 
+  {/* Inactive */}
+  <div className="bg-slate-900/40 border border-slate-800 rounded-lg p-2.5">
+    <div className="flex items-center gap-2">
+      <div className="w-8 h-8 bg-red-500/10 rounded-md flex items-center justify-center">
+        <AlertCircle className="h-4 w-4 text-red-400" />
+      </div>
+      <div>
+        <p className="text-[11px] text-slate-500">Inactive</p>
+        <p className="text-lg font-semibold text-white">
+          {stats.inactiveBanners}
+        </p>
+      </div>
+    </div>
+  </div>
+
+  {/* Upcoming */}
+  <div className="bg-slate-900/40 border border-slate-800 rounded-lg p-2.5">
+    <div className="flex items-center gap-2">
+      <div className="w-8 h-8 bg-cyan-500/10 rounded-md flex items-center justify-center">
+        <Calendar className="h-4 w-4 text-cyan-400" />
+      </div>
+      <div>
+        <p className="text-[11px] text-slate-500">Upcoming</p>
+        <p className="text-lg font-semibold text-white">
+          {stats.upcomingBanners}
+        </p>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+
+{/* Items Per Page (SAME SYSTEM EVERYWHERE) */}
+<div className="bg-slate-900/40 border border-slate-800 rounded-lg px-3 py-2">
+
+  <div className="flex items-center justify-between gap-2 flex-wrap">
+
+    <div className="flex items-center gap-2">
+      <span className="text-[11px] text-slate-500">Show</span>
+
+      <select
+        value={itemsPerPage}
+        onChange={(e) => handleItemsPerPageChange(Number(e.target.value))}
+        className="px-2 py-1 bg-slate-800/60 border border-slate-700 rounded-md text-white text-[11px]"
+      >
+        <option value={25}>25</option>
+        <option value={50}>50</option>
+        <option value={75}>75</option>
+        <option value={100}>100</option>
+      </select>
+
+      <span className="text-[11px] text-slate-500">per page</span>
+    </div>
+
+    <div className="text-[11px] text-slate-500">
+      <span className="text-white font-medium">{startIndex + 1}</span>
+      {" – "}
+      <span className="text-white font-medium">
+        {Math.min(endIndex, totalItems)}
+      </span>
+      {" of "}
+      <span className="text-white font-medium">{totalItems}</span>
+    </div>
+
+  </div>
+</div>
  
 
       {/* Search and Filters */}
-      <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-2xl p-2">
-        <div className="flex flex-wrap items-center gap-4">
-          <div className="relative flex-1 min-w-80">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-500" />
-            <input
-              type="search"
-              placeholder="Search banners..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-11 pr-4 py-3 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
-            />
-          </div>
+<div className="bg-slate-900/40 border border-slate-800 rounded-lg px-3 py-2">
 
-          <div className="flex items-center gap-3">
-            <Filter className="h-4 w-4 text-slate-400" />
-            
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className={`px-3 py-3 bg-slate-800/90 border rounded-xl text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all min-w-32 ${
-                statusFilter !== "all" 
-                  ? "border-blue-500 bg-blue-500/10 ring-2 ring-blue-500/50" 
-                  : "border-slate-600"
-              }`}
-            >
-              <option value="all">All Status</option>
-              <option value="active">Active</option>
-              <option value="inactive">Inactive</option>
-            </select>
+  <div className="flex flex-wrap items-center gap-2">
 
-            <select
-              value={bannerTypeFilter}
-              onChange={(e) => setBannerTypeFilter(e.target.value)}
-              className={`px-3 py-3 bg-slate-800/90 border rounded-xl text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all min-w-40 ${
-                bannerTypeFilter !== "all" 
-                  ? "border-violet-500 bg-violet-500/10 ring-2 ring-violet-500/50" 
-                  : "border-slate-600"
-              }`}
-            >
-              <option value="all">All Types</option>
-              <option value="Homepage">Homepage</option>
-              <option value="Offer">Offer</option>
-              <option value="Promotional">Promotional</option>
-              <option value="Category">Category</option>
-              <option value="Seasonal">Seasonal</option>
-              <option value="FlashSale">Flash Sale</option>
-            </select>
-            <select
-  value={deletedFilter}
-  onChange={(e) => setDeletedFilter(e.target.value)}
-  className="px-3 py-3 bg-slate-800 border border-slate-600 rounded-xl text-white"
->
-  <option value="notDeleted">Not Deleted</option>
-  <option value="deleted">Deleted</option>
-</select>
+    {/* Search */}
+    <div className="relative flex-1 min-w-[220px]">
+      <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-500" />
+      <input
+        type="search"
+        placeholder="Search banners..."
+        value={searchTerm}
+        onChange={(e) => setSearchTerm(e.target.value)}
+        className="w-full pl-8 pr-3 py-1.5 bg-slate-800/60 border border-slate-700 rounded-md text-white text-[12px] focus:outline-none focus:ring-1 focus:ring-violet-500"
+      />
+    </div>
 
+    {/* Status */}
+    <select
+      value={statusFilter}
+      onChange={(e) => setStatusFilter(e.target.value)}
+      className={`px-2 py-1 text-[11px] rounded-md border bg-slate-800/60 ${
+        statusFilter !== "all"
+          ? "border-blue-500 ring-1 ring-blue-500/40 text-white"
+          : "border-slate-700 text-slate-300"
+      }`}
+    >
+      <option value="all">Status</option>
+      <option value="active">Active</option>
+      <option value="inactive">Inactive</option>
+    </select>
 
-            {hasActiveFilters && (
-              <button
-                onClick={clearFilters}
-                className="px-3 py-3 bg-red-500/10 border border-red-500/50 text-red-400 rounded-xl hover:bg-red-500/20 transition-all text-sm font-medium flex items-center gap-2 whitespace-nowrap"
-              >
-                <FilterX className="h-4 w-4" />
-                Clear
-              </button>
-            )}
-          </div>
+    {/* Type */}
+    <select
+      value={bannerTypeFilter}
+      onChange={(e) => setBannerTypeFilter(e.target.value)}
+      className={`px-2 py-1 text-[11px] rounded-md border bg-slate-800/60 ${
+        bannerTypeFilter !== "all"
+          ? "border-violet-500 ring-1 ring-violet-500/40 text-white"
+          : "border-slate-700 text-slate-300"
+      }`}
+    >
+      <option value="all">Type</option>
+      <option value="Homepage">Homepage</option>
+      <option value="Offer">Offer</option>
+      <option value="Promotional">Promotional</option>
+      <option value="Category">Category</option>
+      <option value="Seasonal">Seasonal</option>
+      <option value="FlashSale">Flash</option>
+    </select>
 
-          <div className="text-sm text-slate-400 whitespace-nowrap ml-auto">
-            {totalItems} banner{totalItems !== 1 ? 's' : ''}
-          </div>
-        </div>
-      </div>
+    {/* Deleted */}
+    <select
+      value={deletedFilter}
+      onChange={(e) => setDeletedFilter(e.target.value)}
+      className={`px-2 py-1 text-[11px] rounded-md border bg-slate-800/60 ${
+        deletedFilter !== "notDeleted"
+          ? "border-red-500 ring-1 ring-red-500/40 text-white"
+          : "border-slate-700 text-slate-300"
+      }`}
+    >
+      <option value="notDeleted">Live</option>
+      <option value="deleted">Deleted</option>
+    </select>
+
+    {/* Clear */}
+    {hasActiveFilters && (
+      <button
+        onClick={clearFilters}
+        className="px-2 py-1 text-[11px] bg-red-500/10 border border-red-500/40 text-red-400 rounded-md hover:bg-red-500/20 flex items-center gap-1"
+      >
+        <FilterX className="h-3 w-3" />
+        Clear
+      </button>
+    )}
+
+    {/* Count */}
+    <div className="ml-auto text-[11px] text-slate-500">
+      {totalItems} banners
+    </div>
+  </div>
+</div>
 
       {/* Banners List */}
-      <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-2xl p-2">
-        {currentData.length === 0 ? (
-          <div className="text-center py-12">
-            <ImageIcon className="h-16 w-16 text-slate-600 mx-auto mb-4" />
-            <p className="text-slate-400">
-              {banners.length === 0 ? "No banners found. Create your first banner!" : "No banners match your search criteria."}
-            </p>
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-slate-800">
-                  <th className="text-left py-3 px-4 text-slate-400 font-medium text-sm">Banner</th>
-                  <th className="text-center py-3 px-4 text-slate-400 font-medium text-sm">Type</th>
-                  <th className="text-center py-3 px-4 text-slate-400 font-medium text-sm">Status</th>
-                  <th className="text-center py-3 px-4 text-slate-400 font-medium text-sm">Order</th>
-                  <th className="text-left py-3 px-4 text-slate-400 font-medium text-sm">Start Date</th>
-                  <th className="text-left py-3 px-4 text-slate-400 font-medium text-sm">End Date</th>
-                  <th className="text-left py-3 px-4 text-slate-400 font-medium text-sm">Created At</th>
-                  <th className="text-center py-3 px-4 text-slate-400 font-medium text-sm">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {currentData.map((banner) => (
-                  <tr key={banner.id} className="border-b border-slate-800 hover:bg-slate-800/30 transition-colors">
-                    <td className="py-4 px-4">
-                      <div className="flex items-center gap-3">
-                        {banner.imageUrl ? (
-                          <div
-                            className="w-16 h-10 rounded-lg overflow-hidden border border-slate-700 cursor-pointer hover:ring-2 hover:ring-violet-500 transition-all"
-                            onClick={() => setSelectedImageUrl(getImageUrl(banner.imageUrl))}
-                          >
-                            <img
-                              src={getImageUrl(banner.imageUrl)}
-                              alt={banner.title}
-                              className="w-full h-full object-cover"
-                              onError={(e) => {
-                                e.currentTarget.style.display = 'none';
-                                e.currentTarget.parentElement!.innerHTML = '<div class="w-full h-full bg-gradient-to-br from-violet-500 to-pink-500 flex items-center justify-center"><svg class="h-5 w-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg></div>';
-                              }}
-                            />
-                          </div>
-                        ) : (
-                          <div className="w-16 h-10 rounded-lg bg-gradient-to-br from-violet-500 to-pink-500 flex items-center justify-center">
-                            <ImageIcon className="h-5 w-5 text-white" />
-                          </div>
-                        )}
-                        <div>
-                          <p
-                            className="text-white font-medium cursor-pointer hover:text-violet-400 transition-colors"
-                            onClick={() => setViewingBanner(banner)}
-                          >
-                            {banner.title || 'Untitled Banner'}
-                          </p>
-                          <p
-                            className="text-xs text-slate-500"
-                            dangerouslySetInnerHTML={{
-                              __html: banner.description
-                                ? banner.description.length > 50
-                                  ? banner.description.slice(0, 50) + "..."
-                                  : banner.description
-                                : "No description",
-                            }}
-                          />
-                          {banner.link && (
-                            <div className="flex items-center gap-1 mt-1">
-                              <ExternalLink className="h-3 w-3 text-slate-500" />
-                              <p className="text-xs text-slate-500">{banner.link?.slice(0, 30)}...</p>
-                            </div>
-                          )}
-                        </div>
+   {/* Banners List */}
+<div className="bg-slate-900/40 border border-slate-800 rounded-lg overflow-hidden">
+
+  {currentData.length === 0 ? (
+    <div className="text-center py-10">
+      <ImageIcon className="h-10 w-10 text-slate-600 mx-auto mb-2" />
+      <p className="text-slate-400 text-sm">
+        {banners.length === 0
+          ? "No banners found. Create your first banner!"
+          : "No banners match your search criteria."}
+      </p>
+    </div>
+  ) : (
+    <div className="overflow-x-auto">
+      <table className="w-full">
+
+        {/* HEADER */}
+        <thead className="bg-slate-800/40">
+          <tr className="border-b border-slate-800">
+            <th className="text-left py-2 px-3 text-[11px] text-slate-400">Banner</th>
+            <th className="text-center py-2 px-3 text-[11px] text-slate-400">Type</th>
+            <th className="text-center py-2 px-3 text-[11px] text-slate-400">Status</th>
+            <th className="text-center py-2 px-3 text-[11px] text-slate-400">Order</th>
+            <th className="text-left py-2 px-3 text-[11px] text-slate-400">Start</th>
+            <th className="text-left py-2 px-3 text-[11px] text-slate-400">End</th>
+            <th className="text-left py-2 px-3 text-[11px] text-slate-400">Created</th>
+            <th className="text-center py-2 px-3 text-[11px] text-slate-400">Actions</th>
+          </tr>
+        </thead>
+
+        {/* BODY */}
+        <tbody>
+          {currentData.map((banner) => (
+            <tr
+              key={banner.id}
+              className="border-b border-slate-800 hover:bg-slate-800/30 transition-colors"
+            >
+
+              {/* Banner Info */}
+              <td className="py-2 px-3">
+                <div className="flex items-center gap-2">
+
+                  {/* Image */}
+                  {banner.imageUrl ? (
+                    <div
+                      className="w-14 h-9 rounded-md overflow-hidden border border-slate-700 cursor-pointer hover:ring-1 hover:ring-violet-500"
+                      onClick={() => setSelectedImageUrl(getImageUrl(banner.imageUrl))}
+                    >
+                      <img
+                        src={getImageUrl(banner.imageUrl)}
+                        alt={banner.title}
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
+                  ) : (
+                    <div className="w-14 h-9 rounded-md bg-gradient-to-br from-violet-500 to-pink-500 flex items-center justify-center">
+                      <ImageIcon className="h-4 w-4 text-white" />
+                    </div>
+                  )}
+
+                  {/* Text */}
+                  <div className="min-w-0">
+                    <p
+                      className="text-white text-[12px] font-medium truncate cursor-pointer hover:text-violet-400"
+                      onClick={() => setViewingBanner(banner)}
+                    >
+                      {banner.title || "Untitled Banner"}
+                    </p>
+
+                    <p
+                      className="text-[10px] text-slate-500 truncate"
+                      dangerouslySetInnerHTML={{
+                        __html: banner.description
+                          ? banner.description.length > 50
+                            ? banner.description.slice(0, 50) + "..."
+                            : banner.description
+                          : "No description",
+                      }}
+                    />
+
+                    {banner.link && (
+                      <div className="flex items-center gap-1">
+                        <ExternalLink className="h-3 w-3 text-slate-500" />
+                        <span className="text-[10px] text-slate-500 truncate">
+                          {banner.link}
+                        </span>
                       </div>
-                    </td>
-                    <td className="py-4 px-4 text-center">
-                      <span className={`px-2 py-1 rounded-lg text-xs font-medium ${
-                        banner.bannerType === 'Offer' ? 'bg-green-500/10 text-green-400' :
-                        banner.bannerType === 'FlashSale' ? 'bg-red-500/10 text-red-400' :
-                        banner.bannerType === 'Seasonal' ? 'bg-orange-500/10 text-orange-400' :
-                        banner.bannerType === 'Category' ? 'bg-blue-500/10 text-blue-400' :
-                        banner.bannerType === 'Promotional' ? 'bg-purple-500/10 text-purple-400' :
-                        'bg-cyan-500/10 text-cyan-400'
-                      }`}>
-                        {banner.bannerType || 'Homepage'}
+                    )}
+                  </div>
+                </div>
+              </td>
+
+              {/* Type */}
+              <td className="py-2 px-3 text-center">
+                <span className={`px-2 py-0.5 rounded-md text-[10px] font-medium ${
+                  banner.bannerType === 'Offer' ? 'bg-green-500/10 text-green-400' :
+                  banner.bannerType === 'FlashSale' ? 'bg-red-500/10 text-red-400' :
+                  banner.bannerType === 'Seasonal' ? 'bg-orange-500/10 text-orange-400' :
+                  banner.bannerType === 'Category' ? 'bg-blue-500/10 text-blue-400' :
+                  banner.bannerType === 'Promotional' ? 'bg-purple-500/10 text-purple-400' :
+                  'bg-cyan-500/10 text-cyan-400'
+                }`}>
+                  {banner.bannerType || "Homepage"}
+                </span>
+              </td>
+
+              {/* Status */}
+              <td className="py-2 px-3 text-center">
+                <div className="flex flex-col items-center gap-1">
+
+                  <button
+                    onClick={() => setStatusConfirm(banner)}
+                    className={`px-2 py-0.5 text-[10px] rounded-md ${
+                      banner.isActive
+                        ? "bg-green-500/10 text-green-400"
+                        : "bg-slate-500/10 text-slate-400"
+                    }`}
+                  >
+                    {banner.isActive ? "Active" : "Inactive"}
+                  </button>
+
+                  {(() => {
+                    const status = getBannerStatus(banner);
+                    const map = {
+                      LIVE: "text-green-400",
+                      EXPIRED: "text-red-400",
+                      SCHEDULED: "text-yellow-400",
+                      INACTIVE: "text-slate-500",
+                    };
+                    return (
+                      <span className={`text-[10px] ${map[status]}`}>
+                        {status}
                       </span>
-                    </td>
-<td className="py-4 px-4 text-center">
-  <div className="flex flex-col items-center gap-2">
+                    );
+                  })()}
 
-    {/* Active / Inactive Badge (Clickable) */}
-    <button
-      onClick={() => setStatusConfirm(banner)}
-      className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all ${
-        banner.isActive
-          ? "bg-green-500/15 text-green-400 hover:bg-green-500/25"
-          : "bg-slate-500/15 text-slate-400 hover:bg-slate-500/25"
-      }`}
-      title="Click to change status"
-    >
-      {banner.isActive ? "Active" : "Inactive"}
-    </button>
+                </div>
+              </td>
 
-    {/* Live / Expired / Scheduled */}
-    {(() => {
-      const status = getBannerStatus(banner);
+              {/* Order */}
+              <td className="py-2 px-3 text-center text-[11px] text-slate-300">
+                {banner.displayOrder || 0}
+              </td>
 
-      const map = {
-        LIVE: "text-green-400",
-        EXPIRED: "text-red-400",
-        SCHEDULED: "text-yellow-400",
-        INACTIVE: "text-slate-500",
-      };
+              {/* Dates */}
+              <td className="py-2 px-3 text-[11px] text-slate-400">
+                {banner.startDate ? new Date(banner.startDate).toLocaleDateString() : "-"}
+              </td>
 
-      const labelMap = {
-        LIVE: "Live",
-        EXPIRED: "Expired",
-        SCHEDULED: "Scheduled",
-        INACTIVE: "Inactive",
-      };
+              <td className="py-2 px-3 text-[11px] text-slate-400">
+                {banner.endDate ? new Date(banner.endDate).toLocaleDateString() : "-"}
+              </td>
 
-      return (
-        <span className={`text-xs font-medium ${map[status]}`}>
-          {labelMap[status]}
-        </span>
-      );
-    })()}
-  </div>
-</td>
+              <td className="py-2 px-3 text-[11px] text-slate-400">
+                {banner.createdAt ? new Date(banner.createdAt).toLocaleDateString() : "-"}
+              </td>
 
+              {/* Actions */}
+              <td className="py-2 px-3 text-center">
+                <div className="flex justify-center gap-1.5">
 
+                  <button
+                    onClick={() => setViewingBanner(banner)}
+                    className="p-1.5 text-violet-400 hover:bg-violet-500/10 rounded-md"
+                  >
+                    <Eye className="h-3.5 w-3.5" />
+                  </button>
 
-                    <td className="py-4 px-4 text-center text-slate-300">{banner.displayOrder || 0}</td>
-                    <td className="py-4 px-4 text-slate-300 text-sm">
-                      {banner.startDate ? new Date(banner.startDate).toLocaleString() : '-'}
-                    </td>
-                    <td className="py-4 px-4 text-slate-300 text-sm">
-                      {banner.endDate ? new Date(banner.endDate).toLocaleString() : '-'}
-                    </td>
-                    <td className="py-4 px-4 text-slate-300 text-sm">
-                      {banner.createdAt ? new Date(banner.createdAt).toLocaleString() : '-'}
-                    </td>
-                    <td className="py-4 px-4">
-                      <div className="flex items-center justify-center gap-2">
-                        <button
-                          onClick={() => setViewingBanner(banner)}
-                          className="p-2 text-violet-400 hover:bg-violet-500/10 rounded-lg transition-all"
-                          title="View Details"
-                        >
-                          <Eye className="h-4 w-4" />
-                        </button>
-                        <button
-                          onClick={() => handleEdit(banner)}
-                          className="p-2 text-cyan-400 hover:bg-cyan-500/10 rounded-lg transition-all"
-                          title="Edit"
-                        >
-                          <Edit className="h-4 w-4" />
-                        </button>
-                        {banner.isDeleted ? (
-  <button
-    onClick={() => handleRestore(banner.id)}
-    className="p-2 text-green-400 hover:bg-green-500/10 rounded-lg"
-    title="Restore"
-  >
-   <CheckCircle className="h-4 w-4" />
-  </button>
-) : (
-  <button
-    onClick={() =>
-      setDeleteConfirm({ id: banner.id, title: banner.title })
-    }
-    className="p-2 text-red-400 hover:bg-red-500/10 rounded-lg"
-    title="Delete"
-  >
-    <Trash2 className="h-4 w-4" />
-  </button>
-)}
+                  <button
+                    onClick={() => handleEdit(banner)}
+                    className="p-1.5 text-cyan-400 hover:bg-cyan-500/10 rounded-md"
+                  >
+                    <Edit className="h-3.5 w-3.5" />
+                  </button>
 
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
+                  {banner.isDeleted ? (
+                    <button
+                      onClick={() => handleRestore(banner.id)}
+                      className="p-1.5 text-green-400 hover:bg-green-500/10 rounded-md"
+                    >
+                      <CheckCircle className="h-3.5 w-3.5" />
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() =>
+                        setDeleteConfirm({ id: banner.id, title: banner.title })
+                      }
+                      className="p-1.5 text-red-400 hover:bg-red-500/10 rounded-md"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  )}
+
+                </div>
+              </td>
+
+            </tr>
+          ))}
+        </tbody>
+
+      </table>
+    </div>
+  )}
+</div>
 
       {/* Pagination */}
       {totalPages > 1 && (

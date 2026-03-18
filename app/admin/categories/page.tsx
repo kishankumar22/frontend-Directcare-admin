@@ -959,218 +959,184 @@ const CategoryRow: React.FC<CategoryRowProps> = ({
   getImageUrl,
   onStatusToggle,
   onRestore
-  
 }) => {
   const hasChildren =
     category.subCategories && category.subCategories.length > 0;
-
   const isExpanded = expandedCategories.has(category.id);
   const isInactive = !category.isActive;
-  const indent = level * 24;
-const totalSubCategories = getTotalSubCategories(category);
-const levelLabel = `L${level + 1}`;
+  const indent = level * 18;
+
+  const totalSubCategories = getTotalSubCategories(category);
+  const levelLabel = `L${level + 1}`;
 
   const MAX_LEVEL = 2;
   const canAddSubcategory = level < MAX_LEVEL;
 
-
-  const handleStatusClick = () => {
-    const confirmAction = window.confirm(
-      `Are you sure you want to ${
-        category.isActive ? "Deactivate" : "Activate"
-      } this category?`
-    );
-
-    if (confirmAction) {
-      onStatusToggle(category);
-    }
-  };
-
-  
-
   return (
     <tr
-      className={`border-b border-slate-800 transition-all ${
-        level === 0 ? "bg-slate-800/10" : ""
-      } ${
+      className={`border-b border-slate-800 text-sm transition-all ${
         isInactive
-          ? "opacity-60 hover:opacity-70"
-          : "hover:bg-slate-800/30"
+          ? "opacity-50 hover:opacity-70"
+          : "hover:bg-slate-800/20"
       }`}
     >
-      {/* CATEGORY NAME COLUMN */}
-      <td className="py-2.5 px-3">
+      {/* CATEGORY */}
+      <td className="py-2 px-3">
         <div
           className="flex items-center gap-2"
           style={{ paddingLeft: `${indent}px` }}
         >
+          {/* Expand */}
           {hasChildren ? (
             <button
               onClick={() => onToggleExpand(category.id)}
-              className="p-1 rounded-lg hover:bg-slate-700/50"
+              className="p-1 rounded hover:bg-slate-700/40"
             >
               {isExpanded ? (
-                <ChevronDown className="h-4 w-4 text-violet-400" />
+                <ChevronDown className="h-3.5 w-3.5 text-violet-400" />
               ) : (
-                <ChevronRightIcon className="h-4 w-4 text-slate-400" />
+                <ChevronRightIcon className="h-3.5 w-3.5 text-slate-500" />
               )}
             </button>
           ) : (
-            <div className="w-6" />
+            <div className="w-4" />
           )}
 
+          {/* Image */}
           {category.imageUrl ? (
-            <div className="w-8 h-8 rounded-lg overflow-hidden border border-slate-700">
-              <img
-                src={getImageUrl(category.imageUrl)}
-                alt={category.name}
-                className="w-full h-full object-cover"
-              />
-            </div>
+            <img
+              src={getImageUrl(category.imageUrl)}
+              className="w-7 h-7 rounded-md object-cover border border-slate-700"
+            />
           ) : (
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-violet-500 to-pink-500 flex items-center justify-center">
-              <FolderTree className="h-4 w-4 text-white" />
+            <div className="w-7 h-7 rounded-md bg-violet-500/20 flex items-center justify-center">
+              <FolderTree className="h-3.5 w-3.5 text-violet-400" />
             </div>
           )}
 
-   <div>
-  <div className="flex items-center gap-2">
-    <p
-      className={`font-medium text-sm cursor-pointer ${
-        isInactive ? "text-slate-500" : "text-white"
-      }`}
-      onClick={() => onView(category)}
-    >
-      {category.name}
-    </p>
+          {/* Name + Info */}
+          <div className="min-w-0">
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <p
+                onClick={() => onView(category)}
+                className={`font-medium truncate cursor-pointer ${
+                  isInactive ? "text-slate-500" : "text-white"
+                }`}
+              >
+                {category.name}
+              </p>
 
-    {/* ✅ Level Badge */}
-    <span className={`px-2 py-0.5 text-[10px] font-semibold rounded-md border ${
-      level === 0
-        ? "bg-violet-500/10 text-violet-400 border-violet-500/20"
-        : level === 1
-        ? "bg-cyan-500/10 text-cyan-400 border-cyan-500/20"
-        : "bg-blue-500/10 text-blue-400 border-blue-500/20"
-    }`}>
-      {levelLabel}
-    </span>
+              {/* Level */}
+              <span className="px-1.5 py-0.5 text-[10px] rounded border bg-slate-800 text-slate-400 border-slate-700">
+                {levelLabel}
+              </span>
 
-    {/* ✅ Total Subcategories Count */}
-    {totalSubCategories > 0 && (
-      <span className="px-2 py-0.5 text-[10px] font-semibold rounded-md bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-        {totalSubCategories} Sub
-      </span>
-    )}
-  </div>
+              {/* Sub count */}
+              {totalSubCategories > 0 && (
+                <span className="px-1.5 py-0.5 text-[10px] rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                  {totalSubCategories}
+                </span>
+              )}
+            </div>
 
-  <span className="text-xs text-slate-500">
-    {category.slug}
-  </span>
-</div>
-
+            <p className="text-[10px] text-slate-500 truncate">
+              {category.slug}
+            </p>
+          </div>
         </div>
       </td>
 
-      {/* PRODUCT COUNT */}
-      <td className="py-2.5 px-3 text-center">
-        <span className="text-sm text-cyan-400">
-          {category.productCount}
-        </span>
+      {/* PRODUCTS */}
+      <td className="py-2 px-3 text-center text-[12px] text-cyan-400 font-medium">
+        {category.productCount}
       </td>
 
-      {/* STATUS COLUMN */}
-<td className="py-2.5 px-3 text-center">
-  <button
-    onClick={() => onStatusToggle(category)}
-    className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-xs font-medium border transition-all hover:scale-105 ${
-      category.isActive
-        ? "bg-green-500/10 text-green-400 border-green-500/20 hover:bg-green-500/20"
-        : "bg-red-500/10 text-red-400 border-red-500/20 hover:bg-red-500/20"
-    }`}
-  >
-    <span
-      className={`w-1.5 h-1.5 rounded-full ${
-        category.isActive ? "bg-green-400" : "bg-red-400"
-      }`}
-    ></span>
-    {category.isActive ? "Active" : "Inactive"}
-  </button>
-</td>
-
-
-      {/* SORT ORDER */}
-      <td className="py-2.5 px-3 text-center">
-        <span className="text-xs text-slate-300">
-          {category.sortOrder}
-        </span>
+      {/* STATUS */}
+      <td className="py-2 px-3 text-center">
+        <button
+          onClick={() => onStatusToggle(category)}
+          className={`px-2 py-0.5 text-[10px] rounded-md border transition-all ${
+            category.isActive
+              ? "bg-green-500/10 text-green-400 border-green-500/20"
+              : "bg-red-500/10 text-red-400 border-red-500/20"
+          }`}
+        >
+          {category.isActive ? "Active" : "Inactive"}
+        </button>
       </td>
 
-      {/* CREATED AT */}
-      <td className="py-2.5 px-3 text-xs text-slate-400">
+      {/* SORT */}
+      <td className="py-2 px-3 text-center text-[11px] text-slate-400">
+        {category.sortOrder}
+      </td>
+
+      {/* CREATED */}
+      <td className="py-2 px-3 text-[11px] text-slate-500">
         {category.createdAt
           ? new Date(category.createdAt).toLocaleDateString("en-GB")
           : "-"}
       </td>
 
-      {/* UPDATED AT */}
-      <td className="py-2.5 px-3 text-xs text-slate-400">
+      {/* UPDATED */}
+      <td className="py-2 px-3 text-[11px] text-slate-500">
         {category.updatedAt
           ? new Date(category.updatedAt).toLocaleDateString("en-GB")
           : "-"}
       </td>
-      <td className="py-2.5 px-3 text-xs text-slate-400">
-        {category.updatedBy ? (
-          <span className="text-slate-300">{category.updatedBy}</span>
-        ) : (
-          <span className="text-slate-500">-</span>
-        )}
+
+      {/* UPDATED BY */}
+      <td className="py-2 px-3 text-[11px] text-slate-400">
+        {category.updatedBy || "-"}
       </td>
 
       {/* ACTIONS */}
-      <td className="py-2.5 px-3 text-center">
-        <div className="flex items-center justify-center gap-2">
+      <td className="py-2 px-3">
+        <div className="flex justify-center gap-1">
+
+          {/* Add */}
           <button
             onClick={() =>
               canAddSubcategory &&
               onAddSubcategory(category.id, category.name)
             }
             disabled={!canAddSubcategory}
-            className="p-1.5 text-green-400 hover:bg-green-500/10 rounded-lg"
+            className="p-1 text-green-400 hover:bg-green-500/10 rounded-md disabled:opacity-40"
           >
-            <Plus className="h-4 w-4" />
+            <Plus className="h-3.5 w-3.5" />
           </button>
 
+          {/* View */}
           <button
             onClick={() => onView(category)}
-            className="p-1.5 text-violet-400 hover:bg-violet-500/10 rounded-lg"
+            className="p-1 text-violet-400 hover:bg-violet-500/10 rounded-md"
           >
-            <Eye className="h-4 w-4" />
+            <Eye className="h-3.5 w-3.5" />
           </button>
 
+          {/* Edit */}
           <button
             onClick={() => onEdit(category)}
-            className="p-1.5 text-cyan-400 hover:bg-cyan-500/10 rounded-lg"
+            className="p-1 text-cyan-400 hover:bg-cyan-500/10 rounded-md"
           >
-            <Edit className="h-4 w-4" />
+            <Edit className="h-3.5 w-3.5" />
           </button>
 
+          {/* Delete / Restore */}
           {category.isDeleted ? (
-  <button
-    onClick={() => onRestore(category)}
-    className="p-1.5 text-emerald-400 hover:bg-emerald-500/10 rounded-lg"
-    title="Restore Category"
-  >
-    <RotateCcw className="h-4 w-4" />
-  </button>
-) : (
-  <button
-    onClick={() => onDelete(category.id, category.name)}
-    className="p-1.5 text-red-400 hover:bg-red-500/10 rounded-lg"
-  >
-    <Trash2 className="h-4 w-4" />
-  </button>
-)}
-
+            <button
+              onClick={() => onRestore(category)}
+              className="p-1 text-emerald-400 hover:bg-emerald-500/10 rounded-md"
+            >
+              <RotateCcw className="h-3.5 w-3.5" />
+            </button>
+          ) : (
+            <button
+              onClick={() => onDelete(category.id, category.name)}
+              className="p-1 text-red-400 hover:bg-red-500/10 rounded-md"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+            </button>
+          )}
         </div>
       </td>
     </tr>
@@ -1410,154 +1376,127 @@ useEffect(() => {
 
   return (
     <div className="space-y-2">
-      {/* Header */}
-<div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+  
+{/* Header */}
+<div className="flex flex-wrap items-center justify-between gap-3">
+
+  {/* Title */}
   <div>
-    <h1 className="text-3xl font-bold tracking-tight bg-gradient-to-r from-violet-400 via-cyan-400 to-pink-400 bg-clip-text text-transparent">
+    <h1 className="text-xl font-semibold bg-gradient-to-r from-violet-400 via-cyan-400 to-pink-400 bg-clip-text text-transparent">
       Categories Management
     </h1>
-    <p className="text-slate-400 mt-1">Manage product categories and hierarchies</p>
+    <p className="text-[11px] text-slate-500">Manage product categories</p>
   </div>
-  
-  {/* Navigation & Action Buttons */}
-  <div className="flex flex-wrap items-center gap-3">
-    {/* Navigation Button: Brands */}
+
+  {/* Actions */}
+  <div className="flex items-center gap-2 flex-wrap">
+
     <button
       onClick={() => router.push('/admin/brands')}
-      className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-violet-500 to-purple-500 hover:from-violet-600 hover:to-purple-600 text-white rounded-xl font-semibold shadow-lg hover:shadow-violet-500/50 transition-all"
+      className="px-3 py-1.5 text-[11px] bg-violet-500/10 border border-violet-500/30 text-violet-300 rounded-md hover:bg-violet-500/20 transition-all flex items-center gap-1.5"
     >
-      <Award className="h-4 w-4" />
-      View Brands
+      <Award className="h-3 w-3" />
+      Brands
     </button>
 
-    {/* Navigation Button: Products */}
     <button
       onClick={() => router.push('/admin/products')}
-      className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-600 hover:to-blue-600 text-white rounded-xl font-semibold shadow-lg hover:shadow-cyan-500/50 transition-all"
+      className="px-3 py-1.5 text-[11px] bg-cyan-500/10 border border-cyan-500/30 text-cyan-300 rounded-md hover:bg-cyan-500/20 transition-all flex items-center gap-1.5"
     >
-      <Package className="h-4 w-4" />
-      View Products
+      <Package className="h-3 w-3" />
+      Products
     </button>
 
-    {/* Action Button: Add Category */}
     <button
       onClick={() => {
         resetForm();
         setShowModal(true);
       }}
-      className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-violet-500 to-cyan-500 hover:from-violet-600 hover:to-cyan-600 text-white rounded-xl font-semibold shadow-lg hover:shadow-pink-500/50 transition-all"
+      className="px-3 py-1.5 text-[11px] bg-gradient-to-r from-violet-500 to-cyan-500 text-white rounded-md hover:opacity-90 transition-all flex items-center gap-1.5"
     >
-      <Plus className="h-4 w-4" />
-      Add Category
+      <Plus className="h-3 w-3" />
+      Add Category 
     </button>
+
   </div>
 </div>
 
 
+{/* Stats Cards */}
+<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
 
-{/* Stats Cards - COMPACT & CLEAN */}
-{/* Stats Cards - CLICKABLE FILTERS */}
-<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-  
-  {/* 1. Total Categories - CLICKABLE */}
+  {/* Total */}
   <button
-    type="button"
     onClick={() => {
       if (statusFilter === 'all') setStatusFilter('active');
       else if (statusFilter === 'active') setStatusFilter('inactive');
       else setStatusFilter('all');
     }}
-    className="bg-gradient-to-br from-violet-500/10 to-violet-600/5 backdrop-blur-sm border border-violet-500/20 rounded-xl p-4 hover:border-violet-500/40 transition-all cursor-pointer group relative text-left"
+    className="bg-slate-900/40 border border-slate-800 rounded-lg p-2.5 hover:border-violet-500/40 transition-all text-left"
   >
-    {/* Tooltip */}
-    <div className="absolute -top-10 left-1/2 -translate-x-1/2 bg-slate-800 text-white text-xs px-3 py-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-10 shadow-xl">
-      Filter: {statusFilter === 'all' ? 'All Categories' : statusFilter === 'active' ? 'Active Only' : 'Inactive Only'}
-      <div className="absolute bottom-0 left-1/2 -translate-x-1/2 translate-y-full w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-slate-800"></div>
-    </div>
-    
-    <div className="flex items-center justify-between">
-      <div>
-        <p className="text-slate-400 text-xs font-medium">Total Categories</p>
-        <p className="text-2xl font-bold text-white mt-1">{stats.totalCategories}</p>
-        <p className="text-xs text-violet-400 mt-1 font-medium">
-          {statusFilter === 'all' ? '● All' : statusFilter === 'active' ? '● Active' : '● Inactive'}
-        </p>
+    <div className="flex items-center gap-2">
+      <div className="w-8 h-8 bg-violet-500/10 rounded-md flex items-center justify-center">
+        <FolderTree className="h-4 w-4 text-violet-400" />
       </div>
-      <div className="w-10 h-10 bg-violet-500/20 rounded-lg flex items-center justify-center shrink-0 group-hover:bg-violet-500/30 transition-all">
-        <FolderTree className="h-5 w-5 text-violet-400" />
+      <div>
+        <p className="text-[11px] text-slate-500">Categories</p>
+        <p className="text-lg font-semibold text-white">{stats.totalCategories}</p>
+        <p className="text-[10px] text-violet-400">
+          {statusFilter === 'all' ? 'All' : statusFilter === 'active' ? 'Active' : 'Inactive'}
+        </p>
       </div>
     </div>
   </button>
 
-  {/* 2. Total Products - NON-CLICKABLE */}
-  <div className="bg-gradient-to-br from-pink-500/10 to-pink-600/5 backdrop-blur-sm border border-pink-500/20 rounded-xl p-4">
-    <div className="flex items-center justify-between">
-      <div>
-        <p className="text-slate-400 text-xs font-medium">Total Products</p>
-        <p className="text-2xl font-bold text-white mt-1">{stats.totalProducts}</p>
+  {/* Products */}
+  <div className="bg-slate-900/40 border border-slate-800 rounded-lg p-2.5">
+    <div className="flex items-center gap-2">
+      <div className="w-8 h-8 bg-pink-500/10 rounded-md flex items-center justify-center">
+        <Package className="h-4 w-4 text-pink-400" />
       </div>
-      <div className="w-10 h-10 bg-pink-500/20 rounded-lg flex items-center justify-center shrink-0">
-        <Package className="h-5 w-5 text-pink-400" />
+      <div>
+        <p className="text-[11px] text-slate-500">Products</p>
+        <p className="text-lg font-semibold text-white">{stats.totalProducts}</p>
       </div>
     </div>
   </div>
 
-  {/* 3. Active Categories - CLICKABLE (same filter as Total Categories) */}
+  {/* Active */}
   <button
-    type="button"
     onClick={() => {
       if (statusFilter === 'all') setStatusFilter('active');
       else if (statusFilter === 'active') setStatusFilter('inactive');
       else setStatusFilter('all');
     }}
-    className="bg-gradient-to-br from-green-500/10 to-green-600/5 backdrop-blur-sm border border-green-500/20 rounded-xl p-4 hover:border-green-500/40 transition-all cursor-pointer group relative text-left"
+    className="bg-slate-900/40 border border-slate-800 rounded-lg p-2.5 hover:border-green-500/40 transition-all text-left"
   >
-    {/* Tooltip */}
-    <div className="absolute -top-10 left-1/2 -translate-x-1/2 bg-slate-800 text-white text-xs px-3 py-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-10 shadow-xl">
-      Filter: {statusFilter === 'all' ? 'All Categories' : statusFilter === 'active' ? 'Active Only' : 'Inactive Only'}
-      <div className="absolute bottom-0 left-1/2 -translate-x-1/2 translate-y-full w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-slate-800"></div>
-    </div>
-    
-    <div className="flex items-center justify-between">
-      <div>
-        <p className="text-slate-400 text-xs font-medium">Active Categories</p>
-        <p className="text-2xl font-bold text-white mt-1">{stats.activeCategories}</p>
-        <p className="text-xs text-green-400 mt-1 font-medium">
-          {statusFilter === 'all' ? '● All' : statusFilter === 'active' ? '● Active' : '● Inactive'}
-        </p>
+    <div className="flex items-center gap-2">
+      <div className="w-8 h-8 bg-green-500/10 rounded-md flex items-center justify-center">
+        <CheckCircle className="h-4 w-4 text-green-400" />
       </div>
-      <div className="w-10 h-10 bg-green-500/20 rounded-lg flex items-center justify-center shrink-0 group-hover:bg-green-500/30 transition-all">
-        <CheckCircle className="h-5 w-5 text-green-400" />
+      <div>
+        <p className="text-[11px] text-slate-500">Active</p>
+        <p className="text-lg font-semibold text-white">{stats.activeCategories}</p>
       </div>
     </div>
   </button>
 
-  {/* 4. Show On Homepage - CLICKABLE */}
+  {/* Homepage */}
   <button
-    type="button"
     onClick={() => {
       if (homepageFilter === 'all') setHomepageFilter('yes');
       else if (homepageFilter === 'yes') setHomepageFilter('no');
       else setHomepageFilter('all');
     }}
-    className="bg-gradient-to-br from-cyan-500/10 to-cyan-600/5 backdrop-blur-sm border border-cyan-500/20 rounded-xl p-4 hover:border-cyan-500/40 transition-all cursor-pointer group relative text-left"
+    className="bg-slate-900/40 border border-slate-800 rounded-lg p-2.5 hover:border-cyan-500/40 transition-all text-left"
   >
-    {/* Tooltip */}
-    <div className="absolute -top-10 left-1/2 -translate-x-1/2 bg-slate-800 text-white text-xs px-3 py-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-10 shadow-xl">
-      Filter: {homepageFilter === 'all' ? 'All Categories' : homepageFilter === 'yes' ? 'On Homepage' : 'Not On Homepage'}
-      <div className="absolute bottom-0 left-1/2 -translate-x-1/2 translate-y-full w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-slate-800"></div>
-    </div>
-    
-    <div className="flex items-center justify-between">
-      <div>
-        <p className="text-slate-400 text-xs font-medium">Show On Homepage</p>
-        <p className="text-2xl font-bold text-white mt-1">{stats.homepageCategories}</p>
-        <p className="text-xs text-cyan-400 mt-1 font-medium">
-          {homepageFilter === 'all' ? '● All' : homepageFilter === 'yes' ? '● Yes' : '● No'}
-        </p>
+    <div className="flex items-center gap-2">
+      <div className="w-8 h-8 bg-cyan-500/10 rounded-md flex items-center justify-center">
+        <Award className="h-4 w-4 text-cyan-400" />
       </div>
-      <div className="w-10 h-10 bg-cyan-500/20 rounded-lg flex items-center justify-center shrink-0 group-hover:bg-cyan-500/30 transition-all">
-        <Award className="h-5 w-5 text-cyan-400" />
+      <div>
+        <p className="text-[11px] text-slate-500">Homepage</p>
+        <p className="text-lg font-semibold text-white">{stats.homepageCategories}</p>
       </div>
     </div>
   </button>
@@ -1565,253 +1504,249 @@ useEffect(() => {
 </div>
 
 
-{/* Search and Filters - COMPACT */}
-<div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-xl p-3">
-  <div className="flex flex-col md:flex-row gap-2 flex-wrap">
+{/* Filters */}
+<div className="bg-slate-900/40 border border-slate-800 rounded-lg px-3 py-2">
 
-    {/* Search Input */}
-    <div className="flex-1 min-w-[220px]">
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-        <input
-          type="text"
-          placeholder="Search categories..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className={`w-full pl-9 pr-4 py-2 bg-slate-900/50 border rounded-lg text-white text-sm placeholder-slate-500 focus:outline-none transition-all ${
-            searchTerm 
-              ? 'border-violet-500 ring-2 ring-violet-500/30' 
-              : 'border-slate-700 focus:ring-2 focus:ring-violet-500/50'
-          }`}
-        />
-      </div>
+  <div className="flex flex-wrap items-center gap-2">
+
+    {/* Search */}
+    <div className="relative flex-1 min-w-[200px]">
+      <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-500" />
+      <input
+        value={searchTerm}
+        onChange={(e) => setSearchTerm(e.target.value)}
+        placeholder="Search..."
+        className={`w-full pl-8 pr-3 py-1.5 bg-slate-800/60 border rounded-md text-white text-[12px] focus:outline-none transition-all ${
+          searchTerm
+            ? "border-violet-500 ring-1 ring-violet-500/40"
+            : "border-slate-700 focus:ring-1 focus:ring-violet-500"
+        }`}
+      />
     </div>
 
-    {/* Level Filter */}
-    <div className="w-full md:w-40 min-w-[140px]">
-      <div className="relative">
-        <Filter className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
-        <select
-          value={levelFilter}
-          onChange={(e) => setLevelFilter(e.target.value)}
-          className={`w-full pl-9 pr-8 py-2 bg-slate-900/90 border rounded-lg text-white text-sm appearance-none cursor-pointer focus:outline-none transition-all ${
-            levelFilter !== 'all' 
-              ? 'border-cyan-500 ring-2 ring-cyan-500/30' 
-              : 'border-slate-700 focus:ring-2 focus:ring-violet-500/50'
-          }`}
-        >
-          <option value="all">All Levels</option>
-          <option value="level1">Level 1</option>
-          <option value="level2">Level 2</option>
-          <option value="level3">Level 3</option>
-        </select>
-        <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
-      </div>
-    </div>
-{/* Is Deleted Filter */}
-<div className="w-full md:w-48 min-w-[160px]">
-  <div className="relative">
-    <Filter className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
+    {/* Level */}
     <select
-      value={deletedFilter}
-      onChange={(e) =>
-        setDeletedFilter(e.target.value as 'all' | 'deleted' | 'notDeleted')
-      }
-      className={`w-full pl-9 pr-8 py-2 bg-slate-900/90 border rounded-lg text-white text-sm appearance-none cursor-pointer focus:outline-none transition-all ${
-        deletedFilter !== 'all'
-          ? 'border-red-500 ring-2 ring-red-500/30'
-          : 'border-slate-700 focus:ring-2 focus:ring-violet-500/50'
+      value={levelFilter}
+      onChange={(e) => setLevelFilter(e.target.value)}
+      className={`px-2 py-1 bg-slate-800/60 border rounded-md text-white text-[11px] ${
+        levelFilter !== "all"
+          ? "border-cyan-500 bg-cyan-500/10 ring-1 ring-cyan-500/40"
+          : "border-slate-700"
       }`}
     >
-      <option value="all">Deleted: All</option>
-      <option value="notDeleted">Deleted: No</option>
-      <option value="deleted">Deleted: Yes</option>
+      <option value="all">Level</option>
+      <option value="level1">L1</option>
+      <option value="level2">L2</option>
+      <option value="level3">L3</option>
     </select>
-    <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
-  </div>
-</div>
 
-    {/* Status Filter */}
-    <div className="w-full md:w-40 min-w-[140px]">
-      <div className="relative">
-        <Filter className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
-        <select
-          value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value)}
-          className={`w-full pl-9 pr-8 py-2 bg-slate-900/90 border rounded-lg text-white text-sm appearance-none cursor-pointer focus:outline-none transition-all ${
-            statusFilter !== 'all' 
-              ? 'border-pink-500 ring-2 ring-pink-500/30' 
-              : 'border-slate-700 focus:ring-2 focus:ring-violet-500/50'
-          }`}
-        >
-          <option value="all">All Status</option>
-          <option value="active">Active</option>
-          <option value="inactive">Inactive</option>
-        </select>
-        <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
-      </div>
-    </div>
+    {/* Deleted */}
+    <select
+      value={deletedFilter}
+      onChange={(e) => setDeletedFilter(e.target.value as any)}
+      className={`px-2 py-1 bg-slate-800/60 border rounded-md text-white text-[11px] ${
+        deletedFilter !== "all"
+          ? "border-red-500 bg-red-500/10 ring-1 ring-red-500/40"
+          : "border-slate-700"
+      }`}
+    >
+      <option value="all">Records</option>
+      <option value="notDeleted">Live</option>
+      <option value="deleted">Deleted</option>
+    </select>
 
-    {/* Show on Homepage Filter */}
-    <div className="w-full md:w-48 min-w-[160px]">
-      <div className="relative">
-        <Award className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
-        <select
-          value={homepageFilter}
-          onChange={(e) => setHomepageFilter(e.target.value as 'all' | 'yes' | 'no')}
-          className={`w-full pl-9 pr-8 py-2 bg-slate-900/90 border rounded-lg text-white text-sm appearance-none cursor-pointer focus:outline-none transition-all ${
-            homepageFilter !== 'all'
-              ? 'border-emerald-500 ring-2 ring-emerald-500/30'
-              : 'border-slate-700 focus:ring-2 focus:ring-violet-500/50'
-          }`}
-        >
-          <option value="all">Homepage: All</option>
-          <option value="yes">Homepage: Yes</option>
-          <option value="no">Homepage: No</option>
-        </select>
-        <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
-      </div>
-    </div>
+    {/* Status */}
+    <select
+      value={statusFilter}
+      onChange={(e) => setStatusFilter(e.target.value)}
+      className={`px-2 py-1 bg-slate-800/60 border rounded-md text-white text-[11px] ${
+        statusFilter !== "all"
+          ? "border-green-500 bg-green-500/10 ring-1 ring-green-500/40"
+          : "border-slate-700"
+      }`}
+    >
+      <option value="all">Status</option>
+      <option value="active">Active</option>
+      <option value="inactive">Inactive</option>
+    </select>
 
-    {/* Clear Filters Button */}
+    {/* Homepage */}
+    <select
+      value={homepageFilter}
+      onChange={(e) => setHomepageFilter(e.target.value as any)}
+      className={`px-2 py-1 bg-slate-800/60 border rounded-md text-white text-[11px] ${
+        homepageFilter !== "all"
+          ? "border-emerald-500 bg-emerald-500/10 ring-1 ring-emerald-500/40"
+          : "border-slate-700"
+      }`}
+    >
+      <option value="all">Homepage</option>
+      <option value="yes">Yes</option>
+      <option value="no">No</option>
+    </select>
+
+    {/* Clear */}
     {hasActiveFilters && (
       <button
         onClick={clearFilters}
-        className="px-4 py-2 bg-slate-900/50 border border-slate-700 rounded-lg text-slate-400 hover:text-white hover:border-red-500 hover:bg-red-500/10 transition-all flex items-center gap-1.5 shrink-0 md:self-center"
-        title="Clear all filters"
+        className="px-2 py-1 text-[11px] bg-red-500/10 border border-red-500/40 text-red-400 rounded-md hover:bg-red-500/20 flex items-center gap-1"
       >
-        <FilterX className="h-4 w-4" />
-        <span className="text-sm">Clear</span>
+        <FilterX className="h-3 w-3" />
+        Clear
       </button>
     )}
+
   </div>
 </div>
 
 
 
       {/* Categories Table */}
-      <div className="bg-slate-800/30 backdrop-blur-sm border border-slate-700/50 rounded-2xl overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-slate-800/50 border-b border-slate-700">
-              <tr>
-                <th className="py-4 px-4 text-left text-sm font-semibold text-slate-300">Category Name</th>
-                <th className="py-4 px-4 text-center text-sm font-semibold text-slate-300">Products</th>
-                <th className="py-4 px-4 text-center text-sm font-semibold text-slate-300">Status</th>
-                <th className="py-4 px-4 text-center text-sm font-semibold text-slate-300">Order by </th>
-                <th className="py-4 px-4 text-left text-sm font-semibold text-slate-300">Created At</th>
-                <th className="py-4 px-4 text-left text-sm font-semibold text-slate-300">Updated At</th>
-                <th className="py-4 px-4 text-left text-sm font-semibold text-slate-300">Updated By</th>
-                <th className="py-4 px-4 text-center text-sm font-semibold text-slate-300">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {currentData.length === 0 ? (
-                <tr>
-                  <td colSpan={8} className="py-12 text-center">
-                    <div className="flex flex-col items-center gap-3">
-                      <AlertCircle className="h-12 w-12 text-slate-600" />
-                      <p className="text-slate-400 text-lg">No categories found</p>
-                      <p className="text-slate-500 text-sm">Try adjusting your filters or create a new category</p>
-                    </div>
-                  </td>
-                </tr>
-              ) : (
-                currentData.map((category) => (
-                  <CategoryRow
-                    key={category.id}
-                    category={category}
-                    level={category.level}
-                    allCategories={categories}
-                    expandedCategories={expandedCategories}
-                    onToggleExpand={toggleCategoryExpansion}
-                    onEdit={handleEdit}
-                    onDelete={(id, name) => setDeleteConfirm({ id, name })}
-                    onView={setViewingCategory}
-                    onAddSubcategory={handleAddSubcategory}
-                    getImageUrl={getImageUrl}
-                    setImageDeleteConfirm={setImageDeleteConfirm}
-                    onStatusToggle={handleStatusToggle}
-                    onRestore={handleRestore}
-                  />
-                ))
-              )}
-            </tbody>
-          </table>
+<div className="bg-slate-900/40 border border-slate-800 rounded-lg overflow-hidden">
+
+  {/* TABLE */}
+  <div className="overflow-x-auto">
+    <table className="w-full text-sm">
+
+      {/* HEADER */}
+      <thead className="bg-slate-800/40 border-b border-slate-800">
+        <tr className="text-[11px] text-slate-500 uppercase tracking-wide">
+          <th className="py-2 px-3 text-left">Category</th>
+          <th className="py-2 px-3 text-center">Products</th>
+          <th className="py-2 px-3 text-center">Status</th>
+          <th className="py-2 px-3 text-center">Order</th>
+          <th className="py-2 px-3 text-left">Created on</th>
+          <th className="py-2 px-3 text-left">Updated on</th>
+          <th className="py-2 px-3 text-left">Updated By</th>
+          <th className="py-2 px-3 text-center">Actions</th>
+        </tr>
+      </thead>
+
+      {/* BODY */}
+      <tbody>
+        {currentData.length === 0 ? (
+          <tr>
+            <td colSpan={8} className="py-10 text-center">
+              <div className="flex flex-col items-center gap-2">
+                <AlertCircle className="h-8 w-8 text-slate-600" />
+                <p className="text-slate-400 text-sm">No categories found</p>
+                <p className="text-slate-500 text-[11px]">
+                  Try adjusting filters
+                </p>
+              </div>
+            </td>
+          </tr>
+        ) : (
+          currentData.map((category) => (
+            <CategoryRow
+              key={category.id}
+              category={category}
+              level={category.level}
+              allCategories={categories}
+              expandedCategories={expandedCategories}
+              onToggleExpand={toggleCategoryExpansion}
+              onEdit={handleEdit}
+              onDelete={(id, name) => setDeleteConfirm({ id, name })}
+              onView={setViewingCategory}
+              onAddSubcategory={handleAddSubcategory}
+              getImageUrl={getImageUrl}
+              setImageDeleteConfirm={setImageDeleteConfirm}
+              onStatusToggle={handleStatusToggle}
+              onRestore={handleRestore}
+            />
+          ))
+        )}
+      </tbody>
+
+    </table>
+  </div>
+
+
+  {/* PAGINATION */}
+  {totalPages > 1 && (
+    <div className="border-t border-slate-800 px-3 py-2 bg-slate-900/40">
+
+      <div className="flex flex-wrap items-center justify-between gap-2">
+
+        {/* LEFT */}
+        <div className="flex items-center gap-2 text-[11px] text-slate-500">
+          <span>Show</span>
+
+          <select
+            value={itemsPerPage}
+            onChange={(e) => handleItemsPerPageChange(Number(e.target.value))}
+            className="px-2 py-1 bg-slate-800/60 border border-slate-700 rounded-md text-white text-[11px]"
+          >
+            <option value={10}>10</option>
+            <option value={25}>25</option>
+            <option value={50}>50</option>
+            <option value={100}>100</option>
+          </select>
+
+          <span>
+            {startIndex + 1}–{Math.min(endIndex, totalItems)} of {totalItems}
+          </span>
         </div>
 
-        {/* Pagination */}
-        {totalPages > 1 && (
-          <div className="border-t border-slate-700 bg-slate-800/30 px-6 py-4">
-            <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-              <div className="flex items-center gap-2">
-                <span className="text-slate-400 text-sm">Show</span>
-                <select
-                  value={itemsPerPage}
-                  onChange={(e) => handleItemsPerPageChange(Number(e.target.value))}
-                  className="px-3 py-1.5 bg-slate-900/50 border border-slate-700 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
-                >
-                  <option value={10}>10</option>
-                  <option value={25}>25</option>
-                  <option value={50}>50</option>
-                  <option value={100}>100</option>
-                </select>
-                <span className="text-slate-400 text-sm">
-                  of {totalItems} categories
-                </span>
-              </div>
+        {/* RIGHT */}
+        <div className="flex items-center gap-1">
 
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={goToFirstPage}
-                  disabled={currentPage === 1}
-                  className="p-2 rounded-lg bg-slate-900/50 border border-slate-700 text-slate-400 hover:text-white hover:border-violet-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-                >
-                  <ChevronsLeft className="h-4 w-4" />
-                </button>
-                <button
-                  onClick={goToPreviousPage}
-                  disabled={currentPage === 1}
-                  className="p-2 rounded-lg bg-slate-900/50 border border-slate-700 text-slate-400 hover:text-white hover:border-violet-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-                >
-                  <ChevronLeft className="h-4 w-4" />
-                </button>
+          <button
+            onClick={goToFirstPage}
+            disabled={currentPage === 1}
+            className="p-1.5 rounded-md border border-slate-700 text-slate-400 hover:text-white hover:border-violet-500 disabled:opacity-40"
+          >
+            <ChevronsLeft className="h-3.5 w-3.5" />
+          </button>
 
-                <div className="flex gap-1">
-                  {getPageNumbers().map((pageNum) => (
-                    <button
-                      key={pageNum}
-                      onClick={() => goToPage(pageNum)}
-                      className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
-                        currentPage === pageNum
-                          ? "bg-gradient-to-r from-violet-500 to-cyan-500 text-white"
-                          : "bg-slate-900/50 border border-slate-700 text-slate-400 hover:text-white hover:border-violet-500"
-                      }`}
-                    >
-                      {pageNum}
-                    </button>
-                  ))}
-                </div>
+          <button
+            onClick={goToPreviousPage}
+            disabled={currentPage === 1}
+            className="p-1.5 rounded-md border border-slate-700 text-slate-400 hover:text-white hover:border-violet-500 disabled:opacity-40"
+          >
+            <ChevronLeft className="h-3.5 w-3.5" />
+          </button>
 
-                <button
-                  onClick={goToNextPage}
-                  disabled={currentPage === totalPages}
-                  className="p-2 rounded-lg bg-slate-900/50 border border-slate-700 text-slate-400 hover:text-white hover:border-violet-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-                >
-                  <ChevronRight className="h-4 w-4" />
-                </button>
-                <button
-                  onClick={goToLastPage}
-                  disabled={currentPage === totalPages}
-                  className="p-2 rounded-lg bg-slate-900/50 border border-slate-700 text-slate-400 hover:text-white hover:border-violet-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-                >
-                  <ChevronsRight className="h-4 w-4" />
-                </button>
-              </div>
-            </div>
+          {/* PAGE NUMBERS */}
+          <div className="flex gap-1">
+            {getPageNumbers().map((pageNum) => (
+              <button
+                key={pageNum}
+                onClick={() => goToPage(pageNum)}
+                className={`px-2 py-1 text-[11px] rounded-md transition-all ${
+                  currentPage === pageNum
+                    ? "bg-violet-500 text-white"
+                    : "bg-slate-800/60 border border-slate-700 text-slate-400 hover:text-white hover:border-violet-500"
+                }`}
+              >
+                {pageNum}
+              </button>
+            ))}
           </div>
-        )}
+
+          <button
+            onClick={goToNextPage}
+            disabled={currentPage === totalPages}
+            className="p-1.5 rounded-md border border-slate-700 text-slate-400 hover:text-white hover:border-violet-500 disabled:opacity-40"
+          >
+            <ChevronRight className="h-3.5 w-3.5" />
+          </button>
+
+          <button
+            onClick={goToLastPage}
+            disabled={currentPage === totalPages}
+            className="p-1.5 rounded-md border border-slate-700 text-slate-400 hover:text-white hover:border-violet-500 disabled:opacity-40"
+          >
+            <ChevronsRight className="h-3.5 w-3.5" />
+          </button>
+
+        </div>
+
       </div>
+
+    </div>
+  )}
+</div>
 
       {/* Modals remain the same - I can provide them if needed */}
       {showModal && (

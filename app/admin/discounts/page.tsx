@@ -861,114 +861,138 @@ const filteredDiscounts = discounts.filter((discount) => {
 
   return (
     <div className="space-y-2">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight bg-gradient-to-r from-violet-400 via-cyan-400 to-pink-400 bg-clip-text text-transparent">
-            Discount Management
-          </h1>
-          <p className="text-slate-400">Manage your store discounts and offers</p>
-        </div>
-        <button
-          onClick={() => {
-            resetForm();
-            setShowModal(true);
-          }}
-          className="px-4 py-2 bg-gradient-to-r from-violet-500 to-cyan-500 text-white rounded-xl justify-center hover:shadow-lg hover:shadow-violet-500/50 transition-all flex items-center gap-2 font-semibold"
-        >
-          <Plus className="h-4 w-4" />
-          Add Discount
-        </button>
+{/* Header */}
+<div className="flex flex-wrap items-center justify-between gap-3">
+
+  <div>
+    <h1 className="text-xl font-semibold bg-gradient-to-r from-violet-400 via-cyan-400 to-pink-400 bg-clip-text text-transparent">
+      Discount Management
+    </h1>
+    <p className="text-[11px] text-slate-500">
+      Manage your store discounts
+    </p>
+  </div>
+
+  <button
+    onClick={() => {
+      resetForm();
+      setShowModal(true);
+    }}
+    className="px-3 py-1.5 text-[11px] bg-gradient-to-r from-violet-500 to-cyan-500 text-white rounded-md hover:opacity-90 transition-all flex items-center gap-1.5"
+  >
+    <Plus className="h-3 w-3" />
+    Add Discount
+  </button>
+</div>
+
+
+{/* Stats Cards */}
+<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
+
+  {/* Total */}
+  <div className="bg-slate-900/40 border border-slate-800 rounded-lg p-2.5">
+    <div className="flex items-center gap-2">
+      <div className="w-8 h-8 bg-violet-500/10 rounded-md flex items-center justify-center">
+        <Percent className="h-4 w-4 text-violet-400" />
       </div>
-
-      {/* Stats Cards */}
-      <div className="grid gap-4 md:grid-cols-4">
-        <div className="bg-gradient-to-br from-violet-500/10 to-purple-500/10 backdrop-blur-xl border border-violet-500/20 rounded-xl p-4 hover:shadow-lg hover:shadow-violet-500/10 transition-all">
-          <div className="flex items-center gap-3">
-            <div className="p-2.5 bg-gradient-to-br from-violet-500 to-purple-500 rounded-lg">
-              <Percent className="w-5 h-5 text-white" />
-            </div>
-            <div>
-              <p className="text-xs text-slate-400 mb-0.5">Total Discounts</p>
-              <p className="text-2xl font-bold text-white">{discounts.length}</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-gradient-to-br from-green-500/10 to-emerald-500/10 backdrop-blur-xl border border-green-500/20 rounded-xl p-4 hover:shadow-lg hover:shadow-green-500/10 transition-all">
-          <div className="flex items-center gap-3">
-            <div className="p-2.5 bg-gradient-to-br from-green-500 to-emerald-500 rounded-lg">
-              <Gift className="w-5 h-5 text-white" />
-            </div>
-            <div>
-              <p className="text-xs text-slate-400 mb-0.5">Active Discounts</p>
-              <p className="text-2xl font-bold text-white">
-                {discounts.filter((d) => d.isActive).length}
-              </p>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-gradient-to-br from-blue-500/10 to-cyan-500/10 backdrop-blur-xl border border-blue-500/20 rounded-xl p-4 hover:shadow-lg hover:shadow-blue-500/10 transition-all">
-          <div className="flex items-center gap-3">
-            <div className="p-2.5 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-lg">
-              <Target className="w-5 h-5 text-white" />
-            </div>
-            <div>
-              <p className="text-xs text-slate-400 mb-0.5">Product Discounts</p>
-              <p className="text-2xl font-bold text-white">
-                {discounts.filter((d) => d.discountType === "AssignedToProducts").length}
-              </p>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-gradient-to-br from-orange-500/10 to-amber-500/10 backdrop-blur-xl border border-orange-500/20 rounded-xl p-4 hover:shadow-lg hover:shadow-orange-500/10 transition-all">
-          <div className="flex items-center gap-3">
-            <div className="p-2.5 bg-gradient-to-br from-orange-500 to-amber-500 rounded-lg">
-              <Calendar className="w-5 h-5 text-white" />
-            </div>
-            <div>
-              <p className="text-xs text-slate-400 mb-0.5">Expiring Soon</p>
-              <p className="text-2xl font-bold text-white">
-                {
-                  discounts.filter((d) => {
-                    const end = new Date(d.endDate);
-                    const now = new Date();
-                    const diffTime = end.getTime() - now.getTime();
-                    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-                    return diffDays <= 7 && diffDays > 0;
-                  }).length
-                }
-              </p>
-            </div>
-          </div>
-        </div>
+      <div>
+        <p className="text-[11px] text-slate-500">Total</p>
+        <p className="text-lg font-semibold text-white">
+          {discounts.length}
+        </p>
       </div>
+    </div>
+  </div>
 
-      {/* Items per page selector */}
-      <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-2xl p-2">
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <span className="text-sm text-slate-400">Show</span>
-            <select
-              value={itemsPerPage}
-              onChange={(e) => handleItemsPerPageChange(Number(e.target.value))}
-              className="px-3 py-2 bg-slate-800/50 border border-slate-600 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all"
-            >
-              <option value="25">25</option>
-              <option value="50">50</option>
-              <option value="75">75</option>
-              <option value="100">100</option>
-            </select>
-            <span className="text-sm text-slate-400">entries per page</span>
-          </div>
-          <div className="text-sm text-slate-400">
-            Showing {startIndex + 1} to {Math.min(endIndex, totalItems)} of {totalItems} entries
-          </div>
-        </div>
+  {/* Active */}
+  <div className="bg-slate-900/40 border border-slate-800 rounded-lg p-2.5">
+    <div className="flex items-center gap-2">
+      <div className="w-8 h-8 bg-green-500/10 rounded-md flex items-center justify-center">
+        <Gift className="h-4 w-4 text-green-400" />
       </div>
+      <div>
+        <p className="text-[11px] text-slate-500">Active</p>
+        <p className="text-lg font-semibold text-white">
+          {discounts.filter((d) => d.isActive).length}
+        </p>
+      </div>
+    </div>
+  </div>
 
+  {/* Product */}
+  <div className="bg-slate-900/40 border border-slate-800 rounded-lg p-2.5">
+    <div className="flex items-center gap-2">
+      <div className="w-8 h-8 bg-cyan-500/10 rounded-md flex items-center justify-center">
+        <Target className="h-4 w-4 text-cyan-400" />
+      </div>
+      <div>
+        <p className="text-[11px] text-slate-500">Products</p>
+        <p className="text-lg font-semibold text-white">
+          {discounts.filter((d) => d.discountType === "AssignedToProducts").length}
+        </p>
+      </div>
+    </div>
+  </div>
+
+  {/* Expiring */}
+  <div className="bg-slate-900/40 border border-slate-800 rounded-lg p-2.5">
+    <div className="flex items-center gap-2">
+      <div className="w-8 h-8 bg-orange-500/10 rounded-md flex items-center justify-center">
+        <Calendar className="h-4 w-4 text-orange-400" />
+      </div>
+      <div>
+        <p className="text-[11px] text-slate-500">Expiring</p>
+        <p className="text-lg font-semibold text-white">
+          {
+            discounts.filter((d) => {
+              const end = new Date(d.endDate);
+              const now = new Date();
+              const diffDays = Math.ceil(
+                (end.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)
+              );
+              return diffDays <= 7 && diffDays > 0;
+            }).length
+          }
+        </p>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+
+{/* Items Per Page */}
+<div className="bg-slate-900/40 border border-slate-800 rounded-lg px-3 py-2">
+
+  <div className="flex items-center justify-between gap-2 flex-wrap">
+
+    <div className="flex items-center gap-2">
+      <span className="text-[11px] text-slate-500">Show</span>
+
+      <select
+        value={itemsPerPage}
+        onChange={(e) => handleItemsPerPageChange(Number(e.target.value))}
+        className="px-2 py-1 bg-slate-800/60 border border-slate-700 rounded-md text-white text-[11px]"
+      >
+        <option value={25}>25</option>
+        <option value={50}>50</option>
+        <option value={75}>75</option>
+        <option value={100}>100</option>
+      </select>
+
+      <span className="text-[11px] text-slate-500">per page</span>
+    </div>
+
+    <div className="text-[11px] text-slate-500">
+      <span className="text-white font-medium">{startIndex + 1}</span>
+      {" – "}
+      <span className="text-white font-medium">{Math.min(endIndex, totalItems)}</span>
+      {" of "}
+      <span className="text-white font-medium">{totalItems}</span>
+    </div>
+
+  </div>
+</div>
       {/* Search and filters */}
       <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-2xl p-2">
         <div className="flex flex-wrap items-center gap-4">

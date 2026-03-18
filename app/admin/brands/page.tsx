@@ -302,197 +302,228 @@ const handleStatusUpdate = async () => {
   return (
     <div className="space-y-2">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight bg-gradient-to-r from-violet-400 via-cyan-400 to-pink-400 bg-clip-text text-transparent">
-            Brand Management
-          </h1>
-          <p className="text-slate-400">Manage your product brands</p>
-        </div>
+<div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
 
-        <div className="flex flex-wrap items-center gap-3">
-          <button
-            onClick={() => router.push('/admin/categories')}
-            className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-violet-500 to-purple-500 hover:from-violet-600 hover:to-purple-600 text-white rounded-xl font-semibold shadow-lg hover:shadow-violet-500/50 transition-all"
-          >
-            <FolderTree className="h-4 w-4" />
-            View Categories
-          </button>
+  {/* LEFT */}
+  <div>
+    <h1 className="text-2xl font-semibold text-white">
+      Brand Management
+    </h1>
+    <p className="text-[12px] text-slate-500">
+      Manage your product brands
+    </p>
+  </div>
 
-          <button
-            onClick={() => router.push('/admin/products')}
-            className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-600 hover:to-blue-600 text-white rounded-xl font-semibold shadow-lg hover:shadow-cyan-500/50 transition-all"
-          >
-            <Package className="h-4 w-4" />
-            View Products
-          </button>
+  {/* RIGHT BUTTONS */}
+  <div className="flex flex-wrap items-center gap-2">
 
-          <button
-            onClick={() => {
-              resetForm();
-              setShowModal(true);
-            }}
-            className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-violet-500 to-cyan-500 hover:from-violet-600 hover:to-cyan-600 text-white rounded-xl font-semibold shadow-lg hover:shadow-pink-500/50 transition-all"
-          >
-            <Plus className="h-4 w-4" />
-            Add Brand
-          </button>
-        </div>
+    {/* Categories */}
+    <button
+      title="Go to Categories page"
+      onClick={() => router.push('/admin/categories')}
+      className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-800/60 border border-slate-700 text-slate-300 rounded-md text-[12px] hover:text-white hover:border-violet-500/40 transition-all"
+    >
+      <FolderTree className="h-3.5 w-3.5" />
+      Categories
+    </button>
+
+    {/* Products */}
+    <button
+      title="Go to Products page"
+      onClick={() => router.push('/admin/products')}
+      className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-800/60 border border-slate-700 text-slate-300 rounded-md text-[12px] hover:text-white hover:border-cyan-500/40 transition-all"
+    >
+      <Package className="h-3.5 w-3.5" />
+      Products
+    </button>
+
+    {/* Add Brand */}
+    <button
+      title="Create a new brand"
+      onClick={() => {
+        resetForm();
+        setShowModal(true);
+      }}
+      className="flex items-center gap-1.5 px-3 py-1.5 bg-violet-600 hover:bg-violet-700 text-white rounded-md text-[12px] transition-all"
+    >
+      <Plus className="h-3.5 w-3.5" />
+      Add Brand
+    </button>
+
+  </div>
+</div>
+
+  
+ {/* Stats Cards */}
+<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
+
+  {/* Total Brands */}
+  <button
+    type="button"
+    onClick={() => {
+      if (publishedFilter === 'all') setPublishedFilter('true');
+      else if (publishedFilter === 'true') setPublishedFilter('false');
+      else setPublishedFilter('all');
+    }}
+    className="bg-slate-900/40 border border-slate-800 rounded-lg p-2.5 hover:border-violet-500/40 transition-all text-left"
+  >
+    <div className="flex items-center gap-2">
+      <div className="w-8 h-8 bg-violet-500/10 rounded-md flex items-center justify-center">
+        <Tag className="h-4 w-4 text-violet-400" />
       </div>
-
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-        <button
-          type="button"
-          onClick={() => {
-            if (publishedFilter === 'all') setPublishedFilter('true');
-            else if (publishedFilter === 'true') setPublishedFilter('false');
-            else setPublishedFilter('all');
-          }}
-          className="bg-gradient-to-br from-violet-500/10 to-violet-600/5 backdrop-blur-sm border border-violet-500/20 rounded-xl p-4 hover:border-violet-500/40 transition-all cursor-pointer group relative text-left"
-        >
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-slate-400 text-xs font-medium">Total Brands</p>
-              <p className="text-2xl font-bold text-white mt-1">{stats.totalBrands}</p>
-              <p className="text-xs text-violet-400 mt-1 font-medium">
-                {publishedFilter === 'all' ? '● All' : publishedFilter === 'true' ? '● Published' : '● Unpublished'}
-              </p>
-            </div>
-            <div className="w-10 h-10 bg-violet-500/20 rounded-lg flex items-center justify-center shrink-0 group-hover:bg-violet-500/30 transition-all">
-              <Tag className="h-5 w-5 text-violet-400" />
-            </div>
-          </div>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => {
-            if (activeFilter === 'all') setActiveFilter('true');
-            else if (activeFilter === 'true') setActiveFilter('false');
-            else setActiveFilter('all');
-          }}
-          className="bg-gradient-to-br from-green-500/10 to-green-600/5 backdrop-blur-sm border border-green-500/20 rounded-xl p-4 hover:border-green-500/40 transition-all cursor-pointer group relative text-left"
-        >
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-slate-400 text-xs font-medium">Active Status</p>
-              <p className="text-2xl font-bold text-white mt-1">
-                {brands.filter(b => b.isActive).length}
-              </p>
-              <p className="text-xs text-green-400 mt-1 font-medium">
-                {activeFilter === 'all' ? '● All' : activeFilter === 'true' ? '● Active' : '● Inactive'}
-              </p>
-            </div>
-            <div className="w-10 h-10 bg-green-500/20 rounded-lg flex items-center justify-center shrink-0 group-hover:bg-green-500/30 transition-all">
-              <CheckCircle className="h-5 w-5 text-green-400" />
-            </div>
-          </div>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => {
-            if (homepageFilter === 'all') setHomepageFilter('true');
-            else if (homepageFilter === 'true') setHomepageFilter('false');
-            else setHomepageFilter('all');
-          }}
-          className="bg-gradient-to-br from-cyan-500/10 to-cyan-600/5 backdrop-blur-sm border border-cyan-500/20 rounded-xl p-4 hover:border-cyan-500/40 transition-all cursor-pointer group relative text-left"
-        >
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-slate-400 text-xs font-medium">On Homepage</p>
-              <p className="text-2xl font-bold text-white mt-1">{stats.homepageBrands}</p>
-              <p className="text-xs text-cyan-400 mt-1 font-medium">
-                {homepageFilter === 'all' ? '● All' : homepageFilter === 'true' ? '● Yes' : '● No'}
-              </p>
-            </div>
-            <div className="w-10 h-10 bg-cyan-500/20 rounded-lg flex items-center justify-center shrink-0 group-hover:bg-cyan-500/30 transition-all">
-              <Eye className="h-5 w-5 text-cyan-400" />
-            </div>
-          </div>
-        </button>
-
-        <div className="bg-gradient-to-br from-pink-500/10 to-pink-600/5 backdrop-blur-sm border border-pink-500/20 rounded-xl p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-slate-400 text-xs font-medium">Total Products</p>
-              <p className="text-2xl font-bold text-white mt-1">{stats.totalProducts}</p>
-            </div>
-            <div className="w-10 h-10 bg-pink-500/20 rounded-lg flex items-center justify-center shrink-0">
-              <Package className="h-5 w-5 text-pink-400" />
-            </div>
-          </div>
-        </div>
+      <div>
+        <p className="text-[11px] text-slate-500 font-medium">Total Brands</p>
+        <p className="text-lg font-semibold text-white">{stats.totalBrands}</p>
+        <p className="text-[10px] text-violet-400">
+          {publishedFilter === 'all' ? 'All' : publishedFilter === 'true' ? 'Published' : 'Unpublished'}
+        </p>
       </div>
+    </div>
+  </button>
 
-      {/* Items Per Page */}
-      <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-2xl p-2">
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <span className="text-sm text-slate-400">Show</span>
-            <select
-              value={itemsPerPage}
-              onChange={(e) => handleItemsPerPageChange(Number(e.target.value))}
-              className="px-3 py-2 bg-slate-800/50 border border-slate-600 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all"
-            >
-              <option value={25}>25</option>
-              <option value={50}>50</option>
-              <option value={75}>75</option>
-              <option value={100}>100</option>
-            </select>
-            <span className="text-sm text-slate-400">entries per page</span>
-          </div>
-
-          <div className="text-sm text-slate-400">
-            Showing {startIndex + 1} to {Math.min(endIndex, totalItems)} of {totalItems} entries
-          </div>
-        </div>
+  {/* Active */}
+  <button
+    type="button"
+    onClick={() => {
+      if (activeFilter === 'all') setActiveFilter('true');
+      else if (activeFilter === 'true') setActiveFilter('false');
+      else setActiveFilter('all');
+    }}
+    className="bg-slate-900/40 border border-slate-800 rounded-lg p-2.5 hover:border-green-500/40 transition-all text-left"
+  >
+    <div className="flex items-center gap-2">
+      <div className="w-8 h-8 bg-green-500/10 rounded-md flex items-center justify-center">
+        <CheckCircle className="h-4 w-4 text-green-400" />
       </div>
+      <div>
+        <p className="text-[11px] text-slate-500 font-medium">Active</p>
+        <p className="text-lg font-semibold text-white">
+          {brands.filter(b => b.isActive).length}
+        </p>
+        <p className="text-[10px] text-green-400">
+          {activeFilter === 'all' ? 'All' : activeFilter === 'true' ? 'Active' : 'Inactive'}
+        </p>
+      </div>
+    </div>
+  </button>
 
-{/* Search and Filters */}
-<div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-2xl p-2">
-  <div className="flex flex-wrap items-center gap-4">
-    <div className="relative flex-1 min-w-80">
-      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-500" />
+  {/* Homepage */}
+  <button
+    type="button"
+    onClick={() => {
+      if (homepageFilter === 'all') setHomepageFilter('true');
+      else if (homepageFilter === 'true') setHomepageFilter('false');
+      else setHomepageFilter('all');
+    }}
+    className="bg-slate-900/40 border border-slate-800 rounded-lg p-2.5 hover:border-cyan-500/40 transition-all text-left"
+  >
+    <div className="flex items-center gap-2">
+      <div className="w-8 h-8 bg-cyan-500/10 rounded-md flex items-center justify-center">
+        <Eye className="h-4 w-4 text-cyan-400" />
+      </div>
+      <div>
+        <p className="text-[11px] text-slate-500 font-medium">Homepage</p>
+        <p className="text-lg font-semibold text-white">{stats.homepageBrands}</p>
+        <p className="text-[10px] text-cyan-400">
+          {homepageFilter === 'all' ? 'All' : homepageFilter === 'true' ? 'Yes' : 'No'}
+        </p>
+      </div>
+    </div>
+  </button>
+
+  {/* Products */}
+  <div className="bg-slate-900/40 border border-slate-800 rounded-lg p-2.5">
+    <div className="flex items-center gap-2">
+      <div className="w-8 h-8 bg-pink-500/10 rounded-md flex items-center justify-center">
+        <Package className="h-4 w-4 text-pink-400" />
+      </div>
+      <div>
+        <p className="text-[11px] text-slate-500 font-medium">Products</p>
+        <p className="text-lg font-semibold text-white">{stats.totalProducts}</p>
+      </div>
+    </div>
+  </div>
+
+</div>
+{/* Items Per Page */}
+<div className="bg-slate-900/40 border border-slate-800 rounded-lg px-3 py-2">
+  <div className="flex items-center justify-between gap-2 flex-wrap">
+
+    <div className="flex items-center gap-2">
+      <span className="text-[11px] text-slate-500">Show</span>
+
+      <select
+        value={itemsPerPage}
+        onChange={(e) => handleItemsPerPageChange(Number(e.target.value))}
+        className="px-2 py-1 bg-slate-800/60 border border-slate-700 rounded-md text-white text-[11px] focus:outline-none focus:ring-1 focus:ring-violet-500"
+      >
+        <option value={25}>25</option>
+        <option value={50}>50</option>
+        <option value={75}>75</option>
+        <option value={100}>100</option>
+      </select>
+
+      <span className="text-[11px] text-slate-500">per page</span>
+    </div>
+
+    <div className="text-[11px] text-slate-500">
+      <span className="text-white font-medium">{startIndex + 1}</span>
+      {" – "}
+      <span className="text-white font-medium">{Math.min(endIndex, totalItems)}</span>
+      {" of "}
+      <span className="text-white font-medium">{totalItems}</span>
+    </div>
+
+  </div>
+</div>
+
+
+{/* Search + Filters */}
+<div className="bg-slate-900/40 border border-slate-800 rounded-lg px-3 py-2">
+
+  <div className="flex flex-wrap items-center gap-2">
+
+    {/* Search */}
+    <div className="relative flex-1 min-w-[220px]">
+      <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-500" />
       <input
         type="search"
         placeholder="Search brands..."
         value={searchTerm}
         onChange={(e) => setSearchTerm(e.target.value)}
-        className="w-full pl-11 pr-4 py-3 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+        className="w-full pl-8 pr-3 py-1.5 bg-slate-800/60 border border-slate-700 rounded-md text-white text-[12px] placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
       />
     </div>
 
-    <div className="flex items-center gap-3">
-      <Filter className="h-4 w-4 text-slate-400" />
+    {/* Filters */}
+    <div className="flex items-center gap-2 flex-wrap">
 
       {/* Published */}
       <select
         value={publishedFilter}
         onChange={(e) => setPublishedFilter(e.target.value)}
-        className={`px-3 py-3 bg-slate-800/90 border rounded-xl text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all min-w-36 ${
+        className={`px-2 py-1 bg-slate-800/60 border rounded-md text-white text-[11px] ${
           publishedFilter !== "all"
-            ? "border-blue-500 bg-blue-500/10 ring-2 ring-blue-500/50"
-            : "border-slate-600"
+            ? "border-blue-500 bg-blue-500/10"
+            : "border-slate-700"
         }`}
       >
-        <option value="all">All Published</option>
-        <option value="true">Published</option>
-        <option value="false">Unpublished</option>
+        <option value="all">Published</option>
+        <option value="true">Yes</option>
+        <option value="false">No</option>
       </select>
 
-      {/* Status (isActive) */}
+      {/* Status */}
       <select
         value={activeFilter}
         onChange={(e) => setActiveFilter(e.target.value)}
-        className={`px-3 py-3 bg-slate-800/90 border rounded-xl text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all min-w-32 ${
+        className={`px-2 py-1 bg-slate-800/60 border rounded-md text-white text-[11px] ${
           activeFilter !== "all"
-            ? "border-blue-500 bg-blue-500/10 ring-2 ring-blue-500/50"
-            : "border-slate-600"
+            ? "border-green-500 bg-green-500/10"
+            : "border-slate-700"
         }`}
       >
-        <option value="all">All Status</option>
+        <option value="all">Status</option>
         <option value="true">Active</option>
         <option value="false">Inactive</option>
       </select>
@@ -501,49 +532,51 @@ const handleStatusUpdate = async () => {
       <select
         value={homepageFilter}
         onChange={(e) => setHomepageFilter(e.target.value)}
-        className={`px-3 py-3 bg-slate-800/90 border rounded-xl text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all min-w-36 ${
+        className={`px-2 py-1 bg-slate-800/60 border rounded-md text-white text-[11px] ${
           homepageFilter !== "all"
-            ? "border-blue-500 bg-blue-500/10 ring-2 ring-blue-500/50"
-            : "border-slate-600"
+            ? "border-cyan-500 bg-cyan-500/10"
+            : "border-slate-700"
         }`}
       >
-        <option value="all">All Homepage</option>
-        <option value="true">On Homepage</option>
-        <option value="false">Not on Homepage</option>
+        <option value="all">Homepage</option>
+        <option value="true">Yes</option>
+        <option value="false">No</option>
       </select>
 
-      {/* Record State (Soft Delete) */}
+      {/* Deleted */}
       <select
         value={deletedFilter}
         onChange={(e) => setDeletedFilter(e.target.value)}
-        className={`px-3 py-3 bg-slate-800/90 border rounded-xl text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all min-w-36 ${
+        className={`px-2 py-1 bg-slate-800/60 border rounded-md text-white text-[11px] ${
           deletedFilter !== "all"
-            ? "border-blue-500 bg-blue-500/10 ring-2 ring-blue-500/50"
-            : "border-slate-600"
+            ? "border-red-500 bg-red-500/10"
+            : "border-slate-700"
         }`}
       >
-        <option value="all">All Records</option>
-        <option value="false">Live Records</option>
-        <option value="true">Deleted Records</option>
+        <option value="all">Records</option>
+        <option value="false">Live</option>
+        <option value="true">Deleted</option>
       </select>
 
+      {/* Clear */}
       {hasActiveFilters && (
         <button
           onClick={clearFilters}
-          className="px-3 py-3 bg-red-500/10 border border-red-500/50 text-red-400 rounded-xl hover:bg-red-500/20 transition-all text-sm font-medium flex items-center gap-2 whitespace-nowrap"
+          className="px-2 py-1 text-[11px] bg-red-500/10 border border-red-500/40 text-red-400 rounded-md hover:bg-red-500/20 flex items-center gap-1"
         >
-          <FilterX className="h-4 w-4" />
+          <FilterX className="h-3 w-3" />
           Clear
         </button>
       )}
     </div>
 
-    <div className="text-sm text-slate-400 whitespace-nowrap ml-auto">
-      {totalItems} brand{totalItems !== 1 ? "s" : ""}
+    {/* Count */}
+    <div className="ml-auto text-[11px] text-slate-500">
+      <span className="text-white font-medium">{totalItems}</span> brands
     </div>
+
   </div>
 </div>
-
       {/* Brands Table */}
       <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-2xl p-2">
         {currentData.length === 0 ? (
