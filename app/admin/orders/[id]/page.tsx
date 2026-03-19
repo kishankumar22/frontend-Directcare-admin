@@ -1129,15 +1129,7 @@ const isOrderEditable = () => {
 
 const canRefund = () => {
   if (!order) return false;
-
-  const hasCompletedPayment = order.payments?.some(
-    (p) =>
-      p.status === 'Completed' ||
-      p.status === 'Successful' ||
-      p.status === 'PartiallyRefunded'
-  );
-
-  return hasCompletedPayment && order.status !== 'Refunded';
+  return refundablePaidAmount > 0 && order.status !== 'Refunded';
 };
 
   if (loading) {
@@ -1175,15 +1167,21 @@ const canRefund = () => {
   const collectionStatusInfo = order.collectionStatus
     ? getCollectionStatusInfo(order.collectionStatus as CollectionStatus)
     : null;
+const paidTransactionsTotal = (order.payments ?? []).reduce((sum, payment) => {
+  const isPaidTransaction =
+    payment.status === 'Completed' ||
+    payment.status === 'Successful' ||
+    payment.status === 'PartiallyRefunded' ||
+    payment.status === 'Refunded';
+
+  return isPaidTransaction ? sum + payment.amount : sum;
+}, 0);
+const refundedTotal = refundHistory?.totalRefunded ?? ((order as any).totalRefundedAmount ?? 0);
+const refundablePaidAmount = Math.max(0, paidTransactionsTotal - refundedTotal);
 const canRefundShipping =
   !order.isShippingRefunded &&
   order.shippingAmount > 0 &&
-  order.payments?.some(
-    (p) =>
-      p.status === 'Completed' ||
-      p.status === 'Successful' ||
-      p.status === 'PartiallyRefunded'
-  ) &&
+  refundablePaidAmount > 0 &&
   ['Processing', 'Shipped', 'Delivered', 'Cancelled', 'Returned'].includes(order.status);
 
 const allActions = getAllAvailableActions(
@@ -2231,6 +2229,7 @@ const allActions = getAllAvailableActions(
 <RefundModals
   order={order}
   refundHistory={refundHistory}
+  paidAmountCap={paidTransactionsTotal}
   isOpen={showRefundModal}
   defaultTab={refundTab}
   canFullRefund={canRefund()}

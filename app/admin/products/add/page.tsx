@@ -193,105 +193,7 @@ const handleModalCancel = () => {
   setShowUnsavedModal(false);
   setPendingNavigation(null);
 };
-// // ✅ ADD THIS FUNCTION - Place it after handleVariantImageUpload
-// const generateAllVariants = async () => {
-//   if (productOptions.length === 0) {
-//     toast.warning('Please add at least one option first (e.g., Color, Size)');
-//     return;
-//   }
 
-//   // Validate all options have values
-//   const invalidOptions = productOptions.filter(opt => !opt.values || opt.values.length === 0);
-//   if (invalidOptions.length > 0) {
-//     toast.error(`Please add values for: ${invalidOptions.map(o => o.name || 'Unnamed option').join(', ')}`);
-//     return;
-//   }
-
-//   setIsGeneratingVariants(true);
-
-//   try {
-//     // Generate Cartesian product of all option values
-//     const generateCombinations = (arrays: string[][]): string[][] => {
-//       if (arrays.length === 0) return [[]];
-//       const result: string[][] = [];
-//       const rest = generateCombinations(arrays.slice(1));
-//       for (const item of arrays[0]) {
-//         for (const combo of rest) {
-//           result.push([item, ...combo]);
-//         }
-//       }
-//       return result;
-//     };
-
-//     const optionValues = productOptions.map(opt => opt.values);
-//     const combinations = generateCombinations(optionValues);
-
-//     // Filter out existing combinations
-//     const existingCombos = new Set(
-//       productVariants.map(v => v.optionValues?.join(',').toLowerCase() || '')
-//     );
-
-//     const newVariants: ProductVariant[] = [];
-//     let skippedCount = 0;
-
-//     for (const combo of combinations) {
-//       const comboKey = combo.join(',').toLowerCase();
-//       if (existingCombos.has(comboKey)) {
-//         skippedCount++;
-//         continue;
-//       }
-
-//       // Generate SKU from combination
-//       const skuSuffix = combo.map(v => v.replace(/\s/g, '').toUpperCase()).join('-');
-//       const baseSku = formData.sku || 'PROD';
-
-//       const newVariant: ProductVariant = {
-//         id: `temp-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
-//         // ✅ UPDATED: Same format as single variant creation (parentheses + comma)
-//         name: `${formData.name || 'Product'} (${combo.join(', ')})`,
-//         sku: `${baseSku}-${skuSuffix}`,
-//         price: null,
-//         compareAtPrice: null,
-//         weight: null,
-//         stockQuantity: 0,
-//         trackInventory: true,
-//         optionValues: combo,
-//         // Legacy fields for backward compatibility
-//         option1Name: productOptions[0]?.name || null,
-//         option1Value: combo[0] || null,
-//         option2Name: productOptions[1]?.name || null,
-//         option2Value: combo[1] || null,
-//         option3Name: productOptions[2]?.name || null,
-//         option3Value: combo[2] || null,
-//         imageUrl: null,
-//         imageFile: undefined,
-//         isDefault: productVariants.length === 0 && newVariants.length === 0,
-//         displayOrder: productVariants.length + newVariants.length,
-//         isActive: true,
-//         gtin: null,
-//         barcode: null
-//       };
-
-//       newVariants.push(newVariant);
-//     }
-
-//     if (newVariants.length === 0) {
-//       toast.info(skippedCount > 0
-//         ? `All ${skippedCount} combinations already exist`
-//         : 'No new variants to generate');
-//       return;
-//     }
-
-//     setProductVariants([...productVariants, ...newVariants]);
-//     toast.success(`Generated ${newVariants.length} new variants${skippedCount > 0 ? ` (${skippedCount} skipped)` : ''}`);
-
-//   } catch (error) {
-//     console.error('Error generating variants:', error);
-//     toast.error('Failed to generate variants');
-//   } finally {
-//     setIsGeneratingVariants(false);
-//   }
-// };
 
 
 // ============================================================
@@ -350,7 +252,8 @@ const checkPublishRequirements = (): { isValid: boolean; missing: string[] } => 
   // 1. Basic Info
   if (!formData.name?.trim()) missing.push('Product Name');
   if (!formData.sku?.trim()) missing.push('SKU');
-  // if (!formData.shortDescription?.trim()) missing.push('Short Description');X`
+  if (!formData.shortDescription?.trim()) missing.push('Short Description');
+  if (!formData.fullDescription?.trim()) missing.push('full Description');
   // 3. Categories
   if (!formData.categoryIds || formData.categoryIds.length === 0) {
     missing.push('Category (at least 1)');
@@ -5448,7 +5351,7 @@ useEffect(() => {
     <div>
       <div className="flex items-center justify-between mb-1.5">
         <label className="text-sm font-medium text-slate-300">
-          URL Slug
+          URL Slug <span className="text-red-500">*</span>
         </label>
         <span className="text-xs text-slate-500">
           {formData.searchEngineFriendlyPageName.length} chars
@@ -5496,7 +5399,7 @@ useEffect(() => {
   <div className="space-y-4 bg-slate-800/30 border border-slate-700 rounded-xl p-4">
     <div className="flex items-center justify-between">
       <div>
-        <h3 className="text-lg font-semibold text-white">Product Images</h3>
+        <h3 className="text-lg font-semibold text-white">Product Images  <span className="text-red-500">*</span></h3>
         <p className="text-sm text-red-500">
           Upload and manage product images. Supported: JPG, PNG, WebP • Max 300KB To 500KB • Up to 10 images
         </p>

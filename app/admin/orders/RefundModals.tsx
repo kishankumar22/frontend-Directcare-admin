@@ -22,6 +22,7 @@ type RefundTab = 'full' | 'partial' | 'shipping';
 interface RefundModalsProps {
   order: Order;
   refundHistory?: RefundHistory | null;
+  paidAmountCap: number;
   isOpen: boolean;
   defaultTab?: RefundTab;
   canFullRefund: boolean;
@@ -58,6 +59,7 @@ const TAB_CONFIG: Record<RefundTab, { label: string; icon: React.ReactNode; colo
 export default function UnifiedRefundModal({
   order,
   refundHistory,
+  paidAmountCap,
   isOpen,
   defaultTab = 'full',
   canFullRefund,
@@ -75,7 +77,7 @@ export default function UnifiedRefundModal({
   const [partialAmount, setPartialAmount] = useState<number>(0);
 
   const refundedAmount = refundHistory?.totalRefunded ?? 0;
-  const remainingRefundable = refundHistory?.remainingBalance ?? order.totalAmount;
+  const remainingRefundable = Math.max(0, paidAmountCap - refundedAmount);
 
   // Reset state every time modal opens
   useEffect(() => {

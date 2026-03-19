@@ -1528,7 +1528,7 @@ useEffect(() => {
     <select
       value={levelFilter}
       onChange={(e) => setLevelFilter(e.target.value)}
-      className={`px-2 py-1 bg-slate-800/60 border rounded-md text-white text-[11px] ${
+      className={`p-2  bg-slate-800/60 border rounded-md text-white text-[11px] ${
         levelFilter !== "all"
           ? "border-cyan-500 bg-cyan-500/10 ring-1 ring-cyan-500/40"
           : "border-slate-700"
@@ -1544,7 +1544,7 @@ useEffect(() => {
     <select
       value={deletedFilter}
       onChange={(e) => setDeletedFilter(e.target.value as any)}
-      className={`px-2 py-1 bg-slate-800/60 border rounded-md text-white text-[11px] ${
+      className={`p-2  bg-slate-800/60 border rounded-md text-white text-[11px] ${
         deletedFilter !== "all"
           ? "border-red-500 bg-red-500/10 ring-1 ring-red-500/40"
           : "border-slate-700"
@@ -1559,7 +1559,7 @@ useEffect(() => {
     <select
       value={statusFilter}
       onChange={(e) => setStatusFilter(e.target.value)}
-      className={`px-2 py-1 bg-slate-800/60 border rounded-md text-white text-[11px] ${
+      className={`p-2  bg-slate-800/60 border rounded-md text-white text-[11px] ${
         statusFilter !== "all"
           ? "border-green-500 bg-green-500/10 ring-1 ring-green-500/40"
           : "border-slate-700"
@@ -1574,7 +1574,7 @@ useEffect(() => {
     <select
       value={homepageFilter}
       onChange={(e) => setHomepageFilter(e.target.value as any)}
-      className={`px-2 py-1 bg-slate-800/60 border rounded-md text-white text-[11px] ${
+      className={`p-2  bg-slate-800/60 border rounded-md text-white text-[11px] ${
         homepageFilter !== "all"
           ? "border-emerald-500 bg-emerald-500/10 ring-1 ring-emerald-500/40"
           : "border-slate-700"
@@ -1589,7 +1589,7 @@ useEffect(() => {
     {hasActiveFilters && (
       <button
         onClick={clearFilters}
-        className="px-2 py-1 text-[11px] bg-red-500/10 border border-red-500/40 text-red-400 rounded-md hover:bg-red-500/20 flex items-center gap-1"
+        className="p-2  text-[11px] bg-red-500/10 border border-red-500/40 text-red-400 rounded-md hover:bg-red-500/20 flex items-center gap-1"
       >
         <FilterX className="h-3 w-3" />
         Clear

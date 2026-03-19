@@ -523,7 +523,7 @@ const [formData, setFormData] = useState({
   
   // ✅ NOTIFICATION FIELDS
   notifyAdminForQuantityBelow: true,
-  notifyQuantityBelow: '1',
+  notifyQuantityBelow: '10',
   
   // ✅ BACKORDER FIELDS
   allowBackorder: false,
@@ -620,6 +620,7 @@ const checkPublishRequirements = (): { isValid: boolean; missing: string[] } => 
   if (isEmpty(formData.name)) missing.push('Product Name');
   if (isEmpty(formData.sku)) missing.push('SKU');
   if (isEmpty(formData.fullDescription)) missing.push('Full Description');
+  if (isEmpty(formData.shortDescription)) missing.push('Short Description');
 
   // Price
   const price = Number(formData.price);
@@ -638,9 +639,9 @@ const checkPublishRequirements = (): { isValid: boolean; missing: string[] } => 
   if (!hasBrand) missing.push('Brand (min 1)');
 
   // Images
-  if (!formData.productImages || formData.productImages.length < 3) {
+  if (!formData.productImages || formData.productImages.length < 5) {
     missing.push(
-      `Product Images (min 3, current: ${formData.productImages?.length || 0})`
+      `Product Images (min 5, current: ${formData.productImages?.length || 0})`
     );
   }
 
@@ -1060,7 +1061,7 @@ categoryIds: (() => {
         
         // ===== NOTIFICATIONS =====
         notifyAdminForQuantityBelow: productData.notifyAdminForQuantityBelow ?? true,
-        notifyQuantityBelow: productData.notifyQuantityBelow?.toString() || '1',
+        notifyQuantityBelow: productData.notifyQuantityBelow?.toString() || '10',
         
         // ===== BACKORDER =====
         allowBackorder: productData.allowBackorder ?? false,
@@ -4422,7 +4423,7 @@ if (name === "nextDayDeliveryEnabled") {
         stockQuantity: '0',
         minStockQuantity: '0',
         notifyAdminForQuantityBelow: false,
-        notifyQuantityBelow: '1',
+        notifyQuantityBelow: '10',
         allowBackorder: false,
         backorderMode: 'no-backorders'
       })
@@ -4509,7 +4510,7 @@ if (name === "isRecurring") {
     setFormData(prev => ({
       ...prev,
       notifyAdminForQuantityBelow: checked,
-      notifyQuantityBelow: checked ? prev.notifyQuantityBelow : "1"
+      notifyQuantityBelow: checked ? prev.notifyQuantityBelow : "10"
     }));
     return;
   }
@@ -8024,7 +8025,7 @@ const uploadImagesToProductDirect = async (
     <div>
       <div className="flex items-center justify-between mb-1.5">
         <label className="text-sm font-medium text-slate-300">
-          URL Slug
+          URL Slug <span className="text-red-500">*</span>
         </label>
         <span className="text-xs text-slate-500">
           {formData.searchEngineFriendlyPageName.length} chars
@@ -8071,8 +8072,8 @@ const uploadImagesToProductDirect = async (
   {/* ========== PICTURES SECTION ========== */}
   <div className="space-y-3 bg-slate-800/30 border border-slate-700 rounded-xl p-4">
     <div>
-      <h3 className="text-lg font-semibold text-white">Product Images</h3>
-    <p className="text-sm text-red-400">
+      <h3 className="text-lg font-semibold text-white">Product Images <span className="text-red-500">*</span></h3> 
+    <p className="text-xs text-red-400">
   Upload product images (WebP or JPG). Recommended size under 300 KB, maximum 500 KB per image. 
   Minimum resolution 800×800 (square preferred). You can upload up to 10 images.
 </p>

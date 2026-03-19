@@ -2104,31 +2104,33 @@ const handleExport = async (exportAll: boolean = false) => {
             <p className="text-slate-400">No products found</p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full table-fixed text-sm">
-              <thead>
-                <tr className="border-b border-slate-800">
-               <th className="text-left py-2 px-3 text-slate-400 w-[260px]">
-  <div className="flex items-center gap-2">
-    <input
-      type="checkbox"
-      checked={selectedProducts.length === products.length && products.length > 0}
-      onChange={handleSelectAll}
-      className="accent-violet-500"
-    />
-    Product
-  </div>
-</th>
-                  <th className="text-center py-2 px-3 text-slate-400 w-[110px]">SKU</th>
-                  <th className="text-center py-2 px-3 text-slate-400 w-[80px]">Price</th>
-                  <th className="text-center py-2 px-3 text-slate-400 w-[70px]">Status</th>
-                  <th className="text-center py-2 px-3 text-slate-400 w-[170px]">Stock Status</th>              
-                  <th className="text-center py-2 px-3 text-slate-400 w-[150px]">Visibility</th>
-                  <th className="text-left py-2 px-3 text-slate-400 w-[150px]">Updated At</th>
-                  <th className="text-left py-2 px-3 text-slate-400 w-[110px]">Updated By</th>
-                  <th className="text-center py-2 px-3 text-slate-400 w-[140px]">Actions</th>
-                </tr>
-              </thead>
+       <div className="overflow-auto max-h-[65vh]">
+  <table className="w-full table-fixed text-sm">
+    
+    <thead className="sticky top-0 z-20 bg-slate-900/95 backdrop-blur border-b border-slate-800">
+      <tr>
+        <th className="text-left py-2 px-3 text-slate-400 w-[260px]">
+          <div className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              checked={selectedProducts.length === products.length && products.length > 0}
+              onChange={handleSelectAll}
+              className="accent-violet-500"
+            />
+            Product
+          </div>
+        </th>
+
+        <th className="text-center py-2 px-3 text-slate-400 w-[110px]">SKU</th>
+        <th className="text-center py-2 px-3 text-slate-400 w-[80px]">Price</th>
+        <th className="text-center py-2 px-3 text-slate-400 w-[70px]">Status</th>
+        <th className="text-center py-2 px-3 text-slate-400 w-[170px]">Stock Status</th>
+        <th className="text-center py-2 px-3 text-slate-400 w-[150px]">Visibility</th>
+        <th className="text-left py-2 px-3 text-slate-400 w-[150px]">Updated At</th>
+        <th className="text-left py-2 px-3 text-slate-400 w-[110px]">Updated By</th>
+        <th className="text-center py-2 px-3 text-slate-400 w-[140px]">Actions</th>
+      </tr>
+    </thead>
 
               <tbody>
                 {products.map((product) => {

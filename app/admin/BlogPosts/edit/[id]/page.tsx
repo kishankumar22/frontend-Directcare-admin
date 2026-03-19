@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Loader2, AlertCircle, ArrowLeft } from "lucide-react";
-import BlogPostForm from "@/app/admin/_components/BlogPostForm";
+import BlogPostForm from "@/app/admin/BlogPosts/BlogPostForm";
 import { blogPostsService, BlogPost } from "@/lib/services/blogPosts";
 
 export default function EditBlogPostPage() {

@@ -41,6 +41,8 @@ const getOrderProductImage = (imageUrl?: string): string => {
 function formatCurrency(v: number) {
   return `£${v.toLocaleString("en-GB", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
+
+
 function formatRelTime(dateStr: string) {
   if (!dateStr) return "";
   const diff = Date.now() - new Date(dateStr).getTime();

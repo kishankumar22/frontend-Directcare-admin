@@ -1328,7 +1328,7 @@ Last 30 Days
         ) : (
           <div className="overflow-x-auto max-h-[70vh]">
 <table className="w-full">
-<thead className="sticky top-0 bg-slate-800/95 backdrop-blur-sm z-10">
+<thead className="sticky top-0 bg-slate-800/85 backdrop-blur-sm z-50">
 <tr className="border-b border-slate-700">
 
 <th className="py-3 px-3">
@@ -1404,18 +1404,17 @@ title="Select order"
 />
 </td>
 
+
 {/* ORDER */}
-<td className="py-3 px-3 relative">
+<td className="py-3 px-3">
   <div className="flex items-start gap-3">
 
     {/* PRODUCT IMAGE */}
     <img
       src={getOrderProductImage(order.orderItems[0]?.productImageUrl)}
       alt={order.orderItems[0]?.productName}
-      className="w-11 h-11 rounded-md object-cover border border-slate-600 cursor-pointer"
-      onClick={() =>
-        setShowProducts(showProducts === order.id ? null : order.id)
-      }
+      className="w-11 h-11 rounded-md object-cover border border-slate-600"
+      onError={(e) => (e.currentTarget.src = "/placeholder.png")}
     />
 
     <div className="min-w-0">
@@ -1430,35 +1429,93 @@ title="Select order"
           {order.orderNumber}
         </p>
 
+        {/* 🔥 IMPORTANT: RELATIVE WRAPPER */}
+        <div className="relative flex items-center gap-1 text-xs min-w-0">
 
-     <div className="flex items-center gap-1 text-xs min-w-0">
+          <span className="text-slate-500">•</span>
 
+          <p
+            className="text-slate-300 truncate max-w-[170px] cursor-pointer hover:text-white"
+            title={order.orderItems[0]?.productName}
+            onClick={() =>
+              setShowProducts(showProducts === order.id ? null : order.id)
+            }
+          >
+            {order.orderItems[0]?.productName}
+          </p>
 
-<span className="text-slate-500">•</span>
+          {order.orderItems.length > 1 && (
+            <button
+              onClick={() =>
+                setShowProducts(showProducts === order.id ? null : order.id)
+              }
+              className="text-cyan-400 hover:text-cyan-300 font-medium"
+            >
+              +{order.orderItems.length - 1} more
+            </button>
+          )}
 
-<p
-  className="text-slate-300 truncate max-w-[170px]"
-  title={order.orderItems[0]?.productName}
->
-  {order.orderItems[0]?.productName}
-</p>
+          {/* ✅ POPUP EXACTLY UNDER TEXT */}
+          {showProducts === order.id && (
+            <div
+              ref={popupRef}
+              className="absolute z-40 top-full left-0 mt-2 w-72 bg-slate-800 border border-slate-700 rounded-lg shadow-2xl ring-1 ring-slate-700/50 p-2"
+            >
+              {/* HEADER */}
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-sm font-semibold text-white">
+                  Products ({order.orderItems.length})
+                </p>
 
-{order.orderItems.length > 1 && (
-  <button
-    onClick={() =>
-      setShowProducts(showProducts === order.id ? null : order.id)
-    }
-    className="text-cyan-400 hover:text-cyan-300 font-medium"
-  >
-    +{order.orderItems.length - 1} more
-  </button>
-)}
+                <button
+                  onClick={() => setShowProducts(null)}
+                  className="text-slate-400 hover:text-white text-xs"
+                >
+                  ✕
+                </button>
+              </div>
 
-   </div>
+              {/* LIST */}
+              <div className="space-y-2 max-h-56 overflow-y-auto scrollbar-thin scrollbar-thumb-slate-600 scrollbar-track-transparent">
+
+                {order.orderItems.map((item) => (
+                  <div
+                    key={item.id}
+                    className="flex items-center gap-2 p-2 rounded-lg hover:bg-slate-700/40 transition"
+                  >
+                    <img
+                      src={getOrderProductImage(item.productImageUrl)}
+                      alt={item.productName}
+                      className="w-9 h-9 rounded-md object-cover border border-slate-600"
+                      onError={(e) =>
+                        (e.currentTarget.src = "/placeholder.png")
+                      }
+                    />
+
+                    <div className="min-w-0">
+                      <p
+                        className="text-xs text-white truncate"
+                        title={item.productName}
+                      >
+                        {item.productName}
+                      </p>
+
+                      <p className="text-[11px] text-cyan-400">
+                        SKU: {item.productSku}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+
+              </div>
+            </div>
+          )}
+
+        </div>
       </div>
 
       {/* SKU */}
-      <p className="text-[11px] text-cyan-400">
+      <p className="text-[11px] text-cyan-400 truncate max-w-[220px]">
         SKU: {order.orderItems.map((i) => i.productSku).join(", ")}
       </p>
 
@@ -1466,57 +1523,9 @@ title="Select order"
       <p className="text-[11px] text-slate-500">
         {order.orderItems.length} items • {formatDate(order.orderDate)}
       </p>
+
     </div>
   </div>
-
-  {/* PRODUCTS POPUP */}
-  {showProducts === order.id && (
-  <div
-  ref={popupRef}
-  className="absolute z-50 mt-1 m-32 w-72 bg-slate-800 border border-slate-700 rounded-lg shadow-xl p-2"
->
-      <div className="flex items-center justify-between mb-2">
-        <p className="text-sm font-semibold text-white">
-          Products ({order.orderItems.length})
-        </p>
-
-        <button
-          onClick={() => setShowProducts(null)}
-          className="text-slate-400 hover:text-white text-xs"
-        >
-          ✕
-        </button>
-      </div>
-
-      <div className="space-y-2 max-h-56 overflow-y-auto">
-
-        {order.orderItems.map((item) => (
-          <div
-            key={item.id}
-            className="flex items-center gap-2 p-2 rounded-lg hover:bg-slate-700/40"
-          >
-            <img
-              src={getOrderProductImage(item.productImageUrl)}
-              alt={item.productName}
-              className="w-9 h-9 rounded-md object-cover border border-slate-600"
-            />
-
-            <div className="min-w-0">
-              <p className="text-xs text-white truncate"
-              title={item.productName}>
-                {item.productName}
-              </p>
-
-              <p className="text-[11px] text-cyan-400">
-                SKU: {item.productSku}
-              </p>
-            </div>
-          </div>
-        ))}
-
-      </div>
-    </div>
-  )}
 </td>
 {/* CUSTOMER */}
 <td className="py-3 px-3">

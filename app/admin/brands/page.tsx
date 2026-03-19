@@ -309,7 +309,7 @@ const handleStatusUpdate = async () => {
     <h1 className="text-2xl font-semibold text-white">
       Brand Management
     </h1>
-    <p className="text-[12px] text-slate-500">
+    <p className="text-[12px] text-slate-300">
       Manage your product brands
     </p>
   </div>
@@ -502,7 +502,7 @@ const handleStatusUpdate = async () => {
       <select
         value={publishedFilter}
         onChange={(e) => setPublishedFilter(e.target.value)}
-        className={`px-2 py-1 bg-slate-800/60 border rounded-md text-white text-[11px] ${
+        className={`p-2 bg-slate-800/60 border rounded-md text-white text-[11px] ${
           publishedFilter !== "all"
             ? "border-blue-500 bg-blue-500/10"
             : "border-slate-700"
@@ -517,7 +517,7 @@ const handleStatusUpdate = async () => {
       <select
         value={activeFilter}
         onChange={(e) => setActiveFilter(e.target.value)}
-        className={`px-2 py-1 bg-slate-800/60 border rounded-md text-white text-[11px] ${
+        className={`p-2  bg-slate-800/60 border rounded-md text-white text-[11px] ${
           activeFilter !== "all"
             ? "border-green-500 bg-green-500/10"
             : "border-slate-700"
@@ -532,7 +532,7 @@ const handleStatusUpdate = async () => {
       <select
         value={homepageFilter}
         onChange={(e) => setHomepageFilter(e.target.value)}
-        className={`px-2 py-1 bg-slate-800/60 border rounded-md text-white text-[11px] ${
+        className={`p-2  bg-slate-800/60 border rounded-md text-white text-[11px] ${
           homepageFilter !== "all"
             ? "border-cyan-500 bg-cyan-500/10"
             : "border-slate-700"
@@ -547,7 +547,7 @@ const handleStatusUpdate = async () => {
       <select
         value={deletedFilter}
         onChange={(e) => setDeletedFilter(e.target.value)}
-        className={`px-2 py-1 bg-slate-800/60 border rounded-md text-white text-[11px] ${
+        className={`p-2 bg-slate-800/60 border rounded-md text-white text-[11px] ${
           deletedFilter !== "all"
             ? "border-red-500 bg-red-500/10"
             : "border-slate-700"
@@ -562,7 +562,7 @@ const handleStatusUpdate = async () => {
       {hasActiveFilters && (
         <button
           onClick={clearFilters}
-          className="px-2 py-1 text-[11px] bg-red-500/10 border border-red-500/40 text-red-400 rounded-md hover:bg-red-500/20 flex items-center gap-1"
+          className="p-2  text-[11px] bg-red-500/10 border border-red-500/40 text-red-400 rounded-md hover:bg-red-500/20 flex items-center gap-1"
         >
           <FilterX className="h-3 w-3" />
           Clear

@@ -612,13 +612,9 @@ const getDateRangeLabel = () => {
     <h1 className="text-xl font-semibold bg-gradient-to-r from-violet-400 via-cyan-400 to-pink-400 bg-clip-text text-transparent">
       Comments Management
     </h1>
-    <p className="text-[11px] text-slate-500">
+    <p className="text-[13px] text-slate-500">
       Moderate and manage blog comments
-      {postFilter !== "all" && (
-        <span className="ml-2 text-violet-400">
-          • {getSelectedPostTitle()}
-        </span>
-      )}
+    
     </p>
   </div>
 
@@ -630,7 +626,7 @@ const getDateRangeLabel = () => {
       className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] bg-gradient-to-r from-violet-500 to-purple-500 text-white rounded-md hover:opacity-90"
     >
       <FolderTree className="h-3 w-3" />
-      Categories
+     Blog Categories
     </button>
 
     {/* Blog Posts */}
@@ -639,7 +635,7 @@ const getDateRangeLabel = () => {
       className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] bg-gradient-to-r from-cyan-500 to-blue-500 text-white rounded-md hover:opacity-90"
     >
       <FileText className="h-3 w-3" />
-      Posts
+    Blog  Posts
     </button>
 
     {/* Refresh */}
@@ -669,8 +665,8 @@ const getDateRangeLabel = () => {
       <div className="w-8 h-8 bg-blue-500/10 rounded-md flex items-center justify-center">
         <MessageSquare className="h-4 w-4 text-blue-400" />
       </div>
-      <div>
-        <p className="text-[10px] text-slate-500">Total</p>
+      <div className="flex items-center gap-2 flex-wrap">
+        <p className="text-[12px] text-slate-200">Total</p>
         <p className="text-lg font-semibold text-white">{stats.total}</p>
       </div>
     </div>
@@ -682,8 +678,8 @@ const getDateRangeLabel = () => {
       <div className="w-8 h-8 bg-yellow-500/10 rounded-md flex items-center justify-center">
         <Clock className="h-4 w-4 text-yellow-400" />
       </div>
-      <div>
-        <p className="text-[10px] text-slate-500">Pending</p>
+      <div className="flex items-center gap-2 flex-wrap">
+        <p className="text-[12px] text-slate-200">Pending</p>
         <p className="text-lg font-semibold text-white">{stats.pending}</p>
       </div>
     </div>
@@ -696,7 +692,7 @@ const getDateRangeLabel = () => {
         <CheckCircle className="h-4 w-4 text-green-400" />
       </div>
       <div>
-        <p className="text-[10px] text-slate-500">Approved</p>
+        <p className="text-[12px] text-slate-200">Approved</p>
         <p className="text-lg font-semibold text-white">{stats.approved}</p>
       </div>
     </div>
@@ -709,7 +705,7 @@ const getDateRangeLabel = () => {
         <Ban className="h-4 w-4 text-red-400" />
       </div>
       <div>
-        <p className="text-[10px] text-slate-500">Spam</p>
+        <p className="text-[12px] text-slate-200">Spam</p>
         <p className="text-lg font-semibold text-white">{stats.spam}</p>
       </div>
     </div>
@@ -752,45 +748,37 @@ const getDateRangeLabel = () => {
         {/* Comments Section */}
 <div className="bg-slate-900/90 backdrop-blur-xl border border-slate-800 rounded-2xl p-2">
   {/* Header */}
-  <div className="space-y-2 mb-3">
-    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-      <div>
-        <p className="text-slate-400 text-sm mt-1">
-          Manage and moderate user comments
-          {blogPosts.length > 0 && (
-            <span className="ml-2 text-slate-500">
-              • {blogPosts.length} posts available
-            </span>
-          )}
-        </p>
-      </div>
 
-      {hasActiveFilters && (
-        <div className="flex items-center gap-2">
-          <span className="px-3 py-1 bg-violet-500/10 border border-violet-500/30 rounded-full text-violet-400 text-xs font-medium">
-            Filters Active
-          </span>
-          <button
-            onClick={clearFilters}
-            className="px-3 py-1.5 bg-red-500/10 border border-red-500/50 text-red-400 rounded-lg hover:bg-red-500/20 transition-all text-xs font-medium flex items-center gap-1.5"
-          >
-            <FilterX className="h-3.5 w-3.5" />
-            Clear All
-          </button>
-        </div>
-      )}
-    </div>
-
+  
     {/* ✅ SINGLE Filters Row - NO DUPLICATES */}
-    <div className="flex flex-col lg:flex-row gap-3">
+    <div className="group flex flex-col lg:flex-row gap-2.5 rounded-xl border border-slate-800/70 bg-slate-950/30 px-2 py-2">
+        {/* Search Input */}
+        <div className="relative lg:w-72 flex-1">
+          <input
+            type="text"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            placeholder="Search comments..."
+            className="w-full px-3.5 py-2 pl-10 pr-10 bg-slate-800/50 border border-slate-600 rounded-xl text-white text-sm placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 hover:border-slate-500 transition-all"
+          />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+          {searchTerm && (
+            <button
+              onClick={() => setSearchTerm("")}
+              className="absolute right-3 top-1/2 -translate-y-1/2 p-1 hover:bg-slate-700 rounded transition-all"
+            >
+              <X className="h-3.5 w-3.5 text-slate-400 hover:text-white" />
+            </button>
+          )}
+        </div>
       {/* Left Side: Status + Post Filter */}
-      <div className="flex flex-wrap items-center gap-3 flex-1">
+      <div className={`flex flex-wrap items-center gap-2.5 flex-1 transition-all duration-200 ${hasActiveFilters ? "opacity-100" : "opacity-70 group-hover:opacity-100 group-focus-within:opacity-100"}`}>
         {/* Status Filter */}
         <div className="relative">
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
-            className={`px-4 py-2.5 bg-slate-800/90 border rounded-xl text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all min-w-[180px] appearance-none cursor-pointer ${
+            className={`px-3.5 py-2 bg-slate-800/90 border rounded-xl text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all min-w-[170px] appearance-none cursor-pointer ${
               statusFilter !== "all" 
                 ? "border-blue-500 bg-blue-500/10 ring-2 ring-blue-500/50" 
                 : "border-slate-600 hover:border-slate-500"
@@ -806,7 +794,7 @@ const getDateRangeLabel = () => {
         </div>
 
         {/* Post Filter Dropdown */}
-        <div className="relative flex-1 lg:flex-initial lg:min-w-[280px]" ref={dropdownRef}>
+        <div className="relative flex-1 lg:flex-initial lg:flex-1" ref={dropdownRef}>
           <div className="relative">
             <input
               type="text"
@@ -821,7 +809,7 @@ const getDateRangeLabel = () => {
               }}
               placeholder={loadingPosts ? "Loading posts..." : "Filter by post..."}
               disabled={loadingPosts || blogPosts.length === 0 || loadingComments}
-              className={`w-full px-4 py-2.5 pl-10 pr-10 bg-slate-800/50 border rounded-xl text-white text-sm placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all ${
+              className={`w-full px-3.5 py-2 pl-10 pr-10 bg-slate-800/50 border rounded-xl text-white text-sm placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all ${
                 postFilter !== "all" 
                   ? "border-purple-500 bg-purple-500/10 ring-2 ring-purple-500/50" 
                   : "border-slate-600 hover:border-slate-500"
@@ -872,7 +860,7 @@ const getDateRangeLabel = () => {
                       setShowPostDropdown(false);
                       setPostSearchTerm("");
                     }}
-                    className={`w-full px-4 py-2.5 text-left hover:bg-slate-700 transition-all border-t border-slate-700 ${
+                    className={`w-full px-4 py-3 text-left hover:bg-slate-700 transition-all border-t border-slate-700 ${
                       postFilter === post.id ? "bg-purple-500/10 text-purple-400" : "text-white"
                     }`}
                   >
@@ -891,15 +879,16 @@ const getDateRangeLabel = () => {
           )}
         </div>
       </div>
+    
 
       {/* Right Side: Date Range + Search */}
-      <div className="flex items-center gap-3 flex-1 lg:flex-initial">
+      <div className={`flex items-center gap-2.5 flex-1 lg:flex-initial transition-all duration-200 ${hasActiveFilters ? "opacity-100" : "opacity-70 group-hover:opacity-100 group-focus-within:opacity-100"}`}>
         {/* ✅ Date Range Filter - AUTO APPLY */}
-        <div className="relative lg:min-w-[240px]" ref={datePickerRef}>
+        <div className="relative lg:min-w-[220px]" ref={datePickerRef}>
           <div className="relative">
             <button
               onClick={() => setShowDatePicker(!showDatePicker)}
-              className={`w-full px-4 py-2.5 pl-10 pr-10 bg-slate-800/50 border rounded-xl text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all text-left ${
+              className={`w-full px-3.5 py-2 pl-10 pr-10 bg-slate-800/50 border rounded-xl text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all text-left ${
                 (dateRange.startDate || dateRange.endDate)
                   ? "border-green-500 bg-green-500/10 ring-2 ring-green-500/50" 
                   : "border-slate-600 hover:border-slate-500"
@@ -1010,28 +999,22 @@ const getDateRangeLabel = () => {
           )}
         </div>
 
-        {/* Search Input */}
-        <div className="relative lg:w-80 flex-1">
-          <input
-            type="text"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder="Search comments..."
-            className="w-full px-4 py-2.5 pl-10 pr-10 bg-slate-800/50 border border-slate-600 rounded-xl text-white text-sm placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 hover:border-slate-500 transition-all"
-          />
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-          {searchTerm && (
-            <button
-              onClick={() => setSearchTerm("")}
-              className="absolute right-3 top-1/2 -translate-y-1/2 p-1 hover:bg-slate-700 rounded transition-all"
-            >
-              <X className="h-3.5 w-3.5 text-slate-400 hover:text-white" />
-            </button>
-          )}
-        </div>
+      
       </div>
+         {hasActiveFilters && (
+        <div className="flex items-center gap-2">
+         
+          <button
+            onClick={clearFilters}
+            className="px-2.5 py-1.5 bg-red-500/10 border border-red-500/40 text-red-400 rounded-lg hover:bg-red-500/20 transition-all text-[11px] font-medium flex items-center gap-1.5"
+          >
+            <FilterX className="h-3.5 w-3.5" />
+            Clear All
+          </button>
+        </div>
+      )}
     </div>
-  </div>
+
 
   {/* Comments List */}
   {loadingComments ? (
@@ -1062,14 +1045,14 @@ const getDateRangeLabel = () => {
       )}
     </div>
   ) : (
-    <div className="space-y-4">
+    <div className="space-y-2.5">
       {currentData.map((parentComment) => {
         const replies = getReplies(parentComment.id);
         
         return (
           <div
             key={`parent-${parentComment.id}`}
-            className={`border rounded-xl p-5 transition-all ${
+            className={`border rounded-xl px-3 py-3 transition-all ${
               parentComment.isDeleted
                 ? 'bg-slate-800/20 border-slate-700/50 opacity-60'
                 : parentComment.isSpam
@@ -1077,9 +1060,9 @@ const getDateRangeLabel = () => {
                 : 'bg-slate-800/30 border-slate-700 hover:border-slate-600'
             }`}
           >
-            <div className="flex items-start gap-4">
+            <div className="flex items-start gap-3">
               {/* Avatar */}
-              <div className={`w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0 ${
+              <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${
                 parentComment.isDeleted ? 'bg-slate-600' : parentComment.isSpam ? 'bg-gradient-to-br from-red-500 to-rose-500' : 'bg-gradient-to-br from-violet-500 to-cyan-500'
               }`}>
                 <span className="text-white text-sm font-bold">
@@ -1090,34 +1073,24 @@ const getDateRangeLabel = () => {
               {/* Content Section */}
               <div className="flex-1 min-w-0">
                 {/* Header */}
-                <div className="flex items-center justify-between gap-3 mb-3">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <p className={`font-semibold ${parentComment.isDeleted ? 'text-slate-500' : 'text-white'}`}>
+                <div className="flex flex-col gap-2 lg:flex-row lg:items-start lg:justify-between">
+                  <div className="min-w-0 flex-1 space-y-1.5">
+                    <div className="flex items-center gap-2 flex-wrap">
+                    <p className={`text-sm font-semibold ${parentComment.isDeleted ? 'text-slate-500' : 'text-white'}`}>
                       {parentComment.authorName}
                     </p>
                     
                     {isAdminComment(parentComment) && !parentComment.isDeleted && (
-                      <span className="px-2 py-0.5 bg-violet-500/10 text-violet-400 rounded text-xs font-medium border border-violet-500/30">Admin</span>
+                      <span className="px-1.5 py-0.5 bg-violet-500/10 text-violet-400 rounded text-[10px] font-medium border border-violet-500/30">Admin</span>
                     )}
                     
                     <span className="text-slate-600">•</span>
                     
-                    <p className="text-slate-400 text-xs">
+                    <p className="text-slate-400 text-[11px]">
                       {new Date(parentComment.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
                     </p>
-
-                    {/* Post Title */}
-                    {!parentComment.isDeleted && (
-                      <>
-                        <span className="text-slate-500 text-xs">Commented on</span>
-                        <span className="text-blue-400 hover:text-blue-300 cursor-pointer hover:underline text-xs font-medium" onClick={() => setPostFilter(parentComment.blogPostId)}>
-                          {parentComment.blogPostTitle || 'Unknown Post'}
-                        </span>
-                      </>
-                    )}
-
-                    {/* Status Badge */}
-                    <span className={`px-3 py-1.5 rounded-lg text-xs font-semibold border flex items-center gap-1.5 whitespace-nowrap ${
+                        {/* Status Badge */}
+                    <span className={`inline-flex w-fit px-2.5 py-1 rounded-lg text-[11px] font-semibold border items-center gap-1.5 whitespace-nowrap ${
                       parentComment.isDeleted ? 'bg-slate-700/50 text-slate-400 border-slate-600/50' : 
                       parentComment.isSpam ? 'bg-red-500/10 text-red-400 border-red-500/30' : 
                       parentComment.isApproved ? 'bg-green-500/10 text-green-400 border-green-500/30' : 
@@ -1128,46 +1101,59 @@ const getDateRangeLabel = () => {
                        parentComment.isApproved ? <><CheckCircle className="h-3 w-3" />Approved</> : 
                        <><Clock className="h-3 w-3" />Pending</>}
                     </span>
+                    </div>
+
+                    {/* Post Title */}
+                    {!parentComment.isDeleted && (
+                      <div className="flex items-center gap-1.5 flex-wrap text-[11px]">
+                        <span className="text-slate-500">Commented on</span>
+                        <span className="text-blue-400 hover:text-blue-300 cursor-pointer hover:underline font-medium break-words" onClick={() => setPostFilter(parentComment.blogPostId)}>
+                          {parentComment.blogPostTitle || 'Unknown Post'}
+                        </span>
+                      </div>
+                    )}
+
+                
                   </div>
 
                   {/* Action Buttons */}
-                  <div className="flex items-center gap-2 flex-shrink-0">
+                  <div className="flex flex-wrap items-center gap-1.5 lg:justify-end flex-shrink-0">
                     {parentComment.isDeleted ? (
-                      <button onClick={() => handleUndelete(parentComment.id)} disabled={actionLoading === parentComment.id} className="px-3 py-1.5 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 rounded-lg text-xs font-medium transition-all flex items-center gap-1.5 border border-emerald-500/30 disabled:opacity-50">
+                      <button onClick={() => handleUndelete(parentComment.id)} disabled={actionLoading === parentComment.id} className="px-2.5 py-1.5 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 rounded-lg text-[11px] font-medium transition-all flex items-center gap-1 border border-emerald-500/30 disabled:opacity-50">
                         {actionLoading === parentComment.id ? <div className="w-3.5 h-3.5 border-2 border-emerald-400 border-t-transparent rounded-full animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
                         Restore
                       </button>
                     ) : parentComment.isSpam ? (
                       <>
-                        <button onClick={() => handleUnflagSpam(parentComment.id)} disabled={actionLoading === parentComment.id} className="px-3 py-1.5 bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 rounded-lg text-xs font-medium transition-all flex items-center gap-1.5 border border-blue-500/30 disabled:opacity-50">
+                        <button onClick={() => handleUnflagSpam(parentComment.id)} disabled={actionLoading === parentComment.id} className="px-2.5 py-1.5 bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 rounded-lg text-[11px] font-medium transition-all flex items-center gap-1 border border-blue-500/30 disabled:opacity-50">
                           <ShieldOff className="h-3.5 w-3.5" />Restore
                         </button>
-                        <button onClick={() => setViewingComment(parentComment)} className="px-3 py-1.5 bg-cyan-500/10 text-cyan-400 hover:bg-cyan-500/20 rounded-lg text-xs font-medium transition-all flex items-center gap-1.5 border border-cyan-500/30">
+                        <button onClick={() => setViewingComment(parentComment)} className="px-2.5 py-1.5 bg-cyan-500/10 text-cyan-400 hover:bg-cyan-500/20 rounded-lg text-[11px] font-medium transition-all flex items-center gap-1 border border-cyan-500/30">
                           <Eye className="h-3.5 w-3.5" />View
                         </button>
-                        <button onClick={() => setDeleteConfirm({ id: parentComment.id, author: parentComment.authorName })} className="px-3 py-1.5 bg-red-500/10 text-red-400 hover:bg-red-500/20 rounded-lg text-xs font-medium transition-all flex items-center gap-1.5 border border-red-500/30">
+                        <button onClick={() => setDeleteConfirm({ id: parentComment.id, author: parentComment.authorName })} className="px-2.5 py-1.5 bg-red-500/10 text-red-400 hover:bg-red-500/20 rounded-lg text-[11px] font-medium transition-all flex items-center gap-1 border border-red-500/30">
                           <Trash2 className="h-3.5 w-3.5" />Delete
                         </button>
                       </>
                     ) : (
                       <>
                         {!parentComment.isApproved && (
-                          <button onClick={() => handleApprove(parentComment.id)} disabled={actionLoading === parentComment.id} className="px-3 py-1.5 bg-green-500/10 text-green-400 hover:bg-green-500/20 rounded-lg text-xs font-medium transition-all flex items-center gap-1.5 border border-green-500/30 disabled:opacity-50">
+                          <button onClick={() => handleApprove(parentComment.id)} disabled={actionLoading === parentComment.id} className="px-2.5 py-1.5 bg-green-500/10 text-green-400 hover:bg-green-500/20 rounded-lg text-[11px] font-medium transition-all flex items-center gap-1 border border-green-500/30 disabled:opacity-50">
                             <CheckCircle className="h-3.5 w-3.5" />Approve
                           </button>
                         )}
                         {!isAdminComment(parentComment) && (
-                          <button onClick={() => openSpamFlagModal(parentComment)} disabled={actionLoading === parentComment.id} className="px-3 py-1.5 bg-red-500/10 text-red-400 hover:bg-red-500/20 rounded-lg text-xs font-medium transition-all flex items-center gap-1.5 border border-red-500/30 disabled:opacity-50">
+                          <button onClick={() => openSpamFlagModal(parentComment)} disabled={actionLoading === parentComment.id} className="px-2.5 py-1.5 bg-red-500/10 text-red-400 hover:bg-red-500/20 rounded-lg text-[11px] font-medium transition-all flex items-center gap-1 border border-red-500/30 disabled:opacity-50">
                             <Shield className="h-3.5 w-3.5" />Spam
                           </button>
                         )}
-                        <button onClick={() => setReplyingTo(parentComment)} className="px-3 py-1.5 bg-violet-500/10 text-violet-400 hover:bg-violet-500/20 rounded-lg text-xs font-medium transition-all flex items-center gap-1.5 border border-violet-500/30">
+                        <button onClick={() => setReplyingTo(parentComment)} className="px-2.5 py-1.5 bg-violet-500/10 text-violet-400 hover:bg-violet-500/20 rounded-lg text-[11px] font-medium transition-all flex items-center gap-1 border border-violet-500/30">
                           <Reply className="h-3.5 w-3.5" />Reply
                         </button>
-                        <button onClick={() => setViewingComment(parentComment)} className="px-3 py-1.5 bg-cyan-500/10 text-cyan-400 hover:bg-cyan-500/20 rounded-lg text-xs font-medium transition-all flex items-center gap-1.5 border border-cyan-500/30">
+                        <button onClick={() => setViewingComment(parentComment)} className="px-2.5 py-1.5 bg-cyan-500/10 text-cyan-400 hover:bg-cyan-500/20 rounded-lg text-[11px] font-medium transition-all flex items-center gap-1 border border-cyan-500/30">
                           <Eye className="h-3.5 w-3.5" />View
                         </button>
-                        <button onClick={() => setDeleteConfirm({ id: parentComment.id, author: parentComment.authorName })} className="px-3 py-1.5 bg-red-500/10 text-red-400 hover:bg-red-500/20 rounded-lg text-xs font-medium transition-all flex items-center gap-1.5 border border-red-500/30">
+                        <button onClick={() => setDeleteConfirm({ id: parentComment.id, author: parentComment.authorName })} className="px-2.5 py-1.5 bg-red-500/10 text-red-400 hover:bg-red-500/20 rounded-lg text-[11px] font-medium transition-all flex items-center gap-1 border border-red-500/30">
                           <Trash2 className="h-3.5 w-3.5" />Delete
                         </button>
                       </>
@@ -1176,67 +1162,69 @@ const getDateRangeLabel = () => {
                 </div>
 
                 {/* Comment Text */}
-                <p className={`text-sm ${parentComment.isDeleted ? 'text-slate-600 italic' : parentComment.isSpam ? 'text-slate-400 line-through' : 'text-slate-200'}`}>
-                  {parentComment.isDeleted ? '[This comment has been deleted]' : <><span className="text-purple-600 text-md font-bold">Comment:</span> {parentComment.commentText}</>}
-                </p>
+                <div className={`text-sm leading-6 ${parentComment.isDeleted ? 'text-slate-600 italic' : parentComment.isSpam ? 'text-slate-400 line-through' : 'text-slate-200'}`}>
+                  {parentComment.isDeleted ? '[This comment has been deleted]' : <><span className="text-violet-400 font-semibold">Comment:</span> {parentComment.commentText}</>}
+                </div>
               </div>
             </div>
 
             {/* Replies Section */}
             {replies.length > 0 && !parentComment.isDeleted && (
-              <div className="mt-4 ml-14 space-y-3 border-l-2 border-slate-700/50 pl-4">
-                <div className="flex items-center gap-2">
+              <div className="mt-3 ml-5 space-y-2 border-l border-slate-700/50 pl-3 sm:ml-12">
+                <div className="flex items-center gap-1.5">
                   <CornerDownRight className="h-3.5 w-3.5 text-slate-500" />
-                  <p className="text-slate-400 text-xs font-medium">{replies.length} {replies.length === 1 ? 'Reply' : 'Replies'}</p>
+                  <p className="text-slate-400 text-[11px] font-medium">{replies.length} {replies.length === 1 ? 'Reply' : 'Replies'}</p>
                 </div>
 
                 {replies.map((reply) => (
-                  <div key={`reply-${reply.id}`} className={`border rounded-lg p-3 transition-all ${reply.isDeleted ? 'bg-slate-800/10 border-slate-700/30 opacity-60' : reply.isSpam ? 'bg-red-500/5 border-red-500/20' : 'bg-slate-800/40 border-slate-700/40'}`}>
-                    <div className="flex items-start gap-3">
-                      <div className={`w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 ${reply.isDeleted ? 'bg-slate-600' : reply.isSpam ? 'bg-gradient-to-br from-red-500 to-rose-500' : 'bg-gradient-to-br from-cyan-500 to-blue-500'}`}>
+                  <div key={`reply-${reply.id}`} className={`border rounded-lg px-3 py-2.5 transition-all ${reply.isDeleted ? 'bg-slate-800/10 border-slate-700/30 opacity-60' : reply.isSpam ? 'bg-red-500/5 border-red-500/20' : 'bg-slate-800/40 border-slate-700/40'}`}>
+                    <div className="flex items-start gap-2.5">
+                      <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${reply.isDeleted ? 'bg-slate-600' : reply.isSpam ? 'bg-gradient-to-br from-red-500 to-rose-500' : 'bg-gradient-to-br from-cyan-500 to-blue-500'}`}>
                         <span className="text-white text-xs font-bold">
                           {reply.isDeleted ? '🗑' : reply.isSpam ? '⚠' : reply.authorName?.charAt(0).toUpperCase()}
                         </span>
                       </div>
 
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between gap-2 mb-2">
-                          <div className="flex items-center gap-2 flex-wrap">
+                        <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                          <div className="min-w-0 space-y-1">
+                            <div className="flex items-center gap-2 flex-wrap">
                             <p className={`font-medium text-sm ${reply.isDeleted ? 'text-slate-500' : 'text-white'}`}>{reply.authorName}</p>
-                            {isAdminComment(reply) && !reply.isDeleted && <span className="px-1.5 py-0.5 bg-violet-500/10 text-violet-400 rounded text-xs font-medium">Admin</span>}
+                            {isAdminComment(reply) && !reply.isDeleted && <span className="px-1.5 py-0.5 bg-violet-500/10 text-violet-400 rounded text-[10px] font-medium">Admin</span>}
                             <span className="text-slate-600 text-xs">•</span>
-                            <p className="text-slate-400 text-xs">{new Date(reply.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</p>
-                            <span className={`px-2 py-0.5 rounded text-xs font-medium flex items-center gap-1 ${reply.isDeleted ? 'bg-slate-700/50 text-slate-500' : reply.isSpam ? 'bg-red-500/10 text-red-400' : reply.isApproved ? 'bg-green-500/10 text-green-400' : 'bg-amber-500/10 text-amber-400'}`}>
+                            <p className="text-slate-400 text-[11px]">{new Date(reply.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</p>
+                            </div>
+                            <span className={`inline-flex px-2 py-0.5 rounded text-[10px] font-medium items-center gap-1 ${reply.isDeleted ? 'bg-slate-700/50 text-slate-500' : reply.isSpam ? 'bg-red-500/10 text-red-400' : reply.isApproved ? 'bg-green-500/10 text-green-400' : 'bg-amber-500/10 text-amber-400'}`}>
                               {reply.isDeleted ? <><Trash2 className="h-2.5 w-2.5" />Deleted</> : reply.isSpam ? 'Spam' : reply.isApproved ? 'Approved' : 'Pending'}
                             </span>
                           </div>
 
-                          <div className="flex items-center gap-1.5 flex-shrink-0">
+                          <div className="flex flex-wrap items-center gap-1 sm:justify-end flex-shrink-0">
                             {reply.isDeleted ? (
-                              <button onClick={() => handleUndelete(reply.id)} disabled={actionLoading === reply.id} className="px-2.5 py-1 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 rounded text-xs font-medium transition-all flex items-center gap-1 border border-emerald-500/30 disabled:opacity-50">
+                              <button onClick={() => handleUndelete(reply.id)} disabled={actionLoading === reply.id} className="px-2 py-1 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 rounded text-[11px] font-medium transition-all flex items-center gap-1 border border-emerald-500/30 disabled:opacity-50">
                                 <RefreshCw className="h-3 w-3" />Restore
                               </button>
                             ) : (
                               <>
                                 {!reply.isApproved && !reply.isSpam && (
-                                  <button onClick={() => handleApprove(reply.id)} disabled={actionLoading === reply.id} className="px-2.5 py-1 bg-green-500/10 text-green-400 hover:bg-green-500/20 rounded text-xs font-medium transition-all flex items-center gap-1 border border-green-500/30 disabled:opacity-50">
+                                  <button onClick={() => handleApprove(reply.id)} disabled={actionLoading === reply.id} className="px-2 py-1 bg-green-500/10 text-green-400 hover:bg-green-500/20 rounded text-[11px] font-medium transition-all flex items-center gap-1 border border-green-500/30 disabled:opacity-50">
                                     <CheckCircle className="h-3 w-3" />Approve
                                   </button>
                                 )}
                                 {!isAdminComment(reply) && !reply.isSpam && (
-                                  <button onClick={() => openSpamFlagModal(reply)} disabled={actionLoading === reply.id} className="px-2.5 py-1 bg-red-500/10 text-red-400 hover:bg-red-500/20 rounded text-xs font-medium transition-all flex items-center gap-1 border border-red-500/30 disabled:opacity-50">
+                                  <button onClick={() => openSpamFlagModal(reply)} disabled={actionLoading === reply.id} className="px-2 py-1 bg-red-500/10 text-red-400 hover:bg-red-500/20 rounded text-[11px] font-medium transition-all flex items-center gap-1 border border-red-500/30 disabled:opacity-50">
                                     <Shield className="h-3 w-3" />Spam
                                   </button>
                                 )}
                                 {reply.isSpam && (
-                                  <button onClick={() => handleUnflagSpam(reply.id)} disabled={actionLoading === reply.id} className="px-2.5 py-1 bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 rounded text-xs font-medium transition-all flex items-center gap-1 border border-blue-500/30 disabled:opacity-50">
+                                  <button onClick={() => handleUnflagSpam(reply.id)} disabled={actionLoading === reply.id} className="px-2 py-1 bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 rounded text-[11px] font-medium transition-all flex items-center gap-1 border border-blue-500/30 disabled:opacity-50">
                                     <ShieldOff className="h-3 w-3" />Restore
                                   </button>
                                 )}
-                                <button onClick={() => setViewingComment(reply)} className="px-2.5 py-1 bg-violet-500/10 text-violet-400 hover:bg-violet-500/20 rounded text-xs font-medium transition-all flex items-center gap-1 border border-violet-500/30">
+                                <button onClick={() => setViewingComment(reply)} className="px-2 py-1 bg-violet-500/10 text-violet-400 hover:bg-violet-500/20 rounded text-[11px] font-medium transition-all flex items-center gap-1 border border-violet-500/30">
                                   <Eye className="h-3 w-3" />View
                                 </button>
-                                <button onClick={() => setDeleteConfirm({ id: reply.id, author: reply.authorName })} className="px-2.5 py-1 bg-red-500/10 text-red-400 hover:bg-red-500/20 rounded text-xs font-medium transition-all flex items-center gap-1 border border-red-500/30">
+                                <button onClick={() => setDeleteConfirm({ id: reply.id, author: reply.authorName })} className="px-2 py-1 bg-red-500/10 text-red-400 hover:bg-red-500/20 rounded text-[11px] font-medium transition-all flex items-center gap-1 border border-red-500/30">
                                   <Trash2 className="h-3 w-3" />Delete
                                 </button>
                               </>
@@ -1244,7 +1232,7 @@ const getDateRangeLabel = () => {
                           </div>
                         </div>
 
-                        <p className={`text-xs ${reply.isDeleted ? 'text-slate-600 italic' : reply.isSpam ? 'text-slate-400 line-through' : 'text-slate-200'}`}>
+                        <p className={`mt-1 text-xs leading-5 ${reply.isDeleted ? 'text-slate-600 italic' : reply.isSpam ? 'text-slate-400 line-through' : 'text-slate-200'}`}>
                           {reply.isDeleted ? '[This reply has been deleted]' : reply.commentText}
                         </p>
                       </div>

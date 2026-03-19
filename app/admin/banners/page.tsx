@@ -784,7 +784,7 @@ const handleSubmit = async (e: React.FormEvent) => {
     <select
       value={statusFilter}
       onChange={(e) => setStatusFilter(e.target.value)}
-      className={`px-2 py-1 text-[11px] rounded-md border bg-slate-800/60 ${
+      className={`p-2 text-[11px] rounded-md border bg-slate-800/60 ${
         statusFilter !== "all"
           ? "border-blue-500 ring-1 ring-blue-500/40 text-white"
           : "border-slate-700 text-slate-300"
@@ -799,7 +799,7 @@ const handleSubmit = async (e: React.FormEvent) => {
     <select
       value={bannerTypeFilter}
       onChange={(e) => setBannerTypeFilter(e.target.value)}
-      className={`px-2 py-1 text-[11px] rounded-md border bg-slate-800/60 ${
+      className={`p-2 text-[11px] rounded-md border bg-slate-800/60 ${
         bannerTypeFilter !== "all"
           ? "border-violet-500 ring-1 ring-violet-500/40 text-white"
           : "border-slate-700 text-slate-300"
@@ -818,7 +818,7 @@ const handleSubmit = async (e: React.FormEvent) => {
     <select
       value={deletedFilter}
       onChange={(e) => setDeletedFilter(e.target.value)}
-      className={`px-2 py-1 text-[11px] rounded-md border bg-slate-800/60 ${
+      className={`p-2 text-[11px] rounded-md border bg-slate-800/60 ${
         deletedFilter !== "notDeleted"
           ? "border-red-500 ring-1 ring-red-500/40 text-white"
           : "border-slate-700 text-slate-300"
@@ -832,7 +832,7 @@ const handleSubmit = async (e: React.FormEvent) => {
     {hasActiveFilters && (
       <button
         onClick={clearFilters}
-        className="px-2 py-1 text-[11px] bg-red-500/10 border border-red-500/40 text-red-400 rounded-md hover:bg-red-500/20 flex items-center gap-1"
+        className="p-2 text-[11px] bg-red-500/10 border border-red-500/40 text-red-400 rounded-md hover:bg-red-500/20 flex items-center gap-1"
       >
         <FilterX className="h-3 w-3" />
         Clear
@@ -867,11 +867,11 @@ const handleSubmit = async (e: React.FormEvent) => {
         <thead className="bg-slate-800/40">
           <tr className="border-b border-slate-800">
             <th className="text-left py-2 px-3 text-[11px] text-slate-400">Banner</th>
-            <th className="text-center py-2 px-3 text-[11px] text-slate-400">Type</th>
+            <th className="text-center py-2 px-3 text-[11px] text-slate-400">Banner Type</th>
             <th className="text-center py-2 px-3 text-[11px] text-slate-400">Status</th>
             <th className="text-center py-2 px-3 text-[11px] text-slate-400">Order</th>
-            <th className="text-left py-2 px-3 text-[11px] text-slate-400">Start</th>
-            <th className="text-left py-2 px-3 text-[11px] text-slate-400">End</th>
+            <th className="text-left py-2 px-3 text-[11px] text-slate-400">Date  Start</th>
+            <th className="text-left py-2 px-3 text-[11px] text-slate-400">Date End</th>
             <th className="text-left py-2 px-3 text-[11px] text-slate-400">Created</th>
             <th className="text-center py-2 px-3 text-[11px] text-slate-400">Actions</th>
           </tr>
@@ -941,7 +941,7 @@ const handleSubmit = async (e: React.FormEvent) => {
 
               {/* Type */}
               <td className="py-2 px-3 text-center">
-                <span className={`px-2 py-0.5 rounded-md text-[10px] font-medium ${
+                <span className={`px-2 p-2 rounded-md text-[10px] font-medium ${
                   banner.bannerType === 'Offer' ? 'bg-green-500/10 text-green-400' :
                   banner.bannerType === 'FlashSale' ? 'bg-red-500/10 text-red-400' :
                   banner.bannerType === 'Seasonal' ? 'bg-orange-500/10 text-orange-400' :

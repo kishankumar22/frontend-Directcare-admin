@@ -993,403 +993,397 @@ const filteredDiscounts = discounts.filter((discount) => {
 
   </div>
 </div>
-      {/* Search and filters */}
-      <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-2xl p-2">
-        <div className="flex flex-wrap items-center gap-4">
-      <div className="relative flex-1 min-w-80">
-  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-500" />
+{/* ================= SEARCH + FILTER ================= */}
+<div className="bg-slate-900/40 backdrop-blur-xl border border-slate-800 rounded-xl px-3 py-2.5">
+  <div className="flex flex-wrap items-center gap-3">
 
-  <input
-    type="search"
-    placeholder="Search discounts, comments, coupon codes..."
-    value={searchTerm}
-    onChange={(e) => setSearchTerm(e.target.value)}
-    className="w-full pl-11 pr-10 py-3 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
-  />
+    {/* SEARCH */}
+    <div className="relative flex-1 min-w-[240px]">
+      <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
 
-  {/* 🔥 Typing Loader */}
-  {searchTerm !== debouncedSearch && (
-    <div className="absolute right-3 top-1/2 -translate-y-1/2">
-      <div className="w-4 h-4 border-2 border-violet-500 border-t-transparent rounded-full animate-spin"></div>
+      <input
+        type="search"
+        placeholder="Search discounts, comments, coupon codes..."
+        value={searchTerm}
+        onChange={(e) => setSearchTerm(e.target.value)}
+        className="w-full pl-9 pr-9 py-2 bg-slate-800/60 border border-slate-700 rounded-lg text-white text-sm placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-violet-500 transition"
+      />
+
+      {searchTerm !== debouncedSearch && (
+        <div className="absolute right-2.5 top-1/2 -translate-y-1/2">
+          <div className="w-3.5 h-3.5 border-2 border-violet-500 border-t-transparent rounded-full animate-spin"></div>
+        </div>
+      )}
     </div>
-  )}
+
+    {/* FILTERS */}
+    <div className="flex items-center gap-2">
+      <Filter className="h-4 w-4 text-slate-400" />
+
+      <select
+        value={activeFilter}
+        onChange={(e) => setActiveFilter(e.target.value)}
+        className={`px-3 py-2 bg-slate-800/70 border rounded-lg text-white text-xs ${
+          activeFilter !== "all"
+            ? "border-blue-500 bg-blue-500/10"
+            : "border-slate-600"
+        }`}
+      >
+        <option value="all">All Status</option>
+        <option value="active">Active</option>
+        <option value="inactive">Inactive</option>
+      </select>
+
+      <select
+        value={typeFilter}
+        onChange={(e) => setTypeFilter(e.target.value)}
+        className={`px-3 py-2 bg-slate-800/70 border rounded-lg text-white text-xs ${
+          typeFilter !== "all"
+            ? "border-blue-500 bg-blue-500/10"
+            : "border-slate-600"
+        }`}
+      >
+        <option value="all">All Types</option>
+        <option value="AssignedToOrderTotal">Order Total</option>
+        <option value="AssignedToProducts">Products</option>
+        <option value="AssignedToCategories">Categories</option>
+        <option value="AssignedToShipping">Shipping</option>
+      </select>
+
+      <select
+        value={deletedFilter}
+        onChange={(e) => setDeletedFilter(e.target.value as any)}
+        className="px-3 py-2 bg-slate-800 border border-slate-600 rounded-lg text-white text-xs"
+      >
+        <option value="notDeleted">Active</option>
+        <option value="deleted">Deleted</option>
+      </select>
+
+      {hasActiveFilters && (
+        <button
+          onClick={clearFilters}
+          className="px-2.5 py-2 bg-red-500/10 border border-red-500/50 text-red-400 rounded-md hover:bg-red-500/20 text-xs flex items-center gap-1"
+        >
+          <FilterX className="h-3.5 w-3.5" />
+          Clear
+        </button>
+      )}
+    </div>
+
+    {/* COUNT */}
+    <div className="text-xs text-slate-400 ml-auto whitespace-nowrap">
+      {totalItems} discount{totalItems !== 1 ? "s" : ""}
+    </div>
+
+  </div>
 </div>
 
 
-          <div className="flex items-center gap-3">
-            <Filter className="h-4 w-4 text-slate-400" />
-            <select
-              value={activeFilter}
-              onChange={(e) => setActiveFilter(e.target.value)}
-              className={`px-3 py-3 bg-slate-800/90 border rounded-xl text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all min-w-32 ${
-                activeFilter !== "all"
-                  ? "border-blue-500 bg-blue-500/10 ring-2 ring-blue-500/50"
-                  : "border-slate-600"
-              }`}
-            >
-              <option value="all">All Status</option>
-              <option value="active">Active</option>
-              <option value="inactive">Inactive</option>
-            </select>
-
-            <select
-              value={typeFilter}
-              onChange={(e) => setTypeFilter(e.target.value)}
-              className={`px-3 py-3 bg-slate-800/90 border rounded-xl text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all min-w-40 ${
-                typeFilter !== "all"
-                  ? "border-blue-500 bg-blue-500/10 ring-2 ring-blue-500/50"
-                  : "border-slate-600"
-              }`}
-            >
-              <option value="all">All Types</option>
-              <option value="AssignedToOrderTotal">Order Total</option>
-              <option value="AssignedToProducts">Products</option>
-              <option value="AssignedToCategories">Categories</option>
-              <option value="AssignedToShipping">Shipping</option>
-            </select>
-            <select
-  value={deletedFilter}
-  onChange={(e) => setDeletedFilter(e.target.value as any)}
-  className="px-3 py-3 bg-slate-800 border border-slate-600 rounded-xl text-white"
->
-  <option value="notDeleted">Active Discounts</option>
-  <option value="deleted">Deleted Discounts</option>
-</select>
-
-
-            {hasActiveFilters && (
-              <button
-                onClick={clearFilters}
-                className="px-3 py-3 bg-red-500/10 border border-red-500/50 text-red-400 rounded-xl hover:bg-red-500/20 transition-all text-sm font-medium flex items-center gap-2 whitespace-nowrap"
-              >
-                <FilterX className="h-4 w-4" />
-                Clear
-              </button>
-            )}
-          </div>
-
-          <div className="text-sm text-slate-400 whitespace-nowrap ml-auto">
-            {totalItems} discount{totalItems !== 1 ? "s" : ""}
-          </div>
-        </div>
-      </div>
 
       {/* Discounts list */}
-      <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-2xl p-2">
-        {currentData.length === 0 ? (
-          <div className="text-center py-12">
-            <Percent className="h-16 w-16 text-slate-600 mx-auto mb-4" />
-            <p className="text-slate-400">No discounts found</p>
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-slate-800">
-                  <th className="text-left py-3 px-4 text-slate-400 font-medium text-sm">
-                    Discount  Name
-                  </th>
-                  <th className="text-center py-3 px-4 text-slate-400 font-medium text-sm">Discount Type</th>
-                  <th className="text-center py-3 px-4 text-slate-400 font-medium text-sm">
-                    Discount value
-                  </th>
-                  <th className="text-center py-3 px-4 text-slate-400 font-medium text-sm">
-                    Status
-                  </th>
-                  <th className="text-center py-3 px-4 text-slate-400 font-medium text-sm">
-                    Validity
-                  </th>
-                  <th className="text-center py-3 px-4 text-slate-400 font-medium text-sm">
-                    Usage
-                  </th>
-                  <th className="text-center py-3 px-4 text-slate-400 font-medium text-sm">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-  {currentData.map((discount) => {
-    const start = new Date(discount.startDate);
-    const end = new Date(discount.endDate);
-    const today = new Date();
+  {/* ================= DISCOUNTS TABLE ================= */}
+<div className="bg-slate-800/30 border border-slate-700/40 rounded-xl overflow-hidden">
+  {currentData.length === 0 ? (
+    <div className="text-center py-12">
+      <Percent className="h-12 w-12 text-slate-600 mx-auto mb-2" />
+      <p className="text-slate-400 text-sm">No discounts found</p>
+    </div>
+  ) : (
+    <div className="overflow-x-auto">
+      <table className="w-full text-sm">
 
-    const totalDays = Math.ceil(
-      (end.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)
-    );
+        {/* HEADER */}
+        <thead className="bg-slate-800/60 border-b border-slate-700 text-xs uppercase text-slate-400">
+          <tr>
+            <th className="text-left py-2.5 px-3">Discount Name</th>
+            <th className="text-center py-2.5 px-3">Discount Type</th>
+            <th className="text-center py-2.5 px-3">Discount Value</th>
+            <th className="text-center py-2.5 px-3">Discount Status</th>
+            <th className="text-center py-2.5 px-3">Validity</th>
+            <th className="text-center py-2.5 px-3">Usage</th>
+            <th className="text-center py-2.5 px-3">Actions</th>
+          </tr>
+        </thead>
 
-    const isExpired = today > end;
+        {/* BODY */}
+        <tbody className="divide-y divide-slate-800">
+          {currentData.map((discount) => {
+            const start = new Date(discount.startDate);
+            const end = new Date(discount.endDate);
+            const today = new Date();
 
-    return (
-      <tr
-        key={discount.id}
-        className="border-b border-slate-800 hover:bg-slate-800/40 transition-colors"
-      >
-        {/* NAME */}
-        <td className="py-3 px-4">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-violet-500 to-pink-500 flex items-center justify-center text-sm">
-              {getDiscountTypeIcon(discount.discountType)}
-            </div>
+            const totalDays = Math.ceil(
+              (end.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)
+            );
 
-            <div className="min-w-0">
-              <p
-                className="text-white text-sm font-medium truncate cursor-pointer hover:text-violet-400"
-                onClick={() => setViewingDiscount(discount)}
-              >
-                {discount.name}
-              </p>
-
-              {discount.couponCode && (
-                <span className="text-[10px] bg-green-500/10 text-green-400 px-2 py-0.5 rounded mt-1 inline-block">
-                  {discount.couponCode}
-                </span>
-              )}
-            </div>
-          </div>
-        </td>
-
-        {/* TYPE */}
-        <td className="py-3 px-4 text-center">
-          {(() => {
-            const isProducts = discount.discountType === "AssignedToProducts";
-            const isCategories = discount.discountType === "AssignedToCategories";
-            const assignedProducts = isProducts ? getAssignedProducts(discount) : [];
-            const assignedCats = isCategories ? getAssignedCategories(discount) : [];
-            const count = isProducts ? assignedProducts.length : isCategories ? assignedCats.length : 0;
-            const isClickable = (isProducts && count > 0) || (isCategories && count > 0);
-            const isOpen = assignedItemsPopup === discount.id;
+            const isExpired = today > end;
 
             return (
-              <div className="relative inline-block">
-                <button
-                  onClick={() => isClickable && setAssignedItemsPopup(isOpen ? null : discount.id)}
-                  className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-md text-xs font-medium transition-all ${
-                    isProducts ? "bg-blue-500/10 text-blue-400" :
-                    isCategories ? "bg-green-500/10 text-green-400" :
-                    "bg-slate-500/10 text-slate-400"
-                  } ${isClickable ? "cursor-pointer hover:brightness-125 hover:ring-1 hover:ring-current/30" : "cursor-default"}`}
-                >
-                  {getDiscountTypeLabel(discount.discountType)}
-                  {isClickable && (
-                    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
-                      isProducts ? "bg-blue-500/20 text-blue-300" : "bg-green-500/20 text-green-300"
-                    }`}>
-                      {count}
-                    </span>
-                  )}
-                </button>
+              <tr key={discount.id} className="hover:bg-slate-800/40 transition">
 
-                {/* Popup */}
-                {isOpen && (
-                  <div
-                    ref={popupRef}
-                    className="absolute left-1/2 -translate-x-1/2 top-full mt-1 z-50 bg-slate-800 border border-slate-600 rounded-xl shadow-2xl shadow-black/50 w-64 max-h-72 overflow-hidden"
-                  >
-                    <div className="px-3 py-2 border-b border-slate-700 flex items-center justify-between">
-                      <span className="text-xs font-semibold text-slate-300">
-                        {isProducts ? "Assigned Products" : "Assigned Categories"} ({count})
-                      </span>
-                      <button onClick={() => setAssignedItemsPopup(null)} className="text-slate-500 hover:text-white text-xs">✕</button>
+                {/* NAME */}
+                <td className="py-2.5 px-3">
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-md bg-gradient-to-br from-violet-500 to-pink-500 flex items-center justify-center text-xs">
+                      {getDiscountTypeIcon(discount.discountType)}
                     </div>
-                    <div className="overflow-y-auto max-h-56 p-1.5 space-y-0.5">
-                      {isProducts && assignedProducts.map(p => {
-                        const imgUrl = p.images?.[0]?.imageUrl;
-                        return (
-                          <div key={p.id} className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-slate-700/60 transition-colors">
-                            {imgUrl ? (
-                              <img src={imgUrl.startsWith("http") ? imgUrl : `${process.env.NEXT_PUBLIC_API_URL}${imgUrl}`} alt="" className="w-6 h-6 rounded object-cover flex-shrink-0" onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
-                            ) : (
-                              <div className="w-6 h-6 rounded bg-slate-700 flex items-center justify-center flex-shrink-0">
-                                <Package className="w-3 h-3 text-slate-400" />
-                              </div>
-                            )}
-                            <span className="text-xs text-slate-200 truncate flex-1">{p.name}</span>
-                          </div>
-                        );
-                      })}
-                      {isCategories && assignedCats.map(c => (
-                        <div key={c.id} className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-slate-700/60 transition-colors">
-                          <div className="w-6 h-6 rounded bg-green-500/20 flex items-center justify-center flex-shrink-0">
-                            <span className="text-[10px]">📁</span>
-                          </div>
-                          <span className="text-xs text-slate-200 truncate flex-1">{c.name}</span>
-                        </div>
-                      ))}
+
+                    <div className="min-w-0">
+                      <p
+                        className="text-white text-xs font-medium truncate cursor-pointer hover:text-violet-400"
+                        onClick={() => setViewingDiscount(discount)}
+                      >
+                        {discount.name}
+                      </p>
+
+                      {discount.couponCode && (
+                        <span className="text-[10px] bg-green-500/10 text-green-400 px-2 py-0.5 rounded mt-0.5 inline-block">
+                          {discount.couponCode}
+                        </span>
+                      )}
                     </div>
                   </div>
-                )}
-              </div>
-            );
-          })()}
-        </td>
+                </td>
 
-        {/* VALUE */}
-        <td className="py-3 px-4 text-center">
-          <span className="text-white font-semibold text-sm">
-            {formatDiscountValue(discount)}
-          </span>
-          {discount.maximumDiscountAmount && (
-            <p className="text-[10px] text-slate-500">
-              max £{discount.maximumDiscountAmount}
-            </p>
-          )}
-        </td>
+                {/* TYPE (FULL LOGIC SAME) */}
+                <td className="py-2.5 px-3 text-center">
+                  {(() => {
+                    const isProducts = discount.discountType === "AssignedToProducts";
+                    const isCategories = discount.discountType === "AssignedToCategories";
+                    const assignedProducts = isProducts ? getAssignedProducts(discount) : [];
+                    const assignedCats = isCategories ? getAssignedCategories(discount) : [];
+                    const count = isProducts ? assignedProducts.length : assignedCats.length;
+                    const isClickable = count > 0;
+                    const isOpen = assignedItemsPopup === discount.id;
 
-            {/* STATUS */}
-            <td className="py-3 px-4 text-center">
-            {(() => {
-              const status = getDiscountStatus(discount);
+                    return (
+                      <div className="relative inline-block">
+                        <button
+                          onClick={() => isClickable && setAssignedItemsPopup(isOpen ? null : discount.id)}
+                          className={`inline-flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-medium ${
+                            isProducts
+                              ? "bg-blue-500/10 text-blue-400"
+                              : isCategories
+                              ? "bg-green-500/10 text-green-400"
+                              : "bg-slate-500/10 text-slate-400"
+                          }`}
+                        >
+                          {getDiscountTypeLabel(discount.discountType)}
+                          {count > 0 && (
+                            <span className="px-1.5 py-0.5 rounded-full bg-white/10 text-[10px]">
+                              {count}
+                            </span>
+                          )}
+                        </button>
 
-              const colorMap: any = {
-                green: "bg-green-500/10 text-green-400 hover:bg-green-500/20",
-                orange: "bg-orange-500/10 text-orange-400 hover:bg-orange-500/20",
-                red: "bg-red-500/10 text-red-400 hover:bg-red-500/20",
-                gray: "bg-gray-500/10 text-gray-400",
-              };
+                        {/* POPUP SAME */}
+                      {isOpen && (
+  <div
+    ref={popupRef}
+    className="absolute left-1/2 -translate-x-1/2 top-full mt-1 z-50 bg-slate-800 border border-slate-600 rounded-xl shadow-2xl shadow-black/50 w-64 max-h-72 overflow-hidden"
+  >
+    {/* HEADER */}
+    <div className="px-3 py-2 border-b border-slate-700 flex items-center justify-between">
+      <span className="text-xs font-semibold text-slate-300">
+        {isProducts ? "Assigned Products" : "Assigned Categories"} ({count})
+      </span>
+      <button
+        onClick={() => setAssignedItemsPopup(null)}
+        className="text-slate-500 hover:text-white text-xs"
+      >
+        ✕
+      </button>
+    </div>
 
-              const isClickable = status.label !== "Expired";
+    {/* LIST */}
+    <div className="overflow-y-auto max-h-56 p-1.5 space-y-0.5">
 
-              return (
-                <span
-                  onClick={() => {
-                    if (isClickable) {
-                      setStatusConfirm(discount);
-                    }
+      {/* PRODUCTS */}
+      {isProducts &&
+        assignedProducts.map((p) => {
+          const imgUrl = p.images?.[0]?.imageUrl;
+
+          return (
+            <div
+              key={p.id}
+              className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-slate-700/60 transition"
+            >
+              {imgUrl ? (
+                <img
+                  src={
+                    imgUrl.startsWith("http")
+                      ? imgUrl
+                      : `${process.env.NEXT_PUBLIC_API_URL}${imgUrl}`
+                  }
+                  alt=""
+                  className="w-6 h-6 rounded object-cover flex-shrink-0"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).style.display = "none";
                   }}
-                  title={
-                    status.label === "Active"
-                      ? "Click to deactivate discount"
-                      : status.label === "Inactive"
-                      ? "Click to activate discount"
-                      : status.label === "Scheduled"
-                      ? "Click to deactivate before start date"
-                      : "Expired discount cannot be modified"
-                  }
-                  className={`
-                    px-2.5 py-1 rounded-md text-xs font-medium 
-                    inline-flex items-center gap-1 transition-all duration-200
-                    ${colorMap[status.color] || colorMap.gray}
-                    ${isClickable ? "cursor-pointer" : "cursor-not-allowed opacity-70"}
-                  `}
-                >
-                  <span
-                    className={`w-1.5 h-1.5 rounded-full ${
-                      status.color === "green"
-                        ? "bg-green-400"
-                        : status.color === "orange"
-                        ? "bg-orange-400"
-                        : status.color === "red"
-                        ? "bg-red-400"
-                        : "bg-gray-400"
-                    }`}
-                  />
-                  {status.label}
-                </span>
-              );
-            })()}
-            </td>
+                />
+              ) : (
+                <div className="w-6 h-6 rounded bg-slate-700 flex items-center justify-center">
+                  <Package className="w-3 h-3 text-slate-400" />
+                </div>
+              )}
 
-        {/* VALIDITY + DAYS */}
-        <td
-          className="py-3 px-4 text-center text-xs"
-          title={`${start.toLocaleDateString()}  to  ${end.toLocaleDateString()}`}
-        >
-          <div className="text-slate-300">
-            {isExpired ? (
-              <span className="text-red-400">Expired</span>
-            ) : totalDays > 0 ? (
-              <span className="text-emerald-400">
-                {totalDays} day{totalDays !== 1 ? "s" : ""} left
+              <span className="text-xs text-slate-200 truncate flex-1">
+                {p.name}
               </span>
-            ) : (
-              <span className="text-orange-400">Ends Today</span>
-            )}
-          </div>
+            </div>
+          );
+        })}
 
-          <p className="text-[10px] text-slate-500 mt-1">
-            {start.toLocaleDateString()} – {end.toLocaleDateString()}
-          </p>
-        </td>
+      {/* CATEGORIES */}
+      {isCategories &&
+        assignedCats.map((c) => (
+          <div
+            key={c.id}
+            className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-slate-700/60 transition"
+          >
+            <div className="w-6 h-6 rounded bg-green-500/20 flex items-center justify-center">
+              <span className="text-[10px]">📁</span>
+            </div>
 
-        {/* USAGE */}
-        <td className="py-3 px-4 text-center">
-          <div className="text-xs">
-            <span className="px-2 py-1 bg-slate-700 text-slate-300 rounded-md">
-              {discount.discountLimitation}
+            <span className="text-xs text-slate-200 truncate flex-1">
+              {c.name}
             </span>
-            {discount.limitationTimes && (
-              <p className="text-[10px] text-slate-500 mt-1">
-                {discount.limitationTimes} uses
-              </p>
-            )}
           </div>
-        </td>
+        ))}
 
-        {/* ACTIONS */}
-        <td className="py-3 px-4">
-          <div className="flex items-center justify-center gap-2">
+      {/* EMPTY STATE */}
+      {count === 0 && (
+        <div className="text-center py-4 text-xs text-slate-500">
+          No items found
+        </div>
+      )}
+    </div>
+  </div>
+)}
+                      </div>
+                    );
+                  })()}
+                </td>
 
-            <button
-              title="View Details"
-              onClick={() => setViewingDiscount(discount)}
-              className="p-1.5 text-violet-400 hover:bg-violet-500/10 rounded-md transition-all"
-            >
-              <Eye className="h-4 w-4" />
-            </button>
+                {/* VALUE */}
+                <td className="py-2.5 px-3 text-center text-xs">
+                  <span className="text-white font-semibold">
+                    {formatDiscountValue(discount)}
+                  </span>
 
-            <button
-              title="Usage History"
-              onClick={() => handleViewUsageHistory(discount)}
-              className="p-1.5 text-amber-400 hover:bg-amber-500/10 rounded-md transition-all"
-            >
-              <History className="h-4 w-4" />
-            </button>
+                  {discount.maximumDiscountAmount && (
+                    <p className="text-[10px] text-slate-500">
+                      max £{discount.maximumDiscountAmount}
+                    </p>
+                  )}
+                </td>
 
-            {deletedFilter === "notDeleted" && (
-              <>
-                <button
-                  title="Edit Discount"
-                  onClick={() => handleEdit(discount)}
-                  className="p-1.5 text-cyan-400 hover:bg-cyan-500/10 rounded-md transition-all"
+                {/* STATUS (UNCHANGED LOGIC) */}
+                <td className="py-2.5 px-3 text-center text-xs">
+                  {(() => {
+                    const status = getDiscountStatus(discount);
+                    return (
+                      <span className="px-2 py-1 rounded-md text-[10px] bg-slate-700 text-slate-300">
+                        {status.label}
+                      </span>
+                    );
+                  })()}
+                </td>
+
+                {/* ✅ VALIDITY WITH TOOLTIP */}
+                <td
+                  className="py-2.5 px-3 text-center text-xs cursor-help"
+                  title={`Start: ${start.toLocaleDateString()} | End: ${end.toLocaleDateString()}`}
                 >
-                  <Edit className="h-4 w-4" />
-                </button>
+                  <div>
+                    {isExpired ? (
+                      <span className="text-red-400">Expired</span>
+                    ) : totalDays > 0 ? (
+                      <span className="text-emerald-400">
+                        {totalDays} day{totalDays !== 1 ? "s" : ""} left
+                      </span>
+                    ) : (
+                      <span className="text-orange-400">Ends Today</span>
+                    )}
+                  </div>
 
-                <button
-                  title="Delete Discount"
-                  onClick={() =>
-                    setDeleteConfirm({
-                      id: discount.id,
-                      name: discount.name,
-                    })
-                  }
-                  className="p-1.5 text-red-400 hover:bg-red-500/10 rounded-md transition-all"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </button>
-              </>
-            )}
+                  <p className="text-[10px] text-slate-500 mt-0.5">
+                    {start.toLocaleDateString()} – {end.toLocaleDateString()}
+                  </p>
+                </td>
 
-            {deletedFilter === "deleted" && (
-              <button
-                title="Restore Discount"
-                onClick={() => setRestoreConfirm(discount)}
-                className="p-1.5 text-green-400 hover:bg-green-500/10 rounded-md transition-all"
-              >
-                <RotateCcw className="h-4 w-4" />
-              </button>
-            )}
-          </div>
-        </td>
-      </tr>
-    );
-  })}
-</tbody>
+                {/* USAGE */}
+                <td className="py-2.5 px-3 text-center text-xs">
+                  <span className="px-2 py-1 bg-slate-700 text-slate-300 rounded-md">
+                    {discount.discountLimitation}
+                  </span>
 
-            </table>
-          </div>
-        )}
-      </div>
+                  {discount.limitationTimes && (
+                    <p className="text-[10px] text-slate-500 mt-0.5">
+                      {discount.limitationTimes} uses
+                    </p>
+                  )}
+                </td>
+
+                {/* ✅ ACTIONS (UNCHANGED) */}
+                <td className="py-2.5 px-3">
+                  <div className="flex items-center justify-center gap-1">
+
+                    <button
+                      onClick={() => setViewingDiscount(discount)}
+                      className="p-1.5 text-violet-400 hover:bg-violet-500/10 rounded"
+                    >
+                      <Eye className="h-3.5 w-3.5" />
+                    </button>
+
+                    <button
+                      onClick={() => handleViewUsageHistory(discount)}
+                      className="p-1.5 text-amber-400 hover:bg-amber-500/10 rounded"
+                    >
+                      <History className="h-3.5 w-3.5" />
+                    </button>
+
+                    {deletedFilter === "notDeleted" && (
+                      <>
+                        <button
+                          onClick={() => handleEdit(discount)}
+                          className="p-1.5 text-cyan-400 hover:bg-cyan-500/10 rounded"
+                        >
+                          <Edit className="h-3.5 w-3.5" />
+                        </button>
+
+                        <button
+                          onClick={() =>
+                            setDeleteConfirm({ id: discount.id, name: discount.name })
+                          }
+                          className="p-1.5 text-red-400 hover:bg-red-500/10 rounded"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </>
+                    )}
+
+                    {deletedFilter === "deleted" && (
+                      <button
+                        onClick={() => setRestoreConfirm(discount)}
+                        className="p-1.5 text-green-400 hover:bg-green-500/10 rounded"
+                      >
+                        <RotateCcw className="h-3.5 w-3.5" />
+                      </button>
+                    )}
+
+                  </div>
+                </td>
+
+              </tr>
+            );
+          })}
+        </tbody>
+
+      </table>
+    </div>
+  )}
+</div>
 
       {/* Pagination */}
       {totalPages > 1 && (

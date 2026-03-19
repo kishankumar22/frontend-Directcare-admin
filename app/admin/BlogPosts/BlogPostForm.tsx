@@ -1,12 +1,12 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
 import {
   ArrowLeft, Save, Send, X, Plus, ImagePlus,
   Tag, Globe, Hash, FileText, Settings, Loader2,
   AlertCircle, CheckCircle, ChevronDown, ChevronUp, Calendar,
-  AlignLeft, BookOpen, Image as ImageIcon, TrendingUp,
+  AlignLeft, BookOpen, Image as ImageIcon, TrendingUp, Link2,
 } from "lucide-react";
 import { API_BASE_URL, API_ENDPOINTS } from "@/lib/api-config";
 import { useToast } from "@/app/admin/_components/CustomToast";
@@ -48,16 +48,20 @@ function SectionCard({
   children,
   collapsible = false,
   defaultOpen = true,
+  overflowVisible = false,
+  className = "",
 }: {
   title: string;
   icon: React.ReactNode;
   children: React.ReactNode;
   collapsible?: boolean;
   defaultOpen?: boolean;
+  overflowVisible?: boolean;
+  className?: string;
 }) {
   const [open, setOpen] = useState(defaultOpen);
   return (
-    <div className="bg-slate-800/40 backdrop-blur-sm border border-slate-700/50 rounded-xl overflow-hidden">
+    <div className={`bg-slate-800/40 backdrop-blur-sm border border-slate-700/50 rounded-xl ${overflowVisible ? "overflow-visible" : "overflow-hidden"} ${className}`}>
       <button
         type="button"
         onClick={() => collapsible && setOpen((o) => !o)}
@@ -320,6 +324,7 @@ export default function BlogPostForm({ mode, initialData }: BlogPostFormProps) {
     initialData?.publishedAt ? initialData.publishedAt.slice(0, 16) : ""
   );
   const [blogCategoryId, setBlogCategoryId] = useState(initialData?.blogCategoryId ?? "");
+  const [relatedBlogPostIds, setRelatedBlogPostIds] = useState<string[]>(initialData?.relatedBlogPostIds ?? []);
   const [tags, setTags] = useState<string[]>(initialData?.tags ?? []);
   const [tagInput, setTagInput] = useState("");
   const [allowComments, setAllowComments] = useState(initialData?.allowComments ?? true);
@@ -335,6 +340,11 @@ export default function BlogPostForm({ mode, initialData }: BlogPostFormProps) {
   const [uploadingThumb, setUploadingThumb] = useState(false);
   const [categories, setCategories] = useState<BlogCategory[]>([]);
   const [loadingCats, setLoadingCats] = useState(true);
+  const [allBlogPosts, setAllBlogPosts] = useState<BlogPost[]>([]);
+  const [loadingRelatedPosts, setLoadingRelatedPosts] = useState(true);
+  const [relatedPostSearch, setRelatedPostSearch] = useState("");
+  const [showRelatedDropdown, setShowRelatedDropdown] = useState(false);
+  const relatedDropdownRef = useRef<HTMLDivElement>(null);
 
   // Load categories
   useEffect(() => {
@@ -347,6 +357,39 @@ export default function BlogPostForm({ mode, initialData }: BlogPostFormProps) {
       .catch(() => setCategories([]))
       .finally(() => setLoadingCats(false));
   }, []);
+
+  useEffect(() => {
+    blogPostsService
+      .getAll(true, false)
+      .then((r) => {
+        const data = r?.data?.data ?? [];
+        const currentId = initialData?.id;
+        const posts = Array.isArray(data)
+          ? data
+              .filter((post) => !post.isDeleted && post.id !== currentId)
+              .sort((a, b) => (a.title || "").localeCompare(b.title || ""))
+          : [];
+        setAllBlogPosts(posts);
+      })
+      .catch(() => setAllBlogPosts([]))
+      .finally(() => setLoadingRelatedPosts(false));
+  }, [initialData?.id]);
+
+  useEffect(() => {
+    if (!showRelatedDropdown) return;
+
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        relatedDropdownRef.current &&
+        !relatedDropdownRef.current.contains(event.target as Node)
+      ) {
+        setShowRelatedDropdown(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [showRelatedDropdown]);
 
   // Auto-generate slug from title
   useEffect(() => {
@@ -389,6 +432,7 @@ export default function BlogPostForm({ mode, initialData }: BlogPostFormProps) {
       isPublished: publish !== undefined ? publish : isPublished,
       publishedAt: publishedAt || undefined,
       blogCategoryId: blogCategoryId || null,
+      relatedBlogPostIds,
       tags,
       allowComments,
       showOnHomePage,
@@ -444,6 +488,38 @@ export default function BlogPostForm({ mode, initialData }: BlogPostFormProps) {
     if (t && !tags.includes(t)) setTags((prev) => [...prev, t]);
     setTagInput("");
   }
+
+  function addRelatedPost(postId: string) {
+    setRelatedBlogPostIds((prev) => (prev.includes(postId) ? prev : [...prev, postId]));
+    setRelatedPostSearch("");
+    setShowRelatedDropdown(false);
+  }
+
+  function removeRelatedPost(postId: string) {
+    setRelatedBlogPostIds((prev) => prev.filter((id) => id !== postId));
+  }
+
+  const filteredRelatedPosts = useMemo(() => {
+    const search = relatedPostSearch.trim().toLowerCase();
+    const availablePosts = allBlogPosts.filter((post) => {
+      if (relatedBlogPostIds.includes(post.id)) return false;
+      if (!search) return true;
+      return (post.title || "").toLowerCase().includes(search);
+    });
+    return search ? availablePosts : availablePosts.slice(0, 5);
+  }, [allBlogPosts, relatedBlogPostIds, relatedPostSearch]);
+
+  const selectedRelatedPosts = useMemo(() => {
+    return relatedBlogPostIds.map((id) => {
+      const post = allBlogPosts.find((item) => item.id === id);
+      return {
+        id,
+        title: post?.title || "Unknown Post",
+        blogCategoryName: post?.blogCategoryName || "",
+        isPublished: post?.isPublished ?? false,
+      };
+    });
+  }, [allBlogPosts, relatedBlogPostIds]);
 
   // ── SEO Score (live) ──────────────────────────────────────────────────────
   const seo = useMemo(
@@ -816,6 +892,90 @@ export default function BlogPostForm({ mode, initialData }: BlogPostFormProps) {
             </select>
           </SectionCard>
 
+          <SectionCard
+            title="Related Posts"
+            icon={<Link2 className="w-3.5 h-3.5" />}
+            overflowVisible
+            className={showRelatedDropdown ? "relative z-30" : "relative z-0"}
+          >
+            <div ref={relatedDropdownRef} className="space-y-2">
+              <div className="relative">
+                <input
+                  value={relatedPostSearch}
+                  onChange={(e) => {
+                    setRelatedPostSearch(e.target.value);
+                    setShowRelatedDropdown(true);
+                  }}
+                  onFocus={() => setShowRelatedDropdown(true)}
+                  placeholder="Search posts to relate..."
+                  className={inp}
+                />
+
+                {showRelatedDropdown && (
+                  <div className="absolute left-0 right-0 top-full mt-1 z-20 overflow-hidden rounded-lg border border-slate-700 bg-slate-900 shadow-xl">
+                    {loadingRelatedPosts ? (
+                      <div className="px-3 py-2 text-xs text-slate-500">Loading posts...</div>
+                    ) : filteredRelatedPosts.length > 0 ? (
+                      <div
+                        className="max-h-64 overflow-y-auto py-1"
+                        style={{ scrollbarWidth: "thin", scrollbarColor: "#475569 #1e293b" }}
+                      >
+                        {filteredRelatedPosts.map((post) => (
+                          <button
+                            key={post.id}
+                            type="button"
+                            onClick={() => addRelatedPost(post.id)}
+                            className="w-full px-3 py-2 text-left hover:bg-slate-800 transition-colors"
+                          >
+                            <p className="text-xs font-medium leading-5 text-slate-200 break-words line-clamp-2">
+                              {post.title}
+                            </p>
+                            <p className="mt-0.5 text-[10px] text-slate-500">
+                              {post.blogCategoryName || "Uncategorized"} · {post.isPublished ? "Published" : "Draft"}
+                            </p>
+                          </button>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="px-3 py-2 text-xs text-slate-500">
+                        {relatedPostSearch.trim() ? "No matching posts found." : "No more posts available."}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {selectedRelatedPosts.length > 0 ? (
+                <div className="space-y-1.5">
+                  {selectedRelatedPosts.map((post) => (
+                    <div
+                      key={post.id}
+                      className="flex items-start justify-between gap-2 rounded-lg border border-slate-700 bg-slate-800/40 px-2.5 py-2"
+                    >
+                      <div className="min-w-0">
+                        <p className="text-xs font-medium leading-5 text-slate-200 break-words line-clamp-2">
+                          {post.title}
+                        </p>
+                        <p className="mt-0.5 text-[10px] text-slate-500">
+                          {post.blogCategoryName || "Uncategorized"} · {post.isPublished ? "Published" : "Draft"}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => removeRelatedPost(post.id)}
+                        className="mt-0.5 rounded-md p-1 text-slate-500 hover:bg-red-500/10 hover:text-red-400 transition-colors"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-[11px] text-slate-500">No related posts selected.</p>
+              )}
+            </div>
+          </SectionCard>
+
           {/* Tags */}
           <SectionCard title="Tags" icon={<Tag className="w-3.5 h-3.5" />}>
             <div className="space-y-2">
@@ -894,6 +1054,7 @@ export default function BlogPostForm({ mode, initialData }: BlogPostFormProps) {
                   className={inp}
                 />
               </div>
+              
             </div>
           </SectionCard>
         </div>

@@ -501,7 +501,6 @@ const handleExportSelected = () => {
         </div>
 
         <div className="flex items-center gap-2">
-      {/* FLOATING ACTION BUTTON - Export Selected (Sticky at bottom-right) */}
 {/* STICKY EXPORT BUTTON - Compact Top Position */}
 {selectedUsers.size > 0 && (
   <div className="fixed top-[102px] right-52 z-40 animate-slideDown">

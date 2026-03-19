@@ -591,23 +591,25 @@ const clearFilters = () => {
   return (
     <div className="space-y-2">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
         <div>
-          <h1 className="text-3xl font-bold bg-gradient-to-r from-violet-400 via-cyan-400 to-pink-400 bg-clip-text text-transparent">
-            VAT Rates Management
+          <h1 className="text-2xl font-semibold text-white">
+            VAT Rate Management
           </h1>
-          <p className="text-slate-400 mt-1">Manage tax rates for different countries</p>
+          <p className="text-[12px] text-slate-500">
+            Manage tax rates for different countries
+          </p>
         </div>
-        <div className="flex gap-3">
+        <div className="flex flex-wrap items-center gap-2">
           {/* Export Button */}
           <div className="relative">
             <button 
               onClick={() => setShowExportMenu(!showExportMenu)}
-              className="px-4 py-2 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-xl hover:shadow-lg hover:shadow-green-500/50 transition-all flex items-center gap-2 font-semibold"
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-800/60 border border-slate-700 text-slate-300 rounded-md text-[12px] hover:text-white hover:border-emerald-500/40 transition-all"
             >
-              <Download className="w-5 h-5" />
+              <Download className="h-3.5 w-3.5" />
               Export
-              <ChevronDown className="w-4 h-4" />
+              <ChevronDown className="h-3.5 w-3.5" />
             </button>
             
             {showExportMenu && (
@@ -642,75 +644,67 @@ const clearFilters = () => {
           {/* Create Button */}
           <button
             onClick={() => setShowCreateModal(true)}
-            className="px-4 py-2 bg-gradient-to-r from-violet-600 to-purple-600 text-white rounded-xl hover:shadow-lg hover:shadow-violet-500/50 transition-all flex items-center gap-2 font-semibold"
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-violet-600 hover:bg-violet-700 text-white rounded-md text-[12px] transition-all"
           >
-            <Plus className="w-5 h-5" />
+            <Plus className="h-3.5 w-3.5" />
             Add VAT Rate
           </button>
         </div>
       </div>
 
       {/* Stats Cards */}
-      <div className="grid gap-4 md:grid-cols-4">
-        <div className="bg-gradient-to-br from-violet-500/10 to-purple-500/10 backdrop-blur-xl border border-violet-500/20 rounded-xl p-4 hover:shadow-lg hover:shadow-violet-500/10 transition-all group cursor-pointer">
-          <div className="flex items-center gap-3">
-            <div className="p-2.5 bg-gradient-to-br from-violet-500 to-purple-500 rounded-lg group-hover:scale-110 transition-transform">
-              <Percent className="w-5 h-5 text-white" />
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
+        <div className="bg-slate-900/40 border border-slate-800 rounded-lg p-2.5">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 bg-violet-500/10 rounded-md flex items-center justify-center">
+              <Percent className="h-4 w-4 text-violet-400" />
             </div>
-            <div className="flex-1">
-              <p className="text-xs text-slate-400 mb-0.5">Total VAT Rates</p>
-              <div className="flex items-baseline gap-2">
-                <p className="text-2xl font-bold text-white">{totalRates}</p>
-                <span className="text-xs text-violet-400 flex items-center gap-0.5">
-                  <TrendingUp className="w-3 h-3" />
-                  Active
-                </span>
-              </div>
+            <div>
+              <p className="text-[11px] text-slate-500 font-medium">Total VAT Rates</p>
+              <p className="text-lg font-semibold text-white">{totalRates}</p>
+              <p className="text-[10px] text-violet-400 flex items-center gap-1">
+                <TrendingUp className="w-3 h-3" />
+                Active
+              </p>
             </div>
           </div>
         </div>
 
-        <div className="bg-gradient-to-br from-cyan-500/10 to-blue-500/10 backdrop-blur-xl border border-cyan-500/20 rounded-xl p-4 hover:shadow-lg hover:shadow-cyan-500/10 transition-all group cursor-pointer">
-          <div className="flex items-center gap-3">
-            <div className="p-2.5 bg-gradient-to-br from-cyan-500 to-blue-500 rounded-lg group-hover:scale-110 transition-transform">
-              <CheckCircle className="w-5 h-5 text-white" />
+        <div className="bg-slate-900/40 border border-slate-800 rounded-lg p-2.5">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 bg-cyan-500/10 rounded-md flex items-center justify-center">
+              <CheckCircle className="h-4 w-4 text-cyan-400" />
             </div>
-            <div className="flex-1">
-              <p className="text-xs text-slate-400 mb-0.5">Active Rates</p>
-              <div className="flex items-baseline gap-2">
-                <p className="text-2xl font-bold text-white">{activeRates}</p>
-                <span className="text-xs text-cyan-400">Enabled</span>
-              </div>
+            <div>
+              <p className="text-[11px] text-slate-500 font-medium">Active Rates</p>
+              <p className="text-lg font-semibold text-white">{activeRates}</p>
+              <p className="text-[10px] text-cyan-400">Enabled</p>
             </div>
           </div>
         </div>
 
-        <div className="bg-gradient-to-br from-pink-500/10 to-rose-500/10 backdrop-blur-xl border border-pink-500/20 rounded-xl p-4 hover:shadow-lg hover:shadow-pink-500/10 transition-all group cursor-pointer">
-          <div className="flex items-center gap-3">
-            <div className="p-2.5 bg-gradient-to-br from-pink-500 to-rose-500 rounded-lg group-hover:scale-110 transition-transform">
-              <Star className="w-5 h-5 text-white" />
+        <div className="bg-slate-900/40 border border-slate-800 rounded-lg p-2.5">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 bg-pink-500/10 rounded-md flex items-center justify-center">
+              <Star className="h-4 w-4 text-pink-400" />
             </div>
-            <div className="flex-1">
-              <p className="text-xs text-slate-400 mb-0.5">Default Rate</p>
-              <div className="flex items-baseline gap-2">
-                <p className="text-2xl font-bold text-white">{defaultRate}%</p>
-                <span className="text-xs text-pink-400">Standard</span>
-              </div>
+            <div>
+              <p className="text-[11px] text-slate-500 font-medium">Default Rate</p>
+              <p className="text-lg font-semibold text-white">{defaultRate}%</p>
+              <p className="text-[10px] text-pink-400">Standard</p>
             </div>
           </div>
         </div>
 
-        <div className="bg-gradient-to-br from-green-500/10 to-emerald-500/10 backdrop-blur-xl border border-green-500/20 rounded-xl p-4 hover:shadow-lg hover:shadow-green-500/10 transition-all group cursor-pointer">
-          <div className="flex items-center gap-3">
-            <div className="p-2.5 bg-gradient-to-br from-green-500 to-emerald-500 rounded-lg group-hover:scale-110 transition-transform">
-              <Globe className="w-5 h-5 text-white" />
+        <div className="bg-slate-900/40 border border-slate-800 rounded-lg p-2.5">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 bg-green-500/10 rounded-md flex items-center justify-center">
+              <Globe className="h-4 w-4 text-green-400" />
             </div>
-            <div className="flex-1">
-              <p className="text-xs text-slate-400 mb-0.5">Countries</p>
-              <div className="flex items-baseline gap-2">
-                <p className="text-2xl font-bold text-white">{countriesCount}</p>
-                <span className="text-xs text-green-400">Covered</span>
-              </div>
+            <div>
+              <p className="text-[11px] text-slate-500 font-medium">Countries</p>
+              <p className="text-lg font-semibold text-white">{countriesCount}</p>
+              <p className="text-[10px] text-green-400">Covered</p>
             </div>
           </div>
         </div>
@@ -718,47 +712,50 @@ const clearFilters = () => {
 
       {/* Items Per Page */}
 {/* Items Per Page */}
-<div className="bg-slate-900/40 border border-slate-800 rounded-xl p-3">
+<div className="bg-slate-900/40 border border-slate-800 rounded-lg px-3 py-2">
   <div className="flex flex-wrap items-center justify-between gap-3">
 
-    <div className="flex items-center gap-2 text-sm text-slate-400">
-      <span>Show</span>
+    <div className="flex items-center gap-2">
+      <span className="text-[11px] text-slate-500">Show</span>
       <select
         value={itemsPerPage}
         onChange={(e) => {
           setItemsPerPage(Number(e.target.value));
           setCurrentPage(1);
         }}
-        className="px-2 py-1.5 bg-slate-800 border border-slate-600 rounded-md text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
+        className="px-2 py-1 bg-slate-800/60 border border-slate-700 rounded-md text-white text-[11px] focus:outline-none focus:ring-1 focus:ring-violet-500"
       >
         <option value={25}>25</option>
         <option value={50}>50</option>
         <option value={75}>75</option>
         <option value={100}>100</option>
       </select>
-      <span>entries</span>
+      <span className="text-[11px] text-slate-500">entries</span>
     </div>
 
-    <div className="text-sm text-slate-400">
-      Showing{" "}
-      {filteredRates.length === 0
-        ? 0
-        : (currentPage - 1) * itemsPerPage + 1}{" "}
-      to {Math.min(currentPage * itemsPerPage, filteredRates.length)} of{" "}
-      {filteredRates.length}
+    <div className="text-[11px] text-slate-500">
+      <span className="text-white font-medium">
+        {filteredRates.length === 0
+          ? 0
+          : (currentPage - 1) * itemsPerPage + 1}
+      </span>
+      {" - "}
+      <span className="text-white font-medium">
+        {Math.min(currentPage * itemsPerPage, filteredRates.length)}
+      </span>
+      {" of "}
+      <span className="text-white font-medium">{filteredRates.length}</span>
     </div>
   </div>
 </div>
 
       {/* Search and Filter */}
-      <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-2xl p-4">
-      {/* Search and Filters */}
-<div className="bg-slate-900/40 border border-slate-800 rounded-xl p-3">
+      <div className="bg-slate-900/40 border border-slate-800 rounded-lg px-3 py-2">
   <div className="flex flex-wrap items-center gap-3">
 
     {/* Search */}
-    <div className="relative flex-1 min-w-[240px]">
-      <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 w-4 h-4" />
+    <div className="relative flex-1 min-w-[220px]">
+      <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-500" />
       <input
         type="text"
         placeholder="Search VAT rates..."
@@ -767,23 +764,22 @@ const clearFilters = () => {
           setSearchTerm(e.target.value);
           setCurrentPage(1);
         }}
-        className="w-full pl-9 pr-3 py-2 bg-slate-800 border border-slate-700 rounded-md text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
+        className="w-full pl-8 pr-3 py-1.5 bg-slate-800/60 border border-slate-700 rounded-md text-white text-[12px] placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
       />
     </div>
 
     {/* Status Filter */}
-{/* Status Filter */}
 <select
   value={statusFilter}
   onChange={(e) => {
     setStatusFilter(e.target.value);
     setCurrentPage(1);
   }}
-  className={`px-3 py-2 bg-slate-800 border rounded-md text-white text-sm focus:outline-none transition-all
+  className={`p-2 bg-slate-800/60 border rounded-md text-white text-[11px] focus:outline-none transition-all
   ${
     statusFilter !== "all"
-      ? "border-violet-500 ring-1 ring-violet-500 shadow-violet-500/30"
-      : "border-slate-700 focus:ring-2 focus:ring-violet-500"
+      ? "border-violet-500 bg-violet-500/10"
+      : "border-slate-700 focus:ring-1 focus:ring-violet-500"
   }`}
 >
   <option value="all">All Status</option>
@@ -799,11 +795,11 @@ const clearFilters = () => {
     setDeletedFilter(e.target.value as any);
     setCurrentPage(1);
   }}
-  className={`px-3 py-2 bg-slate-800 border rounded-md text-white text-sm focus:outline-none transition-all
+  className={`p-2 bg-slate-800/60 border rounded-md text-white text-[11px] focus:outline-none transition-all
   ${
     deletedFilter !== "notDeleted"
-      ? "border-red-500 ring-1 ring-red-500 shadow-red-500/30"
-      : "border-slate-700 focus:ring-2 focus:ring-violet-500"
+      ? "border-red-500 bg-red-500/10"
+      : "border-slate-700 focus:ring-1 focus:ring-violet-500"
   }`}
 >
   <option value="notDeleted">Available VAT Rates</option>
@@ -818,11 +814,11 @@ const clearFilters = () => {
     setCountryFilter(e.target.value);
     setCurrentPage(1);
   }}
-  className={`px-3 py-2 bg-slate-800 border rounded-md text-white text-sm focus:outline-none transition-all
+  className={`p-2 bg-slate-800/60 border rounded-md text-white text-[11px] focus:outline-none transition-all
   ${
     countryFilter !== "All Countries"
-      ? "border-cyan-500 ring-1 ring-cyan-500 shadow-cyan-500/30"
-      : "border-slate-700 focus:ring-2 focus:ring-violet-500"
+      ? "border-cyan-500 bg-cyan-500/10"
+      : "border-slate-700 focus:ring-1 focus:ring-violet-500"
   }`}
 >
   <option>All Countries</option>
@@ -839,14 +835,15 @@ const clearFilters = () => {
     {hasActiveFilters && (
       <button
         onClick={clearFilters}
-        className="px-3 py-2 bg-red-500/10 border border-red-500/40 text-red-400 rounded-md text-sm hover:bg-red-500/20 transition"
+        className="p-2 text-[11px] bg-red-500/10 border border-red-500/40 text-red-400 rounded-md hover:bg-red-500/20 flex items-center gap-1"
       >
+        <X className="h-3 w-3" />
         Clear Filters
       </button>
     )}
 
-    <div className="ml-auto text-sm text-slate-400">
-      {filteredRates.length} rate
+    <div className="ml-auto text-[11px] text-slate-500">
+      <span className="text-white font-medium">{filteredRates.length}</span> rate
       {filteredRates.length !== 1 ? "s" : ""}
     </div>
   </div>
@@ -860,18 +857,19 @@ const clearFilters = () => {
             <p className="text-slate-400 text-lg">No VAT rates found</p>
           </div>
         ) : (
-          <div className="overflow-x-auto max-h-[75vh]">
+          <div className="bg-slate-900/40 border border-slate-800 rounded-lg p-2">
+            <div className="overflow-x-auto">
               <table className="w-full text-sm">
       <thead>
-        <tr className="border-b border-slate-700 text-slate-400">
-          <th className="text-left py-2 px-3 font-medium">Name</th>
-          <th className="text-left py-2 px-3 font-medium">Country</th>
-          <th className="text-center py-2 px-3 font-medium">Rate (%)</th>
-          <th className="text-left py-2 px-3 font-medium">Region</th>
-          <th className="text-center py-2 px-3 font-medium">Status</th>
-          <th className="text-center py-2 px-3 font-medium">Default</th>
-          <th className="text-center py-2 px-3 font-medium">Order</th>
-          <th className="text-center py-2 px-3 font-medium">Actions</th>
+        <tr className="border-b border-slate-800">
+          <th className="text-left py-2 px-3 text-slate-400 font-medium">Name</th>
+          <th className="text-left py-2 px-3 text-slate-400 font-medium">Country</th>
+          <th className="text-center py-2 px-3 text-slate-400 font-medium">Rate (%)</th>
+          <th className="text-left py-2 px-3 text-slate-400 font-medium">Region</th>
+          <th className="text-center py-2 px-3 text-slate-400 font-medium">Status</th>
+          <th className="text-center py-2 px-3 text-slate-400 font-medium">Default</th>
+          <th className="text-center py-2 px-3 text-slate-400 font-medium">Order</th>
+          <th className="text-center py-2 px-3 text-slate-400 font-medium">Actions</th>
         </tr>
       </thead>
 
@@ -879,8 +877,8 @@ const clearFilters = () => {
         {paginatedRates.map((rate) => (
           <tr
             key={rate.id}
-            className={`border-b border-slate-800 hover:bg-slate-800/40 transition ${
-              rate.isDefault ? "bg-yellow-500/5" : ""
+            className={`border-b border-slate-800 transition-colors ${
+              rate.isDefault ? "bg-yellow-500/5" : "hover:bg-slate-800/30"
             }`}
           >
             {/* Name */}
@@ -908,7 +906,7 @@ const clearFilters = () => {
 
             {/* Rate */}
             <td className="py-2 px-3 text-center">
-              <span className="px-2 py-0.5 bg-violet-500/10 text-violet-400 rounded-md text-xs font-semibold">
+              <span className="px-2 py-0.5 bg-violet-500/10 text-violet-400 rounded-md text-xs font-medium">
                 {rate.rate}%
               </span>
             </td>
@@ -922,10 +920,10 @@ const clearFilters = () => {
             <td className="py-2 px-3 text-center">
               <button
                 onClick={() => setStatusConfirm(rate)}
-                className={`px-2.5 py-0.5 rounded-md text-xs font-semibold transition ${
+                className={`px-2 py-0.5 rounded-md text-xs font-medium transition ${
                   rate.isActive
-                    ? "bg-green-500/10 text-green-400 hover:bg-green-500/20"
-                    : "bg-red-500/10 text-red-400 hover:bg-red-500/20"
+                    ? "bg-green-500/10 text-green-400"
+                    : "bg-red-500/10 text-red-400"
                 }`}
               >
                 {rate.isActive ? "Active" : "Inactive"}
@@ -953,14 +951,14 @@ const clearFilters = () => {
               <div className="flex items-center justify-center gap-1">
                 <button
                   onClick={() => setViewingRate(rate)}
-                  className="p-1.5 text-violet-400 hover:bg-violet-500/10 rounded-md transition"
+                  className="p-1.5 text-violet-400 hover:bg-violet-500/10 rounded-md"
                 >
                   <Eye className="h-4 w-4" />
                 </button>
 
                 <button
                   onClick={() => openEditModal(rate)}
-                  className="p-1.5 text-cyan-400 hover:bg-cyan-500/10 rounded-md transition"
+                  className="p-1.5 text-cyan-400 hover:bg-cyan-500/10 rounded-md"
                 >
                   <Edit className="h-4 w-4" />
                 </button>
@@ -968,14 +966,14 @@ const clearFilters = () => {
                 {deletedFilter === "deleted" ? (
                   <button
                     onClick={() => setRestoreConfirm(rate)}
-                    className="p-1.5 text-green-400 hover:bg-green-500/10 rounded-md transition"
+                    className="p-1.5 text-green-400 hover:bg-green-500/10 rounded-md"
                   >
                     <RotateCcw className="h-4 w-4" />
                   </button>
                 ) : (
                   <button
                     onClick={() => confirmDelete(rate)}
-                    className="p-1.5 text-red-400 hover:bg-red-500/10 rounded-md transition"
+                    className="p-1.5 text-red-400 hover:bg-red-500/10 rounded-md"
                   >
                     <Trash2 className="h-4 w-4" />
                   </button>
@@ -986,9 +984,9 @@ const clearFilters = () => {
         ))}
       </tbody>
     </table>
+            </div>
           </div>
         )}
-      </div>
 
       {/* Pagination */}
       {totalPages > 1 && (
