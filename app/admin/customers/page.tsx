@@ -1456,37 +1456,61 @@ const modalTier = selectedCustomer ? getTier(selectedCustomer) : "loading";
   )}
 </div>
 {selectedCustomers.length > 0 && (
-  <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50">
+  <div className="fixed top-[80px] left-1/2 -translate-x-1/2 z-[999] pointer-events-none w-full">
 
-    <div className="flex items-center gap-3 bg-slate-900/90 backdrop-blur-md border border-violet-500/30 px-4 py-2 rounded-lg shadow-lg">
+    <div className="flex justify-center px-2">
 
-      {/* Selected Count */}
-      <span className="text-[12px] text-white">
-        {selectedCustomers.length} selected
-      </span>
+      <div className="pointer-events-auto mx-auto w-fit max-w-[95%] sm:max-w-[900px] 
+        rounded-xl border border-slate-700 bg-slate-900/95 
+        px-4 py-3 shadow-xl backdrop-blur-md transition-all duration-300">
 
-      {/* Export Button */}
-      <button
-        onClick={handleExportSelected}
-        className="flex items-center gap-1 px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white text-[12px] rounded-md transition-all"
-      >
-        <Download className="h-3.5 w-3.5" />
-        Export
-      </button>
+        <div className="flex flex-wrap items-center gap-3">
 
-      {/* Clear */}
-      <button
-        onClick={() => setSelectedCustomers([])}
-        className="text-[12px] text-red-400 hover:text-red-300"
-      >
-        Clear
-      </button>
+          {/* LEFT SECTION */}
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 text-sm">
+              <span className="h-2 w-2 rounded-full bg-violet-500"></span>
+              <span className="font-semibold text-white">
+                {selectedCustomers.length}
+              </span>
+              <span className="text-slate-300">customers selected</span>
+            </div>
+
+            {/* ✅ Helper Text */}
+            <p className="mt-1 text-xs text-slate-400">
+              Bulk actions: export selected customers.
+            </p>
+          </div>
+
+          {/* Divider */}
+          <div className="h-5 w-px bg-slate-700 hidden md:block" />
+
+          {/* EXPORT */}
+          <button
+            onClick={handleExportSelected}
+            className="inline-flex items-center gap-2 
+            rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white 
+            transition-all hover:bg-emerald-700"
+          >
+            <Download className="h-4 w-4" />
+            Export ({selectedCustomers.length})
+          </button>
+
+          {/* CLEAR */}
+          <button
+            onClick={() => setSelectedCustomers([])}
+            className="px-4 py-2 bg-slate-700 hover:bg-slate-600 
+            text-white text-sm rounded-lg transition-all"
+          >
+            Clear
+          </button>
+
+        </div>
+      </div>
 
     </div>
-
   </div>
 )}
-
       {/* ✅ Pagination */}
       {totalPages > 1 && (
         <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-2xl p-4">

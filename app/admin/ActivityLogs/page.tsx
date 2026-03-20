@@ -44,6 +44,8 @@ import {
   ActivityLogQueryParams,
   ActivityLogType,
 } from "@/lib/services/activityLog";
+import { useDebounce } from "../_hooks/useDebounce";
+import { formatRelativeDate } from "@/lib/services/loyaltyPoints";
 
 // ✅ Types
 type SortField = "createdOnUtc" | "activityLogType" | "userName" | "entityName";
@@ -143,18 +145,6 @@ const formatValue = (value: any) => {
     return new Date(value).toLocaleString();
   return value.toString();
 };
-// ✅ Debounce Hook
-function useDebounce<T>(value: T, delay: number): T {
-  const [debouncedValue, setDebouncedValue] = useState<T>(value);
-
-  useEffect(() => {
-    const handler = setTimeout(() => setDebouncedValue(value), delay);
-    return () => clearTimeout(handler);
-  }, [value, delay]);
-
-  return debouncedValue;
-}
-
 // ✅ Confirmation Modal Component
 interface ConfirmationModalProps {
   isOpen: boolean;
@@ -783,25 +773,7 @@ const handleDeleteSingleLog = (log: ActivityLog) => {
     });
   };
 
-  const formatRelativeDate = (date?: string) => {
-    if (!date) return "N/A";
-
-    const now = new Date();
-    const past = new Date(date);
-    const diffMs = now.getTime() - past.getTime();
-    const diffSeconds = Math.floor(diffMs / 1000);
-    const diffMinutes = Math.floor(diffSeconds / 60);
-    const diffHours = Math.floor(diffMinutes / 60);
-    const diffDays = Math.floor(diffHours / 24);
-
-    if (diffSeconds < 60) return `${diffSeconds} seconds ago`;
-    if (diffMinutes < 60) return `${diffMinutes} minute${diffMinutes > 1 ? "s" : ""} ago`;
-    if (diffHours < 24) return `${diffHours} hour${diffHours > 1 ? "s" : ""} ago`;
-    if (diffDays < 30) return `${diffDays} day${diffDays > 1 ? "s" : ""} ago`;
-
-    const diffMonths = Math.floor(diffDays / 30);
-    return `${diffMonths} month${diffMonths > 1 ? "s" : ""} ago`;
-  };
+ 
 
   // ✅ Get Activity Type Badge
   const getActivityTypeBadge = (activityType: string) => {
@@ -902,18 +874,7 @@ const handleDeleteSingleLog = (log: ActivityLog) => {
               <>
                 <div className="fixed inset-0 z-10" onClick={() => setShowExportMenu(false)} />
                 <div className="absolute right-0 mt-2 w-64 bg-slate-800 border border-slate-700 rounded-xl shadow-2xl z-20 overflow-hidden">
-                  {selectedLogs.length > 0 && (
-                    <button
-                      onClick={handleExportSelected}
-                      className="w-full px-3 py-2.5 text-left text-white hover:bg-slate-700 transition-all flex items-center gap-2.5 border-b border-slate-700"
-                    >
-                      <FileSpreadsheet className="w-4 h-4 text-blue-400" />
-                      <div>
-                        <p className="text-sm font-medium">Export Selected</p>
-                        <p className="text-xs text-slate-400">{selectedLogs.length} logs</p>
-                      </div>
-                    </button>
-                  )}
+                
 
                   <button
                     onClick={handleExportCurrentPage}
@@ -1607,7 +1568,10 @@ const handleDeleteSingleLog = (log: ActivityLog) => {
                   <th className="py-2 px-3">
                     <input
                       type="checkbox"
-                      checked={selectedLogs.length === activityLogs.length && activityLogs.length > 0}
+                     checked={
+  activityLogs.length > 0 &&
+  activityLogs.every(log => selectedLogs.includes(log.id))
+}
                       onChange={toggleSelectAll}
                       className="rounded bg-slate-700 border-slate-600 text-violet-500 focus:ring-violet-500 cursor-pointer"
                     />
@@ -1669,7 +1633,13 @@ const handleDeleteSingleLog = (log: ActivityLog) => {
                 {activityLogs.map((log) => (
                   <tr
                     key={log.id}
-                    className="border-b border-slate-800 hover:bg-slate-800/30 transition-colors group"
+        className={`border-b border-slate-800 transition-colors group
+  ${
+    selectedLogs.includes(log.id)
+      ? "bg-violet-500/10 ring-1 ring-violet-500/40"
+      : "hover:bg-slate-800/30"
+  }
+`}
                   >
                     {/* Checkbox */}
                     <td className="py-2.5 px-3">
@@ -1749,7 +1719,72 @@ const handleDeleteSingleLog = (log: ActivityLog) => {
           </div>
         )}
       </div>
+{selectedLogs.length > 0 && (
+  <div className="fixed top-[70px] left-1/2 -translate-x-1/2 z-[999] pointer-events-none w-full">
 
+    <div className="flex justify-center px-2">
+
+      <div className="pointer-events-auto mx-auto w-fit max-w-[95%] sm:max-w-[900px] 
+        rounded-xl border border-slate-700 bg-slate-900/95 
+        px-4 py-3 shadow-xl backdrop-blur-md transition-all duration-300">
+
+        <div className="flex flex-wrap items-center gap-3">
+
+          {/* LEFT */}
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 text-sm">
+              <span className="h-2 w-2 rounded-full bg-violet-500 animate-pulse"></span>
+              <span className="font-semibold text-white">
+                {selectedLogs.length}
+              </span>
+              <span className="text-slate-300">logs selected</span>
+            </div>
+
+            <p className="mt-1 text-xs text-slate-400">
+              Bulk actions: export selected logs or delete them permanently.
+            </p>
+          </div>
+
+          {/* Divider */}
+          <div className="h-5 w-px bg-slate-700 hidden md:block" />
+
+          {/* EXPORT */}
+          <button
+            onClick={handleExportSelected}
+            className="inline-flex items-center gap-2 rounded-lg 
+            bg-emerald-600 px-4 py-2 text-sm font-medium text-white 
+            hover:bg-emerald-700 transition-all"
+          >
+            <Download className="h-4 w-4" />
+            Export ({selectedLogs.length})
+          </button>
+
+          {/* DELETE */}
+          <button
+            onClick={handleDeleteSelected}
+            className="inline-flex items-center gap-2 rounded-lg 
+            bg-red-600 px-4 py-2 text-sm font-medium text-white 
+            hover:bg-red-700 transition-all"
+          >
+            <Trash2 className="h-4 w-4" />
+            Delete
+          </button>
+
+          {/* CLEAR */}
+          <button
+            onClick={() => setSelectedLogs([])}
+            className="px-4 py-2 bg-slate-700 hover:bg-slate-600 
+            text-white text-sm rounded-lg transition-all"
+          >
+            Clear
+          </button>
+
+        </div>
+      </div>
+
+    </div>
+  </div>
+)}
       {/* ✅ Pagination */}
       {totalPages > 1 && (
         <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-2xl p-4">

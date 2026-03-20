@@ -136,7 +136,7 @@ useEffect(() => {
     setSpamFlagModal({
       comment,
       reason: '',
-      spamScore: 1,
+      spamScore: 0,
       flaggedBy: userName
     });
   };
@@ -308,7 +308,8 @@ const fetchComments = async (specificPostId?: string) => {
           const postComments = flattenComments(post.comments).map(comment => ({
             ...comment,
             blogPostTitle: comment.blogPostTitle || post.title,
-            blogPostId: post.id
+            blogPostId: post.id,
+            blogSlug: post.slug,
           }));
           allCommentsFromPosts.push(...postComments);
         }
@@ -749,11 +750,9 @@ const getDateRangeLabel = () => {
 <div className="bg-slate-900/90 backdrop-blur-xl border border-slate-800 rounded-2xl p-2">
   {/* Header */}
 
-  
-    {/* ✅ SINGLE Filters Row - NO DUPLICATES */}
-    <div className="group flex flex-col lg:flex-row gap-2.5 rounded-xl border border-slate-800/70 bg-slate-950/30 px-2 py-2">
+   <div className="group flex flex-col lg:flex-row gap-2.5 rounded-xl border border-slate-800/70 bg-slate-950/30 px-2 py-2">
         {/* Search Input */}
-        <div className="relative lg:w-72 flex-1">
+        <div className="relative lg:flex-1  max-w-[340px]">
           <input
             type="text"
             value={searchTerm}
@@ -774,7 +773,7 @@ const getDateRangeLabel = () => {
       {/* Left Side: Status + Post Filter */}
       <div className={`flex flex-wrap items-center gap-2.5 flex-1 transition-all duration-200 ${hasActiveFilters ? "opacity-100" : "opacity-70 group-hover:opacity-100 group-focus-within:opacity-100"}`}>
         {/* Status Filter */}
-        <div className="relative">
+        <div className="relative  ">
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
@@ -792,99 +791,10 @@ const getDateRangeLabel = () => {
           </select>
           <Filter className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
         </div>
-
-        {/* Post Filter Dropdown */}
-        <div className="relative flex-1 lg:flex-initial lg:flex-1" ref={dropdownRef}>
-          <div className="relative">
-            <input
-              type="text"
-              value={showPostDropdown ? postSearchTerm : getSelectedPostTitle()}
-              onChange={(e) => {
-                setPostSearchTerm(e.target.value);
-                if (!showPostDropdown) setShowPostDropdown(true);
-              }}
-              onFocus={() => {
-                setShowPostDropdown(true);
-                setPostSearchTerm("");
-              }}
-              placeholder={loadingPosts ? "Loading posts..." : "Filter by post..."}
-              disabled={loadingPosts || blogPosts.length === 0 || loadingComments}
-              className={`w-full px-3.5 py-2 pl-10 pr-10 bg-slate-800/50 border rounded-xl text-white text-sm placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all ${
-                postFilter !== "all" 
-                  ? "border-purple-500 bg-purple-500/10 ring-2 ring-purple-500/50" 
-                  : "border-slate-600 hover:border-slate-500"
-              } ${loadingPosts || blogPosts.length === 0 || loadingComments ? "opacity-50 cursor-not-allowed" : ""}`}
-            />
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
-            
-            {postFilter !== "all" ? (
-              <button
-                onClick={() => {
-                  setPostFilter("all");
-                  setPostSearchTerm("");
-                }}
-                className="absolute right-3 top-1/2 -translate-y-1/2 p-1 hover:bg-red-700 rounded transition-all"
-              >
-                <X className="h-3.5 w-3.5 text-slate-400 hover:text-white" />
-              </button>
-            ) : (
-              <ChevronDown className={`absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none transition-transform ${showPostDropdown ? "rotate-180" : ""}`} />
-            )}
-          </div>
-
-          {/* Post Dropdown List */}
-          {showPostDropdown && (
-            <div className="absolute top-full left-0 right-0 mt-2 bg-slate-800 border border-slate-600 rounded-xl shadow-xl max-h-64 overflow-y-auto z-50">
-              <button
-                onClick={() => {
-                  setPostFilter("all");
-                  setShowPostDropdown(false);
-                  setPostSearchTerm("");
-                }}
-                className={`w-full px-4 py-2.5 text-left hover:bg-slate-700 transition-all ${
-                  postFilter === "all" ? "bg-purple-500/10 text-purple-400" : "text-white"
-                }`}
-              >
-                <div className="flex items-center gap-2">
-                  <MessageSquare className="h-4 w-4 flex-shrink-0" />
-                  <span className="text-sm">All Posts</span>
-                </div>
-              </button>
-
-              {filteredPosts.length > 0 ? (
-                filteredPosts.map(post => (
-                  <button
-                    key={post.id}
-                    onClick={() => {
-                      setPostFilter(post.id);
-                      setShowPostDropdown(false);
-                      setPostSearchTerm("");
-                    }}
-                    className={`w-full px-4 py-3 text-left hover:bg-slate-700 transition-all border-t border-slate-700 ${
-                      postFilter === post.id ? "bg-purple-500/10 text-purple-400" : "text-white"
-                    }`}
-                  >
-                    <div className="flex items-center gap-2">
-                      <MessageSquare className="h-4 w-4 flex-shrink-0 text-slate-400" />
-                      <span className="text-sm truncate">{post.title}</span>
-                    </div>
-                  </button>
-                ))
-              ) : (
-                <div className="px-4 py-3 text-center text-slate-500 text-sm">
-                  No posts found for "{postSearchTerm}"
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-      </div>
-    
-
-      {/* Right Side: Date Range + Search */}
-      <div className={`flex items-center gap-2.5 flex-1 lg:flex-initial transition-all duration-200 ${hasActiveFilters ? "opacity-100" : "opacity-70 group-hover:opacity-100 group-focus-within:opacity-100"}`}>
+    {/* Right Side: Date Range + Search */}
+      <div className={`flex items-center gap-2.5 flex-1 min-w-[200px] lg:flex-initial transition-all duration-200 ${hasActiveFilters ? "opacity-100" : "opacity-70 group-hover:opacity-100 group-focus-within:opacity-100"}`}>
         {/* ✅ Date Range Filter - AUTO APPLY */}
-        <div className="relative lg:min-w-[220px]" ref={datePickerRef}>
+        <div className="relative flex-1" ref={datePickerRef}>
           <div className="relative">
             <button
               onClick={() => setShowDatePicker(!showDatePicker)}
@@ -1001,12 +911,101 @@ const getDateRangeLabel = () => {
 
       
       </div>
+        {/* Post Filter Dropdown */}
+        <div className="relative flex-1 min-w-[300px] lg:flex-initial lg:flex-1" ref={dropdownRef}>
+          <div className="relative  ">
+            <input
+              type="text"
+              value={showPostDropdown ? postSearchTerm : getSelectedPostTitle()}
+              onChange={(e) => {
+                setPostSearchTerm(e.target.value);
+                if (!showPostDropdown) setShowPostDropdown(true);
+              }}
+              onFocus={() => {
+                setShowPostDropdown(true);
+                setPostSearchTerm("");
+              }}
+              placeholder={loadingPosts ? "Loading posts..." : "Filter by post..."}
+              disabled={loadingPosts || blogPosts.length === 0 || loadingComments}
+              className={`w-full px-3.5 py-2 pl-10 pr-10 bg-slate-800/50 border rounded-xl text-white text-sm placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all ${
+                postFilter !== "all" 
+                  ? "border-purple-500 bg-purple-500/10 ring-2 ring-purple-500/50  " 
+                  : "border-slate-600 hover:border-slate-500"
+              } ${loadingPosts || blogPosts.length === 0 || loadingComments ? "opacity-50 cursor-not-allowed" : ""}`}
+            />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
+            
+            {postFilter !== "all" ? (
+              <button
+                onClick={() => {
+                  setPostFilter("all");
+                  setPostSearchTerm("");
+                }}
+                className="absolute right-3 top-1/2 -translate-y-1/2 p-1 hover:bg-red-700 rounded transition-all"
+              >
+                <X className="h-3.5 w-3.5 text-slate-400 hover:text-white" />
+              </button>
+            ) : (
+              <ChevronDown className={`absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none transition-transform ${showPostDropdown ? "rotate-180" : ""}`} />
+            )}
+          </div>
+
+          {/* Post Dropdown List */}
+          {showPostDropdown && (
+            <div className="absolute top-full left-0 right-0 mt-2 bg-slate-800 border border-slate-600 rounded-xl shadow-xl max-h-64 overflow-y-auto z-50">
+              <button
+                onClick={() => {
+                  setPostFilter("all");
+                  setShowPostDropdown(false);
+                  setPostSearchTerm("");
+                }}
+                className={`w-full px-4 py-2.5 text-left hover:bg-slate-700 transition-all ${
+                  postFilter === "all" ? "bg-purple-500/10 text-purple-400" : "text-white"
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  <MessageSquare className="h-4 w-4 flex-shrink-0" />
+                  <span className="text-sm">All Posts</span>
+                </div>
+              </button>
+
+              {filteredPosts.length > 0 ? (
+                filteredPosts.map(post => (
+                  <button
+                    key={post.id}
+                    onClick={() => {
+                      setPostFilter(post.id);
+                      setShowPostDropdown(false);
+                      setPostSearchTerm("");
+                    }}
+                    className={`w-full px-4 py-3 text-left hover:bg-slate-700 transition-all border-t border-slate-700 ${
+                      postFilter === post.id ? "bg-purple-500/10 text-purple-400" : "text-white"
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <MessageSquare className="h-4 w-4 flex-shrink-0 text-slate-400" />
+                      <span className="text-sm truncate">{post.title}</span>
+                    </div>
+                  </button>
+                ))
+              ) : (
+                <div className="px-4 py-3 text-center text-slate-500 text-sm">
+                  No posts found for "{postSearchTerm}"
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+    
+
+  
          {hasActiveFilters && (
         <div className="flex items-center gap-2">
          
           <button
             onClick={clearFilters}
-            className="px-2.5 py-1.5 bg-red-500/10 border border-red-500/40 text-red-400 rounded-lg hover:bg-red-500/20 transition-all text-[11px] font-medium flex items-center gap-1.5"
+            className="px-2.5 py-2 bg-red-500/10 border border-red-500/40 text-red-400 rounded-lg hover:bg-red-500/20 transition-all text-[11px] font-medium flex items-center gap-1.5"
           >
             <FilterX className="h-3.5 w-3.5" />
             Clear All
@@ -1014,7 +1013,6 @@ const getDateRangeLabel = () => {
         </div>
       )}
     </div>
-
 
   {/* Comments List */}
   {loadingComments ? (
@@ -1104,14 +1102,22 @@ const getDateRangeLabel = () => {
                     </div>
 
                     {/* Post Title */}
-                    {!parentComment.isDeleted && (
-                      <div className="flex items-center gap-1.5 flex-wrap text-[11px]">
-                        <span className="text-slate-500">Commented on</span>
-                        <span className="text-blue-400 hover:text-blue-300 cursor-pointer hover:underline font-medium break-words" onClick={() => setPostFilter(parentComment.blogPostId)}>
-                          {parentComment.blogPostTitle || 'Unknown Post'}
-                        </span>
-                      </div>
-                    )}
+              {/* Post Title */}
+{!parentComment.isDeleted && (
+  <div className="flex items-center gap-1.5 flex-wrap text-[11px]">
+    <span className="text-slate-500">Commented on</span>
+
+    <a
+      href={`/blog/${parentComment.blogSlug}`}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="text-blue-400 hover:text-blue-300 hover:underline font-medium break-words transition-all"
+      title="View blog post"
+    >
+      {parentComment.blogPostTitle || "Unknown Post"}
+    </a>
+  </div>
+)}
 
                 
                   </div>
@@ -1393,7 +1399,7 @@ const getDateRangeLabel = () => {
         {/* View Comment Modal */}
         {viewingComment && (
           <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-50 flex items-center justify-center p-4">
-            <div className="bg-gradient-to-br from-slate-900 via-slate-900 to-slate-800 border border-violet-500/20 rounded-3xl max-w-2xl w-full max-h-[90vh] overflow-hidden shadow-2xl shadow-violet-500/10">
+            <div className="bg-gradient-to-br from-slate-900 via-slate-900 to-slate-800 border border-violet-500/20 rounded-3xl max-w-4xl w-full max-h-[90vh] overflow-hidden shadow-2xl shadow-violet-500/10">
               <div className="p-6 border-b border-violet-500/20 bg-gradient-to-r from-violet-500/10 to-cyan-500/10">
                 <div className="flex items-center justify-between">
                   <div>
@@ -1594,7 +1600,7 @@ const getDateRangeLabel = () => {
                   </p>
                 </div>
 
-                <div>
+              <div>
                   <label className="block text-sm font-medium text-slate-300 mb-2">
                     Spam Score <span className="text-red-400">*</span>
                   </label>
@@ -1636,26 +1642,23 @@ const getDateRangeLabel = () => {
                   </div>
                 </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-2">
-                    Flagged By <span className="text-red-400">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={spamFlagModal.flaggedBy}
-                    onChange={(e) => setSpamFlagModal({ 
-                      ...spamFlagModal, 
-                      flaggedBy: e.target.value 
-                    })}
-                    placeholder="Your name"
-                    disabled={isSubmittingSpam}
-                    className="w-full px-4 py-3 bg-slate-800/50 border border-slate-600 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-red-500 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                  />
-                  <p className="text-slate-500 text-xs mt-1">
-                    Name is auto-filled from your profile (editable)
-                  </p>
-                </div>
+     <div>
+  <label className="block text-sm font-medium text-slate-300 mb-2">
+    Flagged By <span className="text-red-400">*</span>
+  </label>
 
+  <input
+    type="text"
+    value={spamFlagModal.flaggedBy || ""}
+    readOnly
+    disabled={isSubmittingSpam}
+    className="w-full px-4 py-3 bg-slate-800/40 border border-slate-700 rounded-xl text-white placeholder-slate-500 cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-red-500 transition-all disabled:opacity-50"
+  />
+
+  <p className="text-slate-500 text-xs mt-1">
+    Name is auto-filled from your profile (Not editable)
+  </p>
+</div>
                 <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-3 flex items-start gap-2">
                   <AlertTriangle className="h-5 w-5 text-red-400 flex-shrink-0 mt-0.5" />
                   <div>

@@ -30,6 +30,7 @@ export default function NewsletterPage() {
   const [isUnsubscribing, setIsUnsubscribing] = useState(false);
   const [isSubscribing, setIsSubscribing] = useState(false);
   const [showExportMenu, setShowExportMenu] = useState(false);
+  const [selectedSubscriptions, setSelectedSubscriptions] = useState<string[]>([]);
 
   // Fetch ALL subscriptions ONCE on mount (for export functionality)
   const fetchAllSubscriptions = useCallback(async () => {
@@ -91,7 +92,21 @@ export default function NewsletterPage() {
       setLoading(false);
     }
   }, [currentPage, itemsPerPage, activeFilter, searchTerm, toast]);
+const toggleSelectAll = () => {
+  if (selectedSubscriptions.length === subscriptions.length) {
+    setSelectedSubscriptions([]);
+  } else {
+    setSelectedSubscriptions(subscriptions.map(s => s.id));
+  }
+};
 
+const toggleSelectOne = (id: string) => {
+  setSelectedSubscriptions(prev =>
+    prev.includes(id)
+      ? prev.filter(x => x !== id)
+      : [...prev, id]
+  );
+};
   // Initial load - fetch all data once
   useEffect(() => {
     fetchStats();
@@ -102,6 +117,37 @@ export default function NewsletterPage() {
   useEffect(() => {
     fetchSubscriptions();
   }, [fetchSubscriptions]);
+
+  const handleExportSelected = () => {
+  try {
+    const selectedData = allSubscriptions.filter(sub =>
+      selectedSubscriptions.includes(sub.id)
+    );
+
+    if (selectedData.length === 0) {
+      toast.error("No subscriptions selected");
+      return;
+    }
+
+    const excelData = selectedData.map((sub, index) => ({
+      "S.No": index + 1,
+      "Email": sub.email,
+      "Status": sub.isActive ? "Active" : "Inactive",
+      "Source": sub.source,
+      "Subscribed At": new Date(sub.subscribedAt).toLocaleString(),
+    }));
+
+    const worksheet = XLSX.utils.json_to_sheet(excelData);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Selected");
+
+    XLSX.writeFile(workbook, `Selected_Subscriptions.xlsx`);
+
+    toast.success(`Exported ${selectedData.length} selected`);
+  } catch {
+    toast.error("Export failed");
+  }
+};
 
   // Handle Excel Export
   const handleExport = (exportAll: boolean) => {
@@ -531,6 +577,17 @@ export default function NewsletterPage() {
         {/* HEADER */}
         <thead className="bg-slate-800/40">
           <tr className="border-b border-slate-800">
+            <th className="py-2 px-3">
+  <input
+    type="checkbox"
+    checked={
+  subscriptions.length > 0 &&
+  subscriptions.every(s => selectedSubscriptions.includes(s.id))
+}
+    onChange={toggleSelectAll}
+    className="accent-violet-500"
+  />
+</th>
             <th className="text-left py-2 px-3 text-[11px] text-slate-400">Email</th>
             <th className="text-center py-2 px-3 text-[11px] text-slate-400">Status</th>
             <th className="text-left py-2 px-3 text-[11px] text-slate-400">Source</th>
@@ -543,11 +600,24 @@ export default function NewsletterPage() {
         {/* BODY */}
         <tbody>
           {subscriptions.map((subscription) => (
-            <tr
-              key={subscription.id}
-              className="border-b border-slate-800 hover:bg-slate-800/30 transition-colors"
-            >
-
+          <tr
+  key={subscription.id}
+  className={`border-b border-slate-800 transition-colors
+    ${
+      selectedSubscriptions.includes(subscription.id)
+        ? "bg-violet-500/10 ring-1 ring-violet-500/40"
+        : "hover:bg-slate-800/30"
+    }
+  `}
+>
+<td className="py-2 px-3">
+  <input
+    type="checkbox"
+    checked={selectedSubscriptions.includes(subscription.id)}
+    onChange={() => toggleSelectOne(subscription.id)}
+    className="accent-violet-500"
+  />
+</td>
               {/* EMAIL */}
               <td className="py-2 px-3">
                 <div className="flex items-center gap-2">
@@ -614,7 +684,61 @@ export default function NewsletterPage() {
   )}
 </div>
 
+{selectedSubscriptions.length > 0 && (
+  <div className="fixed top-[70px] left-1/2 -translate-x-1/2 z-[999] pointer-events-none w-full">
 
+    <div className="flex justify-center px-2">
+
+      <div className="pointer-events-auto mx-auto w-fit max-w-[95%] sm:max-w-[900px] 
+        rounded-xl border border-slate-700 bg-slate-900/95 
+        px-4 py-3 shadow-xl backdrop-blur-md transition-all duration-300">
+
+        <div className="flex flex-wrap items-center gap-3">
+
+          {/* LEFT */}
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 text-sm">
+              <span className="h-2 w-2 rounded-full bg-violet-500 animate-pulse"></span>
+              <span className="font-semibold text-white">
+                {selectedSubscriptions.length}
+              </span>
+              <span className="text-slate-300">subscriptions selected</span>
+            </div>
+
+            <p className="mt-1 text-xs text-slate-400">
+              Bulk actions: export selected subscriptions.
+            </p>
+          </div>
+
+          {/* Divider */}
+          <div className="h-5 w-px bg-slate-700 hidden md:block" />
+
+          {/* EXPORT */}
+          <button
+            onClick={handleExportSelected}
+            className="inline-flex items-center gap-2 rounded-lg 
+            bg-emerald-600 px-4 py-2 text-sm font-medium text-white 
+            transition-all hover:bg-emerald-700 disabled:opacity-60"
+          >
+            <Download className="h-4 w-4" />
+            Export ({selectedSubscriptions.length})
+          </button>
+
+          {/* CLEAR */}
+          <button
+            onClick={() => setSelectedSubscriptions([])}
+            className="px-4 py-2 bg-slate-700 hover:bg-slate-600 
+            text-white text-sm rounded-lg transition-all"
+          >
+            Clear
+          </button>
+
+        </div>
+      </div>
+
+    </div>
+  </div>
+)}
 {/* Pagination */}
 {totalPages > 1 && (
   <div className="bg-slate-900/40 border border-slate-800 rounded-lg px-3 py-2">

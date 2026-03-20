@@ -357,6 +357,7 @@ const deletedOptions = [
   const [showToggleConfirm, setShowToggleConfirm] = useState(false);
 // BULK SELECTION
 const [selectedProducts, setSelectedProducts] = useState<string[]>([]);
+const [exportingSelected, setExportingSelected] = useState(false);
   // ✅ HELPERS
   // BULK SELECT HANDLERS
 const handleSelectProduct = (productId: string) => {
@@ -1063,6 +1064,12 @@ const selectionState = useMemo(() => {
 
   return { mixed, status, publishStatus };
 }, [selectedProducts, products]);
+
+const selectedProductItems = useMemo(() => {
+  return selectedProducts
+    .map((id) => products.find((p) => p.id === id))
+    .filter((p): p is FormattedProduct => Boolean(p));
+}, [selectedProducts, products]);
   // ✅ STATS (using totalCount from API)
   const stats = useMemo(() => {
     const lowStockCount = products.filter((p) => p.status === "Low Stock").length;
@@ -1170,18 +1177,16 @@ const handleExport = async (exportAll: boolean = false) => {
 
       setLoading(false);
     } else {
-      // fetch full details for current page products
-      for (const product of products) {
-        try {
-          const response = await productsService.getById(product.id);
+      const settledResults = await Promise.allSettled(
+        products.map((product) => fetchProductForExport(product.id))
+      );
 
-          if (response.data?.success && response.data?.data) {
-            rawProductsData.push(response.data.data);
-          }
-        } catch (error) {
-          console.error(`Error fetching product ${product.id}:`, error);
-        }
-      }
+      rawProductsData = settledResults
+        .filter(
+          (result): result is PromiseFulfilledResult<any> =>
+            result.status === "fulfilled" && Boolean(result.value)
+        )
+        .map((result) => result.value);
     }
 
     if (rawProductsData.length === 0) {
@@ -1189,60 +1194,20 @@ const handleExport = async (exportAll: boolean = false) => {
       return;
     }
 
-    const excelData = rawProductsData.map((product: any) => {
-      const primaryCategory = getPrimaryCategoryName(product.categories);
-
-      const stockStatus = productHelpers.getStockStatus({
-        stockQuantity: product.stockQuantity,
-        trackQuantity: product.trackQuantity,
-        lowStockThreshold: product.lowStockThreshold,
-        allowBackorder: product.allowBackorder,
-      });
-
-      return {
-        "Product ID": product.id || "",
-        "Product Name": product.name || "",
-        "Slug": product.slug || "",
-        "SKU": product.sku || "",
-        "GTIN": product.gtin || "",
-        "Product Type": product.productType || "simple",
-        "Brand": product.brandName || "",
-        "Primary Category": primaryCategory,
+    const excelData = rawProductsData.map((product: any) =>
+      mapProductToFullExportRow(product)
+    );
+    /*
         "Price (£)": product.price || 0,
-        "Stock Quantity": product.stockQuantity || 0,
-        "Stock Status": stockStatus,
-        "Published": product.isPublished ? "Yes" : "No",
-        "Show On Homepage": product.showOnHomepage ? "Yes" : "No",
-        "Mark As New": product.markAsNew ? "Yes" : "No",
-        "Created Date": product.createdAt || "",
-        "Updated Date": product.updatedAt || "",
-      };
-    });
+    
 
-    // create worksheet
-    const worksheet = XLSX.utils.json_to_sheet(excelData);
-
-    // auto column width
-    const columnWidths = Object.keys(excelData[0]).map((key) => ({
-      wch: Math.max(
-        key.length,
-        ...excelData.map((row: any) => String(row[key]).length)
-      ),
-    }));
-
-    worksheet["!cols"] = columnWidths;
-
-    // create workbook
-    const workbook = XLSX.utils.book_new();
-
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Products");
-
+    */
     const timestamp = new Date().toISOString().split("T")[0];
     const exportType = exportAll ? "all" : "current-page";
 
-    // download excel
-    XLSX.writeFile(
-      workbook,
+    writeProductsWorkbook(
+      excelData,
+      "Products",
       `products-${exportType}-${timestamp}.xlsx`
     );
 
@@ -1251,6 +1216,132 @@ const handleExport = async (exportAll: boolean = false) => {
     console.error("Export error:", error);
     toast.error("Failed to export products");
     setLoading(false);
+  }
+};
+
+const normalizeExcelValue = (value: any): string | number | boolean => {
+  if (value === null || value === undefined) return "";
+  if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") {
+    return value;
+  }
+  if (Array.isArray(value)) {
+    if (value.length === 0) return "";
+    return JSON.stringify(value);
+  }
+  if (value instanceof Date) {
+    return value.toISOString();
+  }
+  if (typeof value === "object") {
+    return JSON.stringify(value);
+  }
+  return String(value);
+};
+
+const mapProductToFullExportRow = (product: any) => {
+  const row: Record<string, string | number | boolean> = {};
+
+  Object.entries(product || {}).forEach(([key, value]) => {
+    row[key] = normalizeExcelValue(value);
+  });
+
+  return row;
+};
+
+const writeProductsWorkbook = (
+  rows: Record<string, string | number | boolean>[],
+  sheetName: string,
+  fileName: string
+) => {
+  const worksheet = XLSX.utils.json_to_sheet(rows);
+  const headers = Object.keys(rows[0] || {});
+
+  worksheet["!cols"] = headers.map((key) => ({
+    wch: Math.min(
+      60,
+      Math.max(
+        key.length,
+        ...rows.map((row) => String(row[key] ?? "").length)
+      )
+    ),
+  }));
+
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook, worksheet, sheetName);
+  XLSX.writeFile(workbook, fileName);
+};
+
+const fetchProductForExport = async (productId: string) => {
+  const currentProduct = products.find((p) => p.id === productId);
+  if (!currentProduct) return null;
+
+  if (!currentProduct.isDeleted) {
+    const response = await productsService.getById(productId);
+    if (response.data?.success && response.data?.data) {
+      return response.data.data;
+    }
+  }
+
+  const deletedResponse = await productsService.getAll({
+    page: 1,
+    pageSize: 100,
+    isDeleted: true,
+    searchTerm: currentProduct.name,
+  });
+
+  const deletedItems = deletedResponse.data?.data?.items || [];
+  return deletedItems.find((item: any) => item.id === productId) || null;
+};
+
+const handleExportSelected = async () => {
+  if (selectedProductItems.length === 0) {
+    toast.warning("Please select at least one product to export.");
+    return;
+  }
+
+  setExportingSelected(true);
+  toast.info("Preparing selected products export...");
+
+  try {
+    const settledResults = await Promise.allSettled(
+      selectedProductItems.map((product) => fetchProductForExport(product.id))
+    );
+
+    const rawProductsData = settledResults
+      .filter(
+        (result): result is PromiseFulfilledResult<any> =>
+          result.status === "fulfilled" && Boolean(result.value)
+      )
+      .map((result) => result.value);
+
+    if (rawProductsData.length === 0) {
+      toast.warning("No selected products could be exported.");
+      return;
+    }
+
+    const excelData = rawProductsData.map((product: any) =>
+      mapProductToFullExportRow(product)
+    );
+
+    const timestamp = new Date().toISOString().split("T")[0];
+    writeProductsWorkbook(
+      excelData,
+      "Selected Products",
+      `products-selected-${timestamp}.xlsx`
+    );
+
+    const failedCount = settledResults.length - rawProductsData.length;
+    if (failedCount > 0) {
+      toast.success(
+        `Exported ${rawProductsData.length} selected product(s). ${failedCount} item(s) could not be fetched.`
+      );
+    } else {
+      toast.success(`Exported ${rawProductsData.length} selected product(s) successfully!`);
+    }
+  } catch (error) {
+    console.error("Selected export error:", error);
+    toast.error("Failed to export selected products");
+  } finally {
+    setExportingSelected(false);
   }
 };
 
@@ -1303,10 +1394,149 @@ const handleExport = async (exportAll: boolean = false) => {
 
   // ✅ MAIN RENDER
   return (
-    <div className="space-y-2">
+    <div className="space-y-1">
+      {selectedProductItems.length > 0 && (() => {
+  const selectedItems = selectedProductItems;
+
+  const hasActive = selectedItems.some(p => p.isActive);
+  const hasInactive = selectedItems.some(p => !p.isActive);
+  const hasPublished = selectedItems.some(p => p.isPublished);
+  const hasUnpublished = selectedItems.some(p => !p.isPublished);
+  const hasDeleted = selectedItems.some(p => p.isDeleted);
+  const hasNotDeleted = selectedItems.some(p => !p.isDeleted);
+
+  return (
+  <div className="fixed top-[80px] left-1/2 -translate-x-1/2 z-[999] pointer-events-none w-full">
+      <div className="mx-auto w-fit max-w-full rounded-xl border border-slate-700 bg-slate-900/95 px-4 py-3 shadow-xl backdrop-blur-md pointer-events-auto">
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 text-sm">
+              <span className="h-2 w-2 rounded-full bg-violet-500"></span>
+              <span className="font-semibold text-white">{selectedItems.length}</span>
+              <span className="text-slate-300">products selected</span>
+            </div>
+            <p className="mt-1 text-xs text-slate-400">
+           Bulk actions: export, update status, publish, or delete selected products.
+            </p>
+          </div>
+
+          <div className="h-5 w-px bg-slate-700 hidden md:block" />
+
+          <button
+            onClick={handleExportSelected}
+            disabled={exportingSelected}
+            title={`Export ${selectedItems.length} selected product${selectedItems.length === 1 ? "" : "s"} to Excel`}
+            className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition-all hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {exportingSelected ? (
+              <div className="h-4 w-4 rounded-full border-2 border-white/80 border-t-transparent animate-spin" />
+            ) : (
+              <Download className="h-4 w-4" />
+            )}
+            {exportingSelected ? "Exporting..." : `Export (${selectedItems.length})`}
+          </button>
+
+          {hasInactive && (
+            <button
+              disabled={isProcessing}
+              onClick={() => {
+                const items = selectedItems.filter(p => !p.isActive);
+                setBulkAction({ type: "activate", items });
+              }}
+              title="Activate selected inactive products"
+              className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm rounded-lg disabled:opacity-50"
+            >
+              Activate
+            </button>
+          )}
+
+          {hasActive && (
+            <button
+              disabled={isProcessing}
+              onClick={() => {
+                const items = selectedItems.filter(p => p.isActive);
+                setBulkAction({ type: "deactivate", items });
+              }}
+              title="Deactivate selected active products"
+              className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm rounded-lg disabled:opacity-50"
+            >
+              Deactivate
+            </button>
+          )}
+
+          {hasUnpublished && (
+            <button
+              disabled={isProcessing}
+              onClick={() => {
+                const items = selectedItems.filter(p => !p.isPublished);
+                setBulkAction({ type: "publish", items });
+              }}
+              title="Publish selected unpublished products"
+              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded-lg disabled:opacity-50"
+            >
+              Publish
+            </button>
+          )}
+
+          {hasPublished && (
+            <button
+              disabled={isProcessing}
+              onClick={() => {
+                const items = selectedItems.filter(p => p.isPublished);
+                setBulkAction({ type: "unpublish", items });
+              }}
+              title="Unpublish selected published products"
+              className="px-4 py-2 bg-yellow-600 hover:bg-yellow-700 text-white text-sm rounded-lg disabled:opacity-50"
+            >
+              Unpublish
+            </button>
+          )}
+
+          {hasDeleted && (
+            <button
+              disabled={isProcessing}
+              onClick={() => {
+                const items = selectedItems.filter(p => p.isDeleted);
+                setBulkAction({ type: "restore", items });
+              }}
+              title="Restore selected deleted products"
+              className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white text-sm rounded-lg disabled:opacity-50"
+            >
+              Restore
+            </button>
+          )}
+
+          {hasNotDeleted && (
+            <button
+              disabled={isProcessing}
+              onClick={() => {
+                const items = selectedItems.filter(p => !p.isDeleted);
+                setBulkAction({ type: "delete", items });
+              }}
+              title="Delete selected active products"
+              className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white text-sm rounded-lg disabled:opacity-50"
+            >
+              Delete
+            </button>
+          )}
+
+          <button
+            onClick={() => setSelectedProducts([])}
+            disabled={exportingSelected}
+            title="Clear current product selection"
+            className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white text-sm rounded-lg transition-all disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            Clear
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+})()}
+
 
       {/* ================= HEADER ================= */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
         <div>
           <h1 className="text-2xl font-bold tracking-tight bg-gradient-to-r from-violet-400 via-cyan-400 to-pink-400 bg-clip-text text-transparent">
             Product Management
@@ -1490,6 +1720,7 @@ const handleExport = async (exportAll: boolean = false) => {
         </div>
       </div>
 
+
       {/* ================= STATS ================= */}
       <div className="grid gap-3 md:grid-cols-4">
         <div
@@ -1561,131 +1792,6 @@ const handleExport = async (exportAll: boolean = false) => {
         </div>
       </div>
 
-{/* BULK ACTION BAR */}
-{selectedProducts.length > 1 && (() => {
-
-  const selectedItems = selectedProducts
-    .map(id => products.find(p => p.id === id))
-    .filter((p): p is FormattedProduct => Boolean(p));
-
-  if (selectedItems.length === 0) return null;
-
-  const hasActive = selectedItems.some(p => p.isActive);
-  const hasInactive = selectedItems.some(p => !p.isActive);
-
-  const hasPublished = selectedItems.some(p => p.isPublished);
-  const hasUnpublished = selectedItems.some(p => !p.isPublished);
-
-  const hasDeleted = selectedItems.some(p => p.isDeleted);
-  const hasNotDeleted = selectedItems.some(p => !p.isDeleted);
-
-  return (
-    <div className="bg-slate-900/80 border border-violet-500/20 rounded-xl px-4 py-3 flex items-center justify-between flex-wrap gap-3">
-
-      {/* LEFT */}
-      <div className="text-sm text-white">
-        {selectedItems.length} product(s) selected
-      </div>
-
-      {/* RIGHT */}
-      <div className="flex items-center gap-2 flex-wrap">
-
-        {/* ACTIVATE */}
-        {hasInactive && (
-          <button
-            disabled={isProcessing}
-            onClick={() => {
-              const items = selectedItems.filter(p => !p.isActive);
-              setBulkAction({ type: "activate", items });
-            }}
-            className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs rounded-md disabled:opacity-50"
-          >
-            Activate
-          </button>
-        )}
-
-        {/* DEACTIVATE */}
-        {hasActive && (
-          <button
-            disabled={isProcessing}
-            onClick={() => {
-              const items = selectedItems.filter(p => p.isActive);
-              setBulkAction({ type: "deactivate", items });
-            }}
-            className="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white text-xs rounded-md disabled:opacity-50"
-          >
-            Deactivate
-          </button>
-        )}
-
-        {/* PUBLISH */}
-        {hasUnpublished && (
-          <button
-            disabled={isProcessing}
-            onClick={() => {
-              const items = selectedItems.filter(p => !p.isPublished);
-              setBulkAction({ type: "publish", items });
-            }}
-            className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs rounded-md disabled:opacity-50"
-          >
-            Publish
-          </button>
-        )}
-
-        {/* UNPUBLISH */}
-        {hasPublished && (
-          <button
-            disabled={isProcessing}
-            onClick={() => {
-              const items = selectedItems.filter(p => p.isPublished);
-              setBulkAction({ type: "unpublish", items });
-            }}
-            className="px-3 py-1.5 bg-yellow-600 hover:bg-yellow-700 text-white text-xs rounded-md disabled:opacity-50"
-          >
-            Unpublish
-          </button>
-        )}
-
-        {/* RESTORE */}
-        {hasDeleted && (
-          <button
-            disabled={isProcessing}
-            onClick={() => {
-              const items = selectedItems.filter(p => p.isDeleted);
-              setBulkAction({ type: "restore", items });
-            }}
-            className="px-3 py-1.5 bg-emerald-500 hover:bg-emerald-600 text-white text-xs rounded-md disabled:opacity-50"
-          >
-            Restore
-          </button>
-        )}
-
-        {/* DELETE */}
-        {hasNotDeleted && (
-          <button
-            disabled={isProcessing}
-            onClick={() => {
-              const items = selectedItems.filter(p => !p.isDeleted);
-              setBulkAction({ type: "delete", items });
-            }}
-            className="px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white text-xs rounded-md disabled:opacity-50"
-          >
-            Delete
-          </button>
-        )}
-
-        {/* CLEAR */}
-        <button
-          onClick={() => setSelectedProducts([])}
-          className="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-white text-xs rounded-md"
-        >
-          Clear
-        </button>
-
-      </div>
-    </div>
-  );
-})()}
       {/* ================= ITEMS PER PAGE + RESULTS COUNT ================= */}
 <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-xl px-3 py-2">
   <div className="flex items-center justify-between gap-3 relative">
@@ -1765,16 +1871,16 @@ const handleExport = async (exportAll: boolean = false) => {
 
       {/* ✅ FILTERS SECTION - ROW 1 */}
       <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-xl p-1.5">
-        <div className="flex items-center gap-3">
-<div className="relative flex-1 min-w-[180px] max-w-[280px]">
-  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500 z-10" />
+        <div className="flex items-center gap-1.5">
+   <div className="relative flex-1 min-w-[180px] max-w-[300px]">
+     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500 z-10" />
 
   <input
     type="text"
     placeholder="Search products by name or Sku..."
     value={searchInput}
     onChange={(e) => setSearchInput(e.target.value)}
-    className="w-full pl-10 pr-10 py-2.5 bg-slate-800/50 border border-slate-700 rounded-xl text-white text-sm placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all"
+    className="w-full pl-8 pr-9 py-2 bg-slate-800/50 border border-slate-700 rounded-xl placeholder:text-xs text-white text-sm placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all"
   />
 
   {/* RIGHT ICON */}
@@ -1794,7 +1900,7 @@ const handleExport = async (exportAll: boolean = false) => {
   )}
 </div>
 
-          <div className="flex-1 min-w-[120px]">
+          <div className="flex-1 min-w-[120px] ">
             <Select
               value={selectedCategory}
               onChange={(option) => setSelectedCategory(option as SelectOption)}
@@ -1808,7 +1914,7 @@ const handleExport = async (exportAll: boolean = false) => {
             />
           </div>
 
-          <div className="flex-1 max-w-[180px]">
+          <div className="flex-1 max-w-[130px]">
             <Select
               value={selectedBrand}
               onChange={(option) => setSelectedBrand(option as SelectOption)}
@@ -1821,14 +1927,14 @@ const handleExport = async (exportAll: boolean = false) => {
             />
           </div>
 
-          <div className="flex-1 max-w-[150px]">
+          <div className="flex-1 max-w-[140px]">
             <select
               value={selectedHomepage.value}
               onChange={(e) => {
                 const option = homepageOptions.find(opt => opt.value === e.target.value);
                 if (option) setSelectedHomepage(option);
               }}
-              className={`w-full px-3 py-2.5 bg-slate-800/90 border rounded-xl text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all ${
+              className={`w-full px-3 py-2.5 bg-slate-800/90 border rounded-xl text-white text-xs focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all ${
                 selectedHomepage.value !== "all"
                   ? "border-blue-500 bg-blue-500/10 ring-2 ring-blue-500/50"
                   : "border-slate-600"
@@ -1850,7 +1956,7 @@ const handleExport = async (exportAll: boolean = false) => {
                   const option = typeOptions.find(opt => opt.value === e.target.value);
                   if (option) setSelectedType(option);
                 }}
-                className={`w-full px-3 py-2.5 bg-slate-800/90 border rounded-xl text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all ${
+                className={`w-full px-3 py-2.5 bg-slate-800/90 border rounded-xl text-white text-xs focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all ${
                   selectedType.value !== "all"
                     ? "border-blue-500 bg-blue-500/10 ring-2 ring-blue-500/50"
                     : "border-slate-600"
@@ -1871,7 +1977,7 @@ const handleExport = async (exportAll: boolean = false) => {
                   const option = deletedOptions.find(opt => opt.value === e.target.value);
                   if (option) setDeletedFilter(option);
                 }}
-                className={`w-full px-3 py-2.5 bg-slate-800/90 border rounded-xl text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all ${
+                className={`w-full px-3 py-2.5 bg-slate-800/90 border rounded-xl text-white text-xs focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all ${
                   deletedFilter.value !== "all"
                     ? "border-blue-500 bg-blue-500/10 ring-2 ring-blue-500/50"
                     : "border-slate-600"
@@ -1890,7 +1996,7 @@ const handleExport = async (exportAll: boolean = false) => {
             {hasActiveFilters && (
               <button
                 onClick={clearFilters}
-                className="px-4 py-2.5 bg-red-500/10 border border-red-500/50 text-red-400 rounded-xl hover:bg-red-500/20 transition-all text-sm font-medium flex items-center gap-2 whitespace-nowrap"
+                className="px-4 py-2.5 bg-red-500/10 border border-red-500/50 text-red-400 rounded-xl hover:bg-red-500/20 transition-all text-xs font-medium flex items-center gap-2 whitespace-nowrap"
                 title="Clear all filters"
               >
                 <FilterX className="h-4 w-4" />
@@ -1900,7 +2006,7 @@ const handleExport = async (exportAll: boolean = false) => {
 
             <button
               onClick={() => setShowMoreFilters(!showMoreFilters)}
-              className="px-4 py-2.5 bg-violet-500/10 border border-violet-500/30 text-violet-400 rounded-xl hover:bg-violet-500/20 transition-all text-sm font-medium flex items-center gap-2 whitespace-nowrap"
+              className="px-4 py-2.5 bg-violet-500/10 border border-violet-500/30 text-violet-400 rounded-xl hover:bg-violet-500/20 transition-all text-xs font-medium flex items-center gap-2 whitespace-nowrap"
             >
               {showMoreFilters ? (
                 <>
@@ -1920,14 +2026,14 @@ const handleExport = async (exportAll: boolean = false) => {
         {/* ✅ ROW 2 - COLLAPSIBLE FILTERS */}
         {showMoreFilters && (
           <div className="mt-1 pt-1 border-t border-slate-700">
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-9 gap-3">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-9 gap-1.5">
               <select
                 value={statusFilter.value}
                 onChange={(e) => {
                   const option = statusOptions.find(opt => opt.value === e.target.value);
                   if (option) setStatusFilter(option);
                 }}
-                className={`w-full px-3 py-2.5 bg-slate-800/90 border rounded-xl text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all ${
+                className={`w-full px-3 py-2.5 bg-slate-800/90 border rounded-xl text-white text-xs focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all ${
                   statusFilter.value !== "all"
                     ? "border-blue-500 bg-blue-500/10 ring-2 ring-blue-500/50"
                     : "border-slate-600"
@@ -1946,7 +2052,7 @@ const handleExport = async (exportAll: boolean = false) => {
                   const option = visibilityOptions.find(opt => opt.value === e.target.value);
                   if (option) setPublishedFilter(option);
                 }}
-                className={`w-full px-3 py-2.5 bg-slate-800/90 border rounded-xl text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all ${
+                className={`w-full px-3 py-2.5 bg-slate-800/90 border rounded-xl text-white text-xs focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all ${
                   publishedFilter.value !== "all"
                     ? "border-blue-500 bg-blue-500/10 ring-2 ring-blue-500/50"
                     : "border-slate-600"
@@ -1965,7 +2071,7 @@ const handleExport = async (exportAll: boolean = false) => {
                   const option = deliveryOptions.find(opt => opt.value === e.target.value);
                   if (option) setDeliveryFilter(option);
                 }}
-                className={`w-full px-3 py-2.5 bg-slate-800/90 border rounded-xl text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all ${
+                className={`w-full px-3 py-2.5 bg-slate-800/90 border rounded-xl text-white text-xs focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all ${
                   deliveryFilter.value !== "all"
                     ? "border-blue-500 bg-blue-500/10 ring-2 ring-blue-500/50"
                     : "border-slate-600"
@@ -1984,7 +2090,7 @@ const handleExport = async (exportAll: boolean = false) => {
                   const option = markAsNewOptions.find(opt => opt.value === e.target.value);
                   if (option) setMarkAsNewFilter(option);
                 }}
-                className={`w-full px-3 py-2.5 bg-slate-800/90 border rounded-xl text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all ${
+                className={`w-full px-3 py-2.5 bg-slate-800/90 border rounded-xl text-white text-xs focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all ${
                   markAsNewFilter.value !== "all"
                     ? "border-blue-500 bg-blue-500/10 ring-2 ring-blue-500/50"
                     : "border-slate-600"
@@ -2003,7 +2109,7 @@ const handleExport = async (exportAll: boolean = false) => {
                   const option = returnableOptions.find(opt => opt.value === e.target.value);
                   if (option) setNotReturnableFilter(option);
                 }}
-                className={`w-full px-3 py-2.5 bg-slate-800/90 border rounded-xl text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all ${
+                className={`w-full px-3 py-2.5 bg-slate-800/90 border rounded-xl text-white text-xs focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all ${
                   notReturnableFilter.value !== "all"
                     ? "border-blue-500 bg-blue-500/10 ring-2 ring-blue-500/50"
                     : "border-slate-600"
@@ -2022,7 +2128,7 @@ const handleExport = async (exportAll: boolean = false) => {
                   const option = inventoryOptions.find(opt => opt.value === e.target.value);
                   if (option) setInventoryFilter(option);
                 }}
-                className={`w-full px-3 py-2.5 bg-slate-800/90 border rounded-xl text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all ${
+                className={`w-full px-3 py-2.5 bg-slate-800/90 border rounded-xl text-white text-xs focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all ${
                   inventoryFilter.value !== "all"
                     ? "border-blue-500 bg-blue-500/10 ring-2 ring-blue-500/50"
                     : "border-slate-600"
@@ -2041,7 +2147,7 @@ const handleExport = async (exportAll: boolean = false) => {
                   const option = subscriptionOptions.find(opt => opt.value === e.target.value);
                   if (option) setRecurringFilter(option);
                 }}
-                className={`w-full px-3 py-2.5 bg-slate-800/90 border rounded-xl text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all ${
+                className={`w-full px-3 py-2 min-w-[136px] bg-slate-800/90 border rounded-xl text-white text-xs focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all ${
                   recurringFilter.value !== "all"
                     ? "border-blue-500 bg-blue-500/10 ring-2 ring-blue-500/50"
                     : "border-slate-600"
@@ -2060,7 +2166,7 @@ const handleExport = async (exportAll: boolean = false) => {
                   const option = vatOptions.find(opt => opt.value === e.target.value);
                   if (option) setVatFilter(option);
                 }}
-                className={`w-full px-3 py-2.5 bg-slate-800/90 border rounded-xl text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all ${
+                className={`w-full px-3 py-2.5 bg-slate-800/90 border rounded-xl text-white text-xs focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all ${
                   vatFilter.value !== "all"
                     ? "border-blue-500 bg-blue-500/10 ring-2 ring-blue-500/50"
                     : "border-slate-600"
@@ -2078,7 +2184,7 @@ const handleExport = async (exportAll: boolean = false) => {
     const option = pharmaOptions.find(opt => opt.value === e.target.value);
     if (option) setPharmaFilter(option);
   }}
-  className={`w-full px-3 py-2.5 bg-slate-800/90 border rounded-xl text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all ${
+  className={`w-full px-3 py-2.5 bg-slate-800/90 border rounded-xl text-white text-xs focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all ${
     pharmaFilter.value !== "all"
       ? "border-blue-500 bg-blue-500/10 ring-2 ring-blue-500/50"
       : "border-slate-600"

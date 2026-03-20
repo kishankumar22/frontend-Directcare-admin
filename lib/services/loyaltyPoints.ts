@@ -122,6 +122,7 @@ export const loyaltyPointsService = {
     isActive?: boolean;
     sortBy?: string;
     sortDirection?: 'asc' | 'desc';
+    
   }) => {
     try {
       // Step 1: Get all customers

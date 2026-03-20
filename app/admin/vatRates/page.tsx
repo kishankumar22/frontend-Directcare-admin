@@ -54,7 +54,7 @@ const [statusFilter, setStatusFilter] = useState("enabled");
   const [deletedFilter, setDeletedFilter] = useState<"notDeleted" | "deleted">("notDeleted");
 const [statusConfirm, setStatusConfirm] = useState<VATRate | null>(null);
 const [restoreConfirm, setRestoreConfirm] = useState<VATRate | null>(null);
-
+const [selectedRates, setSelectedRates] = useState<string[]>([]);
   // ✅ Country search state
   const [countrySearchTerm, setCountrySearchTerm] = useState("");
   const [showCountryDropdown, setShowCountryDropdown] = useState(false);
@@ -79,7 +79,49 @@ const ConfirmationModal = ({
       setLoading(false);
     }
   };
+const toggleSelectAll = () => {
+  if (paginatedRates.every(r => selectedRates.includes(r.id))) {
+    setSelectedRates([]);
+  } else {
+    setSelectedRates(paginatedRates.map(r => r.id));
+  }
+};
 
+const toggleSelectOne = (id: string) => {
+  setSelectedRates(prev =>
+    prev.includes(id)
+      ? prev.filter(x => x !== id)
+      : [...prev, id]
+  );
+};
+
+const handleExportSelected = () => {
+  const selectedData = vatRates.filter(r =>
+    selectedRates.includes(r.id)
+  );
+
+  if (selectedData.length === 0) {
+    toast.warning("No VAT rates selected");
+    return;
+  }
+
+  const excelData = selectedData.map((rate, i) => ({
+    "S.No": i + 1,
+    Name: rate.name,
+    Country: rate.country,
+    Rate: rate.rate,
+    Status: rate.isActive ? "Active" : "Inactive",
+    Default: rate.isDefault ? "Yes" : "No",
+  }));
+
+  const ws = XLSX.utils.json_to_sheet(excelData);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "Selected VAT");
+
+  XLSX.writeFile(wb, "Selected_VAT_Rates.xlsx");
+
+  toast.success(`Exported ${selectedData.length} VAT rates`);
+};
   return (
     <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-[80] flex items-center justify-center p-4">
       <div className="bg-gradient-to-br from-slate-900 via-slate-900 to-slate-800 border border-violet-500/30 rounded-2xl max-w-md w-full shadow-2xl">
@@ -216,7 +258,48 @@ const fetchVATRates = async () => {
   fetchVATRates();
 }, [deletedFilter, statusFilter]);
 
+const toggleSelectAll = () => {
+  if (paginatedRates.every(r => selectedRates.includes(r.id))) {
+    setSelectedRates([]);
+  } else {
+    setSelectedRates(paginatedRates.map(r => r.id));
+  }
+};
 
+const toggleSelectOne = (id: string) => {
+  setSelectedRates(prev =>
+    prev.includes(id)
+      ? prev.filter(x => x !== id)
+      : [...prev, id]
+  );
+};
+const handleExportSelected = () => {
+  const selectedData = vatRates.filter(r =>
+    selectedRates.includes(r.id)
+  );
+
+  if (selectedData.length === 0) {
+    toast.warning("No VAT rates selected");
+    return;
+  }
+
+  const excelData = selectedData.map((rate, i) => ({
+    "S.No": i + 1,
+    Name: rate.name,
+    Country: rate.country,
+    Rate: rate.rate,
+    Status: rate.isActive ? "Active" : "Inactive",
+    Default: rate.isDefault ? "Yes" : "No",
+  }));
+
+  const ws = XLSX.utils.json_to_sheet(excelData);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "Selected VAT");
+
+  XLSX.writeFile(wb, "Selected_VAT_Rates.xlsx");
+
+  toast.success(`Exported ${selectedData.length} VAT rates`);
+};
 const filteredRates = useMemo(() => {
   return vatRates.filter((rate) => {
 
@@ -862,6 +945,17 @@ const clearFilters = () => {
               <table className="w-full text-sm">
       <thead>
         <tr className="border-b border-slate-800">
+          <th className="py-2 px-3 w-10">
+  <input
+    type="checkbox"
+    checked={
+      paginatedRates.length > 0 &&
+      paginatedRates.every(r => selectedRates.includes(r.id))
+    }
+    onChange={toggleSelectAll}
+    className="accent-violet-500"
+  />
+</th>
           <th className="text-left py-2 px-3 text-slate-400 font-medium">Name</th>
           <th className="text-left py-2 px-3 text-slate-400 font-medium">Country</th>
           <th className="text-center py-2 px-3 text-slate-400 font-medium">Rate (%)</th>
@@ -876,11 +970,25 @@ const clearFilters = () => {
       <tbody>
         {paginatedRates.map((rate) => (
           <tr
-            key={rate.id}
-            className={`border-b border-slate-800 transition-colors ${
-              rate.isDefault ? "bg-yellow-500/5" : "hover:bg-slate-800/30"
-            }`}
-          >
+  key={rate.id}
+  className={`border-b border-slate-800 transition-colors
+    ${
+      selectedRates.includes(rate.id)
+        ? "bg-violet-500/10 ring-1 ring-violet-500/40"
+        : rate.isDefault
+        ? "bg-yellow-500/5"
+        : "hover:bg-slate-800/30"
+    }
+  `}
+>
+            <td className="py-2 px-3">
+  <input
+    type="checkbox"
+    checked={selectedRates.includes(rate.id)}
+    onChange={() => toggleSelectOne(rate.id)}
+    className="accent-violet-500"
+  />
+</td>
             {/* Name */}
             <td className="py-2 px-3">
               <div className="flex items-center gap-2">
@@ -987,6 +1095,71 @@ const clearFilters = () => {
             </div>
           </div>
         )}
+
+{selectedRates.length > 0 && (
+  <div className="fixed top-[70px] left-1/2 -translate-x-1/2 z-[999] pointer-events-none w-full">
+
+    <div className="flex justify-center px-2">
+
+      {/* 🔥 GRADIENT BORDER WRAPPER */}
+      <div className="pointer-events-auto relative mx-auto w-fit max-w-[95%] sm:max-w-[900px] 
+        rounded-xl p-[1px] 
+        bg-[linear-gradient(90deg,#8b5cf6,#06b6d4,#ec4899,#8b5cf6)] 
+        bg-[length:200%_100%] 
+       animate-[gradientMove_6s_linear_infinite]">
+
+        {/* 🔥 INNER CONTENT */}
+        <div className="rounded-xl bg-slate-900/95 px-4 py-3 backdrop-blur-md shadow-xl">
+
+          <div className="flex flex-wrap items-center gap-3">
+
+            {/* LEFT */}
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 text-sm">
+                <span className="h-2 w-2 rounded-full bg-violet-500 animate-pulse"></span>
+                
+                <span className="font-semibold text-white">
+                  {selectedRates.length}
+                </span>
+                
+                <span className="text-slate-300">VAT rates selected</span>
+              </div>
+
+              <p className="mt-1 text-xs text-slate-400">
+                Bulk actions: export selected VAT rates .
+              </p>
+            </div>
+
+            {/* Divider */}
+            <div className="h-5 w-px bg-slate-700 hidden md:block" />
+
+            {/* EXPORT */}
+            <button
+              onClick={handleExportSelected}
+              className="inline-flex items-center gap-2 rounded-lg 
+              bg-emerald-600 px-4 py-2 text-sm font-medium text-white 
+              hover:bg-emerald-700 transition-all"
+            >
+              <Download className="h-4 w-4" />
+              Export ({selectedRates.length})
+            </button>
+
+            {/* CLEAR */}
+            <button
+              onClick={() => setSelectedRates([])}
+              className="px-4 py-2 bg-slate-700 hover:bg-slate-600 
+              text-white text-sm rounded-lg transition-all"
+            >
+              Clear
+            </button>
+
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+)}
 
       {/* Pagination */}
       {totalPages > 1 && (

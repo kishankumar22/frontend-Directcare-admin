@@ -144,11 +144,11 @@ export default function BlogPostsPage() {
         <div className="flex items-center gap-2 flex-wrap">
           <button onClick={() => router.push("/admin/comments")}
             className="flex items-center gap-1.5 px-3 py-1.5 bg-pink-500/15 border border-pink-500/30 text-pink-400 hover:bg-pink-500/25 text-xs font-semibold rounded-lg transition-all">
-            <MessageSquare className="w-3.5 h-3.5" /> Comments
+            <MessageSquare className="w-3.5 h-3.5" />Blog Comments
           </button>
           <button onClick={() => router.push("/admin/BlogCategories")}
             className="flex items-center gap-1.5 px-3 py-1.5 bg-violet-500/15 border border-violet-500/30 text-violet-400 hover:bg-violet-500/25 text-xs font-semibold rounded-lg transition-all">
-            <FolderTree className="w-3.5 h-3.5" /> Categories
+            <FolderTree className="w-3.5 h-3.5" />Blog Categories
           </button>
           <button onClick={() => router.push("/admin/BlogPosts/create")}
             className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-violet-500 to-cyan-500 hover:from-violet-600 hover:to-cyan-600 text-white text-xs font-semibold rounded-lg shadow-sm transition-all">
@@ -319,7 +319,7 @@ export default function BlogPostsPage() {
           <>
             {/* Table Head */}
             <div className="grid grid-cols-[2fr_1fr_80px_64px_64px_100px_110px_88px] items-center gap-2 px-4 py-2 border-b border-slate-700/50 bg-slate-800/60">
-              {["Post", "Category", "Status", "Views", "Cmts", "Author", "Published", "Actions"].map((h) => (
+              {["Post", "Category", "Status", "Views", "Comments", "Author", "Published", "Actions"].map((h) => (
                 <span key={h} className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">{h}</span>
               ))}
             </div>
@@ -349,18 +349,39 @@ export default function BlogPostsPage() {
                           <FileText className="w-3.5 h-3.5 text-violet-400" />
                         </div>
                       )}
-                      <div className="min-w-0">
-                        <p
-                          className="text-white text-xs font-semibold truncate cursor-pointer hover:text-violet-400 transition-colors"
-                          onClick={() => !post.isDeleted && window.open(`${process.env.NEXT_PUBLIC_APP_URL}/blog/${post.slug}`, "_blank")}
-                          title={post.title}
-                        >
-                          {post.title}
-                          {post.isDeleted && <span className="ml-1.5 text-[9px] text-orange-400 font-normal">(Deleted)</span>}
-                          {post.showOnHomePage && <span className="ml-1.5 text-[9px] text-pink-400">★</span>}
-                        </p>
-                        <p className="text-[10px] text-slate-500 truncate font-mono">{post.slug}</p>
-                      </div>
+                    <div className="min-w-0">
+  {!post.isDeleted ? (
+    <a
+      href={`/blog/${post.slug}`}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="block text-white text-xs font-semibold truncate cursor-pointer hover:text-violet-400 transition-colors"
+      title={post.title}
+    >
+      {post.title}
+      {post.showOnHomePage && (
+        <span className="ml-1.5 text-[9px] text-pink-400">★</span>
+      )}
+    </a>
+  ) : (
+    <p
+      className="text-white text-xs font-semibold truncate cursor-not-allowed opacity-60"
+      title={post.title}
+    >
+      {post.title}
+      <span className="ml-1.5 text-[9px] text-orange-400 font-normal">
+        (Deleted)
+      </span>
+      {post.showOnHomePage && (
+        <span className="ml-1.5 text-[9px] text-pink-400">★</span>
+      )}
+    </p>
+  )}
+
+  <p className="text-[10px] text-slate-500 truncate font-mono">
+    {post.slug}
+  </p>
+</div>
                     </div>
 
                     {/* Category */}
@@ -390,11 +411,15 @@ export default function BlogPostsPage() {
                     <div className="flex items-center gap-0.5">
                       {!post.isDeleted ? (
                         <>
-                          <button
-                            onClick={() => window.open(`${process.env.NEXT_PUBLIC_APP_URL}/blog/${post.slug}`, "_blank")}
-                            className="p-1.5 text-slate-500 hover:text-cyan-400 hover:bg-cyan-500/10 rounded-lg transition-all" title="View">
-                            <Eye className="w-3.5 h-3.5" />
-                          </button>
+                          <a
+  href={`/blog/${post.slug}`}
+  target="_blank"
+  rel="noopener noreferrer"
+  className="inline-flex p-1.5 text-slate-500 hover:text-cyan-400 hover:bg-cyan-500/10 rounded-lg transition-all"
+  title="View"
+>
+  <Eye className="w-3.5 h-3.5" />
+</a>
                           <button
                             onClick={() => router.push(`/admin/BlogPosts/edit/${post.id}`)}
                             className="p-1.5 text-slate-500 hover:text-violet-400 hover:bg-violet-500/10 rounded-lg transition-all" title="Edit">

@@ -756,73 +756,89 @@ useEffect(() => {
     </div>
   </div>
 
-  {/* 🔥 BULK BAR — PERFECTLY CENTERED */}
-  {selectedOrders.length > 0 && (
-    <div className="absolute left-1/2 top-0 -m-3 -translate-x-1/2 z-[50] 
-      w-auto max-w-[780px]">
+{selectedOrders.length > 0 && (
+  <div className="fixed left-1/2 top-[75px] -translate-x-1/2 z-[999] w-full pointer-events-none">
 
-      <div className="grid grid-flow-col auto-cols-max items-center gap-4
-        bg-slate-900/95 backdrop-blur-md 
-        border border-slate-700 rounded-xl 
-        px-6 py-3 shadow-xl">
+    <div className="flex justify-center px-2">
 
-        {/* Selected Info */}
-        <div className="flex items-center gap-2 text-sm">
-          <span className="w-2 h-2 bg-violet-500 rounded-full"></span>
-          <span className="text-white font-semibold">
-            {selectedOrders.length}
-          </span>
-          <span className="text-slate-400">selected</span>
+      <div className="pointer-events-auto w-auto max-w-[900px] transition-all duration-300">
 
-          {allSameStatus && selectedStatus && (
-            <span className="ml-2 px-2 py-0.5 text-[11px] 
-              bg-slate-800 border border-slate-600 
-              text-slate-300 rounded-md">
-              {selectedStatus}
-            </span>
-          )}
+        <div className="bg-slate-900/95 backdrop-blur-md 
+          border border-slate-700 rounded-xl 
+          px-5 py-3 shadow-xl">
+
+          {/* 🔥 MAIN ROW */}
+          <div className="flex flex-wrap items-center gap-4">
+
+            {/* LEFT INFO */}
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 text-sm">
+                <span className="w-2 h-2 bg-violet-500 rounded-full animate-pulse"></span>
+
+                <span className="text-white font-semibold">
+                  {selectedOrders.length}
+                </span>
+
+                <span className="text-slate-300">orders selected</span>
+
+                {allSameStatus && selectedStatus && (
+                  <span className="ml-2 px-2 py-0.5 text-[11px] 
+                    bg-slate-800 border border-slate-600 
+                    text-slate-300 rounded-md">
+                    {selectedStatus}
+                  </span>
+                )}
+              </div>
+
+              {/* ✅ HELPER TEXT */}
+              <p className="mt-1 text-xs text-slate-400">
+                Bulk actions: update order status, export selected orders.
+              </p>
+            </div>
+
+            {/* Divider */}
+            <div className="h-5 w-px bg-slate-700 hidden md:block" />
+
+            {/* UPDATE */}
+            {allSameStatus && (
+              <button
+                onClick={() => setBulkModalOpen(true)}
+                className="px-4 py-2 text-sm font-medium 
+                bg-violet-600 hover:bg-violet-700 
+                text-white rounded-lg transition-all"
+              >
+                Update Status
+              </button>
+            )}
+
+            {/* EXPORT */}
+            <button
+              onClick={handleBulkExport}
+              className="px-4 py-2 text-sm font-medium 
+              bg-blue-600 hover:bg-blue-700 
+              text-white rounded-lg flex items-center gap-2 transition-all"
+            >
+              <Download className="w-4 h-4" />
+              Export ({selectedOrders.length})
+            </button>
+
+            {/* CLEAR */}
+            <button
+              onClick={() => setSelectedOrders([])}
+              className="px-4 py-2 text-sm font-medium 
+              bg-slate-700 hover:bg-slate-600 
+              text-white rounded-lg transition-all"
+            >
+              Clear
+            </button>
+
+          </div>
         </div>
-
-        {/* Divider */}
-        <div className="h-5 w-px bg-slate-700" />
-
-        {/* Update */}
-        {allSameStatus && (
-          <button
-            onClick={() => setBulkModalOpen(true)}
-            className="px-4 py-2 text-sm font-medium 
-            bg-violet-600 hover:bg-violet-700 
-            text-white rounded-lg transition-all"
-          >
-            Update Bulk Status
-          </button>
-        )}
-
-        {/* Export */}
-        <button
-          onClick={handleBulkExport}
-          className="px-4 py-2 text-sm font-medium 
-          bg-blue-600 hover:bg-blue-700 
-          text-white rounded-lg flex items-center gap-2 transition-all"
-        >
-          <Download className="w-4 h-4" />
-          Export ({selectedOrders.length})
-        </button>
-
-        {/* Clear */}
-        <button
-          onClick={() => setSelectedOrders([])}
-          className="px-4 py-2 text-sm font-medium 
-          bg-slate-700 hover:bg-slate-600 
-          text-white rounded-lg transition-all"
-        >
-          Clear
-        </button>
 
       </div>
     </div>
-  )}
-
+  </div>
+)}
 </div>
 
       {/* ✅ Clickable Stats Cards with Quick Filters */}

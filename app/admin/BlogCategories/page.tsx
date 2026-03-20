@@ -6,7 +6,8 @@ import {
   ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, AlertCircle,
   CheckCircle, Tag, FileText, Clock, ChevronDown, ChevronRight as ChevronRightIcon,
   MessageSquare, RotateCcw, X, Globe, Hash, Settings, Image as ImageIcon,
-  LayoutList, TrendingUp
+  LayoutList, TrendingUp,
+  ExternalLink
 } from "lucide-react";
 import { ProductDescriptionEditor } from "../_components/SelfHostedEditor";
 import { useToast } from "@/app/admin/_components/CustomToast";
@@ -396,7 +397,7 @@ export default function BlogCategoriesPage() {
             onClick={() => router.push("/admin/comments")}
             className="flex items-center gap-1.5 px-3 py-2 text-sm bg-slate-800 border border-slate-700 text-slate-300 hover:text-white hover:border-pink-500/50 rounded-lg transition-all"
           >
-            <MessageSquare className="h-3.5 w-3.5" /> Comments
+            <MessageSquare className="h-3.5 w-3.5" />Blog Comments
           </button>
           <button
             onClick={() => { resetForm(); setShowModal(true); }}
@@ -630,11 +631,29 @@ export default function BlogCategoriesPage() {
                       </td>
 
                       {/* Posts count */}
-                      <td className="py-3 px-3 text-center">
-                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-medium ${isInactive ? "bg-slate-700/30 text-slate-600" : (cat.blogPostCount || 0) > 0 ? "bg-cyan-500/10 text-cyan-400" : "bg-slate-700/30 text-slate-500"}`}>
-                          {cat.blogPostCount || 0}
-                        </span>
-                      </td>
+                    {/* Posts count */}
+<td className="py-3 px-3 text-center">
+  {isInactive ? (
+    <span className="inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-medium bg-slate-700/30 text-slate-600">
+      {cat.blogPostCount || 0}
+    </span>
+  ) : (
+    <a
+      href={`/blog/category/${cat.slug}`}
+      target="_blank"
+      rel="noopener noreferrer"
+      className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md text-xs font-medium transition-all ${
+        (cat.blogPostCount || 0) > 0
+          ? "bg-cyan-500/10 text-cyan-400 hover:bg-cyan-500/20"
+          : "bg-slate-700/30 text-slate-500 hover:bg-slate-700/50"
+      }`}
+      title="View category posts"
+    >
+      {cat.blogPostCount || 0}
+      <ExternalLink className="h-3 w-3" />
+    </a>
+  )}
+</td>
 
                       {/* Status */}
                       <td className="py-3 px-3 text-center">

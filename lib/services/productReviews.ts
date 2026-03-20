@@ -30,6 +30,8 @@ export interface ProductReview {
   approvedAt?: string;
   helpfulCount: number;
   notHelpfulCount: number;
+  imageUrls?: string[];
+  videoUrls?: string[];
   createdAt: string;
   updatedAt?: string;
   replies: ReviewReply[];
@@ -47,6 +49,8 @@ export interface CreateReviewDto {
   title: string;
   comment: string;
   rating: number;
+  imageUrls?: string[];
+  videoUrls?: string[];
   customerEmail?: string;
   customerName?: string;
 }
@@ -55,6 +59,8 @@ export interface UpdateReviewDto {
   title: string;
   comment: string;
   rating: number;
+  imageUrls?: string[];
+  videoUrls?: string[];
 }
 
 export interface ReplyReviewDto {

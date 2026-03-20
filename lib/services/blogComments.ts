@@ -19,7 +19,9 @@ export interface BlogComment {
   flaggedBy?: string;
   parentCommentId?: string | null;
   replies?: BlogComment[];
+  slug?: string;
   blogPostId: string;
+  blogSlug?: string;
   isDeleted:boolean
   blogPostTitle?: string | null;
   createdAt: string;

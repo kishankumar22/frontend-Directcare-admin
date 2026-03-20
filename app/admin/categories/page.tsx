@@ -1385,7 +1385,7 @@ useEffect(() => {
     <h1 className="text-xl font-semibold bg-gradient-to-r from-violet-400 via-cyan-400 to-pink-400 bg-clip-text text-transparent">
       Categories Management
     </h1>
-    <p className="text-[11px] text-slate-500">Manage product categories</p>
+    <p className="text-[12px] text-slate-500">Manage product categories</p>
   </div>
 
   {/* Actions */}

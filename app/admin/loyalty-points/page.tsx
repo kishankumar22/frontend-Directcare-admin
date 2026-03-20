@@ -503,33 +503,60 @@ const handleExportSelected = () => {
         <div className="flex items-center gap-2">
 {/* STICKY EXPORT BUTTON - Compact Top Position */}
 {selectedUsers.size > 0 && (
-  <div className="fixed top-[102px] right-52 z-40 animate-slideDown">
-    <div className="relative">
-      {/* Main Export Button - Compact */}
-      <button
-        onClick={handleExportSelected}
-        className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white rounded-xl font-semibold shadow-xl hover:shadow-blue-500/40 transition-all text-sm group"
-      >
-        <Download className="h-4 w-4" />
-        <span>Export Selected</span>
-      </button>
+  <div className="fixed top-[75px] left-1/2 -translate-x-1/2 z-[999] pointer-events-none w-full">
 
-      {/* Clear Selection Button (X) - Compact */}
-      <button
-        onClick={() => {
-          setSelectedUsers(new Set());
-          setSelectAll(false);
-        }}
-        className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-red-500 hover:bg-red-600 text-white rounded-full flex items-center justify-center shadow-md hover:scale-110 transition-all"
-        title="Clear selection"
-      >
-        <X className="h-3 w-3" />
-      </button>
+    <div className="flex justify-center px-2">
 
-      {/* Selection Counter Badge - Compact */}
-      <div className="absolute -top-1.5 -left-1.5 bg-violet-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center shadow-md">
-        {selectedUsers.size}
+      <div className="pointer-events-auto mx-auto w-fit max-w-[95%] sm:max-w-[900px] 
+        rounded-xl border border-slate-700 bg-slate-900/95 
+        px-4 py-3 shadow-xl backdrop-blur-md transition-all duration-300">
+
+        <div className="flex flex-wrap items-center gap-3">
+
+          {/* LEFT */}
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 text-sm">
+              <span className="h-2 w-2 rounded-full bg-violet-500 animate-pulse"></span>
+              <span className="font-semibold text-white">
+                {selectedUsers.size}
+              </span>
+              <span className="text-slate-300">users selected</span>
+            </div>
+
+            <p className="mt-1 text-xs text-slate-400">
+              Bulk actions: export selected users.
+            </p>
+          </div>
+
+          {/* Divider */}
+          <div className="h-5 w-px bg-slate-700 hidden md:block" />
+
+          {/* EXPORT */}
+          <button
+            onClick={handleExportSelected}
+            className="inline-flex items-center gap-2 rounded-lg 
+            bg-emerald-600 px-4 py-2 text-sm font-medium text-white 
+            hover:bg-emerald-700 transition-all"
+          >
+            <Download className="h-4 w-4" />
+            Export ({selectedUsers.size})
+          </button>
+
+          {/* CLEAR */}
+          <button
+            onClick={() => {
+              setSelectedUsers(new Set());
+              setSelectAll(false);
+            }}
+            className="px-4 py-2 bg-slate-700 hover:bg-slate-600 
+            text-white text-sm rounded-lg transition-all"
+          >
+            Clear
+          </button>
+
+        </div>
       </div>
+
     </div>
   </div>
 )}

@@ -393,7 +393,41 @@ const openMediaViewer = (images: any[], idx = 0) => {
   const lowStock   = products.filter(p => p.stockQuantity > 0 && p.stockQuantity <= 5).length;
 
   return (
-    <div className="space-y-3 relative">
+    <div className="space-y-2 relative">
+      {selected.size > 0 && (
+      <div className="fixed top-[80px] left-1/2 -translate-x-1/2 z-[999] pointer-events-none w-full">
+          <div className="flex justify-center px-2">
+            <div className="pointer-events-auto flex items-center gap-3 rounded-xl border border-slate-700/80 bg-slate-900/95 px-4 py-3 shadow-[0_16px_40px_rgba(15,23,42,0.35)] backdrop-blur-xl">
+              <div className="flex items-center gap-2">
+                <span className="h-2.5 w-2.5 rounded-full bg-blue-400" />
+                <div className="leading-tight">
+                  <p className="text-sm font-semibold text-white">{selected.size} item(s) selected</p>
+                  <p className="text-xs text-slate-400">Export the selected inventory rows to Excel</p>
+                </div>
+              </div>
+
+              <div className="h-8 w-px bg-slate-700/80" />
+
+              <button
+                onClick={downloadSelectedTemplate}
+                className="flex items-center gap-1.5 px-3 py-2 text-xs bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold transition-all"
+                title={`Export ${selected.size} selected inventory rows`}
+              >
+                <Download className="w-3.5 h-3.5" />
+                Export Selected ({selected.size})
+              </button>
+
+              <button
+                onClick={() => setSelected(new Set())}
+                className="flex items-center gap-1.5 px-3 py-2 text-xs bg-slate-700 hover:bg-slate-600 text-white rounded-lg font-semibold transition-all"
+                title="Clear selected inventory rows"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ══ HEADER ══ */}
       <div className="flex items-start justify-between flex-wrap gap-3">
@@ -408,6 +442,7 @@ const openMediaViewer = (images: any[], idx = 0) => {
           <button
             onClick={() => router.push("/admin/products")}
             className="flex items-center gap-1.5 px-3 py-2 text-xs bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white rounded-lg font-semibold shadow-md transition-all"
+          title="go to product page"
           >
             <ShoppingCart className="w-3.5 h-3.5" /> Products
           </button>
@@ -416,6 +451,8 @@ const openMediaViewer = (images: any[], idx = 0) => {
             onClick={downloadFullTemplate}
             disabled={exportLoading}
             className="flex items-center gap-1.5 px-3 py-2 text-xs bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-semibold transition-all disabled:opacity-60"
+          title="Download an Excel template of the entire inventory (not just the current page)"
+          
           >
             {exportLoading
               ? <RefreshCcw className="w-3.5 h-3.5 animate-spin" />
@@ -424,17 +461,9 @@ const openMediaViewer = (images: any[], idx = 0) => {
           </button>
 
           <button
-            onClick={downloadSelectedTemplate}
-            disabled={selected.size === 0}
-            className="flex items-center gap-1.5 px-3 py-2 text-xs bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold transition-all disabled:opacity-40 disabled:cursor-not-allowed"
-          >
-            <Download className="w-3.5 h-3.5" />
-            Export Selected ({selected.size})
-          </button>
-
-          <button
             onClick={() => fileInputRef.current?.click()}
             className="flex items-center gap-1.5 px-3 py-2 text-xs bg-violet-600 hover:bg-violet-700 text-white rounded-lg font-semibold transition-all"
+            title="Upload an Excel file to update inventory"
           >
             <Upload className="w-3.5 h-3.5" /> Upload Excel
           </button>

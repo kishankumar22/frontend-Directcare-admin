@@ -27,12 +27,15 @@ import {
   ChevronDown,
   Download,
   RefreshCw,
+  ImageIcon,
+  Video,
 } from "lucide-react";
 import ExcelImportModal from "./ExcelImportModal";
 import { Upload } from "lucide-react";
 
 import { useToast } from "@/app/admin/_components/CustomToast";
 import ConfirmDialog from "@/app/admin/_components/ConfirmDialog";
+import { API_BASE_URL } from "@/lib/api-config";
 import {
   productReviewsService,
   ProductReview,
@@ -554,7 +557,10 @@ const handleExportReviews = (type: string) => {
 
   console.log(`📥 Exporting ${data.length} reviews...`);
 
-  // Convert data to Excel format
+  exportReviewsToExcel(data, type === "all" ? "all" : "filtered");
+};
+
+const exportReviewsToExcel = (data: ProductReview[], type: "all" | "filtered" | "selected") => {
   const rows = data.map((r) => ({
     "Product ID": r.productId,
     "Customer Name": r.customerName,
@@ -563,6 +569,8 @@ const handleExportReviews = (type: string) => {
     "Rating": r.rating,
     "Approved": r.isApproved ? "Yes" : "No",
     "Verified Purchase": r.isVerifiedPurchase ? "Yes" : "No",
+    "Image URLs": (r.imageUrls ?? []).join(", "),
+    "Video URLs": (r.videoUrls ?? []).join(", "),
     "Created At": new Date(r.createdAt).toLocaleString('en-IN', { 
       timeZone: 'Asia/Kolkata',
       year: 'numeric',
@@ -573,11 +581,9 @@ const handleExportReviews = (type: string) => {
     }),
   }));
 
-  // Excel file export
   import("xlsx").then((XLSX) => {
     const ws = XLSX.utils.json_to_sheet(rows);
     
-    // Column widths
     ws["!cols"] = [
       { wch: 15 }, // Product ID
       { wch: 25 }, // Customer Name
@@ -586,17 +592,21 @@ const handleExportReviews = (type: string) => {
       { wch: 10 }, // Rating
       { wch: 12 }, // Approved
       { wch: 18 }, // Verified Purchase
+      { wch: 40 }, // Image URLs
+      { wch: 40 }, // Video URLs
       { wch: 25 }  // Created At
     ];
 
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Reviews");
     
-    // Generate filename
     const dateStr = new Date().toISOString().split('T')[0];
-    const filename = type === "all" 
-      ? `Product_Reviews_All_${data.length}_${dateStr}.xlsx`
-      : `Product_Reviews_Filtered_${data.length}_${dateStr}.xlsx`;
+    const filename =
+      type === "all"
+        ? `Product_Reviews_All_${data.length}_${dateStr}.xlsx`
+        : type === "selected"
+        ? `Product_Reviews_Selected_${data.length}_${dateStr}.xlsx`
+        : `Product_Reviews_Filtered_${data.length}_${dateStr}.xlsx`;
     
     XLSX.writeFile(wb, filename);
     toast.success(`✅ Successfully downloaded ${data.length} reviews!`);
@@ -606,6 +616,45 @@ const handleExportReviews = (type: string) => {
     console.error("❌ Excel export error:", err);
     toast.error("Failed to create Excel file. Please try again.");
   });
+};
+
+const handleExportSelectedReviews = () => {
+  const selectedData = currentData.filter((review) => selectedReviews.includes(review.id));
+
+  if (selectedData.length === 0) {
+    toast.error("No selected reviews available to download");
+    return;
+  }
+
+  exportReviewsToExcel(selectedData, "selected");
+};
+
+const resolveMediaUrl = (url?: string) => {
+  if (!url) return "";
+
+  // Already full URL
+  if (/^https?:\/\//i.test(url)) return url;
+
+  const cleanBase = API_BASE_URL.replace(/\/+$/, "");
+  const cleanPath = url.replace(/^\/+/, "");
+
+  return `${cleanBase}/${cleanPath}`;
+};
+
+const normalizeToArray = (data: any): string[] => {
+  if (!data) return [];
+
+  if (Array.isArray(data)) return data;
+
+  if (typeof data === "string") {
+    return data.split(",").map((i) => i.trim()).filter(Boolean);
+  }
+
+  return [];
+};
+
+const isPlayableVideoUrl = (url: string) => {
+  return /\.(mp4|webm|ogg|mov|m4v)(\?.*)?$/i.test(url);
 };
 
 
@@ -646,7 +695,41 @@ const handleExportReviews = (type: string) => {
   }
 
   return (
-    <div className="min-h-screen">
+    <div >
+        {selectedReviews.length > 0 && (
+         <div className="fixed top-[69px] left-1/2 -translate-x-1/2 z-[999] pointer-events-none w-full">
+            <div className="flex justify-center px-2 pt-2">
+              <div className="pointer-events-auto flex items-center gap-3 rounded-xl border border-slate-700/80 bg-slate-900/95 px-4 py-3 shadow-[0_16px_40px_rgba(15,23,42,0.35)] backdrop-blur-xl">
+                <div className="flex items-center gap-2">
+                  <span className="h-2.5 w-2.5 rounded-full bg-violet-400" />
+                  <div className="leading-tight">
+                    <p className="text-sm font-semibold text-white">{selectedReviews.length} review(s) selected</p>
+                    <p className="text-xs text-slate-400">Export selected reviews or clear the current selection</p>
+                  </div>
+                </div>
+
+                <div className="h-8 w-px bg-slate-700/80" />
+
+                <button
+                  onClick={handleExportSelectedReviews}
+                  className="flex items-center gap-1.5 px-3 py-2 text-xs bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold transition-all"
+                  title={`Export ${selectedReviews.length} selected reviews`}
+                >
+                  <Download className="h-3.5 w-3.5" />
+                  Export Selected ({selectedReviews.length})
+                </button>
+
+                <button
+                  onClick={() => setSelectedReviews([])}
+                  className="flex items-center gap-1.5 px-3 py-2 text-xs bg-slate-700 hover:bg-slate-600 text-white rounded-lg font-semibold transition-all"
+                  title="Clear selected reviews"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       <div className="mx-auto space-y-3">
         {/* Header */}
         <div className="flex items-center justify-between gap-3">
@@ -708,6 +791,8 @@ const handleExportReviews = (type: string) => {
             </div>
           </div>
         </div>
+
+      
 
         {/* Stats strip */}
         <div className="grid grid-cols-4 gap-2">
@@ -1114,6 +1199,7 @@ const handleExportReviews = (type: string) => {
                 </thead>
                 <tbody>
                   {currentData.map((review) => (
+                    
                     <tr key={review.id} className="border-b border-slate-800/50 hover:bg-slate-800/20 transition-colors group">
                       <td className="py-2 px-3">
                         <input type="checkbox" checked={selectedReviews.includes(review.id)} onChange={() => toggleSelectReview(review.id)} className="w-3.5 h-3.5 text-violet-500 rounded" />
@@ -1291,7 +1377,11 @@ const handleExportReviews = (type: string) => {
         )}
 
         {/* View Review Modal */}
-        {viewingReview && (
+{viewingReview && (() => {
+  const images = normalizeToArray(viewingReview?.imageUrls);
+  const videos = normalizeToArray(viewingReview?.videoUrls);
+
+  return (
           <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-50 flex items-center justify-center p-4">
             <div className="bg-gradient-to-br from-slate-900 via-slate-900 to-slate-800 border border-violet-500/20 rounded-3xl max-w-4xl w-full max-h-[90vh] overflow-hidden shadow-2xl shadow-violet-500/10">
               <div className="p-6 border-b border-violet-500/20 bg-gradient-to-r from-violet-500/10 to-cyan-500/10">
@@ -1356,6 +1446,89 @@ const handleExportReviews = (type: string) => {
                         <p className="text-slate-400 text-sm mb-1">Review</p>
                         <p className="text-white">{viewingReview.comment}</p>
                       </div>
+
+            {(images.length > 0 || videos.length > 0) && (
+  <div className="space-y-4">
+
+    {/* ================= IMAGES ================= */}
+    {images.length > 0 && (
+      <div>
+        <div className="flex items-center gap-2 mb-2">
+          <ImageIcon className="h-4 w-4 text-cyan-400" />
+          <p className="text-slate-400 text-sm">Images</p>
+        </div>
+
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+          {images.map((img, index) => {
+            const finalUrl = resolveMediaUrl(img);
+
+            return (
+              <a
+                key={`${img}-${index}`}
+                href={finalUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="group block overflow-hidden rounded-xl border border-slate-700 bg-slate-900/60"
+              >
+                <img
+                  src={finalUrl}
+                  alt={`Review image ${index + 1}`}
+                  onError={(e) => {
+                    console.error("❌ Image failed:", finalUrl);
+                    (e.currentTarget as HTMLImageElement).src = "/placeholder.png";
+                  }}
+                  className="h-32 w-full object-cover transition-transform duration-200 group-hover:scale-105"
+                />
+              </a>
+            );
+          })}
+        </div>
+      </div>
+    )}
+
+    {/* ================= VIDEOS ================= */}
+    {videos.length > 0 && (
+      <div>
+        <div className="flex items-center gap-2 mb-2">
+          <Video className="h-4 w-4 text-violet-400" />
+          <p className="text-slate-400 text-sm">Videos</p>
+        </div>
+
+        <div className="space-y-3">
+          {videos.map((vid, index) => {
+            const finalUrl = resolveMediaUrl(vid);
+
+            return (
+              <div
+                key={`${vid}-${index}`}
+                className="rounded-xl border border-slate-700 bg-slate-900/60 p-3"
+              >
+                {isPlayableVideoUrl(finalUrl) ? (
+                  <video
+                    controls
+                    preload="metadata"
+                    className="w-full rounded-lg bg-black"
+                    src={finalUrl}
+                  />
+                ) : (
+                  <a
+                    href={finalUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-blue-400 hover:underline"
+                  >
+                    Open video {index + 1}
+                  </a>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    )}
+
+  </div>
+)}
 
                       <div>
                         <p className="text-slate-400 text-sm mb-1">Product</p>
@@ -1486,7 +1659,8 @@ const handleExportReviews = (type: string) => {
               </div>
             </div>
           </div>
-        )}
+     );
+})()}
 
 {showCreateModal && (
   <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-50 flex items-center justify-center p-4">
