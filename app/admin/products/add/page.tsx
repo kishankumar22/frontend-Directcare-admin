@@ -11,12 +11,13 @@ import { GroupedProductModal } from '../GroupedProductModal';
 import { MultiBrandSelector } from "../MultiBrandSelector";
 import { VATRateApiResponse, vatratesService } from "@/lib/services/vatrates";
 import { MultiCategorySelector } from "../MultiCategorySelector";
-import ScrollToTopButton from "../../_components/ScrollToTopButton";
 import RelatedProductsSelector from "../RelatedProductsSelector";
 import ProductVariantsManager from "../ProductVariantsManager";
 import ProductOptionsManager from "../ProductOptionsManager";
 import PharmacyQuestionAssignModal from "../PharmacyQuestionAssignModal";
 import { AssignProductPharmacyQuestionDto, pharmacyQuestionsService } from "@/lib/services/PharmacyQuestions";
+import ProductNameInput from "../ProductNameInput";
+import SKUInput from "../SKUInput";
 
 export default function AddProductPage() {
   const router = useRouter();
@@ -40,7 +41,7 @@ const [showUnsavedModal, setShowUnsavedModal] = useState(false);
 const [pendingNavigation, setPendingNavigation] = useState<string | null>(null);
 const [showPharmacyModal, setShowPharmacyModal] = useState(false);
 const [pharmacyQuestions, setPharmacyQuestions] = useState<AssignProductPharmacyQuestionDto[]>([]);
-// ================================
+
 // ✅ LOADING & SUBMISSION STATES
 // ================================
 const [isSubmitting, setIsSubmitting] = useState(false);
@@ -258,6 +259,8 @@ const checkPublishRequirements = (): { isValid: boolean; missing: string[] } => 
   if (!formData.categoryIds || formData.categoryIds.length === 0) {
     missing.push('Category (at least 1)');
   }
+  const price = Number(formData.price);
+  if (isNaN(price) || price <= 0) missing.push('Valid Price');
 
   // 4. Brands
   const hasBrand = (formData.brandIds && formData.brandIds.length > 0) || formData.brand?.trim();
@@ -378,7 +381,7 @@ useEffect(() => {
         categoriesService.getAll({ includeInactive: true, includeSubCategories: true }),
         vatratesService.getAll(),
         productsService.getAll({ pageSize: 100 }),
-        productsService.getAll({ productType: 'simple', pageSize: 100 })
+        productsService.getSimpleProducts()
       ]);
 
       console.log('✅ All data fetched');
@@ -820,8 +823,7 @@ const filteredVATRates = dropdownsData.vatRates.filter(vat =>
 
 
 // ==================== SKU VALIDATION (COMPLETE - SERVICE-BASED) ====================
-const [skuError, setSkuError] = useState<string>('');
-const [checkingSku, setCheckingSku] = useState<boolean>(false);
+;
 
 
 // ✅ FLEXIBLE SKU VALIDATION - Allows: Pure Numbers, Pure Letters, OR Alphanumeric
@@ -860,78 +862,7 @@ const validateSkuFormat = (sku: string): { isValid: boolean; error: string } => 
   return { isValid: true, error: '' };
 };
 
-// ✅ 2. UPDATE EXISTING checkSkuExists FUNCTION
 
-const checkSkuExists = async (sku: string): Promise<boolean> => {
-  // Clear previous errors
-  setSkuError('');
-  
-  if (!sku || sku.length < 3) {
-    return false;
-  }
-  
-  // ✅ VALIDATE FORMAT FIRST
-  const validation = validateSkuFormat(sku);
-  if (!validation.isValid) {
-    setSkuError(validation.error);
-    return true;
-  }
-  
-  setCheckingSku(true);
-  
-  try {
-    console.log('🔍 Checking SKU:', sku);
-    
-    const response = await productsService.getAll({ 
-      page:1,
-      pageSize: 1000
-    });
-    
-    // Safe data extraction
-    let products: any[] = [];
-    
-    try {
-      if (response.data) {
-        if (typeof response.data === 'object' && 'data' in response.data) {
-          const nestedData = (response.data as any).data;
-          
-          if (nestedData && typeof nestedData === 'object') {
-            if ('items' in nestedData && Array.isArray(nestedData.items)) {
-              products = nestedData.items;
-            } else if (Array.isArray(nestedData)) {
-              products = nestedData;
-            }
-          }
-        } else if (Array.isArray(response.data)) {
-          products = response.data;
-        }
-      }
-    } catch (parseError) {
-      console.error('Error parsing products:', parseError);
-      products = [];
-    }
-    
-    // Check for duplicate SKU
-    const exists = products.some((p: any) => {
-      if (!p || typeof p !== 'object' || !p.sku) return false;
-      return p.sku.toUpperCase() === sku.toUpperCase();
-    });
-    
-    if (exists) {
-      setSkuError('SKU already exists. Please choose a unique SKU.');
-      return true;
-    }
-    
-    return false;
-    
-  } catch (error: any) {
-    console.error('SKU check error:', error);
-    setSkuError('');
-    return false;
-  } finally {
-    setCheckingSku(false);
-  }
-};
 
 // ✅ ADD THIS FUNCTION AFTER checkSkuExists FUNCTION
 
@@ -948,21 +879,8 @@ const getHomepageCount = async () => {
   }
 };
 
-// ==================== DEBOUNCED SKU CHECK ====================
-useEffect(() => {
-  const timer = setTimeout(() => {
-    if (formData.sku && formData.sku.length >= 2) {
-      checkSkuExists(formData.sku);
-    } else {
-      setSkuError('');
-      setCheckingSku(false);
-    }
-  }, 800); // Check after 800ms of typing
 
-  return () => {
-    clearTimeout(timer);
-  };
-}, [formData.sku]);
+
 
 
 // ============ COMPLETE handleSubmit FUNCTION WITH ALL VALIDATIONS ============
@@ -996,6 +914,24 @@ const handleSubmit = async (
       percentage: 10,
     });
 
+      const res = await productsService.getAll({
+    searchTerm: formData.name
+  });
+
+  const items = res.data?.data?.items ?? [];
+
+ const nameExists = items.some((p: any) =>
+  p.name?.toLowerCase().trim() === formData.name.toLowerCase().trim() &&
+  (!isEditMode || p.id !== productId)
+);
+
+  if (nameExists) {
+    toast.error('❌ Product name already exists. Please use a unique name.');
+    target.removeAttribute("data-submitting");
+    setIsSubmitting(false);
+    setSubmitProgress(null);
+    return;
+  }
     // ============================================================
     // SECTION 1: BASIC VALIDATION
     // ============================================================
@@ -1056,22 +992,35 @@ const handleSubmit = async (
       return;
     }
 
-    setSubmitProgress({
-      step: "Checking SKU availability...",
-      percentage: 20,
-    });
+// ================= SKU UNIQUENESS CHECK (OPTIMIZED) =================
+setSubmitProgress({
+  step: "Checking SKU availability...",
+  percentage: 20,
+});
 
-    // 1.4 SKU VALIDATION - Uniqueness (SKIP IN EDIT MODE)
-    if (!isEditMode) {
-      const skuExists = await checkSkuExists(formData.sku);
-      if (skuExists) {
-        toast.error("SKU already exists. Please use a unique SKU.");
-        target.removeAttribute("data-submitting");
-        setIsSubmitting(false);
-        setSubmitProgress(null);
-        return;
-      }
-    }
+try {
+  const res = await productsService.getAll({
+    searchTerm: formData.sku
+  });
+
+  const items = res.data?.data?.items ?? [];
+
+  const skuExists = items.some((p: any) =>
+   p.sku?.toUpperCase().trim() === formData.sku.toUpperCase().trim() &&
+    (!isEditMode || p.id !== productId) // edit safe
+  );
+
+  if (skuExists) {
+    toast.error("❌ SKU already exists. Please use a unique SKU.");
+    target.removeAttribute("data-submitting");
+    setIsSubmitting(false);
+    setSubmitProgress(null);
+    return;
+  }
+
+} catch (error) {
+  console.warn("⚠️ SKU check failed:", error);
+}
 
     // 1.5 PRICE VALIDATION
     if (formData.price && parseFloat(formData.price.toString()) < 0) {
@@ -2766,7 +2715,7 @@ useEffect(() => {
 {/* ============================================================ */}
 {/* ✅ COMPLETE HEADER WITH EDIT MODE & VALIDATION */}
 {/* ============================================================ */}
-<div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-2xl p-4">
+<div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-2xl p-3">
   <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
     {/* ========== Left Side - Title & Status ========== */}
     <div className="flex items-center gap-4">
@@ -2794,7 +2743,7 @@ useEffect(() => {
       <div>
         <div className="flex items-center gap-3 flex-wrap">
           {/* Main Title */}
-          <h1 className="text-2xl lg:text-3xl font-bold tracking-tight bg-gradient-to-r from-violet-400 via-cyan-400 to-pink-400 bg-clip-text text-transparent">
+          <h1 className="text-2xl lg:text-2xl font-bold tracking-tight bg-gradient-to-r from-violet-400 via-cyan-400 to-pink-400 bg-clip-text text-transparent">
             {isEditMode ? "Edit Product" : "Create New Product"}
           </h1>
 
@@ -2827,15 +2776,7 @@ useEffect(() => {
           )} */}
         </div>
 
-        {/* Status Text */}
-        <p className="text-sm text-slate-400 mt-1">
-          {isSubmitting 
-            ? submitProgress?.step || 'Processing...' 
-            : missingFields.length > 0
-            ? `${missingFields.length} required field${missingFields.length !== 1 ? 's' : ''} remaining`
-            : 'All required fields filled ✓'
-          }
-        </p>
+     
       </div>
     </div>
 
@@ -3068,6 +3009,31 @@ useEffect(() => {
 
       {/* Main Content */}
       <div className="w-full">
+         {missingFields.length > 0 && (
+          <div className="flex items-center gap-2 mb-2 px-1 py-1 bg-orange-500/10 border border-orange-500/30 rounded-lg flex-wrap">
+            
+            <svg
+              className="w-4 h-4 text-orange-400 flex-shrink-0"
+              fill="currentColor"
+              viewBox="0 0 20 20"
+            >
+              <path
+                fillRule="evenodd"
+                d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"
+                clipRule="evenodd"
+              />
+            </svg>
+
+            <span className="text-xs font-medium text-orange-400">
+              {missingFields.length} required field
+              {missingFields.length !== 1 ? "s" : ""}:
+            </span>
+
+            <span className="text-xs text-orange-300">
+              {missingFields.join(", ")}
+            </span>
+          </div>
+          )}
         {/* Main Form */}
         <div className="w-full">
           <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-2xl p-2">
@@ -3120,25 +3086,10 @@ useEffect(() => {
     <h3 className="text-lg font-semibold text-white border-b border-slate-800 pb-2">Basic Info</h3>
 
     <div className="grid gap-4">
-      <div>
-        <label className="block text-sm font-medium text-slate-300 mb-2">
-          Product Name <span className="text-red-500">*</span>
-        </label>
-        <input
-  type="text"
-  name="name"
+<ProductNameInput
   value={formData.name}
-  onChange={handleChange}
-  placeholder="Enter product name"
-  className="w-full px-3 py-2.5 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
-  required
-  minLength={3}
-  maxLength={150}
-  pattern="^[A-Za-z0-9\s\-.,()'/]+$"
-  title="Product name must be 3–150 characters and cannot contain emojis or special characters like @, #, $, %."
+  onChange={(val) => setFormData({ ...formData, name: val })}
 />
-
-      </div>
 
 <div className="space-y-4">
 
@@ -3185,84 +3136,10 @@ useEffect(() => {
 
  <div className="grid md:grid-cols-3 gap-4">
 {/* ✅ SKU FIELD - Updated with flexible format support */}
-<div>
-  <label className="block text-sm font-medium text-slate-300 mb-2">
-    SKU (Stock Keeping Unit) <span className="text-red-500">*</span>
-  </label>
-  
-  <div className="relative">
-    <input
-      type="text"
-      name="sku"
-      value={formData.sku}
-      onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-        const input = e.target.value;
-        // ✅ Convert to uppercase and remove invalid characters (spaces, special chars except hyphen)
-        const sanitized = input.toUpperCase().replace(/[^A-Z0-9-]/g, '');
-        
-        setFormData({ ...formData, sku: sanitized });
-        
-        // Clear error on typing
-        if (skuError) setSkuError('');
-      }}
-      onBlur={() => {
-        if (formData.sku && formData.sku.length >= 3) {
-          checkSkuExists(formData.sku);
-        } else if (formData.sku && formData.sku.length > 0 && formData.sku.length < 3) {
-          setSkuError('SKU must be at least 3 characters');
-        }
-      }}
-      placeholder="641256412 or PROD-001"
-      maxLength={30}
-      className={`w-full px-4 py-2.5 bg-slate-900 border rounded-lg text-white placeholder-slate-500 focus:ring-2 transition-all uppercase font-mono ${
-        skuError 
-          ? 'border-red-500 focus:ring-red-500' 
-          : formData.sku && !checkingSku && formData.sku.length >= 3
-            ? 'border-green-500 focus:ring-green-500' 
-            : 'border-slate-700 focus:ring-violet-500'
-      }`}
-      required
-    />
-    
-    {/* Status Icons */}
-    {checkingSku && (
-      <div className="absolute right-3 top-1/2 -translate-y-1/2">
-        <svg className="animate-spin h-5 w-5 text-violet-400" fill="none" viewBox="0 0 24 24">
-          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-        </svg>
-      </div>
-    )}
-    
-    {!checkingSku && skuError && (
-      <div className="absolute right-3 top-1/2 -translate-y-1/2">
-        <svg className="h-5 w-5 text-red-500" fill="currentColor" viewBox="0 0 20 20">
-          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-        </svg>
-      </div>
-    )}
-    
-    {!checkingSku && !skuError && formData.sku && formData.sku.length >= 3 && (
-      <div className="absolute right-3 top-1/2 -translate-y-1/2">
-        <svg className="h-5 w-5 text-green-500" fill="currentColor" viewBox="0 0 20 20">
-          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-        </svg>
-      </div>
-    )}
-  </div>
-  
-  {/* Error Message */}
-  {skuError && (
-    <div className="mt-2 p-2 bg-red-500/10 border border-red-500/30 rounded-lg flex items-start gap-2">
-      <svg className="w-4 h-4 text-red-400 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
-        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-      </svg>
-      <p className="text-xs text-red-400">{skuError}</p>
-    </div>
-  )}
-  
-
-</div>
+<SKUInput
+  value={formData.sku}
+  onChange={(val) => setFormData({ ...formData, sku: val })}
+/>
 
 
 
@@ -4312,7 +4189,8 @@ useEffect(() => {
         <div className="grid md:grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-medium text-slate-300 mb-2">
-              Stock Quantity <span className="text-red-500">*</span>
+              Stock Quantity 
+              {/* <span className="text-red-500">*</span> */}
             </label>
             <input
               type="number"

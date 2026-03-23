@@ -215,7 +215,7 @@ const handleAddToCart = () => {
   return (
      <Card className="border-0 shadow-md hover:shadow-xl transition-all duration-300 rounded-xl 
                              h-[330px] md:h-[355px] flex flex-col justify-between">
-             <CardContent className="p-2 mt-3 flex flex-col h-full">
+             <CardContent className="p-2 mt-0 flex flex-col h-full">
 
       {/* BADGES */}
    <GenderBadge gender={product.gender} />
@@ -306,7 +306,7 @@ const handleAddToCart = () => {
 </div>
 
       {/* PRICE & VAT */}
-      <div className="flex items-center gap-1 mb-0">
+      <div className="flex items-center gap-1 mb-0.5">
         <span className="text-base font-bold text-[#445D41]">£{finalPrice.toFixed(2)}</span>
         {discountBadge && <span className="line-through text-xs text-gray-400">£{basePrice.toFixed(2)}</span>}
         {!product.vatExempt && vatRate !== null && (
@@ -319,7 +319,7 @@ const handleAddToCart = () => {
 
 
       {/* QUANTITY + BUTTON */}
-         <div className="flex items-center gap-1 mt-auto pt-2">
+         <div className="flex items-center gap-1 mt-0">
 
         <div className="flex-shrink-0 -ml-1 [&_input]:w-7 [&_button]:px-1.5">
           <QuantitySelector

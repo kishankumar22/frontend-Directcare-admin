@@ -62,7 +62,7 @@ export default async function BlogPage() {
 
       {/* ===================== CATEGORIES CARD ===================== */}
       <section className="bg-white rounded-2xl shadow-xl p-4 md:p-8 border ">
-        <h2 className="text-xl md:text-2xl font-semibold mb-4 md:mb-6 text-gray-900">Explore Our Blogs </h2>
+        <h2 className="text-xl md:text-2xl font-semibold mb-4 md:mb-6 text-gray-900">Explore Blogs by Categories</h2>
 
         <div
           className="
@@ -117,7 +117,7 @@ export default async function BlogPage() {
           Latest Articles
         </h2>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 items-stretch">
 
          {visiblePosts.map((post: any) => (
   <Link
@@ -126,10 +126,10 @@ export default async function BlogPage() {
     className="block"
   >
     <article
-      className="bg-gray-50 border rounded-xl shadow-sm hover:shadow-lg transition p-2 flex flex-col hover:-translate-y-1 cursor-pointer"
+      className="bg-gray-50 border rounded-xl shadow-sm hover:shadow-lg transition p-3 flex flex-col h-full hover:-translate-y-1 cursor-pointer"
     >
               {/* IMAGE */}
-          <div className="w-full h-32 bg-white rounded-lg overflow-hidden mb-1 flex items-start justify-center pt-0">
+          <div className="w-full h-28 bg-white rounded-lg overflow-hidden mb-1 flex items-start justify-center pt-0">
   <img
     src={
       absoluteUrl(post.thumbnailImageUrl) ??

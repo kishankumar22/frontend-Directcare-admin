@@ -36,55 +36,39 @@ interface Product {
    crossSellProductIds: string; // ✅ ADD THIS
 }
 
-export const dynamic = 'force-dynamic';
-export const revalidate = 0;
-export const fetchCache = 'force-no-store';
+export const revalidate = 10;
 
 async function getProduct(slug: string) {
   try {
-    // 🔹 STEP 1: LIST API (slug / variant resolve ke liye)
-    const listRes = await fetch(
-      `${process.env.NEXT_PUBLIC_API_URL}/api/Products?slug=${slug}&page=1&pageSize=10000`,
-      { cache: "no-store" }
+    const res = await fetch(
+      `${process.env.NEXT_PUBLIC_API_URL}/api/Products/by-slug/${slug}`,
+      {
+        next: { revalidate: 10 },
+      }
     );
 
-    if (!listRes.ok) return null;
+    if (!res.ok) return null;
 
-    const listJson = await listRes.json();
-    if (!listJson.success || !listJson.data?.items?.length) return null;
+    const json = await res.json();
+    if (!json.success) return null;
 
-    const items = listJson.data.items;
+    const product = json.data;
 
-    let product = items.find((p: any) => p.slug === slug);
-    let selectedVariantId: string | null = null;
+    // ✅ IMPORTANT: Variant logic preserve
+    let selectedVariantId: string | undefined = undefined;
 
-    if (!product) {
-      for (const p of items) {
-        const variant = p.variants?.find((v: any) => v.slug === slug);
-        if (variant) {
-          product = p;
-          selectedVariantId = variant.id;
-          break;
-        }
+    if (product?.variants?.length) {
+      const matchedVariant = product.variants.find(
+        (v: any) => v.slug === slug
+      );
+      if (matchedVariant) {
+        selectedVariantId = matchedVariant.id;
       }
     }
 
-    if (!product?.id) return null;
-
-    // 🔥 STEP 2: DETAIL API (GROUPED PRODUCTS YAHI AATE HAIN)
-    const detailRes = await fetch(
-      `${process.env.NEXT_PUBLIC_API_URL}/api/Products/${product.id}`,
-      { cache: "no-store" }
-    );
-
-    if (!detailRes.ok) return null;
-
-    const detailJson = await detailRes.json();
-    if (!detailJson.success) return null;
-
     return {
-      product: detailJson.data, // ✅ FULL PRODUCT (groupedProducts included)
-      selectedVariantId: selectedVariantId ?? undefined,
+      product,
+      selectedVariantId,
     };
   } catch (err) {
     console.error("getProduct error:", err);
@@ -93,103 +77,59 @@ async function getProduct(slug: string) {
 }
 
 // ⭐ FIX: params is now Promise
-export async function generateMetadata({ 
-  params 
-}: { 
-  params: Promise<{ slug: string }> // ✅ Changed to Promise
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ slug: string }>;
 }) {
-  const { slug } = await params; // ✅ Already has await (good!)
- const data = await getProduct(slug);
+  const { slug } = await params;
 
-if (!data?.product) {
-  return {
-    title: 'Product Not Found | Direct Care',
-    description: 'The product you are looking for could not be found.',
-  };
-}
+  const data = await getProduct(slug);
 
-const product: Product = data.product;
+  if (!data?.product) {
+    return {
+      title: "Product Not Found",
+      description: "Product not found",
+    };
+  }
 
- const mainImage = product?.images?.[0]?.imageUrl
-  ? product.images[0].imageUrl.startsWith("http")
-    ? product.images[0].imageUrl
-    : `${process.env.NEXT_PUBLIC_API_URL}${product.images[0].imageUrl}`
-  : null;
+  const product = data.product;
+
+  const description = (product.shortDescription ?? "")
+    .replace(/<[^>]*>/g, "")
+    .slice(0, 160);
+
+  const imageUrl = product.images?.[0]?.imageUrl
+    ? product.images[0].imageUrl.startsWith("http")
+      ? product.images[0].imageUrl
+      : `${process.env.NEXT_PUBLIC_API_URL}${product.images[0].imageUrl}`
+    : undefined;
 
   return {
     title: `${product.name} | Direct Care`,
-    description: product.shortDescription?.replace(/<[^>]*>/g, '').substring(0, 160) || product.name,
+    description,
+
     openGraph: {
       title: product.name,
-      description: product.shortDescription?.replace(/<[^>]*>/g, '') || product.name,
-      url: `${process.env.NEXT_PUBLIC_BASE_URL}/products/${product.slug}`,
-      siteName: 'Direct Care',
-      images: mainImage ? [
-        {
-          url: mainImage,
-          width: 1200,
-          height: 630,
-          alt: product.name,
-        }
-      ] : [],
-      locale: 'en_US',
-      type: 'website',
-    },
-    other: {
-      'og:type': 'product.item',
-      'product:price:amount': product.price.toString(),
-      'product:price:currency': 'GBP',
-      'product:availability': product.stockQuantity > 0 ? 'in stock' : 'out of stock',
-      'product:condition': 'new',
-      'product:brand': product.brandName || '',
-      'product:category': product.categoryName || '',
-    },
-    twitter: {
-      card: 'summary_large_image',
-      title: product.name,
-      description: product.shortDescription?.replace(/<[^>]*>/g, '') || product.name,
-      images: mainImage ? [mainImage] : [],
-    },
-    robots: {
-      index: true,
-      follow: true,
-    },
-    alternates: {
-      canonical: `${process.env.NEXT_PUBLIC_BASE_URL}/products/${product.slug}`,
+      description: description || product.name,
+      images: imageUrl ? [{ url: imageUrl }] : [],
     },
   };
 }
 
-function ProductLoading() {
-  return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50">
-      <div className="text-center">
-        <Loader2 className="h-12 w-12 animate-spin text-[#445D41] mx-auto mb-4" />
-        <p className="text-gray-600">Loading product details...</p>
-      </div>
-    </div>
-  );
-}
-
-export async function generateStaticParams() {
-  return [];
-}
 
 // ⭐ FIX: params is now Promise
 export default async function ProductDetailPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
+
   const data = await getProduct(slug);
 
   if (!data) notFound();
 
   return (
-    <div key={slug}>
-      <Suspense fallback={<ProductLoading />}>
-        <ProductClient 
-          product={data.product}
-          initialVariantId={data.selectedVariantId}
-        />
-      </Suspense>
-    </div>
+    <ProductClient 
+      product={data.product}
+      initialVariantId={data.selectedVariantId}
+    />
   );
 }

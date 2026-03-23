@@ -27,6 +27,8 @@ import ProductVariantsManager from "../../ProductVariantsManager";
 import ProductOptionsManager from "../../ProductOptionsManager";
 import PharmacyQuestionAssignModal from "../../PharmacyQuestionAssignModal";
 import { AssignProductPharmacyQuestionDto, pharmacyQuestionsService } from "@/lib/services/PharmacyQuestions";
+import ProductNameInput from "../../ProductNameInput";
+import SKUInput from "../../SKUInput";
 
 // ✅ ADD THIS INTERFACE (at the top with other interfaces)
 interface AdminCommentHistory {
@@ -56,7 +58,7 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
   const [takeoverTimeLeft, setTakeoverTimeLeft] = useState<number>(0);
 const [homepageCount, setHomepageCount] = useState<number | null>(null);
 const MAX_HOMEPAGE = 50;
-const [showTaxPreview, setShowTaxPreview] = useState(false);
+
 const [quantityMode, setQuantityMode] = useState<'range' | 'fixed' | 'unlimited'>('range');
 // Unsaved Changes Modal
 const [showUnsavedModal, setShowUnsavedModal] = useState(false);
@@ -67,7 +69,7 @@ const [lastSavedData, setLastSavedData] = useState<any>(null);
 // ✅ CORRECT - Array type with brackets []
 const [commentHistory, setCommentHistory] = useState<AdminCommentHistory[]>([]);
 const [isCommentHistoryOpen, setIsCommentHistoryOpen] = useState(false);
-
+const debounceRef = useRef<NodeJS.Timeout | null>(null);
 const [loadingHistory, setLoadingHistory] = useState(false);
 const [showPharmacyModal, setShowPharmacyModal] = useState(false);
 const [pharmacyQuestions, setPharmacyQuestions] = useState<AssignProductPharmacyQuestionDto[]>([]);
@@ -86,7 +88,7 @@ const [submitProgress, setSubmitProgress] = useState<{
   const [productAttributes, setProductAttributes] = useState<ProductAttribute[]>([]);
   const [productOptions, setProductOptions] = useState<ProductOption[]>([]);
   const [productVariants, setProductVariants] = useState<ProductVariant[]>([]);
-  const [isGeneratingVariants, setIsGeneratingVariants] = useState(false);
+ 
 // ✅ Add these new states
 const [isDeletingImage, setIsDeletingImage] = useState(false);
 const [uploadingImages, setUploadingImages] = useState(false);
@@ -741,8 +743,8 @@ useEffect(() => {
         brandsService.getAll({ includeInactive: true }),
         categoriesService.getAll({ includeInactive: true, includeSubCategories: true }),
         vatratesService.getAll(),
-        productsService.getAll({ pageSize: 100 }),
-        productsService.getAll({ productType: 'simple', pageSize: 100 })
+        productsService.getAll({ pageSize: 1000 }),
+        productsService.getSimpleProducts()
       ]);
 
       // ✅ Extract data safely with proper type handling
@@ -1617,19 +1619,25 @@ const handleLockReleased = (data: any) => {
     }
   };
 }, [productId]);
-
 const getHomepageCount = async () => {
   try {
-    const res = await productsService.getAll({ pageSize: 100 });
+    const res = await productsService.getAll({
+      showOnHomepage: true, // ✅ only true products
+    
+    });
+
     const products = res.data?.data?.items || [];
-    const count = products.filter((p: any) => 
-      p.showOnHomepage && p.id !== productId
-    ).length;
+
+  const count = res.data?.data?.totalCount ?? products.length;
+
     setHomepageCount(count);
+
   } catch (e) {
+    console.error("Homepage count error:", e);
     setHomepageCount(null);
   }
 };
+
 useEffect(() => {
   if (formData.showOnHomepage) getHomepageCount();
 }, [formData.showOnHomepage]);
@@ -1942,125 +1950,10 @@ const handleReopenTakeoverModal = () => {
   }
 };
 
-// ✅ States
-const [skuError, setSkuError] = useState('');
-const [checkingSku, setCheckingSku] = useState(false);
 
-// ✅ FLEXIBLE SKU VALIDATION - Allows: Pure Numbers, Pure Letters, OR Alphanumeric
-const validateSkuFormat = (sku: string): { isValid: boolean; error: string } => {
-  const trimmedSku = sku.trim();
-  
-  // Check if empty
-  if (!trimmedSku) {
-    return { isValid: false, error: 'SKU is required' };
-  }
-  
-  // Check minimum length
-  if (trimmedSku.length < 3) {
-    return { isValid: false, error: 'SKU must be at least 3 characters' };
-  }
-  
-  // Check maximum length
-  if (trimmedSku.length > 30) {
-    return { isValid: false, error: 'SKU must not exceed 30 characters' };
-  }
-  
-  // ✅ Only alphanumeric + hyphens allowed (no spaces, special chars)
-  if (!/^[A-Z0-9]+(-[A-Z0-9]+)*$/.test(trimmedSku)) {
-    return { isValid: false, error: 'SKU format invalid. Use only LETTERS, NUMBERS, and HYPHENS (e.g., PROD-001, 641256412, MOBILE)' };
-  }
-  
-  // Check for consecutive hyphens
-  if (trimmedSku.includes('--')) {
-    return { isValid: false, error: 'SKU cannot contain consecutive hyphens' };
-  }
-  
-  // Check if starts or ends with hyphen
-  if (trimmedSku.startsWith('-') || trimmedSku.endsWith('-')) {
-    return { isValid: false, error: 'SKU cannot start or end with a hyphen' };
-  }
-  
-  // ✅ ALL ALLOWED NOW:
-  // - Pure numbers: 641256412 ✅
-  // - Pure letters: MOBILE ✅
-  // - Alphanumeric: PROD-001, LAP-HP-I5 ✅
-  
-  return { isValid: true, error: '' };
-};
 
-// ✅ UPDATED SKU CHECK WITH VALIDATION
-const checkSkuExists = async (sku: string): Promise<boolean> => {
-  // Clear previous errors
-  setSkuError('');
-  
-  // Validation
-  if (!sku || sku.length < 3) {
-    return false;
-  }
-  
-  // ✅ VALIDATE FORMAT FIRST (before API call)
-  const validation = validateSkuFormat(sku);
-  if (!validation.isValid) {
-    setSkuError(validation.error);
-    return true; // Return true to indicate "not available"
-  }
-  
-  setCheckingSku(true);
-  
-  try {
-    console.log('🔍 Checking SKU availability:', sku);
-    
-    const response = await productsService.getAll({ 
-     page:1,
-      pageSize: 100 
-    });
-    
-    // Safe data extraction
-    let products: any[] = [];
-    
-    try {
-      if (response.data) {
-        if (typeof response.data === 'object' && 'data' in response.data) {
-          const nestedData = (response.data as any).data;
-          
-          if (nestedData && typeof nestedData === 'object') {
-            if ('items' in nestedData && Array.isArray(nestedData.items)) {
-              products = nestedData.items;
-            } else if (Array.isArray(nestedData)) {
-              products = nestedData;
-            }
-          }
-        } else if (Array.isArray(response.data)) {
-          products = response.data;
-        }
-      }
-    } catch (parseError) {
-      console.error('Error parsing products:', parseError);
-      products = [];
-    }
-    
-    // Check for duplicate SKU (exclude current product in edit mode)
-    const exists = products.some((p: any) => {
-      if (!p || typeof p !== 'object' || !p.sku) return false;
-      if (p.id === productId) return false; // Exclude current product
-      return p.sku.toUpperCase() === sku.toUpperCase();
-    });
-    
-    if (exists) {
-      setSkuError('SKU already exists. Please choose a unique SKU.');
-      return true;
-    }
-    
-    return false;
-    
-  } catch (error: any) {
-    console.error('SKU check error:', error);
-    setSkuError(''); // On error, don't block user
-    return false;
-  } finally {
-    setCheckingSku(false);
-  }
-};
+
+
 
 
 // ✅ State to track if component is mounted
@@ -2075,91 +1968,11 @@ useEffect(() => {
   return () => clearTimeout(timer);
 }, []);
 
-// ✅ FIXED - Don't validate on page load
-const checkVariantSkuExists = async (
-  sku: string, 
-  currentVariantId: string,
-  skipToast: boolean = false // ✅ Add this parameter
-): Promise<boolean> => {
-  if (!sku || sku.length < 2) return false;
-
-  try {
-    // ✅ Check within current product's variants
-    const duplicateInProduct = productVariants.find(
-      (v) => v.id !== currentVariantId && v.sku.toUpperCase() === sku.toUpperCase()
-    );
-
-    if (duplicateInProduct) {
-      if (!skipToast && !isInitialLoad) {
-        toast.warning(`SKU already used by variant "${duplicateInProduct.name}"`, {
-          autoClose: 5000,
-        });
-      }
-      return true;
-    }
-
-    // ✅ Check against main product SKU
-    if (formData.sku && formData.sku.toUpperCase() === sku.toUpperCase()) {
-      if (!skipToast && !isInitialLoad) {
-        toast.warning("SKU matches main product SKU", { autoClose: 5000 });
-      }
-      return true;
-    }
-
-    // ✅ Check against database (all products and variants)
-    const response = await productsService.getAll({ page: 1, pageSize: 10000 });
-    const products = response.data?.data?.items || [];
-
-    for (const product of products) {
-      // Skip current product in edit mode
-      if (productId && product.id === productId) {
-        continue; // ✅ Skip current product
-      }
-
-      // Check product SKU
-      if (product.sku?.toUpperCase() === sku.toUpperCase()) {
-        if (!skipToast && !isInitialLoad) {
-          toast.warning(`SKU used by product "${product.name}"`, { autoClose: 5000 });
-        }
-        return true;
-      }
-
-      // Check variant SKUs
-      if (product.variants && Array.isArray(product.variants)) {
-        const variantMatch = product.variants.find(
-          (v: any) => v.sku?.toUpperCase() === sku.toUpperCase()
-        );
-        if (variantMatch) {
-          if (!skipToast && !isInitialLoad) {
-            toast.warning(`SKU used by "${product.name}" - Variant "${variantMatch.name}"`, {
-              autoClose: 5000,
-            });
-          }
-          return true;
-        }
-      }
-    }
-
-    return false;
-  } catch (error) {
-    console.error("Variant SKU check error:", error);
-    return false;
-  }
-};
 
 
 
 
-// ✅ Real-time check
-useEffect(() => {
-  const timer = setTimeout(() => {
-    if (formData.sku) {
-      checkSkuExists(formData.sku);
-    }
-  }, 800);
-  
-  return () => clearTimeout(timer);
-}, [formData.sku]);
+
 
 // ==========================================
 // 🔒 LOCK INITIALIZATION & REFRESH
@@ -2696,39 +2509,35 @@ if (!formData.vatExempt && (!formData.vatRateId || !formData.vatRateId.trim())) 
       return;
     }
 
-    // ✅ PROGRESS: 20% - SKU Check
-    setSubmitProgress({
-      step: 'Checking SKU availability...',
-      percentage: 20,
-    });
+// ================= SKU UNIQUENESS CHECK (OPTIMIZED) =================
+setSubmitProgress({
+  step: 'Checking SKU availability...',
+  percentage: 20,
+});
 
-    // ═══════════════════════════════════════════════════════════════════════
-    // SECTION 4: SKU UNIQUENESS CHECK
-    // ═══════════════════════════════════════════════════════════════════════
+try {
+  const res = await productsService.getAll({
+    searchTerm: formData.sku
+  });
 
-    try {
-      const allProducts = await productsService.getAll();
-      const items = allProducts.data?.data?.items ?? [];
-      const skuExists = items.some((p: any) =>
-        p.sku?.toLowerCase() === formData.sku.toLowerCase() && p.id !== productId
-      );
+  const items = res.data?.data?.items ?? [];
 
-      if (skuExists) {
-        toast.error('❌ SKU already exists. Please use a unique SKU.');
-        target.removeAttribute('data-submitting');
-        setIsSubmitting(false);
-        setSubmitProgress(null);
-        return;
-      }
-    } catch (error) {
-      console.warn('⚠️ Could not verify SKU uniqueness:', error);
-    }
+  const skuExists = items.some((p: any) =>
+    p.sku?.toUpperCase() === formData.sku.toUpperCase() &&
+    p.id !== productId // ✅ edit safe
+  );
 
-      const skuValidation = validateSkuFormat(formData.sku);
-  if (!skuValidation.isValid) {
-    toast.error(skuValidation.error, { autoClose: 5000 });
+  if (skuExists) {
+    toast.error('❌ SKU already exists. Please use a unique SKU.');
+    target.removeAttribute('data-submitting');
+    setIsSubmitting(false);
+    setSubmitProgress(null);
     return;
   }
+
+} catch (error) {
+  console.warn('⚠️ SKU check failed:', error);
+}
 
     // ═══════════════════════════════════════════════════════════════════════
     // SECTION 5: DESCRIPTION LENGTH VALIDATIONS
@@ -2747,12 +2556,41 @@ if (
 }
 
 const sortlength = getPlainText(formData.shortDescription || "").length;
+// ================= NAME UNIQUENESS CHECK =================
+try {
+  const res = await productsService.getAll({
+    searchTerm: formData.name
+  });
 
+  const items = res.data?.data?.items ?? [];
+
+  const nameExists = items.some((p: any) =>
+    p.name?.toLowerCase().trim() === formData.name.toLowerCase().trim() &&
+    p.id !== productId
+  );
+
+  if (nameExists) {
+    toast.error('❌ Product name already exists. Please use a unique name.');
+    target.removeAttribute('data-submitting');
+    setIsSubmitting(false);
+    setSubmitProgress(null);
+    return;
+  }
+
+} catch (error) {
+  console.warn('⚠️ Name check failed:', error);
+}
 if (!isDraft && sortlength > 350) {
   formData.shortDescription = truncateHtmlByTextLength(formData.shortDescription, 350);
   toast.info("ℹ️ Short description trimmed to 350 characters");
 }
-    if (!isDraft && !formData.fullDescription || !getPlainText(formData.fullDescription).trim()) {
+   if (
+  !isDraft &&
+  (
+    !formData.fullDescription ||
+    !getPlainText(formData.fullDescription).trim()
+  )
+) {
   toast.error('❌ Full description is required');
   target.removeAttribute('data-submitting');
   setIsSubmitting(false);
@@ -2910,48 +2748,46 @@ if (parsedCost !== null && parsedPrice !== null && parsedCost > parsedPrice) {
       }
     }
 
-    if (formData.showOnHomepage) {
-      try {
-        const response = await productsService.getAll({ pageSize: 100 });
-        let allProducts: any[] = [];
+// ================= HOMEPAGE LIMIT CHECK (OPTIMIZED) =================
+// ================= HOMEPAGE LIMIT CHECK (CLEAN & OPTIMIZED) =================
+if (formData.showOnHomepage) {
+  try {
+    const res = await productsService.getAll({
+      showOnHomepage: true
+    });
 
-        if (response.data?.data?.items) {
-          allProducts = response.data.data.items;
-        } else if (Array.isArray(response.data?.data)) {
-          allProducts = response.data.data;
-        } else if (Array.isArray(response.data)) {
-          allProducts = response.data;
-        }
+    const products = res.data?.data?.items || [];
 
-        const homepageProducts = allProducts.filter((p: any) => {
-          if (p.id === productId) return false;
-          return p.showOnHomepage === true;
-        });
+    // ✅ SAME LOGIC AS getHomepageCount
+    let count = res.data?.data?.totalCount ?? products.length;
 
-        const MAX_HOMEPAGE_PRODUCTS = 50;
 
-        if (homepageProducts.length >= MAX_HOMEPAGE_PRODUCTS) {
-          toast.error(
-            `❌ Homepage product limit reached (${MAX_HOMEPAGE_PRODUCTS} maximum). Please remove other products first.`,
-            { autoClose: 8000, position: 'top-center' }
-          );
-          target.removeAttribute('data-submitting');
-          setIsSubmitting(false);
-          setSubmitProgress(null);
-          return;
-        }
+    const finalCount = count + 1;
 
-        if (homepageProducts.length >= MAX_HOMEPAGE_PRODUCTS - 10) {
-          const currentCount = homepageProducts.length + 1;
-          toast.warning(
-            `⚠️ Homepage products: ${currentCount}/${MAX_HOMEPAGE_PRODUCTS}. Approaching limit!`,
-            { autoClose: 5000, position: 'top-right' }
-          );
-        }
-      } catch (error) {
-        console.warn('⚠️ Could not verify homepage product limit:', error);
-      }
+    // ❌ LIMIT EXCEEDED
+    if (finalCount > MAX_HOMEPAGE) {
+      toast.error(
+        `❌ Homepage product limit reached (${MAX_HOMEPAGE} maximum). Please remove other products first.`,
+        { autoClose: 8000, position: 'top-center' }
+      );
+      target.removeAttribute('data-submitting');
+      setIsSubmitting(false);
+      setSubmitProgress(null);
+      return;
     }
+
+    // ⚠️ WARNING
+    if (finalCount >= MAX_HOMEPAGE - 10) {
+      toast.warning(
+        `⚠️ Homepage products: ${finalCount}/${MAX_HOMEPAGE}. Approaching limit!`,
+        { autoClose: 5000, position: 'top-right' }
+      );
+    }
+
+  } catch (error) {
+    console.warn('⚠️ Could not verify homepage product limit:', error);
+  }
+}
 
     // ═══════════════════════════════════════════════════════════════════════
     // SECTION 9: BRAND VALIDATION
@@ -3612,7 +3448,7 @@ const variantsArray = productVariants?.map(variant => {
 
     if (variantsArray && variantsArray.length > 0) {
       try {
-        const allProductsResponse = await productsService.getAll({ pageSize: 1000 });
+        const allProductsResponse = await productsService.getAll({ pageSize: 10000 });
         const allProducts = allProductsResponse.data?.data?.items || [];
 
         for (const variant of variantsArray) {
@@ -4041,7 +3877,24 @@ if (!isDraft && formData.productImages.length < 5) {
   }
 };
 
+// ================================
+// ✅ SECTION 28A: SHOW ON HOMEPAGE (Keep as string in state, convert in payload)
+// ================================
+const canEnableHomepage = async () => {
+  try {
+    const res = await productsService.getAll({
+      showOnHomepage: true
+    });
 
+    const products = res.data?.data?.items || [];
+    let count = res.data?.data?.totalCount ?? products.length;
+
+    return count + 1 <= MAX_HOMEPAGE;
+
+  } catch {
+    return true; // fallback allow
+  }
+};
 
 // ✅ PRODUCTION-LEVEL handleChange with ALL edge cases
 const handleChange = (
@@ -4184,31 +4037,8 @@ if (name === "standardDeliveryEnabled") {
     return;
   }
 
-  // ================================
-  // ✅ SECTION 4: SKU FIELD
-  // ================================
-  if (name === 'sku') {
-    const cleanedValue = value
-      .toUpperCase()
-      .replace(/[^A-Z0-9\-_]/g, '');
-    
-    const finalValue = cleanedValue.substring(0, 50);
-    
-    setFormData(prev => ({
-      ...prev,
-      sku: finalValue
-    }));
-    
-    if (finalValue.length >= 2) {
-      clearTimeout(seoTimer);
-      seoTimer = setTimeout(() => {
-        checkSkuExists(finalValue);
-      }, 800);
-    } else {
-      setSkuError('');
-    }
-    return;
-  }
+ 
+
 
   // ================================
   // ✅ SECTION 5: PRODUCT NAME
@@ -4627,35 +4457,33 @@ if (name === "isRecurring") {
     return;
   }
 
-// ================================
-// ✅ SECTION 28A: SHOW ON HOMEPAGE (Keep as string in state, convert in payload)
-// ================================
+
 if (name === 'showOnHomepage') {
-  // Keep current value before update
-  const currentDisplayOrder = parseInt(formData.displayOrder as any) || 0;
-  
-  // Update state (keep as string for consistency with input)
+  const newValue = checked;
+
+  // ✅ Immediately update UI (no lag)
   setFormData(prev => ({
     ...prev,
-    showOnHomepage: checked,
-    displayOrder: checked ? prev.displayOrder : "0"  // Keep as string
+    showOnHomepage: newValue
   }));
-  
-  // User feedback
-  if (checked) {
-    toast.success("✅ Product added to homepage!");
-  } else {
-    if (currentDisplayOrder > 0) {
-      toast.info("📌 Product removed from homepage. Display order reset to 0.");
-    } else {
-      toast.info("📌 Product removed from homepage.");
-    }
+
+  // ✅ Run async check separately
+  if (newValue) {
+    canEnableHomepage().then((allowed) => {
+      if (!allowed) {
+        toast.error(`❌ Homepage limit reached (${MAX_HOMEPAGE})`);
+
+        // 🔁 revert checkbox
+        setFormData(prev => ({
+          ...prev,
+          showOnHomepage: false
+        }));
+      }
+    });
   }
-  
+
   return;
 }
-
-
 
   // ================================
   // ✅ SECTION 28: GENERIC CHECKBOXES
@@ -4684,69 +4512,7 @@ if (name === 'showOnHomepage') {
 // 🔥 FULL IMPLEMENTATION
 // ============================================
 
-// ============================================
-// 🚀 FINAL WORKING CODE (TypeScript Fixed)
-// ============================================
 
-// DELETE VARIANT - PRODUCTION READY
-const deleteProductVariant = async (productId: string, variantId: string) => {
-  const previousVariants = [...productVariants];
-  const variantName = productVariants.find(v => v.id === variantId)?.name || 'Variant';
-  
-  try {
-    console.log("🗑️ Deleting variant:", variantId);
-    
-    // Optimistic delete - Remove from UI immediately
-    setProductVariants(prev => prev.filter(v => v.id !== variantId));
-    toast.info(`Deleting ${variantName}...`, { autoClose: 1000 });
-    
-    // API call
-    const response = await productsService.deleteVariant(productId, variantId);
-    
-    // ✅ Success with 200/204
-    if (response?.data?.success === true || 
-        response?.status === 200 || 
-        response?.status === 204) {
-      toast.success(`${variantName} deleted successfully!`);
-      return;
-    }
-    
-    // ✅ 404 with success: false is STILL success for delete
-    if (response?.status === 404) {
-      console.log("✅ Item already deleted (404)");
-      toast.success(`${variantName} removed successfully!`);
-      return;
-    }
-    
-  } catch (error: any) {
-    const statusCode = error?.response?.status;
-    const errorMsg = error?.response?.data?.message;
-    
-    console.error("❌ Delete variant error:", { statusCode, errorMsg });
-    
-    // ✅ 404 = Success (item not found = deletion goal achieved)
-    if (statusCode === 404) {
-      console.log("✅ Variant not found (404) - treating as success");
-      toast.success(`${variantName} removed successfully!`);
-      return; // Don't rollback
-    }
-    
-    // ❌ Real errors - rollback
-    console.error("❌ Rolling back variant deletion");
-    setProductVariants(previousVariants);
-    
-    // User-friendly error messages
-    if (statusCode === 403) {
-      toast.error("❌ Permission denied. Cannot delete variant.");
-    } else if (statusCode === 500) {
-      toast.error("❌ Server error. Please try again.");
-    } else if (statusCode === 409) {
-      toast.error("❌ Variant is in use. Cannot delete.");
-    } else {
-      toast.error(errorMsg || `Failed to delete ${variantName}`);
-    }
-  }
-};
 
 // DELETE ATTRIBUTE - PRODUCTION READY
 const deleteProductAttribute = async (productId: string, attributeId: string) => {
@@ -5541,25 +5307,11 @@ const uploadImagesToProductDirect = async (
 
     <div className="grid gap-4">
       {/* Product Name */}
-      <div>
-        <label className="block text-sm font-medium text-slate-300 mb-2">
-          Product Name <span className="text-red-500">*</span>
-        </label>
-        <input
-  type="text"
-  name="name"
+<ProductNameInput
   value={formData.name}
-  onChange={handleChange}
-  placeholder="Enter product name"
-  className="w-full px-3 py-2.5 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
-  required
-  minLength={3}
-  maxLength={150}
-  pattern="^[A-Za-z0-9\s\-.,()'/]+$"
-  title="Product name must be 3–150 characters and cannot contain emojis or special characters like @, #, $, %."
+  productId={productId}
+  onChange={(val) => setFormData({ ...formData, name: val })}
 />
-
-      </div>
 
 <div className="space-y-4">
 
@@ -5610,98 +5362,11 @@ const uploadImagesToProductDirect = async (
 
       {/* ✅ Row 1: SKU, Brand, Categories (3 Columns) */}
       <div className="grid md:grid-cols-3 gap-4">
-<div>
-<label className="flex items-center justify-between text-sm font-medium text-slate-300 mb-2">
-  {/* LEFT: Label + Required */}
-  <div className="flex items-center gap-1">
-    <span>SKU (Stock Keeping Unit)</span>
-    <span className="text-red-500">*</span>
-  </div>
-
-  {/* RIGHT: Character Count */}
-  {!skuError && (
-    <span className="text-xs text-slate-500">
-      ({formData.sku.length}/30)
-    </span>
-  )}
-</label>
-
-  
-  <div className="relative">
-    <input
-      type="text"
-      name="sku"
-      value={formData.sku}
-      onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-        const input = e.target.value;
-        // ✅ Auto-uppercase and remove invalid characters (spaces, special chars)
-        const sanitized = input.toUpperCase().replace(/[^A-Z0-9-]/g, '');
-        
-        setFormData({ ...formData, sku: sanitized });
-        
-        // Clear error on typing
-        if (skuError) setSkuError('');
-      }}
-      onBlur={() => {
-        // ✅ Validate on blur
-        if (formData.sku && formData.sku.length >= 3) {
-          checkSkuExists(formData.sku);
-        } else if (formData.sku && formData.sku.length > 0 && formData.sku.length < 3) {
-          setSkuError('SKU must be at least 3 characters');
-        }
-      }}
-      placeholder="641256412 or PROD-001"
-      maxLength={30}
-      className={`w-full px-3 py-2.5 pr-10 bg-slate-800/50 border rounded-xl text-white placeholder-slate-500 focus:ring-2 transition-all uppercase font-mono ${
-        skuError 
-          ? 'border-red-500 focus:ring-red-500' 
-          : formData.sku && !checkingSku && formData.sku.length >= 3
-            ? 'border-green-500 focus:ring-green-500' 
-            : 'border-slate-700 focus:ring-violet-500'
-      }`}
-      required
-    />
-    
-    {/* Status Icons - Same as before */}
-    {checkingSku && (
-      <div className="absolute right-3 top-1/2 -translate-y-1/2">
-        <svg className="animate-spin h-5 w-5 text-violet-400" fill="none" viewBox="0 0 24 24">
-          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-        </svg>
-      </div>
-    )}
-    
-    {!checkingSku && skuError && (
-      <div className="absolute right-3 top-1/2 -translate-y-1/2">
-        <svg className="h-5 w-5 text-red-500" fill="currentColor" viewBox="0 0 20 20">
-          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-        </svg>
-      </div>
-    )}
-    
-    {!checkingSku && !skuError && formData.sku && formData.sku.length >= 3 && (
-      <div className="absolute right-3 top-1/2 -translate-y-1/2">
-        <svg className="h-5 w-5 text-green-500" fill="currentColor" viewBox="0 0 20 20">
-          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-        </svg>
-      </div>
-    )}
-  </div>
-  
-  {/* Error Message */}
-  {skuError && (
-    <div className="mt-2 p-2 bg-red-500/10 border border-red-500/30 rounded-lg flex items-start gap-2">
-      <svg className="w-4 h-4 text-red-400 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
-        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-      </svg>
-      <p className="text-xs text-red-400">{skuError}</p>
-    </div>
-  )}
-  
-  {/* ✅ Updated Examples - Shows all formats */}
- 
-</div>
+<SKUInput
+  value={formData.sku}
+  productId={productId}
+  onChange={(val) => setFormData({ ...formData, sku: val })}
+/>
 
 
 
@@ -7025,7 +6690,8 @@ const uploadImagesToProductDirect = async (
         <div className="grid md:grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-medium text-slate-300 mb-2">
-              Stock Quantity <span className="text-red-500">*</span>
+              Stock Quantity 
+              {/* <span className="text-red-500">*</span> */}
             </label>
             <input
               type="number"

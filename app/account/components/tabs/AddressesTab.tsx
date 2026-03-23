@@ -16,7 +16,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-
+import { useToast } from "@/components/toast/CustomToast";
 interface Address {
   id: string;
   firstName: string;
@@ -33,7 +33,7 @@ interface Address {
 
 export default function AddressesTab() {
  const { accessToken, user } = useAuth();
-
+const toast = useToast();
 
   const [addresses, setAddresses] = useState<Address[]>([]);
   const [loading, setLoading] = useState(true);
@@ -338,6 +338,8 @@ const handleSave = async () => {
     (a, b) => Number(b.isDefault) - Number(a.isDefault)
   );
 });
+  // ✅ TOAST
+  toast.success("Address updated successfully");
     } else {
       const created = await createAddress(
         accessToken,
@@ -360,6 +362,8 @@ setAddresses((prev) => {
     (a, b) => Number(b.isDefault) - Number(a.isDefault)
   );
 });
+  // ✅ TOAST
+  toast.success("Address added successfully");
     }
 
     setOpen(false);
@@ -415,6 +419,8 @@ setAddresses((prev) => {
     (a, b) => Number(b.isDefault) - Number(a.isDefault)
   );
 });
+    // ✅ TOAST
+    toast.success("Default address updated");
     } catch (err: any) {
       alert(err.message);
     }

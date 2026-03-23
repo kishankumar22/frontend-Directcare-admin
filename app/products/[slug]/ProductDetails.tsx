@@ -36,6 +36,7 @@ import { usePathname } from "next/navigation";
 import { detectUKRegion } from "@/app/lib/region";
 import GenderBadge from "@/components/shared/GenderBadge";
 import PharmaQuestionsModal from "@/components/pharma/PharmaQuestionsModal";
+import { useVatRates } from "@/app/hooks/useVatRates";
 // ---------- Types ----------
 interface ProductImage {
   id: string;
@@ -254,6 +255,7 @@ if (!product) {
     </div>
   );
 }
+
 console.log("🧪 productType:", product.productType);
 console.log("🧪 requireOtherProducts:", product.requireOtherProducts);
 console.log("🧪 groupedProducts:", product.groupedProducts);
@@ -287,7 +289,7 @@ const [zoomPos, setZoomPos] = useState({ x: 50, y: 50 });
 const [crossSellProducts, setCrossSellProducts] = useState<CrossSellProduct[]>([]);
   const [activeTab, setActiveTab] = useState<"description" | "specifications" | "delivery">("description");
 const [purchaseType, setPurchaseType] = useState<"one" | "subscription">("one");
-const [vatRates, setVatRates] = useState<any[]>([]);
+const vatRates = useVatRates();
 const [vatRate, setVatRate] = useState<number | null>(null);
 const [showCouponModal, setShowCouponModal] = useState(false);
 const [showNotifyModal, setShowNotifyModal] = useState(false);
@@ -675,18 +677,18 @@ if (autoMatch) {
 }
 };
 //vat dikhane ke liye
-useEffect(() => {
-  const fetchVatRates = async () => {
-    try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/VATRates?activeOnly=true`);
-      const json = await res.json();
-      setVatRates(json.data || []);
-    } catch (err) {
-      console.error("VAT fetch error:", err);
-    }
-  };
-  fetchVatRates();
-}, []);
+// useEffect(() => {
+//   const fetchVatRates = async () => {
+//     try {
+//       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/VATRates?activeOnly=true`);
+//       const json = await res.json();
+//       setVatRates(json.data || []);
+//     } catch (err) {
+//       console.error("VAT fetch error:", err);
+//     }
+//   };
+//   fetchVatRates();
+// }, []);
 //vat dikhane ke liye
 useEffect(() => {
   if (!product || !product.vatRateId || product.vatExempt) return;
@@ -871,7 +873,7 @@ useEffect(() => {
       const ids = relatedIds.split(',').map(id => id.trim());
       const promises = ids.slice(0, 8).map(id =>
         fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/Products/${id}`, {
-          cache: 'no-store'
+           next: { revalidate: 60 }
         }).then(res => res.json())
       );
       const results = await Promise.all(promises);
@@ -894,7 +896,7 @@ const fetchCrossSellProducts = async (crossIds: string) => {
     const ids = crossIds.split(',').map(id => id.trim());
     const promises = ids.slice(0, 8).map(id =>
       fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/Products/${id}`, {
-        cache: 'no-store'
+         next: { revalidate: 60 }
       }).then(res => res.json())
     );
     const results = await Promise.all(promises);
@@ -1474,38 +1476,44 @@ const handleRemoveCoupon = () => {
 
             {/* Main Image */}
             <div className="flex-1 relative bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-sm">
-              <div
-                className="relative bg-white overflow-hidden h-[250px] md:h-[390px] lg:h-[460px] flex items-center justify-center"
- 
-  onMouseEnter={() => setShowZoom(true)}
-  onMouseLeave={() => setShowZoom(false)}
-  onMouseMove={handleMouseMove}
->
-  <button
-  type="button"
-  aria-label="View product image"
-  onClick={() => setShowImageModal(true)}
-  className="absolute inset-0 z-10 cursor-zoom-in"
- />
-                  <Image
-                   src={activeMainImage}
-                      alt={product.name}
-                      fill
-                     className="object-contain p-1 pointer-events-none" // 🔥 ADD THIS
-                      priority
-                      sizes="(max-width: 768px) 100vw, 50vw"
-                    />
-                    {/* 🔥 ZOOM OVERLAY (DESKTOP ONLY) */}
-<div
-  className="absolute inset-0 pointer-events-none transition-opacity duration-150 hidden lg:block"
-  style={{
-    opacity: showZoom ? 1 : 0,
- backgroundImage: `url(${activeMainImage})`,
-    backgroundRepeat: "no-repeat",
-    backgroundSize: "170%",
-    backgroundPosition: `${zoomPos.x}% ${zoomPos.y}%`,
-  }}
-/>
+   <div className="relative bg-white overflow-hidden h-[250px] md:h-[390px] lg:h-[460px] flex items-center justify-center">
+
+  {/* ✅ ONLY IMAGE AREA HAS ZOOM */}
+  <div
+    className="relative w-full h-full"
+    onMouseEnter={() => setShowZoom(true)}
+    onMouseLeave={() => setShowZoom(false)}
+    onMouseMove={handleMouseMove}
+  >
+    <button
+      type="button"
+      aria-label="View product image"
+      onClick={() => setShowImageModal(true)}
+      className="absolute inset-0 z-10 cursor-zoom-in"
+    />
+
+    <Image
+      src={activeMainImage}
+      alt={product.name}
+      fill
+      className="object-contain p-1 pointer-events-none"
+      priority
+      sizes="(max-width: 768px) 100vw, 50vw"
+    />
+
+    {/* 🔥 ZOOM OVERLAY */}
+    <div
+      className="absolute inset-0 pointer-events-none transition-opacity duration-150 hidden lg:block"
+      style={{
+        opacity: showZoom ? 1 : 0,
+        backgroundImage: `url(${activeMainImage})`,
+        backgroundRepeat: "no-repeat",
+        backgroundSize: "170%",
+        backgroundPosition: `${zoomPos.x}% ${zoomPos.y}%`,
+      }}
+    />
+  </div>
+
 <div className="absolute top-3 right-3 flex flex-col gap-2 z-30">
 {/* Wishlist */}
 <Button

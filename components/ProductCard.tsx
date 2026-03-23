@@ -13,7 +13,7 @@ import GenderBadge from "./shared/GenderBadge";
 const FALLBACK_IMAGE = "/placeholder-product.jpg";
 import { useState, useRef } from "react";
 import PharmaQuestionsModal from "@/components/pharma/PharmaQuestionsModal";
-
+import { useRouter } from "next/navigation";
 export default function ProductCard({
   product,
   vatRates,
@@ -26,6 +26,7 @@ export default function ProductCard({
   cardSlug: string;
 })
  {
+  const router = useRouter();
   const toast = useToast();
   const { addToCart, cart } = useCart();
   const [showPharmaModal, setShowPharmaModal] = useState(false);
@@ -204,7 +205,23 @@ if (product.orderMinimumQuantity > 1) {
     `Minimum order quantity is ${product.orderMinimumQuantity}. Added ${finalQty} items to cart.`
   );
 } else {
-  toast.success(`${product.name} added to cart 🛒`);
+ toast.success(
+    <div className="flex items-center justify-between gap-2">
+      <span className="text-sm font-medium">
+        {product.name} added to cart!
+      </span>
+
+      <button
+  onClick={(e) => {
+    e.stopPropagation();
+    router.push("/cart");
+  }}
+  className="px-2.5 py-1 text-[11px] font-semibold rounded-md bg-white text-[#445D41] hover:bg-black hover:text-white transition shadow-sm"
+>
+  Cart→
+</button>
+    </div>
+  );
 }
 
 

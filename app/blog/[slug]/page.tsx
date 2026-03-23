@@ -131,15 +131,15 @@ export default async function BlogDetailPage({
     post.imageUrls.forEach((img: string) => gallery.push(absoluteUrl(img)!));
 
   return (
-    <main className="min-h-screen bg-gray-100 py-6">
-      <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-1 lg:grid-cols-3 gap-4 px-4 md:px-6">
+  <main className="bg-white py-3 lg:h-screen lg:overflow-hidden">
+   <div className="max-w-full mx-4 grid grid-cols-1 lg:grid-cols-3 gap-4 px-0 md:px-6 lg:h-full">
 
         {/* LEFT ARTICLE CARD */}
-        <div className="lg:col-span-2 ml-0 mr-0 md:ml-[-20px] md:mr-[-40px] lg:ml-[-55px] lg:mr-[-119px]">
-          <div className="bg-white shadow-lg rounded-2xl p-4 md:p-8 border">
+      <div className="lg:col-span-2 ml-0 mr-0 md:ml-[-20px] md:mr-[-40px] lg:ml-[-55px] lg:mr-[-119px] lg:h-full lg:overflow-y-auto pr-2">
+        <div className="bg-white shadow-lg rounded-2xl p-4 md:p-8 border min-h-full">
 
             {/* Breadcrumb */}
-            <nav className="hidden md:flex text-sm text-gray-500 mb-4 items-center gap-1">
+            <nav className="hidden md:flex text-sm text-gray-500 mb-2 items-center gap-1">
               <Link href="/" className="hover:underline text-blue-600">Home</Link>
               <span>/</span>
 
@@ -164,12 +164,12 @@ export default async function BlogDetailPage({
             </nav>
 
             {/* Title */}
-            <h1 className="text-xl md:text-4xl font-bold leading-tight text-gray-900">
+            <h1 className="text-lg md:text-2xl font-bold leading-tight text-gray-900">
               {post.title}
             </h1>
 
             {/* Meta */}
-            <div className="mt-3 flex flex-wrap items-center gap-2 sm:gap-4 text-gray-600 text-xs md:text-sm">
+            <div className="mt-3 flex flex-wrap items-center gap-1 sm:gap-4 text-gray-600 text-xs md:text-sm">
               <span>✍️ {post.authorName}</span>
               <span>•</span>
               <span>{new Date(post.publishedAt).toLocaleDateString()}</span>
@@ -179,7 +179,7 @@ export default async function BlogDetailPage({
 
             {/* LABELS with dynamic icons + priority */}
             {post.labels?.length > 0 && (
-              <div className="mt-5 flex gap-2 flex-wrap">
+              <div className="mt-5 flex gap-1 flex-wrap">
                 {[...post.labels]
                   .sort((a: any, b: any) => (a.priority ?? 999) - (b.priority ?? 999))
                   .map((l: any) => {
@@ -206,7 +206,7 @@ export default async function BlogDetailPage({
 
             {/* Featured Image */}
             {post.featuredImageUrl && (
-              <div className="mt-8 w-full rounded-xl overflow-hidden">
+              <div className="mt-4 w-full rounded-xl overflow-hidden">
                 <img
                   src={absoluteUrl(post.featuredImageUrl)!}
                   alt={post.title}
@@ -218,22 +218,22 @@ export default async function BlogDetailPage({
             {/* Body */}
             <article
               dangerouslySetInnerHTML={{ __html: post.body }}
-              className="prose prose-lg mt-10 max-w-none"
+              className="prose max-w-none text-[15px] leading-6"
             />
 
             {/* Gallery */}
-            {gallery.length > 0 && (
+            {/* {gallery.length > 0 && (
               <div className="mt-10 grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {gallery.map((img, i) => (
                   <img
                     key={i}
                     src={img}
-                    className="rounded-lg w-full aspect-[16/9] object-cover shadow-md"
+                    className="rounded-lg w-full aspect-[16/9] object-contain shadow-md"
                     alt=""
                   />
                 ))}
               </div>
-            )}
+            )} */}
 
             {/* Tags */}
             {post.tags?.length > 0 && (
@@ -267,8 +267,8 @@ export default async function BlogDetailPage({
         </div>
 
         {/* RIGHT SIDEBAR */}
-        <aside className="lg:col-span-1 flex justify-end ml-0 mr-0 md:ml-[10px] md:mr-[10px] lg:ml-[118px] lg:mr-[-55px] mt-10 lg:mt-0">
-          <div className="sticky top-24 w-full">
+    <aside className="lg:col-span-1 mt-10 lg:mt-0 order-last lg:order-none ml-0 mr-0 md:ml-[10px] md:mr-[10px] lg:ml-[118px] lg:mr-[-55px] self-start">
+       <div className="w-full self-start lg:sticky lg:top-28 lg:max-h-[calc(100vh-120px)] lg:overflow-y-auto pr-2">
 
             {/* RECENT ARTICLES CARD */}
             <div className="bg-white shadow-xl rounded-2xl p-6 border mb-8">

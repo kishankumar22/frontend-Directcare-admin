@@ -171,7 +171,10 @@ const [selectedSubCategories, setSelectedSubCategories] = useState<string[]>([])
 
   const [minPrice, setMinPrice] = useState(0);
 const [maxPrice, setMaxPrice] = useState(0);
-
+const availableBrands = useMemo(
+  () => brands.filter((b) => b.productCount > 0),
+  [brands]
+);
 
   const flattenSubCategories = (cat: Category | null): Category[] => {
   if (!cat) return [];
@@ -361,7 +364,24 @@ const flattenedProducts = useMemo(() => {
 
   // 🔥 SORT AFTER UNIQUE
   const sorted = [...unique].sort((a, b) => {
+  // ✅ STEP 1: STOCK PRIORITY (MOST IMPORTANT)
+  const stockA =
+    a.variantForCard?.stockQuantity ??
+    a.productData.stockQuantity ??
+    0;
 
+  const stockB =
+    b.variantForCard?.stockQuantity ??
+    b.productData.stockQuantity ??
+    0;
+
+  const isOutA = stockA <= 0;
+  const isOutB = stockB <= 0;
+
+  // 👉 in-stock first
+  if (isOutA !== isOutB) {
+    return isOutA ? 1 : -1;
+  }
   if (sortBy === "name") {
 
   const nameA = (a.cardSlug ?? a.productData.name).toLowerCase();
@@ -790,7 +810,7 @@ if (product.orderMinimumQuantity > 1) {
                     Brand
                   </h3>
                   <div className="space-y-1 max-h-64 overflow-y-auto pr-2 custom-scrollbar">
- {brands.map((brand) => (
+ {availableBrands.map((brand) => (
 
                       <label
                         key={brand.id}
@@ -938,7 +958,7 @@ if (product.orderMinimumQuantity > 1) {
                           <button className="text-xs text-[#445D41] font-medium" onClick={() => setSelectedBrands([])}>Clear</button>
                         </div>
                         <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
-                          {brands.map((brand) => (
+            {availableBrands.map((brand) => (
                             <label key={brand.id} className="flex items-center gap-3 cursor-pointer py-1">
                               <input
                                 type="checkbox"

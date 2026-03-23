@@ -283,7 +283,40 @@ export default function OrderCard({ order }: { order: any }) {
       setShowHistory(true);
     }
   };
+const [refundHistory, setRefundHistory] = useState<any | null>(null);
+const [refundLoading, setRefundLoading] = useState(false);
+const [showRefundHistory, setShowRefundHistory] = useState(false);
 
+const loadRefundHistory = async () => {
+  if (refundHistory) {
+    setShowRefundHistory(true);
+    return;
+  }
+
+  setRefundLoading(true);
+
+  try {
+    const res = await fetch(
+      `${process.env.NEXT_PUBLIC_API_URL}/api/orders/${order.id}/refund-history`,
+      {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      }
+    );
+
+    const json = await res.json();
+
+    if (json.success) {
+      setRefundHistory(json.data);
+    }
+  } catch {
+    toast.error("Unable to load refund history");
+  }
+
+  setRefundLoading(false);
+  setShowRefundHistory(true);
+};
   /* =========================
      DOWNLOAD INVOICE
   ========================== */
@@ -346,6 +379,35 @@ export default function OrderCard({ order }: { order: any }) {
   }
 };
 
+const handleDownloadCreditNote = async () => {
+  try {
+    const res = await fetch(
+      `${process.env.NEXT_PUBLIC_API_URL}/api/orders/${order.id}/refund-note/download`,
+      {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      }
+    );
+
+    if (!res.ok) throw new Error("Download failed");
+
+    const blob = await res.blob();
+    const url = window.URL.createObjectURL(blob);
+
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `CreditNote-${order.orderNumber}.pdf`;
+
+    document.body.appendChild(link);
+    link.click();
+
+    link.remove();
+    window.URL.revokeObjectURL(url);
+  } catch {
+    toast.error("Unable to download credit note");
+  }
+};
   /* =========================
      CANCEL ORDER
   ========================== */
@@ -518,7 +580,47 @@ const refundedAmount =
   }
 />
       </div>
+{refundedAmount > 0 && (
+  <div className="pt-2 border-t">
+    <button
+      onClick={() =>
+        showRefundHistory ? setShowRefundHistory(false) : loadRefundHistory()
+      }
+      className="flex items-center gap-1 text-xs text-gray-500 hover:text-gray-700"
+    >
+      <span>{showRefundHistory ? "▲" : "▼"}</span>
+      <span>View refund history</span>
+      {refundLoading && <span className="ml-1 text-gray-400">Loading…</span>}
+    </button>
 
+    {showRefundHistory && refundHistory && (
+      <div className="mt-3 bg-green-50 border rounded-lg p-3 text-xs space-y-2">
+        <p>
+          Total Refunded:{" "}
+          <span className="font-semibold">
+            £{refundHistory.totalRefunded.toFixed(2)}
+          </span>
+        </p>
+
+        <p>
+          Remaining Balance:{" "}
+          <span className="font-semibold">
+            £{refundHistory.remainingBalance.toFixed(2)}
+          </span>
+        </p>
+
+        {refundHistory.refunds?.map((r: any) => (
+          <div key={r.refundId} className="border-t pt-2">
+            <p>Amount: £{r.amount.toFixed(2)}</p>
+            <p>Reason: {r.reason}</p>
+            <p>Processed by: {r.processedBy}</p>
+            <p>{new Date(r.processedAt).toLocaleString()}</p>
+          </div>
+        ))}
+      </div>
+    )}
+  </div>
+)}
       {/* ORDER HISTORY */}
       <div className="pt-2 border-t">
         <button
@@ -630,7 +732,16 @@ const refundedAmount =
         >
           {invoiceLoading ? "Generating Invoice..." : "Download Invoice"}
         </Button>
-
+{refundedAmount > 0 && (
+  <Button
+    onClick={handleDownloadCreditNote}
+    size="sm"
+    variant="outline"
+    className="text-white bg-[#445D41] hover:bg-green-700"
+  >
+    Download Credit Note
+  </Button>
+)}
         {["pending", "processing"].includes(order.status?.toLowerCase()) && (
           <Button size="sm" variant="destructive" onClick={() => setShowCancelModal(true)}>
             Cancel Order

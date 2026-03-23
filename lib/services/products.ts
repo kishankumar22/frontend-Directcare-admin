@@ -534,6 +534,12 @@ bulkUpdateInventory: async (items: {
   >(API_ENDPOINTS.inventoryBulkUpdate, items);
 },
 
+getSimpleProducts: async () => {
+  return apiClient.get<ApiResponse<Product[]>>(
+    `${API_ENDPOINTS.products}/simple`
+  );
+},
+
 // 🔥 Inventory Bulk Upload (Excel File) — POST is correct here
 bulkUploadInventoryExcel: async (file: File) => {
   const formData = new FormData();

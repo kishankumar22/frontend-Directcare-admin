@@ -1,5 +1,6 @@
 import { apiClient } from '../api';
 import { API_ENDPOINTS } from '../api-config';
+import { BrandFaq } from './brandFaqs';
 
 // --- Brand TypeScript Interfaces ---
 export interface Brand {
@@ -21,6 +22,7 @@ export interface Brand {
   updatedAt?: string;
   createdBy?: string;
   updatedBy?: string;
+    faqs?: BrandFaq[];
 }
 
 export interface CreateBrandDto {

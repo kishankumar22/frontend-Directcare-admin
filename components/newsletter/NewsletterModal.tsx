@@ -16,17 +16,37 @@ export default function NewsletterModal({
   success?: string | null;
 }) {
 
-  const [email, setEmail] = useState("");
-  const [loading, setLoading] = useState(false);
+const [email, setEmail] = useState("");
+const [loading, setLoading] = useState(false);
+const [localError, setLocalError] = useState<string | null>(null);
 
   if (!isOpen) return null;
 
-  const handleSubmit = async () => {
-    if (!email) return;
-    setLoading(true);
-    await onSubmit(email);
-    setLoading(false);
-  };
+const handleSubmit = async () => {
+  if (!email.trim()) {
+    setLocalError("Please enter your email");
+    return;
+  }
+
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+  if (!emailRegex.test(email)) {
+    setLocalError("Please enter a valid email address");
+    return;
+  }
+
+  // 🔥 EXTRA CHECK (NO DOUBLE DOT)
+  if (email.includes("..")) {
+    setLocalError("Email cannot contain consecutive dots");
+    return;
+  }
+
+  setLocalError(null);
+
+  setLoading(true);
+  await onSubmit(email);
+  setLoading(false);
+};
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[999]">
@@ -43,11 +63,14 @@ export default function NewsletterModal({
           placeholder="Enter your email"
            className=" w-full px-4 py-2 mb-4 rounded-md text-sm border border-[#445D41] focus:outline-none focus:ring-2 focus:ring-[#445D41] focus:border-[#445D41] "
           value={email}
-          onChange={(e) => setEmail(e.target.value)}
+         onChange={(e) => {
+  setEmail(e.target.value);
+  setLocalError(null);
+}}
         />
-{error && (
+{(localError || error) && (
   <p className="text-sm text-red-600 mb-2 text-center">
-    {error}
+    {localError || error}
   </p>
 )}
 

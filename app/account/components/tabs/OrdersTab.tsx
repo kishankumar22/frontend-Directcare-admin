@@ -9,15 +9,23 @@ import { useAuth } from "@/context/AuthContext";
 export default function OrdersTab({ orders }: any) {
   const [statusFilter, setStatusFilter] = useState("all");
   const [deliveryMethodFilter, setDeliveryMethodFilter] = useState("all");
-
-  const [fromDate, setFromDate] = useState("");
-  const [toDate, setToDate] = useState("");
+const [dateFilter, setDateFilter] = useState("1month"); // ✅ default
 const { refreshProfile } = useAuth();
 
 useEffect(() => {
   refreshProfile();
 }, [refreshProfile]);
 
+const yearOptions = useMemo(() => {
+  const years = new Set<number>();
+
+  orders.forEach((o: any) => {
+    const year = new Date(o.orderDate).getFullYear();
+    years.add(year);
+  });
+
+  return Array.from(years).sort((a, b) => b - a);
+}, [orders]);
 const filteredOrders = useMemo(() => {
   let result = [...orders];
 
@@ -34,22 +42,39 @@ const filteredOrders = useMemo(() => {
         deliveryMethodFilter.toLowerCase()
     );
   }
+if (dateFilter !== "all") {
+  const now = new Date();
 
-  if (fromDate) {
-    const from = new Date(fromDate);
-    from.setHours(0, 0, 0, 0);
-    result = result.filter(
-      (o: any) => new Date(o.orderDate) >= from
-    );
-  }
+  result = result.filter((o: any) => {
+    const orderDate = new Date(o.orderDate);
 
-  if (toDate) {
-    const to = new Date(toDate);
-    to.setHours(23, 59, 59, 999);
-    result = result.filter(
-      (o: any) => new Date(o.orderDate) <= to
-    );
-  }
+    if (dateFilter === "7days") {
+      const past = new Date();
+      past.setDate(now.getDate() - 7);
+      return orderDate >= past;
+    }
+
+    if (dateFilter === "1month") {
+      const past = new Date();
+      past.setMonth(now.getMonth() - 1);
+      return orderDate >= past;
+    }
+
+    if (dateFilter === "1year") {
+      const past = new Date();
+      past.setFullYear(now.getFullYear() - 1);
+      return orderDate >= past;
+    }
+
+    if (dateFilter.startsWith("year-")) {
+      const year = parseInt(dateFilter.split("-")[1]);
+      return orderDate.getFullYear() === year;
+    }
+
+    return true;
+  });
+}
+ 
 
   result.sort(
     (a: any, b: any) =>
@@ -58,7 +83,7 @@ const filteredOrders = useMemo(() => {
   );
 
   return result;
-}, [orders, statusFilter, deliveryMethodFilter, fromDate, toDate]);
+}, [orders, statusFilter, deliveryMethodFilter,dateFilter]);
 
 const filteredCount = filteredOrders.length;
 
@@ -80,7 +105,7 @@ const filteredCount = filteredOrders.length;
               <option value="all">All orders</option>
               <option value="pending">Pending</option>
               <option value="processing">Processing</option>
-              <option value="completed">Completed</option>
+              <option value="completed">Delivered</option>
               <option value="cancelled">Cancelled</option>
             </select>
           </div>
@@ -101,31 +126,29 @@ const filteredCount = filteredOrders.length;
 </div>
 
           {/* FROM DATE */}
-          <div className="flex flex-col gap-1">
-            <label className="text-xs font-semibold text-gray-600 uppercase tracking-wide">
-              From
-            </label>
-            <input
-              type="date"
-              value={fromDate}
-              onChange={(e) => setFromDate(e.target.value)}
-              className="h-10 rounded-lg border px-3 text-sm focus:outline-none focus:ring-2 focus:ring-green-600"
-            />
-          </div>
+     {/* DATE FILTER */}
+<div className="flex flex-col gap-1">
+  <label className="text-xs font-semibold text-gray-600 uppercase tracking-wide">
+    Date
+  </label>
+  <select
+    value={dateFilter}
+    onChange={(e) => setDateFilter(e.target.value)}
+    className="h-10 rounded-lg border px-3 text-sm focus:outline-none focus:ring-2 focus:ring-green-600"
+  >
+    <option value="all">All time</option>
+    <option value="7days">Last 7 days</option>
+    <option value="1month">Last 1 month</option>
+    <option value="1year">Last 1 year</option>
 
-          {/* TO DATE */}
-          <div className="flex flex-col gap-1">
-            <label className="text-xs font-semibold text-gray-600 uppercase tracking-wide">
-              To
-            </label>
-            <input
-              type="date"
-              value={toDate}
-              onChange={(e) => setToDate(e.target.value)}
-              className="h-10 rounded-lg border px-3 text-sm focus:outline-none focus:ring-2 focus:ring-green-600"
-            />
-            
-          </div>
+    {yearOptions.map((year) => (
+      <option key={year} value={`year-${year}`}>
+        {year}
+      </option>
+    ))}
+  </select>
+</div>
+
         {/* FILTERED COUNT */}
 <div className="mb-2">
   <p className="text-sm text-gray-600">
@@ -139,14 +162,13 @@ const filteredCount = filteredOrders.length;
   </p>
 </div>
           {/* CLEAR */}
-        {(fromDate || toDate || statusFilter !== "all" || deliveryMethodFilter !== "all") && (
+        {(dateFilter !== "1month" || statusFilter !== "all" || deliveryMethodFilter !== "all") && (
 
             <button
               onClick={() => {
                 setStatusFilter("all");
                 setDeliveryMethodFilter("all");
-                setFromDate("");
-                setToDate("");
+              setDateFilter("1month"); // ✅ reset to default
               }}
               className="ml-auto h-10 px-4 rounded-lg text-sm font-medium
                          bg-red-50 text-red-600 hover:bg-red-100 transition"

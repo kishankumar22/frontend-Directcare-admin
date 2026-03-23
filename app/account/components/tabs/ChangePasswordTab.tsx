@@ -4,15 +4,13 @@ import { useState, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/context/AuthContext";
 import { Eye, EyeOff } from "lucide-react";
-import { forgotPassword } from "@/app/lib/api/auth";
-import clsx from "clsx";
+
 
 export default function ChangePasswordTab() {
   const { accessToken, logout, user } = useAuth();
 
   const [currentPassword, setCurrentPassword] = useState("");
-  const [forgotLoading, setForgotLoading] = useState(false);
-  const [forgotMessage, setForgotMessage] = useState<string | null>(null);
+
 
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -43,32 +41,6 @@ export default function ChangePasswordTab() {
 
   const passwordsMatch =
     confirmPassword.length > 0 && newPassword === confirmPassword;
-
-  const handleForgotCurrentPassword = async () => {
-    setError(null);
-    setForgotMessage(null);
-
-    if (!user?.email) {
-      setError("Unable to process request.");
-      return;
-    }
-
-    try {
-      setForgotLoading(true);
-      const data = await forgotPassword(user.email);
-
-      setForgotMessage(
-        data?.message ||
-          "If an account with that email exists, a password reset link has been sent."
-      );
-    } catch {
-      setForgotMessage(
-        "If an account with that email exists, a password reset link has been sent."
-      );
-    } finally {
-      setForgotLoading(false);
-    }
-  };
 
   const handleSubmit = async () => {
     setError(null);
@@ -137,17 +109,35 @@ export default function ChangePasswordTab() {
         For security reasons, you’ll be logged out after changing your password.
       </p>
 
-      <div className="space-y-4">
-
+     <form autoComplete="off" className="space-y-4">
+{/* 🔥 Autofill Hack */}
+<input
+  type="text"
+  name="username"
+  autoComplete="username"
+  className="hidden"
+/>
+<input
+  type="password"
+  name="password"
+  autoComplete="current-password"
+  className="hidden"
+/>
         {/* CURRENT PASSWORD */}
         <div className="relative">
-          <label className="text-sm font-medium">Current Password</label>
-          <input
-            type={showCurrent ? "text" : "password"}
-            value={currentPassword}
-            onChange={(e) => setCurrentPassword(e.target.value)}
-            className="mt-1 w-full rounded-lg border px-3 py-2 pr-10 text-sm focus:ring-2 focus:ring-[#445D41]"
-          />
+          <label className="text-sm font-medium">Current Password*</label>
+       <input
+  type={showCurrent ? "text" : "password"}
+  value={currentPassword}
+  onChange={(e) => setCurrentPassword(e.target.value)}
+  name="new-pass-field"              // 🔥 random name
+  autoComplete="new-password"       // 🔥 important
+  data-lpignore="true"
+  data-form-type="other"
+  readOnly
+  onFocus={(e) => e.target.removeAttribute("readonly")}
+  className="mt-1 w-full rounded-lg border px-3 py-2 pr-10 text-sm focus:ring-2 focus:ring-[#445D41]"
+/>
           <button
             type="button"
             onClick={() => setShowCurrent(!showCurrent)}
@@ -159,11 +149,12 @@ export default function ChangePasswordTab() {
 
         {/* NEW PASSWORD */}
         <div className="relative">
-          <label className="text-sm font-medium">New Password</label>
+          <label className="text-sm font-medium">New Password*</label>
           <input
             type={showNew ? "text" : "password"}
             value={newPassword}
             onChange={(e) => setNewPassword(e.target.value)}
+            autoComplete="new-password"
             className="mt-1 w-full rounded-lg border px-3 py-2 pr-10 text-sm focus:ring-2 focus:ring-[#445D41]"
           />
           <button
@@ -193,7 +184,7 @@ export default function ChangePasswordTab() {
 
         {/* CONFIRM PASSWORD */}
         <div className="relative">
-          <label className="text-sm font-medium">Confirm New Password</label>
+          <label className="text-sm font-medium">Confirm New Password*</label>
           <input
             type={showConfirm ? "text" : "password"}
             value={confirmPassword}
@@ -216,16 +207,7 @@ export default function ChangePasswordTab() {
         </div>
 
         {/* Forgot */}
-        <div className="text-right">
-          <button
-            type="button"
-            onClick={handleForgotCurrentPassword}
-            disabled={forgotLoading}
-            className="text-xs text-[#445D41] hover:underline"
-          >
-            {forgotLoading ? "Sending reset link..." : "Forgot current password?"}
-          </button>
-        </div>
+    
 
         {error && (
           <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg p-3">
@@ -233,12 +215,7 @@ export default function ChangePasswordTab() {
           </div>
         )}
 
-        {forgotMessage && (
-          <div className="text-sm text-blue-700 bg-blue-50 border border-blue-200 rounded-lg p-3">
-            {forgotMessage}
-          </div>
-        )}
-
+      
         {success && (
           <div className="text-sm text-green-700 bg-green-50 border border-green-200 rounded-lg p-3">
             Password changed successfully. Redirecting to login…
@@ -254,7 +231,7 @@ export default function ChangePasswordTab() {
             {loading ? "Updating…" : "Change Password"}
           </Button>
         </div>
-      </div>
+      </form>
     </div>
   );
 }

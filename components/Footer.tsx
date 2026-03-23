@@ -63,13 +63,12 @@ const handleSubscribe = async (e: React.FormEvent) => {
     Order Tracking
   </Link>
 </li>
-              <li><Link href="#">Contact Us</Link></li>
-              <li><Link href="#">Shipping And Delivery</Link></li>
-              <li><Link href="#">Refund And Return Policy</Link></li>
-              <li><Link href="#">FAQ 24/7</Link></li>
+     <li><Link href="/contact">Contact Us</Link></li>
+              <li><Link href="/shipping-and-delivery">Shipping And Delivery</Link></li>
+              <li><Link href="/refund-and-return-policy">Refund And Return Policy</Link></li>
+              <li><Link href="/faq">FAQ</Link></li>
             </ul>
           </div>
-
           {/* About Us */}
           <div className="py-3 md:py-0">
             <button className="w-full flex items-center justify-between md:justify-start" onClick={() => toggle("about")}>
@@ -78,10 +77,10 @@ const handleSubscribe = async (e: React.FormEvent) => {
             </button>
             <ul className={`text-sm opacity-90 mt-2 space-y-2 ${open.about ? "block" : "hidden md:block"}`}>
               <li><Link href="/blog">Blog</Link></li>
-              <li><Link href="#">Company Info</Link></li>
-              <li><Link href="#">Careers</Link></li>
-              <li><Link href="#">Terms & Conditions</Link></li>
-              <li><Link href="#">Privacy Policy</Link></li>
+              <li><Link href="/company-info">Company Info</Link></li>
+              <li><Link href="/careers">Careers</Link></li>
+              <li><Link href="/terms-and-conditions">Terms & Conditions</Link></li>
+              <li><Link href="/privacy-policy">Privacy Policy</Link></li>
             </ul>
           </div>
 

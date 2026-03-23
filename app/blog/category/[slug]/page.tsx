@@ -149,7 +149,7 @@ export default async function BlogCategoryPage({
                   "/placeholder-article.png"
                 }
                 alt={post.title}
-                className="w-full h-44 object-cover rounded-lg mb-4"
+                className="w-full h-44 object-contain rounded-lg mb-4"
                 loading="lazy"
               />
 

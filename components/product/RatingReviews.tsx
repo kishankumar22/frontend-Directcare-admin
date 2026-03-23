@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { useAuth } from "@/context/AuthContext";
 import { useToast } from "@/components/toast/CustomToast";
 import { timeFromNow } from "@/lib/date";
-
+import Image from "next/image";
 import { Filter, ChevronDown, CheckCircle2, UploadCloud, MessageSquare, MessageSquarePlus, Edit3  } from "lucide-react";
 
 interface RatingReviewsProps {
@@ -32,8 +32,7 @@ export interface Review {
   rating: number;
   isApproved: boolean; // 🔥 ADD THIS
   isVerifiedPurchase: boolean;
-  helpfulCount: number;
-  notHelpfulCount: number;
+
   createdAt: string;
   replies: ReviewReply[];
   imageUrls?: string[];
@@ -248,8 +247,10 @@ useEffect(() => {
   const fetchReviews = useCallback(async () => {
     try {
       const res = await fetch(
-        `https://testapi.knowledgemarkg.com/api/ProductReviews/product/${productId}`
-      );
+        `https://testapi.knowledgemarkg.com/api/ProductReviews/product/${productId}`, {
+  next: { revalidate: 60 },
+});
+      
       const json = await res.json();
       setReviews(json?.data ?? []);
     } catch (err) {
@@ -340,15 +341,14 @@ const handleSubmitReview = async () => {
 };
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL!;
 
-const resolveMediaUrl = (url: string) => {
+const resolveMediaUrl = useCallback((url: string) => {
   if (!url) return "";
   if (url.startsWith("http")) return url;
   return `${API_BASE_URL}${url}`;
-};
+}, [API_BASE_URL]);
 
 
-  const handleHelpful = (id: string) => console.log("Future helpful clicked for", id);
-  const handleNotHelpful = (id: string) => console.log("Future not helpful clicked for", id);
+
 
   // FILTERED DATA (no logic changed, only UI view manipulation)
 const filteredReviews = useMemo(() => {
@@ -648,33 +648,31 @@ const filteredReviews = useMemo(() => {
         }
         className="w-16 h-16 sm:w-18 sm:h-18 md:w-20 md:h-20 rounded-md border overflow-hidden cursor-pointer bg-black"
       >
-        <img
-          src={resolveMediaUrl(url)}
-          alt="Review image"
-          className="w-full h-full object-contain bg-gray-50"
-        />
+      <Image
+  src={resolveMediaUrl(url)}
+  alt="Review image"
+  width={80}
+  height={80}
+  loading="lazy"
+  quality={60}
+  className="w-full h-full object-contain bg-gray-50"
+/>
       </div>
     ))}
 
-    {r.videoUrls?.map((url, i) => (
-      <div
-        key={`${r.id}-vid-${i}`}
-        onClick={() =>
-          setActiveMedia({ type: "video", url: resolveMediaUrl(url) })
-        }
-        className="w-16 h-16 sm:w-18 sm:h-18 md:w-20 md:h-20 rounded-md border overflow-hidden cursor-pointer bg-black relative"
-      >
-        <video
-          src={resolveMediaUrl(url)}
-          muted
-          preload="metadata"
-          className="w-full h-full object-contain"
-        />
-        <div className="absolute inset-0 flex items-center justify-center bg-black/30">
-          <span className="text-white text-xs">▶</span>
-        </div>
-      </div>
-    ))}
+   {r.videoUrls?.map((url, i) => (
+  <div
+    key={`${r.id}-vid-${i}`}
+    onClick={() =>
+      setActiveMedia({ type: "video", url: resolveMediaUrl(url) })
+    }
+    className="w-16 h-16 sm:w-18 sm:h-18 md:w-20 md:h-20 rounded-md border overflow-hidden cursor-pointer bg-black relative flex items-center justify-center"
+  >
+    <div className="absolute inset-0 bg-black flex items-center justify-center">
+      <span className="text-white text-xs">▶</span>
+    </div>
+  </div>
+))}
   </div>
 )}
 
@@ -682,17 +680,6 @@ const filteredReviews = useMemo(() => {
            <p className="text-[10px] text-gray-400 mt-1.5">
   {timeFromNow(r.createdAt)}
 </p>
-
-
-            <div className="flex flex-wrap gap-2 mt-2 text-xs font-medium w-full">
-                <button onClick={() => handleHelpful(r.id)} className="text-gray-500 hover:text-green-700">
-                  👍 Helpful ({r.helpfulCount})
-                </button>
-                <button onClick={() => handleNotHelpful(r.id)} className="text-gray-500 hover:text-red-700">
-                  👎 Not Helpful ({r.notHelpfulCount})
-                </button>
-              </div>
-
               {r.replies && r.replies.length > 0 && (
                 <div className="mt-2 pl-3 border-l-2 border-gray-200">
                  {r.replies.map((reply) => (
@@ -702,7 +689,6 @@ const filteredReviews = useMemo(() => {
                       <p className="text-[10px] text-gray-500 mt-0.5">
                         — {reply.createdByName} •{" "}
                         {timeFromNow(reply.createdAt)}
-
                       </p>
                     </div>
                   ))}
@@ -767,3 +753,4 @@ export function getRecentApprovedReviews(reviews: Review[]) {
     .filter((r) => r.comment?.trim().length > 0)
     .slice(0, 3);
 }
+

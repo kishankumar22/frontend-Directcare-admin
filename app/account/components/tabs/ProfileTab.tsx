@@ -10,6 +10,7 @@ import {
   PoundSterling,
   ShieldCheck,
   User2,
+  Gift,
 } from "lucide-react";
 import Stat from "../ui/Stat";
 import Detail from "../ui/Detail";
@@ -57,7 +58,7 @@ export default function ProfileTab({ user, initials }: any) {
       </div>
 
       {/* STATS */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <Stat
           icon={<ShoppingBag className="h-6 w-6 text-white" />}
           label="Total Orders"
@@ -69,7 +70,11 @@ export default function ProfileTab({ user, initials }: any) {
           label="Total Spent"
           value={`£${user.totalSpent?.toFixed(2) ?? "0.00"}`}
         />
-
+<Stat
+  icon={<Gift className="h-6 w-6 text-white" />}
+  label="Loyalty Points"
+  value={`${user.loyaltyPoints?.currentBalance ?? 0} pts`}
+/>
         <Stat
           icon={<Calendar className="h-6 w-6 text-white" />}
           label="Member Since"

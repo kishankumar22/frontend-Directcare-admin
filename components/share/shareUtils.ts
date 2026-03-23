@@ -2,8 +2,8 @@ export const shareUrls = {
   facebook: (url: string) =>
     `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}`,
 
-  twitter: (url: string, text: string) =>
-    `https://twitter.com/intent/tweet?url=${encodeURIComponent(url)}&text=${encodeURIComponent(text)}`,
+messenger: (url: string) =>
+  `https://www.facebook.com/dialog/send?link=${encodeURIComponent(url)}&app_id=YOUR_FACEBOOK_APP_ID&redirect_uri=${encodeURIComponent(url)}`,
 
   pinterest: (url: string) =>
     `https://pinterest.com/pin/create/button/?url=${encodeURIComponent(url)}`,

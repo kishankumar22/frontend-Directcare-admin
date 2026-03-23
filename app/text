@@ -1686,3 +1686,72 @@ For any questions or issues:
 ---
 
 **END OF DOCUMENTATION**
+Hi Kausar,
+
+We found inconsistencies in the order payment data after editing an order.
+
+Example Order ID:
+6837c8a3-7f3b-4709-ad80-6bcd483c4c48
+
+Current API Response Issues:
+
+1. Payment Status Issue
+- paymentStatus is showing as "Successful"
+- But the order is only partially paid
+
+Details:
+- Successful payment: £1.29
+- Pending amount: £2.58
+
+Expected:
+- paymentStatus should be "PartiallyPaid" (or similar)
+- It should NOT be "Successful" when pendingPaymentAmount > 0
+
+---
+
+2. Net Amount Paid Issue
+- netAmountPaid is showing: £3.87
+- But actual successful payment is only: £1.29
+
+Data:
+- payments[0].amount = 1.29 (Successful)
+- pendingPaymentAmount = 2.58
+
+Expected:
+- netAmountPaid should be equal to sum of successful payments
+- In this case: £1.29
+
+---
+
+Expected Backend Logic:
+
+1. paymentStatus:
+- If pendingPaymentAmount > 0 → "PartiallyPaid"
+- If pendingPaymentAmount = 0 → "Successful"
+
+2. netAmountPaid:
+- Should be calculated as sum of successful/completed payments
+- Should NOT include pending/unpaid amounts
+
+---
+
+Reason:
+Frontend refund logic depends on actual paid amount.
+Currently incorrect values are causing wrong refund calculations and UI inconsistencies.
+
+Please fix this at API level.
+
+Thanks
+--------------------------------------------------------------------------------------
+1.Brand ki images show nhi ho rha h jo bhi import kiya hai aapne brands.
+2.checkout page me delivery method click and collect select krte hi mujhe store address dikhana hai user choose kr sakega ki kaha se collect krna chahta hai wo
+3.offers wala page me kaam hai offers link pe click krte hi ek page khule jisme banners ho offers ki categories ki aur uspe click kru to uske according offers wale product show ho... abhi hamare paas /offers ka page hai sirf jaha pe sabhi offer wale products ham show kara rhe hai
+4.category get api me jab mai includesubcategories false kr rha hu tb bhi sabhi categories aaarhi hai sirf main categories aani chahiye
+5.brand get api me ek hi brand 2-2 bar aarhe hai
+6.newsletter subscribe krne pe email nhi ja rha h suscribed ka POST/api/Newsletter/subscribe
+7.standard delivery date dikhana hai checkout page pe
+8.checkout page me postcode se delivery options milte the hame but ab nhi mil rhe
+https://testapi.knowledgemarkg.com/api/Shipping/quote
+please check this api
+
+---------------------------------------------

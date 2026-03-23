@@ -135,7 +135,24 @@ const flattenedProducts = useMemo(() => {
   };
 
   const sorted = [...unique].sort((a, b) => {
+  // ✅ STEP 1: STOCK PRIORITY
+  const stockA =
+    a.variantForCard?.stockQuantity ??
+    a.productData?.stockQuantity ??
+    0;
 
+  const stockB =
+    b.variantForCard?.stockQuantity ??
+    b.productData?.stockQuantity ??
+    0;
+
+  const isOutA = stockA <= 0;
+  const isOutB = stockB <= 0;
+
+  // 👉 in-stock first
+  if (isOutA !== isOutB) {
+    return isOutA ? 1 : -1;
+  }
     if (sortBy === "name") {
 
       const nameA = (a.cardSlug ?? a.productData.name).toLowerCase();

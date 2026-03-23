@@ -1,12 +1,13 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { X, Plus, Edit, Tag, Trash2, Upload, CheckCircle, AlertCircle, Loader2, Eye, Copy } from "lucide-react";
+import { X, Plus, Edit, Tag, Trash2, Upload, CheckCircle, AlertCircle, Loader2, Eye, Copy, HelpCircle } from "lucide-react";
 import { API_BASE_URL } from "@/lib/api-config";
 import { ProductDescriptionEditor } from "../_components/SelfHostedEditor";
 import { useToast } from "@/app/admin/_components/CustomToast";
 import ConfirmDialog from "@/app/admin/_components/ConfirmDialog";
 import { Brand, brandsService } from "@/lib/services/brands";
+import { BrandFaq, brandFaqsService } from "@/lib/services/brandFaqs";
 
 const MAX_HOMEPAGE_BRANDS = 50;
 
@@ -48,7 +49,7 @@ export default function BrandModals({
     brandName: string;
   } | null>(null);
   const [isDeletingImage, setIsDeletingImage] = useState(false);
-const [activeTab, setActiveTab] = useState<'basic' | 'image' | 'seo' | 'settings'>('basic');
+const [activeTab, setActiveTab] = useState<'basic' | 'image' | 'seo' | 'settings' | 'faqs'>('basic');
   const [formData, setFormData] = useState({
     name: "",
     description: "",
@@ -61,7 +62,53 @@ const [activeTab, setActiveTab] = useState<'basic' | 'image' | 'seo' | 'settings
     metaDescription: "",
     metaKeywords: ""
   });
+const [showFaqModal, setShowFaqModal] = useState(false);
+const [editingFaq, setEditingFaq] = useState<BrandFaq | null>(null);
+const [faqForm, setFaqForm] = useState({
+  question: "",
+  answer: "",
+  displayOrder: 1,
+  isActive: true,
+});
+const handleCreateFaq = async () => {
+  if (!editingBrand?.id) return;
 
+  if (!faqForm.question.trim()) {
+    toast.error("Question is required");
+    return;
+  }
+
+  try {
+    setIsFaqSubmitting(true);
+
+    const res = await brandFaqsService.create(editingBrand.id, {
+      question: faqForm.question.trim(),
+      answer: faqForm.answer.trim(),
+      displayOrder: faqForm.displayOrder,
+      isActive: faqForm.isActive,
+    });
+
+    if (res.data?.success) {
+      toast.success("FAQ added successfully ✅");
+
+      // 🔥 UPDATE UI (IMPORTANT)
+      const newFaq = res.data.data;
+
+setEditingBrand({
+  ...editingBrand!,
+  faqs: [...(editingBrand?.faqs || []), newFaq],
+});
+      setShowFaqModal(false);
+    }
+
+  } catch (error) {
+    console.error(error);
+    toast.error("Failed to create FAQ");
+  } finally {
+    setIsFaqSubmitting(false);
+  }
+};
+const [isFaqSubmitting, setIsFaqSubmitting] = useState(false);
   const homepageBrandsCounter = brands.filter(brand => brand.showOnHomepage);
   const homepageCount = homepageBrandsCounter.length;
 
@@ -570,7 +617,8 @@ const handleDeleteImage = async (brandId: string, imageUrl: string) => {
                 { id: 'basic', label: 'Basic Info', icon: Tag },
                 { id: 'image', label: 'Logo', icon: Upload },
                 { id: 'seo', label: 'SEO', icon: Eye },
-                { id: 'settings', label: 'Settings', icon: CheckCircle }
+                { id: 'settings', label: 'Settings', icon: CheckCircle },
+                { id: 'faqs', label: 'FAQs', icon: HelpCircle }
               ].map((tab) => (
                 <button
                   key={tab.id}
@@ -969,6 +1017,59 @@ const handleDeleteImage = async (brandId: string, imageUrl: string) => {
                     )}
                   </div>
                 )}
+                {activeTab === 'faqs' && (
+  <div className="space-y-3">
+
+    {/* Add Button */}
+    <div className="flex justify-between items-center">
+      <h3 className="text-white font-semibold">Brand FAQs</h3>
+
+      <button
+        type="button"
+onClick={() => {
+  setEditingFaq(null); // ✅ important
+  setFaqForm({
+    question: "",
+    answer: "",
+    displayOrder: (editingBrand?.faqs?.length || 0) + 1,
+    isActive: true,
+  });
+  setShowFaqModal(true);
+}}
+        className="px-3 py-1.5 bg-violet-600 text-white rounded-lg text-sm flex items-center gap-1"
+      >
+        <Plus className="h-4 w-4" />
+        Add FAQ
+      </button>
+    </div>
+
+    {/* List */}
+    {editingBrand?.faqs?.length ? (
+      editingBrand.faqs.map((faq) => (
+        <div key={faq.id} className="p-3 bg-slate-800 rounded-lg">
+          <p className="text-white font-medium">{faq.question}</p>
+          <p className="text-slate-400 text-sm">{faq.answer}</p>
+          <button
+  onClick={() => {
+    setEditingFaq(faq);
+    setFaqForm({
+      question: faq.question,
+      answer: faq.answer,
+      displayOrder: faq.displayOrder,
+      isActive: faq.isActive,
+    });
+    setShowFaqModal(true);
+  }}
+>
+  Edit
+</button>
+        </div>
+      ))
+    ) : (
+      <p className="text-slate-400 text-sm">No FAQs added</p>
+    )}
+  </div>
+)}
               </form>
             </div>
 
@@ -1262,6 +1363,80 @@ const handleDeleteImage = async (brandId: string, imageUrl: string) => {
         onClick={(e) => e.stopPropagation()}
          onError={(e) => (e.currentTarget.src = "/placeholder.png")}
       />
+    </div>
+  </div>
+)}
+
+{showFaqModal && (
+  <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[60]">
+    <div className="bg-slate-900 p-5 rounded-xl w-full max-w-md space-y-4 border border-slate-700">
+
+      <h2 className="text-white font-bold text-lg">Add FAQ</h2>
+
+      {/* Question */}
+      <input
+        type="text"
+        placeholder="Enter question"
+        value={faqForm.question}
+        onChange={(e) =>
+          setFaqForm({ ...faqForm, question: e.target.value })
+        }
+        className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white"
+      />
+
+      {/* Answer */}
+      <textarea
+        placeholder="Enter answer"
+        value={faqForm.answer}
+        onChange={(e) =>
+          setFaqForm({ ...faqForm, answer: e.target.value })
+        }
+        className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white"
+      />
+
+      {/* Display Order */}
+      <input
+        type="number"
+        value={faqForm.displayOrder}
+        onChange={(e) =>
+          setFaqForm({ ...faqForm, displayOrder: Number(e.target.value) })
+        }
+        className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white"
+      />
+
+      {/* Active */}
+      <label className="flex items-center gap-2 text-white">
+        <input
+          type="checkbox"
+          checked={faqForm.isActive}
+          onChange={() =>
+            setFaqForm({ ...faqForm, isActive: !faqForm.isActive })
+          }
+        />
+        Active
+      </label>
+
+      {/* Buttons */}
+      <div className="flex gap-2">
+        <button
+          onClick={() => setShowFaqModal(false)}
+          className="flex-1 bg-slate-700 text-white py-2 rounded-lg"
+        >
+          Cancel
+        </button>
+
+        <button
+          onClick={handleCreateFaq}
+          disabled={isFaqSubmitting}
+          className="flex-1 bg-violet-600 text-white py-2 rounded-lg flex items-center justify-center gap-2"
+        >
+          {isFaqSubmitting ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            "Save"
+          )}
+        </button>
+      </div>
     </div>
   </div>
 )}

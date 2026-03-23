@@ -4,7 +4,7 @@ import { useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useAuth } from "@/context/AuthContext";
-import { MapPin } from "lucide-react";
+import { MapPin, Package, PackageCheck, Store } from "lucide-react";
 
 function formatCurrency(n = 0) {
   return `£${n.toFixed(2)}`;
@@ -244,6 +244,11 @@ className={`flex items-start sm:items-center gap-2 rounded-md px-3 sm:px-4 py-2 
                         {order.shippingAddress.postalCode},{" "}
                         {order.shippingAddress.country}
                       </p>
+                      {order.shippingAddress.phoneNumber && (
+  <p className="mt-1 text-gray-700">
+    📞 {order.shippingAddress.phoneNumber}
+  </p>
+)}
                     </div>
                   </div>
                 )}
@@ -263,9 +268,7 @@ className={`flex items-start sm:items-center gap-2 rounded-md px-3 sm:px-4 py-2 
 
     {/* COLLECTION INFO CARD */}
     <div className="text-sm space-y-2">
-      <p 
-      className="font-semibold mb-1 text-lg">Collection Details</p>
-
+   <p className="font-semibold mb-1 text-lg">Collection Details</p>
       {order.collectionStatus && (
         <div className="flex justify-between">
           <span>Collection Status</span>
@@ -341,6 +344,11 @@ className={`flex items-start sm:items-center gap-2 rounded-md px-3 sm:px-4 py-2 
         {order.billingAddress.postalCode},{" "}
         {order.billingAddress.country}
       </p>
+      {order.billingAddress.phoneNumber && (
+  <p className="mt-1 text-gray-700">
+    📞 {order.billingAddress.phoneNumber}
+  </p>
+)}
     </div>
   </div>
 )}
@@ -351,9 +359,12 @@ className={`flex items-start sm:items-center gap-2 rounded-md px-3 sm:px-4 py-2 
 
             {/* ITEMS */}
             <section>
-              <h2 className="text-sm font-semibold uppercase mb-2">
-                Items
-              </h2>
+              <div className="flex items-center gap-2 mb-2">
+  <Package className="w-4 h-4 text-[#445D41]" />
+  <h2 className="text-sm font-semibold uppercase">
+    Items
+  </h2>
+</div>
 
               <div className="border rounded-lg divide-y">
                 {order.orderItems.map((item: any) => (

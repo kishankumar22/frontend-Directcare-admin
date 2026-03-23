@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from "react";
 import Link from "next/link";
-
+import { X } from "lucide-react";
 interface Category {
   id: string;
   name: string;
@@ -33,32 +33,75 @@ export default function CategoriesClient({
 
     return filtered;
   }, [categories, search, sort]);
-
+const totalCount = categories.length;
+const filteredCount = filteredCategories.length;
   return (
     <>
       {/* SEARCH + SORT BAR */}
-      <div className="flex flex-col md:flex-row items-center justify-between gap-3 mb-6">
+  <div className="mb-6 space-y-2">
 
-        {/* SEARCH */}
-        <input
-          type="text"
-          placeholder="Search categories..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="w-full md:w-[260px] border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#445D41]"
-        />
+  {/* 🔹 Row 1: Search + Sort */}
+<div className="flex gap-2 md:justify-between md:items-center">
 
-        {/* SORT */}
-        <select
-          value={sort}
-          onChange={(e) => setSort(e.target.value)}
-          className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#445D41]"
-        >
-          <option value="az">Sort A → Z</option>
-          <option value="za">Sort Z → A</option>
-        </select>
+    {/* SEARCH */}
+<div className="flex items-center gap-3 w-full md:w-auto">
+  
+  {/* SEARCH */}
+  <div className="relative w-full md:w-[260px]">
+    <input
+      type="text"
+      placeholder="Search categories..."
+      value={search}
+      onChange={(e) => setSearch(e.target.value)}
+      className="w-full border border-gray-300 rounded-lg px-3 py-2 pr-10 text-sm focus:outline-none focus:ring-2 focus:ring-[#445D41]"
+    />
 
-      </div>
+    {search && (
+      <button
+        type="button"
+        onClick={() => setSearch("")}
+        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-black"
+      >
+        <X size={16} />
+      </button>
+    )}
+  </div>
+
+  {/* ✅ COUNT (desktop me right me) */}
+  <p className="hidden md:block text-sm text-gray-600 whitespace-nowrap">
+    {search
+      ? `showing ${filteredCount} of ${totalCount} categories`
+      : `${totalCount} total categories`}
+  </p>
+
+</div>
+
+    {/* SORT */}
+    <select
+      value={sort}
+      onChange={(e) => setSort(e.target.value)}
+     className="w-[120px] md:w-[140px] border border-gray-300 rounded-lg px-2 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#445D41]"
+    >
+      <option value="az">A → Z</option>
+      <option value="za">Z → A</option>
+    </select>
+
+  </div>
+
+  {/* 🔹 Row 2: COUNT */}
+<p className="text-xs text-gray-500 md:hidden">
+  {search ? (
+    <>
+      Showing <span className="font-semibold">{filteredCount}</span> of {totalCount} categories
+    </>
+  ) : (
+    <>
+      <span className="font-semibold">{totalCount}</span> total categories
+    </>
+  )}
+</p>
+
+</div>
 
       {/* CATEGORY GRID */}
       {filteredCategories.length === 0 ? (

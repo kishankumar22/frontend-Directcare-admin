@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { Menu, Search, Heart, ShoppingCart, User, X, ChevronDown, ChevronRight, Truck, Package, Bike, Star, BadgePercent } from "lucide-react";
+import { Menu, Search, Heart, ShoppingCart, User, X, ChevronDown, ChevronRight, Truck, Package, Bike, Star, BadgePercent, GiftIcon } from "lucide-react";
 import MegaMenu from "./MegaMenu";
 import { useToast } from "@/components/toast/CustomToast";
 import { useCart } from "@/context/CartContext";
@@ -45,7 +45,7 @@ const [mobileCategories, setMobileCategories] = useState<Category[]>(
   
   const lastScroll = useRef(0);
   const megaWrapperRef = useRef<HTMLDivElement>(null);
-
+const [showLogoutModal, setShowLogoutModal] = useState(false);
   const toast = useToast();
   const { cartCount, isInitialized } = useCart();
   const { wishlistCount } = useWishlist();
@@ -403,10 +403,10 @@ setMobileCategories(homepageParents);
             <Link href="/wishlist" className="relative p-1 text-gray-700 hover:text-red-500 transition">
               <Heart
                 size={22}
-                className={wishlistCount > 0 ? "fill-red-500 text-red-500" : ""}
+                className={wishlistCount > 0 ? "fill-[#445D41] text-black" : ""}
               />
               {wishlistCount > 0 && (
-                <span className="absolute -top-0.5 -right-1 bg-red-500 text-white text-[9px] rounded-full min-w-[16px] h-4 flex items-center justify-center px-0.5">
+                <span className="absolute -top-0.5 -right-1 bg-[#445D41] text-white text-[9px] rounded-full min-w-[16px] h-4 flex items-center justify-center px-0.5">
                   {wishlistCount}
                 </span>
               )}
@@ -455,9 +455,21 @@ setMobileCategories(homepageParents);
       onFocus={() =>
         results.length > 0 && setShowSearchDropdown(true)
       }
-     className=" w-full rounded-md px-4 py-2 pr-12 text-sm border border-[#445D41] focus:outline-none focus:ring-2 focus:ring-[#445D41] focus:border-[#445D41] "
+    className="w-full rounded-md px-4 py-2 pr-20 text-sm border border-[#445D41] focus:outline-none focus:ring-2 focus:ring-[#445D41] focus:border-[#445D41]"
     />
-
+{searchValue && (
+  <button
+    type="button"
+    onClick={() => {
+      setSearchValue("");
+      setResults([]);
+      setShowSearchDropdown(false);
+    }}
+    className="absolute right-16 top-1/2 -translate-y-1/2 text-gray-400 hover:text-black"
+  >
+    <X size={18} />
+  </button>
+)}
     <button
       type="submit"
       className="absolute right-1 top-1/2 -translate-y-1/2 bg-[#445D41] text-white px-3 py-1.5 rounded"
@@ -589,49 +601,59 @@ setMobileCategories(homepageParents);
 
 
           {/* Desktop Icons */}
-          <div className="hidden md:flex items-center gap-5 text-gray-700">
-            <Link href="/wishlist" className="relative hover:text-red-500 transition">
-              <Heart
-                size={22}
-                className={wishlistCount > 0 ? "fill-red-500 text-red-500" : ""}
-              />
-              {wishlistCount > 0 && (
-                <span className="absolute -top-0.5 -right-1 bg-red-500 text-white text-[9px] rounded-full min-w-[16px] h-4 flex items-center justify-center px-0.5">
-                  {wishlistCount}
-                </span>
-              )}
-            </Link>
-            <Link href="/cart">
-              <button className="hover:text-green-800 transition relative">
-                <ShoppingCart size={22} />
-                {isInitialized && cartCount > 0 && (
-                  <span className="absolute -top-1 -right-2 bg-[#445D41] text-white text-xs rounded-full px-1.5">
-                    {cartCount}
-                  </span>
-                )}
-              </button>
-            </Link>
-           {isAuthenticated && user ? (
-  <button
-    onClick={handleAccountClick}
-    className="flex items-center gap-2 hover:text-green-800 transition"
+          <div className="hidden md:flex items-center gap-5 text-gray-700 h-full leading-none">
+  
+  {/* Wishlist */}
+  <Link
+    href="/wishlist"
+    className="relative flex items-center hover:text-red-500 transition"
   >
-    <User size={20} />
-    <span className="text-sm font-medium text-gray-700">
-       {user.fullName ?? "User"}
-    </span>
-  </button>
-) : (
-  <button
-    onClick={() => router.push("/account")}
-    className="px-3 py-1 text-xs font-semibold text-[#445D41] border border-[#445D41] rounded-md hover:bg-[#445D41] hover:text-white transition"
+    <Heart
+      size={24}
+      className={`block ${
+        wishlistCount > 0 ? "fill-[#445D41] text-black" : ""
+      }`}
+    />
+    {wishlistCount > 0 && (
+      <span className="absolute -top-0.5 -right-1 bg-[#445D41] text-white text-[9px] rounded-full min-w-[16px] h-4 flex items-center justify-center px-0.5">
+        {wishlistCount}
+      </span>
+    )}
+  </Link>
+
+  {/* Cart */}
+  <Link
+    href="/cart"
+    className="relative flex items-center hover:text-green-800 transition"
   >
-    Login
-  </button>
-)}
+    <ShoppingCart size={22} className="block" />
+    {isInitialized && cartCount > 0 && (
+      <span className="absolute -top-0.5 -right-2 bg-[#445D41] text-white text-xs rounded-full px-1.5">
+        {cartCount}
+      </span>
+    )}
+  </Link>
 
-
-          </div>
+  {/* User / Login */}
+  {isAuthenticated && user ? (
+    <button
+      onClick={handleAccountClick}
+      className="flex items-center gap-2 hover:text-green-800 transition"
+    >
+      <User size={20} className="block" />
+      <span className="text-sm font-medium text-gray-700">
+        {user.fullName ?? "User"}
+      </span>
+    </button>
+  ) : (
+    <button
+      onClick={() => router.push("/account")}
+      className="px-3 py-1 text-xs font-semibold text-[#445D41] border border-[#445D41] rounded-md hover:bg-[#445D41] hover:text-white transition"
+    >
+      Login
+    </button>
+  )}
+</div>
         </div>
 
         {/* ✅ DESKTOP CATEGORIES */}
@@ -682,9 +704,9 @@ setMobileCategories(homepageParents);
              {/* 🔥 OFFERS — RIGHT END */}
   <Link
     href="/offers"
-    className=" flex items-center gap-1 py-2 text-[#c62828] hover:text-red-700 transition-colors"
+    className=" flex items-center gap-1 py-2 text-green-700 hover:text-green-500 transition-colors"
   >
-    <BadgePercent size={14} />
+    <GiftIcon size={16} />
     Offers
   </Link>
           </nav>
@@ -843,7 +865,7 @@ setMobileCategories(homepageParents);
                   </button>
                 </div>
                 <button
-                  onClick={() => { logout(); setMenuOpen(false); }}
+                 onClick={() => setShowLogoutModal(true)}
                   className="px-3 py-1.5 text-xs font-semibold text-red-600 border border-red-300 rounded-full hover:bg-red-50 transition flex-shrink-0"
                 >
                   Logout
@@ -1053,6 +1075,51 @@ setMobileCategories(homepageParents);
           </div>
         </aside>
       </div>
+      {showLogoutModal && (
+  <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center">
+    
+    {/* BACKDROP */}
+    <div
+      className="absolute inset-0 bg-black/50"
+      onClick={() => setShowLogoutModal(false)}
+    />
+
+    {/* MODAL */}
+    <div className="relative w-full sm:max-w-sm bg-white rounded-t-2xl sm:rounded-xl p-5 animate-slideUp">
+      
+      <h3 className="text-lg font-semibold text-gray-800">
+        Logout?
+      </h3>
+
+      <p className="text-sm text-gray-500 mt-1">
+        Are you sure you want to logout from your account?
+      </p>
+
+      <div className="flex gap-3 mt-5">
+        
+        {/* CANCEL */}
+        <button
+          onClick={() => setShowLogoutModal(false)}
+          className="flex-1 py-2 rounded-lg border border-gray-300 text-gray-700 font-medium"
+        >
+          Cancel
+        </button>
+
+        {/* CONFIRM */}
+        <button
+          onClick={() => {
+            logout();
+            setShowLogoutModal(false);
+            setMenuOpen(false);
+          }}
+          className="flex-1 py-2 rounded-lg bg-red-600 text-white font-semibold"
+        >
+          Logout
+        </button>
+      </div>
+    </div>
+  </div>
+)}
     </header>
   );
 }

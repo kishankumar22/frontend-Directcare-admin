@@ -1,10 +1,10 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { Mail, Facebook, Link2, X, MessageCircle } from "lucide-react";
+import { X } from "lucide-react";
 import { shareUrls, copyToClipboard } from "./shareUtils";
 import { useToast } from "@/components/toast/CustomToast";
-
+import Image from "next/image";
 interface Props {
   url: string;
   title: string;
@@ -40,10 +40,15 @@ export default function ShareMenu({ url, title, onClose }: Props) {
     };
   }, [onClose]);
 
-  const open = (shareUrl: string) => {
+const open = (shareUrl: string) => {
+  if (shareUrl.startsWith("mailto:")) {
+    window.location.href = shareUrl; // ✅ FIXED
+  } else {
     window.open(shareUrl, "_blank", "noopener,noreferrer");
-    onClose();
-  };
+  }
+
+  onClose();
+};
 
   return (
   <div
@@ -55,53 +60,54 @@ export default function ShareMenu({ url, title, onClose }: Props) {
     <div className="flex items-center justify-between px-4 py-2 border-b">
       <span className="text-sm font-semibold text-gray-700">Share</span>
       <button onClick={onClose}>
-        <X className="h-4 w-4 text-gray-500 hover:text-black" />
+        <X className="h-6 w-6 text-gray-500 hover:text-black" />
       </button>
     </div>
 
     {/* ITEMS */}
-    <button
-      className="share-item"
-      onClick={() => open(shareUrls.email(url, title))}
-    >
-      <Mail className="h-4 w-4" />
-      <span>Email</span>
-    </button>
+  <button
+  className="share-item"
+  onClick={() => open(shareUrls.email(url, title))}
+>
+ <Image src="/icons/email.svg" alt="email" width={20} height={20} />
+  <span>Email</span>
+</button>
 
-    <button
-      className="share-item"
-      onClick={() => open(shareUrls.facebook(url))}
-    >
-      <Facebook className="h-4 w-4 text-blue-600" />
-      <span>Facebook</span>
-    </button>
+<button
+  className="share-item"
+  onClick={() => open(shareUrls.facebook(url))}
+>
+<Image src="/icons/facebook.svg" alt="facebook" width={20} height={20} />
+  <span>Facebook</span>
+</button>
 
-    <button
-      className="share-item"
-      onClick={() => open(shareUrls.twitter(url, title))}
-    >
-      <X className="h-4 w-4" />
-      <span>X</span>
-    </button>
+<button
+  className="share-item"
+  onClick={() => open(shareUrls.messenger(url))}
+>
+  <Image src="/icons/messenger.svg" alt="messenger" width={20} height={20} />
+  <span>Messenger</span>
+</button>
+
 <button
   className="share-item"
   onClick={() => open(shareUrls.whatsapp(url, title))}
 >
-  <MessageCircle className="h-4 w-4 text-green-600" />
+ <Image src="/icons/whatsapp.svg" alt="whatsapp" width={20} height={20} />
   <span>WhatsApp</span>
 </button>
 
-    <button
-      className="share-item"
-      onClick={async () => {
-        await copyToClipboard(url);
-        toast.success("Link copied");
-        onClose();
-      }}
-    >
-      <Link2 className="h-4 w-4" />
-      <span>Copy Link</span>
-    </button>
+<button
+  className="share-item"
+  onClick={async () => {
+    await copyToClipboard(url);
+    toast.success("Link copied");
+    onClose();
+  }}
+>
+ <Image src="/icons/link.svg" alt="link" width={20} height={20} />
+  <span>Copy Link</span>
+</button>
   </div>
 );
 

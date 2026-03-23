@@ -63,7 +63,7 @@ const [regFieldErrors, setRegFieldErrors] = useState<{
 
 
   const [loading, setLoading] = useState(false);
-
+const showGuestOption = fromCheckout || fromBuyNow;
   // Shake animation
   const [shake, setShake] = useState(false);
   const triggerShake = () => {
@@ -122,6 +122,7 @@ const isValidPassword = (password: string) =>
 
 
   const handleGuestContinue = () => {
+    if (!showGuestOption) return;
     setEmailError("");
 
     if (cart.some((c) => c.type === "subscription")) {
@@ -308,49 +309,70 @@ const activeTab = tabParam === "register" ? "register" : "login";
     className="pointer-events-none absolute inset-0
       bg-gradient-to-b from-transparent via-transparent"
   />
-      <div className="max-w-5xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-6">
+     <div
+  className={clsx(
+    "max-w-5xl mx-auto grid gap-6",
+    showGuestOption ? "grid-cols-1 lg:grid-cols-2" : "grid-cols-1"
+  )}
+>
 
         {/* LEFT SIDE — GUEST CHECKOUT */}
-        <div className="bg-white p-6 rounded-lg border shadow-sm">
-          <h2 className="text-xl font-semibold text-gray-900">Continue as Guest</h2>
-          <p className="text-sm text-gray-500 mt-1">
-            Checkout securely using just your email address.
-          </p>
+       {showGuestOption && (
+  <div className="bg-white p-6 rounded-lg border shadow-sm">
+    <h2 className="text-xl font-semibold text-gray-900">
+      Continue as Guest
+    </h2>
+    <p className="text-sm text-gray-500 mt-1">
+      Checkout securely using just your email address.
+    </p>
 
-          <div className="mt-4 space-y-2">
-            <label className="text-sm font-medium text-gray-700">Email address *</label>
+   <form
+  className="mt-4 space-y-2"
+  onSubmit={(e) => {
+    e.preventDefault();
+    handleGuestContinue();
+  }}
+>
+  <label className="text-sm font-medium text-gray-700">
+    Email address *
+  </label>
 
-            <Input
-              type="email"
-              placeholder="you@example.com"
-              value={email}
-             onChange={(e) => {
-  setEmail(e.target.value);
+  <Input
+    type="email"
+    placeholder="you@example.com"
+    value={email}
+    onChange={(e) => {
+      setEmail(e.target.value);
+      if (emailError) setEmailError("");
+    }}
+    className={clsx(
+      "h-11 px-3 bg-white border-gray-300 rounded-lg",
+      emailError && "border-red-500 ring-2 ring-red-200",
+      shake && "animate-shake"
+    )}
+  />
 
-  // user type kare to error clear ho
-  if (emailError) setEmailError("");
-}}
+  {emailError && (
+    <p className="text-red-600 text-xs mt-1">{emailError}</p>
+  )}
 
-              className={clsx(
-                "h-11 px-3 bg-white border-gray-300 rounded-lg focus-visible:ring-2 focus-visible:ring-[#445D41]/60",
-                emailError && "border-red-500 ring-2 ring-red-200",
-                shake && "animate-shake"
-              )}
-            />
-
-            {emailError && <p className="text-red-600 text-xs mt-1">{emailError}</p>}
-
-            <Button
-              className="w-full h-11 mt-2 bg-[#445D41] hover:bg-black text-white text-sm rounded-lg"
-              onClick={handleGuestContinue}
-            >
-              Continue to checkout
-            </Button>
-          </div>
-        </div>
+  <Button
+    type="submit"
+    className="w-full h-11 mt-2 bg-[#445D41] hover:bg-black text-white text-sm rounded-lg"
+  >
+    Continue to checkout
+  </Button>
+</form>
+  </div>
+)}
 
         {/* RIGHT SIDE — LOGIN & REGISTER */}
-        <div className="bg-white p-6 rounded-lg border shadow-sm">
+       <div
+  className={clsx(
+    "bg-white p-6 rounded-lg border shadow-sm w-full",
+    !showGuestOption && "max-w-md mx-auto"
+  )}
+>
         <Tabs defaultValue={activeTab}>
             <TabsList className="grid grid-cols-2 border-b mb-4">
               <TabsTrigger value="login" className="py-2 text-sm">Login</TabsTrigger>

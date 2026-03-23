@@ -69,8 +69,7 @@ export function useNewsletter() {
 
       if (data?.success) {
         localStorage.setItem("newsletterEmail", email);
-
-        setSuccess("Successfully subscribed to newsletter");
+setSuccess(data?.message || "Subscribed successfully"); // ✅ FIX
         setError(null);
 
         setTimeout(() => {

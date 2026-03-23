@@ -431,19 +431,23 @@ const backorderState = getBackorderUIState({
       vatExempt: product.vatExempt,
       sku: defaultVariant?.sku ?? (product as any).sku,
     });
-    toast.success(inWishlist ? "Removed from wishlist" : "Added to wishlist!");
+  if (inWishlist) {
+  toast.error("Product removed from wishlist");
+} else {
+  toast.success("Product added to wishlist!");
+}
   }}
   className={`absolute z-20 right-2 p-1.5 rounded-full shadow-sm border transition-all ${
     (discountBadge || hasActiveCoupon) ? "top-14 sm:top-14" : "top-2"
   } ${
     isInWishlist(defaultVariant?.id ?? product.id)
-      ? "bg-red-50 border-red-200"
-      : "bg-white border-gray-200 hover:bg-red-50 hover:border-red-200"
+      ? "bg-green-50 border-green-200"
+      : "bg-white border-gray-200 hover:bg-green-50 hover:border-green-200"
   }`}
 >
   <Heart
-    className={`h-3 w-3 transition-colors ${
-      isInWishlist(defaultVariant?.id ?? product.id) ? "fill-red-500 text-red-500" : "text-gray-400 hover:text-red-400"
+    className={`h-4 w-4 transition-colors ${
+      isInWishlist(defaultVariant?.id ?? product.id) ? "fill-green-500 text-green-500" : "text-gray-400 hover:text-green-400"
     }`}
   />
 </button>
@@ -626,7 +630,23 @@ vatIncluded: vatRate !== null,
     `Minimum order quantity is ${product.orderMinimumQuantity}. Added ${finalQty} items to cart.`
   );
 } else {
-  toast.success(`${product.name} added to cart!`);
+toast.success(
+  <div className="flex items-center justify-between gap-3">
+    <span className="text-sm font-medium">
+     {product.name} added to cart!
+    </span>
+
+        <button
+  onClick={(e) => {
+    e.stopPropagation();
+    router.push("/cart");
+  }}
+  className="px-2.5 py-1 text-[11px] font-semibold rounded-md bg-white text-[#445D41] hover:bg-black hover:text-white transition shadow-sm"
+>
+ Cart→
+</button>
+  </div>
+);
 }
 
 }}

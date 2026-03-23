@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from "react";
 import Link from "next/link";
-
+import { X } from "lucide-react";
 interface Brand {
   id: string;
   name: string;
@@ -25,39 +25,83 @@ export default function BrandsClient({
       b.name.toLowerCase().includes(search.toLowerCase())
     );
 
-    if (sort === "az") {
-      filtered = filtered.sort((a, b) => a.name.localeCompare(b.name));
-    } else {
-      filtered = filtered.sort((a, b) => b.name.localeCompare(a.name));
-    }
+ if (sort === "az") {
+  filtered = [...filtered].sort((a, b) => a.name.localeCompare(b.name));
+} else {
+  filtered = [...filtered].sort((a, b) => b.name.localeCompare(a.name));
+}
 
     return filtered;
   }, [brands, search, sort]);
-
+const totalCount = brands.length;
+const filteredCount = filteredBrands.length;
   return (
     <>
       {/* SEARCH + SORT BAR */}
-      <div className="flex flex-col md:flex-row items-center justify-between gap-3 mb-6">
+     <div className="mb-6 space-y-2">
 
-        {/* SEARCH */}
+  {/* 🔹 Row 1 */}
+  <div className="flex gap-2 md:justify-between md:items-center">
+
+    {/* SEARCH + COUNT */}
+    <div className="flex items-center gap-3 w-full md:w-auto">
+      
+      {/* SEARCH */}
+      <div className="relative w-full md:w-[260px]">
         <input
           type="text"
           placeholder="Search brands..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="w-full md:w-[260px] border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#445D41]"
+          className="w-full border border-gray-300 rounded-lg px-3 py-2 pr-10 text-sm focus:outline-none focus:ring-2 focus:ring-[#445D41]"
         />
 
-        {/* SORT */}
-        <select
-          value={sort}
-          onChange={(e) => setSort(e.target.value)}
-          className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#445D41]"
-        >
-          <option value="az">Sort A → Z</option>
-          <option value="za">Sort Z → A</option>
-        </select>
+        {search && (
+          <button
+            type="button"
+            onClick={() => setSearch("")}
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-black"
+          >
+            <X size={16} />
+          </button>
+        )}
       </div>
+
+      {/* ✅ COUNT (desktop) */}
+      <p className="hidden md:block text-sm text-gray-600 whitespace-nowrap">
+        {search
+          ? `showing ${filteredCount} of ${totalCount} brands`
+          : `${totalCount} total brands`}
+      </p>
+
+    </div>
+
+    {/* SORT */}
+    <select
+      value={sort}
+      onChange={(e) => setSort(e.target.value)}
+      className="w-[120px] md:w-[140px] border border-gray-300 rounded-lg px-2 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#445D41]"
+    >
+      <option value="az">A → Z</option>
+      <option value="za">Z → A</option>
+    </select>
+
+  </div>
+
+  {/* 🔹 Row 2 (mobile count) */}
+  <p className="text-xs text-gray-500 md:hidden">
+    {search ? (
+      <>
+        Showing <span className="font-semibold">{filteredCount}</span> of {totalCount} brands
+      </>
+    ) : (
+      <>
+        <span className="font-semibold">{totalCount}</span> total brands
+      </>
+    )}
+  </p>
+
+</div>
 
       {/* BRANDS GRID */}
       {filteredBrands.length === 0 ? (

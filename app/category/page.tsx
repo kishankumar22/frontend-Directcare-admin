@@ -11,7 +11,7 @@ interface Category {
 async function getAllCategories(baseUrl: string): Promise<Category[]> {
   try {
     const res = await fetch(
-      `${baseUrl}/api/Categories?includeUnpublished=false&isActive=true&isDeleted=false`,
+      `${baseUrl}/api/Categories?includeInactive=false&includeSubCategories=false&isActive=true&isDeleted=false`,
       { cache: "no-store" }
     );
 

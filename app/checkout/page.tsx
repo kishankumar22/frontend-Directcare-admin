@@ -328,6 +328,7 @@ const [shippingQuoteLoading, setShippingQuoteLoading] = useState(false);
   const [shippingState, setShippingState] = useState("");
   const [shippingPostalCode, setShippingPostalCode] = useState("");
   const [shippingCountry, setShippingCountry] = useState("United Kingdom");
+  const [shippingPhone, setShippingPhone] = useState("");
   const [notes, setNotes] = useState("");
  const [addressQuery, setAddressQuery] = useState("");
 const [addressSuggestions, setAddressSuggestions] = useState<AddressSuggestion[]>([]);
@@ -384,6 +385,7 @@ const handleAddressSelect = (addr: any | null) => {
   if (shippingSameAsBilling) {
     setShippingFirstName(addr.firstName);
     setShippingLastName(addr.lastName);
+    setShippingPhone(cleaned);
     setShippingCompany(addr.company || "");
     setShippingAddress1(addr.addressLine1);
     setShippingAddress2(addr.addressLine2 || "");
@@ -671,6 +673,7 @@ useEffect(() => {
   if (!shippingSameAsBilling) return;
   setShippingFirstName(billingFirstName);
   setShippingLastName(billingLastName);
+  setShippingPhone(billingPhone);
   setShippingCompany(billingCompany);
   setShippingAddress1(billingAddress1);
   setShippingAddress2(billingAddress2);
@@ -825,6 +828,8 @@ if (deliveryMethod === "HomeDelivery" && !shippingSameAsBilling) {
  // ✅ ADD THIS
   if (!shippingFirstName.trim())
     errors.shippingFirstName = "Shipping first name is required";
+  if (!shippingPhone.trim())
+  errors.shippingPhone = "Shipping phone number is required";
   if (!shippingAddress1.trim())
     errors.shippingAddress1 = "Shipping address line 1 is required";
 
@@ -861,6 +866,7 @@ if (deliveryMethod === "HomeDelivery" && !shippingSameAsBilling) {
             frequency: item.frequencyPeriod,
             shippingFirstName: shippingSameAsBilling ? billingFirstName : shippingFirstName,
             shippingLastName: shippingSameAsBilling ? billingLastName : shippingLastName,
+            shippingPhone: `+44${shippingSameAsBilling ? billingPhone : shippingPhone}`,
             shippingAddressLine1: shippingSameAsBilling ? billingAddress1 : shippingAddress1,
             shippingAddressLine2: shippingSameAsBilling ? billingAddress2 : shippingAddress2,
             shippingCity: shippingSameAsBilling ? billingCity : shippingCity,
@@ -1119,6 +1125,7 @@ if (!checkoutItems || checkoutItems.length === 0) {
     // fill shipping with billing
     setShippingFirstName(billingFirstName);
     setShippingLastName(billingLastName);
+    setShippingPhone(billingPhone);
     setShippingCompany(billingCompany);
     setShippingAddress1(billingAddress1);
     setShippingAddress2(billingAddress2);
@@ -1130,6 +1137,7 @@ if (!checkoutItems || checkoutItems.length === 0) {
     // 🔥 CLEAR SHIPPING FORM
     setShippingFirstName("");
     setShippingLastName("");
+    setShippingPhone("");
     setShippingCompany("");
     setShippingAddress1("");
     setShippingAddress2("");
@@ -1215,6 +1223,27 @@ setShippingAddressQuery("");
           <label className="text-xs font-medium text-gray-700">Last name</label>
           <input value={shippingLastName} onChange={(e) => setShippingLastName(e.target.value)} className="w-full border border-gray-300 p-1.5 text-sm rounded focus:ring-2 focus:ring-[#445D41]/20 focus:border-[#445D41] transition-all" />
         </div>
+        <div className="flex flex-col space-y-0.5 col-span-2">
+  <label className="text-xs font-medium text-gray-700">Phone (UK) *</label>
+  <div className="flex">
+    <span className="flex items-center bg-gray-100 border border-r-0 border-gray-300 px-2 rounded-l text-xs text-gray-700">
+      +44
+    </span>
+    <input
+      type="tel"
+      value={shippingPhone}
+      onChange={(e) => {
+        const cleaned = e.target.value.replace(/\D/g, "");
+        setShippingPhone(cleaned);
+        clearFieldError("shippingPhone");
+      }}
+      placeholder="7xxxxxxxxx"
+      className="w-full border border-gray-300 p-1.5 text-sm rounded-r focus:ring-2 focus:ring-[#445D41]/20 focus:border-[#445D41] transition-all"
+      maxLength={10}
+    />
+  </div>
+  <ErrorText error={fieldErrors.shippingPhone} />
+</div>
         <div className="flex flex-col space-y-0.5 col-span-2">
           <label className="text-xs font-medium text-gray-700">Company (optional)</label>
           <input value={shippingCompany} onChange={(e) => setShippingCompany(e.target.value)} className="w-full border border-gray-300 p-1.5 text-sm rounded focus:ring-2 focus:ring-[#445D41]/20 focus:border-[#445D41] transition-all" />
@@ -1325,36 +1354,57 @@ setShippingAddressQuery("");
           <div className="bg-white p-3 rounded shadow lg:sticky lg:top-6 flex flex-col">
             <h3 className="text-sm font-semibold mb-2">Order summary ({effectiveCartCount} items)</h3>
             <div className="space-y-2 mb-3 overflow-visible">
-              {checkoutItems.map((it) => (
-                <div key={it.id + (it.variantId || "")} className="flex gap-2 items-start">
-                  <img src={it.image} alt={"no img"} className="w-10 h-10 object-cover rounded flex-shrink-0" />
-                  <div className="flex-1">
-                    <div className="font-medium text-sm">{it.name}</div>                 
-                   {it.type === "subscription" && (
-  <p className="text-xs font-semibold text-indigo-600 mt-1">
-    Subscription • Every{" "}
-    {it.frequency && !isNaN(Number(it.frequency))
-      ? `${it.frequency} `
-      : ""}
-    {it.frequencyPeriod} • {it.subscriptionTotalCycles} cycles
-  </p>
-)}
-                    <div className="text-xs text-gray-600 flex items-center gap-2">
-  <span>Qty: {it.quantity}</span>
-  <span className="text-gray-400">•</span>
-  <span className="font-medium text-gray-800">
-    {formatCurrency((it.finalPrice ?? it.price) * it.quantity)}
-  </span>
-  {getItemLoyaltyPoints(it) > 0 && (
-  <div className="text-[11px] text-green-700 font-medium">
-   ( Earn {getItemLoyaltyPoints(it)} loyalty points)
-  </div>
-)}
-</div>
-                    {/* {it.discountAmount ? <div className="text-xs text-green-600">Saved £{(it.discountAmount).toFixed(2)}</div> : null} */}
-                  </div>
-                </div>
-              ))}              
+             {checkoutItems.map((it) => {
+  const productSlug =
+    it.productData?.slug ||
+    it.slug ||
+    it.productSlug ||
+    "";
+
+  return (
+    <Link
+      key={it.id + (it.variantId || "")}
+      href={`/products/${productSlug}`}
+      className="flex gap-2 items-start group"
+    >
+      <img
+        src={it.image}
+        alt={"no img"}
+        className="w-12 h-12 object-cover rounded flex-shrink-0"
+      />
+
+      <div className="flex-1">
+        <div className="font-medium text-sm group-hover:text-[#445D41] transition">
+          {it.name}
+        </div>
+
+        {it.type === "subscription" && (
+          <p className="text-xs font-semibold text-indigo-600 mt-1">
+            Subscription • Every{" "}
+            {it.frequency && !isNaN(Number(it.frequency))
+              ? `${it.frequency} `
+              : ""}
+            {it.frequencyPeriod} • {it.subscriptionTotalCycles} cycles
+          </p>
+        )}
+
+        <div className="text-xs text-gray-600 flex items-center gap-2">
+          <span>Qty: {it.quantity}</span>
+          <span className="text-gray-400">•</span>
+          <span className="font-medium text-gray-800">
+            {formatCurrency((it.finalPrice ?? it.price) * it.quantity)}
+          </span>
+
+          {getItemLoyaltyPoints(it) > 0 && (
+            <div className="text-[11px] text-green-700 font-medium">
+              ( Earn {getItemLoyaltyPoints(it)} loyalty points)
+            </div>
+          )}
+        </div>
+      </div>
+    </Link>
+  );
+})}             
             </div>           
             <div className="border-t pt-3">
               {totalLoyaltyPoints > 0 && (

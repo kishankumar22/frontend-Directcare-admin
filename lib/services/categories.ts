@@ -2,6 +2,7 @@
 
 import { apiClient } from '../api';
 import { API_ENDPOINTS } from '../api-config';
+import { CategoryFaq } from './categoryFaqs';
 // ---- Shared Types ----
 export interface Category {
   id: string;
@@ -24,6 +25,7 @@ export interface Category {
   createdBy?: string;
   updatedBy?: string;
   subCategories?: Category[];
+    faqs?: CategoryFaq[];
 }
 export interface UpdateCategoryDto {
   name: string;
