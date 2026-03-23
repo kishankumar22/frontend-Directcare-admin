@@ -635,6 +635,7 @@ const openMediaViewer = (images: any[], idx = 0) => {
     src={getImageUrl(mainImage.imageUrl)}
     alt={p.name}
     className="w-full h-full object-cover pointer-events-none"
+    onError={(e) => (e.currentTarget.src = "/placeholder.png")}
   />
 ) : (
   <div className="w-full h-full flex items-center justify-center text-slate-500 text-xs">

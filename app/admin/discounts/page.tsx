@@ -1217,9 +1217,7 @@ const filteredDiscounts = discounts.filter((discount) => {
                   }
                   alt=""
                   className="w-6 h-6 rounded object-cover flex-shrink-0"
-                  onError={(e) => {
-                    (e.target as HTMLImageElement).style.display = "none";
-                  }}
+                   onError={(e) => (e.currentTarget.src = "/placeholder.png")}
                 />
               ) : (
                 <div className="w-6 h-6 rounded bg-slate-700 flex items-center justify-center">

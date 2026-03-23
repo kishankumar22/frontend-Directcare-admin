@@ -5474,6 +5474,8 @@ useEffect(() => {
                     src={image.imageUrl}
                     alt={image.altText || 'Product'}
                     className="w-full h-full object-cover"
+                     onError={(e) => (e.currentTarget.src = "/placeholder.png")}
+
                   />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center">
@@ -5592,12 +5594,8 @@ useEffect(() => {
                     src={`https://img.youtube.com/vi/${getYouTubeVideoId(url)}/hqdefault.jpg`}
                     alt={`Video ${index + 1}`}
                     className="w-full h-full object-cover"
-                    onError={(e) => {
-                      const target = e.target as HTMLImageElement;
-                      target.src = `https://img.youtube.com/vi/${getYouTubeVideoId(
-                        url,
-                      )}/default.jpg`;
-                    }}
+                    onError={(e) => (e.currentTarget.src = "/placeholder.png")}
+
                   />
                   <div className="absolute inset-0 bg-black/30 flex items-center justify-center group-hover:bg-black/50 transition-all">
                     <div className="w-8 h-8 rounded-full bg-red-500 flex items-center justify-center group-hover:scale-110 transition-transform">

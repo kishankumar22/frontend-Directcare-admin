@@ -773,7 +773,9 @@ export default function BlogCategoriesPage() {
                   className="w-14 h-14 rounded-xl overflow-hidden border border-slate-700 cursor-pointer hover:ring-2 hover:ring-violet-500 transition-all shrink-0"
                   onClick={() => setSelectedImageUrl(getImageUrl(viewingBlogCategory.imageUrl))}
                 >
-                  <img src={getImageUrl(viewingBlogCategory.imageUrl)} alt={viewingBlogCategory.name} className="w-full h-full object-cover" />
+                  <img src={getImageUrl(viewingBlogCategory.imageUrl)}
+                   onError={(e) => (e.currentTarget.src = "/placeholder.png")}
+                    alt={viewingBlogCategory.name} className="w-full h-full object-cover" />
                 </div>
               ) : (
                 <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-violet-500 to-pink-500 flex items-center justify-center shrink-0">

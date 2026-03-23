@@ -8141,6 +8141,7 @@ const uploadImagesToProductDirect = async (
                     src={image.imageUrl.startsWith('http') ? image.imageUrl : `${API_BASE_URL}${image.imageUrl}`}
                     alt={image.altText || 'Product'}
                     className="w-full h-full object-cover"
+                     onError={(e) => (e.currentTarget.src = "/placeholder.png")}
                   />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center">

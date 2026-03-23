@@ -618,7 +618,7 @@
                   <div className="flex gap-2">
                     <div className="w-10 h-10 bg-slate-700 rounded-md overflow-hidden flex items-center justify-center">
                       {subscription.productImageUrl ? (
-                        <img src={getImageUrl(subscription.productImageUrl)} className="w-full h-full object-cover" />
+                        <img src={getImageUrl(subscription.productImageUrl)} className="w-full h-full object-cover" onError={(e) => (e.currentTarget.src = "/placeholder.png")}/>
                       ) : (
                         <ShoppingBag className="h-4 w-4 text-slate-500" />
                       )}

@@ -87,7 +87,15 @@ const productDropdownRef = useRef<HTMLDivElement>(null);
   const [serverTotal, setServerTotal] = useState(0);
   const [serverTotalPages, setServerTotalPages] = useState(1);
   const [debouncedSearch, setDebouncedSearch] = useState("");
+const getOrderProductImage = (imageUrl?: string): string => {
+  if (!imageUrl) return "/no-image.png";
 
+  if (imageUrl.startsWith("http")) {
+    return imageUrl;
+  }
+
+  return API_BASE_URL.replace("/api", "") + imageUrl.replace("~", "");
+};
   const [deleteConfirm, setDeleteConfirm] = useState<{
     id: string;
     customer: string;
@@ -941,8 +949,14 @@ const isPlayableVideoUrl = (url: string) => {
           >
             <div className="flex items-center justify-between gap-2">
               <div className="flex items-center gap-2 min-w-0">
-                <ShoppingBag className="h-4 w-4 flex-shrink-0 text-slate-400" />
-                <span className="text-sm truncate">{product.productName}</span>
+            <img
+  src={getOrderProductImage(product.productImageUrl)}
+  alt={product.productName}
+  className="h-8 w-8 rounded-md object-cover border border-slate-700 flex-shrink-0"
+  onError={(e) => (e.currentTarget.src = "/placeholder.png")}
+/>
+
+<span className="text-sm truncate">{product.productName}</span>
               </div>
               <span className="text-[10px] text-slate-500 flex-shrink-0">{product.totalReviews} reviews</span>
             </div>
@@ -1224,9 +1238,47 @@ const isPlayableVideoUrl = (url: string) => {
                         </div>
                       </td>
                       <td className="py-2 px-3">
-                        <button onClick={() => { setProductFilter(review.productId); setCurrentPage(1); }} className="text-blue-400 hover:text-blue-300 text-xs text-left max-w-[200px] truncate block leading-tight">
-                          {review.productName || products.find(p => p.productId === review.productId)?.productName || review.productSku || review.productId?.slice(0, 8) || "—"}
-                        </button>
+<button
+ 
+  className="flex items-center gap-2 text-left max-w-[220px]"
+>
+  <img
+    src={getOrderProductImage(
+      products.find(p => p.productId === review.productId)?.productImageUrl
+    )}
+    alt="product"
+    className="h-8 w-8 rounded-md object-cover border border-slate-700 flex-shrink-0"
+    onError={(e) => (e.currentTarget.src = "/placeholder.png")}
+  />
+
+  <div className="min-w-0">
+    {/* Product Name */}
+    <p className="text-blue-400 hover:text-blue-300 text-xs truncate"
+     onClick={() => { 
+    setProductFilter(review.productId); 
+    setCurrentPage(1); 
+  }}>
+      {review.productName ||
+        products.find(p => p.productId === review.productId)?.productName ||
+        "—"}
+    </p>
+       {/* <a
+  href={`/products/${review.productSku}`}
+  target="_blank"
+  rel="noopener noreferrer"
+  className="text-blue-400 hover:text-blue-300 text-xs truncate block"
+>
+  {review.productName}
+</a> */}
+
+    {/* ✅ SKU (NEW) */}
+    {review.productSku && (
+      <p className="text-[10px] text-slate-500 truncate">
+        SKU: {review.productSku}
+      </p>
+    )}
+  </div>
+</button>
                       </td>
                       <td className="py-2 px-3 text-center">
                         {renderStars(review.rating)}
@@ -1473,10 +1525,7 @@ const isPlayableVideoUrl = (url: string) => {
                 <img
                   src={finalUrl}
                   alt={`Review image ${index + 1}`}
-                  onError={(e) => {
-                    console.error("❌ Image failed:", finalUrl);
-                    (e.currentTarget as HTMLImageElement).src = "/placeholder.png";
-                  }}
+                 onError={(e) => (e.currentTarget.src = "/placeholder.png")}
                   className="h-32 w-full object-cover transition-transform duration-200 group-hover:scale-105"
                 />
               </a>

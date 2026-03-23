@@ -55,7 +55,7 @@ const handleRestore = async (category: Category) => {
 const [homepageCategories, setHomepageCategories] = useState<Category[]>([]); 
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(25);
-  
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [deleteConfirm, setDeleteConfirm] = useState<{
     id: string;
     name: string;
@@ -131,7 +131,7 @@ const getMaxDepthOfSubtree = (category: Category, allCategories: Category[]): nu
 
 useEffect(() => {
   fetchCategories();
-}, [statusFilter, homepageFilter, levelFilter, searchTerm, deletedFilter]);
+}, [statusFilter, homepageFilter, levelFilter, debouncedSearch, deletedFilter]);
 
 
 
@@ -181,9 +181,9 @@ const fetchCategories = async () => {
     }
 
     // Search filter
-    if (searchTerm?.trim()) {
-      params.search = searchTerm.trim();
-    }
+if (debouncedSearch?.trim()) {
+  params.search = debouncedSearch.trim();
+}
 
     // Level filter
     if (levelFilter !== "all") {
@@ -1004,8 +1004,9 @@ const CategoryRow: React.FC<CategoryRowProps> = ({
 
           {/* Image */}
           {category.imageUrl ? (
-            <img
+            <img            
               src={getImageUrl(category.imageUrl)}
+              onError={(e) => (e.currentTarget.src = "/placeholder.png")}
               className="w-7 h-7 rounded-md object-cover border border-slate-700"
             />
           ) : (
@@ -1359,20 +1360,19 @@ const handleStatusUpdate = async (category: Category) => {
 
     return pages;
   };
+  useEffect(() => {
+  const timer = setTimeout(() => {
+    setDebouncedSearch(searchTerm);
+    setCurrentPage(1); // reset page on search
+  }, 600); // ⏱ 400ms delay
+
+  return () => clearTimeout(timer);
+}, [searchTerm]);
 
 useEffect(() => {
   setCurrentPage(1);
-}, [searchTerm, statusFilter, levelFilter, homepageFilter]);   // ← add homepageFilter here
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-screen">
-        <div className="text-center">
-          <div className="w-16 h-16 border-4 border-violet-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-slate-400">Loading categories...</p>
-        </div>
-      </div>
-    );
-  }
+}, [debouncedSearch, statusFilter, levelFilter, homepageFilter]); // ← add homepageFilter here
+
 
   return (
     <div className="space-y-2">
@@ -1528,23 +1528,23 @@ useEffect(() => {
     <select
       value={levelFilter}
       onChange={(e) => setLevelFilter(e.target.value)}
-      className={`p-2  bg-slate-800/60 border rounded-md text-white text-[11px] ${
+      className={`p-2  bg-slate-800/90 border rounded-md text-white text-[11px] ${
         levelFilter !== "all"
           ? "border-cyan-500 bg-cyan-500/10 ring-1 ring-cyan-500/40"
           : "border-slate-700"
       }`}
     >
-      <option value="all">Level</option>
-      <option value="level1">L1</option>
-      <option value="level2">L2</option>
-      <option value="level3">L3</option>
+<option value="all">All Category Levels</option>
+<option value="level1">Main Category</option>
+<option value="level2">Sub Category</option>
+<option value="level3">Child Category</option>
     </select>
 
     {/* Deleted */}
     <select
       value={deletedFilter}
       onChange={(e) => setDeletedFilter(e.target.value as any)}
-      className={`p-2  bg-slate-800/60 border rounded-md text-white text-[11px] ${
+      className={`p-2  bg-slate-800/90 border rounded-md text-white text-[11px] ${
         deletedFilter !== "all"
           ? "border-red-500 bg-red-500/10 ring-1 ring-red-500/40"
           : "border-slate-700"
@@ -1559,7 +1559,7 @@ useEffect(() => {
     <select
       value={statusFilter}
       onChange={(e) => setStatusFilter(e.target.value)}
-      className={`p-2  bg-slate-800/60 border rounded-md text-white text-[11px] ${
+      className={`p-2  bg-slate-800/90 border rounded-md text-white text-[11px] ${
         statusFilter !== "all"
           ? "border-green-500 bg-green-500/10 ring-1 ring-green-500/40"
           : "border-slate-700"
@@ -1574,7 +1574,7 @@ useEffect(() => {
     <select
       value={homepageFilter}
       onChange={(e) => setHomepageFilter(e.target.value as any)}
-      className={`p-2  bg-slate-800/60 border rounded-md text-white text-[11px] ${
+      className={`p-2  bg-slate-800/90 border rounded-md text-white text-[11px] ${
         homepageFilter !== "all"
           ? "border-emerald-500 bg-emerald-500/10 ring-1 ring-emerald-500/40"
           : "border-slate-700"
@@ -1623,8 +1623,17 @@ useEffect(() => {
       </thead>
 
       {/* BODY */}
-      <tbody>
-        {currentData.length === 0 ? (
+     <tbody>
+  {loading ? (
+    <tr>
+      <td colSpan={8} className="py-10 text-center">
+        <div className="flex flex-col items-center gap-2">
+          <div className="w-10 h-10 border-2 border-violet-500 border-t-transparent rounded-full animate-spin"></div>
+          <p className="text-slate-400 text-sm">Loading categories...</p>
+        </div>
+      </td>
+    </tr>
+  ) : currentData.length === 0 ? (
           <tr>
             <td colSpan={8} className="py-10 text-center">
               <div className="flex flex-col items-center gap-2">
@@ -1799,7 +1808,7 @@ useEffect(() => {
 <div>
   <label className="block text-sm font-medium text-slate-300 mb-2">
     Parent Category
-    <span className="text-red-400 ml-1">*</span>
+    {/* <span className="text-red-400 ml-1">*</span> */}
   </label>
   
   {/* Custom Dropdown */}
@@ -1982,6 +1991,7 @@ useEffect(() => {
             src={imagePreview || getImageUrl(formData.imageUrl)}
             alt="Category image"
             className="w-full h-full object-cover"
+            onError={(e) => (e.currentTarget.src = "/placeholder.png")}
           />
         </div>
         <div className="flex-1">
@@ -2402,6 +2412,7 @@ useEffect(() => {
                       src={getImageUrl(viewingCategory.imageUrl)}
                       alt={viewingCategory.name}
                       className="w-full h-full object-cover hover:scale-105 transition-transform"
+                      onError={(e) => (e.currentTarget.src = "/placeholder.png")}
                     />
                   </div>
                 ) : (
@@ -2644,7 +2655,7 @@ useEffect(() => {
         src={selectedImageUrl}
         alt="Full size preview"
         className="max-w-full max-h-[90vh] object-contain rounded-lg"
-        onClick={(e) => e.stopPropagation()} // Prevent closing when clicking image
+      onError={(e) => (e.currentTarget.src = "/placeholder.png")}
       />
       <button
         onClick={() => setSelectedImageUrl(null)}

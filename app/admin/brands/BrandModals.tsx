@@ -664,12 +664,12 @@ const handleDeleteImage = async (brandId: string, imageUrl: string) => {
                       {(formData.logoUrl || logoPreview) && (
                         <div className="mb-4 flex justify-center">
                           <div className="relative inline-block">
-                            <img
-                            
+                            <img                            
                               src={logoPreview || getImageUrl(formData.logoUrl)}
                               alt="Logo preview"
                               className="w-44 h-44 rounded-lg border-2 border-slate-700 object-contain bg-slate-800/50 cursor-pointer hover:border-violet-500/50 transition-all"
                               onClick={() => setSelectedImageUrl(logoPreview || getImageUrl(formData.logoUrl))}
+                               onError={(e) => (e.currentTarget.src = "/placeholder.png")}
                             />
                             {formData.logoUrl && !logoPreview && (
                               <button
@@ -1045,6 +1045,7 @@ const handleDeleteImage = async (brandId: string, imageUrl: string) => {
                 src={getImageUrl(viewingBrand.logoUrl)}
                 alt={viewingBrand.name}
                 className="w-full h-full object-cover hover:scale-105 transition-transform"
+                 onError={(e) => (e.currentTarget.src = "/placeholder.png")}
               />
             </div>
           ) : (
@@ -1259,6 +1260,7 @@ const handleDeleteImage = async (brandId: string, imageUrl: string) => {
           border border-white/10
         "
         onClick={(e) => e.stopPropagation()}
+         onError={(e) => (e.currentTarget.src = "/placeholder.png")}
       />
     </div>
   </div>

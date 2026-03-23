@@ -2280,6 +2280,7 @@ className={`border-b border-slate-800 transition-colors
                                 src={product.image}
                                 alt={product.name}
                                 className="w-full h-full object-cover cursor-pointer hover:opacity-80"
+                                 onError={(e) => (e.currentTarget.src = "/placeholder.png")}
                                 onClick={async (e) => {
                                   e.stopPropagation();
                                   try {

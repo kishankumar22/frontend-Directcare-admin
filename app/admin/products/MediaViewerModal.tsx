@@ -359,7 +359,7 @@ const handleDownload = () => {
   const handleImageError = (e: React.SyntheticEvent<HTMLImageElement>) => {
     setIsLoading(false);
     const target = e.target as HTMLImageElement;
-    target.src = '/placeholder-image.jpg';
+    target.src = '/placeholder.png';
   };
 
   if (!isOpen || !currentMedia) return null;

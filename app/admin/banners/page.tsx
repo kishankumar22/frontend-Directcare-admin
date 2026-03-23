@@ -899,6 +899,7 @@ const handleSubmit = async (e: React.FormEvent) => {
                         src={getImageUrl(banner.imageUrl)}
                         alt={banner.title}
                         className="w-full h-full object-cover"
+                        onError={(e) => (e.currentTarget.src = "/placeholder.png")}
                       />
                     </div>
                   ) : (
@@ -1318,6 +1319,7 @@ const handleSubmit = async (e: React.FormEvent) => {
                           src={imagePreview || getImageUrl(formData.imageUrl)}
                           alt="Banner preview"
                           className="w-full h-full object-cover"
+                           onError={(e) => (e.currentTarget.src = "/placeholder.png")}
                         />
                       </div>
                       <div className="flex-1">
@@ -1448,6 +1450,7 @@ const handleSubmit = async (e: React.FormEvent) => {
                           src={mobileImagePreview || getImageUrl(formData.mobileImageUrl)}
                           alt="Mobile banner preview"
                           className="w-full h-full object-cover"
+                           onError={(e) => (e.currentTarget.src = "/placeholder.png")}
                         />
                       </div>
                       <div className="flex-1">
@@ -1702,6 +1705,7 @@ const handleSubmit = async (e: React.FormEvent) => {
                     alt={viewingBanner.title}
                     className="w-full h-auto object-cover hover:scale-105 transition-transform"
                     onClick={() => setSelectedImageUrl(getImageUrl(viewingBanner.imageUrl))}
+                     onError={(e) => (e.currentTarget.src = "/placeholder.png")}
                   />
                 </div>
                 <p className="text-[10px] text-slate-400 mt-2 font-mono break-all">
@@ -1883,6 +1887,7 @@ const handleSubmit = async (e: React.FormEvent) => {
               src={selectedImageUrl}
               alt="Full size preview"
               className="max-w-full max-h-[90vh] object-contain rounded-lg"
+               onError={(e) => (e.currentTarget.src = "/placeholder.png")}
             />
             <button
               onClick={() => setSelectedImageUrl(null)}

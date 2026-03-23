@@ -835,6 +835,8 @@ const fetchEditHistory = useCallback(async () => {
     const result = await orderEditService.getEditHistory(orderId);
 setEditHistory(result);
 setHasEditHistory(result.length > 0);
+// 🔥 IMPORTANT
+// await refreshAllOrderData();
 
   } catch (error: any) {
     console.error('Error fetching edit history:', error);
@@ -1844,6 +1846,7 @@ const allActions = getAllAvailableActions(
           src={getOrderProductImage(item.productImageUrl)}
           alt={item.productName}
           className="w-12 h-12 rounded-lg object-cover border border-slate-700"
+           onError={(e) => (e.currentTarget.src = "/placeholder.png")}
         />
 
         <div>

@@ -146,7 +146,7 @@ export default function AdminDashboard() {
 
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
-    <div className="space-y-4 p-1">
+    <div className="space-y-2 p-1">
 
       {/* ═══ HEADER ═══ */}
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -527,6 +527,7 @@ export default function AdminDashboard() {
     src={getOrderProductImage(p.imageUrl)}
     alt={p.name}
     className="w-7 h-7 rounded-md object-cover flex-shrink-0 border border-slate-700"
+     onError={(e) => (e.currentTarget.src = "/placeholder.png")}
   />
 ) : (
   <div className="w-7 h-7 rounded-md bg-slate-700 flex items-center justify-center flex-shrink-0">

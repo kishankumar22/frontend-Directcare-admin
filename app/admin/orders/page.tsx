@@ -1503,9 +1503,7 @@ title="Select order"
                       src={getOrderProductImage(item.productImageUrl)}
                       alt={item.productName}
                       className="w-9 h-9 rounded-md object-cover border border-slate-600"
-                      onError={(e) =>
-                        (e.currentTarget.src = "/placeholder.png")
-                      }
+                       onError={(e) => (e.currentTarget.src = "/placeholder.png")}
                     />
 
                     <div className="min-w-0">

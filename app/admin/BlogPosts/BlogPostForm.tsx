@@ -844,7 +844,8 @@ export default function BlogPostForm({ mode, initialData }: BlogPostFormProps) {
                     src={thumbnailUrl}
                     alt="Thumbnail"
                     className="w-full h-36 object-cover rounded-lg border border-slate-700"
-                    onError={() => setThumbnailUrl("")}
+                    onError={(e) => (e.currentTarget.src = "/placeholder.png")}
+
                   />
                   <button
                     onClick={() => setThumbnailUrl("")}

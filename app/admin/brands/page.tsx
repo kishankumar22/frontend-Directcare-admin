@@ -19,7 +19,7 @@ export default function BrandsPage() {
   const [editingBrand, setEditingBrand] = useState<Brand | null>(null);
   const [selectedImageUrl, setSelectedImageUrl] = useState<string | null>(null);
   const [viewingBrand, setViewingBrand] = useState<Brand | null>(null);
-  
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   // ✅ UPDATED FILTERS - Using "all" | "true" | "false"
   const [publishedFilter, setPublishedFilter] = useState<string>("all");
   const [activeFilter, setActiveFilter] = useState<string>("all");
@@ -39,7 +39,13 @@ const [statusConfirm, setStatusConfirm] = useState<{
   name: string;
   currentStatus: boolean;
 } | null>(null);
+useEffect(() => {
+  const timer = setTimeout(() => {
+    setDebouncedSearch(searchTerm);
+  }, 400); // 300–500 best
 
+  return () => clearTimeout(timer);
+}, [searchTerm]);
 const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
 
   const [selectedBrand, setSelectedBrand] = useState<{
@@ -231,7 +237,7 @@ const handleStatusUpdate = async () => {
 
   // ✅ CLIENT-SIDE FILTERING (for search and homepage only)
   const filteredBrands = brands.filter(brand => {
-    const matchesSearch = brand.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    const matchesSearch = brand.name.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
                          brand.description.toLowerCase().includes(searchTerm.toLowerCase());
 
     const matchesHomepage = homepageFilter === "all" ||
@@ -284,20 +290,9 @@ const handleStatusUpdate = async () => {
     return pages;
   };
 
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [searchTerm, homepageFilter]);
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-screen">
-        <div className="text-center">
-          <div className="w-16 h-16 border-4 border-violet-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-slate-400">Loading brands...</p>
-        </div>
-      </div>
-    );
-  }
+ useEffect(() => {
+  setCurrentPage(1);
+}, [debouncedSearch, homepageFilter]);
 
   return (
     <div className="space-y-2">
@@ -502,7 +497,7 @@ const handleStatusUpdate = async () => {
       <select
         value={publishedFilter}
         onChange={(e) => setPublishedFilter(e.target.value)}
-        className={`p-2 bg-slate-800/60 border rounded-md text-white text-[11px] ${
+        className={`p-2 bg-slate-800/90 border rounded-md text-white text-[11px] ${
           publishedFilter !== "all"
             ? "border-blue-500 bg-blue-500/10"
             : "border-slate-700"
@@ -517,7 +512,7 @@ const handleStatusUpdate = async () => {
       <select
         value={activeFilter}
         onChange={(e) => setActiveFilter(e.target.value)}
-        className={`p-2  bg-slate-800/60 border rounded-md text-white text-[11px] ${
+        className={`p-2  bg-slate-800/90 border rounded-md text-white text-[11px] ${
           activeFilter !== "all"
             ? "border-green-500 bg-green-500/10"
             : "border-slate-700"
@@ -532,7 +527,7 @@ const handleStatusUpdate = async () => {
       <select
         value={homepageFilter}
         onChange={(e) => setHomepageFilter(e.target.value)}
-        className={`p-2  bg-slate-800/60 border rounded-md text-white text-[11px] ${
+        className={`p-2  bg-slate-800/90 border rounded-md text-white text-[11px] ${
           homepageFilter !== "all"
             ? "border-cyan-500 bg-cyan-500/10"
             : "border-slate-700"
@@ -547,7 +542,7 @@ const handleStatusUpdate = async () => {
       <select
         value={deletedFilter}
         onChange={(e) => setDeletedFilter(e.target.value)}
-        className={`p-2 bg-slate-800/60 border rounded-md text-white text-[11px] ${
+        className={`p-2 bg-slate-800/90 border rounded-md text-white text-[11px] ${
           deletedFilter !== "all"
             ? "border-red-500 bg-red-500/10"
             : "border-slate-700"
@@ -579,7 +574,12 @@ const handleStatusUpdate = async () => {
 </div>
       {/* Brands Table */}
       <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-2xl p-2">
-        {currentData.length === 0 ? (
+{loading ? (
+  <div className="text-center py-12">
+    <div className="w-10 h-10 border-2 border-violet-500 border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
+    <p className="text-slate-400 text-sm">Loading brands...</p>
+  </div>
+) : currentData.length === 0 ? (
           <div className="text-center py-12">
             <Tag className="h-16 w-16 text-slate-600 mx-auto mb-4" />
             <p className="text-slate-400">No brands found</p>
@@ -622,6 +622,7 @@ const handleStatusUpdate = async () => {
                               alt={brand.name}
                               className="w-9 h-9 rounded-md border border-slate-700 object-cover cursor-pointer"
                               onClick={() => setSelectedImageUrl(getImageUrl(brand.logoUrl))}
+                               onError={(e) => (e.currentTarget.src = "/placeholder.png")}
                             />
                           ) : (
                             <div className="w-9 h-9 rounded-md bg-gradient-to-br from-violet-500 to-pink-500 flex items-center justify-center">

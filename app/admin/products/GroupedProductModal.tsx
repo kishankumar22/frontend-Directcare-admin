@@ -573,6 +573,7 @@ export const GroupedProductModal = ({
                           src={product.images.find(img => img.isMain)?.imageUrl || product.images[0].imageUrl}
                           alt={product.name}
                           className="w-12 h-12 rounded-lg object-cover border border-slate-700"
+                           onError={(e) => (e.currentTarget.src = "/placeholder.png")}
                         />
                       )}
 

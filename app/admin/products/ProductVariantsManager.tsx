@@ -727,6 +727,8 @@ const closeDeleteModal = () => {
                               }
                               alt={variant?.name || 'Variant'}
                               className="w-16 h-16 object-cover rounded-lg border-2 border-slate-700"
+                                 onError={(e) => (e.currentTarget.src = "/placeholder.png")}
+
                             />
                             {/* <button
                               type="button"

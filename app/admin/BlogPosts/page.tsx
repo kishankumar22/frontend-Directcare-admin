@@ -342,7 +342,7 @@ export default function BlogPostsPage() {
                           alt=""
                           className="w-8 h-8 rounded-lg object-cover border border-slate-700 flex-shrink-0 cursor-pointer hover:ring-1 hover:ring-violet-500"
                           onClick={() => setPreviewImg(thumb)}
-                          onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+                       onError={(e) => (e.currentTarget.src = "/placeholder.png")}
                         />
                       ) : (
                         <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-violet-500/30 to-pink-500/30 border border-violet-500/20 flex items-center justify-center flex-shrink-0">
@@ -479,7 +479,7 @@ export default function BlogPostsPage() {
       {previewImg && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setPreviewImg(null)}>
           <div className="relative max-w-2xl">
-            <img src={previewImg} alt="" className="max-w-full max-h-[85vh] object-contain rounded-xl shadow-2xl" />
+            <img src={previewImg} alt="" className="max-w-full max-h-[85vh] object-contain rounded-xl shadow-2xl" onError={(e) => (e.currentTarget.src = "/placeholder.png")}/>
             <button onClick={() => setPreviewImg(null)} className="absolute top-3 right-3 p-1.5 bg-slate-900/80 text-white rounded-lg hover:bg-slate-800">
               <X className="w-4 h-4" />
             </button>

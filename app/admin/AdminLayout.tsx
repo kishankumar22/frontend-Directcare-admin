@@ -562,21 +562,34 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
             </nav>
 
             {/* Bottom Links */}
-            <div className="p-2 border-t border-slate-800/60 flex-shrink-0 space-y-0.5">
-              <Link
-                href="/"
-                className={cn(
-                  "flex items-center gap-2.5 py-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800/50 transition-all duration-150 group",
-                  isSidebarExpanded ? "px-2" : "px-0 justify-center"
-                )}
-                title={!isSidebarExpanded ? "View Store" : ""}
-              >
-                <div className={cn("rounded-xl bg-slate-800/80 flex items-center justify-center flex-shrink-0 group-hover:bg-slate-700 transition-colors", isSidebarExpanded ? "w-7 h-7" : "w-9 h-9")}>
-                  <Store className="h-4 w-4 text-cyan-400" />
-                </div>
-                {isSidebarExpanded && <span className="text-xs font-medium whitespace-nowrap">View Store</span>}
-              </Link>
-            </div>
+<div className="p-2 border-t border-slate-800/60 flex-shrink-0 space-y-0.5">
+<a
+  href="/"
+  onClick={(e) => {
+    e.preventDefault();
+    e.stopPropagation(); // ✅ IMPORTANT
+    setSidebarOpen(false);
+    window.open("/", "_blank");
+  }}
+  title="open store in new tab"
+  className="flex items-center gap-2.5 px-2 py-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800/50 transition-all duration-150 group"
+>
+    <div
+      className={cn(
+        "rounded-xl bg-slate-800/80 flex items-center justify-center flex-shrink-0 group-hover:bg-slate-700 transition-colors",
+        isSidebarExpanded ? "w-7 h-7" : "w-9 h-9"
+      )}
+    >
+      <Store className="h-4 w-4 text-cyan-400" />
+    </div>
+
+    {isSidebarExpanded && (
+      <span className="text-xs font-medium whitespace-nowrap">
+        View Store
+      </span>
+    )}
+  </a>
+</div>
 
             {/* User Profile - Expanded */}
             {isSidebarExpanded && (
@@ -713,18 +726,23 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
             })}
           </nav>
 
-          <div className="p-2 border-t border-slate-800/60 flex-shrink-0 space-y-0.5">
-            <Link
-              href="/"
-              onClick={() => setSidebarOpen(false)}
-              className="flex items-center gap-2.5 px-2 py-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800/50 transition-all duration-150 group"
-            >
-              <div className="w-7 h-7 rounded-md bg-slate-800/70 flex items-center justify-center flex-shrink-0">
-                <Store className="h-4 w-4 text-cyan-400" />
-              </div>
-              <span className="text-xs font-medium">View Store</span>
-            </Link>
-          </div>
+<div className="p-2 border-t border-slate-800/60 flex-shrink-0 space-y-0.5">
+<a
+  href="/"
+  onClick={(e) => {
+    e.preventDefault(); // default navigation roko
+    setSidebarOpen(false); // sidebar close karo
+    window.open("/", "_blank"); // new tab me open karo
+  }}
+  title="open store in new tab"
+  className="flex items-center gap-2.5 px-2 py-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800/50 transition-all duration-150 group"
+>
+  <div className="w-7 h-7 rounded-md bg-slate-800/70 flex items-center justify-center flex-shrink-0">
+    <Store className="h-4 w-4 text-cyan-400" />
+  </div>
+  <span className="text-xs font-medium">View Store</span>
+</a>
+</div>
 
           <div className="p-4 border-t border-slate-800 dark:border-gray-800 flex-shrink-0 transition-colors duration-150">
             <div className="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-slate-800/50 dark:bg-gray-800/70 transition-colors duration-150">

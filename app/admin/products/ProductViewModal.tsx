@@ -736,7 +736,7 @@ const ProductViewModal: React.FC<ProductViewModalProps> = ({
                               src={img.imageUrl?.startsWith('http') ? img.imageUrl : `${API_BASE_URL.replace('/api', '')}${img.imageUrl || ''}`}
                               alt={img.altText || 'Product'}
                               className="w-full h-full object-cover group-hover:scale-110 transition-transform"
-                              onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                              onError={(e) => (e.currentTarget.src = "/placeholder.png")}
                             />
                             {img.isMain && (
                               <div className="absolute top-1 right-1 px-2 py-0.5 bg-pink-500 text-white text-[10px] rounded font-bold">
@@ -813,6 +813,7 @@ const ProductViewModal: React.FC<ProductViewModalProps> = ({
                                 src={variant.imageUrl?.startsWith('http') ? variant.imageUrl : `${API_BASE_URL.replace('/api', '')}${variant.imageUrl?.replace('\\\\', '/') || ''}`}
                                 alt={variant.name}
                                 className="w-full h-full object-cover group-hover:opacity-80 transition-opacity"
+                                 onError={(e) => (e.currentTarget.src = "/placeholder.png")}
                               />
                               {/* Overlay icon on hover */}
                               <div className="absolute inset-0 bg-black/0 group-hover:bg-black/50 transition-all flex items-center justify-center">
@@ -1008,7 +1009,7 @@ const ProductViewModal: React.FC<ProductViewModalProps> = ({
                             <div className="flex items-center gap-3">
                               <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center overflow-hidden flex-shrink-0">
                                 {rp.image ? (
-                                  <img src={rp.image} alt={rp.name} className="w-full h-full object-cover" />
+                                  <img src={rp.image} alt={rp.name}  onError={(e) => (e.currentTarget.src = "/placeholder.png")} className="w-full h-full object-cover" />
                                 ) : (
                                   <Package className="w-6 h-6 text-white" />
                                 )}
