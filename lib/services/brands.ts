@@ -24,7 +24,19 @@ export interface Brand {
   updatedBy?: string;
     faqs?: BrandFaq[];
 }
+// ✅ LIST
+export interface BrandListResponse {
+  success: boolean;
+  message?: string;
+  data: Brand[];
+}
 
+// ✅ SINGLE (create/update)
+export interface SingleBrandResponse {
+  success: boolean;
+  message?: string;
+  data: Brand;
+}
 export interface CreateBrandDto {
   name: string;
   description: string;
@@ -68,20 +80,23 @@ export interface BrandStats {
 // --- Main Brand Service ---
 export const brandsService = {
   // Get all brands (with optional config: params/headers)
-  getAll: (config: any = {}) =>
-    apiClient.get<BrandApiResponse>(API_ENDPOINTS.brands, config),
+
+getAll: (config: any = {}) =>
+  apiClient.get<BrandListResponse>(API_ENDPOINTS.brands, config),
 
   // Get single brand by ID
   getById: (id: string, config: any = {}) =>
     apiClient.get<Brand>(`${API_ENDPOINTS.brands}/${id}`, config),
 
   // Create new brand
-  create: (data: CreateBrandDto, config: any = {}) =>
-    apiClient.post<Brand>(API_ENDPOINTS.brands, data, config),
+
+// create
+create: (data: CreateBrandDto, config: any = {}) =>
+  apiClient.post<SingleBrandResponse>(API_ENDPOINTS.brands, data, config),
 
   // Update brand by ID
-  update: (id: string, data: Partial<CreateBrandDto>, config: any = {}) =>
-    apiClient.put<Brand>(`${API_ENDPOINTS.brands}/${id}`, data, config),
+update: (id: string, data: Partial<CreateBrandDto>, config: any = {}) =>
+  apiClient.put<SingleBrandResponse>(`${API_ENDPOINTS.brands}/${id}`, data, config),
 
   // Delete brand by ID
   delete: (id: string, config: any = {}) =>

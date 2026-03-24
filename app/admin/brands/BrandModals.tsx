@@ -2,21 +2,28 @@
 
 import { useState, useEffect } from "react";
 import { X, Plus, Edit, Tag, Trash2, Upload, CheckCircle, AlertCircle, Loader2, Eye, Copy, HelpCircle } from "lucide-react";
-import { API_BASE_URL } from "@/lib/api-config";
+
 import { ProductDescriptionEditor } from "../_components/SelfHostedEditor";
 import { useToast } from "@/app/admin/_components/CustomToast";
 import ConfirmDialog from "@/app/admin/_components/ConfirmDialog";
 import { Brand, brandsService } from "@/lib/services/brands";
-import { BrandFaq, brandFaqsService } from "@/lib/services/brandFaqs";
+
+import BrandFaqManager from "./BrandFaqManager";
+import { brandFaqsService } from "@/lib/services/brandFaqs";
 
 const MAX_HOMEPAGE_BRANDS = 50;
-
+type ApiResponse<T> = {
+  success: boolean;
+  data: T;
+  message?: string;
+};
 interface BrandModalsProps {
   showModal: boolean;
   setShowModal: (show: boolean) => void;
   editingBrand: Brand | null;
-  setEditingBrand: (brand: Brand | null) => void;
+setEditingBrand: React.Dispatch<React.SetStateAction<Brand | null>>;
   viewingBrand: Brand | null;
+  initialTab?: 'basic' | 'image' | 'seo' | 'settings' | 'faqs';
   setViewingBrand: (brand: Brand | null) => void;
   selectedImageUrl: string | null;
   setSelectedImageUrl: (url: string | null) => void;
@@ -35,6 +42,7 @@ export default function BrandModals({
   setViewingBrand,
   selectedImageUrl,
   setSelectedImageUrl,
+  initialTab,
   brands,
   fetchBrands,
   getImageUrl,
@@ -43,6 +51,7 @@ export default function BrandModals({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
+  const [pendingFaqs, setPendingFaqs] = useState<any[]>([]);
   const [imageDeleteConfirm, setImageDeleteConfirm] = useState<{
     brandId: string;
     imageUrl: string;
@@ -62,53 +71,8 @@ const [activeTab, setActiveTab] = useState<'basic' | 'image' | 'seo' | 'settings
     metaDescription: "",
     metaKeywords: ""
   });
-const [showFaqModal, setShowFaqModal] = useState(false);
-const [editingFaq, setEditingFaq] = useState<BrandFaq | null>(null);
-const [faqForm, setFaqForm] = useState({
-  question: "",
-  answer: "",
-  displayOrder: 1,
-  isActive: true,
-});
-const handleCreateFaq = async () => {
-  if (!editingBrand?.id) return;
 
-  if (!faqForm.question.trim()) {
-    toast.error("Question is required");
-    return;
-  }
 
-  try {
-    setIsFaqSubmitting(true);
-
-    const res = await brandFaqsService.create(editingBrand.id, {
-      question: faqForm.question.trim(),
-      answer: faqForm.answer.trim(),
-      displayOrder: faqForm.displayOrder,
-      isActive: faqForm.isActive,
-    });
-
-    if (res.data?.success) {
-      toast.success("FAQ added successfully ✅");
-
-      // 🔥 UPDATE UI (IMPORTANT)
-      const newFaq = res.data.data;
-
-setEditingBrand({
-  ...editingBrand!,
-  faqs: [...(editingBrand?.faqs || []), newFaq],
-});
-      setShowFaqModal(false);
-    }
-
-  } catch (error) {
-    console.error(error);
-    toast.error("Failed to create FAQ");
-  } finally {
-    setIsFaqSubmitting(false);
-  }
-};
-const [isFaqSubmitting, setIsFaqSubmitting] = useState(false);
   const homepageBrandsCounter = brands.filter(brand => brand.showOnHomepage);
   const homepageCount = homepageBrandsCounter.length;
 
@@ -117,6 +81,12 @@ const [isFaqSubmitting, setIsFaqSubmitting] = useState(false);
     const parts = imageUrl.split('/');
     return parts[parts.length - 1];
   };
+
+useEffect(() => {
+  if (showModal && initialTab) {
+    setActiveTab(initialTab);
+  }
+}, [initialTab, showModal]);
 
   // Reset form when modal opens/closes
   useEffect(() => {
@@ -188,338 +158,111 @@ const handleDeleteImage = async (brandId: string, imageUrl: string) => {
 };
 
 
+const handleSubmit = async (e: React.FormEvent) => {
+  e.preventDefault();
 
+  const brandName = formData.name.trim();
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  if (!brandName) {
+    toast.error("❌ Brand name is required");
+    return;
+  }
 
-    // ============================================
-    // 1. BRAND NAME VALIDATION
-    // ============================================
-    
-    const brandName = formData.name.trim();
+  if (!logoFile && !formData.logoUrl) {
+    toast.error("❌ Brand logo is required");
+    return;
+  }
 
-    if (!brandName) {
-      toast.error("❌ Brand name is required");
-      return;
-    }
-    if (!logoFile) {
-      toast.error("❌ Brand logo is required");
-      return;
-    }
+  if (isSubmitting) return;
+  setIsSubmitting(true);
 
-    if (brandName.length < 2 || brandName.length > 80) {
-      toast.error(`❌ Brand name must be between 2 and 80 characters. Current: ${brandName.length}`);
-      return;
-    }
+  try {
+    let finalLogoUrl = formData.logoUrl;
 
-    const brandRegex = /^[A-Za-z0-9\s&.\-()]+$/;
-    if (!brandRegex.test(brandName)) {
-      toast.error("❌ Brand name can only contain letters, numbers, spaces, &, ., -, ()");
-      return;
-    }
-
-    const isDuplicateName = brands.some(
-      brand => 
-        brand.name.toLowerCase().trim() === brandName.toLowerCase() &&
-        brand.id !== editingBrand?.id
-    );
-    if (isDuplicateName) {
-      toast.error("❌ A brand with this name already exists!");
-      return;
-    }
-
-    // ============================================
-    // 2. DESCRIPTION VALIDATION
-    // ============================================
-    
-    const description = formData.description.trim();
-
-    if (description.length > 1000) {
-      toast.error(`❌ Description cannot exceed 1000 characters. Current: ${description.length}`);
-      return;
-    }
-
-    // ============================================
-    // 3. DISPLAY ORDER VALIDATION
-    // ============================================
-    
-    if (isNaN(formData.displayOrder)) {
-      toast.error("❌ Display order must be a valid number");
-      return;
-    }
-
-    if (!Number.isInteger(formData.displayOrder)) {
-      toast.error("❌ Display order must be a whole number (no decimals)");
-      return;
-    }
-
-    if (formData.displayOrder < 1 || formData.displayOrder > 1000) {
-      toast.error("❌ Display order must be between 1 and 1000");
-      return;
-    }
-
-    // ============================================
-    // 4. META FIELDS VALIDATION
-    // ============================================
-    
-    if (formData.metaTitle) {
-      const metaTitle = formData.metaTitle.trim();
-      
-      if (metaTitle.length > 60) {
-        toast.error(`❌ Meta title must be less than 60 characters. Current: ${metaTitle.length}`);
-        return;
-      }
-
-      if (/^\s+$/.test(formData.metaTitle)) {
-        toast.error("❌ Meta title cannot contain only spaces");
-        return;
-      }
-    }
-
-    if (formData.metaDescription) {
-      const metaDesc = formData.metaDescription.trim();
-      
-      if (metaDesc.length > 160) {
-        toast.error(`❌ Meta description must be less than 160 characters. Current: ${metaDesc.length}`);
-        return;
-      }
-
-      if (/^\s+$/.test(formData.metaDescription)) {
-        toast.error("❌ Meta description cannot contain only spaces");
-        return;
-      }
-    }
-
-    if (formData.metaKeywords) {
-      const metaKeywords = formData.metaKeywords.trim();
-      
-      if (metaKeywords.length > 200) {
-        toast.error(`❌ Meta keywords must be less than 200 characters. Current: ${metaKeywords.length}`);
-        return;
-      }
-
-      if (/^\s+$/.test(formData.metaKeywords)) {
-        toast.error("❌ Meta keywords cannot contain only spaces");
-        return;
-      }
-
-      if (metaKeywords.length > 0) {
-        const keywords = metaKeywords.split(',');
-        for (const keyword of keywords) {
-          const trimmed = keyword.trim();
-          if (trimmed.length > 0 && (trimmed.length < 2 || trimmed.length > 50)) {
-            toast.error("❌ Each keyword must be between 2-50 characters");
-            return;
-          }
-        }
-      }
-    }
-
-    // ============================================
-    // 5. HOMEPAGE LIMIT VALIDATION
-    // ============================================
-    
-    if (formData.showOnHomepage) {
-      const currentHomepageCount = brands.filter(
-        brand => brand.showOnHomepage && brand.id !== editingBrand?.id
-      ).length;
-      
-      if (currentHomepageCount >= MAX_HOMEPAGE_BRANDS) {
-        toast.error(
-          `❌ Homepage limit reached! Only ${MAX_HOMEPAGE_BRANDS} brands allowed. Currently: ${currentHomepageCount}/${MAX_HOMEPAGE_BRANDS}`
-        );
-        return;
-      }
-    }
-
-    // ============================================
-    // 6. LOGO VALIDATION
-    // ============================================
-    
+    // =========================
+    // ✅ UPLOAD LOGO
+    // =========================
     if (logoFile) {
-      const allowedTypes = ['image/webp', 'image/png'];
-      const maxSize = 1 * 1024 * 1024; // 1MB
+      const uploadRes = await brandsService.uploadLogo(logoFile, {
+        name: formData.name,
+      });
 
-      if (!allowedTypes.includes(logoFile.type)) {
-        toast.error("❌ Only WebP and PNG images are allowed");
-        return;
+      if (!uploadRes.data?.success || !uploadRes.data?.data) {
+        throw new Error("Logo upload failed");
       }
 
-      if (logoFile.size > maxSize) {
-        const sizeMB = (logoFile.size / (1024 * 1024)).toFixed(2);
-        toast.error(`❌ Logo size must be less than 1MB. Current: ${sizeMB}MB`);
-        return;
-      }
-
-      if (logoFile.name.length > 255) {
-        toast.error("❌ Logo file name is too long (max 255 characters)");
-        return;
-      }
-
-      try {
-        await new Promise<void>((resolve, reject) => {
-          const img = new Image();
-          const url = URL.createObjectURL(logoFile);
-          
-          img.onload = () => {
-            URL.revokeObjectURL(url);
-            
-            const MIN_WIDTH = 200;
-            const MAX_WIDTH = 5000;
-            const MIN_HEIGHT = 200;
-            const MAX_HEIGHT = 5000;
-            
-            if (img.width < MIN_WIDTH || img.width > MAX_WIDTH) {
-              reject(`Logo width must be between ${MIN_WIDTH}px and ${MAX_WIDTH}px. Current: ${img.width}px`);
-              return;
-            }
-            
-            if (img.height < MIN_HEIGHT || img.height > MAX_HEIGHT) {
-              reject(`Logo height must be between ${MIN_HEIGHT}px and ${MAX_HEIGHT}px. Current: ${img.height}px`);
-              return;
-            }
-            
-            resolve();
-          };
-          
-          img.onerror = () => {
-            URL.revokeObjectURL(url);
-            reject('Invalid or corrupted logo file');
-          };
-          
-          img.src = url;
-        });
-      } catch (error: any) {
-        toast.error(`❌ ${error}`);
-        return;
-      }
+      finalLogoUrl = uploadRes.data.data;
     }
 
-    // ============================================
-    // 7. PREVENT DUPLICATE SUBMISSION
-    // ============================================
-    
-    if (isSubmitting) {
-      toast.error("⏳ Please wait, processing...");
-      return;
+    // =========================
+    // ✅ PAYLOAD
+    // =========================
+    const payload: any = {
+      name: brandName,
+      description: formData.description.trim(),
+      logoUrl: finalLogoUrl,
+      isPublished: formData.isPublished,
+      showOnHomepage: formData.showOnHomepage,
+      isActive: formData.isActive,
+      displayOrder: formData.displayOrder,
+      metaTitle: formData.metaTitle?.trim() || undefined,
+      metaDescription: formData.metaDescription?.trim() || undefined,
+      metaKeywords: formData.metaKeywords?.trim() || undefined,
+    };
+
+    // =========================
+    // 🔥 CREATE MODE
+    // =========================
+    if (!editingBrand) {
+      const res = await brandsService.create(payload);
+
+      // 🔥 IMPORTANT FIX (correct parsing)
+      const brandId = res.data?.data?.id;
+
+      if (!brandId) {
+        throw new Error("Brand ID missing");
+      }
+
+      // 🔥 CREATE FAQs AFTER BRAND
+      if (pendingFaqs?.length) {
+        await Promise.all(
+          pendingFaqs.map((faq: any) =>
+            brandFaqsService.create(brandId, faq)
+          )
+        );
+      }
+
+      toast.success("✅ Brand created successfully! 🎉");
     }
-    
-    setIsSubmitting(true);
 
-    try {
-      let finalLogoUrl = formData.logoUrl;
+    // =========================
+    // 🔥 EDIT MODE
+    // =========================
+    else {
+      await brandsService.update(editingBrand.id, {
+        ...payload,
+        id: editingBrand.id, // ⚠️ backend needs this
+      });
 
-      // ============================================
-      // 8. LOGO UPLOAD
-      // ============================================
-      
-      if (logoFile) {
-        try {
-          const uploadResponse = await brandsService.uploadLogo(logoFile, {
-            name: formData.name,
-          });
-
-          if (!uploadResponse.data?.success || !uploadResponse.data?.data) {
-            throw new Error(
-              uploadResponse.data?.message || "Logo upload failed"
-            );
-          }
-
-          finalLogoUrl = uploadResponse.data.data;
-
-          
-          // Delete old logo if exists
-          if (editingBrand?.logoUrl && editingBrand.logoUrl !== finalLogoUrl) {
-            const filename = extractFilename(editingBrand.logoUrl);
-            if (filename) {
-              try {
-                await brandsService.deleteLogo(filename);
-              } catch (err) {
-                // Silently fail - old logo deletion is non-critical
-              }
-            }
-          }
-        } catch (uploadErr: any) {
-          toast.error(
-            uploadErr?.response?.data?.message || "Failed to upload logo"
-          );
-          setIsSubmitting(false);
-          return;
-        }
-      }
-
-      // ============================================
-      // 9. PREPARE PAYLOAD
-      // ============================================
-      
-      const payload = {
-        name: brandName,
-        description: description,
-        logoUrl: finalLogoUrl,
-        isPublished: formData.isPublished,
-        showOnHomepage: formData.showOnHomepage,
-        isActive: formData.isActive,  // ✅ ADD THIS
-        displayOrder: formData.displayOrder,
-        metaTitle: formData.metaTitle?.trim() || undefined,
-        metaDescription: formData.metaDescription?.trim() || undefined,
-        metaKeywords: formData.metaKeywords?.trim() || undefined,
-        ...(editingBrand && { id: editingBrand.id }),
-      };
-
-      // ============================================
-      // 10. API CALL
-      // ============================================
-      
-      if (editingBrand) {
-        await brandsService.update(editingBrand.id, payload);
-        toast.success("✅ Brand updated successfully! 🎉");
-      } else {
-        await brandsService.create(payload);
-        toast.success("✅ Brand created successfully! 🎉");
-      }
-
-      // ============================================
-      // 11. CLEANUP
-      // ============================================
-      
-      if (logoPreview) URL.revokeObjectURL(logoPreview);
-      setLogoFile(null);
-      setLogoPreview(null);
-      await fetchBrands();
-      setShowModal(false);
-      setEditingBrand(null);
-      setActiveTab('basic'); // ✅ Reset tab to basic
-
-    } catch (error: any) {
-      // ============================================
-      // 12. ERROR HANDLING
-      // ============================================
-      
-      let message = "Failed to save brand";
-      
-      if (error?.response?.status === 400) {
-        message = error?.response?.data?.message || "Invalid data provided";
-      } else if (error?.response?.status === 401) {
-        message = "Session expired. Please login again";
-      } else if (error?.response?.status === 403) {
-        message = "Access denied. You don't have permission";
-      } else if (error?.response?.status === 409) {
-        message = "Brand with this name already exists";
-      } else if (error?.response?.status === 500) {
-        message = "Server error. Please try again later";
-      } else if (error?.code === 'ECONNABORTED') {
-        message = "Request timeout. Check your internet connection";
-      } else if (error?.message) {
-        message = error.message;
-      }
-      
-      toast.error(message);
-    } finally {
-      setIsSubmitting(false);
+      toast.success("✅ Brand updated successfully! 🎉");
     }
-  };
 
+    // =========================
+    // 🔥 REFRESH + CLEANUP
+    // =========================
+    await fetchBrands();
+
+    setShowModal(false);
+    setEditingBrand(null);
+    setPendingFaqs([]);
+    setActiveTab("basic");
+
+  } catch (err: any) {
+    toast.error(err?.message || "Failed");
+  } finally {
+    setIsSubmitting(false);
+  }
+};
   return (
     <>
 {/* ============================================
@@ -1017,58 +760,21 @@ const handleDeleteImage = async (brandId: string, imageUrl: string) => {
                     )}
                   </div>
                 )}
-                {activeTab === 'faqs' && (
-  <div className="space-y-3">
-
-    {/* Add Button */}
-    <div className="flex justify-between items-center">
-      <h3 className="text-white font-semibold">Brand FAQs</h3>
-
-      <button
-        type="button"
-onClick={() => {
-  setEditingFaq(null); // ✅ important
-  setFaqForm({
-    question: "",
-    answer: "",
-    displayOrder: (editingBrand?.faqs?.length || 0) + 1,
-    isActive: true,
-  });
-  setShowFaqModal(true);
-}}
-        className="px-3 py-1.5 bg-violet-600 text-white rounded-lg text-sm flex items-center gap-1"
-      >
-        <Plus className="h-4 w-4" />
-        Add FAQ
-      </button>
-    </div>
-
-    {/* List */}
-    {editingBrand?.faqs?.length ? (
-      editingBrand.faqs.map((faq) => (
-        <div key={faq.id} className="p-3 bg-slate-800 rounded-lg">
-          <p className="text-white font-medium">{faq.question}</p>
-          <p className="text-slate-400 text-sm">{faq.answer}</p>
-          <button
-  onClick={() => {
-    setEditingFaq(faq);
-    setFaqForm({
-      question: faq.question,
-      answer: faq.answer,
-      displayOrder: faq.displayOrder,
-      isActive: faq.isActive,
-    });
-    setShowFaqModal(true);
+{activeTab === "faqs" && (
+ <BrandFaqManager
+   
+  brandId={editingBrand?.id || ""}
+  faqs={editingBrand ? editingBrand.faqs : pendingFaqs}
+  onChange={(faqs) => {
+    if (editingBrand) {
+      setEditingBrand(prev =>
+        prev ? { ...prev, faqs } : prev
+      );
+    } else {
+      setPendingFaqs(faqs);
+    }
   }}
->
-  Edit
-</button>
-        </div>
-      ))
-    ) : (
-      <p className="text-slate-400 text-sm">No FAQs added</p>
-    )}
-  </div>
+/>
 )}
               </form>
             </div>
@@ -1363,80 +1069,6 @@ onClick={() => {
         onClick={(e) => e.stopPropagation()}
          onError={(e) => (e.currentTarget.src = "/placeholder.png")}
       />
-    </div>
-  </div>
-)}
-
-{showFaqModal && (
-  <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[60]">
-    <div className="bg-slate-900 p-5 rounded-xl w-full max-w-md space-y-4 border border-slate-700">
-
-      <h2 className="text-white font-bold text-lg">Add FAQ</h2>
-
-      {/* Question */}
-      <input
-        type="text"
-        placeholder="Enter question"
-        value={faqForm.question}
-        onChange={(e) =>
-          setFaqForm({ ...faqForm, question: e.target.value })
-        }
-        className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white"
-      />
-
-      {/* Answer */}
-      <textarea
-        placeholder="Enter answer"
-        value={faqForm.answer}
-        onChange={(e) =>
-          setFaqForm({ ...faqForm, answer: e.target.value })
-        }
-        className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white"
-      />
-
-      {/* Display Order */}
-      <input
-        type="number"
-        value={faqForm.displayOrder}
-        onChange={(e) =>
-          setFaqForm({ ...faqForm, displayOrder: Number(e.target.value) })
-        }
-        className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white"
-      />
-
-      {/* Active */}
-      <label className="flex items-center gap-2 text-white">
-        <input
-          type="checkbox"
-          checked={faqForm.isActive}
-          onChange={() =>
-            setFaqForm({ ...faqForm, isActive: !faqForm.isActive })
-          }
-        />
-        Active
-      </label>
-
-      {/* Buttons */}
-      <div className="flex gap-2">
-        <button
-          onClick={() => setShowFaqModal(false)}
-          className="flex-1 bg-slate-700 text-white py-2 rounded-lg"
-        >
-          Cancel
-        </button>
-
-        <button
-          onClick={handleCreateFaq}
-          disabled={isFaqSubmitting}
-          className="flex-1 bg-violet-600 text-white py-2 rounded-lg flex items-center justify-center gap-2"
-        >
-          {isFaqSubmitting ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          ) : (
-            "Save"
-          )}
-        </button>
-      </div>
     </div>
   </div>
 )}

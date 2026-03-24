@@ -1,0 +1,619 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { ProductDescriptionEditor } from "../_components/SelfHostedEditor";
+import CategoryFaqManager from "./CategoryFaqManager";
+import { useToast } from "@/app/admin/_components/CustomToast";
+import { API_BASE_URL } from "@/lib/api";
+import { Trash2, Upload } from "lucide-react";
+import ConfirmDialog from "../_components/ConfirmDialog";
+import { categoriesService, Category } from "@/lib/services/categories";
+interface Props {
+  showModal: boolean;
+  setShowModal: (v: boolean) => void;
+  editingCategory: any;
+  setEditingCategory: any;
+  formData: any;
+  setFormData: any;
+  handleSubmit: any;
+  isSubmitting: boolean;
+  categories: any[]; // ✅ REQUIRED
+  openFaqCategory?: any;
+}
+
+export default function CategoryModal({
+  showModal,
+  setShowModal,
+  editingCategory,
+  setEditingCategory,
+  formData,
+  setFormData,
+  handleSubmit,
+  openFaqCategory ,
+  categories, // ✅ ADD THIS
+}: Props) {
+  const [activeTab, setActiveTab] = useState("basic");
+  const [pendingFaqs, setPendingFaqs] = useState<any[]>([]);
+const homepageCount = categories.filter((c) => c.showOnHomepage).length;
+  const [selectedImageUrl, setSelectedImageUrl] = useState<string | null>(null);
+  const [imageDeleteConfirm, setImageDeleteConfirm] = useState<{
+    categoryId: string;
+    imageUrl: string;
+    categoryName: string;
+  } | null>(null);
+  const [isDeletingImage, setIsDeletingImage] = useState(false);
+    const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+ 
+  const handleImageFileChange = (file: File) => {
+  setImageFile(file);
+  const previewUrl = URL.createObjectURL(file);
+  setImagePreview(previewUrl);
+
+};
+useEffect(() => {
+  if (openFaqCategory) {
+    setActiveTab("faqs");
+  }
+}, [openFaqCategory]);
+const handleDeleteImage = async (categoryId: string, imageUrl: string) => {
+  setIsDeletingImage(true);
+
+  try {
+    const filename = extractFilename(imageUrl);
+
+    await categoriesService.deleteImage(filename);
+
+    toast.success("Image deleted ✅");
+
+    setEditingCategory((prev: any) =>
+      prev ? { ...prev, imageUrl: "" } : prev
+    );
+
+    setFormData((prev: any) => ({
+      ...prev,
+      imageUrl: "",
+    }));
+
+  } catch (error: any) {
+    toast.error("Delete failed");
+  } finally {
+    setIsDeletingImage(false);
+    setImageDeleteConfirm(null);
+  }
+};
+const extractFilename = (imageUrl: string) => {
+  if (!imageUrl) return "";
+  const parts = imageUrl.split('/');
+  return parts[parts.length - 1];
+};
+
+const getImageUrl = (imageUrl?: string) => {
+  if (!imageUrl) return "";
+  if (imageUrl.startsWith("http")) return imageUrl;
+  const cleanUrl = imageUrl.split('?')[0];
+  return `${API_BASE_URL}${cleanUrl}`;
+};
+  const toast = useToast();
+  if (!showModal) return null;
+  const MAX_HOMEPAGE_CATEGORIES = 50;
+  return (
+   
+<div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+<div className="bg-gradient-to-br from-slate-900 via-slate-900 to-slate-800 border border-violet-500/20 rounded-2xl max-w-5xl w-full max-h-[88vh] overflow-hidden shadow-xl flex flex-col">
+        {/* HEADER */}
+<div className="px-4 py-3 border-b border-violet-500/20 bg-gradient-to-r from-violet-500/10 to-cyan-500/10 flex justify-between items-center">
+  <div>
+    <h2 className="text-xl font-semibold bg-gradient-to-r from-violet-400 via-cyan-400 to-pink-400 bg-clip-text text-transparent">
+      {editingCategory ? "Edit Category" : "Create Category"}
+    </h2>
+    <p className="text-slate-400 text-xs">
+      {editingCategory ? "Update details" : "Add category"}
+    </p>
+  </div>
+
+  <button
+    type="button"
+    onClick={() => {
+      setShowModal(false);
+      setActiveTab("basic");
+    }}
+    className="p-1.5 text-slate-400 hover:text-white hover:bg-red-500/20 rounded-md"
+  >
+    ✕
+  </button>
+</div>
+
+        {/* TABS */}
+<div className="flex gap-1 px-4 py-2 border-b border-slate-700 bg-slate-900/50">
+  {["basic","image","seo","settings","faqs"].map((tab) => (
+    <button
+      key={tab}
+      type="button"
+      onClick={() => setActiveTab(tab)}
+      className={`px-3 py-1.5 rounded-lg text-xs capitalize transition ${
+        activeTab === tab
+          ? "bg-gradient-to-r from-violet-500 to-cyan-500 text-white"
+          : "bg-slate-800 text-slate-400 hover:text-white"
+      }`}
+    >
+      {tab}
+    </button>
+  ))}
+</div>
+
+        {/* FORM */}
+<form
+  onSubmit={handleSubmit}
+  className="flex-1 overflow-y-auto px-4 py-3 space-y-3"
+>
+
+  {/* ================= BASIC ================= */}
+  {activeTab === "basic" && (
+  <div className="bg-slate-800/40 p-4 rounded-xl border border-slate-700/50 space-y-3">
+
+      {/* NAME */}
+      <div>
+        <label className="block text-sm text-slate-300 mb-2">
+          Category Name *
+        </label>
+        <input
+          required
+          value={formData.name}
+          onChange={(e) =>
+            setFormData({ ...formData, name: e.target.value })
+          }
+          className="w-full px-3 py-2 bg-slate-900 border border-slate-600 rounded-lg text-sm text-white"
+          placeholder="Enter category name"
+        />
+
+        {!formData.name && (
+          <p className="text-xs text-amber-400 mt-1">
+            ⚠️ Category name is required before uploading image
+          </p>
+        )}
+      </div>
+
+      {/* PARENT CATEGORY */}
+      <div>
+        <label className="block text-sm text-slate-300 mb-2">
+          Parent Category
+        </label>
+
+        <select
+          value={formData.parentCategoryId || ""}
+          onChange={(e) =>
+            setFormData({
+              ...formData,
+              parentCategoryId: e.target.value,
+            })
+          }
+          className="w-full px-3 py-2 bg-slate-900 border border-slate-600 rounded-lg text-sm text-white"
+        >
+          <option value="">None (Root)</option>
+          {categories.map((c: any) => (
+            <option key={c.id} value={c.id}>
+              {c.name}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      {/* DESCRIPTION */}
+      <ProductDescriptionEditor
+        value={formData.description}
+        onChange={(val) =>
+          setFormData({ ...formData, description: val })
+        }
+      />
+    </div>
+  )}
+
+  {/* ================= IMAGE ================= */}
+  {activeTab === "image" && (
+   <div className="bg-slate-800/40 p-3 rounded-xl border border-slate-700/50 space-y-3">
+ 
+
+  <div className="space-y-4">
+    {/* Current/Preview Image Display */}
+    {(imagePreview || formData.imageUrl) && (
+      <div className="flex items-center gap-4 p-3 bg-slate-900/30 rounded-xl border border-slate-600">
+        <div
+          className="w-16 h-16 rounded-lg overflow-hidden border-2 border-violet-500/30 cursor-pointer hover:border-violet-500 transition-all"
+          onClick={() => setSelectedImageUrl(imagePreview || getImageUrl(formData.imageUrl))}
+        >
+          <img
+            src={imagePreview || getImageUrl(formData.imageUrl)}
+            alt="Category image"
+            className="w-full h-full object-cover"
+            onError={(e) => (e.currentTarget.src = "/placeholder.png")}
+          />
+        </div>
+        <div className="flex-1">
+          <p className="text-white font-medium">
+            {imagePreview ? "New Image Selected" : "Current Image"}
+          </p>
+          <p className="text-xs text-slate-400">
+            {imagePreview ? "Will be uploaded on save" : "Click to view full size"}
+          </p>
+        </div>
+
+        {/* Change/Remove buttons */}
+        <div className="flex gap-2">
+          <label
+            className={`px-3 py-2 rounded-lg text-sm font-medium cursor-pointer transition-all ${
+              !formData.name
+                ? "bg-slate-700/50 text-slate-500 cursor-not-allowed"
+                : "bg-violet-500/20 text-violet-400 hover:bg-violet-500/30"
+            }`}
+          >
+            Change
+            <input
+              type="file"
+              accept="image/*"
+              disabled={!formData.name}
+              className="hidden"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) handleImageFileChange(file);
+              }}
+            />
+          </label>
+
+          {imagePreview && (
+            <button
+              type="button"
+              onClick={() => {
+                if (imagePreview) URL.revokeObjectURL(imagePreview);
+                setImageFile(null);
+                setImagePreview(null);
+                toast.success("Image selection removed");
+              }}
+              className="px-3 py-2 bg-red-500/20 text-red-400 rounded-lg hover:bg-red-500/30 transition-all text-sm font-medium"
+            >
+              Remove
+            </button>
+          )}
+
+          {/* Delete button for existing images (only in edit mode) */}
+          {editingCategory && formData.imageUrl && !imagePreview && (
+            <button
+              type="button"
+              onClick={() => {
+                if (editingCategory) {
+                  setImageDeleteConfirm({
+                    categoryId: editingCategory.id,
+                    imageUrl: formData.imageUrl!,
+                    categoryName: editingCategory.name,
+                  });
+                }
+              }}
+              className="px-3 py-2 bg-red-500/20 text-red-400 rounded-lg hover:bg-red-500/30 transition-all text-sm font-medium flex items-center gap-2"
+              title="Delete Image"
+            >
+              <Trash2 className="h-4 w-4" />
+              Delete
+            </button>
+          )}
+        </div>
+      </div>
+    )}
+
+    {/* Upload Area - Show only if no image */}
+    {!formData.imageUrl && !imagePreview && (
+      <div className="flex items-center justify-center w-full">
+        <label
+          className={`flex flex-col items-center justify-center w-full h-24 border-2 border-dashed rounded-xl transition-all ${
+            !formData.name
+              ? "border-slate-700 bg-slate-900/20 cursor-not-allowed"
+              : "border-slate-600 bg-slate-900/30 hover:bg-slate-800/50 cursor-pointer group"
+          }`}
+        >
+          <div className="flex items-center gap-3">
+            <Upload
+              className={`w-6 h-6 transition-colors ${
+                !formData.name
+                  ? "text-slate-600"
+                  : "text-slate-500 group-hover:text-violet-400"
+              }`}
+            />
+            <div>
+              <p
+                className={`text-sm ${
+                  !formData.name ? "text-slate-600" : "text-slate-400"
+                }`}
+              >
+                {!formData.name ? (
+                  "Enter category name first to upload"
+                ) : (
+                  <>
+                    <span className="font-semibold">Click to upload</span> or drag and drop
+                  </>
+                )}
+              </p>
+              {formData.name && (
+                <p className="text-xs text-slate-500">PNG, JPG, GIF up to 10MB</p>
+              )}
+            </div>
+          </div>
+          <input
+            type="file"
+            accept="image/*"
+            disabled={!formData.name}
+            className="hidden"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) handleImageFileChange(file);
+            }}
+          />
+        </label>
+      </div>
+    )}
+
+    {/* URL Input - Optional */}
+    {!imagePreview && (
+      <>
+        <div className="relative">
+          <div className="absolute inset-0 flex items-center">
+            <div className="w-full border-t border-slate-700"></div>
+          </div>
+          <div className="relative flex justify-center text-sm">
+            <span className="px-2 bg-slate-800 text-slate-400">OR</span>
+          </div>
+        </div>
+        <input
+          type="text"
+          value={formData.imageUrl}
+          onChange={(e) => setFormData({ ...formData, imageUrl: e.target.value })}
+          placeholder="Paste image URL"
+          className="w-full px-3 py-2 bg-slate-900/50 border border-slate-600 rounded-lg text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+        />
+      </>
+    )}
+  </div>
+</div>
+  )}
+
+  {/* ================= SEO ================= */}
+  {activeTab === "seo" && ( 
+             <div className="bg-slate-800/40 p-4 rounded-xl border border-slate-700/50 space-y-3">
+               
+                <div className="space-y-2">
+                  <div>
+                    <label className="block text-sm font-medium text-slate-300 mb-2">Meta Title</label>
+                    <input
+                      type="text"
+                      value={formData.metaTitle}
+                      onChange={(e) => setFormData({...formData, metaTitle: e.target.value})}
+                      placeholder="Enter meta title for SEO"
+                      className="w-full px-3 py-2 bg-slate-900/50 border border-slate-600 rounded-lg text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-300 mb-2">Meta Description</label>
+                    <textarea
+                      value={formData.metaDescription}
+                      onChange={(e) => setFormData({...formData, metaDescription: e.target.value})}
+                      placeholder="Enter meta description for SEO"
+                      rows={3}
+                      className="w-full px-3 py-2 bg-slate-900/50 border border-slate-600 rounded-lg text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all resize-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-300 mb-2">Meta Keywords</label>
+                    <input
+                      type="text"
+                      value={formData.metaKeywords}
+                      onChange={(e) => setFormData({...formData, metaKeywords: e.target.value})}
+                      placeholder="Enter keywords separated by commas"
+                      className="w-full px-3 py-2 bg-slate-900/50 border border-slate-600 rounded-lg text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+                    />
+                  </div>
+                </div>
+              </div>
+  )}
+
+  {/* ================= SETTINGS ================= */}
+  {activeTab === "settings" && (
+   <div className="bg-slate-800/40 p-4 rounded-xl border border-slate-700/50 space-y-3">
+ 
+  
+  {/* Row 1: Active + Sort Order */}
+<div className="grid grid-cols-2 gap-3">
+
+  {/* Active */}
+  <div>
+    <label className="block text-xs font-medium text-slate-400 mb-1">
+      Visibility
+    </label>
+
+    <label className="flex items-center gap-2 px-3 py-2 bg-slate-900/40 border border-slate-600 rounded-lg cursor-pointer hover:border-violet-500 transition">
+      <input
+        type="checkbox"
+        checked={formData.isActive}
+        onChange={(e) =>
+          setFormData({ ...formData, isActive: e.target.checked })
+        }
+        className="w-4 h-4 rounded border-slate-600 text-violet-500 focus:ring-1 focus:ring-violet-500"
+      />
+
+      <span className="text-sm text-white">Active</span>
+    </label>
+  </div>
+
+  {/* Sort Order */}
+  <div>
+    <label className="block text-xs font-medium text-slate-400 mb-1">
+      Sort Order
+    </label>
+
+    <input
+      type="number"
+      min="0"
+      value={formData.sortOrder || 0}
+      onChange={(e) => {
+        const value = e.target.value;
+        setFormData({
+          ...formData,
+          sortOrder: value === "" ? 0 : parseInt(value, 10),
+        });
+      }}
+      placeholder="0"
+      className="w-full px-3 py-2 bg-slate-900/40 border border-slate-600 rounded-lg text-sm text-white focus:outline-none focus:ring-1 focus:ring-violet-500"
+    />
+  </div>
+
+</div>
+
+  {/* Row 2: Show on Homepage - Full Width with Counter */}
+<div className="space-y-2">
+
+  {/* HEADER */}
+  <div className="flex items-center justify-between">
+    <label className="text-xs font-medium text-slate-400">
+      Homepage Visibility
+    </label>
+
+    <span
+      className={`px-2 py-0.5 rounded-md text-[10px] font-semibold border ${
+        homepageCount >= 15
+          ? "bg-red-500/10 text-red-400 border-red-500/30"
+          : homepageCount >= 12
+          ? "bg-amber-500/10 text-amber-400 border-amber-500/30"
+          : "bg-cyan-500/10 text-cyan-400 border-cyan-500/30"
+      }`}
+    >
+      {homepageCount}/15
+    </span>
+  </div>
+
+  {/* TOGGLE CARD */}
+  <label
+    className={`flex items-center justify-between px-3 py-2 border rounded-lg text-sm transition ${
+      formData.showOnHomepage
+        ? "bg-cyan-500/10 border-cyan-500/30"
+        : "bg-slate-900/40 border-slate-600 hover:border-cyan-500 cursor-pointer"
+    } ${
+      !formData.showOnHomepage && homepageCount >= 15
+        ? "opacity-50 cursor-not-allowed"
+        : ""
+    }`}
+  >
+    <div className="flex items-center gap-2">
+      <input
+        type="checkbox"
+        checked={formData.showOnHomepage}
+        onChange={(e) => {
+          const checked = e.target.checked;
+
+          if (
+            checked &&
+            homepageCount >= 15 &&
+            !editingCategory?.showOnHomepage
+          ) {
+            toast.error(`Max ${MAX_HOMEPAGE_CATEGORIES} reached`);
+            return;
+          }
+
+          setFormData({ ...formData, showOnHomepage: checked });
+        }}
+        disabled={
+          !formData.showOnHomepage &&
+          homepageCount >= 15 &&
+          !editingCategory?.showOnHomepage
+        }
+        className="w-4 h-4 text-cyan-500 border-slate-600"
+      />
+
+      <span className="text-white">Show on homepage</span>
+    </div>
+
+    {formData.showOnHomepage && (
+      <span className="text-cyan-400 text-xs">✓</span>
+    )}
+  </label>
+
+  {/* WARNINGS (compact) */}
+  {homepageCount >= 12 && homepageCount < 15 && (
+    <p className="text-[11px] text-amber-400">
+      {15 - homepageCount} slots left
+    </p>
+  )}
+
+  {homepageCount >= 15 && (
+    <p className="text-[11px] text-red-400">
+      Homepage full
+    </p>
+  )}
+</div>
+</div>
+
+  )}
+
+  {/* ================= FAQ ================= */}
+  {activeTab === "faqs" && (
+
+    <div className="bg-slate-800/40 p-4 rounded-xl border border-slate-700/50">
+    <CategoryFaqManager
+      categoryId={editingCategory?.id || ""}
+      faqs={
+        editingCategory
+          ? editingCategory.faqs || []
+          : pendingFaqs
+      }
+      onChange={(faqs) => {
+        if (editingCategory) {
+          setEditingCategory((prev: any) =>
+            prev ? { ...prev, faqs } : prev
+          );
+        } else {
+          setPendingFaqs(faqs);
+        }
+      }}
+    />
+    </div>
+  )}
+
+  {/* ================= ACTIONS ================= */}
+<div className="flex justify-end gap-2 pt-3 border-t border-slate-700">
+  <button
+    type="button"
+    onClick={() => setShowModal(false)}
+    className="px-4 py-1.5 bg-slate-700 text-white rounded-lg text-sm"
+  >
+    Cancel
+  </button>
+
+  <button
+    type="submit"
+    className="px-4 py-1.5 bg-gradient-to-r from-violet-500 to-cyan-500 text-white rounded-lg text-sm"
+  >
+    {editingCategory ? "Update" : "Create"}
+  </button>
+</div>
+
+</form>
+      </div>
+{/* 🔥 Image Delete Confirmation */}
+{imageDeleteConfirm && (
+  <ConfirmDialog
+    isOpen={!!imageDeleteConfirm}
+    onClose={() => setImageDeleteConfirm(null)}
+    onConfirm={() => {
+      if (imageDeleteConfirm) {
+        handleDeleteImage(
+          imageDeleteConfirm.categoryId,
+          imageDeleteConfirm.imageUrl
+        );
+      }
+    }}
+    title="Delete Image"
+    message={`Are you sure you want to delete the image for "${imageDeleteConfirm.categoryName}"?`}
+    confirmText="Delete Image"
+    isLoading={isDeletingImage}
+  />
+)}
+      
+    </div>
+  );
+}

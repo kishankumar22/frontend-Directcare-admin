@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Plus, Edit, Trash2, Search, Tag, Eye, CheckCircle, Filter, FilterX, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, AlertCircle, Package, FolderTree, Copy, Loader2 } from "lucide-react";
+import { Plus, Edit, Trash2, Search, Tag, Eye, CheckCircle, Filter, FilterX, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, AlertCircle, Package, FolderTree, Copy, Loader2, HelpCircle } from "lucide-react";
 import { API_BASE_URL } from "@/lib/api-config";
 import { useToast } from "@/app/admin/_components/CustomToast";
 import ConfirmDialog from "@/app/admin/_components/ConfirmDialog";
@@ -21,11 +21,12 @@ export default function BrandsPage() {
   const [viewingBrand, setViewingBrand] = useState<Brand | null>(null);
   const [debouncedSearch, setDebouncedSearch] = useState("");
   // ✅ UPDATED FILTERS - Using "all" | "true" | "false"
+  const [initialTab, setInitialTab] = useState<'basic' | 'image' | 'seo' | 'settings' | 'faqs'>('basic');
   const [publishedFilter, setPublishedFilter] = useState<string>("all");
   const [activeFilter, setActiveFilter] = useState<string>("all");
   const [deletedFilter, setDeletedFilter] = useState<string>("all");
   const [homepageFilter, setHomepageFilter] = useState<string>("all");
-  
+const [activeTab, setActiveTab] = useState<'basic' | 'image' | 'seo' | 'settings' | 'faqs'>('basic');
   const [stats, setStats] = useState<BrandStats>({
     totalBrands: 0,
     publishedBrands: 0,
@@ -67,6 +68,12 @@ const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
       isDeleted: brand.isDeleted,
     });
   };
+
+useEffect(() => {
+  if (showModal && initialTab) {
+    setActiveTab(initialTab);
+  }
+}, [initialTab, showModal]);
 const handleStatusUpdate = async () => {
   if (!statusConfirm) return;
 
@@ -210,10 +217,21 @@ const handleStatusUpdate = async () => {
     }
   };
 
-  const handleEdit = (brand: Brand) => {
-    setEditingBrand(brand);
+const handleEdit = (
+  brand: Brand,
+  tab: 'basic' | 'image' | 'seo' | 'settings' | 'faqs' = 'basic'
+) => {
+  setEditingBrand(brand);
+
+  // 🔥 FORCE correct order
+  setInitialTab(tab);
+
+  // delay modal open
+  setTimeout(() => {
     setShowModal(true);
-  };
+  }, 0);
+};
+
 
   const resetForm = () => {
     setEditingBrand(null);
@@ -744,6 +762,13 @@ const handleStatusUpdate = async () => {
                           >
                             <Eye className="h-4 w-4" />
                           </button>
+                          <button
+  onClick={() => handleEdit(brand, 'faqs')}
+  className="p-1.5 text-violet-400 hover:bg-violet-500/10 rounded-md"
+  title="Manage FAQs"
+>
+  <HelpCircle className="h-4 w-4" />
+</button>
 
                           <button
                             onClick={() => handleEdit(brand)}
@@ -859,19 +884,20 @@ const handleStatusUpdate = async () => {
       )}
 
       {/* Reusable Modals Component */}
-      <BrandModals
-        showModal={showModal}
-        setShowModal={setShowModal}
-        editingBrand={editingBrand}
-        setEditingBrand={setEditingBrand}
-        viewingBrand={viewingBrand}
-        setViewingBrand={setViewingBrand}
-        selectedImageUrl={selectedImageUrl}
-        setSelectedImageUrl={setSelectedImageUrl}
-        brands={brands}
-        fetchBrands={fetchBrands}
-        getImageUrl={getImageUrl}
-      />
+   <BrandModals
+  initialTab={initialTab}
+  showModal={showModal}
+  setShowModal={setShowModal}
+  editingBrand={editingBrand}
+  setEditingBrand={setEditingBrand}
+  viewingBrand={viewingBrand}
+  setViewingBrand={setViewingBrand}
+  selectedImageUrl={selectedImageUrl}
+  setSelectedImageUrl={setSelectedImageUrl}
+  brands={brands}
+  fetchBrands={fetchBrands}
+  getImageUrl={getImageUrl}
+/>
 <ConfirmDialog
   isOpen={!!statusConfirm}
   onClose={() => setStatusConfirm(null)}
