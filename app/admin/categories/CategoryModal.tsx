@@ -5,20 +5,32 @@ import { ProductDescriptionEditor } from "../_components/SelfHostedEditor";
 import CategoryFaqManager from "./CategoryFaqManager";
 import { useToast } from "@/app/admin/_components/CustomToast";
 import { API_BASE_URL } from "@/lib/api";
-import { Trash2, Upload } from "lucide-react";
+import { Edit, Plus, Trash2, Upload, X } from "lucide-react";
 import ConfirmDialog from "../_components/ConfirmDialog";
 import { categoriesService, Category } from "@/lib/services/categories";
 interface Props {
   showModal: boolean;
   setShowModal: (v: boolean) => void;
+  imageFile: File | null;
+setImageFile: (file: File | null) => void;
+
+
   editingCategory: any;
   setEditingCategory: any;
+
   formData: any;
   setFormData: any;
+
   handleSubmit: any;
   isSubmitting: boolean;
-  categories: any[]; // ✅ REQUIRED
+
+  categories: any[];
+
   openFaqCategory?: any;
+
+  // ✅ IMPORTANT (FIX)
+  pendingFaqs: any[];
+  setPendingFaqs: (faqs: any[]) => void;
 }
 
 export default function CategoryModal({
@@ -26,15 +38,21 @@ export default function CategoryModal({
   setShowModal,
   editingCategory,
   setEditingCategory,
+    imageFile,
+  setImageFile,
   formData,
   setFormData,
   handleSubmit,
-  openFaqCategory ,
-  categories, // ✅ ADD THIS
+  openFaqCategory,
+  categories,
+  pendingFaqs,          // ✅ ADD
+  setPendingFaqs,       // ✅ ADD
+  isSubmitting,         // ⚠️ missing tha
 }: Props) {
   const [activeTab, setActiveTab] = useState("basic");
-  const [pendingFaqs, setPendingFaqs] = useState<any[]>([]);
+
 const homepageCount = categories.filter((c) => c.showOnHomepage).length;
+
   const [selectedImageUrl, setSelectedImageUrl] = useState<string | null>(null);
   const [imageDeleteConfirm, setImageDeleteConfirm] = useState<{
     categoryId: string;
@@ -42,20 +60,26 @@ const homepageCount = categories.filter((c) => c.showOnHomepage).length;
     categoryName: string;
   } | null>(null);
   const [isDeletingImage, setIsDeletingImage] = useState(false);
-    const [imageFile, setImageFile] = useState<File | null>(null);
+  
   const [imagePreview, setImagePreview] = useState<string | null>(null);
  
-  const handleImageFileChange = (file: File) => {
-  setImageFile(file);
+ const handleImageFileChange = (file: File) => {
+  setImageFile(file); // ✅ parent state update
   const previewUrl = URL.createObjectURL(file);
   setImagePreview(previewUrl);
-
 };
 useEffect(() => {
   if (openFaqCategory) {
     setActiveTab("faqs");
   }
 }, [openFaqCategory]);
+
+const extractFilename = (imageUrl: string) => {
+  if (!imageUrl) return "";
+  const parts = imageUrl.split('/');
+  return parts[parts.length - 1];
+};
+
 const handleDeleteImage = async (categoryId: string, imageUrl: string) => {
   setIsDeletingImage(true);
 
@@ -82,11 +106,29 @@ const handleDeleteImage = async (categoryId: string, imageUrl: string) => {
     setImageDeleteConfirm(null);
   }
 };
-const extractFilename = (imageUrl: string) => {
-  if (!imageUrl) return "";
-  const parts = imageUrl.split('/');
-  return parts[parts.length - 1];
-};
+
+
+useEffect(() => {
+  if (showModal && !editingCategory) {
+    setPendingFaqs([]);
+  }
+}, [showModal, editingCategory]);
+useEffect(() => {
+  if (editingCategory && showModal) {
+    setFormData({
+      name: editingCategory.name || "",
+      description: editingCategory.description || "",
+      imageUrl: editingCategory.imageUrl || "",
+      isActive: editingCategory.isActive ?? true,
+      showOnHomepage: editingCategory.showOnHomepage ?? false,
+      sortOrder: editingCategory.sortOrder ?? 0,
+      parentCategoryId: editingCategory.parentCategoryId || "",
+      metaTitle: editingCategory.metaTitle || "",
+      metaDescription: editingCategory.metaDescription || "",
+      metaKeywords: editingCategory.metaKeywords || "",
+    });
+  }
+}, [editingCategory, showModal]);
 
 const getImageUrl = (imageUrl?: string) => {
   if (!imageUrl) return "";
@@ -102,26 +144,81 @@ const getImageUrl = (imageUrl?: string) => {
 <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
 <div className="bg-gradient-to-br from-slate-900 via-slate-900 to-slate-800 border border-violet-500/20 rounded-2xl max-w-5xl w-full max-h-[88vh] overflow-hidden shadow-xl flex flex-col">
         {/* HEADER */}
-<div className="px-4 py-3 border-b border-violet-500/20 bg-gradient-to-r from-violet-500/10 to-cyan-500/10 flex justify-between items-center">
-  <div>
-    <h2 className="text-xl font-semibold bg-gradient-to-r from-violet-400 via-cyan-400 to-pink-400 bg-clip-text text-transparent">
-      {editingCategory ? "Edit Category" : "Create Category"}
-    </h2>
-    <p className="text-slate-400 text-xs">
-      {editingCategory ? "Update details" : "Add category"}
-    </p>
-  </div>
+<div className="p-3 border-b border-violet-500/20 bg-gradient-to-r from-violet-500/10 to-cyan-500/10">
+  <div className="flex items-center justify-between gap-3">
 
-  <button
-    type="button"
-    onClick={() => {
-      setShowModal(false);
-      setActiveTab("basic");
-    }}
-    className="p-1.5 text-slate-400 hover:text-white hover:bg-red-500/20 rounded-md"
-  >
-    ✕
-  </button>
+    {/* LEFT: IMAGE + TITLE */}
+    <div className="flex items-center gap-3">
+
+      {/* CATEGORY IMAGE */}
+      <div
+        onClick={() => {
+          if (formData.imageUrl || imagePreview) {
+            setSelectedImageUrl(
+              imagePreview || getImageUrl(formData.imageUrl)
+            );
+          }
+        }}
+        className={`w-14 h-14 rounded-lg flex items-center justify-center shrink-0 ${
+          (formData.imageUrl || imagePreview)
+            ? 'cursor-pointer hover:scale-105 transition-transform border-2 border-violet-500/20'
+            : 'bg-gradient-to-r from-violet-500 to-cyan-500'
+        }`}
+      >
+        {(formData.imageUrl || imagePreview) ? (
+          <img
+            src={imagePreview || getImageUrl(formData.imageUrl)}
+            alt="Category"
+            className="w-full h-full object-cover rounded-lg"
+          />
+        ) : editingCategory ? (
+          <Edit className="h-6 w-6 text-white" />
+        ) : (
+          <Plus className="h-6 w-6 text-white" />
+        )}
+      </div>
+
+      {/* TITLE */}
+      <div>
+        <h2 className="text-xl font-bold text-white flex items-center gap-2">
+          {editingCategory ? "Edit Category" : "Create Category"}
+
+          {formData.name && (
+            <span className="text-violet-400 font-semibold truncate max-w-[280px]">
+              • {formData.name}
+            </span>
+          )}
+        </h2>
+
+        {/* SUBTITLE */}
+        <p className="text-slate-400 text-sm flex items-center gap-2">
+          {editingCategory
+            ? "✏️ Update category details"
+            : "➕ Add a new category"}
+
+          {formData.sortOrder > 0 && (
+            <span className="text-cyan-400 font-semibold">
+              • #{formData.sortOrder}
+            </span>
+          )}
+        </p>
+      </div>
+    </div>
+
+    {/* RIGHT: CLOSE BUTTON */}
+    <button
+      onClick={() => {
+        setShowModal(false);
+        setEditingCategory(null);
+        setActiveTab("basic");
+      }}
+      className="p-2 text-slate-400 hover:text-white hover:bg-red-500/20 border border-transparent hover:border-red-500/50 rounded-lg transition-all"
+      disabled={isSubmitting}
+    >
+      <X className="h-5 w-5" />
+    </button>
+
+  </div>
 </div>
 
         {/* TABS */}
@@ -144,7 +241,7 @@ const getImageUrl = (imageUrl?: string) => {
 
         {/* FORM */}
 <form
-  onSubmit={handleSubmit}
+   onSubmit={(e) => handleSubmit(e, pendingFaqs)}
   className="flex-1 overflow-y-auto px-4 py-3 space-y-3"
 >
 
@@ -554,23 +651,23 @@ const getImageUrl = (imageUrl?: string) => {
   {activeTab === "faqs" && (
 
     <div className="bg-slate-800/40 p-4 rounded-xl border border-slate-700/50">
-    <CategoryFaqManager
-      categoryId={editingCategory?.id || ""}
-      faqs={
-        editingCategory
-          ? editingCategory.faqs || []
-          : pendingFaqs
-      }
-      onChange={(faqs) => {
-        if (editingCategory) {
-          setEditingCategory((prev: any) =>
-            prev ? { ...prev, faqs } : prev
-          );
-        } else {
-          setPendingFaqs(faqs);
-        }
-      }}
-    />
+   <div className="bg-slate-800/40 p-4 rounded-xl border border-slate-700/50">
+ <CategoryFaqManager
+  categoryId={editingCategory?.id || ""}
+  faqs={editingCategory ? editingCategory.faqs ?? [] : pendingFaqs}
+  onChange={(faqs) => {
+    console.log("🔥 FAQs updated:", faqs);
+
+    if (editingCategory) {
+      setEditingCategory((prev: any) =>
+        prev ? { ...prev, faqs } : prev
+      );
+    } else {
+      setPendingFaqs(faqs); // ✅ NOW WORKS
+    }
+  }}
+/>
+</div>
     </div>
   )}
 
@@ -612,6 +709,44 @@ const getImageUrl = (imageUrl?: string) => {
     confirmText="Delete Image"
     isLoading={isDeletingImage}
   />
+)}
+
+{selectedImageUrl && (
+  <div
+    className="fixed inset-0 bg-black/70 backdrop-blur-lg z-[60] flex items-center justify-center p-4"
+    onClick={() => setSelectedImageUrl(null)}
+  >
+    <div className="relative max-w-6xl max-h-[90vh]">
+
+      {/* Close Button */}
+      <button
+        onClick={() => setSelectedImageUrl(null)}
+        className="
+          absolute top-3 right-3
+          p-2 rounded-lg
+          bg-white/10 hover:bg-red-500
+          text-white backdrop-blur-md
+          transition-all shadow-md
+        "
+      >
+        <X className="h-5 w-5" />
+      </button>
+
+      {/* Image */}
+      <img
+        src={selectedImageUrl}
+        alt="Brand Logo Full View"
+        className="
+          max-w-full max-h-[90vh]
+          rounded-xl
+          shadow-2xl
+          border border-white/10
+        "
+        onClick={(e) => e.stopPropagation()}
+         onError={(e) => (e.currentTarget.src = "/placeholder.png")}
+      />
+    </div>
+  </div>
 )}
       
     </div>

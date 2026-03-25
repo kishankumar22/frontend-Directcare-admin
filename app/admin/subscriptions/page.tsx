@@ -525,10 +525,10 @@
           >
             <option value="all">All Frequencies</option>
             <option value="Weekly">Weekly</option>
-            <option value="BiWeekly">Bi-Weekly</option>
+            {/* <option value="BiWeekly">Bi-Weekly</option> */}
             <option value="Monthly">Monthly</option>
-            <option value="BiMonthly">Bi-Monthly</option>
-            <option value="Quarterly">Quarterly</option>
+            {/* <option value="BiMonthly">Bi-Monthly</option>
+            <option value="Quarterly">Quarterly</option> */}
           </select>
 
           {/* PRODUCT DROPDOWN (UNCHANGED LOGIC) */}
@@ -602,7 +602,7 @@
             <tr>
               <th className="py-2.5 px-3 text-left">Product</th>
               <th className="py-2.5 px-3 text-left">Customer</th>
-              <th className="py-2.5 px-3 text-center">Freq</th>
+              <th className="py-2.5 px-3 text-center">Frequency</th>
               <th className="py-2.5 px-3 text-center">Price</th>
               <th className="py-2.5 px-3 text-left">Next</th>
               <th className="py-2.5 px-3 text-center">Status</th>
@@ -641,7 +641,7 @@
                   </p>
                 </td>
 
-                <td className="py-2.5 px-3 text-center text-xs">
+                <td className="py-2.5 px-3 text-center text-white text-xs">
                   {subscription.frequencyDisplay}
                 </td>
 

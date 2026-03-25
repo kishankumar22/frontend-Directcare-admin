@@ -36,42 +36,115 @@ interface OrderActionsModalProps {
 }
 
 // ✅ Valid status transitions matching backend UpdateOrderStatusCommandHandler
+// type OrderStatus =
+//   | 'Processing'
+//   | 'Shipped'
+//   | 'Delivered'
+//   | 'Returned'
+//   | 'Cancelled';
 
+const getOrderFlow = (
+  status: OrderStatus,
+  deliveryMethod: string
+): { label: string; hint: string }[] => {
+
+  const isClickAndCollect = deliveryMethod === 'ClickAndCollect';
+
+  if (isClickAndCollect) {
+    return [
+      { label: 'Processing', hint: 'Order is being prepared' },
+      { label: 'Ready', hint: 'Ready for collection' },
+      { label: 'Collected', hint: 'Picked up by customer' },
+    ];
+  }
+
+  // Home Delivery
+  return [
+    { label: 'Processing', hint: 'Order is being prepared' },
+    { label: 'Shipped', hint: 'Order shipped' },
+    { label: 'Delivered', hint: 'Order delivered' },
+  ];
+};
+const OrderStatusHelper = ({
+  status,
+  deliveryMethod,
+  collectionStatus
+}: {
+  status: OrderStatus;
+  deliveryMethod: string;
+  collectionStatus?: string;
+}) => {
+const flow = getOrderFlow(status, deliveryMethod);
+
+  if (!flow) return null;
+
+  return (
+    <div className="mt-3 rounded-xl border border-slate-700/50 bg-slate-900/40 p-3">
+      <p className="text-xs text-slate-400 mb-2">
+        Order Flow Guide
+      </p>
+
+      <div className="flex flex-wrap items-center gap-2">
+        {flow.map((step, index) => {
+          const isActive = step.label === status;
+
+          return (
+            <div key={step.label} className="flex items-center gap-2">
+              
+              {/* Step */}
+              <div
+                className={`px-2.5 py-1 rounded-md text-xs font-medium border ${
+                  isActive
+                    ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30'
+                    : 'bg-slate-800 text-slate-400 border-slate-700'
+                }`}
+              >
+                {step.label}
+              </div>
+
+              {/* Arrow */}
+              {index < flow.length - 1 && (
+                <span className="text-slate-600">→</span>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Hint */}
+      <p className="text-[11px] text-slate-500 mt-2">
+        {
+          flow.find((s) => s.label === status)?.hint
+        }
+      </p>
+    </div>
+  );
+};
 export const getValidStatusTransitions = (
   currentStatus: OrderStatus,
   deliveryMethod: string
 ): OrderStatus[] => {
 
+  const isClickAndCollect = deliveryMethod === 'ClickAndCollect';
+
   const transitions: Record<OrderStatus, OrderStatus[]> = {
 
-    Pending: [
-      'Confirmed',
-      'Processing'
-    ],
+    Pending: ['Confirmed', 'Processing'],
 
-    Confirmed: deliveryMethod === 'ClickAndCollect'
-      ? ['Processing']
-      : ['Processing', 'Shipped'],
+    Confirmed: ['Processing'],
 
-    Processing: deliveryMethod === 'ClickAndCollect'
-      ? []  // Click & Collect uses Mark Ready instead
-      : ['Shipped', 'PartiallyShipped'],
+    Processing: isClickAndCollect
+      ? [] // ❌ no status change from modal
+      : [], // ✅ only home delivery
 
-    Shipped: [
-      'Delivered',
-      'Returned'
-    ],
+    Shipped: isClickAndCollect
+      ? [] // ❌ should never happen (safety)
+      : ['Delivered', 'Returned'],
 
-    PartiallyShipped: [
-      'Shipped',
-      'Delivered'
-    ],
+    PartiallyShipped: ['Shipped', 'Delivered'],
 
-    Delivered: [
-      'Returned'
-    ],
+    Delivered: ['Returned'],
 
-    // Terminal states
     Cancelled: [],
     Returned: [],
     Refunded: []
@@ -79,57 +152,26 @@ export const getValidStatusTransitions = (
 
   return transitions[currentStatus] || [];
 };
+
+
 // ✅ Status display info
 const getStatusDisplayInfo = (status: OrderStatus) => {
   const statusMap: Record<OrderStatus, { label: string; color: string; icon: JSX.Element }> = {
-    'Pending': { 
-      label: 'Pending', 
-      color: 'text-yellow-400', 
-      icon: <Clock className="w-4 h-4" /> 
-    },
-    'Confirmed': { 
-      label: 'Confirmed', 
-      color: 'text-blue-400', 
-      icon: <CheckCircle className="w-4 h-4" /> 
-    },
-    'Processing': { 
-      label: 'Processing', 
-      color: 'text-cyan-400', 
-      icon: <Package className="w-4 h-4" /> 
-    },
-    'Shipped': { 
-      label: 'Shipped', 
-      color: 'text-purple-400', 
-      icon: <Truck className="w-4 h-4" /> 
-    },
-    'PartiallyShipped': { 
-      label: 'Partially Shipped', 
-      color: 'text-indigo-400', 
-      icon: <Truck className="w-4 h-4" /> 
-    },
-    'Delivered': { 
-      label: 'Delivered', 
-      color: 'text-green-400', 
-      icon: <CheckCircle className="w-4 h-4" /> 
-    },
-    'Cancelled': { 
-      label: 'Cancelled', 
-      color: 'text-red-400', 
-      icon: <XCircle className="w-4 h-4" /> 
-    },
-    'Returned': { 
-      label: 'Returned', 
-      color: 'text-orange-400', 
-      icon: <Package className="w-4 h-4" /> 
-    },
-    'Refunded': { 
-      label: 'Refunded', 
-      color: 'text-pink-400', 
-      icon: <XCircle className="w-4 h-4" /> 
-    },
+    Pending: { label: 'Pending', color: 'text-yellow-400', icon: <Clock className="w-4 h-4" /> },
+    Confirmed: { label: 'Confirmed', color: 'text-blue-400', icon: <CheckCircle className="w-4 h-4" /> },
+    Processing: { label: 'Processing', color: 'text-cyan-400', icon: <Package className="w-4 h-4" /> },
+
+    // 🔥 Only for Home Delivery
+    Shipped: { label: 'Shipped', color: 'text-purple-400', icon: <Truck className="w-4 h-4" /> },
+    PartiallyShipped: { label: 'Partially Shipped', color: 'text-indigo-400', icon: <Truck className="w-4 h-4" /> },
+
+    Delivered: { label: 'Delivered', color: 'text-green-400', icon: <CheckCircle className="w-4 h-4" /> },
+    Cancelled: { label: 'Cancelled', color: 'text-red-400', icon: <XCircle className="w-4 h-4" /> },
+    Returned: { label: 'Returned', color: 'text-orange-400', icon: <Package className="w-4 h-4" /> },
+    Refunded: { label: 'Refunded', color: 'text-pink-400', icon: <XCircle className="w-4 h-4" /> },
   };
 
-  return statusMap[status] || statusMap['Pending'];
+  return statusMap[status] || statusMap.Pending;
 };
 
 // ✅ NEW: Check if order is paid
@@ -636,7 +678,7 @@ const PharmacyWarning = () => {
       case 'update-status':
         return (
           <div className="space-y-2">
-            <div className="flex items-center gap-3 p-2 bg-blue-500/10 border border-blue-500/20 rounded-lg">
+            <div className="flex items-center gap-2 p-1 bg-blue-500/10 border border-blue-500/20 rounded-lg">
               <Clock className="h-6 w-6 text-blue-400" />
               <div>
                 <p className="text-white font-medium">Update Order Status</p>
@@ -696,7 +738,7 @@ const PharmacyWarning = () => {
                 >
                   <option value={order.status}>Select new status</option>
                   {availableStatuses.map((status) => (
-                    <option className='bg-gray-800 text-white' key={status} value={status}>
+                    <option className='bg-gray-800/80 text-white' key={status} value={status}>
                       {getStatusDisplayInfo(status).label}
                     </option>
                   ))}
@@ -731,6 +773,11 @@ const PharmacyWarning = () => {
                 className="w-full px-3 py-2.5 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
               />
             </div>
+<OrderStatusHelper
+  status={order.status}
+  deliveryMethod={order.deliveryMethod}
+  collectionStatus={order.collectionStatus}
+/>
           </div>
         );
 

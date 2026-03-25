@@ -225,6 +225,13 @@ const getPaymentStatusInfo = (status: PaymentStatus) => {
       icon: <XCircle className="h-3 w-3" />,
       description: 'Payment failed.',
     },
+    PartiallyPaid: {
+  label: 'Partially Paid',
+  color: 'text-amber-400',
+  bgColor: 'bg-amber-500/10',
+  icon: <AlertCircle className="h-3 w-3" />,
+  description: 'Partial payment received. Remaining amount pending.',
+},
     Cancelled: {
       label: 'Cancelled',
       color: 'text-red-300',
@@ -1091,11 +1098,10 @@ const handleAction = (action: string) => {
 };
 
 
-  const handleActionSuccess = () => {
-    setActionModalOpen(false);
-    fetchOrderDetails();
-  
-  };
+const handleActionSuccess = async () => {
+  setActionModalOpen(false);
+  await refreshAllOrderData(); // ✅ full sync
+};
 
 const handleShippingRefund = async (notes: string) => {
   if (!order) return;
@@ -1532,12 +1538,12 @@ const allActions = getAllAvailableActions(
                 {formatCurrency(order.subtotalAmount, order.currency)}
               </span>
             </div>
-            {/* <div className="flex justify-between" title="Value Added Tax (VAT)">
+            <div className="flex justify-between" title="Value Added Tax (VAT)">
               <span className="text-slate-400">Tax(inc)</span>
               <span className="text-white font-medium">
                 {formatCurrency(order.taxAmount, order.currency)}
               </span>
-            </div> */}
+            </div> 
      <div className="flex justify-between items-center" title="Shipping charge">
 
   <span className="text-slate-400">Shipping</span>

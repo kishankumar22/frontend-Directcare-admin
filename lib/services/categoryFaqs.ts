@@ -40,6 +40,13 @@ export interface CreateCategoryFaqDto {
   displayOrder?: number;
   isActive?: boolean;
 }
+export type Faq = {
+  id?: string;
+  question: string;
+  answer: string;
+  displayOrder: number;
+  isActive: boolean;
+};
 
 // ================= SERVICE =================
 

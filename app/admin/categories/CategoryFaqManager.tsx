@@ -50,6 +50,10 @@ export default function CategoryFaqManager({
     load();
   }, [categoryId]);
 
+  useEffect(() => {
+  setList(faqs || []);
+}, [faqs]);
+
   // ================= SEARCH =================
   const filteredList = list.filter(
     (f) =>
@@ -69,11 +73,24 @@ export default function CategoryFaqManager({
     setShowModal(true);
   };
 
-  const openEdit = (faq: CategoryFaq) => {
-    setEditingFaq(faq);
-    setForm(faq);
-    setShowModal(true);
-  };
+ const openEdit = (faq: CategoryFaq) => {
+  const fresh = list.find(f => f.id === faq.id);
+
+  if (!fresh) {
+    toast.error("FAQ not found");
+    return;
+  }
+
+  setEditingFaq(fresh);
+  setForm({
+    question: fresh.question,
+    answer: fresh.answer,
+    displayOrder: fresh.displayOrder,
+    isActive: fresh.isActive,
+  });
+
+  setShowModal(true);
+};
 
   const loadFaqs = async () => {
   const res = await categoryFaqsService.getByCategoryId(categoryId);
@@ -83,50 +100,77 @@ export default function CategoryFaqManager({
 };
 
   // ================= SAVE =================
-  const handleSave = async () => {
-    if (!form.question.trim()) {
-      toast.error("Question required");
-      return;
-    }
+const handleSave = async () => {
+  if (!form.question.trim()) {
+    toast.error("Question required");
+    return;
+  }
 
-    try {
-      setLoading(true);
+  try {
+    setLoading(true);
 
-      let res;
-
-      if (editingFaq) {
-        res = await categoryFaqsService.update(
-          categoryId,
-          editingFaq.id,
-          form
-        );
-      } else {
-        res = await categoryFaqsService.create(categoryId, form);
-      }
-
-      if (!res.data?.success || !res.data.data) {
-        throw new Error();
-      }
-
-      const saved = res.data.data;
+    // ===============================
+    // 🔥 LOCAL MODE (NO categoryId)
+    // ===============================
+    if (!categoryId) {
+      const temp = {
+        ...form,
+        id: crypto.randomUUID(),
+      };
 
       const updated = editingFaq
-        ? list.map((f) => (f.id === editingFaq.id ? saved : f))
-        : [...list, saved];
+        ? list.map(f => f.id === editingFaq.id ? temp : f)
+        : [...list, temp];
 
       setList(updated);
       onChange?.(updated);
 
-      toast.success(editingFaq ? "Updated ✅" : "Created ✅");
+      toast.success(editingFaq ? "Updated (local) ✅" : "Added (local) ✅");
 
       setShowModal(false);
       setEditingFaq(null);
-    } catch {
-      toast.error("Failed");
-    } finally {
-      setLoading(false);
+      return;
     }
-  };
+
+    // ===============================
+    // 🔥 API MODE
+    // ===============================
+    let res;
+
+    if (editingFaq) {
+      res = await categoryFaqsService.update(
+        categoryId,
+        editingFaq.id,
+        form
+      );
+    } else {
+      res = await categoryFaqsService.create(categoryId, form);
+    }
+
+    if (!res?.data?.success || !res.data.data) {
+      throw new Error();
+    }
+
+    const saved = res.data.data;
+
+    const updated = editingFaq
+      ? list.map(f => f.id === editingFaq.id ? saved : f)
+      : [...list, saved];
+
+    setList(updated);
+    onChange?.(updated);
+
+    toast.success(editingFaq ? "Updated ✅" : "Created ✅");
+
+    setShowModal(false);
+    setEditingFaq(null);
+
+  } catch {
+    toast.error("Failed");
+  } finally {
+    setLoading(false);
+  }
+};
 
 
   // ================= DELETE =================
@@ -134,7 +178,17 @@ export default function CategoryFaqManager({
     try {
       setLoading(true);
 
-      await categoryFaqsService.delete(categoryId, id);
+    if (!categoryId) {
+  // ✅ LOCAL DELETE
+  const updated = list.filter((f) => f.id !== id);
+  setList(updated);
+  onChange?.(updated);
+  toast.success("Deleted (local) ✅");
+  return;
+}
+
+// ✅ API DELETE
+await categoryFaqsService.delete(categoryId, id);
 
       const updated = list.filter((f) => f.id !== id);
 

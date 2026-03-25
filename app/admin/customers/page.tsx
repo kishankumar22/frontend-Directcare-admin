@@ -43,6 +43,8 @@ import {
   ShoppingCart,
   UserPlus,
   PoundSterling,
+  CheckCircle,
+  Ban,
 } from "lucide-react";
 import * as XLSX from "xlsx";
 
@@ -50,6 +52,7 @@ import { useToast } from "@/app/admin/_components/CustomToast";
 import { Customer, CustomerQueryParams, customersService } from "@/lib/services/customers";
 import { loyaltyPointsService } from "@/lib/services/loyaltyPoints";
 import { orderService } from "@/lib/services/orders";
+import ConfirmDialog from "../_components/ConfirmDialog";
 
 // ✅ Types
 type CustomerTier = "all" | "gold" | "silver" | "bronze";
@@ -84,6 +87,8 @@ export default function CustomersPage() {
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null);
+  const [toggleConfirm, setToggleConfirm] = useState<Customer | null>(null);
+const [isToggling, setIsToggling] = useState(false);
 // Toggle Analytics State
 const [showAnalytics, setShowAnalytics] = useState(false); // Default: collapsed 
 const [isOrderModalOpen, setIsOrderModalOpen] = useState(false);
@@ -99,6 +104,26 @@ const [orderFilters, setOrderFilters] = useState({
   status: "all",
   paymentStatus: "all",
 });
+
+const handleToggleStatus = async (customer: Customer) => {
+  try {
+    setIsToggling(true);
+    await customersService.toggleStatus(customer.id);
+
+    // update UI instantly (no reload needed)
+    setCustomers(prev =>
+      prev.map(c =>
+        c.id === customer.id ? { ...c, isActive: !c.isActive } : c
+      )
+    );
+
+    setToggleConfirm(null);
+  } catch (err) {
+    console.error(err);
+  } finally {
+    setIsToggling(false);
+  }
+};
   // ✅ Advanced Filters
  const [filters, setFilters] = useState({
   status: "all",
@@ -112,6 +137,7 @@ const [orderFilters, setOrderFilters] = useState({
   lastLoginFrom: "",
   lastLoginTo: "",
   gender: "all",
+  accountType: "all",
   deliveryMethod: "all",
 });
 useEffect(() => {
@@ -251,6 +277,11 @@ const getTier = (customer: Customer): CustomerTier | "loading" => {
   const tier = getTier(c);
   return tier !== "loading" && tier === filters.tier;
 });
+}
+if (filters.accountType !== "all") {
+  filtered = filtered.filter(
+    (c) => c.accountType === filters.accountType
+  );
 }
 
     // Spending Range
@@ -430,22 +461,30 @@ const bronze = allCustomers.filter((c) => loyaltyMap[c.id] === "bronze").length;
           )
         : "N/A";
 
-    return {
-      "Customer Name": customer.fullName,
-      Email: customer.email,
-      Phone: customer.phoneNumber || "N/A",
-      Gender: customer.gender || "N/A",
-      "Total Orders": customer.totalOrders,
-      "Total Spent (£)": customer.totalSpent.toFixed(2),
-      "Avg Order Value (£)": avgOrderValue,
-      Status: customer.isActive ? "Active" : "Inactive",
-     Tier: tier.toUpperCase(),
-      "Registration Date": formatDate(customer.createdAt),
-      "Last Login": customer.lastLoginAt
-        ? formatDate(customer.lastLoginAt)
-        : "Never",
-      "Days Since Last Order": daysSinceLastOrder,
-    };
+  return {
+  "Customer Name": customer.fullName,
+  Email: customer.email,
+  Phone: customer.phoneNumber || "N/A",
+  Gender: customer.gender || "N/A",
+
+  // ✅ ADD THESE
+  "Account Type": customer.accountType || "Personal",
+  "Company Name": customer.companyName || "N/A",
+  "Company Number": customer.companyNumber || "N/A",
+
+  "Total Orders": customer.totalOrders,
+  "Total Spent (£)": customer.totalSpent.toFixed(2),
+  "Avg Order Value (£)": avgOrderValue,
+  Status: customer.isActive ? "Active" : "Inactive",
+  Tier: tier.toUpperCase(),
+
+  "Registration Date": formatDate(customer.createdAt),
+  "Last Login": customer.lastLoginAt
+    ? formatDate(customer.lastLoginAt)
+    : "Never",
+
+  "Days Since Last Order": daysSinceLastOrder,
+};
   });
 
   const worksheet = XLSX.utils.json_to_sheet(excelData);
@@ -527,6 +566,7 @@ const bronze = allCustomers.filter((c) => loyaltyMap[c.id] === "bronze").length;
   registrationTo: "",
   lastLoginFrom: "",
   lastLoginTo: "",
+  accountType: "all",
   gender: "all",
   deliveryMethod: "all",
 });
@@ -1078,6 +1118,21 @@ const modalTier = selectedCustomer ? getTier(selectedCustomer) : "loading";
         className="w-full pl-9 pr-3 py-2 bg-slate-800/50 border border-slate-700 rounded-lg text-white text-sm placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
       />
     </div>
+    <select
+  value={filters.accountType}
+  onChange={(e) => {
+    setFilters({ ...filters, accountType: e.target.value });
+  }}
+     className={`px-3 py-2 bg-slate-800/90 border rounded-lg text-white text-xs font-medium focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all ${
+        filters.status !== "all"
+          ? "border-blue-500 bg-blue-500/10 ring-2 ring-blue-500/50"
+          : "border-slate-600"
+      }`}
+>
+  <option value="all">All Types</option>
+  <option value="Personal">Personal</option>
+  <option value="Business">Business</option>
+</select>
 
     {/* Status Filter */}
     <select
@@ -1291,6 +1346,9 @@ const modalTier = selectedCustomer ? getTier(selectedCustomer) : "loading";
             Orders {getSortIcon("totalOrders")}
           </button>
         </th>
+        <th className="text-center py-2 px-2 text-[11px] text-slate-500 font-medium">
+          Account Type
+        </th>
 
         <th className="text-center py-2 px-2 text-[11px] text-slate-500 font-medium">
           <button onClick={() => handleSort("totalSpent")} className="flex items-center gap-1 mx-auto hover:text-white">
@@ -1380,7 +1438,21 @@ const modalTier = selectedCustomer ? getTier(selectedCustomer) : "loading";
                 {customer.totalOrders}
               </span>
             </td>
-
+<td className="py-2 px-2 text-center">
+  {customer.accountType ? (
+    <span
+      className={`px-2 py-0.5 rounded text-xs font-medium ${
+        customer.accountType === "Business"
+          ? "bg-blue-500/10 text-blue-400 border border-blue-500/20"
+          : "bg-slate-500/10 text-slate-400 border border-slate-500/20"
+      }`}
+    >
+      {customer.accountType}
+    </span>
+  ) : (
+    <span className="text-slate-500 text-xs">N/A</span>
+  )}
+</td>
             {/* Spent */}
             <td className="py-2 px-2 text-center">
               <span className="text-green-400 text-sm font-medium">
@@ -1403,9 +1475,14 @@ const modalTier = selectedCustomer ? getTier(selectedCustomer) : "loading";
             </td>
 
             {/* Status */}
-            <td className="py-2 px-2 text-center">
-              {getStatusBadge(customer.isActive)}
-            </td>
+          <td className="py-2 px-2 text-center">
+  <button
+    onClick={() => setToggleConfirm(customer)}
+    className="cursor-pointer"
+  >
+    {getStatusBadge(customer.isActive)}
+  </button>
+</td>
 
             {/* Last Login */}
             <td className="py-2 px-2">
@@ -2102,7 +2179,21 @@ const modalTier = selectedCustomer ? getTier(selectedCustomer) : "loading";
     </div>
   </div>
 )}
-
+<ConfirmDialog
+  isOpen={!!toggleConfirm}
+  onClose={() => setToggleConfirm(null)}
+  onConfirm={() => toggleConfirm && handleToggleStatus(toggleConfirm)}
+  title={
+    toggleConfirm?.isActive ? "Deactivate Customer" : "Activate Customer"
+  }
+  message={`Are you sure you want to ${
+    toggleConfirm?.isActive ? "deactivate" : "activate"
+  } "${toggleConfirm?.fullName}"?`}
+  confirmText={toggleConfirm?.isActive ? "Deactivate" : "Activate"}
+  isLoading={isToggling}
+  icon={toggleConfirm?.isActive ? Ban : CheckCircle}   // ✅ FIXED
+  iconColor={toggleConfirm?.isActive ? "text-red-400" : "text-green-400"} // optional
+/>
     </div>
   );
 }

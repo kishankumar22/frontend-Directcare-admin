@@ -9,7 +9,7 @@ import { API_BASE_URL } from "@/lib/api";
 import { categoriesService, Category, CategoryStats } from "@/lib/services/categories";
 import { useRouter } from "next/navigation";
 import CategoryModal from "./CategoryModal";
-import { categoryFaqsService } from "@/lib/services/categoryFaqs";
+import { categoryFaqsService, Faq } from "@/lib/services/categoryFaqs";
 
 export default function CategoriesPage() {
   const toast = useToast();
@@ -24,7 +24,7 @@ export default function CategoriesPage() {
   const [viewingCategory, setViewingCategory] = useState<Category | null>(null);
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [levelFilter, setLevelFilter] = useState<string>("all");
-  const [pendingFaqs, setPendingFaqs] = useState([]);
+const [pendingFaqs, setPendingFaqs] = useState<Faq[]>([]);
   const [homepageFilter, setHomepageFilter] = useState<'all' | 'yes' | 'no'>('all');
 const [deletedFilter, setDeletedFilter] = useState<'all' | 'deleted' | 'notDeleted'>('all');
 const handleRestore = async (category: Category) => {
@@ -48,7 +48,7 @@ const handleRestore = async (category: Category) => {
     setRestoreConfirm(null);
   }
 };
-  const MAX_HOMEPAGE_CATEGORIES = 50;
+  
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
   const [selectedParentId, setSelectedParentId] = useState<string>("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -56,6 +56,7 @@ const handleRestore = async (category: Category) => {
   const [imagePreview, setImagePreview] = useState<string | null>(null);
 // Add after other useState declarations
 const [homepageCategories, setHomepageCategories] = useState<Category[]>([]); 
+
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(25);
   const [debouncedSearch, setDebouncedSearch] = useState("");
@@ -342,12 +343,7 @@ const calculateStats = (categoriesData: Category[]) => {
   //   return () => window.removeEventListener('focus', handleFocus);
   // }, []);
 
-const handleImageFileChange = (file: File) => {
-  setImageFile(file);
-  const previewUrl = URL.createObjectURL(file);
-  setImagePreview(previewUrl);
 
-};
 
   const handleAddSubcategory = (parentId: string, parentName: string) => {
     const parent = findCategoryById(parentId, categories);
@@ -422,111 +418,37 @@ useEffect(() => {
 const handleSubmit = async (e: React.FormEvent) => {
   e.preventDefault();
 
-  // ============================================
-  // 1. NAME VALIDATION
-  // ============================================
-  const name = formData.name?.trim();
+const name = formData.name?.trim();
 
-  if (!name) {
-    toast.error("❌ Category name is required");
-    return;
-  }
+if (!name) {
+  toast.error("❌ Category name is required");
+  return;
+}
 
-  const CATEGORY_NAME_REGEX = /^[A-Za-z0-9\s,()&'’\-]+$/;
+// ✅ DUPLICATE CHECK
+const isDuplicate = categories.some((c: any) =>
+  c.name.trim().toLowerCase() === name.toLowerCase() &&
+  c.id !== editingCategory?.id // edit mode me same allow
+);
 
-  if (!CATEGORY_NAME_REGEX.test(name)) {
-    toast.error(
-      "❌ Category name may contain letters, numbers, spaces, commas (,), &, -, ' and () only"
-    );
-    return;
-  }
+if (isDuplicate) {
+  toast.error("❌ Category with same name already exists");
+  return;
+}
 
-  if (name.length < 3 || name.length > 100) {
-    toast.error(
-      `❌ Category name must be between 3 and 100 characters. Current: ${name.length}`
-    );
-    return;
-  }
-
-  const isDuplicateName = categories.some(
-    (cat: any) =>
-      cat.name.toLowerCase().trim() === name.toLowerCase() &&
-      cat.id !== editingCategory?.id
-  );
-
-  if (isDuplicateName) {
-    toast.error("❌ A category with this name already exists!");
-    return;
-  }
-
-  // ============================================
-  // 2. DESCRIPTION VALIDATION
-  // ============================================
-  const description = formData.description.trim();
-
-  if (description.length > 1000) {
-    toast.error(
-      `❌ Description cannot exceed 1000 characters. Current: ${description.length}`
-    );
-    return;
-  }
-
-  // ============================================
-  // 3. PARENT VALIDATION
-  // ============================================
-  if (formData.parentCategoryId) {
-    const parent = findCategoryById(
-      formData.parentCategoryId,
-      categories
-    );
-
-    if (!parent) {
-      toast.error("❌ Parent category not found");
-      return;
-    }
-
-    if (!parent.isActive) {
-      toast.error("❌ Parent category is inactive");
-      return;
-    }
-
-    const level = getCategoryLevel(parent, categories);
-    if (level >= 2) {
-      toast.error("❌ Max 3 levels allowed");
-      return;
-    }
-  }
-
-  // ============================================
-  // 4. SORT ORDER
-  // ============================================
-  if (!Number.isInteger(formData.sortOrder)) {
-    toast.error("❌ Sort order must be integer");
-    return;
-  }
-
-  if (formData.sortOrder < 1 || formData.sortOrder > 1000) {
-    toast.error("❌ Sort order must be 1–1000");
-    return;
-  }
-
-  // ============================================
-  // 5. PREVENT DUPLICATE SUBMIT
-  // ============================================
   if (isSubmitting) return;
   setIsSubmitting(true);
 
   try {
     let finalImageUrl = formData.imageUrl;
 
-    // ============================================
-    // 6. IMAGE UPLOAD
-    // ============================================
+    // =========================
+    // IMAGE UPLOAD
+    // =========================
     if (imageFile) {
-      const uploadRes = await categoriesService.uploadImage(
-        imageFile,
-        { name }
-      );
+      const uploadRes = await categoriesService.uploadImage(imageFile, { name });
+
+      console.log("📦 Upload Response:", uploadRes);
 
       if (!uploadRes.data?.success || !uploadRes.data?.data) {
         throw new Error("Image upload failed");
@@ -534,76 +456,134 @@ const handleSubmit = async (e: React.FormEvent) => {
 
       finalImageUrl = uploadRes.data.data;
     }
+console.log("imageFile:", imageFile);
 
-    // ============================================
-    // 7. PAYLOAD
-    // ============================================
-    const payload = {
-      name,
-      description,
-      imageUrl: finalImageUrl,
-      isActive: formData.isActive,
-      showOnHomepage: formData.showOnHomepage,
-      sortOrder: formData.sortOrder,
-      parentCategoryId: formData.parentCategoryId || null,
-      metaTitle: formData.metaTitle?.trim() || undefined,
-      metaDescription: formData.metaDescription?.trim() || undefined,
-      metaKeywords: formData.metaKeywords?.trim() || undefined,
-      // ...(editingCategory && { id: editingCategory.id }),
-    };
+if (!imageFile) {
+  console.log("Image file missing");
+}
+    // =========================
+    // PAYLOAD
+    // =========================
+   const payload = {
+  id: editingCategory?.id, // ✅ ADD THIS
 
-    // ============================================
-    // 8. CREATE / UPDATE + FAQ LOGIC
-    // ============================================
-    let   categoryId = editingCategory?.id;
+  name,
+  description: formData.description?.trim() || "",
+
+  imageUrl: finalImageUrl || "",
+
+  isActive: !!formData.isActive,
+  showOnHomepage: !!formData.showOnHomepage,
+  sortOrder: Number(formData.sortOrder) || 0,
+
+  parentCategoryId: formData.parentCategoryId || null,
+
+  metaTitle: formData.metaTitle || "",
+  metaDescription: formData.metaDescription || "",
+  metaKeywords: formData.metaKeywords || "",
+};
+
+    console.log("📤 Payload:", payload);
+
+    // =========================
+    // CREATE / UPDATE
+    // =========================
+    let categoryId = editingCategory?.id;
 
     if (editingCategory) {
-      // UPDATE
+      console.log("✏️ EDIT MODE");
+
       await categoriesService.update(editingCategory.id, payload);
 
-      toast.success("✅ Category updated successfully! 🎉");
+      // 🔥 FAQ UPDATE / CREATE
+      console.log("📦 Pending FAQs (EDIT):", pendingFaqs);
+
+      if (pendingFaqs?.length) {
+        await Promise.all(
+          pendingFaqs.map((faq: any) => {
+            console.log("➡️ Processing FAQ:", faq);
+
+            if (faq.id) {
+              return categoryFaqsService.update(
+                editingCategory.id,
+                faq.id,
+                faq
+              );
+            } else {
+              return categoryFaqsService.create(categoryId!, {
+  question: faq.question,
+  answer: faq.answer,
+  displayOrder: faq.displayOrder,
+  isActive: faq.isActive,
+});
+            }
+          })
+        );
+      }
+
+      toast.success("✅ Category updated");
+
     } else {
-      // CREATE
+      console.log("🆕 CREATE MODE");
+
       const res = await categoriesService.create(payload);
 
-      // 🔥 IMPORTANT (API structure dependent)
-      categoryId = res.data?.id 
+      console.log("📥 CREATE RESPONSE:", res);
 
+      // 🔥 FIXED ID EXTRACTION
+     categoryId = res.data?.data?.id;
 
-     if (!categoryId) {
-  throw new Error("Category ID missing");
-}
+      console.log("🆔 Extracted Category ID:", categoryId);
 
-if (pendingFaqs?.length) {
-  await Promise.all(
-    pendingFaqs.map((faq: any) =>
-      categoryFaqsService.create(categoryId!, faq)
-    )
-  );
-}
+      if (!categoryId) {
+        console.error("❌ Category ID missing. FULL RESPONSE:", res);
+        throw new Error("Category ID missing");
+      }
 
-      toast.success("✅ Category created successfully! 🎉");
+      // 🔥 CREATE FAQs
+      console.log("📦 Pending FAQs (CREATE):", pendingFaqs);
+
+      if (pendingFaqs?.length) {
+        await Promise.all(
+          pendingFaqs.map((faq: any) => {
+            console.log("➡️ Creating FAQ:", faq);
+
+            return categoryFaqsService.create(categoryId!, {
+              question: faq.question,
+              answer: faq.answer,
+              displayOrder: faq.displayOrder,
+              isActive: faq.isActive,
+            });
+          })
+        );
+      } else {
+        console.warn("⚠️ No FAQs found in pendingFaqs");
+      }
+
+      toast.success("✅ Category created");
     }
 
-    // ============================================
-    // 9. CLEANUP
-    // ============================================
+    // =========================
+    // CLEANUP
+    // =========================
     await fetchCategories();
 
     if (imagePreview) URL.revokeObjectURL(imagePreview);
 
     setImageFile(null);
     setImagePreview(null);
-    setPendingFaqs([]); // 🔥 reset FAQ
+    setPendingFaqs([]);
     setShowModal(false);
     resetForm();
 
   } catch (err: any) {
+    console.error("❌ ERROR:", err);
     toast.error(err?.message || "Failed");
   } finally {
     setIsSubmitting(false);
   }
 };
+
 
 
 
@@ -790,7 +770,14 @@ const CategoryRow: React.FC<CategoryRowProps> = ({
 
           {/* Image */}
           {category.imageUrl ? (
-            <img            
+            <img    
+ onClick={() => {
+          if (formData.imageUrl || imagePreview) {
+            setSelectedImageUrl(
+              imagePreview || getImageUrl(formData.imageUrl)
+            );
+          }
+        }}
               src={getImageUrl(category.imageUrl)}
               onError={(e) => (e.currentTarget.src = "/placeholder.png")}
               className="w-7 h-7 rounded-md object-cover border border-slate-700"
@@ -1406,7 +1393,7 @@ useEffect(() => {
           <th className="py-2 px-3 text-left">Category</th>
           <th className="py-2 px-3 text-center">Products</th>
           <th className="py-2 px-3 text-center">Status</th>
-          <th className="py-2 px-3 text-center">Order</th>
+          <th className="py-2 px-3 text-center">Order by</th>
           <th className="py-2 px-3 text-left">Created on</th>
           <th className="py-2 px-3 text-left">Updated on</th>
           <th className="py-2 px-3 text-left">Updated By</th>
@@ -1894,6 +1881,8 @@ useEffect(() => {
 <CategoryModal
   showModal={showModal}
   setShowModal={setShowModal}
+   imageFile={imageFile}
+  setImageFile={setImageFile}
   editingCategory={editingCategory}
   setEditingCategory={setEditingCategory}
   formData={formData}
@@ -1901,6 +1890,8 @@ useEffect(() => {
   handleSubmit={handleSubmit}
   isSubmitting={isSubmitting}
   categories={categories}
+   pendingFaqs={pendingFaqs}
+  setPendingFaqs={setPendingFaqs}
   openFaqCategory={openFaqCategory} // 🔥 add this
 />
     </div>

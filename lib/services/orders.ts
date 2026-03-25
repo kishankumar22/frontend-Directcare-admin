@@ -79,7 +79,9 @@ export type PaymentStatus =
   | 'Failed'
   | 'Cancelled'
   | 'Refunded'
-  | 'PartiallyRefunded';
+  | 'PartiallyRefunded'
+  | 'PartiallyPaid'
+  ;
 
 // ==================== INTERFACES ====================
 
@@ -528,17 +530,39 @@ export const getCollectionStatusInfo = (status: CollectionStatus) => {
  * ✅ Get Payment Status Info (Updated with "Successful")
  */
 export const getPaymentStatusInfo = (status: PaymentStatus) => {
-  const statusMap: Record<PaymentStatus, { label: string; color: string; bgColor: string }> = {
-    'Pending': { label: 'Pending', color: 'text-yellow-400', bgColor: 'bg-yellow-500/10' },
-    'Authorized': { label: 'Authorized', color: 'text-blue-300', bgColor: 'bg-blue-400/10' },
-    'Processing': { label: 'Processing', color: 'text-blue-400', bgColor: 'bg-blue-500/10' },
-    'Successful': { label: 'Successful', color: 'text-green-400', bgColor: 'bg-green-500/10' },
-    'Completed': { label: 'Completed', color: 'text-green-400', bgColor: 'bg-green-500/10' },
-    'Failed': { label: 'Failed', color: 'text-red-400', bgColor: 'bg-red-500/10' },
-    'Cancelled': { label: 'Cancelled', color: 'text-red-300', bgColor: 'bg-red-400/10' },
-    'Refunded': { label: 'Refunded', color: 'text-purple-400', bgColor: 'bg-purple-500/10' },
-    'PartiallyRefunded': { label: 'Partially Refunded', color: 'text-purple-300', bgColor: 'bg-purple-400/10' },
-  };
+  const statusMap: Record<
+  PaymentStatus,
+  { label: string; color: string; bgColor: string }
+> = {
+  Pending: { label: 'Pending', color: 'text-yellow-400', bgColor: 'bg-yellow-500/10' },
+
+  Authorized: { label: 'Authorized', color: 'text-blue-300', bgColor: 'bg-blue-400/10' },
+
+  Processing: { label: 'Processing', color: 'text-blue-400', bgColor: 'bg-blue-500/10' },
+
+  Successful: { label: 'Successful', color: 'text-green-400', bgColor: 'bg-green-500/10' },
+
+  Completed: { label: 'Completed', color: 'text-green-400', bgColor: 'bg-green-500/10' },
+
+  Failed: { label: 'Failed', color: 'text-red-400', bgColor: 'bg-red-500/10' },
+
+  Cancelled: { label: 'Cancelled', color: 'text-red-300', bgColor: 'bg-red-400/10' },
+
+  Refunded: { label: 'Refunded', color: 'text-purple-400', bgColor: 'bg-purple-500/10' },
+
+  PartiallyRefunded: {
+    label: 'Partially Refunded',
+    color: 'text-purple-300',
+    bgColor: 'bg-purple-400/10'
+  },
+
+  // 🔥 ADD THIS (missing tha)
+  PartiallyPaid: {
+    label: 'Partially Paid',
+    color: 'text-amber-400',
+    bgColor: 'bg-amber-500/10'
+  },
+};
   return statusMap[status] || statusMap['Pending'];
 };
 

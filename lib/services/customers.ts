@@ -47,6 +47,9 @@ export interface Customer {
   addresses: Address[];
   orders: Order[];
   totalOrders: number;
+  accountType?: "Personal" | "Business";
+companyName?: string;
+companyNumber?: string;
   totalSpent: number;
   tierLevel?: "Gold" | "Silver" | "Bronze"; // ✅ ADD THIS
 }
@@ -84,4 +87,7 @@ export const customersService = {
 
   getById: (id: string): Promise<ApiResponse<Customer>> =>
     apiClient.get(`${API_ENDPOINTS.customers}/${id}`) as Promise<ApiResponse<Customer>>,
+
+  toggleStatus: (id: string): Promise<ApiResponse<string>> =>
+  apiClient.put(`${API_ENDPOINTS.customers}/${id}/toggle-status`) as Promise<ApiResponse<string>>,
 };

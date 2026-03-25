@@ -27,6 +27,12 @@ export interface Category {
   subCategories?: Category[];
     faqs?: CategoryFaq[];
 }
+
+export interface ApiResponse<T> {
+  success: boolean;
+  message?: string;
+  data: T;
+}
 export interface UpdateCategoryDto {
   name: string;
   description: string;
@@ -80,21 +86,18 @@ getAll: (config: any = {}) =>
     apiClient.get<Category>(`${API_ENDPOINTS.categories}/${id}`, config),
 
   // Create
-  create: (data: CreateCategoryDto, config: any = {}) =>
-    apiClient.post<Category>(API_ENDPOINTS.categories, data, config),
-
+create: (data: CreateCategoryDto) =>
+  apiClient.post<ApiResponse<Category>>(
+    API_ENDPOINTS.categories,
+    data
+  ),
   // Update (Full Update - PUT)
-update: (
-  id: string,
-  data: UpdateCategoryDto,
-  config: any = {}
-) =>
-  apiClient.put<Category>(
+update: (id: string, data: UpdateCategoryDto, config: any = {}) =>
+  apiClient.put<ApiResponse<Category>>(
     `${API_ENDPOINTS.categories}/${id}`,
     data,
     config
   ),
-
 
   // Delete
   delete: (id: string, config: any = {}) =>
@@ -113,7 +116,9 @@ uploadImage: async (file: File, params?: Record<string, any>) => {
 
   // Make sure deleteBlogCategoryImage endpoint exists and is correct for categories
  deleteImage: (imageUrl: string) =>
-  apiClient.delete<void>(API_ENDPOINTS.deleteBlogCategoryImage, { params: { imageUrl } }),
+  apiClient.delete(
+    `${API_ENDPOINTS.deleteCategoryImage}/${encodeURIComponent(imageUrl)}`
+  ),
 // Restore Category (Soft Delete Restore)
 restore: (id: string, config: any = {}) =>
   apiClient.post<void>(

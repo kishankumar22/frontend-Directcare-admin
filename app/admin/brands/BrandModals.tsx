@@ -161,13 +161,23 @@ const handleDeleteImage = async (brandId: string, imageUrl: string) => {
 const handleSubmit = async (e: React.FormEvent) => {
   e.preventDefault();
 
-  const brandName = formData.name.trim();
+const brandName = formData.name.trim();
 
-  if (!brandName) {
-    toast.error("❌ Brand name is required");
-    return;
-  }
+if (!brandName) {
+  toast.error("❌ Brand name is required");
+  return;
+}
 
+// ✅ DUPLICATE CHECK
+const isDuplicate = brands.some((b: any) =>
+  b.name.trim().toLowerCase() === brandName.toLowerCase() &&
+  b.id !== editingBrand?.id
+);
+
+if (isDuplicate) {
+  toast.error("❌ Brand with same name already exists");
+  return;
+}
   if (!logoFile && !formData.logoUrl) {
     toast.error("❌ Brand logo is required");
     return;
