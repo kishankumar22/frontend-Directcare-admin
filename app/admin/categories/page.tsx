@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, SetStateAction } from "react";
-import { Plus, Edit, Trash2, Search, FolderTree, Eye, Upload, Filter, FilterX, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, AlertCircle, CheckCircle, ChevronDown, ChevronRight as ChevronRightIcon, X, Award, Package, Copy, RotateCcw, MessageCircle } from "lucide-react";
+import { Plus, Edit, Trash2, Search, FolderTree, Eye, Upload, Filter, FilterX, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, AlertCircle, CheckCircle, ChevronDown, ChevronRight as ChevronRightIcon, X, Award, Package, Copy, RotateCcw, MessageCircle, HelpCircle } from "lucide-react";
 import { ProductDescriptionEditor } from "../_components/SelfHostedEditor";
 import { useToast } from "@/app/admin/_components/CustomToast";
 import ConfirmDialog from "@/app/admin/_components/ConfirmDialog";
@@ -874,21 +874,24 @@ const CategoryRow: React.FC<CategoryRowProps> = ({
               onAddSubcategory(category.id, category.name)
             }
             disabled={!canAddSubcategory}
+              title="Add Subcategory"
             className="p-1 text-green-400 hover:bg-green-500/10 rounded-md disabled:opacity-40"
           >
             <Plus className="h-3.5 w-3.5" />
           </button>
 <button
   onClick={() => onOpenFaq(category)}
-  className="p-1 text-yellow-400 hover:bg-yellow-500/10 rounded-md"
+   title="Manage FAQs"
+  className="p-1.5 text-violet-400 hover:bg-violet-500/10 rounded-md"
 >
-  <MessageCircle className="h-3.5 w-3.5" />
+  <HelpCircle className="h-4 w-4" />
 </button>
 
           {/* View */}
           <button
             onClick={() => onView(category)}
             className="p-1 text-violet-400 hover:bg-violet-500/10 rounded-md"
+            title="View Category"
           >
             <Eye className="h-3.5 w-3.5" />
           </button>
@@ -897,6 +900,7 @@ const CategoryRow: React.FC<CategoryRowProps> = ({
           <button
             onClick={() => onEdit(category)}
             className="p-1 text-cyan-400 hover:bg-cyan-500/10 rounded-md"
+            title="Edit Category"
           >
             <Edit className="h-3.5 w-3.5" />
           </button>
@@ -906,6 +910,7 @@ const CategoryRow: React.FC<CategoryRowProps> = ({
             <button
               onClick={() => onRestore(category)}
               className="p-1 text-emerald-400 hover:bg-emerald-500/10 rounded-md"
+               title="Restore Category"
             >
               <RotateCcw className="h-3.5 w-3.5" />
             </button>
@@ -913,6 +918,7 @@ const CategoryRow: React.FC<CategoryRowProps> = ({
             <button
               onClick={() => onDelete(category.id, category.name)}
               className="p-1 text-red-400 hover:bg-red-500/10 rounded-md"
+              title="Delete Category"
             >
               <Trash2 className="h-3.5 w-3.5" />
             </button>
@@ -1751,8 +1757,67 @@ useEffect(() => {
                     </div>
                   </div>
                 </div>
-              </div>
+                {/* ================= FAQ ================= */}
+<div className="bg-slate-800/30 p-4 rounded-xl border border-slate-700/50">
+
+  <div className="flex justify-between items-center mb-3">
+    <h3 className="text-white font-semibold">FAQs</h3>
+    <span className="text-xs px-2 py-1 bg-slate-700 rounded text-slate-300">
+      {viewingCategory.faqs?.length || 0}
+    </span>
+  </div>
+
+  {viewingCategory.faqs?.length ? (
+    <div className="space-y-2">
+
+      {viewingCategory.faqs.map((faq: any, i: number) => (
+        <details
+          key={faq.id}
+          className="group bg-slate-900/50 rounded-lg border border-slate-700/40 overflow-hidden"
+        >
+
+          {/* QUESTION */}
+          <summary className="cursor-pointer list-none p-3 flex justify-between items-center">
+
+            <p className="text-sm text-white font-medium">
+              {i + 1}. {faq.question}
+            </p>
+
+            <div className="flex items-center gap-2">
+
+              <span className={`text-[10px] px-2 py-0.5 rounded ${
+                faq.isActive
+                  ? "bg-green-500/10 text-green-400"
+                  : "bg-red-500/10 text-red-400"
+              }`}>
+                {faq.isActive ? "Active" : "Inactive"}
+              </span>
+
+              <span className="text-xs text-slate-500">
+                #{faq.displayOrder}
+              </span>
+
             </div>
+          </summary>
+
+          {/* ANSWER */}
+          <div className="px-3 pb-3 text-xs text-slate-400 border-t border-slate-700/40">
+            {faq.answer}
+          </div>
+
+        </details>
+      ))}
+
+    </div>
+  ) : (
+    <p className="text-slate-500 text-sm">No FAQs available</p>
+  )}
+
+</div>
+              </div>
+              
+            </div>
+            
 
             {/* ========== FIXED FOOTER ========== */}
             <div className="p-4 border-t border-slate-700/50 bg-slate-800/30 rounded-b-2xl shrink-0">

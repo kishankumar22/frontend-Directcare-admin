@@ -11,12 +11,9 @@ import { Brand, brandsService } from "@/lib/services/brands";
 import BrandFaqManager from "./BrandFaqManager";
 import { brandFaqsService } from "@/lib/services/brandFaqs";
 
+
 const MAX_HOMEPAGE_BRANDS = 50;
-type ApiResponse<T> = {
-  success: boolean;
-  data: T;
-  message?: string;
-};
+
 interface BrandModalsProps {
   showModal: boolean;
   setShowModal: (show: boolean) => void;
@@ -309,6 +306,7 @@ if (isDuplicate) {
             src={logoPreview || getImageUrl(formData.logoUrl)}
             alt="Brand"
             className="w-full h-full object-cover rounded-lg"
+            onError={(e) => (e.currentTarget.src = "/placeholder.png")}
           />
         ) : editingBrand ? (
           <Edit className="h-6 w-6 text-white" />
@@ -833,214 +831,251 @@ if (isDuplicate) {
           VIEW BRAND MODAL - UPDATED
           ============================================ */}
 {viewingBrand && (
-  <div className="fixed inset-0 bg-black/40 dark:bg-black/70 backdrop-blur-md z-50 flex items-center justify-center p-4">
-    
-    <div className="
-      bg-gray-100 dark:bg-gradient-to-br dark:from-slate-900 dark:via-slate-900 dark:to-slate-800
-      border border-gray-300 dark:border-violet-500/20
-      rounded-2xl max-w-4xl w-full max-h-[90vh] flex flex-col
-      shadow-xl dark:shadow-2xl dark:shadow-violet-500/10
-    ">
-      
+  <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-50 flex items-center justify-center p-4">
+
+    <div className="bg-gradient-to-br from-slate-900 via-slate-900 to-slate-800 border border-violet-500/20 rounded-2xl max-w-5xl w-full max-h-[90vh] flex flex-col shadow-2xl shadow-violet-500/10">
+
       {/* ================= HEADER ================= */}
-      <div className="
-        p-4 border-b border-gray-300 dark:border-violet-500/20
-        bg-gradient-to-r 
-        from-violet-100 via-gray-100 to-cyan-100
-        dark:from-violet-500/10 dark:to-cyan-500/10
-        rounded-t-2xl shrink-0
-      ">
+      <div className="p-4 border-b border-violet-500/20 bg-gradient-to-r from-violet-500/10 to-cyan-500/10 rounded-t-2xl">
         <div className="flex items-center gap-4">
 
-          {/* Logo */}
           {viewingBrand.logoUrl ? (
-            <div 
-              className="w-14 h-14 rounded-lg overflow-hidden border-2 border-gray-300 dark:border-violet-500/30 cursor-pointer hover:border-violet-500 transition-all shrink-0"
-              onClick={() => setSelectedImageUrl(getImageUrl(viewingBrand.logoUrl))}
-            >
-              <img
-                src={getImageUrl(viewingBrand.logoUrl)}
-                alt={viewingBrand.name}
-                className="w-full h-full object-cover hover:scale-105 transition-transform"
-                 onError={(e) => (e.currentTarget.src = "/placeholder.png")}
-              />
-            </div>
+            <img
+              src={getImageUrl(viewingBrand.logoUrl)}
+              className="w-14 h-14 rounded-lg object-cover border border-violet-500/30"
+              onError={(e) => (e.currentTarget.src = "/placeholder.png")}
+            />
           ) : (
-            <div className="w-14 h-14 rounded-lg bg-gradient-to-br from-violet-500 to-pink-500 flex items-center justify-center shrink-0">
-              <Tag className="h-7 w-7 text-white" />
+            <div className="w-14 h-14 rounded-lg bg-violet-600 flex items-center justify-center text-white font-bold">
+              {viewingBrand.name?.charAt(0)}
             </div>
           )}
 
-          {/* Title */}
-          <div className="flex-1 min-w-0">
-            <h2 className="
-              text-xl font-bold
-              text-gray-900
-              dark:bg-gradient-to-r dark:from-violet-400 dark:via-cyan-400 dark:to-pink-400
-              dark:bg-clip-text dark:text-transparent
-              truncate
-            ">
+          <div className="flex-1">
+            <h2 className="text-xl font-bold bg-gradient-to-r from-violet-400 via-cyan-400 to-pink-400 bg-clip-text text-transparent">
               {viewingBrand.name}
             </h2>
-
-            <p className="text-gray-600 dark:text-slate-400 text-xs mt-0.5">
-              View brand information
-            </p>
+            <p className="text-slate-400 text-xs">View brand information</p>
           </div>
 
-          {/* Close */}
-          <button
-            onClick={() => setViewingBrand(null)}
-            className="
-              p-2 text-gray-500 dark:text-slate-400
-              hover:text-red-500 dark:hover:text-white
-              hover:bg-red-100 dark:hover:bg-red-500/20
-              border border-transparent hover:border-red-500/50
-              rounded-lg transition-all shrink-0
-            "
-          >
-            <X className="h-5 w-5" />
+          <button onClick={() => setViewingBrand(null)}>
+            <X className="text-slate-400 hover:text-white" />
           </button>
         </div>
       </div>
 
-      {/* ================= CONTENT ================= */}
-      <div className="flex-1 overflow-y-auto p-4">
-        <div className="space-y-4">
-          
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      {/* ================= BODY ================= */}
+      <div className="flex-1 overflow-y-auto p-4 space-y-4">
 
-            {/* Basic Info */}
-            <div className="
-              bg-white dark:bg-slate-800/30
-              p-4 rounded-xl
-              border border-gray-300 dark:border-slate-700/50
-            ">
-              <h3 className="text-base font-bold text-gray-900 dark:text-white mb-3 flex items-center gap-2">
-                <span className="w-7 h-7 rounded-lg bg-gradient-to-br from-violet-500 to-cyan-500 flex items-center justify-center text-xs text-white">ℹ️</span>
-                Basic Information
-              </h3>
+        {/* GRID */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
 
-              <div className="space-y-3">
+          {/* ================= BASIC ================= */}
+          <div className="bg-slate-800/30 p-4 rounded-xl border border-slate-700/50 space-y-3">
 
-                <div className="bg-gray-200 dark:bg-slate-900/50 p-3 rounded-lg">
-                  <p className="text-xs text-gray-600 dark:text-slate-400 mb-1">Brand Name</p>
-                  <p className="text-base font-bold text-gray-900 dark:text-white">
-                    {viewingBrand.name}
-                  </p>
-                </div>
+            <h3 className="text-white font-semibold">Basic Information</h3>
 
-                <div className="bg-gray-200 dark:bg-slate-900/50 p-3 rounded-lg">
-                  <div className="flex items-center justify-between mb-1">
-                    <p className="text-xs text-gray-600 dark:text-slate-400">Brand ID</p>
-                    <button
-                      onClick={() => {
-                        navigator.clipboard.writeText(viewingBrand.id);
-                        toast.success("ID copied!");
-                      }}
-                      className="text-gray-500 dark:text-slate-400 hover:text-black dark:hover:text-white"
-                    >
-                      <Copy className="h-3.5 w-3.5" />
-                    </button>
-                  </div>
-                  <p className="text-sm font-mono text-gray-700 dark:text-slate-300 break-all">
-                    {viewingBrand.id}
-                  </p>
-                </div>
+            <div className="bg-slate-900/50 p-3 rounded-lg">
+              <p className="text-xs text-slate-400">Name</p>
+              <p className="text-white font-medium">{viewingBrand.name}</p>
+            </div>
 
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="bg-gray-200 dark:bg-slate-900/50 p-3 rounded-lg">
-                    <p className="text-xs text-gray-600 dark:text-slate-400 mb-1">Slug</p>
-                    <p className="text-gray-800 dark:text-white text-sm">{viewingBrand.slug}</p>
-                  </div>
+            <div className="bg-slate-900/50 p-3 rounded-lg">
+              <p className="text-xs text-slate-400">ID</p>
+              <p className="text-xs text-slate-300 break-all">{viewingBrand.id}</p>
+            </div>
 
-                  <div className="bg-gray-200 dark:bg-slate-900/50 p-3 rounded-lg">
-                    <p className="text-xs text-gray-600 dark:text-slate-400 mb-1">Display Order</p>
-                    <p className="text-gray-900 dark:text-white font-semibold">
-                      #{viewingBrand.displayOrder}
-                    </p>
-                  </div>
-                </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="bg-slate-900/50 p-3 rounded-lg">
+                <p className="text-xs text-slate-400">Slug</p>
+                <p className="text-white text-sm">{viewingBrand.slug}</p>
+              </div>
 
-                <div className="bg-gray-200 dark:bg-slate-900/50 p-3 rounded-lg">
-                  <p className="text-xs text-gray-600 dark:text-slate-400 mb-1">Description</p>
-                  {viewingBrand.description ? (
-                    <div
-                      className="text-gray-800 dark:text-white text-sm"
-                      dangerouslySetInnerHTML={{ __html: viewingBrand.description }}
-                    />
-                  ) : (
-                    <p className="text-gray-500 text-sm italic">No description</p>
-                  )}
-                </div>
-
+              <div className="bg-slate-900/50 p-3 rounded-lg">
+                <p className="text-xs text-slate-400">Order</p>
+                <p className="text-white font-semibold">#{viewingBrand.displayOrder}</p>
               </div>
             </div>
 
-            {/* SEO Info */}
-            <div className="
-              bg-white dark:bg-slate-800/30
-              p-4 rounded-xl
-              border border-gray-300 dark:border-slate-700/50
-            ">
-              <h3 className="text-base font-bold text-gray-900 dark:text-white mb-3 flex items-center gap-2">
-                <span className="w-7 h-7 rounded-lg bg-gradient-to-br from-emerald-500 to-green-500 flex items-center justify-center text-xs text-white">🔍</span>
-                SEO Information
+            <div className="bg-slate-900/50 p-3 rounded-lg">
+              <p className="text-xs text-slate-400">Description</p>
+              <div
+                className="text-sm text-white"
+                dangerouslySetInnerHTML={{ __html: viewingBrand.description }}
+              />
+            </div>
+
+          </div>
+
+          {/* ================= RIGHT PANEL (SEO + TIMELINE) ================= */}
+          <div className="space-y-4">
+
+            <div className="bg-slate-800/30 p-4 rounded-xl border border-slate-700/50">
+
+              <h3 className="text-white font-semibold mb-4">
+                SEO & Metadata
               </h3>
 
-              <div className="space-y-3">
-                <div className="bg-gray-200 dark:bg-slate-900/50 p-3 rounded-lg">
-                  <p className="text-xs text-gray-600 dark:text-slate-400 mb-1">Meta Title</p>
-                  <p className="text-gray-800 dark:text-white text-sm">
+              <div className="space-y-4">
+
+                {/* META TITLE */}
+                <div className="bg-slate-900/50 p-3 rounded-lg border border-slate-700/40">
+                  <div className="flex justify-between text-xs text-slate-400 mb-1">
+                    <span>Meta Title</span>
+                    <span>{viewingBrand.metaTitle?.length || 0}/60</span>
+                  </div>
+                  <p className="text-white text-sm font-medium">
                     {viewingBrand.metaTitle || "Not set"}
                   </p>
                 </div>
 
-                <div className="bg-gray-200 dark:bg-slate-900/50 p-3 rounded-lg">
-                  <p className="text-xs text-gray-600 dark:text-slate-400 mb-1">Meta Description</p>
-                  <p className="text-gray-800 dark:text-white text-sm">
+                {/* META DESCRIPTION */}
+                <div className="bg-slate-900/50 p-3 rounded-lg border border-slate-700/40">
+                  <div className="flex justify-between text-xs text-slate-400 mb-1">
+                    <span>Meta Description</span>
+                    <span>{viewingBrand.metaDescription?.length || 0}/160</span>
+                  </div>
+                  <p className="text-slate-300 text-sm">
                     {viewingBrand.metaDescription || "Not set"}
                   </p>
                 </div>
 
-                <div className="bg-gray-200 dark:bg-slate-900/50 p-3 rounded-lg">
-                  <p className="text-xs text-gray-600 dark:text-slate-400 mb-1">Meta Keywords</p>
-                  <p className="text-gray-800 dark:text-white text-sm">
-                    {viewingBrand.metaKeywords || "Not set"}
-                  </p>
+                {/* KEYWORDS */}
+                <div className="bg-slate-900/50 p-3 rounded-lg border border-slate-700/40">
+                  <p className="text-xs text-slate-400 mb-2">Meta Keywords</p>
+
+                  {viewingBrand.metaKeywords ? (
+                    <div className="flex flex-wrap gap-2">
+                      {viewingBrand.metaKeywords.split(",").map((tag: string, i: number) => (
+                        <span
+                          key={i}
+                          className="text-xs px-2 py-1 rounded-md bg-violet-500/10 text-violet-300 border border-violet-500/20"
+                        >
+                          {tag.trim()}
+                        </span>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-slate-500">Not set</p>
+                  )}
                 </div>
+
+                {/* TIMELINE */}
+                <div className="border-t border-slate-700/50 pt-4">
+                  <h4 className="text-sm font-medium text-white mb-3">Timeline</h4>
+
+                  <div className="grid grid-cols-2 gap-3 text-sm">
+
+                    <div className="bg-slate-900/50 p-3 rounded-lg">
+                      <p className="text-slate-400 text-xs">Created</p>
+                      <p className="text-white text-sm">{viewingBrand.createdAt}</p>
+                      <p className="text-xs text-slate-500">{viewingBrand.createdBy}</p>
+                    </div>
+
+                    <div className="bg-slate-900/50 p-3 rounded-lg">
+                      <p className="text-slate-400 text-xs">Updated</p>
+                      <p className="text-white text-sm">{viewingBrand.updatedAt}</p>
+                      <p className="text-xs text-slate-500">{viewingBrand.updatedBy}</p>
+                    </div>
+
+                  </div>
+                </div>
+
               </div>
             </div>
 
           </div>
         </div>
+
+        {/* ================= FAQ ================= */}
+        <div className="bg-slate-800/30 p-4 rounded-xl border border-slate-700/50">
+
+          <div className="flex justify-between items-center mb-3">
+            <h3 className="text-white font-semibold">FAQs</h3>
+            <span className="text-xs px-2 py-1 bg-slate-700 rounded text-slate-300">
+              {viewingBrand.faqs?.length || 0}
+            </span>
+          </div>
+
+          {viewingBrand.faqs?.length ? (
+            <div className="space-y-2">
+
+              {viewingBrand.faqs.map((faq: any, i: number) => (
+                <details
+                  key={faq.id}
+                  className="group bg-slate-900/50 rounded-lg border border-slate-700/40"
+                >
+                  <summary className="cursor-pointer list-none p-3 flex justify-between items-center">
+
+                    <p className="text-sm text-white font-medium">
+                      {i + 1}. {faq.question}
+                    </p>
+
+                    <div className="flex items-center gap-2">
+
+                      <span className={`text-[10px] px-2 py-0.5 rounded ${
+                        faq.isActive
+                          ? "bg-green-500/10 text-green-400"
+                          : "bg-red-500/10 text-red-400"
+                      }`}>
+                        {faq.isActive ? "Active" : "Inactive"}
+                      </span>
+
+                      <span className="text-xs text-slate-500">
+                        #{faq.displayOrder}
+                      </span>
+
+                    </div>
+
+                  </summary>
+
+                  <div className="px-3 pb-3 text-xs text-slate-400 border-t border-slate-700/40">
+                    {faq.answer}
+                  </div>
+
+                </details>
+              ))}
+
+            </div>
+          ) : (
+            <p className="text-slate-500 text-sm">No FAQs available</p>
+          )}
+
+        </div>
+
       </div>
 
       {/* ================= FOOTER ================= */}
-      <div className="
-        p-4 border-t border-gray-300 dark:border-slate-700/50
-        bg-gray-200 dark:bg-slate-800/30
-        rounded-b-2xl shrink-0
-      ">
-        <div className="flex justify-end">
-          <button
-            onClick={() => setViewingBrand(null)}
-            className="
-              px-4 py-2.5
-              bg-violet-600 hover:bg-violet-700
-              text-white text-sm rounded-lg
-              transition-all font-medium
-            "
-          >
-            Close
-          </button>
-        </div>
-      </div>
+  <div className="p-3 border-t border-slate-700/50 flex justify-end gap-2">
+
+  {/* CLOSE */}
+  <button
+    onClick={() => setViewingBrand(null)}
+    className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg text-sm"
+  >
+    Close
+  </button>
+
+  {/* EDIT */}
+  <button
+    onClick={() => {
+      if (!viewingBrand) return;
+
+      setViewingBrand(null);       // close view modal
+      setEditingBrand(viewingBrand); // pass data to edit
+      setTimeout(() => setShowModal(true), 0); // open edit modal
+    }}
+    className="px-4 py-2 bg-violet-600 hover:bg-violet-700 text-white rounded-lg text-sm flex items-center gap-1.5"
+  >
+    <Edit className="h-4 w-4" />
+    Edit
+  </button>
+
+</div>
 
     </div>
   </div>
 )}
-
 
 {/* ============================================
     IMAGE VIEW MODAL (POLISHED)

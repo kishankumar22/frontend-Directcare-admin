@@ -93,6 +93,10 @@ export default function InventoryPage() {
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<SelectOption | null>(null);
   const [selectedBrand, setSelectedBrand]       = useState<SelectOption | null>(null);
+  const [importOpen, setImportOpen] = useState(false);
+const [importFile, setImportFile] = useState<File | null>(null);
+const [sampleLoading, setSampleLoading] = useState(false);
+const [fullLoading, setFullLoading] = useState(false);
 
   const [currentPage, setCurrentPage]   = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(25);
@@ -100,7 +104,7 @@ export default function InventoryPage() {
   const [totalPages, setTotalPages]     = useState(1);
 
   const [tableLoading, setTableLoading] = useState(true);
-  const [exportLoading, setExportLoading] = useState(false);
+
   const [rowLoading, setRowLoading]     = useState<string | null>(null);
 
   const [viewerOpen, setViewerOpen]   = useState(false);
@@ -124,6 +128,51 @@ const getImageUrl = (url?: string) => {
 
   // add API base url
   return `${API_BASE_URL}${url}`;
+};
+
+const downloadSampleTemplate = async () => {
+  try {
+    setSampleLoading(true);
+
+    const res = await productsService.getAll({
+      page: 1,
+      pageSize: 5,
+      sortBy: "createdAt",
+      sortDirection: "desc",
+    });
+
+    const items = res.data?.data?.items ?? [];
+
+    if (!items.length) {
+      toast.warning("No products found");
+      return;
+    }
+
+const rows: ProductRow[] = items.map((p: any) => ({
+  id: p.id,
+  name: p.name,
+  sku: p.sku || "",
+  stockQuantity: p.stockQuantity ?? 0,
+  price: p.price ?? 0,
+  brandName: "",
+  categoryName: "",
+  newStock: 0,
+  newPrice: 0,
+}));
+
+    // 🔥 FORCE DELAY (fix browser blocking)
+    setTimeout(() => {
+  writeExcel(toExcelRows(rows), "inventory-sample.xlsx");
+    }, 100);
+
+    toast.success("Sample downloaded");
+
+  } catch (e) {
+    console.error(e);
+    toast.error("Download failed");
+  } finally {
+    setSampleLoading(false);
+  }
 };
   // ─── Fetch products ────────────────────────────────────────────────────────
   const fetchProducts = async () => {
@@ -262,64 +311,99 @@ const fetchFilters = async () => {
     CurrentPrice: p.price, NewPrice: "",
   }));
 
-  const writeExcel = (rows: ProductRow[], filename: string) => {
-    const ws = XLSX.utils.json_to_sheet(toExcelRows(rows));
+const writeExcel = (rows: any[], filename: string) => {
+  try {
+    const ws = XLSX.utils.json_to_sheet(rows);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Inventory");
-    XLSX.writeFile(wb, filename);
-  };
 
-  // Export all — fetches EVERY product (not just current page)
-const downloadFullTemplate = async () => {
-  try {
-    setExportLoading(true);
+    const wbout = XLSX.write(wb, { bookType: "xlsx", type: "array" });
 
-    const res = await productsService.getAll({
-      page: 1,
-      pageSize: 9999,
-      sortBy: "createdAt",
-      sortDirection: "desc",
+    const blob = new Blob([wbout], {
+      type: "application/octet-stream",
     });
 
-    const items = res.data?.data?.items ?? [];
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = filename;
 
-    const rows: ProductRow[] = items.map((p: any) => ({
-      id: p.id,
-      name: p.name,
-      sku: p.sku || "-",
-      stockQuantity: Number(p.stockQuantity ?? 0),
-      price: Number(p.price ?? 0),
-      brandName: "",
-      categoryName: "",
-      image: "",
-      newStock: 0,
-      newPrice: 0,
-    }));
+    document.body.appendChild(link);
+    link.click();
 
-    if (rows.length === 0) {
-      toast.warning("No products found to export");
-      return;
-    }
+    setTimeout(() => {
+      document.body.removeChild(link);
+      URL.revokeObjectURL(link.href);
+    }, 0);
 
-    writeExcel(rows, "full-inventory.xlsx");
-
-    toast.success(`Exported ${rows.length} products`);
-  } catch {
-    toast.error("Export failed");
-  } finally {
-    setExportLoading(false);
+  } catch (e) {
+    console.error("Excel write failed", e);
   }
 };
+  // Export all — fetches EVERY product (not just current page)
+// const downloadFullTemplate = async () => {
+//   try {
+//   setFullLoading(true)
 
-  const downloadSelectedTemplate = () => {
-    if (!selected.size) { toast.warning("Select products first"); return; }
-    writeExcel(products.filter(p => selected.has(p.id)), "selected-inventory.xlsx");
-    toast.success(`Exported ${selected.size} selected products`);
-  };
+//     const res = await productsService.getAll({
+//       page: 1,
+//       pageSize: 9999,
+//       sortBy: "createdAt",
+//       sortDirection: "desc",
+//     });
+
+//     const items = res.data?.data?.items ?? [];
+
+//     const rows: ProductRow[] = items.map((p: any) => ({
+//       id: p.id,
+//       name: p.name,
+//       sku: p.sku || "-",
+//       stockQuantity: Number(p.stockQuantity ?? 0),
+//       price: Number(p.price ?? 0),
+//       brandName: "",
+//       categoryName: "",
+//       image: "",
+//       newStock: 0,
+//       newPrice: 0,
+//     }));
+
+//     if (rows.length === 0) {
+//       toast.warning("No products found to export");
+//       return;
+//     }
+
+// writeExcel(toExcelRows(rows), "full-inventory.xlsx");
+
+//     toast.success(`Exported ${rows.length} products`);
+//   } catch {
+//     toast.error("Export failed");
+//   } finally {
+//   setFullLoading(false);
+// }
+// };
+
+const downloadSelectedTemplate = () => {
+  if (!selected.size) {
+    toast.warning("Select products first");
+    return;
+  }
+
+  const selectedRows = products.filter(p => selected.has(p.id));
+
+  if (!selectedRows.length) {
+    toast.error("No valid products selected");
+    return;
+  }
+
+writeExcel(toExcelRows(selectedRows), "selected-inventory.xlsx");
+
+  toast.success(`Exported ${selectedRows.length} selected products`);
+
+  // 🔥 THIS LINE FIXES YOUR ISSUE
+  setSelected(new Set());  // 👈 clears selection → UI auto closes
+};
 
   // ─── Upload Excel ──────────────────────────────────────────────────────────
-const handleExcelUpload = async (event: any) => {
-  const file = event.target.files?.[0];
+const handleExcelUpload = async (file: File) => {
   if (!file) return;
 
   try {
@@ -352,6 +436,7 @@ const handleExcelUpload = async (event: any) => {
     } else {
       toast.error(res.data.message || "Excel upload failed");
     }
+
   } catch (e: any) {
     toast.error(e?.response?.data?.message || "Excel upload failed");
   } finally {
@@ -446,42 +531,36 @@ const openMediaViewer = (images: any[], idx = 0) => {
           >
             <ShoppingCart className="w-3.5 h-3.5" /> Products
           </button>
+{/* <button
+  onClick={downloadFullTemplate}
+  disabled={fullLoading}
+  className="flex items-center gap-1.5 px-3 py-2 text-xs bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-semibold transition-all disabled:opacity-60"
+>
+  {fullLoading ? "Exporting..." : "Export All"}
+</button> */}
 
-          <button
-            onClick={downloadFullTemplate}
-            disabled={exportLoading}
-            className="flex items-center gap-1.5 px-3 py-2 text-xs bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-semibold transition-all disabled:opacity-60"
-          title="Download an Excel template of the entire inventory (not just the current page)"
-          
-          >
-            {exportLoading
-              ? <RefreshCcw className="w-3.5 h-3.5 animate-spin" />
-              : <Download className="w-3.5 h-3.5" />}
-            Export All
-          </button>
-
-          <button
-            onClick={() => fileInputRef.current?.click()}
-            className="flex items-center gap-1.5 px-3 py-2 text-xs bg-violet-600 hover:bg-violet-700 text-white rounded-lg font-semibold transition-all"
-            title="Upload an Excel file to update inventory"
-          >
-            <Upload className="w-3.5 h-3.5" /> Upload Excel
-          </button>
-
+        <button
+  onClick={() => setImportOpen(true)}
+  className="flex items-center gap-1.5 px-3 py-2 text-xs bg-violet-600 hover:bg-violet-700 text-white rounded-lg font-semibold transition-all"
+>
+  <Upload className="w-3.5 h-3.5" />
+  Upload Excel
+</button>
           <input
             type="file"
             accept=".xlsx,.xls"
             hidden
             ref={fileInputRef}
-            onChange={(e) => {
-              const file = e.target.files?.[0];
-              if (!file) return;
-              openConfirm(
-                "Upload Inventory File",
-                "This will update inventory based on the uploaded Excel file. Continue?",
-                () => handleExcelUpload(e),
-              );
-            }}
+        onChange={(e) => {
+  const file = e.target.files?.[0];
+  if (!file) return;
+
+  openConfirm(
+    "Upload Inventory File",
+    "This will update inventory based on the uploaded Excel file. Continue?",
+    () => handleExcelUpload(file), // ✅ pass file, not event
+  );
+}}
           />
         </div>
       </div>
@@ -791,7 +870,102 @@ const openMediaViewer = (images: any[], idx = 0) => {
           </div>
         </div>
       )}
+{importOpen && (
+  <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
 
+    <div className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-xl">
+
+      {/* HEADER */}
+      <div className="p-5 border-b border-slate-700 flex justify-between">
+        <div>
+          <h2 className="text-xl font-bold text-white">
+            Update Inventory via Excel
+          </h2>
+          <p className="text-slate-400 text-sm">
+            Upload Excel file with inventory updates
+          </p>
+        </div>
+        <button onClick={() => setImportOpen(false)}>
+          <X className="text-slate-400" />
+        </button>
+      </div>
+
+      <div className="p-5 space-y-5">
+
+        {/* DOWNLOAD TEMPLATE */}
+        <div className="bg-blue-500/10 border border-blue-500/30 p-4 rounded-xl">
+          <p className="text-white font-medium mb-1">Need a template?</p>
+          <p className="text-slate-400 text-sm mb-3">
+            Download sample (top 5 products)
+          </p>
+<button
+  onClick={downloadSampleTemplate}
+  disabled={sampleLoading}
+  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm flex items-center gap-2 disabled:opacity-60"
+>
+  {sampleLoading ? "Downloading..." : "Download Sample"}
+</button>
+        </div>
+
+        {/* FILE SELECT */}
+        <div
+          onClick={() => fileInputRef.current?.click()}
+          className="border-2 border-dashed border-slate-600 p-8 rounded-xl text-center cursor-pointer hover:border-violet-500"
+        >
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".xlsx,.xls"
+            hidden
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              if (!f) return;
+              setImportFile(f);
+            }}
+          />
+
+          {importFile ? (
+            <p className="text-green-400">{importFile.name}</p>
+          ) : (
+            <p className="text-slate-400">Click to upload Excel</p>
+          )}
+        </div>
+
+        {/* ACTION */}
+        <div className="flex gap-3">
+          <button
+            onClick={() => {
+              if (!importFile) {
+                toast.error("Select file first");
+                return;
+              }
+
+              openConfirm(
+                "Upload Inventory File",
+                "This will update inventory based on the uploaded Excel file. Continue?",
+                () => handleExcelUpload(importFile)
+              );
+            }}
+            className="flex-1 bg-violet-600 hover:bg-violet-700 text-white py-2 rounded-lg"
+          >
+            Upload & Update
+          </button>
+
+          <button
+            onClick={() => {
+              setImportOpen(false);
+              setImportFile(null);
+            }}
+            className="px-4 bg-slate-700 text-white rounded-lg"
+          >
+            Cancel
+          </button>
+        </div>
+
+      </div>
+    </div>
+  </div>
+)}
       <MediaViewerModal isOpen={viewerOpen} onClose={() => setViewerOpen(false)} media={viewerMedia} initialIndex={viewerIndex} />
       <ConfirmDialog isOpen={confirmOpen} onClose={() => setConfirmOpen(false)} onConfirm={confirmConfig.onConfirm}
         title={confirmConfig.title} message={confirmConfig.message} confirmText="Yes, Continue" cancelText="Cancel" />

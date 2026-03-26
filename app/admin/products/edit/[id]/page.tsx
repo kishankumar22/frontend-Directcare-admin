@@ -2476,15 +2476,7 @@ if (!formData.vatExempt && (!formData.vatRateId || !formData.vatRateId.trim())) 
       return;
     }
 
-    const PRODUCT_NAME_REGEX = /^[A-Za-z0-9\u00C0-\u024F\s.,()'"'\-\/&+%]+$/;
-    if (!PRODUCT_NAME_REGEX.test(formData.name)) {
-      toast.error('⚠️ Product name contains unsupported characters.');
-      target.removeAttribute('data-submitting');
-      setIsSubmitting(false);
-      setSubmitProgress(null);
-      return;
-    }
-
+  
     const skuRegex = /^[A-Za-z0-9_-]+$/;
     if (!skuRegex.test(formData.sku)) {
       toast.error('⚠️ SKU can only contain letters, numbers, dashes, and underscores');

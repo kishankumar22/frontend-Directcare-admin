@@ -45,26 +45,84 @@ interface OrderActionsModalProps {
 
 const getOrderFlow = (
   status: OrderStatus,
-  deliveryMethod: string
-): { label: string; hint: string }[] => {
+  deliveryMethod: string,
+  collectionStatus?: string
+): { label: string; hint: string; show: boolean }[] => {
 
   const isClickAndCollect = deliveryMethod === 'ClickAndCollect';
 
+  // ===========================
+  // 📦 CLICK & COLLECT
+  // ===========================
   if (isClickAndCollect) {
     return [
-      { label: 'Processing', hint: 'Order is being prepared' },
-      { label: 'Ready', hint: 'Ready for collection' },
-      { label: 'Collected', hint: 'Picked up by customer' },
+      {
+        label: 'Processing',
+        hint: 'Order is being prepared',
+        show: true,
+      },
+      {
+        label: 'Ready',
+        hint: 'Order is ready for collection',
+        show: true,
+      },
+      {
+        label: 'Collected',
+        hint: 'Order picked up by customer',
+        show: true,
+      },
+      {
+        label: 'Returned',
+        hint: 'Return allowed after collection',
+        // show: status === 'Collected' || status === 'Returned',
+        show: status === 'Returned',
+      },
+      {
+        label: 'Refunded',
+        hint: 'Refund processed',
+        show: status === 'Returned' || status === 'Refunded',
+      },
     ];
   }
 
-  // Home Delivery
+  // ===========================
+  // 🏠 HOME DELIVERY
+  // ===========================
   return [
-    { label: 'Processing', hint: 'Order is being prepared' },
-    { label: 'Shipped', hint: 'Order shipped' },
-    { label: 'Delivered', hint: 'Order delivered' },
+    {
+      label: 'Processing',
+      hint: 'Order is being prepared',
+      show: true,
+    },
+    {
+      label: 'Partially Shipped',
+      hint: 'Some items shipped',
+      show: status === 'PartiallyShipped',
+    },
+    {
+      label: 'Shipped',
+      hint: 'All items shipped',
+      show: true,
+    },
+    {
+      label: 'Delivered',
+      hint: 'Order delivered to customer',
+      show: true,
+    },
+    {
+      label: 'Returned',
+      hint: 'Return allowed after delivery',
+      show: status === 'Delivered' || status === 'Returned',
+    },
+    {
+      label: 'Refunded',
+      hint: 'Refund processed',
+      show: status === 'Returned' || status === 'Refunded',
+    },
   ];
 };
+
+
 const OrderStatusHelper = ({
   status,
   deliveryMethod,
@@ -74,7 +132,8 @@ const OrderStatusHelper = ({
   deliveryMethod: string;
   collectionStatus?: string;
 }) => {
-const flow = getOrderFlow(status, deliveryMethod);
+const flow = getOrderFlow(status, deliveryMethod, collectionStatus)
+  .filter(step => step.show);
 
   if (!flow) return null;
 
@@ -86,7 +145,10 @@ const flow = getOrderFlow(status, deliveryMethod);
 
       <div className="flex flex-wrap items-center gap-2">
         {flow.map((step, index) => {
-          const isActive = step.label === status;
+          const isActive =
+  step.label === status ||
+  (step.label === 'Ready' && collectionStatus === 'Ready') ||
+  (step.label === 'Collected' && collectionStatus === 'Collected');
 
           return (
             <div key={step.label} className="flex items-center gap-2">
@@ -133,15 +195,18 @@ export const getValidStatusTransitions = (
 
     Confirmed: ['Processing'],
 
-    Processing: isClickAndCollect
-      ? [] // ❌ no status change from modal
-      : [], // ✅ only home delivery
+    // ❌ REMOVE ANY SHIPPING FROM UPDATE STATUS
+    Processing: [],
 
+    // ❌ REMOVE SHIPPED CONTROL FROM DROPDOWN
     Shipped: isClickAndCollect
-      ? [] // ❌ should never happen (safety)
+      ? []
       : ['Delivered', 'Returned'],
 
-    PartiallyShipped: ['Shipped', 'Delivered'],
+    // ❌ IMPORTANT FIX
+    PartiallyShipped: [
+      'Delivered' // ❌ remove 'Shipped'
+    ],
 
     Delivered: ['Returned'],
 
@@ -185,6 +250,8 @@ const isOrderPaid = (order: Order): boolean => {
   );
 };
 
+
+
 // ✅ NEW: Get payment status display
 const getPaymentStatusDisplay = (order: Order) => {
   if (!order.payments || order.payments.length === 0) {
@@ -195,7 +262,7 @@ const getPaymentStatusDisplay = (order: Order) => {
     };
   }
 
-  const payment = order.payments[0];
+  const payment = order.payments[order.payments.length - 1];
   const statusMap: Record<string, { label: string; color: string; icon: JSX.Element }> = {
     'Successful': { 
       label: 'Paid', 
@@ -875,34 +942,74 @@ const PharmacyWarning = () => {
                 Shipment Items
               </label>
               <div className="space-y-2 max-h-48 overflow-y-auto">
-                {order.orderItems.map((item) => {
-                  const shipmentItem = shipmentData.selectedItems.find(
-                    (si) => si.orderItemId === item.id
-                  );
-                  return (
-                    <div
-                      key={item.id}
-                      className="flex items-center justify-between p-3 bg-slate-900/50 rounded-lg border border-slate-700"
-                    >
-                      <div className="flex-1">
-                        <p className="text-white text-sm font-medium">{item.productName}</p>
-                        <p className="text-xs text-slate-400">SKU: {item.productSku}</p>
-                      </div>
-                      <input
-                        type="number"
-                        min="0"
-                        max={item.quantity}
-                        value={shipmentItem?.quantity || 0}
-                        onChange={(e) =>
-                          updateShipmentItemQuantity(item.id, Number(e.target.value))
-                        }
-                        className="w-20 px-2 py-1.5 bg-slate-800 border border-slate-600 rounded-lg text-white text-center focus:ring-2 focus:ring-violet-500"
-                        disabled={!isPaid && !isCashOnDelivery}
-                      />
-                      <span className="text-slate-400 text-sm ml-2">/ {item.quantity}</span>
-                    </div>
-                  );
-                })}
+              {order.orderItems.map((item) => {
+  const shipmentItem = shipmentData.selectedItems.find(
+    (si) => si.orderItemId === item.id
+  );
+
+  // ✅ detect shipped
+  const isShipped =
+    // shippedItemIds.has(item.id) ||
+    order.shipments?.some(s => s.notes?.includes(item.productName));
+
+  return (
+    <div
+      key={item.id}
+      className={`flex items-center justify-between p-3 rounded-lg border 
+        ${isShipped 
+          ? 'bg-emerald-500/10 border-emerald-500/30 opacity-70' 
+          : 'bg-slate-900/50 border-slate-700'
+        }`}
+    >
+      <div className="flex-1">
+        <p className="text-white text-sm font-medium flex items-center gap-2">
+          {item.productName}
+
+          {/* ✅ SHIPPED BADGE */}
+          {isShipped && (
+            <span className="text-[10px] px-2 py-0.5 bg-emerald-500/20 text-emerald-400 rounded border border-emerald-500/30">
+              Shipped
+            </span>
+          )}
+        </p>
+
+        <p className="text-xs text-slate-400">SKU: {item.productSku}</p>
+
+        {/* ✅ USER FEEDBACK */}
+        {isShipped && (
+          <p className="text-[11px] text-emerald-400 mt-1">
+            Already shipped. Quantity locked.
+          </p>
+        )}
+      </div>
+
+      <input
+        type="number"
+        min="0"
+        max={item.quantity}
+        value={isShipped ? item.quantity : shipmentItem?.quantity || 0}
+        onChange={(e) =>
+          updateShipmentItemQuantity(item.id, Number(e.target.value))
+        }
+        className={`w-20 px-2 py-1.5 border rounded-lg text-center
+          ${isShipped
+            ? 'bg-slate-800 border-slate-700 text-slate-500 cursor-not-allowed'
+            : 'bg-slate-800 border-slate-600 text-white focus:ring-2 focus:ring-violet-500'
+          }`}
+        disabled={isShipped || (!isPaid && !isCashOnDelivery)}
+        title={
+          isShipped
+            ? 'This item is already shipped and cannot be modified'
+            : ''
+        }
+      />
+
+      <span className="text-slate-400 text-sm ml-2">
+        / {item.quantity}
+      </span>
+    </div>
+  );
+})}
               </div>
             </div>
 

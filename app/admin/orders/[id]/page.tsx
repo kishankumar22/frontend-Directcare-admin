@@ -460,12 +460,18 @@ const getAllAvailableActions = (
   }> = [];
 
   const status = order.status;
-  const deliveryMethod = order.deliveryMethod;
+  const isHomeDelivery = order.deliveryMethod === 'HomeDelivery';
+  const isClickAndCollect = order.deliveryMethod === 'ClickAndCollect';
 
-  // ✅ Workflow Actions (Click & Collect)
-  if (deliveryMethod === 'ClickAndCollect') {
-    // Mark Ready: Confirmed or Processing, not already Ready/Collected
-    if ((status === 'Confirmed' || status === 'Processing') && order.collectionStatus !== 'Ready' && order.collectionStatus !== 'Collected') {
+  // ===========================
+  // 📦 CLICK & COLLECT FLOW
+  // ===========================
+  if (isClickAndCollect) {
+    if (
+      (status === 'Confirmed' || status === 'Processing') &&
+      order.collectionStatus !== 'Ready' &&
+      order.collectionStatus !== 'Collected'
+    ) {
       actions.push({
         label: 'Mark Ready',
         action: 'mark-ready',
@@ -475,7 +481,6 @@ const getAllAvailableActions = (
       });
     }
 
-    // Mark Collected: Only when Ready
     if (order.collectionStatus === 'Ready') {
       actions.push({
         label: 'Mark Collected',
@@ -487,9 +492,11 @@ const getAllAvailableActions = (
     }
   }
 
-  // ✅ Workflow Actions (Home Delivery)
-  if (deliveryMethod === 'HomeDelivery') {
-    // Create Shipment: Confirmed/Processing/PartiallyShipped, not Cancelled/Refunded/Delivered
+  // ===========================
+  // 🏠 HOME DELIVERY FLOW
+  // ===========================
+  if (isHomeDelivery) {
+    // Create Shipment
     if (['Confirmed', 'Processing', 'PartiallyShipped'].includes(status)) {
       actions.push({
         label: 'Create Shipment',
@@ -500,61 +507,48 @@ const getAllAvailableActions = (
       });
     }
 
-    // Mark Delivered: Only when Shipped or PartiallyShipped with shipments
-    if (
-      (status === 'Shipped' || status === 'PartiallyShipped') &&
-      order.shipments &&
-      order.shipments.length > 0
-    ) {
-      actions.push({
-        label: 'Mark Delivered',
-        action: 'mark-delivered',
-        icon: <CheckCircle className="h-3.5 w-3.5" />,
-        color: 'bg-green-600 hover:bg-green-700',
-        category: 'workflow',
-      });
-    }
+    // ❌ NO MARK DELIVERED HERE
   }
 
-  // Backend: Delivered → Returned/Refunded, Cancelled → Refunded, Refunded → BLOCKED
+  // ===========================
+  // ✏️ UPDATE STATUS
+  // ===========================
   const canUpdateStatus =
-  status !== 'Cancelled' &&
-  status !== 'Refunded' &&
-  order.pharmacyVerificationStatus !== 'Pending';
+    status !== 'Cancelled' &&
+    status !== 'Refunded' &&
+    order.pharmacyVerificationStatus !== 'Pending';
 
-if (canUpdateStatus) {
-  actions.push({
-    label: 'Update Status',
-    action: 'update-status',
-    icon: <Edit className="h-3.5 w-3.5" />,
-    color: 'bg-blue-600 hover:bg-blue-700',
-    category: 'edit',
-  });
-}
+  if (canUpdateStatus) {
+    actions.push({
+      label: 'Update Status',
+      action: 'update-status',
+      icon: <Edit className="h-3.5 w-3.5" />,
+      color: 'bg-blue-600 hover:bg-blue-700',
+      category: 'edit',
+    });
+  }
 
-  // Backend: Cannot cancel Delivered (use Return), Cancelled, Refunded, Returned
-const canCancel =
-  ['Pending', 'Confirmed', 'Processing', 'Shipped', 'PartiallyShipped'].includes(status) &&
-  !(
-    deliveryMethod === 'ClickAndCollect' &&
-    order.collectionStatus === 'Collected'
-  ) &&
-  (
-    !order.pharmacyVerificationStatus || 
-    order.pharmacyVerificationStatus === 'Approved'
-  );
+  // ===========================
+  // ❌ CANCEL ORDER
+  // ===========================
+  const canCancel =
+    ['Pending', 'Confirmed', 'Processing', 'Shipped', 'PartiallyShipped'].includes(status) &&
+    !(isClickAndCollect && order.collectionStatus === 'Collected') &&
+    (!order.pharmacyVerificationStatus || order.pharmacyVerificationStatus === 'Approved');
 
-if (canCancel) {
-  actions.push({
-    label: 'Cancel Order',
-    action: 'cancel-order',
-    icon: <PackageX className="h-3.5 w-3.5" />,
-    color: 'bg-red-600 hover:bg-red-700',
-    category: 'edit',
-  });
-}
+  if (canCancel) {
+    actions.push({
+      label: 'Cancel Order',
+      action: 'cancel-order',
+      icon: <PackageX className="h-3.5 w-3.5" />,
+      color: 'bg-red-600 hover:bg-red-700',
+      category: 'edit',
+    });
+  }
 
-  // ✅ Regenerate Invoice - Always available (backend has no status restriction)
+  // ===========================
+  // 💰 FINANCIAL
+  // ===========================
   actions.push({
     label: 'Regenerate Invoice',
     action: 'regenerate-invoice',
@@ -563,7 +557,6 @@ if (canCancel) {
     category: 'financial',
   });
 
-  // ✅ Download Invoice - Always available
   actions.push({
     label: 'Download Invoice',
     action: 'download-invoice',
@@ -572,9 +565,13 @@ if (canCancel) {
     category: 'financial',
   });
 
-  // ✅ View Refund History - Only when order has been refunded or has refund-related payment
-  const hasRefundActivity = order.status === 'Refunded' || order.status === 'Returned' ||
-    order.payments?.some(p => p.status === 'Refunded' || p.status === 'PartiallyRefunded');
+  const hasRefundActivity =
+    order.status === 'Refunded' ||
+    order.status === 'Returned' ||
+    order.payments?.some(
+      (p) => p.status === 'Refunded' || p.status === 'PartiallyRefunded'
+    );
+
   if (hasRefundActivity) {
     actions.push({
       label: 'View Refund History',
@@ -585,16 +582,14 @@ if (canCancel) {
     });
   }
 
-  // ✅ View Edit History - Only for orders that have been modified (not brand new pending)
-actions.push({
-  label: 'View Edit History',
-  action: 'view-edit-history',
-  icon: <History className="h-3.5 w-3.5" />,
-  color: 'bg-slate-600 hover:bg-slate-700',
-  category: 'financial',
-});
+  actions.push({
+    label: 'View Edit History',
+    action: 'view-edit-history',
+    icon: <History className="h-3.5 w-3.5" />,
+    color: 'bg-slate-600 hover:bg-slate-700',
+    category: 'financial',
+  });
 
-  // ✅ Single "Refund" button — opens unified modal with tabs
   if (canRefund || canRefundShippingArg) {
     actions.push({
       label: 'Refund',

@@ -159,7 +159,7 @@ const fetchProducts = async (searchTerm?: string) => {
 // Fetch all products for the create-review form (needs price/sku, all products not just reviewed ones)
 const fetchFormProducts = async () => {
   try {
-    const response = await productReviewsService.getAllProducts(1, 200);
+    const response = await productReviewsService.getAllProducts(1, 5000);
     if (response.data?.success && Array.isArray(response.data?.data?.items)) {
       setFormProducts(response.data.data.items.map((p: any) => ({
         id: p.id,
@@ -210,6 +210,9 @@ const fetchReviews = useCallback(async () => {
     if (ratingFilter !== "all")    filters.rating = parseInt(ratingFilter);
     if (debouncedSearch.trim())    filters.searchTerm = debouncedSearch.trim();
     if (productFilter !== "all")   filters.productId = productFilter;
+    if (verifiedOnlyFilter) {
+  filters.verifiedOnly = true;
+}
 
     const res = await productReviewsService.getAll(filters);
 
@@ -230,7 +233,7 @@ const fetchReviews = useCallback(async () => {
   } finally {
     setLoadingReviews(false);
   }
-}, [currentPage, itemsPerPage, statusFilter, ratingFilter, debouncedSearch, productFilter]);
+}, [currentPage,verifiedOnlyFilter, itemsPerPage, statusFilter, ratingFilter, debouncedSearch, productFilter]);
 
   // ✅ Initial load — fetch products (for dropdown) and reviews simultaneously
   useEffect(() => {
@@ -1293,28 +1296,62 @@ const isPlayableVideoUrl = (url: string) => {
                           {review.isApproved ? "Approved" : "Pending"}
                         </span>
                       </td>
-                      <td className="py-2 px-3">
-                        <div className="flex items-center justify-center gap-0.5">
-                          {!review.isApproved && (
-                            <button onClick={() => setApproveConfirm({ id: review.id, customer: review.customerName, title: review.title })} className="flex flex-col items-center gap-0.5 px-2 py-1 text-green-400 hover:bg-green-500/10 rounded-lg transition-all group/btn">
-                              <CheckCircle className="h-3.5 w-3.5" />
-                              <span className="text-[9px] font-medium leading-none">Approve</span>
-                            </button>
-                          )}
-                          <button onClick={() => setReplyingTo(review)} className="flex flex-col items-center gap-0.5 px-2 py-1 text-blue-400 hover:bg-blue-500/10 rounded-lg transition-all">
-                            <Reply className="h-3.5 w-3.5" />
-                            <span className="text-[9px] font-medium leading-none">Reply</span>
-                          </button>
-                          <button onClick={() => setViewingReview(review)} className="flex flex-col items-center gap-0.5 px-2 py-1 text-violet-400 hover:bg-violet-500/10 rounded-lg transition-all">
-                            <Eye className="h-3.5 w-3.5" />
-                            <span className="text-[9px] font-medium leading-none">View</span>
-                          </button>
-                          <button onClick={() => setDeleteConfirm({ id: review.id, customer: review.customerName })} className="flex flex-col items-center gap-0.5 px-2 py-1 text-red-400 hover:bg-red-500/10 rounded-lg transition-all">
-                            <Trash2 className="h-3.5 w-3.5" />
-                            <span className="text-[9px] font-medium leading-none">Delete</span>
-                          </button>
-                        </div>
-                      </td>
+               <td className="py-2 px-3">
+  <div className="flex items-center justify-center gap-0.5">
+
+    {/* APPROVE (only if not approved) */}
+    {!review.isApproved && (
+      <button
+        onClick={() =>
+          setApproveConfirm({
+            id: review.id,
+            customer: review.customerName,
+            title: review.title,
+          })
+        }
+        className="flex flex-col items-center gap-0.5 px-2 py-1 text-green-400 hover:bg-green-500/10 rounded-lg transition-all"
+      >
+        <CheckCircle className="h-3.5 w-3.5" />
+        <span className="text-[9px] font-medium leading-none">Approve</span>
+      </button>
+    )}
+
+    {/* REPLY (only if approved) */}
+    {review.isApproved && (
+      <button
+        onClick={() => setReplyingTo(review)}
+        className="flex flex-col items-center gap-0.5 px-2 py-1 text-blue-400 hover:bg-blue-500/10 rounded-lg transition-all"
+      >
+        <Reply className="h-3.5 w-3.5" />
+        <span className="text-[9px] font-medium leading-none">Reply</span>
+      </button>
+    )}
+
+    {/* VIEW (always visible) */}
+    <button
+      onClick={() => setViewingReview(review)}
+      className="flex flex-col items-center gap-0.5 px-2 py-1 text-violet-400 hover:bg-violet-500/10 rounded-lg transition-all"
+    >
+      <Eye className="h-3.5 w-3.5" />
+      <span className="text-[9px] font-medium leading-none">View</span>
+    </button>
+
+    {/* DELETE (always visible) */}
+    <button
+      onClick={() =>
+        setDeleteConfirm({
+          id: review.id,
+          customer: review.customerName,
+        })
+      }
+      className="flex flex-col items-center gap-0.5 px-2 py-1 text-red-400 hover:bg-red-500/10 rounded-lg transition-all"
+    >
+      <Trash2 className="h-3.5 w-3.5" />
+      <span className="text-[9px] font-medium leading-none">Delete</span>
+    </button>
+
+  </div>
+</td>
                     </tr>
                   ))}
                 </tbody>

@@ -178,6 +178,7 @@ export interface Product {
   id: string;
   name: string;
   slug?: string;
+  status?:string;
   sku: string;
   gtin?: string;
   isActive?: boolean;
@@ -207,7 +208,11 @@ export interface Product {
   minStockQuantity?: number;
   notifyAdminForQuantityBelow?: boolean;
   notifyQuantityBelow?: number;
+  loyaltyPointsEarnable?: number;
+  subscriptionDiscountPercentage?: number;
   allowBackorder?: boolean;
+  loyaltyPointsMessage?: string;
+  estimatedDispatchDays?: string;
   backorderMode?: string;
   orderMinimumQuantity?: number;
   orderMaximumQuantity?: number;

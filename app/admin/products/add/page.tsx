@@ -946,16 +946,6 @@ const handleSubmit = async (
       return;
     }
 
-    // 1.2 NAME VALIDATION
-   const PRODUCT_NAME_REGEX =/^[A-Za-z0-9\u00C0-\u024F\s.,()'"\/&+%\-]+$/;
-
-    if (!PRODUCT_NAME_REGEX.test(formData.name)) {
-      toast.error("Product name contains unsupported characters.");
-      target.removeAttribute("data-submitting");
-      setIsSubmitting(false);
-      setSubmitProgress(null);
-      return;
-    }
 
     // 1.X FULL DESCRIPTION VALIDATION (REQUIRED FOR PUBLISH)
     if (!isDraft) {

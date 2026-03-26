@@ -112,6 +112,7 @@ export interface ReviewFilters {
   productId?: string;
   productName?: string;
   productSku?: string;
+  verifiedOnly?: boolean;
 }
 
 export interface ProductWithReviewSummary {
@@ -159,6 +160,9 @@ export const productReviewsService = {
     if (filters.customerEmail) params.set('customerEmail', filters.customerEmail);
     if (filters.productId)   params.set('productId',   filters.productId);
     if (filters.productName) params.set('productName', filters.productName);
+    if (filters.verifiedOnly !== undefined) {
+  params.set('verifiedOnly', String(filters.verifiedOnly));
+}
     if (filters.productSku)  params.set('productSku',  filters.productSku);
     return apiClient.get<ApiResponse<PaginatedReviewsResponse>>(
       `${API_ENDPOINTS.productReviews}?${params}`,
