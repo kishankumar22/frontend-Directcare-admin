@@ -341,16 +341,33 @@ return result;
     <div className="min-h-screen bg-gray-50">
       <main className="max-w-7xl mx-auto px-4 py-4">
         {/* Breadcrumbs */}
-        <nav className="hidden md:flex items-center flex-wrap gap-1 text-xs md:text-sm text-gray-600 mb-2">
-          <a href="/" className="hover:text-[#445D41] transition-colors">
-            Home
-          </a>
-          <span className="mx-2 text-gray-400">/</span>
-          <span className="font-semibold text-gray-900">Offers</span>
-        </nav>
+       <div className="hidden md:flex items-center justify-between gap-4 mb-2">
+
+  {/* LEFT: Breadcrumb */}
+  <nav className="flex items-center flex-wrap gap-1 text-xs md:text-sm text-gray-600">
+    <a href="/" className="hover:text-[#445D41] transition-colors">
+      Home
+    </a>
+    <span className="mx-2 text-gray-400">/</span>
+    <span className="font-semibold text-gray-900">Offers</span>
+  </nav>
+
+  {/* RIGHT: Sort */}
+  <select
+    value={`${sortBy}-${sortDirection}`}
+    onChange={(e) => handleSortChange(e.target.value)}
+    className="px-3 py-1.5 border border-gray-300 rounded-lg bg-white text-xs md:text-sm font-medium text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#445D41]"
+  >
+    <option value="name-asc">A-Z</option>
+    <option value="name-desc">Z-A</option>
+    <option value="price-asc">Low-High</option>
+    <option value="price-desc">High-Low</option>
+  </select>
+
+</div>
 
         {/* Filter + Sort bar */}
-        <div className="flex items-center justify-between gap-2 mb-3 lg:mb-4">
+       <div className="flex items-center justify-between gap-2 mb-3 lg:hidden">
           <button
             onClick={() => setShowFilters(true)}
             className="lg:hidden flex items-center gap-1.5 px-3 py-2 border border-gray-300 rounded-lg bg-white text-sm font-medium text-gray-700 shadow-sm"

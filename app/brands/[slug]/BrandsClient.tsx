@@ -34,6 +34,8 @@ export default function BrandsClient({
   const [minPrice, setMinPrice] = useState(0);
   const [maxPrice, setMaxPrice] = useState(0);
   const [minRating, setMinRating] = useState(0);
+  const [brandInfo, setBrandInfo] = useState<any>(null);
+const [brandLoading, setBrandLoading] = useState(false);
 const [showFilters, setShowFilters] = useState(false);
 const activeFilterCount =
   selectedCategories.length + (minRating > 0 ? 1 : 0);
@@ -85,6 +87,34 @@ useEffect(() => {
   setMaxPrice(max);
   setPriceRange([min, max]);
 }, [products]);
+
+useEffect(() => {
+  const fetchBrandInfo = async () => {
+    try {
+      setBrandLoading(true);
+
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/Brands?includeUnpublished=false`
+      );
+
+      const json = await res.json();
+
+      if (json.success) {
+        const brand = json.data.find(
+          (b: any) => b.slug === brandSlug
+        );
+
+        setBrandInfo(brand || null);
+      }
+    } catch (err) {
+      console.error("Brand fetch error:", err);
+    } finally {
+      setBrandLoading(false);
+    }
+  };
+
+  if (brandSlug) fetchBrandInfo();
+}, [brandSlug]);
 
   const filteredProducts = useMemo(() => {
     const result = products.filter((product) => {
@@ -459,7 +489,58 @@ const flattenedProducts = useMemo(() => {
               </div>
             )}
           </div>
+          
         </div>
+        {(brandInfo?.description || brandInfo?.faqs?.length > 0) && (
+  <div className="mt-16 space-y-5">
+
+    {/* 🔥 DESCRIPTION */}
+{brandInfo?.description && (
+  <div className="bg-white border rounded-2xl p-3 md:p-6 shadow-sm">
+    <h2 className="text-2xl font-bold text-gray-900 mb-0">
+      About {brandInfo.name}
+    </h2>
+
+ <div className=" text-gray-700 text-sm md:text-base leading-snug [&_ul]:list-disc [&_ul]:pl-5 [&_ul]:mt-1 [&_ul]:space-y-1 [&_li]:m-0 " dangerouslySetInnerHTML={{ __html: brandInfo.description }} />
+  </div>
+)}
+
+    {/* 🔥 FAQ */}
+    {brandInfo?.faqs?.filter((f: any) => f.isActive)?.length > 0 && (
+      <div className="bg-white border rounded-2xl p-6 md:p-10 shadow-sm">
+
+        <div className="mb-6">
+          <h2 className="text-2xl md:text-3xl font-bold text-gray-900">
+            Frequently Asked Questions
+          </h2>
+        </div>
+
+        <div className="divide-y">
+          {brandInfo.faqs
+            .filter((f: any) => f.isActive)
+            .sort((a: any, b: any) => a.displayOrder - b.displayOrder)
+            .map((faq: any) => (
+              <details key={faq.id} className="group py-4">
+                <summary className="flex justify-between items-center cursor-pointer list-none">
+                  <span className="font-semibold text-gray-800 text-sm md:text-base">
+                    {faq.question}
+                  </span>
+
+                  <span className="ml-4 text-black group-open:rotate-180 transition">
+                    ⌄
+                  </span>
+                </summary>
+
+                <p className="mt-3 text-gray-600 text-sm leading-relaxed">
+                  {faq.answer}
+                </p>
+              </details>
+            ))}
+        </div>
+      </div>
+    )}
+  </div>
+)}
       </main>
     </div>
   );

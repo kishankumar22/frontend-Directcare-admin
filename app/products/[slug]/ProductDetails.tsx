@@ -1212,7 +1212,24 @@ shipSeparately: product.shipSeparately,
       productData: JSON.parse(JSON.stringify(product)),
     });
   }
-  toast.success(`${normalQty} × ${product.name} added to cart 🛒`);
+ toast.success(
+  <div className="flex items-center justify-between gap-2">
+    <span className="text-sm font-medium">
+      {normalQty} × {product.name} added to cart!
+    </span>
+
+    <button
+      onClick={(e) => {
+        e.stopPropagation();
+        toast.clearAll();
+        router.push("/cart");
+      }}
+      className="px-2.5 py-1 text-[11px] font-semibold rounded-md bg-white text-[#445D41] hover:bg-black hover:text-white transition shadow-sm"
+    >
+      Cart→
+    </button>
+  </div>
+);
 }, [
   addToCart,
   normalQty,

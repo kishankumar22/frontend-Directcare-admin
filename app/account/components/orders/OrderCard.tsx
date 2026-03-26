@@ -189,7 +189,10 @@ function PayNowModal({
       onClose();
     }, 2500);
   };
-
+const totalPaid =
+  order.payments
+    ?.filter((p: any) => p.status?.toLowerCase() === "successful")
+    ?.reduce((sum: number, p: any) => sum + p.amount, 0) ?? 0;
   return (
     <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center px-4">
       <div className="bg-white rounded-2xl w-full max-w-md p-6 shadow-xl">

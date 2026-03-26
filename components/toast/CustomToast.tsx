@@ -25,6 +25,7 @@ interface ToastContextType {
   error: (msg: ReactNode, duration?: number) => void;
   info: (msg: ReactNode, duration?: number) => void;
   warning: (msg: ReactNode, duration?: number) => void;
+    clearAll: () => void;
 }
 
 const ToastContext = createContext<ToastContextType | null>(null);
@@ -133,7 +134,9 @@ export const ToastProvider = ({ children }: { children: ReactNode }) => {
   const removeToast = (id: string) => {
     setToasts((prev) => prev.filter((t) => t.id !== id));
   };
-
+const removeAllToasts = () => {
+  setToasts([]);
+};
   const showToast = (
     message: ReactNode,
     type: ToastType,
@@ -148,6 +151,7 @@ export const ToastProvider = ({ children }: { children: ReactNode }) => {
     error: (msg, d) => showToast(msg, "error", d),
     info: (msg, d) => showToast(msg, "info", d),
     warning: (msg, d) => showToast(msg, "warning", d),
+    clearAll: removeAllToasts,
   };
 
   return (

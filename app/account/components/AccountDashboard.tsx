@@ -19,7 +19,8 @@ import {
   Repeat,
   Truck,
   Gift,
-  LogOut
+  LogOut,
+  Award
 } from "lucide-react";
 
 type Tab =
@@ -106,7 +107,7 @@ const [showLogoutModal, setShowLogoutModal] = useState(false);
                 <SidebarButton active={activeTab === "tracking"} onClick={() => goToTab("tracking")}><Truck size={18} /> Order Tracking</SidebarButton>
                 <SidebarButton active={activeTab === "change-password"} onClick={() => goToTab("change-password")}><KeyRound size={18} /> Change Password</SidebarButton>
                 <SidebarButton active={activeTab === "addresses"} onClick={() => goToTab("addresses")}><MapPin size={18} /> Saved Addresses</SidebarButton>
-                <SidebarButton active={activeTab === "loyalty"} onClick={() => goToTab("loyalty")}><Gift size={18} /> Loyalty Points</SidebarButton>
+                <SidebarButton active={activeTab === "loyalty"} onClick={() => goToTab("loyalty")}><Award size={18} /> Loyalty Points</SidebarButton>
                 <hr />
                <SidebarButton danger onClick={() => setShowLogoutModal(true)}>
   <LogOut size={18} /> Logout

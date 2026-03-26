@@ -94,7 +94,7 @@ const handleSubscribe = async (e: React.FormEvent) => {
               <li><Link href="/offers">Offers</Link></li>
               <li><Link href="/brands">Shop By Brand</Link></li>
               <li><Link href="/category">Shop By Category</Link></li>
-              <li><Link href="#">Popular Products</Link></li>
+              {/* <li><Link href="#">Popular Products</Link></li> */}
             </ul>
           </div>
 

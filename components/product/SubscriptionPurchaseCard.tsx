@@ -7,7 +7,7 @@ import { useToast } from "@/components/toast/CustomToast";
 import { useCart } from "@/context/CartContext";
 import QuantitySelector from "@/components/shared/QuantitySelector";
 import { AwardIcon } from "lucide-react";
-
+import { useRouter } from "next/navigation";
 interface Props {
   product: any;
   selectedVariant: any | null;
@@ -42,7 +42,7 @@ export default function SubscriptionPurchaseCard({
 
   const { addToCart } = useCart();
   const toast = useToast();
-
+const router = useRouter();
 const basePrice = selectedVariant?.price ?? product.price;
 // ✅ STOCK (variant aware)
 const stock =
@@ -115,7 +115,7 @@ const stockQty =
   product.stockQuantity ??
   0;
 
-const maxQty = product.orderMaximumQuantity ?? 1;
+const maxQty = product.orderMaximumQuantity ?? Infinity;
 
 // 🔥 STOCK CHECK
 if (quantity > stockQty) {
@@ -169,7 +169,24 @@ image: selectedVariant?.imageUrl
     },
       maxStock: selectedVariant?.stockQuantity ?? product.stockQuantity
     });
-    toast.success("Subscription added to cart 🛒");
+  toast.success(
+  <div className="flex items-center justify-between gap-2">
+    <span className="text-sm font-medium">
+     {product.name} added to cart!
+    </span>
+
+    <button
+      onClick={(e) => {
+        e.stopPropagation();
+        toast.clearAll();
+        router.push("/cart");
+      }}
+      className="px-2.5 py-1 text-[11px] font-semibold rounded-md bg-white text-[#445D41] hover:bg-black hover:text-white transition shadow-sm"
+    >
+      Cart→
+    </button>
+  </div>
+);
   };
 
   return (

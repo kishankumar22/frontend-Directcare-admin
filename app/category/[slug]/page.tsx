@@ -172,22 +172,56 @@ export default async function CategoryPage({
     { next: { revalidate: 600 } }
   ).then((r) => r.json());
 
-  return (
-    <Suspense fallback={<Loading />}>
-      <CategoryClient
-        category={category}
-        breadcrumbs={breadcrumbs}
-        initialProducts={productsRes.data?.items ?? []}
-        totalCount={productsRes.data?.totalCount ?? 0}
-        currentPage={productsRes.data?.page ?? 1}
-        pageSize={productsRes.data?.pageSize ?? 20}
-        totalPages={productsRes.data?.totalPages ?? 1}
-        initialSortBy={searchParamsResolved.sortBy || "name"}
-        initialSortDirection={searchParamsResolved.sortDirection || "asc"}
-        brands={category.brands ?? []}
-        vatRates={vatRatesRes.data || []}
-        discount={discount}
+ return (
+  <Suspense fallback={<Loading />}>
+
+    {/* ✅ SEO: CATEGORY DESCRIPTION (SERVER SIDE) */}
+    {category?.description && (
+      <div style={{ display: "none" }}>
+        <div dangerouslySetInnerHTML={{ __html: category.description }} />
+      </div>
+    )}
+
+    {/* ✅ SEO: FAQ SCHEMA */}
+    {(category as any)?.faqs?.length > 0 && (
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify({
+            "@context": "https://schema.org",
+            "@type": "FAQPage",
+            "mainEntity": (category as any).faqs
+              .filter((f: any) => f.isActive)
+              .sort((a: any, b: any) => a.displayOrder - b.displayOrder)
+              .map((faq: any) => ({
+                "@type": "Question",
+                "name": faq.question,
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": faq.answer,
+                },
+              })),
+          }),
+        }}
       />
-    </Suspense>
-  );
+    )}
+
+    {/* 🔥 EXISTING CODE (UNCHANGED) */}
+    <CategoryClient
+      category={category}
+      breadcrumbs={breadcrumbs}
+      initialProducts={productsRes.data?.items ?? []}
+      totalCount={productsRes.data?.totalCount ?? 0}
+      currentPage={productsRes.data?.page ?? 1}
+      pageSize={productsRes.data?.pageSize ?? 20}
+      totalPages={productsRes.data?.totalPages ?? 1}
+      initialSortBy={searchParamsResolved.sortBy || "name"}
+      initialSortDirection={searchParamsResolved.sortDirection || "asc"}
+      brands={category.brands ?? []}
+      vatRates={vatRatesRes.data || []}
+      discount={discount}
+    />
+
+  </Suspense>
+);
 }

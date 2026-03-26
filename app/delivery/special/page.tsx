@@ -7,7 +7,7 @@ export default function SpecialDeliveryPage() {
     <div className="bg-gray-50 min-h-screen">
 
       {/* HERO */}
-      <div className="bg-[#445D41] text-white py-14 px-4">
+      <div className="bg-[#445D41] text-white py-2 px-4">
         <div className="max-w-6xl mx-auto">
           <h1 className="text-3xl md:text-5xl font-bold mb-4">
             Special Delivery Guaranteed

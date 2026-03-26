@@ -193,8 +193,8 @@ const theme =
 
 
   return (
-    <div className="absolute left-0 right-0 top-full z-50 overflow-hidden">
-      <div className="max-w-[1200px] ml-[40px] bg-white shadow-lg rounded-b-md overflow-hidden">
+   <div className="absolute left-20 top-full z-50">
+     <div className="w-[1200px] bg-white shadow-lg rounded-b-md overflow-hidden">
         <div className="flex min-h-[300px]">
           {/* LEFT COLUMN */}
           <div className="w-1/3 bg-gray-50 border-r border-gray-200 overflow-y-auto scrollbar-hide">

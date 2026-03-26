@@ -26,12 +26,55 @@ export default async function BrandPage({ params }: BrandPageProps) {
   const { slug } = await params;
 
   const productsRes = await getBrandProductsBySlug(slug);
+// ✅ FETCH ALL BRANDS (for SEO)
+const brandsRes = await fetch(
+  `${process.env.NEXT_PUBLIC_API_URL}/api/Brands?includeUnpublished=false`,
+  { next: { revalidate: 600 } }
+).then((r) => r.json());
 
-  return (
+const brand =
+  brandsRes?.data?.find((b: any) => b.slug === slug) || null;
+
+const faqs =
+  brand?.faqs
+    ?.filter((f: any) => f.isActive)
+    ?.sort((a: any, b: any) => a.displayOrder - b.displayOrder) ?? [];
+ return (
+  <>
+    {/* ✅ SEO: BRAND DESCRIPTION (SERVER SIDE) */}
+    {brand?.description && (
+      <div style={{ display: "none" }}>
+        <div dangerouslySetInnerHTML={{ __html: brand.description }} />
+      </div>
+    )}
+
+    {/* ✅ SEO: FAQ SCHEMA */}
+    {faqs.length > 0 && (
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify({
+            "@context": "https://schema.org",
+            "@type": "FAQPage",
+            "mainEntity": faqs.map((faq: any) => ({
+              "@type": "Question",
+              "name": faq.question,
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": faq.answer,
+              },
+            })),
+          }),
+        }}
+      />
+    )}
+
+    {/* 🔥 EXISTING UI (UNCHANGED) */}
     <BrandsClient
       brandSlug={slug}
       initialItems={productsRes?.data?.items ?? []}
       totalPages={productsRes?.data?.totalPages ?? 1}
     />
-  );
+  </>
+);
 }

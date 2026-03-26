@@ -7,7 +7,7 @@ export default function NextDayDeliveryPage() {
     <div className="bg-gray-50 min-h-screen">
 
       {/* 🔥 HERO SECTION */}
-      <div className="bg-[#445D41] text-white py-14 px-4">
+      <div className="bg-[#445D41] text-white py-2 px-4">
         <div className="max-w-6xl mx-auto">
           <p className="text-sm uppercase tracking-wider opacity-80 mb-2">
             Delivery Service

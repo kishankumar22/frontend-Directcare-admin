@@ -695,26 +695,44 @@ if (product.orderMinimumQuantity > 1) {
         </div>
       )}
       <main className="max-w-7xl mx-auto px-3 md:px-4 py-3 md:py-4">
-        {/* 🧭 Breadcrumbs */}
-        <nav className="hidden md:flex items-center flex-wrap gap-1 text-xs md:text-sm text-gray-600 mb-2">
-          {breadcrumbs.map((crumb, index) => (
-            <div key={index} className="flex items-center gap-1 flex-shrink-0">
-              {index > 0 && (
-                <ChevronRight className="h-3 w-3 md:h-4 md:w-4 text-gray-400" />
-              )}
-              {crumb.href ? (
-                <Link href={crumb.href} className="hover:text-[#445D41] transition-colors truncate max-w-[80px] md:max-w-none">
-                  {crumb.label}
-                </Link>
-              ) : (
-                <span className="font-semibold text-gray-900 truncate max-w-[120px] md:max-w-none">{crumb.label}</span>
-              )}
-            </div>
-          ))}
-        </nav>
+ <div className="hidden md:flex items-center justify-between gap-4 mb-2">
+  
+  {/* LEFT: Breadcrumb */}
+  <nav className="flex items-center flex-wrap gap-1 text-xs md:text-sm text-gray-600">
+    {breadcrumbs.map((crumb, index) => (
+      <div key={index} className="flex items-center gap-1 flex-shrink-0">
+        {index > 0 && (
+          <ChevronRight className="h-3 w-3 md:h-4 md:w-4 text-gray-400" />
+        )}
+        {crumb.href ? (
+          <Link href={crumb.href} className="hover:text-[#445D41] transition-colors truncate max-w-[80px] md:max-w-none">
+            {crumb.label}
+          </Link>
+        ) : (
+          <span className="font-semibold text-gray-900 truncate max-w-[120px] md:max-w-none">
+            {crumb.label}
+          </span>
+        )}
+      </div>
+    ))}
+  </nav>
+
+  {/* RIGHT: Sort */}
+  <select
+    value={`${sortBy}-${sortDirection}`}
+    onChange={(e) => handleSortChange(e.target.value)}
+    className="px-3 py-1.5 border border-gray-300 rounded-lg bg-white text-xs md:text-sm font-medium text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#445D41]"
+  >
+    <option value="name-asc">A-Z</option>
+    <option value="name-desc">Z-A</option>
+    <option value="price-asc">Low-High</option>
+    <option value="price-desc">High-Low</option>
+  </select>
+
+</div>
 
         {/* Filter + Sort bar — below breadcrumbs */}
-        <div className="flex items-center justify-between gap-2 mb-3 lg:mb-4">
+       <div className="flex items-center justify-between gap-2 mb-3 lg:hidden">
           {/* Mobile filter button */}
           <button
             onClick={() => setShowFilters(!showFilters)}
@@ -1099,8 +1117,59 @@ if (product.orderMinimumQuantity > 1) {
                 </CardContent>
               </Card>
             )}
-          </div>
+</div>
+
         </div>
+                    {/* ================= CATEGORY DESCRIPTION + FAQ ================= */}
+{(category?.description || (category as any)?.faqs?.length > 0) && (
+  <div className="mt-10 space-y-6">
+
+    {/* 🔥 DESCRIPTION */}
+    {category?.description && (
+      <div className="bg-white border rounded-xl p-4 md:p-5 shadow-sm">
+        <h2 className="text-lg md:text-xl font-semibold text-gray-900 mb-1">
+          About {category.name}
+        </h2>
+
+        <div
+          className=" text-gray-700 text-sm md:text-base leading-snug [&_ul]:pl-5 [&_ul]:mt-1 [&_ul]:space-y-1 [&_li]:m-0 " dangerouslySetInnerHTML={{ __html: category.description }} />
+      </div>
+    )}
+
+    {/* 🔥 FAQ */}
+    {(category as any)?.faqs?.filter((f: any) => f.isActive)?.length > 0 && (
+      <div className="bg-white border rounded-xl p-4 md:p-5 shadow-sm">
+
+        <h2 className="text-lg md:text-xl font-semibold text-gray-900 mb-3">
+          Frequently Asked Questions
+        </h2>
+
+        <div className="divide-y">
+          {(category as any).faqs
+            .filter((f: any) => f.isActive)
+            .sort((a: any, b: any) => a.displayOrder - b.displayOrder)
+            .map((faq: any) => (
+              <details key={faq.id} className="group py-3">
+                <summary className="flex justify-between items-center cursor-pointer list-none">
+                  <span className="font-medium text-gray-800 text-sm md:text-base">
+                    {faq.question}
+                  </span>
+
+                  <span className="ml-4 text-gray-400 group-open:rotate-180 transition">
+                    ⌄
+                  </span>
+                </summary>
+
+                <p className="mt-2 text-gray-600 text-sm leading-relaxed">
+                  {faq.answer}
+                </p>
+              </details>
+            ))}
+        </div>
+      </div>
+    )}
+  </div>
+)} 
 {showPharmaModal && pendingProduct && (
   <PharmaQuestionsModal
     open={showPharmaModal}

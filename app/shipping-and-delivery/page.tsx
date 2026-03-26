@@ -7,7 +7,7 @@ export default function ShippingPage() {
     <div className="bg-gray-50 min-h-screen">
 
       {/* 🔥 HERO */}
-      <div className="bg-[#445D41] text-white py-16 px-4 text-center">
+      <div className="bg-[#445D41] text-white py-3 px-4 text-center">
         <h1 className="text-3xl md:text-5xl font-bold">
           Shipping & Delivery
         </h1>

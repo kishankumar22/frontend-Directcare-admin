@@ -45,12 +45,13 @@ const [forgotSuccessMessage, setForgotSuccessMessage] = useState("");
   // Register
   const [regFirstName, setRegFirstName] = useState("");
   const [regLastName, setRegLastName] = useState("");
+
   const [regEmail, setRegEmail] = useState("");
   const [regPassword, setRegPassword] = useState("");
   const [regConfirmPassword, setRegConfirmPassword] = useState("");
 
   const [regPhone, setRegPhone] = useState("");
-  const [regGender, setRegGender] = useState("male");
+
   const [regError, setRegError] = useState("");
 const [regFieldErrors, setRegFieldErrors] = useState<{
   firstName?: string;
@@ -257,16 +258,16 @@ if (Object.keys(errors).length) {
     setLoading(true);
 
     try {
-      await register({
-        email: regEmail,
-        password: regPassword,
-        firstName: regFirstName,
-        lastName: regLastName,
-       phoneNumber: "+44" + regPhone,
-        dateOfBirth: new Date().toISOString(),
-        gender: regGender,
-        requireEmailConfirmation: true,
-      });
+    const payload: any = {
+  email: regEmail,
+  password: regPassword,
+  firstName: regFirstName,
+  lastName: regLastName,
+  phoneNumber: "+44" + regPhone,
+};
+
+
+await register(payload);
 
   if (fromCheckout || fromBuyNow) {
   router.replace("/checkout");
@@ -442,7 +443,7 @@ const activeTab = tabParam === "register" ? "register" : "login";
            {/* REGISTER */}
 {/* REGISTER */}
 <TabsContent value="register">
-  <form className="space-y-4" onSubmit={handleRegister}>
+  <form className="space-y-4" onSubmit={handleRegister} autoComplete="off">
     <div className="grid grid-cols-2 gap-4">
       {/* First Name (Required) */}
       <div>
@@ -486,15 +487,18 @@ const activeTab = tabParam === "register" ? "register" : "login";
       </label>
      <Input
   type="email"
+  name="new-email"
+  autoComplete="off"
   value={regEmail}
-  onChange={(e) => {
-    setRegEmail(e.target.value);
+onChange={(e) => {
+  setRegEmail(e.target.value);
 
-    // typing pe error clear
-    if (regFieldErrors.email) {
-      setRegFieldErrors((p) => ({ ...p, email: undefined }));
-    }
-  }}
+  if (regError) setRegError(""); // ✅ clear backend error
+
+  if (regFieldErrors.email) {
+    setRegFieldErrors((p) => ({ ...p, email: undefined }));
+  }
+}}
   onBlur={() => {
     // field chhodte hi validate
     if (regEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(regEmail.trim())) {
@@ -522,6 +526,8 @@ const activeTab = tabParam === "register" ? "register" : "login";
       <div className="relative">
         <Input
           type={showRegPassword ? "text" : "password"}
+            name="new-password"
+  autoComplete="new-password"
           value={regPassword}
           onChange={(e) => {
             setRegPassword(e.target.value);
@@ -586,6 +592,8 @@ const activeTab = tabParam === "register" ? "register" : "login";
   <div className="relative">
     <Input
       type={showConfirmPassword ? "text" : "password"}
+        name="confirm-password"
+  autoComplete="new-password"
       value={regConfirmPassword}
       onChange={(e) => {
         setRegConfirmPassword(e.target.value);
@@ -676,22 +684,13 @@ const activeTab = tabParam === "register" ? "register" : "login";
 </div>
 
 
-    {/* Gender (Optional) */}
-    <select
-      value={regGender}
-      onChange={(e) => setRegGender(e.target.value)}
-      className="w-full h-11 border px-3 rounded-lg"
-    >
-      <option value="male">Male</option>
-      <option value="female">Female</option>
-    </select>
 
-    {/* Backend error */}
+
     {regError && (
-      <p className="text-sm text-red-600">
-        {regError}
-      </p>
-    )}
+  <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-3 py-2 rounded-lg">
+    {regError}
+  </div>
+)}
 
     <Button
       type="submit"

@@ -9,6 +9,7 @@ import {
   Crown,
   Medal,
   ShieldCheck,
+  Wallet,
 } from "lucide-react";
 
 interface Props {
@@ -152,7 +153,7 @@ export default function LoyaltyPointsTab({ loyalty }: Props) {
         {/* 🟡 current points */}
          <div className="bg-white text-[#445D41] rounded-xl p-6 shadow-sm">
           <div className="flex items-center gap-2 text-[#445D41]">
-            <Gift size={18} />
+            <Wallet size={18} />
             Current Balance
           </div>
           <div className="text-3xl font-bold mt-3">

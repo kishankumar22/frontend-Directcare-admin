@@ -666,7 +666,7 @@ setMobileCategories(homepageParents);
   }}
 >
 
-         <nav className="flex items-center h-9 border-y-2 text-sm font-bold border-[#445d41] text-black pl-20 gap-6">
+       <nav className="flex items-center h-9 border-y-2 text-sm font-bold border-[#445d41] text-black px-20 gap-6">
           
             {categories.map((cat) => (
               <div
@@ -716,14 +716,14 @@ setMobileCategories(homepageParents);
   activeCategory &&
   activeCategory.subCategories &&
   activeCategory.subCategories.length > 0 && (
-   <div className="absolute left-0 right-0 top-full">
+ <div className="absolute left-0 top-full">
   
   {/* FULL WIDTH BACKGROUND (NON-HOVER) */}
   <div className="absolute inset-0 bg-white shadow-lg" />
 
   {/* HOVER AREA (LIMITED WIDTH) */}
   <div
-    className="relative max-w-7xl mx-auto"
+    className="relative"
     onMouseLeave={() => {
       setHovered(false);
       setActiveCategory(null);

@@ -6,7 +6,7 @@ import { ArrowLeft, Save, Upload, X, Info, Search, Image, Package, Tag,  Globe, 
 import Link from "next/link"
 import { ProductDescriptionEditor } from "@/app/admin/_components/SelfHostedEditor";
 import { useToast } from "@/app/admin/_components/CustomToast";
-import {  BrandApiResponse, brandsService, categoriesService, CategoryApiResponse, CategoryData, DropdownsData, ProductAttribute, ProductImage, ProductItem, ProductOption, ProductsApiResponse, productsService, ProductVariant, SimpleProduct,  VATRateData } from '@/lib/services';
+import {  BrandApiResponse, brandsService, DropdownsData, ProductAttribute, ProductImage, ProductItem, ProductOption, ProductsApiResponse, productsService, ProductVariant, SimpleProduct,  VATRateData } from '@/lib/services';
 import { GroupedProductModal } from '../GroupedProductModal';
 import { MultiBrandSelector } from "../MultiBrandSelector";
 import { VATRateApiResponse, vatratesService } from "@/lib/services/vatrates";
@@ -18,6 +18,7 @@ import PharmacyQuestionAssignModal from "../PharmacyQuestionAssignModal";
 import { AssignProductPharmacyQuestionDto, pharmacyQuestionsService } from "@/lib/services/PharmacyQuestions";
 import ProductNameInput from "../ProductNameInput";
 import SKUInput from "../SKUInput";
+import { categoriesService, CategoryApiResponse } from "@/lib/services/categories";
 
 export default function AddProductPage() {
   const router = useRouter();

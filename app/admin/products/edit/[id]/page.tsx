@@ -10,7 +10,7 @@ import { ProductDescriptionEditor } from "@/app/admin/_components/SelfHostedEdit
 import  {useToast } from "@/app/admin/_components/CustomToast";
 import { API_BASE_URL } from "@/lib/api-config";
 import { cn } from "@/lib/utils";
-import { ProductAttribute, ProductVariant, ProductOption, ProductOptionCreate, DropdownsData, SimpleProduct, ProductImage, CategoryData, BrandApiResponse, CategoryApiResponse,  productsService, brandsService, categoriesService } from '@/lib/services';
+import { ProductAttribute, ProductVariant, ProductOption, ProductOptionCreate, DropdownsData, SimpleProduct, ProductImage, CategoryData, BrandApiResponse,   productsService, brandsService, } from '@/lib/services';
 import { GroupedProductModal } from '../../GroupedProductModal';
 import { MultiBrandSelector } from "../../MultiBrandSelector";
 import React from "react";
@@ -29,6 +29,7 @@ import PharmacyQuestionAssignModal from "../../PharmacyQuestionAssignModal";
 import { AssignProductPharmacyQuestionDto, pharmacyQuestionsService } from "@/lib/services/PharmacyQuestions";
 import ProductNameInput from "../../ProductNameInput";
 import SKUInput from "../../SKUInput";
+import { categoriesService, CategoryApiResponse } from "@/lib/services/categories";
 
 // ✅ ADD THIS INTERFACE (at the top with other interfaces)
 interface AdminCommentHistory {

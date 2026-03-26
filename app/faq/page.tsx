@@ -57,7 +57,7 @@ export default function FAQPage() {
     <div className="bg-gray-50 min-h-screen">
 
       {/* 🔥 HERO */}
-      <div className="bg-[#445D41] text-white py-16 text-center">
+      <div className="bg-[#445D41] text-white py-3 text-center">
         <h1 className="text-3xl md:text-5xl font-bold">
           Frequently Asked Questions
         </h1>

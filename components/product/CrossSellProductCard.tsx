@@ -20,6 +20,7 @@ import {
 
 import { Card, CardContent } from "../ui/card";
 import GenderBadge from "../shared/GenderBadge";
+import { useRouter } from "next/navigation";
 const getCrossSellProductImage = (
   product: any,
   defaultVariant?: any
@@ -65,7 +66,7 @@ export default function CrossSellProductCard({ product, getImageUrl }: any) {
 const [qty, setQty] = useState(minQty);
   const [stockError, setStockError] = useState<string | null>(null);
 const toast = useToast();
-
+ const router = useRouter();
   const defaultVariant =
     product.variants?.find((v: any) => v.isDefault) ??
     product.variants?.[0] ??
@@ -209,7 +210,24 @@ const handleAddToCart = () => {
     productData: JSON.parse(JSON.stringify(product)),
   });
 
-  toast.success(`${qty} × ${product.name} added to cart 🛒`);
+  toast.success(
+  <div className="flex items-center justify-between gap-2">
+    <span className="text-sm font-medium">
+      {qty} × {product.name} added to cart!
+    </span>
+
+    <button
+      onClick={(e) => {
+        e.stopPropagation();
+        toast.clearAll();
+        router.push("/cart");
+      }}
+      className="px-2.5 py-1 text-[11px] font-semibold rounded-md bg-white text-[#445D41] hover:bg-black hover:text-white transition shadow-sm"
+    >
+      Cart→
+    </button>
+  </div>
+);
 };
 
   return (

@@ -214,6 +214,7 @@ if (product.orderMinimumQuantity > 1) {
       <button
   onClick={(e) => {
     e.stopPropagation();
+    toast.clearAll();
     router.push("/cart");
   }}
   className="px-2.5 py-1 text-[11px] font-semibold rounded-md bg-white text-[#445D41] hover:bg-black hover:text-white transition shadow-sm"
@@ -280,7 +281,7 @@ if (product.orderMinimumQuantity > 1) {
       <div className="p-2 md:p-4">
         {/* TITLE */}
         <Link href={`/products/${cardSlug}`}>
-          <h3 className="font-semibold text-xs md:text-sm mb-0 line-clamp-2 hover:text-[#445D41] transition min-h-[32px] md:min-h-[40px]">
+          <h3 className="font-semibold text-xs md:text-sm mb-1 line-clamp-2 hover:text-[#445D41] transition min-h-[32px] md:min-h-[40px]">
             {defaultVariant
               ? `${product.name} (${[
                   defaultVariant.option1Value,

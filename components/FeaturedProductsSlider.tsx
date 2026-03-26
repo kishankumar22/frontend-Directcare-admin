@@ -639,6 +639,7 @@ toast.success(
         <button
   onClick={(e) => {
     e.stopPropagation();
+    toast.clearAll();
     router.push("/cart");
   }}
   className="px-2.5 py-1 text-[11px] font-semibold rounded-md bg-white text-[#445D41] hover:bg-black hover:text-white transition shadow-sm"

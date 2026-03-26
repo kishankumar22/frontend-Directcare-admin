@@ -224,9 +224,9 @@ const handleSelectSuggestion = async (s: any) => {
     const requiredFields = [
       "firstName",
       "addressLine1",
-      "city",
-      "state",
+      "city",     
       "postalCode",
+      "country",
       "phoneNumber",
     ];
 
@@ -293,7 +293,7 @@ const handleSave = async () => {
   Object.entries(form).forEach(([key, value]) => {
     if (
       key === "addressLine2" ||
-      key === "country" ||
+      key === "state" ||
       key === "isDefault"
     )
       return;
@@ -576,9 +576,9 @@ setAddresses((prev) => {
               const isRequired = [
                 "firstName",
                 "addressLine1",
-                "city",
-                "state",
+                "city",              
                 "postalCode",
+                "country",
                 "phoneNumber",
               ].includes(field);
 
