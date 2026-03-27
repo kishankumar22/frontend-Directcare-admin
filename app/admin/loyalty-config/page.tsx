@@ -9,10 +9,9 @@ import {
   Coins,
   Gift,
   Star,
-  TrendingUp,
-  Calendar,
+ 
   Percent,
-  PoundSterling,
+ 
   ShoppingBag,
   Users,
   Crown,
@@ -22,8 +21,7 @@ import {
   AlertCircle,
   Info,
   Edit,
-  Eye,
-  EyeOff,
+ 
   RefreshCw,
   ChevronDown,
   ChevronUp,

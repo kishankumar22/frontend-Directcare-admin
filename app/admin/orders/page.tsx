@@ -57,7 +57,8 @@ import OrderActionsModal from './OrderActionsModal';
 import BulkStatusModal from './BulkStatusModal';
 
 import BulkShipmentUploadModal from './BulkShipmentUploadModal';
-import { API_BASE_URL } from '@/lib/api';
+
+import { getOrderProductImage } from '../_utils/formatUtils';
 
 interface Address {
   firstName: string;
@@ -71,15 +72,7 @@ interface Address {
   country: string;
   phoneNumber?: string;
 }
-const getOrderProductImage = (imageUrl?: string): string => {
-  if (!imageUrl) return "/no-image.png";
 
-  if (imageUrl.startsWith("http")) {
-    return imageUrl;
-  }
-
-  return API_BASE_URL.replace("/api", "") + imageUrl.replace("~", "");
-};
 // ✅ Get Available Actions based on Order Status (matching backend rules)
 const getAvailableActions = (order: Order) => {
   const actions: string[] = [];

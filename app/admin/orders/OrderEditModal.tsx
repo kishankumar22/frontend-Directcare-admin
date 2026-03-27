@@ -18,10 +18,7 @@ import {
   Check,
   XCircle,
   Filter,
-  Tag,
-  Layers,
-  Grid,
-  MapPin,
+   
   Truck,
   CreditCard,
   ChevronDown,
@@ -42,44 +39,8 @@ import {
 import { Order } from '@/lib/services/orders';
 import { addressLookupService } from '@/lib/services/AddressLookup';
 import { API_BASE_URL } from '@/lib/api';
-const getOrderProductImage = (imageUrl?: any): string => {
-  if (!imageUrl) return "/no-image.png";
+import { getProductImage, getThumbnailImage } from '../_utils/formatUtils';
 
-  // अगर array आया
-  if (Array.isArray(imageUrl)) {
-    imageUrl = imageUrl[0];
-  }
-
-  // अगर object आया { url: "" }
-  if (typeof imageUrl === "object" && imageUrl.url) {
-    imageUrl = imageUrl.url;
-  }
-
-  // अगर string नहीं है
-  if (typeof imageUrl !== "string") {
-    return "/no-image.png";
-  }
-
-  if (imageUrl.startsWith("http")) {
-    return imageUrl;
-  }
-
-  return API_BASE_URL.replace("/api", "") + imageUrl.replace("~", "");
-};
-const getProductImage = (images: any[]): string => {
-  if (!images || images.length === 0) return "";
-
-  const mainImage = images.find((img: any) => img.isMain) || images[0];
-  let imageUrl = mainImage.imageUrl || "";
-
-  // 🔥 If already full URL → return directly
-  if (imageUrl.startsWith("http")) {
-    return imageUrl;
-  }
-
-  // 🔥 Otherwise attach base URL (for local uploads)
-  return API_BASE_URL.replace("/api", "") + imageUrl.replace("~", "");
-};
 // ===========================
 // INTERFACES
 // ===========================
@@ -1186,7 +1147,7 @@ useEffect(() => {
             <div className="w-10 h-10 rounded-lg overflow-hidden flex-shrink-0 bg-slate-800 border border-slate-700">
               {item.productImageUrl ? (
               <img
-  src={getOrderProductImage(item.productImageUrl)}
+  src={getThumbnailImage(item.productImageUrl)}
   alt={item.productName}
   className="w-full h-full object-cover"
     onError={(e) => (e.currentTarget.src = "/placeholder.png")}

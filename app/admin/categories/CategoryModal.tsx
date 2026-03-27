@@ -8,6 +8,7 @@ import { API_BASE_URL } from "@/lib/api";
 import { Edit, Plus, Trash2, Upload, X } from "lucide-react";
 import ConfirmDialog from "../_components/ConfirmDialog";
 import { categoriesService, Category } from "@/lib/services/categories";
+import { getImageUrl } from "../_utils/formatUtils";
 interface Props {
   showModal: boolean;
   setShowModal: (v: boolean) => void;
@@ -130,12 +131,7 @@ useEffect(() => {
   }
 }, [editingCategory, showModal]);
 
-const getImageUrl = (imageUrl?: string) => {
-  if (!imageUrl) return "";
-  if (imageUrl.startsWith("http")) return imageUrl;
-  const cleanUrl = imageUrl.split('?')[0];
-  return `${API_BASE_URL}${cleanUrl}`;
-};
+
   const toast = useToast();
   if (!showModal) return null;
   const MAX_HOMEPAGE_CATEGORIES = 50;

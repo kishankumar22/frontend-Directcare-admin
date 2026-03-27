@@ -38,6 +38,7 @@ import MediaViewerModal, { MediaItem } from "./MediaViewerModal";
 import { RelatedProduct, Product, productsService, productHelpers } from "@/lib/services";
 import ProductExcelImportModal from "./ProductExcelImportModal";
 import { useDebounce } from "../_hooks/useDebounce";
+import { formatDate, getProductImage } from "../_utils/formatUtils";
 
 // ✅ INTERFACES
 interface FormattedProduct {
@@ -111,20 +112,7 @@ interface SelectOption {
   level?: number;
 }
 
-// ✅ API Response Interface
-interface ApiResponse {
-  success: boolean;
-  message: string;
-  data: {
-    items: any[];
-    totalCount: number;
-    page: number;
-    pageSize: number;
-    totalPages: number;
-    hasPrevious: boolean;
-    hasNext: boolean;
-  };
-}
+
 
 // ✅ REACT-SELECT CUSTOM STYLES
 const customSelectStyles = {
@@ -382,18 +370,7 @@ const handleSelectAll = () => {
     setSelectedProducts(selectableIds);
   }
 };
-  const formatDate = (dateString?: string | null): string => {
-    if (!dateString) return "N/A";
-    const date = new Date(dateString);
-    if (isNaN(date.getTime())) return "N/A";
-    return date.toLocaleString("en-US", {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  };
+
 
   const openProductActionModal = (product: {
     id: string;
@@ -423,20 +400,7 @@ const handleSelectAll = () => {
     setShowToggleConfirm(true);
   };
 
-const getProductImage = (images: any[]): string => {
-  if (!images || images.length === 0) return "";
 
-  const mainImage = images.find((img: any) => img.isMain) || images[0];
-  let imageUrl = mainImage.imageUrl || "";
-
-  // 🔥 If already full URL → return directly
-  if (imageUrl.startsWith("http")) {
-    return imageUrl;
-  }
-
-  // 🔥 Otherwise attach base URL (for local uploads)
-  return API_BASE_URL.replace("/api", "") + imageUrl.replace("~", "");
-};
 
   const getPrimaryCategoryName = (categories: any[]): string => {
     if (!categories || !Array.isArray(categories) || categories.length === 0) {
@@ -767,8 +731,6 @@ const fetchProductDetails = async (productId: string) => {
     // ✅ CASE 2: DELETED PRODUCT → use search API
     else {
       const response = await productsService.getAll({
-        page: 1,
-        pageSize: 1,
         isDeleted: true,
         searchTerm: currentProduct.name, // 🔥 NAME SEARCH
       });

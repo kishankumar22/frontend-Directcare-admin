@@ -29,7 +29,7 @@ export default function ProductNameInput({
       setChecking(true);
 
       const res = await productsService.getAll({
-        searchTerm: name
+        searchTerm: name.trim()
       });
 
       const items = res.data?.data?.items ?? [];

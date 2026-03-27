@@ -73,10 +73,8 @@ export default function ProductVariantsManager({
     }
   };
 
-  // ✅ Cancel delete
-  const cancelDelete = () => {
-    setDeleteModal({ isOpen: false, variantId: null, variantName: null });
-  };
+
+
 const closeDeleteModal = () => {
     setDeleteModal({ isOpen: false, variantId: null, variantName: null });
   };

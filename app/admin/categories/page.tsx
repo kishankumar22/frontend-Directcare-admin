@@ -5,11 +5,12 @@ import { Plus, Edit, Trash2, Search, FolderTree, Eye, Upload, Filter, FilterX, C
 import { ProductDescriptionEditor } from "../_components/SelfHostedEditor";
 import { useToast } from "@/app/admin/_components/CustomToast";
 import ConfirmDialog from "@/app/admin/_components/ConfirmDialog";
-import { API_BASE_URL } from "@/lib/api";
+
 import { categoriesService, Category, CategoryStats } from "@/lib/services/categories";
 import { useRouter } from "next/navigation";
 import CategoryModal from "./CategoryModal";
 import { categoryFaqsService, Faq } from "@/lib/services/categoryFaqs";
+import { formatDate, getImageUrl } from "../_utils/formatUtils";
 
 export default function CategoriesPage() {
   const toast = useToast();
@@ -17,7 +18,7 @@ export default function CategoriesPage() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
-  const [showParentDropdown, setShowParentDropdown] = useState(false);
+  
   const [showModal, setShowModal] = useState(false);
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
   const [selectedImageUrl, setSelectedImageUrl] = useState<string | null>(null);
@@ -111,12 +112,7 @@ const extractFilename = (imageUrl: string) => {
   return parts[parts.length - 1];
 };
 
-const getImageUrl = (imageUrl?: string) => {
-  if (!imageUrl) return "";
-  if (imageUrl.startsWith("http")) return imageUrl;
-  const cleanUrl = imageUrl.split('?')[0];
-  return `${API_BASE_URL}${cleanUrl}`;
-};
+
 
 // Add this NEW helper function after getCategoryLevel
 const getMaxDepthOfSubtree = (category: Category, allCategories: Category[]): number => {
@@ -846,16 +842,12 @@ const CategoryRow: React.FC<CategoryRowProps> = ({
 
       {/* CREATED */}
       <td className="py-2 px-3 text-[11px] text-slate-500">
-        {category.createdAt
-          ? new Date(category.createdAt).toLocaleDateString("en-GB")
-          : "-"}
+        {formatDate(category.createdAt)}
       </td>
 
       {/* UPDATED */}
       <td className="py-2 px-3 text-[11px] text-slate-500">
-        {category.updatedAt
-          ? new Date(category.updatedAt).toLocaleDateString("en-GB")
-          : "-"}
+        {formatDate(category.updatedAt)}
       </td>
 
       {/* UPDATED BY */}
@@ -1725,13 +1717,7 @@ useEffect(() => {
                       <div className="bg-slate-900/50 p-2.5 rounded-lg">
                         <p className="text-xs text-slate-400 mb-1">Created At</p>
                         <p className="text-white text-xs font-medium">
-                          {viewingCategory.createdAt ? new Date(viewingCategory.createdAt).toLocaleString('en-GB', {
-                            day: '2-digit',
-                            month: 'short',
-                            year: 'numeric',
-                            hour: '2-digit',
-                            minute: '2-digit'
-                          }) : 'N/A'}
+                          {formatDate(viewingCategory.createdAt)}
                         </p>
                       </div>
                       <div className="bg-slate-900/50 p-2.5 rounded-lg">
@@ -1741,13 +1727,7 @@ useEffect(() => {
                       <div className="bg-slate-900/50 p-2.5 rounded-lg">
                         <p className="text-xs text-slate-400 mb-1">Updated At</p>
                         <p className="text-white text-xs font-medium">
-                          {viewingCategory.updatedAt ? new Date(viewingCategory.updatedAt).toLocaleString('en-GB', {
-                            day: '2-digit',
-                            month: 'short',
-                            year: 'numeric',
-                            hour: '2-digit',
-                            minute: '2-digit'
-                          }) : 'N/A'}
+                           {formatDate(viewingCategory.updatedAt)}
                         </p>
                       </div>
                       <div className="bg-slate-900/50 p-2.5 rounded-lg">

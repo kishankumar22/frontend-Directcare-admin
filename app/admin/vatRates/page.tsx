@@ -32,6 +32,7 @@ import {
 import { useToast } from "@/app/admin/_components/CustomToast";
 import { VATRate, vatratesService, CreateVATRateDto, DeleteVATRateResponse } from "@/lib/services/vatrates";
 import { countriesService, Country } from "@/lib/services/countries";
+import { formatDate } from "../_utils/formatUtils";
 
 
 
@@ -336,16 +337,7 @@ const filteredRates = useMemo(() => {
     currentPage * itemsPerPage
   );
 
-  // Format date
-  const formatDate = (dateString?: string): string => {
-    if (!dateString) return "N/A";
-    const date = new Date(dateString);
-    return date.toLocaleDateString("en-GB", {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-    });
-  };
+
 
   // Validate form
   const validateForm = (): boolean => {
@@ -962,7 +954,7 @@ const clearFilters = () => {
           <th className="text-left py-2 px-3 text-slate-400 font-medium">Region</th>
           <th className="text-center py-2 px-3 text-slate-400 font-medium">Status</th>
           <th className="text-center py-2 px-3 text-slate-400 font-medium">Default</th>
-          <th className="text-center py-2 px-3 text-slate-400 font-medium">Order</th>
+          <th className="text-center py-2 px-3 text-slate-400 font-medium">Order By</th>
           <th className="text-center py-2 px-3 text-slate-400 font-medium">Actions</th>
         </tr>
       </thead>

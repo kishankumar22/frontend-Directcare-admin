@@ -5,7 +5,7 @@ import Select from "react-select";
 import {
   Search,
   X,
-  Calendar,
+ 
   Eye,
   ChevronLeft,
   ChevronRight,
@@ -20,7 +20,7 @@ import {
   ArrowUpDown,
   ArrowUp,
   ArrowDown,
-  TrendingUp,
+ 
   AlertCircle,
   Clock,
   User,
@@ -46,6 +46,7 @@ import {
 } from "@/lib/services/activityLog";
 import { useDebounce } from "../_hooks/useDebounce";
 import { formatRelativeDate } from "@/lib/services/loyaltyPoints";
+import { formatValue } from "../_utils/formatUtils";
 
 // ✅ Types
 type SortField = "createdOnUtc" | "activityLogType" | "userName" | "entityName";
@@ -138,13 +139,7 @@ const formatLabel = (key: string) =>
     .replace(/([A-Z])/g, " $1")
     .replace(/^./, (str) => str.toUpperCase());
 
-const formatValue = (value: any) => {
-  if (value === null || value === undefined) return "-";
-  if (typeof value === "boolean") return value ? "Yes" : "No";
-  if (typeof value === "string" && value.includes("T") && value.includes(":"))
-    return new Date(value).toLocaleString();
-  return value.toString();
-};
+
 // ✅ Confirmation Modal Component
 interface ConfirmationModalProps {
   isOpen: boolean;

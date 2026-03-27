@@ -24,7 +24,7 @@ import {
   Package,
   Download,
   ChevronDown,
-  FileSpreadsheet,
+ 
   Crown,
   UserCheck,
   UserX,
@@ -37,8 +37,8 @@ import {
   Zap,
   Clock,
   TrendingDown,
-  Percent,
-  ChevronUp,
+ 
+ 
   LogIn,
   ShoppingCart,
   UserPlus,
@@ -53,6 +53,8 @@ import { Customer, CustomerQueryParams, customersService } from "@/lib/services/
 import { loyaltyPointsService } from "@/lib/services/loyaltyPoints";
 import { orderService } from "@/lib/services/orders";
 import ConfirmDialog from "../_components/ConfirmDialog";
+import { useDebounce } from "../_hooks/useDebounce";
+import { formatDate } from "../_utils/formatUtils";
 
 // ✅ Types
 type CustomerTier = "all" | "gold" | "silver" | "bronze";
@@ -61,17 +63,7 @@ type SortDirection = "asc" | "desc";
 // ✅ STEP 1: Component ke top par ye state add karo (existing states ke saath)
 
 
-// ✅ Debounce Hook
-function useDebounce<T>(value: T, delay: number): T {
-  const [debouncedValue, setDebouncedValue] = useState<T>(value);
 
-  useEffect(() => {
-    const handler = setTimeout(() => setDebouncedValue(value), delay);
-    return () => clearTimeout(handler);
-  }, [value, delay]);
-
-  return debouncedValue;
-}
 
 export default function CustomersPage() {
   const toast = useToast();
@@ -632,14 +624,7 @@ const bronze = allCustomers.filter((c) => loyaltyMap[c.id] === "bronze").length;
     }).format(amount);
   };
 
-  const formatDate = (date?: string) => {
-    if (!date) return "Never";
-    return new Date(date).toLocaleDateString("en-GB", {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-    });
-  };
+
 
   const formatRelativeDate = (date?: string) => {
     if (!date) return "Never";

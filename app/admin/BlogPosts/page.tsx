@@ -12,13 +12,9 @@ import { API_BASE_URL } from "@/lib/api-config";
 import { BlogPost, blogPostsService, BlogCategory } from "@/lib/services/blogPosts";
 import { useToast } from "@/app/admin/_components/CustomToast";
 import ConfirmDialog from "@/app/admin/_components/ConfirmDialog";
+import { getImageUrl } from "../_utils/formatUtils";
 
-// ─── Helpers ────────────────────────────────────────────────────────────────
-const getImageUrl = (url?: string) => {
-  if (!url) return "";
-  if (url.startsWith("http")) return url;
-  return `${API_BASE_URL}/${url.replace(/^\//, "")}`;
-};
+
 
 const getAllComments = (comments: any[]): any[] => {
   let all: any[] = [];

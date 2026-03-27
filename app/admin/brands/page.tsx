@@ -8,6 +8,7 @@ import ConfirmDialog from "@/app/admin/_components/ConfirmDialog";
 import { Brand, brandsService, BrandStats } from "@/lib/services/brands";
 import { useRouter } from "next/navigation";
 import BrandModals from "./BrandModals";
+import { formatDate } from "../_utils/formatUtils";
 
 export default function BrandsPage() {
   const toast = useToast();
@@ -33,6 +34,7 @@ const [activeTab, setActiveTab] = useState<'basic' | 'image' | 'seo' | 'settings
     homepageBrands: 0,
     totalProducts: 0
   });
+
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(25);
 const [statusConfirm, setStatusConfirm] = useState<{
@@ -730,9 +732,7 @@ const handleEdit = (
                       </td>
 
                       <td className="py-2 px-3 text-slate-300 text-xs">
-                        {brand.updatedAt
-                          ? new Date(brand.updatedAt).toLocaleDateString()
-                          : '-'}
+                          {formatDate(brand.updatedAt)}
                       </td>
 
                       <td className="py-2 px-3">

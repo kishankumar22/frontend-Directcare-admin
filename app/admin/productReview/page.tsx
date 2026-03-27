@@ -43,6 +43,7 @@ import {
   CreateReviewDto,
   ReviewFilters,
 } from "@/lib/services/productReviews";
+import { formatDate, getOrderProductImage } from "../_utils/formatUtils";
 export default function ProductReviewsPage() {
   const router = useRouter();
   const toast = useToast();
@@ -87,15 +88,7 @@ const productDropdownRef = useRef<HTMLDivElement>(null);
   const [serverTotal, setServerTotal] = useState(0);
   const [serverTotalPages, setServerTotalPages] = useState(1);
   const [debouncedSearch, setDebouncedSearch] = useState("");
-const getOrderProductImage = (imageUrl?: string): string => {
-  if (!imageUrl) return "/no-image.png";
 
-  if (imageUrl.startsWith("http")) {
-    return imageUrl;
-  }
-
-  return API_BASE_URL.replace("/api", "") + imageUrl.replace("~", "");
-};
   const [deleteConfirm, setDeleteConfirm] = useState<{
     id: string;
     customer: string;
@@ -178,14 +171,7 @@ const fetchFormProducts = async () => {
 const getDateRangeLabel = () => {
   if (!dateRange.startDate && !dateRange.endDate) return "Select Date Range";
   
-  const formatDate = (dateStr: string) => {
-    if (!dateStr) return "";
-    return new Date(dateStr).toLocaleDateString('en-US', { 
-      month: 'short', 
-      day: 'numeric', 
-      year: 'numeric' 
-    });
-  };
+
 
   if (dateRange.startDate && dateRange.endDate) {
     return `${formatDate(dateRange.startDate)} - ${formatDate(dateRange.endDate)}`;
@@ -1288,8 +1274,8 @@ const isPlayableVideoUrl = (url: string) => {
                         <p className="text-[10px] text-slate-500">{review.rating}/5</p>
                       </td>
                       <td className="py-2 px-3">
-                        <p className="text-slate-300 text-xs">{new Date(review.createdAt).toLocaleDateString()}</p>
-                        <p className="text-[10px] text-slate-500">{new Date(review.createdAt).toLocaleTimeString()}</p>
+                        <p className="text-slate-300 text-xs">  {formatDate(review.createdAt)}</p>
+                        
                       </td>
                       <td className="py-2 px-3 text-center">
                         <span className={`px-2 py-0.5 rounded text-[10px] font-medium ${review.isApproved ? "bg-green-500/10 text-green-400" : "bg-amber-500/10 text-amber-400"}`}>
@@ -1633,9 +1619,7 @@ const isPlayableVideoUrl = (url: string) => {
                         <div>
                           <p className="text-slate-400 text-sm mb-1">Date</p>
                           <p className="text-white text-sm">
-                            {new Date(
-                              viewingReview.createdAt
-                            ).toLocaleString()}
+                         {formatDate(viewingReview.createdAt)}
                           </p>
                         </div>
 
@@ -1658,9 +1642,7 @@ const isPlayableVideoUrl = (url: string) => {
                             Approved At
                           </p>
                           <p className="text-white text-sm">
-                            {new Date(
-                              viewingReview.approvedAt
-                            ).toLocaleString()}
+                           {formatDate(viewingReview.approvedAt)}
                           </p>
                           {viewingReview.approvedBy && (
                             <p className="text-slate-500 text-xs mt-1">
@@ -1712,7 +1694,7 @@ const isPlayableVideoUrl = (url: string) => {
                                   {reply.comment}
                                 </p>
                                 <p className="text-slate-500 text-xs mt-1">
-                                  {new Date(reply.createdAt).toLocaleString()}
+                                      {formatDate(reply.createdAt)}
                                 </p>
                               </div>
                             ))}

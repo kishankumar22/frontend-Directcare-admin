@@ -2,12 +2,12 @@
 
 import { useState, useEffect } from "react";
 import { Plus, Edit, Trash2, Search, CheckCircle, Image as ImageIcon, Eye, Upload, Filter, FilterX, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, AlertCircle, Calendar, ExternalLink, Tag, Monitor, Smartphone } from "lucide-react";
-import { API_ENDPOINTS, API_BASE_URL } from "@/lib/api-config";
-import { apiClient } from "@/lib/api";
+ 
 import { useToast } from "@/app/admin/_components/CustomToast";
 import ConfirmDialog from "@/app/admin/_components/ConfirmDialog";
 import { ProductDescriptionEditor } from "../_components/SelfHostedEditor";
 import { Banner, bannersService, BannerStats } from "@/lib/services";
+import { extractFilename, formatDate, getImageUrl } from "../_utils/formatUtils";
 
 export default function ManageBanners() {
   const toast = useToast();
@@ -108,24 +108,6 @@ function getBannerStatus(banner: any): BannerStatus {
     endDate: ""
   });
 
-  const getImageUrl = (imageUrl?: string) => {
-    if (!imageUrl) return "";
-    if (imageUrl.startsWith("http")) return imageUrl;
-    
-    const cleanUrl = imageUrl.split('?')[0];
-    
-    return `${API_BASE_URL}${cleanUrl}`;
-  };
-
-  const extractFilename = (imageUrl: string) => {
-    if (!imageUrl) return "";
-
-    const cleanedUrl = imageUrl.replace(API_BASE_URL, "");
-
-    const parts = cleanedUrl.split("/");
-
-    return parts.pop() || "";
-  };
 
   const handleImageFileChange = (file: File) => {
     setImageFile(file);
@@ -872,7 +854,7 @@ const handleSubmit = async (e: React.FormEvent) => {
             <th className="text-center py-2 px-3 text-[11px] text-slate-400">Order</th>
             <th className="text-left py-2 px-3 text-[11px] text-slate-400">Date  Start</th>
             <th className="text-left py-2 px-3 text-[11px] text-slate-400">Date End</th>
-            <th className="text-left py-2 px-3 text-[11px] text-slate-400">Created</th>
+            <th className="text-left py-2 px-3 text-[11px] text-slate-400">Created At   </th>
             <th className="text-center py-2 px-3 text-[11px] text-slate-400">Actions</th>
           </tr>
         </thead>
@@ -994,15 +976,14 @@ const handleSubmit = async (e: React.FormEvent) => {
 
               {/* Dates */}
               <td className="py-2 px-3 text-[11px] text-slate-400">
-                {banner.startDate ? new Date(banner.startDate).toLocaleDateString() : "-"}
+            {formatDate(banner.startDate)}
+              </td>
+
+              <td className="py-2 px-3 text-[11px] text-slate-400">    {formatDate(banner.endDate)}
               </td>
 
               <td className="py-2 px-3 text-[11px] text-slate-400">
-                {banner.endDate ? new Date(banner.endDate).toLocaleDateString() : "-"}
-              </td>
-
-              <td className="py-2 px-3 text-[11px] text-slate-400">
-                {banner.createdAt ? new Date(banner.createdAt).toLocaleDateString() : "-"}
+                 {formatDate(banner.createdAt)}
               </td>
 
               {/* Actions */}
@@ -1768,14 +1749,14 @@ const handleSubmit = async (e: React.FormEvent) => {
                 <div className="flex items-center justify-between py-1">
                   <span className="text-sm text-slate-300 font-semibold">Start Date:</span>
                   <span className="text-slate-100 text-sm font-medium">
-                    {viewingBanner.startDate ? new Date(viewingBanner.startDate).toLocaleString() : 'Not set'}
+                     {formatDate(viewingBanner.startDate)}
                   </span>
                 </div>
 
                 <div className="flex items-center justify-between py-1">
                   <span className="text-sm text-slate-300 font-semibold">End Date:</span>
                   <span className="text-slate-100 text-sm font-medium">
-                    {viewingBanner.endDate ? new Date(viewingBanner.endDate).toLocaleString() : 'Not set'}
+                      {formatDate(viewingBanner.endDate)}
                   </span>
                 </div>
 
@@ -1784,19 +1765,9 @@ const handleSubmit = async (e: React.FormEvent) => {
                 <div className="flex items-center justify-between py-1">
                   <span className="text-sm text-slate-300 font-semibold">Created At:</span>
                   <span className="text-slate-100 text-sm font-medium">
-                    {viewingBanner.createdAt ? new Date(viewingBanner.createdAt).toLocaleString() : 'N/A'}
+                    {formatDate(viewingBanner.createdAt)}
                   </span>
                 </div>
-
-                <div className="flex items-center justify-between py-1">
-                  <span className="text-sm text-slate-300 font-semibold">Updated At:</span>
-                  <span className="text-slate-100 text-sm font-medium">
-                    {viewingBanner.updatedAt ? new Date(viewingBanner.updatedAt).toLocaleString() : 'Never updated'}
-                  </span>
-                </div>
-
-                <div className="border-t border-slate-700/50 my-3"></div>
-
                 <div className="py-1">
                   <div className="flex items-start justify-between gap-2">
                     <span className="text-sm text-slate-300 font-semibold whitespace-nowrap">Created By:</span>
@@ -1804,13 +1775,26 @@ const handleSubmit = async (e: React.FormEvent) => {
                       {viewingBanner.createdBy || 'Unknown'}
                     </span>
                   </div>
+
+                  
+                </div>
+
+
+                <div className="border-t border-slate-700/50 my-3"></div>
+
+                <div className="flex items-center justify-between py-1">
+                  <span className="text-sm text-slate-300 font-semibold">Updated At:</span>
+                  <span className="text-slate-100 text-sm font-medium">
+         
+                      {formatDate(viewingBanner.updatedAt )}
+                  </span>
                 </div>
 
                 <div className="py-1">
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-slate-300 font-semibold">Updated By:</span>
                     <span className="text-slate-100 text-sm font-medium">
-                      {viewingBanner.updatedBy || 'Never updated'}
+                      {(viewingBanner.updatedBy)}
                     </span>
                   </div>
                 </div>

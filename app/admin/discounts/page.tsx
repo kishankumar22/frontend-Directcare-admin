@@ -6,7 +6,6 @@ import { Plus, Edit, Trash2, Search, Percent, Eye, Filter, History, FilterX, Che
 import { useToast } from "@/app/admin/_components/CustomToast";
 
 import {
-  CreateDiscountDto,
   Discount,
   DiscountLimitationType,
   discountsService,
@@ -553,7 +552,13 @@ const handleSubmit = async (e: React.FormEvent) => {
     toast.error("Admin comment is required");
     return;
   }
-
+// 🔥 NEW: Validation for AssignedToCategories
+  if (formData.discountType === "AssignedToCategories") {
+    if (formData.assignedProductIds.length === 0) {
+      toast.error("At least one product must be selected from the category");
+      return;
+    }
+  }
   try {
     const payload = {
       ...formData,
@@ -1462,8 +1467,10 @@ const filteredDiscounts = discounts.filter((discount) => {
         isLoading={isDeleting}
       />
 
-
 <DiscountModals
+  // 🔥 YAHI EK CHANGE HAI - KEY PROP ADD KARO
+  key={`${showModal}-${editingDiscount?.id}-${formData.assignedProductIds.join(',')}`}
+  
   showModal={showModal}
   setShowModal={setShowModal}
   viewingDiscount={viewingDiscount}
@@ -1480,7 +1487,7 @@ const filteredDiscounts = discounts.filter((discount) => {
   categoryOptions={categoryOptions}
   brandOptions={brandOptions}
   filteredProductOptions={filteredProductOptions}
-  categoryFilteredProductOptions={categoryFilteredProductOptions} // ✅ THIS IS KEY
+  categoryFilteredProductOptions={categoryFilteredProductOptions}
   productCategoryFilter={productCategoryFilter}
   setProductCategoryFilter={setProductCategoryFilter}
   productBrandFilter={productBrandFilter}

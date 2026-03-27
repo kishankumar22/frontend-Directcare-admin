@@ -8,6 +8,7 @@ import { useToast } from "@/app/admin/_components/CustomToast";
 import ConfirmDialog from "@/app/admin/_components/ConfirmDialog";
 import { newsletterService, NewsletterSubscription, NewsletterStats } from "@/lib/services/newsletter";
 import * as XLSX from 'xlsx';
+import { formatDate } from "../_utils/formatUtils";
 
 export default function NewsletterPage() {
   const toast = useToast();
@@ -648,12 +649,12 @@ const toggleSelectOne = (id: string) => {
 
               {/* SUBSCRIBED */}
               <td className="py-2 px-3 text-[11px] text-slate-400">
-                {new Date(subscription.subscribedAt).toLocaleDateString()}
+                   {formatDate(subscription.subscribedAt)}
               </td>
 
               {/* CREATED */}
               <td className="py-2 px-3 text-[11px] text-slate-400">
-                {new Date(subscription.createdAt).toLocaleDateString()}
+             {formatDate(subscription.createdAt)}
               </td>
 
               {/* ACTIONS */}

@@ -24,6 +24,7 @@ import { ProductDescriptionEditor } from "../_components/SelfHostedEditor";
 import { Discount, DiscountType, DiscountLimitationType, DiscountUsageHistory } from "@/lib/services/discounts";
 import { Product } from "@/lib/services";
 import { Category } from "@/lib/services/categories";
+import { formatDate } from "../_utils/formatUtils";
 
 // ========== INTERFACES ==========
 interface SelectOption {
@@ -1351,14 +1352,15 @@ useEffect(() => {
                       <div className="flex items-center justify-between py-1">
                         <span className="text-sm text-slate-300 font-semibold">Start Date:</span>
                         <span className="text-slate-100 text-sm font-medium">
-                          {new Date(viewingDiscount.startDate).toLocaleString()}
+                     
+                           {formatDate(viewingDiscount.startDate)}
                         </span>
                       </div>
 
                       <div className="flex items-center justify-between py-1">
                         <span className="text-sm text-slate-300 font-semibold">End Date:</span>
                         <span className="text-slate-100 text-sm font-medium">
-                          {new Date(viewingDiscount.endDate).toLocaleString()}
+                          {formatDate(viewingDiscount.endDate)}
                         </span>
                       </div>
                     </div>
@@ -1502,26 +1504,26 @@ useEffect(() => {
                       <div className="flex items-center justify-between py-1">
                         <span className="text-sm text-slate-300 font-semibold">Created At:</span>
                         <span className="text-slate-100 text-sm font-medium">
-                          {viewingDiscount.createdAt ? new Date(viewingDiscount.createdAt).toLocaleString() : 'N/A'}
+                           {formatDate(viewingDiscount.createdAt)}
                         </span>
                       </div>
-
-                      <div className="flex items-center justify-between py-1">
-                        <span className="text-sm text-slate-300 font-semibold">Updated At:</span>
-                        <span className="text-slate-100 text-sm font-medium">
-                          {(viewingDiscount as any).updatedAt ? new Date((viewingDiscount as any).updatedAt).toLocaleString() : 'Never updated'}
-                        </span>
-                      </div>
-
-                      <div className="border-t border-slate-700/50 my-3"></div>
-
-                      <div className="py-1">
+  <div className="py-1">
                         <div className="flex items-start justify-between gap-2">
                           <span className="text-sm text-slate-300 font-semibold whitespace-nowrap">Created By:</span>
                           <span className="text-slate-100 text-sm font-medium text-right break-all">
                             {(viewingDiscount as any).createdBy || 'Unknown'}
                           </span>
                         </div>
+                      </div>
+                     
+
+                      <div className="border-t border-slate-700/50 my-3"></div>
+
+                     <div className="flex items-center justify-between py-1">
+                        <span className="text-sm text-slate-300 font-semibold">Updated At:</span>
+                        <span className="text-slate-100 text-sm font-medium">
+                      {formatDate(viewingDiscount.updatedAt)}
+                        </span>
                       </div>
 
                       <div className="py-1">
@@ -1875,18 +1877,9 @@ useEffect(() => {
                           <td className="py-2 px-3 text-center">
                             <div className="flex flex-col">
                               <span className="text-white text-xs font-medium">
-                                {new Date(history.usedAt).toLocaleDateString('en-IN', { 
-                                  day: '2-digit', 
-                                  month: 'short'
-                                })}
+                                {formatDate(history.usedAt)}
                               </span>
-                              <span className="text-[10px] text-slate-500">
-                                {new Date(history.usedAt).toLocaleTimeString('en-IN', { 
-                                  hour: '2-digit', 
-                                  minute: '2-digit',
-                                  hour12: true
-                                })}
-                              </span>
+                             
                             </div>
                           </td>
                         </tr>

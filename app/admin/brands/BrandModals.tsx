@@ -30,6 +30,7 @@ setEditingBrand: React.Dispatch<React.SetStateAction<Brand | null>>;
 }
 
 
+
 export default function BrandModals({
   showModal,
   setShowModal,
@@ -49,6 +50,7 @@ export default function BrandModals({
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
   const [pendingFaqs, setPendingFaqs] = useState<any[]>([]);
+
   const [imageDeleteConfirm, setImageDeleteConfirm] = useState<{
     brandId: string;
     imageUrl: string;
@@ -153,7 +155,18 @@ const handleDeleteImage = async (brandId: string, imageUrl: string) => {
     setImageDeleteConfirm(null);
   }
 };
-
+    const formatDate = (dateString?: string | null): string => {
+    if (!dateString) return "N/A";
+    const date = new Date(dateString);
+    if (isNaN(date.getTime())) return "N/A";
+    return date.toLocaleString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  };
 
 const handleSubmit = async (e: React.FormEvent) => {
   e.preventDefault();
@@ -967,14 +980,14 @@ if (isDuplicate) {
                   <div className="grid grid-cols-2 gap-3 text-sm">
 
                     <div className="bg-slate-900/50 p-3 rounded-lg">
-                      <p className="text-slate-400 text-xs">Created</p>
-                      <p className="text-white text-sm">{viewingBrand.createdAt}</p>
+                      <p className="text-slate-400 text-xs">Created By</p>
+                      <p className="text-white text-sm">{formatDate(viewingBrand.createdAt)}</p>
                       <p className="text-xs text-slate-500">{viewingBrand.createdBy}</p>
                     </div>
 
                     <div className="bg-slate-900/50 p-3 rounded-lg">
-                      <p className="text-slate-400 text-xs">Updated</p>
-                      <p className="text-white text-sm">{viewingBrand.updatedAt}</p>
+                      <p className="text-slate-400 text-xs">Updated by </p>
+                      <p className="text-white text-sm">{formatDate(viewingBrand.updatedAt)}</p>
                       <p className="text-xs text-slate-500">{viewingBrand.updatedBy}</p>
                     </div>
 

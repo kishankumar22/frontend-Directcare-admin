@@ -28,6 +28,7 @@ import {
 import { API_BASE_URL } from '@/lib/api-config';
 import productsService, { Product } from '../../../lib/services/products';
 import MediaViewerModal, { MediaItem } from './MediaViewerModal';
+import { formatDate } from '../_utils/formatUtils';
 
 // ==========================================
 // HELPER COMPONENTS
@@ -318,7 +319,7 @@ const [crossSellProducts, setCrossSellProducts] = useState<any[]>([]);
           ) : (
             <>
               {/* TABS */}
-              <div className="flex items-center gap-1 px-3 border-b border-slate-700">
+              <div className="flex items-center gap-1 px-2 border-b border-slate-700">
                 {[
                   { id: 'overview', label: 'Overview', icon: <Info className="w-4 h-4" /> },
                   { id: 'pricing', label: 'Pricing', icon: <PoundSterling className="w-4 h-4" /> },
@@ -347,11 +348,11 @@ const [crossSellProducts, setCrossSellProducts] = useState<any[]>([]);
               </div>
 
               {/* TAB CONTENT - SCROLLABLE */}
-              <div className="flex-1 overflow-y-auto p-2 space-y-2">
+              <div className="flex-1 overflow-y-auto p-2 space-y-1">
                 {/* TAB 1: OVERVIEW */}
                 <div id="content-overview" className={activeTab !== 'overview' ? 'hidden' : ''}>
                   {/* Basic Info */}
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-4">
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-2">
                    <div className="md:col-span-3 p-3 bg-gradient-to-r from-violet-500/10 to-purple-500/10 rounded-lg border border-violet-500/30">
     <p className="text-xs text-violet-400 font-bold mb-1">
       Product Name
@@ -384,11 +385,7 @@ const [crossSellProducts, setCrossSellProducts] = useState<any[]>([]);
                       value={product.productType?.toUpperCase()}
                       icon={<Package className="w-3.5 h-3.5" />}
                     />
-                    <InfoField
-  label="Status"
-  value={product.isActive ? "Active" : "Inactive"}
-  icon={<Activity className="w-3.5 h-3.5" />}
-/>
+
 
 
 
@@ -410,6 +407,7 @@ const [crossSellProducts, setCrossSellProducts] = useState<any[]>([]);
                     <InfoField label="Slug" value={product.slug} />
 <InfoField label="Status" value={product.status} />
 
+
 {/* <InfoField label="SEO URL" value={product.searchEngineFriendlyPageName} /> */}
                   </div>
 
@@ -418,7 +416,7 @@ const [crossSellProducts, setCrossSellProducts] = useState<any[]>([]);
                   {(product as any).categories &&
                     Array.isArray((product as any).categories) &&
                     (product as any).categories.length > 0 && (
-                      <div className="p-4 bg-blue-500/5 rounded-lg border border-blue-500/30 mb-4">
+                      <div className="p-4 bg-blue-500/5 rounded-lg border border-blue-500/30 mb-2">
                         <p className="text-xs text-blue-400 font-bold mb-2 flex items-center gap-2">
                           <Filter className="w-3.5 h-3.5" />
                           Categories ({(product as any).categories.length})
@@ -491,6 +489,14 @@ const [crossSellProducts, setCrossSellProducts] = useState<any[]>([]);
   <InfoField label="Reviews" value={product.reviewCount} />
   <InfoField label="Views" value={product.viewCount} />
 </div>
+ <h1 className=' p-2 text-white '>Timleine</h1>
+                  <div className="grid grid-cols-4 gap-3 pt-1 ">
+  <InfoField label="Created By" value={product.createdBy}  />
+  <InfoField label="Created At" value={formatDate(product.createdAt)} />
+  <InfoField label="Update By" value={product.updatedBy} />
+  <InfoField label="Update At" value={formatDate(product.updatedAt)} />
+
+</div>
 
                   {/* Admin Comment */}
                   {product.adminComment && (
@@ -509,9 +515,9 @@ const [crossSellProducts, setCrossSellProducts] = useState<any[]>([]);
                 {/* TAB 2: PRICING */}
                 <div id="content-pricing" className={activeTab !== 'pricing' ? 'hidden' : ''}>
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-2">
-                    <div className="p-4 bg-gradient-to-br from-green-500/20 to-emerald-500/20 rounded-lg border border-green-500/40">
+                    <div className="p-2 bg-gradient-to-br from-green-500/20 to-emerald-500/20 rounded-lg border border-green-500/40">
                       <p className="text-xs text-green-400 font-bold mb-1">Price</p>
-                      <p className="text-2xl text-white font-bold">£{product.price?.toFixed(2)}</p>
+                      <p className="text-xl text-white font-bold">£{product.price?.toFixed(2)}</p>
                     </div>
 
                     {product.oldPrice && (
@@ -613,36 +619,41 @@ const [crossSellProducts, setCrossSellProducts] = useState<any[]>([]);
                 {/* TAB 4: SHIPPING */}
                 <div id="content-shipping" className={activeTab !== 'shipping' ? 'hidden' : ''}>
                   {/* Dimensions Grid */}
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-2">
-                    {product.weight && product.weight > 0 && (
-                      <InfoField
-                        label="Weight"
-                        value={`${product.weight} ${product.weightUnit || 'kg'}`}
-                        icon={<Scale className="w-3.5 h-3.5" />}
-                      />
-                    )}
-                    {product.length && product.length > 0 && (
-                      <InfoField
-                        label="Length"
-                        value={`${product.length} ${product.dimensionUnit || 'cm'}`}
-                        icon={<Ruler className="w-3.5 h-3.5" />}
-                      />
-                    )}
-                    {product.width && product.width > 0 && (
-                      <InfoField
-                        label="Width"
-                        value={`${product.width} ${product.dimensionUnit || 'cm'}`}
-                        icon={<Ruler className="w-3.5 h-3.5" />}
-                      />
-                    )}
-                    {product.height && product.height > 0 && (
-                      <InfoField
-                        label="Height"
-                        value={`${product.height} ${product.dimensionUnit || 'cm'}`}
-                        icon={<Ruler className="w-3.5 h-3.5" />}
-                      />
-                    )}
-                  </div>
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-2">
+
+  {Number(product?.weight) > 0 && (
+    <InfoField
+      label="Weight"
+      value={`${product.weight} ${product.weightUnit || "kg"}`}
+      icon={<Scale className="w-3.5 h-3.5" />}
+    />
+  )}
+
+  {Number(product?.length) > 0 && (
+    <InfoField
+      label="Length"
+      value={`${product.length} ${product.dimensionUnit || "cm"}`}
+      icon={<Ruler className="w-3.5 h-3.5" />}
+    />
+  )}
+
+  {Number(product?.width) > 0 && (
+    <InfoField
+      label="Width"
+      value={`${product.width} ${product.dimensionUnit || "cm"}`}
+      icon={<Ruler className="w-3.5 h-3.5" />}
+    />
+  )}
+
+  {Number(product?.height) > 0 && (
+    <InfoField
+      label="Height"
+      value={`${product.height} ${product.dimensionUnit || "cm"}`}
+      icon={<Ruler className="w-3.5 h-3.5" />}
+    />
+  )}
+
+</div>
 
                   {/* Basic Shipping Toggles */}
                   <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-2">

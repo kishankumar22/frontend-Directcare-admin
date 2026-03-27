@@ -3,14 +3,14 @@
 import { useState, use, useEffect, useRef, JSX, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ArrowLeft, Save,Plus , Upload, X, Info, Search, Image, Package, Tag,BarChart3, Globe, Settings, Truck, Users, PoundSterling, Link as LinkIcon, ShoppingCart, Video, Play, ChevronDown, Clock, Send, Bell } from "lucide-react";
+import { ArrowLeft, Save, Upload, X, Info,  Image, Package, Tag, Globe, Settings, Truck, Users, PoundSterling, Link as LinkIcon,  Video, Play, Clock, Send, Bell } from "lucide-react";
 
 import Link from "next/link";
 import { ProductDescriptionEditor } from "@/app/admin/_components/SelfHostedEditor";
 import  {useToast } from "@/app/admin/_components/CustomToast";
 import { API_BASE_URL } from "@/lib/api-config";
 import { cn } from "@/lib/utils";
-import { ProductAttribute, ProductVariant, ProductOption, ProductOptionCreate, DropdownsData, SimpleProduct, ProductImage, CategoryData, BrandApiResponse,   productsService, brandsService, } from '@/lib/services';
+import { ProductAttribute, ProductVariant, ProductOption,  DropdownsData, SimpleProduct, ProductImage, BrandApiResponse,   productsService, brandsService, } from '@/lib/services';
 import { GroupedProductModal } from '../../GroupedProductModal';
 import { MultiBrandSelector } from "../../MultiBrandSelector";
 import React from "react";
@@ -30,6 +30,7 @@ import { AssignProductPharmacyQuestionDto, pharmacyQuestionsService } from "@/li
 import ProductNameInput from "../../ProductNameInput";
 import SKUInput from "../../SKUInput";
 import { categoriesService, CategoryApiResponse } from "@/lib/services/categories";
+import { formatDateOnly,  formatTime } from "@/app/admin/_utils/formatUtils";
 
 // ✅ ADD THIS INTERFACE (at the top with other interfaces)
 interface AdminCommentHistory {
@@ -53,8 +54,7 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
   let seoTimer: any = null;
 
   const { id: productId } = use(params);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [searchTermCross, setSearchTermCross] = useState('');
+
   const [pendingTakeoverRequests, setPendingTakeoverRequests] = useState<any[]>([]);
   const [takeoverTimeLeft, setTakeoverTimeLeft] = useState<number>(0);
 const [homepageCount, setHomepageCount] = useState<number | null>(null);
@@ -70,7 +70,7 @@ const [lastSavedData, setLastSavedData] = useState<any>(null);
 // ✅ CORRECT - Array type with brackets []
 const [commentHistory, setCommentHistory] = useState<AdminCommentHistory[]>([]);
 const [isCommentHistoryOpen, setIsCommentHistoryOpen] = useState(false);
-const debounceRef = useRef<NodeJS.Timeout | null>(null);
+
 const [loadingHistory, setLoadingHistory] = useState(false);
 const [showPharmacyModal, setShowPharmacyModal] = useState(false);
 const [pharmacyQuestions, setPharmacyQuestions] = useState<AssignProductPharmacyQuestionDto[]>([]);
@@ -152,31 +152,7 @@ const fetchCommentHistory = async () => {
   }
 };
 
-const formatDateOnly = (dateString: string) => {
-  try {
-    const date = new Date(dateString);
-    return date.toLocaleString('en-GB', {
-      day: '2-digit',
-      month: 'short',
-      year: 'numeric'
-    });
-  } catch {
-    return dateString;
-  }
-};
 
-const formatTime = (dateString: string) => {
-  try {
-    const date = new Date(dateString);
-    return date.toLocaleString('en-GB', {
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: true
-    });
-  } catch {
-    return '';
-  }
-};
 const handleVariantImageUpload = async (variantId: string, file: File) => {
   /* =======================
      BASIC VALIDATIONS
@@ -4610,41 +4586,6 @@ const handleGroupedProductsChange = (selectedOptions: any) => {
     requiredProductIds: selectedIds.join(',')
   }));
 };
-
-  // All existing methods remain same...
-  const addRelatedProduct = (productId: string) => {
-    if (!formData.relatedProducts.includes(productId)) {
-      setFormData({
-        ...formData,
-        relatedProducts: [...formData.relatedProducts, productId]
-      });
-    }
-    setSearchTerm('');
-  };
-
-  const removeRelatedProduct = (productId: string) => {
-    setFormData({
-      ...formData,
-      relatedProducts: formData.relatedProducts.filter(id => id !== productId)
-    });
-  };
-
-  const addCrossSellProduct = (productId: string) => {
-    if (!formData.crossSellProducts.includes(productId)) {
-      setFormData({
-        ...formData,
-        crossSellProducts: [...formData.crossSellProducts, productId]
-      });
-    }
-    setSearchTermCross('');
-  };
-
-  const removeCrossSellProduct = (productId: string) => {
-    setFormData({
-      ...formData,
-      crossSellProducts: formData.crossSellProducts.filter(id => id !== productId)
-    });
-  };
 
 
 // Product Attribute handlers (matching backend ProductAttributeCreateDto)
