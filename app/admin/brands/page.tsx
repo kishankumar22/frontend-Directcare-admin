@@ -28,12 +28,19 @@ export default function BrandsPage() {
   const [deletedFilter, setDeletedFilter] = useState<string>("all");
   const [homepageFilter, setHomepageFilter] = useState<string>("all");
 const [activeTab, setActiveTab] = useState<'basic' | 'image' | 'seo' | 'settings' | 'faqs'>('basic');
-  const [stats, setStats] = useState<BrandStats>({
-    totalBrands: 0,
-    publishedBrands: 0,
-    homepageBrands: 0,
-    totalProducts: 0
-  });
+const [stats, setStats] = useState<BrandStats>({
+  totalBrands: 0,
+
+  totalPublished: 0,
+  totalUnpublished: 0,
+
+  totalActive: 0,
+  totalInactive: 0,
+
+  totalShowOnHomepage: 0,
+
+  totalProducts: 0 // optional
+});
 
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(25);
@@ -167,14 +174,7 @@ const handleStatusUpdate = async () => {
     fetchBrands();
   }, [publishedFilter, activeFilter, deletedFilter]); // ✅ Re-fetch when filters change
 
-  const calculateStats = (brandsData: Brand[]) => {
-    const totalBrands = brandsData.length;
-    const publishedBrands = brandsData.filter(b => b.isPublished).length;
-    const homepageBrands = brandsData.filter(b => b.showOnHomepage).length;
-    const totalProducts = brandsData.reduce((sum, brand) => sum + (brand.productCount || 0), 0);
-    setStats({ totalBrands, publishedBrands, homepageBrands, totalProducts });
-  };
-
+  
   // ✅ MODIFIED fetchBrands with API parameters
   const fetchBrands = async () => {
     setLoading(true);
@@ -197,8 +197,8 @@ const handleStatusUpdate = async () => {
       }
 
       const response = await brandsService.getAll({ params });
-
-      const brandsData = response.data?.data || [];
+const brandsData = response.data?.data?.items || [];
+const statsData = response.data?.data?.stats;
 
       const sortedBrands = brandsData.sort((a: any, b: any) => {
         if (a.isActive !== b.isActive) {
@@ -208,9 +208,11 @@ const handleStatusUpdate = async () => {
         const dateB = new Date(b.createdAt || 0).getTime();
         return dateB - dateA;
       });
-
-      setBrands(sortedBrands);
-      calculateStats(sortedBrands);
+if (statsData) {
+  setStats(statsData);
+}
+     setBrands(brandsData);
+   
     } catch (error) {
       console.error("Error fetching brands:", error);
       setBrands([]);
@@ -370,31 +372,25 @@ const handleEdit = (
 
   
  {/* Stats Cards */}
-<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
+<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-2">
 
-  {/* Total Brands */}
-  <button
-    type="button"
-    onClick={() => {
-      if (publishedFilter === 'all') setPublishedFilter('true');
-      else if (publishedFilter === 'true') setPublishedFilter('false');
-      else setPublishedFilter('all');
-    }}
-    className="bg-slate-900/40 border border-slate-800 rounded-lg p-2.5 hover:border-violet-500/40 transition-all text-left"
-  >
-    <div className="flex items-center gap-2">
-      <div className="w-8 h-8 bg-violet-500/10 rounded-md flex items-center justify-center">
-        <Tag className="h-4 w-4 text-violet-400" />
-      </div>
-      <div>
-        <p className="text-[11px] text-slate-500 font-medium">Total Brands</p>
-        <p className="text-lg font-semibold text-white">{stats.totalBrands}</p>
-        <p className="text-[10px] text-violet-400">
-          {publishedFilter === 'all' ? 'All' : publishedFilter === 'true' ? 'Published' : 'Unpublished'}
-        </p>
-      </div>
-    </div>
-  </button>
+  {/* Total */}
+  <div className="bg-slate-900/40 border border-slate-800 rounded-lg p-2.5">
+    <p className="text-[11px] text-slate-500">Total</p>
+    <p className="text-lg font-semibold text-white">{stats.totalBrands}</p>
+  </div>
+
+  {/* Published */}
+  <div className="bg-green-500/10 border border-green-500/20 rounded-lg p-2.5">
+    <p className="text-[11px] text-green-400">Published</p>
+    <p className="text-lg font-semibold text-white">{stats.totalPublished}</p>
+  </div>
+
+  {/* Unpublished */}
+  <div className="bg-slate-500/10 border border-slate-500/20 rounded-lg p-2.5">
+    <p className="text-[11px] text-slate-400">Unpublished</p>
+    <p className="text-lg font-semibold text-white">{stats.totalUnpublished}</p>
+  </div>
 
   {/* Active */}
   <button
@@ -404,23 +400,17 @@ const handleEdit = (
       else if (activeFilter === 'true') setActiveFilter('false');
       else setActiveFilter('all');
     }}
-    className="bg-slate-900/40 border border-slate-800 rounded-lg p-2.5 hover:border-green-500/40 transition-all text-left"
+    className="bg-green-500/10 border border-green-500/20 rounded-lg p-2.5 text-left"
   >
-    <div className="flex items-center gap-2">
-      <div className="w-8 h-8 bg-green-500/10 rounded-md flex items-center justify-center">
-        <CheckCircle className="h-4 w-4 text-green-400" />
-      </div>
-      <div>
-        <p className="text-[11px] text-slate-500 font-medium">Active</p>
-        <p className="text-lg font-semibold text-white">
-          {brands.filter(b => b.isActive).length}
-        </p>
-        <p className="text-[10px] text-green-400">
-          {activeFilter === 'all' ? 'All' : activeFilter === 'true' ? 'Active' : 'Inactive'}
-        </p>
-      </div>
-    </div>
+    <p className="text-[11px] text-green-400">Active</p>
+    <p className="text-lg font-semibold text-white">{stats.totalActive}</p>
   </button>
+
+  {/* Inactive */}
+  <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-2.5">
+    <p className="text-[11px] text-red-400">Inactive</p>
+    <p className="text-lg font-semibold text-white">{stats.totalInactive}</p>
+  </div>
 
   {/* Homepage */}
   <button
@@ -430,34 +420,11 @@ const handleEdit = (
       else if (homepageFilter === 'true') setHomepageFilter('false');
       else setHomepageFilter('all');
     }}
-    className="bg-slate-900/40 border border-slate-800 rounded-lg p-2.5 hover:border-cyan-500/40 transition-all text-left"
+    className="bg-cyan-500/10 border border-cyan-500/20 rounded-lg p-2.5 text-left"
   >
-    <div className="flex items-center gap-2">
-      <div className="w-8 h-8 bg-cyan-500/10 rounded-md flex items-center justify-center">
-        <Eye className="h-4 w-4 text-cyan-400" />
-      </div>
-      <div>
-        <p className="text-[11px] text-slate-500 font-medium">Homepage</p>
-        <p className="text-lg font-semibold text-white">{stats.homepageBrands}</p>
-        <p className="text-[10px] text-cyan-400">
-          {homepageFilter === 'all' ? 'All' : homepageFilter === 'true' ? 'Yes' : 'No'}
-        </p>
-      </div>
-    </div>
+    <p className="text-[11px] text-cyan-400">Homepage</p>
+    <p className="text-lg font-semibold text-white">{stats.totalShowOnHomepage}</p>
   </button>
-
-  {/* Products */}
-  <div className="bg-slate-900/40 border border-slate-800 rounded-lg p-2.5">
-    <div className="flex items-center gap-2">
-      <div className="w-8 h-8 bg-pink-500/10 rounded-md flex items-center justify-center">
-        <Package className="h-4 w-4 text-pink-400" />
-      </div>
-      <div>
-        <p className="text-[11px] text-slate-500 font-medium">Products</p>
-        <p className="text-lg font-semibold text-white">{stats.totalProducts}</p>
-      </div>
-    </div>
-  </div>
 
 </div>
 {/* Items Per Page */}

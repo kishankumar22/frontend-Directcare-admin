@@ -221,6 +221,21 @@ export interface OrdersListResponse {
   totalPages: number;
   hasPrevious: boolean;
   hasNext: boolean;
+
+  // ✅ ADD THIS
+  stats: {
+    totalOrders: number;
+    totalPending: number;
+    totalConfirmed: number;
+    totalProcessing: number;
+    totalShipped: number;
+    totalPartiallyShipped: number;
+    totalDelivered: number;
+    totalCollected: number;
+    totalCancelled: number;
+    totalReturned: number;
+    totalRefunded: number;
+  };
 }
 
 interface ApiResponse<T> {

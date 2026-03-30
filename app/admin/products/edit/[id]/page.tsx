@@ -724,18 +724,25 @@ useEffect(() => {
         productsService.getSimpleProducts()
       ]);
 
-      // ✅ Extract data safely with proper type handling
-      const brandsData = brandsResponse.status === 'fulfilled' 
-        ? ((brandsResponse.value.data as BrandApiResponse)?.data || [])
-        : [];
+   const brandsData =
+  brandsResponse.status === "fulfilled" &&
+  Array.isArray(brandsResponse.value?.data?.data?.items)
+    ? brandsResponse.value.data.data.items
+    : [];
+
+const categoriesData =
+  categoriesResponse.status === "fulfilled" &&
+  Array.isArray(categoriesResponse.value?.data?.data?.items)
+    ? categoriesResponse.value.data.data.items
+    : [];
+
+const vatRatesData =
+  vatRatesResponse.status === "fulfilled" &&
+  Array.isArray(vatRatesResponse.value?.data?.data)
+    ? vatRatesResponse.value.data.data
+    : [];
       
-      const categoriesData = categoriesResponse.status === 'fulfilled'
-        ? ((categoriesResponse.value.data as CategoryApiResponse)?.data || [])
-        : [];
       
-      const vatRatesData = vatRatesResponse.status === 'fulfilled'
-        ? ((vatRatesResponse.value.data as VATRateApiResponse)?.data || [])
-        : [];
 
       setDropdownsData({
         brands: Array.isArray(brandsData) ? brandsData : [],

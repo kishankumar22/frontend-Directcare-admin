@@ -60,18 +60,12 @@ import BulkShipmentUploadModal from './BulkShipmentUploadModal';
 
 import { getOrderProductImage } from '../_utils/formatUtils';
 
-interface Address {
-  firstName: string;
-  lastName: string;
-  company?: string;
-  addressLine1: string;
-  addressLine2?: string;
-  city: string;
-  state: string;
-  postalCode: string;
-  country: string;
-  phoneNumber?: string;
-}
+const card = `
+bg-slate-900/40 border rounded-lg p-2
+hover:shadow-lg transition-all text-left
+`;
+
+
 
 // ✅ Get Available Actions based on Order Status (matching backend rules)
 const getAvailableActions = (order: Order) => {
@@ -168,7 +162,7 @@ const selectedStatus = selectedOrderObjects[0]?.status;
   const [actionMenuOrder, setActionMenuOrder] = useState<string | null>(null);
   const datePickerRef = useRef<HTMLDivElement>(null);
   const [bulkModalOpen, setBulkModalOpen] = useState(false);
-
+const [stats, setStats] = useState<any>(null);
 const [bulkLoading, setBulkLoading] = useState(false);
 const [debouncedSearch, setDebouncedSearch] = useState(filters.searchTerm);
 
@@ -278,6 +272,8 @@ const response = await orderService.getAllOrders({
       }
 
       setOrders(filteredOrders);
+       // ✅ ADD THIS (MAIN FIX)
+  setStats(response.data.stats);
       setTotalCount(response.data.totalCount || 0);
       setTotalPages(response.data.totalPages || 0);
     }
@@ -546,7 +542,23 @@ const hasActiveFilters = useMemo(() => {
   });
 }, [filters]);
 
-
+const Card = ({ icon, label, value, active }: any) => (
+  <div
+    className={`border rounded-lg p-3 transition-all text-left
+    ${active ? 'border-violet-500 shadow-lg shadow-violet-500/20' : 'border-slate-700'}
+    bg-slate-900/40 hover:shadow-lg`}
+  >
+    <div className="flex items-center gap-3">
+      <div className="p-2 bg-gradient-to-br from-violet-500 to-purple-500 rounded-lg text-white">
+        {icon}
+      </div>
+      <div>
+        <p className="text-xs text-slate-400">{label}</p>
+        <p className="text-xl font-bold text-white">{value ?? 0}</p>
+      </div>
+    </div>
+  </div>
+);
   const getDateRangeLabel = () => {
     if (!filters.fromDate && !filters.toDate) return 'Select Date Range';
     const formatDateLabel = (dateStr: string) => {
@@ -595,46 +607,8 @@ const hasActiveFilters = useMemo(() => {
     closeActionModal();
     fetchOrders();
   };
-const [stats, setStats] = useState({
-  totalOrders: 0,
-  pending: 0,
-  processing: 0,
-  delivered: 0,
-});
-const fetchOrderStats = useCallback(async () => {
-  try {
-    const response = await orderService.getAllOrders({
-      page: 1,
-      pageSize: 10000, // large size to fetch all
-    });
 
-    const allOrders: Order[] = response?.data?.items || [];
 
-   const pending = allOrders.filter(o => o.status === "Pending").length;
-
-const processing = allOrders.filter(
-  o => o.status === "Processing"
-).length;
-
-const delivered = allOrders.filter(
-  o => o.status === "Delivered"
-).length;
-
-    setStats({
-      totalOrders: allOrders.length,
-      pending,
-      processing,
-      delivered,
-    });
-
-  } catch (error) {
-    console.error("Failed to load order stats", error);
-  }
-}, []);
-useEffect(() => {
-  fetchOrderStats();
-}, [fetchOrderStats]);
-  // ✅ Calculate stats with proper typing
 
 
   // ✅ Quick filter handlers
@@ -835,87 +809,188 @@ useEffect(() => {
 </div>
 
       {/* ✅ Clickable Stats Cards with Quick Filters */}
-      <div className="grid gap-3 md:grid-cols-4">
-        <button
-          onClick={() => handleQuickFilter('')}
-          className={`bg-gradient-to-br from-violet-500/10 to-purple-500/10 border rounded-lg p-3 hover:shadow-lg transition-all text-left ${
-            filters.status === '' ? 'border-violet-500 shadow-lg shadow-violet-500/20' : 'border-violet-500/20'
-          }`}
-          title="View all orders"
-        >
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-gradient-to-br from-violet-500 to-purple-500 rounded-lg">
-              <ShoppingCart className="w-4 h-4 text-white" />
-            </div>
-            <div>
-              <p className="text-xs text-slate-400">Total Orders</p>
-             <p className="text-xl font-bold text-white">
-{stats.totalOrders}
-</p>
-            </div>
-          </div>
-        </button>
+<div className="grid gap-2 md:grid-cols-5">
 
-        <button
-          onClick={() => handleQuickFilter('Pending')}
-          className={`bg-gradient-to-br from-cyan-500/10 to-blue-500/10 border rounded-lg p-3 hover:shadow-lg transition-all text-left ${
-            filters.status === 'Pending' ? 'border-cyan-500 shadow-lg shadow-cyan-500/20' : 'border-cyan-500/20'
-          }`}
-          title="View pending orders"
-        >
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-gradient-to-br from-cyan-500 to-blue-500 rounded-lg">
-              <Clock className="w-4 h-4 text-white" />
-            </div>
-            <div>
-              <p className="text-xs text-slate-400">Pending</p>
-             <p className="text-xl font-bold text-white">
-{stats.pending}
-</p>
-            </div>
-          </div>
-        </button>
+{/* TOTAL */}
+<button
+  onClick={() => handleQuickFilter('')}
+  title="Total number of orders in system"
+  className={`bg-gradient-to-br from-violet-500/10 to-purple-500/10 border rounded-lg p-2 hover:shadow-md transition-all text-left ${
+    filters.status === '' ? 'border-violet-500 shadow-md shadow-violet-500/20' : 'border-violet-500/20'
+  }`}
+>
+  <div className="flex items-center gap-2">
+    <div className="p-1.5 bg-gradient-to-br from-violet-500 to-purple-500 rounded-md">
+      <ShoppingCart className="w-3.5 h-3.5 text-white" />
+    </div>
+    <div>
+      <p className="text-[10px] text-slate-400">Total</p>
+      <p className="text-sm font-bold text-white">{stats?.totalOrders ?? 0}</p>
+      <p className="text-[9px] text-slate-500">All orders</p>
+    </div>
+  </div>
+</button>
 
-        <button
-          onClick={() => handleQuickFilter('Processing')}
-          className={`bg-gradient-to-br from-pink-500/10 to-rose-500/10 border rounded-lg p-3 hover:shadow-lg transition-all text-left ${
-            filters.status === 'Processing' ? 'border-pink-500 shadow-lg shadow-pink-500/20' : 'border-pink-500/20'
-          }`}
-          title="View processing orders"
-        >
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-gradient-to-br from-pink-500 to-rose-500 rounded-lg">
-              <Package className="w-4 h-4 text-white" />
-            </div>
-            <div>
-              <p className="text-xs text-slate-400">Processing</p>
-              <p className="text-xl font-bold text-white">
-{stats.processing}
-</p>
-            </div>
-          </div>
-        </button>
+{/* PENDING */}
+<button
+  onClick={() => handleQuickFilter('Pending')}
+  title="Orders waiting for confirmation"
+  className={`bg-gradient-to-br from-cyan-500/10 to-blue-500/10 border rounded-lg p-2 hover:shadow-md transition-all text-left ${
+    filters.status === 'Pending' ? 'border-cyan-500 shadow-md shadow-cyan-500/20' : 'border-cyan-500/20'
+  }`}
+>
+  <div className="flex items-center gap-2">
+    <div className="p-1.5 bg-gradient-to-br from-cyan-500 to-blue-500 rounded-md">
+      <Clock className="w-3.5 h-3.5 text-white" />
+    </div>
+    <div>
+      <p className="text-[10px] text-slate-400">Pending</p>
+      <p className="text-sm font-bold text-white">{stats?.totalPending ?? 0}</p>
+      <p className="text-[9px] text-slate-500">Awaiting action</p>
+    </div>
+  </div>
+</button>
 
-        <button
-          onClick={() => handleQuickFilter('Delivered')}
-          className={`bg-gradient-to-br from-green-500/10 to-emerald-500/10 border rounded-lg p-3 hover:shadow-lg transition-all text-left ${
-            filters.status === 'Delivered' ? 'border-green-500 shadow-lg shadow-green-500/20' : 'border-green-500/20'
-          }`}
-          title="View completed orders"
-        >
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-gradient-to-br from-green-500 to-emerald-500 rounded-lg">
-              <CheckCircle className="w-4 h-4 text-white" />
-            </div>
-            <div>
-              <p className="text-xs text-slate-400">Delivered</p>
-          <p className="text-xl font-bold text-white">
-{stats.delivered}
-</p>
-            </div>
-          </div>
-        </button>
-      </div>
+{/* PROCESSING */}
+<button
+  onClick={() => handleQuickFilter('Processing')}
+  title="Orders currently being processed"
+  className={`bg-gradient-to-br from-pink-500/10 to-rose-500/10 border rounded-lg p-2 hover:shadow-md transition-all text-left ${
+    filters.status === 'Processing' ? 'border-pink-500 shadow-md shadow-pink-500/20' : 'border-pink-500/20'
+  }`}
+>
+  <div className="flex items-center gap-2">
+    <div className="p-1.5 bg-gradient-to-br from-pink-500 to-rose-500 rounded-md">
+      <Package className="w-3.5 h-3.5 text-white" />
+    </div>
+    <div>
+      <p className="text-[10px] text-slate-400">Processing</p>
+      <p className="text-sm font-bold text-white">{stats?.totalProcessing ?? 0}</p>
+      <p className="text-[9px] text-slate-500">In progress</p>
+    </div>
+  </div>
+</button>
+
+{/* SHIPPED */}
+<button
+  onClick={() => handleQuickFilter('Shipped')}
+  title="Orders shipped to customer"
+  className={`bg-gradient-to-br from-indigo-500/10 to-purple-500/10 border rounded-lg p-2 hover:shadow-md transition-all text-left ${
+    filters.status === 'Shipped' ? 'border-indigo-500 shadow-md shadow-indigo-500/20' : 'border-indigo-500/20'
+  }`}
+>
+  <div className="flex items-center gap-2">
+    <div className="p-1.5 bg-gradient-to-br from-indigo-500 to-purple-500 rounded-md">
+      <Truck className="w-3.5 h-3.5 text-white" />
+    </div>
+    <div>
+      <p className="text-[10px] text-slate-400">Shipped</p>
+      <p className="text-sm font-bold text-white">{stats?.totalShipped ?? 0}</p>
+      <p className="text-[9px] text-slate-500">On the way</p>
+    </div>
+  </div>
+</button>
+
+{/* DELIVERED */}
+<button
+  onClick={() => handleQuickFilter('Delivered')}
+  title="Orders successfully delivered"
+  className={`bg-gradient-to-br from-green-500/10 to-emerald-500/10 border rounded-lg p-2 hover:shadow-md transition-all text-left ${
+    filters.status === 'Delivered' ? 'border-green-500 shadow-md shadow-green-500/20' : 'border-green-500/20'
+  }`}
+>
+  <div className="flex items-center gap-2">
+    <div className="p-1.5 bg-gradient-to-br from-green-500 to-emerald-500 rounded-md">
+      <CheckCircle className="w-3.5 h-3.5 text-white" />
+    </div>
+    <div>
+      <p className="text-[10px] text-slate-400">Delivered</p>
+      <p className="text-sm font-bold text-white">{stats?.totalDelivered ?? 0}</p>
+      <p className="text-[9px] text-slate-500">Completed</p>
+    </div>
+  </div>
+</button>
+
+{/* CANCELLED */}
+<button
+  onClick={() => handleQuickFilter('Cancelled')}
+  title="Orders cancelled by user or admin"
+  className={`bg-gradient-to-br from-red-500/10 to-rose-500/10 border rounded-lg p-2 hover:shadow-md transition-all text-left ${
+    filters.status === 'Cancelled' ? 'border-red-500 shadow-md shadow-red-500/20' : 'border-red-500/20'
+  }`}
+>
+  <div className="flex items-center gap-2">
+    <div className="p-1.5 bg-gradient-to-br from-red-500 to-rose-500 rounded-md">
+      <XCircle className="w-3.5 h-3.5 text-white" />
+    </div>
+    <div>
+      <p className="text-[10px] text-slate-400">Cancelled</p>
+      <p className="text-sm font-bold text-white">{stats?.totalCancelled ?? 0}</p>
+      <p className="text-[9px] text-slate-500">Stopped</p>
+    </div>
+  </div>
+</button>
+
+{/* REFUNDED */}
+<button
+  onClick={() => handleQuickFilter('Refunded')}
+  title="Orders where refund has been issued"
+  className={`bg-gradient-to-br from-rose-500/10 to-pink-500/10 border rounded-lg p-2 hover:shadow-md transition-all text-left ${
+    filters.status === 'Refunded' ? 'border-rose-500 shadow-md shadow-rose-500/20' : 'border-rose-500/20'
+  }`}
+>
+  <div className="flex items-center gap-2">
+    <div className="p-1.5 bg-gradient-to-br from-rose-500 to-pink-500 rounded-md">
+      <RotateCcw className="w-3.5 h-3.5 text-white" />
+    </div>
+    <div>
+      <p className="text-[10px] text-slate-400">Refunded</p>
+      <p className="text-sm font-bold text-white">{stats?.totalRefunded ?? 0}</p>
+      <p className="text-[9px] text-slate-500">Money returned</p>
+    </div>
+  </div>
+</button>
+<button onClick={() => handleQuickFilter('Confirmed')} title="Orders confirmed"
+className={`bg-gradient-to-br from-blue-500/10 to-indigo-500/10 border rounded-lg p-2 ${
+filters.status === 'Confirmed' ? 'border-blue-500 shadow-md' : 'border-blue-500/20'}`}>
+  <div className="flex items-center gap-2">
+    <div className="p-1.5 bg-gradient-to-br from-blue-500 to-indigo-500 rounded-md">
+      <CheckCircle2 className="w-3.5 h-3.5 text-white" />
+    </div>
+    <div>
+      <p className="text-[10px] text-slate-400">Confirmed</p>
+      <p className="text-sm font-bold text-white">{stats?.totalConfirmed ?? 0}</p>
+    </div>
+  </div>
+</button>
+<button onClick={() => handleQuickFilter('PartiallyShipped')} title="Partially shipped"
+className={`bg-gradient-to-br from-yellow-500/10 to-amber-500/10 border rounded-lg p-2 ${
+filters.status === 'PartiallyShipped' ? 'border-yellow-500 shadow-md' : 'border-yellow-500/20'}`}>
+  <div className="flex items-center gap-2">
+    <div className="p-1.5 bg-gradient-to-br from-yellow-500 to-amber-500 rounded-md">
+      <Truck className="w-3.5 h-3.5 text-white" />
+    </div>
+    <div>
+      <p className="text-[10px] text-slate-400">Partial</p>
+      <p className="text-sm font-bold text-white">{stats?.totalPartiallyShipped ?? 0}</p>
+    </div>
+  </div>
+</button>
+<button onClick={() => handleQuickFilter('Returned')} title="Returned orders"
+className={`bg-gradient-to-br from-orange-500/10 to-amber-500/10 border rounded-lg p-2 ${
+filters.status === 'Returned' ? 'border-orange-500 shadow-md' : 'border-orange-500/20'}`}>
+  <div className="flex items-center gap-2">
+    <div className="p-1.5 bg-gradient-to-br from-orange-500 to-amber-500 rounded-md">
+      <RotateCcw className="w-3.5 h-3.5 text-white" />
+    </div>
+    <div>
+      <p className="text-[10px] text-slate-400">Returned</p>
+      <p className="text-sm font-bold text-white">{stats?.totalReturned ?? 0}</p>
+    </div>
+  </div>
+</button>
+
+</div>
 
       {/* Items Per Page */}
    <div className="bg-slate-900/50 border border-slate-800 rounded-lg px-4 py-3">

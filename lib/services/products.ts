@@ -124,12 +124,6 @@ export interface ProductsApiResponse {
   errors: null;
 }
 
-interface CategoryApiResponse {
-  success: boolean;
-  message: string;
-  data: CategoryData[];
-  errors: null;
-}
 
 export interface RelatedProduct {
   id: string;
@@ -412,6 +406,18 @@ export interface PaginatedResponse<T> {
     page: number;
     pageSize: number;
     totalPages: number;
+
+    // ✅ ADD THIS
+    stats: {
+      totalProducts: number;
+      totalPublished: number;
+      totalUnpublished: number;
+      totalActive: number;
+      totalInactive: number;
+      totalInStock: number;
+      totalLowStock: number;
+      totalOutOfStock: number;
+    };
   };
   message?: string;
 }

@@ -70,10 +70,11 @@ export interface ReplyReviewDto {
 }
 
 export interface ProductReviewStats {
-  total: number;
-  pending: number;
-  approved: number;
-  averageRating: number;
+  totalReviews: number;
+  totalPending: number;
+  totalApproved: number;
+  totalVerified: number;
+  totalUnverified: number;
 }
 
 export interface PaginatedProductsResponse {
@@ -100,6 +101,9 @@ export interface PaginatedReviewsResponse {
   totalPages: number;
   hasPrevious: boolean;
   hasNext: boolean;
+
+  // ✅ ADD THIS
+  stats: ProductReviewStats;
 }
 
 export interface ReviewFilters {

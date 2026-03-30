@@ -46,18 +46,13 @@ export interface UpdateCategoryDto {
   metaKeywords?: string;
 }
 
-
-
-
-
-
-export interface CategoryStats {
+export type CategoryStats = {
   totalCategories: number;
+  totalActive: number;
+  totalInactive: number;
+  totalShowOnHomepage: number;
   totalProducts: number;
-  activeCategories: number;
-  homepageCategories: number;  // ✅ Add this
-}
-
+};
 export interface CreateCategoryDto {
   name: string;
   description: string;
@@ -71,7 +66,14 @@ export interface CreateCategoryDto {
   metaKeywords?: string;
 }
 
-export interface CategoryApiResponse { success: boolean; message?: string; data: Category[]; }
+export interface CategoryApiResponse {
+  success: boolean;
+  message?: string;
+  data: {
+    items: Category[];
+    stats: CategoryStats;
+  };
+}
 
 export const categoriesService = {
   // Get all categories (optionally allow config for params, headers)

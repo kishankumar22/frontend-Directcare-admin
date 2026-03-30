@@ -17,6 +17,7 @@ import { useRouter } from "next/navigation";
 import MediaViewerModal, { MediaItem } from "../products/MediaViewerModal";
 import ConfirmDialog from "../_components/ConfirmDialog";
 import { API_BASE_URL } from "@/lib/api";
+import { getImageUrl } from "@/app/lib/getImageUrl";
 
 interface ProductImage {
   id: string;
@@ -43,7 +44,16 @@ interface SelectOption {
   value: string;
   label: string;
 }
+const customFilterOption = (option: any, inputValue: string) => {
+  if (!inputValue) return true;
 
+  const search = inputValue.toLowerCase();
+
+  // 🔥 clean name (remove — —)
+  const cleanLabel = option.label.replace(/—/g, "").trim().toLowerCase();
+
+  return cleanLabel.includes(search);
+};
 const selectStyles = {
   control: (base: any, state: any) => ({
     ...base,
@@ -68,7 +78,7 @@ const selectStyles = {
     fontSize: "13px",
   }),
   singleValue: (base: any) => ({ ...base, color: "white", fontSize: "13px" }),
-  placeholder: (base: any) => ({ ...base, color: "#94a3b8", fontSize: "13px" }),
+  placeholder: (base: any) => ({ ...base, color: "#ecf0f6", fontSize: "13px" }),
   menuPortal: (base: any) => ({ ...base, zIndex: 9999 }),
 };
 
@@ -120,15 +130,7 @@ const [fullLoading, setFullLoading] = useState(false);
     setConfirmConfig({ title, message, onConfirm });
     setConfirmOpen(true);
   };
-const getImageUrl = (url?: string) => {
-  if (!url) return "";
 
-  // already full URL
-  if (url.startsWith("http")) return url;
-
-  // add API base url
-  return `${API_BASE_URL}${url}`;
-};
 
 const downloadSampleTemplate = async () => {
   try {
@@ -213,44 +215,80 @@ const rows: ProductRow[] = items.map((p: any) => ({
     }
   };
 
-// ─── Fetch filters ─────────────────────────────────────────────────────────
 const fetchFilters = async () => {
   try {
-
     const [catRes, brandRes] = await Promise.all([
-      categoriesService.getAll({ includeInactive: false }),
-      brandsService.getAll({ includeUnpublished: false }),
+      categoriesService.getAll({
+        params: {
+          includeSubCategories: true,
+          includeInactive: true,
+          isDeleted: false
+        }
+      }),
+      brandsService.getAll({
+        params: { includeUnpublished: false }
+      }),
     ]);
 
-    // ✅ Category Alphabetical Sort (A → Z)
-    if (catRes.data?.success) {
-      const sortedCategories = catRes.data.data
-        .sort((a: any, b: any) => a.name.localeCompare(b.name))
-        .map((c: any) => ({
-          value: c.id,
-          label: c.name
-        }));
+    const categoriesData = Array.isArray(catRes.data?.data?.items)
+      ? catRes.data.data.items
+      : [];
 
-      setCategories(sortedCategories);
-    }
+    const brandsData = Array.isArray(brandRes.data?.data?.items)
+      ? brandRes.data.data.items
+      : [];
 
-    // ✅ Brand Alphabetical Sort (A → Z)
-    if (brandRes.data?.success) {
-      const sortedBrands = brandRes.data.data
-        .sort((a: any, b: any) => a.name.localeCompare(b.name))
-        .map((b: any) => ({
-          value: b.id,
-          label: b.name
-        }));
+    // 🔥 FLATTEN ALL LEVELS (L1 + L2 + L3...)
+    const flattenCategories = (cats: any[], level = 0): any[] => {
+      let result: any[] = [];
 
-      setBrands(sortedBrands);
-    }
+      cats.forEach((cat) => {
+        result.push({
+          value: cat.id,
+          label: `${'      '.repeat(level)}${cat.name}`, // indent UI
+          level,
+          parentId: cat.parentCategoryId || null
+        });
+
+        if (cat.subCategories && cat.subCategories.length > 0) {
+          result = result.concat(
+            flattenCategories(cat.subCategories, level + 1)
+          );
+        }
+      });
+
+      return result;
+    };
+
+    const allCategories = flattenCategories(categoriesData);
+
+    // ✅ SORT (optional but clean)
+    const sortedCategories = allCategories.sort((a, b) =>
+      a.label.localeCompare(b.label)
+    );
+
+    setCategories(sortedCategories);
+
+    console.log("🔥 TOTAL FLATTEN CATEGORIES:", sortedCategories.length);
+    console.log("🔥 FULL CATEGORY LIST:", sortedCategories);
+
+    // ✅ BRANDS
+    const sortedBrands = [...brandsData]
+      .sort((a: any, b: any) => a.name.localeCompare(b.name))
+      .map((b: any) => ({
+        value: b.id,
+        label: b.name
+      }));
+
+    setBrands(sortedBrands);
+
+    console.log("🔥 TOTAL BRANDS:", sortedBrands.length);
 
   } catch (error) {
+    console.error("❌ Error fetching filters:", error);
     toast.error("Failed to load filters");
   }
 };
-
   useEffect(() => { fetchFilters(); }, []);
   useEffect(() => { fetchProducts(); }, [currentPage, itemsPerPage, debouncedSearch, selectedCategory, selectedBrand]);
   useEffect(() => {
@@ -609,7 +647,7 @@ const openMediaViewer = (images: any[], idx = 0) => {
               className="w-full pl-9 pr-4 py-2 bg-slate-800/80 border border-slate-700 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/40 transition-all"
             />
           </div>
-          <div className="w-48 flex-shrink-0">
+          <div className="w-56 flex-shrink-0">
             <Select styles={selectStyles} options={categories} value={selectedCategory} onChange={setSelectedCategory}
               placeholder="All Categories" isClearable menuPortalTarget={typeof window !== "undefined" ? document.body : null} menuPosition="fixed" />
           </div>

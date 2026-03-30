@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useEffect, SetStateAction } from "react";
-import { Plus, Edit, Trash2, Search, FolderTree, Eye, Upload, Filter, FilterX, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, AlertCircle, CheckCircle, ChevronDown, ChevronRight as ChevronRightIcon, X, Award, Package, Copy, RotateCcw, MessageCircle, HelpCircle } from "lucide-react";
-import { ProductDescriptionEditor } from "../_components/SelfHostedEditor";
+import { useState, useEffect } from "react";
+import { Plus, Edit, Trash2, Search, FolderTree, Eye, FilterX, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, AlertCircle, CheckCircle, ChevronDown, ChevronRight as ChevronRightIcon, X, Award, Package, Copy, RotateCcw, MessageCircle, HelpCircle } from "lucide-react";
+
 import { useToast } from "@/app/admin/_components/CustomToast";
 import ConfirmDialog from "@/app/admin/_components/ConfirmDialog";
 
@@ -67,11 +67,12 @@ const [homepageCategories, setHomepageCategories] = useState<Category[]>([]);
   } | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   
-const [stats, setStats] = useState<CategoryStats>({
+const [stats, setStats] = useState({
   totalCategories: 0,
-  totalProducts: 0,
-  activeCategories: 0,
-  homepageCategories: 0  // ✅ Add this
+  totalActive: 0,
+  totalInactive: 0,
+  totalShowOnHomepage: 0,
+  totalProducts: 0
 });
 
 const [openFaqCategory, setOpenFaqCategory] = useState<Category | null>(null);
@@ -139,66 +140,67 @@ const fetchCategories = async () => {
   try {
     setLoading(true);
 
-    // ==============================
-    // DEFAULT PARAMS (ADMIN PANEL)
-    // ==============================
     const params: any = {
       includeSubCategories: true,
-      includeInactive: true, // admin can see inactive
-      isActive: true, // ✅ default active only
+      includeInactive: true,
+      isActive: true,
     };
 
-    // ==============================
-    // FILTER OVERRIDES
-    // ==============================
-
-    // 🔥 Deleted filter has highest priority
+    // Deleted filter
     if (deletedFilter === "deleted") {
       params.isDeleted = true;
-      delete params.isActive; // deleted me active filter remove
-    } 
-    else if (deletedFilter === "notDeleted") {
+      delete params.isActive;
+    } else if (deletedFilter === "notDeleted") {
       params.isDeleted = false;
     }
 
-    // Status filter (override default isActive)
+    // Status filter
     if (statusFilter === "active") {
       params.isActive = true;
-    } 
-    else if (statusFilter === "inactive") {
+    } else if (statusFilter === "inactive") {
       params.isActive = false;
-    } 
-    else if (statusFilter === "all") {
-      delete params.isActive; // show all
+    } else if (statusFilter === "all") {
+      delete params.isActive;
     }
 
     // Homepage filter
     if (homepageFilter === "yes") {
       params.showOnHomepage = true;
-    } 
-    else if (homepageFilter === "no") {
+    } else if (homepageFilter === "no") {
       params.showOnHomepage = false;
     }
 
-    // Search filter
-if (debouncedSearch?.trim()) {
-  params.search = debouncedSearch.trim();
-}
+    // Search
+    if (debouncedSearch?.trim()) {
+      params.search = debouncedSearch.trim();
+    }
 
-    // Level filter
+    // Level
     if (levelFilter !== "all") {
       params.level = Number(levelFilter.replace("level", ""));
     }
 
-    // ==============================
     // API CALL
-    // ==============================
     const response = await categoriesService.getAll({ params });
-    const categoriesData: Category[] = response.data?.data || [];
 
-    // ==============================
-    // RECURSIVE SORTING
-    // ==============================
+    const categoriesData: Category[] = Array.isArray(response.data?.data?.items)
+      ? response.data.data.items
+      : [];
+
+    const statsData = response.data?.data?.stats;
+
+    // ✅ SAFE MAPPING (fix error permanently)
+    if (statsData) {
+      setStats({
+        totalCategories: statsData.totalCategories || 0,
+        totalActive: statsData.totalActive || 0,
+        totalInactive: statsData.totalInactive || 0,
+        totalShowOnHomepage: statsData.totalShowOnHomepage || 0,
+        totalProducts: statsData.totalProducts || 0
+      });
+    }
+
+    // SORT
     const sortRecursive = (cats: Category[]): Category[] => {
       return cats
         .map(cat => ({
@@ -209,12 +211,10 @@ if (debouncedSearch?.trim()) {
               : [],
         }))
         .sort((a, b) => {
-          // Active first
           if (a.isActive !== b.isActive) {
             return a.isActive ? -1 : 1;
           }
 
-          // Then newest first
           const dateA = new Date(a.createdAt || 0).getTime();
           const dateB = new Date(b.createdAt || 0).getTime();
 
@@ -225,7 +225,6 @@ if (debouncedSearch?.trim()) {
     const sortedCategories = sortRecursive(categoriesData);
 
     setCategories(sortedCategories);
-    calculateStats(sortedCategories);
 
   } catch (error) {
     console.error("Error fetching categories:", error);
@@ -233,37 +232,6 @@ if (debouncedSearch?.trim()) {
     setLoading(false);
   }
 };
-const calculateStats = (categoriesData: Category[]) => {
-  // Recursive flatten
-  const flatten = (cats: Category[]): Category[] => {
-    return cats.flatMap(cat => [
-      cat,
-      ...(cat.subCategories && cat.subCategories.length > 0
-        ? flatten(cat.subCategories)
-        : [])
-    ]);
-  };
-
-  const allCategories = flatten(categoriesData);
-
-  const totalCategories = allCategories.length;
-
-  const totalProducts = allCategories.reduce((count, cat) => {
-    return count + (cat.productCount || 0);
-  }, 0);
-
-  const activeCategories = allCategories.filter(cat => cat.isActive).length;
-
-  const homepageCategories = allCategories.filter(cat => cat.showOnHomepage).length;
-
-  setStats({
-    totalCategories,
-    totalProducts,
-    activeCategories,
-    homepageCategories
-  });
-};
-
 
 
   const findCategoryById = (id: string, categories: Category[]): Category | null => {
@@ -670,6 +638,8 @@ const getParentCategoryOptions = () => {
   
   return availableParents;
 };
+
+const parentOptions = getParentCategoryOptions();
 
 const clearFilters = () => {
   setStatusFilter("all");
@@ -1202,81 +1172,51 @@ useEffect(() => {
 {/* Stats Cards */}
 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
 
-  {/* Total */}
-  <button
-    onClick={() => {
-      if (statusFilter === 'all') setStatusFilter('active');
-      else if (statusFilter === 'active') setStatusFilter('inactive');
-      else setStatusFilter('all');
-    }}
-    className="bg-slate-900/40 border border-slate-800 rounded-lg p-2.5 hover:border-violet-500/40 transition-all text-left"
-  >
-    <div className="flex items-center gap-2">
-      <div className="w-8 h-8 bg-violet-500/10 rounded-md flex items-center justify-center">
-        <FolderTree className="h-4 w-4 text-violet-400" />
-      </div>
-      <div>
-        <p className="text-[11px] text-slate-500">Categories</p>
-        <p className="text-lg font-semibold text-white">{stats.totalCategories}</p>
-        <p className="text-[10px] text-violet-400">
-          {statusFilter === 'all' ? 'All' : statusFilter === 'active' ? 'Active' : 'Inactive'}
-        </p>
-      </div>
-    </div>
-  </button>
-
-  {/* Products */}
+  {/* Total Categories */}
   <div className="bg-slate-900/40 border border-slate-800 rounded-lg p-2.5">
-    <div className="flex items-center gap-2">
-      <div className="w-8 h-8 bg-pink-500/10 rounded-md flex items-center justify-center">
-        <Package className="h-4 w-4 text-pink-400" />
-      </div>
-      <div>
-        <p className="text-[11px] text-slate-500">Products</p>
-        <p className="text-lg font-semibold text-white">{stats.totalProducts}</p>
-      </div>
-    </div>
+    <p className="text-[11px] text-slate-500">Total Categories</p>
+    <p className="text-lg font-semibold text-white">{stats.totalCategories}</p>
   </div>
 
   {/* Active */}
   <button
+    type="button"
     onClick={() => {
       if (statusFilter === 'all') setStatusFilter('active');
       else if (statusFilter === 'active') setStatusFilter('inactive');
       else setStatusFilter('all');
     }}
-    className="bg-slate-900/40 border border-slate-800 rounded-lg p-2.5 hover:border-green-500/40 transition-all text-left"
+    className="bg-green-500/10 border border-green-500/20 rounded-lg p-2.5 text-left"
   >
-    <div className="flex items-center gap-2">
-      <div className="w-8 h-8 bg-green-500/10 rounded-md flex items-center justify-center">
-        <CheckCircle className="h-4 w-4 text-green-400" />
-      </div>
-      <div>
-        <p className="text-[11px] text-slate-500">Active</p>
-        <p className="text-lg font-semibold text-white">{stats.activeCategories}</p>
-      </div>
-    </div>
+    <p className="text-[11px] text-green-400">Active</p>
+    <p className="text-lg font-semibold text-white">{stats.totalActive}</p>
   </button>
+
+  {/* Inactive */}
+  <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-2.5">
+    <p className="text-[11px] text-red-400">Inactive</p>
+    <p className="text-lg font-semibold text-white">{stats.totalInactive}</p>
+  </div>
 
   {/* Homepage */}
   <button
+    type="button"
     onClick={() => {
       if (homepageFilter === 'all') setHomepageFilter('yes');
       else if (homepageFilter === 'yes') setHomepageFilter('no');
       else setHomepageFilter('all');
     }}
-    className="bg-slate-900/40 border border-slate-800 rounded-lg p-2.5 hover:border-cyan-500/40 transition-all text-left"
+    className="bg-cyan-500/10 border border-cyan-500/20 rounded-lg p-2.5 text-left"
   >
-    <div className="flex items-center gap-2">
-      <div className="w-8 h-8 bg-cyan-500/10 rounded-md flex items-center justify-center">
-        <Award className="h-4 w-4 text-cyan-400" />
-      </div>
-      <div>
-        <p className="text-[11px] text-slate-500">Homepage</p>
-        <p className="text-lg font-semibold text-white">{stats.homepageCategories}</p>
-      </div>
-    </div>
+    <p className="text-[11px] text-cyan-400">Homepage</p>
+    <p className="text-lg font-semibold text-white">{stats.totalShowOnHomepage}</p>
   </button>
+
+  {/* Products */}
+  {/* <div className="bg-pink-500/10 border border-pink-500/20 rounded-lg p-2.5">
+    <p className="text-[11px] text-pink-400">Products</p>
+    <p className="text-lg font-semibold text-white">{stats.totalProducts}</p>
+  </div> */}
 
 </div>
 

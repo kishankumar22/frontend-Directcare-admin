@@ -100,13 +100,16 @@ const [approveConfirm, setApproveConfirm] = useState<{
   customer: string;
   title: string;
 } | null>(null);
+
+const [stats, setStats] = useState({
+  totalReviews: 0,
+  totalPending: 0,
+  totalApproved: 0,
+  totalVerified: 0,
+  totalUnverified: 0,
+});
 const [isApproving, setIsApproving] = useState(false);
-  const [stats, setStats] = useState({
-    total: 0,
-    pending: 0,
-    approved: 0,
-    averageRating: 0,
-  });
+
 // ✅ Add this useEffect for closing date picker on outside click
 useEffect(() => {
   const handleClickOutside = (event: MouseEvent) => {
@@ -200,14 +203,20 @@ const fetchReviews = useCallback(async () => {
   filters.verifiedOnly = true;
 }
 
-    const res = await productReviewsService.getAll(filters);
+  const res = await productReviewsService.getAll(filters);
 
-    if (res.data?.success) {
-      const paged = res.data.data;
-      setReviews(paged.items ?? []);
-      setServerTotal(paged.totalCount ?? 0);
-      setServerTotalPages(paged.totalPages ?? 1);
-    } else {
+if (res.data?.success) {
+  const paged = res.data.data;
+
+  setReviews(paged.items ?? []);
+  setServerTotal(paged.totalCount ?? 0);
+  setServerTotalPages(paged.totalPages ?? 1);
+
+  // ✅ ADD THIS
+  if (paged.stats) {
+    setStats(paged.stats);
+  }
+}else {
       setReviews([]);
       setServerTotal(0);
       setServerTotalPages(1);
@@ -236,26 +245,9 @@ const fetchReviews = useCallback(async () => {
     fetchReviews();
   }, [fetchReviews]);
 
-  const calculateStats = (reviewsData: ProductReview[]) => {
-    const total = reviewsData.length;
-    const approved = reviewsData.filter((r) => r.isApproved).length;
-    const pending = reviewsData.filter((r) => !r.isApproved).length;
-    const averageRating =
-      reviewsData.length > 0
-        ? reviewsData.reduce((sum, r) => sum + r.rating, 0) / reviewsData.length
-        : 0;
 
-    setStats({ total, pending, approved, averageRating });
-  };
 
-  // ✅ Calculate stats from server-returned data
-  useEffect(() => {
-    if (reviews.length > 0) {
-      calculateStats(reviews);
-    } else {
-      setStats({ total: 0, pending: 0, approved: 0, averageRating: 0 });
-    }
-  }, [reviews]);
+
 
   // ✅ Approve Review
 const handleApprove = async (id: string) => {
@@ -792,73 +784,101 @@ const isPlayableVideoUrl = (url: string) => {
       
 
         {/* Stats strip */}
-        <div className="grid grid-cols-4 gap-2">
-          {/* Total */}
-          <div className="bg-slate-900/60 border border-slate-800 rounded-xl px-4 py-3 flex items-center gap-3">
-            <div className="w-8 h-8 bg-violet-500/15 rounded-lg flex items-center justify-center flex-shrink-0">
-              <Star className="h-3.5 w-3.5 text-violet-400" />
-            </div>
-            <div className="min-w-0">
-              <p className="text-[10px] text-slate-500 uppercase tracking-wide font-medium">Total</p>
-              <p className="text-lg font-bold text-white leading-none">{serverTotal}</p>
-            </div>
-          </div>
+ {/* ✅ Stats strip (Backend Driven) */}
+<div className="grid grid-cols-5 gap-2">
 
-          {/* Status - clickable */}
-          <button
-            type="button"
-            onClick={() => { const next = statusFilter === 'all' ? 'pending' : statusFilter === 'pending' ? 'approved' : 'all'; setStatusFilter(next); setCurrentPage(1); }}
-            className={`border rounded-xl px-4 py-3 flex items-center gap-3 transition-all text-left group ${
-              statusFilter !== 'all' ? 'bg-amber-500/10 border-amber-500/30' : 'bg-slate-900/60 border-slate-800 hover:border-slate-700'
-            }`}
-          >
-            <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 transition-all ${statusFilter === 'pending' ? 'bg-amber-500/20' : statusFilter === 'approved' ? 'bg-green-500/20' : 'bg-slate-700/50'}`}>
-              {statusFilter === 'pending' ? <Clock className="h-3.5 w-3.5 text-amber-400" /> : statusFilter === 'approved' ? <CheckCircle className="h-3.5 w-3.5 text-green-400" /> : <MessageSquare className="h-3.5 w-3.5 text-slate-400" />}
-            </div>
-            <div className="min-w-0">
-              <p className="text-[10px] text-slate-500 uppercase tracking-wide font-medium">{statusFilter === 'all' ? 'Status' : statusFilter}</p>
-              <p className="text-lg font-bold text-white leading-none">{statusFilter === 'pending' ? stats.pending : statusFilter === 'approved' ? stats.approved : stats.total}</p>
-            </div>
-          </button>
+  {/* Total Reviews */}
+  <div className="bg-slate-900/60 border border-slate-800 rounded-xl px-4 py-3 flex items-center gap-3">
+    <div className="w-8 h-8 bg-violet-500/15 rounded-lg flex items-center justify-center">
+      <Star className="h-3.5 w-3.5 text-violet-400" />
+    </div>
+    <div>
+      <p className="text-[10px] text-slate-500 uppercase">Total</p>
+      <p className="text-lg font-bold text-white">{stats.totalReviews}</p>
+    </div>
+  </div>
 
-          {/* Verified - clickable */}
-          <button
-            type="button"
-            onClick={() => { setVerifiedOnlyFilter(!verifiedOnlyFilter); setCurrentPage(1); }}
-            className={`border rounded-xl px-4 py-3 flex items-center gap-3 transition-all text-left ${
-              verifiedOnlyFilter ? 'bg-green-500/10 border-green-500/30' : 'bg-slate-900/60 border-slate-800 hover:border-slate-700'
-            }`}
-          >
-            <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${verifiedOnlyFilter ? 'bg-green-500/20' : 'bg-slate-700/50'}`}>
-              <CheckCircle className="h-3.5 w-3.5 text-green-400" />
-            </div>
-            <div className="min-w-0">
-              <p className="text-[10px] text-slate-500 uppercase tracking-wide font-medium">Verified</p>
-              <p className="text-lg font-bold text-white leading-none">{reviews.filter(r => r.isVerifiedPurchase).length}</p>
-            </div>
-          </button>
+  {/* Pending */}
+  <button
+    onClick={() => {
+      setStatusFilter("pending");
+      setCurrentPage(1);
+    }}
+    className={`border rounded-xl px-4 py-3 flex items-center gap-3 ${
+      statusFilter === "pending"
+        ? "bg-amber-500/10 border-amber-500/30"
+        : "bg-slate-900/60 border-slate-800"
+    }`}
+  >
+    <div className="w-8 h-8 bg-amber-500/20 rounded-lg flex items-center justify-center">
+      <Clock className="h-3.5 w-3.5 text-amber-400" />
+    </div>
+    <div>
+      <p className="text-[10px] text-slate-500 uppercase">Pending</p>
+      <p className="text-lg font-bold text-white">{stats.totalPending}</p>
+    </div>
+  </button>
 
-          {/* Avg Rating - clickable stars */}
-          <div className="bg-slate-900/60 border border-slate-800 rounded-xl px-4 py-3 flex items-center gap-3 group relative">
-            <div className="w-8 h-8 bg-yellow-500/15 rounded-lg flex items-center justify-center flex-shrink-0">
-              <Award className="h-3.5 w-3.5 text-yellow-400" />
-            </div>
-            <div className="min-w-0 flex-1">
-              <p className="text-[10px] text-slate-500 uppercase tracking-wide font-medium">Avg Rating</p>
-              <div className="flex items-center gap-2">
-                <p className="text-lg font-bold text-white leading-none">{stats.averageRating.toFixed(1)}</p>
-                <div className="flex items-center gap-0.5">
-                  {[1,2,3,4,5].map(s => (
-                    <button key={s} type="button" onClick={() => { const n = ratingFilter === s.toString() ? 'all' : s.toString(); setRatingFilter(n); setCurrentPage(1); }} className="focus:outline-none">
-                      <Star className={`h-2.5 w-2.5 transition-colors ${ratingFilter === s.toString() ? 'fill-yellow-400 text-yellow-400' : s <= Math.round(stats.averageRating) ? 'fill-yellow-400/60 text-yellow-400/60' : 'text-slate-600'}`} />
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
+  {/* Approved */}
+  <button
+    onClick={() => {
+      setStatusFilter("approved");
+      setCurrentPage(1);
+    }}
+    className={`border rounded-xl px-4 py-3 flex items-center gap-3 ${
+      statusFilter === "approved"
+        ? "bg-green-500/10 border-green-500/30"
+        : "bg-slate-900/60 border-slate-800"
+    }`}
+  >
+    <div className="w-8 h-8 bg-green-500/20 rounded-lg flex items-center justify-center">
+      <CheckCircle className="h-3.5 w-3.5 text-green-400" />
+    </div>
+    <div>
+      <p className="text-[10px] text-slate-500 uppercase">Approved</p>
+      <p className="text-lg font-bold text-white">{stats.totalApproved}</p>
+    </div>
+  </button>
 
+  {/* Verified */}
+  <button
+    onClick={() => {
+      setVerifiedOnlyFilter(true);
+      setCurrentPage(1);
+    }}
+    className={`border rounded-xl px-4 py-3 flex items-center gap-3 ${
+      verifiedOnlyFilter
+        ? "bg-cyan-500/10 border-cyan-500/30"
+        : "bg-slate-900/60 border-slate-800"
+    }`}
+  >
+    <div className="w-8 h-8 bg-cyan-500/20 rounded-lg flex items-center justify-center">
+      <Award className="h-3.5 w-3.5 text-cyan-400" />
+    </div>
+    <div>
+      <p className="text-[10px] text-slate-500 uppercase">Verified</p>
+      <p className="text-lg font-bold text-white">{stats.totalVerified}</p>
+    </div>
+  </button>
+
+  {/* Unverified */}
+  <button
+    onClick={() => {
+      setVerifiedOnlyFilter(false);
+      setCurrentPage(1);
+    }}
+    className="border rounded-xl px-4 py-3 flex items-center gap-3 bg-slate-900/60 border-slate-800"
+  >
+    <div className="w-8 h-8 bg-red-500/20 rounded-lg flex items-center justify-center">
+      <X className="h-3.5 w-3.5 text-red-400" />
+    </div>
+    <div>
+      <p className="text-[10px] text-slate-500 uppercase">Unverified</p>
+      <p className="text-lg font-bold text-white">{stats.totalUnverified}</p>
+    </div>
+  </button>
+
+</div>
 
         {/* Reviews Section */}
         <div className="bg-slate-900/60 backdrop-blur-xl border border-slate-800 rounded-xl overflow-hidden">

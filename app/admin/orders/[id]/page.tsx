@@ -507,8 +507,6 @@ const getAllAvailableActions = (
         category: 'workflow',
       });
     }
-
-    // ❌ NO MARK DELIVERED HERE
   }
 
   // ===========================

@@ -387,11 +387,17 @@ useEffect(() => {
 
       console.log('✅ All data fetched');
 
-      // ==================== DROPDOWNS ====================
-      const brandsData = (brandsResponse.data as BrandApiResponse)?.data || [];
-      const categoriesData = (categoriesResponse.data as CategoryApiResponse)?.data || [];
-      const vatRatesData = (vatRatesResponse.data as VATRateApiResponse)?.data || [];
+  const brandsData = Array.isArray(brandsResponse?.data?.data?.items)
+  ? brandsResponse.data.data.items
+  : [];
 
+const categoriesData = Array.isArray(categoriesResponse?.data?.data?.items)
+  ? categoriesResponse.data.data.items
+  : [];
+
+const vatRatesData = Array.isArray(vatRatesResponse?.data?.data)
+  ? vatRatesResponse.data.data
+  : [];
       setDropdownsData({
         brands: brandsData,
         categories: categoriesData,

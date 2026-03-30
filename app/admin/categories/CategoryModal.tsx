@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ProductDescriptionEditor } from "../_components/SelfHostedEditor";
 import CategoryFaqManager from "./CategoryFaqManager";
 import { useToast } from "@/app/admin/_components/CustomToast";
-import { API_BASE_URL } from "@/lib/api";
+
 import { Edit, Plus, Trash2, Upload, X } from "lucide-react";
 import ConfirmDialog from "../_components/ConfirmDialog";
 import { categoriesService, Category } from "@/lib/services/categories";
@@ -28,6 +28,7 @@ setImageFile: (file: File | null) => void;
   categories: any[];
 
   openFaqCategory?: any;
+  
 
   // ✅ IMPORTANT (FIX)
   pendingFaqs: any[];
@@ -51,8 +52,11 @@ export default function CategoryModal({
   isSubmitting,         // ⚠️ missing tha
 }: Props) {
   const [activeTab, setActiveTab] = useState("basic");
-
+const dropdownRef = useRef<HTMLDivElement | null>(null);
 const homepageCount = categories.filter((c) => c.showOnHomepage).length;
+const [search, setSearch] = useState("");
+const [open, setOpen] = useState(false);
+
 
   const [selectedImageUrl, setSelectedImageUrl] = useState<string | null>(null);
   const [imageDeleteConfirm, setImageDeleteConfirm] = useState<{
@@ -63,7 +67,46 @@ const homepageCount = categories.filter((c) => c.showOnHomepage).length;
   const [isDeletingImage, setIsDeletingImage] = useState(false);
   
   const [imagePreview, setImagePreview] = useState<string | null>(null);
- 
+ const getParentCategoryOptions = () => {
+  const result: any[] = [];
+const traverse = (cats: any[], level = 0) => {
+  if (!Array.isArray(cats)) return; // 💣 CRASH FIX
+
+  cats.forEach((cat) => {
+    if (editingCategory && cat.id === editingCategory.id) return;
+
+    if (level < 2) {
+      result.push({ ...cat, level });
+    }
+
+    if (Array.isArray(cat.subCategories)) {
+      traverse(cat.subCategories, level + 1);
+    }
+  });
+};
+traverse(Array.isArray(categories) ? categories : []);
+  return result;
+};
+
+const parentOptions = useMemo(() => {
+  return getParentCategoryOptions();
+
+
+}, [categories, editingCategory]);
+
+useEffect(() => {
+  const handleClickOutside = (e: MouseEvent) => {
+    if (
+      dropdownRef.current &&
+      !dropdownRef.current.contains(e.target as Node)
+    ) {
+      setOpen(false);
+    }
+  };
+
+  window.addEventListener("click", handleClickOutside);
+  return () => window.removeEventListener("click", handleClickOutside);
+}, []);
  const handleImageFileChange = (file: File) => {
   setImageFile(file); // ✅ parent state update
   const previewUrl = URL.createObjectURL(file);
@@ -75,6 +118,16 @@ useEffect(() => {
   }
 }, [openFaqCategory]);
 
+const selectedParent = parentOptions.find(
+  (c: any) => c.id === formData.parentCategoryId
+);
+useEffect(() => {
+  if (selectedParent) {
+    setSearch(selectedParent.name);
+  } else {
+    setSearch("");
+  }
+}, [formData.parentCategoryId, parentOptions]);
 const extractFilename = (imageUrl: string) => {
   if (!imageUrl) return "";
   const parts = imageUrl.split('/');
@@ -114,6 +167,9 @@ useEffect(() => {
     setPendingFaqs([]);
   }
 }, [showModal, editingCategory]);
+const filteredOptions = parentOptions.filter((c: any) =>
+  c.name.toLowerCase().includes(search.toLowerCase())
+);
 useEffect(() => {
   if (editingCategory && showModal) {
     setFormData({
@@ -268,29 +324,55 @@ useEffect(() => {
       </div>
 
       {/* PARENT CATEGORY */}
-      <div>
-        <label className="block text-sm text-slate-300 mb-2">
-          Parent Category
-        </label>
+  <div className="relative" ref={dropdownRef}>
+  {/* INPUT */}
+  <input
+    value={search}
+    onFocus={() => setOpen(true)}
+    onChange={(e) => setSearch(e.target.value)}
+    placeholder="Search parent category..."
+    className="w-full px-3 py-2 bg-slate-900 border border-slate-600 rounded-lg text-sm text-white"
+  />
 
-        <select
-          value={formData.parentCategoryId || ""}
-          onChange={(e) =>
-            setFormData({
-              ...formData,
-              parentCategoryId: e.target.value,
-            })
-          }
-          className="w-full px-3 py-2 bg-slate-900 border border-slate-600 rounded-lg text-sm text-white"
-        >
-          <option value="">None (Root)</option>
-          {categories.map((c: any) => (
-            <option key={c.id} value={c.id}>
-              {c.name}
-            </option>
-          ))}
-        </select>
+  {/* DROPDOWN */}
+  {open && (
+    <div className="absolute z-50 mt-1 w-full max-h-60 overflow-auto bg-slate-900 border border-slate-700 rounded-lg shadow-lg">
+
+      {/* NONE OPTION */}
+      <div
+        onClick={() => {
+          setFormData({ ...formData, parentCategoryId: "" });
+          setSearch("");
+          setOpen(false);
+        }}
+        className="px-3 py-2 text-sm text-slate-400 hover:bg-slate-800 cursor-pointer"
+      >
+        None (Main Category)
       </div>
+
+      {/* OPTIONS */}
+      {filteredOptions.map((c: any) => (
+        <div
+          key={c.id}
+          onClick={() => {
+            setFormData({ ...formData, parentCategoryId: c.id });
+            setSearch(c.name);
+            setOpen(false);
+          }}
+          className={`px-3 py-2 text-sm cursor-pointer flex items-center
+            ${c.level === 1 ? "bg-slate-800/40" : ""}
+            ${c.level === 0 ? "font-medium text-white" : "text-slate-300"}
+            hover:bg-violet-500/20`}
+          style={{
+            paddingLeft: `${27 + c.level * 26}px`, // 👈 spacing instead of --
+          }}
+        >
+          {c.name}
+        </div>
+      ))}
+    </div>
+  )}
+</div>
 
       {/* DESCRIPTION */}
       <ProductDescriptionEditor

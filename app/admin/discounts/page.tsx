@@ -293,31 +293,32 @@ const debouncedSearch = useDebounce(searchTerm, 400);
   }, []);
 
   // Fetch dropdown data
-  const fetchDropdownData = async () => {
-    try {
-      const [categoriesRes, productsRes] = await Promise.all([
-        categoriesService.getAll(),
-        productsService.getAll({ pageSize: 1000 }),
-      ]);
+const fetchDropdownData = async () => {
+  try {
+    const [categoriesRes, productsRes] = await Promise.all([
+      categoriesService.getAll(),
+      productsService.getAll({ pageSize: 1000 }),
+    ]);
 
-      if (categoriesRes?.data) {
-        const c = categoriesRes.data as any;
-        if (c.success && Array.isArray(c.data)) {
-          setCategories(c.data);
-        }
-      }
+    // ================= CATEGORIES =================
+    const categoriesData = Array.isArray(categoriesRes?.data?.data?.items)
+      ? categoriesRes.data.data.items
+      : [];
 
-      if (productsRes?.data) {
-        const p = productsRes.data as any;
-        if (p.success && p.data?.items) {
-          setProducts(p.data.items);
-        }
-      }
-    } catch (error) {
-      console.error("Error fetching dropdown data:", error);
-      toast.error("Failed to load dropdown data");
-    }
-  };
+    setCategories(categoriesData);
+
+    // ================= PRODUCTS =================
+    const productsData = Array.isArray(productsRes?.data?.data?.items)
+      ? productsRes.data.data.items
+      : [];
+
+    setProducts(productsData);
+
+  } catch (error) {
+    console.error("Error fetching dropdown data:", error);
+    toast.error("Failed to load dropdown data");
+  }
+};
 
   // Fetch discounts
 const fetchDiscounts = async () => {

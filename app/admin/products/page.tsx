@@ -14,7 +14,8 @@ import {
   Upload,
   Download,
   Boxes,
-  Database
+  Database,
+  EyeOff
 } from "lucide-react";
 
 type ToggleProduct = {
@@ -343,6 +344,7 @@ const deletedOptions = [
   const [selectedToggleProduct, setSelectedToggleProduct] = useState<ToggleProduct | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showToggleConfirm, setShowToggleConfirm] = useState(false);
+  const [apiStats, setApiStats] = useState<any>(null);
 // BULK SELECTION
 const [selectedProducts, setSelectedProducts] = useState<string[]>([]);
 const [exportingSelected, setExportingSelected] = useState(false);
@@ -639,6 +641,10 @@ if (deletedFilter.value === "deleted") {
         };
       });
 
+
+// ✅ ADD THIS
+setApiStats(apiData.stats);
+console.log("STATS 👉", apiData.stats);
       setProducts(formattedProducts);
 setSelectedProducts([]);
       // Related Products Map
@@ -671,31 +677,42 @@ setSelectedProducts([]);
   }
 };
   // ✅ FETCH CATEGORIES
-  const fetchCategories = async () => {
-    try {
-      const response = await categoriesService.getAll({
+const fetchCategories = async () => {
+  try {
+    const response = await categoriesService.getAll({
+      params: {
         includeInactive: false,
         includeSubCategories: true,
-      });
-      if (response.data?.success && Array.isArray(response.data?.data)) {
-        setCategories(response.data.data);
-      }
-    } catch (err) {
-      console.error("Error fetching categories:", err);
-    }
-  };
+      },
+    });
 
+    const categoriesData = Array.isArray(response.data?.data?.items)
+      ? response.data.data.items
+      : [];
+
+    setCategories(categoriesData);
+
+  } catch (err) {
+    console.error("Error fetching categories:", err);
+  }
+};
   // ✅ FETCH BRANDS
-  const fetchBrands = async () => {
-    try {
-      const response = await brandsService.getAll({ includeUnpublished: false });
-      if (response.data?.success && Array.isArray(response.data?.data)) {
-        setBrands(response.data.data);
-      }
-    } catch (err) {
-      console.error("Error fetching brands:", err);
-    }
-  };
+const fetchBrands = async () => {
+  try {
+    const response = await brandsService.getAll({
+      params: { includeUnpublished: false }
+    });
+
+    const brandsData = Array.isArray(response.data?.data?.items)
+      ? response.data.data.items
+      : [];
+
+    setBrands(brandsData);
+
+  } catch (err) {
+    console.error("Error fetching brands:", err);
+  }
+};
 const FilterLoader = () => {
   return (
     <div className="flex items-center gap-2 text-xs text-violet-400 bg-violet-500/10 border border-violet-500/30 px-2 py-1 rounded-md">
@@ -777,19 +794,7 @@ if (p.crossSellProductIds) {
   }
 };
 
-  const handleToggleStatus = async (product: Product) => {
-    try {
-      const response = await productsService.toggleActive(product.id);
-      if (!response?.data?.success) {
-        toast.error(response?.data?.message || "Failed to update status");
-        return;
-      }
-      toast.success(response.data.message);
-      fetchProducts();
-    } catch (error: any) {
-      toast.error(error.response?.data?.message || "Something went wrong");
-    }
-  };
+
 
   // ✅ MEDIA VIEWER
   const openMediaViewer = (media: MediaItem | MediaItem[], startIndex = 0) => {
@@ -1027,44 +1032,61 @@ const selectionState = useMemo(() => {
   return { mixed, status, publishStatus };
 }, [selectedProducts, products]);
 
+const stats = useMemo(() => {
+  if (!apiStats) {
+    return {
+      totalCount: 0,
+      publishedCount: 0,
+      lowStockCount: 0,
+      outOfStockCount: 0,
+      unpublishedCount: 0,
+    };
+  }
+
+  return {
+    totalCount: apiStats.totalProducts,
+    publishedCount: apiStats.published,
+    lowStockCount: apiStats.lowStock,
+    outOfStockCount: apiStats.outOfStock,
+    unpublishedCount: apiStats.unpublished,
+  };
+}, [apiStats]);
+
 const selectedProductItems = useMemo(() => {
   return selectedProducts
     .map((id) => products.find((p) => p.id === id))
     .filter((p): p is FormattedProduct => Boolean(p));
 }, [selectedProducts, products]);
   // ✅ STATS (using totalCount from API)
-  const stats = useMemo(() => {
-    const lowStockCount = products.filter((p) => p.status === "Low Stock").length;
-    const outOfStockCount = products.filter((p) => p.status === "Out of Stock").length;
-    const publishedCount = products.filter((p) => p.isPublished).length;
-    
-    return {
-      totalCount: totalCount, // This is the real total from API (3671)
-      lowStockCount,
-      outOfStockCount,
-      publishedCount,
-    };
-  }, [products, totalCount]);
 
-  const handleStatClick = useCallback(
-    (filterType: string) => {
-      clearFilters();
-      switch (filterType) {
-        case "total":
-          break;
-        case "published":
-          setPublishedFilter({ value: "published", label: "Published" });
-          break;
-        case "lowStock":
-          setStatusFilter({ value: "Low Stock", label: "Low Stock" });
-          break;
-        case "outOfStock":
-          setStatusFilter({ value: "Out of Stock", label: "Out of Stock" });
-          break;
-      }
-    },
-    [clearFilters]
-  );
+
+const handleStatClick = useCallback(
+  (filterType: string) => {
+    clearFilters();
+
+    switch (filterType) {
+      case "total":
+        break;
+
+      case "published":
+        setPublishedFilter({ value: "published", label: "Published" });
+        break;
+
+      case "unpublished":
+        setPublishedFilter({ value: "unpublished", label: "Unpublished" });
+        break;
+
+      case "lowStock":
+        setStatusFilter({ value: "LowStock", label: "Low Stock" });
+        break;
+
+      case "outOfStock":
+        setStatusFilter({ value: "OutOfStock", label: "Out of Stock" });
+        break;
+    }
+  },
+  [clearFilters]
+);
 
   const statusCounts = useMemo(() => {
     const counts = { Pending: 0, all: myTakeoverRequests.length };
@@ -1684,7 +1706,7 @@ const handleExportSelected = async () => {
 
 
       {/* ================= STATS ================= */}
-      <div className="grid gap-3 md:grid-cols-4">
+      <div className="grid gap-3 md:grid-cols-5">
         <div
           onClick={() => handleStatClick("total")}
           className="bg-gradient-to-br from-violet-500/10 to-purple-500/10
@@ -1736,6 +1758,22 @@ const handleExportSelected = async () => {
           </div>
         </div>
 
+       <div
+  onClick={() => handleStatClick("unpublished")}
+  className="bg-gradient-to-br from-slate-500/10 to-slate-600/10
+  border border-slate-500/20 rounded-xl p-3
+  hover:shadow-lg hover:shadow-slate-500/10 transition-all cursor-pointer"
+>
+  <div className="flex items-center gap-3">
+    <div className="p-2 bg-gradient-to-br from-slate-500 to-slate-600 rounded-lg">
+      <EyeOff className="w-4 h-4 text-white" />
+    </div>
+    <div>
+      <p className="text-xs text-slate-400">Unpublished</p>
+      <p className="text-xl font-bold text-white">{stats.unpublishedCount}</p>
+    </div>
+  </div>
+</div>
         <div
           onClick={() => handleStatClick("outOfStock")}
           className="bg-gradient-to-br from-red-500/10 to-rose-500/10

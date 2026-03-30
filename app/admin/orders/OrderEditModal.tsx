@@ -446,41 +446,50 @@ const handleShippingSelect = async (id: string) => {
   };
 
   // ✅ Load Filter Options
-  const loadFilterOptions = async () => {
-    setLoadingFilters(true);
-    try {
-      const brandsResponse = await brandsService.getAll({
-        params: { includeInactive: true },
-      });
+const loadFilterOptions = async () => {
+  setLoadingFilters(true);
 
-      const brandsData = brandsResponse?.data?.data || [];
-      const sortedBrands = brandsData.sort((a: Brand, b: Brand) => {
-        if (a.isActive !== b.isActive) {
-          return a.isActive ? -1 : 1;
-        }
-        const dateA = new Date(a.createdAt || 0).getTime();
-        const dateB = new Date(b.createdAt || 0).getTime();
-        return dateB - dateA;
-      });
+  try {
+    // ================= BRANDS =================
+    const brandsResponse = await brandsService.getAll({
+      params: { includeInactive: true },
+    });
 
-      setBrands(sortedBrands);
+    const brandsData = Array.isArray(brandsResponse?.data?.data?.items)
+      ? brandsResponse.data.data.items
+      : [];
 
-      const categoriesResponse = await categoriesService.getAll({
-        params: { includeInactive: true, includeSubCategories: true },
-      });
+    const sortedBrands = [...brandsData].sort((a: Brand, b: Brand) => {
+      if (a.isActive !== b.isActive) {
+        return a.isActive ? -1 : 1;
+      }
+      const dateA = new Date(a.createdAt || 0).getTime();
+      const dateB = new Date(b.createdAt || 0).getTime();
+      return dateB - dateA;
+    });
 
-      const categoriesData = categoriesResponse?.data?.data || [];
-      const sortedCategories = sortCategoriesRecursive(categoriesData);
+    setBrands(sortedBrands);
 
-      setCategories(sortedCategories);
-    } catch (error) {
-      console.error('Error loading filters:', error);
-      toast.error('Failed to load filter options');
-    } finally {
-      setLoadingFilters(false);
-    }
-  };
+    // ================= CATEGORIES =================
+    const categoriesResponse = await categoriesService.getAll({
+      params: { includeInactive: true, includeSubCategories: true },
+    });
 
+    const categoriesData = Array.isArray(categoriesResponse?.data?.data?.items)
+      ? categoriesResponse.data.data.items
+      : [];
+
+    const sortedCategories = sortCategoriesRecursive([...categoriesData]);
+
+    setCategories(sortedCategories);
+
+  } catch (error) {
+    console.error('Error loading filters:', error);
+    toast.error('Failed to load filter options');
+  } finally {
+    setLoadingFilters(false);
+  }
+};
 
 
   // Using prevIsOpen ref so a remount with isOpen=true doesn't clear operations.
