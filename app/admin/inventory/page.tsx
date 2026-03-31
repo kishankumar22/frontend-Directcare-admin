@@ -44,16 +44,7 @@ interface SelectOption {
   value: string;
   label: string;
 }
-const customFilterOption = (option: any, inputValue: string) => {
-  if (!inputValue) return true;
 
-  const search = inputValue.toLowerCase();
-
-  // 🔥 clean name (remove — —)
-  const cleanLabel = option.label.replace(/—/g, "").trim().toLowerCase();
-
-  return cleanLabel.includes(search);
-};
 const selectStyles = {
   control: (base: any, state: any) => ({
     ...base,

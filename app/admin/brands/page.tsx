@@ -8,7 +8,7 @@ import ConfirmDialog from "@/app/admin/_components/ConfirmDialog";
 import { Brand, brandsService, BrandStats } from "@/lib/services/brands";
 import { useRouter } from "next/navigation";
 import BrandModals from "./BrandModals";
-import { formatDate } from "../_utils/formatUtils";
+import { formatDate, getImageUrl } from "../_utils/formatUtils";
 
 export default function BrandsPage() {
   const toast = useToast();
@@ -135,12 +135,6 @@ const handleStatusUpdate = async () => {
 
 
 
-  const getImageUrl = (imageUrl?: string) => {
-    if (!imageUrl) return "";
-    if (imageUrl.startsWith("http")) return imageUrl;
-    const cleanUrl = imageUrl.split('?')[0];
-    return `${API_BASE_URL}${cleanUrl}`;
-  };
 
   const handleConfirmBrandAction = async () => {
     if (!selectedBrand) return;

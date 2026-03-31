@@ -92,12 +92,7 @@ export default function CategoryFaqManager({
   setShowModal(true);
 };
 
-  const loadFaqs = async () => {
-  const res = await categoryFaqsService.getByCategoryId(categoryId);
-  if (res?.data?.success && res.data.data) {
-    setList(res.data.data);
-  }
-};
+;
 
   // ================= SAVE =================
 const handleSave = async () => {

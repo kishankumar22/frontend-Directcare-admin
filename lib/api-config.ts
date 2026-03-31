@@ -12,6 +12,9 @@ export const API_ENDPOINTS = {
   uploadCategoryImage: '/api/Categories/upload-image',
   deleteCategoryImage: '/api/ImageManagement/category',
 
+  StoreLocations: '/api/StoreLocations',
+  storeSettings: "/api/StoreSettings",
+
   // Manufacturers
   manufacturers: '/api/Manufacturers',
 

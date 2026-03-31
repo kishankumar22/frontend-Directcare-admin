@@ -32,7 +32,7 @@ interface OrderActionsModalProps {
   onClose: () => void;
   order: Order;
   action: string;
-  onSuccess: () => void;
+  onSuccess: (nextAction?: string) => void;
 }
 
 // ✅ Valid status transitions matching backend UpdateOrderStatusCommandHandler
@@ -184,7 +184,8 @@ const flow = getOrderFlow(status, deliveryMethod, collectionStatus)
 };
 export const getValidStatusTransitions = (
   currentStatus: OrderStatus,
-  deliveryMethod: string
+  deliveryMethod: string,
+  itemCount: number
 ): OrderStatus[] => {
 
   const isClickAndCollect = deliveryMethod === 'ClickAndCollect';
@@ -196,7 +197,11 @@ export const getValidStatusTransitions = (
     Confirmed: ['Processing'],
 
     // ❌ REMOVE ANY SHIPPING FROM UPDATE STATUS
-    Processing: [],
+Processing: deliveryMethod === 'HomeDelivery'
+  ? (itemCount > 1
+      ? ['Shipped', 'PartiallyShipped']
+      : ['Shipped'])
+  : [],
 
     // ❌ REMOVE SHIPPED CONTROL FROM DROPDOWN
     Shipped: isClickAndCollect
@@ -366,7 +371,11 @@ useEffect(() => {
   }
 }, [user]);
   // ✅ Get available statuses dynamically based on delivery method
-  const availableStatuses = getValidStatusTransitions(order.status, order.deliveryMethod);
+ const availableStatuses = getValidStatusTransitions(
+  order.status,
+  order.deliveryMethod,
+  order.orderItems.length
+);
 
   // ✅ Check payment status
   const isPaid = isOrderPaid(order);
@@ -435,14 +444,29 @@ useEffect(() => {
     toast.success('✅ Order marked as collected');
   },
 
-  'update-status': async () => {
-    await orderService.updateStatus({
-      orderId: order.id,
-      newStatus: statusData.newStatus,
-      adminNotes: statusData.adminNotes || undefined,
-    });
-    toast.success('✅ Status updated');
-  },
+ 'update-status': async () => {
+  // 🔥 INTERCEPT SHIPPING
+  if (
+    statusData.newStatus === 'Shipped' ||
+    statusData.newStatus === 'PartiallyShipped'
+  ) {
+    toast.info('Opening shipment modal...');
+
+    // ❌ DO NOT update status here
+    // 🔥 tell parent to open shipment
+    onSuccess('create-shipment' as any);
+    return;
+  }
+
+  // ✅ normal flow
+  await orderService.updateStatus({
+    orderId: order.id,
+    newStatus: statusData.newStatus,
+    adminNotes: statusData.adminNotes || undefined,
+  });
+
+  toast.success('✅ Status updated');
+},
 
   'create-shipment': async () => {
     await orderService.createShipment({
@@ -497,6 +521,7 @@ const handleSubmit = async (e: FormEvent) => {
   try {
     setLoading(true);
     await actionHandlers[action]();
+    
     onSuccess();
   } catch (error: any) {
     toast.error(error.message || 'Failed to perform action');
@@ -795,11 +820,17 @@ const PharmacyWarning = () => {
               </label>
               {/* ✅ Conditionally show only valid statuses based on delivery method */}
               {availableStatuses.length > 0 ? (
-                <select
-                  value={statusData.newStatus}
-                  onChange={(e) =>
-                    setStatusData({ ...statusData, newStatus: e.target.value as OrderStatus })
-                  }
+               <select
+  value={statusData.newStatus}
+  onChange={(e) => {
+    const value = e.target.value as OrderStatus;
+
+    // 🚫 DO NOT OPEN MODAL HERE (no parent access)
+    // Just store status
+
+    setStatusData({ ...statusData, newStatus: value });
+  }}
+
                   className="w-full px-3 py-2.5 bg-slate-800/50 border border-slate-700 rounded-xl text-white focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
                   required
                 >
@@ -832,13 +863,18 @@ const PharmacyWarning = () => {
               <label className="block text-sm font-medium text-slate-300 mb-2">
                 Admin Notes
               </label>
-              <textarea
-                value={statusData.adminNotes}
-                onChange={(e) => setStatusData({ ...statusData, adminNotes: e.target.value })}
-                placeholder="Add notes about this status change..."
-                rows={3}
-                className="w-full px-3 py-2.5 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
-              />
+             <textarea
+  value={statusData.adminNotes}
+  onChange={(e) =>
+    setStatusData({
+      ...statusData,
+      adminNotes: e.target.value,
+    })
+  }
+  placeholder="Add notes about this status change..."
+  rows={3}
+  className="w-full px-3 py-2.5 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
+/>
             </div>
 <OrderStatusHelper
   status={order.status}

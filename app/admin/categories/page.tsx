@@ -10,7 +10,7 @@ import { categoriesService, Category, CategoryStats } from "@/lib/services/categ
 import { useRouter } from "next/navigation";
 import CategoryModal from "./CategoryModal";
 import { categoryFaqsService, Faq } from "@/lib/services/categoryFaqs";
-import { formatDate, getImageUrl } from "../_utils/formatUtils";
+import { extractFilename, formatDate, getImageUrl } from "../_utils/formatUtils";
 
 export default function CategoriesPage() {
   const toast = useToast();
@@ -107,11 +107,7 @@ const [openFaqCategory, setOpenFaqCategory] = useState<Category | null>(null);
       return newSet;
     });
   };
-const extractFilename = (imageUrl: string) => {
-  if (!imageUrl) return "";
-  const parts = imageUrl.split('/');
-  return parts[parts.length - 1];
-};
+
 
 
 

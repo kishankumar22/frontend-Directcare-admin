@@ -317,7 +317,45 @@ async getAllOrders(params?: {
       throw new Error(error.response?.data?.message || 'Failed to fetch orders');
     }
   }
+// ================= PAYMENT =================
 
+// 🔥 Mark FULL payment as paid
+async markPaymentPaid(orderId: string, data?: {
+  transactionId?: string;
+  paymentMethod?: string;
+  notes?: string;
+}) {
+  try {
+    const response = await apiClient.post(
+      `${API_ENDPOINTS.orders}/${orderId}/mark-payment-paid`,
+      data || {}
+    );
+    return response.data;
+  } catch (error: any) {
+    throw new Error(
+      error.response?.data?.message || "Failed to mark payment as paid"
+    );
+  }
+}
+
+// 🔥 Mark PENDING AMOUNT as paid (partial)
+async markPendingAmountPaid(orderId: string, data?: {
+  transactionId?: string;
+  paymentMethod?: string;
+  notes?: string;
+}) {
+  try {
+    const response = await apiClient.post(
+      `${API_ENDPOINTS.orders}/${orderId}/mark-pending-amount-paid`,
+      data || {}
+    );
+    return response.data;
+  } catch (error: any) {
+    throw new Error(
+      error.response?.data?.message || "Failed to mark pending amount as paid"
+    );
+  }
+}
   async getOrderById(orderId: string) {
     try {
       const response = await apiClient.get<ApiResponse<Order>>(
@@ -585,13 +623,98 @@ export const getPaymentStatusInfo = (status: PaymentStatus) => {
  * Get Payment Method Info
  */
 export const getPaymentMethodInfo = (method?: string | null) => {
-  if (!method) return { label: 'N/A', color: 'text-slate-400', bgColor: 'bg-slate-500/10', icon: 'cash' as const };
-
-  const normalized = method.toLowerCase();
-  if (normalized === 'stripe') {
-    return { label: 'Stripe', color: 'text-indigo-400', bgColor: 'bg-indigo-500/10', icon: 'card' as const };
+  if (!method) {
+    return {
+      label: 'N/A',
+      color: 'text-slate-400',
+      bgColor: 'bg-slate-500/10',
+      icon: 'cash' as const,
+    };
   }
-  return { label: 'Cash on Delivery', color: 'text-amber-400', bgColor: 'bg-amber-500/10', icon: 'cash' as const };
+
+  const normalized = method.toLowerCase().trim();
+
+  // ========================
+  // STRIPE BASED METHODS
+  // ========================
+  if (normalized.includes('stripe')) {
+    return {
+      label: 'Stripe',
+      color: 'text-indigo-400',
+      bgColor: 'bg-indigo-500/10',
+      icon: 'card' as const,
+    };
+  }
+
+  // ========================
+  // PAYPAL
+  // ========================
+  if (normalized.includes('paypal')) {
+    return {
+      label: 'PayPal',
+      color: 'text-blue-400',
+      bgColor: 'bg-blue-500/10',
+      icon: 'wallet' as const,
+    };
+  }
+
+  // ========================
+  // APPLE PAY
+  // ========================
+  if (normalized.includes('apple pay')) {
+    return {
+      label: 'Apple Pay',
+      color: 'text-slate-200',
+      bgColor: 'bg-slate-500/10',
+      icon: 'phone' as const,
+    };
+  }
+
+  // ========================
+  // GOOGLE PAY
+  // ========================
+  if (normalized.includes('google pay')) {
+    return {
+      label: 'Google Pay',
+      color: 'text-green-400',
+      bgColor: 'bg-green-500/10',
+      icon: 'wallet' as const,
+    };
+  }
+
+  // ========================
+  // CARD
+  // ========================
+  if (normalized.includes('credit') || normalized.includes('debit')) {
+    return {
+      label: 'Card',
+      color: 'text-purple-400',
+      bgColor: 'bg-purple-500/10',
+      icon: 'card' as const,
+    };
+  }
+
+  // ========================
+  // KLARNA
+  // ========================
+  if (normalized.includes('klarna')) {
+    return {
+      label: 'Klarna',
+      color: 'text-pink-400',
+      bgColor: 'bg-pink-500/10',
+      icon: 'wallet' as const,
+    };
+  }
+
+  // ========================
+  // FALLBACK (NO COD)
+  // ========================
+  return {
+    label: method, // show actual method instead of forcing COD
+    color: 'text-slate-400',
+    bgColor: 'bg-slate-500/10',
+    icon: 'card' as const,
+  };
 };
 
 /**

@@ -3061,10 +3061,13 @@ useEffect(() => {
                     <Tag className="h-4 w-4" />
                     Attributes
                   </TabsTrigger>
-                  <TabsTrigger value="variants" className="flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-slate-400 hover:text-violet-400 border-b-2 border-transparent data-[state=active]:border-violet-500 data-[state=active]:text-violet-400 data-[state=active]:bg-slate-800/50 whitespace-nowrap transition-all rounded-t-lg">
-                    <Package className="h-4 w-4" />
-                    Variants
-                  </TabsTrigger>
+
+                  {formData.productType === "variable" && (
+                    <TabsTrigger value="variants" className="flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-slate-400 hover:text-violet-400 border-b-2 border-transparent data-[state=active]:border-violet-500 data-[state=active]:text-violet-400 data-[state=active]:bg-slate-800/50 whitespace-nowrap transition-all rounded-t-lg">
+                      <Package className="h-4 w-4" />
+                      Variants
+                    </TabsTrigger>
+                  )}
                   <TabsTrigger value="seo" className="flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-slate-400 hover:text-violet-400 border-b-2 border-transparent data-[state=active]:border-violet-500 data-[state=active]:text-violet-400 data-[state=active]:bg-slate-800/50 whitespace-nowrap transition-all rounded-t-lg">
                     <Globe className="h-4 w-4" />
                     SEO
@@ -3239,6 +3242,7 @@ useEffect(() => {
         >
           <option value="simple">Simple Product</option>
           <option value="grouped">Grouped Product</option>
+          <option value="variable">Variable Product</option>
         </select>
 
 {/* ✅ Edit Button with Linked Count INSIDE */}

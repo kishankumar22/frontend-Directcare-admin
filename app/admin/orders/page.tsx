@@ -249,16 +249,16 @@ const response = await orderService.getAllOrders({
         );
       }
 
-      if (filters.paymentMethod) {
-        filteredOrders = filteredOrders.filter((o) => {
-          const method =
-            o.paymentMethod || o.payments?.[0]?.paymentMethod || "";
-          return (
-            method.toLowerCase() ===
-            filters.paymentMethod.toLowerCase()
-          );
-        });
-      }
+     if (filters.paymentMethod) {
+  filteredOrders = filteredOrders.filter((o) => {
+    const method =
+      o.paymentMethod || o.payments?.[0]?.paymentMethod || "";
+
+    return method.toLowerCase().includes(
+      filters.paymentMethod.toLowerCase()
+    );
+  });
+}
 
       if (filters.paymentStatus) {
         filteredOrders = filteredOrders.filter((o) => {
@@ -1194,20 +1194,33 @@ Clear
 
 {/* PAYMENT METHOD */}
 <select
-value={filters.paymentMethod}
-onChange={(e)=>
-setFilters(prev=>({
-...prev,
-paymentMethod:e.target.value
-}))
-}
-className={`px-3 py-2 rounded-lg text-sm text-white border bg-slate-800 min-w-[160px]
-${filters.paymentMethod ? "border-amber-500 bg-amber-500/10":"border-slate-700"}
-`}
+  value={filters.paymentMethod}
+  onChange={(e) =>
+    setFilters((prev) => ({
+      ...prev,
+      paymentMethod: e.target.value,
+    }))
+  }
+  className={`px-3 py-2 rounded-lg text-sm text-white border bg-slate-800 min-w-[160px]
+  ${filters.paymentMethod ? "border-amber-500 bg-amber-500/10" : "border-slate-700"}
+  `}
 >
-<option value="">Payment Method</option>
-<option value="CashOnDelivery">Cash on Delivery</option>
-<option value="Stripe">Stripe</option>
+  <option value="">Payment Method</option>
+
+  {/* CORE */}
+  <option value="Stripe">Stripe</option>
+  <option value="PayPal">PayPal</option>
+
+  {/* DIGITAL WALLETS */}
+  <option value="Apple Pay">Apple Pay</option>
+  <option value="Google Pay">Google Pay</option>
+
+  {/* CARD */}
+  <option value="Credit">Credit Card</option>
+  <option value="Debit">Debit Card</option>
+
+  {/* BNPL */}
+  <option value="Klarna">Klarna</option>
 </select>
 
 

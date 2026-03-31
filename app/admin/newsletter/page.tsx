@@ -38,7 +38,7 @@ export default function NewsletterPage() {
     try {
       const response = await newsletterService.getSubscriptions({
         page: 1,
-        pageSize: 10000, // Large number to get all
+        pageSize: 1000, // Large number to get all
       });
       const data = response.data?.data;
       

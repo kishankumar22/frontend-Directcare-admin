@@ -44,12 +44,15 @@ import {
   FlaskConical,
   MessageSquare,
   Eye,
+  Smartphone,
+  Wallet,
 } from 'lucide-react';
 import {
   orderService,
   Order,
   formatCurrency,
   formatDate,
+  getPaymentMethodInfo,
 } from '@/lib/services/orders';
 import { useToast } from '@/app/admin/_components/CustomToast';
 import OrderActionsModal from '../OrderActionsModal';
@@ -67,6 +70,7 @@ import PharmacyVerificationModal from '../PharmacyVerificationModal';
 
 import { API_BASE_URL } from '@/lib/api';
 import { getOrderProductImage } from '../../_utils/formatUtils';
+import PaymentModal from '../PaymentModal';
 
 // Types
 type CollectionStatus = 'Pending' | 'Ready' | 'Collected' | 'Expired';
@@ -556,6 +560,28 @@ const getAllAvailableActions = (
     category: 'financial',
   });
 
+  // 💰 PAYMENT ACTIONS
+if (order.paymentStatus === 'Pending') {
+  actions.push({
+    label: 'Mark Paid',
+    action: 'mark-paid',
+    icon: <CheckCircle className="h-3.5 w-3.5" />,
+    color: 'bg-green-600 hover:bg-green-700',
+    category: 'financial',
+  });
+}
+
+// 🔥 PARTIAL PAYMENT (Pending amount exists)
+if (order.pendingPaymentAmount > 0) {
+  actions.push({
+    label: 'Pay Pending Amount',
+    action: 'mark-pending-paid',
+    icon: <PoundSterling className="h-3.5 w-3.5" />,
+    color: 'bg-yellow-600 hover:bg-yellow-700',
+    category: 'financial',
+  });
+}
+
   actions.push({
     label: 'Download Invoice',
     action: 'download-invoice',
@@ -621,6 +647,7 @@ const RegenerateInvoiceModal = ({
 }) => {
   const [sendToCustomer, setSendToCustomer] = useState(false);
   const [notes, setNotes] = useState('');
+
 
   // ✅ ADD: Reset function
   const handleClose = () => {
@@ -755,6 +782,9 @@ const [showPharmaQA, setShowPharmaQA] = useState(false);
   const [showRegenerateInvoiceModal, setShowRegenerateInvoiceModal] = useState(false);
   const [regeneratingInvoice, setRegeneratingInvoice] = useState(false);
   const [downloadingInvoice, setDownloadingInvoice] = useState(false);
+  const [paymentModalOpen, setPaymentModalOpen] = useState(false);
+const [paymentMode, setPaymentMode] = useState<'full' | 'partial'>('full');
+const [paymentLoading, setPaymentLoading] = useState(false);
 
 // ===========================
 // FETCH ORDER DETAILS
@@ -996,6 +1026,30 @@ const handleFullRefund = async (notes: string, reason: RefundReason) => {
   }
 };
 
+const handlePaymentSubmit = async (data: any) => {
+  if (!order) return;
+
+  try {
+    setPaymentLoading(true);
+
+    if (paymentMode === 'full') {
+      await orderService.markPaymentPaid(order.id, data);
+    } else {
+      await orderService.markPendingAmountPaid(order.id, data);
+    }
+
+    toast.success('Payment updated');
+
+    setPaymentModalOpen(false);
+    await refreshAllOrderData();
+
+  } catch (err: any) {
+    toast.error(err.message);
+  } finally {
+    setPaymentLoading(false);
+  }
+};
+
 const handlePartialRefund = async (
   refundAmount: number,
   reason: RefundReason,
@@ -1043,50 +1097,75 @@ const handlePartialRefund = async (
 };
 
 const handleAction = (action: string) => {
+  // 🔥 STATUS / SHIPMENT ACTIONS
+  if (action === 'update-status' || action === 'create-shipment') {
+    setSelectedAction(action);
+    setActionModalOpen(true);
+    return;
+  }
 
+  // 🔥 INVOICE
   if (action === 'regenerate-invoice') {
     setShowRegenerateInvoiceModal(true);
     return;
   }
 
+  // 🔥 REFUND
   if (action === 'refund') {
-    // Default to the first available tab
     if (canRefund()) setRefundTab('full');
     else if (canRefundShipping) setRefundTab('shipping');
+
     setShowRefundModal(true);
     return;
   }
 
+  // 🔥 DOWNLOAD
   if (action === 'download-invoice') {
     handleDownloadInvoice();
     return;
   }
 
+  // 🔥 PAYMENT
+  if (action === 'mark-paid') {
+    setPaymentMode('full');
+    setPaymentModalOpen(true);
+    return;
+  }
+
+  if (action === 'mark-pending-paid') {
+    setPaymentMode('partial');
+    setPaymentModalOpen(true);
+    return;
+  }
+
+  // 🔥 HISTORY
   if (action === 'view-refund-history') {
     setRefundHistoryOpen(true);
-    if (!refundHistory) {
-      fetchRefundHistory();
-    }
+    if (!refundHistory) fetchRefundHistory();
     return;
   }
 
   if (action === 'view-edit-history') {
     setEditHistoryOpen(true);
-    if (editHistory.length === 0) {
-      fetchEditHistory();
-    }
+    if (editHistory.length === 0) fetchEditHistory();
     return;
   }
 
-
+  // 🔥 DEFAULT (fallback)
   setSelectedAction(action);
   setActionModalOpen(true);
 };
 
-
-const handleActionSuccess = async () => {
+const handleActionSuccess = async (nextAction?: string) => {
   setActionModalOpen(false);
-  await refreshAllOrderData(); // ✅ full sync
+
+  if (nextAction === 'create-shipment') {
+    setSelectedAction('create-shipment');
+    setActionModalOpen(true);
+    return;
+  }
+
+  await refreshAllOrderData();
 };
 
 const handleShippingRefund = async (notes: string) => {
@@ -1572,20 +1651,31 @@ const allActions = getAllAvailableActions(
               </div>
             )}
 
-            {/* Pending Payment */}
-{order.pendingPaymentAmount > 0 && (
-  <div
-    className="flex justify-between items-center bg-amber-500/10 border border-amber-500/30 px-3 py-2 rounded-lg"
-    title="Amount still pending to be paid by customer"
-  >
-    <span className="text-amber-400 font-medium flex items-center gap-1">
-      <AlertTriangle className="h-4 w-4" />
-      Pending Payment
-    </span>
 
-    <span className="text-amber-400 font-bold">
-      {formatCurrency(order.pendingPaymentAmount, order.currency)}
-    </span>
+{/* Pending Payment */}
+{order.pendingPaymentAmount > 0 && (
+  <div className=" flex items-center justify-between px-3 py-2 rounded-lg bg-amber-500/10 border border-amber-500/30">
+
+    {/* LEFT */}
+    <div className="flex items-center gap-2 text-amber-400 text-sm">
+      <AlertTriangle className="h-4 w-4" />
+      <span className="text-xs text-amber-300/80">Pending</span>
+      <span className="font-semibold">
+        {formatCurrency(order.pendingPaymentAmount, order.currency)}
+      </span>
+    </div>
+
+    {/* RIGHT */}
+    <button
+      onClick={() => {
+        setPaymentMode('partial');
+        setPaymentModalOpen(true);
+      }}
+      className="px-2.5 py-1 text-xs font-medium bg-yellow-500 hover:bg-yellow-600 text-black rounded-md transition"
+    >
+      Pay Now
+    </button>
+
   </div>
 )}
             <div className="border-t border-slate-700 pt-2 flex justify-between" title="Final amount charged to customer">
@@ -1597,69 +1687,50 @@ const allActions = getAllAvailableActions(
           </div>
 
 {/* Delivery + Payment Row */}
-<div className="mt-3 pt-3 border-t border-slate-700 grid grid-cols-1 md:grid-cols-2 gap-6">
+<div className="mt-3 pt-3 border-t border-slate-700 flex flex-col gap-2">
 
-  {/* Delivery Method */}
-  <div>
-    <p className="text-xs text-slate-400 mb-2 flex items-center gap-1">
-      <Truck className="h-3 w-3" />
-      Delivery Method
-    </p>
+  {/* Row */}
+  <div className="flex items-center justify-between text-sm">
 
-    {order.deliveryMethod === 'ClickAndCollect' ? (
-      <span
-        className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-cyan-500/10 text-cyan-400 text-sm border border-cyan-500/20 cursor-help"
-        title="Customer will collect order from store location"
-      >
-        <MapPin className="h-4 w-4" />
-        Click & Collect
+    {/* Delivery */}
+    <div className="flex items-center gap-2 text-slate-300">
+      <Truck className="h-4 w-4 text-slate-400" />
+      <span className="text-xs text-slate-400">Delivery:</span>
+      <span className="font-medium text-purple-400">
+        {order.deliveryMethod === 'ClickAndCollect'
+          ? 'Click & Collect'
+          : 'Home Delivery'}
       </span>
-    ) : (
-      <span
-        className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-purple-500/10 text-purple-400 text-sm border border-purple-500/20 cursor-help"
-        title="Order will be shipped to customer address"
-      >
-        <Truck className="h-4 w-4" />
-        Home Delivery
+    </div>
+
+    {/* Payment */}
+{(() => {
+  const method = order.paymentMethod || order.payments?.[0]?.paymentMethod;
+  const info = getPaymentMethodInfo(method);
+
+  return (
+    <div className="flex items-center gap-2 text-slate-300">
+      
+      {/* ICON */}
+      {info.icon === 'card' && (
+        <CreditCard className={`h-4 w-4 ${info.color}`} />
+      )}
+      {info.icon === 'wallet' && (
+        <Wallet className={`h-4 w-4 ${info.color}`} />
+      )}
+      {info.icon === 'phone' && (
+        <Smartphone className={`h-4 w-4 ${info.color}`} />
+      )}
+
+      {/* TEXT */}
+      <span className="text-xs text-slate-400">Payment:</span>
+      <span className={`font-medium ${info.color}`}>
+        {info.label}
       </span>
-    )}
+    </div>
+  );
+})()}
   </div>
-
-  {/* Payment Method */}
-  <div>
-    <p className="text-xs text-slate-400 mb-2 flex items-center gap-1">
-      <CreditCard className="h-3 w-3" />
-      Payment Method
-    </p>
-
-    {(() => {
-      const method = order.paymentMethod || order.payments?.[0]?.paymentMethod;
-      const isStripe = method?.toLowerCase() === 'stripe';
-
-      return (
-        <span
-          className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm border cursor-help ${
-            isStripe
-              ? 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20'
-              : 'bg-amber-500/10 text-amber-400 border-amber-500/20'
-          }`}
-          title={
-            isStripe
-              ? 'Payment via Stripe card processing'
-              : 'Cash on Delivery - payment upon receipt'
-          }
-        >
-          {isStripe ? (
-            <CreditCard className="h-4 w-4" />
-          ) : (
-            <PoundSterling className="h-4 w-4" />
-          )}
-          {isStripe ? 'Stripe' : 'Cash on Delivery'}
-        </span>
-      );
-    })()}
-  </div>
-
 </div>
 
 
@@ -2203,13 +2274,13 @@ const allActions = getAllAvailableActions(
   }}
 />
       {actionModalOpen && order && (
-        <OrderActionsModal
-          isOpen={actionModalOpen}
-          onClose={() => setActionModalOpen(false)}
-          order={order}
-          action={selectedAction}
-          onSuccess={handleActionSuccess}
-        />
+      <OrderActionsModal
+  isOpen={actionModalOpen}
+  onClose={() => setActionModalOpen(false)}
+  order={order}
+  action={selectedAction}
+  onSuccess={handleActionSuccess}
+/>
       )}
 
       {/* ✅ NEW: Regenerate Invoice Modal */}
@@ -2235,6 +2306,15 @@ const allActions = getAllAvailableActions(
   onFullRefund={(reason, notes) => handleFullRefund(notes, reason)}
   onPartialRefund={(amount, reason, notes) => handlePartialRefund(amount, reason, notes)}
   onShippingRefund={(notes) => handleShippingRefund(notes)}
+/>
+
+<PaymentModal
+  isOpen={paymentModalOpen}
+  onClose={() => setPaymentModalOpen(false)}
+  onSubmit={handlePaymentSubmit}
+  loading={paymentLoading}
+  mode={paymentMode}
+  amount={order?.pendingPaymentAmount}
 />
 
 {pharmaAction && (

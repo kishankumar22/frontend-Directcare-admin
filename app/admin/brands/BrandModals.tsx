@@ -10,6 +10,7 @@ import { Brand, brandsService } from "@/lib/services/brands";
 
 import BrandFaqManager from "./BrandFaqManager";
 import { brandFaqsService } from "@/lib/services/brandFaqs";
+import { extractFilename, formatDate } from "../_utils/formatUtils";
 
 
 const MAX_HOMEPAGE_BRANDS = 50;
@@ -75,11 +76,6 @@ const [activeTab, setActiveTab] = useState<'basic' | 'image' | 'seo' | 'settings
   const homepageBrandsCounter = brands.filter(brand => brand.showOnHomepage);
   const homepageCount = homepageBrandsCounter.length;
 
-  const extractFilename = (imageUrl: string) => {
-    if (!imageUrl) return "";
-    const parts = imageUrl.split('/');
-    return parts[parts.length - 1];
-  };
 
 useEffect(() => {
   if (showModal && initialTab) {
@@ -155,18 +151,7 @@ const handleDeleteImage = async (brandId: string, imageUrl: string) => {
     setImageDeleteConfirm(null);
   }
 };
-    const formatDate = (dateString?: string | null): string => {
-    if (!dateString) return "N/A";
-    const date = new Date(dateString);
-    if (isNaN(date.getTime())) return "N/A";
-    return date.toLocaleString("en-US", {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  };
+
 
 const handleSubmit = async (e: React.FormEvent) => {
   e.preventDefault();
