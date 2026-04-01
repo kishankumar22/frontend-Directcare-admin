@@ -105,16 +105,41 @@ export async function generateMetadata({
       : `${process.env.NEXT_PUBLIC_API_URL}${product.images[0].imageUrl}`
     : undefined;
 
-  return {
-    title: `${product.name} | Direct Care`,
-    description,
+return {
+  title: `${product.name} | Direct Care`,
 
-    openGraph: {
-      title: product.name,
-      description: description || product.name,
-      images: imageUrl ? [{ url: imageUrl }] : [],
-    },
-  };
+  description,
+
+  keywords: product.tags || product.name,
+
+  openGraph: {
+    title: product.name,
+    description: description || product.name,
+    url: `https://direct-care.co.uk/products/${product.slug}`,
+    siteName: "Direct Care",
+    images: imageUrl
+      ? [
+          {
+            url: imageUrl,
+            width: 800,
+            height: 600,
+          },
+        ]
+      : [],
+    type: "website",
+  },
+
+  twitter: {
+    card: "summary_large_image",
+    title: product.name,
+    description: description,
+    images: imageUrl ? [imageUrl] : [],
+  },
+
+  alternates: {
+    canonical: `https://direct-care.co.uk/products/${product.slug}`,
+  },
+};
 }
 
 
@@ -124,12 +149,58 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
 
   const data = await getProduct(slug);
 
-  if (!data) notFound();
+ if (!data?.product) notFound();
 
-  return (
+ return (
+  <>
+    {/* ✅ PRODUCT SCHEMA (SEO BOOST) */}
+    <script
+      type="application/ld+json"
+      dangerouslySetInnerHTML={{
+        __html: JSON.stringify({
+          "@context": "https://schema.org/",
+          "@type": "Product",
+          name: data.product.name,
+         image: data.product.images?.map((img: any) =>
+  img?.imageUrl?.startsWith("http")
+    ? img.imageUrl
+    : `${process.env.NEXT_PUBLIC_API_URL}${img?.imageUrl || ""}`
+),
+         description: (data.product.shortDescription || "")
+  .replace(/<[^>]*>/g, "")
+  .slice(0, 160),
+          sku: data.product.sku,
+          brand: {
+            "@type": "Brand",
+            name: data.product.brandName,
+          },
+          offers: {
+            "@type": "Offer",
+            url: `https://direct-care.co.uk/products/${data.product.slug}`,
+            priceCurrency: "GBP",
+            price: data.product.price,
+            availability:
+              data.product.stockQuantity > 0
+                ? "https://schema.org/InStock"
+                : "https://schema.org/OutOfStock",
+          },
+         aggregateRating:
+  data.product.averageRating > 0
+    ? {
+        "@type": "AggregateRating",
+        ratingValue: data.product.averageRating,
+        reviewCount: data.product.reviewCount || 1,
+      }
+    : undefined,
+        }),
+      }}
+    />
+
+    {/* 🔥 EXISTING UI */}
     <ProductClient 
       product={data.product}
       initialVariantId={data.selectedVariantId}
     />
-  );
+  </>
+);
 }

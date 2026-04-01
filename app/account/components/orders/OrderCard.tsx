@@ -544,7 +544,16 @@ const refundedAmount =
         <Info label="Total Items" value={order.itemsCount} />
         <Info label="Payment Method" value={order.payment?.paymentMethod ?? "Cash on delivery"} />
         <Info label="Delivery Method" value={order.deliveryMethodName} />
-
+{order.deliveryMethod === "ClickAndCollect" && (
+  <Info
+    label="Store"
+    value={
+      <span className="text-[#445D41] font-semibold">
+        {order.collectionStoreName || "Selected Store"}
+      </span>
+    }
+  />
+)}
         {order.deliveryMethod === "ClickAndCollect" && (
           <>
             <Info

@@ -7,7 +7,67 @@ interface BrandPageProps {
     slug: string;
   }>;
 }
+export async function generateMetadata({ params }: BrandPageProps) {
+  const { slug } = await params;
 
+  const res = await fetch(
+    `${process.env.NEXT_PUBLIC_API_URL}/api/Brands?includeUnpublished=false`,
+    { next: { revalidate: 600 } }
+  ).then((r) => r.json());
+
+  const dataArray = Array.isArray(res.data)
+    ? res.data
+    : res.data?.items || [];
+
+  const brand =
+    dataArray.find((b: any) => b.slug === slug) || null;
+
+  if (!brand) {
+    return {
+      title: "Brand Not Found",
+      description: "Brand not found",
+    };
+  }
+
+  return {
+    // ✅ MAIN SEO
+    title: brand.metaTitle || brand.name,
+    description:
+      brand.metaDescription ||
+      `Shop ${brand.name} products online.`,
+
+    keywords: brand.metaKeywords || brand.name,
+
+    // ✅ SOCIAL SHARE SEO
+    openGraph: {
+      title: brand.metaTitle || brand.name,
+      description: brand.metaDescription,
+      url: `https://yourdomain.com/brands/${slug}`,
+      siteName: "Your Store Name",
+      images: [
+        {
+          url: brand.logoUrl || "/fallback.jpg",
+          width: 800,
+          height: 600,
+        },
+      ],
+      type: "website",
+    },
+
+    // ✅ TWITTER SEO
+    twitter: {
+      card: "summary_large_image",
+      title: brand.metaTitle || brand.name,
+      description: brand.metaDescription,
+      images: [brand.logoUrl || "/fallback.jpg"],
+    },
+
+    // ✅ CANONICAL (VERY IMPORTANT)
+    alternates: {
+      canonical: `https://directcare.knowledgemarkg.com/brands/${slug}`,
+    },
+  };
+}
 async function getBrandProductsBySlug(slug: string) {
   const res = await fetch(
     `${process.env.NEXT_PUBLIC_API_URL}/api/Products/by-brand/${slug}?page=1&pageSize=50&sortDirection=asc&isPublished=true`,
@@ -32,8 +92,12 @@ const brandsRes = await fetch(
   { next: { revalidate: 600 } }
 ).then((r) => r.json());
 
+const dataArray = Array.isArray(brandsRes.data)
+  ? brandsRes.data
+  : brandsRes.data?.items || [];
+
 const brand =
-  brandsRes?.data?.find((b: any) => b.slug === slug) || null;
+  dataArray.find((b: any) => b.slug === slug) || null;
 
 const faqs =
   brand?.faqs

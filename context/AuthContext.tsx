@@ -28,16 +28,29 @@ interface OrderSummary {
 export type LoyaltyTier = "Bronze" | "Silver" | "Gold";
 
 export interface LoyaltyPoints {
+  id: string;
+  userId: string;
+
+  hasAccount: boolean;
+
   currentBalance: number;
   redemptionValue: number;
+
   totalPointsEarned: number;
   totalPointsRedeemed: number;
   totalPointsExpired: number;
-  tierLevel: LoyaltyTier; // ✅ FIXED
+
+  tierLevel: "Bronze" | "Silver" | "Gold";
+
   pointsToNextTier: number;
+  nextTierName?: string;
+
+  firstOrderBonusAwarded?: boolean;
+  totalReviewBonusEarned?: number;
+  totalReferralBonusEarned?: number;
+
   lastEarnedAt?: string;
   lastRedeemedAt?: string;
-  expiringPoints?: any[];
 }
 
 
@@ -104,7 +117,7 @@ const fetchProfile = async () => {
 
   try {
     const res = await fetch(
-      `https://testapi.knowledgemarkg.com/api/Customers/by-email/${encodeURIComponent(
+      `${process.env.NEXT_PUBLIC_API_URL}/api/Customers/by-email/${encodeURIComponent(
         user.email
       )}`,
       {
@@ -148,7 +161,7 @@ useEffect(() => {
   // 🔐 LOGIN (UNCHANGED)
  const login = async (email: string, password: string) => {
   const res = await fetch(
-    "https://testapi.knowledgemarkg.com/api/Auth/login",
+    `${process.env.NEXT_PUBLIC_API_URL}/api/Auth/login`,
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -170,6 +183,10 @@ useEffect(() => {
   localStorage.setItem("accessToken", data.accessToken);
   localStorage.setItem("refreshToken", data.refreshToken);
   localStorage.setItem("user", JSON.stringify(data.user));
+
+  // Use a stable user-specific cart session so cart persists across login/logout
+  localStorage.setItem("cartSessionId", `user-${data.user.id}`);
+  window.dispatchEvent(new CustomEvent("auth:login"));
 
   setUser(data.user);
   setAccessToken(data.accessToken);
@@ -197,7 +214,7 @@ useEffect(() => {
   // 🔐 REGISTER (UNCHANGED)
   const register = async (regData: any) => {
     const res = await fetch(
-      "https://testapi.knowledgemarkg.com/api/Auth/register",
+      `${process.env.NEXT_PUBLIC_API_URL}/api/Auth/register`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -224,19 +241,25 @@ useEffect(() => {
     setRefreshToken(data.refreshToken);
   };
 
-  // 🚪 LOGOUT (SAFE)
+  // 🚪 LOGOUT
   const logout = () => {
+    // Remove cartSessionId — cart stays in backend under user-{id} key for next login.
+    // Dispatch event so CartContext clears in-memory state immediately.
+    localStorage.removeItem("cartSessionId");
+    window.dispatchEvent(new CustomEvent("auth:logout"));
+
     localStorage.removeItem("accessToken");
     localStorage.removeItem("refreshToken");
     localStorage.removeItem("user");
     localStorage.removeItem("guestEmail");
- // 🔥 ADD THIS LINE (VERY IMPORTANT)
-   // 🔥 REMOVE ALL pharma_ keys
-  Object.keys(localStorage).forEach((key) => {
-    if (key.startsWith("pharma_")) {
-      localStorage.removeItem(key);
-    }
-  });
+
+    // Remove all pharma_ keys
+    Object.keys(localStorage).forEach((key) => {
+      if (key.startsWith("pharma_")) {
+        localStorage.removeItem(key);
+      }
+    });
+
     setUser(null);
     setAccessToken(null);
     setRefreshToken(null);

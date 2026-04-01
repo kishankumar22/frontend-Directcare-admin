@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { Menu, Search, Heart, ShoppingCart, User, X, ChevronDown, ChevronRight, Truck, Package, Bike, Star, BadgePercent, GiftIcon } from "lucide-react";
+import { Menu, Search, Heart, ShoppingCart, User, X, ChevronDown, ChevronRight, Truck, Package, Bike, Star, BadgePercent, GiftIcon, TruckElectric, FastForward, Zap, MapPin, Store, LucideBike, BikeIcon, Mouse, MousePointer, MousePointer2, MousePointerClickIcon } from "lucide-react";
 import MegaMenu from "./MegaMenu";
 import { useToast } from "@/components/toast/CustomToast";
 import { useCart } from "@/context/CartContext";
@@ -143,7 +143,7 @@ useEffect(() => {
     try {
       setSearchLoading(true);
       const res = await fetch(
-       `${process.env.NEXT_PUBLIC_API_URL}/api/Products/quick-search?query=${debouncedSearch}&limit=6`
+       `${process.env.NEXT_PUBLIC_API_URL}/api/Products/quick-search?query=${debouncedSearch}&limit=15`
       );
     const json = await res.json();
 console.log("SEARCH API RESPONSE 👉", json);
@@ -221,22 +221,27 @@ useEffect(() => {
           `${process.env.NEXT_PUBLIC_API_URL}/api/Categories?includeInactive=false&includeSubCategories=true`,
           { cache: "no-store" }
         );
-        const json = await res.json();
-        if (json.success) {
-          const allParents = json.data
-  .filter((cat: Category) => !cat.parentCategoryId)
-  .sort((a: any, b: any) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
+      const json = await res.json();
 
-const topCategories = allParents.filter((cat: any) => cat.showOnHomepage === true);
+if (json?.success) {
+  // 🔥 FIX: सही array निकालो
+  const dataArray = json.data?.items || [];
 
-setCategories(topCategories);
-const homepageParents = allParents.filter(
-  (cat: any) => cat.showOnHomepage === true
-);
+  // 🔥 Parent categories
+  const allParents = dataArray
+    .filter((cat: Category) => !cat.parentCategoryId)
+    .sort((a: any, b: any) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
 
-setMobileCategories(homepageParents);
+  // 🔥 Desktop (homepage only)
+  const topCategories = allParents.filter(
+    (cat: any) => cat.showOnHomepage === true
+  );
 
-        }
+  setCategories(topCategories);
+
+  // 🔥 Mobile (ALL parents)
+  setMobileCategories(allParents);
+}
       } catch (err) {
         console.error("Failed to load categories:", err);
       }
@@ -291,7 +296,10 @@ setMobileCategories(homepageParents);
         {/* Mobile Slider */}
         {isClient && (
           <div className="lg:hidden h-full flex items-center px-4">
-            <div className="flex items-center justify-center gap-3 w-full">
+          <Link
+  href={mobileTopMessages[currentMsg].link}
+  className="flex items-center justify-center gap-3 w-full"
+>
               <span className="text-white text-xl flex-shrink-0">
                 {mobileTopMessages[currentMsg].icon}
               </span>
@@ -303,7 +311,7 @@ setMobileCategories(homepageParents);
                   {mobileTopMessages[currentMsg].subtitle}
                 </span>
               </div>
-            </div>
+           </Link>
           </div>
         )}
 
@@ -315,10 +323,10 @@ setMobileCategories(homepageParents);
               className="flex items-center gap-3 cursor-pointer hover:bg-[#334a2c] py-2 px-3 rounded transition-colors duration-200"
             >
               <span className="text-white flex-shrink-0">
-                <Truck size={20} />
+                <Zap size={20} />
               </span>
               <div className="text-left leading-tight">
-                <h4 className="font-bold text-[13px] tracking-wide">NEXT DAY DELIVERY</h4>
+                <h4 className="font-bold text-[14px] tracking-wide">NEXT DAY DELIVERY</h4>
                 <p className="text-[11px] opacity-90">GET IT JUST FOR £4.49</p>
               </div>
             </a>
@@ -330,7 +338,7 @@ setMobileCategories(homepageParents);
                 <Truck size={20} />
               </span>
               <div className="text-left leading-tight">
-                <h4 className="font-bold text-[13px] tracking-wide">STANDARD DELIVERY</h4>
+                <h4 className="font-bold text-[14px] tracking-wide">STANDARD DELIVERY</h4>
                 <p className="text-[11px] opacity-90">FREE SHIPPING OVER £35</p>
               </div>
             </a>
@@ -339,10 +347,10 @@ setMobileCategories(homepageParents);
               className="flex items-center gap-3 cursor-pointer hover:bg-[#334a2c] py-2 px-3 rounded transition-colors duration-200"
             >
               <span className="text-white flex-shrink-0">
-                <Package size={20} />
+                <MousePointerClickIcon size={20} />
               </span>
               <div className="text-left leading-tight">
-                <h4 className="font-bold text-[13px] tracking-wide">CLICK & COLLECT</h4>
+                <h4 className="font-bold text-[14px] tracking-wide">CLICK & COLLECT</h4>
                 <p className="text-[11px] opacity-90">FREE ON ORDERS OVER £30</p>
               </div>
             </a>
@@ -351,10 +359,10 @@ setMobileCategories(homepageParents);
               className="flex items-center gap-3 cursor-pointer hover:bg-[#334a2c] py-2 px-3 rounded transition-colors duration-200"
             >
               <span className="text-white flex-shrink-0">
-                <Bike size={20} />
+                <BikeIcon size={20} />
               </span>
               <div className="text-left leading-tight">
-                <h4 className="font-bold text-[13px] tracking-wide">SPECIAL DELIVERY 1PM</h4>
+                <h4 className="font-bold text-[14px] tracking-wide">SPECIAL DELIVERY 1PM</h4>
                 <p className="text-[11px] opacity-90">ROYAL MAIL SPECIAL DELIVERY FOR £18.99</p>
               </div>
             </a>
@@ -479,7 +487,8 @@ setMobileCategories(homepageParents);
 
     {/* 🔽 SEARCH DROPDOWN */}
     {showSearchDropdown && (
-  <div className="absolute top-full mt-1 w-full bg-white border rounded-md shadow-xl z-[9999]">
+  <div className="absolute top-full mt-1 w-full bg-white border rounded-md shadow-xl z-[9999]
+                max-h-[490px] overflow-y-auto custom-scrollbar">
     {searchLoading && (
       <div className="p-4 text-sm text-gray-500">
         Searching...

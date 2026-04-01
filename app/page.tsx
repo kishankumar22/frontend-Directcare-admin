@@ -126,11 +126,18 @@ async function getCategories(baseUrl: string) {
       }
     );
 
-    const result = await res.json();
-    if (!result.success || !Array.isArray(result.data)) return [];
+   const result = await res.json();
 
-    // Return ALL active categories (not filtered by showOnHomepage)
-    return result.data.sort((a: any, b: any) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
+if (!result?.success) return [];
+
+// 🔥 FIX: सही array निकालो
+const dataArray = Array.isArray(result.data)
+  ? result.data
+  : result.data?.items || [];
+
+return dataArray.sort(
+  (a: any, b: any) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0)
+);
   } catch {
     return [];
   }
@@ -145,12 +152,18 @@ async function getBrands(baseUrl: string) {
       }
     );
 
-    const result = await res.json();
-    return result.success
-      ? result.data
-          .filter((b: Brand) => b.showOnHomepage)
-          .sort((a: Brand, b: Brand) => a.displayOrder - b.displayOrder)
-      : [];
+  const result = await res.json();
+
+if (!result?.success) return [];
+
+// 🔥 FIX: सही array निकालो
+const dataArray = Array.isArray(result.data)
+  ? result.data
+  : result.data?.items || [];
+
+return dataArray
+  .filter((b: Brand) => b.showOnHomepage)
+  .sort((a: Brand, b: Brand) => a.displayOrder - b.displayOrder);
   } catch {
     return [];
   }

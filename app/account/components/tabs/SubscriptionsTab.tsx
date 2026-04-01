@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/toast/CustomToast";
 import { useAuth } from "@/context/AuthContext";
-import { Pause, SkipForward, XCircle, Play } from "lucide-react";
+import { Pause, SkipForward, XCircle, Play, Pencil } from "lucide-react";
 
 const API = process.env.NEXT_PUBLIC_API_URL;
 
@@ -16,6 +16,20 @@ const toast = useToast();
   type: "cancel" | "pause" | "resume" | "skip" | null;
   id: string | null;
 }>({ type: null, id: null });
+const [cancelReason, setCancelReason] = useState("");
+const [editData, setEditData] = useState<{
+  id: string | null;
+  quantity?: number;
+  frequency?: string;
+  shippingFirstName?: string;
+  shippingLastName?: string;
+  shippingAddressLine1?: string;
+  shippingAddressLine2?: string;
+  shippingCity?: string;
+  shippingState?: string;
+  shippingPostalCode?: string;
+  shippingCountry?: string;
+}>({ id: null });
   const [loading, setLoading] = useState(true);
 
   // 🔥 FETCH SUBSCRIPTIONS
@@ -53,30 +67,35 @@ const toast = useToast();
   }, [user?.id, accessToken]);
 
   // 🔥 CANCEL
-  const handleCancel = async (id: string) => {
-    try {
-      const res = await fetch(
-        `${API}/api/Subscriptions/${id}/cancel`,
-        {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-          },
-        }
-      );
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data?.message || "Cancel failed");
+ const handleCancel = async (id: string) => {
+  try {
+    const res = await fetch(
+      `${API}/api/Subscriptions/${id}/cancel`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          cancellationReason: cancelReason || "User cancelled from panel",
+        }),
       }
+    );
 
-      toast.error(data?.message || "Subscription cancelled");
-      fetchSubscriptions();
-    } catch (err: any) {
-      toast.error(err.message || "Error cancelling subscription");
+    const data = await res.json();
+
+    if (!res.ok) {
+      throw new Error(data?.message || "Cancel failed");
     }
-  };
+
+    toast.error(data?.message || "Subscription cancelled");
+    setCancelReason(""); // reset
+    fetchSubscriptions();
+  } catch (err: any) {
+    toast.error(err.message || "Error cancelling subscription");
+  }
+};
 const handlePause = async (id: string) => {
   try {
     const res = await fetch(`${API}/api/Subscriptions/${id}/pause`, {
@@ -136,6 +155,48 @@ const handleSkip = async (id: string) => {
     toast.error(err.message || "Error skipping delivery");
   }
 };
+const handleUpdateSubscription = async () => {
+  if (!editData.id) return;
+
+  try {
+  const payload: any = {};
+
+Object.entries(editData).forEach(([key, value]) => {
+  if (key !== "id" && value !== undefined && value !== "") {
+    payload[key] = value;
+  }
+});
+
+    if (Object.keys(payload).length === 0) {
+      toast.error("Nothing to update");
+      return;
+    }
+
+    const res = await fetch(
+      `${API}/api/Subscriptions/${editData.id}`,
+      {
+        method: "PUT",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+      }
+    );
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      throw new Error(data?.message || "Update failed");
+    }
+
+    toast.success("Subscription updated");
+    setEditData({ id: null });
+    fetchSubscriptions();
+  } catch (err: any) {
+    toast.error(err.message || "Error updating subscription");
+  }
+};
   // 🔥 LOADING
   if (loading) {
     return (
@@ -175,12 +236,45 @@ const handleSkip = async (id: string) => {
   key={item.id}
   className="border rounded-xl p-3 sm:p-4 shadow-sm bg-white flex gap-3 sm:gap-4 w-full min-w-0"
 >
-  {/* IMAGE */}
+<div className="flex flex-col items-center flex-shrink-0">
   <img
-    src={`${API}${item.productImageUrl}`}
-    className="w-14 h-14 sm:w-20 sm:h-20 object-cover rounded-lg flex-shrink-0"
+    src={
+      item.productImageUrl?.startsWith("http")
+        ? item.productImageUrl
+        : `${API}${item.productImageUrl}`
+    }
+    className="w-14 h-14 sm:w-20 sm:h-20 object-cover rounded-lg"
   />
 
+  <span className="mt-1 text-[10px] sm:text-xs text-gray-600 font-medium">
+    Qty: {item.quantity}
+  </span>
+
+  {/* 🔥 MOBILE EDIT BUTTON */}
+  {(item.status === "Active" || item.status === "Paused") && (
+    <button
+      onClick={() =>
+        setEditData({
+          id: item.id,
+          quantity: item.quantity,
+          frequency: item.frequency,
+          shippingFirstName: item.shippingFirstName,
+          shippingLastName: item.shippingLastName,
+          shippingAddressLine1: item.shippingAddressLine1,
+          shippingAddressLine2: item.shippingAddressLine2,
+          shippingCity: item.shippingCity,
+          shippingState: item.shippingState,
+          shippingPostalCode: item.shippingPostalCode,
+          shippingCountry: item.shippingCountry,
+        })
+      }
+      className="mt-1 flex items-center gap-1 text-[9px] px-2 py-[2px] rounded-md bg-gray-100 text-gray-700 sm:hidden"
+    >
+        <Pencil size={10} />
+      Edit
+    </button>
+  )}
+</div>
   {/* DETAILS */}
   <div className="flex-1 min-w-0">
   <p className="font-semibold text-sm sm:text-base leading-snug line-clamp-2 break-words">
@@ -244,6 +338,7 @@ const handleSkip = async (id: string) => {
       </button>
     </>
   )}
+  
 </div>
     <p className="hidden sm:block text-[10px] text-gray-400 mt-1 line-clamp-1">
       {item.shippingFullAddress}
@@ -251,7 +346,7 @@ const handleSkip = async (id: string) => {
   </div>
 
   {/* RIGHT SIDE */}
-  <div className="flex flex-col items-end gap-1 sm:gap-2 shrink-0">
+  <div className="flex flex-col items-end gap-1 sm:gap-1 shrink-0">
 
     {/* STATUS */}
     <span
@@ -268,9 +363,11 @@ const handleSkip = async (id: string) => {
 
     {/* PRICE */}
     <p className="font-semibold text-sm sm:text-base whitespace-nowrap">
-      £{item.discountedPrice?.toFixed(2)}
+      £{(item.discountedPrice * item.quantity).toFixed(2)}
     </p>
-
+{/* <p className="text-[10px] text-gray-500">
+  {item.quantity} × £{item.discountedPrice.toFixed(2)}
+</p> */}
     {/* ACTIONS */}
     <div className="hidden sm:flex flex-wrap justify-end gap-1 mt-1">
 
@@ -321,6 +418,29 @@ const handleSkip = async (id: string) => {
           </button>
         </>
       )}
+  {(item.status === "Active" || item.status === "Paused") && (
+<button
+  onClick={() =>
+    setEditData({
+      id: item.id,
+      quantity: item.quantity,
+      frequency: item.frequency,
+      shippingFirstName: item.shippingFirstName,
+      shippingLastName: item.shippingLastName,
+      shippingAddressLine1: item.shippingAddressLine1,
+      shippingAddressLine2: item.shippingAddressLine2,
+      shippingCity: item.shippingCity,
+      shippingState: item.shippingState,
+      shippingPostalCode: item.shippingPostalCode,
+      shippingCountry: item.shippingCountry,
+    })
+  }
+  className="flex items-center gap-1 text-xs px-3 py-1 rounded-md bg-gray-100 text-gray-700 hover:bg-gray-200 transition whitespace-nowrap"
+>
+  <Pencil size={12} />
+  Edit
+</button>
+)}
     </div>
   </div>
 </div>
@@ -363,7 +483,14 @@ const handleSkip = async (id: string) => {
           <p className="text-sm text-gray-600 mt-1 leading-relaxed">
             {confirmAction.type === "cancel" &&
               "This will permanently cancel your subscription. You won’t receive future deliveries."}
-
+{confirmAction.type === "cancel" && (
+  <textarea
+    placeholder="Reason (optional)"
+    value={cancelReason}
+    onChange={(e) => setCancelReason(e.target.value)}
+    className="w-full mt-3 border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-400"
+  />
+)}
             {confirmAction.type === "pause" &&
               "Your subscription will be paused. You can resume anytime from your account."}
 
@@ -380,7 +507,10 @@ const handleSkip = async (id: string) => {
       <div className="flex justify-end gap-2 mt-6">
 
         <button
-          onClick={() => setConfirmAction({ type: null, id: null })}
+        onClick={() => {
+  setConfirmAction({ type: null, id: null });
+  setCancelReason("");
+}}
           className="px-4 py-2 text-sm rounded-lg border hover:bg-gray-100 transition"
         >
           Cancel
@@ -396,7 +526,8 @@ const handleSkip = async (id: string) => {
             if (type === "resume") await handleResume(id);
             if (type === "skip") await handleSkip(id);
 
-            setConfirmAction({ type: null, id: null });
+           setConfirmAction({ type: null, id: null });
+setCancelReason("");
           }}
           className={`px-4 py-2 text-sm rounded-lg text-white transition ${
             confirmAction.type === "cancel"
@@ -412,6 +543,166 @@ const handleSkip = async (id: string) => {
         </button>
 
       </div>
+    </div>
+  </div>
+)}
+{editData.id && (
+  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+    <div className="bg-white w-[95%] max-w-md rounded-2xl shadow-xl p-4 sm:p-5 max-h-[90vh] overflow-y-auto">
+
+      <h3 className="text-base sm:text-lg font-semibold mb-3">
+        Update Subscription
+      </h3>
+
+      <div className="grid grid-cols-2 gap-2">
+
+        {/* Quantity */}
+        <div>
+          <label className="text-[10px] font-medium">Qty</label>
+          <input
+            type="number"
+            value={editData.quantity || ""}
+            onChange={(e) =>
+              setEditData((prev) => ({
+                ...prev,
+                quantity: Number(e.target.value),
+              }))
+            }
+            className="w-full border rounded-md px-2 py-1 text-xs"
+          />
+        </div>
+
+        {/* Frequency */}
+        <div>
+          <label className="text-[10px] font-medium">Frequency</label>
+          <input
+            type="text"
+            value={editData.frequency || ""}
+            onChange={(e) =>
+              setEditData((prev) => ({
+                ...prev,
+                frequency: e.target.value,
+              }))
+            }
+            className="w-full border rounded-md px-2 py-1 text-xs"
+          />
+        </div>
+
+        {/* First Name */}
+        <div>
+          <label className="text-[10px] font-medium">First Name</label>
+          <input
+            type="text"
+            value={editData.shippingFirstName || ""}
+            onChange={(e) =>
+              setEditData((prev) => ({
+                ...prev,
+                shippingFirstName: e.target.value,
+              }))
+            }
+            className="w-full border rounded-md px-2 py-1 text-xs"
+          />
+        </div>
+
+        {/* Last Name */}
+        <div>
+          <label className="text-[10px] font-medium">Last Name</label>
+          <input
+            type="text"
+            value={editData.shippingLastName || ""}
+            onChange={(e) =>
+              setEditData((prev) => ({
+                ...prev,
+                shippingLastName: e.target.value,
+              }))
+            }
+            className="w-full border rounded-md px-2 py-1 text-xs"
+          />
+        </div>
+
+        {/* Address */}
+        <div className="col-span-2">
+          <label className="text-[10px] font-medium">Address</label>
+          <input
+            type="text"
+            value={editData.shippingAddressLine1 || ""}
+            onChange={(e) =>
+              setEditData((prev) => ({
+                ...prev,
+                shippingAddressLine1: e.target.value,
+              }))
+            }
+            className="w-full border rounded-md px-2 py-1 text-xs"
+          />
+        </div>
+
+        {/* City */}
+        <div>
+          <label className="text-[10px] font-medium">City</label>
+          <input
+            type="text"
+            value={editData.shippingCity || ""}
+            onChange={(e) =>
+              setEditData((prev) => ({
+                ...prev,
+                shippingCity: e.target.value,
+              }))
+            }
+            className="w-full border rounded-md px-2 py-1 text-xs"
+          />
+        </div>
+
+        {/* Postal Code */}
+        <div>
+          <label className="text-[10px] font-medium">Postal</label>
+          <input
+            type="text"
+            value={editData.shippingPostalCode || ""}
+            onChange={(e) =>
+              setEditData((prev) => ({
+                ...prev,
+                shippingPostalCode: e.target.value,
+              }))
+            }
+            className="w-full border rounded-md px-2 py-1 text-xs"
+          />
+        </div>
+
+        {/* Country */}
+        <div className="col-span-2">
+          <label className="text-[10px] font-medium">Country</label>
+          <input
+            type="text"
+            value={editData.shippingCountry || ""}
+            onChange={(e) =>
+              setEditData((prev) => ({
+                ...prev,
+                shippingCountry: e.target.value,
+              }))
+            }
+            className="w-full border rounded-md px-2 py-1 text-xs"
+          />
+        </div>
+
+      </div>
+
+      {/* ACTION BUTTONS */}
+      <div className="flex justify-end gap-2 mt-4">
+        <button
+          onClick={() => setEditData({ id: null })}
+          className="px-3 py-1.5 text-xs border rounded-lg hover:bg-gray-100"
+        >
+          Cancel
+        </button>
+
+        <button
+          onClick={handleUpdateSubscription}
+          className="px-3 py-1.5 text-xs bg-black text-white rounded-lg hover:bg-gray-800"
+        >
+          Update
+        </button>
+      </div>
+
     </div>
   </div>
 )}

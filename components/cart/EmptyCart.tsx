@@ -38,7 +38,7 @@ export default function EmptyCart() {
 
       {/* CTA Button */}
       <Link
-        href="/products"
+        href="/"
         className="inline-flex items-center gap-2 bg-[#445D41] hover:bg-black text-white px-8 py-3 rounded-xl text-sm font-semibold transition-all shadow-md"
       >
         Continue Shopping

@@ -269,12 +269,12 @@ toast.success(data?.message || "Profile updated successfully");
 </div>
 
       {/* STATS */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Stat icon={<ShoppingBag />} label="Total Orders" value={user.totalOrders ?? 0} />
-        <Stat icon={<PoundSterling />} label="Total Spent" value={`£${user.totalSpent?.toFixed(2) ?? "0.00"}`} />
-        <Stat icon={<Gift />} label="Loyalty Points" value={`${user.loyaltyPoints?.currentBalance ?? 0} pts`} />
-        <Stat icon={<Calendar />} label="Member Since" value={user.createdAt ? new Date(user.createdAt).toLocaleDateString() : "-"} />
-      </div>
+     <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
+  <Stat icon={<ShoppingBag />} label="Total Orders" value={user.totalOrders ?? 0} />
+  <Stat icon={<PoundSterling />} label="Total Spent" value={`£${user.totalSpent?.toFixed(2) ?? "0.00"}`} />
+  <Stat icon={<Gift />} label="Loyalty Points" value={`${user.loyaltyPoints?.currentBalance ?? 0} pts`} />
+  <Stat icon={<Calendar />} label="Member Since" value={user.createdAt ? new Date(user.createdAt).toLocaleDateString() : "-"} />
+</div>
 
       {/* DETAILS */}
       <div className="bg-white rounded-xl border shadow-sm divide-y">

@@ -5,22 +5,22 @@ import React from "react";
 
 const reasons = [
   {
-    icon: "https://direct-care.co.uk/wp-content/uploads/2025/02/Fast-Reliable-Delivery.webp",
+    icon: "/icons/Fast-Reliable-Delivery.webp",
     title: "Fast & Reliable Delivery",
     description: "Get your order quickly with standard or next-day delivery options",
   },
   {
-    icon: "https://direct-care.co.uk/wp-content/uploads/2025/02/30-Day-Hassle-Free-Returns.webp",
+    icon: "/icons/30-Day-Hassle-Free-Returns.webp",
     title: "30-Day Hassle-Free Returns",
     description: "Shop with confidence and return within 30 days if needed.",
   },
   {
-    icon: "https://direct-care.co.uk/wp-content/uploads/2025/02/Best-Prices-Guaranteed.webp",
+    icon: "/icons/Best-Prices-Guaranteed.webp",
     title: "Best Prices Guaranteed",
     description: "Competitive pricing on all health & personal care products.",
   },
   {
-    icon: "https://direct-care.co.uk/wp-content/uploads/2025/02/24-7-Customer-Support.webp",
+    icon: "/icons/24-7-Customer-Support.webp",
     title: "Dedicated Customer Support",
     description: "Our team is available to assist you [Mon-Sat, 8 AM - 8 PM].",
   },

@@ -260,9 +260,9 @@ className={`flex items-start sm:items-center gap-2 rounded-md px-3 sm:px-4 py-2 
       <MapPin className="w-5 h-5 mt-1 text-gray-500" />
       <div className="text-sm">
         <p className="font-semibold  text-lg mb-1">Store Location</p>
-        <p className="font-medium">Spacebox Business Park Unit E 38</p>
-        <p>Plume Street, Birmingham</p>
-        <p>B6 7RT</p>
+       <p className="font-medium">
+  {order.collectionStoreName || "Selected Store"}
+</p>
       </div>
     </div>
 

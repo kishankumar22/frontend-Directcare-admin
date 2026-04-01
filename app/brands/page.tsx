@@ -1,5 +1,3 @@
-// app/brands/page.tsx
-
 import BrandsClient from "@/components/BrandsClient";
 
 interface Brand {
@@ -17,9 +15,40 @@ async function getAllBrands(baseUrl: string): Promise<Brand[]> {
       { cache: "no-store" }
     );
 
-    const result = await res.json();
-    return result.success ? result.data : [];
-  } catch {
+    // ✅ response fail handle
+    if (!res.ok) {
+      console.error("Brands API failed:", res.status);
+      return [];
+    }
+
+    // ✅ safe parsing
+    const text = await res.text();
+
+    if (!text) {
+      console.error("Empty brands response");
+      return [];
+    }
+
+    let result: any;
+    try {
+      result = JSON.parse(text);
+    } catch (err) {
+      console.error("Invalid JSON from Brands API:", text);
+      return [];
+    }
+
+    // ✅ FINAL FIX (IMPORTANT)
+    if (result?.success) {
+      // case 1: direct array
+      if (Array.isArray(result.data)) return result.data;
+
+      // case 2: { items: [] }
+      if (Array.isArray(result.data?.items)) return result.data.items;
+    }
+
+    return [];
+  } catch (err) {
+    console.error("Brands fetch failed:", err);
     return [];
   }
 }

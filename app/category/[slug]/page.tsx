@@ -15,15 +15,22 @@ interface SearchParams {
   discount?: string;
 }
 
+type BreadcrumbItem = {
+  label: string;
+  href: string;
+};
+
 /* =====================
-   Helpers (CATEGORY TREE)
+   Helpers
 ===================== */
 
 function findCategoryBySlug(categories: any[], slug: string): any | null {
+  if (!Array.isArray(categories)) return null;
+
   for (const cat of categories) {
     if (cat.slug === slug) return cat;
 
-    if (Array.isArray(cat.subCategories) && cat.subCategories.length > 0) {
+    if (cat.subCategories?.length) {
       const found = findCategoryBySlug(cat.subCategories, slug);
       if (found) return found;
     }
@@ -36,14 +43,14 @@ function findCategoryPath(
   slug: string,
   path: any[] = []
 ): any[] | null {
+  if (!Array.isArray(categories)) return null;
+
   for (const cat of categories) {
     const newPath = [...path, cat];
 
-    if (cat.slug === slug) {
-      return newPath;
-    }
+    if (cat.slug === slug) return newPath;
 
-    if (Array.isArray(cat.subCategories) && cat.subCategories.length > 0) {
+    if (cat.subCategories?.length) {
       const result = findCategoryPath(cat.subCategories, slug, newPath);
       if (result) return result;
     }
@@ -52,7 +59,24 @@ function findCategoryPath(
 }
 
 /* =====================
-   Products Fetch
+   SHARED FETCH (FIXED)
+===================== */
+
+async function getCategoriesTree() {
+  const res = await fetch(
+    `${process.env.NEXT_PUBLIC_API_URL}/api/Categories?includeInactive=false&includeSubCategories=true`,
+    { next: { revalidate: 600 } }
+  );
+
+  const json = await res.json();
+
+  return Array.isArray(json.data)
+    ? json.data
+    : json.data?.items || [];
+}
+
+/* =====================
+   Products Fetch (FIXED)
 ===================== */
 
 async function getProducts(
@@ -77,27 +101,24 @@ async function getProducts(
 
   const res = await fetch(
     `${process.env.NEXT_PUBLIC_API_URL}/api/Products?${query.toString()}`,
-    { cache: "no-store" }
+    { next: { revalidate: 60 } } // ✅ removed no-store
   );
 
   return res.json();
 }
 
 /* =====================
-   Metadata
+   Metadata (FIXED)
 ===================== */
 
 export async function generateMetadata({ params, searchParams }: any) {
   const { slug } = await params;
   const resolvedSearchParams = await searchParams;
+
+  const categories = await getCategoriesTree();
+  const category = findCategoryBySlug(categories, slug);
+
   const discount = resolvedSearchParams?.discount;
-
-  const categoriesRes = await fetch(
-    `${process.env.NEXT_PUBLIC_API_URL}/api/Categories?includeInactive=false&includeSubCategories=true`,
-    { next: { revalidate: 600 } }
-  ).then((r) => r.json());
-
-  const category = findCategoryBySlug(categoriesRes.data, slug);
 
   if (!category) {
     return {
@@ -110,12 +131,13 @@ export async function generateMetadata({ params, searchParams }: any) {
     title: discount
       ? `${category.name} – ${discount}% OFF`
       : category.metaTitle || category.name,
-    description: category.metaDescription || category.description || "",
+    description:
+      category.metaDescription || category.description || "",
   };
 }
 
 /* =====================
-   Loading UI
+   Loading
 ===================== */
 
 function Loading() {
@@ -127,7 +149,7 @@ function Loading() {
 }
 
 /* =====================
-   Page
+   Page (FINAL FIX)
 ===================== */
 
 export default async function CategoryPage({
@@ -140,88 +162,52 @@ export default async function CategoryPage({
   const { slug } = await params;
   const searchParamsResolved = await searchParams;
 
-  const discount = searchParamsResolved.discount
+  const discount = searchParamsResolved?.discount
     ? Number(searchParamsResolved.discount)
     : null;
 
-  // ✅ Fetch category tree ONCE
-  const categoriesRes = await fetch(
-    `${process.env.NEXT_PUBLIC_API_URL}/api/Categories?includeInactive=false&includeSubCategories=true`,
-    { next: { revalidate: 600 } }
-  ).then((r) => r.json());
+  const [categories, productsRes, vatRatesRes] = await Promise.all([
+    getCategoriesTree(),
+    getProducts(searchParamsResolved, slug),
+    fetch(
+      `${process.env.NEXT_PUBLIC_API_URL}/api/VATRates?activeOnly=true`,
+      { next: { revalidate: 600 } }
+    ).then((r) => r.json()),
+  ]);
 
-  const category = findCategoryBySlug(categoriesRes.data, slug);
+  const category = findCategoryBySlug(categories, slug);
   if (!category) return notFound();
 
-  const categoryPath =
-    findCategoryPath(categoriesRes.data, slug) || [];
+  const categoryPath = findCategoryPath(categories, slug) || [];
 
-  const breadcrumbs = [
+  const breadcrumbs: BreadcrumbItem[] = [
     { label: "Home", href: "/" },
     ...categoryPath.slice(0, -1).map((c: any) => ({
       label: c.name,
       href: `/category/${c.slug}`,
     })),
-    { label: categoryPath.at(-1)?.name || category.name },
+    {
+      label: categoryPath.at(-1)?.name || category.name,
+      href: `/category/${slug}`,
+    },
   ];
 
-  const productsRes = await getProducts(searchParamsResolved, slug);
-
-  const vatRatesRes = await fetch(
-    `${process.env.NEXT_PUBLIC_API_URL}/api/VATRates?activeOnly=true`,
-    { next: { revalidate: 600 } }
-  ).then((r) => r.json());
-
- return (
-  <Suspense fallback={<Loading />}>
-
-    {/* ✅ SEO: CATEGORY DESCRIPTION (SERVER SIDE) */}
-    {category?.description && (
-      <div style={{ display: "none" }}>
-        <div dangerouslySetInnerHTML={{ __html: category.description }} />
-      </div>
-    )}
-
-    {/* ✅ SEO: FAQ SCHEMA */}
-    {(category as any)?.faqs?.length > 0 && (
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{
-          __html: JSON.stringify({
-            "@context": "https://schema.org",
-            "@type": "FAQPage",
-            "mainEntity": (category as any).faqs
-              .filter((f: any) => f.isActive)
-              .sort((a: any, b: any) => a.displayOrder - b.displayOrder)
-              .map((faq: any) => ({
-                "@type": "Question",
-                "name": faq.question,
-                "acceptedAnswer": {
-                  "@type": "Answer",
-                  "text": faq.answer,
-                },
-              })),
-          }),
-        }}
+  return (
+    <Suspense fallback={<Loading />}>
+      <CategoryClient
+        category={category}
+        breadcrumbs={breadcrumbs}
+        initialProducts={productsRes.data?.items ?? []}
+        totalCount={productsRes.data?.totalCount ?? 0}
+        currentPage={productsRes.data?.page ?? 1}
+        pageSize={productsRes.data?.pageSize ?? 20}
+        totalPages={productsRes.data?.totalPages ?? 1}
+        initialSortBy={searchParamsResolved.sortBy || "name"}
+        initialSortDirection={searchParamsResolved.sortDirection || "asc"}
+        brands={category.brands ?? []}
+        vatRates={vatRatesRes.data || []}
+        discount={discount}
       />
-    )}
-
-    {/* 🔥 EXISTING CODE (UNCHANGED) */}
-    <CategoryClient
-      category={category}
-      breadcrumbs={breadcrumbs}
-      initialProducts={productsRes.data?.items ?? []}
-      totalCount={productsRes.data?.totalCount ?? 0}
-      currentPage={productsRes.data?.page ?? 1}
-      pageSize={productsRes.data?.pageSize ?? 20}
-      totalPages={productsRes.data?.totalPages ?? 1}
-      initialSortBy={searchParamsResolved.sortBy || "name"}
-      initialSortDirection={searchParamsResolved.sortDirection || "asc"}
-      brands={category.brands ?? []}
-      vatRates={vatRatesRes.data || []}
-      discount={discount}
-    />
-
-  </Suspense>
-);
+    </Suspense>
+  );
 }

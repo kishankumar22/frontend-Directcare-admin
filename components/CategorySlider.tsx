@@ -64,7 +64,7 @@ export default function CategorySlider({
           1024: { slidesPerView: 4 },
           1280: { slidesPerView: 5 },
         }}
-        autoplay={{ delay: 2500, disableOnInteraction: false }}
+        autoplay={{ delay: 2500, disableOnInteraction: false, pauseOnMouseEnter: true }}
         navigation={{
           prevEl: "#catPrev",
           nextEl: "#catNext",

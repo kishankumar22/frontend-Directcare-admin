@@ -64,6 +64,7 @@ export default function LoyaltyPointsTab({ loyalty }: Props) {
     totalPointsExpired,
     tierLevel,
     pointsToNextTier,
+     nextTierName,   // ✅ ADD THIS
     lastEarnedAt,
     lastRedeemedAt,
   } = loyalty;
@@ -181,7 +182,30 @@ export default function LoyaltyPointsTab({ loyalty }: Props) {
         />
        
       </div>
+      {(loyalty.totalReviewBonusEarned || loyalty.totalReferralBonusEarned) && (
+  <div className="bg-white border rounded-xl p-5 shadow-sm text-sm text-gray-600">
+    {(loyalty.totalReviewBonusEarned ?? 0) > 0 && (
+      <p>Review Bonus Earned: {loyalty.totalReviewBonusEarned} pts</p>
+    )}
+   {(loyalty.totalReferralBonusEarned ?? 0) > 0 && (
+      <p>Referral Bonus Earned: {loyalty.totalReferralBonusEarned} pts</p>
+    )}
+  </div>
+)}
+{pointsToNextTier > 0 && nextTierName && (
+  <div className="bg-white border rounded-xl p-5 shadow-sm">
+    <div className="flex items-center gap-2 text-sm text-gray-700 mb-2">
+      <TrendingUp size={16} />
+      Progress to {nextTierName}
+    </div>
 
+    <p className="text-sm text-gray-600">
+      Earn{" "}
+      <strong>{pointsToNextTier.toLocaleString()} more points</strong>{" "}
+      to reach <strong>{nextTierName}</strong> tier 🚀
+    </p>
+  </div>
+)}
     <div className="bg-white border rounded-xl p-6 shadow-sm">
   <h3 className="text-sm font-medium text-gray-700 mb-4">
     Activity Timeline

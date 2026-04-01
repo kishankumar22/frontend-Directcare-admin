@@ -10,6 +10,7 @@ import { useRouter } from "next/navigation";
 import EmptyCart from "@/components/cart/EmptyCart";
 import { ShoppingBag } from "lucide-react";
 import SavedAddressesSection from "@/components/checkout/SavedAddressesSection";
+import LoyaltyRedemptionBox from "@/components/checkout/LoyaltyRedemptionBox";
 import { getPharmaSessionId } from "@/app/lib/pharmaSession";
 // ---------- Types ----------
 type AddressSuggestion = {
@@ -313,6 +314,9 @@ export default function CheckoutPage() {
   const [billingCountry, setBillingCountry] = useState("United Kingdom");
   //delivery methods
 const [deliveryMethod, setDeliveryMethod] = useState<"HomeDelivery" | "ClickAndCollect">("HomeDelivery");
+const [stores, setStores] = useState<any[]>([]);
+const [selectedStoreId, setSelectedStoreId] = useState<string | null>(null);
+const [storeLoading, setStoreLoading] = useState(false);
   // Shipping quote options
 const [shippingOptions, setShippingOptions] = useState<any[]>([]);
 const [selectedShippingOption, setSelectedShippingOption] = useState<any | null>(null);
@@ -413,17 +417,37 @@ const [orderSummary, setOrderSummary] = useState<{
 // ✅ Terms & Newsletter states
 const [acceptTerms, setAcceptTerms] = useState(true);
 const [subscribeNewsletter, setSubscribeNewsletter] = useState(false);
-
+const [pointsDiscount, setPointsDiscount] = useState(0);
+const [pointsToRedeem, setPointsToRedeem] = useState(0);
   // 🔹 BUY NOW ITEM (frontend-only)
-const buyNowItem =
-  typeof window !== "undefined"
-    ? JSON.parse(sessionStorage.getItem("buyNowItem") || "null")
-    : null;
+// ✅ BUY NOW SAFE STATE
+const [buyNowItem, setBuyNowItem] = useState<any>(null);
 
-const isBuyNowFlow = Boolean(buyNowItem);
+useEffect(() => {
+  const stored = sessionStorage.getItem("buyNowItem");
+
+  if (stored) {
+    try {
+      setBuyNowItem(JSON.parse(stored));
+    } catch {
+      setBuyNowItem(null);
+    }
+  }
+}, []);
+const isBuyNowFlow = !!buyNowItem;
+
 const checkoutItems = isBuyNowFlow
   ? [buyNowItem]
   : cart;
+useEffect(() => {
+  return () => {
+    sessionStorage.removeItem("buyNowItem");
+    setBuyNowItem(null); // 🔥 ADD THIS
+  };
+}, []);
+useEffect(() => {
+  console.log("CHECK ITEMS", checkoutItems);
+}, [checkoutItems]);
 // 🔥 PHARMA CHECK
 const hasPharmaProduct = useMemo(() => {
   return checkoutItems.some(
@@ -501,11 +525,27 @@ const cartDiscount = useMemo(() => {
 const allSupportNextDay = useMemo(() =>
   checkoutItems.length > 0 && checkoutItems.every(i => i.nextDayDeliveryEnabled === true),
   [checkoutItems]);
+  const allNextDayFree = useMemo(() =>
+  checkoutItems.length > 0 &&
+  checkoutItems.every(i => i.nextDayDeliveryFree === true),
+  [checkoutItems]
+);
 const allSupportSameDay = useMemo(() =>
   checkoutItems.length > 0 && checkoutItems.every(i => i.sameDayDeliveryEnabled === true),
   [checkoutItems]);
 
-const shippingCost = deliveryMethod === "ClickAndCollect" ? 0 : (selectedShippingOption?.price ?? 0);
+const shippingCost = useMemo(() => {
+  if (!selectedShippingOption) return 0;
+
+  const isNextDay =
+    selectedShippingOption?.deliveryOptionId === "451bb725-19f7-441a-9dd0-d282cf268397";
+
+  if (isNextDay && allNextDayFree) {
+    return 0;
+  }
+
+  return selectedShippingOption.price ?? 0;
+}, [selectedShippingOption, allNextDayFree]);
 
 const cartTotalAmount = useMemo(() => {
   return (
@@ -522,6 +562,7 @@ const cartTotalAmount = useMemo(() => {
   shippingCost,
   clickAndCollectFee
 ]);
+const finalPayableAmount = cartTotalAmount - pointsDiscount;
 const checkoutVatAmount = useMemo(() => {
   return checkoutItems.reduce((sum, item) => {
     const rate =
@@ -550,35 +591,95 @@ useEffect(() => {
   const timer = setTimeout(async () => {
     try {
       setShippingQuoteLoading(true);
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/shipping/quote`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ postcode, totalWeight: 0.5, cartValue, itemCount }),
-      });
+const res = await fetch(
+  `${process.env.NEXT_PUBLIC_API_URL}/api/Shipping/quote?postcode=${encodeURIComponent(postcode)}&orderTotal=${cartValue}`
+);
       const json = await res.json();
-      if (json?.data?.availableOptions) {
-        // Filter options based on cart items' delivery flags
-        const filtered = (json.data.availableOptions as any[]).filter(opt => {
-          const sc = (opt.serviceCode ?? "").toLowerCase();
-          if (sc.includes("nextday") || sc.includes("next_day") || sc.includes("next-day")) {
-            return allSupportNextDay;
-          }
-          if (sc.includes("sameday") || sc.includes("same_day") || sc.includes("same-day")) {
-            return allSupportSameDay;
-          }
-          return true; // standard always shown
-        });
-        setShippingOptions(filtered);
-        // Auto-select cheapest
-        if (filtered.length > 0) setSelectedShippingOption(filtered[0]);
-      }
+    if (json?.success && Array.isArray(json.data)) {
+  let options = json.data;
+
+  // 🔥 filter based on cart capability
+  options = options.filter((opt: any) => {
+    const name = (opt.name || "").toLowerCase();
+
+    if (name.includes("next")) return allSupportNextDay;
+    if (name.includes("same")) return allSupportSameDay;
+
+    return true;
+  });
+
+  // 🔥 sort by displayOrder
+  options.sort((a: any, b: any) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0));
+
+  setShippingOptions(options);
+
+  if (options.length > 0) {
+    setSelectedShippingOption(options[0]);
+  }
+}
     } catch { /* silent */ } finally {
       setShippingQuoteLoading(false);
     }
   }, 600);
   return () => clearTimeout(timer);
 }, [billingPostalCode, shippingPostalCode, shippingSameAsBilling, deliveryMethod, allSupportNextDay, allSupportSameDay]);
+useEffect(() => {
+  if (deliveryMethod !== "ClickAndCollect") {
+    setStores([]);
+    setSelectedStoreId(null);
+    return;
+  }
 
+const fetchStores = async () => {
+  try {
+    setStoreLoading(true);
+
+    const res = await fetch(
+      `${process.env.NEXT_PUBLIC_API_URL}/api/StoreLocations?includeInactive=false`
+    );
+
+    // ❌ अगर response hi fail ho gaya (500, 404 etc)
+    if (!res.ok) {
+      console.error("Store API failed with status:", res.status);
+      setStores([]); // 👈 ADD THIS
+      return;
+    }
+
+    // 🔥 SAFE parsing
+    const text = await res.text();
+
+    if (!text) {
+      console.error("Empty StoreLocations response");
+      setStores([]); // 👈 ADD THIS
+      return;
+    }
+
+    let json: any;
+    try {
+      json = JSON.parse(text);
+    } catch (err) {
+      console.error("Invalid JSON from StoreLocations:", text);
+      setStores([]); // 👈 ADD THIS
+      return;
+    }
+
+    // ✅ VALID DATA CHECK
+    if (json?.success && Array.isArray(json.data)) {
+      const activeStores = json.data.filter((s: any) => s.isActive === true);
+      setStores(activeStores);
+    } else {
+      console.error("Unexpected store response format:", json);
+    }
+
+  } catch (err) {
+    console.error("Store fetch failed:", err);
+  } finally {
+    setStoreLoading(false);
+  }
+};
+
+  fetchStores();
+}, [deliveryMethod]);
   // --- NEW: prefill billing email from localStorage (Continue as Guest) ---
  useEffect(() => {
   if (isAuthenticated && user?.email) {
@@ -770,7 +871,11 @@ if (!isAuthenticated && hasPharmaProduct) {
    unitPrice: c.priceBeforeDiscount ?? c.price ?? c.finalPrice,
     }));
     return {
-      deliveryMethod,  // ADD THIS LINE    
+      deliveryMethod,  // ADD THIS LINE
+      collectionStoreId:
+  deliveryMethod === "ClickAndCollect"
+    ? selectedStoreId
+    : null,    
       paymentMethod: paymentMethod === "card" ? "Card" : "CashOnDelivery", // 🔥 ADD THIS
       customerEmail: billingEmail,
       customerPhone: `+44${billingPhone}`,
@@ -796,10 +901,11 @@ if (!isAuthenticated && hasPharmaProduct) {
       shippingPostalCode: shippingSameAsBilling ? billingPostalCode : shippingPostalCode,
       shippingCountry: shippingSameAsBilling ? billingCountry : shippingCountry,
       orderItems: items,
-      selectedShippingMethodId: selectedShippingOption?.shippingMethodId ?? null,
-      selectedShippingMethodName: selectedShippingOption?.displayName ?? null,
+     deliveryOptionId: selectedShippingOption?.deliveryOptionId ?? null,
       shippingCost: shippingCost > 0 ? shippingCost : null,
       notes,
+      pointsToRedeem: pointsToRedeem || null,
+pointsDiscountAmount: pointsDiscount || 0,
     };
   };
 const validateAndBuildPayload = async (): Promise<any | null> => {
@@ -844,6 +950,9 @@ if (deliveryMethod === "HomeDelivery" && !shippingSameAsBilling) {
 }
 
   }
+  if (deliveryMethod === "ClickAndCollect" && !selectedStoreId) {
+  errors.selectedStore = "Please select a store";
+}
   if (Object.keys(errors).length > 0) {
     setFieldErrors(errors);
     return null;
@@ -926,7 +1035,7 @@ userId: isAuthenticated ? user?.id : null,
       const createdOrder = await resp.json();
 // alert("COD ORDER FULL: " + JSON.stringify(createdOrder));
 // alert("COD ORDER ID: " + createdOrder?.data?.id);
- const isBuyNowFlow = !!sessionStorage.getItem("buyNowItem");
+
 // 🔥 DO NOT touch buyNowItem here
 if (!isBuyNowFlow) {
   clearCart();
@@ -959,8 +1068,8 @@ const onPaymentSuccess = (createdOrder: any) => {
       totalAmount: createdOrder.data.totalAmount,
     });
   }
-  const buyNowItem = sessionStorage.getItem("buyNowItem");
-  if (buyNowItem) {
+  
+  if (isBuyNowFlow) {
     sessionStorage.removeItem("buyNowItem");
     sessionStorage.setItem("preserveCart", "1");
   } else {
@@ -1292,7 +1401,50 @@ setShippingAddressQuery("");
     </label>
   </div>
 </div>
+{deliveryMethod === "ClickAndCollect" && (
+  <div className="bg-white p-3 rounded shadow">
+    <h2 className="text-sm font-semibold mb-2">Select Store</h2>
 
+    {storeLoading ? (
+      <p className="text-xs text-gray-500">Loading stores...</p>
+    ) : stores.length === 0 ? (
+      <p className="text-xs text-gray-400">No stores available</p>
+    ) : (
+      <div className="flex flex-col gap-2">
+        {stores.map((store) => (
+          <label
+            key={store.id}
+            className={`border rounded-lg p-2 cursor-pointer ${
+              selectedStoreId === store.id
+                ? "border-[#445D41] bg-[#445D41]/5"
+                : "border-gray-200"
+            }`}
+          >
+            <input
+              type="radio"
+              name="store"
+              checked={selectedStoreId === store.id}
+              onChange={() => setSelectedStoreId(store.id)}
+              className="mr-2"
+            />
+
+            <div>
+              <p className="text-sm font-semibold">{store.name}</p>
+              <p className="text-xs text-gray-500">
+                {store.addressLine1}, {store.city}, {store.postalCode}
+              </p>
+              {store.openingHours && (
+                <p className="text-[11px] text-gray-400">
+                  {store.openingHours}
+                </p>
+              )}
+            </div>
+          </label>
+        ))}
+      </div>
+    )}
+  </div>
+)}
 {/* SHIPPING OPTIONS */}
 {deliveryMethod === "HomeDelivery" && (
   <div className="bg-white p-3 rounded shadow">
@@ -1311,9 +1463,9 @@ setShippingAddressQuery("");
       <div className="flex flex-col gap-2">
         {shippingOptions.map((opt: any) => (
           <label
-            key={opt.shippingMethodId}
+           key={opt.deliveryOptionId}
             className={`flex items-center justify-between gap-3 border rounded-lg px-3 py-2.5 cursor-pointer transition-all ${
-              selectedShippingOption?.shippingMethodId === opt.shippingMethodId
+             selectedShippingOption?.deliveryOptionId === opt.deliveryOptionId
                 ? "border-[#445D41] bg-[#445D41]/5"
                 : "border-gray-200 hover:border-[#445D41]/50"
             }`}
@@ -1322,19 +1474,26 @@ setShippingAddressQuery("");
               <input
                 type="radio"
                 name="shippingOption"
-                checked={selectedShippingOption?.shippingMethodId === opt.shippingMethodId}
+             checked={selectedShippingOption?.deliveryOptionId === opt.deliveryOptionId}
                 onChange={() => setSelectedShippingOption(opt)}
                 className="accent-[#445D41]"
               />
               <div>
-                <p className="text-xs font-semibold text-gray-800">{opt.displayName || opt.methodName}</p>
+                <p className="text-xs font-semibold text-gray-800">{opt.displayName}</p>
                 {opt.estimatedDelivery && (
                   <p className="text-[11px] text-gray-500">{opt.estimatedDelivery}</p>
                 )}
               </div>
             </div>
             <span className={`text-xs font-bold shrink-0 ${opt.isFree ? "text-green-600" : "text-gray-800"}`}>
-              {opt.isFree ? "FREE" : `£${Number(opt.price).toFixed(2)}`}
+            {(() => {
+  const isNextDay =
+  opt.deliveryOptionId === "451bb725-19f7-441a-9dd0-d282cf268397";
+
+  if (isNextDay && allNextDayFree) return "FREE";
+
+  return opt.isFree ? "FREE" : `£${Number(opt.price).toFixed(2)}`;
+})()}
             </span>
           </label>
         ))}
@@ -1462,19 +1621,45 @@ setShippingAddressQuery("");
 {deliveryMethod === "HomeDelivery" && selectedShippingOption && (
   <div className="flex items-center justify-between text-sm text-gray-700">
     <span className="font-medium">{selectedShippingOption.displayName || selectedShippingOption.methodName}</span>
-    <span className={`font-semibold ${selectedShippingOption.isFree ? "text-green-600" : ""}`}>
-      {selectedShippingOption.isFree ? "FREE" : `+ ${formatCurrency(selectedShippingOption.price)}`}
+    <span className={`font-semibold ${shippingCost === 0 ? "text-green-600" : ""}`}>
+     {(() => {
+  const isNextDay =
+  selectedShippingOption?.deliveryOptionId === "451bb725-19f7-441a-9dd0-d282cf268397";
+
+  if (isNextDay && allNextDayFree) return "FREE";
+
+ return shippingCost === 0
+  ? "FREE"
+  : `+ ${formatCurrency(shippingCost)}`;
+})()}
     </span>
+  </div>
+)}
+{pointsDiscount > 0 && (
+  <div className="flex items-center justify-between text-green-700 text-xs">
+    <span>Points Discount ({pointsToRedeem} pts)</span>
+    <span>- {formatCurrency(pointsDiscount)}</span>
   </div>
 )}
   {/* Divider + Total */}
   <div className="border-t pt-2 mt-1 flex items-center justify-between">
     <span className="text-sm font-semibold text-gray-900">Total</span>
     <span className="text-sm font-bold text-gray-900">
-      {formatCurrency(cartTotalAmount)}
+     {formatCurrency(finalPayableAmount)}
     </span>
   </div>
 </div>
+<LoyaltyRedemptionBox
+  orderTotal={cartTotalAmount}
+  onApply={(pts, discount) => {
+    setPointsToRedeem(pts);
+    setPointsDiscount(discount);
+  }}
+  onRemove={() => {
+    setPointsToRedeem(0);
+    setPointsDiscount(0);
+  }}
+/>
               <div className="mt-3">
                   <>
                     {/* Payment method selector */}
@@ -1526,7 +1711,7 @@ setShippingAddressQuery("");
               billingPostalCode: billingPostalCode,
               billingCountry: billingCountry,
             }}
-            payAmount={cartTotalAmount}
+           payAmount={finalPayableAmount}
             onPaymentSuccess={onPaymentSuccess}
             onError={onPaymentError}
           />

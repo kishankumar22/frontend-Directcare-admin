@@ -88,7 +88,7 @@ export default async function BlogDetailPage({
       if (postDate > now) return false;
 
       // ❌ Only show posts from last 7 days
-      if (postDate < sevenDaysAgo) return false;
+      // if (postDate < sevenDaysAgo) return false;
 
       return true;
     })

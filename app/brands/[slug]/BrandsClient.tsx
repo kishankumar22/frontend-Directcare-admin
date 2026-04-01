@@ -97,15 +97,20 @@ useEffect(() => {
         `${process.env.NEXT_PUBLIC_API_URL}/api/Brands?includeUnpublished=false`
       );
 
-      const json = await res.json();
+  const json = await res.json();
 
-      if (json.success) {
-        const brand = json.data.find(
-          (b: any) => b.slug === brandSlug
-        );
+if (json?.success) {
+  // 🔥 FIX: सही array निकालो
+  const dataArray = Array.isArray(json.data)
+    ? json.data
+    : json.data?.items || [];
 
-        setBrandInfo(brand || null);
-      }
+  const brand = dataArray.find(
+    (b: any) => b.slug === brandSlug
+  );
+
+  setBrandInfo(brand || null);
+}
     } catch (err) {
       console.error("Brand fetch error:", err);
     } finally {

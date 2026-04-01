@@ -49,24 +49,49 @@ const flattenedProducts = useMemo(() => {
     return basePrice;
   };
 
-  const sorted = [...unique].sort((a, b) => {
+ const sorted = [...unique].sort((a, b) => {
 
-    if (sortBy === "name") {
-      const nameA = (a.cardSlug ?? a.productData.name).toLowerCase();
-      const nameB = (b.cardSlug ?? b.productData.name).toLowerCase();
-
-      const comparison = nameA.localeCompare(nameB);
-
-      return sortDirection === "asc" ? comparison : -comparison;
+  // 🔥 STOCK CHECK (MOST IMPORTANT)
+  const getStock = (item: any) => {
+    if (item.variantForCard) {
+      return item.variantForCard.stockQuantity ?? 0;
     }
+    return item.productData?.stockQuantity ?? 0;
+  };
 
-    if (sortBy === "price") {
-      const comparison = getCardPrice(a) - getCardPrice(b);
-      return sortDirection === "asc" ? comparison : -comparison;
-    }
+  const stockA = getStock(a);
+  const stockB = getStock(b);
 
-    return 0;
-  });
+  const isOutA = stockA <= 0;
+  const isOutB = stockB <= 0;
+
+  // ✅ Out of stock always last
+  if (isOutA && !isOutB) return 1;
+  if (!isOutA && isOutB) return -1;
+
+  // ===== EXISTING SORT LOGIC =====
+
+  if (sortBy === "name") {
+    const nameA = (a.cardSlug ?? a.productData.name).toLowerCase();
+    const nameB = (b.cardSlug ?? b.productData.name).toLowerCase();
+
+    const comparison = nameA.localeCompare(nameB);
+    return sortDirection === "asc" ? comparison : -comparison;
+  }
+
+  if (sortBy === "price") {
+    const getCardPrice = (item: any) => {
+      return typeof item.variantForCard?.price === "number"
+        ? item.variantForCard.price
+        : item.productData.price;
+    };
+
+    const comparison = getCardPrice(a) - getCardPrice(b);
+    return sortDirection === "asc" ? comparison : -comparison;
+  }
+
+  return 0;
+});
 
   return sorted;
 

@@ -66,6 +66,7 @@ orderMaximumQuantity?: number;
   loyaltyPointsMessage?: string;
   shipSeparately?: boolean;
   nextDayDeliveryEnabled?: boolean;
+  nextDayDeliveryFree?: boolean;
   sameDayDeliveryEnabled?: boolean;
 isPharmaProduct?: boolean;
 }
@@ -614,6 +615,9 @@ vatIncluded: vatRate !== null,
     sku: defaultVariant?.sku ?? product.sku,
     shipSeparately: product.shipSeparately,
     nextDayDeliveryEnabled: product.nextDayDeliveryEnabled ?? false,
+    // 🔥🔥🔥 MAIN FIX
+nextDayDeliveryFree:
+  (product as any).nextDayDeliveryFree ?? false,
     sameDayDeliveryEnabled: product.sameDayDeliveryEnabled ?? false,
     variantId: defaultVariant?.id ?? null,
     slug: cardSlug,
@@ -846,6 +850,9 @@ const modalVatRate =
     sku: variant?.sku ?? product.sku,
     shipSeparately: product.shipSeparately,
     nextDayDeliveryEnabled: product.nextDayDeliveryEnabled ?? false,
+    // 🔥🔥🔥 MAIN FIX
+nextDayDeliveryFree:
+  (product as any).nextDayDeliveryFree ?? false,
     sameDayDeliveryEnabled: product.sameDayDeliveryEnabled ?? false,
     variantId: variant?.id ?? null,
     slug: cardSlug,

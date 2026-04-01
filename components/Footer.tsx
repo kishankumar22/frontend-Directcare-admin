@@ -83,7 +83,6 @@ const handleSubscribe = async (e: React.FormEvent) => {
               <li><Link href="/privacy-policy">Privacy Policy</Link></li>
             </ul>
           </div>
-
           {/* Our Services */}
           <div className="py-3 md:py-0">
             <button className="w-full flex items-center justify-between md:justify-start" onClick={() => toggle("services")}>
@@ -97,7 +96,6 @@ const handleSubscribe = async (e: React.FormEvent) => {
               {/* <li><Link href="#">Popular Products</Link></li> */}
             </ul>
           </div>
-
           {/* Subscribe */}
           <div className="py-3 md:py-0">
             <button className="w-full flex items-center justify-between md:justify-start" onClick={() => toggle("subscribe")}>
@@ -108,8 +106,7 @@ const handleSubscribe = async (e: React.FormEvent) => {
               <p className="mb-3 text-sm">Enter your email to receive our latest updates about our products.</p>
              <form
   onSubmit={handleSubscribe}
-  className="flex flex-col sm:flex-row gap-2"
->
+  className="flex flex-col sm:flex-row gap-2">
   <input
     type="email"
     placeholder="Email address"
@@ -117,7 +114,6 @@ const handleSubscribe = async (e: React.FormEvent) => {
     onChange={(e) => setEmail(e.target.value)}
     className="flex-1 p-2 rounded text-sm text-black min-w-0"
   />
-
   <button
     type="submit"
     disabled={loading}
@@ -131,13 +127,11 @@ const handleSubscribe = async (e: React.FormEvent) => {
     {localError}
   </p>
 )}
-
 {error && (
   <p className="text-xs text-red-300 mt-2">
     {error}
   </p>
 )}
-
 {success && (
   <p className="text-xs text-green-300 mt-2">
     {success}
@@ -153,14 +147,58 @@ const handleSubscribe = async (e: React.FormEvent) => {
               <ChevronDown className={`${open.social ? "rotate-180" : "rotate-0"} md:hidden transition-transform`} />
             </button>
             <div className={`mt-2 ${open.social ? "block" : "hidden md:block"}`}>
-              <div className="flex gap-2 flex-wrap mt-2">
-                <Link href="#" className="w-8 h-8 flex items-center justify-center bg-white rounded-full hover:scale-110 transition"><Image src="/social/facebook.svg" alt="Facebook" width={22} height={22} /></Link>
-                <Link href="#" className="w-8 h-8 flex items-center justify-center bg-white rounded-full hover:scale-110 transition"><Image src="/social/instagram.svg" alt="Instagram" width={22} height={22} /></Link>
-                <Link href="#" className="w-8 h-8 flex items-center justify-center bg-white rounded-full hover:scale-110 transition"><Image src="/social/linkedin.svg" alt="LinkedIn" width={22} height={22} /></Link>
-                <Link href="#" className="w-8 h-8 flex items-center justify-center bg-white rounded-full hover:scale-110 transition"><Image src="/social/twitter.svg" alt="Twitter" width={22} height={22} /></Link>
-                <Link href="#" className="w-8 h-8 flex items-center justify-center bg-white rounded-full hover:scale-110 transition"><Image src="/social/youtube.svg" alt="YouTube" width={22} height={22} /></Link>
-                <Link href="#" className="w-8 h-8 flex items-center justify-center bg-white rounded-full hover:scale-110 transition"><Image src="/social/tiktok.svg" alt="TikTok" width={22} height={22} /></Link>
-              </div>
+             <div className="flex gap-2 flex-wrap mt-2">
+  <a
+    href="https://www.facebook.com/people/Direct-Care-Ltd/61558629399491/"
+    target="_blank"
+    rel="noopener noreferrer"
+    className="w-8 h-8 flex items-center justify-center bg-white rounded-full hover:scale-110 transition"
+  >
+    <Image src="/social/facebook.svg" alt="Facebook" width={22} height={22} />
+  </a>
+  <a
+    href="https://www.instagram.com/directcare_ltd/"
+    target="_blank"
+    rel="noopener noreferrer"
+    className="w-8 h-8 flex items-center justify-center bg-white rounded-full hover:scale-110 transition"
+  >
+    <Image src="/social/instagram.svg" alt="Instagram" width={22} height={22} />
+  </a>
+  <a
+    href="https://uk.pinterest.com/directcare_ltd/"
+    target="_blank"
+    rel="noopener noreferrer"
+    className="w-8 h-8 flex items-center justify-center bg-white rounded-full hover:scale-110 transition"
+  >
+    <Image src="/social/pinterest.svg" alt="Pinterest" width={22} height={22} />
+  </a>
+  <a
+    href="https://x.com/directcare_ltd"
+    target="_blank"
+    rel="noopener noreferrer"
+    className="w-8 h-8 flex items-center justify-center bg-white rounded-full hover:scale-110 transition"
+  >
+    <Image src="/social/x.svg" alt="X" width={22} height={22} />
+  </a>
+  <a
+    href="https://youtube.com/@directcareltd?si=OrPTm-hf0BRKSCj8"
+    target="_blank"
+    rel="noopener noreferrer"
+    className="w-8 h-8 flex items-center justify-center bg-white rounded-full hover:scale-110 transition"
+  >
+    <Image src="/social/youtube.svg" alt="YouTube" width={22} height={22} />
+  </a>
+
+  <a
+    href="https://www.tiktok.com/@directcare_ltd/"
+    target="_blank"
+    rel="noopener noreferrer"
+    className="w-8 h-8 flex items-center justify-center bg-white rounded-full hover:scale-110 transition"
+  >
+    <Image src="/social/tiktok.svg" alt="TikTok" width={22} height={22} />
+  </a>
+
+</div>
             </div>
           </div>
         </div>
@@ -170,7 +208,7 @@ const handleSubscribe = async (e: React.FormEvent) => {
       <div className="bg-black text-white opacity-90 text-sm flex flex-col md:flex-row items-center justify-between px-4 md:px-6 py-3 gap-2 md:gap-0">
         <p className="text-xs md:text-sm text-center md:text-left">© 2024 Direct Care All Rights Reserved</p>
         <div>
-          <Image src="/payments/visa.png" alt="visa" width={130} height={35} className="md:w-[160px]" />
+          <Image src="/payments/visa.png" alt="visa" width={120} height={35} className="md:w-[160px]" />
         </div>
         <p className="text-xs md:text-sm">Developed By Mezzex</p>
       </div>

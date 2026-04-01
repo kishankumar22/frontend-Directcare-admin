@@ -15,9 +15,40 @@ async function getAllCategories(baseUrl: string): Promise<Category[]> {
       { cache: "no-store" }
     );
 
-    const result = await res.json();
-    return result.success ? result.data : [];
-  } catch {
+    // ✅ response fail handle
+    if (!res.ok) {
+      console.error("Categories API failed:", res.status);
+      return [];
+    }
+
+    // ✅ safe parse
+    const text = await res.text();
+
+    if (!text) {
+      console.error("Empty categories response");
+      return [];
+    }
+
+    let result: any;
+    try {
+      result = JSON.parse(text);
+    } catch (err) {
+      console.error("Invalid JSON from Categories API:", text);
+      return [];
+    }
+
+    // ✅ FINAL FIX (IMPORTANT)
+    if (result?.success) {
+      // case 1: direct array
+      if (Array.isArray(result.data)) return result.data;
+
+      // case 2: { items: [] }
+      if (Array.isArray(result.data?.items)) return result.data.items;
+    }
+
+    return [];
+  } catch (err) {
+    console.error("Categories fetch failed:", err);
     return [];
   }
 }

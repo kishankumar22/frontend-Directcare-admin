@@ -18,7 +18,7 @@ import BackInStockModal from "@/components/backorder/BackInStockModal";
 import "swiper/css";
 import "swiper/css/navigation";
 import "swiper/css/pagination";
-import { ShoppingCart, Heart, Star, Minus, Plus, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, X, Truck, RotateCcw, ShieldCheck, Pause, Play, Package, Bike, Users, BadgePercent, Zap, BellRing, Share2, Gift, AwardIcon, MapPin, Clock, TruckElectric, TruckElectricIcon, Pill } from "lucide-react";
+import { ShoppingCart, Heart, Star, Minus, Plus, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, X, Truck, RotateCcw, ShieldCheck, Pause, Play, Package, Bike, Users, BadgePercent, Zap, BellRing, Share2, Gift, AwardIcon, MapPin, Clock, TruckElectric, TruckElectricIcon, Pill, Share, Share2Icon, LucideShare2, ShareIcon } from "lucide-react";
 import ShareMenu from "@/components/share/ShareMenu";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -37,6 +37,7 @@ import { detectUKRegion } from "@/app/lib/region";
 import GenderBadge from "@/components/shared/GenderBadge";
 import PharmaQuestionsModal from "@/components/pharma/PharmaQuestionsModal";
 import { useVatRates } from "@/app/hooks/useVatRates";
+import { useCartActivity } from "@/context/CartContext";
 // ---------- Types ----------
 interface ProductImage {
   id: string;
@@ -166,6 +167,7 @@ totalSavings?: number;
 savingsPercentage?: number;
 applyDiscountToAllItems?: boolean;
 nextDayDeliveryEnabled?: boolean;
+nextDayDeliveryFree?: boolean;
   sameDayDeliveryEnabled?: boolean;
   nextDayDeliveryCutoffTime?: string;
   nextDayDeliveryCharge?: number;
@@ -261,7 +263,9 @@ console.log("🧪 requireOtherProducts:", product.requireOtherProducts);
 console.log("🧪 groupedProducts:", product.groupedProducts);
   const toast = useToast();
  const { addToCart, cart } = useCart();
+ 
   const router = useRouter();
+  useCartActivity(product.id);
   const { isAuthenticated } = useAuth();
   const { isInWishlist, toggleWishlist } = useWishlist();
   const sliderRef = useRef<HTMLDivElement>(null);
@@ -500,6 +504,33 @@ useEffect(() => {
   });
 }, [normalQty, groupedMaxQty, isGroupedProduct, groupEnabled]);
 const pathname = usePathname();
+useEffect(() => {
+  if (!product?.variants || product.variants.length === 0) return;
+
+  // current slug from URL
+  const currentSlug = pathname.split("/products/")[1];
+
+  if (!currentSlug) return;
+
+  // find matching variant
+  const matchedVariant = product.variants.find(
+    (v) => v.slug === currentSlug
+  );
+
+  if (!matchedVariant) return;
+
+  // 🔥 prevent unnecessary re-renders
+  if (selectedVariant?.id === matchedVariant.id) return;
+
+  // ✅ update state from URL
+  setSelectedVariant(matchedVariant);
+  setSelectedOptions({
+    option1: matchedVariant.option1Value,
+    option2: matchedVariant.option2Value,
+    option3: matchedVariant.option3Value,
+  });
+
+}, [pathname, product.variants]);
 // GENERIC dynamic selected options
 const [selectedOptions, setSelectedOptions] = useState<{
   option1?: string | null;
@@ -1329,6 +1360,10 @@ if (product.isPharmaProduct && !pharmaApprovedRef.current) {
       }),
     },
     nextDayDeliveryEnabled: product.nextDayDeliveryEnabled ?? false,
+    // 🔥🔥🔥 MOST IMPORTANT FIX
+// 🔥 FINAL CORRECT
+nextDayDeliveryFree:
+  product.nextDayDeliveryFree ?? false,
     sameDayDeliveryEnabled: product.sameDayDeliveryEnabled ?? false,
     productData: JSON.parse(JSON.stringify(product)),
   };
@@ -1576,7 +1611,7 @@ const handleRemoveCoupon = () => {
              border border-gray-200 
              shadow-md"
 >
-  <Share2 className="h-5 w-5 text-gray-700" />
+  <ShareIcon className="h-5 w-5 text-gray-700" />
 </Button>
   {showShare && !isMobile && (
   <ShareMenu

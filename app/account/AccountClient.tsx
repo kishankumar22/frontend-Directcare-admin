@@ -292,13 +292,13 @@ const tabParam = searchParams.get("tab");
 const activeTab = tabParam === "register" ? "register" : "login";
 
   return (
-  <div className="min-h-screen relative overflow-hidden bg-[#445D41] py-8 px-4">
+  <div className="min-h-screen relative overflow-hidden bg-gray-50 py-8 px-4">
   {/* GRID */}
   <div
     className="pointer-events-none absolute inset-0 opacity-[0.15]"
     style={{
       backgroundImage: `
-        linear-gradient(to right, rgba(255,255,255,0.15) 3px, transparent 3px),
+        linear-gradient(to right, rgba(255,255,255,0.08) 3px, transparent 3px),
         linear-gradient(to bottom, rgba(255,255,255,0.15) 3px, transparent 3px)
       `,
       backgroundSize: "52px 52px",
