@@ -637,6 +637,12 @@ restore: async (id: string) => {
     );
   },
 
+  deleteVariantImage: async (variantId: string) => {
+  return apiClient.delete<ApiResponse<void>>(
+    `${API_ENDPOINTS.products}/variants/${variantId}/image`
+  );
+},
+
   createWithImages: async (data: FormData) => {
     return apiClient.post<ApiResponse<Product>>(
       `${API_ENDPOINTS.products}/with-images`,
