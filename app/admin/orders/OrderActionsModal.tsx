@@ -47,13 +47,13 @@ const getOrderFlow = (
   status: OrderStatus,
   deliveryMethod: string,
   collectionStatus?: string
-): { label: string; hint: string; show: boolean }[] => {
+) => {
 
   const isClickAndCollect = deliveryMethod === 'ClickAndCollect';
 
-  // ===========================
-  // 📦 CLICK & COLLECT
-  // ===========================
+  // =========================
+  // 🏪 CLICK & COLLECT FLOW
+  // =========================
   if (isClickAndCollect) {
     return [
       {
@@ -63,31 +63,20 @@ const getOrderFlow = (
       },
       {
         label: 'Ready',
-        hint: 'Order is ready for collection',
+        hint: 'Ready for collection',
         show: true,
       },
       {
         label: 'Collected',
-        hint: 'Order picked up by customer',
+        hint: 'Order collected by customer',
         show: true,
-      },
-      {
-        label: 'Returned',
-        hint: 'Return allowed after collection',
-        // show: status === 'Collected' || status === 'Returned',
-        show: status === 'Returned',
-      },
-      {
-        label: 'Refunded',
-        hint: 'Refund processed',
-        show: status === 'Returned' || status === 'Refunded',
       },
     ];
   }
 
-  // ===========================
-  // 🏠 HOME DELIVERY
-  // ===========================
+  // =========================
+  // 🚚 HOME DELIVERY FLOW
+  // =========================
   return [
     {
       label: 'Processing',
@@ -95,9 +84,12 @@ const getOrderFlow = (
       show: true,
     },
     {
-      label: 'Partially Shipped',
+      label: 'PartiallyShipped',
       hint: 'Some items shipped',
-      show: status === 'PartiallyShipped',
+      show:
+        status === 'PartiallyShipped' ||
+        status === 'Shipped' ||
+        status === 'Delivered',
     },
     {
       label: 'Shipped',
@@ -106,22 +98,16 @@ const getOrderFlow = (
     },
     {
       label: 'Delivered',
-      hint: 'Order delivered to customer',
+      hint: 'Order delivered',
       show: true,
     },
     {
       label: 'Returned',
-      hint: 'Return allowed after delivery',
+      hint: 'Returned by customer',
       show: status === 'Delivered' || status === 'Returned',
-    },
-    {
-      label: 'Refunded',
-      hint: 'Refund processed',
-      show: status === 'Returned' || status === 'Refunded',
     },
   ];
 };
-
 
 const OrderStatusHelper = ({
   status,
@@ -145,11 +131,13 @@ const flow = getOrderFlow(status, deliveryMethod, collectionStatus)
 
       <div className="flex flex-wrap items-center gap-2">
         {flow.map((step, index) => {
-          const isActive =
+        const isActive =
   step.label === status ||
+  (step.label === 'PartiallyShipped' && status === 'Shipped') ||
+  (step.label === 'PartiallyShipped' && status === 'Delivered') ||
+  (step.label === 'Shipped' && status === 'Delivered') ||
   (step.label === 'Ready' && collectionStatus === 'Ready') ||
   (step.label === 'Collected' && collectionStatus === 'Collected');
-
           return (
             <div key={step.label} className="flex items-center gap-2">
               
@@ -197,11 +185,9 @@ export const getValidStatusTransitions = (
     Confirmed: ['Processing'],
 
     // ❌ REMOVE ANY SHIPPING FROM UPDATE STATUS
-Processing: deliveryMethod === 'HomeDelivery'
-  ? (itemCount > 1
-      ? ['Shipped', 'PartiallyShipped']
-      : ['Shipped'])
-  : [],
+Processing: isClickAndCollect
+  ? [] // handled via modal intercept
+  : (itemCount > 1 ? ['Shipped','PartiallyShipped'] : ['Shipped']),
 
     // ❌ REMOVE SHIPPED CONTROL FROM DROPDOWN
     Shipped: isClickAndCollect
@@ -209,9 +195,10 @@ Processing: deliveryMethod === 'HomeDelivery'
       : ['Delivered', 'Returned'],
 
     // ❌ IMPORTANT FIX
-    PartiallyShipped: [
-      'Delivered' // ❌ remove 'Shipped'
-    ],
+  PartiallyShipped: [
+  'PartiallyShipped', // 🔥 allow repeat shipment
+  
+],
 
     Delivered: ['Returned'],
 
@@ -382,18 +369,17 @@ useEffect(() => {
   const paymentDisplay = getPaymentStatusDisplay(order);
 
   // ✅ Initialize shipment items when modal opens for create-shipment action
-  useEffect(() => {
-    if (isOpen && action === 'create-shipment' && order.orderItems.length > 0) {
-      setShipmentData((prev) => ({
-        ...prev,
-        selectedItems: order.orderItems.map((item) => ({
-          orderItemId: item.id,
-          quantity: item.quantity,
-        })),
-      }));
-    }
-  }, [isOpen, action, order.orderItems]);
-
+useEffect(() => {
+  if (isOpen && action === 'create-shipment') {
+    setShipmentData((prev) => ({
+      ...prev,
+      selectedItems: order.orderItems.map((item: any) => ({
+        orderItemId: item.id,
+        quantity: item.quantity // ✅ default full qty
+      }))
+    }));
+  }
+}, [isOpen, action, order.orderItems]);
   // ✅ Reset form data when modal opens/closes or action changes
 useEffect(() => {
   if (isOpen) {
@@ -427,8 +413,7 @@ useEffect(() => {
     });
   }
 }, [isOpen, action, order.status, order.shipments, isPaid, user]);
-
-  const actionHandlers: Record<string, () => Promise<void>> = {
+const actionHandlers: Record<string, () => Promise<'handled' | void>> = {
   'mark-ready': async () => {
     await orderService.markReady(order.id);
     toast.success('✅ Order marked as ready');
@@ -444,29 +429,16 @@ useEffect(() => {
     toast.success('✅ Order marked as collected');
   },
 
- 'update-status': async () => {
-  // 🔥 INTERCEPT SHIPPING
-  if (
-    statusData.newStatus === 'Shipped' ||
-    statusData.newStatus === 'PartiallyShipped'
-  ) {
-    toast.info('Opening shipment modal...');
+  // ✅ CLEANED — NO SHIPPING INTERCEPT HERE
+  'update-status': async () => {
+    await orderService.updateStatus({
+      orderId: order.id,
+      newStatus: statusData.newStatus,
+      adminNotes: statusData.adminNotes || undefined,
+    });
 
-    // ❌ DO NOT update status here
-    // 🔥 tell parent to open shipment
-    onSuccess('create-shipment' as any);
-    return;
-  }
-
-  // ✅ normal flow
-  await orderService.updateStatus({
-    orderId: order.id,
-    newStatus: statusData.newStatus,
-    adminNotes: statusData.adminNotes || undefined,
-  });
-
-  toast.success('✅ Status updated');
-},
+    toast.success('✅ Status updated');
+  },
 
   'create-shipment': async () => {
     await orderService.createShipment({
@@ -475,8 +447,9 @@ useEffect(() => {
       carrier: shipmentData.carrier,
       shippingMethod: shipmentData.shippingMethod,
       notes: shipmentData.notes || undefined,
-      shipmentItems: shipmentData.selectedItems,
+      shipmentItems: shipmentData.selectedItems.filter(item => item.quantity > 0)
     });
+
     toast.success('✅ Shipment created');
   },
 
@@ -488,6 +461,7 @@ useEffect(() => {
       deliveryNotes: deliveredData.deliveryNotes || undefined,
       receivedBy: deliveredData.receivedBy || undefined,
     });
+
     toast.success('✅ Order delivered');
   }
 };
@@ -502,27 +476,18 @@ const isCashOnDelivery =
 const handleSubmit = async (e: FormEvent) => {
   e.preventDefault();
 
- if (action === 'cancel-order') {
-  const cancelRequest: CancelOrderRequest = {
-    orderId: order.id,
-    cancellationReason: cancelData.cancellationReason,
-    restoreInventory: cancelData.restoreInventory,
-    initiateRefund: cancelData.initiateRefund,
-    cancelledBy: cancelData.cancelledBy,
-  };
-
-  setPendingCancelRequest(cancelRequest);
-  setShowCancelConfirm(true);
-  return;
-}
-
   if (!actionHandlers[action]) return;
 
   try {
     setLoading(true);
-    await actionHandlers[action]();
-    
-    onSuccess();
+
+    const result = await actionHandlers[action]();
+
+    // 🔥 DO NOT CLOSE IF HANDLED
+    if (result !== 'handled') {
+      onSuccess();
+    }
+
   } catch (error: any) {
     toast.error(error.message || 'Failed to perform action');
   } finally {
@@ -531,14 +496,30 @@ const handleSubmit = async (e: FormEvent) => {
 };
 
 
-  const updateShipmentItemQuantity = (orderItemId: string, quantity: number) => {
-    setShipmentData((prev) => ({
+const updateShipmentItemQuantity = (orderItemId: string, quantity: number) => {
+  setShipmentData((prev) => {
+    const exists = prev.selectedItems.find(i => i.orderItemId === orderItemId);
+
+    if (!exists) {
+      return {
+        ...prev,
+        selectedItems: [
+          ...prev.selectedItems,
+          { orderItemId, quantity }
+        ]
+      };
+    }
+
+    return {
       ...prev,
       selectedItems: prev.selectedItems.map((item) =>
-        item.orderItemId === orderItemId ? { ...item, quantity } : item
+        item.orderItemId === orderItemId
+          ? { ...item, quantity }
+          : item
       ),
-    }));
-  };
+    };
+  });
+};
 
   // ✅ NEW: Pharmacy verification guard
 const isPharmacyLocked =
@@ -770,13 +751,7 @@ const PharmacyWarning = () => {
       case 'update-status':
         return (
           <div className="space-y-2">
-            <div className="flex items-center gap-2 p-1 bg-blue-500/10 border border-blue-500/20 rounded-lg">
-              <Clock className="h-6 w-6 text-blue-400" />
-              <div>
-                <p className="text-white font-medium">Update Order Status</p>
-                <p className="text-sm text-slate-400">Change the current status of this order.</p>
-              </div>
-            </div>
+           
                <PharmacyWarning />
 {(() => {
   const currentStatusInfo = getStatusDisplayInfo(order.status);
@@ -822,14 +797,37 @@ const PharmacyWarning = () => {
               {availableStatuses.length > 0 ? (
                <select
   value={statusData.newStatus}
-  onChange={(e) => {
-    const value = e.target.value as OrderStatus;
+onChange={(e) => {
+  const value = e.target.value;
 
-    // 🚫 DO NOT OPEN MODAL HERE (no parent access)
-    // Just store status
+if (value === 'Ready' && order.deliveryMethod === 'ClickAndCollect') {
+  onClose();
+  onSuccess('mark-ready');
+  return;
+}
 
-    setStatusData({ ...statusData, newStatus: value });
-  }}
+if (value === 'Collected' && order.deliveryMethod === 'ClickAndCollect') {
+  onClose();
+  onSuccess('mark-collected');
+  return;
+}
+
+// ✅ HANDLE PARTIAL FLOW ALSO
+if (
+  value === 'Shipped' ||
+  value === 'PartiallyShipped' ||
+  order.status === 'PartiallyShipped'   // 🔥 ADD THIS LINE
+) {
+  onClose();
+  onSuccess('create-shipment');
+  return;
+}
+
+  setStatusData({
+    ...statusData,
+    newStatus: value as OrderStatus,
+  });
+}}
 
                   className="w-full px-3 py-2.5 bg-slate-800/50 border border-slate-700 rounded-xl text-white focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
                   required
@@ -984,9 +982,9 @@ const PharmacyWarning = () => {
   );
 
   // ✅ detect shipped
-  const isShipped =
-    // shippedItemIds.has(item.id) ||
-    order.shipments?.some(s => s.notes?.includes(item.productName));
+const isShipped = order.shipments?.some(shipment =>
+  shipment.shipmentItems?.some(si => si.orderItemId === item.id)
+) ?? false;
 
   return (
     <div
@@ -1023,10 +1021,16 @@ const PharmacyWarning = () => {
         type="number"
         min="0"
         max={item.quantity}
-        value={isShipped ? item.quantity : shipmentItem?.quantity || 0}
-        onChange={(e) =>
-          updateShipmentItemQuantity(item.id, Number(e.target.value))
-        }
+    value={shipmentItem?.quantity ?? item.quantity}
+     onChange={(e) => {
+    let value = Number(e.target.value);
+
+    // ✅ HARD LIMIT
+    if (value > item.quantity) value = item.quantity;
+    if (value < 0) value = 0;
+
+    updateShipmentItemQuantity(item.id, value);
+  }}
         className={`w-20 px-2 py-1.5 border rounded-lg text-center
           ${isShipped
             ? 'bg-slate-800 border-slate-700 text-slate-500 cursor-not-allowed'

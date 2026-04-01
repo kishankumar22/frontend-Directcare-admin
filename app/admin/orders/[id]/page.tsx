@@ -497,21 +497,6 @@ const getAllAvailableActions = (
     }
   }
 
-  // ===========================
-  // 🏠 HOME DELIVERY FLOW
-  // ===========================
-  if (isHomeDelivery) {
-    // Create Shipment
-    if (['Confirmed', 'Processing', 'PartiallyShipped'].includes(status)) {
-      actions.push({
-        label: 'Create Shipment',
-        action: 'create-shipment',
-        icon: <Truck className="h-3.5 w-3.5" />,
-        color: 'bg-purple-600 hover:bg-purple-700',
-        category: 'workflow',
-      });
-    }
-  }
 
   // ===========================
   // ✏️ UPDATE STATUS
@@ -819,7 +804,7 @@ const fetchOrderDetails = useCallback(async () => {
   }
 }, [orderId, toast]);
 
-
+const unshippedItems = order?.unshippedItems ?? [];
 // ===========================
 // FETCH REFUND HISTORY
 // ===========================
@@ -2210,22 +2195,71 @@ const allActions = getAllAvailableActions(
                     </p>
                   )}
                 </div>
-                {shipment.shipmentItems && shipment.shipmentItems.length > 0 && (
-                  <div className="mt-3 pt-3 border-t border-slate-700">
-                    <p className="text-xs text-slate-400 mb-2" title="Items included in this shipment">
-                      <Package className="h-3 w-3 inline mr-1" />
-                      Items in Shipment: {shipment.shipmentItems.length}
-                    </p>
-                    <div className="space-y-1">
-                      {shipment.shipmentItems.map((item) => (
-                        <p key={item.id} className="text-xs text-white flex items-center gap-1">
-                          <ChevronRight className="h-3 w-3 text-purple-400" />
-                          Quantity: {item.quantity}
-                        </p>
-                      ))}
-                    </div>
-                  </div>
-                )}
+ {shipment.shipmentItems && shipment.shipmentItems.length > 0 && (
+  <div className="mt-4 pt-4 border-t border-slate-700">
+
+    {/* HEADER */}
+    <div className="flex items-center justify-between mb-3">
+      <p className="text-xs text-slate-400 flex items-center gap-1">
+        <Package className="h-3 w-3" />
+        Items in Shipment
+      </p>
+
+      <span className="text-xs bg-slate-800 px-2 py-1 rounded text-slate-300">
+        {shipment.shipmentItems.length} items
+      </span>
+    </div>
+
+    <div className="space-y-3">
+
+      {shipment.shipmentItems.map((item) => {
+        const orderItem = order.orderItems.find(
+          (oi) => oi.id === item.orderItemId
+        );
+
+        return (
+          <div
+            key={item.id}
+            className="flex items-center gap-4 p-3 rounded-xl bg-slate-900/60 border border-slate-800 hover:border-purple-500/30 transition-all"
+          >
+
+            {/* IMAGE */}
+            <div className="w-12 h-12 rounded-lg overflow-hidden border border-slate-700 bg-slate-800 flex items-center justify-center">
+              <img
+                src={orderItem?.productImageUrl || '/placeholder.png'}
+                alt={orderItem?.productName || 'Product'}
+                className="w-full h-full object-cover"
+                onError={(e) => (e.currentTarget.src = "/placeholder.png")}
+              />
+            </div>
+
+            {/* DETAILS */}
+            <div className="flex-1 min-w-0">
+              <p className="text-sm text-white font-semibold line-clamp-1">
+                {orderItem?.productName || 'Unknown Product'}
+              </p>
+
+              <div className="flex items-center gap-3 mt-1 text-xs text-slate-400">
+                <span>SKU: {orderItem?.productSku || 'N/A'}</span>
+                <span>£{orderItem?.unitPrice ?? 0}</span>
+              </div>
+            </div>
+
+            {/* QTY BADGE */}
+            <div className="flex flex-col items-end">
+          
+              <span className="text-sm font-bold text-purple-400 bg-purple-500/10 px-2 py-1 rounded-lg">
+                {item.quantity}
+              </span>
+            </div>
+
+          </div>
+        );
+      })}
+
+    </div>
+  </div>
+)}
               </div>
             ))}
           </div>

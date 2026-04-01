@@ -29,6 +29,14 @@ export interface BulkUpdateStatusRequest {
   currentUser: string;
 }
 
+export interface UnshippedItem {
+  orderItemId: string;
+  productName: string;
+  quantity: number;
+  remainingQuantity: number;
+  productImageUrl?: string;
+}
+
 export interface BulkShipmentItem {
   orderId: string;
   trackingNumber: string;
@@ -130,6 +138,11 @@ export interface ShipmentItem {
   quantity: number;
   orderItemId: string;
   orderItem?: OrderItem;
+  productImageUrl?: string;
+  productName?: string;
+  productSku?: string;
+  unitPrice?: string;
+
 }
 
 export interface Shipment {
@@ -203,6 +216,7 @@ export interface Order {
   // Payment summary fields (from backend OrderDto)
   paymentMethod?: string;
   paymentStatus?: string;
+  unshippedItems?: UnshippedItem[];
 
   orderItems: OrderItem[];
     // ✅ ADD THIS
