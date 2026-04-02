@@ -529,7 +529,7 @@ export default function BlogCategoriesPage() {
                   <th className="text-left py-2.5 px-4 text-slate-400 font-medium text-xs uppercase tracking-wide">Category</th>
                   <th className="text-center py-2.5 px-3 text-slate-400 font-medium text-xs uppercase tracking-wide">Posts</th>
                   <th className="text-center py-2.5 px-3 text-slate-400 font-medium text-xs uppercase tracking-wide">Status</th>
-                  <th className="text-center py-2.5 px-3 text-slate-400 font-medium text-xs uppercase tracking-wide">Order</th>
+                  <th className="text-center py-2.5 px-3 text-slate-400 font-medium text-xs uppercase tracking-wide">Display Order</th>
                   <th className="text-left py-2.5 px-3 text-slate-400 font-medium text-xs uppercase tracking-wide">Created</th>
                   <th className="text-left py-2.5 px-3 text-slate-400 font-medium text-xs uppercase tracking-wide">Updated By</th>
                   <th className="text-center py-2.5 px-3 text-slate-400 font-medium text-xs uppercase tracking-wide">Actions</th>

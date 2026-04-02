@@ -727,6 +727,34 @@ importExcel: async (file: File) => {
   );
 },
 
+ importWooCommerce: async (file: File) => {
+    const formData = new FormData();
+
+    // ⚠️ MUST MATCH BACKEND PARAM NAME
+    formData.append("csvFile", file);
+
+    return apiClient.post<{
+      success: boolean;
+      message: string;
+      data?: {
+        totalRows: number;
+        successCount: number;
+        failedCount: number;
+        errors: string[];
+        warnings: string[];
+      };
+    }>(
+      `${API_ENDPOINTS.products}/import-woocommerce`,
+      formData,
+      {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      }
+    );
+  },
+
+
 
   // ==========================================
   // PRODUCT OPTIONS MANAGEMENT

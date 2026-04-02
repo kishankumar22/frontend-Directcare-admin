@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { Plus, Edit, Trash2, Search, FolderTree, Eye, FilterX, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, AlertCircle, CheckCircle, ChevronDown, ChevronRight as ChevronRightIcon, X, Award, Package, Copy, RotateCcw, MessageCircle, HelpCircle } from "lucide-react";
 
 import { useToast } from "@/app/admin/_components/CustomToast";
@@ -18,7 +18,7 @@ export default function CategoriesPage() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
-  
+  const [isSearching, setIsSearching] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
   const [selectedImageUrl, setSelectedImageUrl] = useState<string | null>(null);
@@ -96,18 +96,26 @@ const [openFaqCategory, setOpenFaqCategory] = useState<Category | null>(null);
     parentCategoryId: ""
   });
 
-  const toggleCategoryExpansion = (categoryId: string) => {
-    setExpandedCategories(prev => {
-      const newSet = new Set(prev);
-      if (newSet.has(categoryId)) {
-        newSet.delete(categoryId);
-      } else {
-        newSet.add(categoryId);
-      }
-      return newSet;
-    });
-  };
+const toggleCategoryExpansion = (categoryId: string) => {
+  setExpandedCategories(prev => {
+    const newSet = new Set(prev);
 
+    if (newSet.has(categoryId)) {
+      newSet.delete(categoryId);
+    } else {
+      newSet.add(categoryId);
+
+      // 🔥 ADD THIS (key logic)
+      const category = findCategoryById(categoryId, categories);
+      if (category) {
+        const parents = getParentChain(category, categories);
+        parents.forEach(p => newSet.add(p.id));
+      }
+    }
+
+    return newSet;
+  });
+};
 
 
 
@@ -166,10 +174,7 @@ const fetchCategories = async () => {
       params.showOnHomepage = false;
     }
 
-    // Search
-    if (debouncedSearch?.trim()) {
-      params.search = debouncedSearch.trim();
-    }
+ 
 
     // Level
     if (levelFilter !== "all") {
@@ -374,9 +379,37 @@ useEffect(() => {
   }
 };
 
+const isDuplicateCategory = (
+  categories: Category[],
+  name: string,
+  editingId?: string
+): boolean => {
+  for (const cat of categories) {
+    // check current
+    if (
+      cat.name.trim().toLowerCase() === name.toLowerCase() &&
+      cat.id !== editingId
+    ) {
+      return true;
+    }
+
+    // check children recursively
+    if (cat.subCategories?.length) {
+      const found = isDuplicateCategory(
+        cat.subCategories,
+        name,
+        editingId
+      );
+      if (found) return true;
+    }
+  }
+
+  return false;
+};
 
 const handleSubmit = async (e: React.FormEvent) => {
   e.preventDefault();
+  
 
 const name = formData.name?.trim();
 
@@ -386,9 +419,10 @@ if (!name) {
 }
 
 // ✅ DUPLICATE CHECK
-const isDuplicate = categories.some((c: any) =>
-  c.name.trim().toLowerCase() === name.toLowerCase() &&
-  c.id !== editingCategory?.id // edit mode me same allow
+const isDuplicate = isDuplicateCategory(
+  categories,
+  name,
+  editingCategory?.id
 );
 
 if (isDuplicate) {
@@ -715,7 +749,7 @@ const CategoryRow: React.FC<CategoryRowProps> = ({
           style={{ paddingLeft: `${indent}px` }}
         >
           {/* Expand */}
-          {hasChildren ? (
+          {!searchTerm && hasChildren ? (
             <button
               onClick={() => onToggleExpand(category.id)}
               className="p-1 rounded hover:bg-slate-700/40"
@@ -733,13 +767,7 @@ const CategoryRow: React.FC<CategoryRowProps> = ({
           {/* Image */}
           {category.imageUrl ? (
             <img    
- onClick={() => {
-          if (formData.imageUrl || imagePreview) {
-            setSelectedImageUrl(
-              imagePreview || getImageUrl(formData.imageUrl)
-            );
-          }
-        }}
+             onClick={() => setSelectedImageUrl(getImageUrl(category.imageUrl))}
               src={getImageUrl(category.imageUrl)}
               onError={(e) => (e.currentTarget.src = "/placeholder.png")}
               className="w-7 h-7 rounded-md object-cover border border-slate-700"
@@ -896,145 +924,116 @@ const hasActiveFilters =
   homepageFilter !== 'all' ||
   deletedFilter !== 'all';
 
+const findMatchingNodes = useCallback((categories: Category[], search: string): Category[] => {
+  if (!search.trim()) return categories;
 
+  const result: Category[] = [];
+
+  const traverse = (cat: Category) => {
+    if (cat.name.toLowerCase().includes(search.toLowerCase())) {
+      result.push(cat);
+    }
+
+    if (cat.subCategories?.length) {
+      cat.subCategories.forEach(traverse);
+    }
+  };
+
+  categories.forEach(traverse);
+
+  return result;
+}, []);
 
   // ✅ Smart search in hierarchy
-const searchInHierarchy = (
-  category: Category,
-  searchTerm: string,
-  statusFilter: string,
-  levelFilter: string,
-  homepageFilter: 'all' | 'yes' | 'no',
-  deletedFilter: 'all' | 'deleted' | 'notDeleted'   // ✅ ADD
-): boolean => {
-const deletedMatch =
-  deletedFilter === 'all' ||
-  (deletedFilter === 'deleted' && category.isDeleted === true) ||
-  (deletedFilter === 'notDeleted' && category.isDeleted === false);
 
-  const nameMatch = category.name.toLowerCase().includes(searchTerm.toLowerCase());
-
-  const statusMatch =
-    statusFilter === "all" ||
-    (statusFilter === "active" && category.isActive) ||
-    (statusFilter === "inactive" && !category.isActive);
-
-  const categoryLevel = getCategoryLevel(category, categories);
-  const levelMatch =
-    levelFilter === "all" ||
-    levelFilter === `level${categoryLevel + 1}`;
-
-  // ── NEW ── Homepage match logic
-  const homepageMatch =
-    homepageFilter === 'all' ||
-    (homepageFilter === 'yes' && category.showOnHomepage === true) ||
-    (homepageFilter === 'no'  && category.showOnHomepage === false);
-
-  // All conditions must pass
-  if (nameMatch && statusMatch && levelMatch && homepageMatch && deletedMatch) {
-  return true;
-}
-
-
-  // Recurse into children if any
-  if (category.subCategories && category.subCategories.length > 0) {
-    return category.subCategories.some(child =>
-      searchInHierarchy(
-        child,
-        searchTerm,
-        statusFilter,
-        levelFilter,
-        homepageFilter,
-        deletedFilter
-      )
-    );
-  }
-
-  return false;
-};
 
 // NEW – pass the 5th argument
-const filteredCategories = categories.filter(category =>
-  searchInHierarchy(category, searchTerm, statusFilter, levelFilter, homepageFilter,deletedFilter)
-);
+const filteredCategories = useMemo(() => {
+  return findMatchingNodes(categories, debouncedSearch);
+}, [categories, debouncedSearch, findMatchingNodes]);
 
-  // ✅ Auto-expand parents when children match search
-  useEffect(() => {
-    if (searchTerm.trim() === "" && levelFilter === "all") {
-      return;
-    }
-    
-    const expandedIds = new Set<string>();
-    
-    const findMatchingPaths = (cat: Category, ancestors: string[] = []) => {
-      const nameMatch = cat.name.toLowerCase().includes(searchTerm.toLowerCase());
-      const categoryLevel = getCategoryLevel(cat, categories);
-      const levelMatch = levelFilter === "all" || levelFilter === `level${categoryLevel + 1}`;
-      
-      if (nameMatch && levelMatch) {
-        ancestors.forEach(id => expandedIds.add(id));
-      }
-      
-      if (cat.subCategories && cat.subCategories.length > 0) {
-        cat.subCategories.forEach(child => 
-          findMatchingPaths(child, [...ancestors, cat.id])
-        );
-      }
-    };
-    
-    categories.forEach(cat => findMatchingPaths(cat));
-    setExpandedCategories(expandedIds);
-  }, [searchTerm, levelFilter, categories]);
+const getParentChain = useCallback((category: Category, all: Category[]) => {
+  const chain: Category[] = [];
+  let current = category;
+
+  while (current.parentCategoryId) {
+    const parent = findCategoryById(current.parentCategoryId, all);
+    if (!parent) break;
+
+    chain.unshift(parent);
+    current = parent;
+  }
+
+  return chain;
+}, []);
 
   // ✅ Flatten categories for display
-  const getFlattenedCategories = (): (Category & { level: number })[] => {
-    const flattened: Array<Category & { level: number }> = [];
-    
-    const addCategoryAndChildren = (category: Category, level: number) => {
-      flattened.push({ ...category, level });
-      
-      if (
-        expandedCategories.has(category.id) && 
-        category.subCategories && 
-        category.subCategories.length > 0
-      ) {
-        category.subCategories.forEach((subCat) => {
-          addCategoryAndChildren(subCat, level + 1);
-        });
-      }
-    };
-    
-    filteredCategories.forEach((rootCategory) => {
-      addCategoryAndChildren(rootCategory, 0);
-    });
-    
-    return flattened;
+
+const flattenedData = useMemo(() => {
+  const flattened: Array<Category & { level: number }> = [];
+
+  const addRecursive = (category: Category, level: number) => {
+    flattened.push({ ...category, level });
+
+    if (
+      expandedCategories.has(category.id) &&
+      category.subCategories?.length
+    ) {
+      category.subCategories.forEach(child =>
+        addRecursive(child, level + 1)
+      );
+    }
   };
 
-const flattenedData = getFlattenedCategories();
+  if (searchTerm.trim()) {
+    return filteredCategories.map(cat => ({
+      ...cat,
+      level: getCategoryLevel(cat, categories)
+    }));
+  }
 
-const totalItems = flattenedData.length;
-const totalPages = Math.ceil(totalItems / itemsPerPage);
+  categories.forEach(cat => addRecursive(cat, 0));
 
-const startIndex = (currentPage - 1) * itemsPerPage;
-const endIndex = startIndex + itemsPerPage;
+  return flattened;
 
-const currentData = flattenedData.slice(startIndex, endIndex);
+}, [categories, expandedCategories, searchTerm, filteredCategories]);
 
+const paginationData = useMemo(() => {
+  const totalItems = flattenedData.length;
+  const totalPages = Math.ceil(totalItems / itemsPerPage);
 
-  const goToPage = (page: number) => {
-    setCurrentPage(Math.max(1, Math.min(page, totalPages)));
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+
+  const currentData = flattenedData.slice(startIndex, endIndex);
+
+  return {
+    totalItems,
+    totalPages,
+    startIndex,
+    endIndex,
+    currentData,
   };
+}, [flattenedData, currentPage, itemsPerPage]);
+
+const { totalItems, totalPages, startIndex, endIndex, currentData } = paginationData;
+
+const goToPage = useCallback((page: number) => {
+  setCurrentPage((prev) => Math.max(1, Math.min(page, totalPages)));
+}, [totalPages]);
 
   const goToFirstPage = () => setCurrentPage(1);
   const goToLastPage = () => setCurrentPage(totalPages);
-  const goToPreviousPage = () => setCurrentPage(prev => Math.max(1, prev - 1));
-  const goToNextPage = () => setCurrentPage(prev => Math.min(totalPages, prev + 1));
+const goToNextPage = useCallback(() => {
+  setCurrentPage(prev => Math.min(totalPages, prev + 1));
+}, [totalPages]);
+
+const goToPreviousPage = useCallback(() => {
+  setCurrentPage(prev => Math.max(1, prev - 1));
+}, []);
 // ✅ Get total subcategories recursively
-const getTotalSubCategories = (category: Category): number => {
-  if (!category.subCategories || category.subCategories.length === 0) {
-    return 0;
-  }
+const getTotalSubCategories = useCallback((category: Category): number => {
+  if (!category.subCategories?.length) return 0;
 
   let count = category.subCategories.length;
 
@@ -1043,7 +1042,7 @@ const getTotalSubCategories = (category: Category): number => {
   });
 
   return count;
-};
+}, []);
 
   const handleItemsPerPageChange = (newItemsPerPage: number) => {
     setItemsPerPage(newItemsPerPage);
@@ -1103,11 +1102,20 @@ const handleStatusUpdate = async (category: Category) => {
 
     return pages;
   };
-  useEffect(() => {
+useEffect(() => {
+  if (!searchTerm.trim()) {
+    setDebouncedSearch("");
+    setIsSearching(false);
+    return;
+  }
+
+  setIsSearching(true);
+
   const timer = setTimeout(() => {
     setDebouncedSearch(searchTerm);
-    setCurrentPage(1); // reset page on search
-  }, 600); // ⏱ 400ms delay
+    setCurrentPage(1);
+    setIsSearching(false);
+  }, 300);
 
   return () => clearTimeout(timer);
 }, [searchTerm]);
@@ -1223,20 +1231,28 @@ useEffect(() => {
   <div className="flex flex-wrap items-center gap-2">
 
     {/* Search */}
-    <div className="relative flex-1 min-w-[200px]">
-      <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-500" />
-      <input
-        value={searchTerm}
-        onChange={(e) => setSearchTerm(e.target.value)}
-        placeholder="Search..."
-        className={`w-full pl-8 pr-3 py-1.5 bg-slate-800/60 border rounded-md text-white text-[12px] focus:outline-none transition-all ${
-          searchTerm
-            ? "border-violet-500 ring-1 ring-violet-500/40"
-            : "border-slate-700 focus:ring-1 focus:ring-violet-500"
-        }`}
-      />
-    </div>
+<div className="relative flex-1 min-w-[200px]">
+  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-500" />
 
+  <input
+   type="search"
+    value={searchTerm}
+    onChange={(e) => setSearchTerm(e.target.value)}
+    placeholder="Search..."
+    className={`w-full pl-8 pr-8 py-1.5 bg-slate-800/60 border rounded-md text-white text-[12px] focus:outline-none transition-all ${
+      searchTerm
+        ? "border-violet-500 ring-1 ring-violet-500/40"
+        : "border-slate-700 focus:ring-1 focus:ring-violet-500"
+    }`}
+  />
+
+  {/* 🔥 LOADER */}
+  {isSearching && (
+    <div className="absolute right-2.5 top-1/2 -translate-y-1/2">
+      <div className="w-3.5 h-3.5 border-2 border-violet-500 border-t-transparent rounded-full animate-spin"></div>
+    </div>
+  )}
+</div>
     {/* Level */}
     <select
       value={levelFilter}
@@ -1327,7 +1343,7 @@ useEffect(() => {
           <th className="py-2 px-3 text-left">Category</th>
           <th className="py-2 px-3 text-center">Products</th>
           <th className="py-2 px-3 text-center">Status</th>
-          <th className="py-2 px-3 text-center">Order by</th>
+          <th className="py-2 px-3 text-center">Display Order</th>
           <th className="py-2 px-3 text-left">Created on</th>
           <th className="py-2 px-3 text-left">Updated on</th>
           <th className="py-2 px-3 text-left">Updated By</th>
@@ -1789,7 +1805,7 @@ useEffect(() => {
       <button
       type="button"
         onClick={() => setSelectedImageUrl(null)}
-        className="absolute top-4 right-4 p-2 bg-slate-900/80 text-white rounded-lg hover:bg-slate-800 transition-all"
+        className="absolute top-4 right-4 p-2 bg-red-900/80 text-white rounded-lg hover:bg-slate-800 transition-all"
       >
         <X className="h-5 w-5" />
       </button>

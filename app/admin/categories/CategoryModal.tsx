@@ -40,7 +40,6 @@ export default function CategoryModal({
   setShowModal,
   editingCategory,
   setEditingCategory,
-    imageFile,
   setImageFile,
   formData,
   setFormData,
@@ -56,6 +55,7 @@ const dropdownRef = useRef<HTMLDivElement | null>(null);
 const homepageCount = categories.filter((c) => c.showOnHomepage).length;
 const [search, setSearch] = useState("");
 const [open, setOpen] = useState(false);
+const [nameStatus, setNameStatus] = useState<"idle" | "checking" | "valid" | "duplicate">("idle");
 
 
   const [selectedImageUrl, setSelectedImageUrl] = useState<string | null>(null);
@@ -134,6 +134,25 @@ const extractFilename = (imageUrl: string) => {
   return parts[parts.length - 1];
 };
 
+
+const checkDuplicateName = (name: string): boolean => {
+  const isDuplicateCategory = (categories: Category[]): boolean => {
+    for (const cat of categories) {
+      if (
+        cat.name.trim().toLowerCase() === name.toLowerCase() &&
+        cat.id !== editingCategory?.id
+      ) {
+        return true;
+      }
+      if (cat.subCategories?.length) {
+        if (isDuplicateCategory(cat.subCategories)) return true;
+      }
+    }
+    return false;
+  };
+
+  return isDuplicateCategory(categories);
+};
 const handleDeleteImage = async (categoryId: string, imageUrl: string) => {
   setIsDeletingImage(true);
 
@@ -167,6 +186,23 @@ useEffect(() => {
     setPendingFaqs([]);
   }
 }, [showModal, editingCategory]);
+
+useEffect(() => {
+  if (!formData.name.trim()) {
+    setNameStatus("idle");
+    return;
+  }
+
+  setNameStatus("checking");
+
+  const timer = setTimeout(() => {
+    const isDuplicate = checkDuplicateName(formData.name);
+
+    setNameStatus(isDuplicate ? "duplicate" : "valid");
+  }, 400);
+
+  return () => clearTimeout(timer);
+}, [formData.name, categories]);
 const filteredOptions = parentOptions.filter((c: any) =>
   c.name.toLowerCase().includes(search.toLowerCase())
 );
@@ -194,7 +230,7 @@ useEffect(() => {
   return (
    
 <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-<div className="bg-gradient-to-br from-slate-900 via-slate-900 to-slate-800 border border-violet-500/20 rounded-2xl max-w-5xl w-full max-h-[88vh] overflow-hidden shadow-xl flex flex-col">
+<div className="bg-gradient-to-br from-slate-900 via-slate-900 to-slate-800 border border-violet-500/20 rounded-2xl max-w-5xl w-full max-h-[95vh] overflow-hidden shadow-xl flex flex-col">
         {/* HEADER */}
 <div className="p-3 border-b border-violet-500/20 bg-gradient-to-r from-violet-500/10 to-cyan-500/10">
   <div className="flex items-center justify-between gap-3">
@@ -306,15 +342,37 @@ useEffect(() => {
         <label className="block text-sm text-slate-300 mb-2">
           Category Name *
         </label>
-        <input
-          required
-          value={formData.name}
-          onChange={(e) =>
-            setFormData({ ...formData, name: e.target.value })
-          }
-          className="w-full px-3 py-2 bg-slate-900 border border-slate-600 rounded-lg text-sm text-white"
-          placeholder="Enter category name"
-        />
+       <input
+  required
+  value={formData.name}
+  onChange={(e) =>
+    setFormData({ ...formData, name: e.target.value })
+  }
+  className={`w-full px-3 py-2 border rounded-lg text-sm text-white transition-all ${
+    nameStatus === "duplicate"
+      ? "border-red-500 bg-red-500/10"
+      : nameStatus === "valid"
+      ? "border-green-500 bg-green-500/10"
+      : "border-slate-600 bg-slate-900"
+  }`}
+  placeholder="Enter category name"
+/>
+{nameStatus === "checking" && (
+  <p className="text-xs text-slate-400 mt-1">Checking...</p>
+)}
+
+{nameStatus === "duplicate" && (
+  <p className="text-xs text-red-400 mt-1">
+    ❌ Category already exists
+  </p>
+)}
+
+{nameStatus === "valid" && formData.name && (
+  <p className="text-xs text-green-400 mt-1">
+    ✅ Name available
+  </p>
+)}
+
 
         {!formData.name && (
           <p className="text-xs text-amber-400 mt-1">
@@ -380,6 +438,7 @@ useEffect(() => {
         onChange={(val) =>
           setFormData({ ...formData, description: val })
         }
+        height={250}
       />
     </div>
   )}
@@ -750,20 +809,30 @@ useEffect(() => {
   )}
 
   {/* ================= ACTIONS ================= */}
-<div className="flex justify-end gap-2 pt-3 border-t border-slate-700">
+<div className="flex gap-2 pt-3 border-t border-slate-700">
   <button
     type="button"
     onClick={() => setShowModal(false)}
-    className="px-4 py-1.5 bg-slate-700 text-white rounded-lg text-sm"
+    className="flex-1 px-4 py-2.5 bg-slate-700 hover:bg-slate-600 text-white rounded-lg text-sm transition-all"
   >
     Cancel
   </button>
 
   <button
     type="submit"
-    className="px-4 py-1.5 bg-gradient-to-r from-violet-500 to-cyan-500 text-white rounded-lg text-sm"
+    disabled={
+      isSubmitting ||
+      nameStatus === "duplicate" ||
+      nameStatus === "checking"
+    }
+    className={`flex-1 px-4 py-2.5 rounded-lg font-semibold flex items-center justify-center gap-2 transition-all
+    ${
+      isSubmitting || nameStatus === "duplicate" || nameStatus === "checking"
+        ? "bg-slate-700 text-slate-400 cursor-not-allowed"
+        : "bg-gradient-to-r from-violet-600 to-cyan-600 hover:from-violet-700 hover:to-cyan-700 text-white"
+    }`}
   >
-    {editingCategory ? "Update" : "Create"}
+    {editingCategory ? "Update Category" : "Create Category"}
   </button>
 </div>
 

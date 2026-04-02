@@ -40,6 +40,7 @@ import { RelatedProduct, Product, productsService, productHelpers } from "@/lib/
 import ProductExcelImportModal from "./ProductExcelImportModal";
 import { useDebounce } from "../_hooks/useDebounce";
 import { formatDate, getProductImage } from "../_utils/formatUtils";
+import ImportWooCommerceModal from "./ImportWooCommerceModal";
 
 // ✅ INTERFACES
 interface FormattedProduct {
@@ -202,6 +203,7 @@ export default function ProductsPage() {
   const [loading, setLoading] = useState(true);
   const [viewingProduct, setViewingProduct] = useState<Product | null>(null);
   const [loadingDetails, setLoadingDetails] = useState(false);
+  const [showImportMenu, setShowImportMenu] = useState(false);
   
   // API Pagination state
   const [totalCount, setTotalCount] = useState(0);
@@ -218,7 +220,7 @@ const debouncedSearchTerm = useDebounce(searchInput, 500); // 500ms delay
   // Export menu state
   const [showExportMenu, setShowExportMenu] = useState(false);
   const [showAssignModal, setShowAssignModal] = useState(false);
-  const [selectedProductForDiscount, setSelectedProductForDiscount] = useState<any>(null);
+
 const [bulkAction, setBulkAction] = useState<null | {
   type: "activate" | "deactivate" | "publish" | "unpublish" | "delete" | "restore";
   items: FormattedProduct[];
@@ -321,11 +323,6 @@ const pharmaOptions: SelectOption[] = [
     { value: "no", label: "VAT Applicable" },
   ];
 
-  const discountOptions: SelectOption[] = [
-    { value: "all", label: "Discount: All" },
-    { value: "yes", label: "Has Discount" },
-    { value: "no", label: "No Discount" },
-  ];
 
 const deletedOptions = [
   { value: "all", label: "All Records" },
@@ -339,6 +336,7 @@ const deletedOptions = [
   label: "Active Only",
 });
   const [isProcessing, setIsProcessing] = useState(false);
+  const [showWooModal, setShowWooModal] = useState(false);
 
   const [selectedDeleteProduct, setSelectedDeleteProduct] = useState<ToggleProduct | null>(null);
   const [selectedToggleProduct, setSelectedToggleProduct] = useState<ToggleProduct | null>(null);
@@ -443,7 +441,7 @@ const [pharmaFilter, setPharmaFilter] = useState<SelectOption>({
 
 // ✅ FETCH PRODUCTS WITH PAGINATION AND FILTERS
 const fetchProducts = async () => {
-  setLoading(true);
+  // setLoading(true);
    setFilterLoading(true); // ✅ start loader
 
   try {
@@ -463,7 +461,7 @@ if (statusFilter.value !== "all") {
 }
 
 if (deletedFilter.value === "active") {
-  params.isDeleted = false;
+  // params.isDeleted = false;
   params.isActive = true;
 }
 
@@ -530,18 +528,6 @@ if (selectedType.value !== "all") {
     if (response.data?.success && response.data?.data?.items) {
       const apiData = response.data.data;
       let items = [...apiData.items];
-// Client-side Active / Inactive filter
-if (deletedFilter.value === "active") {
-  items = items.filter((p: any) => p.isDeleted !== true && p.isActive === true);
-}
-
-if (deletedFilter.value === "inactive") {
-  items = items.filter((p: any) => p.isDeleted !== true && p.isActive === false);
-}
-
-if (deletedFilter.value === "deleted") {
-  items = items.filter((p: any) => p.isDeleted === true);
-}
 
 
 
@@ -866,20 +852,7 @@ useEffect(() => {
   pharmaFilter 
 ]);
 
-// ✅ EFFECT 3: Handle client-side filters - JUST reset page, NO API call
-useEffect(() => {
-  setCurrentPage(1);
-}, [
-  selectedBrand,
-  selectedType,
-  statusFilter,
-  deliveryFilter,
-  notReturnableFilter,
-  inventoryFilter,
-  recurringFilter,
-  vatFilter,
- 
-]);
+
 
 
 
@@ -1528,131 +1501,148 @@ const handleExportSelected = async () => {
           <p className="text-sm text-slate-400">Manage your product inventory</p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
-          <button
-            onClick={() => router.push("/admin/discounts")}
-            className="flex items-center gap-2 px-3 py-1.5 text-sm
-            bg-gradient-to-r from-pink-500 to-rose-500
-            hover:from-pink-600 hover:to-rose-600
-            text-white rounded-lg font-semibold shadow
-            hover:shadow-pink-500/40 transition-all"
-          >
-            <Tag className="w-4 h-4" />
-            Discounts
-          </button>
-          {/* Inventory Button */}
+<div className="flex flex-wrap items-center gap-2">
+
+
+
+<div className="relative">
+
+  {/* MAIN BUTTON */}
   <button
-    onClick={() => router.push("/admin/inventory")}
+    onClick={() => setShowImportMenu(!showImportMenu)}
     className="flex items-center gap-2 px-4 py-2 text-sm
-    bg-gradient-to-r from-pink-500 to-rose-500
-    hover:from-pink-600 hover:to-rose-600
-    text-white rounded-xl font-semibold shadow-md
-    hover:shadow-pink-500/40
-    transition-all duration-200"
+    bg-slate-800 border border-slate-700
+    hover:bg-slate-700
+    text-white rounded-xl font-medium transition"
   >
-    <Boxes className="w-4 h-4 stroke-[2.2]" />
-    <span>Inventory</span>
+    <Upload className="w-4 h-4" />
+    Import
+    <ChevronDown className="w-4 h-4 opacity-70" />
   </button>
 
-          <button
-            onClick={() => router.push("/admin/orders")}
-            className="flex items-center gap-2 px-3 py-1.5 text-sm
-            bg-gradient-to-r from-emerald-500 to-teal-500
-            hover:from-emerald-600 hover:to-teal-600
-            text-white rounded-lg font-semibold shadow
-            hover:shadow-emerald-500/40 transition-all"
-          >
-            <ShoppingCart className="w-4 h-4" />
-            Orders
-          </button>
+  {/* DROPDOWN */}
+  {showImportMenu && (
+    <>
+      {/* OUTSIDE CLICK */}
+      <div
+        className="fixed inset-0 z-10"
+        onClick={() => setShowImportMenu(false)}
+        title="Import products (Excel or WooCommerce)"
+      />
 
-          <button
-            onClick={() => setShowImportModal(true)}
-            className="flex items-center gap-2 px-3 py-1.5 text-sm
-            bg-gradient-to-r from-emerald-600 to-green-600
-            text-white rounded-lg font-semibold shadow
-            hover:shadow-emerald-500/40 transition-all"
-          >
-            <Upload className="w-4 h-4" />
-            Import Excel
-          </button>
+      <div className="absolute right-0 mt-2 w-56
+        bg-slate-900 border border-slate-700
+        rounded-xl shadow-xl z-20 overflow-hidden"
+      >
+        {/* EXCEL IMPORT */}
+        <button
+          onClick={() => {
+            setShowImportModal(true);
+            setShowImportMenu(false);
+          }}
+          className="w-full px-4 py-3 text-left hover:bg-slate-800 transition"
+          
+            
+        >
+          <div className="flex items-center gap-3">
+            <FileSpreadsheet className="w-4 h-4 text-green-400" />
+            <div>
+              <p className="text-sm text-white font-medium">
+                Excel Import
+              </p>
+              <p className="text-xs text-slate-400">
+               Upload Excel file (.xlsx)
+              </p>
+            </div>
+          </div>
+        </button>
 
-          <button
-            onClick={() => router.push("/admin/productReview")}
-            className="flex items-center gap-2 px-3 py-1.5 text-sm
-            bg-gradient-to-r from-amber-500 to-orange-500
-            hover:from-amber-600 hover:to-orange-600
-            text-white rounded-lg font-semibold shadow
-            hover:shadow-amber-500/40 transition-all"
-          >
-            <Star className="w-4 h-4" />
-            Reviews
-          </button>
+        <div className="border-t border-slate-700" />
 
-          {statusCounts.Pending > 0 && (
-            <button
-              onClick={() => setShowTakeoverPanel(true)}
-              className={`flex items-center gap-2 px-3 py-1.5 text-sm rounded-lg font-semibold
-              shadow transition-all relative ${
-                statusCounts.Pending > 0
-                  ? "bg-gradient-to-r from-orange-500 to-red-500 text-white animate-pulse shadow-orange-500/40"
-                  : "bg-gradient-to-r from-blue-500 to-blue-600 text-white hover:shadow-blue-500/40"
-              }`}
-            >
-              <Send className="w-4 h-4" />
-              Requests
-              {statusCounts.Pending > 0 && (
-                <span className="ml-1 inline-flex h-4 w-4 items-center justify-center rounded-full bg-white text-orange-600 text-[10px] font-bold">
-                  {statusCounts.Pending}
-                </span>
-              )}
-            </button>
-          )}
+        {/* WOOCOMMERCE IMPORT */}
+        <button
+          onClick={() => {
+            setShowWooModal(true);
+            setShowImportMenu(false);
+          }}
+          className="w-full px-4 py-3 text-left hover:bg-slate-800 transition"
+        >
+          <div className="flex items-center gap-3">
+            <Upload className="w-4 h-4 text-blue-400" />
+            <div>
+              <p className="text-sm text-white font-medium">
+                WooCommerce Import
+              </p>
+              <p className="text-xs text-slate-400">
+                Upload WooCommerce excel file (.xlsx)
+              </p>
+            </div>
+          </div>
+        </button>
 
+      </div>
+    </>
+  )}
+
+</div>
+
+  {/* REQUESTS */}
+  {statusCounts.Pending > 0 && (
+    <button
+      onClick={() => setShowTakeoverPanel(true)}
+      className={`flex items-center gap-2 px-3 py-1.5 text-sm rounded-lg font-semibold
+      shadow transition-all relative ${
+        statusCounts.Pending > 0
+          ? "bg-gradient-to-r from-orange-500 to-red-500 text-white animate-pulse shadow-orange-500/40"
+          : "bg-gradient-to-r from-blue-500 to-blue-600 text-white hover:shadow-blue-500/40"
+      }`}
+    >
+      <Send className="w-4 h-4" />
+      Requests
+      <span className="ml-1 inline-flex h-4 w-4 items-center justify-center rounded-full bg-white text-orange-600 text-[10px] font-bold">
+        {statusCounts.Pending}
+      </span>
+    </button>
+  )}
+
+  {/* EXPORT */}
 <div className="relative">
   <button
     onClick={() => setShowExportMenu(!showExportMenu)}
-    className="flex items-center gap-2 px-3 py-1.5 text-sm
-      bg-gradient-to-r from-green-600 to-emerald-600
-      text-white rounded-lg font-semibold shadow
-      hover:shadow-emerald-500/40 transition-all"
+    className="flex items-center gap-2 px-4 py-2 text-sm
+    bg-slate-800 border border-slate-700
+    hover:bg-slate-700
+    text-white rounded-xl font-medium transition"
+      title="Export products (current page or all)"
   >
     <FileSpreadsheet className="w-4 h-4" />
     Export
-    <ChevronDown className="w-4 h-4 opacity-80" />
+    <ChevronDown className="w-4 h-4 opacity-70" />
   </button>
 
   {showExportMenu && (
     <>
-      {/* Overlay */}
       <div
         className="fixed inset-0 z-10"
         onClick={() => setShowExportMenu(false)}
       />
 
-      {/* Dropdown */}
-      <div className="absolute right-0 mt-2 w-52
-        bg-slate-800/95 backdrop-blur-xl
-        border border-slate-700
-        rounded-xl shadow-xl
-        overflow-hidden z-20"
+      <div className="absolute right-0 mt-2 w-56
+        bg-slate-900 border border-slate-700
+        rounded-xl shadow-xl z-20 overflow-hidden"
       >
-
-    
-
         {/* Current Page */}
         <button
           onClick={() => {
             handleExport(false);
             setShowExportMenu(false);
           }}
-          className="w-full px-4 py-2.5 text-left hover:bg-slate-700/60 transition-all"
-          title="Export current page products"
+          className="w-full px-4 py-3 text-left hover:bg-slate-800 transition"
         >
           <div className="flex items-center gap-3">
             <FileSpreadsheet className="w-4 h-4 text-emerald-400" />
             <div>
-              <p className="text-sm font-medium text-white">
+              <p className="text-sm text-white font-medium">
                 Current Page
               </p>
               <p className="text-xs text-slate-400">
@@ -1662,23 +1652,20 @@ const handleExportSelected = async () => {
           </div>
         </button>
 
-        {/* Divider */}
-        <div className="border-t border-slate-700/60" />
+        <div className="border-t border-slate-700" />
 
-        {/* Export All */}
+        {/* All Products */}
         <button
           onClick={() => {
             handleExport(true);
             setShowExportMenu(false);
           }}
-          className="w-full px-4 py-2.5 text-left hover:bg-slate-700/60 transition-all"
+          className="w-full px-4 py-3 text-left hover:bg-slate-800 transition"
         >
           <div className="flex items-center gap-3">
             <Database className="w-4 h-4 text-emerald-400" />
             <div>
-              <p className="text-sm font-medium text-white"
-          title="Export All products"
-              >
+              <p className="text-sm text-white font-medium">
                 All Products
               </p>
               <p className="text-xs text-slate-400">
@@ -1692,16 +1679,20 @@ const handleExportSelected = async () => {
     </>
   )}
 </div>
-          <Link href="/admin/products/add">
-            <button className="flex items-center gap-2 px-3 py-1.5 text-sm
-            bg-gradient-to-r from-violet-500 to-cyan-500
-            text-white rounded-lg font-semibold shadow
-            hover:shadow-violet-500/40 transition-all">
-              <Plus className="w-4 h-4" />
-              Add Product
-            </button>
-          </Link>
-        </div>
+
+  {/* ADD PRODUCT */}
+  <Link href="/admin/products/add">
+    <button className="flex items-center gap-2 px-3 py-1.5 text-sm
+    bg-gradient-to-r from-violet-500 to-cyan-500
+    text-white rounded-lg font-semibold shadow
+    hover:shadow-violet-500/40 transition-all"
+    title="Add new product">
+      <Plus className="w-4 h-4" />
+      Add Product
+    </button>
+  </Link>
+
+</div>
       </div>
 
 
@@ -1819,9 +1810,6 @@ const handleExportSelected = async () => {
 
     {/* RIGHT SIDE */}
     <div className="flex items-center gap-3">
-
-      {/* 🔄 FILTER LOADER */}
-  {filterLoading && <FilterLoader />}
 
       {/* RESULT TEXT */}
       <div className="text-xs text-slate-400 whitespace-nowrap">
@@ -2203,15 +2191,25 @@ const handleExportSelected = async () => {
       </div>
 
       {/* ✅ PRODUCTS TABLE */}
-      <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-2xl p-2">
-        {products.length === 0 ? (
-          <div className="text-center py-12">
-            <Package className="h-16 w-16 text-slate-600 mx-auto mb-4" />
-            <p className="text-slate-400">No products found</p>
-          </div>
-        ) : (
-       <div className="overflow-auto max-h-[65vh]">
-  <table className="w-full table-fixed text-sm">
+<div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-2xl p-2 relative">
+
+  {/* 🔄 OVERLAY LOADER */}
+  {filterLoading && (
+    <div className="absolute inset-0 bg-slate-900/60 flex items-center justify-center z-20 rounded-2xl">
+      <div className="w-8 h-8 border-2 border-violet-400 border-t-transparent rounded-full animate-spin"></div>
+    </div>
+  )}
+
+  {/* TABLE (always render) */}
+  <div className={`overflow-auto max-h-[65vh] ${filterLoading ? "opacity-40" : ""}`}>
+    
+    {products.length === 0 && !filterLoading ? (
+      <div className="text-center py-12">
+        <Package className="h-16 w-16 text-slate-600 mx-auto mb-4" />
+        <p className="text-slate-400">No products found</p>
+      </div>
+    ) : (
+    <table className="w-full table-fixed text-sm">
     
     <thead className="sticky top-0 z-20 bg-slate-900/95 backdrop-blur border-b border-slate-800">
       <tr>
@@ -2551,10 +2549,10 @@ Last Updated By: ${product.updatedBy || "N/A"}
                 })}
               </tbody>
             </table>
-          </div>
-        )}
-      </div>
+    )}
 
+  </div>
+</div>
       {/* PAGINATION */}
       {totalPages > 1 && (
         <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-2xl p-4">
@@ -2952,6 +2950,10 @@ Last Updated By: ${product.updatedBy || "N/A"}
             : "bg-gradient-to-r from-emerald-600 to-green-600"
         }
       />
+      <ImportWooCommerceModal
+  open={showWooModal}
+  onClose={() => setShowWooModal(false)}
+/>
     </div>
   );
 }

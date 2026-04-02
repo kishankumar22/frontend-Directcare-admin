@@ -954,7 +954,7 @@ const clearFilters = () => {
           <th className="text-left py-2 px-3 text-slate-400 font-medium">Region</th>
           <th className="text-center py-2 px-3 text-slate-400 font-medium">Status</th>
           <th className="text-center py-2 px-3 text-slate-400 font-medium">Default</th>
-          <th className="text-center py-2 px-3 text-slate-400 font-medium">Order By</th>
+          <th className="text-center py-2 px-3 text-slate-400 font-medium">Display Order</th>
           <th className="text-center py-2 px-3 text-slate-400 font-medium">Actions</th>
         </tr>
       </thead>

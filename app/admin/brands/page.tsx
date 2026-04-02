@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { Plus, Edit, Trash2, Search, Tag, Eye, CheckCircle, Filter, FilterX, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, AlertCircle, Package, FolderTree, Copy, Loader2, HelpCircle } from "lucide-react";
-import { API_BASE_URL } from "@/lib/api-config";
+import { useMemo, useCallback } from "react";
 import { useToast } from "@/app/admin/_components/CustomToast";
 import ConfirmDialog from "@/app/admin/_components/ConfirmDialog";
 import { Brand, brandsService, BrandStats } from "@/lib/services/brands";
@@ -21,6 +21,7 @@ export default function BrandsPage() {
   const [selectedImageUrl, setSelectedImageUrl] = useState<string | null>(null);
   const [viewingBrand, setViewingBrand] = useState<Brand | null>(null);
   const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [isSearching, setIsSearching] = useState(false);
   // ✅ UPDATED FILTERS - Using "all" | "true" | "false"
   const [initialTab, setInitialTab] = useState<'basic' | 'image' | 'seo' | 'settings' | 'faqs'>('basic');
   const [publishedFilter, setPublishedFilter] = useState<string>("all");
@@ -50,9 +51,18 @@ const [statusConfirm, setStatusConfirm] = useState<{
   currentStatus: boolean;
 } | null>(null);
 useEffect(() => {
+  if (!searchTerm.trim()) {
+    setDebouncedSearch("");
+    setIsSearching(false);
+    return;
+  }
+
+  setIsSearching(true);
+
   const timer = setTimeout(() => {
     setDebouncedSearch(searchTerm);
-  }, 400); // 300–500 best
+    setIsSearching(false);
+  }, 400);
 
   return () => clearTimeout(timer);
 }, [searchTerm]);
@@ -252,26 +262,41 @@ const handleEdit = (
     searchTerm.trim() !== "";
 
   // ✅ CLIENT-SIDE FILTERING (for search and homepage only)
-  const filteredBrands = brands.filter(brand => {
-    const matchesSearch = brand.name.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
-                         brand.description.toLowerCase().includes(searchTerm.toLowerCase());
+const filteredBrands = useMemo(() => {
+  return brands.filter((brand) => {
+    const matchesSearch =
+      brand.name.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+      brand.description.toLowerCase().includes(debouncedSearch.toLowerCase());
 
-    const matchesHomepage = homepageFilter === "all" ||
-                           (homepageFilter === "true" && brand.showOnHomepage) ||
-                           (homepageFilter === "false" && !brand.showOnHomepage);
+    const matchesHomepage =
+      homepageFilter === "all" ||
+      (homepageFilter === "true" && brand.showOnHomepage) ||
+      (homepageFilter === "false" && !brand.showOnHomepage);
 
     return matchesSearch && matchesHomepage;
   });
-
+}, [brands, debouncedSearch, homepageFilter]);
+const paginationData = useMemo(() => {
   const totalItems = filteredBrands.length;
   const totalPages = Math.ceil(totalItems / itemsPerPage);
+
   const startIndex = (currentPage - 1) * itemsPerPage;
   const endIndex = startIndex + itemsPerPage;
+
   const currentData = filteredBrands.slice(startIndex, endIndex);
 
-  const goToPage = (page: number) => {
-    setCurrentPage(Math.max(1, Math.min(page, totalPages)));
+  return {
+    totalItems,
+    totalPages,
+    startIndex,
+    endIndex,
+    currentData,
   };
+}, [filteredBrands, currentPage, itemsPerPage]);
+const { totalItems, totalPages, startIndex, endIndex, currentData } = paginationData;
+const goToPage = useCallback((page: number) => {
+  setCurrentPage((prev) => Math.max(1, Math.min(page, totalPages)));
+}, [totalPages]);
 
   const goToFirstPage = () => setCurrentPage(1);
   const goToLastPage = () => setCurrentPage(totalPages);
@@ -461,14 +486,23 @@ const handleEdit = (
 
     {/* Search */}
     <div className="relative flex-1 min-w-[220px]">
-      <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-500" />
-      <input
-        type="search"
-        placeholder="Search brands..."
-        value={searchTerm}
-        onChange={(e) => setSearchTerm(e.target.value)}
-        className="w-full pl-8 pr-3 py-1.5 bg-slate-800/60 border border-slate-700 rounded-md text-white text-[12px] placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
-      />
+   <div className="relative flex-1 min-w-[220px]">
+  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-500" />
+
+  <input
+    type="search"
+    placeholder="Search brands..."
+    value={searchTerm}
+    onChange={(e) => setSearchTerm(e.target.value)}
+    className="w-full pl-8 pr-8 py-1.5 bg-slate-800/60 border border-slate-700 rounded-md text-white text-[12px] placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
+  />
+
+  {isSearching && (
+    <div className="absolute right-2.5 top-1/2 -translate-y-1/2">
+      <Loader2 className="h-3.5 w-3.5 animate-spin text-violet-400" />
+    </div>
+  )}
+</div>
     </div>
 
     {/* Filters */}
@@ -576,7 +610,7 @@ const handleEdit = (
                   <th className="text-center py-2 px-3 text-slate-400 font-medium">Status</th>
                   <th className="text-center py-2 px-3 text-slate-400 font-medium">Homepage</th>
                   <th className="text-center py-2 px-3 text-slate-400 font-medium">Deleted</th>
-                  <th className="text-center py-2 px-3 text-slate-400 font-medium">Order By</th>
+                  <th className="text-center py-2 px-3 text-slate-400 font-medium">Display Order</th>
                   <th className="text-left py-2 px-3 text-slate-400 font-medium">Updated</th>
                   <th className="text-left py-2 px-3 text-slate-400 font-medium">Updated By</th>
                   <th className="text-center py-2 px-3 text-slate-400 font-medium">Actions</th>

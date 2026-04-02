@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { X, Plus, Edit, Tag, Trash2, Upload, CheckCircle, AlertCircle, Loader2, Eye, Copy, HelpCircle } from "lucide-react";
 
 import { ProductDescriptionEditor } from "../_components/SelfHostedEditor";
@@ -51,6 +51,15 @@ export default function BrandModals({
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
   const [pendingFaqs, setPendingFaqs] = useState<any[]>([]);
+  const [nameStatus, setNameStatus] = useState<"idle" | "checking" | "valid" | "duplicate">("idle");
+
+const checkDuplicateBrand = useCallback((name: string): boolean => {
+  return brands.some(
+    (b) =>
+      b.name.trim().toLowerCase() === name.toLowerCase() &&
+      b.id !== editingBrand?.id
+  );
+}, [brands, editingBrand]);
 
   const [imageDeleteConfirm, setImageDeleteConfirm] = useState<{
     brandId: string;
@@ -75,7 +84,21 @@ const [activeTab, setActiveTab] = useState<'basic' | 'image' | 'seo' | 'settings
 
   const homepageBrandsCounter = brands.filter(brand => brand.showOnHomepage);
   const homepageCount = homepageBrandsCounter.length;
+useEffect(() => {
+  if (!formData.name.trim()) {
+    setNameStatus("idle");
+    return;
+  }
 
+  setNameStatus("checking");
+
+  const timer = setTimeout(() => {
+    const isDuplicate = checkDuplicateBrand(formData.name);
+    setNameStatus(isDuplicate ? "duplicate" : "valid");
+  }, 400);
+
+  return () => clearTimeout(timer);
+}, [formData.name, brands]);
 
 useEffect(() => {
   if (showModal && initialTab) {
@@ -158,21 +181,18 @@ const handleSubmit = async (e: React.FormEvent) => {
 
 const brandName = formData.name.trim();
 
+if (nameStatus === "duplicate") {
+  toast.error("Brand already exists");
+  return;
+}
 if (!brandName) {
   toast.error("❌ Brand name is required");
   return;
 }
 
-// ✅ DUPLICATE CHECK
-const isDuplicate = brands.some((b: any) =>
-  b.name.trim().toLowerCase() === brandName.toLowerCase() &&
-  b.id !== editingBrand?.id
-);
 
-if (isDuplicate) {
-  toast.error("❌ Brand with same name already exists");
-  return;
-}
+
+
   if (!logoFile && !formData.logoUrl) {
     toast.error("❌ Brand logo is required");
     return;
@@ -275,7 +295,7 @@ if (isDuplicate) {
           ============================================ */}
       {showModal && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-50 flex items-center justify-center p-4">
-          <div className="bg-gradient-to-br from-slate-900 via-slate-900 to-slate-800 border border-violet-500/20 rounded-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col shadow-2xl shadow-violet-500/10">
+          <div className="bg-gradient-to-br from-slate-900 via-slate-900 to-slate-800 border border-violet-500/20 rounded-2xl max-w-4xl w-full max-h-[95vh] overflow-hidden flex flex-col shadow-2xl shadow-violet-500/10">
             
             {/* ============================================
                 HEADER - SIMPLE WITH LOGO & INFO
@@ -350,7 +370,11 @@ if (isDuplicate) {
         setActiveTab('basic');
       }}
       className="p-2 text-slate-400 hover:text-white hover:bg-red-500/20 border border-transparent hover:border-red-500/50 rounded-lg transition-all"
-      disabled={isSubmitting}
+    disabled={
+  isSubmitting ||
+  nameStatus === "duplicate" ||
+  nameStatus === "checking"
+}
     >
       <X className="h-5 w-5" />
     </button>
@@ -393,7 +417,7 @@ if (isDuplicate) {
                 MODAL BODY
                 ============================================ */}
             <div className="overflow-y-auto flex-1 p-4">
-              <form onSubmit={handleSubmit} className="space-y-3">
+              <form onSubmit={handleSubmit} className="space-y-2">
                 
                 {/* TAB 1: Basic Information */}
                 {activeTab === 'basic' && (
@@ -405,14 +429,40 @@ if (isDuplicate) {
                         <label className="block text-sm text-slate-300 font-semibold mb-2">
                           Brand Name <span className="text-red-400">*</span>
                         </label>
-                        <input
-                          type="text"
-                          value={formData.name}
-                          onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                          placeholder="e.g., Apple, Samsung"
-                          className="w-full px-3 py-2.5 bg-slate-800/50 border border-slate-600 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all"
-                          disabled={isSubmitting}
-                        />
+                       <input
+  type="text"
+  value={formData.name}
+  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+  placeholder="e.g., Apple, Samsung"
+  className={`w-full px-3 py-2.5 border rounded-lg text-white transition-all ${
+    nameStatus === "duplicate"
+      ? "border-red-500 bg-red-500/10"
+      : nameStatus === "valid"
+      ? "border-green-500 bg-green-500/10"
+      : "border-slate-600 bg-slate-800/50"
+  }`}
+  disabled={isSubmitting}
+/>
+{nameStatus === "checking" && (
+  <p className="text-xs text-slate-400 mt-1 flex items-center gap-1">
+    <Loader2 className="h-3 w-3 animate-spin" />
+    Checking...
+  </p>
+)}
+
+{nameStatus === "duplicate" && (
+  <p className="text-xs text-red-400 mt-1 flex items-center gap-1">
+    <AlertCircle className="h-3 w-3" />
+    Brand already exists
+  </p>
+)}
+
+{nameStatus === "valid" && formData.name && (
+  <p className="text-xs text-green-400 mt-1 flex items-center gap-1">
+    <CheckCircle className="h-3 w-3" />
+    Name available
+  </p>
+)}
                       </div>
 
                       {/* Display Order */}
@@ -441,6 +491,7 @@ if (isDuplicate) {
                         value={formData.description}
                         onChange={(value) => setFormData({ ...formData, description: value })}
                         placeholder="Enter brand description..."
+                        height={300}
                       />
                       <p className="text-xs text-slate-500 mt-1">
                         {formData.description.length}/1000 characters
@@ -541,10 +592,10 @@ if (isDuplicate) {
 
                 {/* TAB 3: SEO Information */}
                 {activeTab === 'seo' && (
-                  <div className="space-y-3 animate-fadeIn">
+                  <div className="space-y-2 animate-fadeIn">
                     {/* Meta Title */}
                     <div>
-                      <label className="block text-sm text-slate-300 font-semibold mb-2">
+                      <label className="block text-sm text-slate-300 font-semibold mb-1">
                         Meta Title
                       </label>
                       <input
@@ -805,8 +856,17 @@ if (isDuplicate) {
                 <button
                   type="submit"
                   onClick={handleSubmit}
-                  disabled={isSubmitting}
-                  className="flex-1 px-4 py-2.5 bg-gradient-to-r from-violet-600 to-cyan-600 hover:from-violet-700 hover:to-cyan-700 text-white rounded-lg transition-all font-semibold disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                 disabled={
+  isSubmitting ||
+  nameStatus === "duplicate" ||
+  nameStatus === "checking"
+}
+                  className={`flex-1 px-4 py-2.5 rounded-lg font-semibold flex items-center justify-center gap-2 transition-all
+${
+  isSubmitting || nameStatus === "duplicate" || nameStatus === "checking"
+    ? "bg-slate-700 text-slate-400 cursor-not-allowed"
+    : "bg-gradient-to-r from-violet-600 to-cyan-600 hover:from-violet-700 hover:to-cyan-700 text-white cursor-pointer"
+}`}
                 >
                   {isSubmitting ? (
                     <>
@@ -1091,7 +1151,7 @@ if (isDuplicate) {
         className="
           absolute top-3 right-3
           p-2 rounded-lg
-          bg-white/10 hover:bg-red-500
+          bg-red-900/80 hover:bg-red-500
           text-white backdrop-blur-md
           transition-all shadow-md
         "

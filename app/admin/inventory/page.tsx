@@ -731,7 +731,7 @@ const openMediaViewer = (images: any[], idx = 0) => {
                     <input type="checkbox" checked={selected.has(p.id)} onChange={() => toggleSelect(p.id)} className="rounded accent-violet-500" />
                   </td>
 
-                  <td className="py-2 px-3">
+                  <td className="py-2 px-3 ">
                     <div className="flex items-center gap-3">
                       <div
                         className="w-9 h-9 rounded-lg bg-gradient-to-br from-violet-500/20 to-pink-500/20 border border-slate-700 overflow-hidden flex-shrink-0 cursor-pointer hover:border-violet-500/50 transition-colors"
@@ -752,7 +752,7 @@ const openMediaViewer = (images: any[], idx = 0) => {
 )}
                       </div>
                       <div className="min-w-0 flex-1">
-                        <p className="text-white text-sm font-medium truncate max-w-[280px]">{p.name}</p>
+                        <p className="text-white text-sm font-medium truncate max-w-[480px]">{p.name}</p>
                         <div className="flex items-center gap-1.5 mt-0.5">
                           <span className="text-[11px] text-slate-500 truncate">{p.categoryName}</span>
                           {p.brandName && (

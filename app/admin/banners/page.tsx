@@ -851,7 +851,7 @@ const handleSubmit = async (e: React.FormEvent) => {
             <th className="text-left py-2 px-3 text-[11px] text-slate-400">Banner</th>
             <th className="text-center py-2 px-3 text-[11px] text-slate-400">Banner Type</th>
             <th className="text-center py-2 px-3 text-[11px] text-slate-400">Status</th>
-            <th className="text-center py-2 px-3 text-[11px] text-slate-400">Order</th>
+            <th className="text-center py-2 px-3 text-[11px] text-slate-400">Display Order</th>
             <th className="text-left py-2 px-3 text-[11px] text-slate-400">Date  Start</th>
             <th className="text-left py-2 px-3 text-[11px] text-slate-400">Date End</th>
             <th className="text-left py-2 px-3 text-[11px] text-slate-400">Created At   </th>

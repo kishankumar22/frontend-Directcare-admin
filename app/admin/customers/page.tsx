@@ -721,18 +721,7 @@ const getStatusBadge = (isActive: boolean) => {
     setExpandedOrderId(expandedOrderId === orderId ? null : orderId);
   };
 
-  const getFilteredOrders = () => {
-    if (!selectedCustomer) return [];
-    
-    if (filters.deliveryMethod === "all") {
-      return selectedCustomer.orders;
-    }
-    
-    return selectedCustomer.orders.filter(order => 
-      order.deliveryMethod.toLowerCase() === filters.deliveryMethod.toLowerCase()
-    );
-  };
-
+  
   const getDeliveryMethods = () => {
     if (!selectedCustomer) return [];
     const methods = new Set(selectedCustomer.orders.map(order => order.deliveryMethod));
