@@ -18,6 +18,10 @@ import {
   History,
   Infinity as InfinityIcon,
   X,
+  Upload,
+  Trash2,
+  Monitor,
+  Smartphone,
 } from "lucide-react";
 import Select from "react-select";
 import { ProductDescriptionEditor } from "../_components/SelfHostedEditor";
@@ -53,6 +57,8 @@ interface FormData {
   assignedProductIds: string[];
   assignedCategoryIds: string[];
   assignedManufacturerIds: string[];
+  desktopBannerImageUrl: string | null;
+  mobileBannerImageUrl: string | null;
 }
 
 interface DiscountModalsProps {
@@ -94,6 +100,8 @@ interface DiscountModalsProps {
   dateRangeFilter: { startDate: string; endDate: string };
   setDateRangeFilter: (filter: { startDate: string; endDate: string }) => void;
   handleViewUsageHistory?: (discount: Discount) => void;
+  handleUploadBannerImage?: (discountId: string, file: File, type: "desktop" | "mobile") => Promise<void>;
+  handleDeleteBannerImage?: (discountId: string, type: "desktop" | "mobile") => Promise<void>;
 }
 
 export default function DiscountModals(props: DiscountModalsProps) {
@@ -135,6 +143,8 @@ export default function DiscountModals(props: DiscountModalsProps) {
     dateRangeFilter,
     setDateRangeFilter,
     handleViewUsageHistory,
+    handleUploadBannerImage,
+    handleDeleteBannerImage,
   } = props;
 
   // ========== HELPER FUNCTIONS FOR USAGE HISTORY ==========
@@ -457,6 +467,66 @@ useEffect(() => {
                           </button>
                         )}
                       </div>
+
+                      {/* ⚠️ CONFLICT WARNING FOR ASSIGNED-TO-PRODUCTS */}
+                      {formData.assignedProductIds.length > 0 && (() => {
+                        const allDiscounts = (props.discounts || []) as any[];
+                        const conflicted: { name: string; discountName: string; via: string }[] = [];
+
+                        formData.assignedProductIds.forEach(productId => {
+                          const product = products.find(p => p.id === productId);
+                          if (!product) return;
+                          const prodCatIds = [
+                            (product as any).categoryId,
+                            ...(((product as any).categories || []) as any[]).map((c: any) => c.categoryId || c.id).filter(Boolean)
+                          ].filter(Boolean);
+
+                          const conflicts = allDiscounts.filter((d: any) => {
+                            if (d.id === editingDiscount?.id) return false;
+                            if (!d.isActive || d.isDeleted) return false;
+                            if (new Date(d.startDate) > new Date() || new Date(d.endDate) < new Date()) return false;
+                            if (d.discountType === "AssignedToProducts" &&
+                                d.assignedProductIds?.split(',').map((s: string) => s.trim()).includes(productId)) return true;
+                            if (d.discountType === "AssignedToCategories") {
+                              const dCatIds = (d.assignedCategoryIds || '').split(',').map((s: string) => s.trim()).filter(Boolean);
+                              if (!prodCatIds.some((cid: string) => dCatIds.includes(cid))) return false;
+                              if (d.assignedProductIds && d.assignedProductIds.trim())
+                                return d.assignedProductIds.split(',').map((s: string) => s.trim()).includes(productId);
+                              return true;
+                            }
+                            return false;
+                          });
+                          const fromProduct = Array.isArray((product as any).assignedDiscounts)
+                            ? (product as any).assignedDiscounts.filter((d: any) => d.id !== editingDiscount?.id && d.isActive)
+                            : [];
+                          const all = [...conflicts, ...fromProduct].filter((v, i, a) => a.findIndex((t: any) => t.id === v.id) === i);
+
+                          if (all.length > 0) {
+                            const productName = filteredProductOptions.find((o: any) => o.value === productId)?.label || productId;
+                            const via = all[0]?.discountType === "AssignedToCategories" ? "via Category" : "Direct";
+                            conflicted.push({ name: productName, discountName: all[0]?.name || 'Unknown', via });
+                          }
+                        });
+
+                        if (conflicted.length === 0) return null;
+
+                        return (
+                          <div className="mt-3 bg-red-500/10 border border-red-500/30 rounded-xl p-3">
+                            <p className="text-red-400 text-sm font-semibold flex items-center gap-2 mb-2">
+                              <AlertCircle className="h-4 w-4 shrink-0" />
+                              {conflicted.length} selected product{conflicted.length !== 1 ? 's' : ''} already {conflicted.length === 1 ? 'has' : 'have'} an active discount:
+                            </p>
+                            <div className="space-y-1 max-h-24 overflow-y-auto">
+                              {conflicted.map((item, i) => (
+                                <div key={i} className="flex items-center justify-between text-xs gap-2">
+                                  <span className="text-slate-300 truncate">{item.name.length > 35 ? item.name.slice(0, 35) + '...' : item.name}</span>
+                                  <span className="text-red-400 font-medium shrink-0">"{item.discountName}" <span className="text-slate-500">({item.via})</span></span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        );
+                      })()}
                     </div>
                   )}
 
@@ -493,6 +563,97 @@ useEffect(() => {
                               {categoryFilteredProductOptions.length} product{categoryFilteredProductOptions.length !== 1 ? 's' : ''} available
                             </p>
                           </div>
+
+                          {/* 📊 CATEGORY DISCOUNT IMPACT SUMMARY */}
+                          {(() => {
+                            const allDiscounts = (props.discounts || []) as any[];
+                            const total = categoryFilteredProductOptions.length;
+                            if (total === 0) return null;
+
+                            if (formData.assignedProductIds.length > 0) {
+                              return (
+                                <div className="mt-3 bg-violet-500/10 border border-violet-500/30 rounded-xl p-3">
+                                  <p className="text-violet-400 text-sm flex items-center gap-2">
+                                    <Target className="h-4 w-4 shrink-0" />
+                                    Discount will apply only to <span className="font-bold mx-1">{formData.assignedProductIds.length}</span> selected product{formData.assignedProductIds.length !== 1 ? 's' : ''}, not the entire category
+                                  </p>
+                                </div>
+                              );
+                            }
+
+                            // Compute conflicts for each product in this category
+                            const conflictedProducts: { name: string; discountName: string }[] = [];
+                            categoryFilteredProductOptions.forEach(opt => {
+                              const product = products.find(p => p.id === opt.value);
+                              if (!product) return;
+                              const productIdStr = opt.value;
+                              const prodCatIds = [
+                                (product as any).categoryId,
+                                ...(((product as any).categories || []) as any[]).map((c: any) => c.categoryId || c.id).filter(Boolean)
+                              ].filter(Boolean);
+
+                              const conflicts = allDiscounts.filter((d: any) => {
+                                if (d.id === editingDiscount?.id) return false;
+                                if (!d.isActive || d.isDeleted) return false;
+                                if (new Date(d.startDate) > new Date() || new Date(d.endDate) < new Date()) return false;
+                                if (d.discountType === "AssignedToProducts" &&
+                                    d.assignedProductIds?.split(',').map((s: string) => s.trim()).includes(productIdStr)) return true;
+                                if (d.discountType === "AssignedToCategories") {
+                                  const dCatIds = (d.assignedCategoryIds || '').split(',').map((s: string) => s.trim()).filter(Boolean);
+                                  if (!prodCatIds.some((cid: string) => dCatIds.includes(cid))) return false;
+                                  if (d.assignedProductIds && d.assignedProductIds.trim())
+                                    return d.assignedProductIds.split(',').map((s: string) => s.trim()).includes(productIdStr);
+                                  return true;
+                                }
+                                return false;
+                              });
+                              const fromProduct = Array.isArray((product as any).assignedDiscounts)
+                                ? (product as any).assignedDiscounts.filter((d: any) => d.id !== editingDiscount?.id && d.isActive)
+                                : [];
+                              const all = [...conflicts, ...fromProduct].filter((v, i, a) => a.findIndex((t: any) => t.id === v.id) === i);
+                              if (all.length > 0) conflictedProducts.push({ name: opt.label, discountName: all[0]?.name || 'Unknown' });
+                            });
+
+                            const cleanCount = total - conflictedProducts.length;
+
+                            if (conflictedProducts.length === 0) {
+                              return (
+                                <div className="mt-3 bg-green-500/10 border border-green-500/30 rounded-xl p-3">
+                                  <p className="text-green-400 text-sm font-semibold flex items-center gap-2">
+                                    <span className="text-base">✓</span>
+                                    This discount will apply to ALL {total} products in this category
+                                  </p>
+                                </div>
+                              );
+                            }
+
+                            return (
+                              <div className="mt-3 space-y-2">
+                                <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-3">
+                                  <p className="text-amber-400 text-sm font-semibold flex items-center gap-2 mb-2">
+                                    <AlertCircle className="h-4 w-4 shrink-0" />
+                                    {conflictedProducts.length} product{conflictedProducts.length !== 1 ? 's' : ''} already {conflictedProducts.length === 1 ? 'has' : 'have'} an active discount:
+                                  </p>
+                                  <div className="space-y-1 max-h-28 overflow-y-auto pr-1">
+                                    {conflictedProducts.map((item, i) => (
+                                      <div key={i} className="flex items-center justify-between text-xs gap-2">
+                                        <span className="text-slate-300 truncate">{item.name.length > 38 ? item.name.slice(0, 38) + '...' : item.name}</span>
+                                        <span className="text-amber-400 font-medium shrink-0">"{item.discountName}"</span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                                {cleanCount > 0 && (
+                                  <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl p-3">
+                                    <p className="text-blue-400 text-sm flex items-center gap-2">
+                                      <span className="text-base">→</span>
+                                      This discount will apply to the remaining <span className="font-bold mx-1">{cleanCount}</span> product{cleanCount !== 1 ? 's' : ''} in this category
+                                    </p>
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })()}
                         </div>
                       ) : (
                         <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl p-3">
@@ -856,6 +1017,126 @@ useEffect(() => {
                 )}
               </div>
 
+              {/* BANNER IMAGES — only show when editing existing discount */}
+              {editingDiscount && (
+                <div className="bg-slate-800/30 p-4 rounded-2xl border border-slate-700/50">
+                  <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+                    <span className="w-8 h-8 rounded-lg bg-gradient-to-br from-pink-500 to-rose-500 flex items-center justify-center text-sm">🖼</span>
+                    <span>Banner Images</span>
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+
+                    {/* Desktop Image */}
+                    <div>
+                      <label className="flex items-center gap-2 text-sm font-medium text-slate-300 mb-2">
+                        <Monitor size={16} className="text-violet-400" /> Desktop Banner
+                      </label>
+                      {formData.desktopBannerImageUrl ? (
+                        <div className="relative group rounded-xl overflow-hidden border border-slate-600">
+                          <img
+                            src={`${process.env.NEXT_PUBLIC_API_URL}${formData.desktopBannerImageUrl}`}
+                            alt="Desktop Banner"
+                            className="w-full h-32 object-cover"
+                          />
+                          <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-all flex items-center justify-center gap-2">
+                            <label className="cursor-pointer p-2 bg-violet-500 rounded-lg hover:bg-violet-600 transition-all">
+                              <Upload size={16} className="text-white" />
+                              <input
+                                type="file"
+                                accept="image/*"
+                                className="hidden"
+                                onChange={(e) => {
+                                  const file = e.target.files?.[0];
+                                  if (file && handleUploadBannerImage)
+                                    handleUploadBannerImage(editingDiscount.id, file, "desktop");
+                                }}
+                              />
+                            </label>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteBannerImage && handleDeleteBannerImage(editingDiscount.id, "desktop")}
+                              className="p-2 bg-red-500 rounded-lg hover:bg-red-600 transition-all"
+                            >
+                              <Trash2 size={16} className="text-white" />
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <label className="flex flex-col items-center justify-center h-32 border-2 border-dashed border-slate-600 rounded-xl cursor-pointer hover:border-violet-500 transition-all bg-slate-900/50">
+                          <Upload size={20} className="text-slate-400 mb-1" />
+                          <span className="text-slate-400 text-xs">Click to upload desktop image</span>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file && handleUploadBannerImage)
+                                handleUploadBannerImage(editingDiscount.id, file, "desktop");
+                            }}
+                          />
+                        </label>
+                      )}
+                    </div>
+
+                    {/* Mobile Image */}
+                    <div>
+                      <label className="flex items-center gap-2 text-sm font-medium text-slate-300 mb-2">
+                        <Smartphone size={16} className="text-cyan-400" /> Mobile Banner
+                      </label>
+                      {formData.mobileBannerImageUrl ? (
+                        <div className="relative group rounded-xl overflow-hidden border border-slate-600">
+                          <img
+                            src={`${process.env.NEXT_PUBLIC_API_URL}${formData.mobileBannerImageUrl}`}
+                            alt="Mobile Banner"
+                            className="w-full h-32 object-cover"
+                          />
+                          <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-all flex items-center justify-center gap-2">
+                            <label className="cursor-pointer p-2 bg-cyan-500 rounded-lg hover:bg-cyan-600 transition-all">
+                              <Upload size={16} className="text-white" />
+                              <input
+                                type="file"
+                                accept="image/*"
+                                className="hidden"
+                                onChange={(e) => {
+                                  const file = e.target.files?.[0];
+                                  if (file && handleUploadBannerImage)
+                                    handleUploadBannerImage(editingDiscount.id, file, "mobile");
+                                }}
+                              />
+                            </label>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteBannerImage && handleDeleteBannerImage(editingDiscount.id, "mobile")}
+                              className="p-2 bg-red-500 rounded-lg hover:bg-red-600 transition-all"
+                            >
+                              <Trash2 size={16} className="text-white" />
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <label className="flex flex-col items-center justify-center h-32 border-2 border-dashed border-slate-600 rounded-xl cursor-pointer hover:border-cyan-500 transition-all bg-slate-900/50">
+                          <Upload size={20} className="text-slate-400 mb-1" />
+                          <span className="text-slate-400 text-xs">Click to upload mobile image</span>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file && handleUploadBannerImage)
+                                handleUploadBannerImage(editingDiscount.id, file, "mobile");
+                            }}
+                          />
+                        </label>
+                      )}
+                    </div>
+
+                  </div>
+                  <p className="text-slate-500 text-xs mt-3">Hover over image to see change/delete options. Recommended: Desktop 1200×400px, Mobile 600×300px</p>
+                </div>
+              )}
+
               {/* SUBMIT BUTTONS */}
               <div className="flex justify-end gap-3 pt-4 border-t border-slate-700/50">
                 <button
@@ -964,16 +1245,25 @@ useEffect(() => {
                   (product as any).assignedDiscounts.filter((d: any) => d.id !== editingDiscount?.id) : [];
                 
                 // 🎯 CHECK 3: Check for category-level discounts from other sales
-                // This is important because product might get discount from its category
-                const categoryDiscounts = allDiscounts.filter((d: any) => 
-                  d.id !== editingDiscount?.id && // Exclude current discount
-                  d.discountType === "AssignedToCategories" &&
-                  d.assignedCategoryIds?.split(',').includes(product?.categoryId) &&
-                  d.isActive &&
-                  !d.isDeleted &&
-                  new Date(d.startDate) <= new Date() &&
-                  new Date(d.endDate) >= new Date()
-                );
+                const productCategoryIds = product
+                  ? [product.categoryId, ...(((product as any).categories || []) as any[]).map((c: any) => c.categoryId || c.id).filter(Boolean)]
+                  : [];
+
+                const categoryDiscounts = allDiscounts.filter((d: any) => {
+                  if (d.id === editingDiscount?.id) return false;
+                  if (d.discountType !== "AssignedToCategories") return false;
+                  if (!d.isActive || d.isDeleted) return false;
+                  if (new Date(d.startDate) > new Date() || new Date(d.endDate) < new Date()) return false;
+                  const dCatIds = (d.assignedCategoryIds || '').split(',').map((s: string) => s.trim()).filter(Boolean);
+                  const categoryMatches = productCategoryIds.some(cid => dCatIds.includes(cid));
+                  if (!categoryMatches) return false;
+                  // If this category discount also restricts to specific products, only flag those products
+                  if (d.assignedProductIds && d.assignedProductIds.trim()) {
+                    return d.assignedProductIds.split(',').map((s: string) => s.trim()).includes(productOption.value);
+                  }
+                  // No specific products → applies to whole category
+                  return true;
+                });
                 
                 // 🎯 CHECK 4: Check for product-specific discounts from other sales
                 const productDiscounts = allDiscounts.filter((d: any) =>
@@ -1003,17 +1293,13 @@ useEffect(() => {
                 // 🎯 Check if this product is already selected in form
                 const isSelected = formData.assignedProductIds.includes(productOption.value);
                 
-                // 🎯 Disable if:
-                // 1. Product has conflicting discount AND
-                // 2. It's not already selected AND
-                // 3. It's not assigned to current discount
-                const isDisabled = hasConflict && !isSelected && !isAssignedToCurrentDiscount;
+                // 🎯 Disable if product has conflicting discount AND is not already selected
+                const isDisabled = hasConflict && !isSelected;
 
                 // Get the primary conflict for display (first one)
                 const primaryConflict = uniqueConflicts[0];
 
-                // FIXED: Convert to boolean explicitly for checked prop
-                const isChecked = Boolean(isSelected || isAssignedToCurrentDiscount);
+                const isChecked = isSelected;
 
                 return (
                   <div
@@ -1021,7 +1307,7 @@ useEffect(() => {
                     className={`relative flex items-center gap-3 p-4 rounded-xl border transition-all ${
                       isDisabled
                         ? 'bg-slate-800/30 border-slate-700/50 cursor-not-allowed opacity-60'
-                        : isSelected || isAssignedToCurrentDiscount
+                        : isSelected
                         ? 'bg-violet-500/20 border-violet-500/50 cursor-pointer'
                         : 'bg-slate-800/50 border-slate-700 hover:border-violet-500/50 cursor-pointer'
                     }`}
@@ -1121,38 +1407,80 @@ useEffect(() => {
 
       {/* Modal Footer */}
       <div className="p-4 border-t border-slate-700/50 bg-slate-800/30">
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="text-sm text-slate-400">
-              {formData.assignedProductIds.length > 0
-                ? `${formData.assignedProductIds.length} product${formData.assignedProductIds.length !== 1 ? 's' : ''} selected`
-                : 'No products selected'}
-            </p>
-            {/* Show conflict summary */}
-            {categoryFilteredProductOptions.filter(p => {
-              const product = products.find(pr => pr.id === p.value);
-              const otherDiscounts = product && Array.isArray((product as any).assignedDiscounts) ? 
-                (product as any).assignedDiscounts.filter((d: any) => d.id !== editingDiscount?.id) : [];
-              return otherDiscounts.length > 0 && 
-                !formData.assignedProductIds.includes(p.value) &&
-                !editingDiscount?.assignedProductIds?.split(',').includes(p.value);
-            }).length > 0 && (
-              <p className="text-xs text-amber-400 mt-1">
-                ⚠️ Some products have active discounts and cannot be selected
-              </p>
-            )}
-          </div>
-          <button
-            type="button"
-            onClick={() => {
-              setIsProductSelectionModalOpen(false);
-              setProductSearchTerm("");
-            }}
-            className="px-6 py-2.5 bg-gradient-to-r from-violet-500 to-purple-500 text-white rounded-xl hover:shadow-lg hover:shadow-violet-500/50 transition-all font-medium"
-          >
-            Done
-          </button>
-        </div>
+        {(() => {
+          const allDiscounts = (props.discounts || []) as any[];
+          let conflictCount = 0;
+          let availableCount = 0;
+
+          categoryFilteredProductOptions.forEach(opt => {
+            const product = products.find(p => p.id === opt.value);
+            if (!product) return;
+            const productIdStr = opt.value;
+            const prodCatIds = [
+              (product as any).categoryId,
+              ...(((product as any).categories || []) as any[]).map((c: any) => c.categoryId || c.id).filter(Boolean)
+            ].filter(Boolean);
+
+            const hasConflict = allDiscounts.some((d: any) => {
+              if (d.id === editingDiscount?.id) return false;
+              if (!d.isActive || d.isDeleted) return false;
+              if (new Date(d.startDate) > new Date() || new Date(d.endDate) < new Date()) return false;
+              if (d.discountType === "AssignedToProducts" &&
+                  d.assignedProductIds?.split(',').map((s: string) => s.trim()).includes(productIdStr)) return true;
+              if (d.discountType === "AssignedToCategories") {
+                const dCatIds = (d.assignedCategoryIds || '').split(',').map((s: string) => s.trim()).filter(Boolean);
+                if (!prodCatIds.some((cid: string) => dCatIds.includes(cid))) return false;
+                if (d.assignedProductIds && d.assignedProductIds.trim())
+                  return d.assignedProductIds.split(',').map((s: string) => s.trim()).includes(productIdStr);
+                return true;
+              }
+              return false;
+            }) || (Array.isArray((product as any).assignedDiscounts) &&
+              (product as any).assignedDiscounts.some((d: any) => d.id !== editingDiscount?.id && d.isActive));
+
+            if (hasConflict) conflictCount++;
+            else availableCount++;
+          });
+
+          const selectedCount = formData.assignedProductIds.length;
+
+          return (
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex flex-wrap gap-3 text-xs">
+                <span className="flex items-center gap-1.5 text-slate-400">
+                  <span className="w-2 h-2 rounded-full bg-slate-500 inline-block"></span>
+                  Total: <span className="font-bold text-white">{categoryFilteredProductOptions.length}</span>
+                </span>
+                {conflictCount > 0 && (
+                  <span className="flex items-center gap-1.5 text-red-400">
+                    <span className="w-2 h-2 rounded-full bg-red-500 inline-block"></span>
+                    Already discounted: <span className="font-bold">{conflictCount}</span>
+                  </span>
+                )}
+                <span className="flex items-center gap-1.5 text-green-400">
+                  <span className="w-2 h-2 rounded-full bg-green-500 inline-block"></span>
+                  Available: <span className="font-bold">{availableCount}</span>
+                </span>
+                {selectedCount > 0 && (
+                  <span className="flex items-center gap-1.5 text-violet-400">
+                    <span className="w-2 h-2 rounded-full bg-violet-500 inline-block"></span>
+                    Selected: <span className="font-bold">{selectedCount}</span>
+                  </span>
+                )}
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsProductSelectionModalOpen(false);
+                  setProductSearchTerm("");
+                }}
+                className="px-6 py-2.5 bg-gradient-to-r from-violet-500 to-purple-500 text-white rounded-xl hover:shadow-lg hover:shadow-violet-500/50 transition-all font-medium shrink-0"
+              >
+                Done
+              </button>
+            </div>
+          );
+        })()}
       </div>
     </div>
   </div>

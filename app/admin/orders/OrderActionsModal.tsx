@@ -48,7 +48,6 @@ const getOrderFlow = (
   deliveryMethod: string,
   collectionStatus?: string
 ) => {
-
   const isClickAndCollect = deliveryMethod === 'ClickAndCollect';
 
   // =========================
@@ -77,20 +76,24 @@ const getOrderFlow = (
   // =========================
   // 🚚 HOME DELIVERY FLOW
   // =========================
-  return [
+  const steps = [
     {
       label: 'Processing',
       hint: 'Order is being prepared',
       show: true,
     },
-    {
+  ];
+
+  // ✅ Only add PartiallyShipped if status indicates it might be needed
+  if (status === 'Shipped' || status === 'Delivered' || status === 'PartiallyShipped') {
+    steps.push({
       label: 'PartiallyShipped',
       hint: 'Some items shipped',
-      show:
-        status === 'PartiallyShipped' ||
-        status === 'Shipped' ||
-        status === 'Delivered',
-    },
+      show: true,
+    });
+  }
+
+  steps.push(
     {
       label: 'Shipped',
       hint: 'All items shipped',
@@ -100,73 +103,207 @@ const getOrderFlow = (
       label: 'Delivered',
       hint: 'Order delivered',
       show: true,
-    },
-    {
+    }
+  );
+
+  // Show Returned only for delivered orders
+  if (status === 'Delivered' || status === 'Returned') {
+    steps.push({
       label: 'Returned',
       hint: 'Returned by customer',
-      show: status === 'Delivered' || status === 'Returned',
-    },
-  ];
+      show: true,
+    });
+  }
+
+  return steps;
 };
 
+// ✅ FIXED: OrderStatusHelper with proper TypeScript types
 const OrderStatusHelper = ({
   status,
   deliveryMethod,
-  collectionStatus
+  collectionStatus,
+  shipments,
+  orderItems
 }: {
   status: OrderStatus;
   deliveryMethod: string;
   collectionStatus?: string;
+  shipments?: any[];
+  orderItems?: any[];
 }) => {
-const flow = getOrderFlow(status, deliveryMethod, collectionStatus)
-  .filter(step => step.show);
-
-  if (!flow) return null;
-
+  const isClickAndCollect = deliveryMethod === 'ClickAndCollect';
+  
+  // ✅ Check if there are multiple shipments
+  const hasMultipleShipments = shipments && shipments.length > 1;
+  
+  // ✅ Check if any items are shipped but not all
+  const hasPartialShipment = () => {
+    if (!shipments || shipments.length === 0 || !orderItems) return false;
+    
+    // Get all shipped items across all shipments
+    const shippedItemIds = new Set();
+    shipments.forEach(shipment => {
+      shipment.shipmentItems?.forEach((item: any) => {
+        shippedItemIds.add(item.orderItemId);
+      });
+    });
+    
+    // Get total unique items in order
+    const totalItems = orderItems.length;
+    
+    // If some items are shipped but not all, it's partial
+    return shippedItemIds.size > 0 && shippedItemIds.size < totalItems;
+  };
+  
+  const isPartiallyShipped = hasPartialShipment() || status === 'PartiallyShipped';
+  
+  // ✅ Get flow steps based on delivery method and shipment status
+  const getFlowSteps = () => {
+    if (isClickAndCollect) {
+      return [
+        { label: 'Processing', hint: 'Order is being prepared', show: true },
+        { label: 'Ready', hint: 'Ready for collection', show: true },
+        { label: 'Collected', hint: 'Order collected by customer', show: true },
+      ];
+    }
+    
+    // Home Delivery Flow
+    const steps: { label: string; hint: string; show: boolean }[] = [
+      { label: 'Processing', hint: 'Order is being prepared', show: true },
+    ];
+    
+    // ✅ Show PartiallyShipped only when there are multiple shipments OR items are partially shipped
+    if (hasMultipleShipments || isPartiallyShipped) {
+      steps.push({
+        label: 'PartiallyShipped',
+        hint: 'Some items shipped',
+        show: true
+      });
+    }
+    
+    steps.push(
+      { label: 'Shipped', hint: 'All items shipped', show: true },
+      { label: 'Delivered', hint: 'Order delivered', show: true }
+    );
+    
+    // Show Returned only for delivered orders
+    if (status === 'Delivered' || status === 'Returned') {
+      steps.push({
+        label: 'Returned',
+        hint: 'Returned by customer',
+        show: true
+      });
+    }
+    
+    return steps;
+  };
+  
+  const flow = getFlowSteps().filter(step => step.show);
+  
+  if (!flow.length) return null;
+  
+  // ✅ Type-safe step activation check
+  const isStepActive = (stepLabel: string) => {
+    // Direct match
+    if (stepLabel === status) return true;
+    
+    // Handle PartiallyShipped active state
+    if (stepLabel === 'PartiallyShipped') {
+      // Don't show as active if status is Shipped or Delivered
+      if (status === 'Shipped' || status === 'Delivered') return false;
+      return isPartiallyShipped;
+    }
+    
+    // Handle Shipped active state (when fully shipped or delivered)
+    if (stepLabel === 'Shipped' && (status === 'Shipped' || status === 'Delivered')) {
+      return true;
+    }
+    
+    // Handle Delivered active state
+    if (stepLabel === 'Delivered' && status === 'Delivered') {
+      return true;
+    }
+    
+    // Handle Ready/Collected for Click & Collect
+    if (stepLabel === 'Ready' && collectionStatus === 'Ready') return true;
+    if (stepLabel === 'Collected' && collectionStatus === 'Collected') return true;
+    
+    return false;
+  };
+  
+  // ✅ Get current step hint
+  const getCurrentHint = () => {
+    if (isClickAndCollect) {
+      if (collectionStatus === 'Collected') return 'Order has been collected';
+      if (collectionStatus === 'Ready') return 'Order is ready for collection';
+      const currentStep = flow.find((s) => s.label === status);
+      return currentStep?.hint || '';
+    }
+    
+    // For Home Delivery
+    if (isPartiallyShipped && status !== 'Shipped' && status !== 'Delivered') {
+      return 'Some items have been shipped. Remaining items will be shipped separately.';
+    }
+    
+    const currentStep = flow.find((s) => s.label === status);
+    return currentStep?.hint || '';
+  };
+  
   return (
     <div className="mt-3 rounded-xl border border-slate-700/50 bg-slate-900/40 p-3">
       <p className="text-xs text-slate-400 mb-2">
-        Order Flow Guide
+        Order Flow Guide {hasMultipleShipments && '(Multiple Shipments)'}
       </p>
-
+      
       <div className="flex flex-wrap items-center gap-2">
         {flow.map((step, index) => {
-        const isActive =
-  step.label === status ||
-  (step.label === 'PartiallyShipped' && status === 'Shipped') ||
-  (step.label === 'PartiallyShipped' && status === 'Delivered') ||
-  (step.label === 'Shipped' && status === 'Delivered') ||
-  (step.label === 'Ready' && collectionStatus === 'Ready') ||
-  (step.label === 'Collected' && collectionStatus === 'Collected');
+          const isActive = isStepActive(step.label);
+          
           return (
             <div key={step.label} className="flex items-center gap-2">
-              
               {/* Step */}
               <div
-                className={`px-2.5 py-1 rounded-md text-xs font-medium border ${
+                className={`px-2.5 py-1 rounded-md text-xs font-medium border transition-all ${
                   isActive
-                    ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30'
+                    ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30 shadow-sm shadow-emerald-500/20'
                     : 'bg-slate-800 text-slate-400 border-slate-700'
                 }`}
               >
-                {step.label}
+                {step.label === 'PartiallyShipped' ? 'Partially Shipped' : step.label}
               </div>
-
+              
               {/* Arrow */}
               {index < flow.length - 1 && (
-                <span className="text-slate-600">→</span>
+                <span className="text-slate-600 text-xs">→</span>
               )}
             </div>
           );
         })}
       </div>
-
+      
       {/* Hint */}
       <p className="text-[11px] text-slate-500 mt-2">
-        {
-          flow.find((s) => s.label === status)?.hint
-        }
+        {getCurrentHint()}
       </p>
+      
+      {/* Show shipment info if multiple shipments */}
+      {hasMultipleShipments && (
+        <div className="mt-2 pt-2 border-t border-slate-700/50">
+          <p className="text-[10px] text-cyan-400">
+            📦 {shipments.length} shipments created for this order
+          </p>
+        </div>
+      )}
+      
+      {/* Show partial shipment info */}
+      {isPartiallyShipped && !hasMultipleShipments && status !== 'Shipped' && status !== 'Delivered' && (
+        <div className="mt-2 pt-2 border-t border-slate-700/50">
+          <p className="text-[10px] text-amber-400">
+            ⚡ Partial shipment - Some items shipped, remaining pending
+          </p>
+        </div>
+      )}
     </div>
   );
 };
@@ -192,7 +329,7 @@ Processing: isClickAndCollect
     // ❌ REMOVE SHIPPED CONTROL FROM DROPDOWN
     Shipped: isClickAndCollect
       ? []
-      : ['Delivered', 'Returned'],
+      : ['Delivered' ],
 
     // ❌ IMPORTANT FIX
   PartiallyShipped: [
@@ -301,7 +438,7 @@ export default function OrderActionsModal({
 }: OrderActionsModalProps) {
   const toast = useToast();
   const [loading, setLoading] = useState(false);
-  const [showNotificationPreview, setShowNotificationPreview] = useState(false);
+  const [showNotificationPreview, setShowNotificationPreview] = useState(true);
 // inside component
 const [showCancelConfirm, setShowCancelConfirm] = useState(false);
 const [pendingCancelRequest, setPendingCancelRequest] = useState<CancelOrderRequest | null>(null);
@@ -384,7 +521,7 @@ useEffect(() => {
 useEffect(() => {
   if (isOpen) {
     setReadyConfirmed(false);
-    setShowNotificationPreview(false);
+    setShowNotificationPreview(true);
     setCollectedData({
       collectedBy: '',
       collectorIDType: '',
@@ -476,7 +613,33 @@ const isCashOnDelivery =
 const handleSubmit = async (e: FormEvent) => {
   e.preventDefault();
 
-  if (!actionHandlers[action]) return;
+  // ✅ Handle Cancel Order separately (shows confirmation dialog)
+  if (action === 'cancel-order') {
+    // Validate cancellation reason
+    if (!cancelData.cancellationReason.trim()) {
+      toast.error('Please enter a cancellation reason');
+      return;
+    }
+
+    // Prepare cancel request
+    setPendingCancelRequest({
+      orderId: order.id,
+      cancellationReason: cancelData.cancellationReason,
+      cancelledBy: cancelData.cancelledBy,
+      restoreInventory: cancelData.restoreInventory,
+      initiateRefund: cancelData.initiateRefund,
+    });
+    
+    // Show confirmation dialog
+    setShowCancelConfirm(true);
+    return;
+  }
+
+  // ✅ Handle other actions
+  if (!actionHandlers[action]) {
+    toast.error('Invalid action');
+    return;
+  }
 
   try {
     setLoading(true);
@@ -609,14 +772,19 @@ const PharmacyWarning = () => {
 
       return (
         <div className="mt-4">
-          <button
-            type="button"
-            onClick={() => setShowNotificationPreview(!showNotificationPreview)}
-            className="flex items-center gap-2 text-xs text-cyan-400 hover:text-cyan-300 transition-colors"
-          >
-            <Bell className="w-3.5 h-3.5" />
-            {showNotificationPreview ? 'Hide' : 'Preview'} customer notification
-          </button>
+          <label className="flex items-center gap-2 cursor-pointer select-none">
+  <input
+    type="checkbox"
+    checked={showNotificationPreview}
+    onChange={(e) => setShowNotificationPreview(e.target.checked)}
+    className="rounded bg-slate-800 border-slate-600 text-cyan-500 focus:ring-cyan-500"
+  />
+
+  <div className="flex items-center gap-2 text-xs text-cyan-400">
+    <Bell className="w-3.5 h-3.5" />
+    Send customer notification
+  </div>
+</label>
           
           {showNotificationPreview && (
             <div className="mt-2 p-3 bg-cyan-500/5 border border-cyan-500/20 rounded-lg">
@@ -878,6 +1046,8 @@ if (
   status={order.status}
   deliveryMethod={order.deliveryMethod}
   collectionStatus={order.collectionStatus}
+  shipments={order.shipments}        // ✅ Add this
+  orderItems={order.orderItems}      // ✅ Add this
 />
           </div>
         );
@@ -944,7 +1114,7 @@ if (
 
             <div>
               <label className="block text-sm font-medium text-slate-300 mb-2">
-                Shipping Method <span className="text-red-500">*</span>
+                Shipping Method 
               </label>
               <input
                 type="text"
@@ -954,7 +1124,7 @@ if (
                 }
                 placeholder="e.g., Standard, Express"
                 className="w-full px-3 py-2.5 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
-                required
+         
                 disabled={!isPaid && !isCashOnDelivery}
               />
             </div>
@@ -1170,7 +1340,6 @@ const isShipped = order.shipments?.some(shipment =>
             <div className="flex items-center gap-3 p-4 bg-red-500/10 border border-red-500/20 rounded-lg">
               <XCircle className="h-6 w-6 text-red-400" />
               <div>
-                <p className="text-white font-medium">Cancel Order</p>
                 <p className="text-sm text-slate-400">
                   This action will cancel the order and optionally process refund.
                 </p>
@@ -1319,7 +1488,6 @@ if (
         order.deliveryMethod === 'HomeDelivery' &&
         shipmentData.trackingNumber &&
         shipmentData.carrier &&
-        shipmentData.shippingMethod &&
         shipmentData.selectedItems.some((item) => item.quantity > 0)
       );
 

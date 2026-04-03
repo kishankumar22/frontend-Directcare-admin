@@ -54,6 +54,8 @@ interface FormData {
   assignedProductIds: string[];
   assignedCategoryIds: string[];
   assignedManufacturerIds: string[];
+  desktopBannerImageUrl: string | null;
+  mobileBannerImageUrl: string | null;
 }
 
 // ========== CATEGORY HELPER FUNCTIONS ==========
@@ -284,6 +286,8 @@ const debouncedSearch = useDebounce(searchTerm, 400);
     assignedProductIds: [],
     assignedCategoryIds: [],
     assignedManufacturerIds: [],
+    desktopBannerImageUrl: null,
+    mobileBannerImageUrl: null,
   });
 
   // Fetch data on mount
@@ -619,6 +623,8 @@ const handleEdit = (discount: Discount) => {
     assignedManufacturerIds: discount.assignedManufacturerIds
       ? discount.assignedManufacturerIds.split(",").filter((id) => id.trim())
       : [],
+    desktopBannerImageUrl: discount.desktopBannerImageUrl ?? null,
+    mobileBannerImageUrl: discount.mobileBannerImageUrl ?? null,
   });
   setShowModal(true);
   setProductCategoryFilter("");
@@ -648,10 +654,56 @@ const handleEdit = (discount: Discount) => {
       assignedProductIds: [],
       assignedCategoryIds: [],
       assignedManufacturerIds: [],
+      desktopBannerImageUrl: null,
+      mobileBannerImageUrl: null,
     });
     setEditingDiscount(null);
     setProductCategoryFilter("");
     setProductBrandFilter("");
+  };
+
+  // Handle banner image upload
+  const handleUploadBannerImage = async (discountId: string, file: File, type: "desktop" | "mobile") => {
+    try {
+      const token = localStorage.getItem("token") || sessionStorage.getItem("token");
+      const formPayload = new FormData();
+      formPayload.append("image", file);
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/Discounts/${discountId}/upload-banner-image?type=${type}`,
+        { method: "POST", headers: { Authorization: `Bearer ${token}` }, body: formPayload }
+      );
+      const json = await res.json();
+      if (json.success) {
+        setFormData((prev: any) => ({
+          ...prev,
+          [type === "desktop" ? "desktopBannerImageUrl" : "mobileBannerImageUrl"]: json.data,
+        }));
+        fetchDiscounts();
+      }
+    } catch (err) {
+      console.error("Banner upload failed:", err);
+    }
+  };
+
+  // Handle banner image delete
+  const handleDeleteBannerImage = async (discountId: string, type: "desktop" | "mobile") => {
+    try {
+      const token = localStorage.getItem("token") || sessionStorage.getItem("token");
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/Discounts/${discountId}/delete-banner-image?type=${type}`,
+        { method: "DELETE", headers: { Authorization: `Bearer ${token}` } }
+      );
+      const json = await res.json();
+      if (json.success) {
+        setFormData((prev: any) => ({
+          ...prev,
+          [type === "desktop" ? "desktopBannerImageUrl" : "mobileBannerImageUrl"]: null,
+        }));
+        fetchDiscounts();
+      }
+    } catch (err) {
+      console.error("Banner delete failed:", err);
+    }
   };
 
   // Handle delete
@@ -1471,7 +1523,7 @@ const filteredDiscounts = discounts.filter((discount) => {
 <DiscountModals
   // 🔥 YAHI EK CHANGE HAI - KEY PROP ADD KARO
   key={`${showModal}-${editingDiscount?.id}-${formData.assignedProductIds.join(',')}`}
-  
+  discounts={discounts}
   showModal={showModal}
   setShowModal={setShowModal}
   viewingDiscount={viewingDiscount}
@@ -1509,6 +1561,8 @@ const filteredDiscounts = discounts.filter((discount) => {
   dateRangeFilter={dateRangeFilter}
   setDateRangeFilter={setDateRangeFilter}
   handleViewUsageHistory={handleViewUsageHistory}
+  handleUploadBannerImage={handleUploadBannerImage}
+  handleDeleteBannerImage={handleDeleteBannerImage}
 />
       <ConfirmDialog
   isOpen={!!statusConfirm}

@@ -300,6 +300,7 @@ const handleExportSelected = () => {
   XLSX.writeFile(wb, "Selected_VAT_Rates.xlsx");
 
   toast.success(`Exported ${selectedData.length} VAT rates`);
+  setSelectedRates([])
 };
 const filteredRates = useMemo(() => {
   return vatRates.filter((rate) => {

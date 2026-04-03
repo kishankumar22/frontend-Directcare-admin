@@ -494,7 +494,8 @@ getAll: async (params?: ProductQueryParams) => {
 
   if (params?.sortDirection)
     queryParams.append("sortDirection", params.sortDirection);
-  
+  if (params?.isActive !== undefined)
+  queryParams.append("isActive", params.isActive.toString());
 
   const url = `${API_ENDPOINTS.products}${
     queryParams.toString() ? `?${queryParams.toString()}` : ""

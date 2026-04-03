@@ -616,6 +616,7 @@ const handleExportSelectedReviews = () => {
   }
 
   exportReviewsToExcel(selectedData, "selected");
+  setSelectedReviews([])
 };
 
 const resolveMediaUrl = (url?: string) => {

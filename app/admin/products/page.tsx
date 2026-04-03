@@ -452,21 +452,22 @@ const fetchProducts = async () => {
       sortBy: 'createdAt',
       sortDirection: 'desc',
     };
+    if (statusFilter.value !== "all") {
+      params.stockStatus = statusFilter.value;
+    }
 
-   if (deletedFilter.value === "deleted") {
+delete params.isDeleted;
+delete params.isActive;
+
+if (deletedFilter.value === "deleted") {
   params.isDeleted = true;
-}
-if (statusFilter.value !== "all") {
-  params.stockStatus = statusFilter.value;
 }
 
 if (deletedFilter.value === "active") {
-  // params.isDeleted = false;
   params.isActive = true;
 }
 
 if (deletedFilter.value === "inactive") {
-  params.isDeleted = false;
   params.isActive = false;
 }
 
@@ -1902,7 +1903,7 @@ const handleExportSelected = async () => {
             />
           </div>
 
-          <div className="flex-1 max-w-[130px]">
+          <div className="flex-1 max-w-[150px]">
             <Select
               value={selectedBrand}
               onChange={(option) => setSelectedBrand(option as SelectOption)}
@@ -1978,6 +1979,24 @@ const handleExportSelected = async () => {
                 ))}
               </select>
             </div>
+                 <select
+                value={publishedFilter.value}
+                onChange={(e) => {
+                  const option = visibilityOptions.find(opt => opt.value === e.target.value);
+                  if (option) setPublishedFilter(option);
+                }}
+                className={`w-full px-3 py-2.5 bg-slate-800/90 border rounded-xl text-white text-xs focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all ${
+                  publishedFilter.value !== "all"
+                    ? "border-blue-500 bg-blue-500/10 ring-2 ring-blue-500/50"
+                    : "border-slate-600"
+                }`}
+              >
+                {visibilityOptions.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
           </div>
 
           <div className="flex items-center gap-2 ml-auto flex-shrink-0">
@@ -2014,7 +2033,7 @@ const handleExportSelected = async () => {
         {/* ✅ ROW 2 - COLLAPSIBLE FILTERS */}
         {showMoreFilters && (
           <div className="mt-1 pt-1 border-t border-slate-700">
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-9 gap-1.5">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-8 gap-1.5">
               <select
                 value={statusFilter.value}
                 onChange={(e) => {
@@ -2028,25 +2047,6 @@ const handleExportSelected = async () => {
                 }`}
               >
                 {statusOptions.map((opt) => (
-                  <option key={opt.value} value={opt.value}>
-                    {opt.label}
-                  </option>
-                ))}
-              </select>
-
-              <select
-                value={publishedFilter.value}
-                onChange={(e) => {
-                  const option = visibilityOptions.find(opt => opt.value === e.target.value);
-                  if (option) setPublishedFilter(option);
-                }}
-                className={`w-full px-3 py-2.5 bg-slate-800/90 border rounded-xl text-white text-xs focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all ${
-                  publishedFilter.value !== "all"
-                    ? "border-blue-500 bg-blue-500/10 ring-2 ring-blue-500/50"
-                    : "border-slate-600"
-                }`}
-              >
-                {visibilityOptions.map((opt) => (
                   <option key={opt.value} value={opt.value}>
                     {opt.label}
                   </option>

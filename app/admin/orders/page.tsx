@@ -59,6 +59,7 @@ import BulkStatusModal from './BulkStatusModal';
 import BulkShipmentUploadModal from './BulkShipmentUploadModal';
 
 import { getOrderProductImage } from '../_utils/formatUtils';
+import { useDebounce } from '../_hooks/useDebounce';
 
 const card = `
 bg-slate-900/40 border rounded-lg p-2
@@ -164,7 +165,11 @@ const selectedStatus = selectedOrderObjects[0]?.status;
   const [bulkModalOpen, setBulkModalOpen] = useState(false);
 const [stats, setStats] = useState<any>(null);
 const [bulkLoading, setBulkLoading] = useState(false);
-const [debouncedSearch, setDebouncedSearch] = useState(filters.searchTerm);
+const [searchInput, setSearchInput] = useState("");
+const debouncedSearch = useDebounce(searchInput, 500);
+
+const [filterLoading, setFilterLoading] = useState(false);
+const [searchLoading, setSearchLoading] = useState(false);
 
 const [shipmentModalOpen, setShipmentModalOpen] = useState(false);
   // ✅ Order Actions Modal
@@ -203,25 +208,25 @@ useEffect(() => {
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
+const [initialLoading, setInitialLoading] = useState(true);
 useEffect(() => {
-  if (!filters.searchTerm) {
-    setDebouncedSearch("");
-    return;
+  const init = async () => {
+    await fetchOrders();
+    setInitialLoading(false);
+  };
+
+  init();
+}, []);
+useEffect(() => {
+  if (searchInput.trim() !== "") {
+    setSearchLoading(true);
   }
-
-  setIsSearching(true);
-
-  const handler = setTimeout(() => {
-    setDebouncedSearch(filters.searchTerm);
-  }, 500);
-
-  return () => clearTimeout(handler);
-}, [filters.searchTerm]);
-
+}, [searchInput]);
   // Fetch orders
 const fetchOrders = useCallback(async () => {
   try {
-    setLoading(true);
+  
+    setFilterLoading(true);
 
 const response = await orderService.getAllOrders({
   page: currentPage,
@@ -229,7 +234,7 @@ const response = await orderService.getAllOrders({
   status: filters.status || undefined,
   fromDate: filters.fromDate || undefined,
   toDate: filters.toDate || undefined,
-  searchTerm: debouncedSearch || undefined,
+  searchTerm: debouncedSearch.trim() !== "" ? debouncedSearch : undefined,
   pharmacyVerificationStatus:
     filters.pharmacyVerificationStatus || undefined,
 
@@ -282,6 +287,8 @@ const response = await orderService.getAllOrders({
   } finally {
     setLoading(false);
     setIsSearching(false); // 👈 stop loader after API
+    setFilterLoading(false);
+setSearchLoading(false);
   }
 }, [
   currentPage,
@@ -298,9 +305,16 @@ const response = await orderService.getAllOrders({
 ]);
 
 
-  useEffect(() => {
+useEffect(() => {
+  if (!initialLoading) {
     fetchOrders();
-  }, [fetchOrders]);
+  }
+}, [
+  currentPage,
+  itemsPerPage,
+  filters,
+  debouncedSearch
+]);
 
   // ✅ Bulk Selection Handlers
   const toggleSelectAll = () => {
@@ -617,7 +631,7 @@ const Card = ({ icon, label, value, active }: any) => (
     setCurrentPage(1);
   };
 
-  if (loading) {
+if (initialLoading) {
     return (
       <div className="flex items-center justify-center h-screen">
         <div className="text-center">
@@ -808,192 +822,131 @@ const Card = ({ icon, label, value, active }: any) => (
 )}
 </div>
 
-      {/* ✅ Clickable Stats Cards with Quick Filters */}
-<div className="grid gap-2 md:grid-cols-5">
+<div className="grid gap-4 md:grid-cols-5">
 
-{/* TOTAL */}
-<button
-  onClick={() => handleQuickFilter('')}
-  title="Total number of orders in system"
-  className={`bg-gradient-to-br from-violet-500/10 to-purple-500/10 border rounded-lg p-2 hover:shadow-md transition-all text-left ${
-    filters.status === '' ? 'border-violet-500 shadow-md shadow-violet-500/20' : 'border-violet-500/20'
-  }`}
->
-  <div className="flex items-center gap-2">
-    <div className="p-1.5 bg-gradient-to-br from-violet-500 to-purple-500 rounded-md">
-      <ShoppingCart className="w-3.5 h-3.5 text-white" />
-    </div>
-    <div>
-      <p className="text-[10px] text-slate-400">Total</p>
-      <p className="text-sm font-bold text-white">{stats?.totalOrders ?? 0}</p>
-      <p className="text-[9px] text-slate-500">All orders</p>
-    </div>
-  </div>
-</button>
+{/* CARD 1 */}
+<div className="bg-slate-900/60 border border-slate-700 rounded-xl p-4 hover:shadow-lg transition">
 
-{/* PENDING */}
-<button
-  onClick={() => handleQuickFilter('Pending')}
-  title="Orders waiting for confirmation"
-  className={`bg-gradient-to-br from-cyan-500/10 to-blue-500/10 border rounded-lg p-2 hover:shadow-md transition-all text-left ${
-    filters.status === 'Pending' ? 'border-cyan-500 shadow-md shadow-cyan-500/20' : 'border-cyan-500/20'
-  }`}
->
-  <div className="flex items-center gap-2">
-    <div className="p-1.5 bg-gradient-to-br from-cyan-500 to-blue-500 rounded-md">
-      <Clock className="w-3.5 h-3.5 text-white" />
-    </div>
-    <div>
-      <p className="text-[10px] text-slate-400">Pending</p>
-      <p className="text-sm font-bold text-white">{stats?.totalPending ?? 0}</p>
-      <p className="text-[9px] text-slate-500">Awaiting action</p>
-    </div>
-  </div>
-</button>
+  <div className="grid grid-cols-2 gap-3">
 
-{/* PROCESSING */}
-<button
-  onClick={() => handleQuickFilter('Processing')}
-  title="Orders currently being processed"
-  className={`bg-gradient-to-br from-pink-500/10 to-rose-500/10 border rounded-lg p-2 hover:shadow-md transition-all text-left ${
-    filters.status === 'Processing' ? 'border-pink-500 shadow-md shadow-pink-500/20' : 'border-pink-500/20'
-  }`}
->
-  <div className="flex items-center gap-2">
-    <div className="p-1.5 bg-gradient-to-br from-pink-500 to-rose-500 rounded-md">
-      <Package className="w-3.5 h-3.5 text-white" />
-    </div>
-    <div>
-      <p className="text-[10px] text-slate-400">Processing</p>
-      <p className="text-sm font-bold text-white">{stats?.totalProcessing ?? 0}</p>
-      <p className="text-[9px] text-slate-500">In progress</p>
-    </div>
-  </div>
-</button>
+    <button onClick={() => handleQuickFilter("")} className="text-left group">
+      <p className="text-xs text-slate-400 group-hover:text-white">Total Orders</p>
+      <p className="text-xl font-bold text-violet-400" >
+        {stats?.totalOrders ?? 0}
+      </p>
+    </button>
 
-{/* SHIPPED */}
-<button
-  onClick={() => handleQuickFilter('Shipped')}
-  title="Orders shipped to customer"
-  className={`bg-gradient-to-br from-indigo-500/10 to-purple-500/10 border rounded-lg p-2 hover:shadow-md transition-all text-left ${
-    filters.status === 'Shipped' ? 'border-indigo-500 shadow-md shadow-indigo-500/20' : 'border-indigo-500/20'
-  }`}
->
-  <div className="flex items-center gap-2">
-    <div className="p-1.5 bg-gradient-to-br from-indigo-500 to-purple-500 rounded-md">
-      <Truck className="w-3.5 h-3.5 text-white" />
-    </div>
-    <div>
-      <p className="text-[10px] text-slate-400">Shipped</p>
-      <p className="text-sm font-bold text-white">{stats?.totalShipped ?? 0}</p>
-      <p className="text-[9px] text-slate-500">On the way</p>
-    </div>
-  </div>
-</button>
+    <button onClick={() => handleQuickFilter("Pending")} className="text-right group">
+      <p className="text-xs text-slate-400 group-hover:text-white">Pending</p>
+      <p className="text-xl font-bold text-cyan-400">
+        {stats?.totalPending ?? 0}
+      </p>
+    </button>
 
-{/* DELIVERED */}
-<button
-  onClick={() => handleQuickFilter('Delivered')}
-  title="Orders successfully delivered"
-  className={`bg-gradient-to-br from-green-500/10 to-emerald-500/10 border rounded-lg p-2 hover:shadow-md transition-all text-left ${
-    filters.status === 'Delivered' ? 'border-green-500 shadow-md shadow-green-500/20' : 'border-green-500/20'
-  }`}
->
-  <div className="flex items-center gap-2">
-    <div className="p-1.5 bg-gradient-to-br from-green-500 to-emerald-500 rounded-md">
-      <CheckCircle className="w-3.5 h-3.5 text-white" />
-    </div>
-    <div>
-      <p className="text-[10px] text-slate-400">Delivered</p>
-      <p className="text-sm font-bold text-white">{stats?.totalDelivered ?? 0}</p>
-      <p className="text-[9px] text-slate-500">Completed</p>
-    </div>
   </div>
-</button>
 
-{/* CANCELLED */}
-<button
-  onClick={() => handleQuickFilter('Cancelled')}
-  title="Orders cancelled by user or admin"
-  className={`bg-gradient-to-br from-red-500/10 to-rose-500/10 border rounded-lg p-2 hover:shadow-md transition-all text-left ${
-    filters.status === 'Cancelled' ? 'border-red-500 shadow-md shadow-red-500/20' : 'border-red-500/20'
-  }`}
->
-  <div className="flex items-center gap-2">
-    <div className="p-1.5 bg-gradient-to-br from-red-500 to-rose-500 rounded-md">
-      <XCircle className="w-3.5 h-3.5 text-white" />
-    </div>
-    <div>
-      <p className="text-[10px] text-slate-400">Cancelled</p>
-      <p className="text-sm font-bold text-white">{stats?.totalCancelled ?? 0}</p>
-      <p className="text-[9px] text-slate-500">Stopped</p>
-    </div>
-  </div>
-</button>
+</div>
 
-{/* REFUNDED */}
-<button
-  onClick={() => handleQuickFilter('Refunded')}
-  title="Orders where refund has been issued"
-  className={`bg-gradient-to-br from-rose-500/10 to-pink-500/10 border rounded-lg p-2 hover:shadow-md transition-all text-left ${
-    filters.status === 'Refunded' ? 'border-rose-500 shadow-md shadow-rose-500/20' : 'border-rose-500/20'
-  }`}
->
-  <div className="flex items-center gap-2">
-    <div className="p-1.5 bg-gradient-to-br from-rose-500 to-pink-500 rounded-md">
-      <RotateCcw className="w-3.5 h-3.5 text-white" />
-    </div>
-    <div>
-      <p className="text-[10px] text-slate-400">Refunded</p>
-      <p className="text-sm font-bold text-white">{stats?.totalRefunded ?? 0}</p>
-      <p className="text-[9px] text-slate-500">Money returned</p>
-    </div>
+
+{/* CARD 2 */}
+<div className="bg-slate-900/60 border border-slate-700 rounded-xl p-4 hover:shadow-lg transition">
+
+  <div className="grid grid-cols-2 gap-3">
+
+    <button onClick={() => handleQuickFilter("Processing")} className="text-left group">
+      <p className="text-xs text-slate-400 group-hover:text-white">Processing</p>
+      <p className="text-xl font-bold text-pink-400">
+        {stats?.totalProcessing ?? 0}
+      </p>
+    </button>
+
+    <button onClick={() => handleQuickFilter("Confirmed")} className="text-right group">
+      <p className="text-xs text-slate-400 group-hover:text-white">Confirmed</p>
+      <p className="text-xl font-bold text-blue-400">
+        {stats?.totalConfirmed ?? 0}
+      </p>
+    </button>
+
   </div>
-</button>
-<button onClick={() => handleQuickFilter('Confirmed')} title="Orders confirmed"
-className={`bg-gradient-to-br from-blue-500/10 to-indigo-500/10 border rounded-lg p-2 ${
-filters.status === 'Confirmed' ? 'border-blue-500 shadow-md' : 'border-blue-500/20'}`}>
-  <div className="flex items-center gap-2">
-    <div className="p-1.5 bg-gradient-to-br from-blue-500 to-indigo-500 rounded-md">
-      <CheckCircle2 className="w-3.5 h-3.5 text-white" />
-    </div>
-    <div>
-      <p className="text-[10px] text-slate-400">Confirmed</p>
-      <p className="text-sm font-bold text-white">{stats?.totalConfirmed ?? 0}</p>
-    </div>
+
+</div>
+
+
+{/* CARD 3 */}
+<div className="bg-slate-900/60 border border-slate-700 rounded-xl p-4 hover:shadow-lg transition">
+
+  <div className="grid grid-cols-2 gap-3">
+
+    <button onClick={() => handleQuickFilter("Shipped")} className="text-left group">
+      <p className="text-xs text-slate-400 group-hover:text-white">Shipped</p>
+      <p className="text-Xl font-bold text-indigo-400">
+        {stats?.totalShipped ?? 0}
+      </p>
+    </button>
+
+    <button onClick={() => handleQuickFilter("PartiallyShipped")} className="text-right group">
+      <p className="text-xs text-slate-400 group-hover:text-white">Partial</p>
+      <p className="text-xl font-bold text-yellow-400">
+        {stats?.totalPartiallyShipped ?? 0}
+      </p>
+    </button>
+
   </div>
-</button>
-<button onClick={() => handleQuickFilter('PartiallyShipped')} title="Partially shipped"
-className={`bg-gradient-to-br from-yellow-500/10 to-amber-500/10 border rounded-lg p-2 ${
-filters.status === 'PartiallyShipped' ? 'border-yellow-500 shadow-md' : 'border-yellow-500/20'}`}>
-  <div className="flex items-center gap-2">
-    <div className="p-1.5 bg-gradient-to-br from-yellow-500 to-amber-500 rounded-md">
-      <Truck className="w-3.5 h-3.5 text-white" />
-    </div>
-    <div>
-      <p className="text-[10px] text-slate-400">Partial</p>
-      <p className="text-sm font-bold text-white">{stats?.totalPartiallyShipped ?? 0}</p>
-    </div>
+
+</div>
+
+
+{/* CARD 4 */}
+<div className="bg-slate-900/60 border border-slate-700 rounded-xl p-4 hover:shadow-lg transition">
+
+  <div className="grid grid-cols-2 gap-3">
+
+    <button onClick={() => handleQuickFilter("Delivered")} className="text-left group">
+      <p className="text-xs text-slate-400 group-hover:text-white">Delivered</p>
+      <p className="text-xl font-bold text-green-400">
+        {stats?.totalDelivered ?? 0}
+      </p>
+    </button>
+
+    <button onClick={() => handleQuickFilter("Returned")} className="text-right group">
+      <p className="text-xs text-slate-400 group-hover:text-white">Returned</p>
+      <p className="text-xl font-bold text-orange-400">
+        {stats?.totalReturned ?? 0}
+      </p>
+    </button>
+
   </div>
-</button>
-<button onClick={() => handleQuickFilter('Returned')} title="Returned orders"
-className={`bg-gradient-to-br from-orange-500/10 to-amber-500/10 border rounded-lg p-2 ${
-filters.status === 'Returned' ? 'border-orange-500 shadow-md' : 'border-orange-500/20'}`}>
-  <div className="flex items-center gap-2">
-    <div className="p-1.5 bg-gradient-to-br from-orange-500 to-amber-500 rounded-md">
-      <RotateCcw className="w-3.5 h-3.5 text-white" />
-    </div>
-    <div>
-      <p className="text-[10px] text-slate-400">Returned</p>
-      <p className="text-sm font-bold text-white">{stats?.totalReturned ?? 0}</p>
-    </div>
+
+</div>
+
+
+{/* CARD 5 */}
+<div className="bg-slate-900/60 border border-slate-700 rounded-xl p-4 hover:shadow-lg transition">
+
+  <div className="grid grid-cols-2 gap-3">
+
+    <button onClick={() => handleQuickFilter("Cancelled")} className="text-left group">
+      <p className="text-xs text-slate-400 group-hover:text-white">Cancelled</p>
+      <p className="text-xl font-bold text-red-400">
+        {stats?.totalCancelled ?? 0}
+      </p>
+    </button>
+
+    <button onClick={() => handleQuickFilter("Refunded")} className="text-right group">
+      <p className="text-xs text-slate-400 group-hover:text-white">Refunded</p>
+      <p className="text-xl font-bold text-pink-400">
+        {stats?.totalRefunded ?? 0}
+      </p>
+    </button>
+
   </div>
-</button>
+
+</div>
 
 </div>
 
       {/* Items Per Page */}
-   <div className="bg-slate-900/50 border border-slate-800 rounded-lg px-4 py-3">
+   <div className="bg-slate-900/50 border border-slate-800 rounded-lg px-3 py-2">
   <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 text-xs">
     
     {/* LEFT SIDE */}
@@ -1056,7 +1009,7 @@ filters.status === 'Returned' ? 'border-orange-500 shadow-md' : 'border-orange-5
       {hasActiveFilters && (
         <span className="text-violet-400 flex items-center gap-1">
           <span className="w-1.5 h-1.5 bg-violet-400 rounded-full animate-pulse"></span>
-          Filters active
+          Filters active {hasActiveFilters}
         </span>
       )}
      
@@ -1066,123 +1019,117 @@ filters.status === 'Returned' ? 'border-orange-500 shadow-md' : 'border-orange-5
 
 
 {/* FILTERS */}
-<div className="bg-slate-900/50 border border-slate-800 rounded-lg p-3 space-y-2">
+<div className="bg-slate-900/50  border border-slate-800 rounded-lg p-2 space-y-2">
 
 {/* ROW 1 */}
-<div className="flex flex-wrap gap-2 items-center">
+<div className="flex flex-wrap gap-1 items-center w-full">
 
-{/* SEARCH */}
-<div className="relative flex-1 min-w-[260px]">
+  {/* SEARCH (FLEX GROW) */}
+  <div className="relative flex-[2] min-w-[260px]">
+    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 z-10" />
 
-<Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+    <input
+      type="text"
+      placeholder="Search orders..."
+      value={searchInput}
+      onChange={(e) => setSearchInput(e.target.value)}
+      className="w-full pl-10 pr-10 py-2.5 bg-slate-800 border border-slate-900 rounded-xl text-white text-sm focus:ring-2 focus:ring-violet-500"
+    />
 
-<input
-type="text"
-placeholder="Search Order, Product, SKU, Customer..."
-value={filters.searchTerm}
-onChange={(e)=>
-setFilters(prev=>({
-...prev,
-searchTerm:e.target.value
-}))
-}
-className={`w-full pl-9 pr-3 py-2 rounded-lg text-white text-sm bg-slate-800 border
-${filters.searchTerm ? "border-violet-500 bg-violet-500/10":"border-slate-700"}
-focus:ring-2 focus:ring-violet-500`}
-/>
+    {searchLoading ? (
+      <div className="absolute right-3 top-1/2 -translate-y-1/2">
+        <div className="w-4 h-4 border-2 border-violet-400 border-t-transparent rounded-full animate-spin" />
+      </div>
+    ) : (
+      searchInput && (
+        <X
+          onClick={() => setSearchInput("")}
+          className="absolute right-3 top-1/2 -translate-y-1/2 cursor-pointer text-slate-400 hover:text-white"
+        />
+      )
+    )}
+  </div>
 
-{isSearching && (
-<div className="absolute right-3 top-1/2 -translate-y-1/2">
-<div className="h-4 w-4 border-2 border-violet-400 border-t-transparent rounded-full animate-spin"/>
-</div>
-)}
+  {/* USER TYPE */}
+  <select
+    value={filters.isGuestOrder}
+    onChange={(e) =>
+      setFilters((prev) => ({
+        ...prev,
+        isGuestOrder: e.target.value,
+      }))
+    }
+    className={`flex-1 min-w-[150px] px-3 py-2.5 rounded-xl text-sm text-white border bg-slate-800
+    ${filters.isGuestOrder ? "border-violet-500 bg-violet-500/10" : "border-slate-700"}`}
+  >
+    <option value="">User type</option>
+    <option value="false">Registered</option>
+    <option value="true">Guest</option>
+  </select>
 
-</div>
+  {/* STATUS */}
+  <select
+    value={filters.status}
+    onChange={(e) =>
+      setFilters((prev) => ({
+        ...prev,
+        status: e.target.value,
+      }))
+    }
+    className={`flex-1 min-w-[150px] px-3 py-2.5 rounded-xl text-sm text-white border bg-slate-800
+    ${filters.status ? "border-blue-500 bg-blue-500/10" : "border-slate-700"}`}
+  >
+    <option value="">Status</option>
+    <option value="Pending">Pending</option>
+    <option value="Confirmed">Confirmed</option>
+    <option value="Processing">Processing</option>
+    <option value="Shipped">Shipped</option>
+    <option value="Delivered">Delivered</option>
+    <option value="Returned">Returned</option>
+    <option value="Refunded">Refunded</option>
+    <option value="Cancelled">Cancelled</option>
+  </select>
 
+  {/* DELIVERY */}
+  <select
+    value={filters.deliveryMethod}
+    onChange={(e) =>
+      setFilters((prev) => ({
+        ...prev,
+        deliveryMethod: e.target.value,
+      }))
+    }
+    className={`flex-1 min-w-[150px] px-3 py-2.5 rounded-xl text-sm text-white border bg-slate-800
+    ${filters.deliveryMethod ? "border-cyan-500 bg-cyan-500/10" : "border-slate-700"}`}
+  >
+    <option value="">Delivery Method</option>
+    <option value="HomeDelivery">Home Delivery</option>
+    <option value="ClickAndCollect">Click & Collect</option>
+  </select>
 
-{/* USER TYPE */}
-<select
-value={filters.isGuestOrder}
-onChange={(e)=>
-setFilters(prev=>({
-...prev,
-isGuestOrder:e.target.value
-}))
-}
-className={`px-3 py-2 rounded-lg text-sm text-white border bg-slate-800 min-w-[160px]
-${filters.isGuestOrder ? "border-violet-500 bg-violet-500/10":"border-slate-700"}
-`}
->
-<option value="">User Type</option>
-<option value="false">Registered</option>
-<option value="true">Guest</option>
-</select>
+  {/* MORE / HIDE (ACTIVE STATE FIXED) */}
+  <button
+    onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
+    className={`px-4 py-2.5 rounded-xl text-sm flex items-center gap-2 border transition-all
+    ${
+      showAdvancedFilters
+        ? "bg-violet-500/20 border-violet-500 text-violet-300 shadow-md shadow-violet-500/20"
+        : "bg-slate-800 border-slate-700 text-white hover:bg-slate-700"
+    }`}
+  >
+    <Filter className="w-4 h-4" />
+    {showAdvancedFilters ? "Hide" : "More"}
+  </button>
 
-
-{/* ORDER STATUS */}
-<select
-value={filters.status}
-onChange={(e)=>
-setFilters(prev=>({
-...prev,
-status:e.target.value
-}))
-}
-className={`px-3 py-2 rounded-lg text-sm text-white border bg-slate-800 min-w-[160px]
-${filters.status ? "border-blue-500 bg-blue-500/10":"border-slate-700"}
-`}
->
-<option value="">Order Status</option>
-<option value="Pending">Pending</option>
-<option value="Confirmed">Confirmed</option>
-<option value="Processing">Processing</option>
-<option value="Shipped">Shipped</option>
-<option value="Delivered">Delivered</option>
-<option value="Cancelled">Cancelled</option>
-
-</select>
-
-
-{/* DELIVERY */}
-<select
-value={filters.deliveryMethod}
-onChange={(e)=>
-setFilters(prev=>({
-...prev,
-deliveryMethod:e.target.value
-}))
-}
-className={`px-3 py-2 rounded-lg text-sm text-white border bg-slate-800 min-w-[160px]
-${filters.deliveryMethod ? "border-cyan-500 bg-cyan-500/10":"border-slate-700"}
-`}
->
-<option value="">Delivery</option>
-<option value="HomeDelivery">Home Delivery</option>
-<option value="ClickAndCollect">Click & Collect</option>
-</select>
-
-
-{/* MORE / HIDE */}
-<button
-onClick={()=>setShowAdvancedFilters(!showAdvancedFilters)}
-className="px-3 py-2 bg-slate-800 border border-slate-700 text-white rounded-lg text-sm flex items-center gap-2"
->
-<Filter className="w-4 h-4"/>
-{showAdvancedFilters ? "Hide":"More"}
-</button>
-
-
-{/* CLEAR */}
-{hasActiveFilters && (
-<button
-onClick={clearFilters}
-className="px-3 py-2 bg-red-500/10 border border-red-500/30 text-red-400 rounded-lg text-sm flex items-center gap-2"
->
-<FilterX className="w-4 h-4"/>
-Clear
-</button>
-)}
-
+  {/* CLEAR */}
+  {hasActiveFilters && (
+    <button
+      onClick={clearFilters}
+      className="px-4 py-2.5 bg-red-500/10 border border-red-500/30 text-red-400 rounded-xl text-sm hover:bg-red-500/20"
+    >
+      Clear filter
+    </button>
+  )}
 </div>
 
 
@@ -1416,7 +1363,15 @@ Last 30 Days
 </div>
 
       {/* Orders Table */}
-      <div className="bg-slate-900/50 border border-slate-800 rounded-lg overflow-hidden relative z-10">
+    <div className="bg-slate-900/50 border border-slate-800 rounded-lg overflow-hidden relative z-10">
+    {filterLoading && (
+  <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-[2px] z-20 flex items-center justify-center">
+    <div className="flex items-center gap-2 text-violet-400 text-sm">
+      <div className="w-4 h-4 border-2 border-violet-400 border-t-transparent rounded-full animate-spin" />
+      Updating...
+    </div>
+  </div>
+)}
         {orders.length === 0 ? (
           <div className="text-center py-12">
             <ShoppingCart className="w-12 h-12 text-slate-600 mx-auto mb-3" />

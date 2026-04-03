@@ -34,6 +34,8 @@ export interface Discount {
   maximumDiscountedQuantity: number | null;
   appliedToSubOrders: boolean;
   adminComment: string;
+  desktopBannerImageUrl: string | null;
+  mobileBannerImageUrl: string | null;
   assignedProductIds: string;
   assignedCategoryIds: string;
   assignedManufacturerIds: string;
