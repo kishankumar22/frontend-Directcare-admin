@@ -1154,9 +1154,15 @@ const getDateRangeLabel = () => {
                             <Shield className="h-3.5 w-3.5" />Spam
                           </button>
                         )}
-                        <button onClick={() => setReplyingTo(parentComment)} className="px-2.5 py-1.5 bg-violet-500/10 text-violet-400 hover:bg-violet-500/20 rounded-lg text-[11px] font-medium transition-all flex items-center gap-1 border border-violet-500/30">
-                          <Reply className="h-3.5 w-3.5" />Reply
-                        </button>
+   {parentComment.isApproved && (
+  <button
+    onClick={() => setReplyingTo(parentComment)}
+    className="px-2.5 py-1.5 bg-violet-500/10 text-violet-400 hover:bg-violet-500/20 rounded-lg text-[11px] font-medium transition-all flex items-center gap-1 border border-violet-500/30"
+  >
+    <Reply className="h-3.5 w-3.5" />
+    Reply
+  </button>
+)}
                         <button onClick={() => setViewingComment(parentComment)} className="px-2.5 py-1.5 bg-cyan-500/10 text-cyan-400 hover:bg-cyan-500/20 rounded-lg text-[11px] font-medium transition-all flex items-center gap-1 border border-cyan-500/30">
                           <Eye className="h-3.5 w-3.5" />View
                         </button>

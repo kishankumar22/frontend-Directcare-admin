@@ -39,6 +39,7 @@ import {
   RotateCcw,
   XCircle,
   Upload,
+  BellRing,
 } from 'lucide-react';
 import {
   orderService,
@@ -51,14 +52,22 @@ import {
   formatDate,
   PharmacyVerificationStatus,
 } from '../../../lib/services/orders';
+import {
+  OrderCancellationRequestItem,
+  orderCancellationRequestsService,
+} from '../../../lib/services/orderCancellationRequests';
 import { useToast } from '@/app/admin/_components/CustomToast';
 import React from 'react';
 import OrderActionsModal from './OrderActionsModal';
 import BulkStatusModal from './BulkStatusModal';
+import {
+  CancellationActionButtons,
+  CancellationDecisionModal,
+} from './CancellationRequestManager';
 
 import BulkShipmentUploadModal from './BulkShipmentUploadModal';
 
-import { getOrderProductImage } from '../_utils/formatUtils';
+import { formatNumber, getOrderProductImage } from '../_utils/formatUtils';
 import { useDebounce } from '../_hooks/useDebounce';
 
 const card = `
@@ -91,6 +100,8 @@ const getAvailableActions = (order: Order) => {
       break;
     case 'PartiallyShipped':
       actions.push('create-shipment', 'mark-delivered', 'update-status', 'cancel-order');
+      break;
+    case 'CancellationRequested':
       break;
     case 'Delivered':
       actions.push('update-status');
@@ -170,6 +181,13 @@ const debouncedSearch = useDebounce(searchInput, 500);
 
 const [filterLoading, setFilterLoading] = useState(false);
 const [searchLoading, setSearchLoading] = useState(false);
+const [cancellationRequests, setCancellationRequests] = useState<OrderCancellationRequestItem[]>([]);
+const [cancellationDecisionState, setCancellationDecisionState] = useState<{
+  mode: 'approve' | 'reject';
+  request: OrderCancellationRequestItem;
+} | null>(null);
+const [cancellationAdminNotes, setCancellationAdminNotes] = useState("");
+const [cancellationActionLoading, setCancellationActionLoading] = useState(false);
 
 const [shipmentModalOpen, setShipmentModalOpen] = useState(false);
   // ✅ Order Actions Modal
@@ -245,8 +263,10 @@ const response = await orderService.getAllOrders({
       : undefined,
 });
 
-    if (response?.data) {
-      let filteredOrders = response.data.items || [];
+    const responseData = response?.data;
+
+    if (responseData) {
+      let filteredOrders = responseData.items || [];
 
       if (filters.deliveryMethod) {
         filteredOrders = filteredOrders.filter(
@@ -277,10 +297,9 @@ const response = await orderService.getAllOrders({
       }
 
       setOrders(filteredOrders);
-       // ✅ ADD THIS (MAIN FIX)
-  setStats(response.data.stats);
-      setTotalCount(response.data.totalCount || 0);
-      setTotalPages(response.data.totalPages || 0);
+      setStats(responseData.stats);
+      setTotalCount(responseData.totalCount || 0);
+      setTotalPages(responseData.totalPages || 0);
     }
   } catch (error: any) {
     toast.error(error.message || "Failed to load orders");
@@ -315,6 +334,24 @@ useEffect(() => {
   filters,
   debouncedSearch
 ]);
+
+useEffect(() => {
+  const fetchCancellationRequests = async () => {
+    try {
+      const response = await orderCancellationRequestsService.getAll({
+        page: 1,
+        pageSize: 20,
+      });
+
+      setCancellationRequests(response?.data?.items || []);
+    } catch (error: any) {
+      setCancellationRequests([]);
+      toast.error(error?.message || "Failed to load cancellation requests");
+    }
+  };
+
+  fetchCancellationRequests();
+}, []);
 
   // ✅ Bulk Selection Handlers
   const toggleSelectAll = () => {
@@ -556,6 +593,18 @@ const hasActiveFilters = useMemo(() => {
   });
 }, [filters]);
 
+const pendingCancellationRequestMap = useMemo(() => {
+  return cancellationRequests.reduce<Record<string, OrderCancellationRequestItem>>(
+    (accumulator, request) => {
+      if (request.status === "Pending") {
+        accumulator[request.orderId] = request;
+      }
+      return accumulator;
+    },
+    {}
+  );
+}, [cancellationRequests]);
+
 const Card = ({ icon, label, value, active }: any) => (
   <div
     className={`border rounded-lg p-3 transition-all text-left
@@ -620,6 +669,97 @@ const Card = ({ icon, label, value, active }: any) => (
   const handleActionSuccess = () => {
     closeActionModal();
     fetchOrders();
+    orderCancellationRequestsService
+      .getAll({ page: 1, pageSize: 20 })
+      .then((response) => setCancellationRequests(response?.data?.items || []))
+      .catch(() => setCancellationRequests([]));
+  };
+
+  const handleViewCancellationRequestedOrders = () => {
+    setFilters((prev) => ({
+      ...prev,
+      status: 'CancellationRequested',
+    }));
+    setCurrentPage(1);
+  };
+
+  const pendingCancellationCount = cancellationRequests.filter(
+    (request) => request.status === 'Pending'
+  ).length;
+
+  const openCancellationDecision = async (
+    order: Order,
+    mode: 'approve' | 'reject'
+  ) => {
+    try {
+      const existingRequest = cancellationRequests.find(
+        (request) => request.orderId === order.id && request.status === 'Pending'
+      );
+
+      if (existingRequest) {
+        setCancellationDecisionState({ mode, request: existingRequest });
+        setCancellationAdminNotes("");
+        return;
+      }
+
+      const response = await orderCancellationRequestsService.getByOrderId(order.id);
+      const requestData = response?.data;
+
+      if (!requestData) {
+        throw new Error("Cancellation request not found");
+      }
+
+      setCancellationDecisionState({ mode, request: requestData });
+      setCancellationAdminNotes("");
+    } catch (error: any) {
+      toast.error(error?.message || "Failed to load cancellation request");
+    }
+  };
+
+  const closeCancellationDecision = () => {
+    if (!cancellationActionLoading) {
+      setCancellationDecisionState(null);
+      setCancellationAdminNotes("");
+    }
+  };
+
+  const handleCancellationDecision = async () => {
+    if (!cancellationDecisionState || !cancellationAdminNotes.trim()) {
+      toast.error("Admin notes are required");
+      return;
+    }
+
+    setCancellationActionLoading(true);
+
+    try {
+      if (cancellationDecisionState.mode === 'approve') {
+        await orderCancellationRequestsService.approve(
+          cancellationDecisionState.request.id,
+          { adminNotes: cancellationAdminNotes.trim() }
+        );
+        toast.success("Cancellation request approved successfully");
+      } else {
+        await orderCancellationRequestsService.reject(
+          cancellationDecisionState.request.id,
+          { adminNotes: cancellationAdminNotes.trim() }
+        );
+        toast.success("Cancellation request rejected successfully");
+      }
+
+      closeCancellationDecision();
+      const refreshedRequests = await orderCancellationRequestsService.getAll({
+        page: 1,
+        pageSize: 20,
+      });
+      setCancellationRequests(refreshedRequests?.data?.items || []);
+      await fetchOrders();
+    } catch (error: any) {
+      toast.error(
+        error?.message || "Failed to process cancellation request"
+      );
+    } finally {
+      setCancellationActionLoading(false);
+    }
   };
 
 
@@ -645,7 +785,8 @@ if (initialLoading) {
   return (
     <div className="space-y-2">
       {/* Header */}
-<div className="relative flex items-start justify-between">
+<div className="relative space-y-3">
+  <div className="flex items-start justify-between gap-4">
 
   {/* 🔹 LEFT SIDE — TITLE */}
   <div>
@@ -659,6 +800,26 @@ if (initialLoading) {
 
   {/* 🔹 RIGHT SIDE — ACTION BUTTONS */}
   <div className="flex items-center gap-3">
+
+    {/* Pending Cancellation CTA */}
+    <button
+      onClick={handleViewCancellationRequestedOrders}
+      className={`relative overflow-hidden px-4 py-2 rounded-lg transition-all flex items-center gap-2 text-sm font-medium border ${
+        pendingCancellationCount > 0
+          ? "border-amber-400/40 bg-gradient-to-r from-amber-500/15 to-orange-500/10 text-amber-200 shadow-lg shadow-amber-500/10 animate-pulse"
+          : "border-slate-700 bg-slate-800/70 text-slate-300 hover:text-white"
+      }`}
+      title="Filter orders by cancellation requests"
+    >
+      <BellRing className={`w-4 h-4 ${pendingCancellationCount > 0 ? "text-amber-300" : "text-slate-400"}`} />
+      <span>
+        {pendingCancellationCount} pending cancellation request
+        {pendingCancellationCount === 1 ? "" : "s"}
+      </span>
+      {pendingCancellationCount > 0 && (
+        <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-amber-300" />
+      )}
+    </button>
 
     {/* Upload Shipments */}
     <button
@@ -735,6 +896,8 @@ if (initialLoading) {
         </>
       )}
     </div>
+  </div>
+
   </div>
 
 {selectedOrders.length > 0 && (
@@ -822,126 +985,95 @@ if (initialLoading) {
 )}
 </div>
 
-<div className="grid gap-4 md:grid-cols-5">
+<div className="grid gap-3 md:grid-cols-5">
 
-{/* CARD 1 */}
-<div className="bg-slate-900/60 border border-slate-700 rounded-xl p-4 hover:shadow-lg transition">
+  {/* CARD */}
+  {[
+    {
+      label1: "Total Orders",
+      value1: stats?.totalOrders,
+      color1: "text-violet-400",
+      action1: () => handleQuickFilter(""),
 
-  <div className="grid grid-cols-2 gap-3">
+      label2: "Pending",
+      value2: stats?.totalPending,
+      color2: "text-cyan-400",
+      action2: () => handleQuickFilter("Pending"),
+    },
+    {
+      label1: "Processing",
+      value1: stats?.totalProcessing,
+      color1: "text-pink-400",
+      action1: () => handleQuickFilter("Processing"),
 
-    <button onClick={() => handleQuickFilter("")} className="text-left group">
-      <p className="text-xs text-slate-400 group-hover:text-white">Total Orders</p>
-      <p className="text-xl font-bold text-violet-400" >
-        {stats?.totalOrders ?? 0}
-      </p>
-    </button>
+      label2: "Confirmed",
+      value2: stats?.totalConfirmed,
+      color2: "text-blue-400",
+      action2: () => handleQuickFilter("Confirmed"),
+    },
+    {
+      label1: "Shipped",
+      value1: stats?.totalShipped,
+      color1: "text-indigo-400",
+      action1: () => handleQuickFilter("Shipped"),
 
-    <button onClick={() => handleQuickFilter("Pending")} className="text-right group">
-      <p className="text-xs text-slate-400 group-hover:text-white">Pending</p>
-      <p className="text-xl font-bold text-cyan-400">
-        {stats?.totalPending ?? 0}
-      </p>
-    </button>
+      label2: "Partial",
+      value2: stats?.totalPartiallyShipped,
+      color2: "text-yellow-400",
+      action2: () => handleQuickFilter("PartiallyShipped"),
+    },
+    {
+      label1: "Delivered",
+      value1: stats?.totalDelivered,
+      color1: "text-green-400",
+      action1: () => handleQuickFilter("Delivered"),
 
-  </div>
+      label2: "Returned",
+      value2: stats?.totalReturned,
+      color2: "text-orange-400",
+      action2: () => handleQuickFilter("Returned"),
+    },
+    {
+      label1: "Cancelled",
+      value1: stats?.totalCancelled,
+      color1: "text-red-400",
+      action1: () => handleQuickFilter("Cancelled"),
 
-</div>
+      label2: "Refunded",
+      value2: stats?.totalRefunded,
+      color2: "text-pink-400",
+      action2: () => handleQuickFilter("Refunded"),
+    },
+  ].map((card, i) => (
+    <div
+      key={i}
+      className="bg-slate-900/60 border border-slate-700 rounded-lg p-3 hover:shadow-md transition"
+    >
+      <div className="grid grid-cols-2 gap-2">
 
+        {/* LEFT */}
+        <button onClick={card.action1} className="text-left group">
+          <p className="text-[12px] text-slate-400 group-hover:text-white truncate">
+            {card.label1}
+          </p>
+          <p className={`text-sm font-semibold ${card.color1}`}>
+            {formatNumber(card.value1 ?? 0)}
+          </p>
+        </button>
 
-{/* CARD 2 */}
-<div className="bg-slate-900/60 border border-slate-700 rounded-xl p-4 hover:shadow-lg transition">
+        {/* RIGHT */}
+        <button onClick={card.action2} className="text-right group">
+          <p className="text-[12px] text-slate-400 group-hover:text-white truncate">
+            {card.label2}
+          </p>
+          <p className={`text-sm font-semibold ${card.color2}`}>
+            {formatNumber(card.value2 ?? 0)}
+          </p>
+        </button>
 
-  <div className="grid grid-cols-2 gap-3">
-
-    <button onClick={() => handleQuickFilter("Processing")} className="text-left group">
-      <p className="text-xs text-slate-400 group-hover:text-white">Processing</p>
-      <p className="text-xl font-bold text-pink-400">
-        {stats?.totalProcessing ?? 0}
-      </p>
-    </button>
-
-    <button onClick={() => handleQuickFilter("Confirmed")} className="text-right group">
-      <p className="text-xs text-slate-400 group-hover:text-white">Confirmed</p>
-      <p className="text-xl font-bold text-blue-400">
-        {stats?.totalConfirmed ?? 0}
-      </p>
-    </button>
-
-  </div>
-
-</div>
-
-
-{/* CARD 3 */}
-<div className="bg-slate-900/60 border border-slate-700 rounded-xl p-4 hover:shadow-lg transition">
-
-  <div className="grid grid-cols-2 gap-3">
-
-    <button onClick={() => handleQuickFilter("Shipped")} className="text-left group">
-      <p className="text-xs text-slate-400 group-hover:text-white">Shipped</p>
-      <p className="text-Xl font-bold text-indigo-400">
-        {stats?.totalShipped ?? 0}
-      </p>
-    </button>
-
-    <button onClick={() => handleQuickFilter("PartiallyShipped")} className="text-right group">
-      <p className="text-xs text-slate-400 group-hover:text-white">Partial</p>
-      <p className="text-xl font-bold text-yellow-400">
-        {stats?.totalPartiallyShipped ?? 0}
-      </p>
-    </button>
-
-  </div>
-
-</div>
-
-
-{/* CARD 4 */}
-<div className="bg-slate-900/60 border border-slate-700 rounded-xl p-4 hover:shadow-lg transition">
-
-  <div className="grid grid-cols-2 gap-3">
-
-    <button onClick={() => handleQuickFilter("Delivered")} className="text-left group">
-      <p className="text-xs text-slate-400 group-hover:text-white">Delivered</p>
-      <p className="text-xl font-bold text-green-400">
-        {stats?.totalDelivered ?? 0}
-      </p>
-    </button>
-
-    <button onClick={() => handleQuickFilter("Returned")} className="text-right group">
-      <p className="text-xs text-slate-400 group-hover:text-white">Returned</p>
-      <p className="text-xl font-bold text-orange-400">
-        {stats?.totalReturned ?? 0}
-      </p>
-    </button>
-
-  </div>
-
-</div>
-
-
-{/* CARD 5 */}
-<div className="bg-slate-900/60 border border-slate-700 rounded-xl p-4 hover:shadow-lg transition">
-
-  <div className="grid grid-cols-2 gap-3">
-
-    <button onClick={() => handleQuickFilter("Cancelled")} className="text-left group">
-      <p className="text-xs text-slate-400 group-hover:text-white">Cancelled</p>
-      <p className="text-xl font-bold text-red-400">
-        {stats?.totalCancelled ?? 0}
-      </p>
-    </button>
-
-    <button onClick={() => handleQuickFilter("Refunded")} className="text-right group">
-      <p className="text-xs text-slate-400 group-hover:text-white">Refunded</p>
-      <p className="text-xl font-bold text-pink-400">
-        {stats?.totalRefunded ?? 0}
-      </p>
-    </button>
-
-  </div>
-
-</div>
+      </div>
+    </div>
+  ))}
 
 </div>
 
@@ -1083,7 +1215,9 @@ if (initialLoading) {
     <option value="Pending">Pending</option>
     <option value="Confirmed">Confirmed</option>
     <option value="Processing">Processing</option>
+    <option value="CancellationRequested">Cancellation Requested</option>
     <option value="Shipped">Shipped</option>
+    <option value="PartiallyShipped">Partially Shipped</option>
     <option value="Delivered">Delivered</option>
     <option value="Returned">Returned</option>
     <option value="Refunded">Refunded</option>
@@ -1368,7 +1502,7 @@ Last 30 Days
   <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-[2px] z-20 flex items-center justify-center">
     <div className="flex items-center gap-2 text-violet-400 text-sm">
       <div className="w-4 h-4 border-2 border-violet-400 border-t-transparent rounded-full animate-spin" />
-      Updating...
+      Loading...
     </div>
   </div>
 )}
@@ -1424,6 +1558,7 @@ Actions
 {orders.map((order) => {
 
 const statusInfo = getOrderStatusInfo(order.status);
+const pendingCancellationRequest = pendingCancellationRequestMap[order.id];
 
 const paymentMethodStr =
 order.paymentMethod || order.payments?.[0]?.paymentMethod;
@@ -1645,6 +1780,16 @@ title={`Pharmacy verification: ${order.pharmacyVerificationStatus}`}
 </span>
 )}
 
+{order.status === "CancellationRequested" && pendingCancellationRequest && (
+  <div className="mt-1">
+    <CancellationActionButtons
+      compact
+      onApprove={() => openCancellationDecision(order, "approve")}
+      onReject={() => openCancellationDecision(order, "reject")}
+    />
+  </div>
+)}
+
 </div>
 </td>
 
@@ -1815,6 +1960,15 @@ Cancel Order
           </div>
         </div>
       )}
+
+<CancellationDecisionModal
+  state={cancellationDecisionState}
+  notes={cancellationAdminNotes}
+  setNotes={setCancellationAdminNotes}
+  loading={cancellationActionLoading}
+  onClose={closeCancellationDecision}
+  onConfirm={handleCancellationDecision}
+/>
 
 {shipmentModalOpen && (
   <BulkShipmentUploadModal

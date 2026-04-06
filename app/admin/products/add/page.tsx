@@ -528,6 +528,7 @@ const vatRatesData = Array.isArray(vatRatesResponse?.data?.data)
   nextDayDeliveryEnabled: false,
   nextDayDeliveryFree: false,   // ✅ ADD THIS
   standardDeliveryEnabled: true,
+  nextDayDeliveryCutoffTime: '',
 
   // ===== RELATED PRODUCTS =====
   relatedProducts: [] as string[],
@@ -579,7 +580,7 @@ const vatRatesData = Array.isArray(vatRatesResponse?.data?.data)
   vatRateId: '',
 
   // ===== LOYALTY & PHARMA =====
-  loyaltyPointsEnabled: true,
+  excludeFromLoyaltyPoints: true,
   isPharmaProduct: false,
 
 
@@ -1131,6 +1132,25 @@ try {
         }
       }
     }
+if (!formData.nextDayDeliveryEnabled) {
+  setFormData(prev => ({
+    ...prev,
+    nextDayDeliveryCutoffTime: ''
+  }));
+}
+
+    if (
+  formData.nextDayDeliveryEnabled &&
+  !formData.nextDayDeliveryCutoffTime
+) {
+  toast.error('❌ Next-Day Delivery cutoff time required');
+
+  target.removeAttribute("data-submitting");
+  setIsSubmitting(false);
+  setSubmitProgress(null);
+
+  return;
+}
 
     // ============================================================
     // SECTION 4A: GROUPED SUBSCRIPTION CONFLICT VALIDATION BLOCK
@@ -1606,7 +1626,7 @@ allowedQuantities: cleanedCartData.allowedQuantities,
     }
 
     // Loyalty & Pharma
-    productData.loyaltyPointsEnabled = formData.loyaltyPointsEnabled ?? true;
+    productData.excludeFromLoyaltyPoints = formData.excludeFromLoyaltyPoints ?? true;
     productData.isPharmaProduct = formData.isPharmaProduct ?? false;
 
     // Shipping
@@ -1622,6 +1642,11 @@ allowedQuantities: cleanedCartData.allowedQuantities,
     // Delivery Options
     if (formData.sameDayDeliveryEnabled !== undefined) productData.sameDayDeliveryEnabled = formData.sameDayDeliveryEnabled;
     if (formData.nextDayDeliveryEnabled !== undefined) productData.nextDayDeliveryEnabled = formData.nextDayDeliveryEnabled;
+    if (formData.nextDayDeliveryCutoffTime) {
+  productData.nextDayDeliveryCutoffTime = formData.nextDayDeliveryCutoffTime;
+} else {
+  productData.nextDayDeliveryCutoffTime = null;
+}
     if (formData.nextDayDeliveryFree !== undefined)
 productData.nextDayDeliveryFree = formData.nextDayDeliveryFree;
     if (formData.standardDeliveryEnabled !== undefined) productData.standardDeliveryEnabled = formData.standardDeliveryEnabled;
@@ -2320,36 +2345,6 @@ if (name === 'nextDayDeliveryEnabled') {
   }
 };
 
-
-
-  const removeCrossSellProduct = (productId: string) => {
-    setFormData({
-      ...formData,
-      crossSellProducts: formData.crossSellProducts.filter(id => id !== productId)
-    });
-  };
-
-  const filteredProducts = availableProducts.filter(p =>
-    p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    p.sku.toLowerCase().includes(searchTerm.toLowerCase())
-  );
-
-  const filteredProductsCross = availableProducts.filter(p =>
-    p.name.toLowerCase().includes(searchTermCross.toLowerCase()) ||
-    p.sku.toLowerCase().includes(searchTermCross.toLowerCase())
-  );
-
-// ✅ ADD THIS NEW HANDLER FUNCTION
-const handleGroupedProductsChange = (selectedOptions: any) => {
-  const selectedIds = selectedOptions.map((option: any) => option.value);
-  setSelectedGroupedProducts(selectedIds);
-  
-  // Update formData with comma-separated IDs
-  setFormData(prev => ({
-    ...prev,
-    requiredProductIds: selectedIds.join(',')
-  }));
-};
 
 
   // Product Attribute handlers (matching backend ProductAttributeCreateDto)
@@ -3714,14 +3709,14 @@ useEffect(() => {
       </div>
       <button
         type="button"
-        onClick={() => setFormData(prev => ({ ...prev, loyaltyPointsEnabled: !prev.loyaltyPointsEnabled }))}
+        onClick={() => setFormData(prev => ({ ...prev, excludeFromLoyaltyPoints: !prev.excludeFromLoyaltyPoints }))}
         className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 ${
-          formData.loyaltyPointsEnabled ? 'bg-emerald-500' : 'bg-slate-600'
+          formData.excludeFromLoyaltyPoints ? 'bg-emerald-500' : 'bg-slate-600'
         }`}
       >
         <span
           className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform duration-200 ${
-            formData.loyaltyPointsEnabled ? 'translate-x-6' : 'translate-x-1'
+            formData.excludeFromLoyaltyPoints ? 'translate-x-6' : 'translate-x-1'
           }`}
         />
       </button>
@@ -4764,18 +4759,40 @@ useEffect(() => {
           </div>
 {/* Next Day Delivery Free */}
 {formData.nextDayDeliveryEnabled && (
-  <label className="flex items-center gap-2 cursor-pointer group ml-6">
-    <input
-      type="checkbox"
-      name="nextDayDeliveryFree"
-      checked={formData.nextDayDeliveryFree}
-      onChange={handleChange}
-      className="rounded bg-slate-800/50 border-slate-700 text-violet-500 focus:ring-violet-500 focus:ring-offset-slate-900"
-    />
-    <span className="text-sm text-slate-300 group-hover:text-white transition-colors">
-      🎁 Next-Day Delivery Free
-    </span>
-  </label>
+  <>
+    {/* FREE OPTION */}
+    <label className="flex items-center gap-2 cursor-pointer group ml-6">
+      <input
+        type="checkbox"
+        name="nextDayDeliveryFree"
+        checked={formData.nextDayDeliveryFree}
+        onChange={handleChange}
+        className="rounded bg-slate-800/50 border-slate-700 text-violet-500"
+      />
+      <span className="text-sm text-slate-300">
+        🎁 Next-Day Delivery Free
+      </span>
+    </label>
+
+    {/* 🔥 CUTOFF TIME */}
+    <div className="ml-6 mt-2">
+      <label className="block text-md text-slate-400 mb-1">
+        Cutoff Time <span className="text-red-400">*</span>
+      </label>
+
+      <input
+        type="time"
+        name="nextDayDeliveryCutoffTime"
+        value={formData.nextDayDeliveryCutoffTime || ''}
+        onChange={handleChange}
+        className="w-40 px-3 py-2 bg-slate-900 border border-slate-700 rounded text-white text-sm focus:ring-2 focus:ring-violet-500"
+      />
+
+      <p className="text-xs text-slate-500 mt-1">
+        Order before this time for next-day delivery
+      </p>
+    </div>
+  </>
 )}
       
         {/* Standard Delivery */}

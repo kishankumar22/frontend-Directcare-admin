@@ -15,7 +15,8 @@ import {
   AlertTriangle,
   Bell,
   CreditCard,
-  ShieldAlert
+  ShieldAlert,
+  AlertCircle
 } from 'lucide-react';
 import {
   orderService,
@@ -43,82 +44,7 @@ interface OrderActionsModalProps {
 //   | 'Returned'
 //   | 'Cancelled';
 
-const getOrderFlow = (
-  status: OrderStatus,
-  deliveryMethod: string,
-  collectionStatus?: string
-) => {
-  const isClickAndCollect = deliveryMethod === 'ClickAndCollect';
 
-  // =========================
-  // 🏪 CLICK & COLLECT FLOW
-  // =========================
-  if (isClickAndCollect) {
-    return [
-      {
-        label: 'Processing',
-        hint: 'Order is being prepared',
-        show: true,
-      },
-      {
-        label: 'Ready',
-        hint: 'Ready for collection',
-        show: true,
-      },
-      {
-        label: 'Collected',
-        hint: 'Order collected by customer',
-        show: true,
-      },
-    ];
-  }
-
-  // =========================
-  // 🚚 HOME DELIVERY FLOW
-  // =========================
-  const steps = [
-    {
-      label: 'Processing',
-      hint: 'Order is being prepared',
-      show: true,
-    },
-  ];
-
-  // ✅ Only add PartiallyShipped if status indicates it might be needed
-  if (status === 'Shipped' || status === 'Delivered' || status === 'PartiallyShipped') {
-    steps.push({
-      label: 'PartiallyShipped',
-      hint: 'Some items shipped',
-      show: true,
-    });
-  }
-
-  steps.push(
-    {
-      label: 'Shipped',
-      hint: 'All items shipped',
-      show: true,
-    },
-    {
-      label: 'Delivered',
-      hint: 'Order delivered',
-      show: true,
-    }
-  );
-
-  // Show Returned only for delivered orders
-  if (status === 'Delivered' || status === 'Returned') {
-    steps.push({
-      label: 'Returned',
-      hint: 'Returned by customer',
-      show: true,
-    });
-  }
-
-  return steps;
-};
-
-// ✅ FIXED: OrderStatusHelper with proper TypeScript types
 const OrderStatusHelper = ({
   status,
   deliveryMethod,
@@ -134,31 +60,64 @@ const OrderStatusHelper = ({
 }) => {
   const isClickAndCollect = deliveryMethod === 'ClickAndCollect';
   
-  // ✅ Check if there are multiple shipments
+  // ✅ Check if there are multiple shipments (more than 1)
   const hasMultipleShipments = shipments && shipments.length > 1;
   
-  // ✅ Check if any items are shipped but not all
-  const hasPartialShipment = () => {
-    if (!shipments || shipments.length === 0 || !orderItems) return false;
+  // ✅ Define the complete flow sequence in order
+  const getFlowSequence = (): string[] => {
+    if (isClickAndCollect) {
+      return ['Processing', 'Ready', 'Collected'];
+    }
     
-    // Get all shipped items across all shipments
-    const shippedItemIds = new Set();
-    shipments.forEach(shipment => {
-      shipment.shipmentItems?.forEach((item: any) => {
-        shippedItemIds.add(item.orderItemId);
-      });
-    });
+    // Home Delivery flow
+    const sequence = ['Processing'];
+    if (hasMultipleShipments) {
+      sequence.push('PartiallyShipped');
+    }
+    sequence.push('Shipped', 'Delivered');
     
-    // Get total unique items in order
-    const totalItems = orderItems.length;
+    // Add Returned only if status is Delivered or Returned
+    if (status === 'Delivered' || status === 'Returned') {
+      sequence.push('Returned');
+    }
     
-    // If some items are shipped but not all, it's partial
-    return shippedItemIds.size > 0 && shippedItemIds.size < totalItems;
+    return sequence;
   };
   
-  const isPartiallyShipped = hasPartialShipment() || status === 'PartiallyShipped';
+  const flowSequence = getFlowSequence();
   
-  // ✅ Get flow steps based on delivery method and shipment status
+  // ✅ Get current index in the sequence
+  const currentStatusIndex = flowSequence.indexOf(status);
+  
+  // ✅ Check if a step should be active (current or any previous step)
+  const isStepActive = (stepLabel: string): boolean => {
+    const stepIndex = flowSequence.indexOf(stepLabel);
+    
+    // Step not found in sequence
+    if (stepIndex === -1) return false;
+    
+    // For Click & Collect
+    if (isClickAndCollect) {
+      if (stepLabel === 'Ready' && collectionStatus === 'Ready') return true;
+      if (stepLabel === 'Collected' && collectionStatus === 'Collected') return true;
+      // For Processing, check if current status is Processing or beyond
+      if (stepLabel === 'Processing') {
+        return currentStatusIndex >= stepIndex;
+      }
+      return stepIndex <= currentStatusIndex;
+    }
+    
+    // For Home Delivery
+    // PartiallyShipped should only be active if there are multiple shipments
+    if (stepLabel === 'PartiallyShipped' && !hasMultipleShipments) {
+      return false;
+    }
+    
+    // Mark step as active if it's the current step or any previous step
+    return stepIndex <= currentStatusIndex;
+  };
+  
+  // ✅ Get flow steps for display (with show/hide logic)
   const getFlowSteps = () => {
     if (isClickAndCollect) {
       return [
@@ -173,8 +132,8 @@ const OrderStatusHelper = ({
       { label: 'Processing', hint: 'Order is being prepared', show: true },
     ];
     
-    // ✅ Show PartiallyShipped only when there are multiple shipments OR items are partially shipped
-    if (hasMultipleShipments || isPartiallyShipped) {
+    // ✅ ONLY show PartiallyShipped when there are MULTIPLE shipments
+    if (hasMultipleShipments) {
       steps.push({
         label: 'PartiallyShipped',
         hint: 'Some items shipped',
@@ -203,35 +162,6 @@ const OrderStatusHelper = ({
   
   if (!flow.length) return null;
   
-  // ✅ Type-safe step activation check
-  const isStepActive = (stepLabel: string) => {
-    // Direct match
-    if (stepLabel === status) return true;
-    
-    // Handle PartiallyShipped active state
-    if (stepLabel === 'PartiallyShipped') {
-      // Don't show as active if status is Shipped or Delivered
-      if (status === 'Shipped' || status === 'Delivered') return false;
-      return isPartiallyShipped;
-    }
-    
-    // Handle Shipped active state (when fully shipped or delivered)
-    if (stepLabel === 'Shipped' && (status === 'Shipped' || status === 'Delivered')) {
-      return true;
-    }
-    
-    // Handle Delivered active state
-    if (stepLabel === 'Delivered' && status === 'Delivered') {
-      return true;
-    }
-    
-    // Handle Ready/Collected for Click & Collect
-    if (stepLabel === 'Ready' && collectionStatus === 'Ready') return true;
-    if (stepLabel === 'Collected' && collectionStatus === 'Collected') return true;
-    
-    return false;
-  };
-  
   // ✅ Get current step hint
   const getCurrentHint = () => {
     if (isClickAndCollect) {
@@ -241,9 +171,9 @@ const OrderStatusHelper = ({
       return currentStep?.hint || '';
     }
     
-    // For Home Delivery
-    if (isPartiallyShipped && status !== 'Shipped' && status !== 'Delivered') {
-      return 'Some items have been shipped. Remaining items will be shipped separately.';
+    // For Home Delivery - show partial hint ONLY if multiple shipments
+    if (hasMultipleShipments && status !== 'Shipped' && status !== 'Delivered' && status !== 'Returned') {
+      return 'Multiple shipments - Some items shipped, remaining pending';
     }
     
     const currentStep = flow.find((s) => s.label === status);
@@ -295,15 +225,6 @@ const OrderStatusHelper = ({
           </p>
         </div>
       )}
-      
-      {/* Show partial shipment info */}
-      {isPartiallyShipped && !hasMultipleShipments && status !== 'Shipped' && status !== 'Delivered' && (
-        <div className="mt-2 pt-2 border-t border-slate-700/50">
-          <p className="text-[10px] text-amber-400">
-            ⚡ Partial shipment - Some items shipped, remaining pending
-          </p>
-        </div>
-      )}
     </div>
   );
 };
@@ -320,6 +241,8 @@ export const getValidStatusTransitions = (
     Pending: ['Confirmed', 'Processing'],
 
     Confirmed: ['Processing'],
+
+    CancellationRequested: [],
 
     // ❌ REMOVE ANY SHIPPING FROM UPDATE STATUS
 Processing: isClickAndCollect
@@ -354,6 +277,7 @@ const getStatusDisplayInfo = (status: OrderStatus) => {
     Pending: { label: 'Pending', color: 'text-yellow-400', icon: <Clock className="w-4 h-4" /> },
     Confirmed: { label: 'Confirmed', color: 'text-blue-400', icon: <CheckCircle className="w-4 h-4" /> },
     Processing: { label: 'Processing', color: 'text-cyan-400', icon: <Package className="w-4 h-4" /> },
+    CancellationRequested: { label: 'Cancellation Requested', color: 'text-amber-300', icon: <AlertCircle className="w-4 h-4" /> },
 
     // 🔥 Only for Home Delivery
     Shipped: { label: 'Shipped', color: 'text-purple-400', icon: <Truck className="w-4 h-4" /> },
@@ -1046,8 +970,8 @@ if (
   status={order.status}
   deliveryMethod={order.deliveryMethod}
   collectionStatus={order.collectionStatus}
-  shipments={order.shipments}        // ✅ Add this
-  orderItems={order.orderItems}      // ✅ Add this
+  shipments={order.shipments}        // ✅ Pass shipments
+  orderItems={order.orderItems}      
 />
           </div>
         );

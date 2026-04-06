@@ -460,6 +460,7 @@ const [formData, setFormData] = useState({
   basepriceUnit: '',
   basepriceBaseAmount: '',
   basepriceBaseUnit: '',
+  nextDayDeliveryCutoffTime: '',
   
   // Mark as New
   markAsNew: false,
@@ -476,7 +477,7 @@ const [formData, setFormData] = useState({
   vatRateId: '',
 
   // ===== LOYALTY & PHARMA =====
-  loyaltyPointsEnabled: true,
+  excludeFromLoyaltyPoints: true,
   isPharmaProduct: false,
 
   // ===== RECURRING / SUBSCRIPTION =====
@@ -943,6 +944,7 @@ const toDateTimeLocal = (isoString?: string | null) => {
         adminComment: productData.adminComment || '',
         gender: productData.gender || '',
       isActive: productData.isActive ?? true,
+      nextDayDeliveryCutoffTime: productData.nextDayDeliveryCutoffTime ?? '',
 
 // ✅ NEW CODE:
 categoryIds: (() => {
@@ -1034,7 +1036,7 @@ categoryIds: (() => {
         vatRateId: productData.vatRateId || '',
 
         // ===== LOYALTY & PHARMA =====
-        loyaltyPointsEnabled: productData.loyaltyPointsEnabled ?? true,
+        excludeFromLoyaltyPoints: productData.excludeFromLoyaltyPoints ?? true,
         isPharmaProduct: productData.isPharmaProduct ?? false,
 
         // ===== INVENTORY =====
@@ -3500,7 +3502,21 @@ const variantsArray = productVariants?.map(variant => {
 // CLEAN CART DATA (UPDATED)
 // ======================================
 
+if (
+  formData.nextDayDeliveryEnabled &&
+  !formData.nextDayDeliveryCutoffTime
+) {
+  toast.error('❌ Next-Day Delivery cutoff time required');
 
+  target.removeAttribute('data-submitting');
+  setIsSubmitting(false);
+  setSubmitProgress(null);
+
+  return;
+}
+if (!formData.nextDayDeliveryEnabled) {
+  formData.nextDayDeliveryCutoffTime = '';
+}
 // ======================================
 // CLEAN CART DATA (UPDATED - TYPESAFE)
 // ======================================
@@ -3617,7 +3633,7 @@ else if (
         : null,
       vatExempt: formData.vatExempt ?? false,
       vatRateId: formData.vatRateId || null,
-      loyaltyPointsEnabled: formData.loyaltyPointsEnabled ?? true,
+      excludeFromLoyaltyPoints: formData.excludeFromLoyaltyPoints ?? true,
       isPharmaProduct: formData.isPharmaProduct ?? false,
       isActive: formData.isActive ?? false,
       trackQuantity: formData.manageInventory === 'track',
@@ -3653,6 +3669,8 @@ allowedQuantities: cleanedCartData.allowedQuantities,        // null when min/ma
       sameDayDeliveryEnabled: formData.sameDayDeliveryEnabled ?? false,
       nextDayDeliveryEnabled: formData.nextDayDeliveryEnabled ?? false,
       nextDayDeliveryFree: formData.nextDayDeliveryFree ?? false,   // ✅ ADD
+      // 🔥 ADD THIS
+       nextDayDeliveryCutoffTime: formData.nextDayDeliveryCutoffTime || null,
       standardDeliveryEnabled: formData.standardDeliveryEnabled ?? true,
       isRecurring: formData.productType !== 'grouped' && formData.isRecurring ? true : false,
       recurringCycleLength: formData.productType !== 'grouped' && formData.isRecurring
@@ -5978,14 +5996,14 @@ const uploadImagesToProductDirect = async (
       </div>
       <button
         type="button"
-        onClick={() => setFormData(prev => ({ ...prev, loyaltyPointsEnabled: !prev.loyaltyPointsEnabled }))}
+        onClick={() => setFormData(prev => ({ ...prev, excludeFromLoyaltyPoints: !prev.excludeFromLoyaltyPoints }))}
         className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 ${
-          formData.loyaltyPointsEnabled ? 'bg-emerald-500' : 'bg-slate-600'
+          formData.excludeFromLoyaltyPoints ? 'bg-emerald-500' : 'bg-slate-600'
         }`}
       >
         <span
           className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform duration-200 ${
-            formData.loyaltyPointsEnabled ? 'translate-x-6' : 'translate-x-1'
+            formData.excludeFromLoyaltyPoints ? 'translate-x-6' : 'translate-x-1'
           }`}
         />
       </button>
@@ -7256,22 +7274,46 @@ const uploadImagesToProductDirect = async (
                 🚀 Enable Next-Day Delivery
               </span>
             </label>
+            
           </div>
 {/* Next Day Delivery Free */}
 {formData.nextDayDeliveryEnabled && (
-  <label className="flex items-center gap-2 cursor-pointer group ml-6">
-    <input
-      type="checkbox"
-      name="nextDayDeliveryFree"
-      checked={formData.nextDayDeliveryFree}
-      onChange={handleChange}
-      className="rounded bg-slate-800/50 border-slate-700 text-violet-500 focus:ring-violet-500 focus:ring-offset-slate-900"
-    />
-    <span className="text-sm text-slate-300 group-hover:text-white transition-colors">
-      🎁 Next-Day Delivery Free
-    </span>
-  </label>
+  <>
+    {/* FREE OPTION */}
+    <label className="flex items-center gap-2 cursor-pointer group ml-6">
+      <input
+        type="checkbox"
+        name="nextDayDeliveryFree"
+        checked={formData.nextDayDeliveryFree}
+        onChange={handleChange}
+        className="rounded bg-slate-800/50 border-slate-700 text-violet-500"
+      />
+      <span className="text-sm text-slate-300">
+        🎁 Next-Day Delivery Free
+      </span>
+    </label>
+
+    {/* 🔥 CUTOFF TIME (ADD THIS) */}
+    <div className="ml-6 mt-2">
+      <label className="block text-md text-slate-400 mb-1">
+        Cutoff Time <span className="text-red-400">*</span>
+      </label>
+
+      <input
+        type="time"
+        name="nextDayDeliveryCutoffTime"
+        value={formData.nextDayDeliveryCutoffTime || ''}
+        onChange={handleChange}
+        className="w-40 px-3 py-2 bg-slate-900 border border-slate-700 rounded text-white text-sm focus:ring-2 focus:ring-violet-500"
+      />
+
+      <p className="text-xs text-slate-500 mt-1">
+        Order before this time for next-day delivery
+      </p>
+    </div>
+  </>
 )}
+
         {/* Standard Delivery */}
 <div className="space-y-3">
   <label className="flex items-center gap-2 cursor-pointer group">

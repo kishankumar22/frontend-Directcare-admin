@@ -9,4 +9,7 @@ export * from './banners';
 export * from './blogCategories';
 // export * from './blogPosts';
 export * from './blogComments';
+export * from './contact';
+export * from './orderCancellationRequests';
+export * from './GoogleMerchant';
 

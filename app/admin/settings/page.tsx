@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import { useToast } from '../_components/CustomToast';
 import { API_BASE_URL } from '@/lib/api-config';
+import GoogleMerchantSettings from './GoogleMerchantSettings';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -102,6 +103,7 @@ const TABS = [
   { id: 'security',        label: 'Security',         icon: Shield,     color: 'text-yellow-400' },
   { id: 'notifications',   label: 'Notifications',    icon: Bell,       color: 'text-cyan-400' },
   { id: 'store-locations', label: 'Store Locations',  icon: MapPin,     color: 'text-orange-400' },
+  { id: 'google-merchant', label: 'Google Merchant',  icon: Globe,      color: 'text-emerald-400' },
 ];
 
 // ─── Store Location types ─────────────────────────────────────────────────────
@@ -806,12 +808,13 @@ export default function SettingsPage() {
             {activeTab === 'security'        && <SecurityTab        s={settings} set={setField} />}
             {activeTab === 'notifications'   && <NotificationsTab   s={settings} set={setField} />}
             {activeTab === 'store-locations' && <StoreLocationsTab />}
+            {activeTab === 'google-merchant' && <GoogleMerchantSettings />}
           </div>
         </div>
       )}
 
       {/* Sticky save bar — not shown for Store Locations (has its own CRUD) */}
-      {!loading && !error && activeTab !== 'store-locations' && (
+      {!loading && !error && activeTab !== 'store-locations' && activeTab !== 'google-merchant' && (
         <div className="sticky bottom-4 flex justify-end pointer-events-none">
           <div className="bg-slate-900/90 backdrop-blur border border-slate-700/60 rounded-xl px-4 py-3 flex items-center gap-3 shadow-xl pointer-events-auto">
             <span className="text-xs text-slate-400 hidden sm:block">Saved to database</span>

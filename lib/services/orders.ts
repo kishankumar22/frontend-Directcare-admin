@@ -12,6 +12,7 @@ export type OrderStatus =
   | 'Pending'
   | 'Confirmed'
   | 'Processing'
+  | 'CancellationRequested'
   | 'Shipped'
   | 'Delivered'
   | 'Cancelled'
@@ -242,6 +243,7 @@ export interface OrdersListResponse {
     totalPending: number;
     totalConfirmed: number;
     totalProcessing: number;
+    totalCancellationRequested?: number;
     totalShipped: number;
     totalPartiallyShipped: number;
     totalDelivered: number;
@@ -570,6 +572,7 @@ export const getOrderStatusInfo = (status: OrderStatus) => {
     'Pending': { label: 'Pending', color: 'text-yellow-400', bgColor: 'bg-yellow-500/10' },
     'Confirmed': { label: 'Confirmed', color: 'text-blue-400', bgColor: 'bg-blue-500/10' },
     'Processing': { label: 'Processing', color: 'text-indigo-400', bgColor: 'bg-indigo-500/10' },
+    'CancellationRequested': { label: 'Cancellation Requested', color: 'text-amber-300', bgColor: 'bg-amber-500/10' },
     'Shipped': { label: 'Shipped', color: 'text-purple-400', bgColor: 'bg-purple-500/10' },
     'PartiallyShipped': { label: 'Partially Shipped', color: 'text-purple-300', bgColor: 'bg-purple-400/10' },
     'Delivered': { label: 'Delivered', color: 'text-green-400', bgColor: 'bg-green-500/10' },

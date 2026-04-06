@@ -117,6 +117,14 @@ const getOrderStatusInfo = (status: OrderStatus) => {
       description: 'Order is being prepared and packed.',
       nextAction: 'Create shipment or Mark Ready',
     },
+    CancellationRequested: {
+      label: 'Cancellation Requested',
+      color: 'text-amber-300',
+      bgColor: 'bg-amber-500/10',
+      icon: <AlertCircle className="h-3 w-3" />,
+      description: 'Customer has requested order cancellation.',
+      nextAction: 'Approve or reject the cancellation request',
+    },
     Shipped: {
       label: 'Shipped',
       color: 'text-purple-400',
@@ -668,7 +676,7 @@ const RegenerateInvoiceModal = ({
           <div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-lg">
             <p className="text-xs text-amber-400 flex items-center gap-2">
               <AlertTriangle className="h-4 w-4" />
-              This will generate a new invoice PDF for this order.
+             This action will generate a new invoice and create a versioned record in the order history.
             </p>
           </div>
 
