@@ -261,6 +261,14 @@ interface ApiResponse<T> {
   errors?: string[];
 }
 
+export interface WooCommerceOrderImportResult {
+  totalRows: number;
+  importedOrders: number;
+  createdCustomers: number;
+  skippedOrders: number;
+  errors: string[];
+}
+
 // ==================== REQUEST DTOs ====================
 
 export interface MarkCollectedRequest {
@@ -535,6 +543,29 @@ async bulkCreateShipment(data: BulkCreateShipmentRequest) {
       return response.data;
     } catch (error: any) {
       throw new Error(error.response?.data?.message || 'Failed to cancel order');
+    }
+  }
+
+  async importWooCommerce(file: File) {
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const response = await apiClient.post<ApiResponse<WooCommerceOrderImportResult>>(
+        `${API_ENDPOINTS.orders}/import-woocommerce`,
+        formData,
+        {
+          headers: {
+            'Content-Type': 'multipart/form-data',
+          },
+        }
+      );
+
+      return response.data;
+    } catch (error: any) {
+      throw new Error(
+        error.response?.data?.message || 'Failed to import WooCommerce orders'
+      );
     }
   }
 

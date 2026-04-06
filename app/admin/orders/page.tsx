@@ -66,6 +66,7 @@ import {
 } from './CancellationRequestManager';
 
 import BulkShipmentUploadModal from './BulkShipmentUploadModal';
+import ImportWooCommerceOrdersModal from './ImportWooCommerceOrdersModal';
 
 import { formatNumber, getOrderProductImage } from '../_utils/formatUtils';
 import { useDebounce } from '../_hooks/useDebounce';
@@ -190,6 +191,7 @@ const [cancellationAdminNotes, setCancellationAdminNotes] = useState("");
 const [cancellationActionLoading, setCancellationActionLoading] = useState(false);
 
 const [shipmentModalOpen, setShipmentModalOpen] = useState(false);
+const [importWooCommerceModalOpen, setImportWooCommerceModalOpen] = useState(false);
   // ✅ Order Actions Modal
   const [modalState, setModalState] = useState<{
     isOpen: boolean;
@@ -821,12 +823,22 @@ if (initialLoading) {
       )}
     </button>
 
-    {/* Upload Shipments */}
     <button
-      onClick={() => setShipmentModalOpen(true)}
-      className="px-4 py-2 bg-gradient-to-r from-purple-600 to-fuchsia-600 
-      text-white rounded-lg hover:shadow-lg hover:shadow-purple-500/30 
+      onClick={() => setImportWooCommerceModalOpen(true)}
+      className="px-4 py-2 bg-gradient-to-r from-cyan-600 to-blue-600 
+      text-white rounded-lg hover:shadow-lg hover:shadow-cyan-500/30 
       transition-all flex items-center gap-2 text-sm font-medium"
+    >
+      <FileSpreadsheet className="w-4 h-4" />
+      Import WooCommerce
+    </button>
+
+    {/* Upload Shipments */}
+      <button
+      onClick={() => setShipmentModalOpen(true)}
+        className="px-4 py-2 bg-gradient-to-r from-purple-600 to-fuchsia-600 
+        text-white rounded-lg hover:shadow-lg hover:shadow-purple-500/30 
+        transition-all flex items-center gap-2 text-sm font-medium"
     >
       <Upload className="w-4 h-4" />
       Upload Shipments
@@ -1969,6 +1981,16 @@ Cancel Order
   onClose={closeCancellationDecision}
   onConfirm={handleCancellationDecision}
 />
+
+{importWooCommerceModalOpen && (
+  <ImportWooCommerceOrdersModal
+    open={true}
+    onClose={() => setImportWooCommerceModalOpen(false)}
+    onSuccess={() => {
+      fetchOrders();
+    }}
+  />
+)}
 
 {shipmentModalOpen && (
   <BulkShipmentUploadModal
