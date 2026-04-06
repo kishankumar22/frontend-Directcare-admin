@@ -53,6 +53,7 @@ export default function PharmaQuestionsModal({
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
+  const MAX_CHARS = 10;
 // ✅ check required answers before allowing submit
 const isFormValid = questions.every((q) => {
   if (!q.isRequired) return true;
@@ -63,7 +64,10 @@ const isFormValid = questions.every((q) => {
     return !!val;
   }
 
-  return val && String(val).trim() !== "";
+ return (
+  val &&
+  String(val).trim().length >= MAX_CHARS   // ✅ MIN 10 REQUIRED
+);
 });
   // 🔥 LOAD QUESTIONS + CHECK EXISTING RESPONSES
   useEffect(() => {
@@ -330,20 +334,35 @@ if (mode === "edit") {
               )}
 
               {/* TEXT / NUMBER TYPE */}
-              {q.answerType !== "Options" && (
-                <textarea
-                  rows={2}
-                  value={answers[q.questionId] ?? ""}
-                  onChange={(e) =>
-                    setAnswers((prev) => ({
-                      ...prev,
-                      [q.questionId]: e.target.value,
-                    }))
-                  }
-                  placeholder="Type your answer here..."
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-xs md:text-sm focus:ring-2 focus:ring-[#445D41]/30 focus:border-[#445D41] outline-none resize-none transition-all"
-                />
-              )}
+  {q.answerType !== "Options" && (
+  <div className="space-y-1">
+    <textarea
+      rows={2}
+      value={answers[q.questionId] ?? ""}
+      onChange={(e) => {
+        const val = e.target.value;
+
+        setAnswers((prev) => ({
+          ...prev,
+          [q.questionId]: val,
+        }));
+      }}
+      placeholder="Type your answer here..."
+      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-xs md:text-sm focus:ring-2 focus:ring-[#445D41]/30 focus:border-[#445D41] outline-none resize-none transition-all"
+    />
+
+    {/* 🔢 CHAR COUNT */}
+    <div
+      className={`text-[10px] text-right ${
+        (answers[q.questionId]?.length || 0) >= 10
+          ? "text-green-600"
+          : "text-red-500"
+      }`}
+    >
+      {(answers[q.questionId]?.length || 0)}/10
+    </div>
+  </div>
+)}
             </div>
           ))}
         </div>

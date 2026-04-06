@@ -811,11 +811,11 @@ if (initialLoading) {
           ? "border-amber-400/40 bg-gradient-to-r from-amber-500/15 to-orange-500/10 text-amber-200 shadow-lg shadow-amber-500/10 animate-pulse"
           : "border-slate-700 bg-slate-800/70 text-slate-300 hover:text-white"
       }`}
-      title="Filter orders by cancellation requests"
+      title="orders with pending cancellation requests"
     >
       <BellRing className={`w-4 h-4 ${pendingCancellationCount > 0 ? "text-amber-300" : "text-slate-400"}`} />
       <span>
-        {pendingCancellationCount} pending cancellation request
+        {pendingCancellationCount} cancellation request
         {pendingCancellationCount === 1 ? "" : "s"}
       </span>
       {pendingCancellationCount > 0 && (

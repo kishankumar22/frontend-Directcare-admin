@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/toast/CustomToast";
 import { useAuth } from "@/context/AuthContext";
 import { Pause, SkipForward, XCircle, Play, Pencil } from "lucide-react";
-
+import Link from "next/link";
 const API = process.env.NEXT_PUBLIC_API_URL;
 
 export default function SubscriptionsTab() {
@@ -237,14 +237,16 @@ Object.entries(editData).forEach(([key, value]) => {
   className="border rounded-xl p-3 sm:p-4 shadow-sm bg-white flex gap-3 sm:gap-4 w-full min-w-0"
 >
 <div className="flex flex-col items-center flex-shrink-0">
+<Link href={`/products/${item.productSlug}`}>
   <img
     src={
       item.productImageUrl?.startsWith("http")
         ? item.productImageUrl
         : `${API}${item.productImageUrl}`
     }
-    className="w-14 h-14 sm:w-20 sm:h-20 object-cover rounded-lg"
+    className="w-14 h-14 sm:w-20 sm:h-20 object-cover rounded-lg cursor-pointer hover:scale-105 transition"
   />
+</Link>
 
   <span className="mt-1 text-[10px] sm:text-xs text-gray-600 font-medium">
     Qty: {item.quantity}
@@ -277,9 +279,11 @@ Object.entries(editData).forEach(([key, value]) => {
 </div>
   {/* DETAILS */}
   <div className="flex-1 min-w-0">
-  <p className="font-semibold text-sm sm:text-base leading-snug line-clamp-2 break-words">
-      {item.productName}
-    </p>
+ <Link href={`/products/${item.productSlug}`}>
+  <p className="font-semibold text-sm sm:text-base leading-snug line-clamp-2 break-words hover:text-green-700 cursor-pointer transition">
+    {item.productName}
+  </p>
+</Link>
 
     <p className="text-[11px] text-gray-500 truncate">
   {item.frequencyDisplay}

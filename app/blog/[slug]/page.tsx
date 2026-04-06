@@ -28,12 +28,40 @@ export async function generateMetadata({
   }
 
   return {
+  title: post.metaTitle || post.title,
+  description:
+    post.metaDescription ||
+    post.bodyOverview ||
+    "Read the full article for more details.",
+
+  alternates: {
+    canonical: `https://www.direct-care.co.uk/blog/${post.slug}`,
+  },
+
+  openGraph: {
     title: post.metaTitle || post.title,
     description:
-      post.metaDescription ||
-      post.bodyOverview ||
-      "Read the full article for more details.",
-  };
+      post.metaDescription || post.bodyOverview,
+    url: `https://www.direct-care.co.uk/blog/${post.slug}`,
+    type: "article",
+
+    images: post.featuredImageUrl
+      ? [
+          {
+            url: absoluteUrl(post.featuredImageUrl),
+            width: 1200,
+            height: 630,
+            alt: post.title,
+          },
+        ]
+      : [],
+  },
+
+  robots: {
+    index: true,
+    follow: true,
+  },
+};
 }
 
 function absoluteUrl(path: string | null | undefined): string | null {
@@ -44,7 +72,7 @@ function absoluteUrl(path: string | null | undefined): string | null {
 
 async function fetchJSON(url: string): Promise<any> {
   try {
-    const res = await fetch(url, { next: { revalidate: 60 } });
+    const res = await fetch(url, { next: { revalidate: 600 } });
     if (!res.ok) return null;
     return res.json();
   } catch {
@@ -132,24 +160,48 @@ export default async function BlogDetailPage({
 
   return (
   <main className="bg-white py-3 lg:h-screen lg:overflow-hidden">
-   <div className="max-w-full mx-4 grid grid-cols-1 lg:grid-cols-3 gap-4 px-0 md:px-6 lg:h-full">
+    <script
+  type="application/ld+json"
+  dangerouslySetInnerHTML={{
+    __html: JSON.stringify({
+      "@context": "https://schema.org",
+      "@type": "BlogPosting",
+      headline: post.title,
+      description: post.metaDescription || post.bodyOverview,
+      image: absoluteUrl(post.featuredImageUrl),
+      author: {
+        "@type": "Person",
+        name: post.authorName,
+      },
+      publisher: {
+        "@type": "Organization",
+        name: "Direct Care",
+      },
+      datePublished: post.publishedAt,
+      dateModified: post.updatedAt || post.publishedAt,
+      mainEntityOfPage: {
+        "@type": "WebPage",
+        "@id": `https://www.direct-care.co.uk/blog/${post.slug}`,
+      },
+    }),
+  }}
+/>
+   <div className="max-w-full mx-4 grid grid-cols-1 lg:grid-cols-3 gap-4 px-0 md:px-12 lg:h-full">
 
         {/* LEFT ARTICLE CARD */}
       <div className="lg:col-span-2 ml-0 mr-0 md:ml-[-20px] md:mr-[-40px] lg:ml-[-55px] lg:mr-[-119px] lg:h-full lg:overflow-y-auto pr-2">
         <div className="bg-white shadow-lg rounded-2xl p-4 md:p-8 border min-h-full">
 
             {/* Breadcrumb */}
-            <nav className="hidden md:flex text-sm text-gray-500 mb-2 items-center gap-1">
+            <nav className="hidden md:flex text-sm text-gray-500 mb-2 -mt-5 items-center gap-1">
               <Link href="/" className="hover:underline text-blue-600">Home</Link>
               <span>/</span>
-
               <Link href="/blog" className="hover:underline text-blue-600">Blog</Link>
               <span>/</span>
-
-              {post.blogCategoryName ? (
+             {post.blogCategoryName? (
                 <>
                   <Link 
-                    href={`/blog/category/${post.blogCategorySlug ?? ""}`}
+                    href={`/blog/category/${post.blogCategorySlug || post.blogCategoryName?.toLowerCase()}`}
                     className="hover:underline text-blue-600"
                   >
                     {post.blogCategoryName}

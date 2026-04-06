@@ -1033,6 +1033,7 @@ const handleThumbNext = () => {
       behavior: 'smooth'
     });
   }, []);
+  
 const handleAddToCart = useCallback(() => {
     // 🔥 PHARMA GUARD
  if (product.isPharmaProduct && !pharmaApprovedRef.current) {

@@ -373,92 +373,97 @@ const flattenedProducts = useMemo(() => {
 
         <div className="flex gap-8">
           {/* FILTERS */}
-          <aside className="hidden lg:block w-64">
-            <div className="sticky top-24">
-              <Card>
-                <CardContent className="p-6">
-                  <div className="flex justify-between items-center mb-4 border-b pb-3">
-                    <div className="flex items-center gap-2">
-                      <SlidersHorizontal className="h-5 w-5 text-[#445D41]" />
-                      <h2 className="font-bold">Filters</h2>
-                    </div>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={resetFilters}
-                      className="text-xs text-blue-600"
-                    >
-                      Reset
-                    </Button>
-                  </div>
+        <aside className="hidden lg:block w-64 flex-shrink-0 sticky top-24 h-[calc(100vh-96px)] overflow-y-auto overscroll-contain pr-2 hide-scrollbar">
+  <Card className="shadow-sm flex flex-col h-full">
+    <CardContent className="p-0 flex flex-col h-full">
 
-                  {/* Category */}
-                  {categories.length > 0 && (
-                    <div className="mb-6">
-                      <h3 className="font-bold text-sm mb-3">Category</h3>
-                      {categories.map((cat) => (
-                        <label
-                          key={cat.id}
-                          className="flex items-center gap-2 p-2 hover:bg-gray-50 rounded"
-                        >
-                          <input
-                            type="checkbox"
-                            checked={selectedCategories.includes(cat.id)}
-                            onChange={(e) =>
-                              setSelectedCategories(
-                                e.target.checked
-                                  ? [...selectedCategories, cat.id]
-                                  : selectedCategories.filter(
-                                      (c) => c !== cat.id
-                                    )
-                              )
-                            }
-                          />
-                          <span className="text-sm">{cat.name}</span>
-                        </label>
-                      ))}
-                    </div>
-                  )}
+      {/* HEADER (FIXED) */}
+      <div className="flex justify-between items-center border-b px-6 py-4">
+        <div className="flex items-center gap-2">
+          <SlidersHorizontal className="h-5 w-5 text-[#445D41]" />
+          <h2 className="font-bold">Filters</h2>
+        </div>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={resetFilters}
+          className="text-xs text-blue-600"
+        >
+          Reset
+        </Button>
+      </div>
 
-                  {/* Price */}
-                  {minPrice < maxPrice && (
-                    <div className="mb-6">
-                      <h3 className="font-bold text-sm mb-3">Price Range</h3>
-                      <PremiumPriceSlider
-                        value={priceRange}
-                        min={minPrice}
-                        max={maxPrice}
-                        onChange={setPriceRange}
-                      />
-                    </div>
-                  )}
+      {/* SCROLLABLE CONTENT */}
+      <div className="flex-1 overflow-y-auto px-6 py-4 space-y-6">
 
-                  {/* Rating */}
-                  <div>
-                    <h3 className="font-bold text-sm mb-3">
-                      Minimum Rating
-                    </h3>
-                    {[4, 3, 2, 1, 0].map((r) => (
-                      <label
-                        key={r}
-                        className="flex items-center gap-2 p-2 hover:bg-gray-50 rounded"
-                      >
-                        <input
-                          type="radio"
-                          checked={minRating === r}
-                          onChange={() => setMinRating(r)}
-                        />
-                        <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
-                        <span className="text-sm">
-                          {r === 0 ? "All Ratings" : `${r}+ Stars`}
-                        </span>
-                      </label>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
+        {/* Category */}
+        {categories.length > 0 && (
+          <div>
+            <h3 className="font-bold text-sm mb-3">Category</h3>
+
+            {/* 👇 INTERNAL SCROLL (IMPORTANT) */}
+           <div className="max-h-60 overflow-y-auto pr-1 hide-scrollbar">
+              {categories.map((cat) => (
+                <label
+                  key={cat.id}
+                  className="flex items-center gap-2 p-2 hover:bg-gray-50 rounded"
+                >
+                  <input
+                    type="checkbox"
+                    checked={selectedCategories.includes(cat.id)}
+                    onChange={(e) =>
+                      setSelectedCategories(
+                        e.target.checked
+                          ? [...selectedCategories, cat.id]
+                          : selectedCategories.filter((c) => c !== cat.id)
+                      )
+                    }
+                  />
+                  <span className="text-sm">{cat.name}</span>
+                </label>
+              ))}
             </div>
-          </aside>
+          </div>
+        )}
+
+        {/* Price */}
+        {minPrice < maxPrice && (
+          <div>
+            <h3 className="font-bold text-sm mb-3">Price Range</h3>
+            <PremiumPriceSlider
+              value={priceRange}
+              min={minPrice}
+              max={maxPrice}
+              onChange={setPriceRange}
+            />
+          </div>
+        )}
+
+        {/* Rating */}
+        <div>
+          <h3 className="font-bold text-sm mb-3">Minimum Rating</h3>
+          {[4, 3, 2, 1, 0].map((r) => (
+            <label
+              key={r}
+              className="flex items-center gap-2 p-2 hover:bg-gray-50 rounded"
+            >
+              <input
+                type="radio"
+                checked={minRating === r}
+                onChange={() => setMinRating(r)}
+              />
+              <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
+              <span className="text-sm">
+                {r === 0 ? "All Ratings" : `${r}+ Stars`}
+              </span>
+            </label>
+          ))}
+        </div>
+
+      </div>
+    </CardContent>
+  </Card>
+</aside>
 
           {/* PRODUCTS */}
           <div className="flex-1">

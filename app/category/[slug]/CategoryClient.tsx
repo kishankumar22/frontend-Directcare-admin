@@ -163,7 +163,7 @@ const [sortBy, setSortBy] = useState((initialSortBy ?? "name").toLowerCase());
 
   const [selectedBrands, setSelectedBrands] = useState<string[]>([]);
 const [selectedSubCategories, setSelectedSubCategories] = useState<string[]>([]);
-  const [priceRange, setPriceRange] = useState<[number, number]>([0, 1000]);
+const [priceRange, setPriceRange] = useState<[number, number]>([0, 0]);
   const [minRating, setMinRating] = useState(0);
   const [showFilters, setShowFilters] = useState(false);
   const [gridCols, setGridCols] = useState(3);
@@ -213,19 +213,50 @@ useEffect(() => {
 
   if (prices.length === 0) return;
 
-  const min = Math.floor(Math.min(...prices));
-  const max = Math.ceil(Math.max(...prices));
+  const newMin = Math.floor(Math.min(...prices));
+  const newMax = Math.ceil(Math.max(...prices));
 
-  setMinPrice(min);
-  setMaxPrice(max);
+  // ✅ EXPAND ONLY (never shrink)
+  setMinPrice((prev) => (prev === 0 ? newMin : Math.min(prev, newMin)));
+  setMaxPrice((prev) => Math.max(prev, newMax));
+
+  // ✅ FIX: slider bahar na jaye
+  setPriceRange((prev) => {
+    let [minVal, maxVal] = prev;
+
+    // expand only if needed
+    if (maxVal < newMax) maxVal = newMax;
+    if (minVal > newMin) minVal = newMin;
+
+ // ✅ clamp only MIN (max ko kabhi shrink nahi karna)
+minVal = Math.max(minVal, newMin);
+
+// ❌ maxVal ko touch nahi karna (warna shrink hoga)
+
+    return [minVal, maxVal];
+  });
+
+}, [products]);
+useEffect(() => {
+  if (maxPrice === 0) return;
 
   setPriceRange((prev) => {
-    if (prev[0] === 0 && prev[1] === 1000) {
-      return [min, max];
+    let [minVal, maxVal] = prev;
+
+    // ✅ max kabhi bahar na jaye
+    if (maxVal > maxPrice) maxVal = maxPrice;
+
+    // ✅ min bhi safe rahe
+    if (minVal < minPrice) minVal = minPrice;
+
+    // ✅ fallback
+    if (minVal > maxVal) {
+      return [minPrice, maxPrice];
     }
-    return prev;
+
+    return [minVal, maxVal];
   });
-}, [products]);
+}, [minPrice, maxPrice]);
   // ---------- Filtering + sorting ----------
   const filteredAndSortedProducts = useMemo(() => {
    const filtered = products.filter((product) => {
@@ -553,26 +584,13 @@ const resetFilters = useCallback(() => {
   setSortBy("name");
   setSortDirection("asc");
 
-  const flat = flattenProductsForListing(products as any);
-
-  const prices = flat.map((item: any) =>
-    typeof item.variantForCard?.price === "number"
-      ? item.variantForCard.price
-      : item.productData.price
-  );
-
-  if (prices.length > 0) {
-    const min = Math.floor(Math.min(...prices));
-    const max = Math.ceil(Math.max(...prices));
-    setPriceRange([min, max]);
-  }
-
+setPriceRange([minPrice, maxPrice]);
   const params = new URLSearchParams();
   if (discount) params.set("discount", String(discount));
 
   router.push(`/category/${urlSlug}?${params.toString()}`);
 
-}, [router, urlSlug, products, discount]);
+}, [router, urlSlug, discount, minPrice, maxPrice]);
   
 const { addToCart, cart } = useCart();
 const handleAddToCart = useCallback(
@@ -867,8 +885,11 @@ if (product.orderMinimumQuantity > 1) {
                     Price Range
                   </h3>
 {minPrice < maxPrice && priceRange && (
-  <PremiumPriceSlider
-    value={priceRange}
+ <PremiumPriceSlider
+  value={[
+    Math.max(priceRange[0], minPrice),
+    Math.min(priceRange[1], maxPrice),
+  ]}
     min={minPrice}
     max={maxPrice}
     onChange={(v) => setPriceRange(v)}

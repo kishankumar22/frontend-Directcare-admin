@@ -2,13 +2,13 @@
 "use client";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { loadStripe } from "@stripe/stripe-js";
-import { Elements, CardElement, useStripe, useElements, } from "@stripe/react-stripe-js";
+import { Elements, PaymentElement, useStripe, useElements } from "@stripe/react-stripe-js";
 import { useCart } from "@/context/CartContext";
 import Link from "next/link";
 import { useAuth } from "@/context/AuthContext";
 import { useRouter } from "next/navigation";
 import EmptyCart from "@/components/cart/EmptyCart";
-import { ShoppingBag } from "lucide-react";
+import { Gift, ShoppingBag } from "lucide-react";
 import SavedAddressesSection from "@/components/checkout/SavedAddressesSection";
 import LoyaltyRedemptionBox from "@/components/checkout/LoyaltyRedemptionBox";
 import { getPharmaSessionId } from "@/app/lib/pharmaSession";
@@ -57,32 +57,23 @@ function useDebouncedCallback<T extends (...args: any[]) => any>(fn: T, wait = 3
   }, [wait]);
 }
 /* === Stripe wrapper component (we fetch publishable key first) === */
-function StripeWrapper({ children }: { children: React.ReactNode }) {
+function StripeWrapper({
+  children,
+  clientSecret,
+}: {
+  children: React.ReactNode;
+  clientSecret?: string;
+}) {
   const [stripePromise, setStripePromise] = useState<Promise<any> | null>(null);
 
   useEffect(() => {
     let mounted = true;
     (async () => {
-      try {
-        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/Payment/config`);
-        const json = await res.json();
-        // backend returns { success:true, data: { publishableKey: 'pk_...' } }
-        const pk =
-          json?.data?.publishableKey ??
-          json?.data?.publishable_key ??
-          json?.publishableKey ??
-          json?.publishable_key ??
-          null;
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/Payment/config`);
+      const json = await res.json();
+      const pk = json?.data?.publishableKey;
 
-        if (!pk) {
-          console.error("Publishable key missing from /api/Payment/config response", json);
-          return;
-        }
-
-        if (mounted) setStripePromise(loadStripe(pk));
-      } catch (err) {
-        console.error("Failed to fetch publishable key", err);
-      }
+      if (mounted) setStripePromise(loadStripe(pk));
     })();
 
     return () => {
@@ -90,203 +81,113 @@ function StripeWrapper({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
-  if (!stripePromise) {
-    return <div>Loading payment configuration...</div>;
-  }
-  return <Elements stripe={stripePromise as any}>{children}</Elements>;
+  if (!stripePromise) return <div>Loading...</div>;
+
+  const options = clientSecret
+    ? { clientSecret, locale: "en-GB" as const }
+    : undefined;
+
+  return (
+    <Elements stripe={stripePromise} options={options as any}>
+      {children}
+    </Elements>
+  );
 }
 /* === Payment form as a child component === */
 /* === CARD PAYMENT COMPONENT (FINAL PERFECT VERSION) === */
 function CheckoutPayment({
   orderPayload,
   payAmount,
+  clientSecret,
+  orderId,
   onPaymentSuccess,
   onError,
-}: {
-  orderPayload: any;
-   payAmount: number;                 // ⭐⭐⭐ ADD
-  onPaymentSuccess: (orderResponse: any) => void;
-  onError: (err: any) => void;
-}) {
-
-   const { isAuthenticated, accessToken, user } = useAuth(); 
+}: any) {
   const stripe = useStripe();
   const elements = useElements();
   const [processing, setProcessing] = useState(false);
-  const [cardError, setCardError] = useState<string | null>(null);
-  // 1️⃣ Create ORDER First
-async function createOrder() {
-  const resp = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/Orders`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      ...(isAuthenticated && { Authorization: `Bearer ${accessToken}` }),
-    },
-    body: JSON.stringify(orderPayload),
-  });
 
-  const status = resp.status;
-  const raw = await resp.text();
-  // alert("ORDER RAW RESPONSE:\nSTATUS: " + status + "\nBODY:\n" + raw);
-  let json: any;
-  try {
-    json = JSON.parse(raw);
-  } catch (e) {
-    throw new Error("❌ JSON parse error:\n" + raw);
-  }
+  const handlePay = async () => {
+    if (!stripe || !elements) return;
 
-  if (!resp.ok) {
-    console.error("ORDER FAILED JSON:", json);
-    throw new Error("Order creation failed! status=" + status);
-  }
+    setProcessing(true);
 
-  if (!json?.data?.id) {
-    console.error("ORDER FAILED JSON:", json);
-    throw new Error("Order creation failed! missing id");
-  }
-
- return {
-  orderId: json.data.id,
-  customerEmail: json.data.customerEmail,
-  subtotalAmount: json.data.subtotalAmount,
-  shippingAmount: json.data.shippingAmount,
-  discountAmount: json.data.discountAmount,
-  bundleDiscountAmount: json.data.bundleDiscountAmount,
-  taxAmount: json.data.taxAmount,
-  totalAmount: json.data.totalAmount,
-};
-}
-  // 2️⃣ Create Payment Intent with orderId
-  async function createPaymentIntent(orderId: string, amount: number, customerEmail: string) {
-    const resp = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/Payment/create-intent`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        amount,
-        currency: "GBP",
-        customerEmail,
-        orderId,            // MUST BE SENT (most important)
-        metadata: { source: "checkout_page" },
-      }),
-    });
-
-    const json = await resp.json();
-    // console.log("INTENT RESPONSE:", json);
-    //  alert("INTENT RESPONSE (parsed):\n" + JSON.stringify(json, null, 2));
-    // // quick field check
-    // alert(
-    //   "clientSecret: " + (json?.data?.clientSecret ?? "MISSING") + "\n" +
-    //   "paymentIntentId: " + (json?.data?.paymentIntentId ?? "MISSING")
-    // );
-    if (!json?.data?.clientSecret || !json?.data?.paymentIntentId) {
-      throw new Error("Payment Intent missing fields");
-    }
-    return {
-      clientSecret: json.data.clientSecret,
-      paymentIntentId: json.data.paymentIntentId,
-    };
-  }
-const handlePay = async () => {
-  if (!stripe || !elements) return;
- setCardError(null);   // ⭐⭐⭐ ADD HERE — EXACT LOCATION
-  setProcessing(true);
-  try {
-    // 1️⃣ Create order
-    const {
-  orderId,
-  customerEmail,
-  subtotalAmount,
-  shippingAmount,
-  discountAmount,
-  bundleDiscountAmount,
-  taxAmount,
-  totalAmount,
-} = await createOrder();
-
-    // 2️⃣ Create Payment Intent
-    const { clientSecret } = await createPaymentIntent(
-      orderId,
-      totalAmount,
-      customerEmail
-    );
-    // 3️⃣ Confirm card with Stripe
-    const cardEl = elements.getElement(CardElement);
-    if (!cardEl) throw new Error("CardElement missing");
-    const result = await stripe.confirmCardPayment(clientSecret, {
-      payment_method: {
-        card: cardEl,
-        billing_details: {
-          name: `${orderPayload.billingFirstName} ${orderPayload.billingLastName}`,
-          email: orderPayload.customerEmail,
-          phone: orderPayload.customerPhone,
-          address: {
-            line1: orderPayload.billingAddressLine1,
-            city: orderPayload.billingCity,
-            postal_code: orderPayload.billingPostalCode,
-            country: "GB",
+    const result = await stripe.confirmPayment({
+      elements,
+      confirmParams: {
+        return_url: `${window.location.origin}/order/success?orderId=${orderId}`,
+        payment_method_data: {
+          billing_details: {
+            name: `${orderPayload.billingFirstName} ${orderPayload.billingLastName}`,
+            email: orderPayload.customerEmail,
+            address: {
+              line1: orderPayload.billingAddressLine1,
+              country: "GB",
+            },
           },
         },
       },
+      redirect: "if_required",
     });
 
-   if (result.error) {
-  setCardError(result.error.message || "Payment failed. Please check your card details.");
+    if (result.error) {
+      onError(result.error);
+      setProcessing(false);
+      return;
+    }
+if (!result.paymentIntent?.id) {
+  onError({ message: "Payment failed" });
   setProcessing(false);
   return;
 }
-    // ⭐⭐ THIS IS THE REAL CONFIRMED PAYMENT INTENT ID ⭐⭐
-    const finalPaymentIntentId = result.paymentIntent?.id;
-    if (!finalPaymentIntentId) throw new Error("Missing final payment intent ID");
-   // alert("FINAL PAYMENT INTENT ID: " + finalPaymentIntentId);    
-    // 4️⃣ Confirm in backend WITH FINAL PAYMENT INTENT
-  const confirmResp = await fetch(
-  `${process.env.NEXT_PUBLIC_API_URL}/api/Payment/confirm/${finalPaymentIntentId}`,
-  {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json"
-    }
-  }
-);
+    await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/Payment/confirm/${result.paymentIntent.id}`, {
+      method: "POST",
+    });
 
-const rawConfirm = await confirmResp.text();
-// alert("CONFIRM RAW RESPONSE: " + rawConfirm)
-    // Go to success page
-  onPaymentSuccess({
-  data: {
-    id: orderId,
-    subtotalAmount,
-    shippingAmount,
-    discountAmount,
-    bundleDiscountAmount,
-    taxAmount,
-    totalAmount,
-  },
-});
-
-  } catch (err) {
-    console.error(err);
-    onError(err);
-  } finally {
+    onPaymentSuccess({ data: { id: orderId } });
     setProcessing(false);
-  }
-};
+  };
+
   return (
     <div className="space-y-3">
-      {cardError && (
-  <div className="text-red-600 text-sm p-2 border border-red-300 rounded bg-red-50">
-    {cardError}
-  </div>
-)}
-      <div className="p-3 border rounded">
-        <CardElement options={{ hidePostalCode: true }} />
-      </div>
-      <button
-        onClick={handlePay}
-        disabled={!stripe || processing}
-        className="w-full bg-[#445D41] text-white py-3 rounded disabled:opacity-50" >
-       {processing ? "Processing…" : `Pay ${formatCurrency(payAmount)}`}
-      </button>
+      <PaymentElement />
+    <button
+  onClick={handlePay}
+  disabled={!stripe || processing}
+  className={`w-full py-3 rounded flex items-center justify-center gap-2 transition ${
+    processing
+      ? "bg-gray-400 cursor-not-allowed"
+      : "bg-[#445D41] hover:bg-[#3a5037] text-white"
+  }`}
+>
+  {processing ? (
+    <>
+      <svg
+        className="animate-spin h-4 w-4 text-white"
+        xmlns="http://www.w3.org/2000/svg"
+        fill="none"
+        viewBox="0 0 24 24"
+      >
+        <circle
+          className="opacity-25"
+          cx="12"
+          cy="12"
+          r="10"
+          stroke="currentColor"
+          strokeWidth="4"
+        />
+        <path
+          className="opacity-75"
+          fill="currentColor"
+          d="M4 12a8 8 0 018-8v8z"
+        />
+      </svg>
+      Processing payment
+    </>
+  ) : (
+    `Pay ${formatCurrency(payAmount)}`
+  )}
+</button>
     </div>
   );
 }
@@ -401,7 +302,9 @@ const handleAddressSelect = (addr: any | null) => {
 };
 
   // const [showPayment, setShowPayment] = useState(false);
-  const [orderPayload, setOrderPayload] = useState<any>(null);
+ 
+  const [stripeClientSecret, setStripeClientSecret] = useState<string | null>(null);
+const [stripeOrderId, setStripeOrderId] = useState<string | null>(null);
 const [orderSummary, setOrderSummary] = useState<{
   subtotalAmount: number;
   shippingAmount: number;
@@ -411,8 +314,7 @@ const [orderSummary, setOrderSummary] = useState<{
   totalAmount: number;
 } | null>(null);
 
-  // Payment method state: 'card' or 'cod'
-  const [paymentMethod, setPaymentMethod] = useState<"card" | "cod">("card");
+
   const [isPlacing, setIsPlacing] = useState(false);
 // ✅ Terms & Newsletter states
 const [acceptTerms, setAcceptTerms] = useState(true);
@@ -465,10 +367,7 @@ const cartSubtotal = useMemo(() => {
     return sum + base * item.quantity;
   }, 0);
 }, [checkoutItems]);
-const clickAndCollectFee = useMemo(() => {
-  if (deliveryMethod !== "ClickAndCollect") return 0;
-  return cartSubtotal >= 30 ? 0 : 1;
-}, [deliveryMethod, cartSubtotal]);
+
 
 // 🎁 Loyalty points helpers (CHECKOUT)
 const isLoyaltyEligible = (item: any) => {
@@ -552,15 +451,15 @@ const cartTotalAmount = useMemo(() => {
     cartSubtotal -
     cartBundleDiscount -
     cartDiscount +
-    shippingCost +
-    clickAndCollectFee
+    shippingCost 
+   
   );
 }, [
   cartSubtotal,
   cartBundleDiscount,
   cartDiscount,
   shippingCost,
-  clickAndCollectFee
+  
 ]);
 const finalPayableAmount = cartTotalAmount - pointsDiscount;
 const checkoutVatAmount = useMemo(() => {
@@ -580,11 +479,11 @@ const checkoutVatAmount = useMemo(() => {
   // Fetch shipping quote when postcode is available
 useEffect(() => {
   const postcode = (shippingSameAsBilling ? billingPostalCode : shippingPostalCode).trim();
-  if (!postcode || deliveryMethod !== "HomeDelivery") {
-    setShippingOptions([]);
-    setSelectedShippingOption(null);
-    return;
-  }
+  if (!postcode) {
+  setShippingOptions([]);
+  setSelectedShippingOption(null);
+  return;
+}
   const cartValue = checkoutItems.reduce((s, i) => s + (i.finalPrice ?? i.price) * i.quantity, 0);
   const itemCount = checkoutItems.reduce((s, i) => s + i.quantity, 0);
 
@@ -595,10 +494,28 @@ const res = await fetch(
   `${process.env.NEXT_PUBLIC_API_URL}/api/Shipping/quote?postcode=${encodeURIComponent(postcode)}&orderTotal=${cartValue}`
 );
       const json = await res.json();
-    if (json?.success && Array.isArray(json.data)) {
+ if (json?.success && Array.isArray(json.data)) {
   let options = json.data;
 
-  // 🔥 filter based on cart capability
+  // 🔥 MAIN FILTER (IMPORTANT)
+  options = options.filter((opt: any) => {
+    const name = (opt.name || opt.displayName || "").toLowerCase();
+    const isCollect = name.includes("collect");
+
+    // 👉 Home Delivery → remove collect
+    if (deliveryMethod === "HomeDelivery") {
+      return !isCollect;
+    }
+
+    // 👉 Click & Collect → ONLY collect
+    if (deliveryMethod === "ClickAndCollect") {
+      return isCollect;
+    }
+
+    return true;
+  });
+
+  // existing capability filter (same as before)
   options = options.filter((opt: any) => {
     const name = (opt.name || "").toLowerCase();
 
@@ -608,7 +525,6 @@ const res = await fetch(
     return true;
   });
 
-  // 🔥 sort by displayOrder
   options.sort((a: any, b: any) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0));
 
   setShippingOptions(options);
@@ -667,6 +583,12 @@ const fetchStores = async () => {
     if (json?.success && Array.isArray(json.data)) {
       const activeStores = json.data.filter((s: any) => s.isActive === true);
       setStores(activeStores);
+     if (activeStores.length > 0) {
+  setSelectedStoreId((prev) => {
+   const exists = activeStores.some((s: any) => s.id === prev);
+    return exists ? prev : activeStores[0].id;
+  });
+}
     } else {
       console.error("Unexpected store response format:", json);
     }
@@ -680,6 +602,16 @@ const fetchStores = async () => {
 
   fetchStores();
 }, [deliveryMethod]);
+// ✅ 🔥 YAHI ADD KARNA HAI (NEW EFFECT)
+useEffect(() => {
+  if (
+    deliveryMethod === "ClickAndCollect" &&
+    stores.length > 0 &&
+    !stores.some(s => s.id === selectedStoreId)
+  ) {
+    setSelectedStoreId(stores[0].id);
+  }
+}, [stores, selectedStoreId, deliveryMethod]);
   // --- NEW: prefill billing email from localStorage (Continue as Guest) ---
  useEffect(() => {
   if (isAuthenticated && user?.email) {
@@ -876,7 +808,7 @@ if (!isAuthenticated && hasPharmaProduct) {
   deliveryMethod === "ClickAndCollect"
     ? selectedStoreId
     : null,    
-      paymentMethod: paymentMethod === "card" ? "Card" : "CashOnDelivery", // 🔥 ADD THIS
+   paymentMethod: "Card",
       customerEmail: billingEmail,
       customerPhone: `+44${billingPhone}`,
       isGuestOrder: !isAuthenticated,
@@ -901,10 +833,18 @@ if (!isAuthenticated && hasPharmaProduct) {
       shippingPostalCode: shippingSameAsBilling ? billingPostalCode : shippingPostalCode,
       shippingCountry: shippingSameAsBilling ? billingCountry : shippingCountry,
       orderItems: items,
-     deliveryOptionId: selectedShippingOption?.deliveryOptionId ?? null,
-      shippingCost: shippingCost > 0 ? shippingCost : null,
+    // ✅ ADD THIS
+selectedShippingMethodId:
+  selectedShippingOption?.deliveryOptionId ?? null,
+
+selectedShippingMethodName:
+  selectedShippingOption?.displayName ||
+  selectedShippingOption?.name ||
+  null,
+     
+     shippingCost: selectedShippingOption?.price ?? 0,
       notes,
-      pointsToRedeem: pointsToRedeem || null,
+      pointsToRedeem: pointsToRedeem || 0,
 pointsDiscountAmount: pointsDiscount || 0,
     };
   };
@@ -990,7 +930,7 @@ if (deliveryMethod === "HomeDelivery" && !shippingSameAsBilling) {
         }
       } catch {
         setError("Subscription setup failed. Try again.");
-        return false;
+        return null;
       }
     }
   }
@@ -1005,58 +945,10 @@ if (deliveryMethod === "HomeDelivery" && !shippingSameAsBilling) {
       frequency: c.frequency,
     })),
   };
- setOrderPayload(payload); // card flow ke liye
+
 return payload;           // COD flow ke liye
 };
-  // NEW: place COD order directly (no stripe)
-  const handlePlaceOrderCOD = async (payload: any) => {
-  setError(null);
-    try {
-      const resp = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/Orders`, {
-        method: "POST",
-        headers: {
-  "Content-Type": "application/json",
-  ...(isAuthenticated && { Authorization: `Bearer ${accessToken}` })
-},
-        body: JSON.stringify({
-          ...payload,
-          paymentMethod: "cod",
-          paymentIntentId: null,
-          isGuestOrder: !isAuthenticated,
-userId: isAuthenticated ? user?.id : null,
-        
-        }),
-      });
-      if (!resp.ok) {
-        const txt = await resp.text();
-        console.error("Failed to create COD order:", txt);
-        throw new Error("Failed to create order");
-      }
-      const createdOrder = await resp.json();
-// alert("COD ORDER FULL: " + JSON.stringify(createdOrder));
-// alert("COD ORDER ID: " + createdOrder?.data?.id);
-
-// 🔥 DO NOT touch buyNowItem here
-if (!isBuyNowFlow) {
-  clearCart();
-}
-if (subscribeNewsletter && billingEmail) {
-  subscribeNewsletterAfterOrder(billingEmail);
-}
-// 🔥 CLEAR PHARMA SESSION AFTER SUCCESS (GUEST ONLY)
-if (!isAuthenticated) {
-  localStorage.removeItem("pharmacy_session_id");
-}
-router.push(`/order/success?orderId=${createdOrder.data.id}`);
-if (isBuyNowFlow) {
-  sessionStorage.removeItem("buyNowItem");
-  sessionStorage.setItem("preserveCart", "1");
-}
-    } catch (err: any) {
-      console.error(err);
-      setError(err?.message ?? "Failed to place order");
-    }
-  };
+ 
 const onPaymentSuccess = (createdOrder: any) => {
   if (createdOrder?.data) {
     setOrderSummary({
@@ -1446,7 +1338,7 @@ setShippingAddressQuery("");
   </div>
 )}
 {/* SHIPPING OPTIONS */}
-{deliveryMethod === "HomeDelivery" && (
+{shippingOptions.length > 0 && (
   <div className="bg-white p-3 rounded shadow">
     <h2 className="text-sm font-semibold mb-2">Delivery options</h2>
     {shippingQuoteLoading ? (
@@ -1569,8 +1461,9 @@ setShippingAddressQuery("");
               {totalLoyaltyPoints > 0 && (
   <div className="mt-2 flex items-center justify-between text-sm bg-green-50 border border-green-200 rounded-lg px-3 py-2">
     <span className="flex items-center gap-2 text-green-700 font-medium">
-      🎁  Total Loyalty points
-    </span>
+  <Gift size={16} className="text-green-600" />
+  Total Loyalty points
+</span>
     <span className="font-semibold text-green-800">
       +{totalLoyaltyPoints} points
     </span>
@@ -1587,13 +1480,13 @@ setShippingAddressQuery("");
   <span>VAT</span>
   <span>{formatCurrency(checkoutVatAmount)}</span>
 </div>
-{deliveryMethod === "ClickAndCollect" && (
-  <div className="flex items-center justify-between text-sm">
-    <span>Click & Collect Fee</span>
-    <span>
-      {clickAndCollectFee === 0
-        ? "Free"
-        : formatCurrency(clickAndCollectFee)}
+{deliveryMethod === "ClickAndCollect" && selectedShippingOption && (
+  <div className="flex items-center justify-between text-sm text-gray-700">
+    <span className="font-medium">
+      {selectedShippingOption.displayName}
+    </span>
+    <span className={`font-semibold ${shippingCost === 0 ? "text-green-600" : ""}`}>
+      {shippingCost === 0 ? "FREE" : `+ ${formatCurrency(shippingCost)}`}
     </span>
   </div>
 )}
@@ -1664,100 +1557,125 @@ setShippingAddressQuery("");
                   <>
                     {/* Payment method selector */}
                     <div className="mb-2">
-                      <label className="text-xs font-semibold block mb-1.5">Payment method</label>
-                      <div className="flex flex-col gap-1.5">
-                        <label className="flex items-center gap-2 text-xs">
-                          <input type="radio" checked={paymentMethod === "card"} onChange={() => setPaymentMethod("card")} />
-                          Credit / Debit Card
-                        </label>
-                        <label className="flex items-center gap-2 text-xs">
-                          <input type="radio" checked={paymentMethod === "cod"} onChange={() => setPaymentMethod("cod")} />
-                          Cash on Delivery (COD)
-                        </label>
-                      </div>
-                    </div>
-                   {/* Card flow */}
-{paymentMethod === "card" ? (
-  <StripeWrapper>
-    <div className="space-y-3">
-      {/* STEP 1: Validation trigger */}
-      {!orderPayload && (
-        <button
-        disabled={!acceptTerms}
-          onClick={async () => {
-            const ok = await validateAndBuildPayload();
-            if (!ok) return;
-          }}
-          className="w-full bg-[#445D41] text-white py-2 text-sm rounded"
-        >
-          Continue to card payment
-        </button>
-      )}
-      {/* STEP 2: Stripe only after validation */}
-      {orderPayload && (
-        <>
-          <div className="text-sm mb-1">Pay with card</div>
-          <CheckoutPayment
-            orderPayload={{
-              ...orderPayload, // 👈 backend ko final payload yahin jayega
-              customerEmail: billingEmail,
-              customerPhone: `+44${billingPhone}`,
-              billingFirstName,
-              billingLastName,
-              billingCompany,
-              billingAddressLine1: billingAddress1,
-              billingAddressLine2: billingAddress2,
-              billingCity: billingCity,
-              billingPostalCode: billingPostalCode,
-              billingCountry: billingCountry,
-            }}
-           payAmount={finalPayableAmount}
-            onPaymentSuccess={onPaymentSuccess}
-            onError={onPaymentError}
-          />
-          <div className="text-xs text-gray-500">
-            You will be charged securely via Stripe.
-          </div>
-        </>
-      )}
-    </div>
-  </StripeWrapper>
-) : (                   
-          // COD flow
-<div className="space-y-3">
-  {error && <div className="text-red-600 text-sm">{error}</div>}
-
-  <div className="text-sm">
-    You chose Cash on Delivery. Click below to place your order — you'll pay the delivery person when the order arrives.
-  </div>
-  <button
-   disabled={!acceptTerms || isPlacing}
-   onClick={async () => {
-    setIsPlacing(true);
-    try {
-      const payload = await validateAndBuildPayload();
-      if (!payload) return;
-      await handlePlaceOrderCOD(payload);
-    } finally {
-      setIsPlacing(false);
-    }
-  }}
-    className="w-full bg-[#445D41] text-white py-2 text-sm hover:bg-black rounded disabled:opacity-70 flex items-center justify-center gap-2"
-  >
-    {isPlacing ? (
-      <>
-        <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
-        </svg>
-        Processing...
-      </>
-    ) : (
-      "Place order (COD)"
-    )}
-  </button>
+  <label className="text-xs font-semibold block mb-1.5">
+    Payment
+  </label>
 </div>
-                    )}
+
+{/* STEP 1 */}
+{!stripeClientSecret && (
+  <button
+disabled={!acceptTerms || isPlacing}
+    onClick={async () => {
+       if (isPlacing) return;
+  setIsPlacing(true);
+      const payload = await validateAndBuildPayload();
+     if (!payload) {
+      setIsPlacing(false);
+      return;
+    }
+      // ORDER
+      const orderResp = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/Orders`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(isAuthenticated && { Authorization: `Bearer ${accessToken}` }),
+        },
+        body: JSON.stringify(payload),
+      });
+if (!orderResp.ok) {
+  setError("Order creation failed");
+  setIsPlacing(false);
+  return;
+}
+      const orderJson = await orderResp.json();
+      if (!orderJson?.data?.id) {
+  setError("Invalid order response");
+  setIsPlacing(false);
+  return;
+}
+      const orderId = orderJson.data.id;
+      const totalAmount = orderJson.data.totalAmount;
+
+      // INTENT
+      const intentResp = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/Payment/create-intent`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          amount: totalAmount,
+          currency: "GBP",
+          customerEmail: billingEmail,
+          orderId,
+        }),
+      });
+
+      const intentJson = await intentResp.json();
+if (!intentJson?.data?.clientSecret) {
+  setError("Payment initialization failed");
+  setIsPlacing(false);
+  return;
+}
+      setStripeOrderId(orderId);
+      setStripeClientSecret(intentJson.data.clientSecret);
+      setIsPlacing(false);
+    }}
+   className={`w-full py-2 text-sm rounded transition flex items-center justify-center gap-2 ${
+  isPlacing
+    ? "bg-gray-400 cursor-not-allowed"
+    : "bg-[#445D41] hover:bg-[#3a5037] text-white"
+}`}
+  >
+  {isPlacing ? (
+  <>
+    <svg
+      className="animate-spin h-4 w-4 text-white"
+      xmlns="http://www.w3.org/2000/svg"
+      fill="none"
+      viewBox="0 0 24 24"
+    >
+      <circle
+        className="opacity-25"
+        cx="12"
+        cy="12"
+        r="10"
+        stroke="currentColor"
+        strokeWidth="4"
+      />
+      <path
+        className="opacity-75"
+        fill="currentColor"
+        d="M4 12a8 8 0 018-8v8z"
+      />
+    </svg>
+    Preparing payment
+  </>
+) : (
+  "Continue to payment"
+)}
+  </button>
+)}
+
+{/* STEP 2 */}
+{stripeClientSecret && stripeOrderId && (
+  <StripeWrapper clientSecret={stripeClientSecret}>
+    <CheckoutPayment
+      clientSecret={stripeClientSecret}
+      orderId={stripeOrderId}
+      payAmount={finalPayableAmount}
+      orderPayload={{
+        billingFirstName,
+        billingLastName,
+        customerEmail: billingEmail,
+        billingAddressLine1: billingAddress1,
+      }}
+      onPaymentSuccess={onPaymentSuccess}
+      onError={onPaymentError}
+    />
+  </StripeWrapper>
+)}
+           
+
+                  
                   </>          
               </div>
              {/* Terms & Newsletter */}

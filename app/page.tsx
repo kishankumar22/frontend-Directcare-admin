@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import HomeBannerSlider from "@/components/HomeBannerSlider";
 import FeaturedProductsSlider from "@/components/FeaturedProductsSlider";
 import NewArrivalsProductsSlider from "@/components/NewArrivalsProductsSlider";
-
+import Image from "next/image";
 import TopBrandsSlider from "@/components/TopBrandsSlider";
 import CategorySlider from "@/components/CategorySlider";
 import NewsletterWrapper from "@/components/NewsletterWrapper";
@@ -14,6 +14,7 @@ import CategoryOffersSlider from "@/components/CategoryOffersSlider";
 import { getActiveBanners } from "@/lib/bannerUtils";
 import { ShoppingCart, Star, TrendingUp, Zap, Gift, Shield, } from "lucide-react";
 import WhyChooseUs from "@/components/WhyChooseUs";
+import type { Metadata } from "next";
 export const dynamic = "force-dynamic";
 
 // ✅ Static feature section
@@ -122,7 +123,7 @@ async function getCategories(baseUrl: string) {
     const res = await fetch(
       `${baseUrl}/api/Categories?includeInactive=false&includeSubCategories=true&isDeleted=false`,
       {
-        cache: "no-store",
+         next: { revalidate: 60 },
       }
     );
 
@@ -148,7 +149,7 @@ async function getBrands(baseUrl: string) {
     const res = await fetch(
       `${baseUrl}/api/Brands?includeUnpublished=false&isActive=true&isDeleted=false`,
       {
-        cache: "no-store",
+        next: { revalidate: 60 },
       }
     );
 
@@ -169,7 +170,41 @@ return dataArray
   }
 }
 
+export const metadata: Metadata = {
+  metadataBase: new URL("https://www.direct-care.co.uk"),
 
+  title: "Direct Care UK - Buy Medicines & Healthcare Products Online",
+  
+  description:
+    "Shop medicines, healthcare, beauty, and personal care products online in the UK. Fast delivery, trusted brands, and best prices at Direct Care.",
+
+  keywords: [
+    "buy medicines online UK",
+    "online pharmacy UK",
+    "healthcare products UK",
+    "personal care UK",
+    "Direct Care UK",
+  ],
+
+  openGraph: {
+    title: "Direct Care UK - Healthcare & Personal Care Online",
+    description:
+      "Order medicines and healthcare products online in the UK with fast delivery and trusted brands.",
+    url: "https://www.direct-care.co.uk",
+    siteName: "Direct Care",
+    locale: "en_GB", // ✅ VERY IMPORTANT
+    type: "website",
+  },
+
+  robots: {
+    index: true,
+    follow: true,
+  },
+
+  alternates: {
+    canonical: "https://www.direct-care.co.uk",
+  },
+};
 // ✅ MAIN PAGE
 export default async function Home() {
   const baseUrl = process.env.NEXT_PUBLIC_API_URL!;
@@ -203,8 +238,45 @@ const homeProducts = [...products].sort(
   <>
     {/* 🔥 Newsletter Popup (client side) */}
     <NewsletterWrapper />
-  <div className="min-h-screen bg-gradient-to-b from-white to-gray-50 overflow-x-hidden">
+  {/* Organization Schema (already hai) */}
+<script
+  type="application/ld+json"
+  dangerouslySetInnerHTML={{
+    __html: JSON.stringify({
+      "@context": "https://schema.org",
+      "@type": "Organization",
+      name: "Direct Care",
+      url: "https://www.direct-care.co.uk",
+      address: {
+        "@type": "PostalAddress",
+        addressCountry: "GB",
+        addressLocality: "Birmingham",
+      },
+    }),
+  }}
+/>
 
+{/* ✅ NEW ADD — WebSite Schema */}
+<script
+  type="application/ld+json"
+  dangerouslySetInnerHTML={{
+    __html: JSON.stringify({
+      "@context": "https://schema.org",
+      "@type": "WebSite",
+      url: "https://www.direct-care.co.uk",
+      name: "Direct Care",
+      potentialAction: {
+        "@type": "SearchAction",
+        target: "https://www.direct-care.co.uk/search?q={search_term_string}",
+        "query-input": "required name=search_term_string",
+      },
+    }),
+  }}
+/>
+  <div className="min-h-screen bg-gradient-to-b from-white to-gray-50 overflow-x-hidden">
+<h1 className="sr-only">
+  Buy Medicines & Healthcare Products Online in the UK - Direct Care
+</h1>
     {/* ===== HERO SLIDER ===== */}
     <section className="w-full">
       <HomeBannerSlider banners={homeBanners} baseUrl={baseUrl} />
@@ -224,11 +296,14 @@ const homeProducts = [...products].sort(
       const pictureEl = (
         <picture className="block w-full">
           {mobileSrc && <source media="(max-width: 767px)" srcSet={mobileSrc} />}
-          <img
-            src={desktopSrc}
-            alt={banner.title}
-            className="w-full h-[110px] sm:h-[160px] md:h-auto object-cover object-center"
-          />
+         <Image
+  src={desktopSrc}
+  alt={banner.title || "Healthcare Banner"}
+  width={1200}
+  height={400}
+  priority
+ className="w-full h-auto object-contain"
+/>
         </picture>
       );
 

@@ -12,6 +12,8 @@ export function getOrderStatusBadge(status: string) {
       return "bg-red-100 text-red-700";
     case "refunded":
       return "bg-purple-100 text-purple-700";
+     case "cancellationrequested":
+      return "bg-orange-100 text-orange-700 border border-orange-200";  
     default:
       return "bg-gray-100 text-gray-700";
   }

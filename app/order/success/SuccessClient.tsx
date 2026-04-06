@@ -121,6 +121,7 @@ export default function SuccessClient() {
 
   const payment = order.payments?.[0] ?? null;
 const loyaltyPointsEarned = order.loyaltyPointsEarned ?? 0;
+const loyaltyDiscount = order.loyaltyDiscountAmount ?? 0;
 
   return (
     <div className="max-w-7xl  mx-auto px-4 md:px-6 py-2">
@@ -488,6 +489,12 @@ className={`flex items-start sm:items-center gap-2 rounded-md px-3 sm:px-4 py-2 
                     <span>Discount</span>
                     <span>-{formatCurrency(order.discountAmount)}</span>
                   </div>
+                  {loyaltyDiscount > 0 && (
+  <div className="flex justify-between text-green-700 text-xs">
+    <span>Loyalty points Discount</span>
+    <span>-{formatCurrency(loyaltyDiscount)}</span>
+  </div>
+)}
                   <div className="flex justify-between font-semibold border-t pt-2">
                     <span>Total</span>
                     <span>{formatCurrency(order.totalAmount)}</span>

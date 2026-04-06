@@ -285,6 +285,7 @@ if (json?.success) {
 
   return (
     <header
+    id="main-header"   // 👈 ADD THIS
       className="fixed left-0 right-0 z-50"
       style={{
         top: (hideTopBar && !menuOpen) ? '-52px' : '0',
@@ -317,7 +318,7 @@ if (json?.success) {
 
         {/* Desktop Grid */}
         <div className="hidden lg:block h-full">
-          <div className="max-w-7xl mx-auto grid grid-cols-4 text-center h-full items-center px-4 gap-4">
+          <div className="w-full grid grid-cols-4 items-center px-6 lg:px-10 xl:px-16 gap-8">
             <a 
               href="/delivery/next-day" 
               className="flex items-center gap-3 cursor-pointer hover:bg-[#334a2c] py-2 px-3 rounded transition-colors duration-200"
@@ -326,7 +327,7 @@ if (json?.success) {
                 <Zap size={20} />
               </span>
               <div className="text-left leading-tight">
-                <h4 className="font-bold text-[14px] tracking-wide">NEXT DAY DELIVERY</h4>
+                <h4 className="font-bold text-[13px] tracking-wide">NEXT DAY DELIVERY</h4>
                 <p className="text-[11px] opacity-90">GET IT JUST FOR £4.49</p>
               </div>
             </a>
@@ -338,7 +339,7 @@ if (json?.success) {
                 <Truck size={20} />
               </span>
               <div className="text-left leading-tight">
-                <h4 className="font-bold text-[14px] tracking-wide">STANDARD DELIVERY</h4>
+                <h4 className="font-bold text-[13px] tracking-wide">STANDARD DELIVERY</h4>
                 <p className="text-[11px] opacity-90">FREE SHIPPING OVER £35</p>
               </div>
             </a>
@@ -350,7 +351,7 @@ if (json?.success) {
                 <MousePointerClickIcon size={20} />
               </span>
               <div className="text-left leading-tight">
-                <h4 className="font-bold text-[14px] tracking-wide">CLICK & COLLECT</h4>
+                <h4 className="font-bold text-[13px] tracking-wide">CLICK & COLLECT</h4>
                 <p className="text-[11px] opacity-90">FREE ON ORDERS OVER £30</p>
               </div>
             </a>
@@ -362,7 +363,7 @@ if (json?.success) {
                 <BikeIcon size={20} />
               </span>
               <div className="text-left leading-tight">
-                <h4 className="font-bold text-[14px] tracking-wide">SPECIAL DELIVERY 1PM</h4>
+                <h4 className="font-bold text-[13px] tracking-wide">SPECIAL DELIVERY 1PM</h4>
                 <p className="text-[11px] opacity-90">ROYAL MAIL SPECIAL DELIVERY FOR £18.99</p>
               </div>
             </a>
@@ -531,13 +532,7 @@ if (json?.success) {
     {item.name}
   </span>
 
-  {item.hasDiscount &&
-    typeof item.discountPercentage === "number" &&
-    item.discountPercentage > 0 && (
-      <span className="text-[11px] px-1.5 py-0.5 bg-red-100 text-red-600 rounded font-semibold whitespace-nowrap">
-        {item.discountPercentage}% Off
-      </span>
-    )}
+
 
   {typeof item.averageRating === "number" &&
     item.averageRating > 0 && (
@@ -551,10 +546,20 @@ if (json?.success) {
 </div>
 
 
+ <div className="flex items-center gap-2 flex-wrap">
   <span className="text-xs text-gray-500">
     {item.categoryName}
   </span>
 
+  {/* 🔴 DISCOUNT */}
+  {item.hasDiscount &&
+    typeof item.discountPercentage === "number" &&
+    item.discountPercentage > 0 && (
+      <span className="text-[11px] px-1.5 py-0.5 bg-red-100 text-red-600 rounded font-semibold whitespace-nowrap">
+        {item.discountPercentage}% Off
+      </span>
+    )}
+</div>
   {/* PRICE */}
  <div className="flex items-center gap-2 mt-0.5 flex-wrap">
   {item.hasDiscount &&
@@ -610,7 +615,7 @@ if (json?.success) {
 
 
           {/* Desktop Icons */}
-          <div className="hidden md:flex items-center gap-5 text-gray-700 h-full leading-none">
+          <div className="hidden md:flex items-center gap-5  text-gray-700 h-full leading-none">
   
   {/* Wishlist */}
   <Link
@@ -675,7 +680,7 @@ if (json?.success) {
   }}
 >
 
-       <nav className="flex items-center h-9 border-y-2 text-sm font-bold border-[#445d41] text-black px-20 gap-6">
+      <nav className="flex items-center h-9 border-y-2 text-sm font-bold border-[#445d41] text-black px-20 gap-3 whitespace-nowrap overflow-x-auto scrollbar-hide">
           
             {categories.map((cat) => (
               <div
@@ -694,7 +699,7 @@ if (json?.success) {
               >
                 <Link
                   href={`/category/${cat.slug}`}
-                  className={`flex items-center gap-0 cursor-pointer py-2 transition-colors ${
+                  className={`flex items-center gap-0 cursor-pointer py-2 transition-colors whitespace-nowrap ${
                     activeCategory?.id === cat.id ? "text-[#445D41]" : "hover:text-[#445D41]"
                   }`}
                 >
@@ -798,20 +803,70 @@ if (json?.success) {
                       alt="img"
                       className="w-10 h-10 object-contain flex-shrink-0 rounded"
                     />
-                    <div className="flex flex-col flex-1 min-w-0">
-                      <span className="text-sm font-medium text-gray-800 truncate">{item.name}</span>
-                      <span className="text-xs text-gray-500">{item.categoryName}</span>
-                      <div className="flex items-center gap-2 mt-0.5">
-                        {item.hasDiscount && typeof item.discountPercentage === "number" && item.discountPercentage > 0 ? (
-                          <>
-                            <span className="text-sm font-semibold text-[#445D41]">£{getDiscountedPrice(item.price, item.discountPercentage)}</span>
-                            <span className="text-xs text-gray-400 line-through">£{Number(item.price).toFixed(2)}</span>
-                          </>
-                        ) : (
-                          <span className="text-sm font-semibold text-[#445D41]">£{Number(item.price).toFixed(2)}</span>
-                        )}
-                      </div>
-                    </div>
+                   <div className="flex flex-col flex-1 min-w-0">
+
+  {/* 🔥 NAME + DISCOUNT + RATING */}
+  <div className="flex items-center gap-1 flex-wrap">
+    <span className="text-sm font-medium text-gray-800 line-clamp-1">
+      {item.name}
+    </span>
+
+
+    {/* ⭐ RATING */}
+    {typeof item.averageRating === "number" &&
+      item.averageRating > 0 && (
+        <div className="flex items-center gap-0.5">
+          {renderStars(item.averageRating)}
+          <span className="text-[10px] text-gray-500">
+            ({item.approvedReviewCount ?? item.reviewCount ?? 0})
+          </span>
+        </div>
+      )}
+  </div>
+
+  {/* CATEGORY */}
+ <div className="flex items-center gap-2 flex-wrap">
+  <span className="text-xs text-gray-500">
+    {item.categoryName}
+  </span>
+
+  {/* 🔴 DISCOUNT */}
+  {item.hasDiscount &&
+    typeof item.discountPercentage === "number" &&
+    item.discountPercentage > 0 && (
+      <span className="text-[10px] px-1.5 py-0.5 bg-red-100 text-red-600 rounded font-semibold">
+        {item.discountPercentage}% Off
+      </span>
+    )}
+</div>
+
+  {/* 💰 PRICE + 🎁 POINTS */}
+  <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+    {item.hasDiscount &&
+    typeof item.discountPercentage === "number" &&
+    item.discountPercentage > 0 ? (
+      <>
+        <span className="text-sm font-semibold text-[#445D41]">
+          £{getDiscountedPrice(item.price, item.discountPercentage)}
+        </span>
+        <span className="text-xs text-gray-400 line-through">
+          £{Number(item.price).toFixed(2)}
+        </span>
+      </>
+    ) : (
+      <span className="text-sm font-semibold text-[#445D41]">
+        £{Number(item.price).toFixed(2)}
+      </span>
+    )}
+
+    {/* 🎁 LOYALTY */}
+    {item.loyaltyPointsMessage && (
+      <span className="text-[10px] px-2 py-0.5 rounded bg-green-50 text-green-700 font-medium">
+        {item.loyaltyPointsMessage}
+      </span>
+    )}
+  </div>
+</div>
                     {item.inStock
                       ? <span className="text-[10px] px-2 py-1 rounded bg-green-100 text-green-700 font-semibold flex-shrink-0">In Stock</span>
                       : <span className="text-[10px] px-2 py-1 rounded bg-red-100 text-red-600 font-semibold flex-shrink-0">Out</span>

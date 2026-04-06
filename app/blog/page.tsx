@@ -3,7 +3,33 @@ export const dynamic = "force-dynamic";
 import React from "react";
 import Link from "next/link";
 import * as LucideIcons from "lucide-react";
+import type { Metadata } from "next";
 
+export const metadata: Metadata = {
+  metadataBase: new URL("https://www.direct-care.co.uk"),
+
+  title: "Health & Wellness Blog UK | Direct Care",
+  description:
+    "Explore expert health tips, medicine guides, and wellness advice from Direct Care UK.",
+
+  alternates: {
+    canonical: "https://www.direct-care.co.uk/blog",
+  },
+
+  openGraph: {
+    title: "Direct Care Blog UK",
+    description:
+      "Health tips, medicine guides, and wellness advice.",
+    url: "https://www.direct-care.co.uk/blog",
+    locale: "en_GB",
+    type: "website",
+  },
+
+  robots: {
+    index: true,
+    follow: true,
+  },
+};
 
 
 
@@ -58,6 +84,10 @@ export default async function BlogPage() {
 
  return (
   <main className="min-h-screen bg-gray-100 pt-[0.5rem] pb-[2.5rem]">
+    <h1 className="sr-only">
+  Health & Wellness Blog UK - Direct Care
+</h1>
+
     <div className="max-w-7xl mx-auto px-1 space-y-4">
 
       {/* ===================== CATEGORIES CARD ===================== */}
@@ -92,7 +122,7 @@ export default async function BlogPage() {
               <div className="w-10 h-10 rounded-lg overflow-hidden shadow-sm flex-shrink-0">
                 <img
                   src={absoluteUrl(cat.imageUrl) ?? '/placeholder-category.png'}
-                  alt={cat.name}
+                 alt={`${cat.name} blog category`}
                   className="w-full h-full object-cover group-hover:scale-105 transition"
                 />
               </div>
@@ -199,6 +229,19 @@ export default async function BlogPage() {
         </div>
       </section>
     </div>
+    <script
+  type="application/ld+json"
+  dangerouslySetInnerHTML={{
+    __html: JSON.stringify({
+      "@context": "https://schema.org",
+      "@type": "Blog",
+      name: "Direct Care Blog",
+      url: "https://www.direct-care.co.uk/blog",
+      description:
+        "Health tips, medicine guides, and wellness articles from Direct Care UK.",
+    }),
+  }}
+/>
   </main>
 );
 

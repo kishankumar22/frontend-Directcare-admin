@@ -62,6 +62,7 @@ export interface CartItem {
   bundleInstanceId?: string;
   bundleParentInstanceId?: string;
   shipSeparately?: boolean;
+  pharmaApproved?: boolean;
 }
 
 // ─── Context type ─────────────────────────────────────────────────────────────

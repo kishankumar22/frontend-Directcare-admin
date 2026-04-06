@@ -40,7 +40,7 @@ import { useToast } from "@/components/toast/CustomToast";
 export default function ProfileTab({ user, initials }: any) {
 const { accessToken, refreshProfile } = useAuth();
 const toast = useToast();
-  const [profile, setProfile] = useState<any>(null);
+const [profile, setProfile] = useState<any>(user);
   const [editOpen, setEditOpen] = useState(false);
 
   const [form, setForm] = useState({
@@ -53,33 +53,14 @@ const toast = useToast();
     companyName: "",
     companyNumber: "",
   });
+  const [isSaving, setIsSaving] = useState(false);
 const [errors, setErrors] = useState<any>({});
-  // 🔥 Fetch profile
-  useEffect(() => {
-    const fetchProfile = async () => {
-      if (!accessToken) return;
-
-      try {
-        const res = await fetch(
-          `${process.env.NEXT_PUBLIC_API_URL}/api/Auth/me`,
-          {
-            headers: {
-              Authorization: `Bearer ${accessToken}`,
-            },
-          }
-        );
-
-        if (!res.ok) return;
-
-        const data = await res.json();
-        setProfile(data);
-      } catch (err) {
-        console.error(err);
-      }
-    };
-
-    fetchProfile();
-  }, [accessToken]);
+ 
+ useEffect(() => {
+  if (user) {
+    setProfile(user);
+  }
+}, [user]);
 
   // 🔥 Prefill form
 useEffect(() => {
@@ -100,7 +81,11 @@ useEffect(() => {
 }, [editOpen, profile]);
 
   // 🔥 Save
-  const handleSave = async () => {
+ const handleSave = async () => {
+  if (isSaving) return;
+
+
+  setIsSaving(true);
 
     const newErrors: any = {};
 
@@ -136,24 +121,25 @@ if (form.accountType === "Business") {
 
 if (Object.keys(newErrors).length) {
   setErrors(newErrors);
+  setIsSaving(false); // 🔥 IMPORTANT FIX
   return;
 }
     try {
       const payload: any = {};
 
-      if (form.firstName !== profile.firstName)
+      if (form.firstName !== profile?.firstName)
         payload.firstName = form.firstName;
 
-      if (form.lastName !== profile.lastName)
+      if (form.lastName !== profile?.lastName)
         payload.lastName = form.lastName;
 
-      if (`+44${form.phoneNumber}` !== profile.phoneNumber)
+      if (`+44${form.phoneNumber}` !== profile?.phoneNumber)
         payload.phoneNumber = "+44" + form.phoneNumber;
 
-      if (form.gender !== profile.gender)
+      if (form.gender !== profile?.gender)
         payload.gender = form.gender;
 
-      if (form.dateOfBirth !== profile.dateOfBirth?.split("T")[0])
+    if (form.dateOfBirth !== profile?.dateOfBirth?.split("T")[0])
         payload.dateOfBirth = form.dateOfBirth;
 
       if (form.accountType !== profile.accountType)
@@ -191,8 +177,10 @@ await refreshProfile();
 // ✅ SIMPLE SUCCESS TOAST
 toast.success(data?.message || "Profile updated successfully");
       setEditOpen(false);
-    } catch (err: any) {
+ } catch (err: any) {
   toast.error(err?.message || "Update failed");
+} finally {
+  setIsSaving(false);
 }
   };
 
@@ -476,12 +464,16 @@ toast.success(data?.message || "Profile updated successfully");
 
   {/* SAVE BUTTON */}
   <button
-    onClick={handleSave}
-    className="w-full h-11 bg-[#445D41] text-white rounded-lg font-medium"
-  >
-    Save Changes
-  </button>
-
+  onClick={handleSave}
+  disabled={isSaving}
+  className={`w-full h-11 rounded-lg font-medium transition ${
+    isSaving
+      ? "bg-gray-400 cursor-not-allowed"
+      : "bg-[#445D41] text-white hover:opacity-90"
+  }`}
+>
+  {isSaving ? "Updating..." : "Save Changes"}
+</button>
 </div>
         </DialogContent>
       </Dialog>

@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Montserrat } from "next/font/google";
+
 import "./globals.css";
 import { ToastProvider } from "@/components/toast/CustomToast";
 import ConditionalLayout from "./ConditionalLayout";
@@ -7,10 +7,7 @@ import { CartProvider } from "@/context/CartContext";
 import { AuthProvider } from "@/context/AuthContext";
 import { WishlistProvider } from "@/context/WishlistContext";
 
-const montserrat = Montserrat({
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
-});
+
 
 export const metadata: Metadata = {
   title: "Direct Care | E-Commerce Platform",
@@ -42,7 +39,15 @@ export default async function RootLayout({ children }: { children: React.ReactNo
 
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={montserrat.className} suppressHydrationWarning>
+      <head>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
+    <link
+  href="https://fonts.googleapis.com/css2?family=Montserrat:wght@100;200;300;400;500;600;700;800;900&display=swap"
+  rel="stylesheet"
+/>
+  </head>
+     <body suppressHydrationWarning>
         <ToastProvider>
           <AuthProvider>
             <CartProvider>

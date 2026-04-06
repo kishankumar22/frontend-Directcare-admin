@@ -265,7 +265,9 @@ export default function OrderCard({ order }: { order: any }) {
   const [pendingAmount, setPendingAmount] = useState<number | null>(
     order.pendingPaymentAmount ?? null
   );
-
+useEffect(() => {
+  setPendingAmount(order.pendingPaymentAmount ?? null);
+}, [order.pendingPaymentAmount]);
   // Order History
   const [showHistory, setShowHistory] = useState(false);
   const [history, setHistory] = useState<any[]>([]);
@@ -328,42 +330,18 @@ const loadRefundHistory = async () => {
     setInvoiceLoading(true);
 
     const res = await fetch(
-      `${process.env.NEXT_PUBLIC_API_URL}/api/orders/${order.id}/regenerate-invoice`,
+      `${process.env.NEXT_PUBLIC_API_URL}/api/orders/${order.id}/invoice/download`,
       {
-        method: "POST",
+        method: "GET",
         headers: {
-          "Content-Type": "application/json",
           Authorization: `Bearer ${accessToken}`,
         },
-        body: JSON.stringify({
-          orderId: order.id,
-          notes: "",
-          sendToCustomer: emailInvoice,
-          currentUser: user?.email ?? "customer",
-        }),
       }
     );
 
-    if (!res.ok) throw new Error("Invoice generation failed");
+    if (!res.ok) throw new Error("Invoice not available. Please contact support.");
 
-    const json = await res.json();
-
-    if (!json.success || !json.data?.pdfUrl) {
-      throw new Error("Invalid invoice response");
-    }
-
-    const pdfUrl = `${process.env.NEXT_PUBLIC_API_URL}${json.data.pdfUrl}`;
-
-    const pdfRes = await fetch(pdfUrl, {
-      method: "GET",
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-      },
-    });
-
-    if (!pdfRes.ok) throw new Error("Unable to download invoice");
-
-    const blob = await pdfRes.blob();
+    const blob = await res.blob();
     const url = window.URL.createObjectURL(blob);
 
     const link = document.createElement("a");
@@ -376,92 +354,67 @@ const loadRefundHistory = async () => {
     window.URL.revokeObjectURL(url);
   } catch (error) {
     console.error(error);
-    alert("Unable to generate invoice. Please try again.");
+    alert("Unable to download invoice. Please try again.");
   } finally {
     setInvoiceLoading(false);
   }
 };
 
-const handleDownloadCreditNote = async () => {
-  try {
-    const res = await fetch(
-      `${process.env.NEXT_PUBLIC_API_URL}/api/orders/${order.id}/refund-note/download`,
-      {
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-        },
-      }
-    );
 
-    if (!res.ok) throw new Error("Download failed");
-
-    const blob = await res.blob();
-    const url = window.URL.createObjectURL(blob);
-
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `CreditNote-${order.orderNumber}.pdf`;
-
-    document.body.appendChild(link);
-    link.click();
-
-    link.remove();
-    window.URL.revokeObjectURL(url);
-  } catch {
-    toast.error("Unable to download credit note");
-  }
-};
   /* =========================
      CANCEL ORDER
   ========================== */
-  const handleConfirmCancel = async () => {
-    const finalReason =
-      selectedReason === "Other" ? customReason.trim() : selectedReason;
+ const handleConfirmCancel = async () => {
+  const finalReason =
+    selectedReason === "Other" ? customReason.trim() : selectedReason;
 
-    if (!finalReason) return;
+  if (!finalReason) return;
 
-    if (selectedReason === "Other" && finalReason.length < MIN_OTHER_REASON_LENGTH) {
-      toast.error(`Please enter at least ${MIN_OTHER_REASON_LENGTH} characters`);
-      return;
+  if (selectedReason === "Other" && finalReason.length < MIN_OTHER_REASON_LENGTH) {
+    toast.error(`Please enter at least ${MIN_OTHER_REASON_LENGTH} characters`);
+    return;
+  }
+
+  setCancelLoading(true);
+
+  try {
+    const res = await fetch(
+      `${process.env.NEXT_PUBLIC_API_URL}/api/orders/${order.id}/request-cancellation`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({
+          reason: finalReason,
+          additionalNotes:
+            selectedReason === "Other" ? customReason.trim() : "",
+        }),
+      }
+    );
+
+    const json = await res.json();
+    if (!res.ok || !json.success) {
+      throw new Error(json?.message || "Cancellation request failed");
     }
 
-    setCancelLoading(true);
+    toast.success(json.message || "Cancellation request submitted");
 
-    try {
-      const res = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/Orders/${order.id}/cancel`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${accessToken}`,
-          },
-          body: JSON.stringify({
-            orderId: order.id,
-            cancellationReason: finalReason,
-            restoreInventory: true,
-            initiateRefund: true,
-            cancelledBy: "Customer",
-            currentUser: user?.email,
-          }),
-        }
-      );
+    setShowCancelModal(false);
+    setSelectedReason("");
+    setCustomReason("");
 
-      const json = await res.json();
-      if (!res.ok || !json.success) throw new Error(json?.message || "Cancellation failed");
+    // 🔥 IMPORTANT: update status locally
+    order.status = "CancellationRequested";
+    order.statusName = "Cancellation Requested";
 
-      toast.error(json.message || "Order cancelled successfully");
-      setShowCancelModal(false);
-      setSelectedReason("");
-      setCustomReason("");
-      order.status = "Cancelled";
-      order.statusName = "Cancelled";
-    } catch (err: any) {
-      toast.error(err.message || "Unable to cancel order");
-    } finally {
-      setCancelLoading(false);
-    }
-  };
+  } catch (err: any) {
+    toast.error(err.message || "Unable to request cancellation");
+  } finally {
+    setCancelLoading(false);
+  }
+};
 const refundedAmount =
   order.payments?.[0]?.refundAmount ??
   order.payment?.refundAmount ??
@@ -479,10 +432,7 @@ const refundedAmount =
         </div>
 
         <span
-          className={`inline-flex items-center justify-center h-7 px-3 rounded-full text-xs font-medium capitalize border whitespace-nowrap ${getOrderStatusBadge(
-            order.status
-          )}`}
-        >
+          className={`inline-flex items-center justify-center h-7 px-3 rounded-full text-xs font-medium capitalize border whitespace-nowrap ${getOrderStatusBadge( order.status )}`} >
           {order.statusName ?? order.status}
         </span>
       </div>
@@ -518,7 +468,7 @@ const refundedAmount =
       </div>
 
       {/* PENDING PAYMENT BANNER */}
-      {pendingAmount && pendingAmount > 0 && (
+      {pendingAmount !== null && pendingAmount > 0 && (
         <div className="flex items-center gap-3 bg-orange-50 border border-orange-200 rounded-lg p-4">
           <span className="text-2xl">⚠️</span>
           <div className="flex-1">
@@ -544,6 +494,10 @@ const refundedAmount =
         <Info label="Total Items" value={order.itemsCount} />
         <Info label="Payment Method" value={order.payment?.paymentMethod ?? "Cash on delivery"} />
         <Info label="Delivery Method" value={order.deliveryMethodName} />
+        <Info
+  label="Shipping Method"
+  value={order.shippingMethodName ?? "—"}
+/>
 {order.deliveryMethod === "ClickAndCollect" && (
   <Info
     label="Store"
@@ -575,8 +529,14 @@ const refundedAmount =
           </>
         )}
 
-        <Info label="Total amount paid" value={`£${order.totalAmount.toFixed(2)}`} />
-        <Info label="Payment Status" value={order.payment?.statusName ?? "—"} />
+        <Info
+  label="Total amount paid"
+  value={`£${order.totalPaidAmount?.toFixed(2) ?? "0.00"}`}
+/>
+     <Info
+  label="Payment Status"
+  value={order.paymentStatus ?? "—"}
+/>
         {refundedAmount > 0 && (
   <Info
     label="Refunded Amount"
@@ -744,17 +704,9 @@ const refundedAmount =
         >
           {invoiceLoading ? "Generating Invoice..." : "Download Invoice"}
         </Button>
-{refundedAmount > 0 && (
-  <Button
-    onClick={handleDownloadCreditNote}
-    size="sm"
-    variant="outline"
-    className="text-white bg-[#445D41] hover:bg-green-700"
-  >
-    Download Credit Note
-  </Button>
-)}
-        {["pending", "processing"].includes(order.status?.toLowerCase()) && (
+
+        {["pending", "processing"].includes(order.status?.toLowerCase()) &&
+order.status !== "CancellationRequested" && (
           <Button size="sm" variant="destructive" onClick={() => setShowCancelModal(true)}>
             Cancel Order
           </Button>

@@ -36,8 +36,8 @@ const toastStyles: Record<ToastType, string> = {
     "bg-green-700 text-white",
   error:
     "bg-gradient-to-r from-red-600 to-red-700 text-white",
-  info:
-    "bg-gradient-to-r from-gray-900 to-gray-800 text-white",
+info:
+  "bg-violet-500 text-white border border-white/10 shadow-[0_12px_35px_rgba(0,0,0,0.5)] relative overflow-hidden",
   warning:
     "bg-gradient-to-r from-yellow-400 to-yellow-500 text-black",
 };
@@ -104,10 +104,10 @@ const ToastItem = ({
     <div
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
-      className={`flex items-center gap-3 px-4 py-3 rounded-xl min-w-[320px] max-w-[420px] shadow-[0_12px_30px_rgba(0,0,0,0.18)] backdrop-blur-md border border-white/20 text-sm font-medium animate-toastIn ${toastStyles[toast.type]}`}
+      className={`flex items-center gap-3 px-4 py-3 rounded-xl min-w-[320px] max-w-[420px] shadow-[0_12px_30px_rgba(0,0,0,0.18)] backdrop-blur-md border border-white/20 text-sm font-medium animate-toastInanimate-[slideInLeft_0.3s_ease] ${toastStyles[toast.type]}`}
     >
       {/* ICON */}
-      <Icon className="w-5 h-5 shrink-0 opacity-90" />
+     <Icon className="w-4 h-4 shrink-0 text-gray-300" />
 
       {/* MESSAGE */}
       <div className="flex-1 leading-snug">
@@ -130,7 +130,29 @@ const ToastItem = ({
 /* ================= PROVIDER ================= */
 export const ToastProvider = ({ children }: { children: ReactNode }) => {
   const [toasts, setToasts] = useState<Toast[]>([]);
+const [topOffset, setTopOffset] = useState(120);
+useEffect(() => {
+  const header = document.getElementById("main-header");
+  if (!header) return;
 
+  const updateOffset = () => {
+    setTopOffset(header.offsetHeight);
+  };
+
+  // initial
+  updateOffset();
+
+  // observe header size changes (BEST WAY)
+  const observer = new ResizeObserver(() => {
+    updateOffset();
+  });
+
+  observer.observe(header);
+
+  return () => {
+    observer.disconnect();
+  };
+}, []);
   const removeToast = (id: string) => {
     setToasts((prev) => prev.filter((t) => t.id !== id));
   };
@@ -154,22 +176,40 @@ const removeAllToasts = () => {
     clearAll: removeAllToasts,
   };
 
-  return (
-    <ToastContext.Provider value={value}>
-      {children}
+ return (
+  <ToastContext.Provider value={value}>
+    {children}
 
-      {/* ===== POSITION SAME (HEADER KE NICHE) ===== */}
-      <div className="fixed top-[153px] left-1/2 -translate-x-1/2 z-[9999] flex flex-col gap-3">
-        {toasts.map((toast) => (
+    {/* ===== TOP TOASTS (SUCCESS / ERROR / WARNING SAME) ===== */}
+   <div
+  style={{ top: `${topOffset}px` }}
+  className="fixed left-1/2 -translate-x-1/2 z-[9999] flex flex-col gap-3"
+>
+      {toasts
+        .filter((t) => t.type !== "info")
+        .map((toast) => (
           <ToastItem
             key={toast.id}
             toast={toast}
             onRemove={removeToast}
           />
         ))}
-      </div>
-    </ToastContext.Provider>
-  );
+    </div>
+
+    {/* ===== INFO TOAST (BOTTOM RIGHT PREMIUM) ===== */}
+    <div className="fixed bottom-6 right-4 z-[9999] flex flex-col gap-3">
+      {toasts
+        .filter((t) => t.type === "info")
+        .map((toast) => (
+          <ToastItem
+            key={toast.id}
+            toast={toast}
+            onRemove={removeToast}
+          />
+        ))}
+    </div>
+  </ToastContext.Provider>
+);
 };
 
 /* ================= HOOK ================= */

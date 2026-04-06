@@ -36,14 +36,14 @@ interface Product {
    crossSellProductIds: string; // ✅ ADD THIS
 }
 
-export const revalidate = 10;
+export const dynamic = "force-dynamic";
 
 async function getProduct(slug: string) {
   try {
     const res = await fetch(
       `${process.env.NEXT_PUBLIC_API_URL}/api/Products/by-slug/${slug}`,
       {
-        next: { revalidate: 10 },
+       cache: "no-store",
       }
     );
 
@@ -115,18 +115,18 @@ return {
   openGraph: {
     title: product.name,
     description: description || product.name,
-    url: `https://direct-care.co.uk/products/${product.slug}`,
+    url: `https://www.direct-care.co.uk/products/${product.slug}`,
     siteName: "Direct Care",
     images: imageUrl
       ? [
           {
             url: imageUrl,
-            width: 800,
-            height: 600,
+           width: 1200,
+height: 630,
           },
         ]
       : [],
-    type: "website",
+  type: "website",
   },
 
   twitter: {
@@ -137,11 +137,10 @@ return {
   },
 
   alternates: {
-    canonical: `https://direct-care.co.uk/products/${product.slug}`,
+    canonical: `https://www.direct-care.co.uk/products/${product.slug}`,
   },
 };
 }
-
 
 // ⭐ FIX: params is now Promise
 export default async function ProductDetailPage({ params }: { params: Promise<{ slug: string }> }) {
@@ -154,47 +153,55 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
  return (
   <>
     {/* ✅ PRODUCT SCHEMA (SEO BOOST) */}
-    <script
-      type="application/ld+json"
-      dangerouslySetInnerHTML={{
-        __html: JSON.stringify({
-          "@context": "https://schema.org/",
-          "@type": "Product",
-          name: data.product.name,
-         image: data.product.images?.map((img: any) =>
-  img?.imageUrl?.startsWith("http")
-    ? img.imageUrl
-    : `${process.env.NEXT_PUBLIC_API_URL}${img?.imageUrl || ""}`
-),
-         description: (data.product.shortDescription || "")
-  .replace(/<[^>]*>/g, "")
-  .slice(0, 160),
-          sku: data.product.sku,
-          brand: {
-            "@type": "Brand",
-            name: data.product.brandName,
-          },
-          offers: {
-            "@type": "Offer",
-            url: `https://direct-care.co.uk/products/${data.product.slug}`,
-            priceCurrency: "GBP",
-            price: data.product.price,
-            availability:
-              data.product.stockQuantity > 0
-                ? "https://schema.org/InStock"
-                : "https://schema.org/OutOfStock",
-          },
-         aggregateRating:
-  data.product.averageRating > 0
-    ? {
-        "@type": "AggregateRating",
-        ratingValue: data.product.averageRating,
-        reviewCount: data.product.reviewCount || 1,
-      }
-    : undefined,
-        }),
-      }}
-    />
+ <script
+  type="application/ld+json"
+  dangerouslySetInnerHTML={{
+    __html: JSON.stringify({
+      "@context": "https://schema.org/",
+      "@type": "Product",
+      name: data.product.name,
+
+      image: data.product.images?.map((img: any) =>
+        img?.imageUrl?.startsWith("http")
+          ? img.imageUrl
+          : `${process.env.NEXT_PUBLIC_API_URL}${img?.imageUrl || ""}`
+      ),
+
+      description: (data.product.shortDescription || "")
+        .replace(/<[^>]*>/g, "")
+       .slice(0, 155),
+
+      sku: data.product.sku,
+
+      brand: {
+        "@type": "Brand",
+        name: data.product.brandName,
+      },
+
+      category: data.product.categoryName, // ✅ ADD
+
+      offers: {
+        "@type": "Offer",
+      url: `https://www.direct-care.co.uk/products/${data.product.slug}`,
+        priceCurrency: "GBP",
+        price: data.product.price,
+        availability:
+          data.product.stockQuantity > 0
+            ? "https://schema.org/InStock"
+            : "https://schema.org/OutOfStock",
+      },
+
+      aggregateRating:
+        data.product.averageRating > 0
+          ? {
+              "@type": "AggregateRating",
+              ratingValue: data.product.averageRating,
+              reviewCount: data.product.reviewCount || 1,
+            }
+          : undefined,
+    }),
+  }}
+/>
 
     {/* 🔥 EXISTING UI */}
     <ProductClient 

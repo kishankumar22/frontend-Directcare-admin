@@ -26,13 +26,28 @@ const yearOptions = useMemo(() => {
 
   return Array.from(years).sort((a, b) => b - a);
 }, [orders]);
+const normalizeStatus = (status: string = "") => {
+  const s = status.toLowerCase();
+
+  if (s.includes("pending")) return "pending";
+  if (s.includes("processing")) return "processing";
+
+  // 🔥 IMPORTANT (future-proof shipping)
+  if (s.includes("shipped") || s.includes("dispatch")) return "shipped";
+
+  if (s.includes("delivered") || s.includes("complete")) return "delivered";
+  if (s.includes("cancel")) return "cancelled";
+
+  return s;
+};
+
 const filteredOrders = useMemo(() => {
   let result = [...orders];
 
   if (statusFilter !== "all") {
-    result = result.filter(
-      (o: any) => o.status?.toLowerCase() === statusFilter
-    );
+   result = result.filter(
+  (o: any) => normalizeStatus(o.status) === statusFilter
+);
   }
 
   if (deliveryMethodFilter !== "all") {
@@ -105,6 +120,7 @@ const filteredCount = filteredOrders.length;
               <option value="all">All orders</option>
               <option value="pending">Pending</option>
               <option value="processing">Processing</option>
+              <option value="shipped">Shipped</option>
               <option value="delivered">Delivered</option>
               <option value="cancelled">Cancelled</option>
             </select>
