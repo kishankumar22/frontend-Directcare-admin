@@ -173,6 +173,14 @@ const getOrderStatusInfo = (status: OrderStatus) => {
       description: 'Payment has been refunded.',
       nextAction: 'No further action required',
     },
+    Collected: {
+  label: 'Collected',
+  color: 'text-green-400',
+  bgColor: 'bg-green-500/10',
+  icon: <CheckCircle2 className="h-3 w-3" />,
+  description: 'Order has been collected by customer.',
+  nextAction: 'No further action required',
+},
   };
   return (
     statusMap[status] || {
@@ -754,7 +762,7 @@ const [hasEditHistory, setHasEditHistory] = useState<boolean | null>(null);
   const [actionModalOpen, setActionModalOpen] = useState(false);
   const [selectedAction, setSelectedAction] = useState('');
   const [editModalOpen, setEditModalOpen] = useState(false);
-
+const [showId, setShowId] = useState(false);
   // Refund & History States
   const [refundHistoryOpen, setRefundHistoryOpen] = useState(false);
   const [editHistoryOpen, setEditHistoryOpen] = useState(false);
@@ -1596,19 +1604,19 @@ const allActions = getAllAvailableActions(
                 {formatCurrency(order.subtotalAmount, order.currency)}
               </span>
             </div>
-            <div className="flex justify-between" title="Value Added Tax (VAT)">
-              <span className="text-slate-400">Tax(inc)</span>
-              <span className="text-white font-medium">
-                {formatCurrency(order.taxAmount, order.currency)}
-              </span>
-            </div> 
-     <div className="flex justify-between items-center" title="Shipping charge">
-
-  <span className="text-slate-400">Shipping</span>
+       
+<div className="flex justify-between items-center" title="Shipping charge">
+  <span className="text-slate-400">
+    Shipping{order.shippingMethodName ? ` (${order.shippingMethodName})` : ''}
+  </span>
 
   <div className="flex items-center gap-2">
 
-    {order.isShippingRefunded ? (
+    {/* 🚫 ZERO SHIPPING FIX */}
+    {(!order.shippingAmount || order.shippingAmount === 0) ? (
+      <span className="text-slate-500 text-xs">Free</span>
+
+    ) : order.isShippingRefunded ? (
       <>
         <span className="text-slate-500 line-through">
           {formatCurrency(order.shippingAmount, order.currency)}
@@ -1618,6 +1626,7 @@ const allActions = getAllAvailableActions(
           Refunded
         </span>
       </>
+
     ) : (
       <span className="text-white font-medium">
         {formatCurrency(order.shippingAmount, order.currency)}
@@ -1625,7 +1634,6 @@ const allActions = getAllAvailableActions(
     )}
 
   </div>
-
 </div>
             {order.clickAndCollectFee && order.clickAndCollectFee > 0 && (
               <div className="flex justify-between" title="Click & Collect service fee">
@@ -1671,12 +1679,35 @@ const allActions = getAllAvailableActions(
 
   </div>
 )}
-            <div className="border-t border-slate-700 pt-2 flex justify-between" title="Final amount charged to customer">
-              <span className="text-white font-bold">Total</span>
-              <span className="text-white font-bold text-lg">
-                {formatCurrency(order.totalAmount, order.currency)}
-              </span>
-            </div>
+           {/* TOTAL */}
+<div className="border-t border-slate-700 pt-2 flex justify-between">
+  <span className="text-white font-semibold">Total</span>
+  <span className="text-white font-semibold">
+    {formatCurrency(order.totalAmount, order.currency)}
+  </span>
+</div>
+
+{/* REFUNDED */}
+{order.totalRefundedAmount > 0 && (
+  <div className="flex justify-between">
+    <span className="text-pink-400">Refunded</span>
+    <span className="text-pink-400 font-medium">
+      -{formatCurrency(order.totalRefundedAmount, order.currency)}
+    </span>
+  </div>
+)}
+
+
+{/* NET PAID */}
+{order.totalRefundedAmount > 0 && (
+  <div className="border-t border-slate-700 pt-2 flex justify-between">
+    <span className="text-green-400 font-bold">Net Paid</span>
+    <span className="text-green-400 font-bold text-lg">
+      {formatCurrency(order.netAmountPaid, order.currency)}
+    </span>
+  </div>
+)}
+            
           </div>
 
 {/* Delivery + Payment Row */}
@@ -1837,9 +1868,24 @@ const allActions = getAllAvailableActions(
                 <Hash className="h-3 w-3" />
                 ID Number
               </p>
-              <p className="text-white font-medium">
-                {order.collectorIDNumber ? `****${order.collectorIDNumber.slice(-4)}` : 'Not recorded'}
-              </p>
+             <div className="flex items-center gap-2">
+  <p className="text-white font-medium">
+    {order.collectorIDNumber
+      ? showId
+        ? order.collectorIDNumber
+        : `****${order.collectorIDNumber.slice(-4)}`
+      : 'Not recorded'}
+  </p>
+
+  {order.collectorIDNumber && (
+    <button
+      onClick={() => setShowId(!showId)}
+      className="text-xs px-2 py-0.5 bg-slate-700 hover:bg-slate-600 rounded text-slate-300"
+    >
+      {showId ? 'Hide' : 'View'}
+    </button>
+  )}
+</div>
             </div>
           </div>
         </div>
@@ -2234,7 +2280,7 @@ const allActions = getAllAvailableActions(
             {/* IMAGE */}
             <div className="w-12 h-12 rounded-lg overflow-hidden border border-slate-700 bg-slate-800 flex items-center justify-center">
               <img
-                src={orderItem?.productImageUrl || '/placeholder.png'}
+                src={getOrderProductImage(orderItem?.productImageUrl) || '/placeholder.png'}
                 alt={orderItem?.productName || 'Product'}
                 className="w-full h-full object-cover"
                 onError={(e) => (e.currentTarget.src = "/placeholder.png")}

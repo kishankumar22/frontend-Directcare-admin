@@ -70,7 +70,7 @@ interface User {
   isActive?: boolean;
 
   profileImageUrl?: string;
-  // ✅ ADD THIS
+  // :white_check_mark: ADD THIS
   loyaltyPoints?: LoyaltyPoints;
   addresses?: any[];
   orders?: any[];
@@ -87,7 +87,7 @@ interface AuthContextType {
   logout: () => void;
   isAuthenticated: boolean;
   profileLoading: boolean;
-  refreshProfile: () => Promise<void>; // ✅ ADD THIS
+  refreshProfile: () => Promise<void>; // :white_check_mark: ADD THIS
 }
 
 
@@ -100,13 +100,29 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [refreshToken, setRefreshToken] = useState<string | null>(null);
 const [profileLoading, setProfileLoading] = useState(false);
 
-  // 🔁 Restore session
+  // :repeat: Restore session
   useEffect(() => {
     const storedUser = localStorage.getItem("user");
     const storedAccess = localStorage.getItem("accessToken");
     const storedRefresh = localStorage.getItem("refreshToken");
 
     if (storedUser && storedAccess) {
+      // If stored token belongs to an Admin, don't load it into the customer context.
+      // Admin and customer share the same localStorage key — this prevents admin
+      // sessions from leaking into the storefront.
+      try {
+        const payload = JSON.parse(atob(storedAccess.split(".")[1]));
+        const roleKey =
+          "http://schemas.microsoft.com/ws/2008/06/identity/claims/role";
+        const role: string | string[] = payload[roleKey] ?? "";
+        const isAdmin = Array.isArray(role)
+          ? role.includes("Admin")
+          : role === "Admin";
+        if (isAdmin) return; // skip — admin session, not a customer session
+      } catch {
+        return; // malformed token — skip
+      }
+
       setUser(JSON.parse(storedUser));
       setAccessToken(storedAccess);
       setRefreshToken(storedRefresh);
@@ -158,7 +174,7 @@ useEffect(() => {
 
 
 
-  // 🔐 LOGIN (UNCHANGED)
+  // :closed_lock_with_key: LOGIN (UNCHANGED)
  const login = async (email: string, password: string) => {
   const res = await fetch(
     `${process.env.NEXT_PUBLIC_API_URL}/api/Auth/login`,
@@ -192,7 +208,7 @@ useEffect(() => {
   setAccessToken(data.accessToken);
   setRefreshToken(data.refreshToken);
 
-  // 🔥 REVIEW REDIRECT AFTER LOGIN (ADD HERE)
+  // :fire: REVIEW REDIRECT AFTER LOGIN (ADD HERE)
   try {
     const rawDraft = sessionStorage.getItem("pendingReviewDraft");
 
@@ -211,7 +227,7 @@ useEffect(() => {
 };
 
 
-  // 🔐 REGISTER (UNCHANGED)
+  // :closed_lock_with_key: REGISTER (UNCHANGED)
   const register = async (regData: any) => {
     const res = await fetch(
       `${process.env.NEXT_PUBLIC_API_URL}/api/Auth/register`,
@@ -241,7 +257,7 @@ useEffect(() => {
     setRefreshToken(data.refreshToken);
   };
 
-  // 🚪 LOGOUT
+  // :door: LOGOUT
   const logout = () => {
     // Remove cartSessionId — cart stays in backend under user-{id} key for next login.
     // Dispatch event so CartContext clears in-memory state immediately.
@@ -276,7 +292,7 @@ useEffect(() => {
     logout,
     isAuthenticated: !!accessToken,
     profileLoading,
-     refreshProfile: fetchProfile, // ✅ ADD THIS
+     refreshProfile: fetchProfile, // :white_check_mark: ADD THIS
   }}
 >
 

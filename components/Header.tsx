@@ -29,13 +29,17 @@ export default function Header({
   const [menuOpen, setMenuOpen] = useState(false);
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
   const [searchValue, setSearchValue] = useState("");
- const [categories, setCategories] = useState<Category[]>(
-  ssrCategories.filter((c: any) => c.showOnHomepage === true)
+ const [categories] = useState<Category[]>(
+  (ssrCategories || [])
+    .filter((c: any) => !c.parentCategoryId)
+    .filter((c: any) => c.showOnHomepage === true)
+    .sort((a: any, b: any) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))
 );
  // Mobile drawer shows ALL parent categories (not just homepage ones)
-const [mobileCategories, setMobileCategories] = useState<Category[]>(
-  ssrCategories
-    .filter((c: any) => !c.parentCategoryId && c.showOnHomepage === true)
+const [mobileCategories] = useState<Category[]>(
+  (ssrCategories || [])
+    .filter((c: any) => !c.parentCategoryId)
+    .filter((c: any) => c.showOnHomepage === true)
     .sort((a: any, b: any) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))
 );
 
@@ -212,43 +216,7 @@ useEffect(() => {
     };
   }, []);
 
-  useEffect(() => {
-    if (ssrCategories.length > 0) return;
 
-    const fetchCategories = async () => {
-      try {
-        const res = await fetch(
-          `${process.env.NEXT_PUBLIC_API_URL}/api/Categories?includeInactive=false&includeSubCategories=true`,
-          { cache: "no-store" }
-        );
-      const json = await res.json();
-
-if (json?.success) {
-  // 🔥 FIX: सही array निकालो
-  const dataArray = json.data?.items || [];
-
-  // 🔥 Parent categories
-  const allParents = dataArray
-    .filter((cat: Category) => !cat.parentCategoryId)
-    .sort((a: any, b: any) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
-
-  // 🔥 Desktop (homepage only)
-  const topCategories = allParents.filter(
-    (cat: any) => cat.showOnHomepage === true
-  );
-
-  setCategories(topCategories);
-
-  // 🔥 Mobile (ALL parents)
-  setMobileCategories(allParents);
-}
-      } catch (err) {
-        console.error("Failed to load categories:", err);
-      }
-    };
-
-    fetchCategories();
-  }, [ssrCategories]);
 
   // Lock body scroll when drawer or mobile search is open
   useEffect(() => {

@@ -23,6 +23,7 @@ import {
   Order,
   OrderStatus,
   CancelOrderRequest,
+  formatCurrency,
 } from '../../../lib/services/orders'; // ✅ FIXED PATH
 import { useToast } from '@/app/admin/_components/CustomToast';
 import ConfirmDialog from '../_components/ConfirmDialog';
@@ -244,23 +245,24 @@ export const getValidStatusTransitions = (
 
     CancellationRequested: [],
 
-    // ❌ REMOVE ANY SHIPPING FROM UPDATE STATUS
-Processing: isClickAndCollect
-  ? [] // handled via modal intercept
-  : (itemCount > 1 ? ['Shipped','PartiallyShipped'] : ['Shipped']),
+    Processing: isClickAndCollect
+      ? [] // handled via Ready → Collected flow
+      : (itemCount > 1
+          ? ['Shipped', 'PartiallyShipped']
+          : ['Shipped']),
 
-    // ❌ REMOVE SHIPPED CONTROL FROM DROPDOWN
     Shipped: isClickAndCollect
       ? []
-      : ['Delivered' ],
+      : ['Delivered'],
 
-    // ❌ IMPORTANT FIX
-  PartiallyShipped: [
-  'PartiallyShipped', // 🔥 allow repeat shipment
-  
-],
+    PartiallyShipped: isClickAndCollect
+      ? []
+      : ['PartiallyShipped', 'Shipped'],
 
     Delivered: ['Returned'],
+
+    // 🔥 IMPORTANT (your missing piece)
+    Collected: [],
 
     Cancelled: [],
     Returned: [],
@@ -273,20 +275,70 @@ Processing: isClickAndCollect
 
 // ✅ Status display info
 const getStatusDisplayInfo = (status: OrderStatus) => {
-  const statusMap: Record<OrderStatus, { label: string; color: string; icon: JSX.Element }> = {
-    Pending: { label: 'Pending', color: 'text-yellow-400', icon: <Clock className="w-4 h-4" /> },
-    Confirmed: { label: 'Confirmed', color: 'text-blue-400', icon: <CheckCircle className="w-4 h-4" /> },
-    Processing: { label: 'Processing', color: 'text-cyan-400', icon: <Package className="w-4 h-4" /> },
-    CancellationRequested: { label: 'Cancellation Requested', color: 'text-amber-300', icon: <AlertCircle className="w-4 h-4" /> },
+  const statusMap: Record<
+    OrderStatus,
+    { label: string; color: string; icon: JSX.Element }
+  > = {
+    Pending: {
+      label: 'Pending',
+      color: 'text-yellow-400',
+      icon: <Clock className="w-4 h-4" />
+    },
+    Confirmed: {
+      label: 'Confirmed',
+      color: 'text-blue-400',
+      icon: <CheckCircle className="w-4 h-4" />
+    },
+    Processing: {
+      label: 'Processing',
+      color: 'text-cyan-400',
+      icon: <Package className="w-4 h-4" />
+    },
+    CancellationRequested: {
+      label: 'Cancellation Requested',
+      color: 'text-amber-300',
+      icon: <AlertCircle className="w-4 h-4" />
+    },
 
-    // 🔥 Only for Home Delivery
-    Shipped: { label: 'Shipped', color: 'text-purple-400', icon: <Truck className="w-4 h-4" /> },
-    PartiallyShipped: { label: 'Partially Shipped', color: 'text-indigo-400', icon: <Truck className="w-4 h-4" /> },
+    Shipped: {
+      label: 'Shipped',
+      color: 'text-purple-400',
+      icon: <Truck className="w-4 h-4" />
+    },
+    PartiallyShipped: {
+      label: 'Partially Shipped',
+      color: 'text-indigo-400',
+      icon: <Truck className="w-4 h-4" />
+    },
 
-    Delivered: { label: 'Delivered', color: 'text-green-400', icon: <CheckCircle className="w-4 h-4" /> },
-    Cancelled: { label: 'Cancelled', color: 'text-red-400', icon: <XCircle className="w-4 h-4" /> },
-    Returned: { label: 'Returned', color: 'text-orange-400', icon: <Package className="w-4 h-4" /> },
-    Refunded: { label: 'Refunded', color: 'text-pink-400', icon: <XCircle className="w-4 h-4" /> },
+    Delivered: {
+      label: 'Delivered',
+      color: 'text-green-400',
+      icon: <CheckCircle className="w-4 h-4" />
+    },
+
+    // ✅ ADD THIS (missing)
+    Collected: {
+      label: 'Collected',
+      color: 'text-green-400',
+      icon: <CheckCircle className="w-4 h-4" />
+    },
+
+    Cancelled: {
+      label: 'Cancelled',
+      color: 'text-red-400',
+      icon: <XCircle className="w-4 h-4" />
+    },
+    Returned: {
+      label: 'Returned',
+      color: 'text-orange-400',
+      icon: <Package className="w-4 h-4" />
+    },
+    Refunded: {
+      label: 'Refunded',
+      color: 'text-pink-400',
+      icon: <XCircle className="w-4 h-4" />
+    },
   };
 
   return statusMap[status] || statusMap.Pending;
@@ -294,63 +346,49 @@ const getStatusDisplayInfo = (status: OrderStatus) => {
 
 // ✅ NEW: Check if order is paid
 const isOrderPaid = (order: Order): boolean => {
-  if (!order.payments || order.payments.length === 0) return false;
-
-  const paidStatuses = ['Successful', 'Completed'];
-
-  return order.payments.some((payment) =>
-    paidStatuses.includes(payment.status)
+  return ['Successful', 'Completed', 'PartiallyRefunded'].includes(
+    order.paymentStatus ?? ''
   );
 };
 
-
-
 // ✅ NEW: Get payment status display
 const getPaymentStatusDisplay = (order: Order) => {
-  if (!order.payments || order.payments.length === 0) {
-    return { 
-      label: 'No Payment', 
-      color: 'text-red-400', 
-      icon: <AlertTriangle className="w-4 h-4" /> 
-    };
-  }
+  const status = order.paymentStatus ?? 'Pending';
 
-  const payment = order.payments[order.payments.length - 1];
-  const statusMap: Record<string, { label: string; color: string; icon: JSX.Element }> = {
-    'Successful': { 
-      label: 'Paid', 
-      color: 'text-green-400', 
-      icon: <CheckCircle className="w-4 h-4" /> 
+  const statusMap = {
+    Successful: {
+      label: 'Paid',
+      color: 'text-green-400',
+      icon: <CheckCircle className="w-4 h-4" />,
     },
-    'Completed': { 
-      label: 'Paid', 
-      color: 'text-green-400', 
-      icon: <CheckCircle className="w-4 h-4" /> 
+    Completed: {
+      label: 'Paid',
+      color: 'text-green-400',
+      icon: <CheckCircle className="w-4 h-4" />,
     },
-    
-    'Pending': { 
-      label: 'Payment Pending', 
-      color: 'text-yellow-400', 
-      icon: <Clock className="w-4 h-4" /> 
+    PartiallyRefunded: {
+      label: 'Partially Refunded',
+      color: 'text-amber-400',
+      icon: <AlertTriangle className="w-4 h-4" />,
     },
-    'Processing': { 
-      label: 'Processing Payment', 
-      color: 'text-blue-400', 
-      icon: <Loader2 className="w-4 h-4 animate-spin" /> 
+    Refunded: {
+      label: 'Refunded',
+      color: 'text-purple-400',
+      icon: <XCircle className="w-4 h-4" />,
     },
-    'Failed': { 
-      label: 'Payment Failed', 
-      color: 'text-red-400', 
-      icon: <XCircle className="w-4 h-4" /> 
+    Pending: {
+      label: 'Payment Pending',
+      color: 'text-yellow-400',
+      icon: <Clock className="w-4 h-4" />,
     },
-    'Refunded': { 
-      label: 'Refunded', 
-      color: 'text-purple-400', 
-      icon: <XCircle className="w-4 h-4" /> 
+    Failed: {
+      label: 'Payment Failed',
+      color: 'text-red-400',
+      icon: <XCircle className="w-4 h-4" />,
     },
   };
 
-  return statusMap[payment.status] || statusMap['Pending'];
+  return statusMap[status as keyof typeof statusMap] || statusMap.Pending;
 };
 
 export default function OrderActionsModal({
@@ -527,13 +565,6 @@ const actionHandlers: Record<string, () => Promise<'handled' | void>> = {
   }
 };
 
-const isCashOnDelivery =
-  order?.paymentMethod?.toLowerCase() === "cashondelivery" ||
-  order?.payments?.some(
-    (p: any) =>
-      p.paymentMethod?.toLowerCase() === "cashondelivery"
-  );
-
 const handleSubmit = async (e: FormEvent) => {
   e.preventDefault();
 
@@ -659,8 +690,7 @@ const PharmacyWarning = () => {
     const PaymentWarning = () => {
   if (!['create-shipment', 'mark-delivered'].includes(action)) return null;
 
-  // 🔥 Hide for COD
-  if (isCashOnDelivery) return null;
+
 
   if (!isPaid) {
     return (
@@ -997,7 +1027,6 @@ if (
                 <p className="text-sm text-slate-400">Add tracking and shipment details.</p>
               </div>
             </div>
-
             <PaymentWarning />
 
             <div className="grid md:grid-cols-2 gap-4">
@@ -1014,7 +1043,7 @@ if (
                   placeholder="e.g., 1Z999AA1234567890"
                   className="w-full px-3 py-2.5 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
                   required
-                  disabled={!isPaid && !isCashOnDelivery}
+                  disabled={!isPaid }
                 />
               </div>
 
@@ -1031,7 +1060,7 @@ if (
                   placeholder="e.g., DHL, FedEx, UPS"
                   className="w-full px-3 py-2.5 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
                   required
-                  disabled={!isPaid && !isCashOnDelivery}
+                  disabled={!isPaid}
                 />
               </div>
             </div>
@@ -1049,7 +1078,7 @@ if (
                 placeholder="e.g., Standard, Express"
                 className="w-full px-3 py-2.5 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
          
-                disabled={!isPaid && !isCashOnDelivery}
+                disabled={!isPaid }
               />
             </div>
 
@@ -1061,7 +1090,7 @@ if (
                 placeholder="Additional shipment notes..."
                 rows={2}
                 className="w-full px-3 py-2.5 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
-                disabled={!isPaid && !isCashOnDelivery}
+                disabled={!isPaid}
               />
             </div>
 
@@ -1102,6 +1131,9 @@ const isShipped = order.shipments?.some(shipment =>
         </p>
 
         <p className="text-xs text-slate-400">SKU: {item.productSku}</p>
+        <p className="text-xs text-slate-500">
+  Price: {formatCurrency(item.unitPrice, order.currency)}
+</p>
 
         {/* ✅ USER FEEDBACK */}
         {isShipped && (
@@ -1130,7 +1162,7 @@ const isShipped = order.shipments?.some(shipment =>
             ? 'bg-slate-800 border-slate-700 text-slate-500 cursor-not-allowed'
             : 'bg-slate-800 border-slate-600 text-white focus:ring-2 focus:ring-violet-500'
           }`}
-        disabled={isShipped || (!isPaid && !isCashOnDelivery)}
+        disabled={isShipped || (!isPaid  )}
         title={
           isShipped
             ? 'This item is already shipped and cannot be modified'
@@ -1188,7 +1220,7 @@ const isShipped = order.shipments?.some(shipment =>
                     }
                     className="w-full px-3 py-2.5 bg-slate-800/50 border border-slate-700 rounded-xl text-white focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
                     required
-                    disabled={!isPaid && !isCashOnDelivery}
+                    disabled={!isPaid  }
                   >
                     {order.shipments.map((shipment) => (
                       <option key={shipment.id} value={shipment.id}>
@@ -1210,7 +1242,7 @@ const isShipped = order.shipments?.some(shipment =>
                     }
                     className="w-full px-3 py-2.5 bg-slate-800/50 border border-slate-700 rounded-xl text-white focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
                     required
-                    disabled={!isPaid && !isCashOnDelivery}
+                    disabled={!isPaid  }
                   />
                 </div>
 
@@ -1226,7 +1258,7 @@ const isShipped = order.shipments?.some(shipment =>
                     }
                     placeholder="Name of person who received"
                     className="w-full px-3 py-2.5 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
-                    disabled={!isPaid && !isCashOnDelivery}
+                    disabled={!isPaid  }
                   />
                 </div>
 
@@ -1242,7 +1274,7 @@ const isShipped = order.shipments?.some(shipment =>
                     placeholder="Additional delivery notes..."
                     rows={3}
                     className="w-full px-3 py-2.5 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
-                    disabled={!isPaid && !isCashOnDelivery}
+                    disabled={!isPaid  }
                   />
                 </div>
 
@@ -1384,9 +1416,7 @@ if (isPharmacyLocked && action === 'update-status') {
   // ✅ Payment check for shipment/delivery
 if (
   ['create-shipment', 'mark-delivered'].includes(action) &&
-  !isPaid &&
-  !isCashOnDelivery
-) {
+  !isPaid ) {
   return false;
 }
   switch (action) {

@@ -8,17 +8,18 @@ import { API_ENDPOINTS } from '../api-config';
 /**
  * ✅ Order Status (Backend returns strings now)
  */
-export type OrderStatus = 
+export type OrderStatus =
   | 'Pending'
   | 'Confirmed'
   | 'Processing'
   | 'CancellationRequested'
   | 'Shipped'
+  | 'PartiallyShipped'
   | 'Delivered'
   | 'Cancelled'
+  | 'Returned'
   | 'Refunded'
-  | 'PartiallyShipped'
-  | 'Returned';
+  | 'Collected'; // ✅ ADD THIS
 
   
 // ================= BULK REQUEST DTOs ====================
@@ -190,8 +191,11 @@ export interface Order {
   shippingAddress: Address;
   userId?: string;
   customerName: string;
+  shippingMethodName: string;
   deliveryMethod: DeliveryMethod;
   clickAndCollectFee?: number;
+  totalRefundedAmount: number;
+  netAmountPaid: number;
   collectionStatus?: CollectionStatus;
   readyForCollectionAt?: string;
   collectedAt?: string;
@@ -610,8 +614,16 @@ export const getOrderStatusInfo = (status: OrderStatus) => {
     'Cancelled': { label: 'Cancelled', color: 'text-red-400', bgColor: 'bg-red-500/10' },
     'Returned': { label: 'Returned', color: 'text-orange-400', bgColor: 'bg-orange-500/10' },
     'Refunded': { label: 'Refunded', color: 'text-pink-400', bgColor: 'bg-pink-500/10' },
+
+    // ✅ ADD THIS
+    'Collected': { label: 'Collected', color: 'text-green-400', bgColor: 'bg-green-500/10' },
   };
-  return statusMap[status] || { label: 'Unknown', color: 'text-gray-400', bgColor: 'bg-gray-500/10' };
+
+  return statusMap[status] || {
+    label: 'Unknown',
+    color: 'text-gray-400',
+    bgColor: 'bg-gray-500/10'
+  };
 };
 
 /**

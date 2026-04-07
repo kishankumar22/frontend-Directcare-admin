@@ -23,18 +23,23 @@ const STATUS_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
 
   Confirmed: ['Processing', 'Cancelled'],
 
-  Processing: ['Shipped', 'PartiallyShipped', 'Cancelled'],
+  Processing: ['Shipped', 'Cancelled', 'PartiallyShipped'],
 
   Shipped: ['Delivered', 'Returned'],
 
-  PartiallyShipped: ['Shipped', 'Delivered'],
+  PartiallyShipped: ['Shipped', 'Cancelled'],
 
-  Delivered: ['Returned'],
+  Delivered: [],
 
-  // terminal states
-  Cancelled: [],
   Returned: [],
+
+  Cancelled: [],
+
   Refunded: [],
+
+  // 🔥 ADD THIS (missing)
+  CancellationRequested: ['Cancelled', 'Processing'],
+
 };
 export default function BulkStatusModal({
   isOpen,

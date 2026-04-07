@@ -22,16 +22,20 @@ export default async function RootLayout({ children }: { children: React.ReactNo
 
   try {
     const res = await fetch(
-      `${process.env.NEXT_PUBLIC_API_URL}/api/Categories?includeInactive=false&includeSubCategories=true`,
+      `${process.env.NEXT_PUBLIC_API_URL}/api/Categories?includeInactive=false&includeSubCategories=true&isActive=true&isDeleted=false`,
       {
         next: { revalidate: 600 }, // ⭐ FIXED — NO MORE DYNAMIC SERVER ERROR
       }
     );
     if (res.ok) {
       const json = await res.json();
-      if (json?.success && Array.isArray(json.data)) {
-        categories = json.data.filter((c: any) => !c.parentCategoryId);
-      }
+     if (json?.success) {
+  const items = json.data?.items || [];
+
+  categories = items
+    .filter((c: any) => !c.parentCategoryId)
+    .sort((a: any, b: any) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
+}
     }
   } catch (error) {
     console.error("❌ Categories API failed:", error);
@@ -63,3 +67,4 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     </html>
   );
 }
+
