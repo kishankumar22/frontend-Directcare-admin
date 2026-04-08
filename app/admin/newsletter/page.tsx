@@ -431,49 +431,84 @@ export default function NewsletterPage() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-        <div className="bg-slate-900/40 border border-slate-800 rounded-lg p-2.5">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-violet-500/10 rounded-md flex items-center justify-center">
-              <Mail className="h-4 w-4 text-violet-400" />
-            </div>
-            <div>
-              <p className="text-[11px] text-slate-500">Total</p>
-              <p className="text-lg font-semibold text-white">
-                {stats.totalSubscriptions}
-              </p>
-            </div>
-          </div>
-        </div>
+<div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
 
-        <div className="bg-slate-900/40 border border-slate-800 rounded-lg p-2.5">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-green-500/10 rounded-md flex items-center justify-center">
-              <CheckCircle className="h-4 w-4 text-green-400" />
-            </div>
-            <div>
-              <p className="text-[11px] text-slate-500">Active</p>
-              <p className="text-lg font-semibold text-white">
-                {stats.activeSubscriptions}
-              </p>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-slate-900/40 border border-slate-800 rounded-lg p-2.5">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-red-500/10 rounded-md flex items-center justify-center">
-              <XCircle className="h-4 w-4 text-red-400" />
-            </div>
-            <div>
-              <p className="text-[11px] text-slate-500">Inactive</p>
-              <p className="text-lg font-semibold text-white">
-                {stats.inactiveSubscriptions}
-              </p>
-            </div>
-          </div>
-        </div>
+  {/* TOTAL */}
+  <div
+    onClick={() => {
+      setActiveFilter("all");
+      setCurrentPage(1);
+    }}
+    className={`cursor-pointer bg-slate-900/40 border rounded-lg p-2.5 transition ${
+      activeFilter === "all"
+        ? "border-violet-500 ring-1 ring-violet-500/40"
+        : "border-slate-800 hover:border-slate-600"
+    }`}
+  >
+    <div className="flex items-center gap-2">
+      <div className="w-8 h-8 bg-violet-500/10 rounded-md flex items-center justify-center">
+        <Mail className="h-4 w-4 text-violet-400" />
       </div>
+      <div>
+        <p className="text-[11px] text-slate-500">Total</p>
+        <p className="text-lg font-semibold text-white">
+          {stats.totalSubscriptions}
+        </p>
+      </div>
+    </div>
+  </div>
+
+  {/* ACTIVE */}
+  <div
+    onClick={() => {
+      setActiveFilter("active");
+      setCurrentPage(1);
+    }}
+    className={`cursor-pointer bg-slate-900/40 border rounded-lg p-2.5 transition ${
+      activeFilter === "active"
+        ? "border-green-500 ring-1 ring-green-500/40"
+        : "border-slate-800 hover:border-slate-600"
+    }`}
+  >
+    <div className="flex items-center gap-2">
+      <div className="w-8 h-8 bg-green-500/10 rounded-md flex items-center justify-center">
+        <CheckCircle className="h-4 w-4 text-green-400" />
+      </div>
+      <div>
+        <p className="text-[11px] text-slate-500">Active</p>
+        <p className="text-lg font-semibold text-white">
+          {stats.activeSubscriptions}
+        </p>
+      </div>
+    </div>
+  </div>
+
+  {/* INACTIVE */}
+  <div
+    onClick={() => {
+      setActiveFilter("inactive");
+      setCurrentPage(1);
+    }}
+    className={`cursor-pointer bg-slate-900/40 border rounded-lg p-2.5 transition ${
+      activeFilter === "inactive"
+        ? "border-red-500 ring-1 ring-red-500/40"
+        : "border-slate-800 hover:border-slate-600"
+    }`}
+  >
+    <div className="flex items-center gap-2">
+      <div className="w-8 h-8 bg-red-500/10 rounded-md flex items-center justify-center">
+        <XCircle className="h-4 w-4 text-red-400" />
+      </div>
+      <div>
+        <p className="text-[11px] text-slate-500">Inactive</p>
+        <p className="text-lg font-semibold text-white">
+          {stats.inactiveSubscriptions}
+        </p>
+      </div>
+    </div>
+  </div>
+
+</div>
 
       {/* Items Per Page */}
       <div className="bg-slate-900/40 border border-slate-800 rounded-lg px-3 py-2">

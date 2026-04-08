@@ -514,33 +514,32 @@ useEffect(() => {
 }, [isOpen, action, order.status, order.shipments, isPaid, user]);
 const actionHandlers: Record<string, () => Promise<'handled' | void>> = {
   'mark-ready': async () => {
-    await orderService.markReady(order.id);
-    toast.success('✅ Order marked as ready');
+    const res = await orderService.markReady(order.id);
+    toast.success(res?.message || 'Order marked as ready');
   },
 
   'mark-collected': async () => {
-    await orderService.markCollected({
+    const res = await orderService.markCollected({
       orderId: order.id,
       collectedBy: collectedData.collectedBy,
       collectorIDType: collectedData.collectorIDType,
       collectorIDNumber: collectedData.collectorIDNumber,
     });
-    toast.success('✅ Order marked as collected');
+    toast.success(res?.message || 'Order marked as collected');
   },
 
   // ✅ CLEANED — NO SHIPPING INTERCEPT HERE
   'update-status': async () => {
-    await orderService.updateStatus({
+    const res = await orderService.updateStatus({
       orderId: order.id,
       newStatus: statusData.newStatus,
       adminNotes: statusData.adminNotes || undefined,
     });
-
-    toast.success('✅ Status updated');
+    toast.success(res?.message || 'Status updated');
   },
 
   'create-shipment': async () => {
-    await orderService.createShipment({
+    const res = await orderService.createShipment({
       orderId: order.id,
       trackingNumber: shipmentData.trackingNumber,
       carrier: shipmentData.carrier,
@@ -548,20 +547,18 @@ const actionHandlers: Record<string, () => Promise<'handled' | void>> = {
       notes: shipmentData.notes || undefined,
       shipmentItems: shipmentData.selectedItems.filter(item => item.quantity > 0)
     });
-
-    toast.success('✅ Shipment created');
+    toast.success(res?.message || 'Shipment created');
   },
 
   'mark-delivered': async () => {
-    await orderService.markDelivered({
+    const res = await orderService.markDelivered({
       orderId: order.id,
       shipmentId: deliveredData.shipmentId,
       deliveredAt: new Date(deliveredData.deliveredAt).toISOString(),
       deliveryNotes: deliveredData.deliveryNotes || undefined,
       receivedBy: deliveredData.receivedBy || undefined,
     });
-
-    toast.success('✅ Order delivered');
+    toast.success(res?.message || 'Order delivered');
   }
 };
 
@@ -1535,9 +1532,9 @@ case 'cancel-order':
     try {
       setLoading(true);
 
-      await orderService.cancelOrder(pendingCancelRequest);
+      const res = await orderService.cancelOrder(pendingCancelRequest);
 
-      toast.success('✅ Order cancelled successfully');
+      toast.success(res?.message || 'Order cancelled successfully');
       onSuccess();
     } catch (error: any) {
       toast.error(error.message || 'Failed to cancel order');

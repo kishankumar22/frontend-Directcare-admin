@@ -192,8 +192,10 @@ export interface Order {
   userId?: string;
   customerName: string;
   shippingMethodName: string;
+  collectionStoreName: string;
   deliveryMethod: DeliveryMethod;
   clickAndCollectFee?: number;
+
   totalRefundedAmount: number;
   netAmountPaid: number;
   collectionStatus?: CollectionStatus;
@@ -331,7 +333,6 @@ async getAllOrders(params?: {
   toDate?: string;
   searchTerm?: string;
   pharmacyVerificationStatus?: PharmacyVerificationStatus;
-    // ✅ ADD THIS
   includeGuestOrders?: boolean;
 }) {
 

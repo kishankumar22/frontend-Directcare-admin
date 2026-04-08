@@ -9,7 +9,6 @@ import * as XLSX from "xlsx";
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   Search,
- 
   X,
   Eye,
   History,
@@ -23,7 +22,6 @@ import {
   ChevronRight,
   ChevronsLeft,
   ChevronsRight,
- 
   User,
   Mail,
   Clock,
@@ -43,7 +41,7 @@ import {
 import { useToast } from '@/app/admin/_components/CustomToast';
 import {
   loyaltyPointsService,
-  AdminLoyaltyUser,
+  LoyaltyUser,
   LoyaltyBalance,
   LoyaltyTransaction,
   formatPoints,
@@ -51,9 +49,11 @@ import {
   getTransactionTypeInfo,
   formatRelativeDate,
   formatExpiryDate,
+  LoyaltyUsersApiResponse,
 } from '@/lib/services/loyaltyPoints';
 import { useDebounce } from "../_hooks/useDebounce";
-type SortField = 'balance' | 'earned' | 'redeemed' | 'lastActivity';
+
+type SortField = 'currentBalance' | 'totalPointsEarned' | 'totalPointsRedeemed' | 'lastActivity';
 type SortDirection = 'asc' | 'desc';
 type TierLevel = 'all' | 'Gold' | 'Silver' | 'Bronze';
 
@@ -64,14 +64,15 @@ export default function LoyaltyPointsPage() {
   // STATE MANAGEMENT
   // ============================================================
   
-  const [users, setUsers] = useState<AdminLoyaltyUser[]>([]);
+  const [users, setUsers] = useState<LoyaltyUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [totalCount, setTotalCount] = useState(0);
+  const [stats, setStats] = useState<LoyaltyUsersApiResponse['data']['stats'] | null>(null);
 
   // Filter States
   const [searchTerm, setSearchTerm] = useState('');
   const [tierFilter, setTierFilter] = useState<TierLevel>('all');
-  const [sortBy, setSortBy] = useState<SortField>('balance');
+  const [sortBy, setSortBy] = useState<SortField>('currentBalance');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
   
   // Pagination States
@@ -85,7 +86,7 @@ export default function LoyaltyPointsPage() {
   // Modal States
   const [viewModalOpen, setViewModalOpen] = useState(false);
   const [historyModalOpen, setHistoryModalOpen] = useState(false);
-  const [selectedUser, setSelectedUser] = useState<AdminLoyaltyUser | null>(null);
+  const [selectedUser, setSelectedUser] = useState<LoyaltyUser | null>(null);
   const [userBalance, setUserBalance] = useState<LoyaltyBalance | null>(null);
   const [userHistory, setUserHistory] = useState<LoyaltyTransaction[]>([]);
   const [loadingModal, setLoadingModal] = useState(false);
@@ -93,6 +94,7 @@ export default function LoyaltyPointsPage() {
   // History Pagination
   const [historyPage, setHistoryPage] = useState(1);
   const [historyPageSize] = useState(20);
+  const [hasMoreHistory, setHasMoreHistory] = useState(true);
 
   // ============================================================
   // DEBOUNCED SEARCH
@@ -101,63 +103,34 @@ export default function LoyaltyPointsPage() {
   const debouncedSearchTerm = useDebounce(searchTerm, 500);
 
   // ============================================================
-  // FETCH USERS DATA
+  // FETCH USERS DATA - UPDATED to use new API
   // ============================================================
   
   const fetchUsers = useCallback(async () => {
     try {
       setLoading(true);
 
-      const response = await loyaltyPointsService.getAllCustomersWithLoyalty({
+      const response = await loyaltyPointsService.getAllUsersWithLoyalty({
         page: currentPage,
         pageSize: pageSize,
         searchTerm: debouncedSearchTerm || undefined,
+        tierLevel: tierFilter === 'all' ? undefined : tierFilter,
+        sortBy: sortBy === 'currentBalance' ? 'balance' : 
+                sortBy === 'totalPointsEarned' ? 'earned' :
+                sortBy === 'totalPointsRedeemed' ? 'redeemed' : 'lastActivity',
         sortDirection: sortDirection,
       });
 
       if (response.success && response.data) {
-        let filteredUsers = response.data.items;
-        
-        if (tierFilter !== 'all') {
-          filteredUsers = filteredUsers.filter(user => user.tierLevel === tierFilter);
-        }
-
-        filteredUsers.sort((a, b) => {
-          let aValue = 0;
-          let bValue = 0;
-
-          switch (sortBy) {
-            case 'balance':
-              aValue = a.currentBalance;
-              bValue = b.currentBalance;
-              break;
-            case 'earned':
-              aValue = a.totalPointsEarned;
-              bValue = b.totalPointsEarned;
-              break;
-            case 'redeemed':
-              aValue = a.totalPointsRedeemed;
-              bValue = b.totalPointsRedeemed;
-              break;
-            case 'lastActivity':
-              const aDate = a.lastEarnedAt || a.lastRedeemedAt || a.createdAt;
-              const bDate = b.lastEarnedAt || b.lastRedeemedAt || b.createdAt;
-              aValue = new Date(aDate).getTime();
-              bValue = new Date(bDate).getTime();
-              break;
-          }
-
-          return sortDirection === 'asc' ? aValue - bValue : bValue - aValue;
-        });
-
-        setUsers(filteredUsers);
-        setTotalCount(tierFilter !== 'all' ? filteredUsers.length : response.data.totalCount);
+        setUsers(response.data.items);
+        setTotalCount(response.data.totalCount);
+        setStats(response.data.stats);
       } else {
         toast.error('Failed to load loyalty points data');
       }
     } catch (error: any) {
       console.error('Error fetching users:', error);
-      toast.error('Failed to load loyalty points data');
+      toast.error(error?.message || 'Failed to load loyalty points data');
     } finally {
       setLoading(false);
     }
@@ -166,6 +139,12 @@ export default function LoyaltyPointsPage() {
   useEffect(() => {
     fetchUsers();
   }, [fetchUsers]);
+
+  // Reset selection when data changes
+  useEffect(() => {
+    setSelectedUsers(new Set());
+    setSelectAll(false);
+  }, [users]);
 
   // ============================================================
   // SELECTION HANDLERS
@@ -176,7 +155,7 @@ export default function LoyaltyPointsPage() {
       setSelectedUsers(new Set());
       setSelectAll(false);
     } else {
-      const allIds = new Set(users.map(u => u.id));
+      const allIds = new Set(users.map(u => u.userId));
       setSelectedUsers(allIds);
       setSelectAll(true);
     }
@@ -194,24 +173,23 @@ export default function LoyaltyPointsPage() {
   };
 
   const selectedUsersData = useMemo(() => {
-    return users.filter(u => selectedUsers.has(u.id));
+    return users.filter(u => selectedUsers.has(u.userId));
   }, [users, selectedUsers]);
 
   // ============================================================
   // MODAL HANDLERS
   // ============================================================
 
-  const handleViewBalance = async (user: AdminLoyaltyUser) => {
+  const handleViewBalance = async (user: LoyaltyUser) => {
     try {
       setSelectedUser(user);
       setViewModalOpen(true);
       setLoadingModal(true);
 
-      const response = await loyaltyPointsService.getUserBalance(user.id);
+      const response = await loyaltyPointsService.getUserBalance(user.userId);
 
       if (response.data?.success && response.data.data) {
         const balance = response.data.data;
-        // hasAccount === false means the user has no orders — no loyalty widget to show
         setUserBalance(balance.hasAccount === false ? null : balance);
       } else {
         toast.error('Failed to load user balance');
@@ -226,20 +204,23 @@ export default function LoyaltyPointsPage() {
     }
   };
 
-  const handleViewHistory = async (user: AdminLoyaltyUser) => {
+  const handleViewHistory = async (user: LoyaltyUser) => {
     try {
       setSelectedUser(user);
       setHistoryModalOpen(true);
       setLoadingModal(true);
       setHistoryPage(1);
+      setHasMoreHistory(true);
 
-      const response = await loyaltyPointsService.getUserHistory(user.id, {
+      const response = await loyaltyPointsService.getUserHistory(user.userId, {
         pageNumber: 1,
         pageSize: historyPageSize,
       });
 
       if (response.data?.success) {
-        setUserHistory(response.data.data || []);
+        const transactions = response.data.data || [];
+        setUserHistory(transactions);
+        setHasMoreHistory(transactions.length === historyPageSize);
       } else {
         toast.error('Failed to load transaction history');
         setUserHistory([]);
@@ -254,13 +235,13 @@ export default function LoyaltyPointsPage() {
   };
 
   const loadMoreHistory = async () => {
-    if (!selectedUser) return;
+    if (!selectedUser || !hasMoreHistory) return;
 
     try {
       setLoadingModal(true);
       const nextPage = historyPage + 1;
 
-      const response = await loyaltyPointsService.getUserHistory(selectedUser.id, {
+      const response = await loyaltyPointsService.getUserHistory(selectedUser.userId, {
         pageNumber: nextPage,
         pageSize: historyPageSize,
       });
@@ -271,11 +252,10 @@ export default function LoyaltyPointsPage() {
         if (newTransactions.length > 0) {
           setUserHistory(prev => [...prev, ...newTransactions]);
           setHistoryPage(nextPage);
+          setHasMoreHistory(newTransactions.length === historyPageSize);
         } else {
-          toast.info('No more transactions to load');
+          setHasMoreHistory(false);
         }
-      } else {
-        toast.error('Failed to load more transactions');
       }
     } catch (error: any) {
       console.error('Error:', error);
@@ -318,13 +298,13 @@ export default function LoyaltyPointsPage() {
   const handleClearFilters = () => {
     setSearchTerm('');
     setTierFilter('all');
-    setSortBy('balance');
+    setSortBy('currentBalance');
     setSortDirection('desc');
     setCurrentPage(1);
   };
 
   const hasActiveFilters = useMemo(() => {
-    return searchTerm !== '' || tierFilter !== 'all' || sortBy !== 'balance' || sortDirection !== 'desc';
+    return searchTerm !== '' || tierFilter !== 'all' || sortBy !== 'currentBalance' || sortDirection !== 'desc';
   }, [searchTerm, tierFilter, sortBy, sortDirection]);
 
   // ============================================================
@@ -357,113 +337,66 @@ export default function LoyaltyPointsPage() {
   };
 
   // ============================================================
-  // STATISTICS
-  // ============================================================
-  
-  const stats = useMemo(() => {
-    const totalPoints = users.reduce((sum, u) => sum + u.currentBalance, 0);
-    const totalRedemptionValue = users.reduce((sum, u) => sum + u.redemptionValue, 0);
-    const goldUsers = users.filter(u => u.tierLevel === 'Gold').length;
-    const silverUsers = users.filter(u => u.tierLevel === 'Silver').length;
-    const bronzeUsers = users.filter(u => u.tierLevel === 'Bronze').length;
-
-    return {
-      totalUsers: totalCount,
-      totalPoints,
-      totalRedemptionValue,
-      avgPoints: totalCount > 0 ? Math.round(totalPoints / totalCount) : 0,
-      goldUsers,
-      silverUsers,
-      bronzeUsers,
-    };
-  }, [users, totalCount]);
-
-  // ============================================================
   // EXPORT HANDLERS
   // ============================================================
   
-const handleExportAll = () => {
-  if (!users || users.length === 0) {
-    toast.error("No data available to export");
-    return;
-  }
+  const handleExportAll = () => {
+    if (!users || users.length === 0) {
+      toast.error("No data available to export");
+      return;
+    }
 
-  const data = users.map((user) => ({
-    User: user.fullName || "",
-    Email: user.email || "",
-    Balance: user.currentBalance || 0,
-    "Value (£)": user.redemptionValue || 0,
-    Earned: user.totalPointsEarned || 0,
-    Redeemed: user.totalPointsRedeemed || 0,
-    Tier: user.tierLevel || "",
-    "Last Activity":
-      user.lastEarnedAt || user.lastRedeemedAt || "Never",
-  }));
+    const data = users.map((user) => ({
+      User: user.fullName || "",
+      Email: user.email || "",
+      Balance: user.currentBalance || 0,
+      "Value (£)": user.redemptionValue || 0,
+      Earned: user.totalPointsEarned || 0,
+      Redeemed: user.totalPointsRedeemed || 0,
+      Tier: user.tierLevel || "",
+      "Last Activity": user.lastActivity || "Never",
+    }));
 
-  const worksheet = XLSX.utils.json_to_sheet(data);
-  const workbook = XLSX.utils.book_new();
+    const worksheet = XLSX.utils.json_to_sheet(data);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Loyalty Points");
+    XLSX.writeFile(
+      workbook,
+      `loyalty-points-all-${new Date().toISOString().split("T")[0]}.xlsx`
+    );
 
-  XLSX.utils.book_append_sheet(workbook, worksheet, "Loyalty Points");
+    toast.success(`${users.length} users exported successfully`);
+  };
 
-  const excelBuffer = XLSX.write(workbook, {
-    bookType: "xlsx",
-    type: "array",
-  });
+  const handleExportSelected = () => {
+    if (!selectedUsersData.length) {
+      toast.error("No users selected");
+      return;
+    }
 
-  const blob = new Blob([excelBuffer], {
-    type:
-      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-  });
+    const data = selectedUsersData.map((user) => ({
+      User: user.fullName,
+      Email: user.email,
+      Balance: user.currentBalance,
+      "Value (£)": user.redemptionValue,
+      Earned: user.totalPointsEarned,
+      Redeemed: user.totalPointsRedeemed,
+      Tier: user.tierLevel,
+      "Last Activity": user.lastActivity || "Never",
+    }));
 
-  const url = window.URL.createObjectURL(blob);
+    const worksheet = XLSX.utils.json_to_sheet(data);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Selected Users");
+    XLSX.writeFile(
+      workbook,
+      `loyalty-points-selected-${new Date().toISOString().split("T")[0]}.xlsx`
+    );
 
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = `loyalty-points-all-${new Date()
-    .toISOString()
-    .split("T")[0]}.xlsx`;
-
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-
-  window.URL.revokeObjectURL(url);
-
-  toast.success(`${users.length} users exported successfully`);
-};
-const handleExportSelected = () => {
-  if (!selectedUsersData.length) {
-    toast.error("No users selected");
-    return;
-  }
-
-  const data = selectedUsersData.map((user) => ({
-    User: user.fullName,
-    Email: user.email,
-    Balance: user.currentBalance,
-    "Value (£)": user.redemptionValue,
-    Earned: user.totalPointsEarned,
-    Redeemed: user.totalPointsRedeemed,
-    Tier: user.tierLevel,
-    "Last Activity":
-      user.lastEarnedAt || user.lastRedeemedAt || "Never",
-  }));
-
-  const worksheet = XLSX.utils.json_to_sheet(data);
-  const workbook = XLSX.utils.book_new();
-
-  XLSX.utils.book_append_sheet(workbook, worksheet, "Selected Users");
-
-  XLSX.writeFile(
-    workbook,
-    `loyalty-points-selected-${new Date().toISOString().split("T")[0]}.xlsx`
-  );
-
-  toast.success(`${selectedUsersData.length} selected users exported`);
-
-  setSelectedUsers(new Set());
-  setSelectAll(false);
-};
+    toast.success(`${selectedUsersData.length} selected users exported`);
+    setSelectedUsers(new Set());
+    setSelectAll(false);
+  };
 
   // ============================================================
   // RENDER: LOADING STATE
@@ -500,67 +433,44 @@ const handleExportSelected = () => {
         </div>
 
         <div className="flex items-center gap-2">
-{/* STICKY EXPORT BUTTON - Compact Top Position */}
-{selectedUsers.size > 0 && (
-  <div className="fixed top-[75px] left-1/2 -translate-x-1/2 z-[999] pointer-events-none w-full">
-
-    <div className="flex justify-center px-2">
-
-      <div className="pointer-events-auto mx-auto w-fit max-w-[95%] sm:max-w-[900px] 
-        rounded-xl border border-slate-700 bg-slate-900/95 
-        px-4 py-3 shadow-xl backdrop-blur-md transition-all duration-300">
-
-        <div className="flex flex-wrap items-center gap-3">
-
-          {/* LEFT */}
-          <div className="min-w-0">
-            <div className="flex items-center gap-2 text-sm">
-              <span className="h-2 w-2 rounded-full bg-violet-500 animate-pulse"></span>
-              <span className="font-semibold text-white">
-                {selectedUsers.size}
-              </span>
-              <span className="text-slate-300">users selected</span>
+          {/* Sticky Export Button */}
+          {selectedUsers.size > 0 && (
+            <div className="fixed top-[75px] left-1/2 -translate-x-1/2 z-[999] pointer-events-none w-full">
+              <div className="flex justify-center px-2">
+                <div className="pointer-events-auto mx-auto w-fit max-w-[95%] sm:max-w-[900px] 
+                  rounded-xl border border-slate-700 bg-slate-900/95 
+                  px-4 py-3 shadow-xl backdrop-blur-md transition-all duration-300">
+                  <div className="flex flex-wrap items-center gap-3">
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2 text-sm">
+                        <span className="h-2 w-2 rounded-full bg-violet-500 animate-pulse"></span>
+                        <span className="font-semibold text-white">{selectedUsers.size}</span>
+                        <span className="text-slate-300">users selected</span>
+                      </div>
+                      <p className="mt-1 text-xs text-slate-400">Bulk actions: export selected users.</p>
+                    </div>
+                    <div className="h-5 w-px bg-slate-700 hidden md:block" />
+                    <button
+                      onClick={handleExportSelected}
+                      className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 transition-all"
+                    >
+                      <Download className="h-4 w-4" />
+                      Export ({selectedUsers.size})
+                    </button>
+                    <button
+                      onClick={() => {
+                        setSelectedUsers(new Set());
+                        setSelectAll(false);
+                      }}
+                      className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white text-sm rounded-lg transition-all"
+                    >
+                      Clear
+                    </button>
+                  </div>
+                </div>
+              </div>
             </div>
-
-            <p className="mt-1 text-xs text-slate-400">
-              Bulk actions: export selected users.
-            </p>
-          </div>
-
-          {/* Divider */}
-          <div className="h-5 w-px bg-slate-700 hidden md:block" />
-
-          {/* EXPORT */}
-          <button
-            onClick={handleExportSelected}
-            className="inline-flex items-center gap-2 rounded-lg 
-            bg-emerald-600 px-4 py-2 text-sm font-medium text-white 
-            hover:bg-emerald-700 transition-all"
-          >
-            <Download className="h-4 w-4" />
-            Export ({selectedUsers.size})
-          </button>
-
-          {/* CLEAR */}
-          <button
-            onClick={() => {
-              setSelectedUsers(new Set());
-              setSelectAll(false);
-            }}
-            className="px-4 py-2 bg-slate-700 hover:bg-slate-600 
-            text-white text-sm rounded-lg transition-all"
-          >
-            Clear
-          </button>
-
-        </div>
-      </div>
-
-    </div>
-  </div>
-)}
-
-
+          )}
 
           {/* Export All Button */}
           <button
@@ -569,12 +479,12 @@ const handleExportSelected = () => {
             className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white rounded-xl font-semibold shadow-lg transition-all text-sm disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <Download className="h-4 w-4" />
-           Export Excel({users.length})
+            Export Excel ({users.length})
           </button>
         </div>
       </div>
 
-      {/* STATISTICS CARDS */}
+      {/* STATISTICS CARDS - Using backend stats */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
         
         <div className="bg-gradient-to-br from-violet-500/10 to-violet-600/5 border border-violet-500/20 rounded-xl p-3 hover:border-violet-500/50 transition-all cursor-pointer group">
@@ -584,7 +494,7 @@ const handleExportSelected = () => {
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-slate-400 text-xs font-medium uppercase tracking-wide">Total Users</p>
-              <p className="text-white text-xl font-bold">{stats.totalUsers.toLocaleString()}</p>
+              <p className="text-white text-xl font-bold">{stats?.totalUsers?.toLocaleString() || 0}</p>
             </div>
           </div>
         </div>
@@ -596,7 +506,7 @@ const handleExportSelected = () => {
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-slate-400 text-xs font-medium uppercase tracking-wide">Total Points</p>
-              <p className="text-white text-xl font-bold">{formatPoints(stats.totalPoints)}</p>
+              <p className="text-white text-xl font-bold">{formatPoints(stats?.totalPointsBalance || 0)}</p>
             </div>
           </div>
         </div>
@@ -608,7 +518,7 @@ const handleExportSelected = () => {
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-slate-400 text-xs font-medium uppercase tracking-wide">Total Value</p>
-              <p className="text-white text-xl font-bold">£{stats.totalRedemptionValue.toLocaleString()}</p>
+              {/* <p className="text-white text-xl font-bold">£{(stats?.totalPointsBalance / 100 || 0).toLocaleString()}</p> */}
             </div>
           </div>
         </div>
@@ -620,13 +530,13 @@ const handleExportSelected = () => {
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-slate-400 text-xs font-medium uppercase tracking-wide">Avg per User</p>
-              <p className="text-white text-xl font-bold">{formatPoints(stats.avgPoints)}</p>
+              <p className="text-white text-xl font-bold">{formatPoints(stats?.averagePointsPerUser || 0)}</p>
             </div>
           </div>
         </div>
       </div>
 
-      {/* TIER DISTRIBUTION - CLICKABLE */}
+      {/* TIER DISTRIBUTION - Using backend stats */}
       <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-xl p-3">
         <div className="flex items-center justify-between flex-wrap gap-3">
           <h3 className="text-sm font-semibold text-white flex items-center gap-2">
@@ -635,7 +545,6 @@ const handleExportSelected = () => {
           </h3>
 
           <div className="flex items-center gap-2">
-            {/* Gold Tier - Clickable */}
             <button
               onClick={() => handleTierClick('Gold')}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
@@ -645,11 +554,10 @@ const handleExportSelected = () => {
               }`}
             >
               <Crown className="h-3.5 w-3.5" />
-              <span className="font-bold">{stats.goldUsers}</span>
+              <span className="font-bold">{stats?.goldUsers || 0}</span>
               <span>Gold</span>
             </button>
 
-            {/* Silver Tier - Clickable */}
             <button
               onClick={() => handleTierClick('Silver')}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
@@ -659,11 +567,10 @@ const handleExportSelected = () => {
               }`}
             >
               <Award className="h-3.5 w-3.5" />
-              <span className="font-bold">{stats.silverUsers}</span>
+              <span className="font-bold">{stats?.silverUsers || 0}</span>
               <span>Silver</span>
             </button>
 
-            {/* Bronze Tier - Clickable */}
             <button
               onClick={() => handleTierClick('Bronze')}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
@@ -673,7 +580,7 @@ const handleExportSelected = () => {
               }`}
             >
               <Award className="h-3.5 w-3.5" />
-              <span className="font-bold">{stats.bronzeUsers}</span>
+              <span className="font-bold">{stats?.bronzeUsers || 0}</span>
               <span>Bronze</span>
             </button>
           </div>
@@ -689,7 +596,7 @@ const handleExportSelected = () => {
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-500" />
             <input
               type="text"
-              placeholder="Search..."
+              placeholder="Search by name or email..."
               value={searchTerm}
               onChange={(e) => {
                 setSearchTerm(e.target.value);
@@ -790,10 +697,8 @@ const handleExportSelected = () => {
       <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-xl overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full">
-            
             <thead>
               <tr className="border-b border-slate-800 bg-slate-800/50">
-                
                 {/* Checkbox Column */}
                 <th className="text-left py-2.5 px-3 w-12">
                   <button
@@ -820,28 +725,28 @@ const handleExportSelected = () => {
 
                 <th className="text-left py-2.5 px-3 text-xs font-semibold text-slate-400 uppercase tracking-wide">
                   <button
-                    onClick={() => handleSort('balance')}
+                    onClick={() => handleSort('currentBalance')}
                     className="flex items-center gap-1 hover:text-white transition-colors"
                   >
-                    Balance {getSortIcon('balance')}
+                    Balance {getSortIcon('currentBalance')}
                   </button>
                 </th>
 
                 <th className="text-left py-2.5 px-3 text-xs font-semibold text-slate-400 uppercase tracking-wide">
                   <button
-                    onClick={() => handleSort('earned')}
+                    onClick={() => handleSort('totalPointsEarned')}
                     className="flex items-center gap-1 hover:text-white transition-colors"
                   >
-                    Earned {getSortIcon('earned')}
+                    Earned {getSortIcon('totalPointsEarned')}
                   </button>
                 </th>
 
                 <th className="text-left py-2.5 px-3 text-xs font-semibold text-slate-400 uppercase tracking-wide">
                   <button
-                    onClick={() => handleSort('redeemed')}
+                    onClick={() => handleSort('totalPointsRedeemed')}
                     className="flex items-center gap-1 hover:text-white transition-colors"
                   >
-                    Redeemed {getSortIcon('redeemed')}
+                    Redeemed {getSortIcon('totalPointsRedeemed')}
                   </button>
                 </th>
 
@@ -867,12 +772,12 @@ const handleExportSelected = () => {
             <tbody>
               {users.map((user, idx) => {
                 const tierColors = getTierColor(user.tierLevel);
-                const lastActivity = user.lastEarnedAt || user.lastRedeemedAt;
-                const isSelected = selectedUsers.has(user.id);
+                const lastActivity = user.lastActivity;
+                const isSelected = selectedUsers.has(user.userId);
 
                 return (
                   <tr
-                    key={user.id}
+                    key={user.userId}
                     className={`border-b border-slate-800/50 hover:bg-slate-800/40 transition-all ${
                       idx % 2 === 0 ? 'bg-slate-900/20' : ''
                     } ${isSelected ? 'bg-violet-500/10' : ''}`}
@@ -880,7 +785,7 @@ const handleExportSelected = () => {
                     {/* Checkbox */}
                     <td className="py-2.5 px-3">
                       <button
-                        onClick={() => handleSelectUser(user.id)}
+                        onClick={() => handleSelectUser(user.userId)}
                         className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-all ${
                           isSelected
                             ? 'bg-violet-500 border-violet-500'
@@ -1043,8 +948,7 @@ const handleExportSelected = () => {
         </div>
       )}
 
-      {/* MODALS - Same as before, no changes needed */}
-      {/* Balance Modal */}
+      {/* BALANCE MODAL */}
       {viewModalOpen && selectedUser && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-gradient-to-br from-slate-900 via-slate-900 to-slate-800 border border-violet-500/20 rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col shadow-2xl">
@@ -1188,7 +1092,7 @@ const handleExportSelected = () => {
         </div>
       )}
 
-      {/* History Modal */}
+      {/* HISTORY MODAL */}
       {historyModalOpen && selectedUser && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-gradient-to-br from-slate-900 via-slate-900 to-slate-800 border border-cyan-500/20 rounded-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col shadow-2xl">
@@ -1227,7 +1131,6 @@ const handleExportSelected = () => {
                 <>
                   {userHistory.map((transaction) => {
                     const typeInfo = getTransactionTypeInfo(transaction.transactionType);
-                    const expiryInfo = formatExpiryDate(transaction.expiresAt);
                     const isPositive = transaction.points > 0;
 
                     return (
@@ -1255,20 +1158,22 @@ const handleExportSelected = () => {
                     );
                   })}
 
-                  <button
-                    onClick={loadMoreHistory}
-                    disabled={loadingModal}
-                    className="w-full py-2.5 bg-slate-800 hover:bg-slate-700 text-white rounded-xl font-semibold transition-all disabled:opacity-50 text-sm flex items-center justify-center gap-2"
-                  >
-                    {loadingModal ? (
-                      <>
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                        Loading...
-                      </>
-                    ) : (
-                      'Load More'
-                    )}
-                  </button>
+                  {hasMoreHistory && (
+                    <button
+                      onClick={loadMoreHistory}
+                      disabled={loadingModal}
+                      className="w-full py-2.5 bg-slate-800 hover:bg-slate-700 text-white rounded-xl font-semibold transition-all disabled:opacity-50 text-sm flex items-center justify-center gap-2"
+                    >
+                      {loadingModal ? (
+                        <>
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          Loading...
+                        </>
+                      ) : (
+                        'Load More'
+                      )}
+                    </button>
+                  )}
                 </>
               ) : (
                 <div className="text-center py-12">

@@ -61,6 +61,7 @@ export interface CustomerQueryParams {
   isActive?: boolean;
   sortBy?: string;
   sortDirection?: 'asc' | 'desc';
+  tierLevel?: string; // ✅ ADD THIS
 }
 
 // ✅ Add Response Interface
@@ -72,9 +73,19 @@ interface ApiResponse<T> {
   };
 }
 
+export interface CustomerStats {
+  totalCustomers: number;
+  activeCustomers: number;
+  inactiveCustomers: number;
+  newCustomersLast30Days: number;
+  totalRevenue: number;
+  totalOrders: number;
+  averageOrderValue: number;
+}
+
 interface PaginatedResponse {
-  page: any;
   items: Customer[];
+  stats: CustomerStats; // ✅ ADD THIS
   totalCount: number;
   pageSize: number;
   currentPage: number;

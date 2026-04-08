@@ -46,6 +46,7 @@ import {
   Eye,
   Smartphone,
   Wallet,
+  EyeOff,
 } from 'lucide-react';
 import {
   orderService,
@@ -554,7 +555,7 @@ const getAllAvailableActions = (
   // 💰 FINANCIAL
   // ===========================
   actions.push({
-    label: 'Regenerate Invoice',
+    label: 'Resend Invoice',
     action: 'regenerate-invoice',
     icon: <Receipt className="h-3.5 w-3.5" />,
     color: 'bg-indigo-600 hover:bg-indigo-700',
@@ -573,15 +574,15 @@ if (order.paymentStatus === 'Pending') {
 }
 
 // 🔥 PARTIAL PAYMENT (Pending amount exists)
-if (order.pendingPaymentAmount > 0) {
-  actions.push({
-    label: 'Pay Pending Amount',
-    action: 'mark-pending-paid',
-    icon: <PoundSterling className="h-3.5 w-3.5" />,
-    color: 'bg-yellow-600 hover:bg-yellow-700',
-    category: 'financial',
-  });
-}
+// if (order.pendingPaymentAmount > 0) {
+//   actions.push({
+//     label: 'Pay Pending Amount',
+//     action: 'mark-pending-paid',
+//     icon: <PoundSterling className="h-3.5 w-3.5" />,
+//     color: 'bg-yellow-600 hover:bg-yellow-700',
+//     category: 'financial',
+//   });
+// }
 
   actions.push({
     label: 'Download Invoice',
@@ -646,14 +647,14 @@ const RegenerateInvoiceModal = ({
   loading: boolean;
   orderNumber: string;
 }) => {
-  const [sendToCustomer, setSendToCustomer] = useState(false);
+  const [sendToCustomer, setSendToCustomer] = useState(true);
   const [notes, setNotes] = useState('');
 
 
   // ✅ ADD: Reset function
   const handleClose = () => {
     // Reset form to default values
-    setSendToCustomer(false);
+    setSendToCustomer(true);
     setNotes('');
     // Then call parent onClose
     onClose();
@@ -675,7 +676,7 @@ const RegenerateInvoiceModal = ({
             <Receipt className="h-6 w-6 text-indigo-400" />
           </div>
           <div>
-            <h3 className="text-xl font-bold text-white">Regenerate Invoice</h3>
+            <h3 className="text-xl font-bold text-white">Resend Invoice</h3>
             <p className="text-sm text-slate-400">Order #{orderNumber}</p>
           </div>
         </div>
@@ -731,12 +732,12 @@ const RegenerateInvoiceModal = ({
             {loading ? (
               <>
                 <Loader2 className="h-4 w-4 animate-spin" />
-                Generating...
+                Resending...
               </>
             ) : (
               <>
                 <Receipt className="h-4 w-4" />
-                Regenerate
+                Resend
               </>
             )}
           </button>
@@ -1605,44 +1606,55 @@ const allActions = getAllAvailableActions(
               </span>
             </div>
        
-<div className="flex justify-between items-center" title="Shipping charge">
-  <span className="text-slate-400">
-    Shipping{order.shippingMethodName ? ` (${order.shippingMethodName})` : ''}
-  </span>
+{order.deliveryMethod !== 'ClickAndCollect' && (
+  <div className="flex justify-between items-center" title="Shipping charge">
+    <span className="text-slate-400">
+      Shipping{order.shippingMethodName ? ` (${order.shippingMethodName})` : ''}
+    </span>
 
-  <div className="flex items-center gap-2">
+    <div className="flex items-center gap-2">
 
-    {/* 🚫 ZERO SHIPPING FIX */}
-    {(!order.shippingAmount || order.shippingAmount === 0) ? (
-      <span className="text-slate-500 text-xs">Free</span>
+      {(!order.shippingAmount || order.shippingAmount === 0) ? (
+        <span className="text-slate-500 text-xs">Free</span>
 
-    ) : order.isShippingRefunded ? (
-      <>
-        <span className="text-slate-500 line-through">
+      ) : order.isShippingRefunded ? (
+        <>
+          <span className="text-slate-500 line-through">
+            {formatCurrency(order.shippingAmount, order.currency)}
+          </span>
+
+          <span className="text-green-400 text-xs px-2 py-0.5 bg-green-500/10 border border-green-500/20 rounded-md">
+            Refunded
+          </span>
+        </>
+      ) : (
+        <span className="text-white font-medium">
           {formatCurrency(order.shippingAmount, order.currency)}
         </span>
+      )}
 
-        <span className="text-green-400 text-xs px-2 py-0.5 bg-green-500/10 border border-green-500/20 rounded-md">
-          Refunded
-        </span>
-      </>
-
-    ) : (
-      <span className="text-white font-medium">
-        {formatCurrency(order.shippingAmount, order.currency)}
-      </span>
-    )}
-
+    </div>
   </div>
-</div>
-            {order.clickAndCollectFee && order.clickAndCollectFee > 0 && (
-              <div className="flex justify-between" title="Click & Collect service fee">
-                <span className="text-slate-400">Click & Collect Fee</span>
-                <span className="text-white font-medium">
-                  {formatCurrency(order.clickAndCollectFee, order.currency)}
-                </span>
-              </div>
-            )}
+)}
+{order.deliveryMethod === 'ClickAndCollect' && (
+  <div className="flex justify-between items-center" title="Click & Collect service fee">
+    <span className="text-slate-400">
+      Click & Collect Fee {order.collectionStoreName ? `(${order.collectionStoreName})` : ''}
+    </span>
+
+    <span
+      className={`font-medium ${
+        (order.clickAndCollectFee ?? 0) === 0
+          ? 'text-slate-500 text-xs'
+          : 'text-white'
+      }`}
+    >
+      {(order.clickAndCollectFee ?? 0) === 0
+        ? 'Free'
+        : formatCurrency(order.clickAndCollectFee ?? 0, order.currency)}
+    </span>
+  </div>
+)}
             {order.discountAmount > 0 && (
               <div className="flex justify-between" title="Promotional discount applied">
                 <span className="text-slate-400">Discount</span>
@@ -1868,21 +1880,27 @@ const allActions = getAllAvailableActions(
                 <Hash className="h-3 w-3" />
                 ID Number
               </p>
-             <div className="flex items-center gap-2">
+<div className="flex items-center gap-2">
   <p className="text-white font-medium">
     {order.collectorIDNumber
       ? showId
         ? order.collectorIDNumber
         : `****${order.collectorIDNumber.slice(-4)}`
-      : 'Not recorded'}
+      : "Not recorded"}
   </p>
 
   {order.collectorIDNumber && (
     <button
+      type="button"
       onClick={() => setShowId(!showId)}
-      className="text-xs px-2 py-0.5 bg-slate-700 hover:bg-slate-600 rounded text-slate-300"
+      className="p-1 rounded hover:bg-slate-700 transition"
+      title={showId ? "Hide ID" : "Show ID"}
     >
-      {showId ? 'Hide' : 'View'}
+      {showId ? (
+        <EyeOff className="w-4 h-4 text-slate-400" />
+      ) : (
+        <Eye className="w-4 h-4 text-slate-400" />
+      )}
     </button>
   )}
 </div>

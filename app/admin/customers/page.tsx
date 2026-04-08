@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import {
   Mail,
   Phone,
@@ -45,16 +45,16 @@ import {
   PoundSterling,
   CheckCircle,
   Ban,
+  Loader2,
 } from "lucide-react";
 import * as XLSX from "xlsx";
-
 import { useToast } from "@/app/admin/_components/CustomToast";
-import { Customer, CustomerQueryParams, customersService } from "@/lib/services/customers";
-import { loyaltyPointsService } from "@/lib/services/loyaltyPoints";
+import { Customer, CustomerQueryParams, customersService, CustomerStats } from "@/lib/services/customers";
 import { orderService } from "@/lib/services/orders";
 import ConfirmDialog from "../_components/ConfirmDialog";
 import { useDebounce } from "../_hooks/useDebounce";
 import { formatDate } from "../_utils/formatUtils";
+
 
 // ✅ Types
 type CustomerTier = "all" | "gold" | "silver" | "bronze";
@@ -75,6 +75,7 @@ export default function CustomersPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
+const [stats, setStats] = useState<CustomerStats | null>(null);
   const [totalCount, setTotalCount] = useState(0);
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -86,17 +87,11 @@ const [showAnalytics, setShowAnalytics] = useState(false); // Default: collapsed
 const [isOrderModalOpen, setIsOrderModalOpen] = useState(false);
 const [selectedOrderCustomer, setSelectedOrderCustomer] = useState<Customer | null>(null);
   // ✅ Bulk Selection
-const [loyaltyMap, setLoyaltyMap] = useState<Record<string, string>>({});
   const [selectedCustomers, setSelectedCustomers] = useState<string[]>([]);
 const [customerViewMode, setCustomerViewMode] = useState<"all" | "active" | "inactive">("all");
 const [selectedOrderDetails, setSelectedOrderDetails] = useState<any>(null);
-const [orderLoading, setOrderLoading] = useState(false);
-const [orderFilters, setOrderFilters] = useState({
-  deliveryMethod: "all",
-  status: "all",
-  paymentStatus: "all",
-});
 
+const [filterLoading, setFilterLoading] = useState(false);
 const handleToggleStatus = async (customer: Customer) => {
   try {
     setIsToggling(true);
@@ -132,32 +127,7 @@ const handleToggleStatus = async (customer: Customer) => {
   accountType: "all",
   deliveryMethod: "all",
 });
-useEffect(() => {
-const fetchLoyalty = async () => {
-  const promises = allCustomers.map(c =>
-    loyaltyPointsService.getUserBalance(c.id)
-      .then(res => ({
-        id: c.id,
-        tier: res.data?.data?.tierLevel?.toLowerCase()
-      }))
-      .catch(() => null)
-  );
 
-  const results = await Promise.all(promises);
-
-  const map: Record<string, string> = {};
-  results.forEach(r => {
-    if (r?.tier) map[r.id] = r.tier;
-  });
-// ✅ ADD THIS LINE
-setLoyaltyMap(map);
-  
-};
-
-  if (allCustomers.length > 0) {
-    fetchLoyalty();
-  }
-}, [allCustomers]);
   // ✅ Sorting
   const [sortField, setSortField] = useState<SortField>("joinDate");
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
@@ -167,22 +137,10 @@ setLoyaltyMap(map);
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
   const exportMenuRef = useRef<HTMLDivElement>(null);
   const advancedFiltersRef = useRef<HTMLDivElement>(null);
+  
 
   const debouncedSearchTerm = useDebounce(searchTerm, 500);
-const handleFetchOrderDetails = async (orderId: string) => {
-  try {
-    setOrderLoading(true);
-    const res = await orderService.getOrderById(orderId);
 
-    if (res?.success) {
-      setSelectedOrderDetails(res.data);
-    }
-  } catch (err: any) {
-    toast.error(err.message);
-  } finally {
-    setOrderLoading(false);
-  }
-};
   // ✅ Close dropdowns on outside click
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -205,124 +163,168 @@ const getFilteredOrdersForModal = () => {
     order.deliveryMethod.toLowerCase() === filters.deliveryMethod.toLowerCase()
   );
 };
-const getTier = (customer: Customer): CustomerTier | "loading" => {
-  return (loyaltyMap[customer.id] as CustomerTier) || "loading";
+const getTier = (customer: Customer): CustomerTier => {
+  return (customer.tierLevel?.toLowerCase() as CustomerTier) || "bronze";
 };
+
+  const debouncedFilters = useDebounce(filters, 500);
   // ✅ Fetch Customers
-  const fetchCustomers = useCallback(async () => {
-    try {
-      setLoading(true);
+const fetchCustomers = useCallback(async () => {
+  try {
+    setLoading(true);
+    setFilterLoading(true);
 
-      const params: CustomerQueryParams = {
-        page: 1,
-        pageSize: 10000, // Get all for client-side filtering
-        sortDirection: "desc",
-      };
+    const params: CustomerQueryParams = {
+      page: currentPage,
+      pageSize,
+      sortDirection,
+    };
 
-      if (debouncedSearchTerm) {
-        params.searchTerm = debouncedSearchTerm;
-      }
-
-      const response = await customersService.getAll(params);
-
-      if (response?.data?.success) {
-        const fetchedCustomers = response.data.data.items || [];
-        setAllCustomers(fetchedCustomers);
-        
-
-        // Apply filters and sorting
-        let filteredCustomers = applyFilters(fetchedCustomers);
-        filteredCustomers = applySorting(filteredCustomers);
-
-        setTotalCount(filteredCustomers.length);
-        
-        // Pagination
-        const startIndex = (currentPage - 1) * pageSize;
-        const paginatedCustomers = filteredCustomers.slice(startIndex, startIndex + pageSize);
-        setCustomers(paginatedCustomers);
-      }
-    } catch (error: any) {
-      console.error("Error fetching customers:", error);
-      toast.error(error?.response?.data?.message || "Failed to fetch customers");
-    } finally {
-      setLoading(false);
+    if (debouncedSearchTerm) {
+      params.searchTerm = debouncedSearchTerm;
     }
-  }, [currentPage, pageSize, debouncedSearchTerm, filters, sortField, sortDirection]);
 
-  useEffect(() => {
-    fetchCustomers();
-  }, [fetchCustomers]);
+    if (debouncedFilters.status !== "all") {
+      params.isActive = debouncedFilters.status === "active";
+    }
+
+    if (debouncedFilters.tier !== "all") {
+      params.tierLevel = debouncedFilters.tier.toUpperCase();
+    }
+
+    const response = await customersService.getAll(params);
+
+    if (response?.data?.success) {
+      const resData = response.data.data;
+
+      setAllCustomers(resData.items || []);
+      setStats(resData.stats);
+setAllCustomers(resData.items || []);
+setTotalCount(resData.items.length);
+
+   setAllCustomers(resData.items || []);
+setTotalCount(resData.items.length);
+
+    }
+  } catch (error: any) {
+    console.error("Error fetching customers:", error);
+    toast.error(error?.response?.data?.message || "Failed to fetch customers");
+  } finally {
+    setLoading(false);
+    setFilterLoading(false);
+  }
+}, [currentPage, pageSize, debouncedSearchTerm, debouncedFilters, sortField, sortDirection]);
+useEffect(() => {
+  fetchCustomers();
+}, [debouncedSearchTerm, currentPage, pageSize]);
+
+useEffect(() => {
+  if (searchTerm) {
+    setFilterLoading(true);
+  }
+}, [searchTerm]);
+
+useEffect(() => {
+  setFilterLoading(false);
+}, [debouncedSearchTerm]);
 
   // ✅ Apply Advanced Filters
-  const applyFilters = (customersList: Customer[]) => {
-    let filtered = [...customersList];
+const applyFilters = (customersList: Customer[]) => {
+  let filtered = [...customersList];
 
-    // Status Filter
-    if (filters.status !== "all") {
-      const isActive = filters.status === "active";
-      filtered = filtered.filter((c) => c.isActive === isActive);
-    }
+  // ✅ STATUS
+  if (debouncedFilters.status !== "all") {
+    const isActive = debouncedFilters.status === "active";
+    filtered = filtered.filter((c) => c.isActive === isActive);
+  }
 
-    // Segment Filter
-  if (filters.tier !== "all") {
- filtered = filtered.filter((c) => {
-  const tier = getTier(c);
-  return tier !== "loading" && tier === filters.tier;
-});
-}
-if (filters.accountType !== "all") {
-  filtered = filtered.filter(
-    (c) => c.accountType === filters.accountType
-  );
-}
+  // ✅ TIER
+  if (debouncedFilters.tier !== "all") {
+    filtered = filtered.filter(
+      (c) => c.tierLevel?.toLowerCase() === debouncedFilters.tier
+    );
+  }
 
-    // Spending Range
-    if (filters.minSpent) {
-      filtered = filtered.filter((c) => c.totalSpent >= parseFloat(filters.minSpent));
-    }
-    if (filters.maxSpent) {
-      filtered = filtered.filter((c) => c.totalSpent <= parseFloat(filters.maxSpent));
-    }
+  // ✅ ACCOUNT TYPE
+  if (debouncedFilters.accountType !== "all") {
+    filtered = filtered.filter(
+      (c) => c.accountType === debouncedFilters.accountType
+    );
+  }
 
-    // Order Count Range
-    if (filters.minOrders) {
-      filtered = filtered.filter((c) => c.totalOrders >= parseInt(filters.minOrders));
-    }
-    if (filters.maxOrders) {
-      filtered = filtered.filter((c) => c.totalOrders <= parseInt(filters.maxOrders));
-    }
+  // ✅ SPENT
+  if (debouncedFilters.minSpent) {
+    filtered = filtered.filter(
+      (c) => c.totalSpent >= parseFloat(debouncedFilters.minSpent)
+    );
+  }
 
-    // Registration Date
-    if (filters.registrationFrom) {
-      filtered = filtered.filter((c) => new Date(c.createdAt) >= new Date(filters.registrationFrom));
-    }
-    if (filters.registrationTo) {
-      filtered = filtered.filter((c) => new Date(c.createdAt) <= new Date(filters.registrationTo));
-    }
+  if (debouncedFilters.maxSpent) {
+    filtered = filtered.filter(
+      (c) => c.totalSpent <= parseFloat(debouncedFilters.maxSpent)
+    );
+  }
 
-    // Last Login Date
-    if (filters.lastLoginFrom && filters.lastLoginTo) {
-      filtered = filtered.filter((c) => {
-        if (!c.lastLoginAt) return false;
-        const loginDate = new Date(c.lastLoginAt);
-        return loginDate >= new Date(filters.lastLoginFrom) && loginDate <= new Date(filters.lastLoginTo);
-      });
-    }
+  // ✅ ORDERS
+  if (debouncedFilters.minOrders) {
+    filtered = filtered.filter(
+      (c) => c.totalOrders >= parseInt(debouncedFilters.minOrders)
+    );
+  }
 
-    // Gender Filter
-    if (filters.gender !== "all") {
-      filtered = filtered.filter((c) => c.gender?.toLowerCase() === filters.gender.toLowerCase());
-    }
+  if (debouncedFilters.maxOrders) {
+    filtered = filtered.filter(
+      (c) => c.totalOrders <= parseInt(debouncedFilters.maxOrders)
+    );
+  }
 
-    // Delivery Method Filter
-    if (filters.deliveryMethod !== "all") {
-      filtered = filtered.filter((c) =>
-        c.orders.some((o) => o.deliveryMethod.toLowerCase() === filters.deliveryMethod.toLowerCase())
+  // ✅ REGISTRATION DATE
+  if (debouncedFilters.registrationFrom) {
+    filtered = filtered.filter(
+      (c) => new Date(c.createdAt) >= new Date(debouncedFilters.registrationFrom)
+    );
+  }
+
+  if (debouncedFilters.registrationTo) {
+    filtered = filtered.filter(
+      (c) => new Date(c.createdAt) <= new Date(debouncedFilters.registrationTo)
+    );
+  }
+
+  // ✅ LAST LOGIN
+  if (debouncedFilters.lastLoginFrom && debouncedFilters.lastLoginTo) {
+    filtered = filtered.filter((c) => {
+      if (!c.lastLoginAt) return false;
+      const loginDate = new Date(c.lastLoginAt);
+      return (
+        loginDate >= new Date(debouncedFilters.lastLoginFrom) &&
+        loginDate <= new Date(debouncedFilters.lastLoginTo)
       );
-    }
+    });
+  }
 
-    return filtered;
-  };
+  // ✅ GENDER
+  if (debouncedFilters.gender !== "all") {
+    filtered = filtered.filter(
+      (c) => c.gender?.toLowerCase() === debouncedFilters.gender.toLowerCase()
+    );
+  }
+
+  // ✅ DELIVERY
+  if (debouncedFilters.deliveryMethod !== "all") {
+    filtered = filtered.filter((c) =>
+      c.orders.some(
+        (o) =>
+          o.deliveryMethod.toLowerCase() ===
+          debouncedFilters.deliveryMethod.toLowerCase()
+      )
+    );
+  }
+
+  return filtered;
+}; 
+
+
 
   // ✅ Apply Sorting
   const applySorting = (customersList: Customer[]) => {
@@ -357,6 +359,19 @@ if (filters.accountType !== "all") {
     return sorted;
   };
 
+
+  const processedCustomers = useMemo(() => {
+  let data = applyFilters(allCustomers);
+  data = applySorting(data);
+  return data;
+}, [allCustomers, debouncedFilters, sortField, sortDirection]);
+const paginatedCustomers = useMemo(() => {
+  const start = (currentPage - 1) * pageSize;
+  return processedCustomers.slice(start, start + pageSize);
+}, [processedCustomers, currentPage, pageSize]);
+useEffect(() => {
+  setCustomers(paginatedCustomers);
+}, [paginatedCustomers]);
   // ✅ Handle Sort Click
   const handleSort = (field: SortField) => {
     if (sortField === field) {
@@ -381,44 +396,9 @@ if (filters.accountType !== "all") {
   };
 
   // ✅ Calculate Advanced Stats
-const calculateStats = () => {
-  const total = allCustomers.length;
-  const active = allCustomers.filter((c) => c.isActive).length;
 
-  const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
-  const newThisMonth = allCustomers.filter((c) => new Date(c.createdAt) >= monthStart).length;
 
-  const avgLifetimeValue =
-    total > 0
-      ? (allCustomers.reduce((sum, c) => sum + c.totalSpent, 0) / total).toFixed(2)
-      : "0.00";
-
-const gold = allCustomers.filter((c) => loyaltyMap[c.id] === "gold").length;
-const silver = allCustomers.filter((c) => loyaltyMap[c.id] === "silver").length;
-const bronze = allCustomers.filter((c) => loyaltyMap[c.id] === "bronze").length;
-  const totalRevenue = allCustomers.reduce((sum, c) => sum + c.totalSpent, 0);
-  const totalOrders = allCustomers.reduce((sum, c) => sum + c.totalOrders, 0);
-
-  const avgOrderValue =
-    totalOrders > 0 ? (totalRevenue / totalOrders).toFixed(2) : "0.00";
-
-  const repeatCustomers = allCustomers.filter((c) => c.totalOrders > 1).length;
-  const repeatRate = total > 0 ? ((repeatCustomers / total) * 100).toFixed(1) : "0.0";
-
-  return {
-    total,
-    active,
-    newThisMonth,
-    avgLifetimeValue,
-    tiers: { gold, silver, bronze },
-    totalRevenue,
-    avgOrderValue,
-    repeatRate,
-  };
-};
-
-  const stats = calculateStats();
-
+ 
   // ✅ Bulk Selection
   const toggleSelectAll = () => {
     if (selectedCustomers.length === customers.length) {
@@ -435,68 +415,75 @@ const bronze = allCustomers.filter((c) => loyaltyMap[c.id] === "bronze").length;
   };
 
   // ✅ Export Functions
- const generateExcel = (customersToExport: Customer[]) => {
+const generateExcel = (customersToExport: Customer[]) => {
+  if (!customersToExport?.length) return;
+
   const excelData = customersToExport.map((customer) => {
-    const tier = loyaltyMap[customer.id] || "bronze";
+    const tier = customer.tierLevel || "Bronze";
+
+    const totalOrders = customer.totalOrders ?? 0;
+    const totalSpent = customer.totalSpent ?? 0;
 
     const avgOrderValue =
-      customer.totalOrders > 0
-        ? (customer.totalSpent / customer.totalOrders).toFixed(2)
+      totalOrders > 0
+        ? (totalSpent / totalOrders).toFixed(2)
         : "0.00";
 
-    const daysSinceLastOrder =
-      customer.orders.length > 0
-        ? Math.floor(
-            (new Date().getTime() -
-              new Date(customer.orders[0].orderDate).getTime()) /
-              (1000 * 60 * 60 * 24)
-          )
-        : "N/A";
+    const lastOrderDate = customer.orders?.[0]?.orderDate;
 
-  return {
-  "Customer Name": customer.fullName,
-  Email: customer.email,
-  Phone: customer.phoneNumber || "N/A",
-  Gender: customer.gender || "N/A",
+    const daysSinceLastOrder = lastOrderDate
+      ? Math.floor(
+          (Date.now() - new Date(lastOrderDate).getTime()) /
+            (1000 * 60 * 60 * 24)
+        )
+      : "N/A";
 
-  // ✅ ADD THESE
-  "Account Type": customer.accountType || "Personal",
-  "Company Name": customer.companyName || "N/A",
-  "Company Number": customer.companyNumber || "N/A",
+    return {
+      "Customer Name": customer.fullName || "N/A",
+      Email: customer.email || "N/A",
+      Phone: customer.phoneNumber || "N/A",
+      Gender: customer.gender || "N/A",
 
-  "Total Orders": customer.totalOrders,
-  "Total Spent (£)": customer.totalSpent.toFixed(2),
-  "Avg Order Value (£)": avgOrderValue,
-  Status: customer.isActive ? "Active" : "Inactive",
-  Tier: tier.toUpperCase(),
+      "Account Type": customer.accountType || "Personal",
 
-  "Registration Date": formatDate(customer.createdAt),
-  "Last Login": customer.lastLoginAt
-    ? formatDate(customer.lastLoginAt)
-    : "Never",
+      "Total Orders": totalOrders,
+      "Total Spent (£)": totalSpent.toFixed(2),
+      "Avg Order Value (£)": avgOrderValue,
 
-  "Days Since Last Order": daysSinceLastOrder,
-};
+      Status: customer.isActive ? "Active" : "Inactive",
+      Tier: tier.toUpperCase(),
+
+      "Registration Date": customer.createdAt
+        ? formatDate(customer.createdAt)
+        : "N/A",
+
+      "Last Login": customer.lastLoginAt
+        ? formatDate(customer.lastLoginAt)
+        : "Never",
+
+      "Days Since Last Order": daysSinceLastOrder,
+    };
   });
 
   const worksheet = XLSX.utils.json_to_sheet(excelData);
 
-  const columnWidths = Object.keys(excelData[0]).map((key) => ({
+  const keys = Object.keys(excelData[0] || {});
+  worksheet["!cols"] = keys.map((key) => ({
     wch: Math.max(
       key.length,
-      ...excelData.map((row: any) => String(row[key]).length)
+      ...excelData.map((row: any) =>
+        String(row[key] ?? "").length
+      )
     ),
   }));
 
-  worksheet["!cols"] = columnWidths;
-
   const workbook = XLSX.utils.book_new();
-
   XLSX.utils.book_append_sheet(workbook, worksheet, "Customers");
 
-  const fileName = `customers_${new Date().toISOString().split("T")[0]}.xlsx`;
-
-  XLSX.writeFile(workbook, fileName);
+  XLSX.writeFile(
+    workbook,
+    `customers_${new Date().toISOString().split("T")[0]}.xlsx`
+  );
 };
   const handleExportSelected = () => {
     if (selectedCustomers.length === 0) {
@@ -826,6 +813,7 @@ const modalTier = selectedCustomer ? getTier(selectedCustomer) : "loading";
   </div>
 </div>
 
+
 {/* ✅ ALWAYS VISIBLE: Top 4 Stats Cards */}
 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
 
@@ -838,7 +826,7 @@ const modalTier = selectedCustomer ? getTier(selectedCustomer) : "loading";
       <div className="flex-1 min-w-0">
         <p className="text-[11px] text-slate-500 font-medium">Total Revenue</p>
         <p className="text-lg font-semibold text-white truncate">
-          {formatCurrency(stats.totalRevenue)}
+          {formatCurrency(stats?.totalRevenue || 0)}
         </p>
       </div>
     </div>
@@ -853,7 +841,7 @@ const modalTier = selectedCustomer ? getTier(selectedCustomer) : "loading";
       <div className="flex-1 min-w-0">
         <p className="text-[11px] text-slate-500 font-medium">Avg. Order Value</p>
         <p className="text-lg font-semibold text-white">
-          £{stats.avgOrderValue}
+          £{stats?.averageOrderValue?.toFixed(2) || "0.00"}
         </p>
       </div>
     </div>
@@ -906,28 +894,20 @@ const modalTier = selectedCustomer ? getTier(selectedCustomer) : "loading";
 
         <p className="text-lg font-semibold text-white">
           {customerViewMode === "all"
-            ? stats.total
+            ? stats?.totalCustomers || 0
             : customerViewMode === "active"
-            ? stats.active
-            : stats.total - stats.active}
+            ? stats?.activeCustomers || 0
+            : stats?.inactiveCustomers || 0}
         </p>
       </div>
     </div>
   </button>
 
-  {/* 4. New This Month */}
+  {/* 4. New Customers (Last 30 Days) */}
   <button
     onClick={() => {
       const now = new Date();
-      const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-      const monthEnd = new Date(
-        now.getFullYear(),
-        now.getMonth() + 1,
-        0,
-        23,
-        59,
-        59
-      );
+      const from = new Date(now.setDate(now.getDate() - 30));
 
       const formatDateForInput = (date: Date) => {
         const y = date.getFullYear();
@@ -938,8 +918,8 @@ const modalTier = selectedCustomer ? getTier(selectedCustomer) : "loading";
 
       setFilters({
         ...filters,
-        registrationFrom: formatDateForInput(monthStart),
-        registrationTo: formatDateForInput(monthEnd),
+        registrationFrom: formatDateForInput(from),
+        registrationTo: formatDateForInput(new Date()),
       });
 
       setCurrentPage(1);
@@ -953,90 +933,17 @@ const modalTier = selectedCustomer ? getTier(selectedCustomer) : "loading";
 
       <div className="flex-1 min-w-0">
         <p className="text-[11px] text-slate-500 font-medium">
-          New Customers
+          New Customers (30d)
         </p>
         <p className="text-lg font-semibold text-white">
-          {stats.newThisMonth}
+          {stats?.newCustomersLast30Days || 0}
         </p>
       </div>
     </div>
   </button>
 </div>
 
-{showAnalytics && (
-  <div className="bg-slate-900/40 border border-slate-800 rounded-lg p-2.5">
-    
-    <div className="grid grid-cols-3 gap-2">
 
-      {/* GOLD */}
-      <button
-        onClick={() => {
-          setFilters({ ...filters, tier: "gold" });
-          setCurrentPage(1);
-        }}
-        className="bg-slate-900/40 border border-slate-800 rounded-lg p-2 hover:border-yellow-500/40 transition-all text-left"
-      >
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-md bg-yellow-500/10 flex items-center justify-center">
-            <Crown className="h-4 w-4 text-yellow-400" />
-          </div>
-
-          <div className="flex-1">
-            <p className="text-[11px] text-slate-500 font-medium">Gold</p>
-            <p className="text-lg font-semibold text-white">
-              {stats.tiers.gold}
-            </p>
-          </div>
-        </div>
-      </button>
-
-      {/* SILVER */}
-      <button
-        onClick={() => {
-          setFilters({ ...filters, tier: "silver" });
-          setCurrentPage(1);
-        }}
-        className="bg-slate-900/40 border border-slate-800 rounded-lg p-2 hover:border-slate-500/40 transition-all text-left"
-      >
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-md bg-slate-500/10 flex items-center justify-center">
-            <Award className="h-4 w-4 text-slate-300" />
-          </div>
-
-          <div className="flex-1">
-            <p className="text-[11px] text-slate-500 font-medium">Silver</p>
-            <p className="text-lg font-semibold text-white">
-              {stats.tiers.silver}
-            </p>
-          </div>
-        </div>
-      </button>
-
-      {/* BRONZE */}
-      <button
-        onClick={() => {
-          setFilters({ ...filters, tier: "bronze" });
-          setCurrentPage(1);
-        }}
-        className="bg-slate-900/40 border border-slate-800 rounded-lg p-2 hover:border-orange-500/40 transition-all text-left"
-      >
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-md bg-orange-500/10 flex items-center justify-center">
-            <Target className="h-4 w-4 text-orange-400" />
-          </div>
-
-          <div className="flex-1">
-            <p className="text-[11px] text-slate-500 font-medium">Bronze</p>
-            <p className="text-lg font-semibold text-white">
-              {stats.tiers.bronze}
-            </p>
-          </div>
-        </div>
-      </button>
-
-    </div>
-  </div>
-)}
 
 <div className="bg-slate-900/40 border border-slate-800 rounded-lg px-3 py-2">
   <div className="flex items-center justify-between gap-2 flex-wrap">
@@ -1091,6 +998,11 @@ const modalTier = selectedCustomer ? getTier(selectedCustomer) : "loading";
         }}
         className="w-full pl-9 pr-3 py-2 bg-slate-800/50 border border-slate-700 rounded-lg text-white text-sm placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
       />
+      {filterLoading && (
+  <div className="flex items-center gap-1 text-xs text-slate-400 absolute right-2 top-1/2 -translate-y-1/2">
+    <Loader2 className="h-3 w-3 animate-spin" />
+  </div>
+)}
     </div>
     <select
   value={filters.accountType}
@@ -1106,6 +1018,23 @@ const modalTier = selectedCustomer ? getTier(selectedCustomer) : "loading";
   <option value="all">All Types</option>
   <option value="Personal">Personal</option>
   <option value="Business">Business</option>
+</select>
+<select
+  value={filters.tier}
+  onChange={(e) => {
+    setFilters({ ...filters, tier: e.target.value as CustomerTier });
+    setCurrentPage(1);
+  }}
+  className={`px-3 py-2 bg-gray-800/90 border rounded-lg text-white text-xs font-medium ${
+    filters.tier !== "all"
+      ? "border-yellow-500 bg-yellow-500/10"
+      : "border-slate-600"
+  }`}
+>
+  <option value="all">All Tiers</option>
+  <option value="gold">Gold</option>
+  <option value="silver">Silver</option>
+  <option value="bronze">Bronze</option>
 </select>
 
     {/* Status Filter */}
@@ -1441,11 +1370,7 @@ const modalTier = selectedCustomer ? getTier(selectedCustomer) : "loading";
 
             {/* Tier */}
             <td className="py-2 px-2 text-center">
-              {tier === "loading" ? (
-                <span className="text-[11px] text-slate-500">...</span>
-              ) : (
-                getTierBadge(tier)
-              )}
+            {getTierBadge(getTier(customer))}
             </td>
 
             {/* Status */}

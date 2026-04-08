@@ -1621,12 +1621,16 @@ title="Select order"
       {/* Order + Product */}
       <div className="flex items-center gap-2 min-w-0">
 
-        <p
-          onClick={() => router.push(`/admin/orders/${order.id}`)}
-          className="text-violet-400 font-semibold text-xs cursor-pointer hover:underline"
-        >
-          {order.orderNumber}
-        </p>
+     <p className="text-violet-400 font-semibold text-xs hover:underline">
+  <a
+    href={`/admin/orders/${order.id}`}
+    target="_blank"
+    rel="noopener noreferrer"
+    className="cursor-pointer"
+  >
+    {order.orderNumber}
+  </a>
+</p>
 
         {/* 🔥 IMPORTANT: RELATIVE WRAPPER */}
         <div className="relative flex items-center gap-1 text-xs min-w-0">
