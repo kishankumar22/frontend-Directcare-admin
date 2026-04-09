@@ -518,10 +518,13 @@ const getAllAvailableActions = (
   // ===========================
   // ✏️ UPDATE STATUS
   // ===========================
-  const canUpdateStatus =
-    status !== 'Cancelled' &&
-    status !== 'Refunded' &&
-    order.pharmacyVerificationStatus !== 'Pending';
+const canUpdateStatus =
+  order.deliveryMethod !== 'ClickAndCollect' && // 🔥 HARD BLOCK
+  status !== 'Cancelled' &&
+  status !== 'Refunded' &&
+  status !== 'Collected' &&
+  order.pharmacyVerificationStatus !== 'Pending' ;
+ 
 
   if (canUpdateStatus) {
     actions.push({
@@ -1204,7 +1207,12 @@ const isOrderEditable = () => {
 
 const canRefund = () => {
   if (!order) return false;
-  return refundablePaidAmount > 0 && order.status !== 'Refunded';
+
+  return (
+    refundablePaidAmount > 0 &&
+    order.status !== 'Refunded' &&
+    order.collectionStatus !== 'Collected' // 🔥 ADD THIS
+  );
 };
 
   if (loading) {

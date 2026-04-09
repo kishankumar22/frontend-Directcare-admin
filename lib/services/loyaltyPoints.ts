@@ -28,18 +28,43 @@ export interface LoyaltyBalance {
 export interface LoyaltyTransaction {
   id: string;
   userId: string;
-  orderId?: string | null;
-  transactionType: 'Earned' | 'Redeemed' | 'FirstOrderBonus' | 'ReviewBonus' | 'ReferralBonus' | 'Expired' | 'Adjustment';
+
+  transactionType: 
+    | 'Earned'
+    | 'Redeemed'
+    | 'FirstOrderBonus'
+    | 'ReviewBonus'
+    | 'ReferralBonus'
+    | 'Expired'
+    | 'Adjustment';
+
   points: number;
+  absolutePoints: number;
+
   balanceBefore: number;
   balanceAfter: number;
-  description: string;
-  referenceId?: string | null;
-  expiresAt?: string | null;
-  isExpired: boolean;
-  createdAt: string;
-}
 
+  description: string;
+
+  createdAt: string;
+  expiresAt?: string;
+  isExpired: boolean;
+
+  orderId?: string;
+  orderNumber?: string;
+  orderDate?: string;
+  orderTotal?: number;
+  orderStatus?: string;
+
+  products?: {
+    productName: string;
+    productSku: string;
+    variantName?: string;
+    quantity: number;
+    unitPrice: number;
+    productImageUrl: string;
+  }[];
+}
 // ============================================================
 // NEW: Aggregated User Response from /api/loyalty/users
 // ============================================================
@@ -91,8 +116,12 @@ export interface LoyaltyBalanceApiResponse {
 export interface LoyaltyHistoryApiResponse {
   success: boolean;
   message: string;
-  data?: LoyaltyTransaction[];
-  errors?: string[] | null;
+  data?: {
+    items: LoyaltyTransaction[];
+    page: number;
+    pageSize: number;
+    totalPages: number;
+  };
 }
 
 export interface LoyaltyHistoryQueryParams {
@@ -192,26 +221,21 @@ export const loyaltyPointsService = {
   /**
    * Get specific user's history by userId
    */
-  getUserHistory: async (userId: string, params?: LoyaltyHistoryQueryParams) => {
-    try {
-      const queryParams = new URLSearchParams();
-      queryParams.append('userId', userId);
-      
-      if (params?.pageNumber) queryParams.append('pageNumber', params.pageNumber.toString());
-      if (params?.pageSize) queryParams.append('pageSize', params.pageSize.toString());
-      if (params?.transactionType) queryParams.append('transactionType', params.transactionType);
-      if (params?.startDate) queryParams.append('startDate', params.startDate);
-      if (params?.endDate) queryParams.append('endDate', params.endDate);
+getUserHistory: async (userId: string, params?: LoyaltyHistoryQueryParams) => {
+  try {
+    const queryParams = new URLSearchParams();
 
-      const endpoint = `${API_ENDPOINTS.loyaltyPoints.history}?${queryParams.toString()}`;
+    if (params?.pageNumber) queryParams.append('page', params.pageNumber.toString());
+    if (params?.pageSize) queryParams.append('pageSize', params.pageSize.toString());
 
-      const response = await apiClient.get<LoyaltyHistoryApiResponse>(endpoint);
-      return response;
-    } catch (error) {
-      console.error(`Failed to get history for user ${userId}:`, error);
-      throw error;
-    }
-  },
+    const endpoint = `/api/loyalty/history/${userId}?${queryParams.toString()}`;
+
+    return await apiClient.get<LoyaltyHistoryApiResponse>(endpoint);
+  } catch (error) {
+    console.error(`Failed to get history for user ${userId}:`, error);
+    throw error;
+  }
+}
 };
 
 // ============================================================

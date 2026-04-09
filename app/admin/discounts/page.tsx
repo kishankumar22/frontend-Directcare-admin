@@ -662,50 +662,57 @@ const handleEdit = (discount: Discount) => {
     setProductBrandFilter("");
   };
 
-  // Handle banner image upload
-  const handleUploadBannerImage = async (discountId: string, file: File, type: "desktop" | "mobile") => {
-    try {
-      const token = localStorage.getItem("token") || sessionStorage.getItem("token");
-      const formPayload = new FormData();
-      formPayload.append("image", file);
-      const res = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/Discounts/${discountId}/upload-banner-image?type=${type}`,
-        { method: "POST", headers: { Authorization: `Bearer ${token}` }, body: formPayload }
-      );
-      const json = await res.json();
-      if (json.success) {
-        setFormData((prev: any) => ({
-          ...prev,
-          [type === "desktop" ? "desktopBannerImageUrl" : "mobileBannerImageUrl"]: json.data,
-        }));
-        fetchDiscounts();
-      }
-    } catch (err) {
-      console.error("Banner upload failed:", err);
-    }
-  };
+const handleUploadBannerImage = async (
+  discountId: string,
+  file: File,
+  type: "desktop" | "mobile"
+) => {
+  try {
+    const res = await discountsService.uploadBannerImage(discountId, file, type);
 
-  // Handle banner image delete
-  const handleDeleteBannerImage = async (discountId: string, type: "desktop" | "mobile") => {
-    try {
-      const token = localStorage.getItem("token") || sessionStorage.getItem("token");
-      const res = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/Discounts/${discountId}/delete-banner-image?type=${type}`,
-        { method: "DELETE", headers: { Authorization: `Bearer ${token}` } }
-      );
-      const json = await res.json();
-      if (json.success) {
-        setFormData((prev: any) => ({
-          ...prev,
-          [type === "desktop" ? "desktopBannerImageUrl" : "mobileBannerImageUrl"]: null,
-        }));
-        fetchDiscounts();
-      }
-    } catch (err) {
-      console.error("Banner delete failed:", err);
-    }
-  };
+    const json = res.data as {
+      success: boolean;
+      data: string;
+    };
 
+    if (json.success) {
+      setFormData((prev) => ({
+        ...prev,
+        [type === "desktop"
+          ? "desktopBannerImageUrl"
+          : "mobileBannerImageUrl"]: json.data,
+      }));
+      fetchDiscounts();
+    }
+  } catch (err) {
+    console.error(err);
+  }
+};
+
+const handleDeleteBannerImage = async (
+  discountId: string,
+  type: "desktop" | "mobile"
+) => {
+  try {
+    const res = await discountsService.deleteBannerImage(discountId, type);
+
+    const json = res.data as {
+      success: boolean;
+    };
+
+    if (json.success) {
+      setFormData((prev) => ({
+        ...prev,
+        [type === "desktop"
+          ? "desktopBannerImageUrl"
+          : "mobileBannerImageUrl"]: null,
+      }));
+      fetchDiscounts();
+    }
+  } catch (err) {
+    console.error(err);
+  }
+};
   // Handle delete
   const handleDelete = async (id: string) => {
     setIsDeleting(true);

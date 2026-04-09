@@ -2291,8 +2291,7 @@ const releaseProductLock = async (productId: string): Promise<boolean> => {
       setProductLock(null);
       lockAcquiredRef.current = false;
       console.log('✅ Product lock released successfully');
-      // Don't show toast on unmount (cleanup)
-      // toast.success('Product lock released');
+      
       return true;
     }
 
@@ -2576,15 +2575,6 @@ if (!isDraft && sortlength > 350) {
   return;
 }
 
-const length = getPlainText(formData.fullDescription).length;
-
-if (length > 2000) {
-  formData.fullDescription = truncateHtmlByTextLength(
-    formData.fullDescription,
-    2000
-  );
-  toast.info('ℹ️ Full description trimmed to 2000 characters');
-}
 
     // ═══════════════════════════════════════════════════════════════════════
     // SECTION 6: NUMBER PARSING HELPER
@@ -4117,8 +4107,8 @@ if (name === "standardDeliveryEnabled") {
   if (name === "fullDescription") {
     const plainText = value.replace(/<[^>]*>/g, '');
     
-    if (plainText.length > 2000) {
-      toast.warning('⚠️ Full description cannot exceed 2000 characters');
+    if (plainText.length > 5000) {
+      toast.warning('⚠️ Full description cannot exceed 5000 characters');
       return;
     }
     
@@ -5310,7 +5300,7 @@ const uploadImagesToProductDirect = async (
       placeholder="Enter detailed product description..."
       height={400}
       required={true}          // ✅ Shows red asterisk
-      maxLength={2000}         // ✅ Maximum 2000 characters
+      maxLength={5000}         // ✅ Maximum 5000 characters
       showCharCount={true}     // ✅ Show built-in character counter
       showHelpText="Detailed product information with formatting (50-2000 characters)"
     />

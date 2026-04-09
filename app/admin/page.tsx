@@ -29,9 +29,6 @@ const PERIODS: Period[] = [
 ];
 
 
-
-
-
 function formatRelTime(dateStr: string) {
   if (!dateStr) return "";
   const diff = Date.now() - new Date(dateStr).getTime();

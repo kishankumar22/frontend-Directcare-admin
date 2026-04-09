@@ -52,6 +52,7 @@ import {
   LoyaltyUsersApiResponse,
 } from '@/lib/services/loyaltyPoints';
 import { useDebounce } from "../_hooks/useDebounce";
+import { formatCurrency, getOrderProductImage } from "../_utils/formatUtils";
 
 type SortField = 'currentBalance' | 'totalPointsEarned' | 'totalPointsRedeemed' | 'lastActivity';
 type SortDirection = 'asc' | 'desc';
@@ -74,6 +75,7 @@ export default function LoyaltyPointsPage() {
   const [tierFilter, setTierFilter] = useState<TierLevel>('all');
   const [sortBy, setSortBy] = useState<SortField>('currentBalance');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
+  const [expandedTx, setExpandedTx] = useState<string | null>(null);
   
   // Pagination States
   const [currentPage, setCurrentPage] = useState(1);
@@ -84,7 +86,7 @@ export default function LoyaltyPointsPage() {
   const [selectAll, setSelectAll] = useState(false);
 
   // Modal States
-  const [viewModalOpen, setViewModalOpen] = useState(false);
+
   const [historyModalOpen, setHistoryModalOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<LoyaltyUser | null>(null);
   const [userBalance, setUserBalance] = useState<LoyaltyBalance | null>(null);
@@ -180,29 +182,7 @@ export default function LoyaltyPointsPage() {
   // MODAL HANDLERS
   // ============================================================
 
-  const handleViewBalance = async (user: LoyaltyUser) => {
-    try {
-      setSelectedUser(user);
-      setViewModalOpen(true);
-      setLoadingModal(true);
 
-      const response = await loyaltyPointsService.getUserBalance(user.userId);
-
-      if (response.data?.success && response.data.data) {
-        const balance = response.data.data;
-        setUserBalance(balance.hasAccount === false ? null : balance);
-      } else {
-        toast.error('Failed to load user balance');
-        setUserBalance(null);
-      }
-    } catch (error) {
-      console.error('Error:', error);
-      toast.error('Failed to load user balance');
-      setUserBalance(null);
-    } finally {
-      setLoadingModal(false);
-    }
-  };
 
   const handleViewHistory = async (user: LoyaltyUser) => {
     try {
@@ -218,7 +198,7 @@ export default function LoyaltyPointsPage() {
       });
 
       if (response.data?.success) {
-        const transactions = response.data.data || [];
+       const transactions = response.data.data?.items || [];
         setUserHistory(transactions);
         setHasMoreHistory(transactions.length === historyPageSize);
       } else {
@@ -247,7 +227,7 @@ export default function LoyaltyPointsPage() {
       });
 
       if (response.data?.success) {
-        const newTransactions = response.data.data || [];
+        const newTransactions = response.data.data?.items || [];
         
         if (newTransactions.length > 0) {
           setUserHistory(prev => [...prev, ...newTransactions]);
@@ -518,7 +498,9 @@ export default function LoyaltyPointsPage() {
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-slate-400 text-xs font-medium uppercase tracking-wide">Total Value</p>
-              {/* <p className="text-white text-xl font-bold">£{(stats?.totalPointsBalance / 100 || 0).toLocaleString()}</p> */}
+             <p className="text-white text-xl font-bold">
+  £{((stats?.totalPointsBalance ?? 0) / 100).toLocaleString()}
+</p>
             </div>
           </div>
         </div>
@@ -855,13 +837,7 @@ export default function LoyaltyPointsPage() {
                     {/* Action Buttons */}
                     <td className="py-2.5 px-3">
                       <div className="flex items-center justify-center gap-1">
-                        <button
-                          onClick={() => handleViewBalance(user)}
-                          title="View balance"
-                          className="p-1.5 text-violet-400 hover:text-violet-300 hover:bg-violet-500/20 rounded-lg transition-all"
-                        >
-                          <Eye className="h-4 w-4" />
-                        </button>
+                      
                         <button
                           onClick={() => handleViewHistory(user)}
                           title="View history"
@@ -948,243 +924,177 @@ export default function LoyaltyPointsPage() {
         </div>
       )}
 
-      {/* BALANCE MODAL */}
-      {viewModalOpen && selectedUser && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-gradient-to-br from-slate-900 via-slate-900 to-slate-800 border border-violet-500/20 rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col shadow-2xl">
-            
-            <div className="p-4 border-b border-violet-500/20 bg-gradient-to-r from-violet-500/10 to-cyan-500/10 shrink-0">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-gradient-to-r from-violet-500 to-cyan-500 flex items-center justify-center">
-                    <Eye className="h-5 w-5 text-white" />
-                  </div>
-                  <div>
-                    <h2 className="text-lg font-bold text-white">{selectedUser.fullName}</h2>
-                    <p className="text-xs text-slate-400">{selectedUser.email}</p>
-                  </div>
-                </div>
-                <button
-                  onClick={() => {
-                    setViewModalOpen(false);
-                    setUserBalance(null);
-                  }}
-                  className="p-2 text-slate-400 hover:text-white hover:bg-red-500/20 rounded-lg transition-all"
-                >
-                  <X className="h-5 w-5" />
-                </button>
-              </div>
-            </div>
-
-            <div className="overflow-y-auto p-4 space-y-4">
-              {loadingModal ? (
-                <div className="text-center py-12">
-                  <Loader2 className="w-12 h-12 text-violet-400 animate-spin mx-auto mb-3" />
-                  <p className="text-slate-400 text-sm">Loading balance...</p>
-                </div>
-              ) : userBalance ? (
-                <>
-                  <div className={`p-4 rounded-xl border-2 ${getTierColor(userBalance.tierLevel).bg} ${getTierColor(userBalance.tierLevel).border}`}>
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className={`w-12 h-12 rounded-full ${getTierColor(userBalance.tierLevel).bg} flex items-center justify-center`}>
-                          {userBalance.tierLevel === 'Gold' && <Crown className={`h-6 w-6 ${getTierColor(userBalance.tierLevel).icon}`} />}
-                          {userBalance.tierLevel !== 'Gold' && <Award className={`h-6 w-6 ${getTierColor(userBalance.tierLevel).icon}`} />}
-                        </div>
-                        <div>
-                          <h3 className={`text-xl font-bold ${getTierColor(userBalance.tierLevel).text}`}>
-                            {userBalance.tierLevel} Tier
-                          </h3>
-                          <p className="text-sm text-slate-400">
-                            {userBalance.pointsToNextTier > 0
-                              ? `${formatPoints(userBalance.pointsToNextTier)} points to next tier`
-                              : 'Maximum tier reached'}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="bg-slate-800/30 rounded-xl p-3 border border-slate-700">
-                      <p className="text-slate-400 text-xs mb-1">Current Balance</p>
-                      <p className="text-white text-2xl font-bold">{formatPoints(userBalance.currentBalance)}</p>
-                      <p className="text-slate-500 text-xs mt-0.5">Worth £{userBalance.redemptionValue}</p>
-                    </div>
-
-                    <div className="bg-slate-800/30 rounded-xl p-3 border border-slate-700">
-                      <p className="text-slate-400 text-xs mb-1">Total Earned</p>
-                      <p className="text-green-400 text-2xl font-bold">{formatPoints(userBalance.totalPointsEarned)}</p>
-                      <p className="text-slate-500 text-xs mt-0.5">Lifetime</p>
-                    </div>
-
-                    <div className="bg-slate-800/30 rounded-xl p-3 border border-slate-700">
-                      <p className="text-slate-400 text-xs mb-1">Total Redeemed</p>
-                      <p className="text-blue-400 text-2xl font-bold">{formatPoints(userBalance.totalPointsRedeemed)}</p>
-                      <p className="text-slate-500 text-xs mt-0.5">Used</p>
-                    </div>
-
-                    <div className="bg-slate-800/30 rounded-xl p-3 border border-slate-700">
-                      <p className="text-slate-400 text-xs mb-1">Expired</p>
-                      <p className="text-red-400 text-2xl font-bold">{formatPoints(userBalance.totalPointsExpired)}</p>
-                      <p className="text-slate-500 text-xs mt-0.5">Lost</p>
-                    </div>
-                  </div>
-
-                  <div className="bg-slate-800/30 rounded-xl p-3 border border-slate-700">
-                    <h4 className="text-sm font-semibold text-white mb-3">Bonus Awards</h4>
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between py-2 border-b border-slate-700 last:border-0">
-                        <div className="flex items-center gap-2">
-                          <CheckCircle className={`h-4 w-4 ${userBalance.firstOrderBonusAwarded ? 'text-green-400' : 'text-slate-600'}`} />
-                          <span className="text-sm text-slate-300">First Order Bonus</span>
-                        </div>
-                        <span className={`text-xs font-semibold ${userBalance.firstOrderBonusAwarded ? 'text-green-400' : 'text-slate-600'}`}>
-                          {userBalance.firstOrderBonusAwarded ? 'AWARDED' : 'PENDING'}
-                        </span>
-                      </div>
-
-                      <div className="flex items-center justify-between py-2 border-b border-slate-700 last:border-0">
-                        <div className="flex items-center gap-2">
-                          <Star className="h-4 w-4 text-violet-400" />
-                          <span className="text-sm text-slate-300">Review Bonus</span>
-                        </div>
-                        <span className="text-sm font-semibold text-violet-400">
-                          {formatPoints(userBalance.totalReviewBonusEarned)} pts
-                        </span>
-                      </div>
-
-                      <div className="flex items-center justify-between py-2">
-                        <div className="flex items-center gap-2">
-                          <Gift className="h-4 w-4 text-pink-400" />
-                          <span className="text-sm text-slate-300">Referral Bonus</span>
-                        </div>
-                        <span className="text-sm font-semibold text-pink-400">
-                          {formatPoints(userBalance.totalReferralBonusEarned)} pts
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="bg-slate-800/30 rounded-xl p-3 border border-slate-700">
-                      <p className="text-slate-400 text-xs mb-1">Last Earned</p>
-                      <p className="text-white text-sm">{formatRelativeDate(userBalance.lastEarnedAt)}</p>
-                    </div>
-
-                    <div className="bg-slate-800/30 rounded-xl p-3 border border-slate-700">
-                      <p className="text-slate-400 text-xs mb-1">Last Redeemed</p>
-                      <p className="text-white text-sm">
-                        {userBalance.lastRedeemedAt ? formatRelativeDate(userBalance.lastRedeemedAt) : 'Never'}
-                      </p>
-                    </div>
-                  </div>
-                </>
-              ) : (
-                <div className="text-center py-12">
-                  <ShoppingCart className="h-12 w-12 text-slate-500 mx-auto mb-3" />
-                  <p className="text-slate-300 font-medium mb-1">No Loyalty Account</p>
-                  <p className="text-slate-500 text-sm">This customer has no orders yet and has not earned any loyalty points.</p>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
+     
 
       {/* HISTORY MODAL */}
-      {historyModalOpen && selectedUser && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-gradient-to-br from-slate-900 via-slate-900 to-slate-800 border border-cyan-500/20 rounded-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col shadow-2xl">
-            
-            <div className="p-4 border-b border-cyan-500/20 bg-gradient-to-r from-cyan-500/10 to-blue-500/10 shrink-0">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-gradient-to-r from-cyan-500 to-blue-500 flex items-center justify-center">
-                    <History className="h-5 w-5 text-white" />
-                  </div>
-                  <div>
-                    <h2 className="text-lg font-bold text-white">Transaction History</h2>
-                    <p className="text-xs text-slate-400">{selectedUser.fullName} • {selectedUser.email}</p>
-                  </div>
-                </div>
-                <button
-                  onClick={() => {
-                    setHistoryModalOpen(false);
-                    setUserHistory([]);
-                    setHistoryPage(1);
-                  }}
-                  className="p-2 text-slate-400 hover:text-white hover:bg-red-500/20 rounded-lg transition-all"
-                >
-                  <X className="h-5 w-5" />
-                </button>
-              </div>
+  {historyModalOpen && selectedUser && (
+  <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div className="bg-gradient-to-br from-slate-900 via-slate-900 to-slate-800 border border-cyan-500/20 rounded-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col shadow-2xl">
+      
+      {/* HEADER */}
+      <div className="p-4 border-b border-cyan-500/20 bg-gradient-to-r from-cyan-500/10 to-blue-500/10 shrink-0">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full bg-gradient-to-r from-cyan-500 to-blue-500 flex items-center justify-center">
+              <History className="h-5 w-5 text-white" />
             </div>
-
-            <div className="overflow-y-auto p-4 space-y-2">
-              {loadingModal && userHistory.length === 0 ? (
-                <div className="text-center py-12">
-                  <Loader2 className="w-12 h-12 text-cyan-400 animate-spin mx-auto mb-3" />
-                  <p className="text-slate-400 text-sm">Loading history...</p>
-                </div>
-              ) : userHistory.length > 0 ? (
-                <>
-                  {userHistory.map((transaction) => {
-                    const typeInfo = getTransactionTypeInfo(transaction.transactionType);
-                    const isPositive = transaction.points > 0;
-
-                    return (
-                      <div
-                        key={transaction.id}
-                        className={`p-3 rounded-xl border ${typeInfo.borderColor} ${typeInfo.bgColor} hover:border-opacity-50 transition-all`}
-                      >
-                        <div className="flex items-start justify-between">
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2 mb-1">
-                              <span className={`px-2 py-0.5 rounded text-xs font-bold ${typeInfo.bgColor} ${typeInfo.color} border ${typeInfo.borderColor}`}>
-                                {typeInfo.label}
-                              </span>
-                              <span className="text-xs text-slate-500">{formatRelativeDate(transaction.createdAt)}</span>
-                            </div>
-                            <p className="text-sm text-slate-300">{transaction.description}</p>
-                          </div>
-                          <div className="text-right">
-                            <p className={`text-lg font-bold ${isPositive ? 'text-green-400' : 'text-red-400'}`}>
-                              {isPositive ? '+' : ''}{formatPoints(transaction.points)}
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-
-                  {hasMoreHistory && (
-                    <button
-                      onClick={loadMoreHistory}
-                      disabled={loadingModal}
-                      className="w-full py-2.5 bg-slate-800 hover:bg-slate-700 text-white rounded-xl font-semibold transition-all disabled:opacity-50 text-sm flex items-center justify-center gap-2"
-                    >
-                      {loadingModal ? (
-                        <>
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                          Loading...
-                        </>
-                      ) : (
-                        'Load More'
-                      )}
-                    </button>
-                  )}
-                </>
-              ) : (
-                <div className="text-center py-12">
-                  <AlertCircle className="h-12 w-12 text-slate-600 mx-auto mb-3" />
-                  <p className="text-slate-400">No transactions found</p>
-                </div>
-              )}
+            <div>
+              <h2 className="text-lg font-bold text-white">Transaction History</h2>
+              <p className="text-xs text-slate-400">
+                {selectedUser.fullName} • {selectedUser.email}
+              </p>
             </div>
           </div>
+
+          <button
+            onClick={() => {
+            setHistoryModalOpen(false);
+setUserHistory([]);
+setHistoryPage(1);
+setExpandedTx(null);
+            }}
+            className="p-2 text-slate-400 hover:text-white hover:bg-red-500/20 rounded-lg transition-all"
+          >
+            <X className="h-5 w-5" />
+          </button>
         </div>
+      </div>
+
+      {/* BODY */}
+      <div className="overflow-y-auto p-4 space-y-4">
+        {loadingModal && userHistory.length === 0 ? (
+          <div className="text-center py-12">
+            <Loader2 className="w-12 h-12 text-cyan-400 animate-spin mx-auto mb-3" />
+            <p className="text-slate-400 text-sm">Loading history...</p>
+          </div>
+        ) : userHistory.length > 0 ? (
+          <>
+            {userHistory.map((tx) => {
+              const typeInfo = getTransactionTypeInfo(tx.transactionType);
+              const isPositive = tx.points > 0;
+
+              return (
+                <div
+                  key={tx.id}
+                  className={`rounded-xl border ${typeInfo.borderColor} ${typeInfo.bgColor} p-4`}
+                >
+                  {/* TOP */}
+                  <div className="flex justify-between items-start mb-2">
+                    <div>
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className={`px-2 py-0.5 text-xs rounded ${typeInfo.bgColor} ${typeInfo.color}`}>
+                          {typeInfo.label}
+                        </span>
+
+                        <span className="text-xs text-slate-500">
+                          {formatRelativeDate(tx.createdAt)}
+                        </span>
+                      </div>
+
+                      <p className="text-sm text-slate-300">
+                        {tx.description}
+                      </p>
+                    </div>
+
+                    <div className={`text-lg font-bold ${isPositive ? "text-green-400" : "text-red-400"}`}>
+                      {isPositive ? "+" : ""}
+                      {formatPoints(tx.points)}
+                    </div>
+                  </div>
+
+                  {/* ORDER INFO */}
+                  {tx.orderNumber && (
+                    <div className="text-xs text-slate-400 mb-3 flex flex-wrap gap-3">
+                      <span>Order: {tx.orderNumber}</span>
+                      <span>Status: {tx.orderStatus}</span>
+                      <span>Total: {formatCurrency(tx.orderTotal || 0)}</span>
+                    </div>
+                  )}
+
+{tx.products && tx.products.length > 0 && (() => {
+  const isExpanded = expandedTx === tx.id;
+  const visibleProducts = isExpanded ? tx.products : tx.products.slice(0, 3);
+
+  return (
+    <div className="space-y-2">
+      {visibleProducts.map((p: any, i: number) => (
+        <div
+          key={i}
+          className="flex items-center gap-3 bg-slate-800/50 p-2 rounded-lg"
+        >
+          <img
+            src={getOrderProductImage(p.productImageUrl)}
+            className="w-10 h-10 rounded object-cover"
+          />
+
+          <div className="flex-1 min-w-0">
+            <p className="text-sm text-white truncate">
+              {p.productName}
+            </p>
+            <p className="text-xs text-slate-400">
+              Qty: {p.quantity} × {formatCurrency(p.unitPrice)}
+            </p>
+          </div>
+
+          <div className="text-xs text-white">
+            {formatCurrency(p.quantity * p.unitPrice)}
+          </div>
+        </div>
+      ))}
+
+      {/* TOGGLE BUTTON */}
+      {tx.products.length > 3 && (
+        <button
+          onClick={() =>
+            setExpandedTx(isExpanded ? null : tx.id)
+          }
+          className="text-xs text-cyan-400 hover:underline"
+        >
+          {isExpanded
+            ? "Show less"
+            : `+${tx.products.length - 3} more items`}
+        </button>
       )}
+    </div>
+  );
+})()}
+                  {/* BALANCE */}
+                  <div className="mt-3 text-xs text-slate-500 flex justify-between">
+                    <span>Before: {formatPoints(tx.balanceBefore)}</span>
+                    <span>After: {formatPoints(tx.balanceAfter)}</span>
+                  </div>
+                </div>
+              );
+            })}
+
+            {/* LOAD MORE */}
+            {hasMoreHistory && (
+              <button
+                onClick={loadMoreHistory}
+                disabled={loadingModal}
+                className="w-full py-2.5 bg-slate-800 hover:bg-slate-700 text-white rounded-xl text-sm flex items-center justify-center gap-2"
+              >
+                {loadingModal ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Loading...
+                  </>
+                ) : (
+                  "Load More"
+                )}
+              </button>
+            )}
+          </>
+        ) : (
+          <div className="text-center py-12">
+            <AlertCircle className="h-12 w-12 text-slate-600 mx-auto mb-3" />
+            <p className="text-slate-400">No transactions found</p>
+          </div>
+        )}
+      </div>
+    </div>
+  </div>
+)}
     </div>
   );
 }
