@@ -819,7 +819,7 @@ const orderVatAmount = useMemo(() => {
             <h3 className="text-sm font-semibold mb-2">Price Details</h3>
             <div className="space-y-1 text-xs">
               <div className="flex justify-between">
-                <span>Subtotal</span>
+                <span>Subtotal (Incl. VAT)</span>
                 <span>£{subtotalBeforeDiscount.toFixed(2)}</span>
               </div>
               {orderVatAmount > 0 && (

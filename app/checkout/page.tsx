@@ -811,6 +811,8 @@ if (!isAuthenticated && hasPharmaProduct) {
    paymentMethod: "Card",
       customerEmail: billingEmail,
       customerPhone: `+44${billingPhone}`,
+      billingPhone: `+44${billingPhone}`, 
+  shippingPhone: `+44${shippingSameAsBilling ? billingPhone : shippingPhone}`,
       isGuestOrder: !isAuthenticated,
       userId: isAuthenticated ? user?.id : null,
        pharmacySessionId,
@@ -1338,7 +1340,7 @@ setShippingAddressQuery("");
   </div>
 )}
 {/* SHIPPING OPTIONS */}
-{shippingOptions.length > 0 && (
+{deliveryMethod === "HomeDelivery" && shippingOptions.length > 0 && (
   <div className="bg-white p-3 rounded shadow">
     <h2 className="text-sm font-semibold mb-2">Delivery options</h2>
     {shippingQuoteLoading ? (
@@ -1473,7 +1475,7 @@ setShippingAddressQuery("");
 <div className="mt-2 rounded-lg border bg-gray-50 p-2 space-y-1.5 text-xs">
   {/* Subtotal */}
   <div className="flex items-center justify-between">
-    <span className="text-gray-600">Subtotal</span>
+    <span className="text-gray-600">Subtotal (Incl. VAT)</span>
     <span className="font-medium">{formatCurrency(cartSubtotal)}</span>
   </div>
   <div className="flex items-center justify-between border-t pt-2 mt-2 text-sm text-gray-700">

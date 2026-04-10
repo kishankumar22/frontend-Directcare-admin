@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
-import { Plus, Edit, Trash2, Search, Percent, Eye, Filter, History, FilterX, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, AlertCircle, Calendar, Gift, Target, Clock, TrendingUp, Users, Infinity as InfinityIcon, CalendarRange, ChevronDown, Package, RotateCcw, } from "lucide-react";
+import { Plus, Edit, Trash2, Search, Percent, Eye, Filter, History, FilterX, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, AlertCircle, Calendar, Gift, Target, Clock, TrendingUp, Users, Infinity as InfinityIcon, CalendarRange, ChevronDown, Package, RotateCcw, X, } from "lucide-react";
 
 
 import { useToast } from "@/app/admin/_components/CustomToast";
@@ -17,6 +17,10 @@ import { DiscountUsageHistory } from "@/lib/services/discounts";
 import DiscountModals from "./DiscountModals";
 import ConfirmDialog from "@/app/admin/_components/ConfirmDialog";
 import { useDebounce } from "../_hooks/useDebounce";
+import { getImageUrl } from "../_utils/formatUtils";
+import ImagePreviewModal from "../_components/ImagePreviewModal";
+
+
 
 
 // ========== INTERFACES ==========
@@ -258,11 +262,13 @@ export default function DiscountsPage() {
   const [dateRangeFilter, setDateRangeFilter] = useState({ startDate: "", endDate: "" });
   const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; name: string } | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [previewImage, setPreviewImage] = useState<string | null>(null);
 const [deletedFilter, setDeletedFilter] = useState<"notDeleted" | "deleted">("notDeleted");
 const [statusConfirm, setStatusConfirm] = useState<Discount | null>(null);
 const [restoreConfirm, setRestoreConfirm] = useState<Discount | null>(null);
 const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
 const [isRestoring, setIsRestoring] = useState(false);
+const [imageModal, setImageModal] = useState<Discount | null>(null);
 const debouncedSearch = useDebounce(searchTerm, 400);
 
   const [formData, setFormData] = useState<FormData>({
@@ -553,8 +559,12 @@ const handleSubmit = async (e: React.FormEvent) => {
   e.preventDefault();
 
   // ✅ Admin Comment Validation
-  if (!formData.adminComment || !formData.adminComment.trim()) {
-    toast.error("Admin comment is required");
+  if (!formData.discountPercentage ) {
+    toast.error("Discount percentage is required");
+    return;
+  }
+  if (formData.adminComment.length > 500) {
+    toast.error("Admin comment must be 500 characters or less");
     return;
   }
 // 🔥 NEW: Validation for AssignedToCategories
@@ -1189,9 +1199,28 @@ const filteredDiscounts = discounts.filter((discount) => {
                 {/* NAME */}
                 <td className="py-2.5 px-3">
                   <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 rounded-md bg-gradient-to-br from-violet-500 to-pink-500 flex items-center justify-center text-xs">
-                      {getDiscountTypeIcon(discount.discountType)}
-                    </div>
+                    <div
+  className="w-8 h-8 rounded-md overflow-hidden border border-slate-600 cursor-pointer"
+  onClick={() => setImageModal(discount)}
+>
+  {discount.desktopBannerImageUrl ? (
+    <img
+      src={getImageUrl(discount.desktopBannerImageUrl)}
+      className="w-full h-full object-cover"
+      onError={(e) => (e.currentTarget.src = "/placeholder.png")}
+    />
+  ) : discount.mobileBannerImageUrl ? (
+    <img
+      src={getImageUrl(discount.mobileBannerImageUrl)}
+      className="w-full h-full object-cover"
+      onError={(e) => (e.currentTarget.src = "/placeholder.png")}
+    />
+  ) : (
+    <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-violet-500 to-pink-500 text-xs">
+      {getDiscountTypeIcon(discount.discountType)}
+    </div>
+  )}
+</div>
 
                     <div className="min-w-0">
                       <p
@@ -1593,7 +1622,76 @@ const filteredDiscounts = discounts.filter((discount) => {
   cancelText="Cancel"
   isLoading={isRestoring}
 />
+{imageModal && (
+  <div
+    className="fixed inset-0 bg-black/80 backdrop-blur-md z-[40] flex items-center justify-center p-4"
+    onClick={() => setImageModal(null)}
+  >
+    <div
+      className="bg-slate-900 border border-slate-700 rounded-xl max-w-4xl w-full p-4 space-y-4"
+      onClick={(e) => e.stopPropagation()}
+    >
+      {/* HEADER */}
+      <div className="flex justify-between items-center">
+        <h2 className="text-white font-semibold text-lg">
+          {imageModal.name}
+        </h2>
 
+        <button
+          onClick={() => setImageModal(null)}
+          className="p-2 hover:bg-red-500/20 bg-red-500/20 text-white rounded-lg"
+        >
+          <X className="h-4 w-4" />
+        </button>
+      </div>
+
+      {/* IMAGES */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+        {/* DESKTOP */}
+        <div>
+          <p className="text-sm text-slate-400 mb-2">Desktop Banner</p>
+
+          {imageModal.desktopBannerImageUrl ? (
+          <img
+  src={getImageUrl(imageModal.desktopBannerImageUrl)}
+  className="w-full h-56 object-cover rounded-lg border border-slate-600 cursor-pointer hover:scale-105 transition"
+  onClick={() => setPreviewImage(imageModal.desktopBannerImageUrl)}
+  onError={(e) => (e.currentTarget.src = "/placeholder.png")}
+/>
+          ) : (
+            <div className="h-56 flex items-center justify-center bg-slate-800 rounded-lg text-slate-500">
+              No Desktop Image
+            </div>
+          )}
+        </div>
+
+        {/* MOBILE */}
+        <div>
+          <p className="text-sm text-slate-400 mb-2">Mobile Banner</p>
+
+          {imageModal.mobileBannerImageUrl ? (
+          <img
+  src={getImageUrl(imageModal.mobileBannerImageUrl)}
+  className="w-full h-56 object-cover rounded-lg border border-slate-600 cursor-pointer hover:scale-105 transition"
+  onClick={() => setPreviewImage(imageModal.mobileBannerImageUrl)}
+  onError={(e) => (e.currentTarget.src = "/placeholder.png")}
+/>
+          ) : (
+            <div className="h-56 flex items-center justify-center bg-slate-800 rounded-lg text-slate-500">
+              No Mobile Image
+            </div>
+          )}
+        </div>
+
+      </div>
+    </div>
+  </div>
+)}
+<ImagePreviewModal
+  imageUrl={previewImage}
+  onClose={() => setPreviewImage(null)}
+/>
     </div>
   );
 }

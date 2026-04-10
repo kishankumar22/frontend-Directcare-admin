@@ -178,7 +178,14 @@ input[type="number"] {
     transform: translateY(0) scale(1);
   }
 }
-
+@keyframes scalePulse {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.15);
+  }
+}
 .animate-toastIn {
   animation: toastIn 0.28s ease-out;
 }

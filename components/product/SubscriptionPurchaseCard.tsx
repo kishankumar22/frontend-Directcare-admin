@@ -329,7 +329,7 @@ image: selectedVariant?.imageUrl
   <Button
     disabled
     className="w-full py-2 rounded-xl text-sm font-semibold mt-1.5
-      bg-gray-400 cursor-not-allowed opacity-70"
+      bg-red-400 cursor-not-allowed opacity-70"
   >
     Subscription unavailable
   </Button>

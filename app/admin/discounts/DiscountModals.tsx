@@ -1,5 +1,5 @@
 "use client";
-import React, { useEffect, useMemo } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   Gift,
   Target,
@@ -28,7 +28,8 @@ import { ProductDescriptionEditor } from "../_components/SelfHostedEditor";
 import { Discount, DiscountType, DiscountLimitationType, DiscountUsageHistory } from "@/lib/services/discounts";
 import { Product } from "@/lib/services";
 import { Category } from "@/lib/services/categories";
-import { formatDate } from "../_utils/formatUtils";
+import { formatDate, getImageUrl } from "../_utils/formatUtils";
+import ImagePreviewModal from "../_components/ImagePreviewModal";
 
 // ========== INTERFACES ==========
 interface SelectOption {
@@ -146,6 +147,8 @@ export default function DiscountModals(props: DiscountModalsProps) {
     handleUploadBannerImage,
     handleDeleteBannerImage,
   } = props;
+
+  const [previewImage, setPreviewImage] = useState<string | null>(null);
 
   // ========== HELPER FUNCTIONS FOR USAGE HISTORY ==========
   const getFilteredUsageHistory = () => {
@@ -796,9 +799,11 @@ useEffect(() => {
                           min="0"
                           max="100"
                           step="0.01"
+                          
                           value={formData.discountPercentage}
                           onChange={(e) => setFormData({...formData, discountPercentage: parseFloat(e.target.value) || 0})}
                           placeholder="0.00"
+                      
                           className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all pr-12"
                         />
                         <span className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400">%</span>
@@ -1048,7 +1053,7 @@ useEffect(() => {
                                 onChange={(e) => {
                                   const file = e.target.files?.[0];
                                   if (file && handleUploadBannerImage)
-                                    handleUploadBannerImage(editingDiscount.id, file, "desktop");
+                                    handleUploadBannerImage(editingDiscount?.id, file, "desktop");
                                 }}
                               />
                             </label>
@@ -1666,6 +1671,44 @@ useEffect(() => {
                       </span>
                     </div>
                   </div>
+                  {(viewingDiscount.desktopBannerImageUrl || viewingDiscount.mobileBannerImageUrl) && (
+  <div className="bg-slate-800/30 p-4 rounded-xl border border-slate-700/50 space-y-3">
+    
+    <h3 className="text-sm font-bold text-white flex items-center gap-2">
+      🖼 Banner Images
+    </h3>
+
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+      {/* DESKTOP */}
+      {viewingDiscount.desktopBannerImageUrl && (
+        <div>
+          <p className="text-xs text-slate-400 mb-1">Desktop</p>
+
+         <img
+  src={getImageUrl(viewingDiscount.desktopBannerImageUrl)}
+  className="w-full h-40 object-cover rounded-lg border border-slate-600 cursor-pointer"
+  onClick={() => setPreviewImage(viewingDiscount.desktopBannerImageUrl)}
+/>
+        </div>
+      )}
+
+      {/* MOBILE */}
+      {viewingDiscount.mobileBannerImageUrl && (
+        <div>
+          <p className="text-xs text-slate-400 mb-1">Mobile</p>
+
+         <img
+  src={getImageUrl(viewingDiscount.mobileBannerImageUrl)}
+  className="w-full h-40 object-cover rounded-lg border border-slate-600 cursor-pointer"
+  onClick={() => setPreviewImage(viewingDiscount.mobileBannerImageUrl)}
+/>
+        </div>
+      )}
+
+    </div>
+  </div>
+)}
                 </div>
 
                 {/* Right Column */}
@@ -2239,6 +2282,10 @@ useEffect(() => {
           </div>
         </div>
       )}
+      <ImagePreviewModal
+  imageUrl={previewImage}
+  onClose={() => setPreviewImage(null)}
+/>
     </>
   );
 }

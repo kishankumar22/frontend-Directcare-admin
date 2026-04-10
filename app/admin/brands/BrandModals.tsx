@@ -75,7 +75,7 @@ const [activeTab, setActiveTab] = useState<'basic' | 'image' | 'seo' | 'settings
     isPublished: true,
      isActive: true,  
     showOnHomepage: false,
-    displayOrder: 1,
+    displayOrder: 0 as number | "",
     metaTitle: "",
     metaDescription: "",
     metaKeywords: ""
@@ -131,7 +131,7 @@ useEffect(() => {
          isActive: true,  
         isPublished: true,
         showOnHomepage: false,
-        displayOrder: 1,
+        displayOrder: "",
         
         metaTitle: "",
         metaDescription: "",
@@ -229,7 +229,7 @@ if (!brandName) {
       isPublished: formData.isPublished,
       showOnHomepage: formData.showOnHomepage,
       isActive: formData.isActive,
-      displayOrder: formData.displayOrder,
+       displayOrder: formData.displayOrder === "" ? 0 : formData.displayOrder,
       metaTitle: formData.metaTitle?.trim() || undefined,
       metaDescription: formData.metaDescription?.trim() || undefined,
       metaKeywords: formData.metaKeywords?.trim() || undefined,
@@ -351,11 +351,11 @@ if (!brandName) {
             ? "✏️ Update brand information" 
             : "➕ Add a new brand"}
 
-          {formData.displayOrder > 0 && (
-            <span className="text-cyan-400 font-semibold">
-              •  #{formData.displayOrder}
-            </span>
-          )}
+        {typeof formData.displayOrder === "number" && formData.displayOrder > 0 && (
+  <span className="text-cyan-400 font-semibold">
+    • #{formData.displayOrder}
+  </span>
+)}
         </p>
       </div>
     </div>
@@ -466,20 +466,29 @@ if (!brandName) {
                       </div>
 
                       {/* Display Order */}
-                      <div>
-                        <label className="block text-sm text-slate-300 font-semibold mb-2">
-                          Display Order <span className="text-red-400">*</span>
-                        </label>
-                        <input
-                          type="number"
-                          min="1"
-                          max="1000"
-                          value={formData.displayOrder}
-                          onChange={(e) => setFormData({ ...formData, displayOrder: parseInt(e.target.value) || 1 })}
-                          className="w-full px-3 py-2.5 bg-slate-800/50 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all"
-                          disabled={isSubmitting}
-                        />
-                      </div>
+                  <div>
+  <label className="block text-sm text-slate-300 font-semibold mb-2">
+    Display Order <span className="text-red-400">*</span>
+  </label>
+
+  <input
+    type="number"
+    min="1"
+    max="1000"
+    placeholder="Enter order Numer"
+    value={formData.displayOrder ?? ""}
+    onChange={(e) => {
+      const value = e.target.value;
+
+      setFormData({
+        ...formData,
+        displayOrder: value === "" ? "" : parseInt(value)
+      });
+    }}
+    className="w-full px-3 py-2.5 bg-slate-800/50 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-violet-500 transition-all"
+    disabled={isSubmitting}
+  />
+</div>
                     </div>
 
                     {/* Description */}
@@ -579,8 +588,8 @@ if (!brandName) {
                           <div>
                             <p className="text-sm text-cyan-400 font-semibold mb-2">Guidelines:</p>
                             <ul className="text-xs text-slate-300 space-y-1">
-                              <li>• Size: 200×200px to 5000×5000px</li>
-                              <li>• Format: WebP or PNG</li>
+                              <li>• Size: 300×300 (In px)</li>
+                              <li>• Format: WebP</li>
                               <li>• Max: 1MB</li>
                             </ul>
                           </div>

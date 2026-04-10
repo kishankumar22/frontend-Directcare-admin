@@ -10,7 +10,6 @@ type Props = {
 };
 
 export default function ImagePreviewModal({ imageUrl, onClose }: Props) {
-  if (!imageUrl) return null;
 
   useEffect(() => {
     const handleEsc = (e: KeyboardEvent) => {
@@ -19,6 +18,8 @@ export default function ImagePreviewModal({ imageUrl, onClose }: Props) {
     window.addEventListener("keydown", handleEsc);
     return () => window.removeEventListener("keydown", handleEsc);
   }, [onClose]);
+
+  if (!imageUrl) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm">
@@ -38,13 +39,13 @@ export default function ImagePreviewModal({ imageUrl, onClose }: Props) {
       </div>
 
       {/* IMAGE */}
-      <div className="max-h-[85vh] max-w-[90vw] overflow-hidden rounded-xl mt-12">
-        <img
-          src={getImageUrl(imageUrl)}
-          alt="Preview"
-          className="h-full w-full object-contain rounded-xl"
-        />
-      </div>
+     <div className="max-h-[80vh] max-w-[90vw] object-contain rounded-xl transition-transform duration-300 hover:scale-105">
+  <img
+    src={getImageUrl(imageUrl)}
+    alt="Preview"
+    className="max-h-[85vh] max-w-[90vw] object-contain rounded-xl shadow-2xl"
+  />
+</div>
 
       {/* CLICK OUTSIDE */}
       <div

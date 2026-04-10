@@ -61,9 +61,6 @@ export default async function OffersPage() {
     }
   } catch {}
 
-  // Separate coupon vs auto discounts
-  const autoDiscounts = discounts.filter(d => !d.requiresCouponCode);
-  const couponDiscounts = discounts.filter(d => d.requiresCouponCode);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -118,37 +115,22 @@ export default async function OffersPage() {
           </div>
         ) : (
           <>
-            {/* AUTO-APPLIED DISCOUNTS */}
-            {autoDiscounts.length > 0 && (
-              <section className="mb-10">
-                <div className="flex items-center gap-2 mb-5">
-                  <BadgePercent className="h-5 w-5 text-[#445D41]" />
-                  <h2 className="text-xl font-bold text-gray-900">Auto-Applied Discounts</h2>
-                  <span className="ml-2 px-2.5 py-0.5 bg-[#445D41]/10 text-[#445D41] text-xs font-semibold rounded-full">
-                    {autoDiscounts.length}
-                  </span>
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-                  {autoDiscounts.map(d => <DiscountCard key={d.id} discount={d} />)}
-                </div>
-              </section>
-            )}
+          <section className="mt-4">
+  <div className="flex items-center gap-2 mb-5">
+    <BadgePercent className="h-5 w-5 text-[#445D41]" />
+    <h2 className="text-xl font-bold text-gray-900">All Offers</h2>
+    <span className="ml-2 px-2.5 py-0.5 bg-[#445D41]/10 text-[#445D41] text-xs font-semibold rounded-full">
+      {discounts.length}
+    </span>
+  </div>
 
-            {/* COUPON CODE DISCOUNTS */}
-            {couponDiscounts.length > 0 && (
-              <section>
-                <div className="flex items-center gap-2 mb-5">
-                  <Tag className="h-5 w-5 text-purple-600" />
-                  <h2 className="text-xl font-bold text-gray-900">Coupon Code Deals</h2>
-                  <span className="ml-2 px-2.5 py-0.5 bg-purple-100 text-purple-700 text-xs font-semibold rounded-full">
-                    {couponDiscounts.length}
-                  </span>
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-                  {couponDiscounts.map(d => <DiscountCard key={d.id} discount={d} />)}
-                </div>
-              </section>
-            )}
+  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+    {discounts.map(d => (
+      <DiscountCard key={d.id} discount={d} />
+    ))}
+  </div>
+</section>
+          
           </>
         )}
       </main>

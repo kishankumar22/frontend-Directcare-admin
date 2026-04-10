@@ -70,6 +70,7 @@ import ImportWooCommerceOrdersModal from './ImportWooCommerceOrdersModal';
 
 import { formatNumber, getOrderProductImage } from '../_utils/formatUtils';
 import { useDebounce } from '../_hooks/useDebounce';
+import ImagePreviewModal from '../_components/ImagePreviewModal';
 
 const card = `
 bg-slate-900/40 border rounded-lg p-2
@@ -137,6 +138,7 @@ export default function OrdersListPage() {
   const [totalPages, setTotalPages] = useState(0);
   const [showProducts, setShowProducts] = useState<string | null>(null);
 const popupRef = useRef<HTMLDivElement | null>(null);
+const [previewImage, setPreviewImage] = useState<string | null>(null);
 
   // ✅ Bulk Selection
   const [selectedOrders, setSelectedOrders] = useState<string[]>([]);
@@ -607,23 +609,7 @@ const pendingCancellationRequestMap = useMemo(() => {
   );
 }, [cancellationRequests]);
 
-const Card = ({ icon, label, value, active }: any) => (
-  <div
-    className={`border rounded-lg p-3 transition-all text-left
-    ${active ? 'border-violet-500 shadow-lg shadow-violet-500/20' : 'border-slate-700'}
-    bg-slate-900/40 hover:shadow-lg`}
-  >
-    <div className="flex items-center gap-3">
-      <div className="p-2 bg-gradient-to-br from-violet-500 to-purple-500 rounded-lg text-white">
-        {icon}
-      </div>
-      <div>
-        <p className="text-xs text-slate-400">{label}</p>
-        <p className="text-xl font-bold text-white">{value ?? 0}</p>
-      </div>
-    </div>
-  </div>
-);
+
   const getDateRangeLabel = () => {
     if (!filters.fromDate && !filters.toDate) return 'Select Date Range';
     const formatDateLabel = (dateStr: string) => {
@@ -641,22 +627,7 @@ const Card = ({ icon, label, value, active }: any) => (
     return 'Select Date Range';
   };
 
-  const getDeliveryMethodBadge = (method: string) => {
-    if (method === 'ClickAndCollect') {
-      return (
-        <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-cyan-500/10 text-cyan-400 text-xs border border-cyan-500/20">
-          <MapPin className="h-3 w-3" />
-          Click & Collect
-        </span>
-      );
-    }
-    return (
-      <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-purple-500/10 text-purple-400 text-xs border border-purple-500/20">
-        <Truck className="h-3 w-3" />
-        Home Delivery
-      </span>
-    );
-  };
+  
 
   // ✅ Handle Action Modal
   const openActionModal = (order: Order, action: string) => {
@@ -804,24 +775,22 @@ if (initialLoading) {
   <div className="flex items-center gap-3">
 
     {/* Pending Cancellation CTA */}
-    <button
-      onClick={handleViewCancellationRequestedOrders}
-      className={`relative overflow-hidden px-4 py-2 rounded-lg transition-all flex items-center gap-2 text-sm font-medium border ${
-        pendingCancellationCount > 0
-          ? "border-amber-400/40 bg-gradient-to-r from-amber-500/15 to-orange-500/10 text-amber-200 shadow-lg shadow-amber-500/10 animate-pulse"
-          : "border-slate-700 bg-slate-800/70 text-slate-300 hover:text-white"
-      }`}
-      title="orders with pending cancellation requests"
-    >
-      <BellRing className={`w-4 h-4 ${pendingCancellationCount > 0 ? "text-amber-300" : "text-slate-400"}`} />
-      <span>
-        {pendingCancellationCount} cancellation request
-        {pendingCancellationCount === 1 ? "" : "s"}
-      </span>
-      {pendingCancellationCount > 0 && (
-        <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-amber-300" />
-      )}
-    </button>
+   {pendingCancellationCount > 0 && (
+  <button
+    onClick={handleViewCancellationRequestedOrders}
+    className="relative overflow-hidden px-4 py-2 rounded-lg transition-all flex items-center gap-2 text-sm font-medium border border-amber-400/40 bg-gradient-to-r from-amber-500/15 to-orange-500/10 text-amber-200 shadow-lg shadow-amber-500/10 animate-pulse"
+    title="orders with pending cancellation requests"
+  >
+    <BellRing className="w-4 h-4 text-amber-300" />
+
+    <span>
+      {pendingCancellationCount} cancellation request
+      {pendingCancellationCount === 1 ? "" : "s"}
+    </span>
+
+    <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-amber-300" />
+  </button>
+)}
 
     <button
       onClick={() => setImportWooCommerceModalOpen(true)}
@@ -1090,11 +1059,11 @@ if (initialLoading) {
 </div>
 
       {/* Items Per Page */}
-   <div className="bg-slate-900/50 border border-slate-800 rounded-lg px-3 py-2">
-  <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 text-xs">
+   <div className="bg-slate-900/50 border border-slate-800 rounded-lg px-2 py-2">
+  <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2 text-xs">
     
     {/* LEFT SIDE */}
-    <div className="flex flex-wrap items-center gap-4">
+    <div className="flex flex-wrap items-center gap-2">
       
       {/* Show Entries */}
       <div className="flex items-center gap-2">
@@ -1135,7 +1104,7 @@ if (initialLoading) {
     </div>
 
     {/* RIGHT SIDE */}
-    <div className="flex items-center gap-4 text-slate-400">
+    <div className="flex items-center gap-2 text-slate-400">
       
       {/* Page Info */}
       <span>
@@ -1148,363 +1117,274 @@ if (initialLoading) {
           {totalPages}
         </span>
       </span>
-
-      {/* Filter Indicator */}
-      {hasActiveFilters && (
-        <span className="text-violet-400 flex items-center gap-1">
-          <span className="w-1.5 h-1.5 bg-violet-400 rounded-full animate-pulse"></span>
-          Filters active {hasActiveFilters}
-        </span>
-      )}
-     
     </div>
   </div>
 </div>
-
-
 {/* FILTERS */}
-<div className="bg-slate-900/50  border border-slate-800 rounded-lg p-2 space-y-2">
+<div className="bg-slate-900/50 border border-slate-800 rounded-xl p-2 space-y-3">
 
-{/* ROW 1 */}
-<div className="flex flex-wrap gap-1 items-center w-full">
+  {/* ✅ SINGLE ROW - ALL FILTERS INLINE */}
+  <div className="flex flex-wrap items-center gap-1 w-full">
+    
+    {/* SEARCH - Flexible width */}
+<div className="relative flex-1 min-w-[220px]">
+  
+  {/* ICON */}
+  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
 
-  {/* SEARCH (FLEX GROW) */}
-  <div className="relative flex-[2] min-w-[260px]">
-    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 z-10" />
+  {/* INPUT */}
+  <input
+    type="text"
+    placeholder="Search order by OrderID, name, email, phone..."
+    title="Search order by ID, name, email, phone"
+    value={searchInput}
+    onChange={(e) => setSearchInput(e.target.value)}
+    className="w-full pl-10 pr-10 py-2 bg-slate-800/90 border border-slate-700 rounded-lg text-sm placeholder:text-xs text-white focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition"
+  />
 
-    <input
-      type="text"
-      placeholder="Search orders..."
-      value={searchInput}
-      onChange={(e) => setSearchInput(e.target.value)}
-      className="w-full pl-10 pr-10 py-2.5 bg-slate-800 border border-slate-900 rounded-xl text-white text-sm focus:ring-2 focus:ring-violet-500"
-    />
+  {/* RIGHT ICON */}
+  {searchLoading ? (
+    <div className="absolute right-3 top-1/2 -translate-y-1/2">
+      <div className="w-4 h-4 border-2 border-violet-400 border-t-transparent rounded-full animate-spin" />
+    </div>
+  ) : (
+    searchInput && (
+      <X
+        onClick={() => setSearchInput("")}
+        className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 cursor-pointer text-slate-400 hover:text-white"
+      />
+    )
+  )}
 
-    {searchLoading ? (
-      <div className="absolute right-3 top-1/2 -translate-y-1/2">
-        <div className="w-4 h-4 border-2 border-violet-400 border-t-transparent rounded-full animate-spin" />
-      </div>
-    ) : (
-      searchInput && (
-        <X
-          onClick={() => setSearchInput("")}
-          className="absolute right-3 top-1/2 -translate-y-1/2 cursor-pointer text-slate-400 hover:text-white"
-        />
-      )
+</div>
+
+    {/* USER TYPE */}
+    <select
+      value={filters.isGuestOrder}
+      onChange={(e) =>
+        setFilters((prev) => ({
+          ...prev,
+          isGuestOrder: e.target.value,
+        }))
+      }
+      className={`px-2 py-2 rounded-lg text-sm text-white border bg-gray-800 min-w-[100px]
+        ${filters.isGuestOrder !== "" ? "border-violet-500 bg-violet-500/10" : "border-slate-700"}`}
+    >
+      <option value="">User Type</option>
+      <option value="false">Registered</option>
+      <option value="true">Guest</option>
+    </select>
+
+    {/* STATUS */}
+    <select
+      value={filters.status}
+      onChange={(e) =>
+        setFilters((prev) => ({
+          ...prev,
+          status: e.target.value,
+        }))
+      }
+      className={`px-2 py-2 rounded-lg text-sm text-white border bg-slate-800 max-w-[150px]
+        ${filters.status ? "border-blue-500 bg-blue-500/10" : "border-slate-700"}`}
+    >
+      <option value="">Order Status</option>
+      <option value="Pending">Pending</option>
+      <option value="Confirmed">Confirmed</option>
+      <option value="Processing">Processing</option>
+      <option value="CancellationRequested">Cancellation Requested</option>
+      <option value="Shipped">Shipped</option>
+      <option value="PartiallyShipped">Partially Shipped</option>
+      <option value="Delivered">Delivered</option>
+      <option value="Returned">Returned</option>
+      <option value="Refunded">Refunded</option>
+      <option value="Cancelled">Cancelled</option>
+    </select>
+
+    {/* DELIVERY METHOD */}
+    <select
+      value={filters.deliveryMethod}
+      onChange={(e) =>
+        setFilters((prev) => ({
+          ...prev,
+          deliveryMethod: e.target.value,
+        }))
+      }
+      className={`px-3 py-2 rounded-lg text-sm text-white border bg-slate-800 min-w-[110px]
+        ${filters.deliveryMethod ? "border-cyan-500 bg-cyan-500/10" : "border-slate-700"}`}
+    >
+      <option value="">Delivery Method</option>
+      <option value="HomeDelivery">Home Delivery</option>
+      <option value="ClickAndCollect">Click & Collect</option>
+    </select>
+
+    {/* PAYMENT METHOD */}
+    <select
+      value={filters.paymentMethod}
+      onChange={(e) =>
+        setFilters((prev) => ({
+          ...prev,
+          paymentMethod: e.target.value,
+        }))
+      }
+      className={`px-3 py-2 rounded-lg text-sm text-white border bg-slate-800 min-w-[20px]
+        ${filters.paymentMethod ? "border-amber-500 bg-amber-500/10" : "border-slate-700"}`}
+    >
+      <option value="">Payment Status</option>
+      <option value="Stripe">Stripe</option>
+      <option value="PayPal">PayPal</option>
+      <option value="Apple Pay">Apple Pay</option>
+      <option value="Google Pay">Google Pay</option>
+      <option value="Credit">Credit Card</option>
+      <option value="Debit">Debit Card</option>
+      <option value="Klarna">Klarna</option>
+    </select>
+
+    {/* PAYMENT STATUS */}
+    <select
+      value={filters.paymentStatus}
+      onChange={(e) =>
+        setFilters((prev) => ({
+          ...prev,
+          paymentStatus: e.target.value,
+        }))
+      }
+      className={`px-2 py-2 rounded-lg text-sm text-white border bg-slate-800 min-w-[110px]
+        ${filters.paymentStatus ? "border-green-500 bg-green-500/10" : "border-slate-700"}`}
+    >
+      <option value="">Pay Status</option>
+      <option value="Successful">Successful</option>
+      <option value="Pending">Pending</option>
+      <option value="Failed">Failed</option>
+      <option value="Refunded">Refunded</option>
+    </select>
+
+    {/* PHARMACY STATUS */}
+    <select
+      value={filters.pharmacyVerificationStatus || ""}
+      onChange={(e) =>
+        setFilters((prev) => ({
+          ...prev,
+          pharmacyVerificationStatus: e.target.value === "" ? "" : e.target.value as PharmacyVerificationStatus,
+        }))
+      }
+      className={`px-2 py-2 rounded-lg text-sm text-white border bg-slate-800 min-w-[110px]
+        ${filters.pharmacyVerificationStatus ? "border-purple-500 bg-purple-500/10" : "border-slate-700"}`}
+    >
+      <option value="">Pharmacy</option>
+      <option value="Pending">Pending</option>
+      <option value="Approved">Approved</option>
+      <option value="Rejected">Rejected</option>
+    </select>
+
+    {/* DATE RANGE */}
+    <div className="relative min-w-[130px]" ref={datePickerRef}>
+      <button
+        onClick={() => setShowDatePicker(!showDatePicker)}
+        className={`w-full pl-9 pr-8 py-2 rounded-lg text-sm text-left
+          ${filters.fromDate || filters.toDate
+            ? "bg-violet-500/20 border border-violet-500/50 text-white"
+            : "bg-slate-800 border border-slate-700 text-slate-400"}
+        `}
+      >
+        <span className="truncate block">{getDateRangeLabel()}</span>
+        <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+        {(filters.fromDate || filters.toDate) ? (
+          <X
+            onClick={(e) => {
+              e.stopPropagation();
+              setFilters(prev => ({ ...prev, fromDate: "", toDate: "" }));
+            }}
+            className="absolute right-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400 hover:text-white"
+          />
+        ) : (
+          <ChevronDown
+            className={`absolute right-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400 transition-transform
+              ${showDatePicker ? "rotate-180" : ""}`}
+          />
+        )}
+      </button>
+
+      {showDatePicker && (
+        <>
+          <div className="fixed inset-0 z-[100]" onClick={() => setShowDatePicker(false)} />
+          <div className="absolute top-full left-0 mt-2 bg-slate-800 border border-slate-700 rounded-xl shadow-2xl p-3 z-[110] min-w-[240px]">
+            {/* FROM DATE */}
+            <div className="mb-3">
+              <label className="block text-blue-400 text-xs font-semibold mb-1">From Date</label>
+              <input
+                type="date"
+                value={filters.fromDate}
+                onChange={(e) => setFilters(prev => ({ ...prev, fromDate: e.target.value }))}
+                max={filters.toDate || new Date().toISOString().split("T")[0]}
+                className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white text-sm"
+              />
+            </div>
+
+            {/* TO DATE */}
+            <div className="mb-3">
+              <label className="block text-blue-400 text-xs font-semibold mb-1">To Date</label>
+              <input
+                type="date"
+                value={filters.toDate}
+                onChange={(e) => setFilters(prev => ({ ...prev, toDate: e.target.value }))}
+                min={filters.fromDate}
+                max={new Date().toISOString().split("T")[0]}
+                className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white text-sm"
+              />
+            </div>
+
+            {/* QUICK BUTTONS */}
+            <div className="flex gap-2 pt-2 border-t border-slate-700">
+              <button
+                onClick={() => {
+                  const today = new Date();
+                  const weekAgo = new Date(today);
+                  weekAgo.setDate(today.getDate() - 7);
+                  setFilters(prev => ({
+                    ...prev,
+                    fromDate: weekAgo.toISOString().split("T")[0],
+                    toDate: today.toISOString().split("T")[0]
+                  }));
+                  setShowDatePicker(false);
+                }}
+                className="flex-1 px-3 py-2 bg-slate-700 hover:bg-slate-600 text-violet-400 rounded-lg text-xs font-medium"
+              >
+                Last 7 Days
+              </button>
+              <button
+                onClick={() => {
+                  const today = new Date();
+                  const monthAgo = new Date(today);
+                  monthAgo.setMonth(today.getMonth() - 1);
+                  setFilters(prev => ({
+                    ...prev,
+                    fromDate: monthAgo.toISOString().split("T")[0],
+                    toDate: today.toISOString().split("T")[0]
+                  }));
+                  setShowDatePicker(false);
+                }}
+                className="flex-1 px-3 py-2 bg-slate-700 hover:bg-slate-600 text-cyan-400 rounded-lg text-xs font-medium"
+              >
+                Last 30 Days
+              </button>
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+    {hasActiveFilters && (
+      <button
+        onClick={clearFilters}
+        title="Clear Filters"
+        className="px-2 py-2 bg-red-500/10 border border-red-500/30 text-red-400 rounded-lg text-sm font-medium hover:bg-red-500/20 transition-all whitespace-nowrap"
+      >
+       <X className="w-4 h-4 "/>
+      </button>
     )}
+
+    {/* CLEAR FILTERS BUTTON */}
   </div>
 
-  {/* USER TYPE */}
-  <select
-    value={filters.isGuestOrder}
-    onChange={(e) =>
-      setFilters((prev) => ({
-        ...prev,
-        isGuestOrder: e.target.value,
-      }))
-    }
-    className={`flex-1 min-w-[150px] px-3 py-2.5 rounded-xl text-sm text-white border bg-slate-800
-    ${filters.isGuestOrder ? "border-violet-500 bg-violet-500/10" : "border-slate-700"}`}
-  >
-    <option value="">User type</option>
-    <option value="false">Registered</option>
-    <option value="true">Guest</option>
-  </select>
-
-  {/* STATUS */}
-  <select
-    value={filters.status}
-    onChange={(e) =>
-      setFilters((prev) => ({
-        ...prev,
-        status: e.target.value,
-      }))
-    }
-    className={`flex-1 min-w-[150px] px-3 py-2.5 rounded-xl text-sm text-white border bg-slate-800
-    ${filters.status ? "border-blue-500 bg-blue-500/10" : "border-slate-700"}`}
-  >
-    <option value="">Status</option>
-    <option value="Pending">Pending</option>
-    <option value="Confirmed">Confirmed</option>
-    <option value="Processing">Processing</option>
-    <option value="CancellationRequested">Cancellation Requested</option>
-    <option value="Shipped">Shipped</option>
-    <option value="PartiallyShipped">Partially Shipped</option>
-    <option value="Delivered">Delivered</option>
-    <option value="Returned">Returned</option>
-    <option value="Refunded">Refunded</option>
-    <option value="Cancelled">Cancelled</option>
-  </select>
-
-  {/* DELIVERY */}
-  <select
-    value={filters.deliveryMethod}
-    onChange={(e) =>
-      setFilters((prev) => ({
-        ...prev,
-        deliveryMethod: e.target.value,
-      }))
-    }
-    className={`flex-1 min-w-[150px] px-3 py-2.5 rounded-xl text-sm text-white border bg-slate-800
-    ${filters.deliveryMethod ? "border-cyan-500 bg-cyan-500/10" : "border-slate-700"}`}
-  >
-    <option value="">Delivery Method</option>
-    <option value="HomeDelivery">Home Delivery</option>
-    <option value="ClickAndCollect">Click & Collect</option>
-  </select>
-
-  {/* MORE / HIDE (ACTIVE STATE FIXED) */}
-  <button
-    onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
-    className={`px-4 py-2.5 rounded-xl text-sm flex items-center gap-2 border transition-all
-    ${
-      showAdvancedFilters
-        ? "bg-violet-500/20 border-violet-500 text-violet-300 shadow-md shadow-violet-500/20"
-        : "bg-slate-800 border-slate-700 text-white hover:bg-slate-700"
-    }`}
-  >
-    <Filter className="w-4 h-4" />
-    {showAdvancedFilters ? "Hide" : "More"}
-  </button>
-
-  {/* CLEAR */}
-  {hasActiveFilters && (
-    <button
-      onClick={clearFilters}
-      className="px-4 py-2.5 bg-red-500/10 border border-red-500/30 text-red-400 rounded-xl text-sm hover:bg-red-500/20"
-    >
-      Clear filter
-    </button>
-  )}
-</div>
-
-
-{/* ROW 2 */}
-{showAdvancedFilters && (
-
-<div className="grid grid-cols-[repeat(auto-fit,minmax(180px,1fr))] gap-2 w-full">
-
-
-{/* PAYMENT METHOD */}
-<select
-  value={filters.paymentMethod}
-  onChange={(e) =>
-    setFilters((prev) => ({
-      ...prev,
-      paymentMethod: e.target.value,
-    }))
-  }
-  className={`px-3 py-2 rounded-lg text-sm text-white border bg-slate-800 min-w-[160px]
-  ${filters.paymentMethod ? "border-amber-500 bg-amber-500/10" : "border-slate-700"}
-  `}
->
-  <option value="">Payment Method</option>
-
-  {/* CORE */}
-  <option value="Stripe">Stripe</option>
-  <option value="PayPal">PayPal</option>
-
-  {/* DIGITAL WALLETS */}
-  <option value="Apple Pay">Apple Pay</option>
-  <option value="Google Pay">Google Pay</option>
-
-  {/* CARD */}
-  <option value="Credit">Credit Card</option>
-  <option value="Debit">Debit Card</option>
-
-  {/* BNPL */}
-  <option value="Klarna">Klarna</option>
-</select>
-
-
-{/* PAYMENT STATUS */}
-<select
-value={filters.paymentStatus}
-onChange={(e)=>
-setFilters(prev=>({
-...prev,
-paymentStatus:e.target.value
-}))
-}
-className={`px-3 py-2 rounded-lg text-sm text-white border bg-slate-800 min-w-[160px]
-${filters.paymentStatus ? "border-green-500 bg-green-500/10":"border-slate-700"}
-`}
->
-<option value="">Payment Status</option>
-<option value="Successful">Successful</option>
-<option value="Pending">Pending</option>
-<option value="Failed">Failed</option>
-<option value="Refunded">Refunded</option>
-</select>
-
-
-{/* PHARMACY STATUS */}
-<select
-value={filters.pharmacyVerificationStatus || ""}
-onChange={(e)=>
-setFilters(prev=>({
-...prev,
-pharmacyVerificationStatus:
-e.target.value === ""
-? ""
-: (e.target.value as PharmacyVerificationStatus)
-}))
-}
-className={`px-3 py-2 rounded-lg text-sm text-white border bg-slate-800 w-full
-${filters.pharmacyVerificationStatus !== ""
-? "border-purple-500 bg-purple-500/10"
-: "border-slate-700"}
-`}
->
-<option value="">Pharmacy Status</option>
-<option value="Pending">Pending</option>
-<option value="Approved">Approved</option>
-<option value="Rejected">Rejected</option>
-</select>
-
-
-
-{/* DATE RANGE */}
-<div className="relative min-w-[220px]" ref={datePickerRef}>
-
-<button
-onClick={() => setShowDatePicker(!showDatePicker)}
-className={`pl-9 pr-8 py-2 rounded-lg text-sm text-left w-full
-${filters.fromDate || filters.toDate
-? "bg-violet-500/20 border-2 border-violet-500/50 text-white"
-: "bg-slate-800 border border-slate-700 text-slate-400"}
-`}
->
-
-<span className="ml-4 truncate">{getDateRangeLabel()}</span>
-
-<Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400"/>
-
-{filters.fromDate || filters.toDate ? (
-<X
-onClick={(e)=>{
-e.stopPropagation();
-setFilters(prev=>({...prev,fromDate:"",toDate:""}));
-}}
-className="absolute right-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400 hover:text-white"
-/>
-):(
-<ChevronDown
-className={`absolute right-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400 transition-transform
-${showDatePicker ? "rotate-180":""}`}
-/>
-)}
-
-</button>
-
-
-{showDatePicker && (
-<>
-<div
-className="fixed inset-0 z-[100]"
-onClick={()=>setShowDatePicker(false)}
-/>
-
-<div className="absolute top-full left-0 mt-2 bg-slate-800 border border-slate-700 rounded-xl shadow-2xl p-3 z-[110] min-w-[220px]">
-
-{/* FROM DATE */}
-<div className="mb-3">
-<label className="block text-blue-400 text-xs font-semibold mb-1">
-From Date
-</label>
-
-<input
-type="date"
-value={filters.fromDate}
-onChange={(e)=>setFilters(prev=>({...prev,fromDate:e.target.value}))}
-max={filters.toDate || new Date().toISOString().split("T")[0]}
-className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white text-sm"
-/>
-
-</div>
-
-
-{/* TO DATE */}
-<div className="mb-3">
-
-<label className="block text-blue-400 text-xs font-semibold mb-1">
-To Date
-</label>
-
-<input
-type="date"
-value={filters.toDate}
-onChange={(e)=>setFilters(prev=>({...prev,toDate:e.target.value}))}
-min={filters.fromDate}
-max={new Date().toISOString().split("T")[0]}
-className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white text-sm"
-/>
-
-</div>
-
-
-{/* QUICK BUTTONS */}
-<div className="flex gap-2 pt-2 border-t border-slate-700">
-
-<button
-onClick={()=>{
-
-const today=new Date()
-
-const weekAgo=new Date(today)
-
-weekAgo.setDate(today.getDate()-7)
-
-setFilters(prev=>({
-...prev,
-fromDate:weekAgo.toISOString().split("T")[0],
-toDate:today.toISOString().split("T")[0]
-}))
-
-setShowDatePicker(false)
-
-}}
-className="flex-1 px-3 py-2 bg-slate-700 hover:bg-slate-600 text-violet-400 rounded-lg text-xs font-medium"
->
-Last 7 Days
-</button>
-
-
-<button
-onClick={()=>{
-
-const today=new Date()
-
-const monthAgo=new Date(today)
-
-monthAgo.setMonth(today.getMonth()-1)
-
-setFilters(prev=>({
-...prev,
-fromDate:monthAgo.toISOString().split("T")[0],
-toDate:today.toISOString().split("T")[0]
-}))
-
-setShowDatePicker(false)
-
-}}
-className="flex-1 px-3 py-2 bg-slate-700 hover:bg-slate-600 text-cyan-400 rounded-lg text-xs font-medium"
->
-Last 30 Days
-</button>
-
-</div>
-
-</div>
-</>
-)}
-
-</div>
-
-
-</div>
-
-)}
 
 </div>
 
@@ -1529,7 +1409,7 @@ Last 30 Days
 <thead className="sticky top-0 bg-slate-800/85 backdrop-blur-sm z-50">
 <tr className="border-b border-slate-700">
 
-<th className="py-3 px-3">
+<th className="py-2 px-2">
 <input
 type="checkbox"
 checked={selectedOrders.length === orders.length && orders.length > 0}
@@ -1539,27 +1419,27 @@ title="Select all orders"
 />
 </th>
 
-<th className="text-left py-3 px-3 text-slate-300 font-semibold text-xs">
+<th className="text-left py-2 px-2 text-slate-300 font-semibold text-xs">
 Order
 </th>
 
-<th className="text-left py-3 px-3 text-slate-300 font-semibold text-xs">
+<th className="text-left py-2 px-2 text-slate-300 font-semibold text-xs">
 Customer
 </th>
 
-<th className="text-left py-3 px-3 text-slate-300 font-semibold text-xs">
+<th className="text-left py-2 px-2 text-slate-300 font-semibold text-xs">
 Amount
 </th>
 
-<th className="text-center py-3 px-3 text-slate-300 font-semibold text-xs">
+<th className="text-center py-2 px-2 text-slate-300 font-semibold text-xs">
 Status
 </th>
 
-<th className="text-center py-3 px-3 text-slate-300 font-semibold text-xs">
+<th className="text-center py-2 px-2 text-slate-300 font-semibold text-xs">
 Payment
 </th>
 
-<th className="text-center py-3 px-3 text-slate-300 font-semibold text-xs">
+<th className="text-center py-2 px-2 text-slate-300 font-semibold text-xs">
 Actions
 </th>
 
@@ -1605,125 +1485,71 @@ title="Select order"
 
 
 {/* ORDER */}
-<td className="py-3 px-3">
-  <div className="flex items-start gap-3">
+<td className="py-2 px-2">
+  <div className="flex items-center justify-center gap-2.5">
 
-    {/* PRODUCT IMAGE */}
+    {/* IMAGE */}
     <img
       src={getOrderProductImage(order.orderItems[0]?.productImageUrl)}
       alt={order.orderItems[0]?.productName}
-      className="w-11 h-11 rounded-md object-cover border border-slate-600"
+      className="w-12 h-12 rounded-md object-cover border border-slate-700 flex-shrink-0 cursor-pointer hover:scale-105 transition"
+      onClick={() =>
+        setPreviewImage(order.orderItems[0]?.productImageUrl || null)
+      }
       onError={(e) => (e.currentTarget.src = "/placeholder.png")}
     />
 
-    <div className="min-w-0">
+    {/* CONTENT */}
+    <div className="flex flex-col min-w-0 flex-1 gap-[2px]">
 
-      {/* Order + Product */}
-      <div className="flex items-center gap-2 min-w-0">
+      {/* ORDER + META */}
+      <div className="flex items-center gap-1.5 flex-wrap text-[11px] leading-none">
+        <a
+          href={`/admin/orders/${order.id}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-violet-400 font-medium hover:underline"
+        >
+          {order.orderNumber}
+        </a>
 
-     <p className="text-violet-400 font-semibold text-xs hover:underline">
-  <a
-    href={`/admin/orders/${order.id}`}
-    target="_blank"
-    rel="noopener noreferrer"
-    className="cursor-pointer"
-  >
-    {order.orderNumber}
-  </a>
-</p>
+        <span className="text-slate-600">•</span>
 
-        {/* 🔥 IMPORTANT: RELATIVE WRAPPER */}
-        <div className="relative flex items-center gap-1 text-xs min-w-0">
+        <span className="text-slate-500">
+          {order.orderItems.length} items
+        </span>
 
-          <span className="text-slate-500">•</span>
+        <span className="text-slate-600">•</span>
 
-          <p
-            className="text-slate-300 truncate max-w-[170px] cursor-pointer hover:text-white"
-            title={order.orderItems[0]?.productName}
-            onClick={() =>
-              setShowProducts(showProducts === order.id ? null : order.id)
-            }
-          >
-            {order.orderItems[0]?.productName}
-          </p>
-
-          {order.orderItems.length > 1 && (
-            <button
-              onClick={() =>
-                setShowProducts(showProducts === order.id ? null : order.id)
-              }
-              className="text-cyan-400 hover:text-cyan-300 font-medium"
-            >
-              +{order.orderItems.length - 1} more
-            </button>
-          )}
-
-          {/* ✅ POPUP EXACTLY UNDER TEXT */}
-          {showProducts === order.id && (
-            <div
-              ref={popupRef}
-              className="absolute z-40 top-full left-0 mt-2 w-72 bg-slate-800 border border-slate-700 rounded-lg shadow-2xl ring-1 ring-slate-700/50 p-2"
-            >
-              {/* HEADER */}
-              <div className="flex items-center justify-between mb-2">
-                <p className="text-sm font-semibold text-white">
-                  Products ({order.orderItems.length})
-                </p>
-
-                <button
-                  onClick={() => setShowProducts(null)}
-                  className="text-slate-400 hover:text-white text-xs"
-                >
-                  ✕
-                </button>
-              </div>
-
-              {/* LIST */}
-              <div className="space-y-2 max-h-56 overflow-y-auto scrollbar-thin scrollbar-thumb-slate-600 scrollbar-track-transparent">
-
-                {order.orderItems.map((item) => (
-                  <div
-                    key={item.id}
-                    className="flex items-center gap-2 p-2 rounded-lg hover:bg-slate-700/40 transition"
-                  >
-                    <img
-                      src={getOrderProductImage(item.productImageUrl)}
-                      alt={item.productName}
-                      className="w-9 h-9 rounded-md object-cover border border-slate-600"
-                       onError={(e) => (e.currentTarget.src = "/placeholder.png")}
-                    />
-
-                    <div className="min-w-0">
-                      <p
-                        className="text-xs text-white truncate"
-                        title={item.productName}
-                      >
-                        {item.productName}
-                      </p>
-
-                      <p className="text-[11px] text-cyan-400">
-                        SKU: {item.productSku}
-                      </p>
-                    </div>
-                  </div>
-                ))}
-
-              </div>
-            </div>
-          )}
-
-        </div>
+        <span className="text-slate-500">
+          {formatDate(order.orderDate)}
+        </span>
       </div>
 
+      {/* PRODUCT NAME */}
+      <p
+        className="text-xs text-slate-200 leading-tight line-clamp-2 break-words"
+        title={order.orderItems[0]?.productName}
+      >
+        {order.orderItems[0]?.productName}
+      </p>
+
       {/* SKU */}
-      <p className="text-[11px] text-cyan-400 truncate max-w-[220px]">
+      <p className="text-[10px] text-cyan-400 leading-none">
         SKU: {order.orderItems.map((i) => i.productSku).join(", ")}
       </p>
 
-      {/* Items + Date */}
-      <p className="text-[11px] text-slate-500">
-        {order.orderItems.length} items • {formatDate(order.orderDate)}
-      </p>
+      {/* MORE ITEMS */}
+      {order.orderItems.length > 1 && (
+        <button
+          onClick={() =>
+            setShowProducts(showProducts === order.id ? null : order.id)
+          }
+          className="text-[10px] text-cyan-400 hover:text-cyan-300 leading-none w-fit"
+        >
+          +{order.orderItems.length - 1} more
+        </button>
+      )}
 
     </div>
   </div>
@@ -2026,6 +1852,11 @@ Cancel Order
   currentStatus={selectedStatus as OrderStatus}
   selectedOrders={selectedOrderPreview}
   loading={bulkLoading}
+/>
+
+<ImagePreviewModal
+  imageUrl={previewImage}
+  onClose={() => setPreviewImage(null)}
 />
     </div>
   );

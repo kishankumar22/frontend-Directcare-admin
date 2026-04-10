@@ -786,7 +786,7 @@ const clearFilters = () => {
         </div>
       </div>
 
-      {/* Items Per Page */}
+      
 {/* Items Per Page */}
 <div className="bg-slate-900/40 border border-slate-800 rounded-lg px-3 py-2">
   <div className="flex flex-wrap items-center justify-between gap-3">
@@ -851,7 +851,7 @@ const clearFilters = () => {
     setStatusFilter(e.target.value);
     setCurrentPage(1);
   }}
-  className={`p-2 bg-slate-800/60 border rounded-md text-white text-[11px] focus:outline-none transition-all
+  className={`p-2 bg-gray-800/60 border rounded-md text-white text-[11px] focus:outline-none transition-all
   ${
     statusFilter !== "all"
       ? "border-violet-500 bg-violet-500/10"
@@ -1019,7 +1019,8 @@ const clearFilters = () => {
 
             {/* Status Toggle */}
             <td className="py-2 px-3 text-center">
-              <button
+              {rate.isDeleted === false && (
+                <button
                 onClick={() => setStatusConfirm(rate)}
                 className={`px-2 py-0.5 rounded-md text-xs font-medium transition ${
                   rate.isActive
@@ -1029,6 +1030,8 @@ const clearFilters = () => {
               >
                 {rate.isActive ? "Active" : "Inactive"}
               </button>
+              )}
+             
             </td>
 
             {/* Default */}

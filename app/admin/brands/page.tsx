@@ -360,7 +360,7 @@ const goToPage = useCallback((page: number) => {
       className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-800/60 border border-slate-700 text-slate-300 rounded-md text-[12px] hover:text-white hover:border-violet-500/40 transition-all"
     >
       <FolderTree className="h-3.5 w-3.5" />
-      Categories
+      Go to Categories Page
     </button>
 
     {/* Products */}
@@ -370,7 +370,7 @@ const goToPage = useCallback((page: number) => {
       className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-800/60 border border-slate-700 text-slate-300 rounded-md text-[12px] hover:text-white hover:border-cyan-500/40 transition-all"
     >
       <Package className="h-3.5 w-3.5" />
-      Products
+      Go to Product Page
     </button>
 
     {/* Add Brand */}

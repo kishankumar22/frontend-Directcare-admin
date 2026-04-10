@@ -249,7 +249,13 @@ const totalPaid =
 /* =====================================================================
    MAIN ORDER CARD
 ===================================================================== */
-export default function OrderCard({ order }: { order: any }) {
+export default function OrderCard({ 
+  order, 
+  targetOrderId 
+}: { 
+  order: any; 
+  targetOrderId?: string | null; 
+}) {
   const { accessToken, user } = useAuth();
   const toast = useToast();
 
@@ -258,7 +264,7 @@ export default function OrderCard({ order }: { order: any }) {
   const [customReason, setCustomReason] = useState("");
   const [cancelLoading, setCancelLoading] = useState(false);
 
-  const [emailInvoice, setEmailInvoice] = useState(false);
+
   const [invoiceLoading, setInvoiceLoading] = useState(false);
 
   const [showPayModal, setShowPayModal] = useState(false);
@@ -268,6 +274,8 @@ export default function OrderCard({ order }: { order: any }) {
 useEffect(() => {
   setPendingAmount(order.pendingPaymentAmount ?? null);
 }, [order.pendingPaymentAmount]);
+
+
   // Order History
   const [showHistory, setShowHistory] = useState(false);
   const [history, setHistory] = useState<any[]>([]);
@@ -322,6 +330,24 @@ const loadRefundHistory = async () => {
   setRefundLoading(false);
   setShowRefundHistory(true);
 };
+
+useEffect(() => {
+  if (
+    targetOrderId &&
+    order.orderNumber === targetOrderId
+  ) {
+    const el = document.getElementById(`order-${order.orderNumber}`);
+
+    if (el) {
+      el.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+
+    // 🔥 auto open payment modal
+    if (order.pendingPaymentAmount > 0) {
+      setShowPayModal(true);
+    }
+  }
+}, [targetOrderId, order]);
   /* =========================
      DOWNLOAD INVOICE
   ========================== */
@@ -384,6 +410,7 @@ const loadRefundHistory = async () => {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          "Accept": "application/json", // 🔥 ADD THIS
           Authorization: `Bearer ${accessToken}`,
         },
         body: JSON.stringify({
@@ -394,10 +421,17 @@ const loadRefundHistory = async () => {
       }
     );
 
-    const json = await res.json();
-    if (!res.ok || !json.success) {
-      throw new Error(json?.message || "Cancellation request failed");
-    }
+   let json: any = null;
+
+try {
+  json = await res.json();
+} catch {
+  json = null;
+}
+
+if (!res.ok || (json && !json.success)) {
+  throw new Error(json?.message || "Cancellation request failed");
+}
 
     toast.success(json.message || "Cancellation request submitted");
 
@@ -421,7 +455,14 @@ const refundedAmount =
   0;
 
   return (
-    <div className="bg-white rounded-xl border shadow-sm p-5 space-y-4">
+   <div
+  id={`order-${order.orderNumber}`}
+  className={`bg-white rounded-xl border shadow-sm p-5 space-y-4 ${
+    order.orderNumber === targetOrderId
+      ? "border-orange-500 ring-2 ring-orange-300 bg-orange-50"
+      : ""
+  }`}
+>
       {/* HEADER */}
       <div className="flex flex-wrap justify-between gap-2">
         <div>
@@ -436,6 +477,21 @@ const refundedAmount =
           {order.statusName ?? order.status}
         </span>
       </div>
+
+      {/* CANCELLATION REJECTED BANNER */}
+      {order.cancellationRequestStatus === "Rejected" && (
+        <div className="flex items-start gap-3 bg-red-50 border border-red-200 rounded-lg px-4 py-3 text-sm">
+          <span className="text-red-500 mt-0.5">✕</span>
+          <div>
+            <p className="font-semibold text-red-700">Cancellation Request Rejected</p>
+            {order.cancellationRejectedReason ? (
+              <p className="text-red-600 mt-0.5">Reason: {order.cancellationRejectedReason}</p>
+            ) : (
+              <p className="text-red-500 mt-0.5">Your cancellation request has been reviewed and rejected. Your order will proceed as normal.</p>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* PRODUCTS */}
       <div className="space-y-3">
@@ -609,8 +665,10 @@ const refundedAmount =
             {history.length === 0 ? (
               <p className="text-xs text-gray-400">No changes recorded for this order.</p>
             ) : (
-              history.map((h: any) => {
-                const ops: any[] = h.changeDetails?.operations ?? [];
+             history
+  .filter((h: any) => h.changeType === "OrderEdited")
+  .map((h: any) => {
+                const ops: any[] = h.changeDetails?.Operations ?? [];
                 const priceDiff = h.newTotalAmount != null && h.oldTotalAmount != null
                   ? h.newTotalAmount - h.oldTotalAmount
                   : null;
@@ -633,49 +691,75 @@ const refundedAmount =
                     </div>
 
                     {/* Item changes table */}
-                    {ops.length > 0 && (
-                      <table className="w-full text-left">
-                        <thead>
-                          <tr className="text-gray-400 border-b">
-                            <th className="pb-1 font-medium">Product</th>
-                            <th className="pb-1 font-medium text-center">Change</th>
-                            <th className="pb-1 font-medium text-right">Old</th>
-                            <th className="pb-1 font-medium text-right">New</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {ops.map((op: any, i: number) => (
-                            <tr key={i} className="border-b last:border-0">
-                              <td className="py-1 text-gray-700 pr-2">{op.productName}</td>
-                              <td className="py-1 text-center">
-                                <span className={`px-1.5 py-0.5 rounded text-[10px] font-semibold ${
-                                  op.changeType === "Added" ? "bg-green-100 text-green-700" :
-                                  op.changeType === "Removed" ? "bg-red-100 text-red-700" :
-                                  op.changeType === "PriceAdjusted" ? "bg-purple-100 text-purple-700" :
-                                  "bg-blue-100 text-blue-700"
-                                }`}>
-                                  {op.changeType}
-                                </span>
-                              </td>
-                              <td className="py-1 text-right text-gray-400">
-                                Qty: {op.oldQuantity} · £{(op.oldTotalPrice ?? 0).toFixed(2)}
-                              </td>
-                              <td className="py-1 text-right text-gray-700 font-medium">
-                                Qty: {op.newQuantity} · £{(op.newTotalPrice ?? 0).toFixed(2)}
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    )}
+    {ops.length > 0 ? (
+  <table className="w-full text-left">
+    <thead>
+      <tr className="text-gray-400 border-b">
+        <th className="pb-1 font-medium">Product</th>
+        <th className="pb-1 font-medium text-center">Change</th>
+        <th className="pb-1 font-medium text-right">Old</th>
+        <th className="pb-1 font-medium text-right">New</th>
+      </tr>
+    </thead>
+
+    <tbody>
+      {ops.map((op: any, i: number) => (
+        <tr key={i} className="border-b last:border-0">
+          
+          {/* ✅ Product Name FIX */}
+          <td className="py-1 text-gray-700 pr-2">
+            {op.ProductName}
+          </td>
+
+          {/* ✅ ChangeType FIX */}
+          <td className="py-1 text-center">
+            <span
+              className={`px-1.5 py-0.5 rounded text-[10px] font-semibold ${
+                op.ChangeType === "Added"
+                  ? "bg-green-100 text-green-700"
+                  : op.ChangeType === "Removed"
+                  ? "bg-red-100 text-red-700"
+                  : op.ChangeType === "PriceAdjusted"
+                  ? "bg-purple-100 text-purple-700"
+                  : "bg-blue-100 text-blue-700"
+              }`}
+            >
+              {op.ChangeType}
+            </span>
+          </td>
+
+          {/* ✅ OLD DATA */}
+          <td className="py-1 text-right text-gray-400">
+            Qty: {op.OldQuantity ?? 0} <br />
+            £{(op.OldTotalPrice ?? 0).toFixed(2)}
+          </td>
+
+          {/* ✅ NEW DATA */}
+          <td className="py-1 text-right text-gray-700 font-medium">
+            Qty: {op.NewQuantity ?? 0} <br />
+            £{(op.NewTotalPrice ?? 0).toFixed(2)}
+          </td>
+        </tr>
+      ))}
+    </tbody>
+  </table>
+) : (
+  <p className="text-xs text-gray-400">
+    No item-level changes available.
+  </p>
+)}
 
                     {/* Total summary */}
-                    {h.oldTotalAmount != null && h.newTotalAmount != null && (
-                      <div className="mt-2 flex justify-end gap-4 text-gray-500">
-                        <span>Old total: <strong>£{h.oldTotalAmount.toFixed(2)}</strong></span>
-                        <span>New total: <strong className="text-gray-800">£{h.newTotalAmount.toFixed(2)}</strong></span>
-                      </div>
-                    )}
+               {h.oldTotalAmount != null && h.newTotalAmount != null && (
+  <div className="mt-2 flex justify-between text-xs">
+    <span className="text-gray-500">
+      Old total: <strong>£{h.oldTotalAmount.toFixed(2)}</strong>
+    </span>
+    <span className="text-gray-800 font-semibold">
+      New total: £{h.newTotalAmount.toFixed(2)}
+    </span>
+  </div>
+)}
                   </div>
                 );
               })
@@ -686,14 +770,7 @@ const refundedAmount =
 
       {/* ACTIONS */}
       <div className="flex flex-wrap justify-end items-center gap-2 pt-3 border-t">
-        <div className="flex items-center gap-2 text-sm text-gray-600">
-          <input
-            type="checkbox"
-            checked={emailInvoice}
-            onChange={(e) => setEmailInvoice(e.target.checked)}
-          />
-          Email invoice
-        </div>
+       
 
         <Button
           onClick={handleDownloadInvoice}

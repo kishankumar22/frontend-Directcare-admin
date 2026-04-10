@@ -1588,6 +1588,8 @@ const handleRemoveCoupon = () => {
       vatRate: vatRate ?? null,
       vatExempt: product.vatExempt,
       sku: selectedVariant?.sku ?? product.sku,
+      stockQuantity:
+    selectedVariant?.stockQuantity ?? product.stockQuantity,
     });
     toast.success(isInWishlist(wishlistId) ? "Removed from wishlist" : "Added to wishlist!");
   }}
@@ -2123,7 +2125,7 @@ bg-white/80 hover:bg-white shadow-md rounded-full p-2 backdrop-blur-sm transitio
     </Button>
   )}
   {purchaseType === "one" && !backorderState.canBuy && !backorderState.showNotify && (
-    <Button disabled className="flex-1 py-2 rounded-xl bg-gray-400 cursor-not-allowed opacity-70 text-white text-sm">
+    <Button disabled className="flex-1 py-2 rounded-xl bg-red-400 cursor-not-allowed opacity-70 text-white text-sm">
       Out of Stock
     </Button>
   )}
@@ -2352,7 +2354,7 @@ bg-white/80 hover:bg-white shadow-md rounded-full p-2 backdrop-blur-sm transitio
     {purchaseType === "one" && !backorderState.canBuy && !backorderState.showNotify && (
       <Button
         disabled
-        className="flex-1 py-2 rounded-xl bg-gray-400 cursor-not-allowed opacity-70 text-white"
+        className="flex-1 py-2 rounded-xl bg-red-400 cursor-not-allowed opacity-70 text-white"
       >
         Out of Stock
       </Button>

@@ -684,13 +684,20 @@ useEffect(() => {
               </div>
             ))}
              {/* 🔥 OFFERS — RIGHT END */}
-  <Link
-    href="/offers"
-    className=" flex items-center gap-1 py-2 text-green-700 hover:text-green-500 transition-colors"
-  >
+<Link
+  href="/offers"
+  className="group relative flex items-center gap-1 py-2 px-2 rounded-md 
+  font-bold text-red-500 overflow-hidden"
+>
+  {/* Glow */}
+  <span className="absolute inset-0 bg-yellow-400/10 opacity-0 group-hover:opacity-100 transition rounded-md"></span>
+
+  {/* Content */}
+  <div className="relative z-10 flex items-center gap-1 animate-[scalePulse_1s_infinite]">
     <GiftIcon size={16} />
-    Offers
-  </Link>
+    <span className="tracking-wide">Offers</span>
+  </div>
+</Link>
           </nav>
 
           {/* Mega Menu */}

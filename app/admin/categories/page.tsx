@@ -89,7 +89,7 @@ const [openFaqCategory, setOpenFaqCategory] = useState<Category | null>(null);
     imageUrl: "",
     isActive: true,
     showOnHomepage: false,  // ✅ ADD THIS LINE
-    sortOrder: 0,
+   sortOrder: "" as number | "",
     metaTitle: "",
     metaDescription: "",
     metaKeywords: "",
@@ -332,7 +332,7 @@ const fetchCategories = async () => {
       imageUrl: "",
       isActive: true,
       showOnHomepage: false,  // ✅ ADD THIS LINE
-      sortOrder: 1,
+     sortOrder: "" as number | "",
       metaTitle: "",
       metaDescription: "",
       metaKeywords: "",
@@ -468,7 +468,7 @@ if (!imageFile) {
 
   isActive: !!formData.isActive,
   showOnHomepage: !!formData.showOnHomepage,
-  sortOrder: Number(formData.sortOrder) || 0,
+sortOrder: formData.sortOrder === "" ? 0 : formData.sortOrder,
 
   parentCategoryId: formData.parentCategoryId || null,
 
@@ -643,7 +643,7 @@ const handleEdit = (category: Category) => {
       imageUrl: "",
       isActive: true,
         showOnHomepage: false,  // ✅ ADD THIS LINE
-      sortOrder: 1,
+      sortOrder: "",
       metaTitle: "",
       metaDescription: "",
       metaKeywords: "",
@@ -1147,7 +1147,7 @@ useEffect(() => {
       className="px-3 py-1.5 text-[11px] bg-violet-500/10 border border-violet-500/30 text-violet-300 rounded-md hover:bg-violet-500/20 transition-all flex items-center gap-1.5"
     >
       <Award className="h-3 w-3" />
-      Brands
+    Go To  Brand Page
     </button>
 
     <button
@@ -1155,7 +1155,7 @@ useEffect(() => {
       className="px-3 py-1.5 text-[11px] bg-cyan-500/10 border border-cyan-500/30 text-cyan-300 rounded-md hover:bg-cyan-500/20 transition-all flex items-center gap-1.5"
     >
       <Package className="h-3 w-3" />
-      Products
+      Go To  Product Page
     </button>
 
     <button
@@ -1238,7 +1238,7 @@ useEffect(() => {
    type="search"
     value={searchTerm}
     onChange={(e) => setSearchTerm(e.target.value)}
-    placeholder="Search..."
+    placeholder="Search Brands By Name..."
     className={`w-full pl-8 pr-8 py-1.5 bg-slate-800/60 border rounded-md text-white text-[12px] focus:outline-none transition-all ${
       searchTerm
         ? "border-violet-500 ring-1 ring-violet-500/40"

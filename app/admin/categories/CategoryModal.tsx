@@ -5,7 +5,7 @@ import { ProductDescriptionEditor } from "../_components/SelfHostedEditor";
 import CategoryFaqManager from "./CategoryFaqManager";
 import { useToast } from "@/app/admin/_components/CustomToast";
 
-import { Edit, Plus, Trash2, Upload, X } from "lucide-react";
+import { CheckCircle, Edit, Eye, Plus, Trash2, Upload, X } from "lucide-react";
 import ConfirmDialog from "../_components/ConfirmDialog";
 import { categoriesService, Category } from "@/lib/services/categories";
 import { getImageUrl } from "../_utils/formatUtils";
@@ -214,7 +214,7 @@ useEffect(() => {
       imageUrl: editingCategory.imageUrl || "",
       isActive: editingCategory.isActive ?? true,
       showOnHomepage: editingCategory.showOnHomepage ?? false,
-      sortOrder: editingCategory.sortOrder ?? 0,
+      sortOrder: editingCategory.sortOrder ?? "",
       parentCategoryId: editingCategory.parentCategoryId || "",
       metaTitle: editingCategory.metaTitle || "",
       metaDescription: editingCategory.metaDescription || "",
@@ -284,22 +284,26 @@ useEffect(() => {
             ? "✏️ Update category details"
             : "➕ Add a new category"}
 
-          {formData.sortOrder > 0 && (
-            <span className="text-cyan-400 font-semibold">
-              • #{formData.sortOrder}
-            </span>
-          )}
+         {typeof formData.sortOrder === "number" && formData.sortOrder > 0 && (
+  <span className="text-cyan-400 font-semibold">
+    • #{formData.sortOrder}
+  </span>
+)}
         </p>
       </div>
     </div>
 
     {/* RIGHT: CLOSE BUTTON */}
     <button
-      onClick={() => {
-        setShowModal(false);
-        setEditingCategory(null);
-        setActiveTab("basic");
-      }}
+     onClick={() => {
+  setShowModal(false);
+  setEditingCategory(null);
+  setActiveTab("basic");
+
+  // 🔥 RESET IMAGE STATE
+  setImageFile(null);
+  setImagePreview(null);
+}}
       className="p-2 text-slate-400 hover:text-white hover:bg-red-500/20 border border-transparent hover:border-red-500/50 rounded-lg transition-all"
       disabled={isSubmitting}
     >
@@ -329,7 +333,13 @@ useEffect(() => {
 
         {/* FORM */}
 <form
-   onSubmit={(e) => handleSubmit(e, pendingFaqs)}
+ onSubmit={async (e) => {
+  await handleSubmit(e, pendingFaqs);
+
+  // 🔥 RESET AFTER SAVE
+  setImageFile(null);
+  setImagePreview(null);
+}}
   className="flex-1 overflow-y-auto px-4 py-3 space-y-3"
 >
 
@@ -380,7 +390,9 @@ useEffect(() => {
           </p>
         )}
       </div>
-
+ <label className="block text-sm text-slate-300 mb-2">
+          Parent Category
+        </label>
       {/* PARENT CATEGORY */}
   <div className="relative" ref={dropdownRef}>
   {/* INPUT */}
@@ -432,6 +444,9 @@ useEffect(() => {
   )}
 </div>
 
+  <label className="block text-sm text-slate-300 mb-2">
+          Category Description
+        </label>
       {/* DESCRIPTION */}
       <ProductDescriptionEditor
         value={formData.description}
@@ -605,6 +620,20 @@ useEffect(() => {
       </>
     )}
   </div>
+       {/* Guidelines Box */}
+                      <div className="mt-4 p-3 bg-cyan-500/10 border border-cyan-500/30 rounded-lg">
+                        <div className="flex items-start gap-2">
+                          <div className="text-cyan-400 mt-0.5">📸</div>
+                          <div>
+                            <p className="text-sm text-cyan-400 font-semibold mb-2">Guidelines:</p>
+                            <ul className="text-xs text-slate-300 space-y-1">
+                          <li>• Size: 300×300 (In px)</li>
+                              <li>• Format: WebP </li>
+                              <li>• Max: 1MB</li>
+                            </ul>
+                          </div>
+                        </div>
+                      </div>
 </div>
   )}
 
@@ -649,137 +678,131 @@ useEffect(() => {
 
   {/* ================= SETTINGS ================= */}
   {activeTab === "settings" && (
-   <div className="bg-slate-800/40 p-4 rounded-xl border border-slate-700/50 space-y-3">
- 
-  
-  {/* Row 1: Active + Sort Order */}
-<div className="grid grid-cols-2 gap-3">
-
-  {/* Active */}
-  <div>
-    <label className="block text-xs font-medium text-slate-400 mb-1">
-      Visibility
-    </label>
-
-    <label className="flex items-center gap-2 px-3 py-2 bg-slate-900/40 border border-slate-600 rounded-lg cursor-pointer hover:border-violet-500 transition">
-      <input
-        type="checkbox"
-        checked={formData.isActive}
-        onChange={(e) =>
-          setFormData({ ...formData, isActive: e.target.checked })
-        }
-        className="w-4 h-4 rounded border-slate-600 text-violet-500 focus:ring-1 focus:ring-violet-500"
-      />
-
-      <span className="text-sm text-white">Active</span>
-    </label>
-  </div>
+<div className="space-y-3">
 
   {/* Sort Order */}
   <div>
-    <label className="block text-xs font-medium text-slate-400 mb-1">
+    <label className="block text-sm text-slate-300 font-semibold mb-2">
       Sort Order
     </label>
 
     <input
       type="number"
       min="0"
-      value={formData.sortOrder || 0}
+      value={formData.sortOrder ?? ""}
       onChange={(e) => {
         const value = e.target.value;
         setFormData({
           ...formData,
-          sortOrder: value === "" ? 0 : parseInt(value, 10),
+          sortOrder: value === "" ? "" : parseInt(value, 10),
         });
       }}
-      placeholder="0"
-      className="w-full px-3 py-2 bg-slate-900/40 border border-slate-600 rounded-lg text-sm text-white focus:outline-none focus:ring-1 focus:ring-violet-500"
+      placeholder="Enter display order"
+      className="w-full px-4 py-3 bg-slate-900/40 border-2 border-slate-600 rounded-lg text-white focus:ring-2 focus:ring-violet-500"
     />
   </div>
 
-</div>
-
-  {/* Row 2: Show on Homepage - Full Width with Counter */}
-<div className="space-y-2">
-
-  {/* HEADER */}
-  <div className="flex items-center justify-between">
-    <label className="text-xs font-medium text-slate-400">
-      Homepage Visibility
+  {/* Active Status */}
+  <div>
+    <label className="block text-sm text-slate-300 font-semibold mb-2">
+      Visibility
     </label>
 
-    <span
-      className={`px-2 py-0.5 rounded-md text-[10px] font-semibold border ${
-        homepageCount >= 15
-          ? "bg-red-500/10 text-red-400 border-red-500/30"
-          : homepageCount >= 12
-          ? "bg-amber-500/10 text-amber-400 border-amber-500/30"
-          : "bg-cyan-500/10 text-cyan-400 border-cyan-500/30"
+    <button
+      type="button"
+      onClick={() =>
+        setFormData({ ...formData, isActive: !formData.isActive })
+      }
+      className={`w-full px-4 py-3 rounded-lg font-semibold transition-all flex items-center justify-between ${
+        formData.isActive
+          ? "bg-emerald-500/10 border-2 border-emerald-500/50 text-emerald-400"
+          : "bg-slate-500/10 border-2 border-slate-500/50 text-slate-400"
       }`}
     >
-      {homepageCount}/15
-    </span>
+      <div className="flex items-center gap-2">
+        <CheckCircle className="h-5 w-5" />
+        <div className="text-left">
+          <p className="font-bold text-sm">
+            {formData.isActive ? "Active" : "Inactive"}
+          </p>
+          <p className="text-xs opacity-75">
+            {formData.isActive
+              ? "Category is visible"
+              : "Category is hidden"}
+          </p>
+        </div>
+      </div>
+
+      <div className={`w-11 h-6 rounded-full ${
+        formData.isActive ? "bg-emerald-500" : "bg-slate-600"
+      }`}>
+        <div className={`w-5 h-5 bg-white rounded-full transition-all ${
+          formData.isActive ? "translate-x-5 mt-0.5" : "translate-x-0.5 mt-0.5"
+        }`} />
+      </div>
+    </button>
   </div>
 
-  {/* TOGGLE CARD */}
-  <label
-    className={`flex items-center justify-between px-3 py-2 border rounded-lg text-sm transition ${
-      formData.showOnHomepage
-        ? "bg-cyan-500/10 border-cyan-500/30"
-        : "bg-slate-900/40 border-slate-600 hover:border-cyan-500 cursor-pointer"
-    } ${
-      !formData.showOnHomepage && homepageCount >= 15
-        ? "opacity-50 cursor-not-allowed"
-        : ""
-    }`}
-  >
-    <div className="flex items-center gap-2">
-      <input
-        type="checkbox"
-        checked={formData.showOnHomepage}
-        onChange={(e) => {
-          const checked = e.target.checked;
+  
 
-          if (
-            checked &&
-            homepageCount >= 15 &&
-            !editingCategory?.showOnHomepage
-          ) {
-            toast.error(`Max ${MAX_HOMEPAGE_CATEGORIES} reached`);
-            return;
-          }
+  {/* Show on Homepage */}
+  <div>
+    <label className="block text-sm text-slate-300 font-semibold mb-2">
+      Show on Homepage
+    </label>
 
-          setFormData({ ...formData, showOnHomepage: checked });
-        }}
-        disabled={
-          !formData.showOnHomepage &&
+    <button
+      type="button"
+      onClick={() => {
+        const checked = !formData.showOnHomepage;
+
+        if (
+          checked &&
           homepageCount >= 15 &&
           !editingCategory?.showOnHomepage
+        ) {
+          toast.error(`Max ${MAX_HOMEPAGE_CATEGORIES} reached`);
+          return;
         }
-        className="w-4 h-4 text-cyan-500 border-slate-600"
-      />
 
-      <span className="text-white">Show on homepage</span>
-    </div>
+        setFormData({ ...formData, showOnHomepage: checked });
+      }}
+      className={`w-full px-4 py-3 rounded-lg font-semibold transition-all flex items-center justify-between ${
+        formData.showOnHomepage
+          ? "bg-cyan-500/10 border-2 border-cyan-500/50 text-cyan-400"
+          : "bg-slate-500/10 border-2 border-slate-500/50 text-slate-400"
+      } ${
+        !formData.showOnHomepage && homepageCount >= 15
+          ? "opacity-50 cursor-not-allowed"
+          : ""
+      }`}
+    >
+      <div className="flex items-center gap-2">
+        <Eye className="h-5 w-5" />
+        <div className="text-left">
+          <p className="font-bold text-sm">
+            {formData.showOnHomepage ? "On Homepage" : "Not on Homepage"}
+          </p>
+          <p className="text-xs opacity-75">
+            {formData.showOnHomepage
+              ? `Featured (${homepageCount}/15)`
+              : "Not featured"}
+          </p>
+        </div>
+      </div>
 
-    {formData.showOnHomepage && (
-      <span className="text-cyan-400 text-xs">✓</span>
-    )}
-  </label>
+      <div className={`w-11 h-6 rounded-full ${
+        formData.showOnHomepage ? "bg-cyan-500" : "bg-slate-600"
+      }`}>
+        <div className={`w-5 h-5 bg-white rounded-full transition-all ${
+          formData.showOnHomepage
+            ? "translate-x-5 mt-0.5"
+            : "translate-x-0.5 mt-0.5"
+        }`} />
+      </div>
+    </button>
+  </div>
 
-  {/* WARNINGS (compact) */}
-  {homepageCount >= 12 && homepageCount < 15 && (
-    <p className="text-[11px] text-amber-400">
-      {15 - homepageCount} slots left
-    </p>
-  )}
-
-  {homepageCount >= 15 && (
-    <p className="text-[11px] text-red-400">
-      Homepage full
-    </p>
-  )}
-</div>
 </div>
 
   )}
@@ -812,7 +835,15 @@ useEffect(() => {
 <div className="flex gap-2 pt-3 border-t border-slate-700">
   <button
     type="button"
-    onClick={() => setShowModal(false)}
+  onClick={() => {
+  setShowModal(false);
+  setEditingCategory(null);
+  setActiveTab("basic");
+
+  // 🔥 RESET IMAGE STATE
+  setImageFile(null);
+  setImagePreview(null);
+}}
     className="flex-1 px-4 py-2.5 bg-slate-700 hover:bg-slate-600 text-white rounded-lg text-sm transition-all"
   >
     Cancel

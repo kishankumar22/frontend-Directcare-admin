@@ -1794,7 +1794,7 @@ productData.nextDayDeliveryFree = formData.nextDayDeliveryFree;
 
       if (!currentProductId) {
         console.error("Failed to extract product ID from response");
-        toast.error("Product created but ID not found. Cannot upload images.");
+        toast.error("Product created but ID not found.");
         setIsSubmitting(false);
         setSubmitProgress(null);
         setTimeout(() => router.push("/admin/products"), 2000);

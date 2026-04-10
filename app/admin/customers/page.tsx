@@ -517,7 +517,7 @@ const modalTier = selectedCustomer
           <select
             value={tierFilter}
             onChange={(e) => { setTierFilter(e.target.value as CustomerTier); setCurrentPage(1); }}
-            className={`px-3 py-2 bg-gray-800/90 border rounded-lg text-white text-xs font-medium ${tierFilter !== "all" ? "border-yellow-500 bg-yellow-500/10" : "border-slate-600"}`}
+            className={`px-3 py-2 bg-slate-800/90 border rounded-lg text-white text-xs font-medium ${tierFilter !== "all" ? "border-yellow-500 bg-yellow-500/10" : "border-slate-600"}`}
           >
             <option value="all">All Tiers</option>
             <option value="gold">Gold</option>
@@ -761,7 +761,7 @@ const modalTier = selectedCustomer
                             {item.productName}
                           </p>
                           <p className="text-[11px] text-slate-500">
-                            {item.variantName || "Default"}
+                            {item.variantName || " "}
                           </p>
                         </div>
 

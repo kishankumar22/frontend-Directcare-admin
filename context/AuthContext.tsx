@@ -70,7 +70,7 @@ interface User {
   isActive?: boolean;
 
   profileImageUrl?: string;
-  // :white_check_mark: ADD THIS
+  // ✅ ADD THIS
   loyaltyPoints?: LoyaltyPoints;
   addresses?: any[];
   orders?: any[];
@@ -87,7 +87,7 @@ interface AuthContextType {
   logout: () => void;
   isAuthenticated: boolean;
   profileLoading: boolean;
-  refreshProfile: () => Promise<void>; // :white_check_mark: ADD THIS
+  refreshProfile: () => Promise<void>; // ✅ ADD THIS
 }
 
 
@@ -100,7 +100,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [refreshToken, setRefreshToken] = useState<string | null>(null);
 const [profileLoading, setProfileLoading] = useState(false);
 
-  // :repeat: Restore session
+  // 🔁 Restore session
   useEffect(() => {
     const storedUser = localStorage.getItem("user");
     const storedAccess = localStorage.getItem("accessToken");
@@ -174,7 +174,7 @@ useEffect(() => {
 
 
 
-  // :closed_lock_with_key: LOGIN (UNCHANGED)
+  // 🔐 LOGIN (UNCHANGED)
  const login = async (email: string, password: string) => {
   const res = await fetch(
     `${process.env.NEXT_PUBLIC_API_URL}/api/Auth/login`,
@@ -200,15 +200,16 @@ useEffect(() => {
   localStorage.setItem("refreshToken", data.refreshToken);
   localStorage.setItem("user", JSON.stringify(data.user));
 
-  // Use a stable user-specific cart session so cart persists across login/logout
-  localStorage.setItem("cartSessionId", `user-${data.user.id}`);
+  // Keep the existing anonymous sessionId so the guest cart is NOT wiped on login.
+  // CartContext re-reads sessionId via auth:login; since it hasn't changed, React
+  // bails out of the state update and the in-memory cart stays intact.
   window.dispatchEvent(new CustomEvent("auth:login"));
 
   setUser(data.user);
   setAccessToken(data.accessToken);
   setRefreshToken(data.refreshToken);
 
-  // :fire: REVIEW REDIRECT AFTER LOGIN (ADD HERE)
+  // 🔥 REVIEW REDIRECT AFTER LOGIN (ADD HERE)
   try {
     const rawDraft = sessionStorage.getItem("pendingReviewDraft");
 
@@ -227,7 +228,7 @@ useEffect(() => {
 };
 
 
-  // :closed_lock_with_key: REGISTER (UNCHANGED)
+  // 🔐 REGISTER (UNCHANGED)
   const register = async (regData: any) => {
     const res = await fetch(
       `${process.env.NEXT_PUBLIC_API_URL}/api/Auth/register`,
@@ -257,10 +258,10 @@ useEffect(() => {
     setRefreshToken(data.refreshToken);
   };
 
-  // :door: LOGOUT
+  // 🚪 LOGOUT
   const logout = () => {
-    // Remove cartSessionId — cart stays in backend under user-{id} key for next login.
-    // Dispatch event so CartContext clears in-memory state immediately.
+    // Remove cartSessionId so CartContext generates a fresh anonymous UUID.
+    // This ensures the next visitor (or re-login) starts with a clean cart.
     localStorage.removeItem("cartSessionId");
     window.dispatchEvent(new CustomEvent("auth:logout"));
 
@@ -292,7 +293,7 @@ useEffect(() => {
     logout,
     isAuthenticated: !!accessToken,
     profileLoading,
-     refreshProfile: fetchProfile, // :white_check_mark: ADD THIS
+     refreshProfile: fetchProfile, // ✅ ADD THIS
   }}
 >
 
